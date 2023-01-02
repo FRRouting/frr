@@ -24,6 +24,7 @@
 #include "if.h"
 #include "queue.h"
 #include "prefix.h"
+#include "bgp_table.h"
 
 #define NEXTHOP_FAMILY(nexthop_len)                                            \
 	(((nexthop_len) == 4 || (nexthop_len) == 12                            \
@@ -36,8 +37,16 @@
 
 #define BGP_MP_NEXTHOP_FAMILY NEXTHOP_FAMILY
 
+PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
+
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
+	/* The ifindex of the outgoing interface *if* it's a v6 LL */
+	ifindex_t ifindex;
+
+	/* RB-tree entry. */
+	struct bgp_nexthop_cache_item entry;
+
 	/* IGP route's metric. */
 	uint32_t metric;
 
@@ -47,6 +56,10 @@ struct bgp_nexthop_cache {
 	time_t last_update;
 	uint16_t flags;
 
+/*
+ * If the nexthop is EVPN gateway IP NH, VALID flag is set only if the nexthop
+ * is RIB reachable as well as MAC/IP is present
+ */
 #define BGP_NEXTHOP_VALID             (1 << 0)
 #define BGP_NEXTHOP_REGISTERED        (1 << 1)
 #define BGP_NEXTHOP_CONNECTED         (1 << 2)
@@ -55,18 +68,50 @@ struct bgp_nexthop_cache {
 #define BGP_STATIC_ROUTE_EXACT_MATCH  (1 << 5)
 #define BGP_NEXTHOP_LABELED_VALID     (1 << 6)
 
+/*
+ * This flag is added for EVPN gateway IP nexthops.
+ * If the nexthop is RIB reachable, but a MAC/IP is not yet
+ * resolved, this flag is set.
+ * Following table explains the combination of L3 and L2 reachability w.r.t.
+ * VALID and INCOMPLETE flags
+ *
+ *                | MACIP resolved | MACIP unresolved
+ *----------------|----------------|------------------
+ * L3 reachable   | VALID      = 1 | VALID      = 0
+ *                | INCOMPLETE = 0 | INCOMPLETE = 1
+ * ---------------|----------------|--------------------
+ * L3 unreachable | VALID      = 0 | VALID      = 0
+ *                | INCOMPLETE = 0 | INCOMPLETE = 0
+ */
+#define BGP_NEXTHOP_EVPN_INCOMPLETE (1 << 7)
+
 	uint16_t change_flags;
 
 #define BGP_NEXTHOP_CHANGED           (1 << 0)
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
 #define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
+#define BGP_NEXTHOP_MACIP_CHANGED (1 << 3)
 
-	struct bgp_node *node;
+	/* Back pointer to the cache tree this entry belongs to. */
+	struct bgp_nexthop_cache_head *tree;
+
+	uint32_t srte_color;
+	struct prefix prefix;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
+
+	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
+	 * nexthop.
+	 */
+	bool is_evpn_gwip_nexthop;
 };
+
+extern int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
+				     const struct bgp_nexthop_cache *b);
+DECLARE_RBTREE_UNIQ(bgp_nexthop_cache, struct bgp_nexthop_cache, entry,
+		    bgp_nexthop_cache_compare);
 
 /* Own tunnel-ip address structure */
 struct tip_addr {
@@ -79,22 +124,42 @@ struct bgp_addrv6 {
 	struct list *ifp_name_list;
 };
 
+/* Forward declaration(s). */
+struct peer;
+struct update_subgroup;
+struct bgp_dest;
+struct attr;
+
+#define BNC_FLAG_DUMP_SIZE 180
+extern char *bgp_nexthop_dump_bnc_flags(struct bgp_nexthop_cache *bnc,
+					char *buf, size_t len);
+extern char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
+					       char *buf, size_t len);
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
-extern int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
-					   struct update_subgroup *subgrp);
-extern int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
-					   struct update_subgroup *subgrp);
-extern int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer);
-extern int bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer);
+extern bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
+					    struct update_subgroup *subgrp,
+					    struct peer *exclude);
+extern bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
+					    struct update_subgroup *subgrp,
+					    struct peer *exclude);
+extern bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer);
+extern bool bgp_multiaccess_check_v6(struct in6_addr nexthop,
+				     struct peer *peer);
 extern int bgp_config_write_scan_time(struct vty *);
-extern int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
-				uint8_t sub_type, struct attr *attr,
-				struct bgp_node *rn);
-extern struct bgp_nexthop_cache *bnc_new(void);
+extern bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
+			     uint8_t sub_type, struct attr *attr,
+			     struct bgp_dest *dest);
+extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
+					 struct prefix *prefix,
+					 uint32_t srte_color);
+extern bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
+extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
+					  struct prefix *prefix,
+					  uint32_t srte_color);
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
-extern char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
+extern const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
 extern void bgp_scan_init(struct bgp *bgp);
 extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);

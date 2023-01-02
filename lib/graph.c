@@ -25,8 +25,8 @@
 #include "memory.h"
 #include "buffer.h"
 
-DEFINE_MTYPE_STATIC(LIB, GRAPH, "Graph")
-DEFINE_MTYPE_STATIC(LIB, GRAPH_NODE, "Graph Node")
+DEFINE_MTYPE_STATIC(LIB, GRAPH, "Graph");
+DEFINE_MTYPE_STATIC(LIB, GRAPH_NODE, "Graph Node");
 struct graph *graph_new(void)
 {
 	struct graph *graph = XCALLOC(MTYPE_GRAPH, sizeof(struct graph));

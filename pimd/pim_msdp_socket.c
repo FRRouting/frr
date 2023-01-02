@@ -35,6 +35,8 @@
 #include "pim_msdp.h"
 #include "pim_msdp_socket.h"
 
+#include "sockopt.h"
+
 /* increase socket send buffer size */
 static void pim_msdp_update_sock_send_buffer_size(int fd)
 {
@@ -44,7 +46,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 
 	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
-			     "getsockopt of SO_SNDBUF failed %s\n",
+			     "getsockopt of SO_SNDBUF failed %s",
 			     safe_strerror(errno));
 		return;
 	}
@@ -53,7 +55,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 		if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size))
 		    < 0) {
 			flog_err_sys(EC_LIB_SOCKET,
-				     "Couldn't increase send buffer: %s\n",
+				     "Couldn't increase send buffer: %s",
 				     safe_strerror(errno));
 		}
 	}
@@ -67,7 +69,6 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	int accept_sock;
 	int msdp_sock;
 	struct pim_msdp_peer *mp;
-	char buf[SU_ADDRSTRLEN];
 
 	sockunion_init(&su);
 
@@ -96,8 +97,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 		++pim->msdp.rejected_accepts;
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			flog_err(EC_PIM_MSDP_PACKET,
-				 "msdp peer connection refused from %s",
-				 sockunion2str(&su, buf, SU_ADDRSTRLEN));
+				 "msdp peer connection refused from %pSU", &su);
 		}
 		close(msdp_sock);
 		return -1;
@@ -113,8 +113,8 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	if (mp->fd >= 0) {
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			zlog_notice(
-				"msdp peer new connection from %s stop old connection",
-				sockunion2str(&su, buf, SU_ADDRSTRLEN));
+				"msdp peer new connection from %pSU stop old connection",
+				&su);
 		}
 		pim_msdp_peer_stop_tcp_conn(mp, true /* chg_state */);
 	}
@@ -156,20 +156,20 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
-	if (pim->vrf_id != VRF_DEFAULT) {
+	if (pim->vrf->vrf_id != VRF_DEFAULT) {
 		struct interface *ifp =
-			if_lookup_by_name(pim->vrf->name, pim->vrf_id);
+			if_lookup_by_name(pim->vrf->name, pim->vrf->vrf_id);
 		if (!ifp) {
 			flog_err(EC_LIB_INTERFACE,
 				 "%s: Unable to lookup vrf interface: %s",
-				 __PRETTY_FUNCTION__, pim->vrf->name);
+				 __func__, pim->vrf->name);
 			close(sock);
 			return -1;
 		}
 		if (pim_socket_bind(sock, ifp)) {
 			flog_err_sys(EC_LIB_SOCKET,
 				     "%s: Unable to bind to socket: %s",
-				     __PRETTY_FUNCTION__, safe_strerror(errno));
+				     __func__, safe_strerror(errno));
 			close(sock);
 			return -1;
 		}
@@ -194,6 +194,12 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 			     safe_strerror(errno));
 		close(sock);
 		return rc;
+	}
+
+	/* Set socket DSCP byte */
+	if (setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL)) {
+		zlog_warn("can't set sockopt IP_TOS to MSDP socket %d: %s",
+				sock, safe_strerror(errno));
 	}
 
 	/* add accept thread */
@@ -237,19 +243,19 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		return -1;
 	}
 
-	if (mp->pim->vrf_id != VRF_DEFAULT) {
-		struct interface *ifp =
-			if_lookup_by_name(mp->pim->vrf->name, mp->pim->vrf_id);
+	if (mp->pim->vrf->vrf_id != VRF_DEFAULT) {
+		struct interface *ifp = if_lookup_by_name(mp->pim->vrf->name,
+							  mp->pim->vrf->vrf_id);
 		if (!ifp) {
 			flog_err(EC_LIB_INTERFACE,
 				 "%s: Unable to lookup vrf interface: %s",
-				 __PRETTY_FUNCTION__, mp->pim->vrf->name);
+				 __func__, mp->pim->vrf->name);
 			return -1;
 		}
 		if (pim_socket_bind(mp->fd, ifp)) {
 			flog_err_sys(EC_LIB_SOCKET,
 				     "%s: Unable to bind to socket: %s",
-				     __PRETTY_FUNCTION__, safe_strerror(errno));
+				     __func__, safe_strerror(errno));
 			close(mp->fd);
 			mp->fd = -1;
 			return -1;
@@ -272,6 +278,12 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		close(mp->fd);
 		mp->fd = -1;
 		return rc;
+	}
+
+	/* Set socket DSCP byte */
+	if (setsockopt_ipv4_tos(mp->fd, IPTOS_PREC_INTERNETCONTROL)) {
+		zlog_warn("can't set sockopt IP_TOS to MSDP socket %d: %s",
+				mp->fd, safe_strerror(errno));
 	}
 
 	/* Connect to the remote mp. */

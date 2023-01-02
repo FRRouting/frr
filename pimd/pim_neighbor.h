@@ -27,6 +27,7 @@
 #include "prefix.h"
 
 #include "pim_tlv.h"
+#include "pim_iface.h"
 
 struct pim_neighbor {
 	int64_t creation; /* timestamp of creation */
@@ -43,7 +44,7 @@ struct pim_neighbor {
 
 	struct thread *jp_timer;
 	struct list *upstream_jp_agg;
-	struct bfd_info *bfd_info;
+	struct bfd_session_params *bfd_session;
 };
 
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);

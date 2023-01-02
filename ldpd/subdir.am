@@ -5,8 +5,8 @@
 if LDPD
 noinst_LIBRARIES += ldpd/libldp.a
 sbin_PROGRAMS += ldpd/ldpd
-dist_examples_DATA += ldpd/ldpd.conf.sample
-vtysh_scan += $(top_srcdir)/ldpd/ldp_vty_cmds.c
+vtysh_scan += ldpd/ldp_vty_cmds.c
+vtysh_daemons += ldpd
 man8 += $(MANBUILD)/frr-ldpd.8
 endif
 
@@ -28,7 +28,6 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/ldp_vty_conf.c \
 	ldpd/ldp_vty_exec.c \
 	ldpd/ldp_zebra.c \
-	ldpd/ldpd.c \
 	ldpd/ldpe.c \
 	ldpd/log.c \
 	ldpd/logmsg.c \
@@ -36,12 +35,18 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/notification.c \
 	ldpd/packet.c \
 	ldpd/pfkey.c \
+	ldpd/rlfa.c \
 	ldpd/socket.c \
 	ldpd/util.c \
 	# end
 
-ldpd/ldp_vty_cmds_clippy.c: $(CLIPPY_DEPS)
-ldpd/ldp_vty_cmds.$(OBJEXT): ldpd/ldp_vty_cmds_clippy.c
+if SNMP
+module_LTLIBRARIES += ldpd/ldpd_snmp.la
+endif
+
+clippy_scan += \
+	ldpd/ldp_vty_cmds.c \
+	# end
 
 noinst_HEADERS += \
 	ldpd/control.h \
@@ -52,7 +57,13 @@ noinst_HEADERS += \
 	ldpd/ldpd.h \
 	ldpd/ldpe.h \
 	ldpd/log.h \
+	ldpd/rlfa.h \
 	# end
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c
 ldpd_ldpd_LDADD = ldpd/libldp.a lib/libfrr.la $(LIBCAP)
+
+ldpd_ldpd_snmp_la_SOURCES = ldpd/ldp_snmp.c
+ldpd_ldpd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+ldpd_ldpd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
+ldpd_ldpd_snmp_la_LIBADD = lib/libfrrsnmp.la

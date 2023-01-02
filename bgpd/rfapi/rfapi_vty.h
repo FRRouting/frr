@@ -43,7 +43,7 @@ extern void rfapiRprefixApplyMask(struct rfapi_ip_prefix *rprefix);
 extern int rfapiQprefix2Raddr(struct prefix *qprefix,
 			      struct rfapi_ip_addr *raddr);
 
-extern void rfapiQprefix2Rprefix(struct prefix *qprefix,
+extern void rfapiQprefix2Rprefix(const struct prefix *qprefix,
 				 struct rfapi_ip_prefix *rprefix);
 
 extern int rfapiRprefix2Qprefix(struct rfapi_ip_prefix *rprefix,

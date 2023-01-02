@@ -32,13 +32,16 @@ extern struct ospf6_lsdb *ospf6_get_scoped_lsdb(struct ospf6_lsa *lsa);
 extern struct ospf6_lsdb *ospf6_get_scoped_lsdb_self(struct ospf6_lsa *lsa);
 
 /* origination & purging */
-extern void ospf6_lsa_originate(struct ospf6_lsa *lsa);
+extern void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa);
 extern void ospf6_lsa_originate_process(struct ospf6_lsa *lsa,
 					struct ospf6 *process);
 extern void ospf6_lsa_originate_area(struct ospf6_lsa *lsa,
 				     struct ospf6_area *oa);
 extern void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
 					  struct ospf6_interface *oi);
+void ospf6_remove_id_from_external_id_table(struct ospf6 *ospf6,
+						uint32_t id);
+void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa);
 extern void ospf6_lsa_purge(struct ospf6_lsa *lsa);
 
 extern void ospf6_lsa_purge_multi_ls_id(struct ospf6_area *oa,
@@ -67,4 +70,6 @@ extern void ospf6_flood_interface(struct ospf6_neighbor *from,
 extern int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
 					    struct ospf6_lsa *lsa);
 
+extern void ospf6_flood_clear_area(struct ospf6_lsa *lsa,
+				   struct ospf6_area *oa);
 #endif /* OSPF6_FLOOD_H */

@@ -47,6 +47,9 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_rpki.h"
+#include "northbound_cli.h"
+
 #include "lib/network.h"
 #include "lib/thread.h"
 #ifndef VTYSH_EXTRACT_PL
@@ -54,18 +57,14 @@
 #endif
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server")
-DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
-
-#define RPKI_VALID      1
-#define RPKI_NOTFOUND   2
-#define RPKI_INVALID    3
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
@@ -94,6 +93,7 @@ enum return_values { SUCCESS = 0, ERROR = -1 };
 struct rpki_for_each_record_arg {
 	struct vty *vty;
 	unsigned int *prefix_amount;
+	as_t as;
 };
 
 static int start(void);
@@ -103,7 +103,7 @@ static struct rtr_mgr_group *get_connected_group(void);
 static void print_prefix_table(struct vty *vty);
 static void install_cli_commands(void);
 static int config_write(struct vty *vty);
-static void overwrite_exit_commands(void);
+static int config_on_exit(struct vty *vty);
 static void free_cache(struct cache *cache);
 static struct rtr_mgr_group *get_groups(void);
 #if defined(FOUND_SSH)
@@ -111,23 +111,22 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
 			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
-			 const uint8_t preference);
+			 const uint8_t preference, const char *bindaddr);
 #endif
 static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket);
 static struct cache *find_cache(const uint8_t preference);
 static int add_tcp_cache(const char *host, const char *port,
-			 const uint8_t preference);
+			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static int is_synchronized(void);
 static int is_running(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
-					       route_map_object_t type,
+
 					       void *object);
 static void *route_match_compile(const char *arg);
-static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
-				safi_t safi);
+static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
 static void revalidate_all_routes(void);
 
 static struct rtr_mgr_config *rtr_config;
@@ -142,7 +141,14 @@ static unsigned int retry_interval;
 static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
-static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
+static struct cmd_node rpki_node = {
+	.name = "rpki",
+	.node = RPKI_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-rpki)# ",
+	.config_write = config_write,
+	.node_exit = config_on_exit,
+};
 static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
@@ -206,20 +212,18 @@ static void ipv6_addr_to_host_byte_order(const uint32_t *src, uint32_t *dest)
 
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
-					       route_map_object_t type,
 					       void *object)
 {
 	int *rpki_status = rule;
 	struct bgp_path_info *path;
 
-	if (type == RMAP_BGP) {
-		path = object;
+	path = object;
 
-		if (rpki_validate_prefix(path->peer, path->attr, prefix)
-		    == *rpki_status) {
-			return RMAP_MATCH;
-		}
+	if (rpki_validate_prefix(path->peer, path->attr, prefix)
+	    == *rpki_status) {
+		return RMAP_MATCH;
 	}
+
 	return RMAP_NOMATCH;
 }
 
@@ -271,6 +275,17 @@ static void print_record(const struct pfx_record *record, struct vty *vty)
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 	vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
 		record->max_len, record->asn);
+}
+
+static void print_record_by_asn(const struct pfx_record *record, void *data)
+{
+	struct rpki_for_each_record_arg *arg = data;
+	struct vty *vty = arg->vty;
+
+	if (record->asn == arg->as) {
+		(*arg->prefix_amount)++;
+		print_record(record, vty);
+	}
 }
 
 static void print_record_cb(const struct pfx_record *record, void *data)
@@ -373,35 +388,25 @@ static int bgpd_sync_callback(struct thread *thread)
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		struct peer *peer;
-		struct listnode *peer_listnode;
+		safi_t safi;
 
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
-			safi_t safi;
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+			if (!bgp->rib[afi][safi])
+				continue;
 
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (!peer->bgp->rib[afi][safi])
-					continue;
+			struct bgp_dest *match;
+			struct bgp_dest *node;
 
-				struct list *matches = list_new();
+			match = bgp_table_subtree_lookup(bgp->rib[afi][safi],
+							 prefix);
+			node = match;
 
-				matches->del =
-					(void (*)(void *))bgp_unlock_node;
+			while (node) {
+				if (bgp_dest_has_bgp_path_info_data(node)) {
+					revalidate_bgp_node(node, afi, safi);
+				}
 
-				bgp_table_range_lookup(
-					peer->bgp->rib[afi][safi], prefix,
-					rec.max_len, matches);
-
-
-				struct bgp_node *bgp_node;
-				struct listnode *bgp_listnode;
-
-				for (ALL_LIST_ELEMENTS_RO(matches, bgp_listnode,
-							  bgp_node))
-					revalidate_bgp_node(bgp_node, afi,
-							    safi);
-
-				list_delete(&matches);
+				node = bgp_route_next_until(node, match);
 			}
 		}
 	}
@@ -410,15 +415,14 @@ static int bgpd_sync_callback(struct thread *thread)
 	return 0;
 }
 
-static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
+static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 				safi_t safi)
 {
 	struct bgp_adj_in *ain;
 
-	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
-		int ret;
+	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
 		struct bgp_path_info *path =
-			bgp_node_get_bgp_path_info(bgp_node);
+			bgp_dest_get_bgp_path_info(bgp_dest);
 		mpls_label_t *label = NULL;
 		uint32_t num_labels = 0;
 
@@ -426,13 +430,10 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 			label = path->extra->label;
 			num_labels = path->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, &bgp_node->p, ain->addpath_rx_id,
-				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
-				 BGP_ROUTE_NORMAL, NULL, label, num_labels, 1,
-				 NULL);
-
-		if (ret < 0)
-			return;
+		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest),
+				 ain->addpath_rx_id, ain->attr, afi, safi,
+				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
+				 num_labels, 1, NULL);
 	}
 }
 
@@ -548,6 +549,7 @@ static int bgp_rpki_module_init(void)
 {
 	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
+	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, &bgp_rpki_fini);
 
@@ -621,6 +623,36 @@ static struct rtr_mgr_group *get_connected_group(void)
 	return rtr_mgr_get_first_group(rtr_config);
 }
 
+static void print_prefix_table_by_asn(struct vty *vty, as_t as)
+{
+	unsigned int number_of_ipv4_prefixes = 0;
+	unsigned int number_of_ipv6_prefixes = 0;
+	struct rtr_mgr_group *group = get_connected_group();
+	struct rpki_for_each_record_arg arg;
+
+	arg.vty = vty;
+	arg.as = as;
+
+	if (!group) {
+		vty_out(vty, "Cannot find a connected group.\n");
+		return;
+	}
+
+	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
+
+	vty_out(vty, "RPKI/RTR prefix table\n");
+	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+
+	arg.prefix_amount = &number_of_ipv4_prefixes;
+	pfx_table_for_each_ipv4_record(pfx_table, print_record_by_asn, &arg);
+
+	arg.prefix_amount = &number_of_ipv6_prefixes;
+	pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
+
+	vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
+	vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
+}
+
 static void print_prefix_table(struct vty *vty)
 {
 	struct rpki_for_each_record_arg arg;
@@ -656,8 +688,6 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	as_t as_number = 0;
 	struct lrtr_ip_addr ip_addr_prefix;
 	enum pfxv_state result;
-	char buf[BUFSIZ];
-	const char *prefix_string;
 
 	if (!is_synchronized())
 		return 0;
@@ -708,27 +738,26 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 			 prefix->prefixlen, &result);
 
 	// Print Debug output
-	prefix_string = prefix2str(prefix, buf, sizeof(buf));
 	switch (result) {
 	case BGP_PFXV_STATE_VALID:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: VALID",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: VALID",
+			prefix, as_number);
 		return RPKI_VALID;
 	case BGP_PFXV_STATE_NOT_FOUND:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: NOT FOUND",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: NOT FOUND",
+			prefix, as_number);
 		return RPKI_NOTFOUND;
 	case BGP_PFXV_STATE_INVALID:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: INVALID",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: INVALID",
+			prefix, as_number);
 		return RPKI_INVALID;
 	default:
 		RPKI_DEBUG(
-			"Validating Prefix %s from asn %u    Result: CANNOT VALIDATE",
-			prefix_string, as_number);
+			"Validating Prefix %pFX from asn %u    Result: CANNOT VALIDATE",
+			prefix, as_number);
 		break;
 	}
 	return 0;
@@ -758,11 +787,11 @@ static int add_cache(struct cache *cache)
 }
 
 static int add_tcp_cache(const char *host, const char *port,
-			 const uint8_t preference)
+			 const uint8_t preference, const char *bindaddr)
 {
 	struct rtr_socket *rtr_socket;
 	struct tr_tcp_config *tcp_config =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
+		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
 	struct tr_socket *tr_socket =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_socket));
 	struct cache *cache =
@@ -770,7 +799,10 @@ static int add_tcp_cache(const char *host, const char *port,
 
 	tcp_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
 	tcp_config->port = XSTRDUP(MTYPE_BGP_RPKI_CACHE, port);
-	tcp_config->bindaddr = NULL;
+	if (bindaddr)
+		tcp_config->bindaddr = XSTRDUP(MTYPE_BGP_RPKI_CACHE, bindaddr);
+	else
+		tcp_config->bindaddr = NULL;
 
 	rtr_socket = create_rtr_socket(tr_socket);
 
@@ -793,10 +825,10 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
 			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
-			 const uint8_t preference)
+			 const uint8_t preference, const char *bindaddr)
 {
 	struct tr_ssh_config *ssh_config =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
+		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
 	struct cache *cache =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct cache));
 	struct tr_socket *tr_socket =
@@ -805,7 +837,10 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 
 	ssh_config->port = port;
 	ssh_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
-	ssh_config->bindaddr = NULL;
+	if (bindaddr)
+		ssh_config->bindaddr = XSTRDUP(MTYPE_BGP_RPKI_CACHE, bindaddr);
+	else
+		ssh_config->bindaddr = NULL;
 
 	ssh_config->username = XSTRDUP(MTYPE_BGP_RPKI_CACHE, username);
 	ssh_config->client_privkey_path =
@@ -835,6 +870,9 @@ static void free_cache(struct cache *cache)
 	if (cache->type == TCP) {
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->host);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->port);
+		if (cache->tr_config.tcp_config->bindaddr)
+			XFREE(MTYPE_BGP_RPKI_CACHE,
+			      cache->tr_config.tcp_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config);
 	}
 #if defined(FOUND_SSH)
@@ -846,6 +884,9 @@ static void free_cache(struct cache *cache)
 		      cache->tr_config.ssh_config->client_privkey_path);
 		XFREE(MTYPE_BGP_RPKI_CACHE,
 		      cache->tr_config.ssh_config->server_hostkey_path);
+		if (cache->tr_config.ssh_config->bindaddr)
+			XFREE(MTYPE_BGP_RPKI_CACHE,
+			      cache->tr_config.ssh_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.ssh_config);
 	}
 #endif
@@ -859,48 +900,59 @@ static int config_write(struct vty *vty)
 	struct listnode *cache_node;
 	struct cache *cache;
 
-	if (listcount(cache_list)) {
-		if (rpki_debug)
-			vty_out(vty, "debug rpki\n");
-
-		vty_out(vty, "!\n");
-		vty_out(vty, "rpki\n");
-		vty_out(vty, "  rpki polling_period %d\n", polling_period);
-		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-			switch (cache->type) {
-				struct tr_tcp_config *tcp_config;
-#if defined(FOUND_SSH)
-				struct tr_ssh_config *ssh_config;
-#endif
-			case TCP:
-				tcp_config = cache->tr_config.tcp_config;
-				vty_out(vty, "  rpki cache %s %s ",
-					tcp_config->host, tcp_config->port);
-				break;
-#if defined(FOUND_SSH)
-			case SSH:
-				ssh_config = cache->tr_config.ssh_config;
-				vty_out(vty, "  rpki cache %s %u %s %s %s ",
-					ssh_config->host, ssh_config->port,
-					ssh_config->username,
-					ssh_config->client_privkey_path,
-					ssh_config->server_hostkey_path != NULL
-						? ssh_config
-							  ->server_hostkey_path
-						: " ");
-				break;
-#endif
-			default:
-				break;
-			}
-
-			vty_out(vty, "preference %hhu\n", cache->preference);
-		}
-		vty_out(vty, "  exit\n");
-		return 1;
-	} else {
+	if (!listcount(cache_list))
 		return 0;
+
+	if (rpki_debug)
+		vty_out(vty, "debug rpki\n");
+
+	vty_out(vty, "!\n");
+	vty_out(vty, "rpki\n");
+	vty_out(vty, " rpki polling_period %d\n", polling_period);
+
+	if (retry_interval != RETRY_INTERVAL_DEFAULT)
+		vty_out(vty, " rpki retry_interval %d\n", retry_interval);
+	if (expire_interval != EXPIRE_INTERVAL_DEFAULT)
+		vty_out(vty, " rpki expire_interval %d\n", expire_interval);
+
+	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
+		switch (cache->type) {
+			struct tr_tcp_config *tcp_config;
+#if defined(FOUND_SSH)
+			struct tr_ssh_config *ssh_config;
+#endif
+		case TCP:
+			tcp_config = cache->tr_config.tcp_config;
+			vty_out(vty, " rpki cache %s %s ", tcp_config->host,
+				tcp_config->port);
+			if (tcp_config->bindaddr)
+				vty_out(vty, "source %s ",
+					tcp_config->bindaddr);
+			break;
+#if defined(FOUND_SSH)
+		case SSH:
+			ssh_config = cache->tr_config.ssh_config;
+			vty_out(vty, " rpki cache %s %u %s %s %s ",
+				ssh_config->host, ssh_config->port,
+				ssh_config->username,
+				ssh_config->client_privkey_path,
+				ssh_config->server_hostkey_path != NULL
+					? ssh_config->server_hostkey_path
+					: " ");
+			if (ssh_config->bindaddr)
+				vty_out(vty, "source %s ",
+					ssh_config->bindaddr);
+			break;
+#endif
+		default:
+			break;
+		}
+
+		vty_out(vty, "preference %hhu\n", cache->preference);
 	}
+	vty_out(vty, "exit\n");
+
+	return 1;
 }
 
 DEFUN_NOSH (rpki,
@@ -1014,83 +1066,21 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-#if (CONFDATE > 20200901)
-CPP_NOTICE("bgpd: time to remove rpki timeout")
-CPP_NOTICE("bgpd: this includes rpki_timeout and rpki_synchronisation_timeout")
-#endif
-
-DEFPY_HIDDEN (rpki_timeout,
-       rpki_timeout_cmd,
-       "rpki timeout (1-4294967295)$to_arg",
-       RPKI_OUTPUT_STRING
-       "Set timeout\n"
-       "Timeout value\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_rpki_timeout,
-       no_rpki_timeout_cmd,
-       "no rpki timeout",
-       NO_STR
-       RPKI_OUTPUT_STRING
-       "Set timeout back to default\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFPY_HIDDEN (rpki_synchronisation_timeout,
-       rpki_synchronisation_timeout_cmd,
-       "rpki initial-synchronisation-timeout (1-4294967295)$ito_arg",
-       RPKI_OUTPUT_STRING
-       "Set a timeout for the initial synchronisation of prefix validation data\n"
-       "Timeout value\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_rpki_synchronisation_timeout,
-       no_rpki_synchronisation_timeout_cmd,
-       "no rpki initial-synchronisation-timeout",
-       NO_STR
-       RPKI_OUTPUT_STRING
-       "Set the initial synchronisation timeout back to default (30 sec.)\n")
-{
-	vty_out(vty,
-		"This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty,
-		"This functionality has also already been removed because it caused bugs and was pointless\n");
-	return CMD_SUCCESS;
-}
-
-DEFPY (rpki_cache,
-       rpki_cache_cmd,
-       "rpki cache <A.B.C.D|WORD>"
-       "<TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> "
-       "preference (1-255)",
-       RPKI_OUTPUT_STRING
-       "Install a cache server to current group\n"
-       "IP address of cache server\n Hostname of cache server\n"
-       "TCP port number\n"
-       "SSH port number\n"
-       "SSH user name\n"
-       "Path to own SSH private key\n"
-       "Path to own SSH public key\n"
-       "Path to Public key of cache server\n"
-       "Preference of the cache server\n"
-       "Preference value\n")
+DEFPY(rpki_cache, rpki_cache_cmd,
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+      RPKI_OUTPUT_STRING
+      "Install a cache server to current group\n"
+      "IP address of cache server\n Hostname of cache server\n"
+      "TCP port number\n"
+      "SSH port number\n"
+      "SSH user name\n"
+      "Path to own SSH private key\n"
+      "Path to own SSH public key\n"
+      "Path to Public key of cache server\n"
+      "Configure source IP address of RPKI connection\n"
+      "Define a Source IP Address\n"
+      "Preference of the cache server\n"
+      "Preference value\n")
 {
 	int return_value;
 	struct listnode *cache_node;
@@ -1109,18 +1099,17 @@ DEFPY (rpki_cache,
 	// use ssh connection
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
-		return_value =
-			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
-				      ssh_pubkey, server_pubkey, preference);
+		return_value = add_ssh_cache(
+			cache, sshport, ssh_uname, ssh_privkey, ssh_pubkey,
+			server_pubkey, preference, bindaddr_str);
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
-			"ssh sockets are not supported. "
-			"Please recompile rtrlib and frr with ssh support. "
-			"If you want to use it\n");
+			"ssh sockets are not supported. Please recompile rtrlib and frr with ssh support. If you want to use it\n");
 #endif
 	} else { // use tcp connection
-		return_value = add_tcp_cache(cache, tcpport, preference);
+		return_value =
+			add_tcp_cache(cache, tcpport, preference, bindaddr_str);
 	}
 
 	if (return_value == ERROR) {
@@ -1187,6 +1176,21 @@ DEFUN (show_rpki_prefix_table,
 	else
 		vty_out(vty, "No connection to RPKI cache server.\n");
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_rpki_as_number, show_rpki_as_number_cmd,
+      "show rpki as-number (1-4294967295)$by_asn",
+      SHOW_STR RPKI_OUTPUT_STRING
+      "Lookup by ASN in prefix table\n"
+      "AS Number\n")
+{
+	if (!is_synchronized()) {
+		vty_out(vty, "No Connection to RPKI cache server.\n");
+		return CMD_WARNING;
+	}
+
+	print_prefix_table_by_asn(vty, by_asn);
 	return CMD_SUCCESS;
 }
 
@@ -1262,8 +1266,7 @@ DEFUN (show_rpki_cache_server,
 #if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
 			vty_out(vty,
-				"host: %s port: %d username: %s "
-				"server_hostkey_path: %s client_privkey_path: %s\n",
+				"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
 				cache->tr_config.ssh_config->host,
 				cache->tr_config.ssh_config->port,
 				cache->tr_config.ssh_config->username,
@@ -1285,87 +1288,58 @@ DEFUN (show_rpki_cache_connection,
        RPKI_OUTPUT_STRING
        "Show to which RPKI Cache Servers we have a connection\n")
 {
-	if (is_synchronized()) {
-		struct listnode *cache_node;
-		struct cache *cache;
-		struct rtr_mgr_group *group = get_connected_group();
+	if (!is_synchronized()) {
+		vty_out(vty, "No connection to RPKI cache server.\n");
 
-		if (!group) {
-			vty_out(vty, "Cannot find a connected group.\n");
-			return CMD_SUCCESS;
-		}
-		vty_out(vty, "Connected to group %d\n", group->preference);
-		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-			if (cache->preference == group->preference) {
-				struct tr_tcp_config *tcp_config;
+		return CMD_SUCCESS;
+	}
+
+	struct listnode *cache_node;
+	struct cache *cache;
+	struct rtr_mgr_group *group = get_connected_group();
+
+	if (!group) {
+		vty_out(vty, "Cannot find a connected group.\n");
+		return CMD_SUCCESS;
+	}
+	vty_out(vty, "Connected to group %d\n", group->preference);
+	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
+		if (cache->preference == group->preference) {
+			struct tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
-				struct tr_ssh_config *ssh_config;
+			struct tr_ssh_config *ssh_config;
 #endif
 
-				switch (cache->type) {
-				case TCP:
-					tcp_config =
-						cache->tr_config.tcp_config;
-					vty_out(vty,
-						"rpki tcp cache %s %s pref %hhu\n",
-						tcp_config->host,
-						tcp_config->port,
-						cache->preference);
-					break;
+			switch (cache->type) {
+			case TCP:
+				tcp_config = cache->tr_config.tcp_config;
+				vty_out(vty, "rpki tcp cache %s %s pref %hhu\n",
+					tcp_config->host, tcp_config->port,
+					cache->preference);
+				break;
 
 #if defined(FOUND_SSH)
-				case SSH:
-					ssh_config =
-						cache->tr_config.ssh_config;
-					vty_out(vty,
-						"rpki ssh cache %s %u pref %hhu\n",
-						ssh_config->host,
-						ssh_config->port,
-						cache->preference);
-					break;
+			case SSH:
+				ssh_config = cache->tr_config.ssh_config;
+				vty_out(vty, "rpki ssh cache %s %u pref %hhu\n",
+					ssh_config->host, ssh_config->port,
+					cache->preference);
+				break;
 #endif
 
-				default:
-					break;
-				}
+			default:
+				break;
 			}
 		}
-	} else {
-		vty_out(vty, "No connection to RPKI cache server.\n");
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (rpki_exit,
-	    rpki_exit_cmd,
-	    "exit",
-	    "Exit rpki configuration and restart rpki session\n")
+static int config_on_exit(struct vty *vty)
 {
 	reset(false);
-
-	vty->node = CONFIG_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (rpki_quit,
-	    rpki_quit_cmd,
-	    "quit",
-	    "Exit rpki configuration mode\n")
-{
-	return rpki_exit(self, vty, argc, argv);
-}
-
-DEFUN_NOSH (rpki_end,
-	    rpki_end_cmd,
-	    "end",
-	    "End rpki configuration, restart rpki session and change to enable mode.\n")
-{
-	int ret = reset(false);
-
-	vty_config_exit(vty);
-	vty->node = ENABLE_NODE;
-	return ret == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
+	return 1;
 }
 
 DEFUN (rpki_reset,
@@ -1398,7 +1372,7 @@ DEFUN (no_debug_rpki,
 	return CMD_SUCCESS;
 }
 
-DEFUN (match_rpki,
+DEFUN_YANG (match_rpki,
        match_rpki_cmd,
        "match rpki <valid|invalid|notfound>",
        MATCH_STR
@@ -1407,30 +1381,19 @@ DEFUN (match_rpki,
        "Invalid prefix\n"
        "Prefix not found\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	enum rmap_compile_rets ret;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki']";
+	char xpath_value[XPATH_MAXLEN];
 
-	ret = route_map_add_match(index, "rpki", argv[2]->arg,
-				  RMAP_EVENT_MATCH_ADDED);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_SUCCESS:
-			/*
-			 * Intentionally doing nothing here
-			 */
-			break;
-		}
-	}
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:rpki", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[2]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_match_rpki,
+DEFUN_YANG (no_match_rpki,
        no_match_rpki_cmd,
        "no match rpki <valid|invalid|notfound>",
        NO_STR
@@ -1440,57 +1403,18 @@ DEFUN (no_match_rpki,
        "Invalid prefix\n"
        "Prefix not found\n")
 {
-	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	enum rmap_compile_rets ret;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki']";
 
-	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
-				     RMAP_EVENT_MATCH_DELETED);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			break;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			break;
-		case RMAP_COMPILE_SUCCESS:
-			/*
-			 * Nothing to do here
-			 */
-			break;
-		}
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-static void overwrite_exit_commands(void)
-{
-	unsigned int i;
-	vector cmd_vector = rpki_node.cmd_vector;
-
-	for (i = 0; i < cmd_vector->active; ++i) {
-		struct cmd_element *cmd = vector_lookup(cmd_vector, i);
-
-		if (strcmp(cmd->string, "exit") == 0
-		    || strcmp(cmd->string, "quit") == 0
-		    || strcmp(cmd->string, "end") == 0) {
-			uninstall_element(RPKI_NODE, cmd);
-		}
-	}
-
-	install_element(RPKI_NODE, &rpki_exit_cmd);
-	install_element(RPKI_NODE, &rpki_quit_cmd);
-	install_element(RPKI_NODE, &rpki_end_cmd);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void install_cli_commands(void)
 {
 	// TODO: make config write work
-	install_node(&rpki_node, &config_write);
+	install_node(&rpki_node);
 	install_default(RPKI_NODE);
-	overwrite_exit_commands();
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(ENABLE_NODE, &rpki_cmd);
 
@@ -1512,14 +1436,6 @@ static void install_cli_commands(void)
 	install_element(RPKI_NODE, &rpki_retry_interval_cmd);
 	install_element(RPKI_NODE, &no_rpki_retry_interval_cmd);
 
-	/* Install rpki timeout commands */
-	install_element(RPKI_NODE, &rpki_timeout_cmd);
-	install_element(RPKI_NODE, &no_rpki_timeout_cmd);
-
-	/* Install rpki synchronisation timeout commands */
-	install_element(RPKI_NODE, &rpki_synchronisation_timeout_cmd);
-	install_element(RPKI_NODE, &no_rpki_synchronisation_timeout_cmd);
-
 	/* Install rpki cache commands */
 	install_element(RPKI_NODE, &rpki_cache_cmd);
 	install_element(RPKI_NODE, &no_rpki_cache_cmd);
@@ -1529,6 +1445,7 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_connection_cmd);
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
+	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);
@@ -1544,4 +1461,5 @@ static void install_cli_commands(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_rpki", .version = "0.3.6",
 		 .description = "Enable RPKI support for FRR.",
-		 .init = bgp_rpki_module_init)
+		 .init = bgp_rpki_module_init,
+);

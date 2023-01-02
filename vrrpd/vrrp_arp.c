@@ -170,7 +170,7 @@ void vrrp_garp_send_all(struct vrrp_router *r)
 	if (ifp->flags & IFF_NOARP) {
 		zlog_warn(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			"Unable to send gratuitous ARP on %s; has IFF_NOARP\n",
+			"Unable to send gratuitous ARP on %s; has IFF_NOARP",
 			r->vr->vrid, family2str(r->family), ifp->name);
 		return;
 	}

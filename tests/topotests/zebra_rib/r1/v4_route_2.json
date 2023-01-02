@@ -1,0 +1,23 @@
+{
+  "4.5.2.0\/24":[
+    {
+      "prefix":"4.5.2.0\/24",
+      "protocol":"kernel",
+      "selected":true,
+      "destSelected":true,
+      "distance":1,
+      "metric":1,
+      "installed":true,
+      "nexthops":[
+        {
+          "flags":3,
+          "fib":true,
+          "ip":"192.168.211.2",
+          "afi":"ipv4",
+          "interfaceName":"r1-eth1",
+          "active":true
+        }
+      ]
+    }
+  ]
+}

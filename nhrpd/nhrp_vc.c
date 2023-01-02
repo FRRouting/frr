@@ -17,7 +17,7 @@
 #include "nhrpd.h"
 #include "os.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection");
 
 struct child_sa {
 	uint32_t id;
@@ -100,7 +100,6 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 
 int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 {
-	char buf[2][SU_ADDRSTRLEN];
 	struct child_sa *sa = NULL, *lsa;
 	uint32_t child_hash = child_id % array_size(childlist_head);
 	int abort_migration = 0;
@@ -140,10 +139,8 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 	if (sa->vc && vc) {
 		/* Notify old VC of migration */
 		sa->vc->abort_migration = 0;
-		debugf(NHRP_DEBUG_COMMON, "IPsec NBMA change of %s to %s",
-		       sockunion2str(&sa->vc->remote.nbma, buf[0],
-				     sizeof buf[0]),
-		       sockunion2str(&vc->remote.nbma, buf[1], sizeof buf[1]));
+		debugf(NHRP_DEBUG_COMMON, "IPsec NBMA change of %pSU to %pSU",
+		       &sa->vc->remote.nbma, &vc->remote.nbma);
 		nhrp_vc_update(sa->vc, NOTIFY_VC_IPSEC_UPDATE_NBMA);
 		abort_migration = sa->vc->abort_migration;
 	}

@@ -48,8 +48,8 @@ struct pullwr {
 	int64_t maxspin;	/* PULLWR_MAXSPIN */
 };
 
-DEFINE_MTYPE_STATIC(LIB, PULLWR_HEAD, "pull-driven write controller")
-DEFINE_MTYPE_STATIC(LIB, PULLWR_BUF,  "pull-driven write buffer")
+DEFINE_MTYPE_STATIC(LIB, PULLWR_HEAD, "pull-driven write controller");
+DEFINE_MTYPE_STATIC(LIB, PULLWR_BUF,  "pull-driven write buffer");
 
 static int pullwr_run(struct thread *t);
 

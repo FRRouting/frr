@@ -24,6 +24,7 @@
 #define _ZEBRA_PRIVS_H
 
 #include <pthread.h>
+#include <stdint.h>
 #include "lib/queue.h"
 
 #ifdef __cplusplus
@@ -43,6 +44,7 @@ typedef enum {
 	ZCAP_DAC_OVERRIDE,
 	ZCAP_READ_SEARCH,
 	ZCAP_FOWNER,
+	ZCAP_IPC_LOCK,
 	ZCAP_MAX
 } zebra_capabilities_t;
 
@@ -98,6 +100,8 @@ struct zprivs_ids_t {
 	gid_t gid_normal; /* normal uid */
 	gid_t gid_vty;    /* vty gid */
 };
+
+extern struct zebra_privs_t *lib_privs;
 
 /* initialise zebra privileges */
 extern void zprivs_preinit(struct zebra_privs_t *zprivs);

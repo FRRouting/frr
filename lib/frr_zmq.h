@@ -49,9 +49,12 @@ struct cb_core {
 			unsigned partnum);
 	void (*cb_error)(void *arg, void *zmqsock);
 };
+
 struct frrzmq_cb {
 	void *zmqsock;
 	int fd;
+
+	bool in_cb; /* This context is in a read or write callback. */
 
 	struct cb_core read;
 	struct cb_core write;
@@ -67,18 +70,32 @@ extern void *frrzmq_context;
 extern void frrzmq_init(void);
 extern void frrzmq_finish(void);
 
-#define debugargdef const char *funcname, const char *schedfrom, int fromln
+#define _xref_zmq_a(type, f, d, call)                                          \
+	({                                                                     \
+		static const struct xref_threadsched _xref                     \
+				__attribute__((used)) = {                      \
+			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
+			.funcname = #f,                                        \
+			.dest = #d,                                            \
+			.thread_type = THREAD_ ## type,                        \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		call;                                                          \
+	})                                                                     \
+	/* end */
 
 /* core event registration, one of these 2 macros should be used */
 #define frrzmq_thread_add_read_msg(m, f, e, a, z, d)                           \
-	funcname_frrzmq_thread_add_read(m, f, NULL, e, a, z, d, #f, __FILE__,  \
-					__LINE__)
+	_xref_zmq_a(READ, f, d,                                                \
+		_frrzmq_thread_add_read(&_xref, m, f, NULL, e, a, z, d))
+
 #define frrzmq_thread_add_read_part(m, f, e, a, z, d)                          \
-	funcname_frrzmq_thread_add_read(m, NULL, f, e, a, z, d, #f, __FILE__,  \
-					__LINE__)
+	_xref_zmq_a(READ, f, d,                                                \
+		_frrzmq_thread_add_read(&_xref, m, NULL, f, e, a, z, d))
+
 #define frrzmq_thread_add_write_msg(m, f, e, a, z, d)                          \
-	funcname_frrzmq_thread_add_write(m, f, e, a, z, d, #f, __FILE__,       \
-					 __LINE__)
+	_xref_zmq_a(WRITE, f, d,                                               \
+		_frrzmq_thread_add_write(&_xref, m, f, e, a, z, d))
 
 struct cb_core;
 struct frrzmq_cb;
@@ -104,16 +121,18 @@ struct frrzmq_cb;
  *   may schedule the event to run as soon as libfrr is back in its main
  *   loop.
  */
-extern int funcname_frrzmq_thread_add_read(
-	struct thread_master *master, void (*msgfunc)(void *arg, void *zmqsock),
+extern int _frrzmq_thread_add_read(
+	const struct xref_threadsched *xref, struct thread_master *master,
+	void (*msgfunc)(void *arg, void *zmqsock),
 	void (*partfunc)(void *arg, void *zmqsock, zmq_msg_t *msg,
 			 unsigned partnum),
 	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
-	struct frrzmq_cb **cb, debugargdef);
-extern int funcname_frrzmq_thread_add_write(
-	struct thread_master *master, void (*msgfunc)(void *arg, void *zmqsock),
+	struct frrzmq_cb **cb);
+extern int _frrzmq_thread_add_write(
+	const struct xref_threadsched *xref, struct thread_master *master,
+	void (*msgfunc)(void *arg, void *zmqsock),
 	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
-	struct frrzmq_cb **cb, debugargdef);
+	struct frrzmq_cb **cb);
 
 extern void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core);
 

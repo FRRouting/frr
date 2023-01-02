@@ -1,0 +1,12 @@
+{
+  "prefix":"13.1.1.1\/32",
+  "paths":[
+    {
+      "origin":"IGP",
+      "metric":0,
+      "locPrf":100,
+      "valid":true
+    }
+  ]
+}
+

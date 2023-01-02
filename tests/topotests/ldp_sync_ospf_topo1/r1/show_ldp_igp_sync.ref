@@ -1,0 +1,16 @@
+{
+  "r1-eth1":{
+    "state":"labelExchangeComplete",
+    "waitTime":10,
+    "waitTimeRemaining":0,
+    "timerRunning":false,
+    "peerLdpId":"2.2.2.2"
+  },
+  "r1-eth2":{
+    "state":"labelExchangeComplete",
+    "waitTime":10,
+    "waitTimeRemaining":0,
+    "timerRunning":false,
+    "peerLdpId":"3.3.3.3"
+  }
+}

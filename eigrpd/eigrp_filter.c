@@ -57,7 +57,6 @@
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_packet.h"
-#include "eigrpd/eigrp_memory.h"
 
 /*
  * Distribute-list update functions.
@@ -124,48 +123,12 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 		} else
 			e->prefix[EIGRP_FILTER_OUT] = NULL;
 
-// This is commented out, because the distribute.[ch] code
-// changes looked poorly written from first glance
-// commit was 133bdf2d
-// TODO: DBS
-#if 0
-      /* route-map IN for whole process */
-      if (dist->route[DISTRIBUTE_V4_IN])
-        {
-          routemap = route_map_lookup_by_name (dist->route[DISTRIBUTE_V4_IN]);
-          if (routemap)
-            e->routemap[EIGRP_FILTER_IN] = routemap;
-          else
-            e->routemap[EIGRP_FILTER_IN] = NULL;
-        }
-      else
-        {
-          e->routemap[EIGRP_FILTER_IN] = NULL;
-        }
-
-      /* route-map OUT for whole process */
-      if (dist->route[DISTRIBUTE_V4_OUT])
-        {
-          routemap = route_map_lookup_by_name (dist->route[DISTRIBUTE_V4_OUT]);
-          if (routemap)
-            e->routemap[EIGRP_FILTER_OUT] = routemap;
-          else
-            e->routemap[EIGRP_FILTER_OUT] = NULL;
-        }
-      else
-        {
-          e->routemap[EIGRP_FILTER_OUT] = NULL;
-        }
-#endif
 		// TODO: check Graceful restart after 10sec
 
-		/* check if there is already GR scheduled */
-		if (e->t_distribute != NULL) {
-			/* if is, cancel schedule */
-			thread_cancel(e->t_distribute);
-		}
+		/* cancel GR scheduled */
+		thread_cancel(&(e->t_distribute));
+
 		/* schedule Graceful restart for whole process in 10sec */
-		e->t_distribute = NULL;
 		thread_add_timer(master, eigrp_distribute_timer_process, e,
 				 (10), &e->t_distribute);
 
@@ -235,43 +198,10 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 	} else
 		ei->prefix[EIGRP_FILTER_OUT] = NULL;
 
-#if 0
-  /* route-map IN for whole process */
-  if (dist->route[DISTRIBUTE_V4_IN])
-    {
-      zlog_info("<DEBUG ACL ALL in");
-      routemap = route_map_lookup_by_name (dist->route[DISTRIBUTE_V4_IN]);
-      if (routemap)
-        ei->routemap[EIGRP_FILTER_IN] = routemap;
-      else
-        ei->routemap[EIGRP_FILTER_IN] = NULL;
-    }
-  else
-    {
-      ei->routemap[EIGRP_FILTER_IN] = NULL;
-    }
-
-  /* route-map OUT for whole process */
-  if (dist->route[DISTRIBUTE_V4_OUT])
-    {
-      routemap = route_map_lookup_by_name (dist->route[DISTRIBUTE_V4_OUT]);
-      if (routemap)
-        ei->routemap[EIGRP_FILTER_OUT] = routemap;
-      else
-        ei->routemap[EIGRP_FILTER_OUT] = NULL;
-    }
-  else
-    {
-      ei->routemap[EIGRP_FILTER_OUT] = NULL;
-    }
-#endif
 	// TODO: check Graceful restart after 10sec
 
-	/* check if there is already GR scheduled */
-	if (ei->t_distribute != NULL) {
-		/* if is, cancel schedule */
-		thread_cancel(ei->t_distribute);
-	}
+	/* Cancel GR scheduled */
+	thread_cancel(&(ei->t_distribute));
 	/* schedule Graceful restart for interface in 10sec */
 	e->t_distribute = NULL;
 	thread_add_timer(master, eigrp_distribute_timer_interface, ei, 10,

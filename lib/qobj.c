@@ -26,6 +26,7 @@
 #include "log.h"
 #include "qobj.h"
 #include "jhash.h"
+#include "network.h"
 
 static uint32_t qobj_hash(const struct qobj_node *node)
 {
@@ -42,7 +43,7 @@ static int qobj_cmp(const struct qobj_node *na, const struct qobj_node *nb)
 }
 
 DECLARE_HASH(qobj_nodes, struct qobj_node, nodehash,
-			qobj_cmp, qobj_hash)
+			qobj_cmp, qobj_hash);
 
 static pthread_rwlock_t nodes_lock;
 static struct qobj_nodes_head nodes = { };
@@ -53,8 +54,8 @@ void qobj_reg(struct qobj_node *node, const struct qobj_nodetype *type)
 	node->type = type;
 	pthread_rwlock_wrlock(&nodes_lock);
 	do {
-		node->nid = (uint64_t)random();
-		node->nid ^= (uint64_t)random() << 32;
+		node->nid = (uint64_t)frr_weak_random();
+		node->nid ^= (uint64_t)frr_weak_random() << 32;
 	} while (!node->nid || qobj_nodes_find(&nodes, node));
 	qobj_nodes_add(&nodes, node);
 	pthread_rwlock_unlock(&nodes_lock);

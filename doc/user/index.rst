@@ -23,11 +23,13 @@ Basics
 
    basic
    vtysh
+   grpc
    filter
    routemap
    ipv6
    kernel
    snmp
+   scripting
 .. modules
 
 #########
@@ -49,6 +51,7 @@ Protocols
    nhrpd
    ospfd
    ospf6d
+   pathd
    pim
    pbr
    ripd
@@ -71,6 +74,7 @@ Appendix
    bugs
    packet-dumps
    glossary
+   frr-reload
 
 ################
 Copyright notice

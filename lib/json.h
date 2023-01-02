@@ -48,12 +48,16 @@ extern void json_object_int_add(struct json_object *obj, const char *key,
 				int64_t i);
 void json_object_boolean_add(struct json_object *obj, const char *key,
 			     bool val);
+
+extern void json_object_double_add(struct json_object *obj, const char *key,
+				   double i);
 extern void json_object_boolean_false_add(struct json_object *obj,
 					  const char *key);
 extern void json_object_boolean_true_add(struct json_object *obj,
 					 const char *key);
 extern struct json_object *json_object_lock(struct json_object *obj);
 extern void json_object_free(struct json_object *obj);
+extern void json_array_string_add(json_object *json, const char *str);
 
 #define JSON_STR "JavaScript Object Notation\n"
 

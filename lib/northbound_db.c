@@ -86,10 +86,13 @@ int nb_db_transaction_save(const struct nb_transaction *transaction,
 	if (!ss)
 		goto exit;
 
-	client_name = nb_client_name(transaction->client);
-	/* Always record configurations in the XML format. */
+	client_name = nb_client_name(transaction->context->client);
+	/*
+	 * Always record configurations in the XML format, save the default
+	 * values too, as this covers the case where defaults may change.
+	 */
 	if (lyd_print_mem(&config_str, transaction->config->dnode, LYD_XML,
-			  LYP_FORMAT | LYP_WITHSIBLINGS)
+			  LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)
 	    != 0)
 		goto exit;
 
@@ -149,6 +152,7 @@ struct nb_config *nb_db_transaction_load(uint32_t transaction_id)
 	struct lyd_node *dnode;
 	const char *config_str;
 	struct sqlite3_stmt *ss;
+	LY_ERR err;
 
 	ss = db_prepare(
 		"SELECT\n"
@@ -169,10 +173,11 @@ struct nb_config *nb_db_transaction_load(uint32_t transaction_id)
 	if (db_loadf(ss, "%s", &config_str) != 0)
 		goto exit;
 
-	dnode = lyd_parse_mem(ly_native_ctx, config_str, LYD_XML,
-			      LYD_OPT_CONFIG);
-	if (!dnode)
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_parse_mem() failed",
+	err = lyd_parse_data_mem(ly_native_ctx, config_str, LYD_XML,
+				 LYD_PARSE_STRICT | LYD_PARSE_NO_STATE,
+				 LYD_VALIDATE_NO_STATE, &dnode);
+	if (err || !dnode)
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_parse_data_mem() failed",
 			  __func__);
 	else
 		config = nb_config_new(dnode);

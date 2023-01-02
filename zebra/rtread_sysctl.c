@@ -21,10 +21,9 @@
 
 #include <zebra.h>
 
-#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX)
 
 #include "memory.h"
-#include "zebra_memory.h"
 #include "log.h"
 #include "vrf.h"
 
@@ -89,7 +88,7 @@ void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 }
 
 void macfdb_read_specific_mac(struct zebra_ns *zns, struct interface *br_if,
-			      struct ethaddr *mac, vlanid_t vid)
+			      const struct ethaddr *mac, vlanid_t vid)
 {
 }
 
@@ -101,7 +100,7 @@ void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 {
 }
 
-void neigh_read_specific_ip(struct ipaddr *ip, struct interface *vlan_if)
+void neigh_read_specific_ip(const struct ipaddr *ip, struct interface *vlan_if)
 {
 }
 
@@ -109,4 +108,4 @@ void kernel_read_pbr_rules(struct zebra_ns *zns)
 {
 }
 
-#endif /* !defined(GNU_LINUX) && !defined(SUNOS_5) */
+#endif /* !defined(GNU_LINUX) */

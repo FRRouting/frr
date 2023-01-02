@@ -2,8 +2,8 @@
 # libfrr
 #
 lib_LTLIBRARIES += lib/libfrr.la
-lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(LIBM)
+lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -22,8 +22,11 @@ lib_libfrr_la_SOURCES = \
 	lib/distribute.c \
 	lib/ferr.c \
 	lib/filter.c \
+	lib/filter_cli.c \
+	lib/filter_nb.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
+	lib/frrscript.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
 	lib/getopt.c \
@@ -40,17 +43,22 @@ lib_libfrr_la_SOURCES = \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
+	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
 	lib/libfrr.c \
+	lib/libfrr_trace.c \
 	lib/linklist.c \
+	lib/link_state.c \
 	lib/log.c \
+	lib/log_filter.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
+	lib/srv6.c \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
@@ -70,6 +78,8 @@ lib_libfrr_la_SOURCES = \
 	lib/qobj.c \
 	lib/ringbuf.c \
 	lib/routemap.c \
+	lib/routemap_cli.c \
+	lib/routemap_northbound.c \
 	lib/sbuf.c \
 	lib/seqlock.c \
 	lib/sha256.c \
@@ -80,6 +90,7 @@ lib_libfrr_la_SOURCES = \
 	lib/spf_backoff.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
+	lib/strformat.c \
 	lib/strlcat.c \
 	lib/strlcpy.c \
 	lib/systemd.c \
@@ -93,55 +104,72 @@ lib_libfrr_la_SOURCES = \
 	lib/vty.c \
 	lib/wheel.c \
 	lib/workqueue.c \
+	lib/xref.c \
 	lib/yang.c \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
+	lib/zlog.c \
+	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
+	lib/routing_nb.c \
+	lib/routing_nb_config.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
+	yang/frr-filter.yang.c \
 	yang/frr-interface.yang.c \
+	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
+	yang/frr-vrf.yang.c \
+	yang/frr-routing.yang.c \
+	yang/frr-nexthop.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-interfaces.yang.c \
+	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
+	yang/frr-nexthop.yang.c \
 	# end
 
 vtysh_scan += \
-	$(top_srcdir)/lib/distribute.c \
-	$(top_srcdir)/lib/filter.c \
-	$(top_srcdir)/lib/if.c \
-	$(top_srcdir)/lib/if_rmap.c \
-	$(top_srcdir)/lib/keychain.c \
-	$(top_srcdir)/lib/lib_vty.c \
-	$(top_srcdir)/lib/nexthop_group.c \
-	$(top_srcdir)/lib/plist.c \
-	$(top_srcdir)/lib/routemap.c \
-	$(top_srcdir)/lib/vrf.c \
-	$(top_srcdir)/lib/vty.c \
+	lib/distribute.c \
+	lib/filter.c \
+	lib/filter_cli.c \
+	lib/if.c \
+	lib/if_rmap.c \
+	lib/keychain.c \
+	lib/lib_vty.c \
+	lib/log_vty.c \
+	lib/nexthop_group.c \
+	lib/plist.c \
+	lib/routemap.c \
+	lib/routemap_cli.c \
+	lib/spf_backoff.c \
+	lib/thread.c \
+	lib/vrf.c \
+	lib/vty.c \
 	# end
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/lib/agentx.c
+vtysh_scan += lib/agentx.c
 
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
-lib/if_clippy.c: $(CLIPPY_DEPS)
-lib/if.lo: lib/if_clippy.c
-lib/plist_clippy.c: $(CLIPPY_DEPS)
-lib/plist.lo: lib/plist_clippy.c
-lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
-lib/nexthop_group.lo: lib/nexthop_group_clippy.c
-lib/northbound_cli_clippy.c: $(CLIPPY_DEPS)
-lib/northbound_cli.lo: lib/northbound_cli_clippy.c
-lib/vty_clippy.c: $(CLIPPY_DEPS)
-lib/vty.lo: lib/vty_clippy.c
-lib/log_vty_clippy.c: $(CLIPPY_DEPS)
-lib/log_vty.lo: lib/log_vty_clippy.c
+clippy_scan += \
+	lib/if.c \
+	lib/filter_cli.c \
+	lib/log_vty.c \
+	lib/nexthop_group.c \
+	lib/northbound_cli.c \
+	lib/plist.c \
+	lib/routemap_cli.c \
+	lib/thread.c \
+	lib/vty.c \
+	# end
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
@@ -164,6 +192,7 @@ pkginclude_HEADERS += \
 	lib/filter.h \
 	lib/freebsd-queue.h \
 	lib/frrlua.h \
+	lib/frrscript.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/frrcu.h \
@@ -181,11 +210,14 @@ pkginclude_HEADERS += \
 	lib/jhash.h \
 	lib/json.h \
 	lib/keychain.h \
+	lib/ldp_sync.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
 	lib/libfrr.h \
+	lib/libfrr_trace.h \
 	lib/libospf.h \
 	lib/linklist.h \
+	lib/link_state.h \
 	lib/log.h \
 	lib/log_vty.h \
 	lib/md5.h \
@@ -193,6 +225,7 @@ pkginclude_HEADERS += \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \
+	lib/srv6.h \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
@@ -214,6 +247,7 @@ pkginclude_HEADERS += \
 	lib/queue.h \
 	lib/ringbuf.h \
 	lib/routemap.h \
+	lib/route_opaque.h \
 	lib/sbuf.h \
 	lib/seqlock.h \
 	lib/sha256.h \
@@ -224,11 +258,13 @@ pkginclude_HEADERS += \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
 	lib/srcdest_table.h \
+	lib/srte.h \
 	lib/stream.h \
 	lib/systemd.h \
 	lib/table.h \
 	lib/termtable.h \
 	lib/thread.h \
+	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \
 	lib/vector.h \
@@ -239,13 +275,18 @@ pkginclude_HEADERS += \
 	lib/vxlan.h \
 	lib/wheel.h \
 	lib/workqueue.h \
+	lib/xref.h \
 	lib/yang.h \
 	lib/yang_translator.h \
 	lib/yang_wrappers.h \
-	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	lib/zlog.h \
+	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/routing_nb.h \
+	\
+	lib/assert/assert.h \
 	# end
 
 
@@ -256,7 +297,6 @@ nodist_pkginclude_HEADERS += \
 
 noinst_HEADERS += \
 	lib/clippy.h \
-	lib/log_int.h \
 	lib/plist_int.h \
 	lib/printf/printfcommon.h \
 	lib/printf/printflocal.h \
@@ -280,8 +320,8 @@ if SNMP
 lib_LTLIBRARIES += lib/libfrrsnmp.la
 endif
 
-lib_libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
-lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrsnmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+lib_libfrrsnmp_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 lib_libfrrsnmp_la_LIBADD = $(SNMP_LIBS)
 lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
@@ -294,10 +334,11 @@ lib_libfrrsnmp_la_SOURCES = \
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
 pkginclude_HEADERS += lib/resolver.h
+vtysh_scan += lib/resolver.c
 endif
 
-lib_libfrrcares_la_CFLAGS = $(WERROR) $(CARES_CFLAGS)
-lib_libfrrcares_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
+lib_libfrrcares_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 lib_libfrrcares_la_LIBADD = $(CARES_LIBS)
 lib_libfrrcares_la_SOURCES = \
 	lib/resolver.c \
@@ -311,8 +352,8 @@ lib_LTLIBRARIES += lib/libfrrzmq.la
 pkginclude_HEADERS += lib/frr_zmq.h
 endif
 
-lib_libfrrzmq_la_CFLAGS = $(WERROR) $(ZEROMQ_CFLAGS)
-lib_libfrrzmq_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrzmq_la_CFLAGS = $(AM_CFLAGS) $(ZEROMQ_CFLAGS)
+lib_libfrrzmq_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 lib_libfrrzmq_la_LIBADD = $(ZEROMQ_LIBS)
 lib_libfrrzmq_la_SOURCES = \
 	lib/frr_zmq.c \
@@ -325,8 +366,8 @@ if CONFD
 module_LTLIBRARIES += lib/confd.la
 endif
 
-lib_confd_la_CFLAGS = $(WERROR) $(CONFD_CFLAGS)
-lib_confd_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_confd_la_CFLAGS = $(AM_CFLAGS) $(CONFD_CFLAGS)
+lib_confd_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
 lib_confd_la_SOURCES = lib/northbound_confd.c
 
@@ -337,8 +378,8 @@ if SYSREPO
 module_LTLIBRARIES += lib/sysrepo.la
 endif
 
-lib_sysrepo_la_CFLAGS = $(WERROR) $(SYSREPO_CFLAGS)
-lib_sysrepo_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_sysrepo_la_CFLAGS = $(AM_CFLAGS) $(SYSREPO_CFLAGS)
+lib_sysrepo_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_sysrepo_la_LIBADD = lib/libfrr.la $(SYSREPO_LIBS)
 lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
 
@@ -350,7 +391,7 @@ module_LTLIBRARIES += lib/grpc.la
 endif
 
 lib_grpc_la_CXXFLAGS = $(WERROR) $(GRPC_CFLAGS)
-lib_grpc_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_grpc_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
 lib_grpc_la_SOURCES = lib/northbound_grpc.cpp
 
@@ -375,19 +416,24 @@ lib_grammar_sandbox_SOURCES = \
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
-lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS)
-lib_clippy_LDFLAGS = -export-dynamic
+lib_clippy_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
+lib_clippy_CFLAGS = $(AC_CFLAGS) $(PYTHON_CFLAGS)
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
+# no $(SAN_FLAGS) here
+lib_clippy_LDFLAGS = -export-dynamic $(AC_LDFLAGS) $(AC_LDFLAGS_EXEC)
 lib_clippy_SOURCES = \
+	lib/jhash.c \
 	lib/clippy.c \
 	lib/command_graph.c \
 	lib/command_lex.l \
 	lib/command_parse.y \
 	lib/command_py.c \
 	lib/defun_lex.l \
+	lib/elf_py.c \
 	lib/graph.c \
+	lib/libfrr_trace.c \
 	lib/memory.c \
+	lib/typesafe.c \
 	lib/vector.c \
 	# end
 
@@ -400,9 +446,35 @@ am__v_CLIPPY_1 =
 
 CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 
-SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h .pb.cc .grpc.pb.cc
+SUFFIXES += _clippy.c
 .c_clippy.c:
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
+
+# xrelfo, the ELF xref extractor
+
+AM_V_XRELFO = $(am__v_XRELFO_$(V))
+am__v_XRELFO_ = $(am__v_XRELFO_$(AM_DEFAULT_VERBOSITY))
+am__v_XRELFO_0 = @echo "  XRELFO  " $@;
+am__v_XRELFO_1 =
+
+if DEV_BUILD
+XRELFO_FLAGS = -Wlog-format -Wlog-args
+else
+XRELFO_FLAGS =
+endif
+
+SUFFIXES += .xref
+%.xref: % $(CLIPPY)
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(WERROR) $(XRELFO_FLAGS) -o $@ $<
+
+# dependencies added in python/makefile.py
+frr.xref:
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+all-am: frr.xref
+
+clean-xref:
+	-rm -rf $(xrefs) frr.xref
+clean-local: clean-xref
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
@@ -442,8 +514,62 @@ lib/clippy-command_parse.$(OBJEXT): lib/command_lex.h
 lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
 
+rt_enabled =
+
+if BABELD
+rt_enabled += --enabled babeld
+endif
+if BFDD
+rt_enabled += --enabled bfdd
+endif
+if BGPD
+rt_enabled += --enabled bgpd
+if ENABLE_BGP_VNC
+rt_enabled += --enabled bgpd-vnc
+endif
+endif
+if EIGRPD
+rt_enabled += --enabled eigrpd
+endif
+if ISISD
+rt_enabled += --enabled isisd
+endif
+if FABRICD
+rt_enabled += --enabled fabricd
+endif
+if LDPD
+rt_enabled += --enabled ldpd
+endif
+if NHRPD
+rt_enabled += --enabled nhrpd
+endif
+if OSPFD
+rt_enabled += --enabled ospfd
+endif
+if OSPF6D
+rt_enabled += --enabled ospf6d
+endif
+if PBRD
+rt_enabled += --enabled pbrd
+endif
+if PIMD
+rt_enabled += --enabled pimd
+endif
+if RIPD
+rt_enabled += --enabled ripd
+endif
+if RIPNGD
+rt_enabled += --enabled ripngd
+endif
+if SHARPD
+rt_enabled += --enabled sharpd
+endif
+if ZEBRA
+rt_enabled += --enabled zebra
+endif
+
 lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl
-	$(PERL) $(top_srcdir)/lib/route_types.pl < $(top_srcdir)/lib/route_types.txt > $@
+	$(PERL) $(top_srcdir)/lib/route_types.pl $(rt_enabled) < $(top_srcdir)/lib/route_types.txt > $@
 DISTCLEANFILES += lib/route_types.h
 
 if GIT_VERSION

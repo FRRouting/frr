@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2017 Christian Franke
  *
- * This file is part of FreeRangeRouting (FRR)
+ * This file is part of FRRouting (FRR)
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,7 +21,6 @@
  */
 #include <zebra.h>
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_misc.h"
@@ -29,9 +28,9 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 
-DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
-DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
-DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info")
+DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting");
+DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting");
+DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info");
 
 bool isis_area_ipv6_dstsrc_enabled(struct isis_area *area)
 {
@@ -72,7 +71,7 @@ const char *isis_mtid2str(uint16_t mtid)
 	case ISIS_MT_IPV6_DSTSRC:
 		return "ipv6-dstsrc";
 	default:
-		snprintf(buf, sizeof(buf), "%" PRIu16, mtid);
+		snprintf(buf, sizeof(buf), "%hu", mtid);
 		return buf;
 	}
 }
@@ -302,6 +301,7 @@ circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
 	return setting;
 }
 
+#ifdef FABRICD
 static int circuit_write_mt_settings(struct isis_circuit *circuit,
 				     struct vty *vty)
 {
@@ -318,6 +318,7 @@ static int circuit_write_mt_settings(struct isis_circuit *circuit,
 	}
 	return written;
 }
+#endif
 
 struct isis_circuit_mt_setting **
 circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
@@ -552,6 +553,8 @@ void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 
 void mt_init(void)
 {
+#ifdef FABRICD
 	hook_register(isis_circuit_config_write,
 		      circuit_write_mt_settings);
+#endif
 }

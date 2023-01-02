@@ -1,0 +1,143 @@
+{
+  "16010":{
+    "inLabel":16010,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17010,
+        "installed":true,
+        "nexthop":"10.0.5.3"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17010,
+        "installed":true,
+        "nexthop":"10.0.4.3"
+      }
+    ]
+  },
+  "16011":{
+    "inLabel":16011,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17011,
+        "installed":true,
+        "interface":"eth-rt3-2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17011,
+        "installed":true,
+        "interface":"eth-rt3-1"
+      }
+    ]
+  },
+  "16020":{
+    "inLabel":16020,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17020,
+        "installed":true,
+        "nexthop":"10.0.5.3"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17020,
+        "installed":true,
+        "nexthop":"10.0.4.3"
+      }
+    ]
+  },
+  "16021":{
+    "inLabel":16021,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17021,
+        "installed":true,
+        "interface":"eth-rt3-2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17021,
+        "installed":true,
+        "interface":"eth-rt3-1"
+      }
+    ]
+  },
+  "16030":{
+    "inLabel":16030,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17030,
+        "installed":true,
+        "nexthop":"10.0.5.3"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17030,
+        "installed":true,
+        "nexthop":"10.0.4.3"
+      }
+    ]
+  },
+  "16031":{
+    "inLabel":16031,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17031,
+        "installed":true,
+        "interface":"eth-rt3-2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17031,
+        "installed":true,
+        "interface":"eth-rt3-1"
+      }
+    ]
+  },
+  "16050":{
+    "inLabel":16050,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  },
+  "16051":{
+    "inLabel":16051,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  },
+  "16101":{
+    "inLabel":16101,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  }
+}

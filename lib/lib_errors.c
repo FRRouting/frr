@@ -45,9 +45,15 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue. restart FRR",
 	},
 	{
-		.code = EC_LIB_SLOW_THREAD,
-		.title = "The Event subsystem has detected a slow process",
-		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug, or some combination therof.",
+		.code = EC_LIB_SLOW_THREAD_CPU,
+		.title = "The Event subsystem has detected a slow cpu time process",
+		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug, or some combination therof.  In this case total CPU time was over 5 seconds.  Which indicates that FRR is very busy doing some work and should be addressed",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_SLOW_THREAD_WALL,
+		.title = "The Event subsystem has detected a slow wall time process",
+		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug or some combination therof.  In this case total WALL time was over 5 seconds.  Which indicates that FRR might be having trouble being scheduled or some system call is delaying",
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{

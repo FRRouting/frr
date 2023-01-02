@@ -197,21 +197,30 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 	if (gn->data) {
 		struct cmd_token *tok = gn->data;
 		switch (tok->type) {
-#define item(x) case x: wrap->type = #x; break;
-			item(WORD_TKN)		      // words
-				item(VARIABLE_TKN)    // almost anything
-				item(RANGE_TKN)       // integer range
-				item(IPV4_TKN)	// IPV4 addresses
-				item(IPV4_PREFIX_TKN) // IPV4 network prefixes
-				item(IPV6_TKN)	// IPV6 prefixes
-				item(IPV6_PREFIX_TKN) // IPV6 network prefixes
-				item(MAC_TKN)	 // MAC address
-				item(MAC_PREFIX_TKN)  // MAC address with mask
+#define item(x)                                                                \
+	case x:                                                                \
+		wrap->type = #x;                                               \
+		break /* no semicolon */
 
-				/* plumbing types */
-				item(FORK_TKN) item(JOIN_TKN) item(START_TKN)
-					item(END_TKN) default
-				: wrap->type = "???";
+			item(WORD_TKN);	       // words
+			item(VARIABLE_TKN);    // almost anything
+			item(RANGE_TKN);       // integer range
+			item(IPV4_TKN);	       // IPV4 addresses
+			item(IPV4_PREFIX_TKN); // IPV4 network prefixes
+			item(IPV6_TKN);	       // IPV6 prefixes
+			item(IPV6_PREFIX_TKN); // IPV6 network prefixes
+			item(MAC_TKN);	       // MAC address
+			item(MAC_PREFIX_TKN);  // MAC address with mask
+
+			/* plumbing types */
+			item(FORK_TKN);
+			item(JOIN_TKN);
+			item(START_TKN);
+			item(END_TKN);
+			item(NEG_ONLY_TKN);
+#undef item
+		default:
+			wrap->type = "???";
 		}
 
 		wrap->deprecated = (tok->attr == CMD_ATTR_DEPRECATED);
@@ -345,5 +354,7 @@ PyMODINIT_FUNC command_py_init(void)
 	PyModule_AddObject(pymod, "GraphNode", (PyObject *)&typeobj_graph_node);
 	Py_INCREF(&typeobj_graph);
 	PyModule_AddObject(pymod, "Graph", (PyObject *)&typeobj_graph);
+	if (!elf_py_init(pymod))
+		initret(NULL);
 	initret(pymod);
 }

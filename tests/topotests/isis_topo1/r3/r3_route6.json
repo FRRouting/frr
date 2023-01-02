@@ -1,0 +1,132 @@
+{
+  "2001:db8:1:1::/64": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceName": "r3-eth0"
+        }
+      ],
+      "prefix": "2001:db8:1:1::/64",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "2001:db8:1:2::/64": [
+    {
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r3-eth1"
+        }
+      ],
+      "prefix": "2001:db8:1:2::/64",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "2001:db8:2:1::/64": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceName": "r3-eth1"
+        }
+      ],
+      "prefix": "2001:db8:2:1::/64",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "2001:db8:2:2::/64": [
+    {
+      "distance": 115,
+      "metric": 10,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r3-eth1"
+        }
+      ],
+      "prefix": "2001:db8:2:2::/64",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "2001:db8:f::1/128": [
+    {
+      "distance": 115,
+      "metric": 10,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r3-eth0"
+        }
+      ],
+      "prefix": "2001:db8:f::1/128",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "2001:db8:f::3/128": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceName": "lo"
+        }
+      ],
+      "prefix": "2001:db8:f::3/128",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "2001:db8:f::4/128": [
+    {
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r3-eth1"
+        }
+      ],
+      "prefix": "2001:db8:f::4/128",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "2001:db8:f::5/128": [
+    {
+      "distance": 115,
+      "metric": 10,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r3-eth1"
+        }
+      ],
+      "prefix": "2001:db8:f::5/128",
+      "protocol": "isis",
+      "selected": true
+    }
+  ]
+}

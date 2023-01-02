@@ -183,8 +183,8 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	THREAD_READ_OFF(c->iev.ev_read);
-	THREAD_WRITE_OFF(c->iev.ev_write);
+	thread_cancel(&c->iev.ev_read);
+	thread_cancel(&c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);
@@ -262,6 +262,9 @@ control_dispatch_imsg(struct thread *thread)
 				break;
 
 			nbr_clear_ctl(imsg.data);
+			break;
+		case IMSG_CTL_SHOW_LDP_SYNC:
+			ldpe_ldp_sync_ctl(c);
 			break;
 		case IMSG_CTL_LOG_VERBOSE:
 			/* ignore */

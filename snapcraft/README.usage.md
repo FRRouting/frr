@@ -18,7 +18,8 @@ ie for `ospf6d` (OSPFv3):
     systemctl enable snap.frr.ospf6d.service
 
 The daemons are: `ripd`, `ripngd`, `ospfd`, `ospf6d`, `isisd`, `bgpd`, 
-`pimd`, `ldpd`, `eigrpd`, `babeld`, `nhrpd`, `bfdd`, `zebra`
+`pimd`, `ldpd`, `eigrpd`, `babeld`, `nhrpd`, `bfdd`, `vrrpd`, `pbrd`,
+`pathd`, `fabricd`, `staticd`, `zebra`
 
 Commands defined by this snap
 -----------------------------

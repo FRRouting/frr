@@ -64,10 +64,8 @@ size_t strlcat(char *__restrict dest,
    (which the static_assert checks), then by the pigeonhole
    principle, the two input strings must overlap, which is
    undefined.  */
-#if __STDC_VERSION__ >= 201112L
 	_Static_assert(sizeof(uintptr_t) == sizeof(size_t),
 		       "theoretical maximum object size covers address space");
-#endif
 	return dest_length + src_length;
 }
 #endif /* HAVE_STRLCAT */

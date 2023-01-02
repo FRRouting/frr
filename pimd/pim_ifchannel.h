@@ -25,6 +25,8 @@
 #include "if.h"
 #include "prefix.h"
 
+#include "pim_assert.h"
+
 struct pim_ifchannel;
 #include "pim_upstream.h"
 
@@ -37,20 +39,6 @@ enum pim_ifjoin_state {
 	PIM_IFJOIN_PRUNE_PENDING,
 	PIM_IFJOIN_PRUNE_TMP,
 	PIM_IFJOIN_PRUNE_PENDING_TMP,
-};
-
-enum pim_ifassert_state {
-	PIM_IFASSERT_NOINFO,
-	PIM_IFASSERT_I_AM_WINNER,
-	PIM_IFASSERT_I_AM_LOSER
-};
-
-struct pim_assert_metric {
-	uint32_t rpt_bit_flag;
-	uint32_t metric_preference;
-	uint32_t route_metric;
-	struct in_addr ip_address; /* neighbor router that sourced the Assert
-				      message */
 };
 
 /*
@@ -69,13 +57,30 @@ struct pim_assert_metric {
 #define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 
 /*
- * Flat to tell us if the ifchannel is (S,G,rpt)
+ * Flag to tell us if the ifchannel is (S,G,rpt)
  */
 #define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
 #define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
 #define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
 #define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
 
+/*
+ * Flag to tell us if the ifchannel is proto PIM
+ */
+#define PIM_IF_FLAG_MASK_PROTO_PIM (1 << 3)
+#define PIM_IF_FLAG_TEST_PROTO_PIM(flags) ((flags)&PIM_IF_FLAG_MASK_PROTO_PIM)
+#define PIM_IF_FLAG_SET_PROTO_PIM(flags) ((flags) |= PIM_IF_FLAG_MASK_PROTO_PIM)
+#define PIM_IF_FLAG_UNSET_PROTO_PIM(flags)                                     \
+	((flags) &= ~PIM_IF_FLAG_MASK_PROTO_PIM)
+/*
+ * Flag to tell us if the ifchannel is proto IGMP
+ */
+#define PIM_IF_FLAG_MASK_PROTO_IGMP (1 << 4)
+#define PIM_IF_FLAG_TEST_PROTO_IGMP(flags) ((flags)&PIM_IF_FLAG_MASK_PROTO_IGMP)
+#define PIM_IF_FLAG_SET_PROTO_IGMP(flags)                                      \
+	((flags) |= PIM_IF_FLAG_MASK_PROTO_IGMP)
+#define PIM_IF_FLAG_UNSET_PROTO_IGMP(flags)                                    \
+	((flags) &= ~PIM_IF_FLAG_MASK_PROTO_IGMP)
 /*
   Per-interface (S,G) state
 */
@@ -130,7 +135,7 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 			 struct prefix_sg *sg, uint8_t source_flags,
 			 uint16_t holdtime);
 int pim_ifchannel_local_membership_add(struct interface *ifp,
-				       struct prefix_sg *sg);
+		struct prefix_sg *sg, bool is_vxlan);
 void pim_ifchannel_local_membership_del(struct interface *ifp,
 					struct prefix_sg *sg);
 
@@ -156,4 +161,5 @@ int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
 			  const struct pim_ifchannel *ch2);
 
 unsigned int pim_ifchannel_hash_key(const void *arg);
+void delete_on_noinfo(struct pim_ifchannel *ch);
 #endif /* PIM_IFCHANNEL_H */

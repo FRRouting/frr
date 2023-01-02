@@ -1,0 +1,68 @@
+test isis topology 1 root rt1 spf
+test isis topology 2 root rt1 spf
+test isis topology 3 root rt1 spf ipv4-only
+test isis topology 4 root rt1 spf ipv4-only
+test isis topology 5 root rt1 spf ipv4-only
+test isis topology 6 root rt1 spf ipv4-only
+test isis topology 7 root rt1 spf ipv4-only
+test isis topology 8 root rt1 spf ipv4-only
+test isis topology 9 root rt1 spf
+test isis topology 10 root rt1 spf
+test isis topology 11 root rt1 spf
+test isis topology 12 root rt1 spf ipv4-only
+test isis topology 13 root rt1 spf ipv4-only
+
+test isis topology 4 root rt1 reverse-spf ipv4-only
+test isis topology 11 root rt1 reverse-spf
+
+test isis topology 1 root rt1 lfa system-id rt2
+test isis topology 2 root rt4 lfa system-id rt1 pseudonode-id 1
+test isis topology 2 root rt4 lfa system-id rt6
+test isis topology 3 root rt1 lfa system-id rt2
+test isis topology 3 root rt1 lfa system-id rt3
+test isis topology 7 root rt1 lfa system-id rt4
+test isis topology 7 root rt7 lfa system-id rt8
+test isis topology 7 root rt8 lfa system-id rt11
+test isis topology 9 root rt3 lfa system-id rt1
+test isis topology 10 root rt8 lfa system-id rt5
+test isis topology 11 root rt3 lfa system-id rt5
+test isis topology 13 root rt4 lfa system-id rt3
+test isis topology 14 root rt1 lfa system-id rt1 pseudonode-id 1
+test isis topology 14 root rt1 lfa system-id rt2
+test isis topology 14 root rt5 lfa system-id rt4
+
+test isis topology 1 root rt1 remote-lfa system-id rt2
+test isis topology 2 root rt5 remote-lfa system-id rt1 pseudonode-id 1
+test isis topology 3 root rt5 remote-lfa system-id rt4 ipv4-only
+test isis topology 3 root rt5 remote-lfa system-id rt3 ipv4-only
+test isis topology 5 root rt1 remote-lfa system-id rt2 ipv4-only
+test isis topology 6 root rt4 remote-lfa system-id rt3 ipv4-only
+test isis topology 7 root rt11 remote-lfa system-id rt8 ipv4-only
+test isis topology 7 root rt6 remote-lfa system-id rt5 ipv4-only
+test isis topology 8 root rt2 remote-lfa system-id rt5 ipv4-only
+test isis topology 11 root rt2 remote-lfa system-id rt4
+test isis topology 13 root rt1 remote-lfa system-id rt3 ipv4-only
+
+test isis topology 1 root rt1 ti-lfa system-id rt2
+test isis topology 2 root rt1 ti-lfa system-id rt3
+test isis topology 2 root rt1 ti-lfa system-id rt1 pseudonode-id 1
+test isis topology 2 root rt5 ti-lfa system-id rt1 pseudonode-id 1
+test isis topology 3 root rt5 ti-lfa system-id rt4 ipv4-only
+test isis topology 3 root rt5 ti-lfa system-id rt3 ipv4-only
+test isis topology 4 root rt1 ti-lfa system-id rt2 ipv4-only
+test isis topology 4 root rt4 ti-lfa system-id rt6 ipv4-only
+test isis topology 5 root rt1 ti-lfa system-id rt2 ipv4-only
+test isis topology 6 root rt4 ti-lfa system-id rt3 ipv4-only
+test isis topology 7 root rt11 ti-lfa system-id rt8 ipv4-only
+test isis topology 7 root rt6 ti-lfa system-id rt5 ipv4-only
+test isis topology 8 root rt2 ti-lfa system-id rt1 ipv4-only
+test isis topology 8 root rt2 ti-lfa system-id rt5 ipv4-only
+test isis topology 9 root rt1 ti-lfa system-id rt3
+test isis topology 9 root rt1 ti-lfa system-id rt2
+test isis topology 9 root rt9 ti-lfa system-id rt5
+test isis topology 9 root rt9 ti-lfa system-id rt8
+test isis topology 10 root rt1 ti-lfa system-id rt2
+test isis topology 10 root rt1 ti-lfa system-id rt4
+test isis topology 11 root rt2 ti-lfa system-id rt4
+test isis topology 12 root rt1 ti-lfa system-id rt3 ipv4-only
+test isis topology 13 root rt1 ti-lfa system-id rt3 ipv4-only

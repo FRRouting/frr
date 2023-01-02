@@ -6,10 +6,11 @@ if RIPNGD
 noinst_LIBRARIES += ripngd/libripng.a
 sbin_PROGRAMS += ripngd/ripngd
 vtysh_scan += \
-	$(top_srcdir)/ripngd/ripng_cli.c \
-	$(top_srcdir)/ripngd/ripng_debug.c \
-	$(top_srcdir)/ripngd/ripngd.c \
+	ripngd/ripng_cli.c \
+	ripngd/ripng_debug.c \
+	ripngd/ripngd.c \
 	# end
+vtysh_daemons += ripngd
 man8 += $(MANBUILD)/frr-ripngd.8
 endif
 
@@ -30,8 +31,9 @@ ripngd_libripng_a_SOURCES = \
 	ripngd/ripngd.c \
 	# end
 
-ripngd/ripng_cli_clippy.c: $(CLIPPY_DEPS)
-ripngd/ripng_cli.$(OBJEXT): ripngd/ripng_cli_clippy.c
+clippy_scan += \
+	ripngd/ripng_cli.c \
+	# end
 
 noinst_HEADERS += \
 	ripngd/ripng_debug.h \
@@ -48,5 +50,3 @@ ripngd_ripngd_SOURCES = \
 nodist_ripngd_ripngd_SOURCES = \
 	yang/frr-ripngd.yang.c \
 	# end
-
-dist_examples_DATA += ripngd/ripngd.conf.sample

@@ -21,6 +21,21 @@
 extern "C" {
 #endif
 
+#ifdef __cplusplus
+# if __cplusplus < 201103L
+#  error FRRouting headers must be compiled in C++11 mode or newer
+# endif
+/* C++ defines static_assert(), but not _Static_assert().  C defines
+ * _Static_assert() and has static_assert() in <assert.h>.  However, we mess
+ * with assert() in zassert.h so let's not include <assert.h> here.
+ */
+# define _Static_assert static_assert
+#else
+# if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+#  error FRRouting must be compiled with min. -std=gnu11 (GNU ISO C11 dialect)
+# endif
+#endif
+
 /* function attributes, use like
  *   void prototype(void) __attribute__((_CONSTRUCTOR(100)));
  */
@@ -108,19 +123,13 @@ extern "C" {
 #define assume(x)
 #endif
 
-/* pure = function does not modify memory & return value is the same if
- * memory hasn't changed (=> allows compiler to optimize)
- *
- * Mostly autodetected by the compiler if function body is available (i.e.
- * static inline functions in headers).  Since that implies it should only be
- * used in headers for non-inline functions, the "extern" is included here.
- */
-#define ext_pure	extern __attribute__((pure))
-
 /* for helper functions defined inside macros */
 #define macro_inline	static inline __attribute__((unused))
 #define macro_pure	static inline __attribute__((unused, pure))
 
+/* if the macro ends with a function definition */
+#define MACRO_REQUIRE_SEMICOLON() \
+	_Static_assert(1, "please add a semicolon after this macro")
 
 /* variadic macros, use like:
  * #define V_0()  ...
@@ -163,6 +172,29 @@ extern "C" {
 
 #define MACRO_REPEAT(NAME, ...) \
 	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(NAME, ##__VA_ARGS__)
+
+/* per-arglist repeat macro, use like this:
+ * #define foo(...) MAP_LISTS(F, ##__VA_ARGS__)
+ * where F is a n-ary function where n is the number of args in each arglist.
+ * e.g.: MAP_LISTS(f, (a, b), (c, d))
+ * expands to: f(a, b); f(c, d)
+ */
+
+#define ESC(...) __VA_ARGS__
+#define MAP_LISTS(M, ...)                                                      \
+	_CONCAT(_MAP_LISTS_, PP_NARG(__VA_ARGS__))(M, ##__VA_ARGS__)
+#define _MAP_LISTS_0(M)
+#define _MAP_LISTS_1(M, _1) ESC(M _1)
+#define _MAP_LISTS_2(M, _1, _2) ESC(M _1; M _2)
+#define _MAP_LISTS_3(M, _1, _2, _3) ESC(M _1; M _2; M _3)
+#define _MAP_LISTS_4(M, _1, _2, _3, _4) ESC(M _1; M _2; M _3; M _4)
+#define _MAP_LISTS_5(M, _1, _2, _3, _4, _5) ESC(M _1; M _2; M _3; M _4; M _5)
+#define _MAP_LISTS_6(M, _1, _2, _3, _4, _5, _6)                                \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6)
+#define _MAP_LISTS_7(M, _1, _2, _3, _4, _5, _6, _7)                            \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7)
+#define _MAP_LISTS_8(M, _1, _2, _3, _4, _5, _6, _7, _8)                        \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7; M _8)
 
 /*
  * for warnings on macros, put in the macro content like this:
@@ -279,6 +311,29 @@ extern "C" {
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
+/* Some insane macros to count number of varargs to a functionlike macro */
+#define PP_ARG_N( \
+          _1,  _2,  _3,  _4,  _5,  _6,  _7,  _8,  _9, _10, \
+         _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, \
+         _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, \
+         _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, \
+         _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, \
+         _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, \
+         _61, _62, _63, N, ...) N
+
+#define PP_RSEQ_N()                                        \
+         62, 61, 60,                                       \
+         59, 58, 57, 56, 55, 54, 53, 52, 51, 50,           \
+         49, 48, 47, 46, 45, 44, 43, 42, 41, 40,           \
+         39, 38, 37, 36, 35, 34, 33, 32, 31, 30,           \
+         29, 28, 27, 26, 25, 24, 23, 22, 21, 20,           \
+         19, 18, 17, 16, 15, 14, 13, 12, 11, 10,           \
+          9,  8,  7,  6,  5,  4,  3,  2,  1,  0
+
+#define PP_NARG_(...) PP_ARG_N(__VA_ARGS__)
+#define PP_NARG(...)     PP_NARG_(_, ##__VA_ARGS__, PP_RSEQ_N())
+
+
 /* sigh. this is so ugly, it overflows and wraps to being nice again.
  *
  * printfrr() supports "%Ld" for <int64_t>, whatever that is typedef'd to.
@@ -305,11 +360,26 @@ extern "C" {
 #include <inttypes.h>
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
-#define PRINTFRR(a, b) __attribute__((printfrr(a, b)))
+#define PRINTFRR(a, b) __attribute__((frr_format("frr_printf", a, b)))
+
+#undef PRIu64
+#undef PRId64
+#undef PRIx64
+#define PRIu64 "Lu"
+#define PRId64 "Ld"
+#define PRIx64 "Lx"
 
 #else /* !_FRR_ATTRIBUTE_PRINTFRR */
+#ifdef __NetBSD__
+#define PRINTFRR(a, b) __attribute__((format(gnu_syslog, a, b)))
+#else
 #define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
+#endif
 
+/* frr-format plugin is C-only for now, so no point in doing these shenanigans
+ * for C++...  (also they can break some C++ stuff...)
+ */
+#ifndef __cplusplus
 /* these should be typedefs, but might also be #define */
 #ifdef uint64_t
 #undef uint64_t
@@ -327,10 +397,8 @@ typedef signed long long _int64_t;
 /* if this breaks, 128-bit machines may have entered reality (or <long long>
  * is something weird)
  */
-#if __STDC_VERSION__ >= 201112L
 _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 	       "nobody expects the spanish intquisition");
-#endif
 
 /* since we redefined int64_t, we also need to redefine PRI*64 */
 #undef PRIu64
@@ -339,6 +407,8 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #define PRIu64 "llu"
 #define PRId64 "lld"
 #define PRIx64 "llx"
+
+#endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
 #ifdef __cplusplus

@@ -20,6 +20,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "compiler.h"
+#include "xref.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -75,16 +78,22 @@ extern union _frrmod_runtime_u _frrmod_this_module;
 	DSO_LOCAL union _frrmod_runtime_u _frrmod_this_module = {{             \
 		NULL,                                                          \
 		&_frrmod_info,                                                 \
-	}};
+	}};                                                                    \
+	XREF_SETUP();                                                          \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 #define FRR_MODULE_SETUP(...)                                                  \
-	FRR_COREMOD_SETUP(__VA_ARGS__)                                         \
-	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;
+	FRR_COREMOD_SETUP(__VA_ARGS__);                                        \
+	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;   \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 extern struct frrmod_runtime *frrmod_list;
 
 extern void frrmod_init(struct frrmod_runtime *modinfo);
 extern struct frrmod_runtime *frrmod_load(const char *spec, const char *dir,
-					  char *err, size_t err_len);
+					  void (*pFerrlog)(const void *,
+							   const char *),
+					  const void *pErrlogCookie);
 #if 0
 /* not implemented yet */
 extern void frrmod_unload(struct frrmod_runtime *module);

@@ -32,7 +32,7 @@
 #include "filter.h"
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -40,6 +40,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_mplsvpn_snmp.h"
 
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
@@ -325,12 +326,12 @@ static uint8_t *bgpVersion(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	/* Retrun BGP version.  Zebra bgpd only support version 4. */
+	/* Return BGP version.  Zebra bgpd only support version 4. */
 	version = (0x80 >> (BGP_VERSION_4 - 1));
 
 	/* Return octet string length 1. */
 	*var_len = 1;
-	return (uint8_t *)&version;
+	return &version;
 }
 
 static uint8_t *bgpLocalAs(struct variable *v, oid name[], size_t *length,
@@ -356,17 +357,16 @@ static struct peer *peer_lookup_addr_ipv4(struct in_addr *src)
 	struct bgp *bgp;
 	struct peer *peer;
 	struct listnode *node;
+	struct listnode *bgpnode;
 
-	bgp = bgp_get_default();
-	if (!bgp)
-		return NULL;
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (sockunion_family(&peer->su) != AF_INET)
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (sockunion_family(&peer->su) != AF_INET)
-			continue;
-
-		if (sockunion2ip(&peer->su) == src->s_addr)
-			return peer;
+			if (sockunion2ip(&peer->su) == src->s_addr)
+				return peer;
+		}
 	}
 
 	return NULL;
@@ -378,21 +378,20 @@ static struct peer *bgp_peer_lookup_next(struct in_addr *src)
 	struct peer *peer;
 	struct peer *next_peer = NULL;
 	struct listnode *node;
+	struct listnode *bgpnode;
 
-	bgp = bgp_get_default();
-	if (!bgp)
-		return NULL;
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bgpnode, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (sockunion_family(&peer->su) != AF_INET)
+				continue;
+			if (ntohl(sockunion2ip(&peer->su)) <= ntohl(src->s_addr))
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (sockunion_family(&peer->su) != AF_INET)
-			continue;
-		if (ntohl(sockunion2ip(&peer->su)) <= ntohl(src->s_addr))
-			continue;
-
-		if (!next_peer
-		    || ntohl(sockunion2ip(&next_peer->su))
-			       > ntohl(sockunion2ip(&peer->su))) {
-			next_peer = peer;
+			if (!next_peer
+			    || ntohl(sockunion2ip(&next_peer->su))
+				       > ntohl(sockunion2ip(&peer->su))) {
+				next_peer = peer;
+			}
 		}
 	}
 
@@ -436,7 +435,7 @@ static struct peer *bgpPeerTable_lookup(struct variable *v, oid name[],
 		if (peer == NULL)
 			return NULL;
 
-		oid_copy_addr(name + namelen, addr, sizeof(struct in_addr));
+		oid_copy_in_addr(name + namelen, addr);
 		*length = sizeof(struct in_addr) + namelen;
 
 		return peer;
@@ -528,10 +527,8 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case BGPPEERIDENTIFIER:
 		return SNMP_IPADDRESS(peer->remote_id);
-		break;
 	case BGPPEERSTATE:
 		return SNMP_INTEGER(peer->status);
-		break;
 	case BGPPEERADMINSTATUS:
 		*write_method = write_bgpPeerTable;
 #define BGP_PeerAdmin_stop  1
@@ -540,108 +537,87 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 			return SNMP_INTEGER(BGP_PeerAdmin_stop);
 		else
 			return SNMP_INTEGER(BGP_PeerAdmin_start);
-		break;
 	case BGPPEERNEGOTIATEDVERSION:
 		return SNMP_INTEGER(BGP_VERSION_4);
-		break;
 	case BGPPEERLOCALADDR:
 		if (peer->su_local)
 			return SNMP_IPADDRESS(peer->su_local->sin.sin_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
-		break;
 	case BGPPEERLOCALPORT:
 		if (peer->su_local)
 			return SNMP_INTEGER(
 				ntohs(peer->su_local->sin.sin_port));
 		else
 			return SNMP_INTEGER(0);
-		break;
 	case BGPPEERREMOTEADDR:
 		if (peer->su_remote)
 			return SNMP_IPADDRESS(peer->su_remote->sin.sin_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
-		break;
 	case BGPPEERREMOTEPORT:
 		if (peer->su_remote)
 			return SNMP_INTEGER(
 				ntohs(peer->su_remote->sin.sin_port));
 		else
 			return SNMP_INTEGER(0);
-		break;
 	case BGPPEERREMOTEAS:
 		return SNMP_INTEGER(peer->as);
-		break;
 	case BGPPEERINUPDATES:
 		ui = atomic_load_explicit(&peer->update_in,
 					  memory_order_relaxed);
 		return SNMP_INTEGER(ui);
-		break;
 	case BGPPEEROUTUPDATES:
 		uo = atomic_load_explicit(&peer->update_out,
 					  memory_order_relaxed);
 		return SNMP_INTEGER(uo);
-		break;
 	case BGPPEERINTOTALMESSAGES:
 		return SNMP_INTEGER(PEER_TOTAL_RX(peer));
-		break;
 	case BGPPEEROUTTOTALMESSAGES:
 		return SNMP_INTEGER(PEER_TOTAL_TX(peer));
-		break;
 	case BGPPEERLASTERROR: {
 		static uint8_t lasterror[2];
 		lasterror[0] = peer->notify.code;
 		lasterror[1] = peer->notify.subcode;
 		*var_len = 2;
 		return (uint8_t *)&lasterror;
-	} break;
+	}
 	case BGPPEERFSMESTABLISHEDTRANSITIONS:
 		return SNMP_INTEGER(peer->established);
-		break;
 	case BGPPEERFSMESTABLISHEDTIME:
 		if (peer->uptime == 0)
 			return SNMP_INTEGER(0);
 		else
 			return SNMP_INTEGER(bgp_clock() - peer->uptime);
-		break;
 	case BGPPEERCONNECTRETRYINTERVAL:
 		*write_method = write_bgpPeerTable;
 		return SNMP_INTEGER(peer->v_connect);
-		break;
 	case BGPPEERHOLDTIME:
 		return SNMP_INTEGER(peer->v_holdtime);
-		break;
 	case BGPPEERKEEPALIVE:
 		return SNMP_INTEGER(peer->v_keepalive);
-		break;
 	case BGPPEERHOLDTIMECONFIGURED:
 		*write_method = write_bgpPeerTable;
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 			return SNMP_INTEGER(peer->holdtime);
 		else
 			return SNMP_INTEGER(peer->v_holdtime);
-		break;
 	case BGPPEERKEEPALIVECONFIGURED:
 		*write_method = write_bgpPeerTable;
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 			return SNMP_INTEGER(peer->keepalive);
 		else
 			return SNMP_INTEGER(peer->v_keepalive);
-		break;
 	case BGPPEERMINROUTEADVERTISEMENTINTERVAL:
 		*write_method = write_bgpPeerTable;
 		return SNMP_INTEGER(peer->v_routeadv);
-		break;
 	case BGPPEERINUPDATEELAPSEDTIME:
 		if (peer->update_time == 0)
 			return SNMP_INTEGER(0);
 		else
 			return SNMP_INTEGER(bgp_clock() - peer->update_time);
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -683,7 +659,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 	int offsetlen;
 	struct bgp_path_info *path;
 	struct bgp_path_info *min;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	union sockunion su;
 	unsigned int len;
 	struct in_addr paddr;
@@ -710,15 +686,15 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		oid2in_addr(offset, IN_ADDR_SIZE, &su.sin.sin_addr);
 
 		/* Lookup node. */
-		rn = bgp_node_lookup(bgp->rib[AFI_IP][SAFI_UNICAST],
-				     (struct prefix *)addr);
-		if (rn) {
-			bgp_unlock_node(rn);
-
-			for (path = bgp_node_get_bgp_path_info(rn); path;
+		dest = bgp_node_lookup(bgp->rib[AFI_IP][SAFI_UNICAST],
+				       (struct prefix *)addr);
+		if (dest) {
+			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next)
 				if (sockunion_same(&path->peer->su, &su))
 					return path;
+
+			bgp_dest_unlock_node(dest);
 		}
 	} else {
 		offset = name + v->namelen;
@@ -726,7 +702,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		len = offsetlen;
 
 		if (offsetlen == 0)
-			rn = bgp_table_top(bgp->rib[AFI_IP][SAFI_UNICAST]);
+			dest = bgp_table_top(bgp->rib[AFI_IP][SAFI_UNICAST]);
 		else {
 			if (len > IN_ADDR_SIZE)
 				len = IN_ADDR_SIZE;
@@ -741,8 +717,8 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 			else
 				addr->prefixlen = len * 8;
 
-			rn = bgp_node_get(bgp->rib[AFI_IP][SAFI_UNICAST],
-					  (struct prefix *)addr);
+			dest = bgp_node_get(bgp->rib[AFI_IP][SAFI_UNICAST],
+					    (struct prefix *)addr);
 
 			offset++;
 			offsetlen--;
@@ -755,15 +731,15 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 			oid2in_addr(offset, len, &paddr);
 		} else
-			paddr.s_addr = 0;
+			paddr.s_addr = INADDR_ANY;
 
-		if (!rn)
+		if (!dest)
 			return NULL;
 
 		do {
 			min = NULL;
 
-			for (path = bgp_node_get_bgp_path_info(rn); path;
+			for (path = bgp_dest_get_bgp_path_info(dest); path;
 			     path = path->next) {
 				if (path->peer->su.sin.sin_family == AF_INET
 				    && ntohl(paddr.s_addr)
@@ -784,28 +760,29 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 			}
 
 			if (min) {
+				const struct prefix *rn_p =
+					bgp_dest_get_prefix(dest);
+
 				*length =
 					v->namelen + BGP_PATHATTR_ENTRY_OFFSET;
 
 				offset = name + v->namelen;
-				oid_copy_addr(offset, &rn->p.u.prefix4,
-					      IN_ADDR_SIZE);
+				oid_copy_in_addr(offset, &rn_p->u.prefix4);
 				offset += IN_ADDR_SIZE;
-				*offset = rn->p.prefixlen;
+				*offset = rn_p->prefixlen;
 				offset++;
-				oid_copy_addr(offset,
-					      &min->peer->su.sin.sin_addr,
-					      IN_ADDR_SIZE);
-				addr->prefix = rn->p.u.prefix4;
-				addr->prefixlen = rn->p.prefixlen;
+				oid_copy_in_addr(offset,
+						 &min->peer->su.sin.sin_addr);
+				addr->prefix = rn_p->u.prefix4;
+				addr->prefixlen = rn_p->prefixlen;
 
-				bgp_unlock_node(rn);
+				bgp_dest_unlock_node(dest);
 
 				return min;
 			}
 
-			paddr.s_addr = 0;
-		} while ((rn = bgp_route_next(rn)) != NULL);
+			paddr.s_addr = INADDR_ANY;
+		} while ((dest = bgp_route_next(dest)) != NULL);
 	}
 	return NULL;
 }
@@ -834,40 +811,28 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 	switch (v->magic) {
 	case BGP4PATHATTRPEER: /* 1 */
 		return SNMP_IPADDRESS(path->peer->su.sin.sin_addr);
-		break;
 	case BGP4PATHATTRIPADDRPREFIXLEN: /* 2 */
 		return SNMP_INTEGER(addr.prefixlen);
-		break;
 	case BGP4PATHATTRIPADDRPREFIX: /* 3 */
 		return SNMP_IPADDRESS(addr.prefix);
-		break;
 	case BGP4PATHATTRORIGIN: /* 4 */
 		return SNMP_INTEGER(path->attr->origin);
-		break;
 	case BGP4PATHATTRASPATHSEGMENT: /* 5 */
 		return aspath_snmp_pathseg(path->attr->aspath, var_len);
-		break;
 	case BGP4PATHATTRNEXTHOP: /* 6 */
 		return SNMP_IPADDRESS(path->attr->nexthop);
-		break;
 	case BGP4PATHATTRMULTIEXITDISC: /* 7 */
 		return SNMP_INTEGER(path->attr->med);
-		break;
 	case BGP4PATHATTRLOCALPREF: /* 8 */
 		return SNMP_INTEGER(path->attr->local_pref);
-		break;
 	case BGP4PATHATTRATOMICAGGREGATE: /* 9 */
 		return SNMP_INTEGER(1);
-		break;
 	case BGP4PATHATTRAGGREGATORAS: /* 10 */
 		return SNMP_INTEGER(path->attr->aggregator_as);
-		break;
 	case BGP4PATHATTRAGGREGATORADDR: /* 11 */
 		return SNMP_IPADDRESS(path->attr->aggregator_addr);
-		break;
 	case BGP4PATHATTRCALCLOCALPREF: /* 12 */
 		return SNMP_INTEGER(-1);
-		break;
 	case BGP4PATHATTRBEST: /* 13 */
 #define BGP4_PathAttrBest_false 1
 #define BGP4_PathAttrBest_true  2
@@ -875,18 +840,17 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 			return SNMP_INTEGER(BGP4_PathAttrBest_true);
 		else
 			return SNMP_INTEGER(BGP4_PathAttrBest_false);
-		break;
 	case BGP4PATHATTRUNKNOWN: /* 14 */
 		*var_len = 0;
 		return NULL;
-		break;
 	}
 	return NULL;
 }
 
 /* BGP Traps. */
-static struct trap_object bgpTrapList[] = {{3, {3, 1, BGPPEERLASTERROR}},
-					   {3, {3, 1, BGPPEERSTATE}}};
+static struct trap_object bgpTrapList[] = {{3, {3, 1, BGPPEERREMOTEADDR} },
+					   {3, {3, 1, BGPPEERLASTERROR} },
+					   {3, {3, 1, BGPPEERSTATE} } };
 
 static int bgpTrapEstablished(struct peer *peer)
 {
@@ -895,18 +859,18 @@ static int bgpTrapEstablished(struct peer *peer)
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 
 	/* Check if this peer just went to Established */
-	if ((peer->last_major_event != OpenConfirm) || !(peer_established(peer)))
+	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
 		return 0;
 
 	ret = inet_aton(peer->host, &addr);
 	if (ret == 0)
 		return 0;
 
-	oid_copy_addr(index, &addr, IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &addr);
 
 	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
 		  array_size(bgp_trap_oid), bgp_oid,
-		  sizeof bgp_oid / sizeof(oid), index, IN_ADDR_SIZE,
+		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
 		  bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
 	return 0;
 }
@@ -921,11 +885,11 @@ static int bgpTrapBackwardTransition(struct peer *peer)
 	if (ret == 0)
 		return 0;
 
-	oid_copy_addr(index, &addr, IN_ADDR_SIZE);
+	oid_copy_in_addr(index, &addr);
 
 	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
 		  array_size(bgp_trap_oid), bgp_oid,
-		  sizeof bgp_oid / sizeof(oid), index, IN_ADDR_SIZE,
+		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
 		  bgpTrapList, array_size(bgpTrapList), BGPBACKWARDTRANSITION);
 	return 0;
 }
@@ -934,6 +898,7 @@ static int bgp_snmp_init(struct thread_master *tm)
 {
 	smux_init(tm);
 	REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
+	bgp_mpls_l3vpn_module_init();
 	return 0;
 }
 
@@ -947,4 +912,5 @@ static int bgp_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "bgpd_snmp", .version = FRR_VERSION,
 		 .description = "bgpd AgentX SNMP module",
-		 .init = bgp_snmp_module_init)
+		 .init = bgp_snmp_module_init,
+);

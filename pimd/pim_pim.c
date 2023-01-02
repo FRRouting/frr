@@ -23,6 +23,7 @@
 #include "thread.h"
 #include "memory.h"
 #include "if.h"
+#include "network.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -42,7 +43,6 @@
 #include "pim_bsm.h"
 
 static int on_pim_hello_send(struct thread *t);
-static int pim_hello_send(struct interface *ifp, uint16_t holdtime);
 
 static const char *pim_pim_msgtype2str(enum pim_msg_type type)
 {
@@ -119,7 +119,7 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 	if (!ifp->info) {
 		flog_err(EC_PIM_CONFIG,
 			 "%s: %s: but PIM not enabled on interface %s (!)",
-			 __PRETTY_FUNCTION__, delete_message, ifp->name);
+			 __func__, delete_message, ifp->name);
 		return;
 	}
 
@@ -135,6 +135,18 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 	pim_neighbor_delete_all(ifp, delete_message);
 
 	sock_close(ifp);
+}
+
+/* For now check dst address for hello, assrt and join/prune is all pim rtr */
+static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, in_addr_t addr)
+{
+	if ((type == PIM_MSG_TYPE_HELLO) || (type == PIM_MSG_TYPE_ASSERT)
+	    || (type == PIM_MSG_TYPE_JOIN_PRUNE)) {
+		if (addr != qpim_all_pim_routers_addr.s_addr)
+			return false;
+	}
+
+	return true;
 }
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
@@ -233,8 +245,23 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			ifp->name, ip_hdr->ip_ttl, header->ver, pim_msg_len,
 			checksum);
 		if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-			pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_len);
+			pim_pkt_dump(__func__, pim_msg, pim_msg_len);
 		}
+	}
+
+	if (!pim_pkt_dst_addr_ok(header->type, ip_hdr->ip_dst.s_addr)) {
+		char dst_str[INET_ADDRSTRLEN];
+		char src_str[INET_ADDRSTRLEN];
+
+		pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str,
+			       sizeof(dst_str));
+		pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str,
+			       sizeof(src_str));
+		zlog_warn(
+			"%s: Ignoring Pkt. Unexpected IP destination %s for %s (Expected: all_pim_routers_addr) from %s",
+			__func__, dst_str, pim_pim_msgtype2str(header->type),
+			src_str);
+		return -1;
 	}
 
 	switch (header->type) {
@@ -258,8 +285,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-					__FILE__, __PRETTY_FUNCTION__,
-					header->type, src_str, ifp->name);
+					__FILE__, __func__, header->type,
+					src_str, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -273,8 +300,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-					__FILE__, __PRETTY_FUNCTION__,
-					header->type, src_str, ifp->name);
+					__FILE__, __func__, header->type,
+					src_str, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -295,7 +322,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		}
 		return -1;
 	}
-	return -1;
 }
 
 static void pim_sock_read_on(struct interface *ifp);
@@ -342,20 +368,20 @@ static int pim_sock_read(struct thread *t)
 		 * the right ifindex, so just use it.  We know
 		 * it's the right interface because we bind to it
 		 */
-		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf_id);
+		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf->vrf_id);
 		if (!ifp || !ifp->info) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s: Received incoming pim packet on interface(%s:%d) not yet configured for pim",
-					__PRETTY_FUNCTION__,
-					ifp ? ifp->name : "Unknown", ifindex);
+					__func__, ifp ? ifp->name : "Unknown",
+					ifindex);
 			goto done;
 		}
 		int fail = pim_pim_packet(ifp, buf, len);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
-					   __PRETTY_FUNCTION__, fail);
+					   __func__, fail);
 			goto done;
 		}
 
@@ -380,8 +406,8 @@ static void pim_sock_read_on(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
-	zassert(ifp->info);
+	assert(ifp);
+	assert(ifp->info);
 
 	pim_ifp = ifp->info;
 
@@ -417,7 +443,7 @@ void pim_ifstat_reset(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
+	assert(ifp);
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -435,8 +461,8 @@ void pim_sock_reset(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
-	zassert(ifp->info);
+	assert(ifp);
+	assert(ifp->info);
 
 	pim_ifp = ifp->info;
 
@@ -457,9 +483,9 @@ void pim_sock_reset(struct interface *ifp)
 	pim_ifp->pim_override_interval_msec =
 		PIM_DEFAULT_OVERRIDE_INTERVAL_MSEC;
 	if (PIM_DEFAULT_CAN_DISABLE_JOIN_SUPPRESSION) {
-		PIM_IF_DO_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options);
+		PIM_IF_DO_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options);
 	} else {
-		PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options);
+		PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options);
 	}
 
 	/* neighbors without lan_delay */
@@ -474,6 +500,7 @@ void pim_sock_reset(struct interface *ifp)
 	pim_ifp->pim_dr_num_nondrpri_neighbors =
 		0; /* neighbors without dr_pri */
 	pim_ifp->pim_dr_addr = pim_ifp->primary_address;
+	pim_ifp->am_i_dr = true;
 
 	pim_ifstat_reset(ifp);
 }
@@ -486,7 +513,7 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 {
 	struct ip *ip = (struct ip *)buf;
 
-	while (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
+	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
 		char dst_str[INET_ADDRSTRLEN];
 
 		switch (errno) {
@@ -513,18 +540,16 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		}
 
 			return -1;
-			break;
 		default:
 			if (PIM_DEBUG_PIM_PACKETS) {
 				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
 					       sizeof(dst_str));
 				zlog_warn(
 					"%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
-					__PRETTY_FUNCTION__, dst_str, fd, len,
-					errno, safe_strerror(errno));
+					__func__, dst_str, fd, len, errno,
+					safe_strerror(errno));
 			}
 			return -1;
-			break;
 		}
 	}
 
@@ -590,9 +615,8 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	if (PIM_DEBUG_PIM_PACKETS) {
 		char dst_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
-		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x",
-			   __PRETTY_FUNCTION__, dst_str, ifname, pim_msg_size,
-			   header->checksum);
+		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x", __func__,
+			   dst_str, ifname, pim_msg_size, header->checksum);
 	}
 
 	memset(&to, 0, sizeof(to));
@@ -601,7 +625,7 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	tolen = sizeof(to);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
-		pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_size);
+		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
@@ -624,10 +648,10 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 			       sizeof(dst_str));
 		zlog_debug(
 			"%s: to %s on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
-			__PRETTY_FUNCTION__, dst_str, ifp->name, holdtime,
+			__func__, dst_str, ifp->name, holdtime,
 			pim_ifp->pim_propagation_delay_msec,
 			pim_ifp->pim_override_interval_msec,
-			PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(
+			PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(
 				pim_ifp->options),
 			pim_ifp->pim_dr_priority, pim_ifp->pim_generation_id,
 			listcount(ifp->connected));
@@ -639,15 +663,15 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 		pim_ifp->pim_dr_priority, pim_ifp->pim_generation_id,
 		pim_ifp->pim_propagation_delay_msec,
 		pim_ifp->pim_override_interval_msec,
-		PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options));
+		PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options));
 	if (pim_tlv_size < 0) {
 		return -1;
 	}
 
 	pim_msg_size = pim_tlv_size + PIM_PIM_MIN_LEN;
 
-	zassert(pim_msg_size >= PIM_PIM_MIN_LEN);
-	zassert(pim_msg_size <= PIM_PIM_BUFSIZE_WRITE);
+	assert(pim_msg_size >= PIM_PIM_MIN_LEN);
+	assert(pim_msg_size <= PIM_PIM_BUFSIZE_WRITE);
 
 	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_HELLO, false);
 
@@ -657,7 +681,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
 				"%s: could not send PIM message on interface %s",
-				__PRETTY_FUNCTION__, ifp->name);
+				__func__, ifp->name);
 		}
 		return -2;
 	}
@@ -665,7 +689,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 	return 0;
 }
 
-static int pim_hello_send(struct interface *ifp, uint16_t holdtime)
+int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
@@ -821,7 +845,7 @@ int pim_sock_add(struct interface *ifp)
 	uint32_t old_genid;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (pim_ifp->pim_sock_fd >= 0) {
 		if (PIM_DEBUG_PIM_PACKETS)
@@ -855,7 +879,7 @@ int pim_sock_add(struct interface *ifp)
 	old_genid = pim_ifp->pim_generation_id;
 
 	while (old_genid == pim_ifp->pim_generation_id)
-		pim_ifp->pim_generation_id = random();
+		pim_ifp->pim_generation_id = frr_weak_random();
 
 	zlog_info("PIM INTERFACE UP: on interface %s ifindex=%d", ifp->name,
 		  ifp->ifindex);

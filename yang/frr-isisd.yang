@@ -15,18 +15,61 @@ module frr-isisd {
     prefix frr-interface;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-route-types {
     prefix frr-route-types;
   }
 
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
      List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines a model for managing FRR isisd daemon.";
+    "This module defines a model for managing FRR isisd daemon.
 
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2021-02-15 {
+    description
+      "Group SRGB and SRLB in a container so that they can be displayed
+       and configured together";
+  }
+  revision 2020-04-06 {
+    description
+      "Group LSP timers in a container so that they can be displayed and
+       configured together";
+  }
   revision 2019-12-17 {
     description
       "Changed default area is-type to level-1-2";
@@ -34,7 +77,7 @@ module frr-isisd {
   revision 2019-09-09 {
     description
       "Changed interface references to use
-      frr-interface:interface-ref typedef";
+       frr-interface:interface-ref typedef";
   }
   revision 2018-07-26 {
     description
@@ -206,13 +249,19 @@ module frr-isisd {
     }
   }
 
+  typedef access-list-ref {
+    type string;
+  }
+
+  typedef prefix-list-ref {
+    type string;
+  }
+
   grouping redistribute-attributes {
     description
       "Common optional attributes of any redistribute entry.";
     leaf route-map {
-      type string {
-        length "1..max";
-      }
+      type frr-route-map:route-map-ref;
       description
         "Applies the conditions of the specified route-map to routes that
          are redistributed into this routing instance.";
@@ -300,9 +349,167 @@ module frr-isisd {
     }
   }
 
-  grouping interface-config {
-    description "Interface configuration grouping";
+  grouping global-config-lfa {
+    container lfa {
+      description
+        "LFA configuration.";
 
+      leaf load-sharing {
+        type boolean;
+        default "true";
+        description
+          "Load share prefixes across multiple backups.";
+      }
+      leaf priority-limit {
+        type enumeration {
+          enum "critical" {
+            value 0;
+            description
+              "Compute for critical priority prefixes only.";
+          }
+          enum "high" {
+            value 1;
+            description
+              "Compute for critical & high priority prefixes.";
+          }
+          enum "medium" {
+            value 2;
+            description
+              "Compute for critical, high & medium priority prefixes.";
+          }
+        }
+        description
+          "Limit backup computation up to the prefix priority.";
+      }
+      list tiebreaker {
+        key "index";
+        unique "type";
+        description
+          "Configure tiebreaker for multiple backups.";
+        leaf index {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Preference order among tiebreakers.";
+        }
+        leaf type {
+          type enumeration {
+            enum "downstream" {
+              value 0;
+              description
+                "Prefer backup path via downstream node.";
+            }
+            enum "lowest-backup-metric" {
+              value 1;
+              description
+                "Prefer backup path with lowest total metric.";
+            }
+            enum "node-protecting" {
+              value 2;
+              description
+                "Prefer node protecting backup path.";
+            }
+          }
+          mandatory true;
+          description
+            "Tiebreaker type.";
+        }
+      }
+    }
+  }
+
+  grouping global-config-remote-lfa {
+    container remote-lfa {
+      description
+        "Remote LFA configuration.";
+
+      leaf prefix-list {
+        type prefix-list-ref;
+        description
+          "Filter PQ node router ID based on prefix list.";
+      }
+    }
+  }
+
+  grouping interface-config-lfa {
+    container lfa {
+      description
+        "LFA configuration.";
+      leaf enable {
+        type boolean;
+        default false;
+        description
+          "Enables LFA computation.";
+      }
+      leaf-list exclude-interface {
+        type frr-interface:interface-ref;
+        description
+          "Exclude an interface from computation.";
+      }
+    }
+  }
+
+  grouping interface-config-remote-lfa {
+    container remote-lfa {
+      description
+        "Remote LFA configuration.";
+
+      leaf enable {
+        type boolean;
+        default false;
+        description
+          "Enables remote LFA computation using LDP tunnels.";
+        must ". = 'false' or ../../lfa/enable = 'true'" {
+          error-message
+            "Remote LFA depends on classic LFA being configured in the interface.";
+        }
+
+      }
+      leaf maximum-metric {
+        type uint32 {
+          range "1..16777215";
+        }
+        description
+          "Limit remote LFA node selection within the metric.";
+      }
+    }
+  }
+
+  grouping interface-config-ti-lfa {
+    container ti-lfa {
+      description
+        "TI-LFA configuration.";
+      leaf enable {
+        must ". = 'false' or ../../lfa/enable = 'false'" {
+          error-message
+            "Can't enable both classic LFA and TI-LFA in the same interface.";
+        }
+        type boolean;
+        default false;
+        description
+          "Enables TI-LFA computation.";
+      }
+      leaf node-protection {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "Node protection is provided by the alternate.";
+      }
+      leaf link-fallback {
+        type boolean;
+        must ". = 'false' or ../enable = 'true'";
+        default false;
+        description
+          "Fallback to link protection.";
+      }
+    }
+  }
+
+  grouping interface-config {
+    description
+      "Interface configuration grouping";
     leaf area-tag {
       type string;
       mandatory true;
@@ -331,10 +538,18 @@ module frr-isisd {
         "IS-type of this circuit.";
     }
 
-    leaf bfd-monitoring {
-      type boolean;
-      default false;
-      description "Monitor IS-IS peers on this circuit.";
+    container bfd-monitoring {
+      leaf enabled {
+        type boolean;
+        default "false";
+        description
+          "Monitor IS-IS peers on this circuit.";
+      }
+      leaf profile {
+        type string;
+        description
+          "Let BFD use a pre-configured profile.";
+      }
     }
 
     container csnp-interval {
@@ -490,8 +705,8 @@ module frr-isisd {
 
     leaf network-type {
       type network-type;
-      default "broadcast";
       must "(. = \"point-to-point\") or (. = \"broadcast\")";
+      default "broadcast";
       description
         "Explicitly configured type of IS-IS circuit (broadcast or point-to-point).";
     }
@@ -567,41 +782,91 @@ module frr-isisd {
           "IPv6 destination-source topology.";
       }
     }
+
+    container mpls {
+      description
+        "Configuration of MPLS parameters";
+      leaf ldp-sync {
+        type boolean;
+        default "true";
+        description
+          "Enable MPLS LDP-Sync functionality on this circuit.";
+      }
+      leaf holddown {
+        type uint16 {
+          range "0..10000";
+        }
+        units "seconds";
+        description
+          "Time to wait for LDP-Sync to occur before restoring interface metric.";
+      }
+    }
+
+    container fast-reroute {
+      description
+        "Interface IP Fast-reroute configuration.";
+      container level-1 {
+        description
+          "Level-1 IP Fast-reroute configuration.";
+        uses interface-config-lfa;
+        uses interface-config-remote-lfa;
+        uses interface-config-ti-lfa;
+      }
+      container level-2 {
+        description
+          "Level-2 IP Fast-reroute configuration.";
+        uses interface-config-lfa;
+        uses interface-config-remote-lfa;
+        uses interface-config-ti-lfa;
+      }
+    }
   }
 
   grouping adjacency-state {
+    description
+      "Adjacency state";
     container adjacencies {
       config false;
+      description
+        "This container lists the adjacencies of
+         the local node.";
       list adjacency {
+        description
+          "List of operational adjacencies.";
         leaf neighbor-sys-type {
           type level;
           description
             "Level capability of neighboring system";
         }
+
         leaf neighbor-sysid {
           type system-id;
           description
             "The system-id of the neighbor";
         }
+
         leaf neighbor-extended-circuit-id {
           type extended-circuit-id;
           description
             "Circuit ID of the neighbor";
         }
+
         leaf neighbor-snpa {
           type snpa;
           description
             "SNPA of the neighbor";
         }
+
         leaf hold-timer {
           type uint16;
-          units seconds;
+          units "seconds";
           description
             "The holding time in seconds for this
              adjacency. This value is based on
              received hello PDUs and the elapsed
              time since receipt.";
         }
+
         leaf neighbor-priority {
           type uint8 {
             range "0 .. 127";
@@ -610,37 +875,36 @@ module frr-isisd {
             "Priority of the neighboring IS for becoming
              the DIS.";
         }
+
         leaf state {
           type adj-state-type;
           description
             "This leaf describes the state of the interface.";
         }
-
-        description
-          "List of operational adjacencies.";
       }
-      description
-        "This container lists the adjacencies of
-         the local node.";
     }
-    description
-      "Adjacency state";
   }
 
   grouping event-counters {
+    description
+      "Grouping for IS-IS interface event counters";
     container event-counters {
       config false;
+      description
+        "IS-IS interface event counters.";
       leaf adjacency-changes {
         type uint32;
         description
           "The number of times an adjacency state change has
            occurred on this interface.";
       }
+
       leaf adjacency-number {
         type uint32;
         description
           "The number of adjacencies on this interface.";
       }
+
       leaf init-fails {
         type uint32;
         description
@@ -649,12 +913,14 @@ module frr-isisd {
            as PPP NCP failures. Failures to form an
            adjacency are counted by adjacency-rejects.";
       }
+
       leaf adjacency-rejects {
         type uint32;
         description
           "The number of times an adjacency has been
            rejected on this interface.";
       }
+
       leaf id-len-mismatch {
         type uint32;
         description
@@ -662,6 +928,7 @@ module frr-isisd {
            field length different from that for this
            system has been received on this interface.";
       }
+
       leaf max-area-addresses-mismatch {
         type uint32;
         description
@@ -670,26 +937,26 @@ module frr-isisd {
            max area address field differing from that of
            this system.";
       }
+
       leaf authentication-type-fails {
         type uint32;
         description
           "Number of authentication type mismatches.";
       }
+
       leaf authentication-fails {
         type uint32;
         description
           "Number of authentication key failures.";
       }
-      description "IS-IS interface event counters.";
     }
-    description
-      "Grouping for IS-IS interface event counters";
   }
 
   grouping interface-state {
     description
       "IS-IS interface operational state.";
     uses adjacency-state;
+
     uses event-counters;
   }
 
@@ -741,13 +1008,19 @@ module frr-isisd {
     description
       "Configuration of the IS-IS routing daemon.";
     list instance {
-      key "area-tag";
+      key "area-tag vrf";
       description
         "IS-IS routing instance.";
       leaf area-tag {
         type string;
         description
           "Area-tag associated to this routing instance.";
+      }
+
+      leaf vrf {
+        type frr-vrf:vrf-ref;
+        description
+          "VRF NAME.";
       }
 
       leaf is-type {
@@ -771,9 +1044,24 @@ module frr-isisd {
           "Dynamic hostname support for IS-IS.";
       }
 
+      leaf attach-send {
+        type boolean;
+        default "true";
+        description
+          "If true, attached bits are sent in LSP if L1/L2 router for inter-area traffic.";
+      }
+
+      leaf attach-receive-ignore {
+        type boolean;
+        default "false";
+        description
+          "If false, attached bits received in LSP, cause default route add, if L1 router for inter-area traffic.";
+      }
+
       leaf attached {
         type boolean;
         default "false";
+	status deprecated;
         description
           "If true, identify as L1/L2 router for inter-area traffic.";
       }
@@ -814,75 +1102,75 @@ module frr-isisd {
             "MTU of an LSP.";
         }
 
-        container refresh-interval {
+        container timers {
           description
-            "";
-          leaf level-1 {
-            type uint16;
-            units "seconds";
-            default "900";
+            "LSP-related timers";
+          container level-1 {
             description
-              "LSP refresh interval for level-1.";
-          }
-
-          leaf level-2 {
-            type uint16;
-            units "seconds";
-            default "900";
-            description
-              "LSP refresh interval for level-2.";
-          }
-        }
-
-        container maximum-lifetime {
-          description
-            "Maximum LSP lifetime.";
-          leaf level-1 {
-            type uint16 {
-              range "350..65535";
+              "Level-1 LSP-related timers";
+            leaf refresh-interval {
+              type uint16;
+              units "seconds";
+              default "900";
+              description
+                "LSP refresh interval for level-1.";
             }
-            units "seconds";
-            must ". >= ../../refresh-interval/level-1 + 300";
-            default "1200";
-            description
-              "Maximum LSP lifetime for level-1.";
+
+            leaf maximum-lifetime {
+              type uint16 {
+                range "350..65535";
+              }
+              units "seconds";
+              must ". >= ../refresh-interval + 300";
+              default "1200";
+              description
+                "Maximum LSP lifetime for level-1.";
+            }
+
+            leaf generation-interval {
+              type uint16 {
+                range "1..120";
+              }
+              units "seconds";
+              must ". < ../refresh-interval";
+              default "30";
+              description
+                "Minimum time allowed before level-1 LSP retransmissions.";
+            }
           }
 
-          leaf level-2 {
-            type uint16 {
-              range "350..65535";
-            }
-            units "seconds";
-            must ". >= ../../refresh-interval/level-2 + 300";
-            default "1200";
+          container level-2 {
             description
-              "Maximum LSP lifetime for level-2.";
-          }
-        }
+              "Level-2 LSP-related timers";
+            leaf refresh-interval {
+              type uint16;
+              units "seconds";
+              default "900";
+              description
+                "LSP refresh interval for level-2.";
+            }
 
-        container generation-interval {
-          description
-            "Minimum LSP regeneration interval.";
-          leaf level-1 {
-            type uint16 {
-              range "1..120";
+            leaf maximum-lifetime {
+              type uint16 {
+                range "350..65535";
+              }
+              units "seconds";
+              must ". >= ../refresh-interval + 300";
+              default "1200";
+              description
+                "Maximum LSP lifetime for level-2.";
             }
-            units "seconds";
-            must ". < ../../refresh-interval/level-1";
-            default "30";
-            description
-              "Minimum time allowed before level-1 LSP retransmissions.";
-          }
 
-          leaf level-2 {
-            type uint16 {
-              range "1..120";
+            leaf generation-interval {
+              type uint16 {
+                range "1..120";
+              }
+              units "seconds";
+              must ". < ../refresh-interval";
+              default "30";
+              description
+                "Minimum time allowed before level-2 LSP retransmissions.";
             }
-            units "seconds";
-            must ". < ../../refresh-interval/level-2";
-            default "30";
-            description
-              "Minimum time allowed before level-2 LSP retransmissions.";
           }
         }
       }
@@ -968,6 +1256,42 @@ module frr-isisd {
             default "1";
             description
               "Minimum time between consecutive level-2 SPFs.";
+          }
+        }
+
+        container prefix-priorities {
+          description
+            "SPF Prefix Priority configuration";
+
+          container critical {
+            description
+              "Critical prefix priority";
+            leaf access-list-name {
+              type access-list-ref;
+              description
+                "Access List to determine prefixes for
+                 this priority";
+            }
+          }
+          container high {
+            description
+              "High prefix priority";
+            leaf access-list-name {
+              type access-list-ref;
+              description
+                "Access List to determine prefixes for
+                 this priority";
+            }
+          }
+          container medium {
+            description
+              "Medium prefix priority";
+            leaf access-list-name {
+              type access-list-ref;
+              description
+                "Access List to determine prefixes for
+                 this priority";
+            }
           }
         }
       }
@@ -1124,6 +1448,23 @@ module frr-isisd {
         }
       }
 
+      container fast-reroute {
+        description
+          "IP Fast-reroute configuration.";
+        container level-1 {
+          description
+            "Level-1 IP Fast-reroute configuration.";
+          uses global-config-lfa;
+          uses global-config-remote-lfa;
+        }
+        container level-2 {
+          description
+            "Level-2 IP Fast-reroute configuration.";
+          uses global-config-lfa;
+          uses global-config-remote-lfa;
+        }
+      }
+
       leaf log-adjacency-changes {
         type boolean;
         default "false";
@@ -1141,6 +1482,156 @@ module frr-isisd {
             "Stable IP address of the advertising router.";
         }
       }
+
+      container segment-routing {
+        description
+          "Segment Routing global configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enables segment-routing protocol extensions.";
+        }
+        container label-blocks {
+          description
+            "Local and global label blocks.";
+          container srgb {
+            description
+              "Global blocks to be advertised.";
+            leaf lower-bound {
+                must "../upper-bound > .";
+                type uint32;
+                default "16000";
+                description
+                  "Lower value in the label range.";
+            }
+            leaf upper-bound {
+                must ". > ../lower-bound";
+                type uint32;
+                default "23999";
+                description
+                  "Upper value in the label range.";
+            }
+          }
+          container srlb {
+            description
+              "Local blocks to be advertised.";
+            leaf lower-bound {
+                must "../upper-bound > .";
+                type uint32;
+                default "15000";
+                description
+                  "Lower value in the label range.";
+            }
+            leaf upper-bound {
+                must ". > ../lower-bound";
+                type uint32;
+                default "15999";
+                description
+                  "Upper value in the label range.";
+            }
+          }
+        }
+        container msd {
+          description
+            "MSD configuration.";
+          leaf node-msd {
+            type uint8;
+            description
+              "Node MSD is the lowest MSD supported by the node.";
+          }
+        }
+        container prefix-sid-map {
+          description
+            "Prefix SID configuration.";
+          list prefix-sid {
+            key "prefix";
+            unique "sid-value-type sid-value";
+            description
+              "List of prefix SID mapped to IPv4/IPv6
+               local prefixes.";
+            leaf prefix {
+              type inet:ip-prefix;
+              description
+                "Connected prefix sid.";
+            }
+            leaf sid-value-type {
+              type enumeration {
+                enum "index" {
+                  value 0;
+                  description
+                    "The value will be interpreted as an index.";
+                }
+                enum "absolute" {
+                  value 1;
+                  description
+                    "The value will become interpreted as an absolute
+                     value.";
+                }
+              }
+              default "index";
+              description
+                "This leaf defines how value must be interpreted.";
+            }
+            leaf sid-value {
+              type uint32;
+              mandatory true;
+              description
+                "Value associated with prefix. The value must be
+                 interpreted in the context of sid-value-type.";
+            }
+            leaf last-hop-behavior {
+              type enumeration {
+                enum "explicit-null" {
+                  value 0;
+                  description
+                    "Use explicit-null for the SID.";
+                }
+                enum "no-php" {
+                  value 1;
+                  description
+                    "Do not use Penultimate Hop Popping (PHP)
+                     for the SID.";
+                }
+                enum "php" {
+                  value 2;
+                  description
+                    "Use PHP for the SID.";
+                }
+              }
+              default "php";
+              description
+                "Configure last hop behavior.";
+            }
+            leaf n-flag-clear {
+              type boolean;
+              default "false";
+              description
+                "Not a node SID";
+            }
+          }
+        }
+      }
+
+      container mpls {
+        description
+          "Configuration of MPLS parameters";
+        container ldp-sync {
+          presence "Present if MPLS LDP-Sync is enabled.";
+          description
+            "Enable MPLS LDP-Sync functionality.";
+          leaf holddown {
+            type uint16 {
+              range "0..10000";
+            }
+            units "seconds";
+            default "0";
+            description
+              "Time to wait for LDP-Sync to occur before restoring interface metric.";
+          }
+        }
+      }
+
     }
   }
 
@@ -1152,6 +1643,17 @@ module frr-isisd {
       description
         "IS-IS interface parameters.";
       uses interface-config;
+    }
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface/frr-interface:state" {
+    description
+      "Extends interface model with IS-IS operational data.";
+    container isis {
+      presence "Present if an IS-IS circuit is defined for this interface.";
+      description
+        "IS-IS interface operational data.";
+
       uses interface-state;
     }
   }

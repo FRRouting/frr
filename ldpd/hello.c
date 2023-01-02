@@ -67,7 +67,8 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 		af = tnbr->af;
 		holdtime = tnbr_get_hello_holdtime(tnbr);
 		flags = F_HELLO_TARGETED;
-		if ((tnbr->flags & F_TNBR_CONFIGURED) || tnbr->pw_count)
+		if ((tnbr->flags & F_TNBR_CONFIGURED) || tnbr->pw_count
+		    || tnbr->rlfa_count)
 			flags |= F_HELLO_REQ_TARG;
 		fd = (ldp_af_global_get(&global, af))->ldp_edisc_socket;
 
@@ -169,7 +170,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	int			 tlvs_rcvd;
 	int			 ds_tlv;
 	union ldpd_addr		 trans_addr;
-	uint32_t		 scope_id = 0;
+	ifindex_t		 scope_id = 0;
 	uint32_t		 conf_seqnum;
 	uint16_t		 trans_pref;
 	int			 r;
@@ -179,24 +180,24 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 
 	r = tlv_decode_hello_prms(buf, len, &holdtime, &flags);
 	if (r == -1) {
-		log_debug("%s: lsr-id %s: failed to decode params", __func__,
-		    inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: failed to decode params", __func__,
+		    &lsr_id);
 		return;
 	}
 	/* safety checks */
 	if (holdtime != 0 && holdtime < MIN_HOLDTIME) {
-		log_debug("%s: lsr-id %s: invalid hello holdtime (%u)",
-		    __func__, inet_ntoa(lsr_id), holdtime);
+		log_debug("%s: lsr-id %pI4: invalid hello holdtime (%u)",
+		    __func__, &lsr_id, holdtime);
 		return;
 	}
 	if (multicast && (flags & F_HELLO_TARGETED)) {
-		log_debug("%s: lsr-id %s: multicast targeted hello", __func__,
-		    inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: multicast targeted hello", __func__,
+		    &lsr_id);
 		return;
 	}
 	if (!multicast && !((flags & F_HELLO_TARGETED))) {
-		log_debug("%s: lsr-id %s: unicast link hello", __func__,
-		    inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: unicast link hello", __func__,
+		    &lsr_id);
 		return;
 	}
 	buf += r;
@@ -205,13 +206,13 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	r = tlv_decode_opt_hello_prms(buf, len, &tlvs_rcvd, af, &trans_addr,
 	    &conf_seqnum, &trans_pref);
 	if (r == -1) {
-		log_debug("%s: lsr-id %s: failed to decode optional params",
-		    __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: failed to decode optional params",
+		    __func__, &lsr_id);
 		return;
 	}
 	if (r != len) {
-		log_debug("%s: lsr-id %s: unexpected data in message",
-		    __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: unexpected data in message",
+		    __func__, &lsr_id);
 		return;
 	}
 	ds_tlv = (tlvs_rcvd & F_HELLO_TLV_RCVD_DS) ? 1 : 0;
@@ -220,8 +221,8 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (!(tlvs_rcvd & F_HELLO_TLV_RCVD_ADDR))
 		trans_addr = *src;
 	if (bad_addr(af, &trans_addr)) {
-		log_debug("%s: lsr-id %s: invalid transport address %s",
-		    __func__, inet_ntoa(lsr_id), log_addr(af, &trans_addr));
+		log_debug("%s: lsr-id %pI4: invalid transport address %s",
+		    __func__, &lsr_id, log_addr(af, &trans_addr));
 		return;
 	}
 	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&trans_addr.v6)) {
@@ -234,8 +235,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		 * check)".
 		 */
 		if (flags & F_HELLO_TARGETED) {
-			log_debug("%s: lsr-id %s: invalid targeted hello "
-			    "transport address %s", __func__, inet_ntoa(lsr_id),
+			log_debug("%s: lsr-id %pI4: invalid targeted hello transport address %s", __func__, &lsr_id,
 			     log_addr(af, &trans_addr));
 			return;
 		}
@@ -250,9 +250,8 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		* targeted LDP Hello packet's source or destination addresses".
 		*/
 		if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&src->v6)) {
-			log_debug("%s: lsr-id %s: targeted hello with "
-			    "link-local source address", __func__,
-			    inet_ntoa(lsr_id));
+			log_debug("%s: lsr-id %pI4: targeted hello with link-local source address", __func__,
+			    &lsr_id);
 			return;
 		}
 
@@ -292,8 +291,8 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		source.link.src_addr = *src;
 	}
 
-	debug_hello_recv("%s lsr-id %s transport-address %s holdtime %u%s",
-	    log_hello_src(&source), inet_ntoa(lsr_id), log_addr(af, &trans_addr),
+	debug_hello_recv("%s lsr-id %pI4 transport-address %s holdtime %u%s",
+	    log_hello_src(&source), &lsr_id, log_addr(af, &trans_addr),
 	     holdtime, (ds_tlv) ? " (dual stack TLV present)" : "");
 
 	adj = adj_find(lsr_id, &source);
@@ -318,8 +317,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		 * send a fatal Notification message with status code of
 		 * 'Transport Connection Mismatch' and reset the session".
 		 */
-		log_debug("%s: lsr-id %s: remote transport preference does not "
-		    "match the local preference", __func__, inet_ntoa(lsr_id));
+		log_debug("%s: lsr-id %pI4: remote transport preference does not match the local preference", __func__, &lsr_id);
 		if (nbr)
 			session_shutdown(nbr, S_TRANS_MISMTCH, msg->id,
 			    msg->type);
@@ -359,8 +357,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (nbr && nbr->af == af &&
 	    (ldp_addrcmp(af, &nbr->raddr, &trans_addr) ||
 	    nbr->raddr_scope != scope_id)) {
-		log_warnx("%s: lsr-id %s: hello packet advertising a different "
-		    "transport address", __func__, inet_ntoa(lsr_id));
+		log_warnx("%s: lsr-id %pI4: hello packet advertising a different transport address", __func__, &lsr_id);
 		if (adj)
 			adj_del(adj, S_SHUTDOWN);
 		return;
@@ -368,9 +365,8 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	if (nbr == NULL) {
 		nbrt = nbr_find_addr(af, &trans_addr);
 		if (nbrt) {
-			log_debug("%s: transport address %s is already being "
-			    "used by lsr-id %s", __func__, log_addr(af,
-			    &trans_addr), inet_ntoa(nbrt->id));
+			log_debug("%s: transport address %s is already being used by lsr-id %pI4", __func__, log_addr(af,
+			    &trans_addr), &nbrt->id);
 			if (adj)
 				adj_del(adj, S_SHUTDOWN);
 			return;
@@ -383,6 +379,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			adj->nbr = nbr;
 			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
 		}
+		ldp_sync_fsm_adj_event(adj, LDP_SYNC_EVT_ADJ_NEW);
 	}
 	adj->ds_tlv = ds_tlv;
 

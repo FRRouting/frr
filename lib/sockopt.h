@@ -39,7 +39,7 @@ extern int setsockopt_ipv6_hoplimit(int, int);
 extern int setsockopt_ipv6_multicast_loop(int, int);
 extern int setsockopt_ipv6_tclass(int, int);
 
-#define SOPT_SIZE_CMSG_PKTINFO_IPV6() (sizeof (struct in6_pktinfo));
+#define SOPT_SIZE_CMSG_PKTINFO_IPV6() (sizeof(struct in6_pktinfo));
 
 /*
  * Size defines for control messages used to get ifindex.  We define
@@ -49,7 +49,7 @@ extern int setsockopt_ipv6_tclass(int, int);
  */
 #if defined(IP_PKTINFO)
 /* Linux in_pktinfo. */
-#define SOPT_SIZE_CMSG_PKTINFO_IPV4()  (CMSG_SPACE(sizeof (struct in_pktinfo)))
+#define SOPT_SIZE_CMSG_PKTINFO_IPV4()  (CMSG_SPACE(sizeof(struct in_pktinfo)))
 /* XXX This should perhaps be defined even if IP_PKTINFO is not. */
 #define SOPT_SIZE_CMSG_PKTINFO(af)                                             \
   ((af == AF_INET) ? SOPT_SIZE_CMSG_PKTINFO_IPV4() \
@@ -59,11 +59,7 @@ extern int setsockopt_ipv6_tclass(int, int);
 #if defined(IP_RECVIF)
 /* BSD/Solaris */
 
-#if defined(SUNOS_5)
-#define SOPT_SIZE_CMSG_RECVIF_IPV4()  (sizeof (uint_t))
-#else
-#define SOPT_SIZE_CMSG_RECVIF_IPV4()	(sizeof (struct sockaddr_dl))
-#endif /* SUNOS_5 */
+#define SOPT_SIZE_CMSG_RECVIF_IPV4()	(sizeof(struct sockaddr_dl))
 #endif /* IP_RECVIF */
 
 /* SOPT_SIZE_CMSG_IFINDEX_IPV4 - portable type */
@@ -72,7 +68,7 @@ extern int setsockopt_ipv6_tclass(int, int);
 #elif defined(SOPT_SIZE_CMSG_RECVIF_IPV4)
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_RECVIF_IPV4()
 #else  /* Nothing available */
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4() (sizeof (char *))
+#define SOPT_SIZE_CMSG_IFINDEX_IPV4() (sizeof(char *))
 #endif /* SOPT_SIZE_CMSG_IFINDEX_IPV4 */
 
 #define SOPT_SIZE_CMSG_IFINDEX(af)                                             \
@@ -137,6 +133,26 @@ extern int sockopt_tcp_signature(int sock, union sockunion *su,
 extern int sockopt_tcp_signature_ext(int sock, union sockunion *su,
 				     uint16_t prefixlen, const char *password);
 
+/*
+ * set TCP max segment size. This option allows user to configure
+ * max segment size for TCP session
+ *
+ * sock
+ *    Socket to enable option on.
+ *
+ * tcp_maxseg
+ *    value used for TCP segment size negotiation during SYN
+ */
+extern int sockopt_tcp_mss_set(int sock, int tcp_maxseg);
+
+/*
+ * get TCP max segment size. This option allows user to get
+ * the segment size for TCP session
+ *
+ * sock
+ *    Socket to get max segement size.
+ */
+extern int sockopt_tcp_mss_get(int sock);
 #ifdef __cplusplus
 }
 #endif

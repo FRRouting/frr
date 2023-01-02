@@ -38,6 +38,18 @@ static struct log_ref ferr_isis_err[] = {
 		.suggestion = "Ensure configuration is correct"
 	},
 	{
+		.code = EC_ISIS_SID_OVERFLOW,
+		.title = "SID index overflow",
+		.description = "Isis has detected that a SID index falls outside of its associated SRGB range",
+		.suggestion = "Configure a larger SRGB"
+	},
+	{
+		.code = EC_ISIS_SID_COLLISION,
+		.title = "SID collision",
+		.description = "Isis has detected that two different prefixes share the same SID index",
+		.suggestion = "Identify the routers that are advertising the same SID index and fix the collision accordingly"
+	},
+	{
 		.code = END_FERR,
 	}
 };

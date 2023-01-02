@@ -69,6 +69,36 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 		tcp->nbr->stats.notif_sent++;
 	}
 
+	/* update SNMP session counters */
+	switch (nm->status_code) {
+	case S_NO_HELLO:
+		leconf->stats.session_rejects_hello++;
+		break;
+	case S_BAD_LDP_ID:
+		leconf->stats.bad_ldp_id++;
+		break;
+	case S_BAD_PDU_LEN:
+		leconf->stats.bad_pdu_len++;
+		break;
+	case S_BAD_MSG_LEN:
+		leconf->stats.bad_msg_len++;
+		break;
+	case S_BAD_TLV_LEN:
+		leconf->stats.bad_tlv_len++;
+		break;
+	case S_BAD_TLV_VAL:
+		leconf->stats.malformed_tlv++;
+		break;
+	case S_KEEPALIVE_TMR:
+		leconf->stats.keepalive_timer_exp++;
+		break;
+	case S_SHUTDOWN:
+		leconf->stats.shutdown_send_notify++;
+		break;
+	default:
+		break;
+	}
+
 	evbuf_enqueue(&tcp->wbuf, buf);
 }
 
@@ -122,6 +152,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 
 	if (len < STATUS_SIZE) {
 		session_shutdown(nbr, S_BAD_MSG_LEN, msg.id, msg.type);
+		leconf->stats.bad_msg_len++;
 		return (-1);
 	}
 	memcpy(&st, buf, sizeof(st));
@@ -129,6 +160,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 	if (ntohs(st.length) > STATUS_SIZE - TLV_HDR_SIZE ||
 	    ntohs(st.length) > len - TLV_HDR_SIZE) {
 		session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
+		leconf->stats.bad_tlv_len++;
 		return (-1);
 	}
 	buf += STATUS_SIZE;
@@ -145,6 +177,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 
 		if (len < sizeof(tlv)) {
 			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
+			leconf->stats.bad_tlv_len++;
 			return (-1);
 		}
 
@@ -153,6 +186,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		tlv_len = ntohs(tlv.length);
 		if (tlv_len + TLV_HDR_SIZE > len) {
 			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
+			leconf->stats.bad_tlv_len++;
 			return (-1);
 		}
 		buf += TLV_HDR_SIZE;
@@ -182,14 +216,17 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 			if (tlen != tlv_len) {
 				session_shutdown(nbr, S_BAD_TLV_VAL,
 				    msg.id, msg.type);
+				leconf->stats.bad_tlv_len++;
 				return (-1);
 			}
 			nm.flags |= F_NOTIF_FEC;
 			break;
 		default:
-			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
+			if (!(ntohs(tlv.type) & UNKNOWN_FLAG)) {
+				nbr->stats.unknown_tlv++;
 				send_notification_rtlvs(nbr, S_UNKNOWN_TLV,
 				    msg.id, msg.type, tlv_type, tlv_len, buf);
+			}
 			/* ignore unknown tlv */
 			break;
 		}
@@ -243,20 +280,56 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		 * initialization, it SHOULD transmit a Shutdown message and
 		 * then close the transport connection".
 		 */
-		if (nbr->state != NBR_STA_OPER && nm.status_code == S_SHUTDOWN)
+		if (nbr->state != NBR_STA_OPER &&
+		    nm.status_code == S_SHUTDOWN) {
+			leconf->stats.session_attempts++;
 			send_notification(nbr->tcp, S_SHUTDOWN,
 			    msg.id, msg.type);
+		}
 
+		leconf->stats.shutdown_rcv_notify++;
 		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 		return (-1);
 	}
 
-	/* lde needs to know about a few notification messages */
+	/* lde needs to know about a few notification messages
+	 * and update SNMP session counters
+	 */
 	switch (nm.status_code) {
 	case S_PW_STATUS:
 	case S_ENDOFLIB:
 		ldpe_imsg_compose_lde(IMSG_NOTIFICATION, nbr->peerid, 0,
 		    &nm, sizeof(nm));
+		break;
+	case S_NO_HELLO:
+		leconf->stats.session_rejects_hello++;
+		break;
+	case S_PARM_ADV_MODE:
+		leconf->stats.session_rejects_ad++;
+		break;
+	case S_MAX_PDU_LEN:
+		leconf->stats.session_rejects_max_pdu++;
+		break;
+	case S_PARM_L_RANGE:
+		leconf->stats.session_rejects_lr++;
+		break;
+	case S_BAD_LDP_ID:
+		leconf->stats.bad_ldp_id++;
+		break;
+	case S_BAD_PDU_LEN:
+		leconf->stats.bad_pdu_len++;
+		break;
+	case S_BAD_MSG_LEN:
+		leconf->stats.bad_msg_len++;
+		break;
+	case S_BAD_TLV_LEN:
+		leconf->stats.bad_tlv_len++;
+		break;
+	case S_BAD_TLV_VAL:
+		leconf->stats.malformed_tlv++;
+		break;
+	case S_SHUTDOWN:
+		leconf->stats.shutdown_rcv_notify++;
 		break;
 	default:
 		break;
@@ -309,17 +382,16 @@ void
 log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
 {
 	if (nm->status_code & STATUS_FATAL) {
-		debug_msg(out, "notification: lsr-id %s, status %s "
-		    "(fatal error)", inet_ntoa(nbr->id),
+		debug_msg(out, "notification: lsr-id %pI4, status %s (fatal error)", &nbr->id,
 		    status_code_name(nm->status_code));
 		return;
 	}
 
-	debug_msg(out, "notification: lsr-id %s, status %s",
-	    inet_ntoa(nbr->id), status_code_name(nm->status_code));
+	debug_msg(out, "notification: lsr-id %pI4, status %s",
+	    &nbr->id, status_code_name(nm->status_code));
 	if (nm->flags & F_NOTIF_FEC)
 		debug_msg(out, "notification:   fec %s", log_map(&nm->fec));
 	if (nm->flags & F_NOTIF_PW_STATUS)
 		debug_msg(out, "notification:   pw-status %s",
-		    (nm->pw_status) ? "not forwarding" : "forwarding");
+		    (nm->pw_status == PW_FORWARDING) ? "forwarding" : "not forwarding");
 }

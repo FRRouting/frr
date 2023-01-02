@@ -4,7 +4,6 @@
 
 if VTYSH
 bin_PROGRAMS += vtysh/vtysh
-dist_examples_DATA += vtysh/vtysh.conf.sample
 man1 += $(MANBUILD)/vtysh.1
 endif
 
@@ -26,10 +25,33 @@ noinst_HEADERS += \
 
 vtysh_vtysh_LDADD = lib/libfrr.la $(LIBCAP) $(LIBREADLINE) $(LIBS) $(LIBPAM)
 
+EXTRA_DIST += vtysh/daemons.pl
+
+BUILT_SOURCES += vtysh/vtysh_daemons.h
+
+# force vtysh_daemons.h
+$(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
+
+CLEANFILES += vtysh/vtysh_daemons.h
+vtysh/vtysh_daemons.h:
+	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h
+
 AM_V_EXTRACT = $(am__v_EXTRACT_$(V))
 am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))
 am__v_EXTRACT_0 = @echo "  EXTRACT " $@;
 am__v_EXTRACT_1 =
 
-vtysh/vtysh_cmd.c: $(vtysh_scan) vtysh/extract.pl
-	$(AM_V_EXTRACT) vtysh/extract.pl $(vtysh_scan) > vtysh/vtysh_cmd.c
+if ISISD
+HAVE_ISISD = --have-isisd
+else
+HAVE_ISISD =
+endif
+
+if FABRICD
+HAVE_FABRICD = --have-fabricd
+else
+HAVE_FABRICD =
+endif
+
+vtysh/vtysh_cmd.c: vtysh/extract.pl $(vtysh_scan)
+	$(AM_V_EXTRACT) $^ $(HAVE_ISISD) $(HAVE_FABRICD) > vtysh/vtysh_cmd.c

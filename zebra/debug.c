@@ -40,6 +40,8 @@ unsigned long zebra_debug_pw;
 unsigned long zebra_debug_dplane;
 unsigned long zebra_debug_mlag;
 unsigned long zebra_debug_nexthop;
+unsigned long zebra_debug_evpn_mh;
+unsigned long zebra_debug_pbr;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -92,8 +94,11 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra detailed next-hop tracking debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_NHT)
 		vty_out(vty, "  Zebra next-hop tracking debugging is on\n");
-	if (IS_ZEBRA_DEBUG_MPLS)
+	if (IS_ZEBRA_DEBUG_MPLS_DETAIL)
+		vty_out(vty, "  Zebra detailed MPLS debugging is on\n");
+	else if (IS_ZEBRA_DEBUG_MPLS)
 		vty_out(vty, "  Zebra MPLS debugging is on\n");
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		vty_out(vty, "  Zebra VXLAN debugging is on\n");
 	if (IS_ZEBRA_DEBUG_PW)
@@ -108,6 +113,21 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra detailed nexthop debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_NHG)
 		vty_out(vty, "  Zebra nexthop debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		vty_out(vty, "  Zebra EVPN-MH ethernet segment debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
+		vty_out(vty, "  Zebra EVPN-MH nexthop debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		vty_out(vty, "  Zebra EVPN-MH MAC debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
+		vty_out(vty, "  Zebra EVPN-MH Neigh debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_PBR)
+		vty_out(vty, "  Zebra PBR debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
 	return CMD_SUCCESS;
@@ -142,18 +162,23 @@ DEFUN (debug_zebra_nht,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_zebra_mpls,
+DEFPY (debug_zebra_mpls,
        debug_zebra_mpls_cmd,
-       "debug zebra mpls",
+       "debug zebra mpls [detailed$detail]",
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra MPLS LSPs\n")
+       "Debug option set for zebra MPLS LSPs\n"
+       "Debug option for detailed info\n")
 {
 	zebra_debug_mpls = ZEBRA_DEBUG_MPLS;
+
+	if (detail)
+		zebra_debug_mpls |= ZEBRA_DEBUG_MPLS_DETAILED;
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_zebra_vxlan,
+DEFPY (debug_zebra_vxlan,
        debug_zebra_vxlan_cmd,
        "debug zebra vxlan",
        DEBUG_STR
@@ -216,15 +241,10 @@ DEFUN (debug_zebra_kernel,
 {
 	SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
 
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
 	return CMD_SUCCESS;
 }
 
+#if defined(HAVE_NETLINK)
 DEFUN (debug_zebra_kernel_msgdump,
        debug_zebra_kernel_msgdump_cmd,
        "debug zebra kernel msgdump [<recv|send>]",
@@ -237,27 +257,18 @@ DEFUN (debug_zebra_kernel_msgdump,
 {
 	int idx = 0;
 
-	if (argv_find(argv, argc, "recv", &idx)) {
+	if (argv_find(argv, argc, "recv", &idx))
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-			UNSET_FLAG(zebra_debug_kernel,
-				   ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
-	} else if (argv_find(argv, argc, "send", &idx)) {
+	else if (argv_find(argv, argc, "send", &idx))
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-			UNSET_FLAG(zebra_debug_kernel,
-				   ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-
-	} else {
+	else {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
 	}
 
 	return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (debug_zebra_rib,
        debug_zebra_rib_cmd,
@@ -305,6 +316,17 @@ DEFUN (debug_zebra_dplane,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_zebra_pbr,
+       debug_zebra_pbr_cmd,
+       "debug zebra pbr",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra pbr events\n")
+{
+	SET_FLAG(zebra_debug_pbr, ZEBRA_DEBUG_PBR);
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_zebra_mlag,
        debug_zebra_mlag_cmd,
        "[no$no] debug zebra mlag",
@@ -317,6 +339,53 @@ DEFPY (debug_zebra_mlag,
 		UNSET_FLAG(zebra_debug_mlag, ZEBRA_DEBUG_MLAG);
 	else
 		SET_FLAG(zebra_debug_mlag, ZEBRA_DEBUG_MLAG);
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_zebra_evpn_mh,
+       debug_zebra_evpn_mh_cmd,
+       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh>",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "EVPN\n"
+       "Multihoming\n"
+       "Ethernet Segment Debugging\n"
+       "MAC Debugging\n"
+       "Neigh Debugging\n"
+       "Nexthop Debugging\n")
+{
+	if (es) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ES);
+		else
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ES);
+	}
+
+	if (mac) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh,
+					ZEBRA_DEBUG_EVPN_MH_MAC);
+		else
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_MAC);
+	}
+
+	if (neigh) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh,
+					ZEBRA_DEBUG_EVPN_MH_NEIGH);
+		else
+			SET_FLAG(zebra_debug_evpn_mh,
+					ZEBRA_DEBUG_EVPN_MH_NEIGH);
+	}
+
+	if (nh) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_NH);
+		else
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_NH);
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -347,11 +416,12 @@ DEFUN (no_debug_zebra_nht,
 
 DEFUN (no_debug_zebra_mpls,
        no_debug_zebra_mpls_cmd,
-       "no debug zebra mpls",
+       "no debug zebra mpls [detailed]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra MPLS LSPs\n")
+       "Debug option set for zebra MPLS LSPs\n"
+       "Debug option for zebra detailed info\n")
 {
 	zebra_debug_mpls = 0;
 	return CMD_SUCCESS;
@@ -392,10 +462,12 @@ DEFUN (no_debug_zebra_kernel,
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n")
 {
-	zebra_debug_kernel = 0;
+	UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
+
 	return CMD_SUCCESS;
 }
 
+#if defined(HAVE_NETLINK)
 DEFUN (no_debug_zebra_kernel_msgdump,
        no_debug_zebra_kernel_msgdump_cmd,
        "no debug zebra kernel msgdump [<recv|send>]",
@@ -407,9 +479,20 @@ DEFUN (no_debug_zebra_kernel_msgdump,
        "Dump raw netlink messages received\n"
        "Dump raw netlink messages sent\n")
 {
-	zebra_debug_kernel = 0;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "recv", &idx))
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+	else if (argv_find(argv, argc, "send", &idx))
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+	else {
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+	}
+
 	return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (no_debug_zebra_rib,
        no_debug_zebra_rib_cmd,
@@ -448,6 +531,18 @@ DEFUN (no_debug_zebra_dplane,
 	return CMD_SUCCESS;
 }
 
+DEFUN (no_debug_zebra_pbr,
+       no_debug_zebra_pbr_cmd,
+       "no debug zebra pbr",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra pbr events\n")
+{
+	zebra_debug_pbr = 0;
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_zebra_nexthop,
        debug_zebra_nexthop_cmd,
        "[no$no] debug zebra nexthop [detail$detail]",
@@ -471,8 +566,13 @@ DEFPY (debug_zebra_nexthop,
 }
 
 /* Debug node. */
-struct cmd_node debug_node = {DEBUG_NODE, "", /* Debug node has no interface. */
-			      1};
+static int config_write_debug(struct vty *vty);
+struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_debug,
+};
 
 static int config_write_debug(struct vty *vty)
 {
@@ -498,21 +598,21 @@ static int config_write_debug(struct vty *vty)
 		}
 	}
 
+	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND
+	    && IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+		vty_out(vty, "debug zebra kernel msgdump\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+		vty_out(vty, "debug zebra kernel msgdump recv\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
+		vty_out(vty, "debug zebra kernel msgdump send\n");
+		write++;
+	}
+
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND
-		    && IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
-			vty_out(vty, "debug zebra kernel msgdump\n");
-			write++;
-		} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
-			vty_out(vty, "debug zebra kernel msgdump recv\n");
-			write++;
-		} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
-			vty_out(vty, "debug zebra kernel msgdump send\n");
-			write++;
-		} else {
-			vty_out(vty, "debug zebra kernel\n");
-			write++;
-		}
+		vty_out(vty, "debug zebra kernel\n");
+		write++;
 	}
 
 	if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED)) {
@@ -536,12 +636,36 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
-	if (IS_ZEBRA_DEBUG_MPLS) {
+	if (IS_ZEBRA_DEBUG_MPLS_DETAIL) {
+		vty_out(vty, "debug zebra mpls detailed\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_MPLS) {
 		vty_out(vty, "debug zebra mpls\n");
 		write++;
 	}
+
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		vty_out(vty, "debug zebra vxlan\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_MLAG) {
+		vty_out(vty, "debug zebra mlag\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES) {
+		vty_out(vty, "debug zebra evpn mh es\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_NH) {
+		vty_out(vty, "debug zebra evpn mh nh\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
+		vty_out(vty, "debug zebra evpn mh mac\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH) {
+		vty_out(vty, "debug zebra evpn mh neigh\n");
 		write++;
 	}
 	if (IS_ZEBRA_DEBUG_PW) {
@@ -565,6 +689,11 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
+	if (IS_ZEBRA_DEBUG_PBR) {
+		vty_out(vty, "debug zebra pbr\n");
+		write++;
+	}
+
 	return write;
 }
 
@@ -580,12 +709,14 @@ void zebra_debug_init(void)
 	zebra_debug_pw = 0;
 	zebra_debug_dplane = 0;
 	zebra_debug_mlag = 0;
+	zebra_debug_evpn_mh = 0;
 	zebra_debug_nht = 0;
 	zebra_debug_nexthop = 0;
+	zebra_debug_pbr = 0;
 
-	install_node(&debug_node, config_write_debug);
+	install_node(&debug_node);
 
-	install_element(VIEW_NODE, &show_debugging_zebra_cmd);
+	install_element(ENABLE_NODE, &show_debugging_zebra_cmd);
 
 	install_element(ENABLE_NODE, &debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_nht_cmd);
@@ -594,22 +725,29 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_pw_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_packet_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(ENABLE_NODE, &debug_zebra_rib_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_nexthop_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_pbr_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_mpls_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_vxlan_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_packet_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(ENABLE_NODE, &no_debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(ENABLE_NODE, &no_debug_zebra_rib_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_dplane_cmd);
+	install_element(ENABLE_NODE, &no_debug_zebra_pbr_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_evpn_mh_cmd);
 
 	install_element(CONFIG_NODE, &debug_zebra_events_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_nht_cmd);
@@ -618,19 +756,28 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_pw_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_packet_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(CONFIG_NODE, &debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_dplane_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_nexthop_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_pbr_cmd);
+
 	install_element(CONFIG_NODE, &no_debug_zebra_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_nht_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_mpls_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_vxlan_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_packet_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(CONFIG_NODE, &no_debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(CONFIG_NODE, &no_debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_dplane_cmd);
+	install_element(CONFIG_NODE, &no_debug_zebra_pbr_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_mlag_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_evpn_mh_cmd);
 }

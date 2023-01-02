@@ -5,17 +5,19 @@
 if OSPFD
 noinst_LIBRARIES += ospfd/libfrrospf.a
 sbin_PROGRAMS += ospfd/ospfd
-dist_examples_DATA += ospfd/ospfd.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/ospfd/ospf_bfd.c \
-	$(top_srcdir)/ospfd/ospf_dump.c \
-	$(top_srcdir)/ospfd/ospf_opaque.c \
-	$(top_srcdir)/ospfd/ospf_ri.c \
-	$(top_srcdir)/ospfd/ospf_routemap.c \
-	$(top_srcdir)/ospfd/ospf_te.c \
-	$(top_srcdir)/ospfd/ospf_sr.c \
-	$(top_srcdir)/ospfd/ospf_vty.c \
+	ospfd/ospf_bfd.c \
+	ospfd/ospf_dump.c \
+	ospfd/ospf_gr.c \
+	ospfd/ospf_ldp_sync.c \
+	ospfd/ospf_opaque.c \
+	ospfd/ospf_ri.c \
+	ospfd/ospf_routemap.c \
+	ospfd/ospf_te.c \
+	ospfd/ospf_sr.c \
+	ospfd/ospf_vty.c \
 	# end
+vtysh_daemons += ospfd
 if SNMP
 module_LTLIBRARIES += ospfd/ospfd_snmp.la
 endif
@@ -34,9 +36,11 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_errors.c \
 	ospfd/ospf_ext.c \
 	ospfd/ospf_flood.c \
+	ospfd/ospf_gr.c \
 	ospfd/ospf_ia.c \
 	ospfd/ospf_interface.c \
 	ospfd/ospf_ism.c \
+	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_lsa.c \
 	ospfd/ospf_lsdb.c \
 	ospfd/ospf_memory.c \
@@ -48,12 +52,16 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_ri.c \
 	ospfd/ospf_route.c \
 	ospfd/ospf_routemap.c \
+	ospfd/ospf_routemap_nb.c \
+	ospfd/ospf_routemap_nb_config.c \
 	ospfd/ospf_spf.c \
+	ospfd/ospf_ti_lfa.c \
 	ospfd/ospf_sr.c \
 	ospfd/ospf_te.c \
 	ospfd/ospf_vty.c \
 	ospfd/ospf_zebra.c \
 	ospfd/ospfd.c \
+	ospfd/ospf_gr_helper.c \
 	# end
 
 if OSPFD
@@ -72,8 +80,12 @@ ospfdheader_HEADERS = \
 	# end
 endif
 
-ospfd/ospf_vty_clippy.c: $(CLIPPY_DEPS)
-ospfd/ospf_vty.$(OBJEXT): ospfd/ospf_vty_clippy.c
+clippy_scan += \
+	ospfd/ospf_vty.c \
+	ospfd/ospf_ldp_sync.c \
+	ospfd/ospf_dump.c \
+	ospfd/ospf_gr.c \
+	# end
 
 noinst_HEADERS += \
 	ospfd/ospf_abr.h \
@@ -85,13 +97,17 @@ noinst_HEADERS += \
 	ospfd/ospf_flood.h \
 	ospfd/ospf_ia.h \
 	ospfd/ospf_interface.h \
+	ospfd/ospf_ldp_sync.h \
 	ospfd/ospf_memory.h \
 	ospfd/ospf_neighbor.h \
 	ospfd/ospf_network.h \
 	ospfd/ospf_packet.h \
 	ospfd/ospf_ri.h \
+	ospfd/ospf_gr.h \
 	ospfd/ospf_route.h \
+	ospfd/ospf_routemap_nb.h \
 	ospfd/ospf_spf.h \
+	ospfd/ospf_ti_lfa.h \
 	ospfd/ospf_sr.h \
 	ospfd/ospf_te.h \
 	ospfd/ospf_vty.h \
@@ -102,10 +118,14 @@ ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la $(LIBCAP) $(LIBM)
 ospfd_ospfd_SOURCES = ospfd/ospf_main.c
 
 ospfd_ospfd_snmp_la_SOURCES = ospfd/ospf_snmp.c
-ospfd_ospfd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
-ospfd_ospfd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ospfd_ospfd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+ospfd_ospfd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 EXTRA_DIST += \
 	ospfd/ChangeLog.opaque.txt \
+	# end
+
+nodist_ospfd_ospfd_SOURCES = \
+	yang/frr-ospf-route-map.yang.c \
 	# end

@@ -1,15 +1,15 @@
+.. index::
+   single: How to install FRR
+   single: Installing FRR
+   single: Building FRR
+
 .. _installation:
 
 Installation
 ============
 
-.. index:: How to install FRR
-.. index:: Installation
-.. index:: Installing FRR
-.. index:: Building the system
-.. index:: Making FRR
-
 This section covers the basics of building, installing and setting up FRR.
+
 
 From Packages
 -------------
@@ -31,8 +31,11 @@ From Source
 
 Building FRR from source is the best way to ensure you have the latest features
 and bug fixes. Details for each supported platform, including dependency
-package listings, permissions, and other gotchas, are in the developer's
-documentation. This section provides a brief overview on the process.
+package listings, permissions, and other gotchas, are in the `developer's
+documentation
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_. This
+section provides a brief overview on the process.
+
 
 Getting the Source
 ^^^^^^^^^^^^^^^^^^
@@ -52,14 +55,18 @@ is the release version.
 In addition, release tarballs are published on the GitHub releases page
 `here <https://github.com/FRRouting/frr/releases>`_.
 
-Configuration
-^^^^^^^^^^^^^
 
-.. index:: Configuration options
-.. index:: Options for configuring
-.. index:: Build options
-.. index:: Distribution configuration
-.. index:: Options to `./configure`
+.. index::
+   single: Configuration options
+   single: Options for configuring
+   single: Build options
+   single: Distribution configuration
+   single: Options to `./configure`
+
+.. _build-configuration:
+
+Build Configuration
+^^^^^^^^^^^^^^^^^^^
 
 FRR has an excellent configure script which automatically detects most host
 configurations. There are several additional configure options to customize the
@@ -139,10 +146,10 @@ options from the list below.
    software available on your machine.  This is needed for systemd integration, if you
    disable watchfrr you cannot have any systemd integration.
 
-.. option:: --enable-systemd
+.. option:: --enable-werror
 
-   Build watchfrr with systemd integration, this will allow FRR to communicate with
-   systemd to tell systemd if FRR has come up properly.
+   Build with all warnings converted to errors as a compile option.  This
+   is recommended for developers only.
 
 .. option:: --disable-pimd
 
@@ -181,7 +188,15 @@ options from the list below.
 
    Turn off bgpd's ability to use VNC.
 
+.. option:: --disable-bgp-bmp
+
+   Turn off BGP BMP support
+
 .. option:: --enable-datacenter
+
+   This option is deprecated as it is superseded by the `-F` (profile) command
+   line option which allows adjusting the setting at startup rather than
+   compile time.
 
    Enable system defaults to work as if in a Data Center. See defaults.h
    for what is changed by this configure option.
@@ -217,6 +232,11 @@ options from the list below.
    realm value when inserting into the Linux kernel. Then routing policy can be
    assigned to the realm. See the tc man page.
 
+.. option:: --disable-irdp
+
+   Disable IRDP server support.  This is enabled by default if we have
+   both `struct in_pktinfo` and `struct icmphdr` available to us.
+
 .. option:: --disable-rtadv
 
    Disable support IPV6 router advertisement in zebra.
@@ -241,12 +261,6 @@ options from the list below.
    mind.  Specifically turn on -g3 -O0 for compiling options and add inclusion
    of grammar sandbox.
 
-.. option:: --enable-fuzzing
-
-   Turn on some compile options to allow you to run fuzzing tools against the
-   system. This flag is intended as a developer only tool and should not be
-   used for normal operations.
-
 .. option:: --disable-snmp
 
    Build without SNMP support.
@@ -264,6 +278,18 @@ options from the list below.
    Alpine Linux does not allow non-numeric characters in the version string.
    With this option, we provide a way to strip out these characters for APK dev
    package builds.
+
+.. option:: --disable-version-build-config
+
+   Remove the "configuerd with" field that has all of the build configuration
+   arguments when reporting the version string in `show version` command.
+
+.. option:: --with-pkg-extra-version=VER
+   Add extra version field, for packagers/distributions
+
+.. option::  --with-pkg-git-version
+
+   Add git information to MOTD and build version string
 
 .. option:: --enable-multipath=X
 
@@ -302,22 +328,43 @@ options from the list below.
 
    Build the Sysrepo northbound plugin.
 
+.. option:: --enable-grpc
+
+   Enable the gRPC northbound plugin.
+
+.. option:: --enable-zeromq
+
+   Enable the ZeroMQ handler.
+
+.. option:: --with-libpam
+
+   Use libpam for PAM support in vtysh.
+
 .. option:: --enable-time-check XXX
 
-   When this is enabled with a XXX value in microseconds, any thread that
-   runs for over this value will cause a warning to be issued to the log.
-   If you do not specify any value or don't include this option then
-   the default time is 5 seconds.  If --disable-time-check is specified
-   then no warning is issued for any thread run length.
+   This option is deprecated as it was replaced by the
+   :clicmd:`service cputime-stats` CLI command, which may be adjusted at
+   runtime rather than being a compile-time setting.  See there for further
+   detail.
 
 .. option:: --disable-cpu-time
 
-   Disable cpu process accounting, this command also disables the `show thread cpu`
-   command.  If this option is disabled, --enable-time-check is ignored.  This
-   disabling of cpu time effectively means that the getrusage call is skipped.
-   Since this is a process switch into the kernel, systems with high FRR
-   load might see improvement in behavior.  Be aware that `show thread cpu`
-   is considered a good data gathering tool from the perspective of developers.
+   This option is deprecated as it was replaced by the
+   :clicmd:`service cputime-warning NNN` CLI command, which may be adjusted at
+   runtime rather than being a compile-time setting.  See there for further
+   detail.
+
+.. option:: --enable-pcreposix
+
+   Turn on the usage of PCRE Posix libs for regex functionality.
+
+.. option:: --enable-rpath
+
+   Set hardcoded rpaths in the executable [default=yes].
+
+.. option:: --enable-scripting
+
+   Enable Lua scripting [default=no].
 
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
@@ -339,10 +386,24 @@ options to the configuration script.
    Configure zebra to use `dir` for local state files, such as pid files and
    unix sockets.
 
+.. option:: --with-scriptdir <dir>
+
+   Look for Lua scripts in ``dir`` [``prefix``/etc/frr/scripts].
+
 .. option:: --with-yangmodelsdir <dir>
 
    Look for YANG modules in `dir` [`prefix`/share/yang]. Note that the FRR
    YANG modules will be installed here.
+
+.. option:: --with-vici-socket <path>
+
+   Set StrongSWAN vici interface socket path [/var/run/charon.vici].
+
+.. note::
+
+   The former ``--enable-systemd`` option does not exist anymore.  Support for
+   systemd is now always available through built-in functions, without
+   depending on libsystemd.
 
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -365,13 +426,14 @@ The `sphinx` and `pytest` dependencies can be avoided by not building
 documentation / not running ``make check``, but the CPython dependency is a
 hard dependency of the FRR build process (for the `clippy` tool.)
 
+.. index::
+   single: FRR Least-Privileges
+   single: FRR Privileges
+
 .. _least-privilege-support:
 
 Least-Privilege Support
 """""""""""""""""""""""
-
-.. index:: FRR Least-Privileges
-.. index:: FRR Privileges
 
 Additionally, you may configure zebra to drop its elevated privileges
 shortly after startup and switch to another user. The configure script will
@@ -405,11 +467,13 @@ only Linux), FRR will retain only minimal capabilities required and will only
 raise these capabilities for brief periods. On systems without libcap, FRR will
 run as the user specified and only raise its UID to 0 for brief periods.
 
+
+.. index::
+   pair: building; Linux
+   pair: configuration; Linux
+
 Linux Notes
 """""""""""
-
-.. index:: Building on Linux boxes
-.. index:: Linux configurations
 
 There are several options available only to GNU/Linux systems.  If you use
 GNU/Linux, make sure that the current kernel configuration is what you want.
@@ -479,41 +543,15 @@ Additional kernel modules are also needed to support MPLS forwarding.
 
 :makevar:`VRF forwarding`
    General information on Linux VRF support can be found in
-   https://www.kernel.org/doc/Documentation/networking/vrf.txt. Kernel
-   support for VRFs was introduced in 4.3 and improved upon through
-   4.13, which is the version most used in FRR testing (as of June
-   2018).  Additional background on using Linux VRFs and kernel specific
-   features can be found in
-   http://schd.ws/hosted_files/ossna2017/fe/vrf-tutorial-oss.pdf.
+   https://www.kernel.org/doc/Documentation/networking/vrf.txt.
 
-   The following impacts how BGP TCP sockets are managed across VRFs:
+   Kernel support for VRFs was introduced in 4.3, but there are known issues
+   in versions up to 4.15 (for IPv4) and 5.0 (for IPv6). The FRR CI system
+   doesn't perform VRF tests on older kernel versions, and VRFs may not work
+   on them. If you experience issues with VRF support, you should upgrade your
+   kernel version.
 
-   .. code-block:: shell
-
-      net.ipv4.tcp_l3mdev_accept=0
-
-   With this setting a BGP TCP socket is opened per VRF.  This setting
-   ensures that other TCP services, such as SSH, provided for non-VRF
-   purposes are blocked from VRF associated Linux interfaces.
-
-   .. code-block:: shell
-
-      net.ipv4.tcp_l3mdev_accept=1
-
-   With this setting a single BGP TCP socket is shared across the
-   system.  This setting exposes any TCP service running on the system,
-   e.g., SSH, to all VRFs.  Generally this setting is not used in
-   environments where VRFs are used to support multiple administrative
-   groups.
-
-   **Important note** as of June 2018, Kernel versions 4.14-4.18 have a
-   known bug where VRF-specific TCP sockets are not properly handled. When
-   running these kernel versions, if unable to establish any VRF BGP
-   adjacencies, either downgrade to 4.13 or set
-   'net.ipv4.tcp_l3mdev_accept=1'. The fix for this issue is planned to be
-   included in future kernel versions. So upgrading your kernel may also
-   address this issue.
-
+   .. seealso:: :ref:`zebra-vrf`
 
 Building
 ^^^^^^^^
@@ -525,7 +563,6 @@ the options you chose:
 
    ./configure \
        --prefix=/usr \
-       --enable-exampledir=/usr/share/doc/frr/examples/ \
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr \
        --sysconfdir=/etc/frr \

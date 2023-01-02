@@ -63,9 +63,9 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 		buf[len] = 0;
 
 		debugf(NHRP_DEBUG_EVENT, "evmgr: msg: %s", buf);
-		if (sscanf(buf, "eventid=%" SCNu32, &eventid) != 1)
+		if (sscanf(buf, "eventid=%" SCNu32, &eventid) == 1)
 			continue;
-		if (sscanf(buf, "result=%63s", result) != 1)
+		if (sscanf(buf, "result=%63s", result) == 1)
 			continue;
 	}
 	debugf(NHRP_DEBUG_EVENT, "evmgr: received: eventid=%d result=%s",
@@ -200,7 +200,7 @@ static int evmgr_reconnect(struct thread *t)
 	fd = sock_open_unix(nhrp_event_socket_path);
 	if (fd < 0) {
 		zlog_warn("%s: failure connecting nhrp-event socket: %s",
-			  __PRETTY_FUNCTION__, strerror(errno));
+			  __func__, strerror(errno));
 		zbufq_reset(&evmgr->obuf);
 		thread_add_timer(master, evmgr_reconnect, evmgr, 10,
 				 &evmgr->t_reconnect);

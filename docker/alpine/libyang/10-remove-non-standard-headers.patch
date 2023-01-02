@@ -1,0 +1,298 @@
+From 8f4907590afbe3eafabcf5b461c0ae51b65c3a37 Mon Sep 17 00:00:00 2001
+From: Michal Vasko <mvasko@cesnet.cz>
+Date: Thu, 10 Jun 2021 15:07:02 +0200
+Subject: [PATCH] libyang BUGFIX do not include non-standard headers
+
+Fixes #1614
+---
+ src/context.c                            | 1 -
+ src/diff.c                               | 1 -
+ src/log.c                                | 1 -
+ src/out.c                                | 1 -
+ src/plugins_types.c                      | 1 -
+ src/plugins_types/bits.c                 | 1 -
+ src/plugins_types/date_and_time.c        | 1 -
+ src/plugins_types/identityref.c          | 1 -
+ src/plugins_types/integer.c              | 1 -
+ src/plugins_types/ipv4_address.c         | 1 -
+ src/plugins_types/ipv4_address_no_zone.c | 1 -
+ src/plugins_types/ipv4_prefix.c          | 1 -
+ src/plugins_types/ipv6_address.c         | 1 -
+ src/plugins_types/ipv6_address_no_zone.c | 1 -
+ src/plugins_types/ipv6_prefix.c          | 1 -
+ src/plugins_types/union.c                | 1 -
+ src/schema_compile_node.c                | 1 -
+ src/tree_data_helpers.c                  | 1 -
+ src/tree_schema.c                        | 1 -
+ src/validation.c                         | 1 -
+ src/xpath.c                              | 1 -
+ tools/re/main.c                          | 1 -
+ 22 files changed, 22 deletions(-)
+
+diff --git a/src/context.c b/src/context.c
+index eb671255..ac62cac5 100644
+--- a/src/context.c
++++ b/src/context.c
+@@ -17,7 +17,6 @@
+ #define _XOPEN_SOURCE 1
+ #define _XOPEN_SOURCE_EXTENDED 1
+ #endif
+-#include <sys/cdefs.h>
+ 
+ #include "context.h"
+ 
+diff --git a/src/diff.c b/src/diff.c
+index b40dd73a..4971c6fe 100644
+--- a/src/diff.c
++++ b/src/diff.c
+@@ -12,7 +12,6 @@
+  *     https://opensource.org/licenses/BSD-3-Clause
+  */
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "diff.h"
+ 
+diff --git a/src/log.c b/src/log.c
+index 97c7b283..9cd5fd0d 100644
+--- a/src/log.c
++++ b/src/log.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "log.h"
+ 
+diff --git a/src/out.c b/src/out.c
+index 37beb696..898d663a 100644
+--- a/src/out.c
++++ b/src/out.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "out.h"
+ #include "out_internal.h"
+diff --git a/src/plugins_types.c b/src/plugins_types.c
+index 26bac210..a2cf0f38 100644
+--- a/src/plugins_types.c
++++ b/src/plugins_types.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/bits.c b/src/plugins_types/bits.c
+index 9d086ffb..ef87691b 100644
+--- a/src/plugins_types/bits.c
++++ b/src/plugins_types/bits.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/date_and_time.c b/src/plugins_types/date_and_time.c
+index 0d52dbb1..a23caaa9 100644
+--- a/src/plugins_types/date_and_time.c
++++ b/src/plugins_types/date_and_time.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/identityref.c b/src/plugins_types/identityref.c
+index 90546d69..91ddbde2 100644
+--- a/src/plugins_types/identityref.c
++++ b/src/plugins_types/identityref.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/integer.c b/src/plugins_types/integer.c
+index 44e87f99..bf2b7812 100644
+--- a/src/plugins_types/integer.c
++++ b/src/plugins_types/integer.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/ipv4_address.c b/src/plugins_types/ipv4_address.c
+index a95752ea..a7369d6b 100644
+--- a/src/plugins_types/ipv4_address.c
++++ b/src/plugins_types/ipv4_address.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/ipv4_address_no_zone.c b/src/plugins_types/ipv4_address_no_zone.c
+index a17a7efe..1fb34b06 100644
+--- a/src/plugins_types/ipv4_address_no_zone.c
++++ b/src/plugins_types/ipv4_address_no_zone.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/ipv4_prefix.c b/src/plugins_types/ipv4_prefix.c
+index 3108b2c5..6fb93390 100644
+--- a/src/plugins_types/ipv4_prefix.c
++++ b/src/plugins_types/ipv4_prefix.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/ipv6_address.c b/src/plugins_types/ipv6_address.c
+index c0d20fa4..d09425b3 100644
+--- a/src/plugins_types/ipv6_address.c
++++ b/src/plugins_types/ipv6_address.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/ipv6_address_no_zone.c b/src/plugins_types/ipv6_address_no_zone.c
+index c612b663..06bd1891 100644
+--- a/src/plugins_types/ipv6_address_no_zone.c
++++ b/src/plugins_types/ipv6_address_no_zone.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/ipv6_prefix.c b/src/plugins_types/ipv6_prefix.c
+index b3ad34b6..91431fef 100644
+--- a/src/plugins_types/ipv6_prefix.c
++++ b/src/plugins_types/ipv6_prefix.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/plugins_types/union.c b/src/plugins_types/union.c
+index a8ec43b3..89e81c7a 100644
+--- a/src/plugins_types/union.c
++++ b/src/plugins_types/union.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "plugins_types.h"
+ 
+diff --git a/src/schema_compile_node.c b/src/schema_compile_node.c
+index 424b7f8f..273023de 100644
+--- a/src/schema_compile_node.c
++++ b/src/schema_compile_node.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "schema_compile_node.h"
+ 
+diff --git a/src/tree_data_helpers.c b/src/tree_data_helpers.c
+index 488efbbb..2d9ba624 100644
+--- a/src/tree_data_helpers.c
++++ b/src/tree_data_helpers.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include <assert.h>
+ #include <ctype.h>
+diff --git a/src/tree_schema.c b/src/tree_schema.c
+index 93f29796..4a57cc47 100644
+--- a/src/tree_schema.c
++++ b/src/tree_schema.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "tree_schema.h"
+ 
+diff --git a/src/validation.c b/src/validation.c
+index b9eda810..e2062256 100644
+--- a/src/validation.c
++++ b/src/validation.c
+@@ -12,7 +12,6 @@
+  *     https://opensource.org/licenses/BSD-3-Clause
+  */
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "validation.h"
+ 
+diff --git a/src/xpath.c b/src/xpath.c
+index b68a76b8..ea1cdfc9 100644
+--- a/src/xpath.c
++++ b/src/xpath.c
+@@ -12,7 +12,6 @@
+  *     https://opensource.org/licenses/BSD-3-Clause
+  */
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include "xpath.h"
+ 
+diff --git a/tools/re/main.c b/tools/re/main.c
+index b512ad80..4d8aa99c 100644
+--- a/tools/re/main.c
++++ b/tools/re/main.c
+@@ -13,7 +13,6 @@
+  */
+ 
+ #define _GNU_SOURCE /* asprintf, strdup */
+-#include <sys/cdefs.h>
+ 
+ #include <errno.h>
+ #include <getopt.h>
+-- 
+2.31.1
+

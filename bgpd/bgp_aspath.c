@@ -41,9 +41,9 @@
 #define AS_HEADER_SIZE 2
 
 /* Now FOUR octets are used for AS value. */
-#define AS_VALUE_SIZE         sizeof (as_t)
+#define AS_VALUE_SIZE         sizeof(as_t)
 /* This is the old one */
-#define AS16_VALUE_SIZE	      sizeof (as16_t)
+#define AS16_VALUE_SIZE	      sizeof(as16_t)
 
 /* Maximum protocol segment length value */
 #define AS_SEGMENT_MAX		255
@@ -132,8 +132,7 @@ static void assegment_free(struct assegment *seg)
 	if (!seg)
 		return;
 
-	if (seg->as)
-		assegment_data_free(seg->as);
+	assegment_data_free(seg->as);
 	memset(seg, 0xfe, sizeof(struct assegment));
 	XFREE(MTYPE_AS_SEG, seg);
 
@@ -194,7 +193,8 @@ static struct assegment *assegment_prepend_asns(struct assegment *seg,
 	if (num >= AS_SEGMENT_MAX)
 		return seg; /* we don't do huge prepends */
 
-	if ((newas = assegment_data_new(seg->length + num)) == NULL)
+	newas = assegment_data_new(seg->length + num);
+	if (newas == NULL)
 		return seg;
 
 	for (i = 0; i < num; i++)
@@ -429,6 +429,22 @@ bool aspath_check_as_sets(struct aspath *aspath)
 	return false;
 }
 
+/* Check if aspath has BGP_AS_ZERO */
+bool aspath_check_as_zero(struct aspath *aspath)
+{
+	struct assegment *seg = aspath->segments;
+	unsigned int i;
+
+	while (seg) {
+		for (i = 0; i < seg->length; i++)
+			if (seg->as[i] == BGP_AS_ZERO)
+				return true;
+		seg = seg->next;
+	}
+
+	return false;
+}
+
 /* Estimate size aspath /might/ take if encoded into an
  * ASPATH attribute.
  *
@@ -477,7 +493,7 @@ as_t aspath_leftmost(struct aspath *aspath)
 }
 
 /* Return 1 if there are any 4-byte ASes in the path */
-unsigned int aspath_has_as4(struct aspath *aspath)
+bool aspath_has_as4(struct aspath *aspath)
 {
 	struct assegment *seg = aspath->segments;
 	unsigned int i;
@@ -485,10 +501,10 @@ unsigned int aspath_has_as4(struct aspath *aspath)
 	while (seg) {
 		for (i = 0; i < seg->length; i++)
 			if (seg->as[i] > BGP_AS_MAX)
-				return 1;
+				return true;
 		seg = seg->next;
 	}
-	return 0;
+	return false;
 }
 
 /* Convert aspath structure to string expression. */
@@ -768,7 +784,7 @@ static int assegments_parse(struct stream *s, size_t length,
 		     * on more, than 8 bits (otherwise it's a warning, bug
 		     * #564).
 		     */
-		    || ((sizeof segh.length > 1)
+		    || ((sizeof(segh.length) > 1)
 			&& (0x10 + segh.length > 0x10 + AS_SEGMENT_MAX))) {
 			if (head)
 				assegment_free_all(head);
@@ -793,7 +809,7 @@ static int assegments_parse(struct stream *s, size_t length,
 		if (head)
 			prev->next = seg;
 		else /* it's the first segment */
-			head = prev = seg;
+			head = seg;
 
 		for (i = 0; i < segh.length; i++)
 			seg->as[i] =
@@ -895,77 +911,70 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 	if (!seg || seg->length == 0)
 		return 0;
 
-	if (seg) {
-		/*
-		 * Hey, what do we do when we have > STREAM_WRITABLE(s) here?
-		 * At the moment, we would write out a partial aspath, and our
-		 * peer
-		 * will complain and drop the session :-/
-		 *
-		 * The general assumption here is that many things tested will
-		 * never happen.  And, in real live, up to now, they have not.
-		 */
-		while (seg && (ASSEGMENT_LEN(seg, use32bit)
-			       <= STREAM_WRITEABLE(s))) {
-			struct assegment *next = seg->next;
-			int written = 0;
-			int asns_packed = 0;
-			size_t lenp;
+	/*
+	 * Hey, what do we do when we have > STREAM_WRITABLE(s) here?
+	 * At the moment, we would write out a partial aspath, and our
+	 * peer
+	 * will complain and drop the session :-/
+	 *
+	 * The general assumption here is that many things tested will
+	 * never happen.  And, in real live, up to now, they have not.
+	 */
+	while (seg && (ASSEGMENT_LEN(seg, use32bit) <= STREAM_WRITEABLE(s))) {
+		struct assegment *next = seg->next;
+		int written = 0;
+		int asns_packed = 0;
+		size_t lenp;
 
-			/* Overlength segments have to be split up */
-			while ((seg->length - written) > AS_SEGMENT_MAX) {
-				assegment_header_put(s, seg->type,
-						     AS_SEGMENT_MAX);
-				assegment_data_put(s, (seg->as + written), AS_SEGMENT_MAX,
-						   use32bit);
-				written += AS_SEGMENT_MAX;
-				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX,
-							use32bit);
-			}
-
-			/* write the final segment, probably is also the first
-			 */
-			lenp = assegment_header_put(s, seg->type,
-						    seg->length - written);
+		/* Overlength segments have to be split up */
+		while ((seg->length - written) > AS_SEGMENT_MAX) {
+			assegment_header_put(s, seg->type, AS_SEGMENT_MAX);
 			assegment_data_put(s, (seg->as + written),
-					   seg->length - written, use32bit);
-
-			/* Sequence-type segments can be 'packed' together
-			 * Case of a segment which was overlength and split up
-			 * will be missed here, but that doesn't matter.
-			 */
-			while (next && ASSEGMENTS_PACKABLE(seg, next)) {
-				/* NB: We should never normally get here given
-				 * we
-				 * normalise aspath data when parse them.
-				 * However, better
-				 * safe than sorry. We potentially could call
-				 * assegment_normalise here instead, but it's
-				 * cheaper and
-				 * easier to do it on the fly here rather than
-				 * go through
-				 * the segment list twice every time we write
-				 * out
-				 * aspath's.
-				 */
-
-				/* Next segment's data can fit in this one */
-				assegment_data_put(s, next->as, next->length,
-						   use32bit);
-
-				/* update the length of the segment header */
-				stream_putc_at(s, lenp,
-					       seg->length - written
-						       + next->length);
-				asns_packed += next->length;
-
-				next = next->next;
-			}
-
-			bytes += ASSEGMENT_SIZE(
-				seg->length - written + asns_packed, use32bit);
-			seg = next;
+					   AS_SEGMENT_MAX, use32bit);
+			written += AS_SEGMENT_MAX;
+			bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX, use32bit);
 		}
+
+		/* write the final segment, probably is also the first
+		 */
+		lenp = assegment_header_put(s, seg->type,
+					    seg->length - written);
+		assegment_data_put(s, (seg->as + written),
+				   seg->length - written, use32bit);
+
+		/* Sequence-type segments can be 'packed' together
+		 * Case of a segment which was overlength and split up
+		 * will be missed here, but that doesn't matter.
+		 */
+		while (next && ASSEGMENTS_PACKABLE(seg, next)) {
+			/* NB: We should never normally get here given
+			 * we
+			 * normalise aspath data when parse them.
+			 * However, better
+			 * safe than sorry. We potentially could call
+			 * assegment_normalise here instead, but it's
+			 * cheaper and
+			 * easier to do it on the fly here rather than
+			 * go through
+			 * the segment list twice every time we write
+			 * out
+			 * aspath's.
+			 */
+
+			/* Next segment's data can fit in this one */
+			assegment_data_put(s, next->as, next->length, use32bit);
+
+			/* update the length of the segment header */
+			stream_putc_at(s, lenp,
+				       seg->length - written + next->length);
+			asns_packed += next->length;
+
+			next = next->next;
+		}
+
+		bytes += ASSEGMENT_SIZE(seg->length - written + asns_packed,
+					use32bit);
+		seg = next;
 	}
 	return bytes;
 }
@@ -1114,16 +1123,16 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 /* When a BGP router receives an UPDATE with an MP_REACH_NLRI
    attribute, check the leftmost AS number in the AS_PATH attribute is
    or not the peer's AS number. */
-int aspath_firstas_check(struct aspath *aspath, as_t asno)
+bool aspath_firstas_check(struct aspath *aspath, as_t asno)
 {
 	if ((aspath == NULL) || (aspath->segments == NULL))
-		return 0;
+		return false;
 
 	if (aspath->segments && (aspath->segments->type == AS_SEQUENCE)
 	    && (aspath->segments->as[0] == asno))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 unsigned int aspath_get_first_as(struct aspath *aspath)
@@ -1179,12 +1188,12 @@ int aspath_loop_check(struct aspath *aspath, as_t asno)
 }
 
 /* When all of AS path is private AS return 1.  */
-int aspath_private_as_check(struct aspath *aspath)
+bool aspath_private_as_check(struct aspath *aspath)
 {
 	struct assegment *seg;
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	seg = aspath->segments;
 
@@ -1193,20 +1202,20 @@ int aspath_private_as_check(struct aspath *aspath)
 
 		for (i = 0; i < seg->length; i++) {
 			if (!BGP_AS_IS_PRIVATE(seg->as[i]))
-				return 0;
+				return false;
 		}
 		seg = seg->next;
 	}
-	return 1;
+	return true;
 }
 
 /* Return True if the entire ASPATH consist of the specified ASN */
-int aspath_single_asn_check(struct aspath *aspath, as_t asn)
+bool aspath_single_asn_check(struct aspath *aspath, as_t asn)
 {
 	struct assegment *seg;
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	seg = aspath->segments;
 
@@ -1215,11 +1224,11 @@ int aspath_single_asn_check(struct aspath *aspath, as_t asn)
 
 		for (i = 0; i < seg->length; i++) {
 			if (seg->as[i] != asn)
-				return 0;
+				return false;
 		}
 		seg = seg->next;
 	}
-	return 1;
+	return true;
 }
 
 /* Replace all instances of the target ASN with our own ASN */
@@ -1338,37 +1347,37 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 
 /* AS path confed check.  If aspath contains confed set or sequence then return
  * 1. */
-int aspath_confed_check(struct aspath *aspath)
+bool aspath_confed_check(struct aspath *aspath)
 {
 	struct assegment *seg;
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	seg = aspath->segments;
 
 	while (seg) {
 		if (seg->type == AS_CONFED_SET
 		    || seg->type == AS_CONFED_SEQUENCE)
-			return 1;
+			return true;
 		seg = seg->next;
 	}
-	return 0;
+	return false;
 }
 
 /* Leftmost AS path segment confed check.  If leftmost AS segment is of type
   AS_CONFED_SEQUENCE or AS_CONFED_SET then return 1.  */
-int aspath_left_confed_check(struct aspath *aspath)
+bool aspath_left_confed_check(struct aspath *aspath)
 {
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	if ((aspath->segments->type == AS_CONFED_SEQUENCE)
 	    || (aspath->segments->type == AS_CONFED_SET))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Merge as1 to as2.  as2 should be uninterned aspath. */
@@ -1605,13 +1614,13 @@ struct aspath *aspath_add_seq(struct aspath *aspath, as_t asno)
 
 /* Compare leftmost AS value for MED check.  If as1's leftmost AS and
    as2's leftmost AS is same return 1. */
-int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
+bool aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 {
 	const struct assegment *seg1;
 	const struct assegment *seg2;
 
 	if (!(aspath1 && aspath2))
-		return 0;
+		return false;
 
 	seg1 = aspath1->segments;
 	seg2 = aspath2->segments;
@@ -1619,7 +1628,7 @@ int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 	/* If both paths are originated in this AS then we do want to compare
 	 * MED */
 	if (!seg1 && !seg2)
-		return 1;
+		return true;
 
 	/* find first non-confed segments for each */
 	while (seg1 && ((seg1->type == AS_CONFED_SEQUENCE)
@@ -1633,12 +1642,12 @@ int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 	/* Check as1's */
 	if (!(seg1 && seg2 && (seg1->type == AS_SEQUENCE)
 	      && (seg2->type == AS_SEQUENCE)))
-		return 0;
+		return false;
 
 	if (seg1->as[0] == seg2->as[0])
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Truncate an aspath after a number of hops, and put the hops remaining
@@ -1708,8 +1717,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 			if (hops < seg->length) {
 				if (BGP_DEBUG(as4, AS4))
 					zlog_debug(
-						"[AS4] AS4PATHmangle: AS_CONFED_SEQUENCE falls"
-						" across 2/4 ASN boundary somewhere, broken..");
+						"[AS4] AS4PATHmangle: AS_CONFED_SEQUENCE falls across 2/4 ASN boundary somewhere, broken..");
 				hops = seg->length;
 			}
 		/* fallthru */
@@ -2127,7 +2135,7 @@ static void *bgp_aggr_aspath_hash_alloc(void *p)
 	return aspath;
 }
 
-static void bgp_aggr_aspath_prepare(struct hash_backet *hb, void *arg)
+static void bgp_aggr_aspath_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct aspath *hb_aspath = hb->data;
 	struct aspath **aggr_aspath = arg;

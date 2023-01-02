@@ -86,7 +86,8 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS);
 void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS);
 #endif /* HAVE_BFDD */
 
-void zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
+void zebra_ptm_show_status(struct vty *vty, json_object *json,
+			   struct interface *ifp);
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
 void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 				struct zebra_if *zebra_ifp);

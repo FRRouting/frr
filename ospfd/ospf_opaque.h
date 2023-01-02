@@ -24,6 +24,7 @@
 #define _ZEBRA_OSPF_OPAQUE_H
 
 #include "vty.h"
+#include <lib/json.h>
 
 #define IS_OPAQUE_LSA(type)                                                    \
 	((type) == OSPF_OPAQUE_LINK_LSA || (type) == OSPF_OPAQUE_AREA_LSA      \
@@ -78,6 +79,7 @@
 
 #define VALID_OPAQUE_INFO_LEN(lsahdr)                                          \
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
+	 && ((ntohs((lsahdr)->length) < OSPF_MAX_LSA_SIZE))                    \
 	 && ((ntohs((lsahdr)->length) % sizeof(uint32_t)) == 0))
 
 /*
@@ -93,7 +95,7 @@ struct tlv_header {
 
 #define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))
 
-#define TLV_SIZE(tlvh)	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
+#define TLV_SIZE(tlvh)	(uint32_t)(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
 
 #define TLV_HDR_TOP(lsah)                                                      \
 	(struct tlv_header *)((char *)(lsah) + OSPF_LSA_HEADER_SIZE)
@@ -148,7 +150,8 @@ extern void ospf_opaque_nsm_change(struct ospf_neighbor *nbr, int old_status);
 extern void ospf_opaque_config_write_router(struct vty *vty, struct ospf *ospf);
 extern void ospf_opaque_config_write_if(struct vty *vty, struct interface *ifp);
 extern void ospf_opaque_config_write_debug(struct vty *vty);
-extern void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa);
+extern void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
+				    json_object *json);
 extern void ospf_opaque_lsa_dump(struct stream *s, uint16_t length);
 
 extern void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi,

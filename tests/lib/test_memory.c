@@ -19,8 +19,8 @@
 #include <zebra.h>
 #include <memory.h>
 
-DEFINE_MGROUP(TEST_MEMORY, "memory test")
-DEFINE_MTYPE_STATIC(TEST_MEMORY, TEST, "generic test mtype")
+DEFINE_MGROUP(TEST_MEMORY, "memory test");
+DEFINE_MTYPE_STATIC(TEST_MEMORY, TEST, "generic test mtype");
 
 /* Memory torture tests
  *

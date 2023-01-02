@@ -1,0 +1,40 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r4-eth0",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0001",
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "r4-eth1",
+        "vrf": "default",
+        "state": {
+          "frr-isisd:isis": {
+            "adjacencies": {
+              "adjacency": [
+                {
+                  "neighbor-sys-type": "level-1",
+                  "neighbor-sysid": "0000.0000.0005",
+                  "state": "up"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

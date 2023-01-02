@@ -80,19 +80,15 @@ Routers
 
 To start OSPF process you have to specify the OSPF router.
 
-.. index:: router ospf [(1-65535)] vrf NAME
-.. clicmd:: router ospf [(1-65535)] vrf NAME
+.. clicmd:: router ospf [{(1-65535)|vrf NAME}]
 
-.. index:: no router ospf [(1-65535)] vrf NAME
-.. clicmd:: no router ospf [(1-65535)] vrf NAME
 
    Enable or disable the OSPF process.
 
-.. index:: ospf router-id A.B.C.D
+   Multiple instances don't support `vrf NAME`.
+
 .. clicmd:: ospf router-id A.B.C.D
 
-.. index:: no ospf router-id [A.B.C.D]
-.. clicmd:: no ospf router-id [A.B.C.D]
 
    This sets the router-ID of the OSPF process. The router-ID may be an IP
    address of the router, but need not be - it can be any arbitrary 32bit
@@ -101,11 +97,8 @@ To start OSPF process you have to specify the OSPF router.
    with the same router-ID! If one is not specified then *ospfd* will obtain a
    router-ID automatically from *zebra*.
 
-.. index:: ospf abr-type TYPE
 .. clicmd:: ospf abr-type TYPE
 
-.. index:: no ospf abr-type TYPE
-.. clicmd:: no ospf abr-type TYPE
 
    `type` can be cisco|ibm|shortcut|standard. The "Cisco" and "IBM" types
    are equivalent.
@@ -137,11 +130,8 @@ To start OSPF process you have to specify the OSPF router.
    OSPF domain, is dropped. This document describes alternative ABR
    behaviors implemented in Cisco and IBM routers."
 
-.. index:: ospf rfc1583compatibility
 .. clicmd:: ospf rfc1583compatibility
 
-.. index:: no ospf rfc1583compatibility
-.. clicmd:: no ospf rfc1583compatibility
 
    :rfc:`2328`, the successor to :rfc:`1583`, suggests according
    to section G.2 (changes) in section 16.4 a change to the path
@@ -152,36 +142,20 @@ To start OSPF process you have to specify the OSPF router.
 
    This command should NOT be set normally.
 
-.. index:: log-adjacency-changes [detail]
 .. clicmd:: log-adjacency-changes [detail]
 
-.. index:: no log-adjacency-changes [detail]
-.. clicmd:: no log-adjacency-changes [detail]
 
    Configures ospfd to log changes in adjacency. With the optional
    detail argument, all changes in adjacency status are shown. Without detail,
    only changes to full or regressions are shown.
 
-.. index:: passive-interface INTERFACE
-.. clicmd:: passive-interface INTERFACE
+.. clicmd:: passive-interface default
 
-.. index:: no passive-interface INTERFACE
-.. clicmd:: no passive-interface INTERFACE
+   Make all interfaces that belong to this router passive by default. For the
+   description of passive interface look at :clicmd:`ip ospf passive [A.B.C.D]`.
+   Per-interface configuration takes precedence over the default value.
 
-   Do not speak OSPF interface on the
-   given interface, but do advertise the interface as a stub link in the
-   router-:abbr:`LSA (Link State Advertisement)` for this router. This
-   allows one to advertise addresses on such connected interfaces without
-   having to originate AS-External/Type-5 LSAs (which have global flooding
-   scope) - as would occur if connected addresses were redistributed into
-   OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
-   advertise non-OSPF links into stub areas.
-
-.. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
-.. clicmd:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
-
-.. index:: no timers throttle spf
-.. clicmd:: no timers throttle spf
+.. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
    This command sets the initial `delay`, the `initial-holdtime`
    and the `maximum-holdtime` between when SPF is calculated and the
@@ -221,14 +195,10 @@ To start OSPF process you have to specify the OSPF router.
    This command supersedes the *timers spf* command in previous FRR
    releases.
 
-.. index:: max-metric router-lsa [on-startup|on-shutdown] (5-86400)
 .. clicmd:: max-metric router-lsa [on-startup|on-shutdown] (5-86400)
 
-.. index:: max-metric router-lsa administrative
 .. clicmd:: max-metric router-lsa administrative
 
-.. index:: no max-metric router-lsa [on-startup|on-shutdown|administrative]
-.. clicmd:: no max-metric router-lsa [on-startup|on-shutdown|administrative]
 
    This enables :rfc:`3137` support, where the OSPF process describes its
    transit links in its router-LSA as having infinite distance so that other
@@ -257,11 +227,8 @@ To start OSPF process you have to specify the OSPF router.
    number of second remaining till on-startup or on-shutdown ends, can be
    viewed with the :clicmd:`show ip ospf` command.
 
-.. index:: auto-cost reference-bandwidth (1-4294967)
 .. clicmd:: auto-cost reference-bandwidth (1-4294967)
 
-.. index:: no auto-cost reference-bandwidth
-.. clicmd:: no auto-cost reference-bandwidth
 
    This sets the reference
    bandwidth for cost calculations, where this bandwidth is considered
@@ -273,17 +240,11 @@ To start OSPF process you have to specify the OSPF router.
    This configuration setting MUST be consistent across all routers within the
    OSPF domain.
 
-.. index:: network A.B.C.D/M area A.B.C.D
 .. clicmd:: network A.B.C.D/M area A.B.C.D
 
-.. index:: network A.B.C.D/M area (0-4294967295)
 .. clicmd:: network A.B.C.D/M area (0-4294967295)
 
-.. index:: no network A.B.C.D/M area A.B.C.D
-.. clicmd:: no network A.B.C.D/M area A.B.C.D
 
-.. index:: no network A.B.C.D/M area (0-4294967295)
-.. clicmd:: no network A.B.C.D/M area (0-4294967295)
 
    This command specifies the OSPF enabled interface(s). If the interface has
    an address from range 192.168.1.0/24 then the command below enables ospf
@@ -310,23 +271,53 @@ To start OSPF process you have to specify the OSPF router.
    In some cases it may be more convenient to enable OSPF on a per
    interface/subnet basis (:clicmd:`ip ospf area AREA [ADDR]`).
 
+.. clicmd:: proactive-arp
+
+
+   This command enables or disables sending ARP requests to update neighbor
+   table entries. It speeds up convergence for /32 networks on a P2P
+   connection.
+
+   This feature is enabled by default.
+
+.. clicmd:: clear ip ospf [(1-65535)] process
+
+   This command can be used to clear the ospf process data structures. This
+   will clear the ospf neighborship as well and it will get re-established.
+   This will clear the LSDB too. This will be helpful when there is a change
+   in router-id and if user wants the router-id change to take effect, user can
+   use this cli instead of restarting the ospfd daemon.
+
+.. clicmd:: clear ip ospf [(1-65535)] neighbor
+
+   This command can be used to clear the ospf neighbor data structures. This
+   will clear the ospf neighborship and it will get re-established. This
+   command can be used when the neighbor state get stuck at some state and
+   this can be used to recover it from that state.
+
+.. clicmd:: maximum-paths (1-64)
+
+   Use this command to control the maximum number of equal cost paths to reach
+   a specific destination. The upper limit may differ if you change the value
+   of MULTIPATH_NUM during compilation. The default is MULTIPATH_NUM (64).
+
+.. clicmd:: write-multiplier (1-100)
+
+   Use this command to tune the amount of work done in the packet read and
+   write threads before relinquishing control. The parameter is the number
+   of packets to process before returning. The defult value of this parameter
+   is 20.
 
 .. _ospf-area:
 
 Areas
 -----
 
-.. index:: area A.B.C.D range A.B.C.D/M
 .. clicmd:: area A.B.C.D range A.B.C.D/M
 
-.. index:: area (0-4294967295) range A.B.C.D/M
 .. clicmd:: area (0-4294967295) range A.B.C.D/M
 
-.. index:: no area A.B.C.D range A.B.C.D/M
-.. clicmd:: no area A.B.C.D range A.B.C.D/M
 
-.. index:: no area (0-4294967295) range A.B.C.D/M
-.. clicmd:: no area (0-4294967295) range A.B.C.D/M
 
    Summarize intra area paths from specified area into one Type-3 summary-LSA
    announced to other areas. This command can be used only in ABR and ONLY
@@ -346,21 +337,15 @@ Areas
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
    network (i.e. described with router or network LSA) from this range.
 
-.. index:: area A.B.C.D range IPV4_PREFIX not-advertise
 .. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
 
-.. index:: no area A.B.C.D range IPV4_PREFIX not-advertise
-.. clicmd:: no area A.B.C.D range IPV4_PREFIX not-advertise
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. index:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 .. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 
-.. index:: no area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
-.. clicmd:: no area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
 
    Substitute summarized prefix with another prefix.
 
@@ -377,44 +362,26 @@ Areas
    network-LSA) from range 10.0.0.0/8.
    This command makes sense in ABR only.
 
-.. index:: area A.B.C.D virtual-link A.B.C.D
 .. clicmd:: area A.B.C.D virtual-link A.B.C.D
 
-.. index:: area (0-4294967295) virtual-link A.B.C.D
 .. clicmd:: area (0-4294967295) virtual-link A.B.C.D
 
-.. index:: no area A.B.C.D virtual-link A.B.C.D
-.. clicmd:: no area A.B.C.D virtual-link A.B.C.D
 
-.. index:: no area (0-4294967295) virtual-link A.B.C.D
-.. clicmd:: no area (0-4294967295) virtual-link A.B.C.D
 
-.. index:: area A.B.C.D shortcut
 .. clicmd:: area A.B.C.D shortcut
 
-.. index:: area (0-4294967295) shortcut
 .. clicmd:: area (0-4294967295) shortcut
 
-.. index:: no area A.B.C.D shortcut
-.. clicmd:: no area A.B.C.D shortcut
 
-.. index:: no area (0-4294967295) shortcut
-.. clicmd:: no area (0-4294967295) shortcut
 
    Configure the area as Shortcut capable. See :rfc:`3509`. This requires
    that the 'abr-type' be set to 'shortcut'.
 
-.. index:: area A.B.C.D stub
 .. clicmd:: area A.B.C.D stub
 
-.. index:: area (0-4294967295) stub
 .. clicmd:: area (0-4294967295) stub
 
-.. index:: no area A.B.C.D stub
-.. clicmd:: no area A.B.C.D stub
 
-.. index:: no area (0-4294967295) stub
-.. clicmd:: no area (0-4294967295) stub
 
    Configure the area to be a stub area. That is, an area where no router
    originates routes external to OSPF and hence an area where all external
@@ -423,40 +390,46 @@ Areas
    area. They need only pass Network-Summary (type-3) LSAs into such an area,
    along with a default-route summary.
 
-.. index:: area A.B.C.D stub no-summary
 .. clicmd:: area A.B.C.D stub no-summary
 
-.. index:: area (0-4294967295) stub no-summary
 .. clicmd:: area (0-4294967295) stub no-summary
 
-.. index:: no area A.B.C.D stub no-summary
-.. clicmd:: no area A.B.C.D stub no-summary
 
-.. index:: no area (0-4294967295) stub no-summary
-.. clicmd:: no area (0-4294967295) stub no-summary
 
     Prevents an *ospfd* ABR from injecting inter-area
     summaries into the specified stub area.
 
-.. index:: area A.B.C.D default-cost (0-16777215)
+.. clicmd:: area A.B.C.D nssa
+
+.. clicmd:: area (0-4294967295) nssa
+
+    Configure the area to be a NSSA (Not-So-Stubby Area). This is an area that
+    allows OSPF to import external routes into a stub area via a new LSA type
+    (type 7). An NSSA autonomous system boundary router (ASBR) will generate this
+    type of LSA. The area border router (ABR) translates the LSA type 7 into LSA
+    type 5, which is propagated into the OSPF domain. NSSA areas are defined in
+    RFC 3101.
+
+.. clicmd:: area A.B.C.D nssa suppress-fa
+
+.. clicmd:: area (0-4294967295) nssa suppress-fa
+
+    Configure the router to set the forwarding address to 0.0.0.0 in all LSA type 5
+    translated from LSA type 7. The router needs to be elected the translator of the
+    area for this command to take effect. This feature causes routers that are
+    configured not to advertise forwarding addresses into the backbone to direct
+    forwarded traffic to the NSSA ABR translator.
+
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
-.. index:: no area A.B.C.D default-cost (0-16777215)
-.. clicmd:: no area A.B.C.D default-cost (0-16777215)
 
    Set the cost of default-summary LSAs announced to stubby areas.
 
-.. index:: area A.B.C.D export-list NAME
 .. clicmd:: area A.B.C.D export-list NAME
 
-.. index:: area (0-4294967295) export-list NAME
 .. clicmd:: area (0-4294967295) export-list NAME
 
-.. index:: no area A.B.C.D export-list NAME
-.. clicmd:: no area A.B.C.D export-list NAME
 
-.. index:: no area (0-4294967295) export-list NAME
-.. clicmd:: no area (0-4294967295) export-list NAME
 
    Filter Type-3 summary-LSAs announced to other areas originated from intra-
    area paths from specified area.
@@ -479,67 +452,41 @@ Areas
    This command is only relevant if the router is an ABR for the specified
    area.
 
-.. index:: area A.B.C.D import-list NAME
 .. clicmd:: area A.B.C.D import-list NAME
 
-.. index:: area (0-4294967295) import-list NAME
 .. clicmd:: area (0-4294967295) import-list NAME
 
-.. index:: no area A.B.C.D import-list NAME
-.. clicmd:: no area A.B.C.D import-list NAME
 
-.. index:: no area (0-4294967295) import-list NAME
-.. clicmd:: no area (0-4294967295) import-list NAME
 
    Same as export-list, but it applies to paths announced into specified area
    as Type-3 summary-LSAs.
 
-.. index:: area A.B.C.D filter-list prefix NAME in
 .. clicmd:: area A.B.C.D filter-list prefix NAME in
 
-.. index:: area A.B.C.D filter-list prefix NAME out
 .. clicmd:: area A.B.C.D filter-list prefix NAME out
 
-.. index:: area (0-4294967295) filter-list prefix NAME in
 .. clicmd:: area (0-4294967295) filter-list prefix NAME in
 
-.. index:: area (0-4294967295) filter-list prefix NAME out
 .. clicmd:: area (0-4294967295) filter-list prefix NAME out
 
-.. index:: no area A.B.C.D filter-list prefix NAME in
-.. clicmd:: no area A.B.C.D filter-list prefix NAME in
 
-.. index:: no area A.B.C.D filter-list prefix NAME out
-.. clicmd:: no area A.B.C.D filter-list prefix NAME out
 
-.. index:: no area (0-4294967295) filter-list prefix NAME in
-.. clicmd:: no area (0-4294967295) filter-list prefix NAME in
 
-.. index:: no area (0-4294967295) filter-list prefix NAME out
-.. clicmd:: no area (0-4294967295) filter-list prefix NAME out
 
    Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
    makes sense in ABR only.
 
-.. index:: area A.B.C.D authentication
 .. clicmd:: area A.B.C.D authentication
 
-.. index:: area (0-4294967295) authentication
 .. clicmd:: area (0-4294967295) authentication
 
-.. index:: no area A.B.C.D authentication
-.. clicmd:: no area A.B.C.D authentication
 
-.. index:: no area (0-4294967295) authentication
-.. clicmd:: no area (0-4294967295) authentication
 
    Specify that simple password authentication should be used for the given
    area.
 
-.. index:: area A.B.C.D authentication message-digest
 .. clicmd:: area A.B.C.D authentication message-digest
 
-.. index:: area (0-4294967295) authentication message-digest
 .. clicmd:: area (0-4294967295) authentication message-digest
 
    Specify that OSPF packets must be authenticated with MD5 HMACs within the
@@ -555,11 +502,8 @@ Areas
 Interfaces
 ----------
 
-.. index:: ip ospf area AREA [ADDR]
 .. clicmd:: ip ospf area AREA [ADDR]
 
-.. index:: no ip ospf area [ADDR]
-.. clicmd:: no ip ospf area [ADDR]
 
    Enable OSPF on the interface, optionally restricted to just the IP address
    given by `ADDR`, putting it in the `AREA` area. Per interface area settings
@@ -569,11 +513,8 @@ Interfaces
    If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
    via this command may result in a slight performance improvement.
 
-.. index:: ip ospf authentication-key AUTH_KEY
 .. clicmd:: ip ospf authentication-key AUTH_KEY
 
-.. index:: no ip ospf authentication-key
-.. clicmd:: no ip ospf authentication-key
 
    Set OSPF authentication key to a simple password. After setting `AUTH_KEY`,
    all OSPF packets are authenticated. `AUTH_KEY` has length up to 8 chars.
@@ -581,7 +522,6 @@ Interfaces
    Simple text password authentication is insecure and deprecated in favour of
    MD5 HMAC authentication.
 
-.. index:: ip ospf authentication message-digest
 .. clicmd:: ip ospf authentication message-digest
 
    Specify that MD5 HMAC authentication must be used on this interface. MD5
@@ -598,11 +538,8 @@ Interfaces
    non-volatile storage and restored at boot if MD5 authentication is to be
    expected to work reliably.
 
-.. index:: ip ospf message-digest-key KEYID md5 KEY
 .. clicmd:: ip ospf message-digest-key KEYID md5 KEY
 
-.. index:: no ip ospf message-digest-key
-.. clicmd:: no ip ospf message-digest-key
 
    Set OSPF authentication key to a cryptographic password. The cryptographic
    algorithm is MD5.
@@ -613,23 +550,16 @@ Interfaces
    KEY is the actual message digest key, of up to 16 chars (larger strings will
    be truncated), and is associated with the given KEYID.
 
-.. index:: ip ospf cost (1-65535)
 .. clicmd:: ip ospf cost (1-65535)
 
-.. index:: no ip ospf cost
-.. clicmd:: no ip ospf cost
 
    Set link cost for the specified interface. The cost value is set to
    router-LSA's metric field and used for SPF calculation.
 
-.. index:: ip ospf dead-interval (1-65535)
 .. clicmd:: ip ospf dead-interval (1-65535)
 
-.. index:: ip ospf dead-interval minimal hello-multiplier (2-20)
 .. clicmd:: ip ospf dead-interval minimal hello-multiplier (2-20)
 
-.. index:: no ip ospf dead-interval
-.. clicmd:: no ip ospf dead-interval
 
    Set number of seconds for RouterDeadInterval timer value used for Wait Timer
    and Inactivity Timer. This value must be the same for all routers attached
@@ -644,11 +574,8 @@ Interfaces
    hello-multiplier need NOT be the same across multiple routers on a common
    link.
 
-.. index:: ip ospf hello-interval (1-65535)
 .. clicmd:: ip ospf hello-interval (1-65535)
 
-.. index:: no ip ospf hello-interval
-.. clicmd:: no ip ospf hello-interval
 
    Set number of seconds for HelloInterval timer value. Setting this value,
    Hello packet will be sent every timer value seconds on the specified interface.
@@ -659,8 +586,7 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
-.. index:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)
-.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)
+.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
    has a /32 address associated with then OSPF will treat the interface
@@ -668,81 +594,66 @@ Interfaces
    net.ipv4.conf.<interface name>.rp_filter value to 0.  In order for
    the ospf multicast packets to be delivered by the kernel.
 
-.. index:: no ip ospf network
-.. clicmd:: no ip ospf network
+   When used in a DMVPN network at a spoke, this OSPF will be configured in
+   point-to-point, but the HUB will be a point-to-multipoint. To make this
+   topology work, specify the optional 'dmvpn' parameter at the spoke.
 
    Set explicitly network type for specified interface.
 
-.. index:: ip ospf priority (0-255)
 .. clicmd:: ip ospf priority (0-255)
 
-.. index:: no ip ospf priority
-.. clicmd:: no ip ospf priority
 
    Set RouterPriority integer value. The router with the highest priority will
    be more eligible to become Designated Router. Setting the value to 0, makes
    the router ineligible to become Designated Router. The default value is 1.
 
-.. index:: ip ospf retransmit-interval (1-65535)
 .. clicmd:: ip ospf retransmit-interval (1-65535)
 
-.. index:: no ip ospf retransmit interval
-.. clicmd:: no ip ospf retransmit interval
 
    Set number of seconds for RxmtInterval timer value. This value is used when
    retransmitting Database Description and Link State Request packets. The
    default value is 5 seconds.
 
-.. index:: ip ospf transmit-delay
-.. clicmd:: ip ospf transmit-delay
+.. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
 
-.. index:: no ip ospf transmit-delay
-.. clicmd:: no ip ospf transmit-delay
 
    Set number of seconds for InfTransDelay value. LSAs' age should be
    incremented by this value when transmitting. The default value is 1 second.
 
-.. index:: ip ospf area (A.B.C.D|(0-4294967295))
+.. clicmd:: ip ospf passive [A.B.C.D]
+
+   Do not speak OSPF on the interface, but do advertise the interface as a stub
+   link in the router-:abbr:`LSA (Link State Advertisement)` for this router.
+   This allows one to advertise addresses on such connected interfaces without
+   having to originate AS-External/Type-5 LSAs (which have global flooding
+   scope) - as would occur if connected addresses were redistributed into
+   OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
+   advertise non-OSPF links into stub areas.
+
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
-.. index:: no ip ospf area
-.. clicmd:: no ip ospf area
 
    Enable ospf on an interface and set associated area.
+
+OSPF route-map
+==============
+
+Usage of *ospfd*'s route-map support.
+
+.. clicmd:: set metric [+|-](0-4294967295)
+
+   Set a metric for matched route when sending announcement. Use plus (+) sign
+   to add a metric value to an existing metric. Use minus (-) sign to
+   substract a metric value from an existing metric.
 
 .. _redistribute-routes-to-ospf:
 
 Redistribution
 --------------
 
-.. index:: redistribute (kernel|connected|static|rip|bgp)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) ROUTE-MAP
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) ROUTE-MAP
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) route-map WORD
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) route-map WORD
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214) route-map WORD
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric (0-16777214) route-map WORD
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214)
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214)
-
-.. index:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map WORD
-.. clicmd:: redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map WORD
-
-.. index:: no redistribute (kernel|connected|static|rip|bgp)
-.. clicmd:: no redistribute (kernel|connected|static|rip|bgp)
-
 .. _ospf-redistribute:
+
+.. clicmd:: redistribute <babel|bgp|connected|eigrp|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric-type (1-2)] [metric (0-16777214)] [route-map WORD]
 
    Redistribute routes of the specified protocol or kind into OSPF, with the
    metric type and metric set if specified, filtering the routes using the
@@ -755,80 +666,100 @@ Redistribution
    NSSA areas and are not redistributed at all into Stub areas, where external
    routes are not permitted.
 
-   Note that for connected routes, one may instead use the `passive-interface`
-   configuration.
+   Note that for connected routes, one may instead use the
+   :clicmd:`ip ospf passive [A.B.C.D]` configuration.
 
-.. seealso::
-
-   clicmd:`passive-interface INTERFACE`.
-
-.. index:: default-information originate
 .. clicmd:: default-information originate
 
-.. index:: default-information originate metric (0-16777214)
 .. clicmd:: default-information originate metric (0-16777214)
 
-.. index:: default-information originate metric (0-16777214) metric-type (1|2)
 .. clicmd:: default-information originate metric (0-16777214) metric-type (1|2)
 
-.. index:: default-information originate metric (0-16777214) metric-type (1|2) route-map WORD
 .. clicmd:: default-information originate metric (0-16777214) metric-type (1|2) route-map WORD
 
-.. index:: default-information originate always
 .. clicmd:: default-information originate always
 
-.. index:: default-information originate always metric (0-16777214)
 .. clicmd:: default-information originate always metric (0-16777214)
 
-.. index:: default-information originate always metric (0-16777214) metric-type (1|2)
 .. clicmd:: default-information originate always metric (0-16777214) metric-type (1|2)
 
-.. index:: default-information originate always metric (0-16777214) metric-type (1|2) route-map WORD
 .. clicmd:: default-information originate always metric (0-16777214) metric-type (1|2) route-map WORD
 
-.. index:: no default-information originate
-.. clicmd:: no default-information originate
 
    Originate an AS-External (type-5) LSA describing a default route into all
    external-routing capable areas, of the specified metric and metric type. If
    the 'always' keyword is given then the default is always advertised, even
    when there is no default present in the routing table.
 
-.. index:: distribute-list NAME out (kernel|connected|static|rip|ospf
-.. clicmd:: distribute-list NAME out (kernel|connected|static|rip|ospf
-
-.. index:: no distribute-list NAME out (kernel|connected|static|rip|ospf
-.. clicmd:: no distribute-list NAME out (kernel|connected|static|rip|ospf
-
 .. _ospf-distribute-list:
 
+.. clicmd:: distribute-list NAME out <kernel|connected|static|rip|isis|bgp|eigrp|nhrp|table|vnc|babel|openfabric>
+
    Apply the access-list filter, NAME, to redistributed routes of the given
-   type before allowing the routes to redistributed into OSPF
+   type before allowing the routes to be redistributed into OSPF
    (:ref:`ospf redistribution <ospf-redistribute>`).
 
-.. index:: default-metric (0-16777214)
 .. clicmd:: default-metric (0-16777214)
 
-.. index:: no default-metric
-.. clicmd:: no default-metric
 
-.. index:: distance (1-255)
 .. clicmd:: distance (1-255)
 
-.. index:: no distance (1-255)
-.. clicmd:: no distance (1-255)
 
-.. index:: distance ospf (intra-area|inter-area|external) (1-255)
 .. clicmd:: distance ospf (intra-area|inter-area|external) (1-255)
 
-.. index:: no distance ospf
-.. clicmd:: no distance ospf
 
-.. index:: router zebra
-.. clicmd:: router zebra
 
-.. index:: no router zebra
-.. clicmd:: no router zebra
+Graceful Restart
+================
+
+.. clicmd:: graceful-restart [grace-period (1-1800)]
+
+
+   Configure Graceful Restart (RFC 3623) restarting support.
+   When enabled, the default grace period is 120 seconds.
+
+   To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
+   EXEC-level command needs to be issued before restarting the ospfd daemon.
+
+.. clicmd:: graceful-restart helper enable [A.B.C.D]
+
+
+   Configure Graceful Restart (RFC 3623) helper support.
+   By default, helper support is disabled for all neighbours.
+   This config enables/disables helper support on this router
+   for all neighbours.
+   To enable/disable helper support for a specific
+   neighbour, the router-id (A.B.C.D) has to be specified.
+
+.. clicmd:: graceful-restart helper strict-lsa-checking
+
+
+   If 'strict-lsa-checking' is configured then the helper will
+   abort the Graceful Restart when a LSA change occurs which
+   affects the restarting router.
+   By default 'strict-lsa-checking' is enabled"
+
+.. clicmd:: graceful-restart helper supported-grace-time
+
+
+   Supports as HELPER for configured grace period.
+
+.. clicmd:: graceful-restart helper planned-only
+
+
+   It helps to support as HELPER only for planned
+   restarts. By default, it supports both planned and
+   unplanned outages.
+
+
+.. clicmd:: graceful-restart prepare ip ospf
+
+
+   Initiate a graceful restart for all OSPF instances configured with the
+   "graceful-restart" command. The ospfd daemon should be restarted during
+   the instance-specific grace period, otherwise the graceful restart will fail.
+
+   This is an EXEC-level command.
 
 
 .. _showing-ospf-information:
@@ -838,79 +769,68 @@ Showing Information
 
 .. _show-ip-ospf:
 
-.. index:: show ip ospf
-.. clicmd:: show ip ospf
+.. clicmd:: show ip ospf [json]
 
    Show information on a variety of general OSPF and area state and
    configuration information.
 
-.. index:: show ip ospf interface [INTERFACE]
-.. clicmd:: show ip ospf interface [INTERFACE]
+.. clicmd:: show ip ospf interface [INTERFACE] [json]
 
    Show state and configuration of OSPF the specified interface, or all
    interfaces if no interface is given.
 
-.. index:: show ip ospf neighbor
-.. clicmd:: show ip ospf neighbor
+.. clicmd:: show ip ospf neighbor [json]
 
-.. index:: show ip ospf neighbor INTERFACE
-.. clicmd:: show ip ospf neighbor INTERFACE
+.. clicmd:: show ip ospf neighbor INTERFACE [json]
 
-.. index:: show ip ospf neighbor detail
-.. clicmd:: show ip ospf neighbor detail
+.. clicmd:: show ip ospf neighbor detail [json]
 
-.. index:: show ip ospf neighbor INTERFACE detail
-.. clicmd:: show ip ospf neighbor INTERFACE detail
+.. clicmd:: show ip ospf neighbor INTERFACE detail [json]
 
-.. index:: show ip ospf database
-.. clicmd:: show ip ospf database
+   Display lsa information of LSDB.
+   Json o/p of this command covers base route information
+   i.e all LSAs except opaque lsa info.
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary)
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary)
+.. clicmd:: show ip ospf [vrf <NAME|all>] database [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
 
-.. index:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate
-.. clicmd:: show ip ospf database (asbr-summary|external|network|router|summary) self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
 
-.. index:: show ip ospf database max-age
-.. clicmd:: show ip ospf database max-age
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) self-originate [json]
 
-.. index:: show ip ospf database self-originate
-.. clicmd:: show ip ospf database self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database max-age [json]
 
-.. index:: show ip ospf route
-.. clicmd:: show ip ospf route
+.. clicmd:: show ip ospf [vrf <NAME|all>] database self-originate [json]
+
+   Show the OSPF database summary.
+
+.. clicmd:: show ip ospf route [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
    calculation.
+
+.. clicmd:: show ip ospf graceful-restart helper [detail] [json]
+
+   Displays the Grcaeful Restart Helper details including helper
+   config changes.
 
 .. _opaque-lsa:
 
 Opaque LSA
 ==========
 
-.. index:: ospf opaque-lsa
 .. clicmd:: ospf opaque-lsa
 
-.. index:: capability opaque
 .. clicmd:: capability opaque
 
-.. index:: no ospf opaque-lsa
-.. clicmd:: no ospf opaque-lsa
 
-.. index:: no capability opaque
-.. clicmd:: no capability opaque
 
    *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
    MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
@@ -920,23 +840,17 @@ Opaque LSA
    extensions that are used with MPLS-TE; it does not support a
    complete RSVP-TE solution.
 
-.. index:: show ip ospf database (opaque-link|opaque-area|opaque-external)
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external)
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external)
 
-.. index:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID
 
-.. index:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID adv-router ADV-ROUTER
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID adv-router ADV-ROUTER
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID adv-router ADV-ROUTER
 
-.. index:: show ip ospf database (opaque-link|opaque-area|opaque-external) adv-router ADV-ROUTER
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) adv-router ADV-ROUTER
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) adv-router ADV-ROUTER
 
-.. index:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID self-originate
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) LINK-STATE-ID self-originate
 
-.. index:: show ip ospf database (opaque-link|opaque-area|opaque-external) self-originate
-.. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external) self-originate
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) self-originate
 
    Show Opaque LSA from the database.
 
@@ -951,54 +865,56 @@ Traffic Engineering
    protocol extensions that can be used with MPLS-TE. FRR does not
    support a complete RSVP-TE solution currently.
 
-.. index:: mpls-te on
 .. clicmd:: mpls-te on
 
-.. index:: no mpls-te
-.. clicmd:: no mpls-te
 
    Enable Traffic Engineering LSA flooding.
 
-.. index:: mpls-te router-address <A.B.C.D>
 .. clicmd:: mpls-te router-address <A.B.C.D>
 
    Configure stable IP address for MPLS-TE. This IP address is then advertise
    in Opaque LSA Type-10 TLV=1 (TE) option 1 (Router-Address).
 
-.. index:: mpls-te inter-as area <area-id>|as
 .. clicmd:: mpls-te inter-as area <area-id>|as
 
-.. index:: no mpls-te inter-as
-.. clicmd:: no mpls-te inter-as
 
    Enable :rfc:`5392` support - Inter-AS TE v2 - to flood Traffic Engineering
    parameters of Inter-AS link.  2 modes are supported: AREA and AS; LSA are
    flood in AREA <area-id> with Opaque Type-10, respectively in AS with Opaque
    Type-11. In all case, Opaque-LSA TLV=6.
 
-.. index:: show ip ospf mpls-te interface
+.. clicmd:: mpls-te export
+
+   Export Traffic Engineering Data Base to other daemons through the ZAPI
+   Opaque Link State messages.
+
 .. clicmd:: show ip ospf mpls-te interface
 
-.. index:: show ip ospf mpls-te interface INTERFACE
 .. clicmd:: show ip ospf mpls-te interface INTERFACE
 
    Show MPLS Traffic Engineering parameters for all or specified interface.
 
-.. index:: show ip ospf mpls-te router
 .. clicmd:: show ip ospf mpls-te router
 
    Show Traffic Engineering router parameters.
+
+.. clicmd:: show ip ospf mpls-te database [verbose|json]
+
+.. clicmd:: show ip ospf mpls-te database vertex [self-originate|adv-router ADV-ROUTER] [verbose|json]
+
+.. clicmd:: show ip ospf mpls-te database edge [A.B.C.D] [verbose|json]
+
+.. clicmd:: show ip ospf mpls-te database subnet [A.B.C.D/M] [verbose|json]
+
+   Show Traffic Engineering Database
 
 .. _router-information:
 
 Router Information
 ==================
 
-.. index:: router-info [as | area]
 .. clicmd:: router-info [as | area]
 
-.. index:: no router-info
-.. clicmd:: no router-info
 
    Enable Router Information (:rfc:`4970`) LSA advertisement with AS scope
    (default) or Area scope flooding when area is specified. Old syntax
@@ -1006,35 +922,20 @@ Router Information
    as the area ID is no more necessary. Indeed, router information support
    multi-area and detect automatically the areas.
 
-.. index:: pce address <A.B.C.D>
 .. clicmd:: pce address <A.B.C.D>
 
-.. index:: no pce address
-.. clicmd:: no pce address
 
-.. index:: pce domain as (0-65535)
 .. clicmd:: pce domain as (0-65535)
 
-.. index:: no pce domain as (0-65535)
-.. clicmd:: no pce domain as (0-65535)
 
-.. index:: pce neighbor as (0-65535)
 .. clicmd:: pce neighbor as (0-65535)
 
-.. index:: no pce neighbor as (0-65535)
-.. clicmd:: no pce neighbor as (0-65535)
 
-.. index:: pce flag BITPATTERN
 .. clicmd:: pce flag BITPATTERN
 
-.. index:: no pce flag
-.. clicmd:: no pce flag
 
-.. index:: pce scope BITPATTERN
 .. clicmd:: pce scope BITPATTERN
 
-.. index:: no pce scope
-.. clicmd:: no pce scope
 
    The commands are conform to :rfc:`5088` and allow OSPF router announce Path
    Computation Element (PCE) capabilities through the Router Information (RI)
@@ -1044,155 +945,177 @@ Router Information
    refer to :rfc`5088` for the BITPATTERN recognition. Multiple 'pce neighbor'
    command could be specified in order to specify all PCE neighbours.
 
-.. index:: show ip ospf router-info
 .. clicmd:: show ip ospf router-info
 
    Show Router Capabilities flag.
 
-.. index:: show ip ospf router-info pce
 .. clicmd:: show ip ospf router-info pce
 
    Show Router Capabilities PCE parameters.
 
-.. _debugging-ospf:
-
 Segment Routing
 ===============
 
-This is an EXPERIMENTAL support of Segment Routing as per draft
-`draft-ietf-ospf-segment-routing-extensions-24.txt` for MPLS dataplane.
+This is an EXPERIMENTAL support of Segment Routing as per `RFC 8665` for MPLS
+dataplane.
 
-.. index:: [no] segment-routing on
-.. clicmd:: [no] segment-routing on
+.. clicmd:: segment-routing on
 
    Enable Segment Routing. Even if this also activate routing information
    support, it is preferable to also activate routing information, and set
    accordingly the Area or AS flooding.
 
-.. index:: [no] segment-routing global-block (0-1048575) (0-1048575)
-.. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
+.. clicmd:: segment-routing global-block (16-1048575) (16-1048575) [local-block (16-1048575) (16-1048575)]
 
-   Fix the Segment Routing Global Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB.
+   Set the Segment Routing Global Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Prefix SID. Optionally also set the Local
+   Block, i.e. the label range used for Adjacency SID. The negative version
+   of the command always unsets both ranges.
 
-.. index:: [no] segment-routing node-msd (1-16)
-.. clicmd:: [no] segment-routing node-msd (1-16)
+.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
+
+   Set the Segment Routing Local Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Adjacency SID. This command is deprecated
+   in favor of the combined command above.
+
+.. clicmd:: segment-routing node-msd (1-16)
 
    Fix the Maximum Stack Depth supported by the router. The value depend of the
    MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
 
-.. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
-.. clicmd:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
+.. clicmd:: segment-routing prefix A.B.C.D/M [index (0-65535)|no-php-flag|explicit-null]
 
-   Set the Segment Routing index for the specified prefix. Note that, only
    prefix with /32 corresponding to a loopback interface are currently
    supported. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
-   node to request to its neighbor to not pop the label.
+   node to request to its neighbor to not pop the label. The 'explicit-null' means that
+   neighbor nodes must swap the incoming label by the MPLS Explicit Null label
+   before delivering the packet.
 
-.. index:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 .. clicmd:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 
    Show Segment Routing Data Base, all SR nodes, specific advertised router or
    self router. Optional JSON output can be obtained by appending 'json' to the
    end of the command.
 
+External Route Summarisation
+============================
+This feature summarises originated external LSAs(Type-5 and Type-7).
+Summary Route will be originated on-behalf of all matched external LSAs.
+
+.. clicmd:: summary-address A.B.C.D/M [tag (1-4294967295)]
+
+   This command enable/disables summarisation for the configured address
+   range. Tag is the optional parameter. If tag configured Summary route
+   will be originated with the configured tag.
+
+.. clicmd:: summary-address A.B.C.D/M no-advertise
+
+   This command to ensure not advertise the summary lsa for the matched
+   external LSAs.
+
+.. clicmd:: aggregation timer (5-1800)
+
+   Configure aggregation delay timer interval. Summarisation starts only after
+   this delay timer expiry. By default, delay interval is 5 secs.
+
+
+   Resetting the aggregation delay interval to default value.
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
+
+   Show configuration for display all configured summary routes with
+   matching external LSA information.
+
+TI-LFA
+======
+
+Experimental support for Topology Independent LFA (Loop-Free Alternate), see
+for example 'draft-bashandy-rtgwg-segment-routing-ti-lfa-05'. Note that
+TI-LFA requires a proper Segment Routing configuration.
+
+.. clicmd:: fast-reroute ti-lfa [node-protection]
+
+   Configured on the router level. Activates TI-LFA for all interfaces.
+
+   Note that so far only P2P interfaces are supported.
+
+.. _debugging-ospf:
+
 Debugging OSPF
 ==============
 
-.. index:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
+.. clicmd:: debug ospf bfd
+
+   Enable or disable debugging for BFD events. This will show BFD integration
+   library messages and OSPF BFD integration messages that are mostly state
+   transitions and validation problems.
+
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
-.. index:: no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
-.. clicmd:: no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
    Dump Packet for debugging
 
-.. index:: debug ospf ism
 .. clicmd:: debug ospf ism
 
-.. index:: debug ospf ism (status|events|timers)
 .. clicmd:: debug ospf ism (status|events|timers)
 
-.. index:: no debug ospf ism
-.. clicmd:: no debug ospf ism
 
-.. index:: no debug ospf ism (status|events|timers)
-.. clicmd:: no debug ospf ism (status|events|timers)
 
    Show debug information of Interface State Machine
 
-.. index:: debug ospf nsm
 .. clicmd:: debug ospf nsm
 
-.. index:: debug ospf nsm (status|events|timers)
 .. clicmd:: debug ospf nsm (status|events|timers)
 
-.. index:: no debug ospf nsm
-.. clicmd:: no debug ospf nsm
 
-.. index:: no debug ospf nsm (status|events|timers)
-.. clicmd:: no debug ospf nsm (status|events|timers)
 
    Show debug information of Network State Machine
 
-.. index:: debug ospf event
 .. clicmd:: debug ospf event
 
-.. index:: no debug ospf event
-.. clicmd:: no debug ospf event
 
    Show debug information of OSPF event
 
-.. index:: debug ospf nssa
 .. clicmd:: debug ospf nssa
 
-.. index:: no debug ospf nssa
-.. clicmd:: no debug ospf nssa
 
    Show debug information about Not So Stub Area
 
-.. index:: debug ospf lsa
 .. clicmd:: debug ospf lsa
 
-.. index:: debug ospf lsa (generate|flooding|refresh)
 .. clicmd:: debug ospf lsa (generate|flooding|refresh)
 
-.. index:: no debug ospf lsa
-.. clicmd:: no debug ospf lsa
 
-.. index:: no debug ospf lsa (generate|flooding|refresh)
-.. clicmd:: no debug ospf lsa (generate|flooding|refresh)
 
    Show debug detail of Link State messages
 
-.. index:: debug ospf te
 .. clicmd:: debug ospf te
 
-.. index:: no debug ospf te
-.. clicmd:: no debug ospf te
 
    Show debug information about Traffic Engineering LSA
 
-.. index:: debug ospf zebra
 .. clicmd:: debug ospf zebra
 
-.. index:: debug ospf zebra (interface|redistribute)
 .. clicmd:: debug ospf zebra (interface|redistribute)
 
-.. index:: no debug ospf zebra
-.. clicmd:: no debug ospf zebra
 
-.. index:: no debug ospf zebra (interface|redistribute)
-.. clicmd:: no debug ospf zebra (interface|redistribute)
 
    Show debug information of ZEBRA API
 
-.. index:: show debugging ospf
+.. clicmd:: debug ospf graceful-restart helper
+
+
+   Enable/disable debug information for OSPF Graceful Restart Helper
+
 .. clicmd:: show debugging ospf
 
+.. clicmd:: debug ospf lsa aggregate
 
-OSPF Configuration Examples
-===========================
+   Debug commnd to enable/disable external route summarisation specific debugs.
+
+
+Sample Configuration
+====================
 
 A simple example, with MD5 authentication enabled:
 
@@ -1223,6 +1146,7 @@ of networks between the areas:
     ip ospf message-digest-key 1 md5 ABCDEFGHIJK
    !
    interface ppp0
+    ip ospf passive
    !
    interface br0
     ip ospf authentication message-digest
@@ -1231,7 +1155,6 @@ of networks between the areas:
    router ospf
     ospf router-id 192.168.0.1
     redistribute connected
-    passive interface ppp0
     network 192.168.0.0/24 area 0.0.0.0
     network 10.0.0.0/16 area 0.0.0.0
     network 192.168.1.0/24 area 0.0.0.1

@@ -4,11 +4,12 @@ summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing da
 description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
  FRRouting (FRR) is free software which manages TCP/IP based routing 
  protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, 
- RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing), BFD and OpenFabric
- as well as the IPv6 versions of these.
+ RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing), PATHD (Segment
+ routing), BFD and OpenFabric as well as the IPv6 versions of these.
  FRRouting (frr) is a fork of Quagga.
 confinement: strict
 grade: devel
+base: core18
 
 apps:
     vtysh:
@@ -141,6 +142,13 @@ apps:
             - network
             - network-bind
             - network-control
+    pathd:
+        command: bin/pathd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     set:
         command: bin/set-options
     zebra-debug:
@@ -245,6 +253,13 @@ apps:
             - network
             - network-bind
             - network-control
+    pathd-debug:
+        command: sbin/pathd -f $SNAP_DATA/pathd.conf --pid_file $SNAP_DATA/pathd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+
 parts:
     rtrlib:
         build-packages:
@@ -254,12 +269,13 @@ parts:
            - libssh-dev
         stage-packages:
            - libssh-4
+           - zlib1g
         prime:
            - lib/librtr.so*
            - usr/lib/x86_64-linux-gnu/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
-        source-tag: v0.6.3
+        source-tag: v0.7.0
         plugin: cmake
         configflags:
            - -DCMAKE_BUILD_TYPE=Release
@@ -268,17 +284,17 @@ parts:
            - cmake
            - make
            - gcc
-           - libpcre3-dev
+           - libpcre2-dev
         stage-packages:
-           - libpcre3
+           - libpcre2-8-0
         source: https://github.com/CESNET/libyang.git
         source-type: git
-        source-tag: v0.16-r3
+        source-tag: v2.0.7
         plugin: cmake
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
            - -DENABLE_LYD_PRIV=ON
-           - -DENABLE_CACHE=OFF
+           - -DENABLE_CACHE=ON
            - -DCMAKE_BUILD_TYPE:String="Release"
     frr: 
         after: [rtrlib,libyang]
@@ -298,7 +314,6 @@ parts:
            - imagemagick
            - ghostscript
            - groff
-           - hardening-wrapper
            - libpcre3-dev
            - chrpath
            - pkg-config
@@ -307,6 +322,7 @@ parts:
            - bison
            - flex
            - python3-dev
+           - libprotobuf-c-dev
            - protobuf-c-compiler
            - python3-sphinx
         stage-packages:
@@ -315,12 +331,20 @@ parts:
            - logrotate
            - libcap2
            - libtinfo5
-           - libreadline6
-           - libjson-c2
+           - libreadline7
+           - libjson-c3
            - libc-ares2
            - libatm1
            - libprotobuf-c1
            - libdb5.3
+           - libacl1
+           - libattr1
+           - libaudit1
+           - libcap-ng0
+           - libpam0g
+           - libpcre3
+           - libselinux1
+           - libxtables12
         plugin: autotools
         source: ../frr-@PACKAGE_VERSION@.tar.gz
         configflags:
@@ -367,6 +391,7 @@ parts:
             bfdd.conf.default: etc/frr/bfdd.conf.default
             fabricd.conf.default: etc/frr/fabricd.conf.default
             vrrpd.conf.default: etc/frr/vrrpd.conf.default
+            pathd.conf.default: etc/frr/pathd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
             staticd.conf.default: etc/frr/staticd.conf.default
     frr-scripts:
@@ -376,6 +401,8 @@ parts:
         stage-packages:
            - telnet
            - traceroute
+           - libgcc1
+           - libstdc++6
         plugin: make
         source: helpers
         prime:
@@ -389,9 +416,4 @@ parts:
             README.usage.md: doc/README.usage.md
             README.snap_build.md: doc/README.snap_build.md
             extra_version_info.txt: doc/extra_version_info.txt
-
-passthrough:
-    layout:
-         /usr/lib/x86_64-linux-gnu/libyang:
-             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang
 

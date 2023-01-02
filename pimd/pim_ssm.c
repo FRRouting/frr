@@ -75,7 +75,7 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 		if (!str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm))
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: Failure to Read Group Address: %s",
-				 __PRETTY_FUNCTION__, PIM_SSM_STANDARD_RANGE);
+				 __func__, PIM_SSM_STANDARD_RANGE);
 
 		first = 0;
 	}
@@ -112,7 +112,7 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 	struct pim_ssm *ssm;
 	int change = 0;
 
-	if (vrf_id != pim->vrf_id)
+	if (vrf_id != pim->vrf->vrf_id)
 		return PIM_SSM_ERR_NO_VRF;
 
 	ssm = pim->ssm_info;

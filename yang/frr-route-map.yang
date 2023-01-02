@@ -6,398 +6,476 @@ module frr-route-map {
   import ietf-inet-types {
     prefix inet;
   }
+
   import frr-filter {
     prefix filter;
   }
 
-  organization "Free Range Routing";
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "FRRouting";
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
-  description "This module defines route map settings";
+  description
+    "This module defines route map settings
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-07-01 {
-    description "Initial revision";
+    description
+      "Initial revision";
   }
 
-  /*
-   * Types.
-   */
+  identity rmap-match-type {
+    description
+      "Base route-map match-condition";
+  }
+
+  identity interface {
+    base rmap-match-type;
+    description
+      "Match interface";
+  }
+
+  identity ipv4-address-list {
+    base rmap-match-type;
+    description
+      "Match an IPv4 access-list";
+  }
+
+  identity ipv4-prefix-list {
+    base rmap-match-type;
+    description
+      "Match an IPv4 prefix-list";
+  }
+
+  identity ipv4-next-hop-list {
+    base rmap-match-type;
+    description
+      "Match an IPv4 next-hop";
+  }
+
+  identity ipv4-next-hop-prefix-list {
+    base rmap-match-type;
+    description
+      "Match an IPv4 next-hop prefix list";
+  }
+
+  identity ipv4-next-hop-type {
+    base rmap-match-type;
+    description
+      "Match an IPv4 next-hop type";
+  }
+
+  identity ipv6-address-list {
+    base rmap-match-type;
+    description
+      "Match an IPv6 access-list";
+  }
+
+  identity ipv6-prefix-list {
+    base rmap-match-type;
+    description
+      "Match an IPv6 prefix-list";
+  }
+
+  identity ipv6-next-hop-type {
+    base rmap-match-type;
+    description
+      "Match an IPv6 next-hop type";
+  }
+
+  identity match-metric {
+    base rmap-match-type;
+    description
+      "Match a route metric";
+  }
+
+  identity match-tag {
+    base rmap-match-type;
+    description
+      "Match a route tag";
+  }
+
+  identity rmap-set-type {
+    description
+      "Base route-map set-action";
+  }
+
+  identity ipv4-next-hop {
+    base rmap-set-type;
+    description
+      "Set IPv4 address of the next hop";
+  }
+
+  identity ipv6-next-hop {
+    base rmap-set-type;
+    description
+      "Set IPv6 address of the next hop";
+  }
+
+  identity set-metric {
+    base rmap-set-type;
+    description
+      "Set prefix/route metric";
+  }
+
+  identity set-tag {
+    base rmap-set-type;
+    description
+      "Set tag";
+  }
+
+  identity set-sr-te-color {
+    base rmap-set-type;
+    description
+      "Set Color of the SR-TE";
+  }
+
   typedef route-map-sequence {
-    description "Route map valid sequence numbers";
     type uint16 {
       range "1..65535";
     }
+    description
+      "Route map valid sequence numbers";
   }
 
   typedef route-map-name {
-    description "Route map name format";
     type string;
+    description
+      "Route map name format";
   }
 
-  /*
-   * Operational data.
-   */
-  container route-map {
-    list instance {
-      description "Route map instance";
+  typedef route-map-ref {
+    type leafref {
+      path "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:name";
+      require-instance false;
+    }
+    description
+      "Reference to a route-map.";
+  }
 
-      key "name sequence";
+  grouping rmap-match-condition {
+    container rmap-match-condition {
+      choice match-condition {
+        description
+          "Value to match (interpretation depends on condition type)";
+        case interface {
+          when "derived-from-or-self(../condition, 'interface')";
+          leaf interface {
+            type frr-interface:interface-ref;
+          }
+        }
 
+        case list-name {
+          when "derived-from-or-self(../condition, 'ipv4-address-list') or "
+             + "derived-from-or-self(../condition, 'ipv4-prefix-list') or "
+             + "derived-from-or-self(../condition, 'ipv4-next-hop-list') or "
+             + "derived-from-or-self(../condition, 'ipv4-next-hop-prefix-list') or "
+             + "derived-from-or-self(../condition, 'ipv6-address-list') or "
+             + "derived-from-or-self(../condition, 'ipv6-prefix-list')";
+          leaf list-name {
+            type filter:access-list-name;
+          }
+        }
+
+        case ipv4-next-hop-type {
+          when "derived-from-or-self(../condition, 'ipv4-next-hop-type')";
+          leaf ipv4-next-hop-type {
+            type enumeration {
+              enum "blackhole" {
+                value 0;
+              }
+            }
+          }
+        }
+
+        case ipv6-next-hop-type {
+          when "derived-from-or-self(../condition, 'ipv6-next-hop-type')";
+          leaf ipv6-next-hop-type {
+            type enumeration {
+              enum "blackhole" {
+                value 0;
+              }
+            }
+          }
+        }
+
+        case match-metric {
+          when "derived-from-or-self(../condition, 'match-metric')";
+          leaf metric {
+            type uint32 {
+              range "1..4294967295";
+            }
+          }
+        }
+
+        case match-tag {
+          when "derived-from-or-self(../condition, 'match-tag')";
+          leaf tag {
+            type uint32 {
+              range "1..4294967295";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping rmap-set-action {
+    container rmap-set-action {
+      choice set-action {
+        description
+          "Value to set (interpretation depends on action-type)";
+        case ipv4-address {
+          when "derived-from-or-self(../action, 'ipv4-next-hop')";
+          leaf ipv4-address {
+            type inet:ipv4-address;
+            description
+              "IPv4 address";
+          }
+        }
+
+        case ipv6-address {
+          when "derived-from-or-self(../action, 'ipv6-next-hop')";
+          leaf ipv6-address {
+            type inet:ipv6-address;
+            description
+              "IPv6 address";
+          }
+        }
+
+        case set-metric {
+          when "derived-from-or-self(../action, 'set-metric')";
+          choice metric-value {
+            description
+              "Metric to set or use";
+            case value {
+              leaf value {
+                type uint32 {
+                  range "0..4294967295";
+                }
+                description
+                  "Use the following metric value";
+              }
+            }
+
+            case add-metric {
+              leaf add-metric {
+                description "Add value to metric.";
+                type uint32 {
+                  range "0..4294967295";
+                }
+              }
+            }
+
+            case subtract-metric {
+              leaf subtract-metric {
+                description "Subtract value from metric.";
+                type uint32 {
+                  range "0..4294967295";
+                }
+              }
+            }
+
+            case use-round-trip-time {
+              leaf use-round-trip-time {
+                type boolean;
+                description
+                  "Use the round trip time as metric";
+              }
+            }
+
+            case add-round-trip-time {
+              leaf add-round-trip-time {
+                type boolean;
+                description
+                  "Add round trip time to metric";
+              }
+            }
+
+            case subtract-round-trip-time {
+              leaf subtract-round-trip-time {
+                type boolean;
+                description
+                  "Subtract round trip time to metric";
+              }
+            }
+          }
+        }
+
+        case set-tag {
+          when "derived-from-or-self(../action, 'set-tag')";
+          leaf tag {
+            type uint32 {
+              range "0..4294967295";
+            }
+            description
+              "Tag value";
+          }
+        }
+
+        case set-sr-te-color {
+          when "derived-from-or-self(../action, 'set-sr-te-color')";
+          leaf policy {
+            type string;
+            description
+              "Color of the SR-TE Policies to match with";
+          }
+        }
+      }
+    }
+  }
+
+  container lib {
+    list route-map {
+      key "name";
+      description
+        "Route map instance";
       leaf name {
-        description "Route map instance name";
         type route-map-name;
-      }
-
-      leaf sequence {
         description
-          "Route map instance priority (low number means higher priority)";
-        type route-map-sequence;
+          "Route map instance name";
+      }
+      leaf optimization-disabled {
+        type boolean;
+        default false;
+        description "Disables or enables the optimization";
       }
 
-      leaf description {
-        description "Route map description";
-        type string;
-      }
-
-      leaf action {
+      list entry {
+        key "sequence";
         description
-          "Route map actions: permit (executes action), deny (quits evaluation)";
-        mandatory true;
-        type enumeration {
-          enum permit {
-            description
-              "Executes configured action and permits the prefix/route
-               if the conditions matched. An alternative exit action can
-               be configured to continue processing the route map list
-               or jump to process another route map.";
-            value 0;
-          }
-          enum deny {
-            description
-              "If all conditions are met the prefix/route is denied and
-               route map processing stops.";
-            value 1;
-          }
-        }
-      }
-
-      list match-condition {
-        description "Route map match conditions";
-
-        key "condition";
-
-        leaf condition {
-          description "Match condition";
-          type enumeration {
-            enum interface {
-              description "Match interface";
-              value 0;
-            }
-            enum ipv4-address-list {
-              description "Match an IPv4 access-list";
-              value 1;
-            }
-            enum ipv4-prefix-list {
-              description "Match an IPv4 prefix-list";
-              value 2;
-            }
-            enum ipv4-prefix-length {
-              description "Match an IPv4 prefix length";
-              value 3;
-            }
-            enum ipv4-next-hop-list {
-              description "Match an IPv4 next-hop";
-              value 4;
-            }
-            enum ipv4-next-hop-prefix-list {
-              description "Match an IPv4 next-hop prefix list";
-              value 5;
-            }
-            enum ipv4-next-hop-prefix-length {
-              description "Match an IPv4 next-hop prefix length";
-              value 6;
-            }
-            enum ipv4-next-hop-type {
-              description "Match an IPv4 next-hop type";
-              value 7;
-            }
-            enum ipv6-address-list {
-              description "Match an IPv6 access-list";
-              value 8;
-            }
-            enum ipv6-prefix-list {
-              description "Match an IPv6 prefix-list";
-              value 9;
-            }
-            enum ipv6-prefix-length {
-              description "Match an IPv6 prefix length";
-              value 10;
-            }
-            enum ipv6-next-hop {
-              description "Match an IPv6 next-hop";
-              value 11;
-            }
-            enum ipv6-next-hop-type {
-              description "Match an IPv6 next-hop type";
-              value 12;
-            }
-            enum metric {
-              description "Match a route metric";
-              value 13;
-            }
-            enum tag {
-              description "Match a route tag";
-              value 14;
-            }
-
-            /*
-             * Protocol YANG models should augment the parent node to
-             * contain the routing protocol specific value. The protocol
-             * must also augment `condition-value` to include its specific
-             * values or expand the `when` statement on the existing cases.
-             */
-            enum routing-protocol-specific {
-              description "Match a routing protocol specific type";
-              value 100;
-            }
-          }
-        }
-
-        choice condition-value {
+          "Route map entry";
+        leaf sequence {
+          type route-map-sequence;
           description
-            "Value to match (interpretation depends on condition type)";
-          case access-list-num {
-            when "./condition = 'ipv4-address-list' or
-                  ./condition = 'ipv4-next-hop-list'";
-            leaf access-list-num {
-              type filter:access-list-standard;
-            }
-          }
-          case access-list-num-extended {
-            when "./condition = 'ipv4-address-list' or
-                  ./condition = 'ipv4-next-hop-list'";
-            leaf access-list-num-extended {
-              type filter:access-list-extended;
-            }
-          }
-          case list-name {
-            when "./condition = 'ipv4-address-list' or
-                  ./condition = 'ipv4-prefix-list' or
-                  ./condition = 'ipv4-next-hop-list' or
-                  ./condition = 'ipv4-next-hop-prefix-list' or
-                  ./condition = 'ipv6-address-list' or
-                  ./condition = 'ipv6-prefix-list'";
-            leaf list-name {
-              type filter:access-list-name;
-            }
-          }
-          case ipv6-address {
-            when "./condition = 'ipv6-next-hop'";
-            leaf ipv6-address {
-              type inet:ipv6-address;
-            }
-          }
-          case ipv4-prefix-length {
-            when "./condition = 'ipv4-prefix-length' or
-                  ./condition = 'ipv4-next-hop-prefix-length'";
-            leaf ipv4-prefix-length {
-              type uint8 {
-                range "0..32";
-              }
-            }
-          }
-          case ipv6-prefix-length {
-            when "./condition = 'ipv6-prefix-length'";
-            leaf ipv6-prefix-length {
-              type uint8 {
-                range "0..128";
-              }
-            }
-          }
-          case ipv4-next-hop-type {
-            when "./condition = 'ipv4-next-hop-type'";
-            leaf ipv4-next-hop-type {
-              type enumeration {
-                enum blackhole {
-                  value 0;
-                }
-              }
-            }
-          }
-          case ipv6-next-hop-type {
-            when "./condition = 'ipv6-next-hop-type'";
-            leaf ipv6-next-hop-type {
-              type enumeration {
-                enum blackhole {
-                  value 0;
-                }
-              }
-            }
-          }
-          case metric {
-            when "./condition = 'metric'";
-            leaf metric {
-              type uint32 {
-                range "1..4294967295";
-              }
-            }
-          }
-          case tag {
-            when "./condition = 'tag'";
-            leaf tag {
-              type uint32 {
-                range "1..4294967295";
-              }
-            }
-          }
+            "Route map instance priority (low number means higher priority)";
         }
-      }
 
-      list set-action {
-        description "Route map set actions";
-
-        key "action";
+        leaf description {
+          type string;
+          description
+            "Route map description";
+        }
 
         leaf action {
-          description "Action to do when the route map matches";
           type enumeration {
-            enum ipv4-next-hop {
-              description "Set IPv4 address of the next hop";
+            enum "permit" {
               value 0;
+              description
+                "Executes configured action and permits the prefix/route
+                 if the conditions matched. An alternative exit action can
+                 be configured to continue processing the route map list
+                 or jump to process another route map.";
             }
-            enum ipv6-next-hop {
-              description "Set IPv6 address of the next hop";
+            enum "deny" {
               value 1;
-            }
-            enum metric {
-              description "Set prefix/route metric";
-              value 2;
-            }
-            enum tag {
-              description "Set tag";
-              value 3;
-            }
-
-            /*
-             * Protocol YANG models should augment the parent node to
-             * contain the routing protocol specific value. The protocol
-             * must also augment `action-value` to include its specific
-             * values or expand the `when` statement on the existing cases.
-             */
-            enum routing-protocol-specific {
-              description "Set a routing protocol specific action";
-              value 100;
+              description
+                "If all conditions are met the prefix/route is denied and
+                 route map processing stops.";
             }
           }
-        }
-
-        choice action-value {
+          mandatory true;
           description
-            "Value to set (interpretation depends on action-type)";
-          case ipv4-address {
-            when "./action = 'ipv4-next-hop'";
-            leaf ipv4-address {
-              description "IPv4 address";
-              type inet:ipv4-address;
-            }
-          }
-          case ipv6-address {
-            when "./action = 'ipv6-next-hop'";
-            leaf ipv6-address {
-              description "IPv6 address";
-              type inet:ipv6-address;
-            }
-          }
-          case metric {
-            when "./action = 'metric'";
-            choice metric-value {
-              description "Metric to set or use";
-              case value {
-                leaf value {
-                  description "Use the following metric value";
-                  type uint32 {
-                    range "0..4294967295";
-                  }
-                }
-              }
-              case add-metric {
-                leaf add-metric {
-                  description "Add unit to metric";
-                  type boolean;
-                }
-              }
-              case subtract-metric {
-                leaf subtract-metric {
-                  description "Subtract unit from metric";
-                  type boolean;
-                }
-              }
-              case use-round-trip-time {
-                leaf use-round-trip-time {
-                  description "Use the round trip time as metric";
-                  type boolean;
-                }
-              }
-              case add-round-trip-time {
-                leaf add-round-trip-time {
-                  description "Add round trip time to metric";
-                  type boolean;
-                }
-              }
-              case subtract-round-trip-time {
-                leaf subtract-round-trip-time {
-                  description "Subtract round trip time to metric";
-                  type boolean;
-                }
-              }
-            }
-          }
-          case tag {
-            leaf tag {
-              description "Tag value";
-              type uint32 {
-                range "0..4294967295";
-              }
-            }
-          }
+            "Route map actions: permit (executes action), deny (quits evaluation)";
         }
-      }
 
-      leaf call {
-        description
-          "Call another route map before calling `exit-policy`. If the
-           called route map returns deny then this route map will also
-           return deny";
-        type string;
-      }
-
-      leaf exit-policy {
-        description "What do to after route map successful match, set and call";
-        type enumeration {
-          enum permit-or-deny {
-            description "End route map evaluation and return";
-            value 0;
-          }
-          enum next {
-            description
-              "Proceed evaluating next route map entry per sequence";
-            value 1;
-          }
-          enum goto {
-            description
-              "Go to route map entry with the provided sequence number";
-            value 2;
-          }
+        leaf call {
+          type route-map-name;
+          description
+            "Call another route map before calling `exit-policy`. If the
+             called route map returns deny then this route map will also
+             return deny";
         }
-        default "permit-or-deny";
-      }
 
-      leaf goto-value {
-        when "../exit-policy = 'goto'";
-        description
-          "Sequence number to jump (when using `goto` exit policy)";
-        type route-map-sequence;
+        leaf exit-policy {
+          type enumeration {
+            enum "permit-or-deny" {
+              value 0;
+              description
+                "End route map evaluation and return";
+            }
+            enum "next" {
+              value 1;
+              description
+                "Proceed evaluating next route map entry per sequence";
+            }
+            enum "goto" {
+              value 2;
+              description
+                "Go to route map entry with the provided sequence number";
+            }
+          }
+          default "permit-or-deny";
+          description
+            "What do to after route map successful match, set and call";
+        }
+
+        leaf goto-value {
+          when "../exit-policy = 'goto'";
+          type route-map-sequence;
+          mandatory true;
+          description
+            "Sequence number to jump (when using `goto` exit policy)";
+        }
+
+        list match-condition {
+          key "condition";
+          description
+            "Route map match conditions";
+          leaf condition {
+            type identityref {
+              base rmap-match-type;
+            }
+            description
+              "Match condition";
+          }
+
+          uses rmap-match-condition;
+        }
+
+        list set-action {
+          key "action";
+          description
+            "Route map set actions";
+          leaf action {
+            type identityref {
+              base rmap-set-type;
+            }
+            description
+              "Action to do when the route map matches";
+          }
+
+          uses rmap-set-action;
+        }
       }
     }
   }

@@ -29,6 +29,7 @@
 #include "jhash.h"
 #include "vrf.h"
 #include "lib_errors.h"
+#include "bfd.h"
 
 #include "pimd.h"
 #include "pim_cmd.h"
@@ -39,8 +40,14 @@
 #include "pim_static.h"
 #include "pim_rp.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 #include "pim_zlookup.h"
 #include "pim_zebra.h"
+#include "pim_mlag.h"
+
+#if MAXVIFS > 256
+CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
+#endif /* MAXVIFS > 256 */
 
 const char *const PIM_ALL_SYSTEMS = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
@@ -102,10 +109,13 @@ void pim_router_init(void)
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
 	router->register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
 	router->vrf_id = VRF_DEFAULT;
+	router->pim_mlag_intf_cnt = 0;
+	router->connected_to_mlag = false;
 }
 
 void pim_router_terminate(void)
 {
+	pim_mlag_terminate();
 	XFREE(MTYPE_ROUTER, router);
 }
 
@@ -115,9 +125,9 @@ void pim_init(void)
 		flog_err(
 			EC_LIB_SOCKET,
 			"%s %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, PIM_ALL_PIM_ROUTERS,
-			errno, safe_strerror(errno));
-		zassert(0);
+			__FILE__, __func__, PIM_ALL_PIM_ROUTERS, errno,
+			safe_strerror(errno));
+		assert(0);
 		return;
 	}
 
@@ -128,11 +138,14 @@ void pim_terminate(void)
 {
 	struct zclient *zclient;
 
+	bfd_protocol_integration_set_shutdown(true);
+
 	/* reverse prefix_list_init */
 	prefix_list_add_hook(NULL);
 	prefix_list_delete_hook(NULL);
 	prefix_list_reset();
 
+	pim_vxlan_terminate();
 	pim_vrf_terminate();
 
 	zclient = pim_zebra_zclient_get();

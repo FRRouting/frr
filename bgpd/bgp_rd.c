@@ -29,20 +29,22 @@
 #include "filter.h"
 #include "frrstr.h"
 
+#include "lib/printfrr.h"
+
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_attr.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
-uint16_t decode_rd_type(uint8_t *pnt)
+uint16_t decode_rd_type(const uint8_t *pnt)
 {
 	uint16_t v;
 
 	v = ((uint16_t)*pnt++ << 8);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	/*
 	 * VNC L2 stores LHI in lower byte, so omit it
 	 */
@@ -60,7 +62,7 @@ void encode_rd_type(uint16_t v, uint8_t *pnt)
 }
 
 /* type == RD_TYPE_AS */
-void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as)
+void decode_rd_as(const uint8_t *pnt, struct rd_as *rd_as)
 {
 	rd_as->as = (uint16_t)*pnt++ << 8;
 	rd_as->as |= (uint16_t)*pnt++;
@@ -68,7 +70,7 @@ void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_AS4 */
-void decode_rd_as4(uint8_t *pnt, struct rd_as *rd_as)
+void decode_rd_as4(const uint8_t *pnt, struct rd_as *rd_as)
 {
 	pnt = ptr_get_be32(pnt, &rd_as->as);
 	rd_as->val = ((uint16_t)*pnt++ << 8);
@@ -76,7 +78,7 @@ void decode_rd_as4(uint8_t *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_IP */
-void decode_rd_ip(uint8_t *pnt, struct rd_ip *rd_ip)
+void decode_rd_ip(const uint8_t *pnt, struct rd_ip *rd_ip)
 {
 	memcpy(&rd_ip->ip, pnt, 4);
 	pnt += 4;
@@ -85,9 +87,9 @@ void decode_rd_ip(uint8_t *pnt, struct rd_ip *rd_ip)
 	rd_ip->val |= (uint16_t)*pnt;
 }
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 /* type == RD_TYPE_VNC_ETH */
-void decode_rd_vnc_eth(uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
+void decode_rd_vnc_eth(const uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
 {
 	rd_vnc_eth->type = RD_TYPE_VNC_ETH;
 	rd_vnc_eth->local_nve_id = pnt[1];
@@ -159,9 +161,9 @@ out:
 	return lret;
 }
 
-char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
+char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size)
 {
-	uint8_t *pnt;
+	const uint8_t *pnt;
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
@@ -174,19 +176,18 @@ char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
 
 	if (type == RD_TYPE_AS) {
 		decode_rd_as(pnt + 2, &rd_as);
-		snprintf(buf, size, "%u:%" PRIu32, rd_as.as, rd_as.val);
+		snprintf(buf, size, "%u:%u", rd_as.as, rd_as.val);
 		return buf;
 	} else if (type == RD_TYPE_AS4) {
 		decode_rd_as4(pnt + 2, &rd_as);
-		snprintf(buf, size, "%u:%" PRIu32, rd_as.as, rd_as.val);
+		snprintf(buf, size, "%u:%u", rd_as.as, rd_as.val);
 		return buf;
 	} else if (type == RD_TYPE_IP) {
 		decode_rd_ip(pnt + 2, &rd_ip);
-		snprintf(buf, size, "%s:%" PRIu16, inet_ntoa(rd_ip.ip),
-			 rd_ip.val);
+		snprintfrr(buf, size, "%pI4:%hu", &rd_ip.ip, rd_ip.val);
 		return buf;
 	}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	else if (type == RD_TYPE_VNC_ETH) {
 		snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
 			 *(pnt + 1), /* LHI */
@@ -210,6 +211,6 @@ void form_auto_rd(struct in_addr router_id,
 
 	prd->family = AF_UNSPEC;
 	prd->prefixlen = 64;
-	sprintf(buf, "%s:%hu", inet_ntoa(router_id), rd_id);
+	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &router_id, rd_id);
 	(void)str2prefix_rd(buf, prd);
 }

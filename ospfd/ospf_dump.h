@@ -49,6 +49,7 @@
 #define OSPF_DEBUG_LSA_INSTALL  0x04
 #define OSPF_DEBUG_LSA_REFRESH  0x08
 #define OSPF_DEBUG_LSA		0x0F
+#define OSPF_DEBUG_EXTNL_LSA_AGGR 0x10
 
 #define OSPF_DEBUG_ZEBRA_INTERFACE     0x01
 #define OSPF_DEBUG_ZEBRA_REDISTRIBUTE  0x02
@@ -59,6 +60,13 @@
 #define OSPF_DEBUG_TE          0x04
 #define OSPF_DEBUG_EXT         0x08
 #define OSPF_DEBUG_SR          0x10
+#define OSPF_DEBUG_TI_LFA 0x11
+#define OSPF_DEBUG_DEFAULTINFO 0x20
+#define OSPF_DEBUG_LDP_SYNC 0x40
+
+#define OSPF_DEBUG_GR 0x01
+
+#define OSPF_DEBUG_BFD_LIB 0x01
 
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
@@ -104,6 +112,13 @@
 
 #define IS_DEBUG_OSPF_SR  IS_DEBUG_OSPF(sr, SR)
 
+#define IS_DEBUG_OSPF_TI_LFA IS_DEBUG_OSPF(ti_lfa, TI_LFA)
+
+#define IS_DEBUG_OSPF_DEFAULT_INFO IS_DEBUG_OSPF(defaultinfo, DEFAULTINFO)
+
+#define IS_DEBUG_OSPF_LDP_SYNC IS_DEBUG_OSPF(ldp_sync, LDP_SYNC)
+#define IS_DEBUG_OSPF_GR IS_DEBUG_OSPF(gr, GR)
+
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
 #define IS_CONF_DEBUG_OSPF(a, b) (conf_debug_ospf_##a & OSPF_DEBUG_##b)
@@ -122,6 +137,11 @@ extern unsigned long term_debug_ospf_nssa;
 extern unsigned long term_debug_ospf_te;
 extern unsigned long term_debug_ospf_ext;
 extern unsigned long term_debug_ospf_sr;
+extern unsigned long term_debug_ospf_ti_lfa;
+extern unsigned long term_debug_ospf_defaultinfo;
+extern unsigned long term_debug_ospf_ldp_sync;
+extern unsigned long term_debug_ospf_gr;
+extern unsigned long term_debug_ospf_bfd;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];

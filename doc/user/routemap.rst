@@ -90,15 +90,15 @@ cont
 
 .. _route-map-show-command:
 
-.. index:: show route-map [WORD]
-.. clicmd:: show route-map [WORD]
+.. clicmd:: show route-map [WORD] [json]
 
    Display data about each daemons knowledge of individual route-maps.
    If WORD is supplied narrow choice to that particular route-map.
 
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. _route-map-clear-counter-command:
 
-.. index:: clear route-map counter [WORD]
 .. clicmd:: clear route-map counter [WORD]
 
    Clear counters that are being stored about the route-map utilization
@@ -110,7 +110,6 @@ cont
 Route Map Command
 =================
 
-.. index:: route-map ROUTE-MAP-NAME (permit|deny) ORDER
 .. clicmd:: route-map ROUTE-MAP-NAME (permit|deny) ORDER
 
    Configure the `order`'th entry in `route-map-name` with ``Match Policy`` of
@@ -121,93 +120,80 @@ Route Map Command
 Route Map Match Command
 =======================
 
-.. index:: match ip address ACCESS_LIST
 .. clicmd:: match ip address ACCESS_LIST
 
    Matches the specified `access_list`
 
-.. index:: match ip address prefix-list PREFIX_LIST
 .. clicmd:: match ip address prefix-list PREFIX_LIST
 
    Matches the specified `PREFIX_LIST`
 
-.. index:: match ip address prefix-len 0-32
 .. clicmd:: match ip address prefix-len 0-32
 
    Matches the specified `prefix-len`. This is a Zebra specific command.
 
-.. index:: match ipv6 address ACCESS_LIST
 .. clicmd:: match ipv6 address ACCESS_LIST
 
    Matches the specified `access_list`
 
-.. index:: match ipv6 address prefix-list PREFIX_LIST
 .. clicmd:: match ipv6 address prefix-list PREFIX_LIST
 
    Matches the specified `PREFIX_LIST`
 
-.. index:: match ipv6 address prefix-len 0-128
 .. clicmd:: match ipv6 address prefix-len 0-128
 
    Matches the specified `prefix-len`. This is a Zebra specific command.
 
-.. index:: match ip next-hop IPV4_ADDR
-.. clicmd:: match ip next-hop IPV4_ADDR
+.. clicmd:: match ip next-hop address IPV4_ADDR
 
-   Matches the specified `ipv4_addr`.
+   This is a BGP specific match command. Matches the specified `ipv4_addr`.
 
-.. index:: match as-path AS_PATH
+.. clicmd:: match ipv6 next-hop IPV6_ADDR
+
+   This is a BGP specific match command. Matches the specified `ipv6_addr`.
+
 .. clicmd:: match as-path AS_PATH
 
    Matches the specified `as_path`.
 
-.. index:: match metric METRIC
 .. clicmd:: match metric METRIC
 
    Matches the specified `metric`.
 
-.. index:: match tag TAG
 .. clicmd:: match tag TAG
 
    Matches the specified tag value associated with the route. This tag value
    can be in the range of (1-4294967295).
 
-.. index:: match local-preference METRIC
 .. clicmd:: match local-preference METRIC
 
    Matches the specified `local-preference`.
 
-.. index:: match community COMMUNITY_LIST
 .. clicmd:: match community COMMUNITY_LIST
 
    Matches the specified  `community_list`
 
-.. index:: match peer IPV4_ADDR
 .. clicmd:: match peer IPV4_ADDR
 
    This is a BGP specific match command. Matches the peer ip address
    if the neighbor was specified in this manner.
 
-.. index:: match peer IPV6_ADDR
 .. clicmd:: match peer IPV6_ADDR
 
    This is a BGP specific match command. Matches the peer ipv6
    address if the neighbor was specified in this manner.
 
-.. index:: match peer INTERFACE_NAME
 .. clicmd:: match peer INTERFACE_NAME
 
   This is a BGP specific match command. Matches the peer
   interface name specified if the neighbor was specified
   in this manner.
 
-.. index:: match source-protocol PROTOCOL_NAME
 .. clicmd:: match source-protocol PROTOCOL_NAME
 
   This is a ZEBRA specific match command.  Matches the
   originating protocol specified.
 
-.. index:: match source-instance NUMBER
 .. clicmd:: match source-instance NUMBER
 
   This is a ZEBRA specific match command.  The number is a range from (0-255).
@@ -220,7 +206,6 @@ Route Map Set Command
 
 .. program:: configure
 
-.. index:: set tag TAG
 .. clicmd:: set tag TAG
 
    Set a tag on the matched route. This tag value can be from (1-4294967295).
@@ -228,13 +213,11 @@ Route Map Set Command
    configure option. Tag values from (1-255) are sent to the Linux kernel as a
    realm value. Then route policy can be applied. See the tc man page.
 
-.. index:: set ip next-hop IPV4_ADDRESS
 .. clicmd:: set ip next-hop IPV4_ADDRESS
 
    Set the BGP nexthop address to the specified IPV4_ADDRESS.  For both
    incoming and outgoing route-maps.
 
-.. index:: set ip next-hop peer-address
 .. clicmd:: set ip next-hop peer-address
 
    Set the BGP nexthop address to the address of the peer.  For an incoming
@@ -242,13 +225,11 @@ Route Map Set Command
    route-map this means the ip address of our self is used to establish the
    peering with our neighbor.
 
-.. index:: set ip next-hop unchanged
 .. clicmd:: set ip next-hop unchanged
 
    Set the route-map as unchanged.  Pass the route-map through without
    changing it's value.
 
-.. index:: set ipv6 next-hop peer-address
 .. clicmd:: set ipv6 next-hop peer-address
 
    Set the BGP nexthop address to the address of the peer.  For an incoming
@@ -256,95 +237,118 @@ Route Map Set Command
    route-map this means the ip address of our self is used to establish the
    peering with our neighbor.
 
-.. index:: set ipv6 next-hop prefer-global
 .. clicmd:: set ipv6 next-hop prefer-global
 
    For Incoming and Import Route-maps if we receive a v6 global and v6 LL
    address for the route, then prefer to use the global address as the nexthop.
 
-.. index:: set ipv6 next-hop global IPV6_ADDRESS
 .. clicmd:: set ipv6 next-hop global IPV6_ADDRESS
 
    Set the next-hop to the specified IPV6_ADDRESS for both incoming and
    outgoing route-maps.
 
-.. index:: set local-preference LOCAL_PREF
 .. clicmd:: set local-preference LOCAL_PREF
 
    Set the BGP local preference to `local_pref`.
 
-.. index:: [no] set distance DISTANCE
-.. clicmd:: [no] set distance DISTANCE
+.. clicmd:: set local-preference +LOCAL_PREF
+
+   Add the BGP local preference to an existing `local_pref`.
+
+.. clicmd:: set local-preference -LOCAL_PREF
+
+   Subtract the BGP local preference from an existing `local_pref`.
+
+.. clicmd:: set distance DISTANCE
 
    Set the Administrative distance to DISTANCE to use for the route.
    This is only locally significant and will not be dispersed to peers.
 
-.. index:: set weight WEIGHT
 .. clicmd:: set weight WEIGHT
 
    Set the route's weight.
 
-.. index:: set metric METRIC
-.. clicmd:: set metric METRIC
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
 
-   Set the BGP attribute MED.
+   Set the BGP attribute MED to a specific value. Use `+`/`-` to add or subtract
+   the specified value to/from the MED. Use `rtt` to set the MED to the round
+   trip time or `+rtt`/`-rtt` to add/subtract the round trip time to/from the
+   MED.
 
-.. index:: set as-path prepend AS_PATH
 .. clicmd:: set as-path prepend AS_PATH
 
    Set the BGP AS path to prepend.
 
-.. index:: set community COMMUNITY
+.. clicmd:: set as-path exclude AS-NUMBER...
+
+   Drop AS-NUMBER from the BGP AS path.
+
 .. clicmd:: set community COMMUNITY
 
    Set the BGP community attribute.
 
-.. index:: set ipv6 next-hop local IPV6_ADDRESS
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
 
    Set the BGP-4+ link local IPv6 nexthop address.
 
-.. index:: set origin ORIGIN <egp|igp|incomplete>
 .. clicmd:: set origin ORIGIN <egp|igp|incomplete>
 
    Set BGP route origin.
 
-.. index:: set table (1-4294967295)
 .. clicmd:: set table (1-4294967295)
 
    Set the BGP table to a given table identifier
+
+.. clicmd:: set sr-te color (1-4294967295)
+
+   Set the color of a SR-TE Policy to be applied to a learned route. The SR-TE
+   Policy is uniquely determined by the color and the BGP nexthop.
+
 
 .. _route-map-call-command:
 
 Route Map Call Command
 ======================
 
-.. index:: call NAME
 .. clicmd:: call NAME
 
    Call route-map `name`. If it returns deny, deny the route and
    finish processing the route-map.
+
 
 .. _route-map-exit-action-command:
 
 Route Map Exit Action Command
 =============================
 
-.. index:: on-match next
 .. clicmd:: on-match next
 
-.. index:: continue
 .. clicmd:: continue
 
    Proceed on to the next entry in the route-map.
 
-.. index:: on-match goto N
 .. clicmd:: on-match goto N
 
-.. index:: continue N
 .. clicmd:: continue N
 
    Proceed processing the route-map at the first entry whose order is >= N
+
+
+.. _route-map-optimization-command:
+
+Route Map Optimization Command
+==============================
+
+.. clicmd:: route-map ROUTE-MAP-NAME optimization
+
+   Enable route-map processing optimization for `route-map-name`.
+   The optimization is enabled by default.
+   Instead of sequentially passing through all the route-map indexes
+   until a match is found, the search for the best-match index will be
+   based on a look-up in a prefix-tree. A per-route-map prefix-tree
+   will be constructed for this purpose. The prefix-tree will compose
+   of all the prefixes in all the prefix-lists that are included in the
+   match rule of all the sequences of a route-map.
 
 
 Route Map Examples

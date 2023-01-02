@@ -160,10 +160,8 @@ int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
 		zlog_warn(
-			"can't setsockopt IP_MULTICAST_IF (fd %d, addr %s, "
-			"ifindex %u): %s",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+			"can't setsockopt IP_MULTICAST_IF (fd %d, addr %pI4, ifindex %u): %s",
+			top->fd, &p->u.prefix4, ifindex, safe_strerror(errno));
 
 	return ret;
 }
@@ -179,14 +177,11 @@ int eigrp_if_add_allspfrouters(struct eigrp *top, struct prefix *p,
 		htonl(EIGRP_MULTICAST_ADDRESS), ifindex);
 	if (ret < 0)
 		zlog_warn(
-			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			"ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
-			"on # of multicast group memberships has been exceeded?",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllSPFRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
+			top->fd, &p->u.prefix4, ifindex, safe_strerror(errno));
 	else
-		zlog_debug("interface %s [%u] join EIGRP Multicast group.",
-			   inet_ntoa(p->u.prefix4), ifindex);
+		zlog_debug("interface %pI4 [%u] join EIGRP Multicast group.",
+			   &p->u.prefix4, ifindex);
 
 	return ret;
 }
@@ -201,13 +196,11 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 		htonl(EIGRP_MULTICAST_ADDRESS), ifindex);
 	if (ret < 0)
 		zlog_warn(
-			"can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			"ifindex %u, AllSPFRouters): %s",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+			"can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllSPFRouters): %s",
+			top->fd, &p->u.prefix4, ifindex, safe_strerror(errno));
 	else
-		zlog_debug("interface %s [%u] leave EIGRP Multicast group.",
-			   inet_ntoa(p->u.prefix4), ifindex);
+		zlog_debug("interface %pI4 [%u] leave EIGRP Multicast group.",
+			   &p->u.prefix4, ifindex);
 
 	return ret;
 }
@@ -218,7 +211,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	struct route_node *rn;
 	struct interface *ifp;
 
-	rn = route_node_get(eigrp->networks, (struct prefix *)p);
+	rn = route_node_get(eigrp->networks, p);
 	if (rn->info) {
 		/* There is already same network statement. */
 		route_unlock_node(rn);
@@ -226,11 +219,11 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	}
 
 	struct prefix *pref = prefix_new();
-	PREFIX_COPY_IPV4(pref, p);
+	prefix_copy(pref, p);
 	rn->info = (void *)pref;
 
 	/* Schedule Router ID Update. */
-	if (eigrp->router_id.s_addr == 0)
+	if (eigrp->router_id.s_addr == INADDR_ANY)
 		eigrp_router_id_update(eigrp);
 	/* Run network config now. */
 	/* Get target interface. */
@@ -299,7 +292,7 @@ void eigrp_if_update(struct interface *ifp)
 			continue;
 
 		/* EIGRP must be on and Router-ID must be configured. */
-		if (eigrp->router_id.s_addr == 0)
+		if (eigrp->router_id.s_addr == INADDR_ANY)
 			continue;
 
 		/* Run each network for this interface. */
@@ -351,76 +344,6 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	}
 
 	return 1;
-}
-
-uint32_t eigrp_calculate_metrics(struct eigrp *eigrp,
-				 struct eigrp_metrics metric)
-{
-	uint64_t temp_metric;
-	temp_metric = 0;
-
-	if (metric.delay == EIGRP_MAX_METRIC)
-		return EIGRP_MAX_METRIC;
-
-	// EIGRP Metric =
-	// {K1*BW+[(K2*BW)/(256-load)]+(K3*delay)}*{K5/(reliability+K4)}
-
-	if (eigrp->k_values[0])
-		temp_metric += (eigrp->k_values[0] * metric.bandwidth);
-	if (eigrp->k_values[1])
-		temp_metric += ((eigrp->k_values[1] * metric.bandwidth)
-				/ (256 - metric.load));
-	if (eigrp->k_values[2])
-		temp_metric += (eigrp->k_values[2] * metric.delay);
-	if (eigrp->k_values[3] && !eigrp->k_values[4])
-		temp_metric *= eigrp->k_values[3];
-	if (!eigrp->k_values[3] && eigrp->k_values[4])
-		temp_metric *= (eigrp->k_values[4] / metric.reliability);
-	if (eigrp->k_values[3] && eigrp->k_values[4])
-		temp_metric *= ((eigrp->k_values[4] / metric.reliability)
-				+ eigrp->k_values[3]);
-
-	if (temp_metric <= EIGRP_MAX_METRIC)
-		return (uint32_t)temp_metric;
-	else
-		return EIGRP_MAX_METRIC;
-}
-
-uint32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
-				       struct eigrp_nexthop_entry *entry)
-{
-	struct eigrp_interface *ei = entry->ei;
-
-	entry->total_metric = entry->reported_metric;
-	uint64_t temp_delay =
-		(uint64_t)entry->total_metric.delay
-		+ (uint64_t)eigrp_delay_to_scaled(ei->params.delay);
-	entry->total_metric.delay = temp_delay > EIGRP_MAX_METRIC
-					    ? EIGRP_MAX_METRIC
-					    : (uint32_t)temp_delay;
-
-	uint32_t bw = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
-	entry->total_metric.bandwidth = entry->total_metric.bandwidth > bw
-						? bw
-						: entry->total_metric.bandwidth;
-
-	return eigrp_calculate_metrics(eigrp, entry->total_metric);
-}
-
-uint8_t eigrp_metrics_is_same(struct eigrp_metrics metric1,
-			      struct eigrp_metrics metric2)
-{
-	if ((metric1.bandwidth == metric2.bandwidth)
-	    && (metric1.delay == metric2.delay)
-	    && (metric1.hop_count == metric2.hop_count)
-	    && (metric1.load == metric2.load)
-	    && (metric1.reliability == metric2.reliability)
-	    && (metric1.mtu[0] == metric2.mtu[0])
-	    && (metric1.mtu[1] == metric2.mtu[1])
-	    && (metric1.mtu[2] == metric2.mtu[2]))
-		return 1;
-
-	return 0; // if different
 }
 
 void eigrp_external_routes_refresh(struct eigrp *eigrp, int type)

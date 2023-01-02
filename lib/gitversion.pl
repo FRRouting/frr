@@ -6,7 +6,7 @@ chdir $dir || die "$dir: $!\n";
 
 my $gitdesc = `git describe --always --first-parent --tags --dirty --match 'frr-*' || echo -- \"0-gUNKNOWN\"`;
 chomp $gitdesc;
-my $gitsuffix = ($gitdesc =~ /([0-9a-fA-F]{7}(-dirty)?)$/) ? "-g$1" : "-gUNKNOWN";
+my $gitsuffix = ($gitdesc =~ /-g([0-9a-fA-F]+(-dirty)?)$/) ? "-g$1" : "-gUNKNOWN";
 
 printf STDERR "git suffix: %s\n", $gitsuffix;
 printf "#define GIT_SUFFIX \"%s\"\n", $gitsuffix;

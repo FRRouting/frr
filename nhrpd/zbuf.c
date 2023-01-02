@@ -14,20 +14,20 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include "zassert.h"
+#include <assert.h>
 #include "zbuf.h"
 #include "memory.h"
 #include "nhrpd.h"
 
 #define ERRNO_IO_RETRY(EN) (((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
 
-DEFINE_MTYPE_STATIC(NHRPD, ZBUF_DATA, "NHRPD zbuf data")
+DEFINE_MTYPE_STATIC(NHRPD, ZBUF_DATA, "NHRPD zbuf data");
 
 struct zbuf *zbuf_alloc(size_t size)
 {
 	struct zbuf *zb;
 
-	zb = XMALLOC(MTYPE_ZBUF_DATA, sizeof(*zb) + size);
+	zb = XCALLOC(MTYPE_ZBUF_DATA, sizeof(*zb) + size);
 
 	zbuf_init(zb, zb + 1, size, 0);
 	zb->allocated = 1;
@@ -59,7 +59,7 @@ void zbuf_reset(struct zbuf *zb)
 
 void zbuf_reset_head(struct zbuf *zb, void *ptr)
 {
-	zassert((void *)zb->buf <= ptr && ptr <= (void *)zb->tail);
+	assert((void *)zb->buf <= ptr && ptr <= (void *)zb->tail);
 	zb->head = ptr;
 }
 
@@ -226,6 +226,18 @@ void zbuf_copy(struct zbuf *zdst, struct zbuf *zsrc, size_t len)
 
 	dst = zbuf_pushn(zdst, len);
 	src = zbuf_pulln(zsrc, len);
+	if (!dst || !src)
+		return;
+	memcpy(dst, src, len);
+}
+
+void zbuf_copy_peek(struct zbuf *zdst, struct zbuf *zsrc, size_t len)
+{
+	const void *src;
+	void *dst;
+
+	dst = zbuf_pushn(zdst, len);
+	src = zbuf_pulln(zsrc, 0);
 	if (!dst || !src)
 		return;
 	memcpy(dst, src, len);

@@ -620,10 +620,7 @@ void rfapiMonitorDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		rfapiMonitorDetachImport(m);
 	}
 
-	if (m->timer) {
-		thread_cancel(m->timer);
-		m->timer = NULL;
-	}
+	thread_cancel(&m->timer);
 
 	/*
 	 * remove from rfd list
@@ -660,10 +657,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 					rfapiMonitorDetachImport(m);
 				}
 
-				if (m->timer) {
-					thread_cancel(m->timer);
-					m->timer = NULL;
-				}
+				thread_cancel(&m->timer);
 
 				XFREE(MTYPE_RFAPI_MONITOR, m);
 				rn->info = NULL;
@@ -697,10 +691,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 #endif
 			}
 
-			if (mon_eth->timer) {
-				thread_cancel(mon_eth->timer);
-				mon_eth->timer = NULL;
-			}
+			thread_cancel(&mon_eth->timer);
 
 			/*
 			 * remove from rfd list
@@ -766,8 +757,7 @@ static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 		if (m->rfd->response_lifetime - remain < 2)
 			return;
 
-		thread_cancel(m->timer);
-		m->timer = NULL;
+		thread_cancel(&m->timer);
 	}
 
 	{
@@ -789,7 +779,8 @@ static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
  * been responsible for the response, i.e., any monitors for
  * the exact prefix or a parent of it.
  */
-void rfapiMonitorTimersRestart(struct rfapi_descriptor *rfd, struct prefix *p)
+void rfapiMonitorTimersRestart(struct rfapi_descriptor *rfd,
+			       const struct prefix *p)
 {
 	struct agg_node *rn;
 
@@ -818,12 +809,14 @@ void rfapiMonitorTimersRestart(struct rfapi_descriptor *rfd, struct prefix *p)
 		for (rn = agg_route_top(rfd->mon); rn;
 		     rn = agg_route_next(rn)) {
 			struct rfapi_monitor_vpn *m;
+			const struct prefix *p_node;
 
 			if (!((m = rn->info)))
 				continue;
 
+			p_node = agg_node_get_prefix(m->node);
 			/* NB order of test is significant ! */
-			if (!m->node || prefix_match(&m->node->p, p)) {
+			if (!m->node || prefix_match(p_node, p)) {
 				rfapiMonitorTimerRestart(m);
 			}
 		}
@@ -841,10 +834,8 @@ void rfapiMonitorItNodeChanged(
 	struct skiplist *nves_seen;
 	struct agg_node *rn = it_node;
 	struct bgp *bgp = bgp_get_default();
-	afi_t afi = family2afi(rn->p.family);
-#if DEBUG_L2_EXTRA
-	char buf_prefix[PREFIX_STRLEN];
-#endif
+	const struct prefix *p = agg_node_get_prefix(rn);
+	afi_t afi = family2afi(p->family);
 
 	assert(bgp);
 	assert(import_table);
@@ -852,9 +843,8 @@ void rfapiMonitorItNodeChanged(
 	nves_seen = skiplist_new(0, NULL, NULL);
 
 #if DEBUG_L2_EXTRA
-	prefix2str(&it_node->p, buf_prefix, sizeof(buf_prefix));
-	vnc_zlog_debug_verbose("%s: it=%p, it_node=%p, it_node->prefix=%s",
-			       __func__, import_table, it_node, buf_prefix);
+	vnc_zlog_debug_verbose("%s: it=%p, it_node=%p, it_node->prefix=%pFX",
+			       __func__, import_table, it_node, &it_node->p);
 #endif
 
 	if (AFI_L2VPN == afi) {
@@ -866,10 +856,9 @@ void rfapiMonitorItNodeChanged(
 		if ((sl = RFAPI_MONITOR_ETH(rn))) {
 
 			for (cursor = NULL,
-			    rc = skiplist_next(sl, NULL, (void **)&m,
-					       (void **)&cursor);
+			    rc = skiplist_next(sl, NULL, (void **)&m, &cursor);
 			     !rc; rc = skiplist_next(sl, NULL, (void **)&m,
-						     (void **)&cursor)) {
+						     &cursor)) {
 
 				if (skiplist_search(nves_seen, m->rfd, NULL)) {
 					/*
@@ -931,17 +920,10 @@ void rfapiMonitorItNodeChanged(
 					assert(!skiplist_insert(nves_seen,
 								m->rfd, NULL));
 
-					char buf_attach_pfx[PREFIX_STRLEN];
-					char buf_target_pfx[PREFIX_STRLEN];
-
-					prefix2str(&m->node->p, buf_attach_pfx,
-						   sizeof(buf_attach_pfx));
-					prefix2str(&m->p, buf_target_pfx,
-						   sizeof(buf_target_pfx));
 					vnc_zlog_debug_verbose(
-						"%s: update rfd %p attached to pfx %s (targ=%s)",
-						__func__, m->rfd,
-						buf_attach_pfx, buf_target_pfx);
+						"%s: update rfd %p attached to pfx %pRN (targ=%pFX)",
+						__func__, m->rfd, m->node,
+						&m->p);
 
 					/*
 					 * update its RIB
@@ -1086,8 +1068,7 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 		if (m->rfd->response_lifetime - remain < 2)
 			return;
 
-		thread_cancel(m->timer);
-		m->timer = NULL;
+		thread_cancel(&m->timer);
 	}
 
 	{
@@ -1103,10 +1084,10 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 			 m->rfd->response_lifetime, &m->timer);
 }
 
-static int mon_eth_cmp(void *a, void *b)
+static int mon_eth_cmp(const void *a, const void *b)
 {
-	struct rfapi_monitor_eth *m1;
-	struct rfapi_monitor_eth *m2;
+	const struct rfapi_monitor_eth *m1;
+	const struct rfapi_monitor_eth *m2;
 
 	int i;
 
@@ -1269,21 +1250,15 @@ static void rfapiMonitorEthDetachImport(
 	rn = agg_node_get(it->imported_vpn[AFI_L2VPN], &pfx_mac_buf);
 	assert(rn);
 
-#if DEBUG_L2_EXTRA
-	char buf_prefix[PREFIX_STRLEN];
-
-	prefix2str(&rn->p, buf_prefix, sizeof(buf_prefix));
-#endif
-
 	/*
 	 * Get sl to detach from
 	 */
 	sl = RFAPI_MONITOR_ETH(rn);
 #if DEBUG_L2_EXTRA
 	vnc_zlog_debug_verbose(
-		"%s: it=%p, rn=%p, rn->lock=%d, sl=%p, pfx=%s, LNI=%d, detaching eth mon %p",
-		__func__, it, rn, rn->lock, sl, buf_prefix, mon->logical_net_id,
-		mon);
+		"%s: it=%p, rn=%p, rn->lock=%d, sl=%p, pfx=%pFX, LNI=%d, detaching eth mon %p",
+		__func__, it, rn, rn->lock, sl, agg_node_get_prefix(rn),
+		mon->logical_net_id, mon);
 #endif
 	assert(sl);
 
@@ -1432,10 +1407,7 @@ void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		rfapiMonitorEthDetachImport(bgp, val);
 	}
 
-	if (val->timer) {
-		thread_cancel(val->timer);
-		val->timer = NULL;
-	}
+	thread_cancel(&val->timer);
 
 	/*
 	 * remove from rfd list

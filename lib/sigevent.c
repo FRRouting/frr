@@ -63,6 +63,33 @@ static void quagga_signal_handler(int signo)
 	sigmaster.caught = 1;
 }
 
+/*
+ * Check whether any signals have been received and are pending. This is done
+ * with the application's key signals blocked. The complete set of signals
+ * is returned in 'setp', so the caller can restore them when appropriate.
+ * If there are pending signals, returns 'true', 'false' otherwise.
+ */
+bool frr_sigevent_check(sigset_t *setp)
+{
+	sigset_t blocked;
+	int i;
+	bool ret;
+
+	sigemptyset(setp);
+	sigemptyset(&blocked);
+
+	/* Set up mask of application's signals */
+	for (i = 0; i < sigmaster.sigc; i++)
+		sigaddset(&blocked, sigmaster.signals[i].signal);
+
+	pthread_sigmask(SIG_BLOCK, &blocked, setp);
+
+	/* Now that the application's signals are blocked, test. */
+	ret = (sigmaster.caught != 0);
+
+	return ret;
+}
+
 /* check if signals have been caught and run appropriate handlers */
 int quagga_sigevent_process(void)
 {
@@ -170,8 +197,6 @@ static void *program_counter(void *context)
 #elif defined(__powerpc__)
 #  define REG_INDEX 32
 #endif
-#elif defined(SUNOS_5) /* !GNU_LINUX */
-# define REG_INDEX REG_PC
 #endif		       /* GNU_LINUX */
 
 #ifdef REG_INDEX
@@ -212,9 +237,12 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 	/* make sure we don't hang in here.  default for SIGALRM is terminate.
 	 * - if we're in backtrace for more than a second, abort. */
 	struct sigaction sa_default = {.sa_handler = SIG_DFL};
+
 	sigaction(SIGALRM, &sa_default, NULL);
+	sigaction(signo, &sa_default, NULL);
 
 	sigset_t sigset;
+
 	sigemptyset(&sigset);
 	sigaddset(&sigset, SIGALRM);
 	sigprocmask(SIG_UNBLOCK, &sigset, NULL);
@@ -225,13 +253,24 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
-	abort();
+
+	zlog_tls_buffer_fini();
+
+	/* give the kernel a chance to generate a coredump */
+	sigaddset(&sigset, signo);
+	sigprocmask(SIG_UNBLOCK, &sigset, NULL);
+	raise(signo);
+
+	/* only chance to end up here is if the default action for signo is
+	 * something other than kill or coredump the process
+	 */
+	_exit(128 + signo);
 }
 
 static void trap_default_signals(void)
 {
 	static const int core_signals[] = {
-		SIGQUIT, SIGILL,
+		SIGQUIT, SIGILL, SIGABRT,
 #ifdef SIGEMT
 		SIGEMT,
 #endif

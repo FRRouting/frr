@@ -101,7 +101,7 @@ Definition Grammar
 FRR uses its own grammar for defining CLI commands. The grammar draws from
 syntax commonly seen in \*nix manpages and should be fairly intuitive. The
 parser is implemented in Bison and the lexer in Flex. These may be found in
-``lib/command_lex.l`` and ``lib/command_parse.y``, respectively.
+``lib/command_parse.y`` and ``lib/command_lex.l``, respectively.
 
     **ProTip**: if you define a new command and find that the parser is
     throwing syntax or other errors, the parser is the last place you want
@@ -139,6 +139,7 @@ by the parser.
    selector: "<" `selector_seq_seq` ">" `varname_token`
            : "{" `selector_seq_seq` "}" `varname_token`
            : "[" `selector_seq_seq` "]" `varname_token`
+           : "![" `selector_seq_seq` "]" `varname_token`
    selector_seq_seq: `selector_seq_seq` "|" `selector_token_seq`
                    : `selector_token_seq`
    selector_token_seq: `selector_token_seq` `selector_token`
@@ -218,6 +219,10 @@ one-or-more selection and repetition.
    provide mutual exclusion. User input matches at most one option.
 -  ``[square brackets]`` -- Contains sequences of tokens that can be omitted.
    ``[<a|b>]`` can be shortened to ``[a|b]``.
+-  ``![exclamation square brackets]`` -- same as ``[square brackets]``, but
+   only allow skipping the contents if the command input starts with ``no``.
+   (For cases where the positive command needs a parameter, but the parameter
+   is optional for the negative case.)
 -  ``{curly|braces}`` -- similar to angle brackets, but instead of mutual
    exclusion, curly braces indicate that one or more of the pipe-separated
    sequences may be provided in any order.
@@ -371,11 +376,11 @@ Type rules
 +----------------------------+--------------------------------+--------------------------+
 | ``A.B.C.D + X:X::X:X``     | ``const union sockunion *``    | ``NULL``                 |
 +----------------------------+--------------------------------+--------------------------+
-| ``A.B.C.D/M``              | ``const struct prefix_ipv4 *`` | ``NULL``                 |
+| ``A.B.C.D/M``              | ``const struct prefix_ipv4 *`` | ``all-zeroes struct``    |
 +----------------------------+--------------------------------+--------------------------+
-| ``X:X::X:X/M``             | ``const struct prefix_ipv6 *`` | ``NULL``                 |
+| ``X:X::X:X/M``             | ``const struct prefix_ipv6 *`` | ``all-zeroes struct``    |
 +----------------------------+--------------------------------+--------------------------+
-| ``A.B.C.D/M + X:X::X:X/M`` | ``const struct prefix *``      | ``NULL``                 |
+| ``A.B.C.D/M + X:X::X:X/M`` | ``const struct prefix *``      | ``all-zeroes struct``    |
 +----------------------------+--------------------------------+--------------------------+
 | ``(0-9)``                  | ``long``                       | ``0``                    |
 +----------------------------+--------------------------------+--------------------------+
@@ -395,8 +400,10 @@ Note the following details:
    ``word`` tokens (e.g. constant words). This is useful if some parts of a
    command are optional. The type will be ``const char *``.
 -  ``[no]`` will be passed as ``const char *no``.
--  Pointers will be ``NULL`` when the argument is optional and the user did not
-   use it.
+-  Most pointers will be ``NULL`` when the argument is optional and the
+   user did not supply it. As noted in the table above, some prefix
+   struct type arguments are passed as pointers to all-zeroes structs,
+   not as ``NULL`` pointers.
 -  If a parameter is not a pointer, but is optional and the user didn't use it,
    the default value will be passed. Check the ``_str`` argument if you need to
    determine whether the parameter was omitted.
@@ -764,6 +771,172 @@ User input:
 
 ``ip`` partially matches ``ipv6`` but exactly matches ``ip``, so ``ip`` will
 win.
+
+Adding a CLI Node
+-----------------
+
+To add a new CLI node, you should:
+
+- define a new numerical node constant
+- define a node structure in the relevant daemon
+- call ``install_node()`` in the relevant daemon
+- define and install the new node in vtysh
+- define corresponding node entry commands in daemon and vtysh
+- add a new entry to the ``ctx_keywords`` dictionary in ``tools/frr-reload.py``
+
+Defining the numerical node constant
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Add your new node value to the enum before ``NODE_TYPE_MAX`` in
+``lib/command.h``:
+
+.. code-block:: c
+
+   enum node_type {
+        AUTH_NODE,               // Authentication mode of vty interface.
+        VIEW_NODE,               // View node. Default mode of vty interface.
+        [...]
+        MY_NEW_NODE,
+        NODE_TYPE_MAX, // maximum
+   };
+
+Defining a node structure
+^^^^^^^^^^^^^^^^^^^^^^^^^
+In your daemon-specific code where you define your new commands that
+attach to the new node, add a node definition:
+
+.. code-block:: c
+
+   static struct cmd_node my_new_node = {
+        .name = "my new node name",
+        .node = MY_NEW_NODE, // enum node_type lib/command.h
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(my-new-node-prompt)# ",
+        .config_write = my_new_node_config_write,
+   };
+
+You will need to define ``my_new_node_config_write(struct vty \*vty)``
+(or omit this field if you have no relevant configuration to save).
+
+Calling ``install_node()``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+In the daemon's initialization function, before installing your new commands
+with ``install_element()``, add a call ``install_node(&my_new_node)``.
+
+Defining and installing the new node in vtysh
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The build tools automatically collect command definitions for vtysh.
+However, new nodes must be coded in vtysh specifically.
+
+In ``vtysh/vtysh.c``, define a stripped-down node structure and
+call ``install_node()``:
+
+.. code-block:: c
+
+   static struct cmd_node my_new_node = {
+        .name = "my new node name",
+        .node = MY_NEW_NODE, /* enum node_type lib/command.h */
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(my-new-node-prompt)# ",
+   };
+   [...]
+   void vtysh_init_vty(void)
+   {
+      [...]
+      install_node(&my_new_node)
+      [...]
+   }
+
+Defining corresponding node entry commands in daemon and vtysh
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The command that descends into the new node is typically programmed
+with ``VTY_PUSH_CONTEXT`` or equivalent in the daemon's CLI handler function.
+(If the CLI has been updated to use the new northbound architecture,
+``VTY_PUSH_XPATH`` is used instead.)
+
+In vtysh, you must implement a corresponding node change so that vtysh
+tracks the daemon's movement through the node tree.
+
+Although the build tools typically scan daemon code for CLI definitions
+to replicate their parsing in vtysh, the node-descent function in the
+daemon must be blocked from this replication so that a hand-coded
+skeleton can be written in ``vtysh.c``.
+
+Accordingly, use one of the ``*_NOSH`` macros such as ``DEFUN_NOSH``,
+``DEFPY_NOSH``, or ``DEFUN_YANG_NOSH``  for the daemon's node-descent
+CLI definition, and use ``DEFUNSH`` in ``vtysh.c`` for the vtysh equivalent.
+
+.. seealso:: :ref:`vtysh-special-defuns`
+
+Examples:
+
+``zebra_whatever.c``
+
+.. code-block:: c
+
+   DEFPY_NOSH(my_new_node,
+        my_new_node_cmd,
+        "my-new-node foo",
+        "New Thing\n"
+        "A foo\n")
+   {
+      [...]
+      VTY_PUSH_CONTEXT(MY_NEW_NODE, bar);
+      [...]
+   }
+
+
+``ripd_whatever.c``
+
+.. code-block:: c
+
+   DEFPY_YANG_NOSH(my_new_node,
+        my_new_node_cmd,
+        "my-new-node foo",
+        "New Thing\n"
+        "A foo\n")
+   {
+      [...]
+      VTY_PUSH_XPATH(MY_NEW_NODE, xbar);
+      [...]
+   }
+
+
+``vtysh.c``
+
+.. code-block:: c
+
+   DEFUNSH(VTYSH_ZEBRA, my_new_node,
+        my_new_node_cmd,
+        "my-new-node foo",
+        "New Thing\n"
+        "A foo\n")
+   {
+        vty->node = MY_NEW_NODE;
+        return CMD_SUCCESS;
+   }
+   [...]
+   install_element(CONFIG_NODE, &my_new_node_cmd);
+
+
+Adding a new entry to the ``ctx_keywords`` dictionary
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In file ``tools/frr-reload.py``, the ``ctx_keywords`` dictionary
+describes the various node relationships.
+Add a new node entry at the appropriate level in this dictionary.
+
+.. code-block:: python
+
+        ctx_keywords = {
+            [...]
+            "key chain ": {
+                "key ": {}
+            },
+            [...]
+            "my-new-node": {},
+            [...]
+        }
+
+
 
 Inspection & Debugging
 ----------------------

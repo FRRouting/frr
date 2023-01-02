@@ -25,9 +25,11 @@
 #include "redistribute.h"
 #include "vrf.h"
 #include "hook.h"
+#include "bitfield.h"
 
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_nhg_private.h"
+#include "zebra/zebra_router.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +43,8 @@ extern "C" {
 /* For interface shutdown configuration. */
 #define IF_ZEBRA_SHUTDOWN_OFF    0
 #define IF_ZEBRA_SHUTDOWN_ON     1
+
+#define IF_VLAN_BITMAP_MAX 4096
 
 #if defined(HAVE_RTADV)
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
@@ -117,6 +121,7 @@ struct rtadvconf {
 	   Default: The value specified in the "Assigned Numbers" RFC
 	   [ASSIGNED] that was in effect at the time of implementation. */
 	int AdvCurHopLimit;
+#define RTADV_DEFAULT_HOPLIMIT 64 /* 64 hops */
 
 	/* The value to be placed in the Router Lifetime field of Router
 	   Advertisements sent from the interface, in seconds.  MUST be
@@ -248,7 +253,7 @@ struct rtadv_dnssl {
 #endif /* HAVE_RTADV */
 
 /* Zebra interface type - ones of interest. */
-typedef enum {
+enum zebra_iftype {
 	ZEBRA_IF_OTHER = 0, /* Anything else */
 	ZEBRA_IF_VXLAN,     /* VxLAN interface */
 	ZEBRA_IF_VRF,       /* VRF device */
@@ -258,21 +263,60 @@ typedef enum {
 	ZEBRA_IF_VETH,      /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
 	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
-} zebra_iftype_t;
+	ZEBRA_IF_GRE,      /* GRE interface */
+};
 
 /* Zebra "slave" interface type */
-typedef enum {
+enum zebra_slave_iftype {
 	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
 	ZEBRA_IF_SLAVE_VRF,    /* Member of a VRF */
 	ZEBRA_IF_SLAVE_BRIDGE, /* Member of a bridge */
 	ZEBRA_IF_SLAVE_BOND,   /* Bond member */
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
-} zebra_slave_iftype_t;
+};
 
 struct irdp_interface;
 
+/* Ethernet segment info used for setting up EVPN multihoming */
+struct zebra_evpn_es;
+struct zebra_es_if_info {
+	/* type-3 esi config */
+	struct ethaddr sysmac;
+	uint32_t lid; /* local-id; has to be unique per-ES-sysmac */
+
+	esi_t esi;
+
+	uint16_t df_pref;
+	uint8_t flags;
+#define ZIF_CFG_ES_FLAG_BYPASS (1 << 0)
+
+	struct zebra_evpn_es *es; /* local ES */
+};
+
+enum zebra_if_flags {
+	/* device has been configured as an uplink for
+	 * EVPN multihoming
+	 */
+	ZIF_FLAG_EVPN_MH_UPLINK = (1 << 0),
+	ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP = (1 << 1),
+
+	/* Dataplane protodown-on */
+	ZIF_FLAG_PROTODOWN = (1 << 2),
+
+	/* LACP bypass state is set by the dataplane on a bond member
+	 * and inherited by the bond (if one or more bond members are in
+	 * a bypass state the bond is placed in a bypass state)
+	 */
+	ZIF_FLAG_LACP_BYPASS = (1 << 3)
+};
+
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
+	/* back pointer to the interface */
+	struct interface *ifp;
+
+	enum zebra_if_flags flags;
+
 	/* Shutdown configuration. */
 	uint8_t shutdown;
 
@@ -319,21 +363,12 @@ struct zebra_if {
 	};
 #endif
 
-#ifdef SUNOS_5
-	/* the real IFF_UP state of the primary interface.
-	 * need this to differentiate between all interfaces being
-	 * down (but primary still plumbed) and primary having gone
-	 * ~IFF_UP, and all addresses gone.
-	 */
-	uint8_t primary_state;
-#endif /* SUNOS_5 */
-
 	/* ptm enable configuration */
 	uint8_t ptm_enable;
 
 	/* Zebra interface and "slave" interface type */
-	zebra_iftype_t zif_type;
-	zebra_slave_iftype_t zif_slave_type;
+	enum zebra_iftype zif_type;
+	enum zebra_slave_iftype zif_slave_type;
 
 	/* Additional L2 info, depends on zif_type */
 	union zebra_l2if_info l2info;
@@ -345,6 +380,24 @@ struct zebra_if {
 	struct zebra_l2info_brslave brslave_info;
 
 	struct zebra_l2info_bondslave bondslave_info;
+	struct zebra_l2info_bond bond_info;
+
+	/* ethernet segment */
+	struct zebra_es_if_info es_info;
+
+	/* bitmap of vlans associated with this interface */
+	bitfield_t vlan_bitmap;
+
+	/* An interface can be error-disabled if a protocol (such as EVPN or
+	 * VRRP) detects a problem with keeping it operationally-up.
+	 * If any of the protodown bits are set protodown-on is programmed
+	 * in the dataplane. This results in a carrier/L1 down on the
+	 * physical device.
+	 */
+	enum protodown_reasons protodown_rc;
+
+	/* list of zebra_mac entries using this interface as destination */
+	struct list *mac_list;
 
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
@@ -365,20 +418,9 @@ struct zebra_if {
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
-	     (vty, ifp))
+	     (vty, ifp));
 DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
-	     (vty, ifp))
-
-static inline void zebra_if_set_ziftype(struct interface *ifp,
-					zebra_iftype_t zif_type,
-					zebra_slave_iftype_t zif_slave_type)
-{
-	struct zebra_if *zif;
-
-	zif = (struct zebra_if *)ifp->info;
-	zif->zif_type = zif_type;
-	zif->zif_slave_type = zif_slave_type;
-}
+	     (vty, ifp));
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)
@@ -397,6 +439,12 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 
 #define IS_ZEBRA_IF_VETH(ifp)                                               \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VETH)
+
+#define IS_ZEBRA_IF_BOND(ifp)                                                  \
+	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_BOND)
+
+#define IS_ZEBRA_IF_GRE(ifp)                                               \
+	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_GRE)
 
 #define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)					\
 	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
@@ -438,8 +486,19 @@ extern int ipv6_address_configured(struct interface *ifp);
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
 extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
-extern void zebra_if_update_all_links(void);
+extern void zebra_if_update_all_links(struct zebra_ns *zns);
 extern void zebra_if_set_protodown(struct interface *ifp, bool down);
+extern int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+				 const char *label, struct prefix *pp);
+extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
+				   const char *label);
+extern int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix);
+extern int if_shutdown(struct interface *ifp);
+extern int if_no_shutdown(struct interface *ifp);
+extern int if_multicast_set(struct interface *ifp);
+extern int if_multicast_unset(struct interface *ifp);
+extern int if_linkdetect(struct interface *ifp, bool detect);
+extern void if_addr_wakeup(struct interface *ifp);
 
 /* Nexthop group connected functions */
 extern void if_nhg_dependents_add(struct interface *ifp,
@@ -450,6 +509,11 @@ extern unsigned int if_nhg_dependents_count(const struct interface *ifp);
 extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);
+extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);
+extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
+extern const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
+					  char *pd_buf, uint32_t pd_buf_len);
+void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc(void);

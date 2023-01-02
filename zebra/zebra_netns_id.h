@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-extern ns_id_t zebra_ns_id_get(const char *netnspath);
+extern ns_id_t zebra_ns_id_get(const char *netnspath, int fd);
 extern ns_id_t zebra_ns_id_get_default(void);
 
 #ifdef __cplusplus

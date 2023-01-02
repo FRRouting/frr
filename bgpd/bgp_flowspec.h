@@ -41,9 +41,10 @@ extern int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 extern void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				   char *return_string, int format,
-				   json_object *json_path);
+				   json_object *json_path,
+				   afi_t afi);
 
-extern void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
+extern void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 				   struct bgp_path_info *path, int display,
 				   json_object *json_paths);
 extern int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,

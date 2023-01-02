@@ -36,11 +36,6 @@ extern "C" {
 #define HASHWALK_CONTINUE 0
 #define HASHWALK_ABORT -1
 
-#if CONFDATE > 20200225
-CPP_NOTICE("hash.h: time to remove hash_backet #define")
-#endif
-#define hash_backet hash_bucket
-
 struct hash_bucket {
 	/*
 	 * if this bucket is the head of the linked listed, len denotes the
@@ -81,7 +76,7 @@ struct hash {
 	/* Data compare function. */
 	bool (*hash_cmp)(const void *, const void *);
 
-	/* Backet alloc. */
+	/* Bucket alloc. */
 	unsigned long count;
 
 	struct hashstats stats;
@@ -108,7 +103,7 @@ struct hash {
  *
  * hash_cmp
  *    comparison function used for resolving collisions; when called with two
- *    data items, should return nonzero if the two items are equal and 0
+ *    data items, should return true if the two items are equal and false
  *    otherwise
  *
  * name
@@ -142,7 +137,7 @@ extern struct hash *hash_create(unsigned int (*hash_key)(const void *),
  *
  * hash_cmp
  *    comparison function used for resolving collisions; when called with two
- *    data items, should return nonzero if the two items are equal and 0
+ *    data items, should return true if the two items are equal and false
  *    otherwise
  *
  * name
@@ -241,7 +236,8 @@ extern void *hash_release(struct hash *hash, void *data);
  * Iterate over the elements in a hash table.
  *
  * It is safe to delete items passed to the iteration function from the hash
- * table during iteration.  Please note that adding entries to the hash
+ * table during iteration. More than one item cannot be deleted during each
+ * iteration. Please note that adding entries to the hash
  * during the walk will cause undefined behavior in that some new entries
  * will be walked and some will not.  So do not do this.
  *

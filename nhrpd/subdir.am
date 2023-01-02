@@ -4,7 +4,8 @@
 
 if NHRPD
 sbin_PROGRAMS += nhrpd/nhrpd
-vtysh_scan += $(top_srcdir)/nhrpd/nhrp_vty.c
+vtysh_scan += nhrpd/nhrp_vty.c
+vtysh_daemons += nhrpd
 man8 += $(MANBUILD)/frr-nhrpd.8
 endif
 
@@ -12,7 +13,6 @@ nhrpd_nhrpd_LDADD = lib/libfrr.la lib/libfrrcares.la $(LIBCAP)
 nhrpd_nhrpd_SOURCES = \
 	nhrpd/linux.c \
 	nhrpd/netlink_arp.c \
-	nhrpd/netlink_gre.c \
 	nhrpd/nhrp_cache.c \
 	nhrpd/nhrp_errors.c \
 	nhrpd/nhrp_event.c \
@@ -21,6 +21,7 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/nhrp_nhs.c \
 	nhrpd/nhrp_packet.c \
 	nhrpd/nhrp_peer.c \
+	nhrpd/nhrp_multicast.c \
 	nhrpd/nhrp_route.c \
 	nhrpd/nhrp_shortcut.c \
 	nhrpd/nhrp_vc.c \

@@ -1,0 +1,80 @@
+{
+   <zlog_keep_working_at_exit>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:qcalloc
+   fun:zlog_target_clone
+}
+{
+   <libyang1_1.0.184>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:_dlerror_run
+   fun:dlopen@@GLIBC_2.2.5
+   obj:/usr/lib/x86_64-linux-gnu/libyang.so.1.9.2
+   fun:ly_load_plugins
+}
+{
+   <zprivs_init leak in a function we do not control>
+   Memcheck:Leak
+   fun:calloc
+   fun:cap_init
+   fun:zprivs_caps_init
+}
+{
+   <sqlite3 leak in a function we do not control>
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:sqlite3_step
+}
+{
+   <libyang2 prefix_data stuff>
+   Memcheck:Leak
+   fun:calloc
+   fun:ly_store_prefix_data
+   ...
+   fun:yang_module_load
+}
+{
+   <libyang2 lys_compile_type_union>
+   Memcheck:Leak
+   fun:realloc
+   fun:lys_compile_type_union
+   ...
+   fun:yang_module_load
+}
+{
+   <libyang2 pcre2_compile>
+   Memcheck:Leak
+   fun:malloc
+   fun:pcre2_compile_8
+   ...
+   fun:yang_module_load
+}
+{
+   <libyang2 lys_compile_type_patterns malloc>
+   Memcheck:Leak
+   fun:malloc
+   fun:lys_compile_type_patterns
+   ...
+   fun:yang_module_load
+}
+{
+   <libyang2 lys_compile_type_patterns calloc>
+   Memcheck:Leak
+   fun:calloc
+   fun:lys_compile_type_patterns
+   ...
+   fun:yang_module_load
+}
+{
+   <libyang2 lys_compile_type>
+   Memcheck:Leak
+   fun:calloc
+   fun:lys_compile_type
+   ...
+   fun:yang_module_load
+}

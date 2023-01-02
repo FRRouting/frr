@@ -38,18 +38,7 @@ extern void if_get_flags(struct interface *);
 extern void if_get_metric(struct interface *);
 extern void if_get_mtu(struct interface *);
 
-#ifdef SOLARIS_IPV6
-extern int if_ioctl_ipv6(unsigned long, caddr_t);
-extern struct connected *if_lookup_linklocal(struct interface *);
-
-#define AF_IOCTL(af, request, buffer)                                          \
-	((af) == AF_INET ? if_ioctl(request, buffer)                           \
-			 : if_ioctl_ipv6(request, buffer))
-#else  /* SOLARIS_IPV6 */
-
 #define AF_IOCTL(af, request, buffer)  if_ioctl(request, buffer)
-
-#endif /* SOLARIS_IPV6 */
 
 #ifdef __cplusplus
 }

@@ -15,13 +15,13 @@ Example:
    :caption: mydaemon.h
 
    #include "hook.h"
-   DECLARE_HOOK(some_update_event, (struct eventinfo *info), (info))
+   DECLARE_HOOK(some_update_event, (struct eventinfo *info), (info));
 
 .. code-block:: c
    :caption: mydaemon.c
 
    #include "mydaemon.h"
-   DEFINE_HOOK(some_update_event, (struct eventinfo *info), (info))
+   DEFINE_HOOK(some_update_event, (struct eventinfo *info), (info));
    ...
    hook_call(some_update_event, info);
 
@@ -110,9 +110,9 @@ Definition
 
    .. code-block:: c
 
-      DECLARE_HOOK(foo, (), ())
-      DECLARE_HOOK(bar, (int arg), (arg))
-      DECLARE_HOOK(baz, (const void *x, in_addr_t y), (x, y))
+      DECLARE_HOOK(foo, (), ());
+      DECLARE_HOOK(bar, (int arg), (arg));
+      DECLARE_HOOK(baz, (const void *x, in_addr_t y), (x, y));
 
 .. c:macro:: DEFINE_HOOK(name, arglist, passlist)
 

@@ -23,8 +23,9 @@
 
 #include "libospf.h"
 #include "thread.h"
+#include "memory.h"
 
-#include "ospf6_memory.h"
+DECLARE_MGROUP(OSPF6D);
 
 /* global variables */
 extern struct thread_master *master;
@@ -47,6 +48,10 @@ extern struct thread_master *master;
 
 #define MSG_OK    0
 #define MSG_NG    1
+
+#define OSPF6_SUCCESS 1
+#define OSPF6_FAILURE 0
+#define OSPF6_INVALID -1
 
 /* cast macro: XXX - these *must* die, ick ick. */
 #define OSPF6_PROCESS(x) ((struct ospf6 *) (x))
@@ -88,11 +93,20 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
-#define OSPF6_CMD_CHECK_RUNNING()                                              \
-	if (ospf6 == NULL) {                                                   \
-		vty_out(vty, "OSPFv3 is not running\n");                       \
-		return CMD_SUCCESS;                                            \
+#define IS_OSPF6_ASBR(O) ((O)->flag & OSPF6_FLAG_ASBR)
+#define OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)            \
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
+		vrf_name = argv[idx_vrf + 1]->arg;                             \
+		all_vrf = strmatch(vrf_name, "all");                           \
+	} else {                                                               \
+		vrf_name = VRF_DEFAULT_NAME;                                   \
 	}
+
+#define OSPF6_FALSE false
+#define OSPF6_TRUE true
+#define OSPF6_SUCCESS 1
+#define OSPF6_FAILURE 0
+#define OSPF6_INVALID -1
 
 extern struct zebra_privs_t ospf6d_privs;
 
@@ -100,6 +114,6 @@ extern struct zebra_privs_t ospf6d_privs;
 extern struct route_node *route_prev(struct route_node *node);
 
 extern void ospf6_debug(void);
-extern void ospf6_init(void);
+extern void ospf6_init(struct thread_master *master);
 
 #endif /* OSPF6D_H */

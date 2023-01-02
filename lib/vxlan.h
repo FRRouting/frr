@@ -26,6 +26,16 @@
 extern "C" {
 #endif
 
+/* EVPN MH DF election alogorithm */
+#define EVPN_MH_DF_ALG_SERVICE_CARVING 0
+#define EVPN_MH_DF_ALG_HRW 1
+#define EVPN_MH_DF_ALG_PREF 2
+
+/* preference range for DF election */
+#define EVPN_MH_DF_PREF_MIN 0
+#define EVPN_MH_DF_PREF_DEFAULT 32767
+#define EVPN_MH_DF_PREF_MAX 65535
+
 /* VxLAN Network Identifier - 24-bit (RFC 7348) */
 typedef uint32_t vni_t;
 #define VNI_MAX 16777215 /* (2^24 - 1) */

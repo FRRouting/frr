@@ -79,7 +79,7 @@ int mpls_str2label(const char *label_str, uint8_t *num_labels,
 /*
  * Label to string conversion, labels in string separated by '/'.
  */
-char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
+char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 		     int len, int pretty)
 {
 	char label_buf[BUFSIZ];

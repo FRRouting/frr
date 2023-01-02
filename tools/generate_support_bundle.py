@@ -1,112 +1,89 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
+#
+# Copyright (c) 2021, LabN Consulting, L.L.C.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; see the file COPYING; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+#
 
 ########################################################
 ### Python Script to generate the FRR support bundle ###
 ########################################################
+import argparse
+import logging
 import os
 import subprocess
-import datetime
+import tempfile
 
-TOOLS_DIR="tools/"
-ETC_DIR="/etc/frr/"
-LOG_DIR="/var/log/frr/"
-SUCCESS = 1
-FAIL = 0
+def open_with_backup(path):
+    if os.path.exists(path):
+        print("Making backup of " + path)
+        subprocess.check_call("mv {0} {0}.prev".format(path))
+    return open(path, "w")
 
-inputFile = ETC_DIR + "support_bundle_commands.conf"
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", default="/etc/frr/support_bundle_commands.conf", help="input config")
+    parser.add_argument("-l", "--log-dir", default="/var/log/frr", help="directory for logfiles")
+    args = parser.parse_args()
 
-# Open support bundle configuration file
-def openConfFile(i_file):
-  try:
-    with open(i_file) as supportBundleConfFile:
-      lines = filter(None, (line.rstrip() for line in supportBundleConfFile))
-    return lines
-  except IOError:
-    return ([])
+    collecting = False # file format has sentinels (seem superfluous)
+    proc_cmds = {}
+    proc = None
+    temp = None
 
-# Create the output file name
-def createOutputFile(procName):
-  fileName = procName + "_support_bundle.log"
-  oldFile = LOG_DIR + fileName
-  cpFileCmd = "cp " + oldFile + " " + oldFile + ".prev"
-  rmFileCmd = "rm -rf " + oldFile
-  print("Making backup of " + oldFile)
-  os.system(cpFileCmd)
-  print("Removing " + oldFile)
-  os.system(rmFileCmd)
-  return fileName
-
-# Open the output file for this process
-def openOutputFile(fileName):
-  crt_file_cmd = LOG_DIR + fileName
-  print(crt_file_cmd)
-  try:
-    outputFile = open(crt_file_cmd, "w")
-    return outputFile
-  except IOError:
-    return ()
-
-# Close the output file for this process
-def closeOutputFile(file):
-  try:
-    file.close()
-    return SUCCESS
-  except IOError:
-    return FAIL
-
-# Execute the command over vtysh and store in the
-# output file
-def executeCommand(cmd, outputFile):
-  cmd_exec_str = "vtysh -c \"" + cmd + "\" "
-  try:
-    cmd_output = subprocess.check_output(cmd_exec_str, shell=True)
+    # Collect all the commands for each daemon
     try:
-      dateTime = datetime.datetime.now()
-      outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
-      outputFile.write(cmd_output)
-      outputFile.write("########################################################\n")
-      outputFile.write('\n')
-    except:
-      print("Writing to ouptut file Failed")
-  except subprocess.CalledProcessError as e:
-    dateTime = datetime.datetime.now()
-    outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
-    outputFile.write(e.output)
-    outputFile.write("########################################################\n")
-    outputFile.write('\n')
-    print("Error:" + e.output)
+        for line in open(args.config):
+            line = line.rstrip()
+            if len(line) == 0 or line[0] == "#":
+                continue
 
+            cmd_line = line.split(":")
+            if cmd_line[0] == "PROC_NAME":
+                proc = cmd_line[1]
+                temp = tempfile.NamedTemporaryFile("w+")
+                collecting = False
+            elif cmd_line[0] == "CMD_LIST_START":
+                collecting = True
+            elif cmd_line[0] == "CMD_LIST_END":
+                collecting = False
+                temp.flush()
+                proc_cmds[proc] = open(temp.name)
+                temp.close()
+            elif collecting:
+                temp.write(line + "\n")
+            else:
+                print("Ignoring unexpected input " + line.rstrip())
+    except IOError as error:
+        logging.fatal("Cannot read config file: %s: %s", args.config, str(error))
+        return
 
-# Process the support bundle configuration file
-# and call appropriate functions
-def processConfFile(lines):
-  for line in lines:
-    if line[0][0] == '#':
-      continue
-    cmd_line = line.split(':')
-    if cmd_line[0] == "PROC_NAME":
-      outputFileName = createOutputFile(cmd_line[1])
-      if outputFileName:
-        print(outputFileName, "created for", cmd_line[1])
-    elif cmd_line[0] == "CMD_LIST_START":
-      outputFile = openOutputFile(outputFileName)
-      if outputFile:
-        print(outputFileName, "opened")
-      else:
-        print(outputFileName, "open failed")
-        return FAIL
-    elif cmd_line[0] == "CMD_LIST_END":
-      if closeOutputFile(outputFile):
-        print(outputFileName, "closed")
-      else:
-        print(outputFileName, "close failed")
-    else:
-      print("Execute:" , cmd_line[0])
-      executeCommand(cmd_line[0], outputFile)
-      
-# Main Function
-lines = openConfFile(inputFile)
-if not lines:
-  print("File support_bundle_commands.conf not present in /etc/frr/ directory")
-else:
-  processConfFile(lines)
+    # Spawn a vtysh to fetch each set of commands
+    procs = []
+    for proc in proc_cmds:
+        ofn = os.path.join(args.log_dir, proc + "_support_bundle.log")
+        p = subprocess.Popen(
+            ["/usr/bin/env", "vtysh", "-t"],
+            stdin=proc_cmds[proc],
+            stdout=open_with_backup(ofn),
+            stderr=subprocess.STDOUT,
+        )
+        procs.append(p)
+
+    for p in procs:
+        p.wait()
+
+if __name__ == "__main__":
+    main()

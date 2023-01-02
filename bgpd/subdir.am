@@ -6,35 +6,34 @@ if BGPD
 noinst_LIBRARIES += bgpd/libbgp.a
 sbin_PROGRAMS += bgpd/bgpd
 noinst_PROGRAMS += bgpd/bgp_btoa
-dist_examples_DATA += \
-	bgpd/bgpd.conf.sample \
-	bgpd/bgpd.conf.sample2 \
-	bgpd/bgpd.conf.vnc.sample \
-	# end
 vtysh_scan += \
-	$(top_srcdir)/bgpd/bgp_bfd.c \
-	$(top_srcdir)/bgpd/bgp_debug.c \
-	$(top_srcdir)/bgpd/bgp_dump.c \
-	$(top_srcdir)/bgpd/bgp_evpn_vty.c \
-	$(top_srcdir)/bgpd/bgp_filter.c \
-	$(top_srcdir)/bgpd/bgp_mplsvpn.c \
-	$(top_srcdir)/bgpd/bgp_nexthop.c \
-	$(top_srcdir)/bgpd/bgp_route.c \
-	$(top_srcdir)/bgpd/bgp_routemap.c \
-	$(top_srcdir)/bgpd/bgp_vty.c \
-	$(top_srcdir)/bgpd/bgp_flowspec_vty.c \
+	bgpd/bgp_bfd.c \
+	bgpd/bgp_debug.c \
+	bgpd/bgp_dump.c \
+	bgpd/bgp_evpn_mh.c \
+	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_filter.c \
+	bgpd/bgp_labelpool.c \
+	bgpd/bgp_mplsvpn.c \
+	bgpd/bgp_nexthop.c \
+	bgpd/bgp_route.c \
+	bgpd/bgp_routemap.c \
+	bgpd/bgp_vty.c \
+	bgpd/bgp_flowspec_vty.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/bgpd/bgp_rpki.c
-vtysh_scan += $(top_srcdir)/bgpd/bgp_bmp.c
+vtysh_scan += bgpd/bgp_rpki.c
+vtysh_scan += bgpd/bgp_bmp.c
+
+vtysh_daemons += bgpd
 
 if ENABLE_BGP_VNC
 vtysh_scan += \
-	$(top_srcdir)/bgpd/rfapi/bgp_rfapi_cfg.c \
-	$(top_srcdir)/bgpd/rfapi/rfapi.c \
-	$(top_srcdir)/bgpd/rfapi/rfapi_vty.c \
-	$(top_srcdir)/bgpd/rfapi/vnc_debug.c \
+	bgpd/rfapi/bgp_rfapi_cfg.c \
+	bgpd/rfapi/rfapi.c \
+	bgpd/rfapi/rfapi_vty.c \
+	bgpd/rfapi/vnc_debug.c \
 	# end
 endif
 if SNMP
@@ -58,6 +57,8 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_bfd.c \
 	bgpd/bgp_clist.c \
 	bgpd/bgp_community.c \
+	bgpd/bgp_community_alias.c \
+	bgpd/bgp_conditional_adv.c \
 	bgpd/bgp_damp.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_dump.c \
@@ -65,6 +66,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_encap_tlv.c \
 	bgpd/bgp_errors.c \
 	bgpd/bgp_evpn.c \
+	bgpd/bgp_evpn_mh.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_filter.c \
 	bgpd/bgp_flowspec.c \
@@ -90,6 +92,9 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_regex.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
+	bgpd/bgp_routemap_nb.c \
+	bgpd/bgp_routemap_nb_config.c \
+	bgpd/bgp_script.c \
 	bgpd/bgp_table.c \
 	bgpd/bgp_updgrp.c \
 	bgpd/bgp_updgrp_adv.c \
@@ -98,6 +103,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_vty.c \
 	bgpd/bgp_zebra.c \
 	bgpd/bgpd.c \
+	bgpd/bgp_trace.c \
 	# end
 
 if ENABLE_BGP_VNC
@@ -130,6 +136,8 @@ noinst_HEADERS += \
 	bgpd/bgp_bfd.h \
 	bgpd/bgp_clist.h \
 	bgpd/bgp_community.h \
+	bgpd/bgp_community_alias.h \
+	bgpd/bgp_conditional_adv.h \
 	bgpd/bgp_damp.h \
 	bgpd/bgp_debug.h \
 	bgpd/bgp_dump.h \
@@ -139,6 +147,7 @@ noinst_HEADERS += \
 	bgpd/bgp_encap_types.h \
 	bgpd/bgp_errors.h \
 	bgpd/bgp_evpn.h \
+	bgpd/bgp_evpn_mh.h \
 	bgpd/bgp_evpn_private.h \
 	bgpd/bgp_evpn_vty.h \
 	bgpd/bgp_filter.h \
@@ -155,6 +164,7 @@ noinst_HEADERS += \
 	bgpd/bgp_memory.h \
 	bgpd/bgp_mpath.h \
 	bgpd/bgp_mplsvpn.h \
+	bgpd/bgp_mplsvpn_snmp.h \
 	bgpd/bgp_network.h \
 	bgpd/bgp_nexthop.h \
 	bgpd/bgp_nht.h \
@@ -163,13 +173,17 @@ noinst_HEADERS += \
 	bgpd/bgp_pbr.h \
 	bgpd/bgp_rd.h \
 	bgpd/bgp_regex.h \
+	bgpd/bgp_rpki.h \
 	bgpd/bgp_route.h \
+	bgpd/bgp_routemap_nb.h \
+	bgpd/bgp_script.h \
 	bgpd/bgp_table.h \
 	bgpd/bgp_updgrp.h \
 	bgpd/bgp_vpn.h \
 	bgpd/bgp_vty.h \
 	bgpd/bgp_zebra.h \
 	bgpd/bgpd.h \
+	bgpd/bgp_trace.h \
 	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
 	bgpd/rfapi/rfapi_import.h \
@@ -196,39 +210,45 @@ noinst_HEADERS += \
 bgpd_bgpd_SOURCES = bgpd/bgp_main.c
 bgpd_bgp_btoa_SOURCES = bgpd/bgp_btoa.c
 
-bgpd_bgpd_CFLAGS = $(AM_CFLAGS)
-bgpd_bgp_btoa_CFLAGS = $(AM_CFLAGS)
-
 # RFPLDADD is set in bgpd/rfp-example/librfp/subdir.am
-bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM)
-bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM)
+bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
+bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
 
-bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp.c
-bgpd_bgpd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
-bgpd_bgpd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp.c  bgpd/bgp_mplsvpn_snmp.c
+bgpd_bgpd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+bgpd_bgpd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 bgpd_bgpd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 bgpd_bgpd_rpki_la_SOURCES = bgpd/bgp_rpki.c
-bgpd_bgpd_rpki_la_CFLAGS = $(WERROR) $(RTRLIB_CFLAGS)
-bgpd_bgpd_rpki_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+bgpd_bgpd_rpki_la_CFLAGS = $(AM_CFLAGS) $(RTRLIB_CFLAGS)
+bgpd_bgpd_rpki_la_LDFLAGS = $(MODULE_LDFLAGS)
 bgpd_bgpd_rpki_la_LIBADD = $(RTRLIB_LIBS)
 
 bgpd_bgpd_bmp_la_SOURCES = bgpd/bgp_bmp.c
 bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
-bgpd_bgpd_bmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+bgpd_bgpd_bmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
-bgpd/bgp_evpn_vty_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_evpn_vty.$(OBJEXT): bgpd/bgp_evpn_vty_clippy.c
-bgpd/bgp_vty_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_vty.$(OBJEXT): bgpd/bgp_vty_clippy.c
-bgpd/bgp_route_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_route.$(OBJEXT): bgpd/bgp_route_clippy.c
-bgpd/bgp_debug_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_debug.$(OBJEXT): bgpd/bgp_debug_clippy.c
-bgpd/bgp_routemap_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_routemap.$(OBJEXT): bgpd/bgp_routemap_clippy.c
-bgpd/bgp_rpki_clippy.c: $(CLIPPY_DEPS)
-$(AUTOMAKE_DUMMY)bgpd/bgpd_bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
-$(AUTOMAKE_DUMMY)bgpd/bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
-bgpd/bgp_bmp_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_bmp.lo: bgpd/bgp_bmp_clippy.c
+clippy_scan += \
+	bgpd/bgp_bmp.c \
+	bgpd/bgp_debug.c \
+	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_route.c \
+	bgpd/bgp_routemap.c \
+	bgpd/bgp_rpki.c \
+	bgpd/bgp_vty.c \
+	# end
+
+nodist_bgpd_bgpd_SOURCES = \
+	yang/frr-bgp-types.yang.c \
+	yang/frr-bgp.yang.c \
+	yang/frr-bgp-common-structure.yang.c \
+	yang/frr-bgp-common.yang.c \
+	yang/frr-bgp-common-multiprotocol.yang.c \
+	yang/frr-bgp-neighbor.yang.c \
+	yang/frr-bgp-peer-group.yang.c \
+	yang/frr-bgp-bmp.yang.c \
+	yang/frr-bgp-rpki.yang.c \
+	yang/frr-deviations-bgp-datacenter.yang.c \
+	yang/frr-bgp-filter.yang.c \
+	yang/frr-bgp-route-map.yang.c \
+	# end

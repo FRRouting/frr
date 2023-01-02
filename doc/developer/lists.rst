@@ -1,3 +1,5 @@
+.. _lists:
+
 List implementations
 ====================
 
@@ -103,7 +105,10 @@ Functions provided:
 +====================================+======+======+======+=========+============+
 | _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
-| _first, _next, _next_safe          | yes  | yes  | yes  | yes     | yes        |
+| _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
+| _const_first, _const_next          |      |      |      |         |            |
++------------------------------------+------+------+------+---------+------------+
+| _swap_all                          | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
@@ -111,9 +116,10 @@ Functions provided:
 +------------------------------------+------+------+------+---------+------------+
 | _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
-| _find                              | --   | --   | yes  | yes     | --         |
+| _find, _const_find                 | --   | --   | yes  | yes     | --         |
 +------------------------------------+------+------+------+---------+------------+
-| _find_lt, _find_gteq               | --   | --   | --   | yes     | yes        |
+| _find_lt, _find_gteq,              | --   | --   | --   | yes     | yes        |
+| _const_find_lt, _const_find_gteq   |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
@@ -136,7 +142,7 @@ The common setup pattern will look like this:
 
    #include <typesafe.h>
 
-   PREDECL_XXX(Z)
+   PREDECL_XXX(Z);
    struct item {
        int otherdata;
        struct Z_item mylistitem;
@@ -145,20 +151,20 @@ The common setup pattern will look like this:
    struct Z_head mylisthead;
 
    /* unsorted: */
-   DECLARE_XXX(Z, struct item, mylistitem)
+   DECLARE_XXX(Z, struct item, mylistitem);
 
    /* sorted, items that compare as equal cannot be added to list */
    int compare_func(const struct item *a, const struct item *b);
-   DECLARE_XXX_UNIQ(Z, struct item, mylistitem, compare_func)
+   DECLARE_XXX_UNIQ(Z, struct item, mylistitem, compare_func);
 
    /* sorted, items that compare as equal can be added to list */
    int compare_func(const struct item *a, const struct item *b);
-   DECLARE_XXX_NONUNIQ(Z, struct item, mylistitem, compare_func)
+   DECLARE_XXX_NONUNIQ(Z, struct item, mylistitem, compare_func);
 
    /* hash tables: */
    int compare_func(const struct item *a, const struct item *b);
    uint32_t hash_func(const struct item *a);
-   DECLARE_XXX(Z, struct item, mylistitem, compare_func, hash_func)
+   DECLARE_XXX(Z, struct item, mylistitem, compare_func, hash_func);
 
 ``XXX`` is replaced with the name of the data structure, e.g. ``SKIPLIST``
 or ``ATOMLIST``.  The ``DECLARE_XXX`` invocation can either occur in a `.h`
@@ -224,6 +230,10 @@ The following iteration macros work across all data structures:
       resume iteration after breaking out of the loop by keeping the ``from``
       value persistent and reusing it for the next loop.
 
+To iterate over ``const`` pointers, add ``_const`` to the name of the
+datastructure (``Z`` above), e.g. ``frr_each (mylist, head, item)`` becomes
+``frr_each (mylist_const, head, item)``.
+
 Common API
 ----------
 
@@ -246,7 +256,7 @@ The following documentation assumes that a list has been defined using
 
       This function may ``assert()`` if the list is not empty.
 
-.. c:function:: size_t Z_count(struct Z_head *)
+.. c:function:: size_t Z_count(const struct Z_head *)
 
    Returns the number of items in a structure.  All structures store a
    counter in their `Z_head` so that calling this function completes
@@ -258,6 +268,7 @@ The following documentation assumes that a list has been defined using
       outdated by the time this function returns and can therefore only be
       used as an estimate.
 
+.. c:function:: const itemtype *Z_const_first(const struct Z_head *)
 .. c:function:: itemtype *Z_first(struct Z_head *)
 
    Returns the first item in the structure, or ``NULL`` if the structure is
@@ -286,6 +297,7 @@ The following documentation assumes that a list has been defined using
       affected by the "modification while iterating" problem.  To remove
       all items from a hash table, use the loop demonstrated above.
 
+.. c:function:: const itemtype *Z_next(const struct Z_head *, const itemtype *prev)
 .. c:function:: itemtype *Z_next(struct Z_head *, itemtype *prev)
 
    Return the item that follows after ``prev``, or ``NULL`` if ``prev`` is
@@ -311,6 +323,14 @@ The following documentation assumes that a list has been defined using
       on the list.  Some structures return ``NULL`` in this case while others
       return ``item``.  The function may also call ``assert()`` (but most
       don't.)
+
+.. c:function:: itemtype *Z_swap_all(struct Z_head *, struct Z_head *)
+
+   Swap the contents of 2 containers (of identical type).  This exchanges the
+   contents of the two head structures and updates pointers if necessary for
+   the particular data structure.  Fast for all structures.
+
+   (Not currently available on atomic containers.)
 
 .. todo::
 
@@ -419,6 +439,7 @@ sorted lists can be searched for a value.
    For ``_NONUNIQ`` lists, this function always returns NULL since ``item``
    can always be successfully added to the list.
 
+.. c:function:: const itemtype *Z_find(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares equal to ``ref``.  If no equal
@@ -440,11 +461,13 @@ sorted lists can be searched for a value.
       containing non-unique items, more than one item may compare as equal to
       the item that is searched for.
 
+.. c:function:: const itemtype *Z_find_gteq(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_gteq(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares greater or equal to
    ``ref``.  See :c:func:`Z_find()` above.
 
+.. c:function:: const itemtype *Z_find_lt(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_lt(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares less than
@@ -484,6 +507,7 @@ API for hash tables
       Items that compare as equal cannot be inserted.  Refer to the notes
       about sorted structures in the previous section.
 
+
 .. c:function:: void Z_init_size(struct Z_head *, size_t size)
 
    Same as :c:func:`Z_init()` but preset the minimum hash table to
@@ -492,6 +516,66 @@ API for hash tables
 Hash tables also support :c:func:`Z_add()` and :c:func:`Z_find()` with
 the same semantics as noted above. :c:func:`Z_find_gteq()` and
 :c:func:`Z_find_lt()` are **not** provided for hash tables.
+
+Hash table invariants
+^^^^^^^^^^^^^^^^^^^^^
+
+There are several ways to injure yourself using the hash table API.
+
+First, note that there are two functions related to computing uniqueness of
+objects inserted into the hash table. There is a hash function and a comparison
+function. The hash function computes the hash of the object. Our hash table
+implementation uses `chaining
+<https://en.wikipedia.org/wiki/Hash_table#Separate_chaining_with_linked_lists>`_.
+This means that your hash function does not have to be perfect; multiple
+objects having the same computed hash will be placed into a linked list
+corresponding to that key. The closer to perfect the hash function, the better
+performance, as items will be more evenly distributed and the chain length will
+not be long on any given lookup, minimizing the number of list operations
+required to find the correct item. However, the comparison function *must* be
+perfect, in the sense that any two unique items inserted into the hash table
+must compare not equal. At insertion time, if you try to insert an item that
+compares equal to an existing item the insertion will not happen and
+``hash_get()`` will return the existing item. However, this invariant *must* be
+maintained while the object is in the hash table. Suppose you insert items
+``A`` and ``B`` into the hash table which both hash to the same value ``1234``
+but do not compare equal. They will be placed in a chain like so::
+
+   1234 : A -> B
+
+Now suppose you do something like this elsewhere in the code::
+
+   *A = *B
+
+I.e. you copy all fields of ``B`` into ``A``, such that the comparison function
+now says that they are equal based on their contents. At this point when you
+look up ``B`` in the hash table, ``hash_get()`` will search the chain for the
+first item that compares equal to ``B``, which will be ``A``. This leads to
+insidious bugs.
+
+.. warning::
+
+   Never modify the values looked at by the comparison or hash functions after
+   inserting an item into a hash table.
+
+A similar situation can occur with the hash allocation function. ``hash_get()``
+accepts a function pointer that it will call to get the item that should be
+inserted into the list if the provided item is not already present. There is a
+builtin function, ``hash_alloc_intern``, that will simply return the item you
+provided; if you always want to store the value you pass to ``hash_get`` you
+should use this one. If you choose to provide a different one, that function
+*must* return a new item that hashes and compares equal to the one you provided
+to ``hash_get()``. If it does not the behavior of the hash table is undefined.
+
+.. warning::
+
+   Always make sure your hash allocation function returns a value that hashes
+   and compares equal to the item you provided to ``hash_get()``.
+
+Finally, if you maintain pointers to items you have inserted into a hash table,
+then before deallocating them you must release them from the hash table. This
+is basic memory management but worth repeating as bugs have arisen from failure
+to do this.
 
 
 API for heaps
@@ -614,21 +698,9 @@ Head removal (pop) and deallocation:
 FAQ
 ---
 
-Why is the list head not ``const`` in the list APIs?
-   The semantics that a ``const`` list head would imply are not obvious.  It
-   could mean any of the following:
-
-    * the list just shouldn't be allocated/deallocated, but may be modified.
-      This doesn't actually work since the list head needs to be modified for
-      inserting or deleting items.
-
-    * the list shouldn't be modified, but items can.  This may make sense for
-      iterating, but it's not exactly consistent - an item might be on more
-      than one list, does it apply to all of them?  If not, which one?
-
-    * neither the list nor the items should be modified.  This is consistent,
-      but hard to do without creating a ``const`` copy of every single list
-      function.  Ease of use trumps this.
+What are the semantics of ``const`` in the list APIs?
+   ``const`` pointers to list heads and/or items are interpreted to mean that
+   both the list itself as well as the data items are read-only.
 
 Why is there no "is this item on a/the list" test?
    It's slow for several of the data structures, and the work of adding it

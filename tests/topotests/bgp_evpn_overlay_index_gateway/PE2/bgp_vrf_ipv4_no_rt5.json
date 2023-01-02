@@ -1,0 +1,6 @@
+{
+ "vrfName": "vrf-blue",
+ "routerId": "10.100.0.2",
+ "defaultLocPrf": 100,
+ "localAS": 101,
+ "routes": { "100.0.0.21/32": null }  }

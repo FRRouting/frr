@@ -163,13 +163,10 @@ Commands for configuring a Route Server
 Now we will describe the commands that have been added to frr
 in order to support the route server features.
 
-.. index:: neighbor PEER-GROUP route-server-client
 .. clicmd:: neighbor PEER-GROUP route-server-client
 
-.. index:: neighbor A.B.C.D route-server-client
 .. clicmd:: neighbor A.B.C.D route-server-client
 
-.. index:: neighbor X:X::X:X route-server-client
 .. clicmd:: neighbor X:X::X:X route-server-client
 
    This command configures the peer given by `peer`, `A.B.C.D` or `X:X::X:X` as
@@ -186,14 +183,12 @@ in order to support the route server features.
    that moment, every announcement received by the route server will be also
    considered for the new Loc-RIB.
 
-.. index:: neigbor A.B.C.D|X.X::X.X|peer-group route-map WORD import|export
 .. clicmd:: neigbor A.B.C.D|X.X::X.X|peer-group route-map WORD import|export
 
    This set of commands can be used to specify the route-map that represents
    the Import or Export policy of a peer which is configured as a RS-client
    (with the previous command).
 
-.. index:: match peer A.B.C.D|X:X::X:X
 .. clicmd:: match peer A.B.C.D|X:X::X:X
 
    This is a new *match* statement for use in route-maps, enabling them to
@@ -210,7 +205,6 @@ in order to support the route server features.
    announce is going to be inserted (how the same export policy is applied
    before different Loc-RIBs is shown in :ref:`fig-rs-processing`.).
 
-.. index:: call WORD
 .. clicmd:: call WORD
 
    This command (also used inside a route-map) jumps into a different

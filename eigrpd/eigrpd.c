@@ -55,10 +55,13 @@
 #include "eigrpd/eigrp_packet.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_filter.h"
 
-DEFINE_QOBJ_TYPE(eigrp)
+DEFINE_MGROUP(EIGRPD, "eigrpd");
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_TOP, "EIGRP structure");
+
+DEFINE_QOBJ_TYPE(eigrp);
 
 static struct eigrp_master eigrp_master;
 
@@ -99,10 +102,10 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 
 	router_id_old = eigrp->router_id;
 
-	if (eigrp->router_id_static.s_addr != 0)
+	if (eigrp->router_id_static.s_addr != INADDR_ANY)
 		router_id = eigrp->router_id_static;
 
-	else if (eigrp->router_id.s_addr != 0)
+	else if (eigrp->router_id.s_addr != INADDR_ANY)
 		router_id = eigrp->router_id;
 
 	else
@@ -110,10 +113,6 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 
 	eigrp->router_id = router_id;
 	if (router_id_old.s_addr != router_id.s_addr) {
-		//      if (IS_DEBUG_EIGRP_EVENT)
-		//        zlog_debug("Router-ID[NEW:%s]: Update",
-		//        inet_ntoa(eigrp->router_id));
-
 		/* update eigrp_interface's */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			eigrp_if_update(ifp);
@@ -142,8 +141,8 @@ static struct eigrp *eigrp_new(uint16_t as, vrf_id_t vrf_id)
 	eigrp->vrf_id = vrf_id;
 	eigrp->vrid = 0;
 	eigrp->AS = as;
-	eigrp->router_id.s_addr = 0;
-	eigrp->router_id_static.s_addr = 0;
+	eigrp->router_id.s_addr = INADDR_ANY;
+	eigrp->router_id_static.s_addr = INADDR_ANY;
 	eigrp->sequence_number = 1;
 
 	/*Configure default K Values for EIGRP Process*/

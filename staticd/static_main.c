@@ -31,15 +31,19 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "filter.h"
+#include "routing_nb.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_zebra.h"
+#include "static_debug.h"
+#include "static_nb.h"
 
 char backup_config_file[256];
 
 bool mpls_enabled;
+
 
 zebra_capabilities_t _caps_p[] = {
 };
@@ -61,16 +65,22 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct thread_master *master;
 
+static struct frr_daemon_info staticd_di;
 /* SIGHUP handler. */
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
+	vty_read_config(NULL, staticd_di.config_file, config_default);
 }
 
 /* SIGINT / SIGTERM handler. */
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+
+	static_vrf_terminate();
+
+	frr_fini();
 
 	exit(0);
 }
@@ -101,6 +111,11 @@ struct quagga_signal_t static_signals[] = {
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
+	&frr_filter_info,
+	&frr_interface_info,
+	&frr_vrf_info,
+	&frr_routing_info,
+	&frr_staticd_info,
 };
 
 #define STATIC_VTY_PORT 2616
@@ -114,7 +129,7 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.privs = &static_privs, .yang_modules = staticd_yang_modules,
 		.n_yang_modules = array_size(staticd_yang_modules),
-)
+);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -134,17 +149,21 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
 	master = frr_init();
 
-	access_list_init();
+	static_debug_init();
 	static_vrf_init();
 
 	static_zebra_init();
 	static_vty_init();
+
+	hook_register(routing_conf_event,
+		      routing_control_plane_protocols_name_validate);
+
+	routing_control_plane_protocols_register_vrf_dependency();
 
 	snprintf(backup_config_file, sizeof(backup_config_file),
 		 "%s/zebra.conf", frr_sysconfdir);

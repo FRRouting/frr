@@ -14,16 +14,9 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_tlvs.h"
 
+#include "test_common.h"
+
 #define TEST_STREAM_SIZE 1500
-
-struct thread_master *master;
-int isis_sock_init(struct isis_circuit *circuit);
-int isis_sock_init(struct isis_circuit *circuit)
-{
-	return 0;
-}
-
-struct zebra_privs_t isisd_privs;
 
 static bool atexit_registered;
 

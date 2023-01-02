@@ -1,2 +1,0 @@
-P FRRlibs FRRouting common runtime libraries
-	@PACKAGE_VERSION@,REV=@CONFDATE@

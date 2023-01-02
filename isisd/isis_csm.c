@@ -48,8 +48,6 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_errors.h"
 
-extern struct isis *isis;
-
 static const char *const csm_statestr[] = {"C_STATE_NA", "C_STATE_INIT",
 				     "C_STATE_CONF", "C_STATE_UP"};
 
@@ -62,102 +60,97 @@ static const char *const csm_eventstr[] = {
 
 #define EVENT2STR(E) csm_eventstr[E]
 
-struct isis_circuit *
-isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
+struct isis_circuit *isis_csm_state_change(enum isis_circuit_event event,
+					   struct isis_circuit *circuit,
+					   void *arg)
 {
-	int old_state;
+	enum isis_circuit_state old_state;
+	struct isis_area *area = NULL;
+	struct interface *ifp;
 
-	old_state = circuit ? circuit->state : C_STATE_NA;
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("CSM_EVENT: %s", EVENT2STR(event));
+	assert(circuit);
+
+	old_state = circuit->state;
+	if (IS_DEBUG_EVENTS)
+		zlog_debug("CSM_EVENT for %s: %s", circuit->interface->name,
+			   EVENT2STR(event));
 
 	switch (old_state) {
 	case C_STATE_NA:
-		if (circuit)
-			zlog_warn("Non-null circuit while state C_STATE_NA");
-		assert(circuit == NULL);
 		switch (event) {
 		case ISIS_ENABLE:
-			circuit = isis_circuit_new();
-			isis_circuit_configure(circuit,
-					       (struct isis_area *)arg);
+			area = arg;
+
+			isis_circuit_configure(circuit, area);
 			circuit->state = C_STATE_CONF;
 			break;
 		case IF_UP_FROM_Z:
-			circuit = isis_circuit_new();
-			isis_circuit_if_add(circuit, (struct interface *)arg);
-			listnode_add(isis->init_circ_list, circuit);
+			ifp = arg;
+
+			isis_circuit_if_add(circuit, ifp);
 			circuit->state = C_STATE_INIT;
 			break;
 		case ISIS_DISABLE:
-			zlog_warn("circuit already disabled");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already disabled",
+					   circuit->interface->name);
 			break;
 		case IF_DOWN_FROM_Z:
-			zlog_warn("circuit already disconnected");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already disconnected",
+					   circuit->interface->name);
 			break;
 		}
 		break;
 	case C_STATE_INIT:
-		assert(circuit);
 		switch (event) {
 		case ISIS_ENABLE:
-			isis_circuit_configure(circuit,
-					       (struct isis_area *)arg);
+			area = arg;
+
+			isis_circuit_configure(circuit, area);
 			if (isis_circuit_up(circuit) != ISIS_OK) {
-				isis_circuit_deconfigure(
-					circuit, (struct isis_area *)arg);
+				isis_circuit_deconfigure(circuit, area);
 				break;
 			}
 			circuit->state = C_STATE_UP;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							1);
-			listnode_delete(isis->init_circ_list, circuit);
 			break;
 		case IF_UP_FROM_Z:
-			assert(circuit);
-			zlog_warn("circuit already connected");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already connected",
+					   circuit->interface->name);
 			break;
 		case ISIS_DISABLE:
-			zlog_warn("circuit already disabled");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already disabled",
+					   circuit->interface->name);
 			break;
 		case IF_DOWN_FROM_Z:
-			isis_circuit_if_del(circuit, (struct interface *)arg);
-			listnode_delete(isis->init_circ_list, circuit);
-			isis_circuit_del(circuit);
-			circuit = NULL;
+			ifp = arg;
+
+			isis_circuit_if_del(circuit, ifp);
+			circuit->state = C_STATE_NA;
 			break;
 		}
 		break;
 	case C_STATE_CONF:
-		assert(circuit);
 		switch (event) {
 		case ISIS_ENABLE:
-			zlog_warn("circuit already enabled");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s is already enabled",
+					   circuit->interface->name);
 			break;
 		case IF_UP_FROM_Z:
-			isis_circuit_if_add(circuit, (struct interface *)arg);
+			ifp = arg;
+
+			isis_circuit_if_add(circuit, ifp);
 			if (isis_circuit_up(circuit) != ISIS_OK) {
+				isis_circuit_if_del(circuit, ifp);
 				flog_err(
 					EC_ISIS_CONFIG,
 					"Could not bring up %s because of invalid config.",
 					circuit->interface->name);
-				flog_err(
-					EC_ISIS_CONFIG,
-					"Clearing config for %s. Please re-examine it.",
-					circuit->interface->name);
-				if (circuit->ip_router) {
-					circuit->ip_router = 0;
-					circuit->area->ip_circuits--;
-				}
-				if (circuit->ipv6_router) {
-					circuit->ipv6_router = 0;
-					circuit->area->ipv6_circuits--;
-				}
-				circuit_update_nlpids(circuit);
-				isis_circuit_deconfigure(circuit,
-							 circuit->area);
-				listnode_add(isis->init_circ_list, circuit);
-				circuit->state = C_STATE_INIT;
 				break;
 			}
 			circuit->state = C_STATE_UP;
@@ -165,52 +158,54 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 							1);
 			break;
 		case ISIS_DISABLE:
-			isis_circuit_deconfigure(circuit,
-						 (struct isis_area *)arg);
-			isis_circuit_del(circuit);
-			circuit = NULL;
+			area = arg;
+
+			isis_circuit_deconfigure(circuit, area);
+			circuit->state = C_STATE_NA;
 			break;
 		case IF_DOWN_FROM_Z:
-			zlog_warn("circuit already disconnected");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already disconnected",
+					   circuit->interface->name);
 			break;
 		}
 		break;
 	case C_STATE_UP:
-		assert(circuit);
 		switch (event) {
 		case ISIS_ENABLE:
-			zlog_warn("circuit already configured");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already enabled",
+					   circuit->interface->name);
 			break;
 		case IF_UP_FROM_Z:
-			zlog_warn("circuit already connected");
+			if (IS_DEBUG_EVENTS)
+				zlog_debug("circuit %s already connected",
+					   circuit->interface->name);
 			break;
 		case ISIS_DISABLE:
+			area = arg;
+
 			isis_circuit_down(circuit);
-			isis_circuit_deconfigure(circuit,
-						 (struct isis_area *)arg);
+			isis_circuit_deconfigure(circuit, area);
 			circuit->state = C_STATE_INIT;
-			isis_event_circuit_state_change(
-				circuit, (struct isis_area *)arg, 0);
-			listnode_add(isis->init_circ_list, circuit);
+			isis_event_circuit_state_change(circuit, area, 0);
 			break;
 		case IF_DOWN_FROM_Z:
+			ifp = arg;
+
 			isis_circuit_down(circuit);
-			isis_circuit_if_del(circuit, (struct interface *)arg);
+			isis_circuit_if_del(circuit, ifp);
 			circuit->state = C_STATE_CONF;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							0);
 			break;
 		}
 		break;
-
-	default:
-		zlog_warn("Invalid circuit state %d", old_state);
 	}
 
-	if (isis->debugs & DEBUG_EVENTS)
+	if (IS_DEBUG_EVENTS)
 		zlog_debug("CSM_STATE_CHANGE: %s -> %s ", STATE2STR(old_state),
-			   circuit ? STATE2STR(circuit->state)
-				   : STATE2STR(C_STATE_NA));
+			   STATE2STR(circuit->state));
 
 	return circuit;
 }

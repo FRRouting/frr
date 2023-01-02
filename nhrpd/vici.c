@@ -200,6 +200,7 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 						nhrp_vc_ipsec_updown(
 							sactx->child_uniqueid,
 							vc);
+					vc->ike_uniqueid = sactx->ike_uniqueid;
 				}
 			} else {
 				nhrp_vc_ipsec_updown(sactx->child_uniqueid, 0);
@@ -303,7 +304,7 @@ static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
 	if (ctx.kill_ikesa && ctx.ike_uniqueid) {
 		debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u",
 		       ctx.ike_uniqueid);
-		snprintf(buf, sizeof buf, "%u", ctx.ike_uniqueid);
+		snprintf(buf, sizeof(buf), "%u", ctx.ike_uniqueid);
 		vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
 				    strlen(buf), buf, VICI_END);
 	}
@@ -469,20 +470,59 @@ static void vici_register_event(struct vici_conn *vici, const char *name)
 	vici_submit(vici, obuf);
 }
 
+static bool vici_charon_filepath_done;
+static bool vici_charon_not_found;
+
+static char *vici_get_charon_filepath(void)
+{
+	static char buff[1200];
+	FILE *fp;
+	char *ptr;
+	char line[1024];
+
+	if (vici_charon_filepath_done)
+		return (char *)buff;
+	fp = popen("ipsec --piddir", "r");
+	if (!fp) {
+		if (!vici_charon_not_found) {
+			flog_err(EC_NHRP_SWAN,
+				 "VICI: Failed to retrieve charon file path");
+			vici_charon_not_found = true;
+		}
+		return NULL;
+	}
+	/* last line of output is used to get vici path */
+	while (fgets(line, sizeof(line), fp) != NULL) {
+		ptr = strchr(line, '\n');
+		if (ptr)
+			*ptr = '\0';
+		snprintf(buff, sizeof(buff), "%s/charon.vici", line);
+	}
+	pclose(fp);
+	vici_charon_filepath_done = true;
+	return buff;
+}
+
 static int vici_reconnect(struct thread *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	int fd;
+	char *file_path;
 
 	vici->t_reconnect = NULL;
 	if (vici->fd >= 0)
 		return 0;
 
-	fd = sock_open_unix("/var/run/charon.vici");
+	fd = sock_open_unix(VICI_SOCKET);
+	if (fd < 0) {
+		file_path = vici_get_charon_filepath();
+		if (file_path)
+			fd = sock_open_unix(file_path);
+	}
 	if (fd < 0) {
 		debugf(NHRP_DEBUG_VICI,
-		       "%s: failure connecting VICI socket: %s",
-		       __PRETTY_FUNCTION__, strerror(errno));
+		       "%s: failure connecting VICI socket: %s", __func__,
+		       strerror(errno));
 		thread_add_timer(master, vici_reconnect, vici, 2,
 				 &vici->t_reconnect);
 		return 0;
@@ -521,14 +561,34 @@ void vici_terminate(void)
 {
 }
 
+void vici_terminate_vc_by_profile_name(char *profile_name)
+{
+	struct vici_conn *vici = &vici_connection;
+
+	debugf(NHRP_DEBUG_VICI, "Terminate profile = %s", profile_name);
+	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike",
+		    strlen(profile_name), profile_name, VICI_END);
+}
+
+void vici_terminate_vc_by_ike_id(unsigned int ike_id)
+{
+	struct vici_conn *vici = &vici_connection;
+	char ike_id_str[10];
+
+	snprintf(ike_id_str, sizeof(ike_id_str), "%d", ike_id);
+	debugf(NHRP_DEBUG_VICI, "Terminate ike_id_str = %s", ike_id_str);
+	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
+		    strlen(ike_id_str), ike_id_str, VICI_END);
+}
+
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio)
 {
 	struct vici_conn *vici = &vici_connection;
 	char buf[2][SU_ADDRSTRLEN];
 
-	sockunion2str(src, buf[0], sizeof buf[0]);
-	sockunion2str(dst, buf[1], sizeof buf[1]);
+	sockunion2str(src, buf[0], sizeof(buf[0]));
+	sockunion2str(dst, buf[1], sizeof(buf[1]));
 
 	vici_submit_request(vici, "initiate", VICI_KEY_VALUE, "child",
 			    strlen(profile), profile, VICI_KEY_VALUE, "timeout",

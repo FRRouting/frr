@@ -1,0 +1,167 @@
+{
+  "16020":{
+    "inLabel":16020,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17020,
+        "installed":true,
+        "nexthop":"10.0.5.3"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17020,
+        "installed":true,
+        "nexthop":"10.0.4.3"
+      }
+    ]
+  },
+  "16021":{
+    "inLabel":16021,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17021,
+        "installed":true,
+        "interface":"eth-rt3-2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17021,
+        "installed":true,
+        "interface":"eth-rt3-1"
+      }
+    ]
+  },
+  "16030":{
+    "inLabel":16030,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17030,
+        "installed":true,
+        "nexthop":"10.0.5.3"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17030,
+        "installed":true,
+        "nexthop":"10.0.4.3"
+      }
+    ]
+  },
+  "16031":{
+    "inLabel":16031,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17031,
+        "installed":true,
+        "interface":"eth-rt3-2"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":17031,
+        "installed":true,
+        "interface":"eth-rt3-1"
+      }
+    ]
+  },
+  "16040":{
+    "inLabel":16040,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":18040,
+        "installed":true,
+        "nexthop":"10.0.8.6"
+      }
+    ]
+  },
+  "16041":{
+    "inLabel":16041,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":18041,
+        "installed":true,
+        "interface":"eth-rt6"
+      }
+    ]
+  },
+  "16050":{
+    "inLabel":16050,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  },
+  "16051":{
+    "inLabel":16051,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  },
+  "16060":{
+    "inLabel":16060,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":0,
+        "installed":true,
+        "nexthop":"10.0.8.6"
+      }
+    ]
+  },
+  "16061":{
+    "inLabel":16061,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":2,
+        "installed":true,
+        "interface":"eth-rt6"
+      }
+    ]
+  },
+  "16100":{
+    "inLabel":16100,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":18100,
+        "installed":true,
+        "nexthop":"10.0.8.6"
+      }
+    ]
+  },
+  "16101":{
+    "inLabel":16101,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  }
+}

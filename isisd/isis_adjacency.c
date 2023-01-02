@@ -43,21 +43,29 @@
 #include "isisd/isis_dynhn.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_lsp.h"
-#include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
-extern struct isis *isis;
+DEFINE_MTYPE_STATIC(ISISD, ISIS_ADJACENCY, "ISIS adjacency");
+DEFINE_MTYPE(ISISD, ISIS_ADJACENCY_INFO, "ISIS adjacency info");
 
-static struct isis_adjacency *adj_alloc(const uint8_t *id)
+static struct isis_adjacency *adj_alloc(struct isis_circuit *circuit,
+					const uint8_t *id)
 {
 	struct isis_adjacency *adj;
 
 	adj = XCALLOC(MTYPE_ISIS_ADJACENCY, sizeof(struct isis_adjacency));
 	memcpy(adj->sysid, id, ISIS_SYS_ID_LEN);
+
+	adj->snmp_idx = ++circuit->snmp_adj_idx_gen;
+
+	if (circuit->snmp_adj_list == NULL)
+		circuit->snmp_adj_list = list_new();
+
+	adj->snmp_list_node = listnode_add(circuit->snmp_adj_list, adj);
 
 	return adj;
 }
@@ -68,7 +76,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 	struct isis_adjacency *adj;
 	int i;
 
-	adj = adj_alloc(id); /* P2P kludge */
+	adj = adj_alloc(circuit, id); /* P2P kludge */
 
 	if (snpa) {
 		memcpy(adj->snpa, snpa, ETH_ALEN);
@@ -93,6 +101,8 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 				.last_dis_change = time(NULL);
 		}
 	}
+	adj->adj_sids = list_new();
+	listnode_add(circuit->area->adjacency_list, adj);
 
 	return adj;
 }
@@ -122,7 +132,24 @@ struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 	return NULL;
 }
 
-DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
+struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
+				     const uint8_t *sysid)
+{
+	struct isis_adjacency *adj;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+		if (!(adj->level & level))
+			continue;
+
+		if (!memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
+			return adj;
+	}
+
+	return NULL;
+}
+
+DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
 
 void isis_delete_adj(void *arg)
 {
@@ -130,22 +157,23 @@ void isis_delete_adj(void *arg)
 
 	if (!adj)
 		return;
+	/* Remove self from snmp list without walking the list*/
+	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
-	THREAD_TIMER_OFF(adj->t_expire);
-	if (adj->adj_state != ISIS_ADJ_DOWN) {
+	thread_cancel(&adj->t_expire);
+	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
-		hook_call(isis_adj_state_change_hook, adj);
-	}
 
-	/* remove from SPF trees */
-	spftree_area_adj_del(adj->circuit->area, adj);
+	hook_call(isis_adj_state_change_hook, adj);
 
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses);
 
 	adj_mt_finish(adj);
+	list_delete(&adj->adj_sids);
 
+	listnode_delete(adj->circuit->area->adjacency_list, adj);
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
 	return;
 }
@@ -162,6 +190,22 @@ static const char *adj_state2string(int state)
 		return "Down";
 	default:
 		return "Unknown";
+	}
+
+	return NULL; /* not reached */
+}
+
+static const char *adj_level2string(int level)
+{
+	switch (level) {
+	case IS_LEVEL_1:
+		return "level-1";
+	case IS_LEVEL_2:
+		return "level-2";
+	case IS_LEVEL_1_AND_2:
+		return "level-1-2";
+	default:
+		return "unknown";
 	}
 
 	return NULL; /* not reached */
@@ -189,7 +233,7 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 	}
 
 	if (next_tw_state != adj->threeway_state) {
-		if (isis->debugs & DEBUG_ADJ_PACKETS) {
+		if (IS_DEBUG_ADJ_PACKETS) {
 			zlog_info("ISIS-Adj (%s): Threeway state change %s to %s",
 				  adj->circuit->area->area_tag,
 				  isis_threeway_state_name(adj->threeway_state),
@@ -201,13 +245,14 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 		fabricd_initial_sync_hello(adj->circuit);
 
 	if (next_tw_state == ISIS_THREEWAY_DOWN) {
-		isis_adj_state_change(adj, ISIS_ADJ_DOWN, "Neighbor restarted");
+		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
+				      "Neighbor restarted");
 		return;
 	}
 
 	if (next_tw_state == ISIS_THREEWAY_UP) {
 		if (adj->adj_state != ISIS_ADJ_UP) {
-			isis_adj_state_change(adj, ISIS_ADJ_UP, NULL);
+			isis_adj_state_change(&adj, ISIS_ADJ_UP, NULL);
 			adj->adj_usage = adj_usage;
 		}
 	}
@@ -218,62 +263,70 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 
 	adj->threeway_state = next_tw_state;
 }
+const char *isis_adj_name(const struct isis_adjacency *adj)
+{
+	if (!adj)
+		return "NONE";
 
-void isis_adj_state_change(struct isis_adjacency *adj,
+	struct isis_dynhn *dyn;
+
+	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
+	if (dyn)
+		return dyn->hostname;
+	else
+		return sysid_print(adj->sysid);
+}
+void isis_log_adj_change(struct isis_adjacency *adj,
+			 enum isis_adj_state old_state,
+			 enum isis_adj_state new_state, const char *reason)
+{
+	zlog_info(
+		"%%ADJCHANGE: Adjacency to %s (%s) for %s changed from %s to %s, %s",
+		isis_adj_name(adj), adj->circuit->interface->name,
+		adj_level2string(adj->level), adj_state2string(old_state),
+		adj_state2string(new_state), reason ? reason : "unspecified");
+}
+void isis_adj_state_change(struct isis_adjacency **padj,
 			   enum isis_adj_state new_state, const char *reason)
 {
+	struct isis_adjacency *adj = *padj;
 	enum isis_adj_state old_state = adj->adj_state;
 	struct isis_circuit *circuit = adj->circuit;
-	bool del;
+	bool del = false;
+
+	if (new_state == old_state)
+		return;
 
 	adj->adj_state = new_state;
-	if (new_state != old_state) {
-		send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);
-	}
+	send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);
 
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
+	if (IS_DEBUG_ADJ_PACKETS) {
 		zlog_debug("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
 			   circuit->area->area_tag, old_state, new_state,
 			   reason ? reason : "unspecified");
 	}
 
-	if (circuit->area->log_adj_changes) {
-		const char *adj_name;
-		struct isis_dynhn *dyn;
+	if (circuit->area->log_adj_changes)
+		isis_log_adj_change(adj, old_state, new_state, reason);
 
-		dyn = dynhn_find_by_id(adj->sysid);
-		if (dyn)
-			adj_name = dyn->hostname;
-		else
-			adj_name = sysid_print(adj->sysid);
-
-		zlog_info(
-			"%%ADJCHANGE: Adjacency to %s (%s) changed from %s to %s, %s",
-			adj_name, adj->circuit->interface->name,
-			adj_state2string(old_state),
-			adj_state2string(new_state),
-			reason ? reason : "unspecified");
-	}
-
-	circuit->adj_state_changes++;
 #ifndef FABRICD
 	/* send northbound notification */
 	isis_notif_adj_state_change(adj, new_state, reason);
 #endif /* ifndef FABRICD */
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		del = false;
 		for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
 			if ((adj->level & level) == 0)
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
+				circuit->adj_state_changes++;
 				circuit->upadjcount[level - 1]++;
-				hook_call(isis_adj_state_change_hook, adj);
 				/* update counter & timers for debugging
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
-			} else if (new_state == ISIS_ADJ_DOWN) {
+			} else if (old_state == ISIS_ADJ_UP) {
+				circuit->adj_state_changes++;
 				listnode_delete(circuit->u.bc.adjdb[level - 1],
 						adj);
 
@@ -281,8 +334,8 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				hook_call(isis_adj_state_change_hook, adj);
-				del = true;
+				if (new_state == ISIS_ADJ_DOWN)
+					del = true;
 			}
 
 			if (circuit->u.bc.lan_neighs[level - 1]) {
@@ -299,17 +352,12 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				lsp_regenerate_schedule_pseudo(circuit, level);
 		}
 
-		if (del)
-			isis_delete_adj(adj);
-
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
-		del = false;
 		for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
 			if ((adj->level & level) == 0)
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
 				circuit->upadjcount[level - 1]++;
-				hook_call(isis_adj_state_change_hook, adj);
 
 				/* update counter & timers for debugging
 				 * purposes */
@@ -325,20 +373,24 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 							 circuit, 0,
 							 &circuit->t_send_csnp[1]);
 				}
-			} else if (new_state == ISIS_ADJ_DOWN) {
+			} else if (old_state == ISIS_ADJ_UP) {
 				if (adj->circuit->u.p2p.neighbor == adj)
 					adj->circuit->u.p2p.neighbor = NULL;
 				circuit->upadjcount[level - 1]--;
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				hook_call(isis_adj_state_change_hook, adj);
-				del = true;
+				if (new_state == ISIS_ADJ_DOWN)
+					del = true;
 			}
 		}
+	}
 
-		if (del)
-			isis_delete_adj(adj);
+	hook_call(isis_adj_state_change_hook, adj);
+
+	if (del) {
+		isis_delete_adj(adj);
+		*padj = NULL;
 	}
 }
 
@@ -349,17 +401,17 @@ void isis_adj_print(struct isis_adjacency *adj)
 
 	if (!adj)
 		return;
-	dyn = dynhn_find_by_id(adj->sysid);
+	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
 	if (dyn)
 		zlog_debug("%s", dyn->hostname);
 
-	zlog_debug("SystemId %20s SNPA %s, level %d\nHolding Time %d",
+	zlog_debug("SystemId %20s SNPA %s, level %d; Holding Time %d",
 		   sysid_print(adj->sysid), snpa_print(adj->snpa), adj->level,
 		   adj->hold_time);
 	if (adj->ipv4_address_count) {
 		zlog_debug("IPv4 Address(es):");
 		for (unsigned int i = 0; i < adj->ipv4_address_count; i++)
-			zlog_debug("%s", inet_ntoa(adj->ipv4_addresses[i]));
+			zlog_debug("%pI4", &adj->ipv4_addresses[i]);
 	}
 
 	if (adj->ipv6_address_count) {
@@ -402,7 +454,7 @@ int isis_adj_expire(struct thread *thread)
 	adj->t_expire = NULL;
 
 	/* trigger the adj expire event */
-	isis_adj_state_change(adj, ISIS_ADJ_DOWN, "holding time expired");
+	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "holding time expired");
 
 	return 0;
 }
@@ -417,11 +469,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 	struct isis_dynhn *dyn;
 	int level;
 
-	dyn = dynhn_find_by_id(adj->sysid);
-	if (dyn)
-		vty_out(vty, "  %-20s", dyn->hostname);
-	else
-		vty_out(vty, "  %-20s", sysid_print(adj->sysid));
+	vty_out(vty, " %-20s", isis_adj_name(adj));
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		if (adj->circuit)
@@ -431,17 +479,24 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, "%-3u", adj->level); /* level */
 		vty_out(vty, "%-13s", adj_state2string(adj->adj_state));
 		now = time(NULL);
-		if (adj->last_upd)
-			vty_out(vty, "%-9llu",
-				(unsigned long long)adj->last_upd
-					+ adj->hold_time - now);
-		else
+		if (adj->last_upd) {
+			if (adj->last_upd + adj->hold_time
+			    < (unsigned long long)now)
+				vty_out(vty, " Expiring");
+			else
+				vty_out(vty, " %-9llu",
+					(unsigned long long)adj->last_upd
+						+ adj->hold_time - now);
+		} else
 			vty_out(vty, "-        ");
 		vty_out(vty, "%-10s", snpa_print(adj->snpa));
 		vty_out(vty, "\n");
 	}
 
 	if (detail == ISIS_UI_LEVEL_DETAIL) {
+		struct sr_adjacency *sra;
+		struct listnode *anode;
+
 		level = adj->level;
 		vty_out(vty, "\n");
 		if (adj->circuit)
@@ -452,11 +507,15 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, ", Level: %u", adj->level); /* level */
 		vty_out(vty, ", State: %s", adj_state2string(adj->adj_state));
 		now = time(NULL);
-		if (adj->last_upd)
-			vty_out(vty, ", Expires in %s",
-				time2string(adj->last_upd + adj->hold_time
-					    - now));
-		else
+		if (adj->last_upd) {
+			if (adj->last_upd + adj->hold_time
+			    < (unsigned long long)now)
+				vty_out(vty, " Expiring");
+			else
+				vty_out(vty, ", Expires in %s",
+					time2string(adj->last_upd
+						    + adj->hold_time - now));
+		} else
 			vty_out(vty, ", Expires in %s",
 				time2string(adj->hold_time));
 		vty_out(vty, "\n");
@@ -478,7 +537,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, "    SNPA: %s", snpa_print(adj->snpa));
 		if (adj->circuit
 		    && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)) {
-			dyn = dynhn_find_by_id(adj->lanid);
+			dyn = dynhn_find_by_id(adj->circuit->isis, adj->lanid);
 			if (dyn)
 				vty_out(vty, ", LAN id: %s.%02x", dyn->hostname,
 					adj->lanid[ISIS_SYS_ID_LEN]);
@@ -517,8 +576,8 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			vty_out(vty, "    IPv4 Address(es):\n");
 			for (unsigned int i = 0; i < adj->ipv4_address_count;
 			     i++)
-				vty_out(vty, "      %s\n",
-					inet_ntoa(adj->ipv4_addresses[i]));
+				vty_out(vty, "      %pI4\n",
+					&adj->ipv4_addresses[i]);
 		}
 		if (adj->ipv6_address_count) {
 			vty_out(vty, "    IPv6 Address(es):\n");
@@ -529,6 +588,31 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					  buf, sizeof(buf));
 				vty_out(vty, "      %s\n", buf);
 			}
+		}
+		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
+			const char *adj_type;
+			const char *backup;
+			uint32_t sid;
+
+			switch (sra->adj->circuit->circ_type) {
+			case CIRCUIT_T_BROADCAST:
+				adj_type = "LAN Adjacency-SID";
+				sid = sra->u.ladj_sid->sid;
+				break;
+			case CIRCUIT_T_P2P:
+				adj_type = "Adjacency-SID";
+				sid = sra->u.adj_sid->sid;
+				break;
+			default:
+				continue;
+			}
+			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+								   : "";
+
+			vty_out(vty, "    %s %s%s: %u\n",
+				(sra->nexthop.family == AF_INET) ? "IPv4"
+								 : "IPv6",
+				adj_type, backup, sid);
 		}
 		vty_out(vty, "\n");
 	}

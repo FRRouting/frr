@@ -24,7 +24,7 @@
 
 static struct debug_cb_list_head cb_head;
 
-DECLARE_LIST(debug_cb_list, struct debug_callbacks, item)
+DECLARE_LIST(debug_cb_list, struct debug_callbacks, item);
 
 /* All code in this section should be reentrant and MT-safe */
 

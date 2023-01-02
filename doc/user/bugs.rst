@@ -1,5 +1,5 @@
-.. index:: Bug Reports
-.. index:: Reporting bugs
+.. index::
+   pair: bug reports; contact
 
 .. _bug-reports:
 

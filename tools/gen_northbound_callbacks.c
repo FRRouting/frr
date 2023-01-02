@@ -46,70 +46,62 @@ static struct nb_callback_info {
 		.operation = NB_OP_CREATE,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments =
-			"enum nb_event event, const struct lyd_node *dnode, union nb_resource *resource",
+		.arguments = "struct nb_cb_create_args *args",
 	},
 	{
 		.operation = NB_OP_MODIFY,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments =
-			"enum nb_event event, const struct lyd_node *dnode, union nb_resource *resource",
+		.arguments = "struct nb_cb_modify_args *args",
 	},
 	{
 		.operation = NB_OP_DESTROY,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments =
-			"enum nb_event event, const struct lyd_node *dnode",
+		.arguments = "struct nb_cb_destroy_args *args",
 	},
 	{
 		.operation = NB_OP_MOVE,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments =
-			"enum nb_event event, const struct lyd_node *dnode",
+		.arguments = "struct nb_cb_move_args *args",
 	},
 	{
 		.operation = NB_OP_APPLY_FINISH,
 		.optional = true,
 		.return_type = "void ",
 		.return_value = "",
-		.arguments = "const struct lyd_node *dnode",
+		.arguments = "struct nb_cb_apply_finish_args *args",
 	},
 	{
 		.operation = NB_OP_GET_ELEM,
 		.return_type = "struct yang_data *",
 		.return_value = "NULL",
-		.arguments = "const char *xpath, const void *list_entry",
+		.arguments = "struct nb_cb_get_elem_args *args",
 	},
 	{
 		.operation = NB_OP_GET_NEXT,
 		.return_type = "const void *",
 		.return_value = "NULL",
-		.arguments =
-			"const void *parent_list_entry, const void *list_entry",
+		.arguments = "struct nb_cb_get_next_args *args",
 	},
 	{
 		.operation = NB_OP_GET_KEYS,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments =
-			"const void *list_entry, struct yang_list_keys *keys",
+		.arguments = "struct nb_cb_get_keys_args *args",
 	},
 	{
 		.operation = NB_OP_LOOKUP_ENTRY,
 		.return_type = "const void *",
 		.return_value = "NULL",
-		.arguments =
-			"const void *parent_list_entry, const struct yang_list_keys *keys",
+		.arguments = "struct nb_cb_lookup_entry_args *args",
 	},
 	{
 		.operation = NB_OP_RPC,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments =
-			"const char *xpath, const struct list *input, struct list *output",
+		.arguments = "struct nb_cb_rpc_args *args",
 	},
 	{
 		/* sentinel */
@@ -126,7 +118,7 @@ static void replace_hyphens_by_underscores(char *str)
 		*p++ = '_';
 }
 
-static void generate_callback_name(struct lys_node *snode,
+static void generate_callback_name(const struct lysc_node *snode,
 				   enum nb_operation operation, char *buffer,
 				   size_t size)
 {
@@ -134,14 +126,14 @@ static void generate_callback_name(struct lys_node *snode,
 	struct listnode *ln;
 
 	snodes = list_new();
-	for (; snode; snode = lys_parent(snode)) {
+	for (; snode; snode = snode->parent) {
 		/* Skip schema-only snodes. */
 		if (CHECK_FLAG(snode->nodetype, LYS_USES | LYS_CHOICE | LYS_CASE
 							| LYS_INPUT
 							| LYS_OUTPUT))
 			continue;
 
-		listnode_add_head(snodes, snode);
+		listnode_add_head(snodes, (void *)snode);
 	}
 
 	memset(buffer, 0, size);
@@ -161,7 +153,7 @@ static void generate_prototype(const struct nb_callback_info *ncinfo,
 	printf("%s%s(%s);\n", ncinfo->return_type, cb_name, ncinfo->arguments);
 }
 
-static int generate_prototypes(const struct lys_node *snode, void *arg)
+static int generate_prototypes(const struct lysc_node *snode, void *arg)
 {
 	switch (snode->nodetype) {
 	case LYS_CONTAINER:
@@ -183,8 +175,8 @@ static int generate_prototypes(const struct lys_node *snode, void *arg)
 		    || !nb_operation_is_valid(cb->operation, snode))
 			continue;
 
-		generate_callback_name((struct lys_node *)snode, cb->operation,
-				       cb_name, sizeof(cb_name));
+		generate_callback_name(snode, cb->operation, cb_name,
+				       sizeof(cb_name));
 		generate_prototype(cb, cb_name);
 	}
 
@@ -202,7 +194,7 @@ static void generate_callback(const struct nb_callback_info *ncinfo,
 	case NB_OP_MODIFY:
 	case NB_OP_DESTROY:
 	case NB_OP_MOVE:
-		printf("\tswitch (event) {\n"
+		printf("\tswitch (args->event) {\n"
 		       "\tcase NB_EV_VALIDATE:\n"
 		       "\tcase NB_EV_PREPARE:\n"
 		       "\tcase NB_EV_ABORT:\n"
@@ -221,7 +213,7 @@ static void generate_callback(const struct nb_callback_info *ncinfo,
 	printf("\treturn %s;\n}\n\n", ncinfo->return_value);
 }
 
-static int generate_callbacks(const struct lys_node *snode, void *arg)
+static int generate_callbacks(const struct lysc_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -258,15 +250,15 @@ static int generate_callbacks(const struct lys_node *snode, void *arg)
 			first = false;
 		}
 
-		generate_callback_name((struct lys_node *)snode, cb->operation,
-				       cb_name, sizeof(cb_name));
+		generate_callback_name(snode, cb->operation, cb_name,
+				       sizeof(cb_name));
 		generate_callback(cb, cb_name);
 	}
 
 	return YANG_ITER_CONTINUE;
 }
 
-static int generate_nb_nodes(const struct lys_node *snode, void *arg)
+static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -303,8 +295,8 @@ static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 			first = false;
 		}
 
-		generate_callback_name((struct lys_node *)snode, cb->operation,
-				       cb_name, sizeof(cb_name));
+		generate_callback_name(snode, cb->operation, cb_name,
+				       sizeof(cb_name));
 		printf("\t\t\t\t.%s = %s,\n", nb_operation_name(cb->operation),
 		       cb_name);
 	}
@@ -358,17 +350,20 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
-	yang_init();
+	yang_init(false, true);
 
 	if (search_path)
 		ly_ctx_set_searchdir(ly_native_ctx, search_path);
 
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();
+
 	module = yang_module_find(argv[0]);
 	if (!module)
 		/* Non-native FRR module (e.g. modules from unit tests). */
 		module = yang_module_load(argv[0]);
+
+	yang_init_loading_complete();
 
 	/* Create a nb_node for all YANG schema nodes. */
 	nb_nodes_create();
@@ -376,13 +371,12 @@ int main(int argc, char *argv[])
 	/* Generate callback prototypes. */
 	if (!static_cbs) {
 		printf("/* prototypes */\n");
-		yang_snodes_iterate_module(module->info, generate_prototypes, 0,
-					   NULL);
+		yang_snodes_iterate(module->info, generate_prototypes, 0, NULL);
 		printf("\n");
 	}
 
 	/* Generate callback functions. */
-	yang_snodes_iterate_module(module->info, generate_callbacks, 0, NULL);
+	yang_snodes_iterate(module->info, generate_callbacks, 0, NULL);
 
 	strlcpy(module_name_underscores, module->name,
 		sizeof(module_name_underscores));
@@ -394,7 +388,7 @@ int main(int argc, char *argv[])
 	       "\t.name = \"%s\",\n"
 	       "\t.nodes = {\n",
 	       module_name_underscores, module->name);
-	yang_snodes_iterate_module(module->info, generate_nb_nodes, 0, NULL);
+	yang_snodes_iterate(module->info, generate_nb_nodes, 0, NULL);
 	printf("\t\t{\n"
 	       "\t\t\t.xpath = NULL,\n"
 	       "\t\t},\n");

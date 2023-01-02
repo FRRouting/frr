@@ -1,0 +1,143 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {"ipv4": "10.0.0.0", "v4mask": 24, "link_local": "disable"},
+    "lo_prefix": {"ipv4": "1.0.", "v4mask": 32},
+    "routers": {
+        "l1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "i1": {"ipv4": "auto", "pim": "enable"},
+                "i6": {"ipv4": "auto", "pim": "enable"},
+                "i7": {"ipv4": "auto", "pim": "enable"},
+                "r2": {"ipv4": "auto", "pim": "enable"},
+                "c1": {"ipv4": "auto", "pim": "enable"}
+            },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
+            "igmp": {
+                "interfaces": {
+                    "l1-i1-eth1" :{
+                        "igmp":{
+                            "query": {"query-max-response-time": 40, "query-interval": 5},
+                            "version":  "2"
+                        }
+                    }
+                }
+            },
+            "static_routes": [{
+                "network": ["10.0.4.0/24", "10.0.3.1/24"],
+                "next_hop": "10.0.12.2"
+            },
+            {
+                "network": ["10.0.1.2/24"],
+                "next_hop":  "10.0.2.1"
+            }]
+
+        },
+
+        "r2": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "l1": {"ipv4": "auto", "pim": "enable"},
+                "f1": {"ipv4": "auto", "pim": "enable"},
+                "i3": {"ipv4": "auto", "pim": "enable"}
+            },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
+            "static_routes": [{
+                "network": ["10.0.4.0/24","10.0.3.1/24"],
+                "next_hop": "10.0.7.1"
+            },
+            {
+                "network": ["1.0.4.11/32", "10.0.2.1/24", "10.0.1.2/24"],
+                "next_hop": "10.0.12.1"
+            }]
+        },
+        "f1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r2": {"ipv4": "auto", "pim": "enable"},
+                "c2": {"ipv4": "auto", "pim": "enable"},
+                "i2": {"ipv4": "auto", "pim": "enable"},
+                "i8": {"ipv4": "auto", "pim": "enable"}
+            },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
+            "static_routes": [{
+                "network": ["10.0.4.0/24","10.0.3.1/24"],
+                "next_hop": "10.0.3.1"
+	        },
+            {
+                "network": ["1.0.4.11/32", "10.0.2.1/24", "10.0.1.2/24"],
+                "next_hop": "10.0.7.2"
+            }]
+        },
+        "c1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "c2": {"ipv4": "auto", "pim": "enable"},
+                "l1": {"ipv4": "auto", "pim": "enable"},
+                "i4": {"ipv4": "auto", "pim": "enable"}
+            },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
+            "static_routes": [{
+                "network": ["1.0.4.11/32","10.0.4.2/24", "10.0.3.1/24"],
+                "next_hop": "10.0.2.2"
+	        }]
+
+
+        },
+        "c2": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "c1": {"ipv4": "auto", "pim": "enable"},
+                "f1": {"ipv4": "auto", "pim": "enable"},
+                "i5": {"ipv4": "auto", "pim": "enable"}
+            },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
+            "static_routes": [
+            {
+                "network": ["1.0.4.11/32", "10.0.2.1/24", "10.0.1.2/24"],
+                "next_hop": "10.0.3.2"
+            }]
+        },
+        "i1": {
+            "links": {
+                "l1": {"ipv4": "auto"}
+            }
+        },
+        "i2": {
+            "links": {
+                "f1": {"ipv4": "auto"}
+            }
+        },
+        "i3": {
+            "links": {
+                "r2": {"ipv4": "auto"}
+            }
+        },
+        "i4": {
+            "links": {
+                "c1": {"ipv4": "auto"}
+            }
+        },
+        "i5": {
+            "links": {
+                "c2": {"ipv4": "auto"}
+            }
+        },
+        "i6": {
+            "links": {
+                "l1": {"ipv4": "auto"}
+            }
+        },
+        "i7": {
+            "links": {
+                "l1": {"ipv4": "auto"}
+            }
+        },
+        "i8": {
+            "links": {
+                "f1": {"ipv4": "auto"}
+            }
+        }
+    }
+}

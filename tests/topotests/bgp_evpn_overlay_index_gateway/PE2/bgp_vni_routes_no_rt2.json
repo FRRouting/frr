@@ -1,0 +1,68 @@
+{
+  "[2]:[0]:[48]:[1a:2b:3c:4d:5e:61]": null,
+  "[2]:[0]:[48]:[1a:2b:3c:4d:5e:61]:[32]:[50.0.1.11]": null,
+  "[2]:[0]:[48]:[1a:2b:3c:4d:5e:61]:[128]:[50:0:1::11]": null,
+  "[2]:[0]:[48]:[1a:2b:3c:4d:5e:62]":{
+    "prefix":"[2]:[0]:[48]:[1a:2b:3c:4d:5e:62]",
+    "prefixLen":320,
+    "paths":[
+      [
+        {
+          "valid":true,
+          "bestpath":true,
+          "pathFrom":"external",
+          "routeType":2,
+          "ethTag":0,
+          "macLen":48,
+          "mac":"1a:2b:3c:4d:5e:62",
+          "weight":32768,
+          "peerId":"(unspec)",
+          "path":"",
+          "origin":"IGP",
+          "extendedCommunity":{
+            "string":"ET:8 RT:102:100"
+          },
+          "nexthops":[
+            {
+              "ip":"10.100.0.2",
+              "afi":"ipv4",
+              "used":true
+            }
+          ]
+        }
+      ]
+    ]
+  },
+  "[3]:[0]:[32]:[10.100.0.1]": null,
+  "[3]:[0]:[32]:[10.100.0.2]":{
+    "prefix":"[3]:[0]:[32]:[10.100.0.2]",
+    "prefixLen":320,
+    "paths":[
+      [
+        {
+          "valid":true,
+          "bestpath":true,
+          "pathFrom":"external",
+          "routeType":3,
+          "ethTag":0,
+          "ipLen":32,
+          "ip":"10.100.0.2",
+          "weight":32768,
+          "peerId":"(unspec)",
+          "path":"",
+          "origin":"IGP",
+          "extendedCommunity":{
+            "string":"ET:8 RT:102:100"
+          },
+          "nexthops":[
+            {
+              "ip":"10.100.0.2",
+              "afi":"ipv4",
+              "used":true
+            }
+          ]
+        }
+      ]
+    ]
+  }
+}

@@ -28,9 +28,9 @@
 #include "command.h"
 #include "log.h"
 
-DEFINE_MTYPE(LIB, WORK_QUEUE, "Work queue")
-DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_ITEM, "Work queue item")
-DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_NAME, "Work queue name string")
+DEFINE_MTYPE(LIB, WORK_QUEUE, "Work queue");
+DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_ITEM, "Work queue item");
+DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_NAME, "Work queue name string");
 
 /* master list of work_queues */
 static struct list _work_queues;
@@ -104,7 +104,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 	struct work_queue *wq = *wqp;
 
 	if (wq->thread != NULL)
-		thread_cancel(wq->thread);
+		thread_cancel(&(wq->thread));
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -215,7 +215,7 @@ void workqueue_cmd_init(void)
 void work_queue_plug(struct work_queue *wq)
 {
 	if (wq->thread)
-		thread_cancel(wq->thread);
+		thread_cancel(&(wq->thread));
 
 	wq->thread = NULL;
 
@@ -376,11 +376,6 @@ stats:
 	wq->cycles.total += cycles;
 	if (yielded)
 		wq->yields++;
-
-#if 0
-  printf ("%s: cycles %d, new: best %d, worst %d\n",
-            __func__, cycles, wq->cycles.best, wq->cycles.granularity);
-#endif
 
 	/* Is the queue done yet? If it is, call the completion callback. */
 	if (!work_queue_empty(wq)) {

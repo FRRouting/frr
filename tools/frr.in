@@ -21,12 +21,13 @@ VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
+FRR_CONFIG_MODE="@enable_configfile_mask@" # 0600
 FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
@@ -56,6 +57,7 @@ chownfrr()
 {
 	test -n "$FRR_USER" && chown "$FRR_USER" "$1"
 	test -n "$FRR_GROUP" && chgrp "$FRR_GROUP" "$1"
+	test -n "$FRR_CONFIG_MODE" && chmod "$FRR_CONFIG_MODE" "$1"
 }
 
 # Check if daemon is started by using the pidfile.
@@ -75,7 +77,7 @@ vtysh_b ()
 {
 	# Rember, that all variables have been incremented by 1 in convert_daemon_prios()
 	if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
-		$VTYSH -b -n
+		$VTYSH -b
 	fi
 }
 

@@ -24,8 +24,11 @@
 #include <lib/nexthop_group.h>
 
 #include "pbr_map.h"
+#include "json.h"
 
 #define PBR_NHC_NAMELEN PBR_MAP_NAMELEN + 10
+
+extern struct hash *pbr_nhg_hash;
 
 struct pbr_nexthop_group_cache {
 	char name[PBR_NHC_NAMELEN];
@@ -45,9 +48,14 @@ struct pbr_nexthop_group_cache {
 struct pbr_nexthop_cache {
 	struct pbr_nexthop_group_cache *parent;
 
-	struct nexthop *nexthop;
+	char vrf_name[VRF_NAMSIZ + 1];
+	char intf_name[INTERFACE_NAMSIZ + 1];
 
+	struct nexthop nexthop;
+
+	bool looked_at;
 	bool valid;
+	bool nhr_matched;
 };
 
 extern void pbr_nht_write_table_range(struct vty *vty);
@@ -56,13 +64,26 @@ extern void pbr_nht_write_table_range(struct vty *vty);
 extern void pbr_nht_set_tableid_range(uint32_t low, uint32_t high);
 
 /*
- * Get the next tableid to use for installation.
- *
- * peek
- *    If set to true, retrieves the next ID without marking it used. The next
- *    call will return the same ID.
+ * Find and reserve the next available table for installation;
+ * Sequential calls to this function will reserve sequential table numbers
+ * until the configured range is exhausted; calls made after exhaustion always
+ * return 0
  */
-extern uint32_t pbr_nht_get_next_tableid(bool peek);
+extern uint32_t
+pbr_nht_reserve_next_table_id(struct pbr_nexthop_group_cache *nhgc);
+/*
+ * Get the next tableid to use for installation to kernel
+ */
+extern uint32_t pbr_nht_find_next_unallocated_table_id(void);
+/*
+ * Calculate where the next table representing a nhg will go in kernel
+ */
+extern void pbr_nht_update_next_unallocated_table_id(void);
+/*
+ * Indicate if there are free spots to install a table to kernel within the
+ * configured PBR table range
+ */
+extern bool pbr_nht_has_unallocated_table(void);
 /*
  * Get the next rule number to use for installation
  */
@@ -88,7 +109,8 @@ extern struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name);
 extern void pbr_nht_change_group(const char *name);
 extern void pbr_nht_delete_group(const char *name);
 
-extern void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms);
+extern void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
+					   const struct nexthop *nhop);
 extern void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms);
 /*
  * Given the tableid of the installed default
@@ -111,6 +133,7 @@ extern char *pbr_nht_nexthop_make_name(char *name, size_t l, uint32_t seqno,
 				       char *buffer);
 
 extern void pbr_nht_show_nexthop_group(struct vty *vty, const char *name);
+extern void pbr_nht_json_nexthop_group(json_object *j, const char *name);
 
 /*
  * When we get a callback from zebra about a nexthop changing
@@ -123,4 +146,7 @@ extern void pbr_nht_nexthop_update(struct zapi_route *nhr);
 extern void pbr_nht_nexthop_interface_update(struct interface *ifp);
 
 extern void pbr_nht_init(void);
+
+extern void pbr_nht_vrf_update(struct pbr_vrf *pbr_vrf);
+extern void pbr_nht_interface_update(struct interface *ifp);
 #endif

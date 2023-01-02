@@ -54,4 +54,8 @@ extern void ospf_vty_show_init(void);
 extern void ospf_vty_clear_init(void);
 extern int str2area_id(const char *, struct in_addr *, int *);
 
+/* unit tests */
+void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
+				   json_object *json);
+
 #endif /* _QUAGGA_OSPF_VTY_H */

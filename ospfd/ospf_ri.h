@@ -75,7 +75,7 @@
 
 /* RFC4970: Router Information Capabilities TLV */ /* Mandatory */
 #define RI_TLV_CAPABILITIES		1
-
+#define RI_TLV_CAPABILITIES_SIZE	4
 struct ri_tlv_router_cap {
 	struct tlv_header header; /* Value length is 4 bytes. */
 	uint32_t value;
@@ -105,12 +105,12 @@ struct ri_tlv_pce {
 struct ri_pce_subtlv_address {
 	/* Type = 1; Length is 8 (IPv4) or 20 (IPv6) bytes. */
 	struct tlv_header header;
-#define	PCE_ADDRESS_LENGTH_IPV4		8
-#define	PCE_ADDRESS_LENGTH_IPV6		20
+#define	PCE_ADDRESS_IPV4_SIZE		8
+#define	PCE_ADDRESS_IPV6_SIZE		20
 	struct {
 		uint16_t type; /* Address type: 1 = IPv4, 2 = IPv6 */
-#define	PCE_ADDRESS_TYPE_IPV4		1
-#define	PCE_ADDRESS_TYPE_IPV6		2
+#define	PCE_ADDRESS_IPV4		1
+#define	PCE_ADDRESS_IPV6		2
 		uint16_t reserved;
 		struct in_addr value; /* PCE address */
 	} address;
@@ -118,6 +118,7 @@ struct ri_pce_subtlv_address {
 
 /* PCE Path-Scope Sub-TLV */ /* Mandatory */
 #define	RI_PCE_SUBTLV_PATH_SCOPE	2
+#define	RI_PCE_SUBTLV_PATH_SCOPE_SIZE	4
 struct ri_pce_subtlv_path_scope {
 	struct tlv_header header; /* Type = 2; Length = 4 bytes. */
 	/*
@@ -128,11 +129,11 @@ struct ri_pce_subtlv_path_scope {
 };
 
 /* PCE Domain Sub-TLV */ /* Optional */
-#define	RI_PCE_SUBTLV_DOMAIN		3
-
 #define	PCE_DOMAIN_TYPE_AREA		1
-#define	PCE_DOMAIN_TYPE_AS			2
+#define	PCE_DOMAIN_TYPE_AS		2
 
+#define	RI_PCE_SUBTLV_DOMAIN		3
+#define	RI_PCE_SUBTLV_DOMAIN_SIZE	8
 struct ri_pce_subtlv_domain {
 	struct tlv_header header; /* Type = 3; Length = 8 bytes. */
 	uint16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
@@ -142,6 +143,7 @@ struct ri_pce_subtlv_domain {
 
 /* PCE Neighbor Sub-TLV */ /* Mandatory if R or S bit is set */
 #define RI_PCE_SUBTLV_NEIGHBOR		4
+#define RI_PCE_SUBTLV_NEIGHBOR_SIZE	8
 struct ri_pce_subtlv_neighbor {
 	struct tlv_header header; /* Type = 4; Length = 8 bytes. */
 	uint16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
@@ -151,6 +153,7 @@ struct ri_pce_subtlv_neighbor {
 
 /* PCE Capabilities Flags Sub-TLV */ /* Optional */
 #define RI_PCE_SUBTLV_CAP_FLAG		5
+#define RI_PCE_SUBTLV_CAP_FLAG_SIZE	4
 
 #define PCE_CAP_GMPLS_LINK		0x0001
 #define PCE_CAP_BIDIRECTIONAL		0x0002
@@ -201,7 +204,12 @@ struct ospf_ri_sr_info {
 	 * Segment Routing Global Block i.e. label range
 	 * Only one range supported in this code
 	 */
-	struct ri_sr_tlv_sid_label_range range;
+	struct ri_sr_tlv_sid_label_range srgb;
+	/*
+	 * Segment Routing Local Block.
+	 * Only one block is authorized - see section 3.3
+	 */
+	struct ri_sr_tlv_sid_label_range srlb;
 	/* Maximum SID Depth supported by the node */
 	struct ri_sr_tlv_node_msd msd;
 };
@@ -242,7 +250,6 @@ extern int ospf_router_info_init(void);
 extern void ospf_router_info_term(void);
 extern void ospf_router_info_finish(void);
 extern int ospf_router_info_enable(void);
-extern void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb,
-				       uint8_t msd);
+extern void ospf_router_info_update_sr(bool enable, struct sr_node *self);
 extern struct scope_info ospf_router_info_get_flooding_scope(void);
 #endif /* _ZEBRA_OSPF_ROUTER_INFO_H */

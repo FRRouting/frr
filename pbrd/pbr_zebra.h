@@ -35,8 +35,9 @@ extern void route_delete(struct pbr_nexthop_group_cache *pnhgc,
 
 extern void pbr_send_rnh(struct nexthop *nhop, bool reg);
 
-extern void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
-			     struct pbr_map_interface *pmi, bool install);
+extern bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
+			     struct pbr_map_interface *pmi, bool install,
+			     bool changed);
 
 extern struct pbr_interface *pbr_if_new(struct interface *ifp);
 
@@ -44,5 +45,8 @@ extern int pbr_ifp_create(struct interface *ifp);
 extern int pbr_ifp_up(struct interface *ifp);
 extern int pbr_ifp_down(struct interface *ifp);
 extern int pbr_ifp_destroy(struct interface *ifp);
+
+/* Free the ifp->info pointer */
+extern void pbr_if_del(struct interface *ifp);
 
 #endif

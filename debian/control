@@ -3,69 +3,68 @@ Section: net
 Priority: optional
 Maintainer: David Lamparter <equinox-debian@diac24.net>
 Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
-	   Ondřej Surý <ondrej@debian.org>
-Build-Depends:
- bison,
- chrpath,
- debhelper (>= 9.20150101),
- debhelper (>= 9.20160709) <!pkg.frr.nosystemd> | dh-systemd <!pkg.frr.nosystemd>,
- flex,
- gawk,
- install-info,
- libc-ares-dev,
- libcap-dev,
- libjson-c-dev | libjson0-dev,
- libpam0g-dev | libpam-dev,
- libpcre3-dev,
- libpython3-dev,
- libreadline-dev,
- librtr-dev <!pkg.frr.nortrlib>,
- libsnmp-dev,
- libssh-dev <!pkg.frr.nortrlib>,
- libsystemd-dev <!pkg.frr.nosystemd>,
- libyang-dev (>= 0.16.74),
- lsb-base,
- pkg-config,
- python3:native,
- python3-dev:native,
- python3-sphinx:native,
- python3-pytest:native <!nocheck>,
- texinfo (>= 4.7)
-Standards-Version: 4.4.1
+           Ondřej Surý <ondrej@debian.org>
+Build-Depends: bison,
+               chrpath,
+               debhelper (>= 10~) | dh-systemd,
+               debhelper (>= 9.20150101~),
+               flex,
+               gawk,
+               install-info,
+               libc-ares-dev,
+               libcap-dev,
+               libelf-dev,
+               libjson-c-dev | libjson0-dev,
+               libpam0g-dev | libpam-dev,
+               libpcre2-dev,
+               libpython3-dev,
+               libreadline-dev,
+               librtr-dev <!pkg.frr.nortrlib>,
+               libsnmp-dev,
+               libssh-dev <!pkg.frr.nortrlib>,
+               libyang2-dev,
+               lsb-base,
+               pkg-config,
+               python3:native,
+               python3-dev:native,
+               python3-pytest:native <!nocheck>,
+               python3-sphinx:native,
+               texinfo (>= 4.7),
+               liblua5.3-dev <pkg.frr.lua>
+Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
 Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
 
 Package: frr
 Architecture: linux-any
-Depends:
- ${misc:Depends},
- ${shlibs:Depends},
- iproute2 | iproute,
- logrotate (>= 3.2-11),
- lsof
+Depends: iproute2 | iproute,
+         logrotate (>= 3.2-11),
+         lsof,
+         ${misc:Depends},
+         ${shlibs:Depends}
 Pre-Depends: adduser
 Recommends: frr-pythontools
 Suggests: frr-doc
-Conflicts:
- zebra,
- zebra-pj,
- pimd,
- quagga,
- quagga-bgpd,
- quagga-core,
- quagga-isisd,
- quagga-ospf6d,
- quagga-ospfd,
- quagga-pimd,
- quagga-ripd,
- quagga-ripngd
-Replaces: zebra, zebra-pj
+Conflicts: pimd,
+           quagga,
+           quagga-bgpd,
+           quagga-core,
+           quagga-isisd,
+           quagga-ospf6d,
+           quagga-ospfd,
+           quagga-pimd,
+           quagga-ripd,
+           quagga-ripngd,
+           zebra,
+           zebra-pj
+Replaces: zebra,
+          zebra-pj
 Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  FRRouting implements the routing protocols commonly used in the
  internet and private networks to exchange information between routers.
- Both IP and IPv6 are supported, as are BGP, OSPF, IS-IS, BABEL, EIGRP,
- RIP, LDP, BFD, PIM and NHRP protocols.
+ Both IP and IPv6 are supported, as are BGP, OSPFv2, OSPFv3, IS-IS, BABEL,
+ EIGRP, RIP, RIPng, LDP, BFD, PIM, VRRP, PBR, and NHRP.
  .
  These protocols are used to turn your system into a dynamic router,
  exchanging information about available connections with other routers
@@ -78,10 +77,9 @@ Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
 
 Package: frr-snmp
 Architecture: linux-any
-Depends:
- ${misc:Depends},
- ${shlibs:Depends},
- frr (= ${binary:Version})
+Depends: frr (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends}
 Recommends: snmpd
 Description: FRRouting suite - SNMP support
  Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
@@ -90,10 +88,9 @@ Description: FRRouting suite - SNMP support
 
 Package: frr-rpki-rtrlib
 Architecture: linux-any
-Depends:
- ${misc:Depends},
- ${shlibs:Depends},
- frr (= ${binary:Version})
+Depends: frr (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends}
 Description: FRRouting suite - BGP RPKI support (rtrlib)
  Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
  against cryptographic information stored in WHOIS databases.  This is
@@ -106,10 +103,9 @@ Package: frr-doc
 Section: doc
 Architecture: all
 Multi-Arch: foreign
-Depends:
- ${misc:Depends},
- libjs-jquery,
- libjs-underscore
+Depends: libjs-jquery,
+         libjs-underscore,
+         ${misc:Depends}
 Suggests: frr
 Conflicts: quagga-doc
 Description: FRRouting suite - user manual
@@ -119,11 +115,10 @@ Description: FRRouting suite - user manual
 
 Package: frr-pythontools
 Architecture: all
-Depends:
- ${misc:Depends},
- frr (<< ${source:Upstream-Version}.0-~),
- frr (>= ${source:Version}~),
- python3:any
+Depends: frr (<< ${source:Upstream-Version}.0-~),
+         frr (>= ${source:Version}~),
+         python3:any,
+         ${misc:Depends}
 Description: FRRouting suite - Python tools
  The FRRouting suite uses a small Python tool to provide configuration
  reload functionality, particularly useful when the interactive configuration

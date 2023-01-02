@@ -21,7 +21,7 @@
 
 #include "log.h"
 #include "privs.h"
-#include "version.h"
+#include "lib/version.h"
 #include <getopt.h>
 #include "command.h"
 #include "thread.h"
@@ -32,15 +32,16 @@
 #include "filter.h"
 #include "vty.h"
 #include "sigevent.h"
-#include "version.h"
+#include "lib/version.h"
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "routemap.h"
+#include "routing_nb.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
-#include "pim_version.h"
 #include "pim_signals.h"
 #include "pim_zebra.h"
 #include "pim_msdp.h"
@@ -48,6 +49,7 @@
 #include "pim_bfd.h"
 #include "pim_mlag.h"
 #include "pim_errors.h"
+#include "pim_nb.h"
 
 extern struct host host;
 
@@ -72,7 +74,14 @@ struct zebra_privs_t pimd_privs = {
 	.cap_num_i = 0};
 
 static const struct frr_yang_module_info *const pimd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
+	&frr_routing_info,
+	&frr_pim_info,
+	&frr_pim_rp_info,
+	&frr_igmp_info,
 };
 
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
@@ -83,7 +92,8 @@ FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
 
 		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
-		.n_yang_modules = array_size(pimd_yang_modules), )
+		.n_yang_modules = array_size(pimd_yang_modules),
+);
 
 
 int main(int argc, char **argv, char **envp)
@@ -105,7 +115,6 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -132,6 +141,11 @@ int main(int argc, char **argv, char **envp)
 	pim_zebra_init();
 	pim_bfd_init();
 	pim_mlag_init();
+
+	hook_register(routing_conf_event,
+		      routing_control_plane_protocols_name_validate);
+
+	routing_control_plane_protocols_register_vrf_dependency();
 
 	frr_config_fork();
 

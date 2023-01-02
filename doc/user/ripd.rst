@@ -87,23 +87,17 @@ multipath routing.
 RIP Configuration
 =================
 
-.. index:: router rip
 .. clicmd:: router rip
 
    The `router rip` command is necessary to enable RIP. To disable RIP, use the
    `no router rip` command. RIP must be enabled before carrying out any of the
    RIP commands.
 
-.. index:: no router rip
-.. clicmd:: no router rip
 
    Disable RIP.
 
-.. index:: network NETWORK
 .. clicmd:: network NETWORK
 
-.. index:: no network NETWORK
-.. clicmd:: no network NETWORK
 
    Set the RIP enable interface by NETWORK. The interfaces which have addresses
    matching with NETWORK are enabled.
@@ -114,22 +108,16 @@ RIP Configuration
    10.0.0.0 to 10.0.0.255 being enabled for RIP. The `no network` command will
    disable RIP for the specified network.
 
-.. index:: network IFNAME
 .. clicmd:: network IFNAME
 
-.. index:: no network IFNAME
-.. clicmd:: no network IFNAME
 
    Set a RIP enabled interface by IFNAME. Both the sending and
    receiving of RIP packets will be enabled on the port specified in the
    `network ifname` command. The `no network ifname` command will disable
    RIP on the specified interface.
 
-.. index:: neighbor A.B.C.D
 .. clicmd:: neighbor A.B.C.D
 
-.. index:: no neighbor A.B.C.D
-.. clicmd:: no neighbor A.B.C.D
 
    Specify RIP neighbor. When a neighbor doesn't understand multicast, this
    command is used to specify neighbors. In some cases, not all routers will be
@@ -152,11 +140,8 @@ RIP Configuration
       !
 
 
-.. index:: passive-interface (IFNAME|default)
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. index:: no passive-interface IFNAME
-.. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
    interface, all receiving packets are processed as normal and ripd does not
@@ -166,11 +151,8 @@ RIP Configuration
 
    The default is to be passive on all interfaces.
 
-.. index:: ip split-horizon
 .. clicmd:: ip split-horizon
 
-.. index:: no ip split-horizon
-.. clicmd:: no ip split-horizon
 
    Control split-horizon on the interface. Default is `ip split-horizon`. If
    you don't perform split-horizon on the interface, please specify `no ip
@@ -192,7 +174,6 @@ is enabled then RIP will reply to REQUEST packets, sending the state of its RIP
 routing table to any remote routers that ask on demand. For a more detailed
 discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
-.. index:: version VERSION
 .. clicmd:: version VERSION
 
    Set RIP version to accept for reads and send. ``VERSION`` can be either 1 or
@@ -203,12 +184,6 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
    Default: Send Version 2, and accept either version.
 
-.. index:: no version
-.. clicmd:: no version
-
-   Reset the global version setting back to the default.
-
-.. index:: ip rip send version VERSION
 .. clicmd:: ip rip send version VERSION
 
    VERSION can be ``1``, ``2``, or ``1 2``.
@@ -221,7 +196,6 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
    Default: Send packets according to the global version (version 2)
 
-.. index:: ip rip receive version VERSION
 .. clicmd:: ip rip receive version VERSION
 
    VERSION can be ``1``, ``2``, or ``1 2``.
@@ -232,98 +206,22 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
    Default: Accept packets according to the global setting (both 1 and 2).
 
+
 .. _how-to-announce-rip-route:
 
 How to Announce RIP route
 =========================
 
-.. index:: redistribute kernel
-.. clicmd:: redistribute kernel
+.. clicmd:: redistribute <babel|bgp|connected|eigrp|isis|kernel|openfabric|ospf|sharp|static|table> [metric (0-16)] [route-map WORD]
 
-.. index:: redistribute kernel metric (0-16)
-.. clicmd:: redistribute kernel metric (0-16)
+   Redistribute routes from other sources into RIP.
 
-.. index:: redistribute kernel route-map ROUTE-MAP
-.. clicmd:: redistribute kernel route-map ROUTE-MAP
+If you want to specify RIP only static routes:
 
-.. index:: no redistribute kernel
-.. clicmd:: no redistribute kernel
-
-   `redistribute kernel` redistributes routing information from kernel route
-   entries into the RIP tables. `no redistribute kernel` disables the routes.
-
-.. index:: redistribute static
-.. clicmd:: redistribute static
-
-.. index:: redistribute static metric (0-16)
-.. clicmd:: redistribute static metric (0-16)
-
-.. index:: redistribute static route-map ROUTE-MAP
-.. clicmd:: redistribute static route-map ROUTE-MAP
-
-.. index:: no redistribute static
-.. clicmd:: no redistribute static
-
-   `redistribute static` redistributes routing information from static route
-   entries into the RIP tables. `no redistribute static` disables the routes.
-
-.. index:: redistribute connected
-.. clicmd:: redistribute connected
-
-.. index:: redistribute connected metric (0-16)
-.. clicmd:: redistribute connected metric (0-16)
-
-.. index:: redistribute connected route-map ROUTE-MAP
-.. clicmd:: redistribute connected route-map ROUTE-MAP
-
-.. index:: no redistribute connected
-.. clicmd:: no redistribute connected
-
-   Redistribute connected routes into the RIP tables. `no redistribute
-   connected` disables the connected routes in the RIP tables.  This command
-   redistribute connected of the interface which RIP disabled.  The connected
-   route on RIP enabled interface is announced by default.
-
-.. index:: redistribute ospf
-.. clicmd:: redistribute ospf
-
-.. index:: redistribute ospf metric (0-16)
-.. clicmd:: redistribute ospf metric (0-16)
-
-.. index:: redistribute ospf route-map ROUTE-MAP
-.. clicmd:: redistribute ospf route-map ROUTE-MAP
-
-.. index:: no redistribute ospf
-.. clicmd:: no redistribute ospf
-
-   `redistribute ospf` redistributes routing information from ospf route
-   entries into the RIP tables. `no redistribute ospf` disables the routes.
-
-.. index:: redistribute bgp
-.. clicmd:: redistribute bgp
-
-.. index:: redistribute bgp metric (0-16)
-.. clicmd:: redistribute bgp metric (0-16)
-
-.. index:: redistribute bgp route-map ROUTE-MAP
-.. clicmd:: redistribute bgp route-map ROUTE-MAP
-
-.. index:: no redistribute bgp
-.. clicmd:: no redistribute bgp
-
-   `redistribute bgp` redistributes routing information from bgp route entries
-   into the RIP tables. `no redistribute bgp` disables the routes.
-
-   If you want to specify RIP only static routes:
-
-.. index:: default-information originate
 .. clicmd:: default-information originate
 
-.. index:: route A.B.C.D/M
 .. clicmd:: route A.B.C.D/M
 
-.. index:: no route A.B.C.D/M
-.. clicmd:: no route A.B.C.D/M
 
    This command is specific to FRR. The `route` command makes a static route
    only inside RIP. This command should be used only by advanced users who are
@@ -338,12 +236,13 @@ Filtering RIP Routes
 
 RIP routes can be filtered by a distribute-list.
 
-.. index:: distribute-list ACCESS_LIST DIRECT IFNAME
-.. clicmd:: distribute-list ACCESS_LIST DIRECT IFNAME
+.. clicmd:: distribute-list [prefix] LIST <in|out> IFNAME
 
    You can apply access lists to the interface with a `distribute-list` command.
-   ACCESS_LIST is the access list name. DIRECT is ``in`` or ``out``. If DIRECT
-   is ``in`` the access list is applied to input packets.
+   If prefix is specified LIST is a prefix-list.  If prefix is not specified
+   then LIST is the access list name.  `in` specifies packets being received,
+   and `out` specifies outgoing packets.  Finally if an interface is specified
+   it will be applied against a specific interface.
 
    The `distribute-list` command can be used to filter the RIP path.
    `distribute-list` can apply access-lists to a chosen interface.  First, one
@@ -364,14 +263,6 @@ RIP routes can be filtered by a distribute-list.
 
    `distribute-list` can be applied to both incoming and outgoing data.
 
-.. index:: distribute-list prefix PREFIX_LIST (in|out) IFNAME
-.. clicmd:: distribute-list prefix PREFIX_LIST (in|out) IFNAME
-
-   You can apply prefix lists to the interface with a `distribute-list`
-   command. PREFIX_LIST is the prefix list name. Next is the direction of
-   ``in`` or ``out``. If DIRECT is ``in`` the access list is applied to input
-   packets.
-
 .. _rip-metric-manipulation:
 
 RIP Metric Manipulation
@@ -381,11 +272,8 @@ RIP metric is a value for distance for the network. Usually
 *ripd* increment the metric when the network information is
 received. Redistributed routes' metric is set to 1.
 
-.. index:: default-metric (1-16)
 .. clicmd:: default-metric (1-16)
 
-.. index:: no default-metric (1-16)
-.. clicmd:: no default-metric (1-16)
 
    This command modifies the default metric value for redistributed routes.
    The default value is 1. This command does not affect connected route even if
@@ -393,10 +281,8 @@ received. Redistributed routes' metric is set to 1.
    metric value, please use ``redistribute connected metric`` or *route-map*.
    *offset-list* also affects connected routes.
 
-.. index:: offset-list ACCESS-LIST (in|out)
 .. clicmd:: offset-list ACCESS-LIST (in|out)
 
-.. index:: offset-list ACCESS-LIST (in|out) IFNAME
 .. clicmd:: offset-list ACCESS-LIST (in|out) IFNAME
 
 
@@ -407,28 +293,19 @@ RIP distance
 
 Distance value is used in zebra daemon. Default RIP distance is 120.
 
-.. index:: distance (1-255)
 .. clicmd:: distance (1-255)
 
-.. index:: no distance (1-255)
-.. clicmd:: no distance (1-255)
 
    Set default RIP distance to specified value.
 
-.. index:: distance (1-255) A.B.C.D/M
 .. clicmd:: distance (1-255) A.B.C.D/M
 
-.. index:: no distance (1-255) A.B.C.D/M
-.. clicmd:: no distance (1-255) A.B.C.D/M
 
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix.
 
-.. index:: distance (1-255) A.B.C.D/M ACCESS-LIST
 .. clicmd:: distance (1-255) A.B.C.D/M ACCESS-LIST
 
-.. index:: no distance (1-255) A.B.C.D/M ACCESS-LIST
-.. clicmd:: no distance (1-255) A.B.C.D/M ACCESS-LIST
 
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix and the specified access-list.
@@ -459,7 +336,6 @@ it may be changed at future.
 Route-map statement (:ref:`route-map`) is needed to use route-map
 functionality.
 
-.. index:: match interface WORD
 .. clicmd:: match interface WORD
 
    This command match to incoming interface. Notation of this match is
@@ -471,37 +347,30 @@ functionality.
    sends to different interfaces must be different. Maybe it'd be better to
    made new matches - say "match interface-out NAME" or something like that.
 
-.. index:: match ip address WORD
 .. clicmd:: match ip address WORD
 
-.. index:: match ip address prefix-list WORD
 .. clicmd:: match ip address prefix-list WORD
 
    Match if route destination is permitted by access-list.
 
-.. index:: match ip next-hop WORD
 .. clicmd:: match ip next-hop WORD
 
-.. index:: match ip next-hop prefix-list WORD
 .. clicmd:: match ip next-hop prefix-list WORD
 
    Match if route next-hop (meaning next-hop listed in the rip route-table as
    displayed by "show ip rip") is permitted by access-list.
 
-.. index:: match metric (0-4294967295)
 .. clicmd:: match metric (0-4294967295)
 
    This command match to the metric value of RIP updates. For other protocol
    compatibility metric range is shown as (0-4294967295). But for RIP protocol
    only the value range (0-16) make sense.
 
-.. index:: set ip next-hop A.B.C.D
 .. clicmd:: set ip next-hop A.B.C.D
 
    This command set next hop value in RIPv2 protocol. This command does not
    affect RIPv1 because there is no next hop field in the packet.
 
-.. index:: set metric (0-4294967295)
 .. clicmd:: set metric (0-4294967295)
 
    Set a metric for matched route when sending announcement. The metric value
@@ -536,36 +405,24 @@ on the internet, via RIPv1.
 To prevent such unauthenticated querying of routes disable RIPv1,
 :ref:`rip-version-control`.
 
-.. index:: ip rip authentication mode md5
 .. clicmd:: ip rip authentication mode md5
 
-.. index:: no ip rip authentication mode md5
-.. clicmd:: no ip rip authentication mode md5
 
    Set the interface with RIPv2 MD5 authentication.
 
-.. index:: ip rip authentication mode text
 .. clicmd:: ip rip authentication mode text
 
-.. index:: no ip rip authentication mode text
-.. clicmd:: no ip rip authentication mode text
 
    Set the interface with RIPv2 simple password authentication.
 
-.. index:: ip rip authentication string STRING
 .. clicmd:: ip rip authentication string STRING
 
-.. index:: no ip rip authentication string STRING
-.. clicmd:: no ip rip authentication string STRING
 
    RIP version 2 has simple text authentication. This command sets
    authentication string. The string must be shorter than 16 characters.
 
-.. index:: ip rip authentication key-chain KEY-CHAIN
 .. clicmd:: ip rip authentication key-chain KEY-CHAIN
 
-.. index:: no ip rip authentication key-chain KEY-CHAIN
-.. clicmd:: no ip rip authentication key-chain KEY-CHAIN
 
    Specify Keyed MD5 chain.
 
@@ -587,7 +444,6 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 RIP Timers
 ==========
 
-.. index:: timers basic UPDATE TIMEOUT GARBAGE
 .. clicmd:: timers basic UPDATE TIMEOUT GARBAGE
 
 
@@ -610,11 +466,6 @@ RIP Timers
    The ``timers basic`` command allows the the default values of the timers
    listed above to be changed.
 
-.. index:: no timers basic
-.. clicmd:: no timers basic
-
-   The `no timers basic` command will reset the timers to the default settings
-   listed above.
 
 .. _show-rip-information:
 
@@ -623,7 +474,6 @@ Show RIP Information
 
 To display RIP routes.
 
-.. index:: show ip rip
 .. clicmd:: show ip rip
 
    Show RIP routes.
@@ -633,7 +483,6 @@ through RIP, this command will display the time the packet was sent and
 the tag information. This command will also display this information
 for routes redistributed into RIP.
 
-.. index:: show ip rip status
 .. clicmd:: show ip rip status
 
    The command displays current RIP status. It includes RIP timer,
@@ -665,27 +514,41 @@ RIP Debug Commands
 
 Debug for RIP protocol.
 
-.. index:: debug rip events
 .. clicmd:: debug rip events
 
    Shows RIP events. Sending and receiving packets, timers, and changes in
    interfaces are events shown with *ripd*.
 
-.. index:: debug rip packet
 .. clicmd:: debug rip packet
 
    Shows display detailed information about the RIP packets. The origin and
    port number of the packet as well as a packet dump is shown.
 
-.. index:: debug rip zebra
 .. clicmd:: debug rip zebra
 
    This command will show the communication between *ripd* and *zebra*. The
    main information will include addition and deletion of paths to the kernel
    and the sending and receiving of interface information.
 
-.. index:: show debugging rip
 .. clicmd:: show debugging rip
 
    Shows all information currently set for ripd debug.
 
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+
+   debug rip events
+   debug rip packet
+
+   router rip
+    network 11.0.0.0/8
+    network eth0
+    route 10.0.0.0/8
+    distribute-list private-only in eth0
+
+   access-list private-only permit 10.0.0.0/8
+   access-list private-only deny any

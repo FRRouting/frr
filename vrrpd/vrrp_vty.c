@@ -52,7 +52,7 @@
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group
  */
-DEFPY(vrrp_vrid,
+DEFPY_YANG(vrrp_vrid,
       vrrp_vrid_cmd,
       "[no] vrrp (1-255)$vrid [version (2-3)]",
       NO_STR
@@ -89,7 +89,7 @@ void cli_show_vrrp(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/shutdown
  */
-DEFPY(vrrp_shutdown,
+DEFPY_YANG(vrrp_shutdown,
       vrrp_shutdown_cmd,
       "[no] vrrp (1-255)$vrid shutdown",
       NO_STR
@@ -115,7 +115,7 @@ void cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
  */
-DEFPY(vrrp_priority,
+DEFPY_YANG(vrrp_priority,
       vrrp_priority_cmd,
       "vrrp (1-255)$vrid priority (1-254)",
       VRRP_STR
@@ -131,7 +131,7 @@ DEFPY(vrrp_priority,
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
  */
-DEFPY(no_vrrp_priority,
+DEFPY_YANG(no_vrrp_priority,
       no_vrrp_priority_cmd,
       "no vrrp (1-255)$vrid priority [(1-254)]",
       NO_STR
@@ -158,7 +158,7 @@ void cli_show_priority(struct vty *vty, struct lyd_node *dnode,
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
  */
-DEFPY(vrrp_advertisement_interval,
+DEFPY_YANG(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
       "vrrp (1-255)$vrid advertisement-interval (10-40950)",
       VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
@@ -179,7 +179,7 @@ DEFPY(vrrp_advertisement_interval,
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
  */
-DEFPY(no_vrrp_advertisement_interval,
+DEFPY_YANG(no_vrrp_advertisement_interval,
       no_vrrp_advertisement_interval_cmd,
       "no vrrp (1-255)$vrid advertisement-interval [(10-40950)]",
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
@@ -205,7 +205,7 @@ void cli_show_advertisement_interval(struct vty *vty, struct lyd_node *dnode,
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/v4/virtual-address
  */
-DEFPY(vrrp_ip,
+DEFPY_YANG(vrrp_ip,
       vrrp_ip_cmd,
       "[no] vrrp (1-255)$vrid ip A.B.C.D",
       NO_STR
@@ -233,7 +233,7 @@ void cli_show_ip(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
  * XPath:
  * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/v6/virtual-address
  */
-DEFPY(vrrp_ip6,
+DEFPY_YANG(vrrp_ip6,
       vrrp_ip6_cmd,
       "[no] vrrp (1-255)$vrid ipv6 X:X::X:X",
       NO_STR
@@ -260,7 +260,7 @@ void cli_show_ipv6(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
 /*
  * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/preempt
  */
-DEFPY(vrrp_preempt,
+DEFPY_YANG(vrrp_preempt,
       vrrp_preempt_cmd,
       "[no] vrrp (1-255)$vrid preempt",
       NO_STR
@@ -284,7 +284,7 @@ void cli_show_preempt(struct vty *vty, struct lyd_node *dnode,
 }
 
 /* XXX: yang conversion */
-DEFPY(vrrp_autoconfigure,
+DEFPY_YANG(vrrp_autoconfigure,
       vrrp_autoconfigure_cmd,
       "[no] vrrp autoconfigure [version (2-3)]",
       NO_STR
@@ -304,7 +304,7 @@ DEFPY(vrrp_autoconfigure,
 }
 
 /* XXX: yang conversion */
-DEFPY(vrrp_default,
+DEFPY_YANG(vrrp_default,
       vrrp_default_cmd,
       "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
       NO_STR
@@ -470,8 +470,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 
 	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 
-	ttable_add_row(tt, "%s|%" PRIu32, "Virtual Router ID", vr->vrid);
-	ttable_add_row(tt, "%s|%" PRIu8, "Protocol Version", vr->version);
+	ttable_add_row(tt, "%s|%u", "Virtual Router ID", vr->vrid);
+	ttable_add_row(tt, "%s|%hhu", "Protocol Version", vr->version);
 	ttable_add_row(tt, "%s|%s", "Autoconfigured",
 		       vr->autoconf ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Shutdown", vr->shutdown ? "Yes" : "No");
@@ -492,10 +492,10 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_add_row(tt, "%s|%s", "Virtual MAC (v6)", ethstr6);
 	ttable_add_row(tt, "%s|%s", "Status (v4)", stastr4);
 	ttable_add_row(tt, "%s|%s", "Status (v6)", stastr6);
-	ttable_add_row(tt, "%s|%" PRIu8, "Priority", vr->priority);
-	ttable_add_row(tt, "%s|%" PRIu8, "Effective Priority (v4)",
+	ttable_add_row(tt, "%s|%hhu", "Priority", vr->priority);
+	ttable_add_row(tt, "%s|%hhu", "Effective Priority (v4)",
 		       vr->v4->priority);
-	ttable_add_row(tt, "%s|%" PRIu8, "Effective Priority (v6)",
+	ttable_add_row(tt, "%s|%hhu", "Effective Priority (v6)",
 		       vr->v6->priority);
 	ttable_add_row(tt, "%s|%s", "Preempt Mode",
 		       vr->preempt_mode ? "Yes" : "No");
@@ -509,21 +509,21 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_add_row(tt, "%s|%d ms",
 		       "Master Advertisement Interval (v6)",
 		       vr->v6->master_adver_interval * CS2MS);
-	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Tx (v4)",
+	ttable_add_row(tt, "%s|%u", "Advertisements Tx (v4)",
 		       vr->v4->stats.adver_tx_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Tx (v6)",
+	ttable_add_row(tt, "%s|%u", "Advertisements Tx (v6)",
 		       vr->v6->stats.adver_tx_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Rx (v4)",
+	ttable_add_row(tt, "%s|%u", "Advertisements Rx (v4)",
 		       vr->v4->stats.adver_rx_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Rx (v6)",
+	ttable_add_row(tt, "%s|%u", "Advertisements Rx (v6)",
 		       vr->v6->stats.adver_rx_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "Gratuitous ARP Tx (v4)",
+	ttable_add_row(tt, "%s|%u", "Gratuitous ARP Tx (v4)",
 		       vr->v4->stats.garp_tx_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "Neigh. Adverts Tx (v6)",
+	ttable_add_row(tt, "%s|%u", "Neigh. Adverts Tx (v6)",
 		       vr->v6->stats.una_tx_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "State transitions (v4)",
+	ttable_add_row(tt, "%s|%u", "State transitions (v4)",
 		       vr->v4->stats.trans_cnt);
-	ttable_add_row(tt, "%s|%" PRIu32, "State transitions (v6)",
+	ttable_add_row(tt, "%s|%u", "State transitions (v6)",
 		       vr->v6->stats.trans_cnt);
 	ttable_add_row(tt, "%s|%d ms", "Skew Time (v4)",
 		       vr->v4->skew_time * CS2MS);
@@ -583,7 +583,7 @@ static int vrrp_instance_display_sort_cmp(const void **d1, const void **d2)
 
 /* clang-format off */
 
-DEFPY(vrrp_vrid_show,
+DEFPY_YANG(vrrp_vrid_show,
       vrrp_vrid_show_cmd,
       "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid] [json$json]",
       SHOW_STR
@@ -624,7 +624,7 @@ DEFPY(vrrp_vrid_show,
 	return CMD_SUCCESS;
 }
 
-DEFPY(vrrp_vrid_show_summary,
+DEFPY_YANG(vrrp_vrid_show_summary,
       vrrp_vrid_show_summary_cmd,
       "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid] summary",
       SHOW_STR
@@ -653,7 +653,7 @@ DEFPY(vrrp_vrid_show_summary,
 			continue;
 
 		ttable_add_row(
-			tt, "%s|%" PRIu8 "|%" PRIu8 "|%d|%d|%s|%s",
+			tt, "%s|%u|%hhu|%d|%d|%s|%s",
 			vr->ifp->name, vr->vrid, vr->priority,
 			vr->v4->addrs->count, vr->v6->addrs->count,
 			vr->v4->fsm.state == VRRP_STATE_MASTER ? "Master"
@@ -674,7 +674,7 @@ DEFPY(vrrp_vrid_show_summary,
 }
 
 
-DEFPY(debug_vrrp,
+DEFPY_YANG(debug_vrrp,
       debug_vrrp_cmd,
       "[no] debug vrrp [{protocol$proto|autoconfigure$ac|packets$pkt|sockets$sock|ndisc$ndisc|arp$arp|zebra$zebra}]",
       NO_STR
@@ -729,7 +729,7 @@ static int vrrp_config_write_interface(struct vty *vty)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
 
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);
@@ -744,21 +744,31 @@ static int vrrp_config_write_interface(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
-static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
-static struct cmd_node vrrp_node = {VRRP_NODE, "", 1};
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = vrrp_config_write_debug,
+};
+
+static struct cmd_node vrrp_node = {
+	.name = "vrrp",
+	.node = VRRP_NODE,
+	.prompt = "",
+	.config_write = vrrp_config_write_global,
+};
 
 void vrrp_vty_init(void)
 {
-	install_node(&debug_node, vrrp_config_write_debug);
-	install_node(&interface_node, vrrp_config_write_interface);
-	install_node(&vrrp_node, vrrp_config_write_global);
-	if_cmd_init();
+	install_node(&debug_node);
+	install_node(&vrrp_node);
+	vrf_cmd_init(NULL);
+	if_cmd_init(vrrp_config_write_interface);
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);
-	install_element(VIEW_NODE, &show_debugging_vrrp_cmd);
-	install_element(VIEW_NODE, &debug_vrrp_cmd);
+	install_element(ENABLE_NODE, &show_debugging_vrrp_cmd);
+	install_element(ENABLE_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);
 	install_element(CONFIG_NODE, &vrrp_default_cmd);

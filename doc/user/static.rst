@@ -35,10 +35,8 @@ Static Route Commands
 Static routing is a very fundamental feature of routing technology. It defines
 a static prefix and gateway.
 
-.. index:: ip route NETWORK GATEWAY table TABLENO nexthop-vrf VRFNAME DISTANCE vrf VRFNAME
 .. clicmd:: ip route NETWORK GATEWAY table TABLENO nexthop-vrf VRFNAME DISTANCE vrf VRFNAME
 
-.. index:: ipv6 route NETWORK from SRCPREFIX GATEWAY table TABLENO nexthop-vrf VRFNAME DISTANCE vrf VRFNAME
 .. clicmd:: ipv6 route NETWORK from SRCPREFIX GATEWAY table TABLENO nexthop-vrf VRFNAME DISTANCE vrf VRFNAME
 
    NETWORK is destination prefix with a valid v4 or v6 network based upon
@@ -128,3 +126,15 @@ but this time, the route command will apply to the VRF.
     ip route 10.0.0.0/24 10.0.0.2
    exit-vrf
 
+
+SR-TE Route Commands
+====================
+
+It is possible to specify a route using a SR-TE policy configured in Zebra.
+
+e.g. to use the SR-TE policy with endpoint 6.6.6.6 and color 123 to reach the
+network 9.9.9.9/24:
+
+.. code-block:: frr
+
+  ip route 9.9.9.9/24 6.6.6.6 color 123

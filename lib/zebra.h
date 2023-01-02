@@ -27,12 +27,6 @@
 
 #include "compiler.h"
 
-#ifdef SUNOS_5
-typedef unsigned int uint32_t;
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
-#endif /* SUNOS_5 */
-
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,11 +68,12 @@ typedef unsigned char uint8_t;
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
-
-/* machine dependent includes */
-#ifdef SUNOS_5
-#include <strings.h>
-#endif /* SUNOS_5 */
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
 
 /* machine dependent includes */
 #ifdef HAVE_LINUX_VERSION_H
@@ -91,30 +86,11 @@ typedef unsigned char uint8_t;
 
 /* misc include group */
 #include <stdarg.h>
-#if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
-/* Not C99; do we need to define va_copy? */
-#ifndef va_copy
-#ifdef __va_copy
-#define va_copy(DST,SRC) __va_copy(DST,SRC)
-#else
-/* Now we are desperate; this should work on many typical platforms.
-   But this is slightly dangerous, because the standard does not require
-   va_copy to be a macro. */
-#define va_copy(DST,SRC) memcpy(&(DST), &(SRC), sizeof(va_list))
-#warning "Not C99 and no va_copy macro available, falling back to memcpy"
-#endif /* __va_copy */
-#endif /* !va_copy */
-#endif /* !C99 */
-
 
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #endif /* HAVE_LCAPS */
-
-#ifdef HAVE_SOLARIS_CAPABILITIES
-#include <priv.h>
-#endif /* HAVE_SOLARIS_CAPABILITIES */
 
 /* network include group */
 
@@ -230,7 +206,7 @@ typedef unsigned char uint8_t;
 #define __attribute__(x)
 #endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
-#include "zassert.h"
+#include <assert.h>
 
 /*
  * Add explicit static cast only when using a C++ compiler.
@@ -239,6 +215,10 @@ typedef unsigned char uint8_t;
 #define static_cast(l, r) static_cast<decltype(l)>((r))
 #else
 #define static_cast(l, r) (r)
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #ifndef HAVE_STRLCAT
@@ -306,27 +286,14 @@ struct in_pktinfo {
 #if defined(__NetBSD__)                                                        \
 	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
 	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))                                                \
-	|| (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
+	|| (defined(__APPLE__))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
-/* Define BYTE_ORDER, if not defined. Useful for compiler conditional
- * code, rather than preprocessor conditional.
- * Not all the world has this BSD define.
- */
+/* autoconf macros for this are deprecated, just find endian.h */
 #ifndef BYTE_ORDER
-#define BIG_ENDIAN	4321	/* least-significant byte first (vax, pc) */
-#define LITTLE_ENDIAN	1234	/* most-significant byte first (IBM, net) */
-#define PDP_ENDIAN	3412	/* LSB first in word, MSW first in long (pdp) */
-
-#if defined(WORDS_BIGENDIAN)
-#define BYTE_ORDER	BIG_ENDIAN
-#else  /* !WORDS_BIGENDIAN */
-#define BYTE_ORDER	LITTLE_ENDIAN
-#endif /* WORDS_BIGENDIAN */
-
-#endif /* ndef BYTE_ORDER */
+#error please locate an endian.h file appropriate to your platform
+#endif
 
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
@@ -343,7 +310,7 @@ struct in_pktinfo {
 #include "compiler.h"
 
 /* Zebra route's types are defined in route_types.h */
-#include "route_types.h"
+#include "lib/route_types.h"
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
@@ -360,6 +327,8 @@ typedef enum {
 	AFI_MAX = 4
 } afi_t;
 
+#define IS_VALID_AFI(a) ((a) > AFI_UNSPEC && (a) < AFI_MAX)
+
 /* Subsequent Address Family Identifier. */
 typedef enum {
 	SAFI_UNSPEC = 0,
@@ -372,6 +341,10 @@ typedef enum {
 	SAFI_FLOWSPEC = 7,
 	SAFI_MAX = 8
 } safi_t;
+
+#define FOREACH_AFI_SAFI(afi, safi)                                            \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
@@ -409,5 +382,9 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_H */

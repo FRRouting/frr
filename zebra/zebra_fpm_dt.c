@@ -90,7 +90,7 @@ static int zfpm_dt_find_route(rib_dest_t **dest_p, struct route_entry **re_p)
 		if (!re)
 			continue;
 
-		if (nexthop_group_active_nexthop_num(re->nhe->nhg) == 0)
+		if (nexthop_group_active_nexthop_num(&(re->nhe->nhg)) == 0)
 			continue;
 
 		*dest_p = dest;
@@ -181,6 +181,7 @@ static void zfpm_dt_log_fpm_message(Fpm__Message *msg)
 	char *if_name;
 	size_t i;
 	char buf[INET6_ADDRSTRLEN];
+	char addr_buf[PREFIX_STRLEN];
 	union g_addr nh_addr;
 
 	if (msg->type != FPM__MESSAGE__TYPE__ADD_ROUTE)
@@ -213,7 +214,9 @@ static void zfpm_dt_log_fpm_message(Fpm__Message *msg)
 
 		zfpm_debug("Nexthop - if_index: %d (%s), gateway: %s, ",
 			   if_index, if_name ? if_name : "name not specified",
-			   nexthop->address ? inet_ntoa(nh_addr.ipv4) : "None");
+			   nexthop->address ?
+			   inet_ntop(AF_INET, &nh_addr.ipv4,
+				     addr_buf, sizeof(addr_buf)) : "None");
 	}
 }
 

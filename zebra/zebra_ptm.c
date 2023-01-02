@@ -31,7 +31,7 @@
 #include "ptm_lib.h"
 #include "rib.h"
 #include "stream.h"
-#include "version.h"
+#include "lib/version.h"
 #include "vrf.h"
 #include "vty.h"
 #include "lib_errors.h"
@@ -132,7 +132,7 @@ void zebra_ptm_init(void)
 	ptm_cb.pid = getpid();
 	zebra_ptm_install_commands();
 
-	sprintf(buf, "%s", FRR_PTM_NAME);
+	snprintf(buf, sizeof(buf), "%s", FRR_PTM_NAME);
 	ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_msg_cb,
 				   zebra_ptm_handle_msg_cb);
 	ptm_cb.wb = buffer_new(0);
@@ -156,13 +156,10 @@ void zebra_ptm_finish(void)
 	if (ptm_cb.in_data)
 		free(ptm_cb.in_data);
 
-	/* Release threads. */
-	if (ptm_cb.t_read)
-		thread_cancel(ptm_cb.t_read);
-	if (ptm_cb.t_write)
-		thread_cancel(ptm_cb.t_write);
-	if (ptm_cb.t_timer)
-		thread_cancel(ptm_cb.t_timer);
+	/* Cancel events. */
+	thread_cancel(&ptm_cb.t_read);
+	thread_cancel(&ptm_cb.t_write);
+	thread_cancel(&ptm_cb.t_timer);
 
 	if (ptm_cb.wb)
 		buffer_free(ptm_cb.wb);
@@ -190,7 +187,7 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return (-1);
+		return -1;
 	case BUFFER_PENDING:
 		ptm_cb.t_write = NULL;
 		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
@@ -200,7 +197,7 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 		break;
 	}
 
-	return (0);
+	return 0;
 }
 
 static int zebra_ptm_send_message(char *data, int size)
@@ -218,7 +215,7 @@ static int zebra_ptm_send_message(char *data, int size)
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
 	case BUFFER_EMPTY:
-		THREAD_OFF(ptm_cb.t_write);
+		thread_cancel(&ptm_cb.t_write);
 		break;
 	case BUFFER_PENDING:
 		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
@@ -390,7 +387,7 @@ static int zebra_ptm_socket_init(void)
 	if (set_nonblocking(sock) < 0) {
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("%s: Unable to set socket non blocking[%s]",
-				   __PRETTY_FUNCTION__, safe_strerror(errno));
+				   __func__, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -434,22 +431,22 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 
 		if (ifp) {
 			zlog_debug(
-				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d on %s"
-				" %s event",
+				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d on %s %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen, ifp->name,
 				bfd_get_status_str(status));
 		} else {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
 			zlog_debug(
-				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-				"with src %s/%d and vrf %u %s event",
+				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d with src %s/%d and vrf %s(%u) %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen,
 				inet_ntop(sp->family, &sp->u.prefix, buf[1],
 					  INET6_ADDRSTRLEN),
-				sp->prefixlen, vrf_id,
+				sp->prefixlen, VRF_LOGNAME(vrf), vrf_id,
 				bfd_get_status_str(status));
 		}
 	}
@@ -500,8 +497,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: Recv Port [%s] bfd status [%s] vrf [%s]"
-			" peer [%s] local [%s]",
+			"%s: Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
 			__func__, ifp ? ifp->name : "N/A", bfdst_str, vrf_str,
 			dest_str, src_str);
 
@@ -524,7 +520,13 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	if (!strcmp(ZEBRA_PTM_INVALID_VRF, vrf_str) && ifp) {
 		vrf_id = ifp->vrf_id;
 	} else {
-		vrf_id = vrf_name_to_id(vrf_str);
+		struct vrf *pVrf;
+
+		pVrf = vrf_lookup_by_name(vrf_str);
+		if (pVrf)
+			vrf_id = pVrf->vrf_id;
+		else
+			vrf_id = VRF_DEFAULT;
 	}
 
 	if (!strcmp(bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
@@ -661,7 +663,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time,
 				 &ptm_cb.t_timer);
-		return (-1);
+		return -1;
 	}
 
 	ptm_cb.t_read = NULL;
@@ -708,16 +710,17 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_START_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", ZEBRA_PTM_BFD_START_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
-	sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 zebra_route_string(client->proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
 	s = msg;
 
 	STREAM_GETL(s, pid);
-	sprintf(tmp_buf, "%d", pid);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);
 
@@ -740,21 +743,21 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	}
 
 	STREAM_GETL(s, min_rx_timer);
-	sprintf(tmp_buf, "%d", min_rx_timer);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", min_rx_timer);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MIN_RX_FIELD,
 			   tmp_buf);
 	STREAM_GETL(s, min_tx_timer);
-	sprintf(tmp_buf, "%d", min_tx_timer);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", min_tx_timer);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MIN_TX_FIELD,
 			   tmp_buf);
 	STREAM_GETC(s, detect_mul);
-	sprintf(tmp_buf, "%d", detect_mul);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", detect_mul);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DETECT_MULT_FIELD,
 			   tmp_buf);
 
 	STREAM_GETC(s, multi_hop);
 	if (multi_hop) {
-		sprintf(tmp_buf, "%d", 1);
+		snprintf(tmp_buf, sizeof(tmp_buf), "%d", 1);
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MULTI_HOP_FIELD, tmp_buf);
 		STREAM_GETW(s, src_p.family);
@@ -776,7 +779,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 		}
 
 		STREAM_GETC(s, multi_hop_cnt);
-		sprintf(tmp_buf, "%d", multi_hop_cnt);
+		snprintf(tmp_buf, sizeof(tmp_buf), "%d", multi_hop_cnt);
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD, tmp_buf);
 
@@ -816,11 +819,11 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 				   ZEBRA_PTM_BFD_IFNAME_FIELD, if_name);
 	}
 	STREAM_GETC(s, cbit_set);
-	sprintf(tmp_buf, "%d", cbit_set);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", cbit_set);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt,
 			   ZEBRA_PTM_BFD_CBIT_FIELD, tmp_buf);
 
-	sprintf(tmp_buf, "%d", 1);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", 1);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEND_EVENT,
 			   tmp_buf);
 
@@ -867,17 +870,18 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_STOP_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", ZEBRA_PTM_BFD_STOP_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-	sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 zebra_route_string(client->proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
 	s = msg;
 
 	STREAM_GETL(s, pid);
-	sprintf(tmp_buf, "%d", pid);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);
 
@@ -898,7 +902,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 	STREAM_GETC(s, multi_hop);
 	if (multi_hop) {
-		sprintf(tmp_buf, "%d", 1);
+		snprintf(tmp_buf, sizeof(tmp_buf), "%d", 1);
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MULTI_HOP_FIELD, tmp_buf);
 
@@ -994,14 +998,15 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_REG_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", ZEBRA_PTM_BFD_CLIENT_REG_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-	sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 zebra_route_string(client->proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	sprintf(tmp_buf, "%d", pid);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);
 
@@ -1052,10 +1057,11 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_DEREG_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 ZEBRA_PTM_BFD_CLIENT_DEREG_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-	sprintf(tmp_buf, "%s", zebra_route_string(proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", zebra_route_string(proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
@@ -1092,14 +1098,20 @@ static const char *zebra_ptm_get_status_str(int status)
 	}
 }
 
-void zebra_ptm_show_status(struct vty *vty, struct interface *ifp)
+void zebra_ptm_show_status(struct vty *vty, json_object *json,
+			   struct interface *ifp)
 {
-	vty_out(vty, "  PTM status: ");
-	if (ifp->ptm_enable) {
-		vty_out(vty, "%s\n", zebra_ptm_get_status_str(ifp->ptm_status));
-	} else {
-		vty_out(vty, "disabled\n");
-	}
+	const char *status;
+
+	if (ifp->ptm_enable)
+		status = zebra_ptm_get_status_str(ifp->ptm_status);
+	else
+		status = "disabled";
+
+	if (json)
+		json_object_string_add(json, "ptmStatus", status);
+	else
+		vty_out(vty, "  PTM status: %s\n", status);
 }
 
 void zebra_ptm_send_status_req(void)
@@ -1166,8 +1178,6 @@ void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
 }
 
 #else /* HAVE_BFDD */
-
-#include "zebra/zebra_memory.h"
 
 /*
  * Data structures.
@@ -1539,6 +1549,7 @@ int zebra_ptm_get_enable_state(void)
 }
 
 void zebra_ptm_show_status(struct vty *vty __attribute__((__unused__)),
+			   json_object *json __attribute__((__unused__)),
 			   struct interface *ifp __attribute__((__unused__)))
 {
 	/* NOTHING */

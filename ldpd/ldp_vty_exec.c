@@ -19,6 +19,7 @@
 
 #include <zebra.h>
 #include <sys/un.h>
+#include "lib/printfrr.h"
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -37,7 +38,8 @@ enum show_command {
 	SHOW_NBR,
 	SHOW_LIB,
 	SHOW_L2VPN_PW,
-	SHOW_L2VPN_BINDING
+	SHOW_L2VPN_BINDING,
+	SHOW_LDP_SYNC
 };
 
 struct show_params {
@@ -86,6 +88,10 @@ static void		 show_discovery_detail_adj_json(json_object *,
 			    struct ctl_adj *);
 static int		 show_discovery_detail_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
+static int		 show_ldp_sync_msg(struct vty *, struct imsg *,
+			    struct show_params *);
+static int		 show_ldp_sync_msg_json(struct imsg *,
+			    struct show_params *, json_object *);
 
 static int		 show_nbr_msg(struct vty *, struct imsg *,
 			    struct show_params *);
@@ -122,7 +128,6 @@ static int		 show_l2vpn_pw_msg(struct vty *, struct imsg *,
 			    struct show_params *);
 static int		 show_l2vpn_pw_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
-static int		 ldp_vty_connect(struct imsgbuf *);
 static int		 ldp_vty_dispatch_msg(struct vty *, struct imsg *,
 			    enum show_command, struct show_params *,
 			    json_object *);
@@ -193,8 +198,92 @@ show_interface_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_int_add(json_iface, "adjacencyCount",
 		    iface->adj_cnt);
 
-		sprintf(key_name, "%s: %s", iface->name, af_name(iface->af));
+		snprintf(key_name, sizeof(key_name), "%s: %s", iface->name,
+			 af_name(iface->af));
 		json_object_object_add(json, key_name, json_iface);
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+static int
+show_ldp_sync_msg(struct vty *vty, struct imsg *imsg,
+    struct show_params *params)
+{
+	struct ctl_ldp_sync	*iface;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LDP_SYNC:
+		iface = imsg->data;
+
+		vty_out (vty, "%s:\n", iface->name);
+		if (iface->in_sync)
+			vty_out (vty, "    Status: initial label exchange complete\n");
+		else
+			vty_out (vty, "    Status: label exchange not complete\n");
+
+		if (iface->timer_running) {
+			vty_out (vty, "    Wait time: %d seconds (%d seconds left)\n",
+				iface->wait_time, iface->wait_time_remaining);
+			vty_out (vty, "    Timer is running\n");
+		} else {
+			vty_out (vty, "    Wait time: %d seconds\n",
+				iface->wait_time);
+			vty_out (vty, "    Timer is not running\n");
+		}
+
+		if (iface->peer_ldp_id.s_addr)
+			vty_out (vty, "    Peer LDP Identifier: %pI4:0\n",
+				&iface->peer_ldp_id);
+
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+static int
+show_ldp_sync_msg_json(struct imsg *imsg, struct show_params *params,
+    json_object *json)
+{
+	struct ctl_ldp_sync	*iface;
+	json_object		*json_iface;
+	char buf[PREFIX_STRLEN];
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LDP_SYNC:
+		iface = imsg->data;
+
+		json_iface = json_object_new_object();
+		json_object_string_add(json_iface, "state",
+		    iface->in_sync
+		    ? "labelExchangeComplete"
+		    : "labelExchangeNotComplete");
+		json_object_int_add(json_iface, "waitTime",
+		    iface->wait_time);
+		json_object_int_add(json_iface, "waitTimeRemaining",
+		    iface->wait_time_remaining);
+
+		if (iface->timer_running)
+			json_object_boolean_true_add(json_iface, "timerRunning");
+		else
+			json_object_boolean_false_add(json_iface, "timerRunning");
+
+		json_object_string_add(json_iface, "peerLdpId",
+		    iface->peer_ldp_id.s_addr ?
+		    inet_ntop(AF_INET, &iface->peer_ldp_id, buf, sizeof(buf)) :
+			      "");
+
+		json_object_object_add(json, iface->name, json_iface);
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -219,8 +308,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 		if (params->family != AF_UNSPEC && params->family != adj->af)
 			break;
 
-		vty_out(vty, "%-4s %-15s ", af_name(adj->af),
-		    inet_ntoa(adj->id));
+		vty_out(vty, "%-4s %-15pI4 ", af_name(adj->af),	&adj->id);
 		switch(adj->type) {
 		case HELLO_LINK:
 			vty_out(vty, "%-8s %-15s ", "Link", adj->ifname);
@@ -250,8 +338,8 @@ show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 {
 	size_t	 buflen = strlen(buffer);
 
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "      LSR Id: %s:0\n", inet_ntoa(adj->id));
+	snprintfrr(buffer + buflen, LDPBUFSIZ - buflen,
+		   "      LSR Id: %pI4:0\n", &adj->id);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 	    "          Source address: %s\n",
@@ -333,7 +421,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_END:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
 		vty_out (vty, "Local:\n");
-		vty_out (vty, "  LSR Id: %s:0\n",inet_ntoa(rtr_id));
+		vty_out (vty, "  LSR Id: %pI4:0\n",&rtr_id);
 		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
 			vty_out (vty, "  Transport Address (IPv4): %s\n",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
@@ -359,6 +447,7 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_adj		*adj;
+	char 			buf[PREFIX_STRLEN];
 	json_object		*json_array;
 	json_object		*json_adj;
 
@@ -379,7 +468,8 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_string_add(json_adj, "addressFamily",
 		    af_name(adj->af));
 		json_object_string_add(json_adj, "neighborId",
-		    inet_ntoa(adj->id));
+				       inet_ntop(AF_INET, &adj->id, buf,
+						 sizeof(buf)));
 		switch(adj->type) {
 		case HELLO_LINK:
 			json_object_string_add(json_adj, "type", "link");
@@ -408,6 +498,7 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 static void
 show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 {
+	char buf[PREFIX_STRLEN];
 	json_object *json_adj;
 	json_object *json_array;
 
@@ -418,7 +509,8 @@ show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 	}
 
 	json_adj = json_object_new_object();
-	json_object_string_add(json_adj, "lsrId", inet_ntoa(adj->id));
+	json_object_string_add(json_adj, "lsrId", inet_ntop(AF_INET, &adj->id,
+							    buf, sizeof(buf)));
 	json_object_string_add(json_adj, "sourceAddress", log_addr(adj->af,
 	    &adj->src_addr));
 	json_object_string_add(json_adj, "transportAddress", log_addr(adj->af,
@@ -440,6 +532,7 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_disc_tnbr	*tnbr;
 	struct in_addr		 rtr_id;
 	union ldpd_addr		*trans_addr;
+	char buf[PREFIX_STRLEN];
 	json_object		*json_interface;
 	json_object		*json_target;
 	static json_object	*json_interfaces;
@@ -449,7 +542,9 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_DISCOVERY:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		json_object_string_add(json, "lsrId", inet_ntoa(rtr_id));
+		json_object_string_add(json, "lsrId",
+				       inet_ntop(AF_INET, &rtr_id, buf,
+						 sizeof(buf)));
 		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
 			json_object_string_add(json, "transportAddressIPv4",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
@@ -526,9 +621,9 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 		addr = log_addr(nbr->af, &nbr->raddr);
 
-		vty_out(vty, "%-4s %-15s %-11s %-15s",
-		    af_name(nbr->af), inet_ntoa(nbr->id),
-		    nbr_state_name(nbr->nbr_state), addr);
+		vty_out(vty, "%-4s %-15pI4 %-11s %-15s",
+			af_name(nbr->af), &nbr->id,
+			nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
 			vty_out(vty, "\n%48s", " ");
 		vty_out (vty, " %8s\n", log_time(nbr->uptime));
@@ -576,15 +671,14 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 
 		v4adjs_buffer[0] = '\0';
 		v6adjs_buffer[0] = '\0';
-		vty_out (vty, "Peer LDP Identifier: %s:0\n",
-			  inet_ntoa(nbr->id));
+		vty_out (vty, "Peer LDP Identifier: %pI4:0\n",
+			  &nbr->id);
 		vty_out (vty, "  TCP connection: %s:%u - %s:%u\n",
 		    log_addr(nbr->af, &nbr->laddr), ntohs(nbr->lport),
 		    log_addr(nbr->af, &nbr->raddr),ntohs(nbr->rport));
 		vty_out (vty, "  Authentication: %s\n",
 		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" : "none");
-		vty_out(vty, "  Session Holdtime: %u secs; "
-		    "KeepAlive interval: %u secs\n", nbr->holdtime,
+		vty_out(vty, "  Session Holdtime: %u secs; KeepAlive interval: %u secs\n", nbr->holdtime,
 		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
 		vty_out(vty, "  State: %s; Downstream-Unsolicited\n",
 		    nbr_state_name(nbr->nbr_state));
@@ -655,6 +749,7 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
+	char buf[PREFIX_STRLEN];
 	json_object		*json_array;
 	json_object		*json_nbr;
 
@@ -672,7 +767,8 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_string_add(json_nbr, "addressFamily",
 		    af_name(nbr->af));
 		json_object_string_add(json_nbr, "neighborId",
-		    inet_ntoa(nbr->id));
+				       inet_ntop(AF_INET, &nbr->id, buf,
+						 sizeof(buf)));
 		json_object_string_add(json_nbr, "state",
 		    nbr_state_name(nbr->nbr_state));
 		json_object_string_add(json_nbr, "transportAddress",
@@ -718,6 +814,7 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_nbr		*nbr;
 	struct ldp_stats	*stats;
 	struct ctl_adj		*adj;
+	char buf[PREFIX_STRLEN];
 	json_object		*json_nbr;
 	json_object		*json_array;
 	json_object		*json_counter;
@@ -730,9 +827,12 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		nbr = imsg->data;
 
 		json_nbr = json_object_new_object();
-		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
-
-		json_object_string_add(json_nbr, "peerId", inet_ntoa(nbr->id));
+		json_object_object_add(json,
+				       inet_ntop(AF_INET, &nbr->id, buf,
+						 sizeof(buf)), json_nbr);
+		json_object_string_add(json_nbr, "peerId",
+				       inet_ntop(AF_INET, &nbr->id, buf,
+						 sizeof(buf)));
 		json_object_string_add(json_nbr, "tcpLocalAddress",
 		    log_addr(nbr->af, &nbr->laddr));
 		json_object_int_add(json_nbr, "tcpLocalPort",
@@ -913,8 +1013,8 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 		if (nbr->nbr_state != NBR_STA_OPER)
 			break;
 
-		vty_out (vty, "Peer LDP Identifier: %s:0\n",
-			  inet_ntoa(nbr->id));
+		vty_out (vty, "Peer LDP Identifier: %pI4:0\n",
+			  &nbr->id);
 		show_nbr_capabilities(vty, nbr);
 		vty_out (vty, "\n");
 		break;
@@ -994,6 +1094,7 @@ show_nbr_capabilities_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
+	char buf[PREFIX_STRLEN];
 	json_object		*json_nbr;
 
 	switch (imsg->hdr.type) {
@@ -1004,7 +1105,8 @@ show_nbr_capabilities_msg_json(struct imsg *imsg, struct show_params *params,
 			break;
 
 		json_nbr = json_object_new_object();
-		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
+		json_object_object_add(json, inet_ntop(AF_INET, &nbr->id, buf,
+						       sizeof(buf)), json_nbr);
 		show_nbr_capabilities_json(nbr, json_nbr);
 		break;
 	case IMSG_CTL_END:
@@ -1043,9 +1145,10 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
 		if (strlen(dstnet) > 20)
 			vty_out(vty, "\n%25s", " ");
-		vty_out (vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
-		    log_label(rt->local_label), log_label(rt->remote_label),
-		    rt->in_use ? "yes" : "no");
+		vty_out (vty, " %-15pI4 %-11s %-13s %6s\n",
+			 &rt->nexthop, log_label(rt->local_label),
+			 log_label(rt->remote_label),
+			 rt->in_use ? "yes" : "no");
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -1083,17 +1186,17 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 
 		upstream = 1;
 		buflen = strlen(sent_buffer);
-		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0\n", "", inet_ntoa(rt->nexthop));
+		snprintfrr(sent_buffer + buflen, LDPBUFSIZ - buflen,
+			   "%12s%pI4:0\n", "", &rt->nexthop);
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
 		downstream = 1;
 		buflen = strlen(rcvd_buffer);
-		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0, label %s%s\n", "", inet_ntoa(rt->nexthop),
-		    log_label(rt->remote_label),
-		    rt->in_use ? " (in use)" : "");
+		snprintfrr(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
+			   "%12s%pI4:0, label %s%s\n", "", &rt->nexthop,
+			   log_label(rt->remote_label),
+			   rt->in_use ? " (in use)" : "");
 		break;
 	case IMSG_CTL_SHOW_LIB_END:
 		rt = imsg->data;
@@ -1132,6 +1235,7 @@ show_lib_msg_json(struct imsg *imsg, struct show_params *params,
 	json_object	*json_array;
 	json_object	*json_lib_entry;
 	char		 dstnet[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_LIB_BEGIN:
@@ -1155,11 +1259,12 @@ show_lib_msg_json(struct imsg *imsg, struct show_params *params,
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
 		json_object_string_add(json_lib_entry, "prefix", dstnet);
 		json_object_string_add(json_lib_entry, "neighborId",
-		    inet_ntoa(rt->nexthop));
+				       inet_ntop(AF_INET, &rt->nexthop, buf,
+						 sizeof(buf)));
 		json_object_string_add(json_lib_entry, "localLabel",
-		    log_label(rt->local_label));
+				       log_label(rt->local_label));
 		json_object_string_add(json_lib_entry, "remoteLabel",
-		    log_label(rt->remote_label));
+				       log_label(rt->remote_label));
 		json_object_int_add(json_lib_entry, "inUse", rt->in_use);
 
 		json_object_array_add(json_array, json_lib_entry);
@@ -1179,6 +1284,7 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 {
 	struct ctl_rt		*rt = NULL;
 	char			 dstnet[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 	static json_object	*json_lib_entry;
 	static json_object	*json_adv_labels;
 	json_object		*json_adv_label;
@@ -1211,7 +1317,8 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 
 		json_adv_label = json_object_new_object();
 		json_object_string_add(json_adv_label, "neighborId",
-		    inet_ntoa(rt->nexthop));
+				       inet_ntop(AF_INET, &rt->nexthop, buf,
+						 sizeof(buf)));
 		json_object_array_add(json_adv_labels, json_adv_label);
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
@@ -1219,9 +1326,10 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 
 		json_remote_label = json_object_new_object();
 		json_object_string_add(json_remote_label, "neighborId",
-		    inet_ntoa(rt->nexthop));
+				       inet_ntop(AF_INET, &rt->nexthop,
+						 buf, sizeof(buf)));
 		json_object_string_add(json_remote_label, "label",
-		    log_label(rt->remote_label));
+				       log_label(rt->remote_label));
 		json_object_int_add(json_remote_label, "inUse", rt->in_use);
 		json_object_array_add(json_remote_labels, json_remote_label);
 		break;
@@ -1244,17 +1352,18 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_L2VPN_BINDING:
 		pw = imsg->data;
 
-		vty_out (vty, "  Destination Address: %s, VC ID: %u\n",
-		    inet_ntoa(pw->lsr_id), pw->pwid);
+		vty_out (vty, "  Destination Address: %pI4, VC ID: %u\n",
+		    &pw->lsr_id, pw->pwid);
 
 		/* local binding */
 		if (pw->local_label != NO_LABEL) {
 			vty_out (vty, "    Local Label:  %u\n",
 				  pw->local_label);
-			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u\n", "", pw->local_cword,
+			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    GroupID: %u\n", "", pw->local_cword,
 			    pw_type_name(pw->type),pw->local_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
+			vty_out (vty, "%-8sLast failure: %s\n", "",
+			    pw_error_code(pw->reason));
 		} else
 			vty_out (vty,"    Local Label: unassigned\n");
 
@@ -1262,8 +1371,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 		if (pw->remote_label != NO_LABEL) {
 			vty_out (vty, "    Remote Label: %u\n",
 			    pw->remote_label);
-			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u\n", "", pw->remote_cword,
+			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    GroupID: %u\n", "", pw->remote_cword,
 			    pw_type_name(pw->type),pw->remote_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->remote_ifmtu);
 		} else
@@ -1286,6 +1394,7 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_pw	*pw;
 	json_object	*json_pw;
 	char 		 key_name[64];
+	char buf[PREFIX_STRLEN];
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_L2VPN_BINDING:
@@ -1293,7 +1402,8 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 
 		json_pw = json_object_new_object();
 		json_object_string_add(json_pw, "destination",
-		    inet_ntoa(pw->lsr_id));
+				       inet_ntop(AF_INET, &pw->lsr_id, buf,
+						 sizeof(buf)));
 		json_object_int_add(json_pw, "vcId", pw->pwid);
 
 		/* local binding */
@@ -1308,6 +1418,8 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 			    pw->local_gid);
 			json_object_int_add(json_pw, "localIfMtu",
 			    pw->local_ifmtu);
+			json_object_string_add(json_pw, "lastFailureReason",
+			    pw_error_code(pw->reason));
 		} else
 			json_object_string_add(json_pw, "localLabel",
 			    "unassigned");
@@ -1328,7 +1440,8 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 			json_object_string_add(json_pw, "remoteLabel",
 			    "unassigned");
 
-		sprintf(key_name, "%s: %u", inet_ntoa(pw->lsr_id), pw->pwid);
+		snprintfrr(key_name, sizeof(key_name), "%pI4: %u",
+			   &pw->lsr_id, pw->pwid);
 		json_object_object_add(json, key_name, json_pw);
 		break;
 	case IMSG_CTL_END:
@@ -1349,9 +1462,9 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 	case IMSG_CTL_SHOW_L2VPN_PW:
 		pw = imsg->data;
 
-		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
-		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
-		    (pw->status ? "UP" : "DOWN"));
+		vty_out (vty, "%-9s %-15pI4 %-10u %-16s %-10s\n", pw->ifname,
+			 &pw->lsr_id, pw->pwid, pw->l2vpn_name,
+			 (pw->status == PW_FORWARDING ? "UP" : "DOWN"));
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, "\n");
@@ -1368,6 +1481,7 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_pw	*pw;
+	char buf[PREFIX_STRLEN];
 	json_object	*json_pw;
 
 	switch (imsg->hdr.type) {
@@ -1375,10 +1489,12 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
 		pw = imsg->data;
 
 		json_pw = json_object_new_object();
-		json_object_string_add(json_pw, "peerId", inet_ntoa(pw->lsr_id));
+		json_object_string_add(json_pw, "peerId",
+				       inet_ntop(AF_INET, &pw->lsr_id,
+						 buf, sizeof(buf)));
 		json_object_int_add(json_pw, "vcId", pw->pwid);
 		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
-		if (pw->status)
+		if (pw->status == PW_FORWARDING)
 			json_object_string_add(json_pw, "status", "up");
 		else
 			json_object_string_add(json_pw, "status", "down");
@@ -1429,6 +1545,20 @@ ldp_vty_dispatch_iface(struct vty *vty, struct imsg *imsg,
 		ret = show_interface_msg_json(imsg, params, json);
 	else
 		ret = show_interface_msg(vty, imsg, params);
+
+	return (ret);
+}
+
+static int
+ldp_vty_dispatch_ldp_sync(struct vty *vty, struct imsg *imsg,
+    struct show_params *params, json_object *json)
+{
+	int	 ret;
+
+	if (params->json)
+		ret = show_ldp_sync_msg_json(imsg, params, json);
+	else
+		ret = show_ldp_sync_msg(vty, imsg, params);
 
 	return (ret);
 }
@@ -1681,6 +1811,8 @@ ldp_vty_dispatch_msg(struct vty *vty, struct imsg *imsg, enum show_command cmd,
 	case SHOW_L2VPN_BINDING:
 		return (ldp_vty_dispatch_l2vpn_binding(vty, imsg, params,
 		    json));
+	case SHOW_LDP_SYNC:
+		return (ldp_vty_dispatch_ldp_sync(vty, imsg, params, json));
 	default:
 		return (0);
 	}
@@ -1940,6 +2072,22 @@ ldp_vty_show_neighbor(struct vty *vty, const char *lsr_id, int capabilities,
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &params));
+}
+
+int
+ldp_vty_show_ldp_sync(struct vty *vty, const char *json)
+{
+	struct imsgbuf		 ibuf;
+	struct show_params	 params;
+
+	if (ldp_vty_connect(&ibuf) < 0)
+		return (CMD_WARNING);
+
+	memset(&params, 0, sizeof(params));
+	params.json = (json) ? 1 : 0;
+
+	imsg_compose(&ibuf, IMSG_CTL_SHOW_LDP_SYNC, 0, 0, -1, NULL, 0);
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_LDP_SYNC, &params));
 }
 
 int

@@ -22,7 +22,11 @@
 #define _ZEBRA_VTY_H
 
 #include <sys/types.h>
+#ifdef HAVE_LIBPCREPOSIX
+#include <pcreposix.h>
+#else
 #include <regex.h>
+#endif /* HAVE_LIBPCREPOSIX */
 
 #include "thread.h"
 #include "log.h"
@@ -39,7 +43,7 @@ extern "C" {
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
 
-#define VTY_MAXCFGCHANGES 8
+#define VTY_MAXCFGCHANGES 16
 
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];
@@ -129,6 +133,13 @@ struct vty {
 
 	/* Base candidate configuration. */
 	struct nb_config *candidate_config_base;
+
+	/* Dynamic transaction information. */
+	bool pending_allowed;
+	bool pending_commit;
+	char *pending_cmds_buf;
+	size_t pending_cmds_buflen;
+	size_t pending_cmds_bufpos;
 
 	/* Confirmed-commit timeout and rollback configuration. */
 	struct thread *t_confirmed_commit_timeout;
@@ -316,9 +327,11 @@ extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
 extern void vty_log(const char *level, const char *proto, const char *msg,
 		    struct timestamp_control *);
+extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive);
 extern void vty_config_exit(struct vty *);
+extern int vty_config_node_exit(struct vty *);
 extern int vty_shell(struct vty *);
 extern int vty_shell_serv(struct vty *);
 extern void vty_hello(struct vty *);

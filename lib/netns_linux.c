@@ -40,11 +40,8 @@
 #include "vrf.h"
 #include "lib_errors.h"
 
-DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
-DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
-
-/* default NS ID value used when VRF backend is not NETNS */
-#define NS_DEFAULT_INTERNAL 0
+DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context");
+DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name");
 
 static inline int ns_compare(const struct ns *ns, const struct ns *ns2);
 static struct ns *ns_lookup_name_internal(const char *name);
@@ -100,9 +97,6 @@ static inline int setns(int fd, int nstype)
 #ifdef HAVE_NETNS
 static int have_netns_enabled = -1;
 #endif /* HAVE_NETNS */
-
-/* default NS ID value used when VRF backend is not NETNS */
-#define NS_DEFAULT_INTERNAL 0
 
 static int have_netns(void)
 {
@@ -371,7 +365,7 @@ int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *))
 
 void ns_disable(struct ns *ns)
 {
-	return ns_disable_internal(ns);
+	ns_disable_internal(ns);
 }
 
 struct ns *ns_lookup(ns_id_t ns_id)
@@ -379,12 +373,20 @@ struct ns *ns_lookup(ns_id_t ns_id)
 	return ns_lookup_internal(ns_id);
 }
 
-void ns_walk_func(int (*func)(struct ns *))
+void ns_walk_func(int (*func)(struct ns *,
+			      void *param_in,
+			      void **param_out),
+		  void *param_in,
+		  void **param_out)
 {
 	struct ns *ns = NULL;
+	int ret;
 
-	RB_FOREACH (ns, ns_head, &ns_tree)
-		func(ns);
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		ret = func(ns, param_in, param_out);
+		if (ret == NS_WALK_STOP)
+			return;
+	}
 }
 
 const char *ns_get_name(struct ns *ns)
@@ -431,7 +433,7 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 		/* relevant pathname */
 		char tmp_name[PATH_MAX];
 
-		snprintf(tmp_name, PATH_MAX, "%s/%s", NS_RUN_DIR, name);
+		snprintf(tmp_name, sizeof(tmp_name), "%s/%s", NS_RUN_DIR, name);
 		result = realpath(tmp_name, pathname);
 	}
 
@@ -584,9 +586,27 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 	return ret;
 }
 
-ns_id_t ns_get_default_id(void)
+/* if relative link_nsid matches default netns,
+ * then return default absolute netns value
+ * otherwise, return NS_UNKNOWN
+ */
+ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid)
 {
-	if (default_ns)
-		return default_ns->ns_id;
-	return NS_DEFAULT_INTERNAL;
+	struct ns *ns;
+
+	ns = ns_lookup(ns_id_reference);
+	if (!ns)
+		return NS_UNKNOWN;
+
+	if (ns->relative_default_ns != link_nsid)
+		return NS_UNKNOWN;
+
+	ns = ns_get_default();
+	assert(ns);
+	return ns->ns_id;
+}
+
+struct ns *ns_get_default(void)
+{
+	return default_ns;
 }

@@ -24,8 +24,9 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
-#include "pim_iface.h"
 #include "pim_rpf.h"
+
+struct pim_interface;
 
 enum rp_source {
 	RP_SRC_NONE = 0,
@@ -46,8 +47,6 @@ void pim_rp_free(struct pim_instance *pim);
 
 void pim_rp_list_hash_clean(void *data);
 
-int pim_rp_new_config(struct pim_instance *pim, const char *rp,
-		      const char *group, const char *plist);
 int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	       struct prefix group, const char *plist,
 	       enum rp_source rp_src_flag);
@@ -88,4 +87,5 @@ int pim_rp_list_cmp(void *v1, void *v2);
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
+void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim);
 #endif

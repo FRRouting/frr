@@ -22,6 +22,9 @@ more or less complex combination of the following:
 - Layer 3 information: DSCP value, Protocol type, packet length, fragmentation.
 - Misc layer 4 TCP flags.
 
+Note that if originally Flowspec defined IPv4 rules, this is also possible to use
+IPv6 address-family. The same set of combinations as defined for IPv4 can be used.
+
 A combination of the above rules is applied for traffic filtering. This is
 encoded as part of specific BGP extended communities and the action can range
 from the obvious rerouting (to nexthop or to separate VRF) to shaping, or
@@ -31,6 +34,7 @@ The following IETF drafts and RFCs have been used to implement FRR Flowspec:
 
 - :rfc:`5575`
 - [Draft-IETF-IDR-Flowspec-redirect-IP]_
+- [Draft-IETF-IDR-Flow-Spec-V6]_
 
 .. _design-principles-flowspec:
 
@@ -108,16 +112,20 @@ As of today, it is only possible to configure Flowspec on the default VRF.
 
    router bgp <AS>
      neighbor <A.B.C.D> remote-as <remoteAS>
+     neighbor <A:B::C:D> remote-as <remoteAS2>
      address-family ipv4 flowspec
       neighbor <A.B.C.D> activate
-    exit
+     exit
+     address-family ipv6 flowspec
+      neighbor <A:B::C:D> activate
+     exit
    exit
 
 You can see Flowspec entries, by using one of the following show commands:
 
-.. index:: show bgp ipv4 flowspec [detail | A.B.C.D]
 .. clicmd:: show bgp ipv4 flowspec [detail | A.B.C.D]
 
+.. clicmd:: show bgp ipv6 flowspec [detail | A:B::C:D]
 
 Per-interface configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -131,8 +139,7 @@ twice the traffic, or slow down the traffic (filtering costs). To limit
 Flowspec to one specific interface, use the following command, under
 `flowspec address-family` node.
 
-.. index:: [no] local-install <IFNAME | any>
-.. clicmd:: [no] local-install <IFNAME | any>
+.. clicmd:: local-install <IFNAME | any>
 
 By default, Flowspec is activated on all interfaces. Installing it to a named
 interface will result in allowing only this interface. Conversely, enabling any
@@ -158,8 +165,7 @@ following:
 - The first VRF with the matching Route Target will be selected to route traffic
   to. Use the following command under ipv4 unicast address-family node
 
-.. index:: [no] rt redirect import RTLIST...
-.. clicmd:: [no] rt redirect import RTLIST...
+.. clicmd:: rt redirect import RTLIST...
 
 In order to illustrate, if the Route Target configured in the Flowspec entry is
 ``E.F.G.H:II``, then a BGP VRF instance with the same Route Target will be set
@@ -183,6 +189,28 @@ interfaces are created with private IP addressing scheme.
     exit
    exit
 
+Similarly, it is possible to do the same for IPv6 flowspec rules, by using
+an IPv6 extended community. The format is defined on :rfc:`5701`, and that
+community contains an IPv6 address encoded in the attribute, and matches the
+locally configured imported route target IPv6 defined under the appropriate
+BGP VRF instance. Below example defines an IPv6 extended community containing
+`E:F::G:H` address followed by 2 bytes chosen by admin ( here `JJ`).
+
+.. code-block:: frr
+
+   router bgp <ASx>
+    neighbor <A:B::C:D> remote-as <ASz>
+    address-family ipv6 flowspec
+     neighbor A:B::C:D activate
+    exit
+   exit
+   router bgp <ASy> vrf vrf2
+    address-family ipv6 unicast
+     rt6 redirect import <E:F::G:H:JJ>
+    exit
+   exit
+
+
 Flowspec monitoring & troubleshooting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -191,7 +219,6 @@ Those command rely on the filtering contexts configured from BGP, and get the
 statistics information retrieved from the underlying system. In other words,
 those statistics are retrieved from ``Netfilter``.
 
-.. index:: show pbr ipset IPSETNAME | iptable
 .. clicmd:: show pbr ipset IPSETNAME | iptable
 
 ``IPSETNAME`` is the policy routing object name created by ``ipset``.  About
@@ -203,21 +230,18 @@ match.
 
 .. code-block:: frr
 
-.. index:: show ip route table TABLEID
 .. clicmd:: show ip route table TABLEID
 
    ``TABLEID`` is the table number identifier referencing the non standard
    routing table used in this example.
 
-.. index:: [no] debug bgp flowspec
-.. clicmd:: [no] debug bgp flowspec
+.. clicmd:: debug bgp flowspec
 
    You can troubleshoot Flowspec, or BGP policy based routing. For instance, if
    you encounter some issues when decoding a Flowspec entry, you should enable
    :clicmd:`debug bgp flowspec`.
 
-.. index:: [no] debug bgp pbr [error]
-.. clicmd:: [no] debug bgp pbr [error]
+.. clicmd:: debug bgp pbr [error]
 
    If you fail to apply the flowspec entry into *zebra*, there should be some
    relationship with policy routing mechanism. Here,
@@ -348,4 +372,5 @@ inside FRRouting.
 
 .. [Draft-IETF-IDR-Flowspec-redirect-IP] <https://tools.ietf.org/id/draft-ietf-idr-flowspec-redirect-ip-02.txt>
 .. [Draft-IETF-IDR-Flowspec-Interface-Set] <https://tools.ietf.org/id/draft-ietf-idr-flowspec-interfaceset-03.txt>
+.. [Draft-IETF-IDR-Flow-Spec-V6] <https://tools.ietf.org/id/draft-ietf-idr-flow-spec-v6-10.txt>
 .. [Presentation] <https://docs.google.com/presentation/d/1ekQygUAG5yvQ3wWUyrw4Wcag0LgmbW1kV02IWcU4iUg/edit#slide=id.g378f0e1b5e_1_44>

@@ -18,16 +18,16 @@
  */
 
 
-#if !defined(GNU_LINUX) && (defined(SUNOS_5) || defined(OPEN_BSD))
-/* SUNOS_5 or OPEN_BSD */
+#if !defined(GNU_LINUX) && defined(OPEN_BSD)
+/* OPEN_BSD */
 
 #include <zebra.h>
 #include "ns.h"
 #include "log.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
-DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
+DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context");
+DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name");
 
 
 static inline int ns_compare(const struct ns *ns, const struct ns *ns2);
@@ -109,13 +109,6 @@ void *ns_info_lookup(ns_id_t ns_id)
 void ns_init(void)
 {
 }
-
-/* API to retrieve default NS */
-ns_id_t ns_get_default_id(void)
-{
-	return NS_UNKNOWN;
-}
-
 
 /* API that can be used to change from NS */
 int ns_switchback_to_initial(void)

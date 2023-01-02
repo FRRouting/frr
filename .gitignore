@@ -28,7 +28,8 @@
 /aclocal.m4
 /libtool
 /libtool.orig
-/changelog-auto
+/test-driver
+/test-suite.log
 
 /Makefile
 /Makefile.in
@@ -55,6 +56,18 @@
 *.pb-c.c
 *.pb.cc
 *_clippy.c
+*.bc
+*.ll
+*.cg.json
+*.cg.dot
+*.cg.svg
+*.xref
+
+### gcov outputs
+
+*.gcno
+*.gcov
+*.gcda
 
 ### dist
 
@@ -96,3 +109,9 @@ compile_commands.json
 .dirstamp
 refix
 .vscode
+.kitchen
+.emacs.desktop*
+
+/test-suite.log
+pceplib/test/*.log
+pceplib/test/*.trs

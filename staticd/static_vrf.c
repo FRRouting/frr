@@ -23,33 +23,23 @@
 #include "nexthop.h"
 #include "table.h"
 #include "srcdest_table.h"
+#include "northbound_cli.h"
 
-#include "static_memory.h"
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_zebra.h"
-#include "static_vty.h"
 
-static void zebra_stable_node_cleanup(struct route_table *table,
-				      struct route_node *node)
-{
-	struct static_route *si, *next;
-
-	if (node->info)
-		for (si = node->info; si; si = next) {
-			next = si->next;
-			XFREE(MTYPE_STATIC_ROUTE, si);
-		}
-}
+DEFINE_MTYPE_STATIC(STATIC, STATIC_RTABLE_INFO, "Static Route Table Info");
 
 static struct static_vrf *static_vrf_alloc(void)
 {
 	struct route_table *table;
 	struct static_vrf *svrf;
+	struct stable_info *info;
 	safi_t safi;
 	afi_t afi;
 
-	svrf = XCALLOC(MTYPE_TMP, sizeof(struct static_vrf));
+	svrf = XCALLOC(MTYPE_STATIC_RTABLE_INFO, sizeof(struct static_vrf));
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
@@ -57,6 +47,14 @@ static struct static_vrf *static_vrf_alloc(void)
 				table = srcdest_table_init();
 			else
 				table = route_table_init();
+
+			info = XCALLOC(MTYPE_STATIC_RTABLE_INFO,
+				       sizeof(struct stable_info));
+			info->svrf = svrf;
+			info->afi = afi;
+			info->safi = safi;
+			route_table_set_info(table, info);
+
 			table->cleanup = zebra_stable_node_cleanup;
 			svrf->stable[afi][safi] = table;
 		}
@@ -81,12 +79,6 @@ static int static_vrf_enable(struct vrf *vrf)
 
 	static_fixup_vrf_ids(vrf->info);
 
-	/*
-	 * We may have static routes that are now possible to
-	 * insert into the appropriate tables
-	 */
-	static_config_install_delayed_routes(vrf->info);
-
 	return 0;
 }
 
@@ -102,15 +94,19 @@ static int static_vrf_delete(struct vrf *vrf)
 	struct static_vrf *svrf;
 	safi_t safi;
 	afi_t afi;
+	void *info;
 
 	svrf = vrf->info;
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = svrf->stable[afi][safi];
+			info = route_table_get_info(table);
 			route_table_finish(table);
+			XFREE(MTYPE_STATIC_RTABLE_INFO, info);
 			svrf->stable[afi][safi] = NULL;
 		}
 	}
+	XFREE(MTYPE_STATIC_RTABLE_INFO, svrf);
 	return 0;
 }
 
@@ -154,47 +150,16 @@ struct static_vrf *static_vrf_lookup_by_name(const char *name)
 
 static int static_vrf_config_write(struct vty *vty)
 {
-	struct vrf *vrf;
+	struct lyd_node *dnode;
+	int written = 0;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_frame(vty, "vrf %s\n", vrf->name);
-
-		static_config(vty, vrf->info, AFI_IP,
-			      SAFI_UNICAST, "ip route");
-		static_config(vty, vrf->info, AFI_IP,
-			      SAFI_MULTICAST, "ip mroute");
-		static_config(vty, vrf->info, AFI_IP6,
-			      SAFI_UNICAST, "ipv6 route");
-
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_endframe(vty, " exit-vrf\n!\n");
+	dnode = yang_dnode_get(running_config->dnode, "/frr-routing:routing");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		written = 1;
 	}
 
-	return 0;
-}
-
-int static_vrf_has_config(struct static_vrf *svrf)
-{
-	struct route_table *table;
-	safi_t safi;
-	afi_t afi;
-
-	/*
-	 * NOTE: This is a don't care for the default VRF, but we go through
-	 * the motions to keep things consistent.
-	 */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			table = svrf->stable[afi][safi];
-			if (!table)
-				continue;
-			if (route_table_count(table))
-				return 1;
-		}
-	}
-
-	return 0;
+	return written;
 }
 
 void static_vrf_init(void)
@@ -202,5 +167,10 @@ void static_vrf_init(void)
 	vrf_init(static_vrf_new, static_vrf_enable,
 		 static_vrf_disable, static_vrf_delete, NULL);
 
-	vrf_cmd_init(static_vrf_config_write, &static_privs);
+	vrf_cmd_init(static_vrf_config_write);
+}
+
+void static_vrf_terminate(void)
+{
+	vrf_terminate();
 }

@@ -81,6 +81,7 @@ struct frr_daemon_info {
 #endif
 	const char *vty_path;
 	const char *module_path;
+	const char *script_path;
 
 	const char *pathspace;
 	bool zpathspace;
@@ -102,6 +103,9 @@ struct frr_daemon_info {
 	size_t n_yang_modules;
 
 	bool log_always;
+
+	/* Optional upper limit on the number of fds used in select/poll */
+	uint32_t limit_fds;
 };
 
 /* execname is the daemon's executable (and pidfile and configfile) name,
@@ -120,21 +124,29 @@ struct frr_daemon_info {
 						       __VA_ARGS__};           \
 	FRR_COREMOD_SETUP(.name = #execname,                                   \
 			  .description = #execname " daemon",                  \
-			  .version = FRR_VERSION, )                            \
-/* end */
+			  .version = FRR_VERSION, );                           \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 extern void frr_init_vtydir(void);
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
 extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
 extern int frr_getopt(int argc, char *const argv[], int *longindex);
-extern void frr_help_exit(int status);
+
+extern __attribute__((__noreturn__)) void frr_help_exit(int status);
 
 extern struct thread_master *frr_init(void);
 extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
+extern uint32_t frr_get_fd_limit(void);
+extern bool frr_is_startup_fd(int fd);
 
-DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
+/* call order of these hooks is as ordered here */
+DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
+/* fork() happens between late_init and config_pre */
+DECLARE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
+DECLARE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+
 extern void frr_config_fork(void);
 
 extern void frr_run(struct thread_master *master);
@@ -145,10 +157,10 @@ extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 /* these two are before the protocol daemon does its own shutdown
  * it's named this way being the counterpart to frr_late_init */
-DECLARE_KOOH(frr_early_fini, (), ())
+DECLARE_KOOH(frr_early_fini, (), ());
 extern void frr_early_fini(void);
 /* and these two are after the daemon did its own cleanup */
-DECLARE_KOOH(frr_fini, (), ())
+DECLARE_KOOH(frr_fini, (), ());
 extern void frr_fini(void);
 
 extern char config_default[512];
@@ -156,9 +168,12 @@ extern char frr_zclientpath[256];
 extern const char frr_sysconfdir[];
 extern char frr_vtydir[256];
 extern const char frr_moduledir[];
+extern const char frr_scriptdir[];
 
 extern char frr_protoname[];
 extern char frr_protonameinst[];
+/* always set in the spot where we *would* fork even if we don't do so */
+extern bool frr_is_after_fork;
 
 extern bool debug_memstats_at_exit;
 

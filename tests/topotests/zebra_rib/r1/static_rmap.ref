@@ -1,0 +1,9 @@
+ZEBRA:
+route-map: static Invoked: 2 Optimization: enabled Processed Change: false
+ permit, sequence 10 Invoked 2
+  Match clauses:
+  Set clauses:
+    src 192.168.215.1
+  Call clause:
+  Action:
+    Exit routemap

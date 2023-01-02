@@ -56,8 +56,8 @@ static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;
 
-		DEBUGD(&vrrp_dbg_zebra, "%s: interface %s address %s %s", func,
-		       ifp->name, inet_ntoa(p->u.prefix4),
+		DEBUGD(&vrrp_dbg_zebra, "%s: interface %s address %pFX %s",
+		       func, ifp->name, p,
 		       CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ? "secondary"
 								   : "primary");
 	}
@@ -179,14 +179,13 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 					enable, VRRP_RADV_INT);
 }
 
-int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
+void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 {
 	DEBUGD(&vrrp_dbg_zebra,
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
 	       down ? "on" : "off");
 
-	return zclient_send_interface_protodown(zclient, ifp->vrf_id, ifp,
-						down);
+	zclient_send_interface_protodown(zclient, ifp->vrf_id, ifp, down);
 }
 
 void vrrp_zebra_init(void)
@@ -204,5 +203,5 @@ void vrrp_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_VRRP, 0, &vrrp_privs);
 
-	zlog_notice("%s: zclient socket initialized", __PRETTY_FUNCTION__);
+	zlog_notice("%s: zclient socket initialized", __func__);
 }

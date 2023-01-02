@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(WORK_QUEUE)
+DECLARE_MTYPE(WORK_QUEUE);
 
 /* Hold time for the initial schedule of a queue run, in  millisec */
 #define WORK_QUEUE_DEFAULT_HOLD 50

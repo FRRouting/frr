@@ -25,6 +25,8 @@
 
 #include <zebra.h>
 
+#include "lib/log.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,9 +35,9 @@ extern "C" {
  * Generic IP address - union of IPv4 and IPv6 address.
  */
 enum ipaddr_type_t {
-	IPADDR_NONE = 0,
-	IPADDR_V4 = 1, /* IPv4 */
-	IPADDR_V6 = 2, /* IPv6 */
+	IPADDR_NONE = AF_UNSPEC,
+	IPADDR_V4 = AF_INET,
+	IPADDR_V6 = AF_INET6,
 };
 
 struct ipaddr {
@@ -58,6 +60,18 @@ struct ipaddr {
 
 #define IPADDRSZ(p)                                                            \
 	(IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr))
+
+static inline int ipaddr_family(const struct ipaddr *ip)
+{
+	switch (ip->ipa_type) {
+	case IPADDR_V4:
+		return AF_INET;
+	case IPADDR_V6:
+		return AF_INET6;
+	default:
+		return AF_UNSPEC;
+	}
+}
 
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 {
@@ -84,14 +98,17 @@ static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 static inline char *ipaddr2str(const struct ipaddr *ip, char *buf, int size)
 {
 	buf[0] = '\0';
-	if (ip) {
-		if (IS_IPADDR_V4(ip))
-			inet_ntop(AF_INET, &ip->ip.addr, buf, size);
-		else if (IS_IPADDR_V6(ip))
-			inet_ntop(AF_INET6, &ip->ip.addr, buf, size);
-	}
+	if (ip)
+		inet_ntop(ip->ipa_type, &ip->ip.addr, buf, size);
 	return buf;
 }
+
+#define IS_MAPPED_IPV6(A)                                                      \
+	((A)->s6_addr32[0] == 0x00000000                                       \
+		 ? ((A)->s6_addr32[1] == 0x00000000                            \
+			    ? (ntohl((A)->s6_addr32[2]) == 0xFFFF ? 1 : 0)     \
+			    : 0)                                               \
+		 : 0)
 
 /*
  * Convert IPv4 address to IPv4-mapped IPv6 address which is of the
@@ -112,18 +129,50 @@ static inline void ipv4_to_ipv4_mapped_ipv6(struct in6_addr *in6,
 /*
  * convert an ipv4 mapped ipv6 address back to ipv4 address
  */
-static inline void ipv4_mapped_ipv6_to_ipv4(struct in6_addr *in6,
+static inline void ipv4_mapped_ipv6_to_ipv4(const struct in6_addr *in6,
 					    struct in_addr *in)
 {
 	memset(in, 0, sizeof(struct in_addr));
 	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
 }
 
+/*
+ * Check if a struct ipaddr has nonzero value
+ */
 static inline bool ipaddr_isset(struct ipaddr *ip)
 {
 	static struct ipaddr a = {};
-	return (0 == memcmp(&a, ip, sizeof(struct ipaddr)));
+	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
 }
+
+/*
+ * generic ordering comparison between IP addresses
+ */
+static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
+{
+	uint32_t va, vb;
+	va = a->ipa_type;
+	vb = b->ipa_type;
+	if (va != vb)
+		return (va < vb) ? -1 : 1;
+	switch (a->ipa_type) {
+	case IPADDR_V4:
+		va = ntohl(a->ipaddr_v4.s_addr);
+		vb = ntohl(b->ipaddr_v4.s_addr);
+		if (va != vb)
+			return (va < vb) ? -1 : 1;
+		return 0;
+	case IPADDR_V6:
+		return memcmp((void *)&a->ipaddr_v6, (void *)&b->ipaddr_v6,
+			      sizeof(a->ipaddr_v6));
+	default:
+		return 0;
+	}
+}
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
+#endif
 
 #ifdef __cplusplus
 }

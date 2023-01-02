@@ -50,6 +50,13 @@ struct prefix_pair {
 	struct prefix_ipv6 src;
 };
 
+struct isis_vertex_adj {
+	struct isis_spf_adj *sadj;
+	struct isis_sr_psid_info sr;
+	struct mpls_label_stack *label_stack;
+	uint32_t lfa_metric;
+};
+
 /*
  * Triple <N, d(N), {Adj(N)}>
  */
@@ -57,7 +64,11 @@ struct isis_vertex {
 	enum vertextype type;
 	union {
 		uint8_t id[ISIS_SYS_ID_LEN + 1];
-		struct prefix_pair ip;
+		struct {
+			struct prefix_pair p;
+			struct isis_sr_psid_info sr;
+			enum spf_prefix_priority priority;
+		} ip;
 	} N;
 	uint32_t d_N;	  /* d(N) Distance from this IS      */
 	uint16_t depth;	/* The depth in the imaginary tree */
@@ -65,7 +76,9 @@ struct isis_vertex {
 	struct list *parents;  /* list of parents for ECMP */
 	struct hash *firsthops; /* first two hops to neighbor */
 	uint64_t insert_counter;
+	uint8_t flags;
 };
+#define F_ISIS_VERTEX_LFA_PROTECTED	0x01
 
 /* Vertex Queue and associated functions */
 
@@ -86,8 +99,8 @@ static unsigned isis_vertex_queue_hash_key(const void *vp)
 	if (VTYPE_IP(vertex->type)) {
 		uint32_t key;
 
-		key = prefix_hash_key(&vertex->N.ip.dest);
-		key = jhash_1word(prefix_hash_key(&vertex->N.ip.src), key);
+		key = prefix_hash_key(&vertex->N.ip.p.dest);
+		key = jhash_1word(prefix_hash_key(&vertex->N.ip.p.src), key);
 		return key;
 	}
 
@@ -103,11 +116,12 @@ static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
 		return false;
 
 	if (VTYPE_IP(va->type)) {
-		if (prefix_cmp(&va->N.ip.dest, &vb->N.ip.dest))
+		if (prefix_cmp(&va->N.ip.p.dest, &vb->N.ip.p.dest))
 			return false;
 
-		return prefix_cmp((const struct prefix *)&va->N.ip.src,
-				  (const struct prefix *)&vb->N.ip.src) == 0;
+		return prefix_cmp((const struct prefix *)&va->N.ip.p.src,
+				  (const struct prefix *)&vb->N.ip.p.src)
+		       == 0;
 	}
 
 	return memcmp(va->N.id, vb->N.id, ISIS_SYS_ID_LEN + 1) == 0;
@@ -117,11 +131,11 @@ static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
  * Compares vertizes for sorting in the TENT list. Returns true
  * if candidate should be considered before current, false otherwise.
  */
-__attribute__((__unused__))
-static int isis_vertex_queue_tent_cmp(void *a, void *b)
+__attribute__((__unused__)) static int isis_vertex_queue_tent_cmp(const void *a,
+								  const void *b)
 {
-	struct isis_vertex *va = a;
-	struct isis_vertex *vb = b;
+	const struct isis_vertex *va = a;
+	const struct isis_vertex *vb = b;
 
 	if (va->d_N < vb->d_N)
 		return -1;
@@ -165,20 +179,16 @@ static void isis_vertex_queue_init(struct isis_vertex_queue *queue,
 				  isis_vertex_queue_hash_cmp, name);
 }
 
-__attribute__((__unused__))
-static void isis_vertex_del(struct isis_vertex *vertex)
-{
-	list_delete(&vertex->Adj_N);
-	list_delete(&vertex->parents);
-	if (vertex->firsthops) {
-		hash_clean(vertex->firsthops, NULL);
-		hash_free(vertex->firsthops);
-		vertex->firsthops = NULL;
-	}
+void isis_vertex_del(struct isis_vertex *vertex);
 
-	memset(vertex, 0, sizeof(struct isis_vertex));
-	XFREE(MTYPE_ISIS_VERTEX, vertex);
-}
+bool isis_vertex_adj_exists(const struct isis_spftree *spftree,
+			    const struct isis_vertex *vertex,
+			    const struct isis_spf_adj *sadj);
+void isis_vertex_adj_free(void *arg);
+struct isis_vertex_adj *
+isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
+		    struct list *vadj_list, struct isis_spf_adj *sadj,
+		    struct isis_prefix_sid *psid, bool last_hop);
 
 __attribute__((__unused__))
 static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
@@ -297,18 +307,66 @@ struct isis_spftree {
 	struct isis_vertex_queue paths; /* the SPT */
 	struct isis_vertex_queue tents; /* TENT */
 	struct route_table *route_table;
+	struct route_table *route_table_backup;
+	struct lspdb_head *lspdb; /* link-state db */
+	struct hash *prefix_sids; /* SR Prefix-SIDs. */
+	struct list *sadj_list;
+	struct isis_spf_nodes adj_nodes;
 	struct isis_area *area;    /* back pointer to area */
 	unsigned int runcount;     /* number of runs since uptime */
 	time_t last_run_timestamp; /* last run timestamp as wall time for display */
 	time_t last_run_monotime;  /* last run as monotime for scheduling */
 	time_t last_run_duration;  /* last run duration in msec */
 
+	enum spf_type type;
+	uint8_t sysid[ISIS_SYS_ID_LEN];
 	uint16_t mtid;
 	int family;
 	int level;
 	enum spf_tree_id tree_id;
-	bool hopcount_metric;
+	struct {
+		/* Original pre-failure local SPTs. */
+		struct {
+			struct isis_spftree *spftree;
+			struct isis_spftree *spftree_reverse;
+		} old;
+
+		/* Protected resource. */
+		struct lfa_protected_resource protected_resource;
+
+		/* P-space and Q-space. */
+		struct isis_spf_nodes p_space;
+		struct isis_spf_nodes q_space;
+
+		/* Remote LFA related information. */
+		struct {
+			/* List of RLFAs eligible to be installed. */
+			struct rlfa_tree_head rlfas;
+
+			/*
+			 * RLFA post-convergence SPTs (needed to activate RLFAs
+			 * once label information is received from LDP).
+			 */
+			struct list *pc_spftrees;
+
+			/* RLFA maximum metric (or zero if absent). */
+			uint32_t max_metric;
+		} remote;
+
+		/* Protection counters. */
+		struct {
+			uint32_t lfa[SPF_PREFIX_PRIO_MAX];
+			uint32_t rlfa[SPF_PREFIX_PRIO_MAX];
+			uint32_t tilfa[SPF_PREFIX_PRIO_MAX];
+			uint32_t ecmp[SPF_PREFIX_PRIO_MAX];
+			uint32_t total[SPF_PREFIX_PRIO_MAX];
+		} protection_counters;
+	} lfa;
+	uint8_t flags;
 };
+#define F_SPFTREE_HOPCOUNT_METRIC 0x01
+#define F_SPFTREE_NO_ROUTES 0x02
+#define F_SPFTREE_NO_ADJACENCIES 0x04
 
 __attribute__((__unused__))
 static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
@@ -319,7 +377,7 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
 	if (VTYPE_IS(vtype) || VTYPE_ES(vtype)) {
 		memcpy(vertex->N.id, id, ISIS_SYS_ID_LEN + 1);
 	} else if (VTYPE_IP(vtype)) {
-		memcpy(&vertex->N.ip, id, sizeof(vertex->N.ip));
+		memcpy(&vertex->N.ip.p, id, sizeof(vertex->N.ip.p));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT, "Unknown Vertex Type");
 	}
@@ -347,8 +405,7 @@ static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
 	memcpy(lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
 	LSP_FRAGMENT(lsp_id) = 0;
 
-	struct lspdb_head *lspdb = &spftree->area->lspdb[spftree->level - 1];
-	struct isis_lsp *lsp = lsp_search(lspdb, lsp_id);
+	struct isis_lsp *lsp = lsp_search(spftree->lspdb, lsp_id);
 
 	if (lsp && lsp->hdr.rem_lifetime != 0)
 		return lsp;
@@ -357,6 +414,7 @@ static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
 }
 
 #define VID2STR_BUFFER SRCDEST2STR_BUFFER
-const char *vid2string(struct isis_vertex *vertex, char *buff, int size);
+const char *vtype2string(enum vertextype vtype);
+const char *vid2string(const struct isis_vertex *vertex, char *buff, int size);
 
 #endif

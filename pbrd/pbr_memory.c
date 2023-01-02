@@ -24,4 +24,4 @@
 #include "pbrd/pbr_memory.h"
 
 
-DEFINE_MGROUP(PBRD, "pbrd")
+DEFINE_MGROUP(PBRD, "pbrd");

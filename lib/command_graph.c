@@ -26,11 +26,11 @@
 
 #include "command_graph.h"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
-DEFINE_MTYPE_STATIC(LIB, CMD_DESC, "Command Token Text")
-DEFINE_MTYPE_STATIC(LIB, CMD_TEXT, "Command Token Help")
-DEFINE_MTYPE(LIB, CMD_ARG, "Command Argument")
-DEFINE_MTYPE_STATIC(LIB, CMD_VAR, "Command Argument Name")
+DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens");
+DEFINE_MTYPE_STATIC(LIB, CMD_DESC, "Command Token Text");
+DEFINE_MTYPE_STATIC(LIB, CMD_TEXT, "Command Token Help");
+DEFINE_MTYPE(LIB, CMD_ARG, "Command Argument");
+DEFINE_MTYPE_STATIC(LIB, CMD_VAR, "Command Argument Name");
 
 struct cmd_token *cmd_token_new(enum cmd_token_type type, uint8_t attr,
 				const char *text, const char *desc)
@@ -388,6 +388,7 @@ static void cmd_node_names(struct graph_node *gn, struct graph_node *join,
 
 	case START_TKN:
 	case JOIN_TKN:
+	case NEG_ONLY_TKN:
 		/* "<foo|bar> WORD" -> word is not "bar" or "foo" */
 		prevname = NULL;
 		break;
@@ -510,6 +511,9 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 		break;
 	case JOIN_TKN:
 		color = "#ddaaff";
+		break;
+	case NEG_ONLY_TKN:
+		color = "#ffddaa";
 		break;
 	case WORD_TKN:
 		color = "#ffffff";

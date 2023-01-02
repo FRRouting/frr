@@ -49,13 +49,9 @@
 #include "isis_routemap.h"
 
 static enum route_map_cmd_result_t
-route_match_ip_address(void *rule, const struct prefix *prefix,
-		       route_map_object_t type, void *object)
+route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
 	if (access_list_apply(alist, prefix) != FILTER_DENY)
@@ -85,12 +81,9 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 static enum route_map_cmd_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+				   void *object)
 {
 	struct prefix_list *plist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
 	if (prefix_list_apply(plist, prefix) != PREFIX_DENY)
@@ -119,14 +112,39 @@ static const struct route_map_rule_cmd
 
 /* ------------------------------------------------------------*/
 
+/* `match tag TAG' */
+/* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_ipv6_address(void *rule, const struct prefix *prefix,
-			 route_map_object_t type, void *object)
+route_match_tag(void *rule, const struct prefix *p, void *object)
+{
+	route_tag_t *tag;
+	struct isis_ext_info *info;
+	route_tag_t info_tag;
+
+	tag = rule;
+	info = object;
+
+	info_tag = info->tag;
+	if (info_tag == *tag)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
+}
+
+/* Route map commands for tag matching. */
+static const struct route_map_rule_cmd route_match_tag_cmd = {
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
+	route_map_rule_tag_free,
+};
+
+/* ------------------------------------------------------------*/
+
+static enum route_map_cmd_result_t
+route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	alist = access_list_lookup(AFI_IP6, (char *)rule);
 	if (access_list_apply(alist, prefix) != FILTER_DENY)
@@ -156,12 +174,9 @@ static const struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 
 static enum route_map_cmd_result_t
 route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
-				     route_map_object_t type, void *object)
+				     void *object)
 {
 	struct prefix_list *plist;
-
-	if (type != RMAP_ISIS)
-		return RMAP_NOMATCH;
 
 	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 	if (prefix_list_apply(plist, prefix) != PREFIX_DENY)
@@ -191,18 +206,16 @@ static const struct route_map_rule_cmd
 /* ------------------------------------------------------------*/
 
 static enum route_map_cmd_result_t
-route_set_metric(void *rule, const struct prefix *prefix,
-		 route_map_object_t type, void *object)
+route_set_metric(void *rule, const struct prefix *prefix, void *object)
 {
 	uint32_t *metric;
 	struct isis_ext_info *info;
 
-	if (type == RMAP_ISIS) {
-		metric = rule;
-		info = object;
+	metric = rule;
+	info = object;
 
-		info->metric = *metric;
-	}
+	info->metric = *metric;
+
 	return RMAP_OKAY;
 }
 
@@ -250,6 +263,9 @@ void isis_route_map_init(void)
 	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
 
+	route_map_match_tag_hook(generic_match_add);
+	route_map_no_match_tag_hook(generic_match_delete);
+
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
 
@@ -257,5 +273,6 @@ void isis_route_map_init(void)
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
+	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_set(&route_set_metric_cmd);
 }

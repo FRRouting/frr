@@ -77,11 +77,31 @@ extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
+extern void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi);
+extern void vpn_leak_zebra_vrf_sid_withdraw(struct bgp *bgp, afi_t afi);
 extern int vpn_leak_label_callback(mpls_label_t label, void *lblid, bool alloc);
+extern void ensure_vrf_tovpn_sid(struct bgp *vpn, struct bgp *vrf, afi_t afi);
+extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
+			  uint8_t size);
 extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				afi_t afi, safi_t safi);
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi);
+
+static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
+{
+	afi_t afi;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+		for (afi = 0; afi < AFI_MAX; ++afi) {
+			if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+			    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+					  BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT))
+				return true;
+		}
+	return false;
+}
 
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					 const char **pmsg)
@@ -222,6 +242,19 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 			vpn_leak_zebra_vrf_label_update(bgp_vrf, afi);
 		}
 
+		if (!bgp_vrf->vpn_policy[afi].tovpn_sid)
+			ensure_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
+
+		if (!bgp_vrf->vpn_policy[afi].tovpn_sid
+		    && bgp_vrf->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent)
+			vpn_leak_zebra_vrf_sid_withdraw(bgp_vrf, afi);
+
+		if (sid_diff(bgp_vrf->vpn_policy[afi].tovpn_sid,
+			     bgp_vrf->vpn_policy[afi]
+				     .tovpn_zebra_vrf_sid_last_sent)) {
+			vpn_leak_zebra_vrf_sid_update(bgp_vrf, afi);
+		}
+
 		vpn_leak_from_vrf_update_all(bgp_vpn, bgp_vrf, afi);
 	}
 }
@@ -233,7 +266,7 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 {
 	struct bgp_path_info *parent_pi;
 	struct bgp_table *table;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
 	    !pi->extra ||
@@ -241,10 +274,10 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 		return true;
 
 	parent_pi = (struct bgp_path_info *)pi->extra->parent;
-	rn = parent_pi->net;
-	if (!rn)
+	dest = parent_pi->net;
+	if (!dest)
 		return true;
-	table = bgp_node_table(rn);
+	table = bgp_dest_table(dest);
 	if (table &&
 	    (table->afi == AFI_IP || table->afi == AFI_IP6) &&
 	    table->safi == SAFI_MPLS_VPN)
@@ -266,7 +299,7 @@ extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
 extern void vpn_leak_postchange_all(void);
 extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
-extern int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty);
+extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

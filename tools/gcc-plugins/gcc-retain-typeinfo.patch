@@ -1,0 +1,11 @@
+--- a/src/gcc/c/c-typeck.c
++++ b/src/gcc/c/c-typeck.c
+@@ -5716,8 +5716,6 @@ build_c_cast (location_t loc, tree type, tree expr)
+   if (objc_is_object_ptr (type) && objc_is_object_ptr (TREE_TYPE (expr)))
+     return build1 (NOP_EXPR, type, expr);
+ 
+-  type = TYPE_MAIN_VARIANT (type);
+-
+   if (TREE_CODE (type) == ARRAY_TYPE)
+     {
+       error_at (loc, "cast specifies array type");

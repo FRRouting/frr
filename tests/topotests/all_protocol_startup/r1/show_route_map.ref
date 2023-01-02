@@ -1,0 +1,72 @@
+ZEBRA:
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
+ deny, sequence 10 Invoked 0
+  Match clauses:
+    interface notpresent
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
+RIP:
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
+ deny, sequence 10 Invoked 0
+  Match clauses:
+    interface notpresent
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
+RIPNG:
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
+ deny, sequence 10 Invoked 0
+  Match clauses:
+    interface notpresent
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
+OSPF:
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
+ deny, sequence 10 Invoked 0
+  Match clauses:
+    interface notpresent
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
+OSPF6:
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
+ deny, sequence 10 Invoked 0
+  Match clauses:
+    interface notpresent
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
+BGP:
+route-map: LIES Invoked: 0 Optimization: enabled Processed Change: false
+ deny, sequence 10 Invoked 0
+  Match clauses:
+    interface notpresent
+  Set clauses:
+  Call clause:
+  Action:
+    Exit routemap
+route-map: bgp-map Invoked: 0 Optimization: enabled Processed Change: false
+ permit, sequence 10 Invoked 0
+  Match clauses:
+  Set clauses:
+    community 100:100 additive
+    local-preference 100
+  Call clause:
+  Action:
+    Exit routemap
+ permit, sequence 20 Invoked 0
+  Match clauses:
+  Set clauses:
+    metric 10
+    local-preference 200
+  Call clause:
+  Action:
+    Exit routemap
+ISIS:

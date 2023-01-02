@@ -1,0 +1,122 @@
+if PATHD_PCEP
+if PATHD_PCEP_TEST
+
+# The default Automake target is check, add a test target to call check.
+# Also make sure the binaries are current before running the tests.
+test: pceplib/test/pcep_msg_tests pceplib/test/pcep_pcc_api_tests pceplib/test/pcep_session_logic_tests pceplib/test/pcep_socket_comm_tests pceplib/test/pcep_timers_tests pceplib/test/pcep_utils_tests
+
+check_SCRIPTS = pceplib/test/pcep_msg_tests pceplib/test/pcep_pcc_api_tests pceplib/test/pcep_session_logic_tests pceplib/test/pcep_socket_comm_tests pceplib/test/pcep_timers_tests pceplib/test/pcep_utils_tests
+TESTS = $(check_SCRIPTS)
+
+
+# Definitions to build the Unit Test binaries with CUnit
+noinst_PROGRAMS += pceplib/test/pcep_msg_tests \
+		pceplib/test/pcep_pcc_api_tests \
+		pceplib/test/pcep_session_logic_tests \
+		pceplib/test/pcep_socket_comm_tests \
+		pceplib/test/pcep_timers_tests \
+		pceplib/test/pcep_utils_tests
+
+noinst_HEADERS += pceplib/test/pcep_msg_messages_test.h \
+		pceplib/test/pcep_msg_object_error_types_test.h \
+		pceplib/test/pcep_msg_objects_test.h \
+		pceplib/test/pcep_msg_tlvs_test.h \
+		pceplib/test/pcep_msg_tools_test.h \
+		pceplib/test/pcep_pcc_api_test.h \
+		pceplib/test/pcep_session_logic_loop_test.h \
+		pceplib/test/pcep_session_logic_states_test.h \
+		pceplib/test/pcep_session_logic_test.h \
+		pceplib/test/pcep_socket_comm_loop_test.h \
+		pceplib/test/pcep_socket_comm_test.h \
+		pceplib/test/pcep_timers_event_loop_test.h \
+		pceplib/test/pcep_timers_test.h \
+		pceplib/test/pcep_utils_counters_test.h \
+		pceplib/test/pcep_utils_double_linked_list_test.h \
+		pceplib/test/pcep_utils_memory_test.h \
+		pceplib/test/pcep_utils_ordered_list_test.h \
+		pceplib/test/pcep_utils_queue_test.h
+
+pceplib_test_pcep_msg_tests_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/pceplib
+pceplib_test_pcep_msg_tests_LDADD = $(top_builddir)/pceplib/libpcep_pcc.la  lib/libfrr.la -lcunit -lpthread
+pceplib_test_pcep_msg_tests_SOURCES = pceplib/test/pcep_msg_messages_test.c \
+		pceplib/test/pcep_msg_messages_tests.c \
+		pceplib/test/pcep_msg_object_error_types_test.c \
+		pceplib/test/pcep_msg_objects_test.c \
+		pceplib/test/pcep_msg_tlvs_test.c \
+		pceplib/test/pcep_msg_tools_test.c
+
+# The pcc_api_tests and pcep_session_logic_tests use the
+# socket_comm_mock, so the LDADD variable needs to be modified
+pceplib_test_pcep_pcc_api_tests_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/pceplib
+pceplib_test_pcep_pcc_api_tests_LDADD = $(top_builddir)/pceplib/libsocket_comm_mock.la $(top_builddir)/pceplib/libpcep_pcc.la  lib/libfrr.la -lcunit -lpthread
+pceplib_test_pcep_pcc_api_tests_SOURCES = pceplib/test/pcep_pcc_api_test.c pceplib/test/pcep_pcc_api_tests.c
+
+pceplib_test_pcep_session_logic_tests_CFLAGS =  -I$(top_srcdir)/pceplib
+pceplib_test_pcep_session_logic_tests_LDADD = $(top_builddir)/pceplib/libsocket_comm_mock.la $(top_builddir)/pceplib/libpcep_pcc.la  lib/libfrr.la -lcunit -lpthread
+pceplib_test_pcep_session_logic_tests_SOURCES = pceplib/test/pcep_session_logic_loop_test.c \
+		pceplib/test/pcep_session_logic_states_test.c \
+		pceplib/test/pcep_session_logic_test.c \
+		pceplib/test/pcep_session_logic_tests.c
+
+pceplib_test_pcep_socket_comm_tests_CFLAGS =  -I$(top_srcdir)/pceplib
+pceplib_test_pcep_socket_comm_tests_LDADD = $(top_builddir)/pceplib/libpcep_pcc.la lib/libfrr.la  -lcunit -lpthread
+pceplib_test_pcep_socket_comm_tests_SOURCES = pceplib/test/pcep_socket_comm_loop_test.c \
+		pceplib/test/pcep_socket_comm_test.c \
+		pceplib/test/pcep_socket_comm_tests.c
+
+pceplib_test_pcep_timers_tests_CFLAGS =  -I$(top_srcdir)/pceplib
+pceplib_test_pcep_timers_tests_LDADD = $(top_builddir)/pceplib/libpcep_pcc.la lib/libfrr.la  -lcunit -lpthread
+pceplib_test_pcep_timers_tests_SOURCES = pceplib/test/pcep_timers_event_loop_test.c \
+		pceplib/test/pcep_timers_test.c \
+		pceplib/test/pcep_timers_tests.c
+
+pceplib_test_pcep_utils_tests_CFLAGS =  -I$(top_srcdir)/pceplib
+pceplib_test_pcep_utils_tests_LDADD = $(top_builddir)/pceplib/libpcep_pcc.la lib/libfrr.la  -lcunit -lpthread
+pceplib_test_pcep_utils_tests_SOURCES = pceplib/test/pcep_utils_counters_test.c \
+		pceplib/test/pcep_utils_double_linked_list_test.c \
+		pceplib/test/pcep_utils_memory_test.c \
+		pceplib/test/pcep_utils_ordered_list_test.c \
+		pceplib/test/pcep_utils_queue_test.c \
+		pceplib/test/pcep_utils_tests.c
+
+# These test scripts will call the test binaries
+# defined above in noinst_PROGRAMS with Valgrind
+if HAVE_VALGRIND_PCEP
+
+dist_noinst_SCRIPTS = pceplib/test/pcep_pcc_api_tests_valgrind.sh \
+	pceplib/test/pcep_session_logic_tests_valgrind.sh \
+	pceplib/test/pcep_socket_comm_tests_valgrind.sh \
+	pceplib/test/pcep_timers_tests_valgrind.sh \
+	pceplib/test/pcep_utils_tests_valgrind.sh \
+	pceplib/test/pcep_msg_tests_valgrind.sh \
+	pceplib/test/pcep_tests_valgrind.sh
+
+check_SCRIPTS += pceplib/test/pcep_msg_tests_valgrind.sh \
+	pceplib/test/pcep_pcc_api_tests_valgrind.sh \
+	pceplib/test/pcep_session_logic_tests_valgrind.sh \
+	pceplib/test/pcep_socket_comm_tests_valgrind.sh \
+	pceplib/test/pcep_timers_tests_valgrind.sh \
+	pceplib/test/pcep_utils_tests_valgrind.sh
+
+TESTS += $(check_SCRIPTS)
+
+
+
+pceplib/test/pcep_msg_tests_valgrind.sh:
+	chmod +x pceplib/test/pcep_msg_tests_valgrind.sh
+pceplib/test/pcep_pcc_api_tests_valgrind.sh:
+	chmod +x pceplib/test/pcep_pcc_api_tests_valgrind.sh
+pceplib/test/pcep_session_logic_tests_valgrind.sh:
+	chmod +x pceplib/test/pcep_session_logic_tests_valgrind.sh
+pceplib/test/pcep_socket_comm_tests_valgrind.sh:
+	chmod +x pceplib/test/pcep_socket_comm_tests_valgrind.sh
+pceplib/test/pcep_timers_tests_valgrind.sh:
+	chmod +x pceplib/test/pcep_timers_tests_valgrind.sh
+pceplib/test/pcep_utils_tests_valgrind.sh:
+	chmod +x pceplib/test/pcep_utils_tests_valgrind.sh
+
+
+endif
+
+endif
+endif

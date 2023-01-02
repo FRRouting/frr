@@ -1,0 +1,1553 @@
+{
+    "address_types": ["ipv4","ipv6"],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 30,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 30,
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32,
+        "ipv6": "2001:db8:f::",
+        "v6mask": 128
+    },
+    "routers": {
+        "red1": {
+            "links": {
+                "r1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED_A",
+                    "id": "1"
+                },
+                {
+                    "name": "RED_B",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "500",
+                    "vrf": "RED_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "red1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "red1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "500",
+                    "vrf": "RED_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "red1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "red1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "blue1": {
+            "links": {
+                "r1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "BLUE_A",
+                    "id": "1"
+                },
+                {
+                    "name": "BLUE_B",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "800",
+                    "vrf": "BLUE_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "blue1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "blue1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "800",
+                    "vrf": "BLUE_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "blue1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "blue1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r1": {
+            "links": {
+                "red1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "red1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "blue1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "blue1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"},
+                "r2-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r2-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r2-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r2-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"},
+                "r4-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r4-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r4-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r4-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED_A",
+                    "id": "1"
+                },
+                {
+                    "name": "RED_B",
+                    "id": "2"
+                },
+                {
+                    "name": "BLUE_A",
+                    "id": "3"
+                },
+                {
+                    "name": "BLUE_B",
+                    "id": "4"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "100",
+                    "vrf": "RED_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "red1": {
+                                        "dest_link": {
+                                            "r1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link1":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "red1": {
+                                        "dest_link": {
+                                            "r1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link1":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "RED_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "red1": {
+                                        "dest_link": {
+                                            "r1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link2":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "red1": {
+                                        "dest_link": {
+                                            "r1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link2":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "BLUE_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "blue1": {
+                                        "dest_link": {
+                                            "r1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link3":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "blue1": {
+                                        "dest_link": {
+                                            "r1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link3":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "BLUE_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "blue1": {
+                                        "dest_link": {
+                                            "r1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link4":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "blue1": {
+                                        "dest_link": {
+                                            "r1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r2": {
+                                        "dest_link": {
+                                            "r1-link4":
+                                            {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "next_hop_self": true
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r1-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r2": {
+            "links": {
+                "r1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r1-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r1-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"},
+                "r3-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r3-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r3-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r3-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED_A",
+                    "id": "1"
+                },
+                {
+                    "name": "RED_B",
+                    "id": "2"
+                },
+                {
+                    "name": "BLUE_A",
+                    "id": "3"
+                },
+                {
+                    "name": "BLUE_B",
+                    "id": "4"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "100",
+                    "vrf": "RED_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "RED_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "BLUE_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "100",
+                    "vrf": "BLUE_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r2-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r2-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r3": {
+            "links": {
+                "r2-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r2-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r2-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r2-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"},
+                "r4-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r4-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r4-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r4-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"},
+                "red2-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "red2-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "blue2-link1": {"ipv4": "auto", "ipv6": "autor3", "vrf": "BLUE_A"},
+                "blue2-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED_A",
+                    "id": "1"
+                },
+                {
+                    "name": "RED_B",
+                    "id": "2"
+                },
+                {
+                    "name": "BLUE_A",
+                    "id": "3"
+                },
+                {
+                    "name": "BLUE_B",
+                    "id": "4"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "200",
+                    "vrf": "RED_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "red2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "red2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "RED_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "red2": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "red2": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "BLUE_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "blue2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link3": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link3": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "blue2": {
+                                        "dest_link": {
+                                            "r3-link1": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "200",
+                    "vrf": "BLUE_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "blue2": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3-link4": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r4": {
+                                        "dest_link": {
+                                            "r3-link4": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "blue2": {
+                                        "dest_link": {
+                                            "r3-link2": {
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }],
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "r4": {
+            "links": {
+                "r1-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r1-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r1-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r1-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"},
+                "r3-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r3-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"},
+                "r3-link3": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r3-link4": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED_A",
+                    "id": "1"
+                },
+                {
+                    "name": "RED_B",
+                    "id": "2"
+                },
+                {
+                    "name": "BLUE_A",
+                    "id": "3"
+                },
+                {
+                    "name": "BLUE_B",
+                    "id": "4"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "400",
+                    "vrf": "RED_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "400",
+                    "vrf": "RED_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "400",
+                    "vrf": "BLUE_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "400",
+                    "vrf": "BLUE_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r1": {
+                                        "dest_link": {
+                                            "r4-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    },
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4-link4": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
+                                                "route_maps": [{
+                                                    "name": "rmap_global",
+                                                    "direction": "in"
+                                                }]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            }
+        },
+        "red2": {
+            "links": {
+                "r3-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_A"},
+                "r3-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "RED_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "RED_A",
+                    "id": "1"
+                },
+                {
+                    "name": "RED_B",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "500",
+                    "vrf": "RED_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "red2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "red2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "500",
+                    "vrf": "RED_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "red2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "red2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "blue2": {
+            "links": {
+                "r3-link1": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_A"},
+                "r3-link2": {"ipv4": "auto", "ipv6": "auto", "vrf": "BLUE_B"}
+            },
+            "vrfs":[
+                {
+                    "name": "BLUE_A",
+                    "id": "1"
+                },
+                {
+                    "name": "BLUE_B",
+                    "id": "2"
+                }
+            ],
+            "bgp":
+            [
+                {
+                    "local_as": "800",
+                    "vrf": "BLUE_A",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "blue2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "blue2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "800",
+                    "vrf": "BLUE_B",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "blue2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "blue2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

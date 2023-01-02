@@ -64,7 +64,69 @@ void oid2in_addr(oid oid[], int len, struct in_addr *addr)
 		*pnt++ = oid[i];
 }
 
-void oid_copy_addr(oid oid[], struct in_addr *addr, int len)
+void oid2in6_addr(oid oid[], struct in6_addr *addr)
+{
+	unsigned int i;
+	uint8_t *pnt;
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < sizeof(struct in6_addr); i++)
+		*pnt++ = oid[i];
+}
+
+void oid2int(oid oid[], int *dest)
+{
+	uint8_t i;
+	uint8_t *pnt;
+	int network_dest;
+
+	pnt = (uint8_t *)&network_dest;
+
+	for (i = 0; i < sizeof(int); i++)
+		*pnt++ = oid[i];
+	*dest = ntohl(network_dest);
+}
+
+void oid_copy_in_addr(oid oid[], const struct in_addr *addr)
+{
+	int i;
+	const uint8_t *pnt;
+	int len = sizeof(struct in_addr);
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < len; i++)
+		oid[i] = *pnt++;
+}
+
+
+void oid_copy_in6_addr(oid oid[], const struct in6_addr *addr)
+{
+	int i;
+	const uint8_t *pnt;
+	int len = sizeof(struct in6_addr);
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < len; i++)
+		oid[i] = *pnt++;
+}
+
+void oid_copy_int(oid oid[], int *val)
+{
+	uint8_t i;
+	const uint8_t *pnt;
+	int network_val;
+
+	network_val = htonl(*val);
+	pnt = (uint8_t *)&network_val;
+
+	for (i = 0; i < sizeof(int); i++)
+		oid[i] = *pnt++;
+}
+
+void oid2string(oid oid[], int len, char *string)
 {
 	int i;
 	uint8_t *pnt;
@@ -72,7 +134,21 @@ void oid_copy_addr(oid oid[], struct in_addr *addr, int len)
 	if (len == 0)
 		return;
 
-	pnt = (uint8_t *)addr;
+	pnt = (uint8_t *)string;
+
+	for (i = 0; i < len; i++)
+		*pnt++ = (uint8_t)oid[i];
+}
+
+void oid_copy_str(oid oid[], const char *string, int len)
+{
+	int i;
+	const uint8_t *pnt;
+
+	if (len == 0)
+		return;
+
+	pnt = (uint8_t *)string;
 
 	for (i = 0; i < len; i++)
 		oid[i] = *pnt++;

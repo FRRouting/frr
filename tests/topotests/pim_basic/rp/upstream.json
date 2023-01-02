@@ -1,0 +1,17 @@
+{
+  "229.1.1.1":{
+    "10.0.20.2":{
+      "sourceStream":true,
+      "inboundInterface":"rp-eth0",
+      "rpfAddress":"10.0.20.2",
+      "source":"10.0.20.2",
+      "group":"229.1.1.1",
+      "state":"NotJ",
+      "joinState":"NotJoined",
+      "regState":"RegNoInfo",
+      "resetTimer":"--:--:--",
+      "refCount":1,
+      "sptBit":0
+    }
+  }
+}

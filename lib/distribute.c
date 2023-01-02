@@ -27,10 +27,10 @@
 #include "distribute.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_CTX, "Distribute ctx")
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list")
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname")
-DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name")
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_CTX, "Distribute ctx");
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list");
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname");
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name");
 
 static struct list *dist_ctx_list;
 
@@ -186,7 +186,6 @@ static int distribute_list_unset(struct distribute_ctx *ctx,
 		return 0;
 
 	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
-	dist->list[type] = NULL;
 
 	/* Apply this distribute-list to the interface. */
 	(ctx->distribute_delete_hook)(ctx, dist);
@@ -232,7 +231,6 @@ static int distribute_list_prefix_unset(struct distribute_ctx *ctx,
 		return 0;
 
 	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
-	dist->prefix[type] = NULL;
 
 	/* Apply this distribute-list to the interface. */
 	(ctx->distribute_delete_hook)(ctx, dist);
@@ -242,150 +240,59 @@ static int distribute_list_prefix_unset(struct distribute_ctx *ctx,
 	return 1;
 }
 
-DEFUN (distribute_list,
-       distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+static enum distribute_type distribute_direction(const char *dir, bool v4)
 {
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
-	/* Check of distribute list type. */
-	enum distribute_type type = argv[2 + prefix]->arg[0] == 'i'
-					    ? DISTRIBUTE_V4_IN
-					    : DISTRIBUTE_V4_OUT;
+	if (dir[0] == 'i') {
+		if (v4)
+			return DISTRIBUTE_V4_IN;
+		else
+			return DISTRIBUTE_V6_IN;
+	} else if (dir[0] == 'o') {
+		if (v4)
+			return DISTRIBUTE_V4_OUT;
+		else
+			return DISTRIBUTE_V6_OUT;
+	}
 
-	/* Set appropriate function call */
-	void (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_set : &distribute_list_set;
-	struct distribute_ctx *ctx =
-		(struct distribute_ctx *)listnode_head(dist_ctx_list);
+	assert(!"Expecting in or out only, fix your code");
 
-	/* if interface is present, get name */
-	const char *ifname = NULL;
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	/* Get interface name corresponding distribute list. */
-	distfn(ctx, ifname, type, argv[1 + prefix]->arg);
-
-	return CMD_SUCCESS;
+	__builtin_unreachable();
 }
 
-DEFUN (ipv6_distribute_list,
-       ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
-       "IPv6\n"
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+int distribute_list_parser(bool prefix, bool v4, const char *dir,
+			   const char *list, const char *ifname)
 {
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-	/* Check of distribute list type. */
-	enum distribute_type type = argv[3 + prefix]->arg[0] == 'i'
-					    ? DISTRIBUTE_V6_IN
-					    : DISTRIBUTE_V6_OUT;
-
-	/* Set appropriate function call */
-	void (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_set : &distribute_list_set;
+	enum distribute_type type = distribute_direction(dir, v4);
 	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
 
-	/* if interface is present, get name */
-	const char *ifname = NULL;
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
+	void (*distfn)(struct distribute_ctx *, const char *,
+		       enum distribute_type, const char *) =
+		prefix ? &distribute_list_prefix_set : &distribute_list_set;
 
-	/* Get interface name corresponding distribute list. */
-	distfn(ctx, ifname, type, argv[2 + prefix]->arg);
+	distfn(ctx, ifname, type, list);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_distribute_list,
-       no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
+			      const char *dir, const char *list,
+			      const char *ifname)
 {
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-	int idx_alname = 2 + prefix;
-	int idx_disttype = idx_alname + 1;
-	enum distribute_type type =
-		argv[idx_disttype]->arg[0] == 'i' ?
-		DISTRIBUTE_V4_IN : DISTRIBUTE_V4_OUT;
+	enum distribute_type type = distribute_direction(dir, v4);
+	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
+	int ret;
 
-	/* Set appropriate function call */
 	int (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
+		      enum distribute_type, const char *) =
 		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
 
-	/* if interface is present, get name */
-	const char *ifname = NULL;
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ctx, ifname, type, argv[2 + prefix]->arg);
 
+	ret = distfn(ctx, ifname, type, list);
 	if (!ret) {
 		vty_out(vty, "distribute list doesn't exist\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	return CMD_SUCCESS;
-}
 
-DEFUN (no_ipv6_distribute_list,
-       no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
-       NO_STR
-       "IPv6\n"
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
-	int idx_alname = 3 + prefix;
-	int idx_disttype = idx_alname + 1;
-
-	enum distribute_type type =
-		argv[idx_disttype]->arg[0] == 'i' ?
-		DISTRIBUTE_V6_IN : DISTRIBUTE_V6_OUT;
-	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
-
-	/* Set appropriate function call */
-	int (*distfn)(struct distribute_ctx *, const char *,
-		       enum distribute_type, const char *) =
-		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
-
-	/* if interface is present, get name */
-	const char *ifname = NULL;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ctx, ifname, type, argv[3 + prefix]->arg);
-
-	if (!ret) {
-		vty_out(vty, "distribute list doesn't exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	return CMD_SUCCESS;
 }
 
@@ -578,33 +485,4 @@ struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf)
 		dist_ctx_list = list_new();
 	listnode_add(dist_ctx_list, ctx);
 	return ctx;
-}
-
-/* Initialize distribute list vty commands */
-void distribute_list_init(int node)
-{
-	/* vtysh command-extraction doesn't grok install_element(node, ) */
-	if (node == RIP_NODE) {
-		install_element(RIP_NODE, &distribute_list_cmd);
-		install_element(RIP_NODE, &no_distribute_list_cmd);
-	} else if (node == RIPNG_NODE) {
-		install_element(RIPNG_NODE, &distribute_list_cmd);
-		install_element(RIPNG_NODE, &no_distribute_list_cmd);
-		/* install v6 */
-		install_element(RIPNG_NODE, &ipv6_distribute_list_cmd);
-		install_element(RIPNG_NODE, &no_ipv6_distribute_list_cmd);
-	}
-
-	/* TODO: install v4 syntax command for v6 only protocols. */
-	/* if (node == RIPNG_NODE) {
-	 *   install_element (node, &ipv6_as_v4_distribute_list_all_cmd);
-	 *   install_element (node, &no_ipv6_as_v4_distribute_list_all_cmd);
-	 *   install_element (node, &ipv6_as_v4_distribute_list_cmd);
-	 *   install_element (node, &no_ipv6_as_v4_distribute_list_cmd);
-	 *   install_element (node, &ipv6_as_v4_distribute_list_prefix_all_cmd);
-	 *   install_element (node,
-	 &no_ipv6_as_v4_distribute_list_prefix_all_cmd);
-	 *   install_element (node, &ipv6_as_v4_distribute_list_prefix_cmd);
-	 *   install_element (node, &no_ipv6_as_v4_distribute_list_prefix_cmd);
-	   }*/
 }

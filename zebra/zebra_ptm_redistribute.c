@@ -26,7 +26,6 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ptm_redistribute.h"
-#include "zebra/zebra_memory.h"
 
 static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 				      struct interface *ifp, struct prefix *dp,
@@ -58,6 +57,9 @@ static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 	blen = prefix_blen(sp);
 	stream_put(s, &sp->u.prefix, blen);
 	stream_putc(s, sp->prefixlen);
+
+	/* c-bit bullshit */
+	stream_putc(s, 0);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));

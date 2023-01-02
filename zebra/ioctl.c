@@ -36,8 +36,6 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/debug.h"
 
-#ifndef SUNOS_5
-
 #ifdef HAVE_BSD_LINK_DETECT
 #include <net/if_media.h>
 #endif /* HAVE_BSD_LINK_DETECT*/
@@ -166,11 +164,7 @@ void if_get_mtu(struct interface *ifp)
 		return;
 	}
 
-#ifdef SUNOS_5
-	ifp->mtu6 = ifp->mtu = ifreq.ifr_metric;
-#else
 	ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
-#endif /* SUNOS_5 */
 
 	/* propogate */
 	zebra_interface_up_update(ifp);
@@ -378,11 +372,7 @@ int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	}
 
 	mask.sin_family = p->family;
-#ifdef SUNOS_5
-	memcpy(&mask, &ifreq.ifr_addr, sizeof(mask));
-#else
 	memcpy(&ifreq.ifr_addr, &mask, sizeof(struct sockaddr_in));
-#endif /* SUNOS5 */
 	ret = if_ioctl(SIOCSIFNETMASK, (caddr_t)&ifreq);
 	if (ret < 0)
 		return ret;
@@ -421,47 +411,91 @@ void if_get_flags(struct interface *ifp)
 {
 	int ret;
 	struct ifreq ifreq;
-#ifdef HAVE_BSD_LINK_DETECT
-	struct ifmediareq ifmr;
-#endif /* HAVE_BSD_LINK_DETECT */
 
 	ifreq_set_name(&ifreq, ifp);
 
 	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
-			     "vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
-			     safe_strerror(errno));
+			     "vrf_if_ioctl(SIOCGIFFLAGS %s) failed: %s",
+			     ifp->name, safe_strerror(errno));
 		return;
 	}
-#ifdef HAVE_BSD_LINK_DETECT /* Detect BSD link-state at start-up */
 
-	/* Per-default, IFF_RUNNING is held high, unless link-detect says
-	 * otherwise - we abuse IFF_RUNNING inside zebra as a link-state flag,
-	 * following practice on Linux and Solaris kernels
+	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
+		goto out;
+
+	/* Per-default, IFF_RUNNING is held high, unless link-detect
+	 * says otherwise - we abuse IFF_RUNNING inside zebra as a
+	 * link-state flag, following practice on Linux and Solaris
+	 * kernels
 	 */
-	SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
 
-	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)) {
-		(void)memset(&ifmr, 0, sizeof(ifmr));
-		strlcpy(ifmr.ifm_name, ifp->name, sizeof(ifmr.ifm_name));
+#ifdef SIOCGIFDATA
+	/*
+	 * BSD gets link state from ifi_link_link in struct if_data.
+	 * All BSD's have this in getifaddrs(3) ifa_data for AF_LINK
+	 * addresses. We can also access it via SIOCGIFDATA.
+	 */
 
-		/* Seems not all interfaces implement this ioctl */
-		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) == -1 &&
-		    errno != EINVAL)
+#ifdef __NetBSD__
+	struct ifdatareq ifdr = {.ifdr_data.ifi_link_state = 0};
+	struct if_data *ifdata = &ifdr.ifdr_data;
+
+	strlcpy(ifdr.ifdr_name, ifp->name, sizeof(ifdr.ifdr_name));
+	ret = vrf_if_ioctl(SIOCGIFDATA, (caddr_t)&ifdr, ifp->vrf_id);
+#else
+	struct if_data ifd = {.ifi_link_state = 0};
+	struct if_data *ifdata = &ifd;
+
+	ifreq.ifr_data = (caddr_t)ifdata;
+	ret = vrf_if_ioctl(SIOCGIFDATA, (caddr_t)&ifreq, ifp->vrf_id);
+#endif
+
+	if (ret == -1)
+		/* Very unlikely. Did the interface disappear? */
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "if_ioctl(SIOCGIFDATA %s) failed: %s", ifp->name,
+			     safe_strerror(errno));
+	else {
+		if (ifdata->ifi_link_state >= LINK_STATE_UP)
+			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+		else if (ifdata->ifi_link_state == LINK_STATE_UNKNOWN)
+			/* BSD traditionally treats UNKNOWN as UP */
+			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+		else
+			UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+	}
+
+#elif defined(HAVE_BSD_LINK_DETECT)
+	/*
+	 * This is only needed for FreeBSD older than FreeBSD-13.
+	 * Valid and active media generally means the link state is
+	 * up, but this is not always the case.
+	 * For example, some BSD's with a net80211 interface in MONITOR
+	 * mode will treat the media as valid and active but the
+	 * link state is down - because we cannot send anything.
+	 * Also, virtual interfaces such as PPP, VLAN, etc generally
+	 * don't support media at all, so the ioctl will just fail.
+	 */
+	struct ifmediareq ifmr = {.ifm_status = 0};
+
+	strlcpy(ifmr.ifm_name, ifp->name, sizeof(ifmr.ifm_name));
+
+	if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) == -1) {
+		if (errno != EINVAL)
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
-				     "if_ioctl(SIOCGIFMEDIA) failed: %s",
-				     safe_strerror(errno));
-		else if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */
-		{
-			if (ifmr.ifm_status & IFM_ACTIVE)
-				SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-			else
-				UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-		}
+				     "if_ioctl(SIOCGIFMEDIA %s) failed: %s",
+				     ifp->name, safe_strerror(errno));
+	} else if (ifmr.ifm_status & IFM_AVALID) { /* media state is valid */
+		if (ifmr.ifm_status & IFM_ACTIVE)  /* media is active */
+			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+		else
+			UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
 	}
 #endif /* HAVE_BSD_LINK_DETECT */
 
+out:
 	if_flags_update(ifp, (ifreq.ifr_flags & 0x0000ffff));
 }
 
@@ -620,5 +654,3 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 #endif /* HAVE_STRUCT_IN6_ALIASREQ */
 
 #endif /* LINUX_IPV6 */
-
-#endif /* !SUNOS_5 */

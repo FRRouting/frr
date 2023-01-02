@@ -30,31 +30,36 @@
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
+#include "pim_instance.h"
 #include "bfd.h"
 
 #define PIM_IF_MASK_PIM                             (1 << 0)
 #define PIM_IF_MASK_IGMP                            (1 << 1)
 #define PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS          (1 << 2)
-#define PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPRESSION (1 << 3)
+#define PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION (1 << 3)
 
 #define PIM_IF_IS_DELETED(ifp) ((ifp)->ifindex == IFINDEX_INTERNAL)
 
 #define PIM_IF_TEST_PIM(options) (PIM_IF_MASK_PIM & (options))
 #define PIM_IF_TEST_IGMP(options) (PIM_IF_MASK_IGMP & (options))
 #define PIM_IF_TEST_IGMP_LISTEN_ALLROUTERS(options) (PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS & (options))
-#define PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(options) (PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPRESSION & (options))
+#define PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
+	(PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION & (options))
 
 #define PIM_IF_DO_PIM(options) ((options) |= PIM_IF_MASK_PIM)
 #define PIM_IF_DO_IGMP(options) ((options) |= PIM_IF_MASK_IGMP)
 #define PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(options) ((options) |= PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS)
-#define PIM_IF_DO_PIM_CAN_DISABLE_JOIN_SUPRESSION(options) ((options) |= PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPRESSION)
+#define PIM_IF_DO_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                    \
+	((options) |= PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
 #define PIM_IF_DONT_PIM(options) ((options) &= ~PIM_IF_MASK_PIM)
 #define PIM_IF_DONT_IGMP(options) ((options) &= ~PIM_IF_MASK_IGMP)
 #define PIM_IF_DONT_IGMP_LISTEN_ALLROUTERS(options) ((options) &= ~PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS)
-#define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPRESSION(options) ((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPRESSION)
+#define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
+	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
 #define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
+#define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
 struct pim_iface_upstream_switch {
 	struct in_addr address;
@@ -98,6 +103,8 @@ struct pim_interface {
 	int igmp_last_member_query_count; /* IGMP last member query count */
 	struct list *igmp_socket_list; /* list of struct igmp_sock */
 	struct list *igmp_join_list;   /* list of struct igmp_join */
+	struct list *igmp_group_list;  /* list of struct igmp_group */
+	struct hash *igmp_group_hash;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct thread *t_pim_sock_read; /* thread for reading PIM socket */
@@ -132,6 +139,7 @@ struct pim_interface {
 
 	/* Turn on Active-Active for this interface */
 	bool activeactive;
+	bool am_i_dr;
 
 	int64_t pim_ifstat_start; /* start timestamp for stats */
 	uint64_t pim_ifstat_bsm_rx;
@@ -153,9 +161,16 @@ struct pim_interface {
 	uint32_t pim_ifstat_bsm_cfg_miss;
 	uint32_t pim_ifstat_ucast_bsm_cfg_miss;
 	uint32_t pim_ifstat_bsm_invalid_sz;
-	struct bfd_info *bfd_info;
 	bool bsm_enable; /* bsm processing enable */
 	bool ucast_bsm_accept; /* ucast bsm processing */
+
+	struct {
+		bool enabled;
+		uint32_t min_rx;
+		uint32_t min_tx;
+		uint8_t detection_multiplier;
+		char *profile;
+	} bfd_config;
 };
 
 /*
@@ -221,7 +236,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(struct pim_instance *pim);
 
-int pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
+struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
 bool pim_if_is_vrf_device(struct interface *ifp);

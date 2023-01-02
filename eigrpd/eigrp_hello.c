@@ -125,6 +125,10 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 	struct eigrp *eigrp = nbr->ei->eigrp;
 	struct TLV_Parameter_Type *param = (struct TLV_Parameter_Type *)tlv;
 
+	/* First validate TLV length */
+	if (tlv->length < sizeof(struct TLV_Parameter_Type))
+		return NULL;
+
 	/* copy over the values passed in by the neighbor */
 	nbr->K1 = param->K1;
 	nbr->K2 = param->K2;
@@ -144,10 +148,11 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 	    && (eigrp->k_values[4] == nbr->K5)) {
 
 		if (eigrp_nbr_state_get(nbr) == EIGRP_NEIGHBOR_DOWN) {
-			zlog_info("Neighbor %s (%s) is pending: new adjacency",
-				  inet_ntoa(nbr->src),
-				  ifindex2ifname(nbr->ei->ifp->ifindex,
-						 eigrp->vrf_id));
+			zlog_info(
+				"Neighbor %pI4 (%s) is pending: new adjacency",
+				&nbr->src,
+				ifindex2ifname(nbr->ei->ifp->ifindex,
+					       eigrp->vrf_id));
 
 			/* Expedited hello sent */
 			eigrp_hello_send(nbr->ei, EIGRP_HELLO_NORMAL, NULL);
@@ -164,16 +169,16 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 			     & param->K5)
 			    == 255) {
 				zlog_info(
-					"Neighbor %s (%s) is down: Interface PEER-TERMINATION received",
-					inet_ntoa(nbr->src),
+					"Neighbor %pI4 (%s) is down: Interface PEER-TERMINATION received",
+					&nbr->src,
 					ifindex2ifname(nbr->ei->ifp->ifindex,
 						       eigrp->vrf_id));
 				eigrp_nbr_delete(nbr);
 				return NULL;
 			} else {
 				zlog_info(
-					"Neighbor %s (%s) going down: Kvalue mismatch",
-					inet_ntoa(nbr->src),
+					"Neighbor %pI4 (%s) going down: Kvalue mismatch",
+					&nbr->src,
 					ifindex2ifname(nbr->ei->ifp->ifindex,
 						       eigrp->vrf_id));
 				eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
@@ -193,13 +198,22 @@ eigrp_hello_authentication_decode(struct stream *s,
 
 	md5 = (struct TLV_MD5_Authentication_Type *)tlv_header;
 
-	if (md5->auth_type == EIGRP_AUTH_TYPE_MD5)
+	if (md5->auth_type == EIGRP_AUTH_TYPE_MD5) {
+		/* Validate tlv length */
+		if (md5->length < sizeof(struct TLV_MD5_Authentication_Type))
+			return 0;
+
 		return eigrp_check_md5_digest(s, md5, nbr,
 					      EIGRP_AUTH_BASIC_HELLO_FLAG);
-	else if (md5->auth_type == EIGRP_AUTH_TYPE_SHA256)
+	} else if (md5->auth_type == EIGRP_AUTH_TYPE_SHA256) {
+		/* Validate tlv length */
+		if (md5->length < sizeof(struct TLV_SHA256_Authentication_Type))
+			return 0;
+
 		return eigrp_check_sha256_digest(
 			s, (struct TLV_SHA256_Authentication_Type *)tlv_header,
 			nbr, EIGRP_AUTH_BASIC_HELLO_FLAG);
+	}
 
 	return 0;
 }
@@ -221,6 +235,10 @@ static void eigrp_sw_version_decode(struct eigrp_neighbor *nbr,
 				    struct eigrp_tlv_hdr_type *tlv)
 {
 	struct TLV_Software_Type *version = (struct TLV_Software_Type *)tlv;
+
+	/* Validate TLV length */
+	if (tlv->length < sizeof(struct TLV_Software_Type))
+		return;
 
 	nbr->os_rel_major = version->vender_major;
 	nbr->os_rel_minor = version->vender_minor;
@@ -249,13 +267,18 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 	struct TLV_Peer_Termination_type *param =
 		(struct TLV_Peer_Termination_type *)tlv;
 
+	/* Validate TLV length */
+	if (tlv->length < sizeof(struct TLV_Peer_Termination_type))
+		return;
+
 	uint32_t my_ip = nbr->ei->address.u.prefix4.s_addr;
 	uint32_t received_ip = param->neighbor_ip;
 
 	if (my_ip == received_ip) {
-		zlog_info("Neighbor %s (%s) is down: Peer Termination received",
-			  inet_ntoa(nbr->src),
-			  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
+		zlog_info(
+			"Neighbor %pI4 (%s) is down: Peer Termination received",
+			&nbr->src,
+			ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 		/* set neighbor to DOWN */
 		nbr->state = EIGRP_NEIGHBOR_DOWN;
 		/* delete neighbor */
@@ -330,9 +353,9 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 	assert(nbr);
 
 	if (IS_DEBUG_EIGRP_PACKET(eigrph->opcode - 1, RECV))
-		zlog_debug("Processing Hello size[%u] int(%s) nbr(%s)", size,
+		zlog_debug("Processing Hello size[%u] int(%s) nbr(%pI4)", size,
 			   ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id),
-			   inet_ntoa(nbr->src));
+			   &nbr->src);
 
 	size -= EIGRP_HEADER_LEN;
 	if (size < 0)
@@ -343,6 +366,10 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 	do {
 		type = ntohs(tlv_header->type);
 		length = ntohs(tlv_header->length);
+
+		/* Validate length against packet size */
+		if (length > size)
+			return;
 
 		if ((length > 0) && (length <= size)) {
 			if (IS_DEBUG_EIGRP_PACKET(0, RECV))
@@ -403,8 +430,7 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 	}
 
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-		zlog_debug("Hello Packet received from %s",
-			   inet_ntoa(nbr->src));
+		zlog_debug("Hello Packet received from %pI4", &nbr->src);
 }
 
 uint32_t FRR_MAJOR;
@@ -708,9 +734,8 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
 
 	if (ep) {
 		if (IS_DEBUG_EIGRP_PACKET(0, SEND))
-			zlog_debug("Queueing [Hello] Ack Seq [%u] nbr [%s]",
-				   nbr->recv_sequence_number,
-				   inet_ntoa(nbr->src));
+			zlog_debug("Queueing [Hello] Ack Seq [%u] nbr [%pI4]",
+				   nbr->recv_sequence_number, &nbr->src);
 
 		/* Add packet to the top of the interface output queue*/
 		eigrp_fifo_push(nbr->ei->obuf, ep);
@@ -744,12 +769,6 @@ void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 		      struct in_addr *nbr_addr)
 {
 	struct eigrp_packet *ep = NULL;
-
-	/* If this is passive interface, do not send EIGRP Hello.
-	   if ((EIGRP_IF_PASSIVE_STATUS (ei) == EIGRP_IF_PASSIVE) ||
-	   (ei->type != EIGRP_IFTYPE_NBMA))
-	   return;
-	*/
 
 	if (IS_DEBUG_EIGRP_PACKET(0, SEND))
 		zlog_debug("Queueing [Hello] Interface(%s)", IF_NAME(ei));

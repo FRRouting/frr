@@ -22,8 +22,8 @@
 #include "sigevent.h"
 #include "frr_zmq.h"
 
-DEFINE_MTYPE_STATIC(LIB, TESTBUF, "zmq test buffer")
-DEFINE_MTYPE_STATIC(LIB, ZMQMSG, "zmq message")
+DEFINE_MTYPE_STATIC(LIB, TESTBUF, "zmq test buffer");
+DEFINE_MTYPE_STATIC(LIB, ZMQMSG, "zmq message");
 
 static struct thread_master *master;
 
@@ -120,7 +120,7 @@ static void run_client(int syncfd)
 
 	/* write callback */
 	printf("---\n");
-	snprintf(buf, 32, "Done receiving");
+	snprintf(buf, sizeof(buf), "Done receiving");
 	printf("client send: %s\n", buf);
 	fflush(stdout);
 	send_delim(zmqsock);

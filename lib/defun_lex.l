@@ -80,6 +80,8 @@ static void extendbuf(char **what, const char *arg)
 }
 #define extend(x) extendbuf(&value, x)
 
+#ifndef __clang_analyzer__
+
 %}
 
 ID		[A-Za-z0-9_]+
@@ -140,6 +142,8 @@ SPECIAL		[(),]
 "DEFPY_NOSH"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_ATTR"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_HIDDEN"			value = strdup(yytext); return DEFUNNY;
+"DEFPY_YANG"			value = strdup(yytext); return DEFUNNY;
+"DEFPY_YANG_NOSH"		value = strdup(yytext); return DEFUNNY;
 "ALIAS"				value = strdup(yytext); return DEFUNNY;
 "ALIAS_HIDDEN"			value = strdup(yytext); return DEFUNNY;
 "install_element"		value = strdup(yytext); return INSTALL;
@@ -154,6 +158,8 @@ SPECIAL		[(),]
 .				/* printf("-- '%s' in init\n", yytext); */ BEGIN(INITIAL); return yytext[0];
 
 %%
+
+#endif /* __clang_analyzer__ */
 
 static int yylex_clr(char **retbuf)
 {

@@ -93,8 +93,7 @@ int main(int argc, char **argv)
 
 	/* add bigger row */
 	ttable_add_row(tt, "%s|%s||%s|%s",
-		       "nebula dusk session streets twilight "
-		       "pioneer beats yeah",
+		       "nebula dusk session streets twilight pioneer beats yeah",
 		       "prarie dog", "cornmeal", ":O -*_-*");
 	assert(tt->ncols == 5);
 	assert(tt->nrows == 2);

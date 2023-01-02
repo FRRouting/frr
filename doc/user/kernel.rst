@@ -6,6 +6,9 @@ Kernel Interface
 
 There are several different methods for reading kernel routing table
 information, updating kernel routing tables, and for looking up interfaces.
+FRR relies heavily on the Netlink (``man 7 netlink``) interface to
+communicate with the Kernel. However, other interfaces are still used
+in some parts of the code.
 
 - ioctl
      This method is a very traditional way for reading or writing kernel
@@ -27,16 +30,7 @@ information, updating kernel routing tables, and for looking up interfaces.
      kernel information.
 
 - routing socket / Netlink
-     On recent Linux kernels (2.0.x and 2.2.x), there is a kernel/user
-     communication support called `Netlink`. It makes asynchronous communication
-     between kernel and FRR possible, similar to a routing socket on BSD systems.
-
-     Before you use this feature, be sure to select (in kernel configuration) the
-     kernel/Netlink support option 'Kernel/User network link driver' and 'Routing
-     messages'.
-
-     Today, the :file:`/dev/route` special device file is obsolete.  Netlink
-     communication is done by reading/writing over Netlink socket.
-
-     After the kernel configuration, please reconfigure and rebuild FRR.  You can
-     use Netlink as a dynamic routing update channel between FRR and the kernel.
+     Netlink first appeard in Linux kernel 2.0. It makes asynchronous
+     communication between the kernel and FRR possible, similar to a routing
+     socket on BSD systems. Netlink communication is done by reading/writing
+     over Netlink socket.

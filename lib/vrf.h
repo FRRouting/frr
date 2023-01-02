@@ -43,7 +43,7 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #endif
 
 #define VRF_NAMSIZ      36
-#define NS_NAMSIZ       16
+#define NS_NAMSIZ 36
 
 /*
  * The command strings
@@ -51,6 +51,9 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #define VRF_CMD_HELP_STR    "Specify the VRF\nThe VRF name\n"
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 #define VRF_FULL_CMD_HELP_STR   "Specify the VRF\nThe VRF name\nAll VRFs\n"
+
+#define FRR_VRF_XPATH "/frr-vrf:lib/vrf"
+#define FRR_VRF_KEY_XPATH "/frr-vrf:lib/vrf[name='%s']"
 
 /*
  * Pass some OS specific data up through
@@ -92,18 +95,21 @@ struct vrf {
 	/* Back pointer to namespace context */
 	void *ns_ctxt;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(vrf_id_head, vrf);
 RB_PROTOTYPE(vrf_id_head, vrf, id_entry, vrf_id_compare)
 RB_HEAD(vrf_name_head, vrf);
 RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
-DECLARE_QOBJ_TYPE(vrf)
+DECLARE_QOBJ_TYPE(vrf);
 
 /* Allow VRF with netns as backend */
-#define VRF_BACKEND_VRF_LITE   0
-#define VRF_BACKEND_NETNS      1
-#define VRF_BACKEND_UNKNOWN    2
+enum vrf_backend_type {
+	VRF_BACKEND_VRF_LITE,
+	VRF_BACKEND_NETNS,
+	VRF_BACKEND_UNKNOWN,
+	VRF_BACKEND_MAX,
+};
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
@@ -111,8 +117,10 @@ extern struct vrf_name_head vrfs_by_name;
 extern struct vrf *vrf_lookup_by_id(vrf_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
+extern struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
-extern vrf_id_t vrf_name_to_id(const char *);
+
+#define VRF_LOGNAME(V) V ? V->name : "Unknown"
 
 #define VRF_GET_ID(V, NAME, USE_JSON)                                          \
 	do {                                                                   \
@@ -150,16 +158,18 @@ static inline int vrf_is_user_cfged(struct vrf *vrf)
 	return vrf && CHECK_FLAG(vrf->status, VRF_CONFIGURED);
 }
 
-/* Mark that VRF has user configuration */
-static inline void vrf_set_user_cfged(struct vrf *vrf)
+static inline uint32_t vrf_interface_count(struct vrf *vrf)
 {
-	SET_FLAG(vrf->status, VRF_CONFIGURED);
-}
+	uint32_t count = 0;
+	struct interface *ifp;
 
-/* Mark that VRF no longer has any user configuration */
-static inline void vrf_reset_user_cfged(struct vrf *vrf)
-{
-	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		/* skip the l3mdev */
+		if (strncmp(ifp->name, vrf->name, VRF_NAMSIZ) == 0)
+			continue;
+		count++;
+	}
+	return count;
 }
 
 /*
@@ -240,15 +250,14 @@ extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 				const char *name);
 
 /*
- * Binds a socket to a VRF device.
+ * Binds a socket to an interface (ifname) in a VRF (vrf_id).
  *
- * If name is null, the socket is not bound, irrespective of any other
- * arguments.
+ * If ifname is NULL or is equal to the VRF name then bind to a VRF device.
+ * Otherwise, bind to the specified interface in the specified VRF.
  *
- * name should be the name of the VRF device. vrf_id should be the
- * corresponding vrf_id (the ifindex of the device).
+ * Returns 0 on success and -1 on failure.
  */
-extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *name);
+extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname);
 
 /* VRF ioctl operations */
 extern int vrf_getaddrinfo(const char *node, const char *service,
@@ -257,12 +266,8 @@ extern int vrf_getaddrinfo(const char *node, const char *service,
 
 extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 
-/* function called by macro VRF_DEFAULT
- * to get the default VRF_ID
- */
-extern vrf_id_t vrf_get_default_id(void);
 /* The default VRF ID */
-#define VRF_DEFAULT vrf_get_default_id()
+#define VRF_DEFAULT 0
 
 extern void vrf_set_default_name(const char *default_name, bool force);
 extern const char *vrf_get_default_name(void);
@@ -279,8 +284,7 @@ extern int vrf_switchback_to_initial(void);
 
 /* VRF vty command initialisation
  */
-extern void vrf_cmd_init(int (*writefunc)(struct vty *vty),
-			 struct zebra_privs_t *daemon_priv);
+extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
 
 /* VRF vty debugging
  */
@@ -290,10 +294,10 @@ extern void vrf_install_commands(void);
  * VRF utilities
  */
 
-/* API for configuring VRF backend
- * should be called from zebra only
+/*
+ * API for configuring VRF backend
  */
-extern void vrf_configure_backend(int vrf_backend_netns);
+extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
 
@@ -310,7 +314,7 @@ extern int vrf_handler_create(struct vty *vty, const char *name,
  */
 extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 				    char *pathname, ns_id_t ext_ns_id,
-				    ns_id_t ns_id);
+				    ns_id_t ns_id, ns_id_t rel_def_ns_id);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF
@@ -318,7 +322,8 @@ extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
-extern vrf_id_t vrf_generate_id(void);
+
+extern const struct frr_yang_module_info frr_vrf_info;
 
 #ifdef __cplusplus
 }

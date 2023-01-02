@@ -1,0 +1,52 @@
+{
+  "routes": {
+    "10.254.254.2/32": [
+      {
+        "path": "102",
+        "prefix": "10.254.254.2",
+        "valid": true,
+        "peerId": "192.168.0.2",
+        "prefixLen": 32,
+        "nexthops": [
+          {
+            "ip": "192.168.0.2",
+            "used": true,
+            "afi": "ipv4"
+          }
+        ]
+      }
+    ],
+    "10.254.254.3/32": [
+      {
+        "path": "102 103",
+        "prefix": "10.254.254.3",
+        "valid": true,
+        "peerId": "192.168.0.2",
+        "prefixLen": 32,
+        "nexthops": [
+          {
+            "ip": "192.168.0.2",
+            "used": true,
+            "afi": "ipv4"
+          }
+        ]
+      }
+    ],
+    "10.254.254.4/32": [
+      {
+        "path": "102 104",
+        "prefix": "10.254.254.4",
+        "valid": true,
+        "peerId": "192.168.0.2",
+        "prefixLen": 32,
+        "nexthops": [
+          {
+            "ip": "192.168.0.2",
+            "used": true,
+            "afi": "ipv4"
+          }
+        ]
+      }
+    ]
+  }
+}

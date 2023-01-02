@@ -53,9 +53,9 @@ struct zebra_pw {
 	struct zserv *client;
 	struct rnh *rnh;
 	struct thread *install_retry_timer;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(zebra_pw)
+DECLARE_QOBJ_TYPE(zebra_pw);
 
 RB_HEAD(zebra_pw_head, zebra_pw);
 RB_PROTOTYPE(zebra_pw_head, zebra_pw, pw_entry, zebra_pw_compare);
@@ -63,8 +63,8 @@ RB_PROTOTYPE(zebra_pw_head, zebra_pw, pw_entry, zebra_pw_compare);
 RB_HEAD(zebra_static_pw_head, zebra_pw);
 RB_PROTOTYPE(zebra_static_pw_head, zebra_pw, static_pw_entry, zebra_pw_compare);
 
-DECLARE_HOOK(pw_install, (struct zebra_pw * pw), (pw))
-DECLARE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw))
+DECLARE_HOOK(pw_install, (struct zebra_pw * pw), (pw));
+DECLARE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 
 struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 			      uint8_t protocol, struct zserv *client);
@@ -73,7 +73,7 @@ void zebra_pw_change(struct zebra_pw *, ifindex_t, int, int, union g_addr *,
 		     uint32_t, uint32_t, uint8_t, union pw_protocol_fields *);
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *, const char *);
 void zebra_pw_update(struct zebra_pw *);
-void zebra_pw_install_failure(struct zebra_pw *);
+void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus);
 void zebra_pw_init(struct zebra_vrf *);
 void zebra_pw_exit(struct zebra_vrf *);
 void zebra_pw_vty_init(void);

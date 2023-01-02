@@ -30,60 +30,64 @@
 #include "vty.h"
 #include "ldp_vty.h"
 
+static int	 ldp_config_write(struct vty *);
 static void	 ldp_af_iface_config_write(struct vty *, int);
 static void	 ldp_af_config_write(struct vty *, int, struct ldpd_conf *,
 		    struct ldpd_af_conf *);
+static int	 ldp_l2vpn_config_write(struct vty *);
 static void	 ldp_l2vpn_pw_config_write(struct vty *, struct l2vpn_pw *);
 static int	 ldp_vty_get_af(struct vty *);
 static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
 
-struct cmd_node ldp_node =
-{
-	LDP_NODE,
-	"%s(config-ldp)# ",
-	1,
+struct cmd_node ldp_node = {
+	.name = "ldp",
+	.node = LDP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-ldp)# ",
+	.config_write = ldp_config_write,
 };
 
-struct cmd_node ldp_ipv4_node =
-{
-	LDP_IPV4_NODE,
-	"%s(config-ldp-af)# ",
-	1,
+struct cmd_node ldp_ipv4_node = {
+	.name = "ldp ipv4",
+	.node = LDP_IPV4_NODE,
+	.parent_node = LDP_NODE,
+	.prompt = "%s(config-ldp-af)# ",
 };
 
-struct cmd_node ldp_ipv6_node =
-{
-	LDP_IPV6_NODE,
-	"%s(config-ldp-af)# ",
-	1,
+struct cmd_node ldp_ipv6_node = {
+	.name = "ldp ipv6",
+	.node = LDP_IPV6_NODE,
+	.parent_node = LDP_NODE,
+	.prompt = "%s(config-ldp-af)# ",
 };
 
-struct cmd_node ldp_ipv4_iface_node =
-{
-	LDP_IPV4_IFACE_NODE,
-	"%s(config-ldp-af-if)# ",
-	1,
+struct cmd_node ldp_ipv4_iface_node = {
+	.name = "ldp ipv4 interface",
+	.node = LDP_IPV4_IFACE_NODE,
+	.parent_node = LDP_IPV4_NODE,
+	.prompt = "%s(config-ldp-af-if)# ",
 };
 
-struct cmd_node ldp_ipv6_iface_node =
-{
-	LDP_IPV6_IFACE_NODE,
-	"%s(config-ldp-af-if)# ",
-	1,
+struct cmd_node ldp_ipv6_iface_node = {
+	.name = "ldp ipv6 interface",
+	.node = LDP_IPV6_IFACE_NODE,
+	.parent_node = LDP_IPV6_NODE,
+	.prompt = "%s(config-ldp-af-if)# ",
 };
 
-struct cmd_node ldp_l2vpn_node =
-{
-	LDP_L2VPN_NODE,
-	"%s(config-l2vpn)# ",
-	1,
+struct cmd_node ldp_l2vpn_node = {
+	.name = "ldp l2vpn",
+	.node = LDP_L2VPN_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-l2vpn)# ",
+	.config_write = ldp_l2vpn_config_write,
 };
 
-struct cmd_node ldp_pseudowire_node =
-{
-	LDP_PSEUDOWIRE_NODE,
-	"%s(config-l2vpn-pw)# ",
-	1,
+struct cmd_node ldp_pseudowire_node = {
+	.name = "ldp",
+	.node = LDP_PSEUDOWIRE_NODE,
+	.parent_node = LDP_L2VPN_NODE,
+	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
 int
@@ -129,6 +133,8 @@ ldp_af_iface_config_write(struct vty *vty, int af)
 		    ia->hello_interval != 0)
 			vty_out (vty, "   discovery hello interval %u\n",
 			    ia->hello_interval);
+
+		vty_out (vty, "  exit\n");
 	}
 }
 
@@ -240,7 +246,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 	vty_out(vty, " exit-address-family\n");
 }
 
-int
+static int
 ldp_config_write(struct vty *vty)
 {
 	struct nbr_params	*nbrp;
@@ -250,9 +256,8 @@ ldp_config_write(struct vty *vty)
 
 	vty_out (vty, "mpls ldp\n");
 
-	if (ldpd_conf->rtr_id.s_addr != 0)
-		vty_out (vty, " router-id %s\n",
-		    inet_ntoa(ldpd_conf->rtr_id));
+	if (ldpd_conf->rtr_id.s_addr != INADDR_ANY)
+		vty_out(vty, " router-id %pI4\n", &ldpd_conf->rtr_id);
 
 	if (ldpd_conf->lhello_holdtime != LINK_DFLT_HOLDTIME &&
 	    ldpd_conf->lhello_holdtime != 0)
@@ -279,29 +284,39 @@ ldp_config_write(struct vty *vty)
 	if (ldpd_conf->flags & F_LDPD_DS_CISCO_INTEROP)
 		vty_out (vty, " dual-stack cisco-interop\n");
 
+	if (ldpd_conf->flags & F_LDPD_ORDERED_CONTROL)
+		vty_out (vty, " ordered-control\n");
+
+	if (ldpd_conf->wait_for_sync_interval != DFLT_WAIT_FOR_SYNC &&
+	    ldpd_conf->wait_for_sync_interval != 0)
+		vty_out (vty, " wait-for-sync %u\n",
+		    ldpd_conf->wait_for_sync_interval);
+
+	if (ldpd_conf->flags & F_LDPD_ALLOW_BROKEN_LSP)
+		vty_out(vty, " install allow-broken-lsp\n");
+
 	RB_FOREACH(nbrp, nbrp_head, &ldpd_conf->nbrp_tree) {
 		if (nbrp->flags & F_NBRP_KEEPALIVE)
-			vty_out (vty, " neighbor %s session holdtime %u\n",
-			    inet_ntoa(nbrp->lsr_id),nbrp->keepalive);
+			vty_out (vty, " neighbor %pI4 session holdtime %u\n",
+			    &nbrp->lsr_id,nbrp->keepalive);
 
 		if (nbrp->flags & F_NBRP_GTSM) {
 			if (nbrp->gtsm_enabled)
-				vty_out (vty, " neighbor %s ttl-security hops "
-				    "%u\n",  inet_ntoa(nbrp->lsr_id),
+				vty_out (vty, " neighbor %pI4 ttl-security hops %u\n",  &nbrp->lsr_id,
 				    nbrp->gtsm_hops);
 			else
-				vty_out (vty, " neighbor %s ttl-security "
-				    "disable\n",inet_ntoa(nbrp->lsr_id));
+				vty_out (vty, " neighbor %pI4 ttl-security disable\n",&nbrp->lsr_id);
 		}
 
 		if (nbrp->auth.method == AUTH_MD5SIG)
-			vty_out (vty, " neighbor %s password %s\n",
-			    inet_ntoa(nbrp->lsr_id),nbrp->auth.md5key);
+			vty_out (vty, " neighbor %pI4 password %s\n",
+			    &nbrp->lsr_id,nbrp->auth.md5key);
 	}
 
 	ldp_af_config_write(vty, AF_INET, ldpd_conf, &ldpd_conf->ipv4);
 	ldp_af_config_write(vty, AF_INET6, ldpd_conf, &ldpd_conf->ipv6);
 	vty_out (vty, " !\n");
+	vty_out (vty, "exit\n");
 	vty_out (vty, "!\n");
 
 	return (1);
@@ -317,7 +332,7 @@ ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
 	vty_out (vty, " member pseudowire %s\n", pw->ifname);
 
 	if (pw->lsr_id.s_addr != INADDR_ANY)
-		vty_out (vty, "  neighbor lsr-id %s\n",inet_ntoa(pw->lsr_id));
+		vty_out (vty, "  neighbor lsr-id %pI4\n",&pw->lsr_id);
 		else
 			missing_lsrid = 1;
 
@@ -341,9 +356,11 @@ ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
 		          "  ! Incomplete config, specify a neighbor lsr-id\n");
 	if (missing_pwid)
 		vty_out (vty,"  ! Incomplete config, specify a pw-id\n");
+
+	vty_out (vty, " exit\n");
 }
 
-int
+static int
 ldp_l2vpn_config_write(struct vty *vty)
 {
 	struct l2vpn		*l2vpn;
@@ -371,6 +388,7 @@ ldp_l2vpn_config_write(struct vty *vty)
 			ldp_l2vpn_pw_config_write(vty, pw);
 
 		vty_out (vty, " !\n");
+		vty_out (vty, "exit\n");
 		vty_out (vty, "!\n");
 	}
 
@@ -419,6 +437,9 @@ ldp_vty_mpls_ldp(struct vty *vty, const char *negate)
 		vty->node = LDP_NODE;
 		vty_conf->flags |= F_LDPD_ENABLED;
 	}
+
+	/* register / de-register to recv info from zebra */
+	ldp_zebra_regdereg_zebra_info(!negate);
 
 	ldp_config_apply(vty, vty_conf);
 
@@ -473,7 +494,6 @@ int ldp_vty_disc_holdtime(struct vty *vty, const char *negate,
 	struct iface		*iface;
 	struct iface_af		*ia;
 	int			 af;
-
 	switch (vty->node) {
 	case LDP_NODE:
 		if (negate) {
@@ -998,6 +1018,50 @@ ldp_vty_router_id(struct vty *vty, const char *negate, struct in_addr address)
 }
 
 int
+ldp_vty_ordered_control(struct vty *vty, const char *negate)
+{
+	if (negate)
+		vty_conf->flags &= ~F_LDPD_ORDERED_CONTROL;
+	else
+		vty_conf->flags |= F_LDPD_ORDERED_CONTROL;
+
+	ldp_config_apply(vty, vty_conf);
+
+	return (CMD_SUCCESS);
+}
+
+int ldp_vty_wait_for_sync_interval(struct vty *vty, const char *negate,
+    long secs)
+{
+	switch (vty->node) {
+	case LDP_NODE:
+		if (negate)
+			vty_conf->wait_for_sync_interval = DFLT_WAIT_FOR_SYNC;
+		else
+			vty_conf->wait_for_sync_interval = secs;
+
+		ldp_config_apply(vty, vty_conf);
+		break;
+	default:
+		fatalx("ldp_vty_wait_for_sync_interval: unexpected node");
+	}
+	return (CMD_SUCCESS);
+}
+
+int
+ldp_vty_allow_broken_lsp(struct vty *vty, const char *negate)
+{
+	if (negate)
+		vty_conf->flags &= ~F_LDPD_ALLOW_BROKEN_LSP;
+	else
+		vty_conf->flags |= F_LDPD_ALLOW_BROKEN_LSP;
+
+	ldp_config_apply(vty, vty_conf);
+
+	return (CMD_SUCCESS);
+}
+
+int
 ldp_vty_ds_cisco_interop(struct vty *vty, const char * negate)
 {
 	if (negate)
@@ -1060,9 +1124,8 @@ ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr ls
 		password_len = strlcpy(nbrp->auth.md5key, password_str,
 		    sizeof(nbrp->auth.md5key));
 		if (password_len >= sizeof(nbrp->auth.md5key))
-			vty_out(vty, "%% password has been truncated to %zu "
-			    "characters.", sizeof(nbrp->auth.md5key) - 1);
-		nbrp->auth.md5key_len = password_len;
+			vty_out(vty, "%% password has been truncated to %zu characters.", sizeof(nbrp->auth.md5key) - 1);
+		nbrp->auth.md5key_len = strlen(nbrp->auth.md5key);
 		nbrp->auth.method = AUTH_MD5SIG;
 	}
 

@@ -431,7 +431,7 @@ void *_rb_insert(const struct rb_type *t, struct rbt_tree *rbt, void *elm)
 
 	rbe_insert_color(t, rbt, rbe);
 
-	return (NULL);
+	return NULL;
 }
 
 /* Finds the node with the same key as elm */
@@ -453,7 +453,7 @@ void *_rb_find(const struct rb_type *t, const struct rbt_tree *rbt,
 			return (node);
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /* Finds the first node greater than or equal to the search key */

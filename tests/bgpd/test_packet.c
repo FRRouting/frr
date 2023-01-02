@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	qobj_init();
 	bgp_attr_init();
 	master = thread_master_create(NULL);
-	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 

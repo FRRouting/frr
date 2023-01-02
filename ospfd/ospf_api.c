@@ -58,7 +58,7 @@
 
 
 /* For debugging only, will be removed */
-void api_opaque_lsa_print(struct lsa_header *data)
+void api_opaque_lsa_print(struct ospf_lsa *lsa)
 {
 	struct opaque_lsa {
 		struct lsa_header header;
@@ -69,11 +69,11 @@ void api_opaque_lsa_print(struct lsa_header *data)
 	int opaquelen;
 	int i;
 
-	ospf_lsa_header_dump(data);
+	ospf_lsa_header_dump(lsa->data);
 
-	olsa = (struct opaque_lsa *)data;
+	olsa = (struct opaque_lsa *)lsa->data;
 
-	opaquelen = ntohs(data->length) - OSPF_LSA_HEADER_SIZE;
+	opaquelen = lsa->size - OSPF_LSA_HEADER_SIZE;
 	zlog_debug("apiserver_lsa_print: opaquelen=%d", opaquelen);
 
 	for (i = 0; i < opaquelen; i++) {
@@ -111,11 +111,16 @@ struct msg *msg_new(uint8_t msgtype, void *msgbody, uint32_t seqnum,
 struct msg *msg_dup(struct msg *msg)
 {
 	struct msg *new;
+	size_t size;
 
 	assert(msg);
 
+	size = ntohs(msg->hdr.msglen);
+	if (size > OSPF_MAX_LSA_SIZE)
+		return NULL;
+
 	new = msg_new(msg->hdr.msgtype, STREAM_DATA(msg->s),
-		      ntohl(msg->hdr.msgseq), ntohs(msg->hdr.msglen));
+		      ntohl(msg->hdr.msgseq), size);
 	return new;
 }
 
@@ -353,8 +358,8 @@ struct msg *msg_read(int fd)
 	struct msg *msg;
 	struct apimsghdr hdr;
 	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	int bodylen;
-	int rlen;
+	ssize_t bodylen;
+	ssize_t rlen;
 
 	/* Read message header */
 	rlen = readn(fd, (uint8_t *)&hdr, sizeof(struct apimsghdr));
@@ -378,8 +383,13 @@ struct msg *msg_read(int fd)
 
 	/* Determine body length. */
 	bodylen = ntohs(hdr.msglen);
-	if (bodylen > 0) {
+	if (bodylen > (ssize_t)sizeof(buf)) {
+		zlog_warn("%s: Body Length of message greater than what we can read",
+			  __func__);
+		return NULL;
+	}
 
+	if (bodylen > 0) {
 		/* Read message body */
 		rlen = readn(fd, buf, bodylen);
 		if (rlen < 0) {
@@ -395,7 +405,7 @@ struct msg *msg_read(int fd)
 	}
 
 	/* Allocate new message */
-	msg = msg_new(hdr.msgtype, buf, ntohl(hdr.msgseq), ntohs(hdr.msglen));
+	msg = msg_new(hdr.msgtype, buf, ntohl(hdr.msgseq), bodylen);
 
 	return msg;
 }
@@ -403,29 +413,34 @@ struct msg *msg_read(int fd)
 int msg_write(int fd, struct msg *msg)
 {
 	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	int l;
+	uint16_t l;
 	int wlen;
 
 	assert(msg);
 	assert(msg->s);
 
-	/* Length of message including header */
-	l = sizeof(struct apimsghdr) + ntohs(msg->hdr.msglen);
+	/* Length of OSPF LSA payload */
+	l = ntohs(msg->hdr.msglen);
+	if (l > OSPF_MAX_LSA_SIZE) {
+		zlog_warn("%s: wrong LSA size %d", __func__, l);
+		return -1;
+	}
 
 	/* Make contiguous memory buffer for message */
 	memcpy(buf, &msg->hdr, sizeof(struct apimsghdr));
-	memcpy(buf + sizeof(struct apimsghdr), STREAM_DATA(msg->s),
-	       ntohs(msg->hdr.msglen));
+	memcpy(buf + sizeof(struct apimsghdr), STREAM_DATA(msg->s), l);
 
+	/* Total length of OSPF API Message */
+	l += sizeof(struct apimsghdr);
 	wlen = writen(fd, buf, l);
 	if (wlen < 0) {
-		zlog_warn("msg_write: writen %s", safe_strerror(errno));
+		zlog_warn("%s: writen %s", __func__, safe_strerror(errno));
 		return -1;
 	} else if (wlen == 0) {
-		zlog_warn("msg_write: Connection closed by peer");
+		zlog_warn("%s: Connection closed by peer", __func__);
 		return -1;
 	} else if (wlen != l) {
-		zlog_warn("msg_write: Cannot write API message");
+		zlog_warn("%s: Cannot write API message", __func__);
 		return -1;
 	}
 	return 0;

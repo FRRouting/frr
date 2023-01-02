@@ -29,6 +29,7 @@
 #include "hash.h"
 #include "if.h"
 #include "command.h"
+#include "network.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -58,27 +59,30 @@ char nlpidstring[30];
 const char *isonet_print(const uint8_t *from, int len)
 {
 	int i = 0;
-	char *pos = isonet;
+	char tbuf[4];
+	isonet[0] = '\0';
 
 	if (!from)
 		return "unknown";
 
 	while (i < len) {
 		if (i & 1) {
-			sprintf(pos, "%02x", *(from + i));
-			pos += 2;
+			snprintf(tbuf, sizeof(tbuf), "%02x", *(from + i));
+			strlcat(isonet, tbuf, sizeof(isonet));
 		} else {
 			if (i == (len - 1)) { /* No dot at the end of address */
-				sprintf(pos, "%02x", *(from + i));
-				pos += 2;
+				snprintf(tbuf, sizeof(tbuf), "%02x",
+					 *(from + i));
+				strlcat(isonet, tbuf, sizeof(isonet));
 			} else {
-				sprintf(pos, "%02x.", *(from + i));
-				pos += 3;
+				snprintf(tbuf, sizeof(tbuf), "%02x.",
+					 *(from + i));
+				strlcat(isonet, tbuf, sizeof(isonet));
 			}
 		}
 		i++;
 	}
-	*(pos) = '\0';
+
 	return isonet;
 }
 
@@ -189,7 +193,7 @@ const char *nlpid2str(uint8_t nlpid)
 	case NLPID_ESIS:
 		return "ES-IS";
 	default:
-		snprintf(buf, sizeof(buf), "%" PRIu8, nlpid);
+		snprintf(buf, sizeof(buf), "%hhu", nlpid);
 		return buf;
 	}
 }
@@ -201,16 +205,17 @@ const char *nlpid2str(uint8_t nlpid)
 
 char *nlpid2string(struct nlpids *nlpids)
 {
-	char *pos = nlpidstring;
 	int i;
+	char tbuf[256];
+	nlpidstring[0] = '\0';
 
 	for (i = 0; i < nlpids->count; i++) {
-		pos += sprintf(pos, "%s", nlpid2str(nlpids->nlpids[i]));
+		snprintf(tbuf, sizeof(tbuf), "%s",
+			 nlpid2str(nlpids->nlpids[i]));
+		strlcat(nlpidstring, tbuf, sizeof(nlpidstring));
 		if (nlpids->count - i > 1)
-			pos += sprintf(pos, ", ");
+			strlcat(nlpidstring, ", ", sizeof(nlpidstring));
 	}
-
-	*(pos) = '\0';
 
 	return nlpidstring;
 }
@@ -358,34 +363,47 @@ const char *isis_format_id(const uint8_t *id, size_t len)
 
 const char *time2string(uint32_t time)
 {
-	char *pos = datestring;
 	uint32_t rest;
+	char tbuf[32];
+	datestring[0] = '\0';
 
 	if (time == 0)
 		return "-";
 
-	if (time / SECS_PER_YEAR)
-		pos += sprintf(pos, "%uY", time / SECS_PER_YEAR);
+	if (time / SECS_PER_YEAR) {
+		snprintf(tbuf, sizeof(tbuf), "%uY", time / SECS_PER_YEAR);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = time % SECS_PER_YEAR;
-	if (rest / SECS_PER_MONTH)
-		pos += sprintf(pos, "%uM", rest / SECS_PER_MONTH);
+	if (rest / SECS_PER_MONTH) {
+		snprintf(tbuf, sizeof(tbuf), "%uM", rest / SECS_PER_MONTH);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_MONTH;
-	if (rest / SECS_PER_WEEK)
-		pos += sprintf(pos, "%uw", rest / SECS_PER_WEEK);
+	if (rest / SECS_PER_WEEK) {
+		snprintf(tbuf, sizeof(tbuf), "%uw", rest / SECS_PER_WEEK);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_WEEK;
-	if (rest / SECS_PER_DAY)
-		pos += sprintf(pos, "%ud", rest / SECS_PER_DAY);
+	if (rest / SECS_PER_DAY) {
+		snprintf(tbuf, sizeof(tbuf), "%ud", rest / SECS_PER_DAY);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_DAY;
-	if (rest / SECS_PER_HOUR)
-		pos += sprintf(pos, "%uh", rest / SECS_PER_HOUR);
+	if (rest / SECS_PER_HOUR) {
+		snprintf(tbuf, sizeof(tbuf), "%uh", rest / SECS_PER_HOUR);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_HOUR;
-	if (rest / SECS_PER_MINUTE)
-		pos += sprintf(pos, "%um", rest / SECS_PER_MINUTE);
+	if (rest / SECS_PER_MINUTE) {
+		snprintf(tbuf, sizeof(tbuf), "%um", rest / SECS_PER_MINUTE);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_MINUTE;
-	if (rest)
-		pos += sprintf(pos, "%us", rest);
-
-	*(pos) = 0;
+	if (rest) {
+		snprintf(tbuf, sizeof(tbuf), "%us", rest);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 
 	return datestring;
 }
@@ -413,7 +431,7 @@ unsigned long isis_jitter(unsigned long timer, unsigned long jitter)
 	 * most IS-IS timers are no longer than 16 bit
 	 */
 
-	j = 1 + (int)((RANDOM_SPREAD * random()) / (RAND_MAX + 1.0));
+	j = 1 + (int)((RANDOM_SPREAD * frr_weak_random()) / (RAND_MAX + 1.0));
 
 	k = timer - (timer * (100 - jitter)) / 100;
 
@@ -439,17 +457,22 @@ struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
 const char *print_sys_hostname(const uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
+	struct isis *isis = NULL;
+	struct listnode *node;
 
 	if (!sysid)
 		return "nullsysid";
 
 	/* For our system ID return our host name */
-	if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
-	dyn = dynhn_find_by_id(sysid);
-	if (dyn)
-		return dyn->hostname;
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		dyn = dynhn_find_by_id(isis, sysid);
+		if (dyn)
+			return dyn->hostname;
+	}
 
 	return sysid_print(sysid);
 }
@@ -537,6 +560,26 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 		XFREE(MTYPE_TMP, p);
 }
 
+char *log_uptime(time_t uptime, char *buf, size_t nbuf)
+{
+	struct tm *tm;
+	time_t difftime = time(NULL);
+	difftime -= uptime;
+	tm = gmtime(&difftime);
+
+	if (difftime < ONE_DAY_SECOND)
+		snprintf(buf, nbuf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
+			 tm->tm_sec);
+	else if (difftime < ONE_WEEK_SECOND)
+		snprintf(buf, nbuf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
+			 tm->tm_min);
+	else
+		snprintf(buf, nbuf, "%02dw%dd%02dh", tm->tm_yday / 7,
+			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+
+	return buf;
+}
+
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 {
 	char shortbuf[256];
@@ -562,19 +605,12 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 
 void vty_out_timestr(struct vty *vty, time_t uptime)
 {
-	struct tm *tm;
 	time_t difftime = time(NULL);
-	difftime -= uptime;
-	tm = gmtime(&difftime);
+	char buf[MONOTIME_STRLEN];
 
-	if (difftime < ONE_DAY_SECOND)
-		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			tm->tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			tm->tm_min);
-	else
-		vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-			tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
-	vty_out(vty, " ago");
+	difftime -= uptime;
+
+	frrtime_to_interval(difftime, buf, sizeof(buf));
+
+	vty_out(vty, "%s ago", buf);
 }

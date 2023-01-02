@@ -39,6 +39,8 @@ THE SOFTWARE.
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "lib/network.h"
+
 #include "babel_main.h"
 #include "babeld.h"
 #include "util.h"
@@ -51,7 +53,7 @@ roughly(int value)
     else if(value <= 1)
         return value;
     else
-        return value * 3 / 4 + random() % (value / 2);
+        return value * 3 / 4 + frr_weak_random() % (value / 2);
 }
 
 /* d = s1 - s2 */
@@ -145,7 +147,7 @@ timeval_min_sec(struct timeval *d, time_t secs)
 {
     if(d->tv_sec == 0 || d->tv_sec > secs) {
         d->tv_sec = secs;
-        d->tv_usec = random() % 1000000;
+        d->tv_usec = frr_weak_random() % 1000000;
     }
 }
 
@@ -214,33 +216,13 @@ parse_nat(const char *string)
     return (int)l;
 }
 
-int
-in_prefix(const unsigned char *restrict address,
-          const unsigned char *restrict prefix, unsigned char plen)
-{
-    unsigned char m;
-
-    if(plen > 128)
-        plen = 128;
-
-    if(memcmp(address, prefix, plen / 8) != 0)
-        return 0;
-
-    if(plen % 8 == 0)
-        return 1;
-
-    m = 0xFF << (8 - (plen % 8));
-
-    return ((address[plen / 8] & m) == (prefix[plen / 8] & m));
-}
-
 unsigned char *
 mask_prefix(unsigned char *restrict ret,
             const unsigned char *restrict prefix, unsigned char plen)
 {
-    if(plen >= 128) {
-        memcpy(ret, prefix, 16);
-        return ret;
+	if (plen >= IPV6_MAX_BITLEN) {
+		memcpy(ret, prefix, IPV6_MAX_BYTELEN);
+		return ret;
     }
 
     memset(ret, 0, 16);
@@ -327,9 +309,10 @@ parse_address(const char *address, unsigned char *addr_r, int *af_r)
 
     rc = inet_pton(AF_INET6, address, &ina6);
     if(rc > 0) {
-        memcpy(addr_r, &ina6, 16);
-        if(af_r) *af_r = AF_INET6;
-        return 0;
+	    memcpy(addr_r, &ina6, IPV6_MAX_BYTELEN);
+	    if (af_r)
+		    *af_r = AF_INET6;
+	    return 0;
     }
 
     return -1;
@@ -431,13 +414,13 @@ uchar_to_inaddr(struct in_addr *dest, const unsigned char *src)
 void
 in6addr_to_uchar(unsigned char *dest, const struct in6_addr *src)
 {
-    memcpy(dest, src, 16);
+	memcpy(dest, src, IPV6_MAX_BYTELEN);
 }
 
 void
 uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src)
 {
-    memcpy(dest, src, 16);
+	memcpy(dest, src, IPV6_MAX_BYTELEN);
 }
 
 int

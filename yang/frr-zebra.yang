@@ -11,6 +11,10 @@ module frr-zebra {
     prefix inet;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -23,17 +27,50 @@ module frr-zebra {
     prefix frr-nh;
   }
 
+  import frr-routing {
+    prefix frr-rt;
+  }
+
   import frr-interface {
     prefix frr-interface;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List: <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines a model for managing the FRR zebra daemon.";
+    "This module defines a model for managing the FRR zebra daemon.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-06-01 {
     description
@@ -45,6 +82,65 @@ module frr-zebra {
     units "seconds";
     description
       "An absolute time in seconds since the unix epoch.";
+  }
+
+  identity zebra-interface-type {
+    description
+      "zebra interface type.";
+  }
+
+  identity zif-other {
+    base zebra-interface-type;
+    description
+      "Zebra interface type other.";
+  }
+
+  identity zif-bridge {
+    base zebra-interface-type;
+    description
+      "Zebra interface type bridge.";
+  }
+
+  identity zif-vlan {
+    base zebra-interface-type;
+    description
+      "Zebra interface type vlan.";
+  }
+
+  identity zif-vxlan {
+    base zebra-interface-type;
+    description
+      "Zebra interface type vxlan.";
+  }
+
+  identity zif-vrf {
+    base zebra-interface-type;
+    description
+      "Zebra interface type vrf.";
+  }
+
+  identity zif-veth {
+    base zebra-interface-type;
+    description
+      "Zebra interface type veth.";
+  }
+
+  identity zif-bond {
+    base zebra-interface-type;
+    description
+      "Zebra interface type bond.";
+  }
+
+  identity zif-bond-slave {
+    base zebra-interface-type;
+    description
+      "Zebra interface type bond slave.";
+  }
+
+  identity zif-macvlan {
+    base zebra-interface-type;
+    description
+      "Zebra interface type macvlan.";
   }
 
   /*
@@ -128,13 +224,6 @@ module frr-zebra {
   grouping route-common {
     description
       "Common information about a route.";
-    leaf vrf {
-      type string {
-        length "1..36";
-      }
-      description
-        "The route's vrf name.";
-    }
 
     leaf distance {
       type uint8;
@@ -156,25 +245,25 @@ module frr-zebra {
         "Route tag value.";
     }
 
-    leaf is-selected {
+    leaf selected {
       type empty;
       description
         "Route is the selected or preferred route for the prefix.";
     }
 
-    leaf is-installed {
+    leaf installed {
       type empty;
       description
         "Route is installed in the FIB.";
     }
 
-    leaf is-failed {
+    leaf failed {
       type empty;
       description
         "Route installation in FIB has failed.";
     }
 
-    leaf is-queued {
+    leaf queued {
       type empty;
       description
         "Route has a pending FIB operation that has not completed.";
@@ -193,17 +282,12 @@ module frr-zebra {
     }
 
     leaf uptime {
-      type uint32;
-      units "seconds";
+      type yang:date-and-time;
       description
         "Uptime for the route.";
     }
 
-    container nexthop-group {
-      description
-        "Nexthop information for the route.";
-      uses frr-nh:frr-nexthop-group;
-    }
+    uses frr-nh:frr-nexthop-group-operational;
   }
 
   // End of route-common
@@ -253,6 +337,7 @@ module frr-zebra {
 
     uses route-common;
   }
+  // End of ip6-route
 
   /*
    * Information about EVPN VNIs
@@ -308,9 +393,7 @@ module frr-zebra {
     }
 
     leaf vrf {
-      type string {
-        length "1..36";
-      }
+      type frr-vrf:vrf-ref;
       description
         "The tenant VRF.";
     }
@@ -339,7 +422,7 @@ module frr-zebra {
         "The gateway MAC-IP is being advertised.";
     }
 
-    leaf mcase-group {
+    leaf mcast-group {
       type rt-types:ipv4-multicast-group-address;
       description
         "The VNI multicast group for BUM traffic.";
@@ -438,6 +521,7 @@ module frr-zebra {
       description
         "Debug kernel messages sent.";
     }
+
     leaf debug-kernel-msg-recv {
       type boolean;
       description
@@ -511,6 +595,74 @@ module frr-zebra {
     }
   }
 
+  grouping ribs {
+    container ribs {
+      config false;
+      description
+        "RIBs supported by FRR.";
+      list rib {
+        key "afi-safi-name table-id";
+        leaf afi-safi-name {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI, SAFI name.";
+        }
+
+        leaf table-id {
+          type uint32;
+          description
+            "Routing Table id (default id - 254).";
+        }
+
+        list route {
+          key "prefix";
+          leaf prefix {
+            type inet:ip-prefix;
+            description
+              "The route's prefix.";
+          }
+
+          list route-entry {
+            key "protocol";
+            leaf protocol {
+              type frr-route-types:frr-route-types;
+              description
+                "The protocol owning the route.";
+            }
+
+            leaf instance {
+              type uint16;
+              must "../protocol = \"ospf\"";
+              description
+                "Retrieve routes from a specific OSPF instance.";
+            }
+
+            uses route-common;
+          }
+        }
+      }
+    }
+  }
+
+  grouping vrf-vni-mapping {
+    description
+      "EVPN L3-VNI mapping corresponding to a VRF.";
+    leaf l3vni-id {
+      type vni-id-type;
+      description
+        "EVPN L3-VNI id to map to the VRF.";
+    }
+
+    leaf prefix-only {
+      type boolean;
+      default "false";
+      description
+        "EVPN asymmetric mode advertise prefix routes only.";
+    }
+  }
+
   // End of zebra container
   /*
    * RPCs
@@ -528,6 +680,7 @@ module frr-zebra {
             description
               "Retrieve IPv4 routes.";
           }
+
           leaf prefix-v4 {
             type inet:ipv4-prefix;
             description
@@ -560,9 +713,7 @@ module frr-zebra {
       choice vrf-choice {
         case single {
           leaf vrf {
-            type string {
-              length "1..36";
-            }
+            type frr-vrf:vrf-ref;
             description
               "Retrieve routes in a non-default vrf.";
           }
@@ -601,7 +752,7 @@ module frr-zebra {
         type uint32 {
           range "1..65535";
         }
-        must '../protocol = "ospf"';
+        must "../protocol = \"ospf\"";
         description
           "Retrieve routes from a specific OSPF instance.";
       }
@@ -660,9 +811,7 @@ module frr-zebra {
       choice vrf-choice {
         case single {
           leaf vrf {
-            type string {
-              length "1..36";
-            }
+            type frr-vrf:vrf-ref;
             description
               "Retrieve routes in a non-default vrf.";
           }
@@ -698,9 +847,7 @@ module frr-zebra {
     output {
       list vrf-list {
         leaf name {
-          type string {
-            length "1..36";
-          }
+          type frr-vrf:vrf-ref;
           description
             "The VRF name";
         }
@@ -755,9 +902,7 @@ module frr-zebra {
     output {
       list vrf-vni-list {
         leaf vrf-name {
-          type string {
-            length "1..36";
-          }
+          type frr-vrf:vrf-ref;
           description
             "The VRF name.";
         }
@@ -1786,39 +1931,32 @@ module frr-zebra {
     description
       "Extends interface model with Zebra-related parameters.";
     container zebra {
-      list ip4-addr-list {
-        key "ip4-prefix";
+      list ip-addrs {
+        key "address-family ip-prefix";
         description
-          "IPv4 prefixes for an interface.";
-        leaf ip4-prefix {
-          type inet:ipv4-prefix;
+          "IP prefixes for an interface.";
+        uses frr-rt:address-family {
           description
-            "IPv4 address prefix.";
+            "Address family of the RIB.";
         }
+
+        leaf ip-prefix {
+          type inet:ip-prefix;
+          description
+            "IP address prefix.";
+        }
+
+        leaf label {
+          type string;
+          description
+            "Optional string label for the address.";
+        }
+
         leaf ip4-peer {
+          when "derived-from-or-self(../address-family, 'frr-rt:ipv4')";
           type inet:ipv4-prefix;
           description
             "Peer prefix, for peer-to-peer interfaces.";
-        }
-        leaf label {
-          type string;
-          description
-            "Optional string label for the address.";
-        }
-      }
-      list ip6-addr-list {
-        key "ip6-prefix";
-        description
-          "IPv6 prefixes for an interface.";
-        leaf ip6-prefix {
-          type inet:ipv6-prefix;
-          description
-            "IPv6 address prefix.";
-        }
-        leaf label {
-          type string;
-          description
-            "Optional string label for the address.";
         }
       }
 
@@ -1827,16 +1965,19 @@ module frr-zebra {
         description
           "Multicast flag for the interface.";
       }
+
       leaf link-detect {
         type boolean;
         description
           "Link-detection for the interface.";
       }
+
       leaf shutdown {
         type boolean;
         description
           "Interface admin status.";
       }
+
       leaf bandwidth {
         type uint32 {
           range "1..100000";
@@ -1845,7 +1986,78 @@ module frr-zebra {
           "Link bandwidth informational parameter, in megabits.";
       }
       // TODO -- link-params for (experimental/partial TE use in IGP extensions)
+      container state {
+        config false;
+        description
+          "Operational data.";
+        leaf up-count {
+          type uint16;
+          description
+            "Interface Up count.";
+        }
+
+        leaf down-count {
+          type uint16;
+          description
+            "Interface Down count.";
+        }
+
+        leaf zif-type {
+          type identityref {
+            base zebra-interface-type;
+          }
+          description
+            "zebra interface type.";
+        }
+
+        leaf ptm-status {
+          type string;
+          default "disabled";
+          description
+            "Interface PTM status.";
+        }
+
+        leaf vlan-id {
+          type uint16 {
+            range "1..4094";
+          }
+          description
+            "A VLAN id.";
+        }
+
+        leaf vni-id {
+          type vni-id-type;
+        }
+
+        leaf remote-vtep {
+          type inet:ipv4-address;
+          description
+            "The remote VTEP IP address.";
+        }
+
+        leaf mcast-group {
+          type rt-types:ipv4-multicast-group-address;
+          description
+            "The VNI multicast group for BUM traffic.";
+        }
+      }
     }
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf" {
+    description
+      "Extends VRF model with Zebra-related parameters.";
+    container zebra {
+      description
+        "Zebra's vrf specific configuration and operational model.";
+      uses ribs;
+
+      uses vrf-vni-mapping;
+    }
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop" {
+    uses frr-nh:frr-nexthop-operational;
   }
 
   /*
@@ -1925,7 +2137,7 @@ module frr-zebra {
           "The admin distance to use for imported routes.";
       }
       leaf route-map {
-        type string;
+        type frr-route-map:route-map-ref;
         description
           "A route-map to filter imported routes.";
       }
@@ -1942,26 +2154,6 @@ module frr-zebra {
       default "200";
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
-    }
-    list vrf-vni-mapping {
-      key "vrf-id";
-      description
-        "EVPN VNI mapping corresponding to a VRF.";
-      leaf vrf-id {
-        type uint32;
-        description
-          "The identifier for a VRF.";
-      }
-      leaf vni-id {
-        type vni-id-type;
-        description
-          "The VNI id to map to the VRF.";
-      }
-      leaf prefix-only {
-        type empty;
-        description
-          "Prefix routes only.";
-      }
     }
     /*
      * Debug options
@@ -1983,6 +2175,4 @@ module frr-zebra {
     }
     // End of operational / state container
   }
-
-  // End interface model augmentation
 }

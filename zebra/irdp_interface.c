@@ -34,7 +34,6 @@
 #include "prefix.h"
 #include "command.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "stream.h"
 #include "ioctl.h"
 #include "connected.h"
@@ -53,10 +52,11 @@
 #include "if.h"
 #include "sockunion.h"
 #include "log.h"
+#include "network.h"
 
 extern int irdp_sock;
 
-DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data")
+DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data");
 
 #define IRDP_CONFIGED                                                                 \
 	do {                                                                          \
@@ -92,10 +92,10 @@ static int irdp_if_delete(struct interface *ifp)
 	return 0;
 }
 
-static const char *inet_2a(uint32_t a, char *b)
+static const char *inet_2a(uint32_t a, char *b, size_t b_len)
 {
-	sprintf(b, "%u.%u.%u.%u", (a)&0xFF, (a >> 8) & 0xFF, (a >> 16) & 0xFF,
-		(a >> 24) & 0xFF);
+	snprintf(b, b_len, "%u.%u.%u.%u", (a)&0xFF, (a >> 8) & 0xFF,
+		 (a >> 16) & 0xFF, (a >> 24) & 0xFF);
 	return b;
 }
 
@@ -139,7 +139,8 @@ static int if_group(struct interface *ifp, int sock, uint32_t group,
 		flog_err_sys(EC_LIB_SOCKET, "IRDP: %s can't setsockopt %s: %s",
 			     add_leave == IP_ADD_MEMBERSHIP ? "join group"
 							    : "leave group",
-			     inet_2a(group, b1), safe_strerror(errno));
+			     inet_2a(group, b1, sizeof(b1)),
+			     safe_strerror(errno));
 
 	return ret;
 }
@@ -161,7 +162,8 @@ static int if_add_group(struct interface *ifp)
 
 	if (irdp->flags & IF_DEBUG_MISC)
 		zlog_debug("IRDP: Adding group %s for %s",
-			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1), ifp->name);
+			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1, sizeof(b1)),
+			   ifp->name);
 	return 0;
 }
 
@@ -182,7 +184,8 @@ static int if_drop_group(struct interface *ifp)
 
 	if (irdp->flags & IF_DEBUG_MISC)
 		zlog_debug("IRDP: Leaving group %s for %s",
-			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1), ifp->name);
+			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1, sizeof(b1)),
+			   ifp->name);
 	return 0;
 }
 
@@ -223,8 +226,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	}
 	if ((irdp_sock < 0) && ((irdp_sock = irdp_sock_init()) < 0)) {
 		flog_warn(EC_ZEBRA_IRDP_CANNOT_ACTIVATE_IFACE,
-			  "IRDP: Cannot activate interface %s (cannot create "
-			  "IRDP socket)",
+			  "IRDP: Cannot activate interface %s (cannot create IRDP socket)",
 			  ifp->name);
 		return;
 	}
@@ -267,7 +269,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 		}
 
 	srandom(seed);
-	timer = (random() % IRDP_DEFAULT_INTERVAL) + 1;
+	timer = (frr_weak_random() % IRDP_DEFAULT_INTERVAL) + 1;
 
 	irdp->AdvPrefList = list_new();
 	irdp->AdvPrefList->del = (void (*)(void *))Adv_free; /* Destructor */
@@ -383,7 +385,8 @@ int irdp_config_write(struct vty *vty, struct interface *ifp)
 
 		for (ALL_LIST_ELEMENTS_RO(irdp->AdvPrefList, node, adv))
 			vty_out(vty, " ip irdp address %s preference %d\n",
-				inet_2a(adv->ip.s_addr, b1), adv->pref);
+				inet_2a(adv->ip.s_addr, b1, sizeof(b1)),
+				adv->pref);
 
 		vty_out(vty, " ip irdp holdtime %d\n", irdp->Lifetime);
 
@@ -502,8 +505,7 @@ DEFUN (ip_irdp_minadvertinterval,
 		return CMD_SUCCESS;
 	} else {
 		vty_out(vty,
-			"%% MinAdvertInterval must be less than or equal to "
-			"MaxAdvertInterval\n");
+			"%% MinAdvertInterval must be less than or equal to MaxAdvertInterval\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 }
@@ -527,8 +529,7 @@ DEFUN (ip_irdp_maxadvertinterval,
 		return CMD_SUCCESS;
 	} else {
 		vty_out(vty,
-			"%% MaxAdvertInterval must be greater than or equal to "
-			"MinAdvertInterval\n");
+			"%% MaxAdvertInterval must be greater than or equal to MinAdvertInterval\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 }

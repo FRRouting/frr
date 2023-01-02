@@ -20,12 +20,10 @@
 #define ISIS_BFD_H
 
 struct isis_circuit;
+struct thread_master;
 
-void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command);
-void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
-				uint32_t min_rx, uint32_t min_tx,
-				uint32_t detect_mult, int defaults);
-void isis_bfd_init(void);
+void isis_bfd_circuit_cmd(struct isis_circuit *circuit);
+void isis_bfd_init(struct thread_master *tm);
 
 #endif
 

@@ -23,7 +23,7 @@
 
 #include "lib/memory.h"
 
-DECLARE_MGROUP(WATCHFRR)
+DECLARE_MGROUP(WATCHFRR);
 
 extern void watchfrr_vty_init(void);
 

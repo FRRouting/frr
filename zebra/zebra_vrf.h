@@ -33,10 +33,10 @@ extern "C" {
 #endif
 
 /* MPLS (Segment Routing) global block */
-typedef struct mpls_srgb_t_ {
+struct mpls_srgb {
 	uint32_t start_label;
 	uint32_t end_label;
-} mpls_srgb_t;
+};
 
 struct zebra_rmap {
 	char *name;
@@ -92,6 +92,11 @@ struct zebra_vrf {
 	struct list *rid_all_sorted_list;
 	struct list *rid_lo_sorted_list;
 	struct prefix rid_user_assigned;
+	struct list _rid6_all_sorted_list;
+	struct list _rid6_lo_sorted_list;
+	struct list *rid6_all_sorted_list;
+	struct list *rid6_lo_sorted_list;
+	struct prefix rid6_user_assigned;
 
 	/*
 	 * Back pointer to the owning namespace.
@@ -100,6 +105,7 @@ struct zebra_vrf {
 
 	/* MPLS Label to handle L3VPN <-> vrf popping */
 	mpls_label_t label[AFI_MAX];
+	uint8_t label_proto[AFI_MAX];
 
 	/* MPLS static LSP config table */
 	struct hash *slsp_table;
@@ -111,7 +117,7 @@ struct zebra_vrf {
 	struct route_table *fec_table[AFI_MAX];
 
 	/* MPLS Segment Routing Global block */
-	mpls_srgb_t mpls_srgb;
+	struct mpls_srgb mpls_srgb;
 
 	/* Pseudowires. */
 	struct zebra_pw_head pseudowires;
@@ -125,9 +131,9 @@ struct zebra_vrf {
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
 	/*
-	 * VNI hash table (for EVPN). Only in the EVPN instance.
+	 * EVPN hash table. Only in the EVPN instance.
 	 */
-	struct hash *vni_table;
+	struct hash *evpn_table;
 
 	/*
 	 * Whether EVPN is enabled or not. Only in the EVPN instance.
@@ -187,13 +193,18 @@ struct zebra_vrf {
  * special macro to allow us to get the correct zebra_vrf
  */
 #define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct zebra_vrf *B = (A) ? A->info : vrf_info_lookup(VRF_DEFAULT)
+	struct vrf *A;                                                         \
+	if (vty->node == CONFIG_NODE)                                          \
+		A = vrf_lookup_by_id(VRF_DEFAULT);                             \
+	else                                                                   \
+		A = VTY_GET_CONTEXT(vrf);                                      \
+	VTY_CHECK_CONTEXT(A);                                                  \
+	struct zebra_vrf *B = A->info
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
 	if (!zvrf || !zvrf->vrf)
-		return VRF_UNKNOWN;
+		return VRF_DEFAULT;
 	return zvrf->vrf->vrf_id;
 }
 
@@ -206,6 +217,8 @@ static inline const char *zvrf_ns_name(struct zebra_vrf *zvrf)
 
 static inline const char *zvrf_name(struct zebra_vrf *zvrf)
 {
+	if (!zvrf || !zvrf->vrf)
+		return "Unknown";
 	return zvrf->vrf->name;
 }
 
@@ -231,7 +244,7 @@ zvrf_other_table_compare_func(const struct other_route_table *a,
 }
 
 DECLARE_RBTREE_UNIQ(otable, struct other_route_table, next,
-		    zvrf_other_table_compare_func)
+		    zvrf_other_table_compare_func);
 
 extern struct route_table *
 zebra_vrf_lookup_table_with_table_id(afi_t afi, safi_t safi, vrf_id_t vrf_id,
@@ -244,10 +257,9 @@ extern struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi,
 extern void zebra_vrf_update_all(struct zserv *client);
 extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
-extern struct zebra_vrf *zebra_vrf_alloc(void);
+extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 
-extern int zebra_vrf_has_config(struct zebra_vrf *zvrf);
 extern void zebra_vrf_init(void);
 
 extern void zebra_rtable_node_cleanup(struct route_table *table,

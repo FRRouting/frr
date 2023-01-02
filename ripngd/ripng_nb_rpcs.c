@@ -80,13 +80,13 @@ static void clear_ripng_route(struct ripng *ripng)
 	}
 }
 
-int clear_ripng_route_rpc(const char *xpath, const struct list *input,
-			  struct list *output)
+int clear_ripng_route_rpc(struct nb_cb_rpc_args *args)
 {
 	struct ripng *ripng;
 	struct yang_data *yang_vrf;
 
-	yang_vrf = yang_data_list_find(input, "%s/%s", xpath, "input/vrf");
+	yang_vrf = yang_data_list_find(args->input, "%s/%s", args->xpath,
+				       "input/vrf");
 	if (yang_vrf) {
 		ripng = ripng_lookup_by_vrf_name(yang_vrf->value);
 		if (ripng)

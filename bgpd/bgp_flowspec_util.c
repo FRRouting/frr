@@ -20,6 +20,8 @@
 
 #include "zebra.h"
 
+#include "lib/printfrr.h"
+
 #include "prefix.h"
 #include "lib_errors.h"
 
@@ -76,15 +78,16 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 	return ret;
 }
 
-bool bgp_flowspec_contains_prefix(struct prefix *pfs,
-				 struct prefix *input,
-				 int prefix_check)
+
+bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
+				  struct prefix *input, int prefix_check)
 {
 	uint32_t offset = 0;
 	int type;
 	int ret = 0, error = 0;
 	uint8_t *nlri_content = (uint8_t *)pfs->u.prefix_flowspec.ptr;
 	size_t len = pfs->u.prefix_flowspec.prefixlen;
+	afi_t afi = family2afi(pfs->u.prefix_flowspec.family);
 	struct prefix compare;
 
 	error = 0;
@@ -99,7 +102,8 @@ bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content+offset,
 					len - offset,
-					&compare, &error);
+					&compare, &error,
+					afi, NULL);
 			if (ret <= 0)
 				break;
 			if (prefix_check &&
@@ -115,6 +119,16 @@ bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 			    IPV6_ADDR_SAME(&input->u.prefix6.s6_addr,
 					   &compare.u.prefix6.s6_addr))
 				return true;
+			break;
+		case FLOWSPEC_FLOW_LABEL:
+			if (afi == AFI_IP) {
+				error = -1;
+				continue;
+			}
+			ret = bgp_flowspec_op_decode(BGP_FLOWSPEC_VALIDATE_ONLY,
+						     nlri_content+offset,
+						     len - offset,
+						     NULL, &error);
 			break;
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:
@@ -159,13 +173,16 @@ bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 			    uint8_t *nlri_ptr,
 			    uint32_t max_len,
-			    void *result, int *error)
+			    void *result, int *error,
+			    afi_t afi,
+			    uint8_t *ipv6_offset)
 {
 	char *display = (char *)result; /* for return_string */
 	struct prefix *prefix = (struct prefix *)result;
 	uint32_t offset = 0;
 	struct prefix prefix_local;
 	int psize;
+	uint8_t prefix_offset = 0;
 
 	*error = 0;
 	memset(&prefix_local, 0, sizeof(struct prefix));
@@ -173,8 +190,13 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 	prefix_local.prefixlen = nlri_ptr[offset];
 	psize = PSIZE(prefix_local.prefixlen);
 	offset++;
-	/* TODO Flowspec IPv6 Support */
-	prefix_local.family = AF_INET;
+	prefix_local.family = afi2family(afi);
+	if (prefix_local.family == AF_INET6) {
+		prefix_offset = nlri_ptr[offset];
+		if (ipv6_offset)
+			*ipv6_offset = prefix_offset;
+		offset++;
+	}
 	/* Prefix length check. */
 	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8)
 		*error = -1;
@@ -190,11 +212,23 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 	offset += psize;
 	switch (type) {
 	case BGP_FLOWSPEC_RETURN_STRING:
-		prefix2str(&prefix_local, display,
-			   BGP_FLOWSPEC_STRING_DISPLAY_MAX);
+		if (prefix_local.family == AF_INET6) {
+			int ret;
+
+			ret = snprintfrr(
+				display, BGP_FLOWSPEC_STRING_DISPLAY_MAX,
+				"%pFX/off %u", &prefix_local, prefix_offset);
+			if (ret < 0) {
+				*error = -1;
+				break;
+			}
+		} else
+			prefix2str(&prefix_local, display,
+				   BGP_FLOWSPEC_STRING_DISPLAY_MAX);
 		break;
 	case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-		PREFIX_COPY_IPV4(prefix, &prefix_local)
+		if (prefix)
+			prefix_copy(prefix, &prefix_local);
 		break;
 	case BGP_FLOWSPEC_VALIDATE_ONLY:
 	default:
@@ -418,7 +452,8 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 }
 
 int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
-				  struct bgp_pbr_entry_main *bpem)
+				  struct bgp_pbr_entry_main *bpem,
+				  afi_t afi)
 {
 	int offset = 0, error = 0;
 	struct prefix *prefix;
@@ -426,6 +461,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 	uint8_t *match_num;
 	uint8_t bitmask = 0;
 	int ret = 0, type;
+	uint8_t *prefix_offset;
 
 	while (offset < len - 1 && error >= 0) {
 		type = nlri_content[offset];
@@ -437,15 +473,18 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			if (type == FLOWSPEC_DEST_PREFIX) {
 				bitmask |= PREFIX_DST_PRESENT;
 				prefix = &bpem->dst_prefix;
+				prefix_offset = &bpem->dst_prefix_offset;
 			} else {
 				bitmask |= PREFIX_SRC_PRESENT;
 				prefix = &bpem->src_prefix;
+				prefix_offset = &bpem->src_prefix_offset;
 			}
 			ret = bgp_flowspec_ip_address(
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content + offset,
 					len - offset,
-					prefix, &error);
+					prefix, &error,
+					afi, prefix_offset);
 			if (error < 0)
 				flog_err(EC_BGP_FLOWSPEC_PACKET,
 					 "%s: flowspec_ip_address error %d",
@@ -455,12 +494,31 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 				 * ignore that rule
 				 */
 				if (prefix->family == AF_INET
-				    && prefix->u.prefix4.s_addr == 0)
+				    && prefix->u.prefix4.s_addr == INADDR_ANY)
+					bpem->match_bitmask_iprule |= bitmask;
+				else if (prefix->family == AF_INET6
+					 && !memcmp(&prefix->u.prefix6,
+						    &in6addr_any,
+						    sizeof(struct in6_addr)))
 					bpem->match_bitmask_iprule |= bitmask;
 				else
 					bpem->match_bitmask |= bitmask;
 			}
 			offset += ret;
+			break;
+		case FLOWSPEC_FLOW_LABEL:
+			if (afi == AFI_IP) {
+				error = -1;
+				continue;
+			}
+			match_num = &(bpem->match_flowlabel_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->flow_label);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
 			break;
 		case FLOWSPEC_IP_PROTOCOL:
 			match_num = &(bpem->match_protocol_num);
@@ -575,16 +633,16 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			offset += ret;
 			break;
 		default:
-			flog_err(EC_LIB_DEVELOPMENT, "%s: unknown type %d\n",
+			flog_err(EC_LIB_DEVELOPMENT, "%s: unknown type %d",
 				 __func__, type);
 		}
 	}
-	if (bpem->match_packet_length_num || bpem->match_fragment_num ||
-	    bpem->match_tcpflags_num || bpem->match_dscp_num ||
-	    bpem->match_packet_length_num || bpem->match_icmp_code_num ||
-	    bpem->match_icmp_type_num || bpem->match_port_num ||
-	    bpem->match_src_port_num || bpem->match_dst_port_num ||
-	    bpem->match_protocol_num || bpem->match_bitmask)
+	if (bpem->match_packet_length_num || bpem->match_fragment_num
+	    || bpem->match_tcpflags_num || bpem->match_dscp_num
+	    || bpem->match_icmp_code_num || bpem->match_icmp_type_num
+	    || bpem->match_port_num || bpem->match_src_port_num
+	    || bpem->match_dst_port_num || bpem->match_protocol_num
+	    || bpem->match_bitmask || bpem->match_flowlabel_num)
 		bpem->type = BGP_PBR_IPSET;
 	else if ((bpem->match_bitmask_iprule & PREFIX_SRC_PRESENT) ||
 		 (bpem->match_bitmask_iprule & PREFIX_DST_PRESENT))
@@ -599,25 +657,33 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 }
 
 /* return 1 if FS entry invalid or no NH IP */
-int bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
-			      struct prefix *p)
+bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
+			       struct prefix *p, afi_t afi)
 {
 	struct bgp_pbr_entry_main api;
 	int i;
-	struct bgp_node *rn = pi->net;
+	struct bgp_dest *dest = pi->net;
 	struct bgp_pbr_entry_action *api_action;
 
 	memset(&api, 0, sizeof(struct bgp_pbr_entry_main));
-	if (bgp_pbr_build_and_validate_entry(&rn->p, pi, &api) < 0)
-		return 1;
+	if (bgp_pbr_build_and_validate_entry(bgp_dest_get_prefix(dest), pi,
+					     &api)
+	    < 0)
+		return true;
 	for (i = 0; i < api.action_num; i++) {
 		api_action = &api.actions[i];
 		if (api_action->action != ACTION_REDIRECT_IP)
 			continue;
-		p->family = AF_INET;
-		p->prefixlen = IPV4_MAX_BITLEN;
-		p->u.prefix4 = api_action->u.zr.redirect_ip_v4;
-		return 0;
+		p->family = afi2family(afi);
+		if (afi == AFI_IP) {
+			p->prefixlen = IPV4_MAX_BITLEN;
+			p->u.prefix4 = api_action->u.zr.redirect_ip_v4;
+		} else {
+			p->prefixlen = IPV6_MAX_BITLEN;
+			memcpy(&p->u.prefix6, &api_action->u.zr.redirect_ip_v6,
+			       sizeof(struct in6_addr));
+		}
+		return false;
 	}
-	return 1;
+	return true;
 }

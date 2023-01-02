@@ -27,6 +27,10 @@
 #include <pthread.h>
 #include "frratomic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * this locking primitive is intended to use in a 1:N setup.
  *
@@ -134,5 +138,9 @@ extern void seqlock_release(struct seqlock *sqlo);
 /* release should normally be followed by a bump on the "counter", if
  * anything other than reading RCU items was done
  */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _SEQLOCK_H */

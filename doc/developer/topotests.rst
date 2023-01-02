@@ -3,29 +3,36 @@
 Topotests
 =========
 
-Topotests is a suite of topology tests for FRR built on top of Mininet.
+Topotests is a suite of topology tests for FRR built on top of micronet.
 
 Installation and Setup
 ----------------------
 
-Only tested with Ubuntu 16.04 and Ubuntu 18.04 (which uses Mininet 2.2.x).
+Topotests run under python3. Additionally, for ExaBGP (which is used in some of
+the BGP tests) an older python2 version must be installed.
+
+Tested with Ubuntu 20.04 and Ubuntu 18.04 and Debian 11.
 
 Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
 tests).
 
-Installing Mininet Infrastructure
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Installing Topotest Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
-   apt-get install mininet
-   apt-get install python-pip
-   apt-get install iproute
-   pip install ipaddr
-   pip install "pytest<5"
-   pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
-   supported)
+   apt-get install iproute2
+   apt-get install net-tools
+   apt-get install python3-pip
+   python3 -m pip install wheel
+   python3 -m pip install 'pytest>=6.2.4'
+   python3 -m pip install 'pytest-xdist>=2.3.0'
+   python3 -m pip install 'scapy>=2.4.5'
+   python3 -m pip install xmltodict
+   # Use python2 pip to install older ExaBGP
+   python2 -m pip install 'exabgp<4.0.0'
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
+
 
 Enable Coredumps
 """"""""""""""""
@@ -48,6 +55,29 @@ Next, update security limits by changing :file:`/etc/security/limits.conf` to::
    root            hard    core          unlimited
 
 Reboot for options to take effect.
+
+SNMP Utilities Installation
+"""""""""""""""""""""""""""
+
+To run SNMP test you need to install SNMP utilities and MIBs. Unfortunately
+there are some errors in the upstream MIBS which need to be patched up. The
+following steps will get you there on Ubuntu 20.04.
+
+.. code:: shell
+
+   apt install libsnmp-dev
+   apt install snmpd snmp
+   apt install snmp-mibs-downloader
+   download-mibs
+   wget http://www.iana.org/assignments/ianaippmmetricsregistry-mib/ianaippmmetricsregistry-mib -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB
+   wget http://pastebin.com/raw.php?i=p3QyuXzZ -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
+   wget http://pastebin.com/raw.php?i=gG7j8nyk -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB
+   edit /etc/snmp/snmp.conf to look like this
+   # As the snmp packages come without MIB files due to license reasons, loading
+   # of MIBs is disabled by default. If you added the MIBs you can reenable
+   # loading them by commenting out the following line.
+   mibs +ALL
+
 
 FRR Installation
 ^^^^^^^^^^^^^^^^
@@ -79,10 +109,12 @@ If you prefer to manually build FRR, then use the following suggested config:
        --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
        --enable-group=frr \
        --enable-vty-group=frrvty \
+       --enable-snmp=agentx \
        --with-pkg-extra-version=-my-manual-build
 
 And create ``frr`` user and ``frrvty`` group as follows:
@@ -98,20 +130,155 @@ And create ``frr`` user and ``frrvty`` group as follows:
 Executing Tests
 ---------------
 
-Execute all tests with output to console
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Configure your sudo environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Topotests must be run as root. Normally this will be accomplished through the
+use of the ``sudo`` command. In order for topotests to be able to open new
+windows (either XTerm or byobu/screen/tmux windows) certain environment
+variables must be passed through the sudo command. One way to do this is to
+specify the :option:`-E` flag to ``sudo``. This will carry over most if not all
+your environment variables include ``PATH``. For example:
 
 .. code:: shell
 
-   py.test -s -v --tb=no
+   sudo -E python3 -m pytest -s -v
+
+If you do not wish to use :option:`-E` (e.g., to avoid ``sudo`` inheriting
+``PATH``) you can modify your `/etc/sudoers` config file to specifically pass
+the environment variables required by topotests. Add the following commands to
+your ``/etc/sudoers`` config file.
+
+.. code:: shell
+
+   Defaults env_keep="TMUX"
+   Defaults env_keep+="TMUX_PANE"
+   Defaults env_keep+="STY"
+   Defaults env_keep+="DISPLAY"
+
+If there was already an ``env_keep`` configuration there be sure to use the
+``+=`` rather than ``=`` on the first line above as well.
+
+
+Execute all tests in distributed test mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: shell
+
+   sudo -E pytest -s -v -nauto --dist=loadfile
 
 The above command must be executed from inside the topotests directory.
 
 All test\_\* scripts in subdirectories are detected and executed (unless
-disabled in ``pytest.ini`` file).
+disabled in ``pytest.ini`` file). Pytest will execute up to N tests in parallel
+where N is based on the number of cores on the host.
 
-``--tb=no`` disables the python traceback which might be irrelevant unless the
-test script itself is debugged.
+Analyze Test Results (``analyze.py``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default router and execution logs are saved in ``/tmp/topotests`` and an XML
+results file is saved in ``/tmp/topotests.xml``. An analysis tool ``analyze.py``
+is provided to archive and analyze these results after the run completes.
+
+After the test run completes one should pick an archive directory to store the
+results in and pass this value to ``analyze.py``. On first execution the results
+are copied to that directory from ``/tmp``, and subsequent runs use that
+directory for analyzing the results. Below is an example of this which also
+shows the default behavior which is to display all failed and errored tests in
+the run.
+
+.. code:: shell
+
+   ~/frr/tests/topotests# ./analyze.py -Ar run-save
+   bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge
+   ospf_basic_functionality/test_ospf_lan.py::test_ospf_lan_tc1_p0
+   bgp_gr_functionality_topo2/test_bgp_gr_functionality_topo2.py::test_BGP_GR_10_p2
+   bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_routingTable
+
+Here we see that 4 tests have failed. We an dig deeper by displaying the
+captured logs and errors. First let's redisplay the results enumerated by adding
+the :option:`-E` flag
+
+.. code:: shell
+
+   ~/frr/tests/topotests# ./analyze.py -Ar run-save -E
+   0 bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge
+   1 ospf_basic_functionality/test_ospf_lan.py::test_ospf_lan_tc1_p0
+   2 bgp_gr_functionality_topo2/test_bgp_gr_functionality_topo2.py::test_BGP_GR_10_p2
+   3 bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_routingTable
+
+Now to look at the error message for a failed test we use ``-T N`` where N is
+the number of the test we are interested in along with ``--errmsg`` option.
+
+.. code:: shell
+
+    ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errmsg
+    bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: AssertionError: BGP did not converge:
+
+      IPv4 Unicast Summary (VIEW 1):
+      BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+      BGP table version 1
+      RIB entries 1, using 184 bytes of memory
+      Peers 3, using 2169 KiB of memory
+
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+      172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
+      172.16.1.2      4      65002         0         0        0    0    0    never      Connect        0 N/A
+      172.16.1.5      4      65005         0         0        0    0    0    never      Connect        0 N/A
+
+      Total number of neighbors 3
+
+     assert False
+
+Now to look at the full text of the error for a failed test we use ``-T N``
+where N is the number of the test we are interested in along with ``--errtext``
+option.
+
+.. code:: shell
+
+    ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errtext
+    bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: def test_bgp_converge():
+            "Check for BGP converged on all peers and BGP views"
+
+            global fatal_error
+            global net
+            [...]
+            else:
+                # Bail out with error if a router fails to converge
+                bgpStatus = net["r%s" % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
+    >           assert False, "BGP did not converge:\n%s" % bgpStatus
+    E           AssertionError: BGP did not converge:
+    E
+    E             IPv4 Unicast Summary (VIEW 1):
+    E             BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+                  [...]
+    E             Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+    E             172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
+    E             172.16.1.2      4      65002         0         0        0    0    0    never      Connect        0 N/A
+                  [...]
+
+To look at the full capture for a test including the stdout and stderr which
+includes full debug logs, just use the ``-T N`` option without the ``--errmsg``
+or ``--errtext`` options.
+
+.. code:: shell
+
+    ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0
+    @classname: bgp_multiview_topo1.test_bgp_multiview_topo1
+    @name: test_bgp_converge
+    @time: 141.401
+    @message: AssertionError: BGP did not converge:
+    [...]
+    system-out: --------------------------------- Captured Log ---------------------------------
+    2021-08-09 02:55:06,581 DEBUG: lib.micronet_compat.topo: Topo(unnamed): Creating
+    2021-08-09 02:55:06,581 DEBUG: lib.micronet_compat.topo: Topo(unnamed): addHost r1
+    [...]
+    2021-08-09 02:57:16,932 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\\s+(\\d+)"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
+    2021-08-09 02:57:22,290 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\\s+(\\d+)"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
+    2021-08-09 02:57:27,636 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
+    --------------------------------- Captured Out ---------------------------------
+    system-err: --------------------------------- Captured Err ---------------------------------
+
 
 Execute single test
 ^^^^^^^^^^^^^^^^^^^
@@ -133,9 +300,6 @@ For further options, refer to pytest documentation.
 Test will set exit code which can be used with ``git bisect``.
 
 For the simulated topology, see the description in the python file.
-
-If you need to clear the mininet setup between tests (if it isn't cleanly
-shutdown), then use the ``mn -c`` command to clean up the environment.
 
 StdErr log from daemos after exit
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -194,7 +358,6 @@ for ``master`` branch:
        --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
-       --enable-exampledir=/usr/lib/frr/examples \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \
        --enable-tcp-zebra --enable-fpm --enable-pimd \
@@ -205,6 +368,128 @@ for ``master`` branch:
    sudo ln -s /usr/lib/frr/vtysh /usr/bin/
 
 and create ``frr`` user and ``frrvty`` group as shown above.
+
+Debugging Topotest Failures
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install and run tests inside ``tmux`` or ``byobu`` for best results.
+
+``XTerm`` is also fully supported. GNU ``screen`` can be used in most
+situations; however, it does not work as well with launching ``vtysh`` or shell
+on error.
+
+For the below debugging options which launch programs or CLIs, topotest should
+be run within ``tmux`` (or ``screen``)_, as ``gdb``, the shell or ``vtysh`` will
+be launched using that windowing program, otherwise ``xterm`` will be attempted
+to launch the given programs.
+
+NOTE: you must run the topotest (pytest) such that your DISPLAY, STY or TMUX
+environment variables are carried over. You can do this by passing the
+:option:`-E` flag to ``sudo`` or you can modify your ``/etc/sudoers`` config to
+automatically pass that environment variable through to the ``sudo``
+environment.
+
+.. _screen: https://www.gnu.org/software/screen/
+.. _tmux: https://github.com/tmux/tmux/wiki
+
+Spawning Debugging CLI, ``vtysh`` or Shells on Routers on Test Failure
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+One can have a debugging CLI invoked on test failures by specifying the
+``--cli-on-error`` CLI option as shown in the example below.
+
+.. code:: shell
+
+   sudo -E pytest --cli-on-error all-protocol-startup
+
+The debugging CLI can run shell or vtysh commands on any combination of routers
+It can also open shells or vtysh in their own windows for any combination of
+routers. This is usually the most useful option when debugging failures. Here is
+the help command from within a CLI launched on error:
+
+.. code:: shell
+
+    test_bgp_multiview_topo1/test_bgp_routingTable> help
+
+    Commands:
+    help                       :: this help
+    sh [hosts] <shell-command> :: execute <shell-command> on <host>
+    term [hosts]               :: open shell terminals for hosts
+    vtysh [hosts]              :: open vtysh terminals for hosts
+    [hosts] <vtysh-command>    :: execute vtysh-command on hosts
+
+    test_bgp_multiview_topo1/test_bgp_routingTable> r1 show int br
+    ------ Host: r1 ------
+    Interface       Status  VRF             Addresses
+    ---------       ------  ---             ---------
+    erspan0         down    default
+    gre0            down    default
+    gretap0         down    default
+    lo              up      default
+    r1-eth0         up      default         172.16.1.254/24
+    r1-stub         up      default         172.20.0.1/28
+
+    ----------------------
+    test_bgp_multiview_topo1/test_bgp_routingTable>
+
+Additionally, one can have ``vtysh`` or a shell launched on all routers when a
+test fails. To launch the given process on each router after a test failure
+specify one of ``--shell-on-error`` or ``--vtysh-on-error``.
+
+Spawning ``vtysh`` or Shells on Routers
+"""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch a shell or ``vtysh`` for any or all routers in
+a test. This is enabled by specifying 1 of 2 CLI arguments ``--shell`` or
+``--vtysh``. Both of these options can be set to a single router value, multiple
+comma-seperated values, or ``all``.
+
+When either of these options are specified topotest will pause after setup and
+each test to allow for inspection of the router state.
+
+Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
+
+.. code:: shell
+
+   sudo -E pytest --vtysh=rt1,rt2 all-protocol-startup
+
+Debugging with GDB
+""""""""""""""""""
+
+Topotest can automatically launch any daemon with ``gdb``, possibly setting
+breakpoints for any test run. This is enabled by specifying 1 or 2 CLI arguments
+``--gdb-routers`` and ``--gdb-daemons``. Additionally ``--gdb-breakpoints`` can
+be used to automatically set breakpoints in the launched ``gdb`` processes.
+
+Each of these options can be set to a single value, multiple comma-seperated
+values, or ``all``. If ``--gdb-routers`` is empty but ``--gdb_daemons`` is set
+then the given daemons will be launched in ``gdb`` on all routers in the test.
+Likewise if ``--gdb_routers`` is set, but ``--gdb_daemons`` is empty then all
+daemons on the given routers will be launched in ``gdb``.
+
+Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
+``r1`` with a breakpoint set on ``nb_config_diff``
+
+.. code:: shell
+
+   sudo -E pytest --gdb-routers=r1 \
+          --gdb-daemons=bgpd,zebra \
+          --gdb-breakpoints=nb_config_diff \
+          all-protocol-startup
+
+Detecting Memleaks with Valgrind
+""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch all daemons with ``valgrind`` to check for
+memleaks. This is enabled by specifying 1 or 2 CLI arguments.
+``--valgrind-memleaks`` will enable general memleak detection, and
+``--valgrind-extra`` enables extra functionality including generating a
+suppression file. The suppression file ``tools/valgrind.supp`` is used when
+memleak detection is enabled.
+
+.. code:: shell
+
+   sudo -E pytest --valgrind-memleaks all-protocol-startup
 
 .. _topotests_docker:
 
@@ -305,22 +590,22 @@ top level directory of topotest:
 
    $ # Change to the top level directory of topotests.
    $ cd path/to/topotests
-   $ # Tests must be run as root, since Mininet requires it.
-   $ sudo pytest
+   $ # Tests must be run as root, since micronet requires it.
+   $ sudo -E pytest
 
 In order to run a specific test, you can use the following command:
 
 .. code:: shell
 
    $ # running a specific topology
-   $ sudo pytest ospf-topo1/
+   $ sudo -E pytest ospf-topo1/
    $ # or inside the test folder
    $ cd ospf-topo1
-   $ sudo pytest # to run all tests inside the directory
-   $ sudo pytest test_ospf_topo1.py # to run a specific test
+   $ sudo -E pytest # to run all tests inside the directory
+   $ sudo -E pytest test_ospf_topo1.py # to run a specific test
    $ # or outside the test folder
    $ cd ..
-   $ sudo pytest ospf-topo1/test_ospf_topo1.py # to run a specific one
+   $ sudo -E pytest ospf-topo1/test_ospf_topo1.py # to run a specific one
 
 The output of the tested daemons will be available at the temporary folder of
 your machine:
@@ -339,7 +624,7 @@ You can also run memory leak tests to get reports:
 .. code:: shell
 
    $ # Set the environment variable to apply to a specific test...
-   $ sudo env TOPOTESTS_CHECK_MEMLEAK="/tmp/memleak_report_" pytest ospf-topo1/test_ospf_topo1.py
+   $ sudo -E env TOPOTESTS_CHECK_MEMLEAK="/tmp/memleak_report_" pytest ospf-topo1/test_ospf_topo1.py
    $ # ...or apply to all tests adding this line to the configuration file
    $ echo 'memleak_path = /tmp/memleak_report_' >> pytest.ini
    $ # You can also use your editor
@@ -359,7 +644,32 @@ This is the recommended test writing routine:
 - Write a topology (Graphviz recommended)
 - Obtain configuration files
 - Write the test itself
+- Format the new code using `black <https://github.com/psf/black>`_
 - Create a Pull Request
+
+Some things to keep in mind:
+
+- BGP tests MUST use generous convergence timeouts - you must ensure
+  that any test involving BGP uses a convergence timeout of at least
+  130 seconds.
+- Topotests are run on a range of Linux versions: if your test
+  requires some OS-specific capability (like mpls support, or vrf
+  support), there are test functions available in the libraries that
+  will help you determine whether your test should run or be skipped.
+- Avoid including unstable data in your test: don't rely on link-local
+  addresses or ifindex values, for example, because these can change
+  from run to run.
+- Using sleep is almost never appropriate. As an example: if the test resets the
+  peers in BGP, the test should look for the peers re-converging instead of just
+  sleeping an arbitrary amount of time and continuing on. See
+  ``verify_bgp_convergence`` as a good example of this. In particular look at
+  it's use of the ``@retry`` decorator. If you are having troubles figuring out
+  what to look for, please do not be afraid to ask.
+- Don't duplicate effort. There exists many protocol utility functions that can
+  be found in their eponymous module under ``tests/topotests/lib/`` (e.g.,
+  ``ospf.py``)
+
+
 
 Topotest File Hierarchy
 """""""""""""""""""""""
@@ -518,25 +828,32 @@ Here is the template topology described in the previous section in python code:
 
 .. code:: py
 
-   class TemplateTopo(Topo):
-       "Test topology builder"
-       def build(self, *_args, **_opts):
-           "Build function"
-           tgen = get_topogen(self)
+    topodef = {
+        "s1": "r1"
+        "s2": ("r1", "r2")
+    }
 
-           # Create 2 routers
-           for routern in range(1, 3):
-               tgen.add_router('r{}'.format(routern))
+If more specialized topology definitions, or router initialization arguments are
+required a build function can be used instead of a dictionary:
 
-           # Create a switch with just one router connected to it to simulate a
-           # empty network.
-           switch = tgen.add_switch('s1')
-           switch.add_link(tgen.gears['r1'])
+.. code:: py
 
-           # Create a connection between r1 and r2
-           switch = tgen.add_switch('s2')
-           switch.add_link(tgen.gears['r1'])
-           switch.add_link(tgen.gears['r2'])
+    def build_topo(tgen):
+        "Build function"
+
+        # Create 2 routers
+        for routern in range(1, 3):
+            tgen.add_router("r{}".format(routern))
+
+        # Create a switch with just one router connected to it to simulate a
+        # empty network.
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
+
+        # Create a connection between r1 and r2
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
 
 - Run the topology
 
@@ -546,11 +863,11 @@ that using the following example commands:
 .. code:: shell
 
    $ # Running your bootstraped topology
-   $ sudo pytest -s --topology-only new-topo/test_new_topo.py
+   $ sudo -E pytest -s --topology-only new-topo/test_new_topo.py
    $ # Running the test_template.py topology
-   $ sudo pytest -s --topology-only example-test/test_template.py
+   $ sudo -E pytest -s --topology-only example-test/test_template.py
    $ # Running the ospf_topo1.py topology
-   $ sudo pytest -s --topology-only ospf-topo1/test_ospf_topo1.py
+   $ sudo -E pytest -s --topology-only ospf-topo1/test_ospf_topo1.py
 
 Parameters explanation:
 
@@ -558,8 +875,8 @@ Parameters explanation:
 
 .. option:: -s
 
-   Actives input/output capture. This is required by mininet in order to show
-   the interactive shell.
+   Actives input/output capture. If this is not specified a new window will be
+   opened for the interactive CLI, otherwise it will be activated inline.
 
 .. option:: --topology-only
 
@@ -570,110 +887,84 @@ output:
 
 .. code:: shell
 
-   === test session starts ===
-   platform linux2 -- Python 2.7.12, pytest-3.1.2, py-1.4.34, pluggy-0.4.0
-   rootdir: /media/sf_src/topotests, inifile: pytest.ini
-   collected 3 items
+    frr/tests/topotests# sudo -E pytest -s --topology-only ospf_topo1/test_ospf_topo1.py
+    ============================= test session starts ==============================
+    platform linux -- Python 3.9.2, pytest-6.2.4, py-1.10.0, pluggy-0.13.1
+    rootdir: /home/chopps/w/frr/tests/topotests, configfile: pytest.ini
+    plugins: forked-1.3.0, xdist-2.3.0
+    collected 11 items
 
-   ospf-topo1/test_ospf_topo1.py *** Starting controller
+    [...]
+    unet>
 
-   *** Starting 6 switches
-   switch1 switch2 switch3 switch4 switch5 switch6 ...
-   r2: frr zebra started
-   r2: frr ospfd started
-   r3: frr zebra started
-   r3: frr ospfd started
-   r1: frr zebra started
-   r1: frr ospfd started
-   r4: frr zebra started
-   r4: frr ospfd started
-   *** Starting CLI:
-   mininet>
-
-The last line shows us that we are now using the Mininet CLI (Command Line
+The last line shows us that we are now using the CLI (Command Line
 Interface), from here you can call your router ``vtysh`` or even bash.
+
+Here's the help text:
+
+.. code:: shell
+    unet> help
+
+    Commands:
+      help                       :: this help
+      sh [hosts] <shell-command> :: execute <shell-command> on <host>
+      term [hosts]               :: open shell terminals for hosts
+      vtysh [hosts]              :: open vtysh terminals for hosts
+      [hosts] <vtysh-command>    :: execute vtysh-command on hosts
+
+.. code:: shell
 
 Here are some commands example:
 
 .. code:: shell
 
-   mininet> r1 ping 10.0.3.1
-   PING 10.0.3.1 (10.0.3.1) 56(84) bytes of data.
-   64 bytes from 10.0.3.1: icmp_seq=1 ttl=64 time=0.576 ms
-   64 bytes from 10.0.3.1: icmp_seq=2 ttl=64 time=0.083 ms
-   64 bytes from 10.0.3.1: icmp_seq=3 ttl=64 time=0.088 ms
-   ^C
-   --- 10.0.3.1 ping statistics ---
-   3 packets transmitted, 3 received, 0% packet loss, time 1998ms
-   rtt min/avg/max/mdev = 0.083/0.249/0.576/0.231 ms
+    unet> sh r1 ping 10.0.3.1
+    PING 10.0.3.1 (10.0.3.1) 56(84) bytes of data.
+    64 bytes from 10.0.3.1: icmp_seq=1 ttl=64 time=0.576 ms
+    64 bytes from 10.0.3.1: icmp_seq=2 ttl=64 time=0.083 ms
+    64 bytes from 10.0.3.1: icmp_seq=3 ttl=64 time=0.088 ms
+    ^C
+    --- 10.0.3.1 ping statistics ---
+    3 packets transmitted, 3 received, 0% packet loss, time 1998ms
+    rtt min/avg/max/mdev = 0.083/0.249/0.576/0.231 ms
 
+    unet> r1 show run
+    Building configuration...
 
+    Current configuration:
+    !
+    frr version 8.1-dev-my-manual-build
+    frr defaults traditional
+    hostname r1
+    log file /tmp/topotests/ospf_topo1.test_ospf_topo1/r1/zebra.log
+    [...]
+    end
 
-   mininet> r1 ping 10.0.3.3
-   PING 10.0.3.3 (10.0.3.3) 56(84) bytes of data.
-   64 bytes from 10.0.3.3: icmp_seq=1 ttl=64 time=2.87 ms
-   64 bytes from 10.0.3.3: icmp_seq=2 ttl=64 time=0.080 ms
-   64 bytes from 10.0.3.3: icmp_seq=3 ttl=64 time=0.091 ms
-   ^C
-   --- 10.0.3.3 ping statistics ---
-   3 packets transmitted, 3 received, 0% packet loss, time 2003ms
-   rtt min/avg/max/mdev = 0.080/1.014/2.872/1.313 ms
-
-
-
-   mininet> r3 vtysh
-
-   Hello, this is FRRouting (version 3.1-devrzalamena-build).
-   Copyright 1996-2005 Kunihiro Ishiguro, et al.
-
-   frr-1# show running-config
-   Building configuration...
-
-   Current configuration:
-   !
-   frr version 3.1-devrzalamena-build
-   frr defaults traditional
-   hostname r3
-   no service integrated-vtysh-config
-   !
-   log file zebra.log
-   !
-   log file ospfd.log
-   !
-   interface r3-eth0
-    ip address 10.0.3.1/24
-   !
-   interface r3-eth1
-    ip address 10.0.10.1/24
-   !
-   interface r3-eth2
-    ip address 172.16.0.2/24
-   !
-   router ospf
-    ospf router-id 10.0.255.3
-    redistribute kernel
-    redistribute connected
-    redistribute static
-    network 10.0.3.0/24 area 0
-    network 10.0.10.0/24 area 0
-    network 172.16.0.0/24 area 1
-   !
-   line vty
-   !
-   end
-   frr-1#
+    unet> show daemons
+    ------ Host: r1 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r1 ------
+    ------ Host: r2 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r2 ------
+    ------ Host: r3 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r3 ------
+    ------ Host: r4 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r4 ------
 
 After you successfully configured your topology, you can obtain the
 configuration files (per-daemon) using the following commands:
 
 .. code:: shell
 
-   mininet> r3 vtysh -d ospfd
+   unet> sh r3 vtysh -d ospfd
 
    Hello, this is FRRouting (version 3.1-devrzalamena-build).
    Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
-   frr-1# show running-config
+   r1# show running-config
    Building configuration...
 
    Current configuration:
@@ -696,62 +987,96 @@ configuration files (per-daemon) using the following commands:
    line vty
    !
    end
-   frr-1#
+   r1#
+
+You can also login to the node specified by nsenter using bash, etc.
+A pid file for each node will be created in the relevant test dir.
+You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
+
+.. code:: shell
+
+  [unet shell]
+  # cd tests/topotests/srv6_locator
+  # ./test_srv6_locator.py --topology-only
+  unet> r1 show segment-routing srv6 locator
+  Locator:
+  Name                 ID      Prefix                   Status
+  -------------------- ------- ------------------------ -------
+  loc1                       1 2001:db8:1:1::/64        Up
+  loc2                       2 2001:db8:2:2::/64        Up
+
+  [Another shell]
+  # nsenter -a -t $(cat /tmp/topotests/srv6_locator.test_srv6_locator/r1.pid) bash --norc
+  # vtysh
+  r1# r1 show segment-routing srv6 locator
+  Locator:
+  Name                 ID      Prefix                   Status
+  -------------------- ------- ------------------------ -------
+  loc1                       1 2001:db8:1:1::/64        Up
+  loc2                       2 2001:db8:2:2::/64        Up
 
 Writing Tests
 """""""""""""
 
 Test topologies should always be bootstrapped from
-:file:`tests/topotests/example-test/test_template.py` because it contains
+:file:`tests/topotests/example_test/test_template.py` because it contains
 important boilerplate code that can't be avoided, like:
-
-- imports: os, sys, pytest, topotest/topogen and mininet topology class
-- The global variable CWD (Current Working directory): which is most likely
-  going to be used to reference the routers configuration file location
 
 Example:
 
 .. code:: py
 
-   # For all registered routers, load the zebra configuration file
-   for rname, router in router_list.iteritems():
-       router.load_config(
-           TopoRouter.RD_ZEBRA,
-           os.path.join(CWD, '{}/zebra.conf'.format(rname))
-       )
-       # os.path.join() joins the CWD string with arguments adding the necessary
-       # slashes ('/'). Arguments must not begin with '/'.
+       # For all routers arrange for:
+       # - starting zebra using config file from <rtrname>/zebra.conf
+       # - starting ospfd using an empty config file.
+       for rname, router in router_list.items():
+           router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
+           router.load_config(TopoRouter.RD_OSPF)
 
-- The topology class that inherits from Mininet Topo class:
+
+- The topology definition or build function
 
 .. code:: py
 
-   class TemplateTopo(Topo):
-     def build(self, *_args, **_opts):
-       tgen = get_topogen(self)
+   topodef = {
+       "s1": ("r1", "r2"),
+       "s2": ("r2", "r3")
+   }
+
+   def build_topo(tgen):
        # topology build code
+       ...
 
-- pytest ``setup_module()`` and ``teardown_module()`` to start the topology
+- pytest setup/teardown fixture to start the topology and supply ``tgen``
+  argument to tests.
 
 .. code:: py
 
-   def setup_module(_m):
-       tgen = Topogen(TemplateTopo)
-       tgen.start_topology('debug')
 
-   def teardown_module(_m):
-       tgen = get_topogen()
+   @pytest.fixture(scope="module")
+   def tgen(request):
+       "Setup/Teardown the environment and provide tgen argument to tests"
+
+       tgen = Topogen(topodef, module.__name__)
+       # or
+       tgen = Topogen(build_topo, module.__name__)
+
+       ...
+
+       # Start and configure the router daemons
+       tgen.start_router()
+
+       # Provide tgen as argument to each test function
+       yield tgen
+
+       # Teardown after last test runs
        tgen.stop_topology()
 
-- ``__main__`` initialization code (to support running the script directly)
-
-.. code:: py
-
-   if __name__ == '__main__':
-       sys.exit(pytest.main(["-s"]))
 
 Requirements:
 
+- Directory name for a new topotest must not contain hyphen (``-``) characters.
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
   by pytest.
@@ -759,6 +1084,10 @@ Requirements:
   inside folders named after the equipment.
 - Tests must be able to run without any interaction. To make sure your test
   conforms with this, run it without the :option:`-s` parameter.
+- Use `black <https://github.com/psf/black>`_ code formatter before creating
+  a pull request. This ensures we have a unified code style.
+- Mark test modules with pytest markers depending on the daemons used during the
+  tests (see :ref:`topotests-markers`)
 
 Tips:
 
@@ -893,11 +1222,10 @@ Example of pdb usage:
    (Pdb) router1 = tgen.gears[router]
    (Pdb) router1.vtysh_cmd('show ip ospf route')
    '============ OSPF network routing table ============\r\nN    10.0.1.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth0\r\nN    10.0.2.0/24           [20] area: 0.0.0.0\r\n                           via 10.0.3.3, r1-eth1\r\nN    10.0.3.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth1\r\nN    10.0.10.0/24          [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.0.0/24         [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.1.0/24         [30] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF router routing table =============\r\nR    10.0.255.2            [10] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.3, r1-eth1\r\nR    10.0.255.3            [10] area: 0.0.0.0, ABR, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\nR    10.0.255.4         IA [20] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF external routing table ===========\r\n\r\n\r\n'
-    (Pdb) tgen.mininet_cli()
-    *** Starting CLI:
-    mininet>
+    (Pdb) tgen.cli()
+    unet>
 
-To enable more debug messages in other Topogen subsystems (like Mininet), more
+To enable more debug messages in other Topogen subsystems, more
 logging messages can be displayed by modifying the test configuration file
 ``pytest.ini``:
 
@@ -916,6 +1244,8 @@ Before creating a new topology, make sure that there isn't one already that
 does what you need. If nothing is similar, then you may create a new topology,
 preferably, using the newest template
 (:file:`tests/topotests/example-test/test_template.py`).
+
+.. include:: topotests-markers.rst
 
 .. include:: topotests-snippets.rst
 

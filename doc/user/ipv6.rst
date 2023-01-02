@@ -17,17 +17,16 @@ no longer possible.
 Router Advertisement
 ====================
 
-.. index:: no ipv6 nd suppress-ra
-.. clicmd:: no ipv6 nd suppress-ra
+.. clicmd:: show ipv6 nd ra-interfaces [vrf <VRFNAME|all>]
 
-   Send router advertisement messages.
+   Show configured route advertisement interfaces. VRF subcommand only
+   applicable for netns-based vrfs.
 
-.. index:: ipv6 nd suppress-ra
 .. clicmd:: ipv6 nd suppress-ra
 
-   Don't send router advertisement messages.
+   Don't send router advertisement messages. The ``no`` form of this command
+   enables sending RA messages.
 
-.. index:: ipv6 nd prefix ipv6prefix [valid-lifetime] [preferred-lifetime] [off-link] [no-autoconfig] [router-address]
 .. clicmd:: ipv6 nd prefix ipv6prefix [valid-lifetime] [preferred-lifetime] [off-link] [no-autoconfig] [router-address]
 
    Configuring the IPv6 prefix to include in router advertisements. Several prefix
@@ -57,29 +56,19 @@ Router Advertisement
 
      Default: not set, i.e. hosts do not assume a complete IP address is placed.
 
-.. index::
-   single: no ipv6 nd ra-interval [(1-1800)]
-   single: no ipv6 nd ra-interval [(1-1800)]
-.. clicmd:: [no] ipv6 nd ra-interval [(1-1800)]
+.. clicmd:: ipv6 nd ra-interval [(1-1800)]
 
    The maximum time allowed between sending unsolicited multicast router
    advertisements from the interface, in seconds.
    Default: ``600``
 
-.. index:: ipv6 nd ra-interval msec (70-1800000)
-.. index::
-   single: no ipv6 nd ra-interval [msec (70-1800000)]
-   single: ipv6 nd ra-interval msec (70-1800000)
-.. clicmd:: [no] ipv6 nd ra-interval [msec (70-1800000)]
+.. clicmd:: ipv6 nd ra-interval [msec (70-1800000)]
 
    The maximum time allowed between sending unsolicited multicast router
    advertisements from the interface, in milliseconds.
    Default: ``600000``
 
-.. index::
-   single: ipv6 nd ra-fast-retrans
-   single: no ipv6 nd ra-fast-retrans
-.. clicmd:: [no] ipv6 nd ra-fast-retrans
+.. clicmd:: ipv6 nd ra-fast-retrans
 
    RFC4861 states that consecutive RA packets should be sent no more
    frequently than three seconds apart. FRR by default allows faster
@@ -90,10 +79,24 @@ Router Advertisement
    and neighbor establishment.
    Default: enabled
 
-.. index::
-   single: ipv6 nd ra-lifetime (0-9000)
-   single: no ipv6 nd ra-lifetime [(0-9000)]
-.. clicmd:: [no] ipv6 nd ra-lifetime [(0-9000)]
+.. clicmd:: ipv6 nd ra-retrans-interval [(0-4294967295)]
+
+   The value to be placed in the retrans timer field of router advertisements
+   sent from the interface, in msec. Indicates the interval between router
+   advertisement retransmissions. Setting the value to zero indicates that
+   the value is unspecified by this router. Must be between zero or 4294967295
+   msec.
+   Default: ``0``
+
+.. clicmd:: ipv6 nd ra-hop-limit [(0-255)]
+
+   The value to be placed in the hop count field of router advertisements sent
+   from the interface, in hops. Indicates the maximum diameter of the network.
+   Setting the value to zero indicates that the value is unspecified by this
+   router.  Must be between zero or 255 hops.
+   Default: ``64``
+
+.. clicmd:: ipv6 nd ra-lifetime [(0-9000)]
 
    The value to be placed in the Router Lifetime field of router advertisements
    sent from the interface, in seconds. Indicates the usefulness of the router
@@ -103,10 +106,7 @@ Router Advertisement
    (or default) and 9000 seconds.
    Default: ``1800``
 
-.. index::
-   single: no ipv6 nd reachable-time [(1-3600000)]
-   single: ipv6 nd reachable-time (1-3600000)
-.. clicmd:: [no] ipv6 nd reachable-time [(1-3600000)]
+.. clicmd:: ipv6 nd reachable-time [(1-3600000)]
 
    The value to be placed in the Reachable Time field in the Router
    Advertisement messages sent by the router, in milliseconds. The configured
@@ -114,10 +114,7 @@ Router Advertisement
    means unspecified (by this router).
    Default: ``0``
 
-.. index::
-   single: ipv6 nd managed-config-flag
-   single: no ipv6 nd managed-config-flag
-.. clicmd:: [no] ipv6 nd managed-config-flag
+.. clicmd:: ipv6 nd managed-config-flag
 
    Set/unset flag in IPv6 router advertisements which indicates to hosts that
    they should use managed (stateful) protocol for addresses autoconfiguration
@@ -125,41 +122,28 @@ Router Advertisement
    autoconfiguration.
    Default: not set
 
-.. index::
-   single: ipv6 nd other-config-flag
-   single: no ipv6 nd other-config-flag
-.. clicmd:: [no] ipv6 nd other-config-flag
+.. clicmd:: ipv6 nd other-config-flag
 
    Set/unset flag in IPv6 router advertisements which indicates to hosts that
    they should use administered (stateful) protocol to obtain autoconfiguration
    information other than addresses.
    Default: not set
 
-.. index::
-   single: ipv6 nd home-agent-config-flag
-   single: no ipv6 nd home-agent-config-flag
-.. clicmd:: [no] ipv6 nd home-agent-config-flag
+.. clicmd:: ipv6 nd home-agent-config-flag
 
    Set/unset flag in IPv6 router advertisements which indicates to hosts that
    the router acts as a Home Agent and includes a Home Agent Option.
    Default: not set
 
-.. index:: ipv6 nd home-agent-preference (0-65535)
 
-.. index::
-   single: no ipv6 nd home-agent-preference [(0-65535)]
-   single: ipv6 nd home-agent-preference (0-65535)
-.. clicmd:: [no] ipv6 nd home-agent-preference [(0-65535)]
+.. clicmd:: ipv6 nd home-agent-preference [(0-65535)]
 
    The value to be placed in Home Agent Option, when Home Agent config flag is
    set, which indicates to hosts Home Agent preference. The default value of 0
    stands for the lowest preference possible.
    Default: ``0``
 
-.. index::
-   single: ipv6 nd home-agent-lifetime (0-65520)
-   single: no ipv6 nd home-agent-lifetime (0-65520)
-.. clicmd:: [no] ipv6 nd home-agent-lifetime [(0-65520)]
+.. clicmd:: ipv6 nd home-agent-lifetime [(0-65520)]
 
    The value to be placed in Home Agent Option, when Home Agent config flag is set,
    which indicates to hosts Home Agent Lifetime. The default value of 0 means to
@@ -167,27 +151,18 @@ Router Advertisement
 
    Default: ``0``
 
-.. index::
-   single: ipv6 nd adv-interval-option
-   single: no ipv6 nd adv-interval-option
-.. clicmd:: [no] ipv6 nd adv-interval-option
+.. clicmd:: ipv6 nd adv-interval-option
 
    Include an Advertisement Interval option which indicates to hosts the maximum time,
    in milliseconds, between successive unsolicited Router Advertisements.
    Default: not set
 
-.. index::
-   single: ipv6 nd router-preference (high|medium|low)
-   single: no ipv6 nd router-preference (high|medium|low)
-.. clicmd:: [no] ipv6 nd router-preference [(high|medium|low)]
+.. clicmd:: ipv6 nd router-preference [(high|medium|low)]
 
    Set default router preference in IPv6 router advertisements per RFC4191.
    Default: medium
 
-.. index::
-   single: ipv6 nd mtu (1-65535)
-   single: no ipv6 nd mtu [(1-65535)]
-.. clicmd:: [no] ipv6 nd mtu [(1-65535)]
+.. clicmd:: ipv6 nd mtu [(1-65535)]
 
    Include an MTU (type 5) option in each RA packet to assist the attached
    hosts in proper interface configuration. The announced value is not verified
@@ -195,10 +170,7 @@ Router Advertisement
 
    Default: don't advertise any MTU option.
 
-.. index::
-   single: ipv6 nd rdnss ipv6address [lifetime]
-   single: no ipv6 nd rdnss ipv6address [lifetime]
-.. clicmd:: [no] ipv6 nd rdnss ipv6address [lifetime]
+.. clicmd:: ipv6 nd rdnss ipv6address [lifetime]
 
    Recursive DNS server address to advertise using the RDNSS (type 25) option
    described in RFC8106. Can be specified more than once to advertise multiple
@@ -215,10 +187,7 @@ Router Advertisement
 
    Default: do not emit RDNSS option
 
-.. index::
-   single: ipv6 nd dnssl domain-name-suffix [lifetime]
-   single: no ipv6 nd dnssl domain-name-suffix [lifetime]
-.. clicmd:: [no] ipv6 nd dnssl domain-name-suffix [lifetime]
+.. clicmd:: ipv6 nd dnssl domain-name-suffix [lifetime]
 
    Advertise DNS search list using the DNSSL (type 31) option described in
    RFC8106. Specify more than once to advertise multiple domain name suffixes.

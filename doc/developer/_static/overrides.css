@@ -214,6 +214,22 @@ pre {
 .highlight .na { color: var(--primary-2); }
 .highlight .nv { color: var(--complement-0); }
 
+.rst-content code.frrfmtout {
+	background-color: var(--secondary-1-9);
+	border-color: var(--secondary-1-1);
+	font-size:100%;
+}
+.rst-content code.frrfmtout::before {
+	content: "⇒ \"";
+}
+.rst-content code.frrfmtout::after {
+	content: "\"";
+}
+.rst-content code.frrfmtout span {
+	color: var(--secondary-1-4);
+	font-size:100%;
+}
+
 strong {
 	font-weight:500;
 }

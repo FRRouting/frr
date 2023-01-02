@@ -377,12 +377,13 @@ struct typed_rb_entry *typed_rb_insert(struct rbt_tree *rbt,
 }
 
 /* Finds the node with the same key as elm */
-struct rb_entry *typed_rb_find(struct rbt_tree *rbt, const struct rb_entry *key,
+const struct rb_entry *typed_rb_find(const struct rbt_tree *rbt,
+		const struct rb_entry *key,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b))
 {
-	struct rb_entry *tmp = RBH_ROOT(rbt);
+	const struct rb_entry *tmp = RBH_ROOT(rbt);
 	int comp;
 
 	while (tmp != NULL) {
@@ -395,16 +396,16 @@ struct rb_entry *typed_rb_find(struct rbt_tree *rbt, const struct rb_entry *key,
 			return tmp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
-struct rb_entry *typed_rb_find_gteq(struct rbt_tree *rbt,
+const struct rb_entry *typed_rb_find_gteq(const struct rbt_tree *rbt,
 		const struct rb_entry *key,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b))
 {
-	struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
+	const struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
 	int comp;
 
 	while (tmp != NULL) {
@@ -421,13 +422,13 @@ struct rb_entry *typed_rb_find_gteq(struct rbt_tree *rbt,
 	return best;
 }
 
-struct rb_entry *typed_rb_find_lt(struct rbt_tree *rbt,
+const struct rb_entry *typed_rb_find_lt(const struct rbt_tree *rbt,
 		const struct rb_entry *key,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b))
 {
-	struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
+	const struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
 	int comp;
 
 	while (tmp != NULL) {
@@ -443,8 +444,10 @@ struct rb_entry *typed_rb_find_lt(struct rbt_tree *rbt,
 	return best;
 }
 
-struct rb_entry *typed_rb_next(struct rb_entry *rbe)
+struct rb_entry *typed_rb_next(const struct rb_entry *rbe_const)
 {
+	struct rb_entry *rbe = (struct rb_entry *)rbe_const;
+
 	if (RBE_RIGHT(rbe) != NULL) {
 		rbe = RBE_RIGHT(rbe);
 		while (RBE_LEFT(rbe) != NULL)
@@ -463,7 +466,7 @@ struct rb_entry *typed_rb_next(struct rb_entry *rbe)
 	return rbe;
 }
 
-struct rb_entry *typed_rb_min(struct rbt_tree *rbt)
+struct rb_entry *typed_rb_min(const struct rbt_tree *rbt)
 {
 	struct rb_entry *rbe = RBH_ROOT(rbt);
 	struct rb_entry *parent = NULL;

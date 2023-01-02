@@ -46,12 +46,13 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 	struct listnode *listnode = NULL;
 	struct ripng_info *rinfo = NULL;
 	int count = 0;
+	const struct prefix *p = agg_node_get_prefix(rp);
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ripng->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_RIPNG;
 	api.safi = SAFI_UNICAST;
-	api.prefix = rp->p;
+	api.prefix = *p;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
@@ -85,18 +86,17 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 
 	if (IS_RIPNG_DEBUG_ZEBRA) {
 		if (ripng->ecmp)
-			zlog_debug("%s: %s/%d nexthops %d",
+			zlog_debug("%s: %pRN nexthops %d",
 				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
-				   inet6_ntoa(rp->p.u.prefix6), rp->p.prefixlen,
-				   count);
+				   rp, count);
 		else
-			zlog_debug(
-				"%s: %s/%d",
-				(cmd == ZEBRA_ROUTE_ADD) ? "Install into zebra"
-							 : "Delete from zebra",
-				inet6_ntoa(rp->p.u.prefix6), rp->p.prefixlen);
+			zlog_debug("%s: %pRN",
+				   (cmd == ZEBRA_ROUTE_ADD)
+					   ? "Install into zebra"
+					   : "Delete from zebra",
+				   rp);
 	}
 }
 

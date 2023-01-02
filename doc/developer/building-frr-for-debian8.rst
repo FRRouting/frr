@@ -17,8 +17,8 @@ Add packages:
 
    sudo apt-get install git autoconf automake libtool make \
       libreadline-dev texinfo libjson-c-dev pkg-config bison flex python3-pip \
-      libc-ares-dev python3-dev python3-sphinx build-essential libsystemd-dev \
-      libsnmp-dev libcap-dev
+      libc-ares-dev python3-dev python3-sphinx build-essential \
+      libsnmp-dev libcap-dev libelf-dev
 
 Install newer pytest (>3.0) from pip
 
@@ -57,7 +57,6 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
-        --enable-exampledir=/usr/share/doc/frr/examples/ \
         --localstatedir=/var/run/frr \
         --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \

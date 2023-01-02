@@ -8,6 +8,10 @@ noinst_PROGRAMS += \
 	tools/gen_yang_deviations \
 	# end
 
+EXTRA_PROGRAMS += \
+	tools/frr-llvm-cg \
+	# end
+
 sbin_PROGRAMS += tools/ssd
 sbin_SCRIPTS += \
 	tools/frr-reload \
@@ -30,12 +34,29 @@ tools_gen_yang_deviations_SOURCES = tools/gen_yang_deviations.c
 tools_gen_yang_deviations_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 
 tools_ssd_SOURCES = tools/start-stop-daemon.c
+tools_ssd_CPPFLAGS =
+
+# don't bother autoconf'ing these for a simple optional tool
+llvm_version = $(shell echo __clang_major__ | $(CC) -xc -P -E -)
+tools_frr_llvm_cg_CPPFLAGS = $(CPPFLAGS_BASE)
+tools_frr_llvm_cg_CFLAGS = $(AM_CFLAGS) `llvm-config-$(llvm_version) --cflags`
+tools_frr_llvm_cg_CXXFLAGS = $(AM_CXXFLAGS) -O0 -ggdb3 `llvm-config-$(llvm_version) --cxxflags`
+tools_frr_llvm_cg_LDFLAGS = `llvm-config-$(llvm_version) --ldflags --libs`
+tools_frr_llvm_cg_SOURCES = \
+	tools/frr-llvm-cg.c \
+	tools/frr-llvm-debuginfo.cpp \
+	# end
+
+noinst_HEADERS += \
+	tools/frr-llvm-debuginfo.h \
+	# end
 
 EXTRA_DIST += \
 	tools/etc \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr.service \
+	tools/frr@.service \
 	tools/generate_support_bundle.py \
 	tools/multiple-bgpd.sh \
 	tools/rrcheck.pl \

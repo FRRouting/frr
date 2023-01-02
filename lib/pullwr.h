@@ -26,6 +26,10 @@
 #include "thread.h"
 #include "stream.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct pullwr;
 
 /* This is a "pull-driven" write event handler.  Instead of having some buffer
@@ -106,5 +110,9 @@ static inline void pullwr_write_stream(struct pullwr *pullwr,
 
 extern void pullwr_stats(struct pullwr *pullwr, uint64_t *total_written,
 			 size_t *pending, size_t *kernel_pending);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _WRITEPOLL_H */

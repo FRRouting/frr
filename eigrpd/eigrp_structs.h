@@ -37,34 +37,24 @@
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_macros.h"
 
-/* EIGRP master for system wide configuration and variables. */
-struct eigrp_master {
-	/* EIGRP instance. */
-	struct list *eigrp;
-
-	/* EIGRP thread master. */
-	struct thread_master *master;
-
-	/* Zebra interface list. */
-	struct list *iflist;
-
-	/* EIGRP start time. */
-	time_t start_time;
-
-	/* Various EIGRP global configuration. */
-	uint8_t options;
-
-#define EIGRP_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
-};
-
 struct eigrp_metrics {
 	uint32_t delay;
 	uint32_t bandwidth;
-	unsigned char mtu[3];
+	uint8_t mtu[3];
 	uint8_t hop_count;
 	uint8_t reliability;
 	uint8_t load;
 	uint8_t tag;
+	uint8_t flags;
+};
+
+struct eigrp_extdata {
+	uint32_t orig;
+	uint32_t as;
+	uint32_t tag;
+	uint32_t metric;
+	uint16_t reserved;
+	uint8_t protocol;
 	uint8_t flags;
 };
 
@@ -136,9 +126,9 @@ struct eigrp {
 	/* distribute_ctx */
 	struct distribute_ctx *distribute_ctx;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(eigrp)
+DECLARE_QOBJ_TYPE(eigrp);
 
 struct eigrp_if_params {
 	uint8_t passive_interface;
@@ -450,7 +440,7 @@ enum GR_type { EIGRP_GR_MANUAL, EIGRP_GR_FILTER };
 //---------------------------------------------------------------------------------------------------------------------------------------------
 
 /* EIGRP Topology table node structure */
-struct eigrp_prefix_entry {
+struct eigrp_prefix_descriptor {
 	struct list *entries, *rij;
 	uint32_t fdistance;		      // FD
 	uint32_t rdistance;		      // RD
@@ -473,8 +463,14 @@ struct eigrp_prefix_entry {
 };
 
 /* EIGRP Topology table record structure */
-struct eigrp_nexthop_entry {
-	struct eigrp_prefix_entry *prefix;
+struct eigrp_route_descriptor {
+	uint16_t type;
+	uint16_t afi;
+
+	struct eigrp_prefix_descriptor *prefix;
+	struct eigrp_neighbor *adv_router;
+	struct in_addr nexthop;
+
 	uint32_t reported_distance; // distance reported by neighbor
 	uint32_t distance;	  // sum of reported distance and link cost to
 				    // advertised neighbor
@@ -482,7 +478,9 @@ struct eigrp_nexthop_entry {
 	struct eigrp_metrics reported_metric;
 	struct eigrp_metrics total_metric;
 
-	struct eigrp_neighbor *adv_router; // ip address of advertising neighbor
+	struct eigrp_metrics metric;
+	struct eigrp_extdata extdata;
+
 	uint8_t flags;			   // used for marking successor and FS
 
 	struct eigrp_interface *ei; // pointer for case of connected entry
@@ -501,8 +499,8 @@ struct eigrp_fsm_action_message {
 	uint8_t packet_type;		   // UPDATE, QUERY, SIAQUERY, SIAREPLY
 	struct eigrp *eigrp;		   // which thread sent mesg
 	struct eigrp_neighbor *adv_router; // advertising neighbor
-	struct eigrp_nexthop_entry *entry;
-	struct eigrp_prefix_entry *prefix;
+	struct eigrp_route_descriptor *entry;
+	struct eigrp_prefix_descriptor *prefix;
 	msg_data_t data_type; // internal or external tlv type
 	struct eigrp_metrics metrics;
 	enum metric_change change;

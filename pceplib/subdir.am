@@ -1,0 +1,62 @@
+if PATHD_PCEP
+
+noinst_LTLIBRARIES = pceplib/libpcep_pcc.la pceplib/libsocket_comm_mock.la
+pceplib_libpcep_pcc_la_CFLAGS = $(AM_CFLAGS) -fPIC
+pceplib_libpcep_pcc_la_SOURCES = pceplib/pcep_msg_messages.c \
+		pceplib/pcep_msg_objects.c \
+		pceplib/pcep_msg_tlvs.c \
+		pceplib/pcep_msg_tools.c \
+		pceplib/pcep_msg_messages_encoding.c \
+		pceplib/pcep_msg_objects_encoding.c \
+		pceplib/pcep_msg_tlvs_encoding.c \
+		pceplib/pcep_msg_object_error_types.c \
+		pceplib/pcep_pcc_api.c \
+		pceplib/pcep_session_logic.c \
+		pceplib/pcep_session_logic_loop.c \
+		pceplib/pcep_session_logic_states.c \
+		pceplib/pcep_session_logic_counters.c \
+		pceplib/pcep_socket_comm_loop.c \
+		pceplib/pcep_socket_comm.c \
+		pceplib/pcep_timers_event_loop.c \
+		pceplib/pcep_timers.c \
+		pceplib/pcep_utils_counters.c \
+		pceplib/pcep_utils_double_linked_list.c \
+		pceplib/pcep_utils_logging.c \
+		pceplib/pcep_utils_memory.c \
+		pceplib/pcep_utils_ordered_list.c \
+		pceplib/pcep_utils_queue.c
+
+if PATHD_PCEP_TEST
+# SocketComm Mock library used for Unit Testing
+pceplib_libsocket_comm_mock_la_SOURCES = pceplib/pcep_socket_comm_mock.c
+endif
+
+noinst_HEADERS += pceplib/pcep.h \
+		pceplib/pcep_msg_encoding.h \
+		pceplib/pcep_msg_messages.h \
+		pceplib/pcep_msg_object_error_types.h \
+		pceplib/pcep_msg_objects.h \
+		pceplib/pcep_msg_tlvs.h \
+		pceplib/pcep_msg_tools.h \
+		pceplib/pcep_pcc_api.h \
+		pceplib/pcep_session_logic.h \
+		pceplib/pcep_session_logic_internals.h \
+		pceplib/pcep_socket_comm.h \
+		pceplib/pcep_socket_comm_internals.h \
+		pceplib/pcep_socket_comm_loop.h \
+		pceplib/pcep_socket_comm_mock.h \
+		pceplib/pcep_timer_internals.h \
+		pceplib/pcep_timers.h \
+		pceplib/pcep_timers_event_loop.h \
+		pceplib/pcep_utils_counters.h \
+		pceplib/pcep_utils_double_linked_list.h \
+		pceplib/pcep_utils_logging.h \
+		pceplib/pcep_utils_memory.h \
+		pceplib/pcep_utils_ordered_list.h \
+		pceplib/pcep_utils_queue.h
+
+noinst_PROGRAMS += pceplib/pcep_pcc
+pceplib_pcep_pcc_SOURCES = pceplib/pcep_pcc.c
+pceplib_pcep_pcc_LDADD = pceplib/libpcep_pcc.la lib/libfrr.la -lpthread
+
+endif

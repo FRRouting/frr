@@ -23,7 +23,7 @@
 
 #include "lib/typesafe.h"
 
-PREDECL_DLIST(bgp_adv_fifo)
+PREDECL_DLIST(bgp_adv_fifo);
 
 struct update_subgroup;
 
@@ -48,7 +48,7 @@ struct bgp_advertise {
 	struct bgp_advertise *prev;
 
 	/* Prefix information.  */
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	/* Reference pointer.  */
 	struct bgp_adj_out *adj;
@@ -60,7 +60,7 @@ struct bgp_advertise {
 	struct bgp_path_info *pathi;
 };
 
-DECLARE_DLIST(bgp_adv_fifo, struct bgp_advertise, fifo)
+DECLARE_DLIST(bgp_adv_fifo, struct bgp_advertise, fifo);
 
 /* BGP adjacency out.  */
 struct bgp_adj_out {
@@ -74,7 +74,7 @@ struct bgp_adj_out {
 	TAILQ_ENTRY(bgp_adj_out) subgrp_adj_train;
 
 	/* Prefix information.  */
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	uint32_t addpath_tx_id;
 
@@ -83,6 +83,9 @@ struct bgp_adj_out {
 
 	/* Advertisement information.  */
 	struct bgp_advertise *adv;
+
+	/* Attribute hash */
+	uint32_t attr_hash;
 };
 
 RB_HEAD(bgp_adj_out_rb, bgp_adj_out);
@@ -139,11 +142,11 @@ struct bgp_synchronize {
 #define BGP_ADJ_IN_DEL(N, A) BGP_PATH_INFO_DEL(N, A, adj_in)
 
 /* Prototypes.  */
-extern int bgp_adj_out_lookup(struct peer *, struct bgp_node *, uint32_t);
-extern void bgp_adj_in_set(struct bgp_node *, struct peer *, struct attr *,
+extern bool bgp_adj_out_lookup(struct peer *, struct bgp_dest *, uint32_t);
+extern void bgp_adj_in_set(struct bgp_dest *, struct peer *, struct attr *,
 			   uint32_t);
-extern int bgp_adj_in_unset(struct bgp_node *, struct peer *, uint32_t);
-extern void bgp_adj_in_remove(struct bgp_node *, struct bgp_adj_in *);
+extern bool bgp_adj_in_unset(struct bgp_dest *, struct peer *, uint32_t);
+extern void bgp_adj_in_remove(struct bgp_dest *, struct bgp_adj_in *);
 
 extern void bgp_sync_init(struct peer *);
 extern void bgp_sync_delete(struct peer *);

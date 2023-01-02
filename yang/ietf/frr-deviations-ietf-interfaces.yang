@@ -8,7 +8,7 @@ module frr-deviations-ietf-interfaces {
   }
 
   organization
-    "Free Range Routing";
+    "FRRouting";
 
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>

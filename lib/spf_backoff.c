@@ -7,7 +7,7 @@
  * Copyright (C) 2017 Orange Labs http://www.orange.com/
  * Copyright (C) 2017 by Christian Franke, Open Source Routing / NetDEF Inc.
  *
- * This file is part of FreeRangeRouting (FRR)
+ * This file is part of FRRouting (FRR)
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -33,8 +33,8 @@
 #include "thread.h"
 #include "vty.h"
 
-DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff")
-DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF_NAME, "SPF backoff name")
+DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff");
+DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF_NAME, "SPF backoff name");
 
 static bool debug_spf_backoff = false;
 #define backoff_debug(...)                                                     \
@@ -110,8 +110,8 @@ void spf_backoff_free(struct spf_backoff *backoff)
 	if (!backoff)
 		return;
 
-	THREAD_TIMER_OFF(backoff->t_holddown);
-	THREAD_TIMER_OFF(backoff->t_timetolearn);
+	thread_cancel(&backoff->t_holddown);
+	thread_cancel(&backoff->t_timetolearn);
 	XFREE(MTYPE_SPF_BACKOFF_NAME, backoff->name);
 
 	XFREE(MTYPE_SPF_BACKOFF, backoff);
@@ -121,7 +121,6 @@ static int spf_backoff_timetolearn_elapsed(struct thread *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
-	backoff->t_timetolearn = NULL;
 	backoff->state = SPF_BACKOFF_LONG_WAIT;
 	backoff_debug("SPF Back-off(%s) TIMETOLEARN elapsed, move to state %s",
 		      backoff->name, spf_backoff_state2str(backoff->state));
@@ -132,8 +131,7 @@ static int spf_backoff_holddown_elapsed(struct thread *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
-	backoff->t_holddown = NULL;
-	THREAD_TIMER_OFF(backoff->t_timetolearn);
+	THREAD_OFF(backoff->t_timetolearn);
 	timerclear(&backoff->first_event_time);
 	backoff->state = SPF_BACKOFF_QUIET;
 	backoff_debug("SPF Back-off(%s) HOLDDOWN elapsed, move to state %s",
@@ -167,7 +165,7 @@ long spf_backoff_schedule(struct spf_backoff *backoff)
 		break;
 	case SPF_BACKOFF_SHORT_WAIT:
 	case SPF_BACKOFF_LONG_WAIT:
-		THREAD_TIMER_OFF(backoff->t_holddown);
+		thread_cancel(&backoff->t_holddown);
 		thread_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
 				      backoff, backoff->holddown,
 				      &backoff->t_holddown);

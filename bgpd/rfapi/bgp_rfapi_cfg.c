@@ -47,41 +47,41 @@
 #include "bgpd/rfapi/vnc_import_bgp.h"
 #include "bgpd/rfapi/vnc_debug.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 
 #undef BGP_VNC_DEBUG_MATCH_GROUP
 
 
-DEFINE_MGROUP(RFAPI, "rfapi")
-DEFINE_MTYPE(RFAPI, RFAPI_CFG, "NVE Configuration")
-DEFINE_MTYPE(RFAPI, RFAPI_GROUP_CFG, "NVE Group Configuration")
-DEFINE_MTYPE(RFAPI, RFAPI_L2_CFG, "RFAPI L2 Group Configuration")
-DEFINE_MTYPE(RFAPI, RFAPI_RFP_GROUP_CFG, "RFAPI RFP Group Configuration")
-DEFINE_MTYPE(RFAPI, RFAPI, "RFAPI Generic")
-DEFINE_MTYPE(RFAPI, RFAPI_DESC, "RFAPI Descriptor")
-DEFINE_MTYPE(RFAPI, RFAPI_IMPORTTABLE, "RFAPI Import Table")
-DEFINE_MTYPE(RFAPI, RFAPI_MONITOR, "RFAPI Monitor VPN")
-DEFINE_MTYPE(RFAPI, RFAPI_MONITOR_ENCAP, "RFAPI Monitor Encap")
-DEFINE_MTYPE(RFAPI, RFAPI_NEXTHOP, "RFAPI Next Hop")
-DEFINE_MTYPE(RFAPI, RFAPI_VN_OPTION, "RFAPI VN Option")
-DEFINE_MTYPE(RFAPI, RFAPI_UN_OPTION, "RFAPI UN Option")
-DEFINE_MTYPE(RFAPI, RFAPI_WITHDRAW, "RFAPI Withdraw")
-DEFINE_MTYPE(RFAPI, RFAPI_RFG_NAME, "RFAPI RFGName")
-DEFINE_MTYPE(RFAPI, RFAPI_ADB, "RFAPI Advertisement Data")
-DEFINE_MTYPE(RFAPI, RFAPI_ETI, "RFAPI Export Table Info")
-DEFINE_MTYPE(RFAPI, RFAPI_NVE_ADDR, "RFAPI NVE Address")
-DEFINE_MTYPE(RFAPI, RFAPI_PREFIX_BAG, "RFAPI Prefix Bag")
-DEFINE_MTYPE(RFAPI, RFAPI_IT_EXTRA, "RFAPI IT Extra")
-DEFINE_MTYPE(RFAPI, RFAPI_INFO, "RFAPI Info")
-DEFINE_MTYPE(RFAPI, RFAPI_ADDR, "RFAPI Addr")
-DEFINE_MTYPE(RFAPI, RFAPI_UPDATED_RESPONSE_QUEUE, "RFAPI Updated Rsp Queue")
-DEFINE_MTYPE(RFAPI, RFAPI_RECENT_DELETE, "RFAPI Recently Deleted Route")
-DEFINE_MTYPE(RFAPI, RFAPI_L2ADDR_OPT, "RFAPI L2 Address Option")
-DEFINE_MTYPE(RFAPI, RFAPI_AP, "RFAPI Advertised Prefix")
-DEFINE_MTYPE(RFAPI, RFAPI_MONITOR_ETH, "RFAPI Monitor Ethernet")
+DEFINE_MGROUP(RFAPI, "rfapi");
+DEFINE_MTYPE(RFAPI, RFAPI_CFG, "NVE Configuration");
+DEFINE_MTYPE(RFAPI, RFAPI_GROUP_CFG, "NVE Group Configuration");
+DEFINE_MTYPE(RFAPI, RFAPI_L2_CFG, "RFAPI L2 Group Configuration");
+DEFINE_MTYPE(RFAPI, RFAPI_RFP_GROUP_CFG, "RFAPI RFP Group Configuration");
+DEFINE_MTYPE(RFAPI, RFAPI, "RFAPI Generic");
+DEFINE_MTYPE(RFAPI, RFAPI_DESC, "RFAPI Descriptor");
+DEFINE_MTYPE(RFAPI, RFAPI_IMPORTTABLE, "RFAPI Import Table");
+DEFINE_MTYPE(RFAPI, RFAPI_MONITOR, "RFAPI Monitor VPN");
+DEFINE_MTYPE(RFAPI, RFAPI_MONITOR_ENCAP, "RFAPI Monitor Encap");
+DEFINE_MTYPE(RFAPI, RFAPI_NEXTHOP, "RFAPI Next Hop");
+DEFINE_MTYPE(RFAPI, RFAPI_VN_OPTION, "RFAPI VN Option");
+DEFINE_MTYPE(RFAPI, RFAPI_UN_OPTION, "RFAPI UN Option");
+DEFINE_MTYPE(RFAPI, RFAPI_WITHDRAW, "RFAPI Withdraw");
+DEFINE_MTYPE(RFAPI, RFAPI_RFG_NAME, "RFAPI RFGName");
+DEFINE_MTYPE(RFAPI, RFAPI_ADB, "RFAPI Advertisement Data");
+DEFINE_MTYPE(RFAPI, RFAPI_ETI, "RFAPI Export Table Info");
+DEFINE_MTYPE(RFAPI, RFAPI_NVE_ADDR, "RFAPI NVE Address");
+DEFINE_MTYPE(RFAPI, RFAPI_PREFIX_BAG, "RFAPI Prefix Bag");
+DEFINE_MTYPE(RFAPI, RFAPI_IT_EXTRA, "RFAPI IT Extra");
+DEFINE_MTYPE(RFAPI, RFAPI_INFO, "RFAPI Info");
+DEFINE_MTYPE(RFAPI, RFAPI_ADDR, "RFAPI Addr");
+DEFINE_MTYPE(RFAPI, RFAPI_UPDATED_RESPONSE_QUEUE, "RFAPI Updated Rsp Queue");
+DEFINE_MTYPE(RFAPI, RFAPI_RECENT_DELETE, "RFAPI Recently Deleted Route");
+DEFINE_MTYPE(RFAPI, RFAPI_L2ADDR_OPT, "RFAPI L2 Address Option");
+DEFINE_MTYPE(RFAPI, RFAPI_AP, "RFAPI Advertised Prefix");
+DEFINE_MTYPE(RFAPI, RFAPI_MONITOR_ETH, "RFAPI Monitor Ethernet");
 
-DEFINE_QOBJ_TYPE(rfapi_nve_group_cfg)
-DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg)
+DEFINE_QOBJ_TYPE(rfapi_nve_group_cfg);
+DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg);
 /***********************************************************************
  *			RFAPI Support
  ***********************************************************************/
@@ -168,16 +168,10 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 		agg_unlock_node(rn_un);
 	}
 
-#if BGP_VNC_DEBUG_MATCH_GROUP
+#ifdef BGP_VNC_DEBUG_MATCH_GROUP
 	{
-		char buf[PREFIX_STRLEN];
-
-		prefix2str(vn, buf, sizeof(buf));
-		vnc_zlog_debug_verbose("%s: vn prefix: %s", __func__, buf);
-
-		prefix2str(un, buf, sizeof(buf));
-		vnc_zlog_debug_verbose("%s: un prefix: %s", __func__, buf);
-
+		vnc_zlog_debug_verbose("%s: vn prefix: %pFX", __func__, vn);
+		vnc_zlog_debug_verbose("%s: un prefix: %pFX", __func__, un);
 		vnc_zlog_debug_verbose(
 			"%s: rn_vn=%p, rn_un=%p, rfg_vn=%p, rfg_un=%p",
 			__func__, rn_vn, rn_un, rfg_vn, rfg_un);
@@ -2965,10 +2959,18 @@ DEFUN_NOSH (exit_vnc,
 }
 
 static struct cmd_node bgp_vnc_defaults_node = {
-	BGP_VNC_DEFAULTS_NODE, "%s(config-router-vnc-defaults)# ", 1};
+	.name = "bgp vnc defaults",
+	.node = BGP_VNC_DEFAULTS_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vnc-defaults)# ",
+};
 
 static struct cmd_node bgp_vnc_nve_group_node = {
-	BGP_VNC_NVE_GROUP_NODE, "%s(config-router-vnc-nve-group)# ", 1};
+	.name = "bgp vnc nve",
+	.node = BGP_VNC_NVE_GROUP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vnc-nve-group)# ",
+};
 
 /*-------------------------------------------------------------------------
  *			VNC nve-group
@@ -3388,7 +3390,11 @@ DEFUN_NOSH (exit_vrf_policy,
 }
 
 static struct cmd_node bgp_vrf_policy_node = {
-	BGP_VRF_POLICY_NODE, "%s(config-router-vrf-policy)# ", 1};
+	.name = "bgp vrf policy",
+	.node = BGP_VRF_POLICY_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vrf-policy)# ",
+};
 
 /*-------------------------------------------------------------------------
  *			vnc-l2-group
@@ -3624,7 +3630,11 @@ DEFUN (vnc_l2_group_rt,
 
 
 static struct cmd_node bgp_vnc_l2_group_node = {
-	BGP_VNC_L2_GROUP_NODE, "%s(config-router-vnc-l2-group)# ", 1};
+	.name = "bgp vnc l2",
+	.node = BGP_VNC_L2_GROUP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-vnc-l2-group)# ",
+};
 
 struct rfapi_l2_group_cfg *
 bgp_rfapi_get_group_by_lni_label(struct bgp *bgp, uint32_t logical_net_id,
@@ -3681,10 +3691,10 @@ bgp_rfapi_get_ecommunity_by_lni_label(struct bgp *bgp, uint32_t is_import,
 
 void bgp_rfapi_cfg_init(void)
 {
-	install_node(&bgp_vnc_defaults_node, NULL);
-	install_node(&bgp_vnc_nve_group_node, NULL);
-	install_node(&bgp_vrf_policy_node, NULL);
-	install_node(&bgp_vnc_l2_group_node, NULL);
+	install_node(&bgp_vnc_defaults_node);
+	install_node(&bgp_vnc_nve_group_node);
+	install_node(&bgp_vrf_policy_node);
+	install_node(&bgp_vnc_l2_group_node);
 	install_default(BGP_VRF_POLICY_NODE);
 	install_default(BGP_VNC_DEFAULTS_NODE);
 	install_default(BGP_VNC_NVE_GROUP_NODE);
@@ -4033,7 +4043,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					rfg->routemap_redist_name
 						[ZEBRA_ROUTE_BGP_DIRECT_EXT]);
 			}
-			vty_out(vty, "  exit-vrf-policy\n");
+			vty_out(vty, " exit-vrf-policy\n");
 			vty_out(vty, "!\n");
 		}
 	if (hc->flags & BGP_VNC_CONFIG_ADV_UN_METHOD_ENCAP) {
@@ -4111,7 +4121,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						vty, bgp->rfapi->rfp,
 						RFAPI_RFP_CFG_GROUP_L2,
 						rfgc->name, rfgc->rfp_cfg);
-				vty_out(vty, "   exit-vnc\n");
+				vty_out(vty, " exit-vnc\n");
 				vty_out(vty, "!\n");
 			}
 		}
@@ -4189,7 +4199,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty, bgp->rfapi->rfp,
 					RFAPI_RFP_CFG_GROUP_DEFAULT, NULL,
 					bgp->rfapi_cfg->default_rfp_cfg);
-			vty_out(vty, "  exit-vnc\n");
+			vty_out(vty, " exit-vnc\n");
 			vty_out(vty, "!\n");
 		}
 
@@ -4199,23 +4209,13 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 				++write;
 				vty_out(vty, " vnc nve-group %s\n", rfg->name);
 
-				if (rfg->vn_prefix.family && rfg->vn_node) {
-					char buf[PREFIX_STRLEN];
+				if (rfg->vn_prefix.family && rfg->vn_node)
+					vty_out(vty, "  prefix %s %pFX\n", "vn",
+						&rfg->vn_prefix);
 
-					prefix2str(&rfg->vn_prefix, buf,
-						   sizeof(buf));
-					vty_out(vty, "  prefix %s %s\n", "vn",
-						buf);
-				}
-
-				if (rfg->un_prefix.family && rfg->un_node) {
-					char buf[PREFIX_STRLEN];
-
-					prefix2str(&rfg->un_prefix, buf,
-						   sizeof(buf));
-					vty_out(vty, "  prefix %s %s\n", "un",
-						buf);
-				}
+				if (rfg->un_prefix.family && rfg->un_node)
+					vty_out(vty, "  prefix %s %pFX\n", "un",
+						&rfg->un_prefix);
 
 
 				if (rfg->rd.prefixlen) {
@@ -4364,7 +4364,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						vty, bgp->rfapi->rfp,
 						RFAPI_RFP_CFG_GROUP_NVE,
 						rfg->name, rfg->rfp_cfg);
-				vty_out(vty, "  exit-vnc\n");
+				vty_out(vty, " exit-vnc\n");
 				vty_out(vty, "!\n");
 			}
 	} /* have listen ports */
@@ -4611,7 +4611,8 @@ void bgp_rfapi_show_summary(struct bgp *bgp, struct vty *vty)
 		(hc->rfp_cfg.download_type == RFAPI_RFP_DOWNLOAD_PARTIAL
 			 ? "(default)"
 			 : ""));
-	sprintf(tmp, "%u seconds", hc->rfp_cfg.ftd_advertisement_interval);
+	snprintf(tmp, sizeof(tmp), "%u seconds",
+		 hc->rfp_cfg.ftd_advertisement_interval);
 	vty_out(vty, "%-39s %-19s %s\n", "    Advertisement Interval:", tmp,
 		(hc->rfp_cfg.ftd_advertisement_interval
 				 == RFAPI_RFP_CFG_DEFAULT_FTD_ADVERTISEMENT_INTERVAL

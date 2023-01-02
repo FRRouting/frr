@@ -41,20 +41,6 @@ THE SOFTWARE.
 #define MAX(x,y) ((x)<=(y)?(y):(x))
 #define MIN(x,y) ((x)<=(y)?(x):(y))
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-/* nothing */
-#elif defined(__GNUC__)
-#define inline __inline
-#if  (__GNUC__ >= 3)
-#define restrict __restrict
-#else
-#define restrict /**/
-#endif
-#else
-#define inline /**/
-#define restrict /**/
-#endif
-
 #if defined(__GNUC__) && (__GNUC__ >= 3)
 #define ATTRIBUTE(x) __attribute__ (x)
 #define LIKELY(_x) __builtin_expect(!!(_x), 1)

@@ -4,7 +4,7 @@
 
 if WATCHFRR
 sbin_PROGRAMS += watchfrr/watchfrr
-vtysh_scan += $(top_srcdir)/watchfrr/watchfrr_vty.c
+vtysh_scan += watchfrr/watchfrr_vty.c
 man8 += $(MANBUILD)/frr-watchfrr.8
 endif
 
@@ -13,12 +13,13 @@ noinst_HEADERS += \
 	watchfrr/watchfrr_errors.h \
 	# end
 
-watchfrr_watchfrr_LDADD = lib/libfrr.la $(LIBCAP)
+watchfrr_watchfrr_LDADD = lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP)
 watchfrr_watchfrr_SOURCES = \
 	watchfrr/watchfrr.c \
 	watchfrr/watchfrr_errors.c \
 	watchfrr/watchfrr_vty.c \
 	# end
 
-watchfrr/watchfrr_vty_clippy.c: $(CLIPPY_DEPS)
-watchfrr/watchfrr_vty.$(OBJEXT): watchfrr/watchfrr_vty_clippy.c
+clippy_scan += \
+	watchfrr/watchfrr_vty.c \
+	# end

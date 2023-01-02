@@ -3,13 +3,42 @@ module frr-route-types {
   namespace "http://frrouting.org/yang/route-types";
   prefix frr-route-types;
 
+  import ietf-inet-types {
+    prefix inet;
+  }
+
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines typedefs for route types.";
+    "This module defines typedefs for route types.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2018-03-28 {
     description
@@ -50,6 +79,9 @@ module frr-route-types {
       }
       enum vnc {
         value 17;
+      }
+      enum vnc-direct {
+        value 18;
       }
       enum babel {
         value 22;
@@ -95,6 +127,9 @@ module frr-route-types {
       enum vnc {
         value 17;
       }
+      enum vnc-direct {
+        value 18;
+      }
       enum babel {
         value 22;
       }
@@ -104,6 +139,45 @@ module frr-route-types {
       enum openfabric {
         value 26;
       }
+    }
+  }
+
+  typedef frr-route-types {
+    description "Route types as enumerated in `lib/route_types.txt`";
+    type union {
+      type frr-route-types-v4;
+      type frr-route-types-v6;
+    }
+  }
+
+  typedef ipv4-multicast-group-prefix {
+    type inet:ipv4-prefix {
+      pattern '(2((2[4-9])|(3[0-9]))\.)(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){2}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(/(([4-9])|([1-2][0-9])|(3[0-2])))';
+    }
+    description
+      "This type represents an IPv4 multicast group prefix,
+       which is in the range from 224.0.0.0 to 239.255.255.255.";
+  }
+
+  typedef ipv6-multicast-group-prefix {
+    type inet:ipv6-prefix {
+      pattern
+        '(((FF|ff)[0-9a-fA-F]{2}):)([0-9a-fA-F]{0,4}:){0,5}((([0-9a-fA-F]{0,4}:)?(:|[0-9a-fA-F]{0,4}))|(((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])))(/((1[6-9])|([2-9][0-9])|(1[0-1][0-9])|(12[0-8])))';
+      pattern
+        '(([^:]+:){6}(([^:]+:[^:]+)|(.*\..*)))|((([^:]+:)*[^:]+)?::(([^:]+:)*[^:]+)?)(/.+)';
+    }
+    description
+      "This type represents an IPv6 multicast group prefix,
+       which is in the range of FF00::/8.";
+  }
+
+  typedef ip-multicast-group-prefix {
+    description "The IP-Multicast-Group-Address-Prefix type represents an IP multicast address
+    prefix and is IP version neutral. The format of the textual representations implies the IP
+    version. It includes a prefix-length, separated by a '/' sign.";
+    type union {
+      type ipv4-multicast-group-prefix;
+      type ipv6-multicast-group-prefix;
     }
   }
 }

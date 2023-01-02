@@ -2,7 +2,7 @@ if GRPC
 lib_LTLIBRARIES += grpc/libfrrgrpc_pb.la
 endif
 
-grpc_libfrrgrpc_pb_la_LDFLAGS = -version-info 0:0:0
+grpc_libfrrgrpc_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 grpc_libfrrgrpc_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(GRPC_CXXFLAGS)
 
 if GRPC
@@ -23,10 +23,12 @@ EXTRA_DIST += grpc/frr-northbound.proto
 
 AM_V_PROTOC = $(am__v_PROTOC_$(V))
 am__v_PROTOC_ = $(am__v_PROTOC_$(AM_DEFAULT_VERBOSITY))
-am__v_PROTOC_0 = @echo "  PROTOC" $@;
+am__v_PROTOC_0 = @echo "  PROTOC  " $@;
 am__v_PROTOC_1 =
 
+SUFFIXES += .pb.h .pb.cc .grpc.pb.cc
+
 .proto.pb.cc:
-	$(AM_V_PROTOC)$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $(top_srcdir)/$^
+	$(AM_V_PROTOC)$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_builddir) $^
 .proto.grpc.pb.cc:
-	$(AM_V_PROTOC)$(PROTOC) -I$(top_srcdir) --grpc_out=$(top_srcdir) --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $(top_srcdir)/$^
+	$(AM_V_PROTOC)$(PROTOC) -I$(top_srcdir) --grpc_out=$(top_builddir) --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $^

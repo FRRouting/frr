@@ -18,7 +18,7 @@
 #include <zebra.h>
 
 #include "defaults.h"
-#include "version.h"
+#include "lib/version.h"
 
 static char df_version[128] = FRR_VER_SHORT, df_profile[128] = DFLT_NAME;
 static struct frr_default *dflt_first = NULL, **dflt_next = &dflt_first;
@@ -100,10 +100,10 @@ static bool frr_match_version(const char *name, const char *vspec,
 			      const char *version, bool check)
 {
 	int cmp;
-	static struct spec {
+	static const struct spec {
 		const char *str;
-		bool dir, eq;
-	} *s, specs[] = {
+		int dir, eq;
+	} specs[] = {
 		{"<=", -1, 1},
 		{">=", 1, 1},
 		{"==", 0, 1},
@@ -112,6 +112,7 @@ static bool frr_match_version(const char *name, const char *vspec,
 		{"=", 0, 1},
 		{NULL, 0, 0},
 	};
+	const struct spec *s;
 
 	if (!vspec)
 		/* NULL = all versions */

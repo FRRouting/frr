@@ -21,14 +21,13 @@
 
 #include <zebra.h>
 
-#if !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX) && !defined(OPEN_BSD)
 
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"
 #include "connected.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "ioctl.h"
 #include "log.h"
 #include "interface.h"
@@ -144,4 +143,4 @@ void interface_list(struct zebra_ns *zns)
 	XFREE(MTYPE_TMP, ref);
 }
 
-#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5) */
+#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

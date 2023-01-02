@@ -105,7 +105,7 @@ char *ospf_options_dump(uint8_t options)
 {
 	static char buf[OSPF_OPTION_STR_MAXLEN];
 
-	snprintf(buf, OSPF_OPTION_STR_MAXLEN, "*|%s|%s|%s|%s|%s|%s|%s",
+	snprintf(buf, sizeof(buf), "*|%s|%s|%s|%s|%s|%s|%s",
 		 (options & OSPF_OPTION_O) ? "O" : "-",
 		 (options & OSPF_OPTION_DC) ? "DC" : "-",
 		 (options & OSPF_OPTION_EA) ? "EA" : "-",
@@ -127,8 +127,8 @@ void ospf_lsa_header_dump(struct lsa_header *lsah)
 		   ospf_options_dump(lsah->options));
 	zlog_debug("    LS type %d (%s)", lsah->type,
 		   (lsah->type ? lsah_type : "unknown type"));
-	zlog_debug("    Link State ID %s", inet_ntoa(lsah->id));
-	zlog_debug("    Advertising Router %s", inet_ntoa(lsah->adv_router));
+	zlog_debug("    Link State ID %pI4", &lsah->id);
+	zlog_debug("    Advertising Router %pI4", &lsah->adv_router);
 	zlog_debug("    LS sequence number 0x%lx",
 		   (unsigned long)ntohl(lsah->ls_seqnum));
 	zlog_debug("    LS checksum 0x%x", ntohs(lsah->checksum));

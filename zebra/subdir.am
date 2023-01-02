@@ -4,24 +4,29 @@
 
 if ZEBRA
 sbin_PROGRAMS += zebra/zebra
-dist_examples_DATA += zebra/zebra.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/zebra/debug.c \
-	$(top_srcdir)/zebra/interface.c \
-	$(top_srcdir)/zebra/router-id.c \
-	$(top_srcdir)/zebra/rtadv.c \
-	$(top_srcdir)/zebra/zebra_mlag_vty.c \
-	$(top_srcdir)/zebra/zebra_mpls_vty.c \
-	$(top_srcdir)/zebra/zebra_ptm.c \
-	$(top_srcdir)/zebra/zebra_pw.c \
-	$(top_srcdir)/zebra/zebra_routemap.c \
-	$(top_srcdir)/zebra/zebra_vty.c \
-	$(top_srcdir)/zebra/zserv.c \
+	zebra/debug.c \
+	zebra/interface.c \
+	zebra/router-id.c \
+	zebra/rtadv.c \
+	zebra/zebra_gr.c \
+	zebra/zebra_mlag_vty.c \
+	zebra/zebra_evpn_mh.c \
+	zebra/zebra_mpls_vty.c \
+	zebra/zebra_srv6_vty.c \
+	zebra/zebra_ptm.c \
+	zebra/zebra_pw.c \
+	zebra/zebra_routemap.c \
+	zebra/zebra_vty.c \
+	zebra/zserv.c \
+	zebra/zebra_vrf.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/zebra/irdp_interface.c
-vtysh_scan += $(top_srcdir)/zebra/zebra_fpm.c
+vtysh_scan += zebra/irdp_interface.c
+vtysh_scan += zebra/zebra_fpm.c
+
+vtysh_daemons += zebra
 
 if IRDP
 module_LTLIBRARIES += zebra/zebra_irdp.la
@@ -36,6 +41,11 @@ if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
 
+# Dataplane sample plugin
+if DEV_BUILD
+module_LTLIBRARIES += zebra/dplane_sample_plugin.la
+endif
+
 man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
@@ -43,19 +53,17 @@ endif
 zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
+zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
 endif
 zebra_zebra_SOURCES = \
 	zebra/connected.c \
 	zebra/debug.c \
 	zebra/if_ioctl.c \
-	zebra/if_ioctl_solaris.c \
 	zebra/if_netlink.c \
 	zebra/if_sysctl.c \
 	zebra/interface.c \
 	zebra/ioctl.c \
-	zebra/ioctl_solaris.c \
 	zebra/ipforward_proc.c \
-	zebra/ipforward_solaris.c \
 	zebra/ipforward_sysctl.c \
 	zebra/kernel_netlink.c \
 	zebra/kernel_socket.c \
@@ -66,24 +74,38 @@ zebra_zebra_SOURCES = \
 	zebra/rt_netlink.c \
 	zebra/rt_socket.c \
 	zebra/rtadv.c \
-	zebra/rtread_getmsg.c \
 	zebra/rtread_netlink.c \
 	zebra/rtread_sysctl.c \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
+	zebra/table_manager.c \
+	zebra/zapi_msg.c \
+	zebra/zebra_dplane.c \
+	zebra/zebra_errors.c \
+	zebra/zebra_gr.c \
+	zebra/zebra_l2.c \
+	zebra/zebra_evpn.c \
+	zebra/zebra_evpn_mac.c \
+	zebra/zebra_evpn_neigh.c \
 	zebra/zebra_mlag.c \
 	zebra/zebra_mlag_vty.c \
-	zebra/zebra_l2.c \
-	zebra/zebra_memory.c \
-	zebra/zebra_dplane.c \
 	zebra/zebra_mpls.c \
 	zebra/zebra_mpls_netlink.c \
 	zebra/zebra_mpls_openbsd.c \
 	zebra/zebra_mpls_null.c \
 	zebra/zebra_mpls_vty.c \
+	zebra/zebra_srv6.c \
+	zebra/zebra_srv6_vty.c \
 	zebra/zebra_mroute.c \
+	zebra/zebra_nb.c \
+	zebra/zebra_nb_config.c \
+	zebra/zebra_nb_rpcs.c \
+	zebra/zebra_nb_state.c \
+	zebra/zebra_netns_id.c \
+	zebra/zebra_netns_notify.c \
 	zebra/zebra_nhg.c \
 	zebra/zebra_ns.c \
+	zebra/zebra_opaque.c \
 	zebra/zebra_pbr.c \
 	zebra/zebra_ptm.c \
 	zebra/zebra_ptm_redistribute.c \
@@ -92,30 +114,27 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_router.c \
 	zebra/zebra_rnh.c \
 	zebra/zebra_routemap.c \
+	zebra/zebra_routemap_nb.c \
+	zebra/zebra_routemap_nb_config.c \
+	zebra/zebra_srte.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
+	zebra/zebra_evpn_mh.c \
 	zebra/zserv.c \
-	zebra/zebra_netns_id.c \
-	zebra/zebra_netns_notify.c \
-	zebra/table_manager.c \
-	zebra/zapi_msg.c \
-	zebra/zebra_errors.c \
 	# end
 
-zebra/debug_clippy.c: $(CLIPPY_DEPS)
-zebra/debug.$(OBJEXT): zebra/debug_clippy.c
-
-zebra/zebra_mlag_vty_clippy.c: $(CLIPPY_DEPS)
-zebra/zebra_mlag_vty.$(OBJEXT): zebra/zebra_mlag_vty_clippy.c
-
-zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
-zebra/interface_clippy.c: $(CLIPPY_DEPS)
-zebra/interface.$(OBJEXT): zebra/interface_clippy.c
-zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
-
-zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
-zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
+clippy_scan += \
+	zebra/debug.c \
+	zebra/interface.c \
+	zebra/rtadv.c \
+	zebra/zebra_evpn_mh.c \
+	zebra/zebra_mlag_vty.c \
+	zebra/zebra_routemap.c \
+	zebra/zebra_vty.c \
+	zebra/zebra_srv6_vty.c \
+	zebra/zebra_vrf.c \
+	# end
 
 noinst_HEADERS += \
 	zebra/connected.h \
@@ -123,7 +142,6 @@ noinst_HEADERS += \
 	zebra/if_netlink.h \
 	zebra/interface.h \
 	zebra/ioctl.h \
-	zebra/ioctl_solaris.h \
 	zebra/ipforward.h \
 	zebra/irdp.h \
 	zebra/kernel_netlink.h \
@@ -136,33 +154,43 @@ noinst_HEADERS += \
 	zebra/rt_netlink.h \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
-	zebra/zebra_mlag.h \
-	zebra/zebra_mlag_vty.h \
+	zebra/table_manager.h \
+	zebra/zapi_msg.h \
+	zebra/zebra_dplane.h \
+	zebra/zebra_errors.h \
+	zebra/zebra_evpn.h \
+	zebra/zebra_evpn_mac.h \
+	zebra/zebra_evpn_neigh.h \
+	zebra/zebra_evpn_vxlan.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
-	zebra/zebra_dplane.h \
-	zebra/zebra_memory.h \
+	zebra/zebra_mlag.h \
+	zebra/zebra_mlag_vty.h \
 	zebra/zebra_mpls.h \
+	zebra/zebra_srv6.h \
+	zebra/zebra_srv6_vty.h \
 	zebra/zebra_mroute.h \
+	zebra/zebra_nb.h \
+	zebra/zebra_netns_id.h \
+	zebra/zebra_netns_notify.h \
 	zebra/zebra_nhg.h \
 	zebra/zebra_nhg_private.h \
 	zebra/zebra_ns.h \
+	zebra/zebra_opaque.h \
 	zebra/zebra_pbr.h \
 	zebra/zebra_ptm.h \
 	zebra/zebra_ptm_redistribute.h \
 	zebra/zebra_pw.h \
 	zebra/zebra_rnh.h \
 	zebra/zebra_routemap.h \
+	zebra/zebra_routemap_nb.h \
 	zebra/zebra_router.h \
+	zebra/zebra_srte.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
+	zebra/zebra_evpn_mh.h \
 	zebra/zserv.h \
-	zebra/zebra_netns_id.h \
-	zebra/zebra_netns_notify.h \
-	zebra/table_manager.h \
-	zebra/zapi_msg.h \
-	zebra/zebra_errors.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
@@ -170,24 +198,53 @@ zebra_zebra_irdp_la_SOURCES = \
 	zebra/irdp_main.c \
 	zebra/irdp_packet.c \
 	# end
-zebra_zebra_irdp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_irdp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 zebra_zebra_snmp_la_SOURCES = zebra/zebra_snmp.c
-zebra_zebra_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
-zebra_zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+zebra_zebra_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_zebra_snmp_la_LIBADD = lib/libfrrsnmp.la
 
-zebra_zebra_fpm_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_fpm_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_zebra_fpm_la_LIBADD =
 zebra_zebra_fpm_la_SOURCES = zebra/zebra_fpm.c
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_netlink.c
 if HAVE_PROTOBUF
 zebra_zebra_fpm_la_LIBADD += fpm/libfrrfpm_pb.la qpb/libfrr_pb.la $(PROTOBUF_C_LIBS)
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_protobuf.c
+zebra/zebra_fpm_protobuf.lo: fpm/fpm.pb-c.h qpb/qpb.pb-c.h
 if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
+zebra/zebra_fpm_dt.lo: fpm/fpm.pb-c.h qpb/qpb.pb-c.h
 endif
 endif
 
+# Sample dataplane plugin
+if DEV_BUILD
+zebra_dplane_sample_plugin_la_SOURCES = zebra/sample_plugin.c
+zebra_dplane_sample_plugin_la_LDFLAGS = $(MODULE_LDFLAGS)
+endif
+
+nodist_zebra_zebra_SOURCES = \
+	yang/frr-zebra.yang.c \
+	yang/frr-zebra-route-map.yang.c \
+	# end
+
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
-zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_cumulus_mlag_la_LDFLAGS = $(MODULE_LDFLAGS)
+
+if LINUX
+module_LTLIBRARIES += zebra/dplane_fpm_nl.la
+
+zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
+zebra_dplane_fpm_nl_la_LDFLAGS = $(MODULE_LDFLAGS)
+zebra_dplane_fpm_nl_la_LIBADD  =
+
+vtysh_scan += zebra/dplane_fpm_nl.c
+endif
+
+if NETLINK_DEBUG
+zebra_zebra_SOURCES += \
+	zebra/debug_nl.c \
+	# end
+endif

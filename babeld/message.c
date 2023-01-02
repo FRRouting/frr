@@ -643,7 +643,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             return;
 
         rtt = MAX(0, local_waiting_us - remote_waiting_us);
-        debugf(BABEL_DEBUG_COMMON, "RTT to %s on %s sample result: %d us.\n",
+        debugf(BABEL_DEBUG_COMMON, "RTT to %s on %s sample result: %d us.",
                format_address(from), ifp->name, rtt);
 
         old_rttcost = neighbour_rttcost(neigh);
@@ -710,8 +710,7 @@ fill_rtt_message(struct interface *ifp)
             DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered_hello + 10, time);
             return 1;
         } else {
-            flog_err(EC_BABEL_PACKET, "No space left for timestamp sub-TLV "
-                     "(this shouldn't happen)");
+            flog_err(EC_BABEL_PACKET, "No space left for timestamp sub-TLV (this shouldn't happen)");
             return -1;
         }
     }
@@ -747,10 +746,9 @@ flushbuf(struct interface *ifp)
             if(rc < 0)
                 flog_err(EC_BABEL_PACKET, "send: %s", safe_strerror(errno));
         } else {
-            flog_err(EC_BABEL_PACKET,
-		      "Warning: bucket full, dropping packet to %s.",
-                      ifp->name);
-        }
+		flog_err(EC_BABEL_PACKET, "Bucket full, dropping packet to %s.",
+			 ifp->name);
+	}
     }
     VALGRIND_MAKE_MEM_UNDEFINED(babel_ifp->sendbuf, babel_ifp->bufsize);
     babel_ifp->buffered = 0;
@@ -1010,10 +1008,10 @@ flush_unicast(int dofree)
             flog_err(EC_BABEL_PACKET, "send(unicast): %s",
 		      safe_strerror(errno));
     } else {
-        flog_err(EC_BABEL_PACKET,
-		  "Warning: bucket full, dropping unicast packet to %s if %s.",
-                  format_address(unicast_neighbour->address),
-                  unicast_neighbour->ifp->name);
+	    flog_err(EC_BABEL_PACKET,
+		     "Bucket full, dropping unicast packet to %s if %s.",
+		     format_address(unicast_neighbour->address),
+		     unicast_neighbour->ifp->name);
     }
 
  done:

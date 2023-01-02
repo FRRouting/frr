@@ -1,0 +1,22 @@
+# Following revs are all whitespace changes; use with
+# git blame --ignore-revs-file .git-blame-ignore-revs <...>
+# or to make it permanent
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+9fa6ec14737b94fdfb41539d96c7e4f84f3514b6
+701a01920eee5431d2052aad92aefbdf50ac2139
+bf2394f08bdc91a6cbd3784a1bfa3af3247bb06f
+0157c327715ca367d13b7f02b2981f3484ccdeeb
+787e762445d50ca5b52fafcf8dd6de08ab90916f
+ac2914d3261a78cf78eec7a6e20ebbe42bb57150
+ac4d0be5874fafd14212d6007fff7495edc9b152
+d62a17aedeb0eebdba98238874bb13d62c48dbf9
+c14777c6bfd0a446c85243d3a9835054a259c276
+996c93142d3abfab0f6d6c800474e22a8cfbdbc5
+# require semicolon after macro XYZ
+67b0f40c98aeb9bbc95370fe2be29e56a00a8748
+80413c2073a20774b264ab04f7a4ea4515699790
+960b9a53837d1aefa16bd531c7087f800dbe147b
+96244aca23adec551c29b78f26605f8af8eea53e
+8451921b70044a2c1075e7ba391f095fabee2550
+bf8d3d6aca3f20255a621ed1c148fd05b3a8ae5c
+96941f80927ce31a41f7d1905717f099187be723

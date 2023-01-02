@@ -1,0 +1,21 @@
+{       
+  "prefix":"203.0.113.8\/30",
+  "paths":[
+    { 
+      "valid":false,      
+      "peer":{
+        "peerId":"10.0.4.2",
+        "routerId":"10.0.4.2",
+        "type":"external"
+      }
+    },
+    { 
+      "valid":true,
+      "peer":{
+        "peerId":"10.0.3.2",
+        "routerId":"10.0.3.2",
+        "type":"external"
+      }
+    }
+  ] 
+}   

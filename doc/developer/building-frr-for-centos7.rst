@@ -21,7 +21,8 @@ Add packages:
     sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
-      python-devel systemd-devel python-sphinx libcap-devel
+      python-devel python-sphinx libcap-devel \
+      elfutils-libelf-devel
 
 .. include:: building-libyang.rst
 
@@ -65,8 +66,6 @@ an example.)
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-	--enable-systemd=yes \
-        --disable-exampledir \
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \

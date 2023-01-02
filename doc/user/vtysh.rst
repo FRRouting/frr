@@ -22,6 +22,13 @@ administrator with an external editor.
    have effect for vtysh) need to be manually updated in :file:`vtysh.conf`.
 
 
+.. clicmd:: copy FILENAME running-config
+
+   Process and load a configuration file manually; each line in the
+   file is read and processed as if it were being typed (or piped) to
+   vtysh.
+
+
 Pager usage
 ===========
 
@@ -44,8 +51,7 @@ and the :clicmd:`terminal paginate` command:
    This variable should be set by the user according to their preferences,
    in their :file:`~/.profile` file.
 
-.. index:: [no] terminal paginate
-.. clicmd:: [no] terminal paginate
+.. clicmd:: terminal paginate
 
    Enables/disables vtysh output pagination.  This command is intended to
    be placed in :file:`vtysh.conf` to set a system-wide default.  If this
@@ -92,7 +98,6 @@ could be made SGID (set group ID) to the |INSTALL_VTY_GROUP| group.
    No security guarantees are made for this configuration.
 
 
-.. index:: username USERNAME nopassword
 .. clicmd:: username USERNAME nopassword
 
   If PAM support is enabled at build-time, this command allows disabling the
@@ -154,11 +159,8 @@ it can lead to /all/ of your daemons being unable to start up. Per daemon files
 are more robust as impact of errors in configuration are limited to the daemon
 in whose file the error is made.
 
-.. index:: service integrated-vtysh-config
 .. clicmd:: service integrated-vtysh-config
 
-.. index:: no service integrated-vtysh-config
-.. clicmd:: no service integrated-vtysh-config
 
    Control whether integrated :file:`frr.conf` file is written when
    'write file' is issued.
@@ -187,7 +189,6 @@ in whose file the error is made.
    preset one of the two operating modes and ensure consistent operation across
    installations.
 
-.. index:: write integrated
 .. clicmd:: write integrated
 
    Unconditionally (regardless of ``service integrated-vtysh-config`` setting)

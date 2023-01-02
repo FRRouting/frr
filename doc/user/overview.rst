@@ -31,7 +31,8 @@ information, as well as links to additional resources.
 Several distributions provide packages for FRR. Check your distribution's
 repositories to find out if a suitable version is available.
 
-Up-to-date Debian packages are available at https://deb.frrouting.org/.
+Up-to-date Debian & Redhat packages are available at https://deb.frrouting.org/
+& https://rpm.frrouting.org/ respectively.
 
 For instructions on installing from source, refer to the
 `developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
@@ -57,13 +58,39 @@ routes to Internet exchanges running full Internet tables.
 FRR runs on all modern \*NIX operating systems, including Linux and the BSDs.
 Feature support varies by platform; see the :ref:`feature-matrix`.
 
+System Requirements
+-------------------
+
+System resources needed by FRR are highly dependent on workload. Routing
+software performance is particularly susceptible to external factors such as:
+
+* Kernel networking stack
+* Physical NIC
+* Peer behavior
+* Routing information scale
+
+Because of these factors - especially the last one - it's difficult to lay out
+resource requirements.
+
+To put this in perspective, FRR can be run on very low resource systems such as
+SBCs, provided it is not stressed too much. If you want to set up 4 Raspberry
+Pis to play with BGP or OSPF, it should work fine. If you ask a FRR to process
+a complete internet routing table on a Raspberry Pi, you will be disappointed.
+However, given enough resources, FRR ought to be capable of acting as a core IX
+router. Such a use case requires at least 4gb of memory and a recent quad-core
+server processor at a minimum.
+
+If you are new to networking, an important thing to remember is that FRR is
+control plane software. It does not itself forward packets - it exchanges
+information with peers about how to forward packets. Forwarding plane
+performance largely depends on choice of NIC / ASIC.
+
 
 System Architecture
 -------------------
 
-.. index:: System architecture
-.. index:: Software architecture
-.. index:: Software internals
+.. index::
+   pair: architecture; FRR
 
 Traditional routing software is made as a one process program which provides
 all of the routing protocol functionalities. FRR takes a different approach.
@@ -108,20 +135,20 @@ daemons using a single configuration file through the integrated configuration
 mode. This avoids the overhead of maintaining a separate configuration file for
 each daemon.
 
-FRR is currently currently implementing a new internal configuration system
-based on YANG data models. When this work is completed, FRR will be a fully
-programmable routing stack.
+FRR is currently implementing a new internal configuration system based on YANG
+data models. When this work is completed, FRR will be a fully programmable
+routing stack.
 
+
+.. index::
+   pair: platforms; FRR
+   pair: operating systems; FRR
 
 .. _supported-platforms:
 
 Supported Platforms
 -------------------
 
-.. index:: Supported platforms
-.. index:: FRR on other systems
-.. index:: Compatibility with other systems
-.. index:: Operating systems that support FRR
 
 Currently FRR supports GNU/Linux and BSD. Porting FRR to other platforms is not
 too difficult as platform dependent code should be mostly limited to the
@@ -138,7 +165,6 @@ of their original release (in case of GNU/Linux, this is since the kernel's
 release on https://kernel.org/) may need some work. Similarly, the following
 platforms may work with some effort:
 
-- Solaris
 - MacOS
 
 Recent versions of the following compilers are well tested:
@@ -146,6 +172,15 @@ Recent versions of the following compilers are well tested:
 - GNU's GCC
 - LLVM's Clang
 - Intel's ICC
+
+.. _unsupported-platforms:
+
+Unsupported Platforms
+---------------------
+
+In General if the platform you are attempting to use is not listed above then
+FRR does not support being run on that platform.  The only caveat here is that
+version 7.5 and before Solaris was supported in a limited fashion.
 
 .. _feature-matrix:
 
@@ -166,73 +201,73 @@ feature you're interested in, it should be supported on your platform.
    will look somewhat shoddy on other sphinx targets like PDF or info (but
    should still be readable.)
 
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| Daemon / Feature                  | Linux          | OpenBSD      | FreeBSD    | NetBSD     | Solaris    |
-+===================================+================+==============+============+============+============+
-| **FRR Core**                      |                |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `zebra`                           | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    VRF                            | :mark:`≥4.8`   | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    MPLS                           | :mark:`≥4.5`   | :mark:`Y`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `pbrd` (Policy Routing)           | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| **WAN / Carrier protocols**       |                |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `bgpd` (BGP)                      | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    VRF / L3VPN                    | :mark:`≥4.8`   | :mark:`CP`   | :mark:`CP` | :mark:`CP` | :mark:`CP` |
-|                                   | :mark:`†4.3`   |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    EVPN                           | :mark:`≥4.18`  | :mark:`CP`   | :mark:`CP` | :mark:`CP` | :mark:`CP` |
-|                                   | :mark:`†4.9`   |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    VNC (Virtual Network Control)  | :mark:`CP`     | :mark:`CP`   | :mark:`CP` | :mark:`CP` | :mark:`CP` |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    Flowspec                       | :mark:`CP`     | :mark:`CP`   | :mark:`CP` | :mark:`CP` | :mark:`CP` |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `ldpd` (LDP)                      | :mark:`≥4.5`   | :mark:`Y`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    VPWS / PW                      | :mark:`N`      | :mark:`≥5.8` | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    VPLS                           | :mark:`N`      | :mark:`≥5.8` | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `nhrpd` (NHRP)                    | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| **Link-State Routing**            |                |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `ospfd` (OSPFv2)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    Segment Routing                | :mark:`≥4.12`  | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `ospf6d` (OSPFv3)                 | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `isisd` (IS-IS)                   | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| **Distance-Vector Routing**       |                |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `ripd` (RIPv2)                    | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `ripngd` (RIPng)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `babeld` (BABEL)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `eigrpd` (EIGRP)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| **Multicast Routing**             |                |              |            |            |            |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `pimd` (PIM)                      | :mark:`≥4.18`  | :mark:`N`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    SSM (Source Specific)          | :mark:`Y`      | :mark:`N`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    ASM (Any Source)               | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-|    EVPN BUM Forwarding            | :mark:`≥5.0`   | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
-| `vrrpd` (VRRP)                    | :mark:`≥5.1`   | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
-+-----------------------------------+----------------+--------------+------------+------------+------------+
++-----------------------------------+----------------+--------------+------------+------------+
+| Daemon / Feature                  | Linux          | OpenBSD      | FreeBSD    | NetBSD     |
++===================================+================+==============+============+============+
+| **FRR Core**                      |                |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+| `zebra`                           | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    VRF                            | :mark:`≥4.8`   | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    MPLS                           | :mark:`≥4.5`   | :mark:`Y`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `pbrd` (Policy Routing)           | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| **WAN / Carrier protocols**       |                |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+| `bgpd` (BGP)                      | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    VRF / L3VPN                    | :mark:`≥4.8`   | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
+|                                   | :mark:`†4.3`   |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+|    EVPN                           | :mark:`≥4.18`  | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
+|                                   | :mark:`†4.9`   |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+|    VNC (Virtual Network Control)  | :mark:`CP`     | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
++-----------------------------------+----------------+--------------+------------+------------+
+|    Flowspec                       | :mark:`CP`     | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
++-----------------------------------+----------------+--------------+------------+------------+
+| `ldpd` (LDP)                      | :mark:`≥4.5`   | :mark:`Y`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    VPWS / PW                      | :mark:`N`      | :mark:`≥5.8` | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    VPLS                           | :mark:`N`      | :mark:`≥5.8` | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `nhrpd` (NHRP)                    | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| **Link-State Routing**            |                |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+| `ospfd` (OSPFv2)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    Segment Routing                | :mark:`≥4.12`  | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `ospf6d` (OSPFv3)                 | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `isisd` (IS-IS)                   | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| **Distance-Vector Routing**       |                |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+| `ripd` (RIPv2)                    | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `ripngd` (RIPng)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `babeld` (BABEL)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `eigrpd` (EIGRP)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| **Multicast Routing**             |                |              |            |            |
++-----------------------------------+----------------+--------------+------------+------------+
+| `pimd` (PIM)                      | :mark:`≥4.18`  | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    SSM (Source Specific)          | :mark:`Y`      | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    ASM (Any Source)               | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+|    EVPN BUM Forwarding            | :mark:`≥5.0`   | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
+| `vrrpd` (VRRP)                    | :mark:`≥5.1`   | :mark:`N`    | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+
 
 The indicators have the following semantics:
 
@@ -252,6 +287,10 @@ Known Kernel Issues
   route deletion when you have ECMP routes installed into the kernel. This
   especially becomes apparent if the route is being transformed from one ECMP
   path to another.
+
+
+.. index::
+   pair: rfcs; FRR
 
 .. _supported-rfcs:
 
@@ -290,18 +329,32 @@ BGP
   :t:`A Border Gateway Protocol 4 (BGP-4). Updates RFC1771. Y. Rekhter, T. Li & S. Hares. January 2006.`
 - :rfc:`4364`
   :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
+- :rfc:`4486`
+  :t:`Subcodes for BGP Cease Notification Message. E. Chen, V. Gillet. April 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
+- :rfc:`4893`
+  :t:`BGP Support for Four-octet AS Number Space. Q. Vohra, E. Chen May 2007.`
 - :rfc:`5004`
   :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007 (Partial support).`
 - :rfc:`5082`
   :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
 - :rfc:`5575`
   :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009`
+- :rfc:`6286`
+  :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan, June 2011.`
+- :rfc:`6608`
+  :t:`Subcodes for BGP Finite State Machine Error. J. Dong, M. Chen, Huawei Technologies, A. Suryanarayana, Cisco Systems. May 2012.`
 - :rfc:`6810`
   :t:`The Resource Public Key Infrastructure (RPKI) to Router Protocol. R. Bush, R. Austein. January 2013.`
 - :rfc:`6811`
   :t:`BGP Prefix Origin Validation. P. Mohapatra, J. Scudder, D. Ward, R. Bush, R. Austein. January 2013.`
+- :rfc:`7313`
+  :t:`Enhanced Route Refresh Capability for BGP-4. K. Patel, E. Chen, B. Venkatachalapathy. July 2014.`
+- :rfc:`7606`
+  :t:`Revised Error Handling for BGP UPDATE Messages. E. Chen, J. Scudder, P. Mohapatra, K. Patel. August 2015.`
+- :rfc:`7607`
+  :t:`Codification of AS 0 Processing. W. Kumari, R. Bush, H. Schiller, K. Patel. August 2015.`
 - :rfc:`7611`
   :t:`BGP ACCEPT_OWN Community Attribute. J. Uttaro, P. Mohapatra, D. Smith, R. Raszuk, J. Scudder. August 2015.`
 - :rfc:`7999`
@@ -310,10 +363,14 @@ BGP
   :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
 - :rfc:`8195`
   :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
+- :rfc:`8203`
+  :t:`BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder. July 2017.`
 - :rfc:`8212`
   :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
 - :rfc:`8277`
   :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
+- :rfc:`8654`
+  :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
 
 
 OSPF
@@ -385,6 +442,13 @@ MPLS
 - :rfc:`7552`
   :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral, and R. Papneja. June 2015.`
 
+VRRP
+----
+
+- :rfc:`3768`
+  :t:`Virtual Router Redundancy Protocol (VRRP). R. Hinden. April 2004.`
+- :rfc:`5798`
+  :t:`Virtual Router Redundancy Protocol (VRRP) Version 3 for IPv4 and IPv6. S. Nadas. June 2000.`
 
 SNMP
 ----
@@ -405,13 +469,14 @@ SNMP
 - :rfc:`2741`
   :t:`Agent Extensibility (AgentX) Protocol. M. Daniele, B. Wijnen. January 2000.`
 
+
+.. index::
+   pair: mailing lists; contact
+
+.. _mailing-lists:
+
 Mailing Lists
 =============
-
-.. index:: How to get in touch with FRR
-.. index:: Contact information
-.. index:: Mailing lists
-
 
 Italicized lists are private.
 
@@ -437,6 +502,7 @@ results of such discussions are reflected in updates, as appropriate, to code
 changes, updates to the Development list and either this file or information
 posted at `FRR`_.
 
+
 Bug Reports
 ===========
 
@@ -445,4 +511,4 @@ For information on reporting bugs, please see :ref:`bug-reports`.
 .. _frr: |package-url|
 .. _github: https://github.com/frrouting/frr/
 .. _github issues: https://github.com/frrouting/frr/issues
-.. _slack: https://frrouting.slack.com/
+.. _slack: https://frrouting.org/#participate

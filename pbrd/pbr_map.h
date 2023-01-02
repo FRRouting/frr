@@ -85,10 +85,22 @@ struct pbr_map_sequence {
 	uint32_t ruleno;
 
 	/*
+	 * src and dst ports
+	 */
+	uint16_t src_prt;
+	uint16_t dst_prt;
+
+	/*
+	 * The ip protocol we want to match on
+	 */
+	uint8_t ip_proto;
+
+	/*
 	 * Our policy Catchers
 	 */
 	struct prefix *src;
 	struct prefix *dst;
+	uint8_t dsfield;
 	uint32_t mark;
 
 	/*
@@ -148,16 +160,16 @@ struct pbr_map_sequence {
 #define PBR_MAP_INVALID_VRF              (1 << 5)
 	uint64_t reason;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 
-DECLARE_QOBJ_TYPE(pbr_map_sequence)
+DECLARE_QOBJ_TYPE(pbr_map_sequence);
 
 extern struct pbr_map_entry_head pbr_maps;
 
 extern struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno);
 extern struct pbr_map_sequence *
-pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
+pbrms_lookup_unique(uint32_t unique, char *ifname,
 		    struct pbr_map_interface **ppmi);
 
 extern struct pbr_map *pbrm_find(const char *name);
@@ -167,6 +179,8 @@ extern void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms);
 extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
+
+extern uint8_t pbr_map_decode_dscp_enum(const char *name);
 
 /* Update maps installed on interface */
 extern void pbr_map_policy_interface_update(const struct interface *ifp,
@@ -182,15 +196,31 @@ extern void pbr_map_init(void);
 
 extern bool pbr_map_check_valid(const char *name);
 
-extern void pbr_map_check(struct pbr_map_sequence *pbrms);
+/**
+ * Re-check the pbr map for validity.
+ *
+ * Install if valid, remove if not.
+ *
+ * If changed is set, the config on the on the map has changed somewhere
+ * and the rules need to be replaced if valid.
+ */
+extern void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed);
 extern void pbr_map_check_nh_group_change(const char *nh_group);
 extern void pbr_map_reason_string(unsigned int reason, char *buf, int size);
 
-extern void pbr_map_schedule_policy_from_nhg(const char *nh_group);
+extern void pbr_map_schedule_policy_from_nhg(const char *nh_group,
+					     bool installed);
 
 extern void pbr_map_install(struct pbr_map *pbrm);
 
 extern void pbr_map_policy_install(const char *name);
 extern void pbr_map_policy_delete(struct pbr_map *pbrm,
 				  struct pbr_map_interface *pmi);
+
+extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
+					      struct pbr_vrf *pbr_vrf,
+					      uint32_t old_vrf_id);
+extern void pbr_map_check_interface_nh_group_change(const char *nh_group,
+						    struct interface *ifp,
+						    ifindex_t oldifindex);
 #endif

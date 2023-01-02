@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	assert(ringbuf_get(soil, &compost, BUFSIZ) == BUFSIZ);
 
 	validate_state(soil, BUFSIZ, 0);
-	assert(soil->empty = true);
+	assert(soil->empty == true);
 	assert(soil->start == soil->end);
 	assert(soil->start == 15);
 

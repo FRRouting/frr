@@ -24,7 +24,7 @@
 #include "memory.h"
 #include "termtable.h"
 
-DEFINE_MTYPE_STATIC(LIB, TTABLE, "ASCII table")
+DEFINE_MTYPE_STATIC(LIB, TTABLE, "ASCII table");
 
 /* clang-format off */
 const struct ttable_style ttable_styles[] = {

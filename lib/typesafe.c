@@ -23,10 +23,11 @@
 
 #include "typesafe.h"
 #include "memory.h"
+#include "network.h"
 
-DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket")
-DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow")
-DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array")
+DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket");
+DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow");
+DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array");
 
 #if 0
 static void hash_consistency_check(struct thash_head *head)
@@ -157,7 +158,7 @@ void typesafe_hash_shrink(struct thash_head *head)
 
 /* skiplist */
 
-static inline struct sskip_item *sl_level_get(struct sskip_item *item,
+static inline struct sskip_item *sl_level_get(const struct sskip_item *item,
 			size_t level)
 {
 	if (level < SKIPLIST_OVERFLOW)
@@ -196,7 +197,7 @@ struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 	int cmpval;
 
 	/* level / newlevel are 1-counted here */
-	newlevel = __builtin_ctz(random()) + 1;
+	newlevel = __builtin_ctz(frr_weak_random()) + 1;
 	if (newlevel > SKIPLIST_MAXDEPTH)
 		newlevel = SKIPLIST_MAXDEPTH;
 
@@ -262,13 +263,14 @@ struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 
 /* NOTE: level counting below is 1-based since that makes the code simpler! */
 
-struct sskip_item *typesafe_skiplist_find(struct sskip_head *head,
+const struct sskip_item *typesafe_skiplist_find(
+		const struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 				const struct sskip_item *a,
 				const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
-	struct sskip_item *prev = &head->hitem, *next;
+	const struct sskip_item *prev = &head->hitem, *next;
 	int cmpval;
 
 	while (level) {
@@ -289,13 +291,14 @@ struct sskip_item *typesafe_skiplist_find(struct sskip_head *head,
 	return NULL;
 }
 
-struct sskip_item *typesafe_skiplist_find_gteq(struct sskip_head *head,
+const struct sskip_item *typesafe_skiplist_find_gteq(
+		const struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 				const struct sskip_item *a,
 				const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
-	struct sskip_item *prev = &head->hitem, *next;
+	const struct sskip_item *prev = &head->hitem, *next;
 	int cmpval;
 
 	while (level) {
@@ -316,13 +319,14 @@ struct sskip_item *typesafe_skiplist_find_gteq(struct sskip_head *head,
 	return next;
 }
 
-struct sskip_item *typesafe_skiplist_find_lt(struct sskip_head *head,
+const struct sskip_item *typesafe_skiplist_find_lt(
+		const struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 				const struct sskip_item *a,
 				const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
-	struct sskip_item *prev = &head->hitem, *next, *best = NULL;
+	const struct sskip_item *prev = &head->hitem, *next, *best = NULL;
 	int cmpval;
 
 	while (level) {

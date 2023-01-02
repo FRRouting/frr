@@ -61,6 +61,29 @@ enum multicast_mode {
 			      /* on equal value, MRIB wins for last 2 */
 };
 
+/* An interface can be error-disabled if a protocol (such as EVPN or
+ * VRRP) detects a problem with keeping it operationally-up.
+ * If any of the protodown bits are set protodown-on is programmed
+ * in the dataplane. This results in a carrier/L1 down on the
+ * physical device.
+ */
+enum protodown_reasons {
+	/* On startup local ESs are held down for some time to
+	 * allow the underlay to converge and EVPN routes to
+	 * get learnt
+	 */
+	ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY = (1 << 0),
+	/* If all the uplinks are down the switch has lost access
+	 * to the VxLAN overlay and must shut down the access
+	 * ports to allow servers to re-direct their traffic to
+	 * other switches on the Ethernet Segment
+	 */
+	ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN = (1 << 1),
+	ZEBRA_PROTODOWN_EVPN_ALL = (ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN
+				    | ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY)
+};
+#define ZEBRA_PROTODOWN_RC_STR_LEN 80
+
 struct zebra_mlag_info {
 	/* Role this zebra router is playing */
 	enum mlag_role role;
@@ -117,10 +140,19 @@ struct zebra_router {
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
 
+	/* List of clients in GR */
+	struct list *stale_client_list;
+
 	struct zebra_router_table_head tables;
 
 	/* L3-VNI hash table (for EVPN). Only in default instance */
 	struct hash *l3vni_table;
+
+	/* Tables and other global info maintained for EVPN multihoming */
+	struct zebra_evpn_mh_info *mh_info;
+
+	/* EVPN MH broadcast domains indexed by the VID */
+	struct hash *evpn_vlan_table;
 
 	struct hash *rules_hash;
 
@@ -129,9 +161,6 @@ struct zebra_router {
 	struct hash *ipset_entry_hash;
 
 	struct hash *iptable_hash;
-
-	/* used if vrf backend is not network namespace */
-	int rtadv_sock;
 
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
@@ -173,16 +202,25 @@ struct zebra_router {
 	 */
 	struct hash *nhgs;
 	struct hash *nhgs_id;
+
+	/*
+	 * Does the underlying system provide an asic offload
+	 */
+	bool asic_offloaded;
+	bool notify_on_ack;
 };
 
 #define GRACEFUL_RESTART_TIME 60
 
 extern struct zebra_router zrouter;
 
-extern void zebra_router_init(void);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
+extern struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
+							uint32_t tableid,
+							afi_t afi, safi_t safi);
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 						   uint32_t tableid, afi_t afi,
 						   safi_t safi);
@@ -214,6 +252,11 @@ static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 
 extern enum multicast_mode multicast_mode_ipv4_get(void);
+
+extern bool zebra_router_notify_on_ack(void);
+
+/* zebra_northbound.c */
+extern const struct frr_yang_module_info frr_zebra_info;
 
 #ifdef __cplusplus
 }

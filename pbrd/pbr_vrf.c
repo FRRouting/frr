@@ -25,8 +25,10 @@
 #include "pbr_memory.h"
 #include "pbr_map.h"
 #include "pbr_debug.h"
+#include "pbr_nht.h"
+#include "pbr_zebra.h"
 
-DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF")
+DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF");
 
 static struct pbr_vrf *pbr_vrf_alloc(void)
 {
@@ -59,6 +61,7 @@ static int pbr_vrf_enable(struct vrf *vrf)
 {
 	DEBUGD(&pbr_dbg_event, "%s: %u (%s)", __func__, vrf->vrf_id, vrf->name);
 
+	pbr_nht_vrf_update(vrf->info);
 	pbr_map_vrf_update(vrf->info);
 
 	return 0;
@@ -134,4 +137,15 @@ void pbr_vrf_init(void)
 {
 	vrf_init(pbr_vrf_new, pbr_vrf_enable, pbr_vrf_disable, pbr_vrf_delete,
 		 NULL);
+}
+
+void pbr_vrf_terminate(void)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp)
+			pbr_if_del(ifp);
+	}
 }

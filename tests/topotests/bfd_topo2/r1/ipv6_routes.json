@@ -1,0 +1,53 @@
+{
+  "2001:db8:4::/64": [
+    {
+      "distance": 20,
+      "protocol": "bgp",
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "2001:db8:4::/64",
+      "nexthops": [
+        {
+          "interfaceName": "r1-eth0",
+          "fib": true,
+          "flags": 3,
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ],
+  "2001:db8:1::/64": [
+    {
+      "distance": 20,
+      "protocol": "bgp",
+      "metric": 0,
+      "prefix": "2001:db8:1::/64",
+      "nexthops": [
+        {
+          "interfaceName": "r1-eth0",
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    },
+    {
+      "distance": 0,
+      "protocol": "connected",
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "2001:db8:1::/64",
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "r1-eth0",
+          "fib": true,
+          "flags": 3,
+          "active": true
+        }
+      ]
+    }
+  ]
+}

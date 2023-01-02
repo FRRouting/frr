@@ -22,6 +22,7 @@
 #define __NEXTHOP_GROUP__
 
 #include <vty.h>
+#include "json.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +44,7 @@ struct nexthop_group *nexthop_group_new(void);
 void nexthop_group_delete(struct nexthop_group **nhg);
 
 void nexthop_group_copy(struct nexthop_group *to,
-			struct nexthop_group *from);
+			const struct nexthop_group *from);
 
 /*
  * Copy a list of nexthops in 'nh' to an nhg, enforcing canonical sort order
@@ -57,6 +58,8 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 uint32_t nexthop_group_hash_no_recurse(const struct nexthop_group *nhg);
 uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
 void nexthop_group_mark_duplicates(struct nexthop_group *nhg);
+
+/* Add a nexthop to a list, enforcing the canonical sort order. */
 void nexthop_group_add_sorted(struct nexthop_group *nhg,
 			      struct nexthop *nexthop);
 
@@ -79,22 +82,27 @@ void nexthop_group_add_sorted(struct nexthop_group *nhg,
 	(nhop) = nexthop_next(nhop)
 
 
+#define NHGC_NAME_SIZE 80
+
 struct nexthop_group_cmd {
 
 	RB_ENTRY(nexthop_group_cmd) nhgc_entry;
 
-	char name[80];
+	char name[NHGC_NAME_SIZE];
+
+	/* Name of group containing backup nexthops (if set) */
+	char backup_list_name[NHGC_NAME_SIZE];
 
 	struct nexthop_group nhg;
 
 	struct list *nhg_list;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
 RB_PROTOTYPE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	     nexthop_group_cmd_compare)
-DECLARE_QOBJ_TYPE(nexthop_group_cmd)
+DECLARE_QOBJ_TYPE(nexthop_group_cmd);
 
 /*
  * Initialize nexthop_groups.  If you are interested in when
@@ -127,7 +135,14 @@ extern bool nexthop_group_equal(const struct nexthop_group *nhg1,
 
 extern struct nexthop_group_cmd *nhgc_find(const char *name);
 
-extern void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh);
+extern void nexthop_group_write_nexthop_simple(struct vty *vty,
+					       const struct nexthop *nh,
+					       char *altifname);
+extern void nexthop_group_write_nexthop(struct vty *vty,
+					const struct nexthop *nh);
+
+extern void nexthop_group_json_nexthop(json_object *j,
+				       const struct nexthop *nh);
 
 /* Return the number of nexthops in this nhg */
 extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);

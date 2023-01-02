@@ -35,6 +35,7 @@
 #include "vrf.h"
 #include "if_rmap.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
@@ -113,8 +114,11 @@ static struct quagga_signal_t ripd_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ripd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_ripd_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
@@ -124,7 +128,8 @@ FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 		.signals = ripd_signals, .n_signals = array_size(ripd_signals),
 
 		.privs = &ripd_privs, .yang_modules = ripd_yang_modules,
-		.n_yang_modules = array_size(ripd_yang_modules), )
+		.n_yang_modules = array_size(ripd_yang_modules),
+);
 
 #define DEPRECATED_OPTIONS ""
 
@@ -156,7 +161,6 @@ int main(int argc, char **argv)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -178,5 +182,5 @@ int main(int argc, char **argv)
 	frr_run(master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

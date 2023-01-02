@@ -37,16 +37,21 @@
 #include "module.h"
 #include "defaults.h"
 #include "lib_vty.h"
+#include "northbound_cli.h"
 
 /* Looking up memory status from vty interface. */
 #include "vector.h"
 #include "vty.h"
 #include "command.h"
 
-#ifdef HAVE_MALLINFO
+#if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
 static int show_memory_mallinfo(struct vty *vty)
 {
+#if defined(HAVE_MALLINFO2)
+	struct mallinfo2 minfo = mallinfo2();
+#elif defined(HAVE_MALLINFO)
 	struct mallinfo minfo = mallinfo();
+#endif
 	char buf[MTYPE_MEMSTR_LEN];
 
 	vty_out(vty, "System allocator statistics:\n");
@@ -93,7 +98,7 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 #endif
 			);
 	} else {
-		if (mt->n_alloc != 0) {
+		if (mt->n_max != 0) {
 			char size[32];
 			snprintf(size, sizeof(size), "%6zu", mt->size);
 #ifdef HAVE_MALLOC_USABLE_SIZE
@@ -212,6 +217,63 @@ DEFUN (frr_version,
 	return CMD_SUCCESS;
 }
 
+static struct call_back {
+	time_t readin_time;
+
+	void (*start_config)(void);
+	void (*end_config)(void);
+} callback;
+
+
+DEFUN_HIDDEN (start_config,
+	      start_config_cmd,
+	      "XFRR_start_configuration",
+	      "The Beginning of Configuration\n")
+{
+	callback.readin_time = monotime(NULL);
+
+	vty->pending_allowed = 1;
+
+	if (callback.start_config)
+		(*callback.start_config)();
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (end_config,
+	      end_config_cmd,
+	      "XFRR_end_configuration",
+	      "The End of Configuration\n")
+{
+	time_t readin_time;
+	char readin_time_str[MONOTIME_STRLEN];
+	int ret;
+
+	readin_time = monotime(NULL);
+	readin_time -= callback.readin_time;
+
+	frrtime_to_interval(readin_time, readin_time_str,
+			    sizeof(readin_time_str));
+
+	vty->pending_allowed = 0;
+	ret = nb_cli_pending_commit_check(vty);
+
+	zlog_info("Configuration Read in Took: %s", readin_time_str);
+
+	if (callback.end_config)
+		(*callback.end_config)();
+
+	return ret;
+}
+
+void cmd_init_config_callbacks(void (*start_config_cb)(void),
+			       void (*end_config_cb)(void))
+{
+	callback.start_config = start_config_cb;
+	callback.end_config = end_config_cb;
+}
+
+
 static void defaults_autocomplete(vector comps, struct cmd_token *token)
 {
 	const char **p;
@@ -234,6 +296,9 @@ void lib_cmd_init(void)
 
 	install_element(VIEW_NODE, &show_memory_cmd);
 	install_element(VIEW_NODE, &show_modules_cmd);
+
+	install_element(CONFIG_NODE, &start_config_cmd);
+	install_element(CONFIG_NODE, &end_config_cmd);
 }
 
 /* Stats querying from users */

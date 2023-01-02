@@ -24,7 +24,7 @@
 #include "lib/table.h"
 #include "lib/routemap.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "rfapi.h"
 
 struct rfapi_l2_group_cfg {
@@ -35,9 +35,9 @@ struct rfapi_l2_group_cfg {
 	struct ecommunity *rt_export_list;
 	void *rfp_cfg; /* rfp owned group config */
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(rfapi_l2_group_cfg)
+DECLARE_QOBJ_TYPE(rfapi_l2_group_cfg);
 
 typedef enum {
 	RFAPI_GROUP_CFG_NVE = 1,
@@ -108,9 +108,9 @@ struct rfapi_nve_group_cfg {
 	/* for VRF type groups */
 	uint32_t label;
 	struct rfapi_descriptor *rfd;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(rfapi_nve_group_cfg)
+DECLARE_QOBJ_TYPE(rfapi_nve_group_cfg);
 
 struct rfapi_rfg_name {
 	struct rfapi_nve_group_cfg *rfg;

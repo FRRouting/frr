@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "lib/bfd.h"
 #include "monotime.h"
 #include "linklist.h"
 #include "thread.h"
@@ -41,6 +42,9 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospfd/ospf_dump_clippy.c"
+#endif
 
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -53,10 +57,15 @@ unsigned long conf_debug_ospf_nssa = 0;
 unsigned long conf_debug_ospf_te = 0;
 unsigned long conf_debug_ospf_ext = 0;
 unsigned long conf_debug_ospf_sr = 0;
+unsigned long conf_debug_ospf_ti_lfa = 0;
+unsigned long conf_debug_ospf_defaultinfo = 0;
+unsigned long conf_debug_ospf_ldp_sync = 0;
+unsigned long conf_debug_ospf_gr = 0;
+unsigned long conf_debug_ospf_bfd;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
-unsigned long term_debug_ospf_event = 0;
+unsigned long term_debug_ospf_event;
 unsigned long term_debug_ospf_ism = 0;
 unsigned long term_debug_ospf_nsm = 0;
 unsigned long term_debug_ospf_lsa = 0;
@@ -65,6 +74,11 @@ unsigned long term_debug_ospf_nssa = 0;
 unsigned long term_debug_ospf_te = 0;
 unsigned long term_debug_ospf_ext = 0;
 unsigned long term_debug_ospf_sr = 0;
+unsigned long term_debug_ospf_ti_lfa = 0;
+unsigned long term_debug_ospf_defaultinfo;
+unsigned long term_debug_ospf_ldp_sync;
+unsigned long term_debug_ospf_gr = 0;
+unsigned long term_debug_ospf_bfd;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -82,9 +96,8 @@ const char *ospf_area_name_string(struct ospf_area *area)
 		return "-";
 
 	area_id = ntohl(area->area_id.s_addr);
-	snprintf(buf, OSPF_AREA_STRING_MAXLEN, "%d.%d.%d.%d",
-		 (area_id >> 24) & 0xff, (area_id >> 16) & 0xff,
-		 (area_id >> 8) & 0xff, area_id & 0xff);
+	snprintf(buf, sizeof(buf), "%d.%d.%d.%d", (area_id >> 24) & 0xff,
+		 (area_id >> 16) & 0xff, (area_id >> 8) & 0xff, area_id & 0xff);
 	return buf;
 }
 
@@ -100,11 +113,11 @@ const char *ospf_area_desc_string(struct ospf_area *area)
 	type = area->external_routing;
 	switch (type) {
 	case OSPF_AREA_NSSA:
-		snprintf(buf, OSPF_AREA_DESC_STRING_MAXLEN, "%s [NSSA]",
+		snprintf(buf, sizeof(buf), "%s [NSSA]",
 			 ospf_area_name_string(area));
 		break;
 	case OSPF_AREA_STUB:
-		snprintf(buf, OSPF_AREA_DESC_STRING_MAXLEN, "%s [Stub]",
+		snprintf(buf, sizeof(buf), "%s [Stub]",
 			 ospf_area_name_string(area));
 		break;
 	default:
@@ -127,7 +140,7 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 		return oi->ifp->name;
 
 	ifaddr = ntohl(oi->address->u.prefix4.s_addr);
-	snprintf(buf, OSPF_IF_STRING_MAXLEN, "%s:%d.%d.%d.%d", oi->ifp->name,
+	snprintf(buf, sizeof(buf), "%s:%d.%d.%d.%d", oi->ifp->name,
 		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
 		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
 	return buf;
@@ -156,14 +169,13 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 /* Making formatted timer strings. */
 #define MINUTE_IN_SECONDS	60
 #define HOUR_IN_SECONDS		(60*MINUTE_IN_SECONDS)
-#define DAY_IN_SECONDS		(24*HOUR_IN_SECONDS)
-#define WEEK_IN_SECONDS		(7*DAY_IN_SECONDS)
-	unsigned long w, d, h, m, s, ms, us;
+
+	unsigned long w, d, h, m, ms, us;
 
 	if (!t)
 		return "inactive";
 
-	w = d = h = m = s = ms = us = 0;
+	w = d = h = m = ms = 0;
 	memset(buf, 0, size);
 
 	us = t->tv_usec;
@@ -178,14 +190,14 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 		ms %= 1000;
 	}
 
-	if (t->tv_sec > WEEK_IN_SECONDS) {
-		w = t->tv_sec / WEEK_IN_SECONDS;
-		t->tv_sec -= w * WEEK_IN_SECONDS;
+	if (t->tv_sec > ONE_WEEK_SECOND) {
+		w = t->tv_sec / ONE_WEEK_SECOND;
+		t->tv_sec -= w * ONE_WEEK_SECOND;
 	}
 
-	if (t->tv_sec > DAY_IN_SECONDS) {
-		d = t->tv_sec / DAY_IN_SECONDS;
-		t->tv_sec -= d * DAY_IN_SECONDS;
+	if (t->tv_sec > ONE_DAY_SECOND) {
+		d = t->tv_sec / ONE_DAY_SECOND;
+		t->tv_sec -= d * ONE_DAY_SECOND;
 	}
 
 	if (t->tv_sec >= HOUR_IN_SECONDS) {
@@ -208,7 +220,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 		snprintf(buf, size, "%luh%02lum%02lds", h, m, (long)t->tv_sec);
 	else if (m)
 		snprintf(buf, size, "%lum%02lds", m, (long)t->tv_sec);
-	else if (ms)
+	else if (t->tv_sec > 0 || ms > 0)
 		snprintf(buf, size, "%ld.%03lus", (long)t->tv_sec, ms);
 	else
 		snprintf(buf, size, "%ld usecs", (long)t->tv_usec);
@@ -229,25 +241,25 @@ const char *ospf_timer_dump(struct thread *t, char *buf, size_t size)
 static void ospf_packet_hello_dump(struct stream *s, uint16_t length)
 {
 	struct ospf_hello *hello;
-	int i;
+	int i, len;
 
 	hello = (struct ospf_hello *)stream_pnt(s);
 
 	zlog_debug("Hello");
-	zlog_debug("  NetworkMask %s", inet_ntoa(hello->network_mask));
+	zlog_debug("  NetworkMask %pI4", &hello->network_mask);
 	zlog_debug("  HelloInterval %d", ntohs(hello->hello_interval));
 	zlog_debug("  Options %d (%s)", hello->options,
 		   ospf_options_dump(hello->options));
 	zlog_debug("  RtrPriority %d", hello->priority);
 	zlog_debug("  RtrDeadInterval %ld",
 		   (unsigned long)ntohl(hello->dead_interval));
-	zlog_debug("  DRouter %s", inet_ntoa(hello->d_router));
-	zlog_debug("  BDRouter %s", inet_ntoa(hello->bd_router));
+	zlog_debug("  DRouter %pI4", &hello->d_router);
+	zlog_debug("  BDRouter %pI4", &hello->bd_router);
 
-	length -= OSPF_HEADER_SIZE + OSPF_HELLO_MIN_SIZE;
-	zlog_debug("  # Neighbors %d", length / 4);
-	for (i = 0; length > 0; i++, length -= sizeof(struct in_addr))
-		zlog_debug("    Neighbor %s", inet_ntoa(hello->neighbors[i]));
+	len = length - OSPF_HEADER_SIZE - OSPF_HELLO_MIN_SIZE;
+	zlog_debug("  # Neighbors %d", len / 4);
+	for (i = 0; len > 0; i++, len -= sizeof(struct in_addr))
+		zlog_debug("    Neighbor %pI4", &hello->neighbors[i]);
 }
 
 static char *ospf_dd_flags_dump(uint8_t flags, char *buf, size_t size)
@@ -273,7 +285,8 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 {
 	char buf[BUFSIZ];
 	struct router_lsa *rl;
-	int i, len;
+	struct router_link *rlnk;
+	int i, len, sum;
 
 	rl = (struct router_lsa *)stream_pnt(s);
 
@@ -282,16 +295,15 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 		   ospf_router_lsa_flags_dump(rl->flags, buf, BUFSIZ));
 	zlog_debug("    # links %d", ntohs(rl->links));
 
-	len = ntohs(rl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
-	for (i = 0; len > 0; i++) {
-		zlog_debug("    Link ID %s", inet_ntoa(rl->link[i].link_id));
-		zlog_debug("    Link Data %s",
-			   inet_ntoa(rl->link[i].link_data));
-		zlog_debug("    Type %d", (uint8_t)rl->link[i].type);
-		zlog_debug("    TOS %d", (uint8_t)rl->link[i].tos);
-		zlog_debug("    metric %d", ntohs(rl->link[i].metric));
-
-		len -= 12;
+	len = length - OSPF_LSA_HEADER_SIZE - 4;
+	rlnk = &rl->link[0];
+	sum = 0;
+	for (i = 0; sum < len && rlnk; sum += 12, rlnk = &rl->link[++i]) {
+		zlog_debug("    Link ID %pI4", &rlnk->link_id);
+		zlog_debug("    Link Data %pI4", &rlnk->link_data);
+		zlog_debug("    Type %d", (uint8_t)rlnk->type);
+		zlog_debug("    TOS %d", (uint8_t)rlnk->tos);
+		zlog_debug("    metric %d", ntohs(rlnk->metric));
 	}
 }
 
@@ -300,74 +312,73 @@ static void ospf_network_lsa_dump(struct stream *s, uint16_t length)
 	struct network_lsa *nl;
 	int i, cnt;
 
-	nl = (struct network_lsa *)stream_pnt(s);
-	cnt = (ntohs(nl->header.length) - (OSPF_LSA_HEADER_SIZE + 4)) / 4;
-
 	zlog_debug("  Network-LSA");
+
+	nl = (struct network_lsa *)stream_pnt(s);
+	cnt = (length - (OSPF_LSA_HEADER_SIZE + 4)) / 4;
+
 	/*
 	zlog_debug ("LSA total size %d", ntohs (nl->header.length));
 	zlog_debug ("Network-LSA size %d",
 	ntohs (nl->header.length) - OSPF_LSA_HEADER_SIZE);
 	*/
-	zlog_debug("    Network Mask %s", inet_ntoa(nl->mask));
+	zlog_debug("    Network Mask %pI4", &nl->mask);
 	zlog_debug("    # Attached Routers %d", cnt);
 	for (i = 0; i < cnt; i++)
-		zlog_debug("      Attached Router %s",
-			   inet_ntoa(nl->routers[i]));
+		zlog_debug("      Attached Router %pI4",
+			   &nl->routers[i]);
 }
 
 static void ospf_summary_lsa_dump(struct stream *s, uint16_t length)
 {
 	struct summary_lsa *sl;
-	int size;
-	int i;
 
 	sl = (struct summary_lsa *)stream_pnt(s);
 
 	zlog_debug("  Summary-LSA");
-	zlog_debug("    Network Mask %s", inet_ntoa(sl->mask));
-
-	size = ntohs(sl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
-	for (i = 0; size > 0; size -= 4, i++)
-		zlog_debug("    TOS=%d metric %d", sl->tos,
-			   GET_METRIC(sl->metric));
+	zlog_debug("    Network Mask %pI4", &sl->mask);
+	zlog_debug("    TOS=%d metric %d", sl->tos, GET_METRIC(sl->metric));
 }
 
 static void ospf_as_external_lsa_dump(struct stream *s, uint16_t length)
 {
 	struct as_external_lsa *al;
-	int size;
+	struct as_route *asr;
+	int size, sum;
 	int i;
 
 	al = (struct as_external_lsa *)stream_pnt(s);
 	zlog_debug("  %s", ospf_lsa_type_msg[al->header.type].str);
-	zlog_debug("    Network Mask %s", inet_ntoa(al->mask));
+	zlog_debug("    Network Mask %pI4", &al->mask);
 
-	size = ntohs(al->header.length) - OSPF_LSA_HEADER_SIZE - 4;
-	for (i = 0; size > 0; size -= 12, i++) {
+	size = length - OSPF_LSA_HEADER_SIZE - 4;
+	asr = &al->e[0];
+	sum = 0;
+	for (i = 0; sum < size && asr; sum += 12, asr = &al->e[++i]) {
 		zlog_debug("    bit %s TOS=%d metric %d",
-			   IS_EXTERNAL_METRIC(al->e[i].tos) ? "E" : "-",
-			   al->e[i].tos & 0x7f, GET_METRIC(al->e[i].metric));
-		zlog_debug("    Forwarding address %s",
-			   inet_ntoa(al->e[i].fwd_addr));
+			   IS_EXTERNAL_METRIC(asr->tos) ? "E" : "-",
+			   asr->tos & 0x7f, GET_METRIC(asr->metric));
+		zlog_debug("    Forwarding address %pI4", &asr->fwd_addr);
 		zlog_debug("    External Route Tag %" ROUTE_TAG_PRI,
-			   al->e[i].route_tag);
+			   asr->route_tag);
 	}
 }
 
 static void ospf_lsa_header_list_dump(struct stream *s, uint16_t length)
 {
 	struct lsa_header *lsa;
+	int len;
 
 	zlog_debug("  # LSA Headers %d", length / OSPF_LSA_HEADER_SIZE);
 
 	/* LSA Headers. */
-	while (length > 0) {
+	len = length;
+	while (len > 0) {
 		lsa = (struct lsa_header *)stream_pnt(s);
 		ospf_lsa_header_dump(lsa);
 
 		stream_forward_getp(s, OSPF_LSA_HEADER_SIZE);
-		length -= OSPF_LSA_HEADER_SIZE;
+		len -= OSPF_LSA_HEADER_SIZE;
 	}
 }
 
@@ -386,7 +397,7 @@ static void ospf_packet_db_desc_dump(struct stream *s, uint16_t length)
 	zlog_debug("  Options %d (%s)", dd->options,
 		   ospf_options_dump(dd->options));
 	zlog_debug("  Flags %d (%s)", dd->flags,
-		   ospf_dd_flags_dump(dd->flags, dd_flags, sizeof dd_flags));
+		   ospf_dd_flags_dump(dd->flags, dd_flags, sizeof(dd_flags)));
 	zlog_debug("  Sequence Number 0x%08lx",
 		   (unsigned long)ntohl(dd->dd_seqnum));
 
@@ -405,6 +416,7 @@ static void ospf_packet_ls_req_dump(struct stream *s, uint16_t length)
 	uint32_t ls_type;
 	struct in_addr ls_id;
 	struct in_addr adv_router;
+	int sum;
 
 	sp = stream_get_getp(s);
 
@@ -413,14 +425,15 @@ static void ospf_packet_ls_req_dump(struct stream *s, uint16_t length)
 	zlog_debug("Link State Request");
 	zlog_debug("  # Requests %d", length / 12);
 
-	for (; length > 0; length -= 12) {
+	sum = 0;
+	for (; sum < length; sum += 12) {
 		ls_type = stream_getl(s);
 		ls_id.s_addr = stream_get_ipv4(s);
 		adv_router.s_addr = stream_get_ipv4(s);
 
 		zlog_debug("  LS type %d", ls_type);
-		zlog_debug("  Link State ID %s", inet_ntoa(ls_id));
-		zlog_debug("  Advertising Router %s", inet_ntoa(adv_router));
+		zlog_debug("  Link State ID %pI4", &ls_id);
+		zlog_debug("  Advertising Router %pI4", &adv_router);
 	}
 
 	stream_set_getp(s, sp);
@@ -430,23 +443,23 @@ static void ospf_packet_ls_upd_dump(struct stream *s, uint16_t length)
 {
 	uint32_t sp;
 	struct lsa_header *lsa;
-	int lsa_len;
+	int lsa_len, len;
 	uint32_t count;
 
-	length -= OSPF_HEADER_SIZE;
+	len = length - OSPF_HEADER_SIZE;
 
 	sp = stream_get_getp(s);
 
 	count = stream_getl(s);
-	length -= 4;
+	len -= 4;
 
 	zlog_debug("Link State Update");
 	zlog_debug("  # LSAs %d", count);
 
-	while (length > 0 && count > 0) {
-		if (length < OSPF_HEADER_SIZE || length % 4 != 0) {
+	while (len > 0 && count > 0) {
+		if ((uint16_t)len < OSPF_LSA_HEADER_SIZE || len % 4 != 0) {
 			zlog_debug("  Remaining %d bytes; Incorrect length.",
-				   length);
+				   len);
 			break;
 		}
 
@@ -454,34 +467,39 @@ static void ospf_packet_ls_upd_dump(struct stream *s, uint16_t length)
 		lsa_len = ntohs(lsa->length);
 		ospf_lsa_header_dump(lsa);
 
+		/* Check that LSA length is valid */
+		if (lsa_len > len || lsa_len % 4 != 0) {
+			zlog_debug("  LSA length %d is incorrect!", lsa_len);
+			break;
+		}
 		switch (lsa->type) {
 		case OSPF_ROUTER_LSA:
-			ospf_router_lsa_dump(s, length);
+			ospf_router_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_NETWORK_LSA:
-			ospf_network_lsa_dump(s, length);
+			ospf_network_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_SUMMARY_LSA:
 		case OSPF_ASBR_SUMMARY_LSA:
-			ospf_summary_lsa_dump(s, length);
+			ospf_summary_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_AS_EXTERNAL_LSA:
-			ospf_as_external_lsa_dump(s, length);
+			ospf_as_external_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_AS_NSSA_LSA:
-			ospf_as_external_lsa_dump(s, length);
+			ospf_as_external_lsa_dump(s, lsa_len);
 			break;
 		case OSPF_OPAQUE_LINK_LSA:
 		case OSPF_OPAQUE_AREA_LSA:
 		case OSPF_OPAQUE_AS_LSA:
-			ospf_opaque_lsa_dump(s, length);
+			ospf_opaque_lsa_dump(s, lsa_len);
 			break;
 		default:
 			break;
 		}
 
 		stream_forward_getp(s, lsa_len);
-		length -= lsa_len;
+		len -= lsa_len;
 		count--;
 	}
 
@@ -511,8 +529,8 @@ static void ospf_header_dump(struct ospf_header *ospfh)
 	zlog_debug("  Type %d (%s)", ospfh->type,
 		   lookup_msg(ospf_packet_type_str, ospfh->type, NULL));
 	zlog_debug("  Packet Len %d", ntohs(ospfh->length));
-	zlog_debug("  Router ID %s", inet_ntoa(ospfh->router_id));
-	zlog_debug("  Area ID %s", inet_ntoa(ospfh->area_id));
+	zlog_debug("  Router ID %pI4", &ospfh->router_id);
+	zlog_debug("  Area ID %pI4", &ospfh->area_id);
 	zlog_debug("  Checksum 0x%x", ntohs(ospfh->checksum));
 	zlog_debug("  AuType %s",
 		   lookup_msg(ospf_auth_type_str, auth_type, NULL));
@@ -606,7 +624,7 @@ DEFUN (debug_ospf_packet,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[2]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -682,7 +700,7 @@ DEFUN (no_debug_ospf_packet,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[3]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -753,7 +771,7 @@ DEFUN (debug_ospf_ism,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[2]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -804,7 +822,7 @@ DEFUN (no_debug_ospf_ism,
 
 	if (inst) // user passed instance ID
 	{
-		if (!ospf_lookup_instance(strtoul(argv[3]->arg, NULL, 10)))
+		if (inst != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
@@ -899,8 +917,8 @@ DEFUN (debug_ospf_instance_nsm,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_nsm_common(vty, 4, argc, argv);
 }
@@ -971,7 +989,7 @@ DEFUN (no_debug_ospf_instance_nsm,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_nsm_common(vty, 5, argc, argv);
@@ -993,6 +1011,8 @@ static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 				DEBUG_ON(lsa, LSA_INSTALL);
 			else if (strmatch(argv[arg_base]->text, "refresh"))
 				DEBUG_ON(lsa, LSA_REFRESH);
+			else if (strmatch(argv[arg_base]->text, "aggregate"))
+				DEBUG_ON(lsa, EXTNL_LSA_AGGR);
 		}
 
 		return CMD_SUCCESS;
@@ -1010,6 +1030,8 @@ static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 			TERM_DEBUG_ON(lsa, LSA_INSTALL);
 		else if (strmatch(argv[arg_base]->text, "refresh"))
 			TERM_DEBUG_ON(lsa, LSA_REFRESH);
+		else if (strmatch(argv[arg_base]->text, "aggregate"))
+			TERM_DEBUG_ON(lsa, EXTNL_LSA_AGGR);
 	}
 
 	return CMD_SUCCESS;
@@ -1017,21 +1039,23 @@ static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 
 DEFUN (debug_ospf_lsa,
        debug_ospf_lsa_cmd,
-       "debug ospf lsa [<generate|flooding|install|refresh>]",
+       "debug ospf lsa [<generate|flooding|install|refresh|aggregate>]",
        DEBUG_STR
        OSPF_STR
        "OSPF Link State Advertisement\n"
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refresh\n")
+       "LSA Refresh\n"
+       "External LSA Aggregation\n")
 {
 	return debug_ospf_lsa_common(vty, 3, argc, argv);
 }
 
 DEFUN (debug_ospf_instance_lsa,
        debug_ospf_instance_lsa_cmd,
-       "debug ospf (1-65535) lsa [<generate|flooding|install|refresh>]",
+       "debug ospf (1-65535) lsa "
+       "[<generate|flooding|install|refresh|aggregate>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1039,13 +1063,14 @@ DEFUN (debug_ospf_instance_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refresh\n")
+       "LSA Refresh\n"
+       "External LSA Aggregation\n")
 {
 	int idx_number = 2;
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_lsa_common(vty, 4, argc, argv);
@@ -1067,6 +1092,8 @@ static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 				DEBUG_OFF(lsa, LSA_INSTALL);
 			else if (strmatch(argv[arg_base]->text, "refresh"))
 				DEBUG_OFF(lsa, LSA_REFRESH);
+			else if (strmatch(argv[arg_base]->text, "aggregate"))
+				DEBUG_OFF(lsa, EXTNL_LSA_AGGR);
 		}
 
 		return CMD_SUCCESS;
@@ -1084,6 +1111,8 @@ static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 			TERM_DEBUG_OFF(lsa, LSA_INSTALL);
 		else if (strmatch(argv[arg_base]->text, "refresh"))
 			TERM_DEBUG_OFF(lsa, LSA_REFRESH);
+		else if (strmatch(argv[arg_base]->text, "aggregate"))
+			TERM_DEBUG_OFF(lsa, EXTNL_LSA_AGGR);
 	}
 
 	return CMD_SUCCESS;
@@ -1091,7 +1120,7 @@ static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
 
 DEFUN (no_debug_ospf_lsa,
        no_debug_ospf_lsa_cmd,
-       "no debug ospf lsa [<generate|flooding|install|refresh>]",
+       "no debug ospf lsa [<generate|flooding|install|refresh|aggregate>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1099,14 +1128,16 @@ DEFUN (no_debug_ospf_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refres\n")
+       "LSA Refres\n"
+       "External LSA Aggregation\n")
 {
 	return no_debug_ospf_lsa_common(vty, 4, argc, argv);
 }
 
 DEFUN (no_debug_ospf_instance_lsa,
        no_debug_ospf_instance_lsa_cmd,
-       "no debug ospf (1-65535) lsa [<generate|flooding|install|refresh>]",
+       "no debug ospf (1-65535) lsa "
+       "[<generate|flooding|install|refresh|aggregate>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1115,13 +1146,14 @@ DEFUN (no_debug_ospf_instance_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refres\n")
+       "LSA Refres\n"
+       "External LSA Aggregation\n")
 {
 	int idx_number = 3;
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_lsa_common(vty, 5, argc, argv);
@@ -1183,7 +1215,7 @@ DEFUN (debug_ospf_instance_zebra,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
+	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_zebra_common(vty, 4, argc, argv);
@@ -1247,8 +1279,8 @@ DEFUN (no_debug_ospf_instance_zebra,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_zebra_common(vty, 5, argc, argv);
 }
@@ -1293,8 +1325,8 @@ DEFUN (debug_ospf_instance_event,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(event, EVENT);
@@ -1315,8 +1347,8 @@ DEFUN (no_debug_ospf_instance_event,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(event, EVENT);
@@ -1363,8 +1395,8 @@ DEFUN (debug_ospf_instance_nssa,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(nssa, NSSA);
@@ -1385,8 +1417,8 @@ DEFUN (no_debug_ospf_instance_nssa,
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(nssa, NSSA);
@@ -1448,6 +1480,117 @@ DEFUN (no_debug_ospf_sr,
 	return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf_ti_lfa, debug_ospf_ti_lfa_cmd, "debug ospf ti-lfa",
+      DEBUG_STR OSPF_STR "OSPF-SR TI-LFA information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(ti_lfa, TI_LFA);
+	TERM_DEBUG_ON(ti_lfa, TI_LFA);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf_ti_lfa, no_debug_ospf_ti_lfa_cmd, "no debug ospf ti-lfa",
+      NO_STR DEBUG_STR OSPF_STR "OSPF-SR TI-LFA information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(ti_lfa, TI_LFA);
+	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_ospf_default_info,
+       debug_ospf_default_info_cmd,
+       "debug ospf default-information",
+       DEBUG_STR
+       OSPF_STR
+       "OSPF default information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(defaultinfo, DEFAULTINFO);
+	TERM_DEBUG_ON(defaultinfo, DEFAULTINFO);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf_default_info,
+       no_debug_ospf_default_info_cmd,
+       "no debug ospf default-information",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "OSPF default information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(defaultinfo, DEFAULTINFO);
+	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
+	return CMD_SUCCESS;
+}
+
+DEFUN(debug_ospf_ldp_sync,
+      debug_ospf_ldp_sync_cmd,
+      "debug ospf ldp-sync",
+      DEBUG_STR OSPF_STR
+      "OSPF LDP-Sync information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_ON(ldp_sync, LDP_SYNC);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf_ldp_sync,
+      no_debug_ospf_ldp_sync_cmd,
+      "no debug ospf ldp-sync",
+      NO_STR
+      DEBUG_STR
+      OSPF_STR
+      "OSPF LDP-Sync information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_ospf_gr, debug_ospf_gr_cmd, "[no$no] debug ospf graceful-restart",
+      NO_STR DEBUG_STR OSPF_STR "OSPF Graceful Restart\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(gr, GR);
+
+	if (!no)
+		TERM_DEBUG_ON(gr, GR);
+	else
+		TERM_DEBUG_OFF(gr, GR);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_ospf_bfd, debug_ospf_bfd_cmd,
+      "[no] debug ospf bfd",
+      NO_STR
+      DEBUG_STR
+      OSPF_STR
+      "Bidirection Forwarding Detection\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no) {
+			bfd_protocol_integration_set_debug(false);
+			CONF_DEBUG_OFF(bfd, BFD_LIB);
+		} else {
+			bfd_protocol_integration_set_debug(true);
+			CONF_DEBUG_ON(bfd, BFD_LIB);
+		}
+	}
+
+	if (no)
+		TERM_DEBUG_OFF(bfd, BFD_LIB);
+	else
+		TERM_DEBUG_ON(bfd, BFD_LIB);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1476,6 +1619,12 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(zebra, ZEBRA);
 		DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 		DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
+		DEBUG_OFF(defaultinfo, DEFAULTINFO);
+		DEBUG_OFF(ldp_sync, LDP_SYNC);
+
+		/* BFD debugging is two parts: OSPF and library. */
+		DEBUG_OFF(bfd, BFD_LIB);
+		bfd_protocol_integration_set_debug(false);
 
 		for (i = 0; i < 5; i++)
 			DEBUG_PACKET_OFF(i, flag);
@@ -1502,16 +1651,19 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(zebra, ZEBRA);
 	TERM_DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 	TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
+	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
+	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_OFF(bfd, BFD_LIB);
 
 	return CMD_SUCCESS;
 }
 
-static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
+static int show_debugging_ospf_common(struct vty *vty)
 {
 	int i;
 
-	if (ospf->instance)
-		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	if (ospf_instance)
+		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf_instance);
 
 	vty_out(vty, "OSPF debugging status:\n");
 
@@ -1596,9 +1748,24 @@ static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
 				"  OSPF Zebra redistribute debugging is on\n");
 	}
 
+	if (IS_DEBUG_OSPF(defaultinfo, DEFAULTINFO) == OSPF_DEBUG_DEFAULTINFO)
+		vty_out(vty, "OSPF default information is on\n");
+
 	/* Show debug status for NSSA. */
 	if (IS_DEBUG_OSPF(nssa, NSSA) == OSPF_DEBUG_NSSA)
 		vty_out(vty, "  OSPF NSSA debugging is on\n");
+
+	/* Show debug status for LDP-SYNC. */
+	if (IS_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC)
+		vty_out(vty, "  OSPF ldp-sync debugging is on\n");
+
+	/* Show debug status for GR. */
+	if (IS_DEBUG_OSPF(gr, GR) == OSPF_DEBUG_GR)
+		vty_out(vty, "  OSPF Graceful Restart debugging is on\n");
+
+	if (IS_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB)
+		vty_out(vty,
+			"  OSPF BFD integration library debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1612,13 +1779,7 @@ DEFUN_NOSH (show_debugging_ospf,
 	    DEBUG_STR
 	    OSPF_STR)
 {
-	struct ospf *ospf = NULL;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return CMD_SUCCESS;
-
-	return show_debugging_ospf_common(vty, ospf);
+	return show_debugging_ospf_common(vty);
 }
 
 DEFUN_NOSH (show_debugging_ospf_instance,
@@ -1630,19 +1791,22 @@ DEFUN_NOSH (show_debugging_ospf_instance,
 	    "Instance ID\n")
 {
 	int idx_number = 3;
-	struct ospf *ospf;
 	unsigned short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL)
-		return CMD_SUCCESS;
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
-	return show_debugging_ospf_common(vty, ospf);
+	return show_debugging_ospf_common(vty);
 }
 
+static int config_write_debug(struct vty *vty);
 /* Debug node. */
 static struct cmd_node debug_node = {
-	DEBUG_NODE, "", 1 /* VTYSH */
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_debug,
 };
 
 static int config_write_debug(struct vty *vty)
@@ -1656,16 +1820,11 @@ static int config_write_debug(struct vty *vty)
 		"",	" send",	" recv",	"",
 		" detail", " send detail", " recv detail", " detail"};
 
-	struct ospf *ospf;
 	char str[16];
 	memset(str, 0, 16);
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return CMD_SUCCESS;
-
-	if (ospf->instance)
-		sprintf(str, " %u", ospf->instance);
+	if (ospf_instance)
+		snprintf(str, sizeof(str), " %u", ospf_instance);
 
 	/* debug ospf ism (status|events|timers). */
 	if (IS_CONF_DEBUG_OSPF(ism, ISM) == OSPF_DEBUG_ISM)
@@ -1777,13 +1936,36 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf sr ti-lfa */
+	if (IS_CONF_DEBUG_OSPF(sr, TI_LFA) == OSPF_DEBUG_TI_LFA) {
+		vty_out(vty, "debug ospf%s ti-lfa\n", str);
+		write = 1;
+	}
+
+	/* debug ospf ldp-sync */
+	if (IS_CONF_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC) {
+		vty_out(vty, "debug ospf%s ldp-sync\n", str);
+		write = 1;
+	}
+
+	/* debug ospf gr */
+	if (IS_CONF_DEBUG_OSPF(gr, GR) == OSPF_DEBUG_GR) {
+		vty_out(vty, "debug ospf%s graceful-restart\n", str);
+		write = 1;
+	}
+
+	if (IS_CONF_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB) {
+		vty_out(vty, "debug ospf%s bfd\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
 /* Initialize debug commands. */
 void ospf_debug_init(void)
 {
-	install_node(&debug_node, config_write_debug);
+	install_node(&debug_node);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ism_cmd);
@@ -1794,6 +1976,9 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_sr_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_ti_lfa_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -1802,6 +1987,11 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_sr_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_ti_lfa_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
@@ -1831,6 +2021,9 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_te_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_sr_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_ti_lfa_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
@@ -1838,6 +2031,11 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_te_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_sr_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_ti_lfa_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_instance_lsa_cmd);

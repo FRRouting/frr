@@ -28,7 +28,6 @@
 
 #include "zebra_ns.h"
 #include "zebra_vrf.h"
-#include "zebra_memory.h"
 #include "rt.h"
 #include "zebra_vxlan.h"
 #include "debug.h"
@@ -41,7 +40,7 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_NS, "Zebra Name Space");
 
 static struct zebra_ns *dzns;
 
@@ -124,8 +123,10 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	zns->ns_id = ns_id;
 
 	kernel_init(zns);
+	zebra_dplane_ns_enable(zns, true);
 	interface_list(zns);
 	route_read(zns);
+	kernel_read_pbr_rules(zns);
 
 	/* Initiate Table Manager per ZNS */
 	table_manager_enable(ns_id);
@@ -140,6 +141,8 @@ static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
 	route_table_finish(zns->if_table);
 
+	zebra_dplane_ns_enable(zns, false /*Disable*/);
+
 	kernel_terminate(zns, complete);
 
 	table_manager_disable(zns->ns_id);
@@ -152,20 +155,25 @@ static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 /* During zebra shutdown, do partial cleanup while the async dataplane
  * is still running.
  */
-int zebra_ns_early_shutdown(struct ns *ns)
+int zebra_ns_early_shutdown(struct ns *ns,
+			    void *param_in __attribute__((unused)),
+			    void **param_out __attribute__((unused)))
 {
 	struct zebra_ns *zns = ns->info;
 
 	if (zns == NULL)
 		return 0;
 
-	return zebra_ns_disable_internal(zns, false);
+	zebra_ns_disable_internal(zns, false);
+	return NS_WALK_CONTINUE;
 }
 
 /* During zebra shutdown, do final cleanup
  * after all dataplane work is complete.
  */
-int zebra_ns_final_shutdown(struct ns *ns)
+int zebra_ns_final_shutdown(struct ns *ns,
+			    void *param_in __attribute__((unused)),
+			    void **param_out __attribute__((unused)))
 {
 	struct zebra_ns *zns = ns->info;
 
@@ -174,7 +182,7 @@ int zebra_ns_final_shutdown(struct ns *ns)
 
 	kernel_terminate(zns, true);
 
-	return 0;
+	return NS_WALK_CONTINUE;
 }
 
 int zebra_ns_init(const char *optional_default_name)
@@ -182,14 +190,18 @@ int zebra_ns_init(const char *optional_default_name)
 	struct ns *default_ns;
 	ns_id_t ns_id;
 	ns_id_t ns_id_external;
+	struct ns *ns;
 
 	frr_with_privs(&zserv_privs) {
 		ns_id = zebra_ns_id_get_default();
 	}
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	ns_init_management(ns_id_external, ns_id);
+	ns = ns_get_default();
+	if (ns)
+		ns->relative_default_ns = ns_id;
 
-	default_ns = ns_lookup(ns_get_default_id());
+	default_ns = ns_lookup(NS_DEFAULT);
 	if (!default_ns) {
 		flog_err(EC_ZEBRA_NS_NO_DEFAULT,
 			 "%s: failed to find default ns", __func__);

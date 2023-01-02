@@ -22,7 +22,7 @@
 #include <zebra.h>
 #include <fcntl.h>
 #include <log.h>
-#include "version.h"
+#include "lib/version.h"
 #include "network.h"
 #include "lib_errors.h"
 
@@ -65,7 +65,7 @@ pid_t pid_output(const char *path)
 			exit(1);
 		}
 
-		sprintf(buf, "%d\n", (int)pid);
+		snprintf(buf, sizeof(buf), "%d\n", (int)pid);
 		pidsize = strlen(buf);
 		if ((tmp = write(fd, buf, pidsize)) != (int)pidsize)
 			flog_err_sys(

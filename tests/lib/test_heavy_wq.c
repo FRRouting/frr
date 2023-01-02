@@ -37,9 +37,9 @@
 
 #include "tests.h"
 
-DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test")
-DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node")
-DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str")
+DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test");
+DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node");
+DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str");
 
 extern struct thread_master *master;
 static struct work_queue *heavy_wq;
@@ -81,7 +81,6 @@ static void slow_func_del(struct work_queue *wq, void *data)
 	assert(hn && hn->str);
 	printf("%s: %s\n", __func__, hn->str);
 	XFREE(MTYPE_WQ_NODE_STR, hn->str);
-	hn->str = NULL;
 	XFREE(MTYPE_WQ_NODE, hn);
 }
 

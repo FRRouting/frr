@@ -29,13 +29,14 @@
 
 #include <inttypes.h>
 
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR, "ID Number Allocator")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR_NAME, "ID Number Allocator Name")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_DIRECTORY, "ID Number Allocator Directory")
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR, "ID Number Allocator");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR_NAME, "ID Number Allocator Name");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_DIRECTORY, "ID Number Allocator Directory");
 DEFINE_MTYPE_STATIC(LIB, IDALLOC_SUBDIRECTORY,
-		    "ID Number Allocator Subdirectory")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_PAGE, "ID Number Allocator Page")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL, "ID Number temporary holding pool entry")
+		    "ID Number Allocator Subdirectory");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_PAGE, "ID Number Allocator Page");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL,
+		    "ID Number temporary holding pool entry");
 
 #if UINT_MAX >= UINT32_MAX
 #define FFS32(x) ffs(x)
@@ -108,7 +109,7 @@ static struct id_alloc_page *find_or_create_page(struct id_alloc *alloc,
 	} else if (page != NULL && create) {
 		flog_err(
 			EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s attempt to re-create page at %" PRIu32,
+			"ID Allocator %s attempt to re-create page at %u",
 			alloc->name, id);
 	}
 
@@ -131,8 +132,7 @@ void idalloc_free(struct id_alloc *alloc, uint32_t id)
 	page = find_or_create_page(alloc, id, 0);
 	if (!page) {
 		flog_err(EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s cannot free #%" PRIu32
-			". ID Block does not exist.",
+			"ID Allocator %s cannot free #%u. ID Block does not exist.",
 			alloc->name, id);
 		return;
 	}
@@ -142,8 +142,7 @@ void idalloc_free(struct id_alloc *alloc, uint32_t id)
 
 	if ((page->allocated_mask[word] & (1 << offset)) == 0) {
 		flog_err(EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s cannot free #%" PRIu32
-			". ID was not allocated at the time of free.",
+			"ID Allocator %s cannot free #%u. ID was not allocated at the time of free.",
 			alloc->name, id);
 		return;
 	}
@@ -285,8 +284,7 @@ uint32_t idalloc_reserve(struct id_alloc *alloc, uint32_t id)
 
 	if (page->allocated_mask[word] & (((uint32_t)1) << offset)) {
 		flog_err(EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s could not reserve %" PRIu32
-			" because it is already allocated.",
+			"ID Allocator %s could not reserve %u because it is already allocated.",
 			alloc->name, id);
 		return IDALLOC_INVALID;
 	}

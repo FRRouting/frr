@@ -45,70 +45,39 @@
 extern struct zclient *zclient;
 
 /*
- * ospf6_bfd_info_free - Free BFD info structure
- */
-void ospf6_bfd_info_free(void **bfd_info)
-{
-	bfd_info_free((struct bfd_info **)bfd_info);
-}
-
-/*
- * ospf6_bfd_show_info - Show BFD info structure
- */
-void ospf6_bfd_show_info(struct vty *vty, void *bfd_info, int param_only)
-{
-	if (param_only)
-		bfd_show_param(vty, bfd_info, 1, 0, 0, NULL);
-	else
-		bfd_show_info(vty, bfd_info, 0, 1, 0, NULL);
-}
-
-/*
- * ospf6_bfd_reg_dereg_nbr - Register/Deregister a neighbor with BFD through
- *                           zebra for starting/stopping the monitoring of
- *                           the neighbor rechahability.
- */
-void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
-{
-	struct ospf6_interface *oi = on->ospf6_if;
-	struct interface *ifp = oi->interface;
-	struct bfd_info *bfd_info;
-	char src[64];
-	int cbit;
-
-	if (!oi->bfd_info || !on->bfd_info)
-		return;
-	bfd_info = (struct bfd_info *)oi->bfd_info;
-
-	if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-		inet_ntop(AF_INET6, &on->linklocal_addr, src, sizeof(src));
-		zlog_debug("%s nbr (%s) with BFD",
-			   bfd_get_command_dbg_str(command), src);
-	}
-
-	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
-
-	bfd_peer_sendmsg(zclient, bfd_info, AF_INET6, &on->linklocal_addr,
-			 on->ospf6_if->linklocal_addr, ifp->name, 0, 0,
-			 cbit, command, 0, VRF_DEFAULT);
-
-	if (command == ZEBRA_BFD_DEST_DEREGISTER)
-		bfd_info_free((struct bfd_info **)&on->bfd_info);
-}
-
-/*
  * ospf6_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
  *                           neighbor state is changed to/from 2way.
  */
 void ospf6_bfd_trigger_event(struct ospf6_neighbor *on, int old_state,
 			     int state)
 {
-	if ((old_state < OSPF6_NEIGHBOR_TWOWAY)
-	    && (state >= OSPF6_NEIGHBOR_TWOWAY))
-		ospf6_bfd_reg_dereg_nbr(on, ZEBRA_BFD_DEST_REGISTER);
-	else if ((old_state >= OSPF6_NEIGHBOR_TWOWAY)
-		 && (state < OSPF6_NEIGHBOR_TWOWAY))
-		ospf6_bfd_reg_dereg_nbr(on, ZEBRA_BFD_DEST_DEREGISTER);
+	int family;
+	struct in6_addr src, dst;
+
+	/* Skip sessions without BFD. */
+	if (on->bfd_session == NULL)
+		return;
+
+	if (old_state < OSPF6_NEIGHBOR_TWOWAY
+	    && state >= OSPF6_NEIGHBOR_TWOWAY) {
+		/*
+		 * Check if neighbor address changed.
+		 *
+		 * When the neighbor is configured BFD before having an existing
+		 * connection, then the destination address will be set to `::`
+		 * which will cause session installation failure. This piece of
+		 * code updates the address in that case.
+		 */
+		bfd_sess_addresses(on->bfd_session, &family, &src, &dst);
+		if (memcmp(&on->linklocal_addr, &dst, sizeof(dst))) {
+			bfd_sess_set_ipv6_addrs(on->bfd_session, &src,
+						&on->linklocal_addr);
+		}
+
+		bfd_sess_install(on->bfd_session);
+	} else if (old_state >= OSPF6_NEIGHBOR_TWOWAY
+		   && state < OSPF6_NEIGHBOR_TWOWAY)
+		bfd_sess_uninstall(on->bfd_session);
 }
 
 /*
@@ -117,137 +86,43 @@ void ospf6_bfd_trigger_event(struct ospf6_neighbor *on, int old_state,
  *                               zebra for starting/stopping the monitoring of
  *                               the neighbor rechahability.
  */
-static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, int command)
+static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi,
+					bool install)
 {
 	struct ospf6_neighbor *on;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, on)) {
-		if (command == ZEBRA_BFD_DEST_REGISTER)
-			ospf6_bfd_info_nbr_create(oi, on);
-
-		if (on->state < OSPF6_NEIGHBOR_TWOWAY) {
-			if (command == ZEBRA_BFD_DEST_DEREGISTER)
-				bfd_info_free(
-					(struct bfd_info **)&on->bfd_info);
+		/* Remove all sessions. */
+		if (!install) {
+			bfd_sess_free(&on->bfd_session);
 			continue;
 		}
 
-		ospf6_bfd_reg_dereg_nbr(on, command);
+		/* Always allocate session data even if not enabled. */
+		ospf6_bfd_info_nbr_create(oi, on);
+
+		/*
+		 * If not connected yet, don't create any session but defer it
+		 * for later. See function `ospf6_bfd_trigger_event`.
+		 */
+		if (on->state < OSPF6_NEIGHBOR_TWOWAY)
+			continue;
+
+		bfd_sess_install(on->bfd_session);
 	}
 }
 
-/*
- * ospf6_bfd_nbr_replay - Replay all the neighbors that have BFD enabled
- *                        to zebra
- */
-static int ospf6_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
+static void ospf6_bfd_callback(struct bfd_session_params *bsp,
+			       const struct bfd_session_status *bss, void *arg)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct listnode *node;
-	struct interface *ifp;
-	struct ospf6_interface *oi;
-	struct ospf6_neighbor *on;
-	char dst[64];
+	struct ospf6_neighbor *on = arg;
 
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra: BFD Dest replay request");
-
-	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
-
-	/* Replay the neighbor, if BFD is enabled on the interface*/
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		oi = (struct ospf6_interface *)ifp->info;
-
-		if (!oi || !oi->bfd_info)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, on)) {
-			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
-				continue;
-
-			if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-				inet_ntop(AF_INET6, &on->linklocal_addr, dst,
-					  sizeof(dst));
-				zlog_debug("Replaying nbr (%s) to BFD", dst);
-			}
-
-			ospf6_bfd_reg_dereg_nbr(on, ZEBRA_BFD_DEST_UPDATE);
-		}
+	if (bss->state == BFD_STATUS_DOWN
+	    && bss->previous_state == BFD_STATUS_UP) {
+		THREAD_OFF(on->inactivity_timer);
+		thread_add_event(master, inactivity_timer, on, 0, NULL);
 	}
-	return 0;
-}
-
-/*
- * ospf6_bfd_interface_dest_update - Find the neighbor for which the BFD status
- *                                   has changed and bring down the neighbor
- *                                   connectivity if BFD down is received.
- */
-static int ospf6_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct ospf6_interface *oi;
-	struct ospf6_neighbor *on;
-	struct prefix dp;
-	struct prefix sp;
-	struct listnode *node, *nnode;
-	char dst[64];
-	int status;
-	int old_status;
-	struct bfd_info *bfd_info;
-	struct timeval tv;
-
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status,
-				NULL, vrf_id);
-
-	if ((ifp == NULL) || (dp.family != AF_INET6))
-		return 0;
-
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&dp, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s bfd destination %s %s",
-			   ifp->name, buf, bfd_get_status_str(status));
-	}
-
-
-	oi = (struct ospf6_interface *)ifp->info;
-	if (!oi || !oi->bfd_info)
-		return 0;
-
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		if (memcmp(&(on->linklocal_addr), &dp.u.prefix6,
-			   sizeof(struct in6_addr)))
-			continue;
-
-		if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT)) {
-			inet_ntop(AF_INET6, &on->linklocal_addr, dst,
-				  sizeof(dst));
-			zlog_debug("[%s:%s]: BFD %s", ifp->name, dst,
-				   bfd_get_status_str(status));
-		}
-
-		if (!on->bfd_info)
-			continue;
-
-		bfd_info = (struct bfd_info *)on->bfd_info;
-		if (bfd_info->status == status)
-			continue;
-
-		old_status = bfd_info->status;
-		BFD_SET_CLIENT_STATUS(bfd_info->status, status);
-		monotime(&tv);
-		bfd_info->last_update = tv.tv_sec;
-
-		if ((status == BFD_STATUS_DOWN)
-		    && (old_status == BFD_STATUS_UP)) {
-			THREAD_OFF(on->inactivity_timer);
-			thread_add_event(master, inactivity_timer, on, 0, NULL);
-		}
-	}
-
-	return 0;
 }
 
 /*
@@ -256,21 +131,20 @@ static int ospf6_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 void ospf6_bfd_info_nbr_create(struct ospf6_interface *oi,
 			       struct ospf6_neighbor *on)
 {
-	struct bfd_info *oi_bfd_info;
-	struct bfd_info *on_bfd_info;
-
-	if (!oi->bfd_info)
+	if (!oi->bfd_config.enabled)
 		return;
 
-	oi_bfd_info = (struct bfd_info *)oi->bfd_info;
+	if (on->bfd_session == NULL)
+		on->bfd_session = bfd_sess_new(ospf6_bfd_callback, on);
 
-	if (!on->bfd_info)
-		on->bfd_info = bfd_info_create();
-
-	on_bfd_info = (struct bfd_info *)on->bfd_info;
-	on_bfd_info->detect_mult = oi_bfd_info->detect_mult;
-	on_bfd_info->desired_min_tx = oi_bfd_info->desired_min_tx;
-	on_bfd_info->required_min_rx = oi_bfd_info->required_min_rx;
+	bfd_sess_set_timers(on->bfd_session,
+			    oi->bfd_config.detection_multiplier,
+			    oi->bfd_config.min_rx, oi->bfd_config.min_tx);
+	bfd_sess_set_ipv6_addrs(on->bfd_session, on->ospf6_if->linklocal_addr,
+				&on->linklocal_addr);
+	bfd_sess_set_interface(on->bfd_session, oi->interface->name);
+	bfd_sess_set_vrf(on->bfd_session, oi->interface->vrf_id);
+	bfd_sess_set_profile(on->bfd_session, oi->bfd_config.profile);
 }
 
 /*
@@ -278,48 +152,63 @@ void ospf6_bfd_info_nbr_create(struct ospf6_interface *oi,
  */
 void ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi)
 {
-#if HAVE_BFDD == 0
-	struct bfd_info *bfd_info;
-#endif /* ! HAVE_BFDD */
-
-	if (!oi->bfd_info)
+	if (!oi->bfd_config.enabled)
 		return;
 
 #if HAVE_BFDD == 0
-	bfd_info = (struct bfd_info *)oi->bfd_info;
-
-	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
+	if (oi->bfd_config.detection_multiplier != BFD_DEF_DETECT_MULT
+	    || oi->bfd_config.min_rx != BFD_DEF_MIN_RX
+	    || oi->bfd_config.min_tx != BFD_DEF_MIN_TX)
 		vty_out(vty, " ipv6 ospf6 bfd %d %d %d\n",
-			bfd_info->detect_mult, bfd_info->required_min_rx,
-			bfd_info->desired_min_tx);
+			oi->bfd_config.detection_multiplier,
+			oi->bfd_config.min_rx, oi->bfd_config.min_tx);
 	else
 #endif /* ! HAVE_BFDD */
 		vty_out(vty, " ipv6 ospf6 bfd\n");
+
+	if (oi->bfd_config.profile)
+		vty_out(vty, " ipv6 ospf6 bfd profile %s\n",
+			oi->bfd_config.profile);
 }
 
-/*
- * ospf6_bfd_if_param_set - Set the configured BFD paramter values for
- *                            interface.
- */
-static void ospf6_bfd_if_param_set(struct ospf6_interface *oi, uint32_t min_rx,
-				   uint32_t min_tx, uint8_t detect_mult,
-				   int defaults)
+DEFUN(ipv6_ospf6_bfd, ipv6_ospf6_bfd_cmd,
+      "ipv6 ospf6 bfd [profile BFDPROF]",
+      IP6_STR OSPF6_STR
+      "Enables BFD support\n"
+      "BFD Profile selection\n"
+      "BFD Profile name\n")
 {
-	int command = 0;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	int prof_idx = 4;
+	assert(ifp);
 
-	bfd_set_param((struct bfd_info **)&(oi->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
-	if (command)
-		ospf6_bfd_reg_dereg_all_nbr(oi, command);
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+
+	oi->bfd_config.detection_multiplier = BFD_DEF_DETECT_MULT;
+	oi->bfd_config.min_rx = BFD_DEF_MIN_RX;
+	oi->bfd_config.min_tx = BFD_DEF_MIN_TX;
+	oi->bfd_config.enabled = true;
+	if (argc > prof_idx) {
+		XFREE(MTYPE_TMP, oi->bfd_config.profile);
+		oi->bfd_config.profile =
+			XSTRDUP(MTYPE_TMP, argv[prof_idx]->arg);
+	}
+
+	ospf6_bfd_reg_dereg_all_nbr(oi, true);
+
+	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_ospf6_bfd,
-       ipv6_ospf6_bfd_cmd,
-       "ipv6 ospf6 bfd",
-       IP6_STR
-       OSPF6_STR
-       "Enables BFD support\n"
-       )
+DEFUN(no_ipv6_ospf6_bfd_profile, no_ipv6_ospf6_bfd_profile_cmd,
+      "no ipv6 ospf6 bfd profile [BFDPROF]",
+      NO_STR IP6_STR OSPF6_STR
+      "BFD support\n"
+      "BFD Profile selection\n"
+      "BFD Profile name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
@@ -330,8 +219,14 @@ DEFUN (ipv6_ospf6_bfd,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	ospf6_bfd_if_param_set(oi, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-			       BFD_DEF_DETECT_MULT, 1);
+	/* BFD not enabled, nothing to do. */
+	if (!oi->bfd_config.enabled)
+		return CMD_SUCCESS;
+
+	/* Remove profile and apply new configuration. */
+	XFREE(MTYPE_TMP, oi->bfd_config.profile);
+	ospf6_bfd_reg_dereg_all_nbr(oi, true);
+
 	return CMD_SUCCESS;
 }
 
@@ -355,10 +250,6 @@ DEFUN(
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
 	struct ospf6_interface *oi;
-	uint32_t rx_val;
-	uint32_t tx_val;
-	uint8_t dm_val;
-	int ret;
 
 	assert(ifp);
 
@@ -367,13 +258,13 @@ DEFUN(
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	if ((ret = bfd_validate_param(
-		     vty, argv[idx_number]->arg, argv[idx_number_2]->arg,
-		     argv[idx_number_3]->arg, &dm_val, &rx_val, &tx_val))
-	    != CMD_SUCCESS)
-		return ret;
+	oi->bfd_config.detection_multiplier =
+		strtoul(argv[idx_number]->arg, NULL, 10);
+	oi->bfd_config.min_rx = strtoul(argv[idx_number_2]->arg, NULL, 10);
+	oi->bfd_config.min_tx = strtoul(argv[idx_number_3]->arg, NULL, 10);
+	oi->bfd_config.enabled = true;
 
-	ospf6_bfd_if_param_set(oi, rx_val, tx_val, dm_val, 0);
+	ospf6_bfd_reg_dereg_all_nbr(oi, true);
 
 	return CMD_SUCCESS;
 }
@@ -396,24 +287,19 @@ DEFUN (no_ipv6_ospf6_bfd,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	if (oi->bfd_info) {
-		ospf6_bfd_reg_dereg_all_nbr(oi, ZEBRA_BFD_DEST_DEREGISTER);
-		bfd_info_free((struct bfd_info **)&(oi->bfd_info));
-	}
+	oi->bfd_config.enabled = false;
+	ospf6_bfd_reg_dereg_all_nbr(oi, false);
 
 	return CMD_SUCCESS;
 }
 
 void ospf6_bfd_init(void)
 {
-	bfd_gbl_init();
-
-	/* Initialize BFD client functions */
-	zclient->interface_bfd_dest_update = ospf6_bfd_interface_dest_update;
-	zclient->bfd_dest_replay = ospf6_bfd_nbr_replay;
+	bfd_protocol_integration_init(zclient, master);
 
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ipv6_ospf6_bfd_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_bfd_param_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_bfd_profile_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_bfd_cmd);
 }

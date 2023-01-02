@@ -60,7 +60,7 @@ struct skiplist {
 	int level; /* max lvl (1 + current # of levels in list) */
 	unsigned int count;
 	struct skiplistnode *header;
-	struct skiplistnode *stats;
+	int *level_stats;
 	struct skiplistnode
 		*last; /* last real list item (NULL if empty list) */
 
@@ -68,7 +68,7 @@ struct skiplist {
 	 * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
 	 * Used as definition of sorted for listnode_add_sort
 	 */
-	int (*cmp)(void *val1, void *val2);
+	int (*cmp)(const void *val1, const void *val2);
 
 	/* callback to free user-owned data when listnode is deleted. supplying
 	 * this callback is very much encouraged!
@@ -81,8 +81,9 @@ struct skiplist {
 extern struct skiplist *
 skiplist_new(/* encouraged: set list.del callback on new lists */
 	     int flags,
-	     int (*cmp)(void *key1, void *key2), /* NULL => default cmp */
-	     void (*del)(void *val));		 /* NULL => no auto val free */
+	     int (*cmp)(const void *key1,
+			const void *key2), /* NULL => default cmp */
+	     void (*del)(void *val));	   /* NULL => no auto val free */
 
 extern void skiplist_free(struct skiplist *);
 
@@ -96,12 +97,12 @@ extern int skiplist_search(register struct skiplist *l, register void *key,
 			   void **valuePointer);
 
 extern int skiplist_first_value(register struct skiplist *l, /* in */
-				register void *key,	  /* in */
-				void **valuePointer,	 /* in/out */
+				register const void *key,    /* in */
+				void **valuePointer,	     /* in/out */
 				void **cursor);		     /* out */
 
 extern int skiplist_next_value(register struct skiplist *l, /* in */
-			       register void *key,	  /* in */
+			       register const void *key,	  /* in */
 			       void **valuePointer,	 /* in/out */
 			       void **cursor);		    /* in/out */
 
@@ -122,6 +123,7 @@ extern int skiplist_empty(register struct skiplist *l); /* in */
 
 extern unsigned int skiplist_count(register struct skiplist *l); /* in */
 
+struct vty;
 extern void skiplist_debug(struct vty *vty, struct skiplist *l);
 
 extern void skiplist_test(struct vty *vty);

@@ -175,7 +175,7 @@ static inline size_t fpm_msg_align(size_t len)
  * The (rounded up) size of the FPM message header. This ensures that
  * the message payload always starts at an aligned address.
  */
-#define FPM_MSG_HDR_LEN (sizeof (fpm_msg_hdr_t))
+#define FPM_MSG_HDR_LEN (sizeof(fpm_msg_hdr_t))
 
 #ifndef COMPILE_ASSERT
 #define COMPILE_ASSERT(x) extern int __dummy[2 * !!(x) - 1]

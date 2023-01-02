@@ -255,7 +255,7 @@ struct rfapi {
 
 #define RFAPI_0_PREFIX(prefix)                                                 \
 	((((prefix)->family == AF_INET)                                        \
-		  ? (prefix)->u.prefix4.s_addr == 0                            \
+		  ? (prefix)->u.prefix4.s_addr == INADDR_ANY                   \
 		  : (((prefix)->family == AF_INET6)                            \
 			     ? (IN6_IS_ADDR_UNSPECIFIED(&(prefix)->u.prefix6)) \
 			     : 0)))
@@ -267,13 +267,10 @@ struct rfapi {
 
 #define RFAPI_HOST_PREFIX(prefix)                                              \
 	(((prefix)->family == AF_INET)                                         \
-		 ? ((prefix)->prefixlen == 32)                                 \
+		 ? ((prefix)->prefixlen == IPV4_MAX_BITLEN)                    \
 		 : (((prefix)->family == AF_INET6)                             \
-			    ? ((prefix)->prefixlen == 128)                     \
+			    ? ((prefix)->prefixlen == IPV6_MAX_BITLEN)         \
 			    : 0))
-
-extern void rfapiQprefix2Rprefix(struct prefix *qprefix,
-				 struct rfapi_ip_prefix *rprefix);
 
 extern int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 			  struct rfapi_ip_addr *un_addr,
@@ -281,7 +278,7 @@ extern int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 
 extern void
 add_vnc_route(struct rfapi_descriptor *rfd, /* cookie + UN addr for VPN */
-	      struct bgp *bgp, int safi, struct prefix *p,
+	      struct bgp *bgp, int safi, const struct prefix *p,
 	      struct prefix_rd *prd, struct rfapi_ip_addr *nexthop,
 	      uint32_t *local_pref, /* host byte order */
 	      uint32_t *lifetime,   /* host byte order */
@@ -292,12 +289,9 @@ add_vnc_route(struct rfapi_descriptor *rfd, /* cookie + UN addr for VPN */
 	      uint8_t type, uint8_t sub_type, int flags);
 #define RFAPI_AHR_NO_TUNNEL_SUBTLV	0x00000001
 #define RFAPI_AHR_RFPOPT_IS_VNCTLV	0x00000002      /* hack! */
-#if 0 /* unused? */
-#  define RFAPI_AHR_SET_PFX_TO_NEXTHOP	0x00000004
-#endif
 
 extern void del_vnc_route(struct rfapi_descriptor *rfd, struct peer *peer,
-			  struct bgp *bgp, safi_t safi, struct prefix *p,
+			  struct bgp *bgp, safi_t safi, const struct prefix *p,
 			  struct prefix_rd *prd, uint8_t type, uint8_t sub_type,
 			  struct rfapi_nexthop *lnh, int kill);
 
@@ -373,33 +367,33 @@ extern int rfapi_extract_l2o(
  */
 extern time_t rfapi_time(time_t *t);
 
-DECLARE_MGROUP(RFAPI)
-DECLARE_MTYPE(RFAPI_CFG)
-DECLARE_MTYPE(RFAPI_GROUP_CFG)
-DECLARE_MTYPE(RFAPI_L2_CFG)
-DECLARE_MTYPE(RFAPI_RFP_GROUP_CFG)
-DECLARE_MTYPE(RFAPI)
-DECLARE_MTYPE(RFAPI_DESC)
-DECLARE_MTYPE(RFAPI_IMPORTTABLE)
-DECLARE_MTYPE(RFAPI_MONITOR)
-DECLARE_MTYPE(RFAPI_MONITOR_ENCAP)
-DECLARE_MTYPE(RFAPI_NEXTHOP)
-DECLARE_MTYPE(RFAPI_VN_OPTION)
-DECLARE_MTYPE(RFAPI_UN_OPTION)
-DECLARE_MTYPE(RFAPI_WITHDRAW)
-DECLARE_MTYPE(RFAPI_RFG_NAME)
-DECLARE_MTYPE(RFAPI_ADB)
-DECLARE_MTYPE(RFAPI_ETI)
-DECLARE_MTYPE(RFAPI_NVE_ADDR)
-DECLARE_MTYPE(RFAPI_PREFIX_BAG)
-DECLARE_MTYPE(RFAPI_IT_EXTRA)
-DECLARE_MTYPE(RFAPI_INFO)
-DECLARE_MTYPE(RFAPI_ADDR)
-DECLARE_MTYPE(RFAPI_UPDATED_RESPONSE_QUEUE)
-DECLARE_MTYPE(RFAPI_RECENT_DELETE)
-DECLARE_MTYPE(RFAPI_L2ADDR_OPT)
-DECLARE_MTYPE(RFAPI_AP)
-DECLARE_MTYPE(RFAPI_MONITOR_ETH)
+DECLARE_MGROUP(RFAPI);
+DECLARE_MTYPE(RFAPI_CFG);
+DECLARE_MTYPE(RFAPI_GROUP_CFG);
+DECLARE_MTYPE(RFAPI_L2_CFG);
+DECLARE_MTYPE(RFAPI_RFP_GROUP_CFG);
+DECLARE_MTYPE(RFAPI);
+DECLARE_MTYPE(RFAPI_DESC);
+DECLARE_MTYPE(RFAPI_IMPORTTABLE);
+DECLARE_MTYPE(RFAPI_MONITOR);
+DECLARE_MTYPE(RFAPI_MONITOR_ENCAP);
+DECLARE_MTYPE(RFAPI_NEXTHOP);
+DECLARE_MTYPE(RFAPI_VN_OPTION);
+DECLARE_MTYPE(RFAPI_UN_OPTION);
+DECLARE_MTYPE(RFAPI_WITHDRAW);
+DECLARE_MTYPE(RFAPI_RFG_NAME);
+DECLARE_MTYPE(RFAPI_ADB);
+DECLARE_MTYPE(RFAPI_ETI);
+DECLARE_MTYPE(RFAPI_NVE_ADDR);
+DECLARE_MTYPE(RFAPI_PREFIX_BAG);
+DECLARE_MTYPE(RFAPI_IT_EXTRA);
+DECLARE_MTYPE(RFAPI_INFO);
+DECLARE_MTYPE(RFAPI_ADDR);
+DECLARE_MTYPE(RFAPI_UPDATED_RESPONSE_QUEUE);
+DECLARE_MTYPE(RFAPI_RECENT_DELETE);
+DECLARE_MTYPE(RFAPI_L2ADDR_OPT);
+DECLARE_MTYPE(RFAPI_AP);
+DECLARE_MTYPE(RFAPI_MONITOR_ETH);
 
 
 /*

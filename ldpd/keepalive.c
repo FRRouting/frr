@@ -37,7 +37,7 @@ send_keepalive(struct nbr *nbr)
 	size -= LDP_HDR_SIZE;
 	gen_msg_hdr(buf, MSG_TYPE_KEEPALIVE, size);
 
-	debug_kalive_send("keepalive: lsr-id %s", inet_ntoa(nbr->id));
+	debug_kalive_send("keepalive: lsr-id %pI4", &nbr->id);
 
 	evbuf_enqueue(&nbr->tcp->wbuf, buf);
 	nbr->stats.kalive_sent++;
@@ -54,7 +54,7 @@ recv_keepalive(struct nbr *nbr, char *buf, uint16_t len)
 		return (-1);
 	}
 
-	debug_kalive_recv("keepalive: lsr-id %s", inet_ntoa(nbr->id));
+	debug_kalive_recv("keepalive: lsr-id %pI4", &nbr->id);
 
 	if (nbr->state != NBR_STA_OPER)
 		nbr_fsm(nbr, NBR_EVT_KEEPALIVE_RCVD);

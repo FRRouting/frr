@@ -1,0 +1,92 @@
+{
+  "10.0.3.0/24": [
+    {
+      "distance": 110,
+      "protocol": "ospf",
+      "metric": 10,
+      "prefix": "10.0.3.0/24",
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "interfaceName": "r2-eth1"
+        }
+      ]
+    },
+    {
+      "distance": 0,
+      "protocol": "connected",
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.0.3.0/24",
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "r2-eth1",
+          "fib": true,
+          "flags": 3,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.254.3/32": [
+    {
+      "distance": 110,
+      "protocol": "ospf",
+      "metric": 20,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.3/32",
+      "nexthops": [
+        {
+          "interfaceName": "r2-eth1",
+          "ip": "10.0.3.1",
+          "fib": true,
+          "flags": 3,
+          "active": true,
+          "afi": "ipv4"
+        }
+      ]
+    }
+  ],
+  "10.254.254.2/32": [
+    {
+      "distance": 0,
+      "protocol": "connected",
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.2/32",
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "lo",
+          "fib": true,
+          "flags": 3,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.254.1/32": [
+    {
+      "distance": 20,
+      "protocol": "bgp",
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.1/32",
+      "nexthops": [
+        {
+          "interfaceName": "r2-eth0",
+          "fib": true,
+          "flags": 3,
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "neighbors":{
+    "192.168.0.2":[
+      {
+        "priority":5,
+        "state":"Full\/Backup"
+      }
+    ],
+    "192.168.0.3":[
+      {
+        "priority":5,
+        "state":"Full\/Backup"
+      }
+    ]
+  }
+}

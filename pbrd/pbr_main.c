@@ -82,6 +82,10 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	pbr_vrf_terminate();
+
+	frr_fini();
+
 	exit(0);
 }
 
@@ -113,7 +117,9 @@ struct quagga_signal_t pbr_signals[] = {
 #define PBR_VTY_PORT 2615
 
 static const struct frr_yang_module_info *const pbrd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
@@ -126,7 +132,8 @@ FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
 		.privs = &pbr_privs,
 
 		.yang_modules = pbrd_yang_modules,
-		.n_yang_modules = array_size(pbrd_yang_modules), )
+		.n_yang_modules = array_size(pbrd_yang_modules),
+);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -146,7 +153,6 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 

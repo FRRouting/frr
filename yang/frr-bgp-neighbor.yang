@@ -1,0 +1,129 @@
+submodule frr-bgp-neighbor {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This submodule contains general data definitions for use in BGP neighbor.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  grouping neighbor-parameters {
+    leaf password {
+      type string {
+        length "1..254";
+      }
+      description
+        "Actual password.";
+    }
+
+    leaf ttl-security {
+      type uint8;
+      description
+        "BGP Time To Live (TTL) security check.";
+      reference
+        "RFC 5082: The Generalized TTL Security Mechanism
+         (GTSM),
+         RFC 7454: BGP Operations and Security.";
+    }
+
+    leaf solo {
+      type boolean;
+      default "false";
+      description
+        "Solo peer - part of its own update group.";
+    }
+
+    leaf enforce-first-as {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' it will enforce the first AS for EBGP routes.";
+    }
+
+    leaf description {
+      type string;
+      description
+        "An optional textual description (intended primarily for use
+         with a peer or group.";
+    }
+
+    leaf passive-mode {
+      type boolean;
+      default "false";
+      description
+        "Don't send open messages to this neighbor.";
+    }
+
+    uses neighbor-update-source;
+
+    uses structure-neighbor-group-ebgp-multihop;
+
+    uses neighbor-local-as-options;
+
+    uses neighbor-bfd-options;
+
+    uses structure-neighbor-group-admin-shutdown;
+
+    uses structure-neighbor-group-graceful-restart;
+
+    uses structure-neighbor-config-timers;
+
+    container afi-safis {
+      description
+        "List of address-families associated with the BGP
+         instance.";
+      list afi-safi {
+        key "afi-safi-name";
+        description
+          "AFI, SAFI configuration available for the
+           neighbour or group.";
+        uses mp-afi-safi-config;
+
+        leaf enabled {
+          type boolean;
+          description
+            "This leaf indicates whether the IPv4 Unicast AFI, SAFI is
+             enabled for the neighbour or group.";
+        }
+
+        uses mp-all-afi-safi-list-contents;
+      }
+    }
+  }
+}

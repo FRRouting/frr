@@ -209,7 +209,7 @@ sock_set_nonblock(int fd)
 
 	flags |= O_NONBLOCK;
 
-	if ((flags = fcntl(fd, F_SETFL, flags)) == -1)
+	if (fcntl(fd, F_SETFL, flags) == -1)
 		fatal("fcntl F_SETFL");
 }
 
@@ -223,7 +223,7 @@ sock_set_cloexec(int fd)
 
 	flags |= FD_CLOEXEC;
 
-	if ((flags = fcntl(fd, F_SETFD, flags)) == -1)
+	if (fcntl(fd, F_SETFD, flags) == -1)
 		fatal("fcntl F_SETFD");
 }
 
@@ -320,7 +320,7 @@ sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password)
 int
 sock_set_ipv4_tos(int fd, int tos)
 {
-	if (setsockopt(fd, IPPROTO_IP, IP_TOS, (int *)&tos, sizeof(tos)) < 0) {
+	if (setsockopt(fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0) {
 		log_warn("%s: error setting IP_TOS to 0x%x", __func__, tos);
 		return (-1);
 	}
@@ -329,7 +329,7 @@ sock_set_ipv4_tos(int fd, int tos)
 }
 
 int
-sock_set_ipv4_recvif(int fd, int enable)
+sock_set_ipv4_recvif(int fd, ifindex_t enable)
 {
 	return (setsockopt_ifindex(AF_INET, fd, enable));
 }

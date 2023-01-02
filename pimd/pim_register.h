@@ -43,5 +43,6 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 			    struct in_addr src, struct in_addr originator);
 void pim_register_join(struct pim_upstream *up);
 void pim_null_register_send(struct pim_upstream *up);
+void pim_reg_del_on_couldreg_fail(struct interface *ifp);
 
 #endif

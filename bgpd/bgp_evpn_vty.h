@@ -28,4 +28,12 @@ extern void bgp_ethernetvpn_init(void);
 #define L2VPN_HELP_STR        "Layer 2 Virtual Private Network\n"
 #define EVPN_HELP_STR        "Ethernet Virtual Private Network\n"
 
+extern int argv_find_and_parse_oly_idx(struct cmd_token **argv, int argc,
+				       int *oly_idx,
+				       enum overlay_index_type *oly);
+
+/* Parse type from "type <ead|1|...>", return -1 on failure */
+extern int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv,
+				   int argc);
+
 #endif /* _QUAGGA_BGP_EVPN_VTY_H */

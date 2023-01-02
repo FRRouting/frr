@@ -143,11 +143,11 @@ extern void rfapiUnicastNexthop2Prefix(afi_t afi, struct attr *attr,
 extern void rfapiBgpInfoFilteredImportVPN(
 	struct rfapi_import_table *import_table, int action, struct peer *peer,
 	void *rfd, /* set for looped back routes */
-	struct prefix *p,
-	struct prefix *aux_prefix, /* AFI_ETHER: optional IP */
+	const struct prefix *p,
+	const struct prefix *aux_prefix, /* AFI_ETHER: optional IP */
 	afi_t afi, struct prefix_rd *prd,
 	struct attr *attr, /* part of bgp_path_info */
-	uint8_t type,      /* part of bgp_path_info */
+	uint8_t type,	   /* part of bgp_path_info */
 	uint8_t sub_type,  /* part of bgp_path_info */
 	uint32_t *label);  /* part of bgp_path_info */
 

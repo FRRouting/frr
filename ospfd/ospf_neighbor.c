@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "lib/bfd.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "memory.h"
@@ -43,6 +44,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_gr.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -98,7 +100,13 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 
 	nbr->crypt_seqnum = 0;
 
-	ospf_bfd_info_nbr_create(oi, nbr);
+	/* Initialize GR Helper info*/
+	nbr->gr_helper_info.recvd_grace_period = 0;
+	nbr->gr_helper_info.actual_grace_period = 0;
+	nbr->gr_helper_info.gr_helper_status = OSPF_GR_NOT_HELPER;
+	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
+	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
+
 	return nbr;
 }
 
@@ -140,7 +148,9 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	thread_cancel_event(master, nbr);
 
-	ospf_bfd_info_free(&nbr->bfd_info);
+	bfd_sess_free(&nbr->bfd_session);
+
+	OSPF_NSM_TIMER_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);
@@ -173,8 +183,8 @@ void ospf_nbr_delete(struct ospf_neighbor *nbr)
 			rn->info = NULL;
 			route_unlock_node(rn);
 		} else
-			zlog_info("Can't find neighbor %s in the interface %s",
-				  inet_ntoa(nbr->src), IF_NAME(oi));
+			zlog_info("Can't find neighbor %pI4 in the interface %s",
+				  &nbr->src, IF_NAME(oi));
 
 		route_unlock_node(rn);
 	} else {
@@ -273,8 +283,8 @@ void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id)
 		/* There is already pseudo neighbor. */
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"router_id %s already present in neighbor table. node refcount %u",
-				inet_ntoa(router_id), rn->lock);
+				"router_id %pI4 already present in neighbor table. node refcount %u",
+				&router_id, route_node_get_lock_count(rn));
 		route_unlock_node(rn);
 	} else
 		rn->info = oi->nbr_self;
@@ -390,12 +400,15 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"Renegotiate optional capabilities with neighbor(%s)",
-					inet_ntoa(nbr->router_id));
+					"Renegotiate optional capabilities with neighbor(%pI4)",
+					&nbr->router_id);
 
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 		}
 	}
+
+	/* Refresh/Re-originate external LSAs (Type-7 and Type-5).*/
+	ospf_external_lsa_rid_change(top);
 
 	return;
 }
@@ -447,9 +460,12 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 	if (ntohs(ospfh->auth_type) == OSPF_AUTH_CRYPTOGRAPHIC)
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
 
+	/* Configure BFD if interface has it. */
+	ospf_neighbor_bfd_apply(nbr);
+
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("NSM[%s:%s]: start", IF_NAME(oi),
-			   inet_ntoa(nbr->router_id));
+		zlog_debug("NSM[%s:%pI4]: start", IF_NAME(oi),
+			   &nbr->router_id);
 
 	return nbr;
 }

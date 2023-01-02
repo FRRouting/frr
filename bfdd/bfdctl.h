@@ -47,7 +47,8 @@ struct sockaddr_any {
 #define BPC_DEF_DETECTMULTIPLIER 3
 #define BPC_DEF_RECEIVEINTERVAL 300  /* milliseconds */
 #define BPC_DEF_TRANSMITINTERVAL 300 /* milliseconds */
-#define BPC_DEF_ECHOINTERVAL 50      /* milliseconds */
+#define BPC_DEF_ECHORECEIVEINTERVAL 50 /* milliseconds */
+#define BPC_DEF_ECHOTRANSMITINTERVAL 50 /* milliseconds */
 
 /* Peer status */
 enum bfd_peer_status {
@@ -81,14 +82,24 @@ struct bfd_peer_cfg {
 	bool bpc_has_txinterval;
 	uint64_t bpc_txinterval;
 
-	bool bpc_has_echointerval;
-	uint64_t bpc_echointerval;
+	bool bpc_has_echorecvinterval;
+	uint64_t bpc_echorecvinterval;
+
+	bool bpc_has_echotxinterval;
+	uint64_t bpc_echotxinterval;
+
+	bool bpc_has_minimum_ttl;
+	uint8_t bpc_minimum_ttl;
 
 	bool bpc_echo;
 	bool bpc_createonly;
 	bool bpc_shutdown;
 
 	bool bpc_cbit;
+	bool bpc_passive;
+
+	bool bpc_has_profile;
+	char bpc_profile[64];
 
 	/* Status information */
 	enum bfd_peer_status bpc_bps;

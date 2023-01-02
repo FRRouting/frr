@@ -31,10 +31,6 @@ The following Build Profiles have been added:
   controls whether the RPKI module is built.
   Will be enabled by default at some point, adds some extra dependencies.
 
-- pkg.frr.nosystemd
-  Disables both systemd unit file installation as well as watchfrr sd_notify
-  support at startup.  Removes libsystemd dependency.
-
 Note that all options have a "no" form;  if you want to have your decision
 be sticky regardless of changes to what it defaults to, then always use one
 of the two.  For example, all occurrences of <pkg.frr.rtrlib> will at some
@@ -42,10 +38,6 @@ point be replaced with <!pkg.frr.nortrlib>.
 
 The main frr package has the exact same contents regardless of rtrlib or snmp
 choices.  The options only control frr-snmp and frr-rpki-rtrlib packages.
-
-The main frr package does NOT have the same contents if pkg.frr.nosystemd is
-used.  This option should only be used for systems that do not have systemd,
-e.g. Ubuntu 14.04.
 
 
 * Debian Policy compliance notes

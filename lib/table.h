@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(ROUTE_NODE)
+DECLARE_MTYPE(ROUTE_NODE);
 
 /*
  * Forward declarations.
@@ -59,7 +59,7 @@ struct route_table_delegate_t_ {
 	route_table_destroy_node_func_t destroy_node;
 };
 
-PREDECL_HASH(rn_hash_node)
+PREDECL_HASH(rn_hash_node);
 
 /* Routing table top structure. */
 struct route_table {
@@ -197,29 +197,25 @@ static inline void route_table_set_info(struct route_table *table, void *d)
 	table->info = d;
 }
 
-/* ext_pure => extern __attribute__((pure))
- *   does not modify memory (but depends on mem), allows compiler to optimize
- */
-
 extern void route_table_finish(struct route_table *table);
-ext_pure struct route_node *route_top(struct route_table *table);
-ext_pure struct route_node *route_next(struct route_node *node);
-ext_pure struct route_node *route_next_until(struct route_node *node,
-					     const struct route_node *limit);
+extern struct route_node *route_top(struct route_table *table);
+extern struct route_node *route_next(struct route_node *node);
+extern struct route_node *route_next_until(struct route_node *node,
+					   const struct route_node *limit);
 extern struct route_node *route_node_get(struct route_table *table,
 					 union prefixconstptr pu);
-ext_pure struct route_node *route_node_lookup(struct route_table *table,
-					      union prefixconstptr pu);
-ext_pure struct route_node *route_node_lookup_maynull(struct route_table *table,
-						      union prefixconstptr pu);
-ext_pure struct route_node *route_node_match(struct route_table *table,
-					     union prefixconstptr pu);
-ext_pure struct route_node *route_node_match_ipv4(struct route_table *table,
-						  const struct in_addr *addr);
-ext_pure struct route_node *route_node_match_ipv6(struct route_table *table,
-						  const struct in6_addr *addr);
+extern struct route_node *route_node_lookup(struct route_table *table,
+					    union prefixconstptr pu);
+extern struct route_node *route_node_lookup_maynull(struct route_table *table,
+						    union prefixconstptr pu);
+extern struct route_node *route_node_match(struct route_table *table,
+					   union prefixconstptr pu);
+extern struct route_node *route_node_match_ipv4(struct route_table *table,
+						const struct in_addr *addr);
+extern struct route_node *route_node_match_ipv6(struct route_table *table,
+						const struct in6_addr *addr);
 
-ext_pure unsigned long route_table_count(struct route_table *table);
+extern unsigned long route_table_count(struct route_table *table);
 
 extern struct route_node *route_node_create(route_table_delegate_t *delegate,
 					    struct route_table *table);
@@ -228,10 +224,10 @@ extern void route_node_destroy(route_table_delegate_t *delegate,
 			       struct route_table *table,
 			       struct route_node *node);
 
-ext_pure struct route_node *route_table_get_next(struct route_table *table,
-						 union prefixconstptr pu);
-ext_pure int route_table_prefix_iter_cmp(const struct prefix *p1,
-					 const struct prefix *p2);
+extern struct route_node *route_table_get_next(struct route_table *table,
+					       union prefixconstptr pu);
+extern int route_table_prefix_iter_cmp(const struct prefix *p1,
+				       const struct prefix *p2);
 
 /*
  * Iterator functions.
@@ -260,6 +256,11 @@ static inline void route_unlock_node(struct route_node *node)
 
 	if (node->lock == 0)
 		route_node_delete(node);
+}
+
+static inline unsigned int route_node_get_lock_count(struct route_node *node)
+{
+	return node->lock;
 }
 
 /*
@@ -330,6 +331,10 @@ static inline int route_table_iter_started(route_table_iter_t *iter)
 {
 	return iter->state != RT_ITER_STATE_INIT;
 }
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pRN"  (struct route_node *)
+#endif
 
 #ifdef __cplusplus
 }

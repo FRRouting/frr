@@ -40,4 +40,5 @@ extern bool pbr_vrf_is_valid(const struct pbr_vrf *pbr_vrf);
 extern bool pbr_vrf_is_enabled(const struct pbr_vrf *pbr_vrf);
 
 extern void pbr_vrf_init(void);
+extern void pbr_vrf_terminate(void);
 #endif

@@ -37,7 +37,6 @@
 #include "lib_errors.h"
 
 #include "zebra_router.h"
-#include "zebra_memory.h"
 #endif /* defined(HAVE_NETLINK) */
 
 #include "zebra_netns_notify.h"
@@ -53,7 +52,7 @@
 #define ZEBRA_NS_POLLING_INTERVAL_MSEC     1000
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
 
-DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo")
+DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
 static struct thread *zebra_netns_notify_current;
 
 struct zebra_netns_info {
@@ -72,13 +71,14 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	char *netnspath = ns_netns_pathname(NULL, name);
 	struct vrf *vrf;
 	int ret;
-	ns_id_t ns_id, ns_id_external;
+	ns_id_t ns_id, ns_id_external, ns_id_relative = NS_UNKNOWN;
+	struct ns *default_ns;
 
 	if (netnspath == NULL)
 		return;
 
 	frr_with_privs(&zserv_privs) {
-		ns_id = zebra_ns_id_get(netnspath);
+		ns_id = zebra_ns_id_get(netnspath, -1);
 	}
 	if (ns_id == NS_UNKNOWN)
 		return;
@@ -97,9 +97,21 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		ns_map_nsid_with_external(ns_id, false);
 		return;
 	}
+
+	default_ns = ns_get_default();
+
+	/* force kernel ns_id creation in that new vrf */
+	frr_with_privs(&zserv_privs) {
+		ns_switch_to_netns(netnspath);
+		ns_id_relative = zebra_ns_id_get(NULL, default_ns->fd);
+		ns_switchback_to_initial();
+	}
+
 	frr_with_privs(&zserv_privs) {
 		ret = vrf_netns_handler_create(NULL, vrf, netnspath,
-					       ns_id_external, ns_id);
+					       ns_id_external,
+					       ns_id,
+					       ns_id_relative);
 	}
 	if (ret != CMD_SUCCESS) {
 		flog_warn(EC_ZEBRA_NS_VRF_CREATION_FAILED,
@@ -137,8 +149,6 @@ static int zebra_ns_delete(char *name)
 			  "NS notify : no VRF found using NS %s", name);
 		return 0;
 	}
-	/* Clear configured flag and invoke delete. */
-	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 	ns = (struct ns *)vrf->ns_ctxt;
 	/* the deletion order is the same
 	 * as the one used when siging signal is received
@@ -153,10 +163,10 @@ static int zebra_ns_delete(char *name)
 
 static int zebra_ns_notify_self_identify(struct stat *netst)
 {
-	char net_path[64];
+	char net_path[PATH_MAX];
 	int netns;
 
-	sprintf(net_path, "/proc/self/ns/net");
+	snprintf(net_path, sizeof(net_path), "/proc/self/ns/net");
 	netns = open(net_path, O_RDONLY);
 	if (netns < 0)
 		return -1;
@@ -172,13 +182,13 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 {
 	struct stat default_netns_stat;
 	struct stat st;
-	char netnspath[64];
+	char netnspath[PATH_MAX];
 
 	if (zebra_ns_notify_self_identify(&default_netns_stat))
 		return false;
 
 	memset(&st, 0, sizeof(struct stat));
-	snprintf(netnspath, 64, "%s/%s", NS_RUN_DIR, name);
+	snprintf(netnspath, sizeof(netnspath), "%s/%s", NS_RUN_DIR, name);
 	/* compare with local stat */
 	if (stat(netnspath, &st) == 0 &&
 	    (st.st_dev == default_netns_stat.st_dev) &&
@@ -217,14 +227,12 @@ static int zebra_ns_ready_read(struct thread *t)
 
 	/* check default name is not already set */
 	if (strmatch(VRF_DEFAULT_NAME, basename(netnspath))) {
-		zlog_warn("NS notify : NS %s is already default VRF."
-			  "Cancel VRF Creation", basename(netnspath));
+		zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", basename(netnspath));
 		return zebra_ns_continue_read(zns_info, 1);
 	}
 	if (zebra_ns_notify_is_default_netns(basename(netnspath))) {
 		zlog_warn(
-			  "NS notify : NS %s is default VRF."
-			  " Updating VRF Name", basename(netnspath));
+			  "NS notify : NS %s is default VRF. Updating VRF Name", basename(netnspath));
 		vrf_set_default_name(basename(netnspath), false);
 		return zebra_ns_continue_read(zns_info, 1);
 	}
@@ -320,14 +328,12 @@ void zebra_ns_notify_parse(void)
 		}
 		/* check default name is not already set */
 		if (strmatch(VRF_DEFAULT_NAME, basename(dent->d_name))) {
-			zlog_warn("NS notify : NS %s is already default VRF."
-				  "Cancel VRF Creation", dent->d_name);
+			zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", dent->d_name);
 			continue;
 		}
 		if (zebra_ns_notify_is_default_netns(dent->d_name)) {
 			zlog_warn(
-				  "NS notify : NS %s is default VRF."
-				  " Updating VRF Name", dent->d_name);
+				  "NS notify : NS %s is default VRF. Updating VRF Name", dent->d_name);
 			vrf_set_default_name(dent->d_name, false);
 			continue;
 		}
@@ -369,7 +375,7 @@ void zebra_ns_notify_close(void)
 		fd = zebra_netns_notify_current->u.fd;
 
 	if (zebra_netns_notify_current->master != NULL)
-		thread_cancel(zebra_netns_notify_current);
+		thread_cancel(&zebra_netns_notify_current);
 
 	/* auto-removal of notify items */
 	if (fd > 0)

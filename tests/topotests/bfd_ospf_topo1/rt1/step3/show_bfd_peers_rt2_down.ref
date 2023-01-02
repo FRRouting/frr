@@ -1,0 +1,15 @@
+[
+  {
+    "peer": "10.0.2.2",
+    "interface": "eth-rt3",
+    "status": "up",
+    "diagnostic": "ok",
+    "remote-diagnostic": "ok"
+  },
+  {
+    "interface": "eth-rt3",
+    "status": "up",
+    "diagnostic": "ok",
+    "remote-diagnostic": "ok"
+  }
+]

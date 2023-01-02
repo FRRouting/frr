@@ -22,7 +22,12 @@
 #define _FRRSTR_H_
 
 #include <sys/types.h>
+#include <sys/types.h>
+#ifdef HAVE_LIBPCREPOSIX
+#include <pcreposix.h>
+#else
 #include <regex.h>
+#endif /* HAVE_LIBPCREPOSIX */
 #include <stdbool.h>
 
 #include "vector.h"
@@ -148,6 +153,26 @@ bool frrstr_endswith(const char *str, const char *suffix);
  *    1 str only contains digit characters, 0 otherwise
  */
 int all_digit(const char *str);
+
+/*
+ * Copy the hexadecimal representation of the string to a buffer.
+ *
+ * buff
+ *    Buffer to copy result into with size of at least (2 * num) + 1.
+ *
+ * bufsiz
+ *    Size of destination buffer.
+ *
+ * str
+ *    String to represent as hexadecimal.
+ *
+ * num
+ *    Number of characters to copy.
+ *
+ * Returns:
+ *    Pointer to buffer containing resulting hexadecimal representation.
+ */
+char *frrstr_hex(char *buff, size_t bufsiz, const uint8_t *str, size_t num);
 
 #ifdef __cplusplus
 }

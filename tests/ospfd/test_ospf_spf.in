@@ -1,0 +1,10 @@
+test ospf topology topo1 root rt1 ti-lfa
+test ospf topology topo1 root rt1 ti-lfa node-protection
+test ospf topology topo2 root rt1 ti-lfa
+test ospf topology topo2 root rt1 ti-lfa node-protection
+test ospf topology topo3 root rt1 ti-lfa
+test ospf topology topo3 root rt1 ti-lfa node-protection
+test ospf topology topo4 root rt1 ti-lfa
+test ospf topology topo4 root rt1 ti-lfa node-protection
+test ospf topology topo5 root rt1 ti-lfa
+test ospf topology topo5 root rt1 ti-lfa node-protection

@@ -115,7 +115,8 @@ void user_config_write(void)
 
 	for (ALL_LIST_ELEMENTS(userlist, node, nnode, user)) {
 		if (user->nopassword) {
-			sprintf(line, "username %s nopassword", user->name);
+			snprintf(line, sizeof(line), "username %s nopassword",
+				 user->name);
 			config_add_line(config_top, line);
 		}
 	}

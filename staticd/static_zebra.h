@@ -19,16 +19,24 @@
 #ifndef __STATIC_ZEBRA_H__
 #define __STATIC_ZEBRA_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct thread_master *master;
 
-extern void static_zebra_nht_register(struct route_node *rn,
-				      struct static_route *si, bool reg);
+extern void static_zebra_nht_register(struct static_nexthop *nh, bool reg);
 
-extern void static_zebra_route_add(struct route_node *rn,
-				   struct static_route *si_changed,
-				   vrf_id_t vrf_id, safi_t safi, bool install);
+extern void static_zebra_route_add(struct static_path *pn, bool install);
 extern void static_zebra_init(void);
+/* static_zebra_stop used by tests/lib/test_grpc.cpp */
+extern void static_zebra_stop(void);
 extern void static_zebra_vrf_register(struct vrf *vrf);
 extern void static_zebra_vrf_unregister(struct vrf *vrf);
+extern int static_zebra_nh_update(struct static_nexthop *nh);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -47,7 +47,7 @@ digraph climodes {
 	CONFIG_NODE -> OSPF_NODE [ label="router ospf [(1-65535)] [vrf NAME]" ];
 	CONFIG_NODE -> OSPF6_NODE [ label="router ospf6" ];
 	CONFIG_NODE -> LDP_NODE [ label="mpls ldp" ];
-	CONFIG_NODE -> ISIS_NODE [ label="router isis WORD" ];
+	CONFIG_NODE -> ISIS_NODE [ label="router isis WORD [vrf NAME]" ];
 	CONFIG_NODE -> RMAP_NODE [ label="route-map WORD <deny|permit> (1-65535)" ];
 	CONFIG_NODE -> PW_NODE [ label="pseudowire IFNAME" ];
 	CONFIG_NODE -> VTY_NODE [ label="line vty" ];

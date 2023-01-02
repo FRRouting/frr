@@ -64,7 +64,6 @@ struct distribute_ctx {
 };
 
 /* Prototypes for distribute-list. */
-extern void distribute_list_init(int node);
 extern struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf);
 extern void distribute_list_delete(struct distribute_ctx **ctx);
 extern void distribute_list_add_hook(struct distribute_ctx *ctx,
@@ -85,6 +84,11 @@ extern enum filter_type distribute_apply_in(struct interface *,
 extern enum filter_type distribute_apply_out(struct interface *,
 					     struct prefix *);
 
+extern int distribute_list_parser(bool prefix, bool v4, const char *dir,
+				  const char *list, const char *ifname);
+extern int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
+				     const char *dir, const char *list,
+				     const char *ifname);
 #ifdef __cplusplus
 }
 #endif

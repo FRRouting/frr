@@ -12,18 +12,54 @@ module frr-ripd {
   import frr-interface {
     prefix frr-interface;
   }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  import frr-route-map {
+    prefix frr-route-map;
+  }
   import frr-route-types {
     prefix frr-route-types;
   }
 
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines a model for managing FRR ripd daemon.";
+    "This module defines a model for managing FRR ripd daemon.
 
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-09-09 {
+    description
+      "Changed interface references to use
+      frr-interface:interface-ref typedef";
+  }
   revision 2017-12-06 {
     description
       "Initial revision.";
@@ -42,7 +78,7 @@ module frr-ripd {
         "RIP routing instance.";
 
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF name.";
       }
@@ -113,9 +149,7 @@ module frr-ripd {
           "Enable RIP on the specified IP network.";
       }
       leaf-list interface {
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
         description
           "Enable RIP on the specified interface.";
       }
@@ -124,7 +158,15 @@ module frr-ripd {
         description
           "Offset-list to modify route metric.";
         leaf interface {
-          type string;
+          type union {
+            type frr-interface:interface-ref;
+            type enumeration {
+              enum '*' {
+                description
+                  "Match all interfaces.";
+              }
+            }
+          }
           description
             "Interface to match. Use '*' to match all interfaces.";
         }
@@ -168,18 +210,14 @@ module frr-ripd {
       }
       leaf-list passive-interface {
         when "../passive-default = 'false'";
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
         description
           "A list of interfaces where the sending of RIP packets
            is disabled.";
       }
       leaf-list non-passive-interface {
         when "../passive-default = 'true'";
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
         description
           "A list of interfaces where the sending of RIP packets
            is enabled.";
@@ -195,9 +233,7 @@ module frr-ripd {
           must '. != "rip"';
         }
         leaf route-map {
-          type string {
-            length "1..max";
-          }
+          type frr-route-map:route-map-ref;
           description
             "Applies the conditions of the specified route-map to
              routes that are redistributed into the RIP routing
@@ -255,6 +291,10 @@ module frr-ripd {
       }
       container version {
         leaf receive {
+          must
+            '(. = "1" and ../send = "1") or ' +
+            '(. = "2" and ../send = "2") or ' +
+            '(. = "1-2" and ../send = "2")';
           type enumeration {
             enum "1" {
               value 1;
@@ -277,6 +317,10 @@ module frr-ripd {
             "Advertisement reception - Version control.";
         }
         leaf send {
+          must
+            '(../receive = "1" and . = "1") or ' +
+            '(../receive = "2" and . = "2") or ' +
+            '(../receive = "1-2" and . = "2")';
           type enumeration {
             enum "1" {
               value 1;
@@ -293,10 +337,6 @@ module frr-ripd {
           description
             "Advertisement transmission - Version control.";
         }
-        must
-          '(./receive = "1" and ./send = "1") or ' +
-          '(./receive = "2" and ./send = "2") or ' +
-          '(./receive = "1-2" and ./send = "2")';
       }
 
       /*
@@ -364,7 +404,7 @@ module frr-ripd {
                 "Next hop IPv4 address.";
             }
             leaf interface {
-              type string;
+              type frr-interface:interface-ref;
               description
                 "The interface that the route uses.";
             }
@@ -555,7 +595,7 @@ module frr-ripd {
 
     input {
       leaf vrf {
-        type string;
+        type frr-vrf:vrf-ref;
         description
           "VRF name identifying a specific RIP instance.
            This leaf is optional for the rpc.
@@ -576,7 +616,7 @@ module frr-ripd {
        receives a PDU with the wrong authentication type
        field.";
     leaf interface-name {
-      type string;
+      type frr-interface:interface-ref;
       description
         "Describes the name of the RIP interface.";
     }
@@ -592,7 +632,7 @@ module frr-ripd {
        receives a PDU with the wrong authentication
        information.";
     leaf interface-name {
-      type string;
+      type frr-interface:interface-ref;
       description
         "Describes the name of the RIP interface.";
     }

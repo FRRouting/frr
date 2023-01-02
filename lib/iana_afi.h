@@ -21,6 +21,10 @@
 
 #include <prefix.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * The above AFI and SAFI definitions are for internal use. The protocol
  * definitions (IANA values) as for example used in BGP protocol packets
@@ -129,5 +133,9 @@ static inline const char *iana_safi2str(iana_safi_t safi)
 {
 	return safi2str(safi_iana2int(safi));
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

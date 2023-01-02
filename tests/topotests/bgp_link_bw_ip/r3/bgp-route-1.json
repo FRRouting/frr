@@ -1,0 +1,29 @@
+{
+  "prefix":"198.10.1.1/32",
+  "paths":[
+    {
+      "aspath":{
+        "string":"65303 65354",
+        "segments":[
+          {
+            "type":"as-sequence",
+            "list":[
+              65303,
+              65354
+            ]
+          }
+        ],
+        "length":2
+      },
+      "valid":true,
+      "extendedCommunity":{
+        "string":"LB:65303:125000 (1.000 Mbps)"
+      },
+      "nexthops":[
+        {
+          "ip":"11.1.3.2"
+        }
+      ]
+    }
+  ]
+}

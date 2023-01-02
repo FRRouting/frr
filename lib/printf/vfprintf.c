@@ -94,7 +94,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 		mbs = initial;
 		nbytes = wcsrtombs(NULL, (const wchar_t **)&p, 0, &mbs);
 		if (nbytes == (size_t)-1)
-			return (NULL);
+			return NULL;
 	} else {
 		/*
 		 * Optimisation: if the output precision is small enough,
@@ -117,7 +117,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 		}
 	}
 	if ((convbuf = malloc(nbytes + 1)) == NULL)
-		return (NULL);
+		return NULL;
 
 	/* Fill the output buffer. */
 	p = wcsarg;
@@ -125,7 +125,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 	if ((nbytes = wcsrtombs(convbuf, (const wchar_t **)&p,
 	    nbytes, &mbs)) == (size_t)-1) {
 		free(convbuf);
-		return (NULL);
+		return NULL;
 	}
 	convbuf[nbytes] = '\0';
 	return (convbuf);
@@ -138,7 +138,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  * write a uintmax_t in octal (plus one byte).
  */
 #if UINTMAX_MAX <= UINT64_MAX
-#define	BUF	64
+#define	BUF	80
 #else
 #error "BUF must be large enough to format a uintmax_t"
 #endif
@@ -147,7 +147,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  * Non-MT-safe version
  */
 ssize_t
-vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
+vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
 {
 	const char *fmt;	/* format string */
 	int ch;			/* character from fmt */
@@ -177,6 +177,9 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 	int nextarg;            /* 1-based argument index */
 	va_list orgap;          /* original argument pointer */
 	char *convbuf;		/* wide to multibyte conversion result */
+	char *extstart = NULL;	/* where printfrr_ext* started printing */
+	struct fbuf cb_copy, *cb;
+	struct fmt_outpos *opos;
 
 	static const char xdigs_lower[16] = "0123456789abcdef";
 	static const char xdigs_upper[16] = "0123456789ABCDEF";
@@ -268,6 +271,16 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 	argtable = NULL;
 	nextarg = 1;
 	va_copy(orgap, ap);
+
+	if (cb_in) {
+		/* prevent printfrr exts from polluting cb->outpos */
+		cb_copy = *cb_in;
+		cb_copy.outpos = NULL;
+		cb_copy.outpos_n = cb_copy.outpos_i = 0;
+		cb = &cb_copy;
+	} else
+		cb = NULL;
+
 	io_init(&io, cb);
 	ret = 0;
 
@@ -292,10 +305,15 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 
 		flags = 0;
 		dprec = 0;
-		width = 0;
+		width = -1;
 		prec = -1;
 		sign = '\0';
 		ox[1] = '\0';
+
+		if (cb_in && cb_in->outpos_i < cb_in->outpos_n)
+			opos = &cb_in->outpos[cb_in->outpos_i];
+		else
+			opos = NULL;
 
 rflag:		ch = *fmt++;
 reswitch:	switch (ch) {
@@ -438,15 +456,24 @@ reswitch:	switch (ch) {
 				ulval = SARG();
 
 			if (printfrr_ext_char(fmt[0])) {
-				n2 = printfrr_exti(buf, sizeof(buf), fmt, prec,
+				struct printfrr_eargs ea = {
+					.fmt = fmt,
+					.precision = prec,
+					.width = width,
+					.alt_repr = !!(flags & ALT),
+					.leftadj = !!(flags & LADJUST),
+				};
+
+				if (cb)
+					extstart = cb->pos;
+
+				size = printfrr_exti(cb, &ea,
 						(flags & INTMAX_SIZE) ? ujval
 						: (uintmax_t)ulval);
-				if (n2 > 0) {
-					fmt += n2;
-					cp = buf;
-					size = strlen(cp);
-					sign = '\0';
-					break;
+				if (size >= 0) {
+					fmt = ea.fmt;
+					width = ea.width;
+					goto ext_printed;
 				}
 			}
 			if (flags & INTMAX_SIZE) {
@@ -503,29 +530,6 @@ reswitch:	switch (ch) {
 			size = (prec >= 0) ? strnlen(cp, prec) : strlen(cp);
 			sign = '\0';
 			break;
-		case 'n':
-			/*
-			 * Assignment-like behavior is specified if the
-			 * value overflows or is otherwise unrepresentable.
-			 * C99 says to use `signed char' for %hhn conversions.
-			 */
-			if (flags & LLONGINT)
-				*GETARG(long long *) = ret;
-			else if (flags & SIZET)
-				*GETARG(ssize_t *) = (ssize_t)ret;
-			else if (flags & PTRDIFFT)
-				*GETARG(ptrdiff_t *) = ret;
-			else if (flags & INTMAXT)
-				*GETARG(intmax_t *) = ret;
-			else if (flags & LONGINT)
-				*GETARG(long *) = ret;
-			else if (flags & SHORTINT)
-				*GETARG(short *) = ret;
-			else if (flags & CHARINT)
-				*GETARG(signed char *) = ret;
-			else
-				*GETARG(int *) = ret;
-			continue;	/* no output */
 		case 'O':
 			flags |= LONGINT;
 			/*FALLTHROUGH*/
@@ -545,14 +549,24 @@ reswitch:	switch (ch) {
 			 *	-- ANSI X3J11
 			 */
 			ptrval = GETARG(void *);
-			if (printfrr_ext_char(fmt[0]) &&
-					(n2 = printfrr_extp(buf, sizeof(buf),
-						fmt, prec, ptrval)) > 0) {
-				fmt += n2;
-				cp = buf;
-				size = strlen(cp);
-				sign = '\0';
-				break;
+			if (printfrr_ext_char(fmt[0])) {
+				struct printfrr_eargs ea = {
+					.fmt = fmt,
+					.precision = prec,
+					.width = width,
+					.alt_repr = !!(flags & ALT),
+					.leftadj = !!(flags & LADJUST),
+				};
+
+				if (cb)
+					extstart = cb->pos;
+
+				size = printfrr_extp(cb, &ea, ptrval);
+				if (size >= 0) {
+					fmt = ea.fmt;
+					width = ea.width;
+					goto ext_printed;
+				}
 			}
 			ujval = (uintmax_t)(uintptr_t)ptrval;
 			base = 16;
@@ -656,6 +670,7 @@ number:			if ((dprec = prec) >= 0)
 			cp = buf;
 			size = 1;
 			sign = '\0';
+			opos = NULL;
 			break;
 		}
 
@@ -673,6 +688,9 @@ number:			if ((dprec = prec) >= 0)
 		 * Compute actual size, so we know how much to pad.
 		 * size excludes decimal prec; realsz includes it.
 		 */
+		if (width < 0)
+			width = 0;
+
 		realsz = dprec > size ? dprec : size;
 		if (sign)
 			realsz++;
@@ -680,7 +698,7 @@ number:			if ((dprec = prec) >= 0)
 			realsz += 2;
 
 		prsize = width > realsz ? width : realsz;
-		if ((unsigned)ret + prsize > INT_MAX) {
+		if ((unsigned int)ret + prsize > INT_MAX) {
 			ret = EOF;
 			errno = EOVERFLOW;
 			goto error;
@@ -689,6 +707,9 @@ number:			if ((dprec = prec) >= 0)
 		/* right-adjusting blank padding */
 		if ((flags & (LADJUST|ZEROPAD)) == 0)
 			PAD(width - realsz, blanks);
+
+		if (opos)
+			opos->off_start = cb->pos - cb->buf;
 
 		/* prefix */
 		if (sign)
@@ -707,6 +728,74 @@ number:			if ((dprec = prec) >= 0)
 		/* leading zeroes from decimal precision */
 		PAD(dprec - size, zeroes);
 		PRINT(cp, size);
+
+		if (opos) {
+			opos->off_end = cb->pos - cb->buf;
+			cb_in->outpos_i++;
+		}
+
+		/* left-adjusting padding (always blank) */
+		if (flags & LADJUST)
+			PAD(width - realsz, blanks);
+
+		/* finally, adjust ret */
+		ret += prsize;
+
+		FLUSH();	/* copy out the I/O vectors */
+		continue;
+
+ext_printed:
+		/* when we arrive here, a printfrr extension has written to cb
+		 * (if non-NULL), but we still need to handle padding.  The
+		 * original cb->pos is in extstart;  the return value from the
+		 * ext is in size.
+		 *
+		 * Keep analogous to code above please.
+		 */
+
+		if (width < 0)
+			width = 0;
+
+		realsz = size;
+		prsize = width > realsz ? width : realsz;
+		if ((unsigned int)ret + prsize > INT_MAX) {
+			ret = EOF;
+			errno = EOVERFLOW;
+			goto error;
+		}
+
+		/* right-adjusting blank padding - need to move the chars
+		 * that the extension has already written.  Should be very
+		 * rare.
+		 */
+		if (cb && width > size && (flags & (LADJUST|ZEROPAD)) == 0) {
+			size_t nwritten = cb->pos - extstart;
+			size_t navail = cb->buf + cb->len - extstart;
+			size_t npad = width - realsz;
+			size_t nmove;
+
+			if (navail < npad)
+				navail = 0;
+			else
+				navail -= npad;
+			nmove = MIN(nwritten, navail);
+
+			memmove(extstart + npad, extstart, nmove);
+
+			cb->pos = extstart;
+			PAD(npad, blanks);
+			cb->pos += nmove;
+			extstart += npad;
+		}
+
+		io.avail = cb ? cb->len - (cb->pos - cb->buf) : 0;
+
+		if (opos && extstart <= cb->pos) {
+			opos->off_start = extstart - cb->buf;
+			opos->off_end = cb->pos - cb->buf;
+			cb_in->outpos_i++;
+		}
+
 		/* left-adjusting padding (always blank) */
 		if (flags & LADJUST)
 			PAD(width - realsz, blanks);
@@ -724,6 +813,8 @@ error:
 		free(convbuf);
 	if ((argtable != NULL) && (argtable != statargtable))
 		free (argtable);
+	if (cb_in)
+		cb_in->pos = cb->pos;
 	return (ret);
 	/* NOTREACHED */
 }

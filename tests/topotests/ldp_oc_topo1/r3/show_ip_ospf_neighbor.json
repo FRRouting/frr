@@ -1,0 +1,20 @@
+{
+  "neighbors":{
+    "2.2.2.2":[
+      {
+        "priority":1,
+        "state":"Full\/DROther",
+        "address":"10.0.2.2",
+        "ifaceName":"r3-eth0:10.0.2.3"
+      }
+    ],
+    "4.4.4.4":[
+      {
+        "priority":3,
+        "state":"Full\/DR",
+        "address":"10.0.2.4",
+        "ifaceName":"r3-eth0:10.0.2.3"
+      }
+    ]
+  }
+}

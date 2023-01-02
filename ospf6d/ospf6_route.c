@@ -37,6 +37,14 @@
 #include "ospf6_interface.h"
 #include "ospf6d.h"
 #include "ospf6_zebra.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_route_clippy.c"
+#endif
+
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEXTHOP, "OSPF6 nexthop");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PATH,    "OSPF6 Path");
 
 unsigned char conf_debug_ospf6_route = 0;
 
@@ -163,6 +171,10 @@ const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] = {
 	"??", "IA", "IE", "E1", "E2",
 };
 
+const char *ospf6_path_type_json[OSPF6_PATH_TYPE_MAX] = {
+	"UnknownRoute", "IntraArea", "InterArea", "External1", "External2",
+};
+
 
 struct ospf6_nexthop *ospf6_nexthop_create(void)
 {
@@ -275,12 +287,21 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 	struct ospf6_nexthop nh_match;
 
 	if (nh_list) {
-		nh_match.ifindex = ifindex;
-		if (addr != NULL)
+		if (addr) {
+			if (ifindex)
+				nh_match.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			else
+				nh_match.type = NEXTHOP_TYPE_IPV6;
+
 			memcpy(&nh_match.address, addr,
 			       sizeof(struct in6_addr));
-		else
+		} else {
+			nh_match.type = NEXTHOP_TYPE_IFINDEX;
+
 			memset(&nh_match.address, 0, sizeof(struct in6_addr));
+		}
+
+		nh_match.ifindex = ifindex;
 
 		if (!ospf6_route_find_nexthop(nh_list, &nh_match)) {
 			nh = ospf6_nexthop_create();
@@ -290,37 +311,76 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 	}
 }
 
+void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route)
+{
+	struct ospf6_nexthop *nh;
+	struct ospf6_nexthop nh_match = {};
+
+	/* List not allocated. */
+	if (route->nh_list == NULL)
+		return;
+
+	/* Entry already exists. */
+	nh_match.type = NEXTHOP_TYPE_BLACKHOLE;
+	if (ospf6_route_find_nexthop(route->nh_list, &nh_match))
+		return;
+
+	nh = ospf6_nexthop_create();
+	ospf6_nexthop_copy(nh, &nh_match);
+	listnode_add(route->nh_list, nh);
+}
+
 void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				     struct zapi_nexthop nexthops[],
-				     int entries)
+				     int entries, vrf_id_t vrf_id)
 {
 	struct ospf6_nexthop *nh;
 	struct listnode *node;
-	char buf[64];
 	int i;
 
 	if (route) {
 		i = 0;
 		for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 			if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-				const char *ifname;
-				inet_ntop(AF_INET6, &nh->address, buf,
-					  sizeof(buf));
-				ifname = ifindex2ifname(nh->ifindex,
-							VRF_DEFAULT);
-				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
-					   IFNAMSIZ, ifname, nh->ifindex);
+				zlog_debug("  nexthop: %s %pI6%%%.*s(%d)",
+					   nexthop_type_to_str(nh->type),
+					   &nh->address, IFNAMSIZ,
+					   ifindex2ifname(nh->ifindex, vrf_id),
+					   nh->ifindex);
 			}
+
 			if (i >= entries)
 				return;
 
-			nexthops[i].vrf_id = VRF_DEFAULT;
-			nexthops[i].ifindex = nh->ifindex;
-			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
+			nexthops[i].vrf_id = vrf_id;
+			nexthops[i].type = nh->type;
+
+			switch (nh->type) {
+			case NEXTHOP_TYPE_BLACKHOLE:
+				/* NOTHING */
+				break;
+
+			case NEXTHOP_TYPE_IFINDEX:
+				nexthops[i].ifindex = nh->ifindex;
+				break;
+
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_IPV4:
+				/*
+				 * OSPFv3 with IPv4 routes is not supported
+				 * yet. Skip this next hop.
+				 */
+				if (IS_OSPF6_DEBUG_ZEBRA(SEND))
+					zlog_debug("  Skipping IPv4 next hop");
+				continue;
+
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				nexthops[i].ifindex = nh->ifindex;
+				/* FALLTHROUGH */
+			case NEXTHOP_TYPE_IPV6:
 				nexthops[i].gate.ipv6 = nh->address;
-				nexthops[i].type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			} else
-				nexthops[i].type = NEXTHOP_TYPE_IFINDEX;
+				break;
+			}
 			i++;
 		}
 	}
@@ -336,7 +396,7 @@ int ospf6_route_get_first_nh_index(struct ospf6_route *route)
 			return nh->ifindex;
 	}
 
-	return (-1);
+	return -1;
 }
 
 int ospf6_nexthop_cmp(struct ospf6_nexthop *a, struct ospf6_nexthop *b)
@@ -396,9 +456,10 @@ void ospf6_copy_paths(struct list *dst, struct list *src)
 	}
 }
 
-struct ospf6_route *ospf6_route_create(void)
+struct ospf6_route *ospf6_route_create(struct ospf6 *ospf6)
 {
 	struct ospf6_route *route;
+
 	route = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route));
 	route->nh_list = list_new();
 	route->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
@@ -406,6 +467,8 @@ struct ospf6_route *ospf6_route_create(void)
 	route->paths = list_new();
 	route->paths->cmp = (int (*)(void *, void *))ospf6_path_cmp;
 	route->paths->del = (void (*)(void *))ospf6_path_free;
+	route->ospf6 = ospf6;
+
 	return route;
 }
 
@@ -424,9 +487,10 @@ struct ospf6_route *ospf6_route_copy(struct ospf6_route *route)
 {
 	struct ospf6_route *new;
 
-	new = ospf6_route_create();
+	new = ospf6_route_create(route->ospf6);
 	new->type = route->type;
 	memcpy(&new->prefix, &route->prefix, sizeof(struct prefix));
+	new->prefix_options = route->prefix_options;
 	new->installed = route->installed;
 	new->changed = route->changed;
 	new->flag = route->flag;
@@ -550,7 +614,6 @@ ospf6_route_lookup_bestmatch(struct prefix *prefix,
 static void route_table_assert(struct ospf6_route_table *table)
 {
 	struct ospf6_route *prev, *r, *next;
-	char buf[PREFIX2STR_BUFFER];
 	unsigned int link_error = 0, num = 0;
 
 	r = ospf6_route_head(table);
@@ -579,10 +642,9 @@ static void route_table_assert(struct ospf6_route_table *table)
 		 "Something has gone wrong with ospf6_route_table[%p]", table);
 	zlog_debug("table count = %d, real number = %d", table->count, num);
 	zlog_debug("DUMP START");
-	for (r = ospf6_route_head(table); r; r = ospf6_route_next(r)) {
-		prefix2str(&r->prefix, buf, sizeof(buf));
-		zlog_info("%p<-[%p]->%p : %s", r->prev, r, r->next, buf);
-	}
+	for (r = ospf6_route_head(table); r; r = ospf6_route_next(r))
+		zlog_info("%p<-[%p]->%p : %pFX", r->prev, r, r->next,
+			  &r->prefix);
 	zlog_debug("DUMP END");
 
 	assert(link_error == 0 && num == table->count);
@@ -608,6 +670,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
 		ospf6_linkstate_prefix2str(&route->prefix, buf, sizeof(buf));
+	else if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+			  sizeof(buf));
 	else
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
@@ -681,6 +746,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		if (node->info == old) {
 			node->info = route;
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug("%s:  replace old route %s",
+					   __func__, buf);
 		}
 
 		if (old->prev)
@@ -714,7 +782,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 				"%s %p: route add %p cost %u: another path: prev %p, next %p node ref %u",
 				ospf6_route_table_name(table), (void *)table,
 				(void *)route, route->path.cost, (void *)prev,
-				(void *)next, node->lock);
+				(void *)next, route_node_get_lock_count(node));
 		else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 			zlog_debug("%s: route add cost %u: another path found",
 				   ospf6_route_table_name(table),
@@ -738,12 +806,12 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 			UNSET_FLAG(next->flag, OSPF6_ROUTE_BEST);
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
 			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-				zlog_info(
+				zlog_debug(
 					"%s %p: route add %p cost %u: replacing previous best: %p cost %u",
 					ospf6_route_table_name(table),
 					(void *)table, (void *)route,
-					route->path.cost,
-					(void *)next, next->path.cost);
+					route->path.cost, (void *)next,
+					next->path.cost);
 		}
 
 		route->installed = now;
@@ -837,6 +905,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 
 	if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
 		ospf6_linkstate_prefix2str(&route->prefix, buf, sizeof(buf));
+	else if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+			  sizeof(buf));
 	else
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
@@ -869,6 +940,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 		if (route->next && route->next->rnode == node) {
 			node->info = route->next;
 			SET_FLAG(route->next->flag, OSPF6_ROUTE_BEST);
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug("%s: remove route %s", __func__,
+					   buf);
 		} else {
 			node->info = NULL;
 			route->rnode = NULL;
@@ -1015,7 +1089,8 @@ void ospf6_route_remove_all(struct ospf6_route_table *table)
 struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 {
 	struct ospf6_route_table *new;
-	new = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route_table));
+	new = XCALLOC(MTYPE_OSPF6_ROUTE_TABLE,
+		      sizeof(struct ospf6_route_table));
 	new->table = route_table_init();
 	new->scope_type = s;
 	new->table_type = t;
@@ -1027,20 +1102,23 @@ void ospf6_route_table_delete(struct ospf6_route_table *table)
 	ospf6_route_remove_all(table);
 	bf_free(table->idspace);
 	route_table_finish(table->table);
-	XFREE(MTYPE_OSPF6_ROUTE, table);
+	XFREE(MTYPE_OSPF6_ROUTE_TABLE, table);
 }
 
 
 /* VTY commands */
-void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
+void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
+		      json_object *json_routes, bool use_json)
 {
 	int i;
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char duration[64];
-	const char *ifname;
 	struct timeval now, res;
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
+	json_object *json_route = NULL;
+	json_object *json_array_next_hops = NULL;
+	json_object *json_next_hop;
 
 	monotime(&now);
 	timersub(&now, &route->changed, &res);
@@ -1056,35 +1134,74 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 	else
 		prefix2str(&route->prefix, destination, sizeof(destination));
 
-	i = 0;
+	if (use_json) {
+		json_route = json_object_new_object();
+		json_object_boolean_add(json_route, "isBestRoute",
+					ospf6_route_is_best(route));
+		json_object_string_add(json_route, "destinationType",
+				       OSPF6_DEST_TYPE_SUBSTR(route->type));
+		json_object_string_add(
+			json_route, "pathType",
+			OSPF6_PATH_TYPE_SUBSTR(route->path.type));
+		json_object_string_add(json_route, "duration", duration);
+	}
+
+	/* Nexthops */
+	if (use_json)
+		json_array_next_hops = json_object_new_array();
+	else
+		i = 0;
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
+		struct interface *ifp;
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
-
-		if (!i) {
-			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
-				(ospf6_route_is_best(route) ? '*' : ' '),
-				OSPF6_DEST_TYPE_SUBSTR(route->type),
-				OSPF6_PATH_TYPE_SUBSTR(route->path.type),
-				destination, nexthop, IFNAMSIZ, ifname,
-				duration);
-			i++;
-		} else
-			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n", ' ',
-				"", "", "", nexthop, IFNAMSIZ, ifname, "");
+		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
+		if (use_json) {
+			json_next_hop = json_object_new_object();
+			json_object_string_add(json_next_hop, "nextHop",
+					       nexthop);
+			json_object_string_add(json_next_hop, "interfaceName",
+					       ifp->name);
+			json_object_array_add(json_array_next_hops,
+					      json_next_hop);
+		} else {
+			if (!i) {
+				vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
+					(ospf6_route_is_best(route) ? '*'
+								    : ' '),
+					OSPF6_DEST_TYPE_SUBSTR(route->type),
+					OSPF6_PATH_TYPE_SUBSTR(
+						route->path.type),
+					destination, nexthop, IFNAMSIZ,
+					ifp->name, duration);
+				i++;
+			} else
+				vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
+					' ', "", "", "", nexthop, IFNAMSIZ,
+					ifp->name, "");
+		}
+	}
+	if (use_json) {
+		json_object_object_add(json_route, "nextHops",
+				       json_array_next_hops);
+		json_object_object_add(json_routes, destination, json_route);
 	}
 }
 
-void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
+void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
+			     json_object *json_routes, bool use_json)
 {
-	const char *ifname;
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
+	char pfx_options[16];
 	struct timeval now, res;
 	char duration[64];
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
+	char flag[6];
+	json_object *json_route = NULL;
+	json_object *json_array_next_hops = NULL;
+	json_object *json_next_hop;
 
 	monotime(&now);
 
@@ -1097,83 +1214,179 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 			  destination, sizeof(destination));
 	else
 		prefix2str(&route->prefix, destination, sizeof(destination));
-	vty_out(vty, "Destination: %s\n", destination);
 
-	/* destination type */
-	vty_out(vty, "Destination type: %s\n",
-		OSPF6_DEST_TYPE_NAME(route->type));
+	if (use_json) {
+		json_route = json_object_new_object();
+		json_object_string_add(json_route, "destinationType",
+				       OSPF6_DEST_TYPE_NAME(route->type));
+	} else {
+		vty_out(vty, "Destination: %s\n", destination);
+		vty_out(vty, "Destination type: %s\n",
+			OSPF6_DEST_TYPE_NAME(route->type));
+	}
 
 	/* Time */
 	timersub(&now, &route->installed, &res);
 	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty, "Installed Time: %s ago\n", duration);
+	if (use_json)
+		json_object_string_add(json_route, "installedTimeSince",
+				       duration);
+	else
+		vty_out(vty, "Installed Time: %s ago\n", duration);
 
 	timersub(&now, &route->changed, &res);
 	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty, "  Changed Time: %s ago\n", duration);
+	if (use_json)
+		json_object_string_add(json_route, "changedTimeSince",
+				       duration);
+	else
+		vty_out(vty, "Changed Time: %s ago\n", duration);
 
 	/* Debugging info */
-	vty_out(vty, "Lock: %d Flags: %s%s%s%s\n", route->lock,
-		(CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST) ? "B" : "-"),
-		(CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD) ? "A" : "-"),
-		(CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE) ? "R" : "-"),
-		(CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE) ? "C" : "-"));
-	vty_out(vty, "Memory: prev: %p this: %p next: %p\n",
-		(void *)route->prev, (void *)route, (void *)route->next);
+	if (use_json) {
+		json_object_int_add(json_route, "numberOfLock", route->lock);
+		snprintf(
+			flag, sizeof(flag), "%s%s%s%s",
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST) ? "B" : "-"),
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD) ? "A" : "-"),
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE) ? "R"
+								     : "-"),
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE) ? "C"
+								     : "-"));
+		json_object_string_add(json_route, "flags", flag);
+	} else {
+		vty_out(vty, "Lock: %d Flags: %s%s%s%s\n", route->lock,
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST) ? "B" : "-"),
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD) ? "A" : "-"),
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE) ? "R"
+								     : "-"),
+			(CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE) ? "C"
+								     : "-"));
+		vty_out(vty, "Memory: prev: %p this: %p next: %p\n",
+			(void *)route->prev, (void *)route,
+			(void *)route->next);
+	}
 
 	/* Path section */
 
 	/* Area-ID */
 	inet_ntop(AF_INET, &route->path.area_id, area_id, sizeof(area_id));
-	vty_out(vty, "Associated Area: %s\n", area_id);
+	if (use_json)
+		json_object_string_add(json_route, "associatedArea", area_id);
+	else
+		vty_out(vty, "Associated Area: %s\n", area_id);
 
 	/* Path type */
-	vty_out(vty, "Path Type: %s\n", OSPF6_PATH_TYPE_NAME(route->path.type));
+	if (use_json)
+		json_object_string_add(json_route, "pathType",
+				       OSPF6_PATH_TYPE_NAME(route->path.type));
+	else
+		vty_out(vty, "Path Type: %s\n",
+			OSPF6_PATH_TYPE_NAME(route->path.type));
 
 	/* LS Origin */
 	inet_ntop(AF_INET, &route->path.origin.id, id, sizeof(id));
 	inet_ntop(AF_INET, &route->path.origin.adv_router, adv_router,
 		  sizeof(adv_router));
-	vty_out(vty, "LS Origin: %s Id: %s Adv: %s\n",
-		ospf6_lstype_name(route->path.origin.type), id, adv_router);
+	if (use_json) {
+		json_object_string_add(
+			json_route, "lsOriginRoutePathType",
+			ospf6_lstype_name(route->path.origin.type));
+		json_object_string_add(json_route, "lsId", id);
+		json_object_string_add(json_route, "lsAdvertisingRouter",
+				       adv_router);
+	} else {
+		vty_out(vty, "LS Origin: %s Id: %s Adv: %s\n",
+			ospf6_lstype_name(route->path.origin.type), id,
+			adv_router);
+	}
 
 	/* Options */
 	ospf6_options_printbuf(route->path.options, options, sizeof(options));
-	vty_out(vty, "Options: %s\n", options);
+	if (use_json)
+		json_object_string_add(json_route, "options", options);
+	else
+		vty_out(vty, "Options: %s\n", options);
 
 	/* Router Bits */
 	ospf6_capability_printbuf(route->path.router_bits, capa, sizeof(capa));
-	vty_out(vty, "Router Bits: %s\n", capa);
+	if (use_json)
+		json_object_string_add(json_route, "routerBits", capa);
+	else
+		vty_out(vty, "Router Bits: %s\n", capa);
 
 	/* Prefix Options */
-	vty_out(vty, "Prefix Options: xxx\n");
+	ospf6_prefix_options_printbuf(route->prefix_options, pfx_options,
+				      sizeof(pfx_options));
+	if (use_json)
+		json_object_string_add(json_route, "prefixOptions",
+				       pfx_options);
+	else
+		vty_out(vty, "Prefix Options: %s\n", pfx_options);
 
 	/* Metrics */
-	vty_out(vty, "Metric Type: %d\n", route->path.metric_type);
-	vty_out(vty, "Metric: %d (%d)\n", route->path.cost,
-		route->path.u.cost_e2);
+	if (use_json) {
+		json_object_int_add(json_route, "metricType",
+				    route->path.metric_type);
+		json_object_int_add(json_route, "metricCost", route->path.cost);
+		json_object_int_add(json_route, "metricCostE2",
+				    route->path.u.cost_e2);
 
-	vty_out(vty, "Paths count: %u\n", route->paths->count);
-	vty_out(vty, "Nexthop count: %u\n", route->nh_list->count);
-	/* Nexthops */
-	vty_out(vty, "Nexthop:\n");
-	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
-		/* nexthop */
-		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
-		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifname);
+		json_object_int_add(json_route, "pathsCount",
+				    route->paths->count);
+		json_object_int_add(json_route, "nextHopCount",
+				    route->nh_list->count);
+	} else {
+		vty_out(vty, "Metric Type: %d\n", route->path.metric_type);
+		vty_out(vty, "Metric: %d (%d)\n", route->path.cost,
+			route->path.u.cost_e2);
+
+		vty_out(vty, "Paths count: %u\n", route->paths->count);
+		vty_out(vty, "Nexthop count: %u\n", route->nh_list->count);
 	}
-	vty_out(vty, "\n");
+
+	/* Nexthops */
+	if (use_json)
+		json_array_next_hops = json_object_new_array();
+	else
+		vty_out(vty, "Nexthop:\n");
+
+	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
+		struct interface *ifp;
+		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
+		/* nexthop */
+		if (use_json) {
+			inet_ntop(AF_INET6, &nh->address, nexthop,
+				  sizeof(nexthop));
+			json_next_hop = json_object_new_object();
+			json_object_string_add(json_next_hop, "nextHop",
+					       nexthop);
+			json_object_string_add(json_next_hop, "interfaceName",
+					       ifp->name);
+			json_object_array_add(json_array_next_hops,
+					      json_next_hop);
+		} else
+			vty_out(vty, "  %pI6 %.*s\n", &nh->address, IFNAMSIZ,
+				ifp->name);
+	}
+	if (use_json) {
+		json_object_object_add(json_route, "nextHops",
+				       json_array_next_hops);
+		json_object_object_add(json_routes, destination, json_route);
+	} else
+		vty_out(vty, "\n");
 }
 
 static void ospf6_route_show_table_summary(struct vty *vty,
-					   struct ospf6_route_table *table)
+					   struct ospf6_route_table *table,
+					   json_object *json, bool use_json)
 {
 	struct ospf6_route *route, *prev = NULL;
 	int i, pathtype[OSPF6_PATH_TYPE_MAX];
 	unsigned int number = 0;
 	int nh_count = 0, nhinval = 0, ecmp = 0;
 	int alternative = 0, destination = 0;
+	char path_str[30];
 
 	for (i = 0; i < OSPF6_PATH_TYPE_MAX; i++)
 		pathtype[i] = 0;
@@ -1196,111 +1409,159 @@ static void ospf6_route_show_table_summary(struct vty *vty,
 	}
 
 	assert(number == table->count);
-
-	vty_out(vty, "Number of OSPFv3 routes: %d\n", number);
-	vty_out(vty, "Number of Destination: %d\n", destination);
-	vty_out(vty, "Number of Alternative routes: %d\n", alternative);
-	vty_out(vty, "Number of Equal Cost Multi Path: %d\n", ecmp);
+	if (use_json) {
+		json_object_int_add(json, "numberOfOspfv3Routes", number);
+		json_object_int_add(json, "numberOfDestination", destination);
+		json_object_int_add(json, "numberOfAlternativeRoutes",
+				    alternative);
+		json_object_int_add(json, "numberOfEcmp", ecmp);
+	} else {
+		vty_out(vty, "Number of OSPFv3 routes: %d\n", number);
+		vty_out(vty, "Number of Destination: %d\n", destination);
+		vty_out(vty, "Number of Alternative routes: %d\n", alternative);
+		vty_out(vty, "Number of Equal Cost Multi Path: %d\n", ecmp);
+	}
 	for (i = OSPF6_PATH_TYPE_INTRA; i <= OSPF6_PATH_TYPE_EXTERNAL2; i++) {
-		vty_out(vty, "Number of %s routes: %d\n",
-			OSPF6_PATH_TYPE_NAME(i), pathtype[i]);
+		if (use_json) {
+			snprintf(path_str, sizeof(path_str), "numberOf%sRoutes",
+				 OSPF6_PATH_TYPE_JSON(i));
+			json_object_int_add(json, path_str, pathtype[i]);
+		} else
+			vty_out(vty, "Number of %s routes: %d\n",
+				OSPF6_PATH_TYPE_NAME(i), pathtype[i]);
 	}
 }
 
 static void ospf6_route_show_table_prefix(struct vty *vty,
 					  struct prefix *prefix,
-					  struct ospf6_route_table *table)
+					  struct ospf6_route_table *table,
+					  json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_lookup(prefix, table);
 	if (route == NULL)
 		return;
 
+	if (use_json)
+		json_routes = json_object_new_object();
 	ospf6_route_lock(route);
 	while (route && ospf6_route_is_prefix(prefix, route)) {
 		/* Specifying a prefix will always display details */
-		ospf6_route_show_detail(vty, route);
+		ospf6_route_show_detail(vty, route, json_routes, use_json);
 		route = ospf6_route_next(route);
 	}
+
+	if (use_json)
+		json_object_object_add(json, "routes", json_routes);
 	if (route)
 		ospf6_route_unlock(route);
 }
 
 static void ospf6_route_show_table_address(struct vty *vty,
 					   struct prefix *prefix,
-					   struct ospf6_route_table *table)
+					   struct ospf6_route_table *table,
+					   json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_lookup_bestmatch(prefix, table);
 	if (route == NULL)
 		return;
 
+	if (use_json)
+		json_routes = json_object_new_object();
 	prefix = &route->prefix;
 	ospf6_route_lock(route);
 	while (route && ospf6_route_is_prefix(prefix, route)) {
 		/* Specifying a prefix will always display details */
-		ospf6_route_show_detail(vty, route);
+		ospf6_route_show_detail(vty, route, json_routes, use_json);
 		route = ospf6_route_next(route);
 	}
+	if (use_json)
+		json_object_object_add(json, "routes", json_routes);
 	if (route)
 		ospf6_route_unlock(route);
 }
 
 static void ospf6_route_show_table_match(struct vty *vty, int detail,
 					 struct prefix *prefix,
-					 struct ospf6_route_table *table)
+					 struct ospf6_route_table *table,
+					 json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
+	json_object *json_routes = NULL;
+
 	assert(prefix->family);
 
 	route = ospf6_route_match_head(prefix, table);
+	if (use_json)
+		json_routes = json_object_new_object();
 	while (route) {
 		if (detail)
-			ospf6_route_show_detail(vty, route);
+			ospf6_route_show_detail(vty, route, json_routes,
+						use_json);
 		else
-			ospf6_route_show(vty, route);
+			ospf6_route_show(vty, route, json_routes, use_json);
 		route = ospf6_route_match_next(prefix, route);
 	}
+	if (use_json)
+		json_object_object_add(json, "routes", json_routes);
 }
 
 static void ospf6_route_show_table_type(struct vty *vty, int detail,
 					uint8_t type,
-					struct ospf6_route_table *table)
+					struct ospf6_route_table *table,
+					json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_head(table);
+	if (use_json)
+		json_routes = json_object_new_object();
 	while (route) {
 		if (route->path.type == type) {
 			if (detail)
-				ospf6_route_show_detail(vty, route);
+				ospf6_route_show_detail(vty, route, json_routes,
+							use_json);
 			else
-				ospf6_route_show(vty, route);
+				ospf6_route_show(vty, route, json_routes,
+						 use_json);
 		}
 		route = ospf6_route_next(route);
 	}
+	if (use_json)
+		json_object_object_add(json, "routes", json_routes);
 }
 
 static void ospf6_route_show_table(struct vty *vty, int detail,
-				   struct ospf6_route_table *table)
+				   struct ospf6_route_table *table,
+				   json_object *json, bool use_json)
 {
 	struct ospf6_route *route;
+	json_object *json_routes = NULL;
 
 	route = ospf6_route_head(table);
+	if (use_json)
+		json_routes = json_object_new_object();
 	while (route) {
 		if (detail)
-			ospf6_route_show_detail(vty, route);
+			ospf6_route_show_detail(vty, route, json_routes,
+						use_json);
 		else
-			ospf6_route_show(vty, route);
+			ospf6_route_show(vty, route, json_routes, use_json);
 		route = ospf6_route_next(route);
 	}
+	if (use_json)
+		json_object_object_add(json, "routes", json_routes);
 }
 
 int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 			   struct cmd_token **argv,
-			   struct ospf6_route_table *table)
+			   struct ospf6_route_table *table, bool use_json)
 {
 	int summary = 0;
 	int match = 0;
@@ -1310,10 +1571,15 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	int i, ret;
 	struct prefix prefix;
 	uint8_t type = 0;
+	int arg_end = use_json ? (argc - 1) : argc;
+	json_object *json = NULL;
 
 	memset(&prefix, 0, sizeof(struct prefix));
 
-	for (i = argc_start; i < argc; i++) {
+	if (use_json)
+		json = json_object_new_object();
+
+	for (i = argc_start; i < arg_end; i++) {
 		if (strmatch(argv[i]->text, "summary")) {
 			summary++;
 			continue;
@@ -1356,14 +1622,24 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 				slash++;
 			continue;
 		}
+		if (use_json)
+			json_object_string_add(json, "malformedArgument",
+					       argv[i]->arg);
+		else
+			vty_out(vty, "Malformed argument: %s\n", argv[i]->arg);
 
-		vty_out(vty, "Malformed argument: %s\n", argv[i]->arg);
 		return CMD_SUCCESS;
 	}
 
 	/* Give summary of this route table */
 	if (summary) {
-		ospf6_route_show_table_summary(vty, table);
+		ospf6_route_show_table_summary(vty, table, json, use_json);
+		if (use_json) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		}
 		return CMD_SUCCESS;
 	}
 
@@ -1371,20 +1647,36 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	if (isprefix && !match) {
 		/* If exact address, give best matching route */
 		if (!slash)
-			ospf6_route_show_table_address(vty, &prefix, table);
+			ospf6_route_show_table_address(vty, &prefix, table,
+						       json, use_json);
 		else
-			ospf6_route_show_table_prefix(vty, &prefix, table);
+			ospf6_route_show_table_prefix(vty, &prefix, table, json,
+						      use_json);
 
+		if (use_json) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		}
 		return CMD_SUCCESS;
 	}
 
 	if (match)
-		ospf6_route_show_table_match(vty, detail, &prefix, table);
+		ospf6_route_show_table_match(vty, detail, &prefix, table, json,
+					     use_json);
 	else if (type)
-		ospf6_route_show_table_type(vty, detail, type, table);
+		ospf6_route_show_table_type(vty, detail, type, table, json,
+					    use_json);
 	else
-		ospf6_route_show_table(vty, detail, table);
+		ospf6_route_show_table(vty, detail, table, json, use_json);
 
+	if (use_json) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -1432,7 +1724,7 @@ static void ospf6_linkstate_show_table_exact(struct vty *vty,
 	ospf6_route_lock(route);
 	while (route && ospf6_route_is_prefix(prefix, route)) {
 		/* Specifying a prefix will always display details */
-		ospf6_route_show_detail(vty, route);
+		ospf6_route_show_detail(vty, route, NULL, false);
 		route = ospf6_route_next(route);
 	}
 	if (route)
@@ -1450,7 +1742,7 @@ static void ospf6_linkstate_show_table(struct vty *vty, int detail,
 	route = ospf6_route_head(table);
 	while (route) {
 		if (detail)
-			ospf6_route_show_detail(vty, route);
+			ospf6_route_show_detail(vty, route, NULL, false);
 		else
 			ospf6_linkstate_show(vty, route);
 		route = ospf6_route_next(route);
@@ -1538,22 +1830,27 @@ void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 		OSPF6_PATH_TYPE_NAME(route->path.type), area);
 }
 
-DEFUN (debug_ospf6_route,
-       debug_ospf6_route_cmd,
-       "debug ospf6 route <table|intra-area|inter-area|memory>",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug routes\n"
-       "Debug route table calculation\n"
-       "Debug intra-area route calculation\n"
-       "Debug inter-area route calculation\n"
-       "Debug route memory use\n"
-       )
+DEFPY(debug_ospf6_route,
+      debug_ospf6_route_cmd,
+      "[no$no] debug ospf6 route <all|table|intra-area|inter-area|memory>",
+      NO_STR
+      DEBUG_STR
+      OSPF6_STR
+      "Debug routes\n"
+      "Debug for all types of route calculation\n"
+      "Debug route table calculation\n"
+      "Debug intra-area route calculation\n"
+      "Debug inter-area route calculation\n"
+      "Debug route memory use\n")
 {
-	int idx_type = 3;
+	int idx_type;
 	unsigned char level = 0;
 
-	if (!strcmp(argv[idx_type]->text, "table"))
+	idx_type = ((no) ? 4 : 3);
+
+	if (!strcmp(argv[idx_type]->text, "all"))
+		level = OSPF6_DEBUG_ROUTE_ALL;
+	else if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
 	else if (!strcmp(argv[idx_type]->text, "intra-area"))
 		level = OSPF6_DEBUG_ROUTE_INTRA;
@@ -1561,39 +1858,20 @@ DEFUN (debug_ospf6_route,
 		level = OSPF6_DEBUG_ROUTE_INTER;
 	else if (!strcmp(argv[idx_type]->text, "memory"))
 		level = OSPF6_DEBUG_ROUTE_MEMORY;
-	OSPF6_DEBUG_ROUTE_ON(level);
-	return CMD_SUCCESS;
-}
 
-DEFUN (no_debug_ospf6_route,
-       no_debug_ospf6_route_cmd,
-       "no debug ospf6 route <table|intra-area|inter-area|memory>",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug routes\n"
-       "Debug route table calculation\n"
-       "Debug intra-area route calculation\n"
-       "Debug inter-area route calculation\n"
-       "Debug route memory use\n")
-{
-	int idx_type = 4;
-	unsigned char level = 0;
-
-	if (!strcmp(argv[idx_type]->text, "table"))
-		level = OSPF6_DEBUG_ROUTE_TABLE;
-	else if (!strcmp(argv[idx_type]->text, "intra-area"))
-		level = OSPF6_DEBUG_ROUTE_INTRA;
-	else if (!strcmp(argv[idx_type]->text, "inter-area"))
-		level = OSPF6_DEBUG_ROUTE_INTER;
-	else if (!strcmp(argv[idx_type]->text, "memory"))
-		level = OSPF6_DEBUG_ROUTE_MEMORY;
-	OSPF6_DEBUG_ROUTE_OFF(level);
+	if (no)
+		OSPF6_DEBUG_ROUTE_OFF(level);
+	else
+		OSPF6_DEBUG_ROUTE_ON(level);
 	return CMD_SUCCESS;
 }
 
 int config_write_ospf6_debug_route(struct vty *vty)
 {
+	if (IS_OSPF6_DEBUG_ROUTE(ALL) == OSPF6_DEBUG_ROUTE_ALL) {
+		vty_out(vty, "debug ospf6 route all\n");
+		return 0;
+	}
 	if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		vty_out(vty, "debug ospf6 route table\n");
 	if (IS_OSPF6_DEBUG_ROUTE(INTRA))
@@ -1609,7 +1887,5 @@ int config_write_ospf6_debug_route(struct vty *vty)
 void install_element_ospf6_debug_route(void)
 {
 	install_element(ENABLE_NODE, &debug_ospf6_route_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf6_route_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_route_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf6_route_cmd);
 }

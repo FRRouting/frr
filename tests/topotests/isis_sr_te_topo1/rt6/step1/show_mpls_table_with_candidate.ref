@@ -1,0 +1,91 @@
+{
+  "6666":{
+    "inLabel":6666,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR-TE",
+        "outLabel":16020,
+        "outLabelStack":[
+          16020,
+          16010
+        ],
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.7.4"
+      }
+    ]
+  },
+  "16010": {
+      "inLabel": 16010,
+      "installed": true,
+      "nexthops": [
+          {
+              "distance": 150,
+              "installed": true,
+              "nexthop": "10.0.7.4",
+              "outLabel": 16010,
+              "type": "SR (IS-IS)"
+          },
+          {
+              "distance": 150,
+              "installed": true,
+              "nexthop": "10.0.8.5",
+              "outLabel": 16010,
+              "type": "SR (IS-IS)"
+          }
+      ]
+  },
+  "16020":{
+    "inLabel":16020,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16020,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.7.4"
+      }
+    ]
+  },
+  "16030":{
+    "inLabel":16030,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16030,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.8.5"
+      }
+    ]
+  },
+  "16040":{
+    "inLabel":16040,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16040,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.7.4"
+      }
+    ]
+  },
+  "16050":{
+    "inLabel":16050,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16050,
+        "distance":150,
+        "installed":true,
+        "nexthop":"10.0.8.5"
+      }
+    ]
+  }
+}

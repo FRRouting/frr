@@ -1,0 +1,11 @@
+{
+  "r1-eth1":{
+    "Interface":true
+  },
+  "r1-eth2":{
+    "ldpIgpSyncEnabled":true,
+    "holdDownTimeInSec":0,
+    "ldpIgpSyncState":"Sync achieved"
+  }
+
+}

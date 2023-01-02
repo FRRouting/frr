@@ -58,9 +58,4 @@ extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *,
 /* Simulate down/up on the interface. */
 extern void eigrp_if_reset(struct interface *);
 
-extern uint32_t eigrp_bandwidth_to_scaled(uint32_t);
-extern uint32_t eigrp_scaled_to_bandwidth(uint32_t);
-extern uint32_t eigrp_delay_to_scaled(uint32_t);
-extern uint32_t eigrp_scaled_to_delay(uint32_t);
-
 #endif /* ZEBRA_EIGRP_INTERFACE_H_ */

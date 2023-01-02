@@ -117,6 +117,11 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+        if (PIM_DEBUG_MLAG) {
+                vty_out(vty, "debug pim mlag\n");
+                ++writes;
+        }
+
 	if (PIM_DEBUG_BSM) {
 		vty_out(vty, "debug pim bsm\n");
 		++writes;
@@ -166,11 +171,12 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	struct pim_ssm *ssm = pim->ssm_info;
 	char spaces[10];
 
-	if (pim->vrf_id == VRF_DEFAULT)
-		sprintf(spaces, "%s", "");
+	if (pim->vrf->vrf_id == VRF_DEFAULT)
+		snprintf(spaces, sizeof(spaces), "%s", "");
 	else
-		sprintf(spaces, "%s", " ");
+		snprintf(spaces, sizeof(spaces), "%s", " ");
 
+	writes += pim_msdp_peer_config_write(vty, pim, spaces);
 	writes += pim_msdp_config_write(pim, vty, spaces);
 
 	if (!pim->send_v6_secondary) {
@@ -180,16 +186,24 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	writes += pim_rp_config_write(pim, vty, spaces);
 
-	if (router->register_suppress_time
-	    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
-		vty_out(vty, "%sip pim register-suppress-time %d\n", spaces,
-			router->register_suppress_time);
-		++writes;
-	}
-	if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
-		vty_out(vty, "%sip pim join-prune-interval %d\n", spaces,
-			router->t_periodic);
-		++writes;
+	if (pim->vrf->vrf_id == VRF_DEFAULT) {
+		if (router->register_suppress_time
+		    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
+			vty_out(vty, "%sip pim register-suppress-time %d\n",
+					spaces, router->register_suppress_time);
+			++writes;
+		}
+		if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
+			vty_out(vty, "%sip pim join-prune-interval %d\n",
+				spaces, router->t_periodic);
+			++writes;
+		}
+
+		if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
+			vty_out(vty, "%sip pim packets %d\n", spaces,
+				router->packet_process);
+			++writes;
+		}
 	}
 	if (pim->keep_alive_time != PIM_KEEPALIVE_PERIOD) {
 		vty_out(vty, "%sip pim keep-alive-timer %d\n", spaces,
@@ -201,14 +215,14 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			pim->rp_keep_alive_time);
 		++writes;
 	}
-	if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
-		vty_out(vty, "%sip pim packets %d\n", spaces,
-			router->packet_process);
-		++writes;
-	}
 	if (ssm->plist_name) {
 		vty_out(vty, "%sip pim ssm prefix-list %s\n", spaces,
 			ssm->plist_name);
+		++writes;
+	}
+	if (pim->register_plist) {
+		vty_out(vty, "%sip pim register-accept-list %s\n", spaces,
+			pim->register_plist);
 		++writes;
 	}
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
@@ -229,6 +243,13 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		vty_out(vty, "%sip pim ecmp\n", spaces);
 		++writes;
 	}
+
+	if (pim->igmp_watermark_limit != 0) {
+		vty_out(vty, "%sip igmp watermark-warn %u\n", spaces,
+			pim->igmp_watermark_limit);
+		++writes;
+	}
+
 	if (pim->ssmpingd_list) {
 		struct listnode *node;
 		struct ssmpingd_sock *ss;
@@ -242,7 +263,16 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		}
 	}
 
-	pim_vxlan_config_write(vty, spaces, &writes);
+	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME
+	    || pim->msdp.keep_alive != PIM_MSDP_PEER_KA_TIME
+	    || pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME) {
+		vty_out(vty, "%sip msdp timers %u %u", spaces,
+			pim->msdp.hold_time, pim->msdp.keep_alive);
+		if (pim->msdp.connection_retry
+		    != PIM_MSDP_PEER_CONNECT_RETRY_TIME)
+			vty_out(vty, " %u", pim->msdp.connection_retry);
+		vty_out(vty, "\n");
+	}
 
 	return writes;
 }
@@ -260,6 +290,13 @@ int pim_interface_config_write(struct vty *vty)
 			continue;
 
 		FOR_ALL_INTERFACES (pim->vrf, ifp) {
+			/* pim is enabled internally/implicitly on the vxlan
+			 * termination device ipmr-lo. skip displaying that
+			 * config to avoid confusion
+			 */
+			if (pim_vxlan_is_term_dev_cfg(pim, ifp))
+				continue;
+
 			/* IF name */
 			if (vrf->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);
@@ -414,7 +451,7 @@ int pim_interface_config_write(struct vty *vty)
 				pim_bfd_write_config(vty, ifp);
 				++writes;
 			}
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, "exit\n!\n");
 			++writes;
 		}
 	}

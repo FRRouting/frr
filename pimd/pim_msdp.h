@@ -19,6 +19,8 @@
 #ifndef PIM_MSDP_H
 #define PIM_MSDP_H
 
+#include "lib/openbsd-queue.h"
+
 enum pim_msdp_peer_state {
 	PIM_MSDP_DISABLED,
 	PIM_MSDP_INACTIVE,
@@ -95,7 +97,9 @@ enum pim_msdp_peer_flags {
 	PIM_MSDP_PEERF_NONE = 0,
 	PIM_MSDP_PEERF_LISTENER = (1 << 0),
 #define PIM_MSDP_PEER_IS_LISTENER(mp) (mp->flags & PIM_MSDP_PEERF_LISTENER)
-	PIM_MSDP_PEERF_SA_JUST_SENT = (1 << 1)
+	PIM_MSDP_PEERF_SA_JUST_SENT = (1 << 1),
+	/** Flag to signalize that peer belongs to a group. */
+	PIM_MSDP_PEERF_IN_GROUP = (1 << 2),
 };
 
 struct pim_msdp_peer {
@@ -160,7 +164,12 @@ struct pim_msdp_mg {
 	struct in_addr src_ip;
 	uint32_t mbr_cnt;
 	struct list *mbr_list;
+
+	/** Belongs to PIM instance list. */
+	SLIST_ENTRY(pim_msdp_mg) mg_entry;
 };
+
+SLIST_HEAD(pim_mesh_group_list, pim_msdp_mg);
 
 enum pim_msdp_flags {
 	PIM_MSDPF_NONE = 0,
@@ -196,8 +205,15 @@ struct pim_msdp {
 
 	struct in_addr originator_id;
 
-	/* currently only one mesh-group is supported - so just stash it here */
-	struct pim_msdp_mg *mg;
+	/** List of mesh groups. */
+	struct pim_mesh_group_list mglist;
+
+	/** MSDP global hold time period. */
+	uint32_t hold_time;
+	/** MSDP global keep alive period. */
+	uint32_t keep_alive;
+	/** MSDP global connection retry period. */
+	uint32_t connection_retry;
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
@@ -208,19 +224,13 @@ struct pim_msdp {
 	thread_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,     \
 			 &mp->t_write)
 
-#define PIM_MSDP_PEER_READ_OFF(mp) THREAD_READ_OFF(mp->t_read)
-#define PIM_MSDP_PEER_WRITE_OFF(mp) THREAD_WRITE_OFF(mp->t_write)
+#define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
+#define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)
 
 // struct pim_msdp *msdp;
 struct pim_instance;
 void pim_msdp_init(struct pim_instance *pim, struct thread_master *master);
 void pim_msdp_exit(struct pim_instance *pim);
-enum pim_msdp_err pim_msdp_peer_add(struct pim_instance *pim,
-				    struct in_addr peer, struct in_addr local,
-				    const char *mesh_group_name,
-				    struct pim_msdp_peer **mp_p);
-enum pim_msdp_err pim_msdp_peer_del(struct pim_instance *pim,
-				    struct in_addr peer_addr);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
 struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
@@ -230,10 +240,10 @@ void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 int pim_msdp_write(struct thread *thread);
-char *pim_msdp_peer_key_dump(struct pim_msdp_peer *mp, char *buf, int buf_size,
-			     bool long_format);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces);
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
+				const char *spaces);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     struct prefix_sg *sg, struct in_addr rp);
@@ -244,17 +254,68 @@ bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 				    struct pim_upstream *xg_up);
 void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg);
-enum pim_msdp_err pim_msdp_mg_mbr_add(struct pim_instance *pim,
-				      const char *mesh_group_name,
-				      struct in_addr mbr_ip);
-enum pim_msdp_err pim_msdp_mg_mbr_del(struct pim_instance *pim,
-				      const char *mesh_group_name,
-				      struct in_addr mbr_ip);
-enum pim_msdp_err pim_msdp_mg_src_del(struct pim_instance *pim,
-				      const char *mesh_group_name);
-enum pim_msdp_err pim_msdp_mg_src_add(struct pim_instance *pim,
-				      const char *mesh_group_name,
-				      struct in_addr src_ip);
 enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 				  const char *mesh_group_name);
+
+/**
+ * Allocates a new mesh group data structure under PIM instance.
+ */
+struct pim_msdp_mg *pim_msdp_mg_new(struct pim_instance *pim,
+				    const char *mesh_group_name);
+/**
+ * Deallocates mesh group data structure under PIM instance.
+ */
+void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg **mgp);
+
+/**
+ * Change the source address of a mesh group peers. It will do the following:
+ * - Close all peers TCP connections
+ * - Recreate peers data structure
+ * - Start TCP connections with new local address.
+ */
+void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,
+			 struct in_addr *ai);
+
+/**
+ * Add new peer to mesh group and starts the connection if source address is
+ * configured.
+ */
+struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
+					    struct pim_msdp_mg *mg,
+					    struct in_addr *ia);
+
+/**
+ * Stops the connection and removes the peer data structures.
+ */
+void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
+
+/**
+ * Allocates MSDP peer data structure, adds peer to group name
+ * `mesh_group_name` and starts state machine. If no group name is provided then
+ * the peer will work standalone.
+ *
+ * \param pim PIM instance
+ * \param peer_addr peer address
+ * \param local_addr local listening address
+ * \param mesh_group_name mesh group name (or `NULL` for peers without group).
+ */
+struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
+					const struct in_addr *peer_addr,
+					const struct in_addr *local_addr,
+					const char *mesh_group_name);
+
+/**
+ * Stops peer state machine and free memory.
+ */
+void pim_msdp_peer_del(struct pim_msdp_peer **mp);
+
+/**
+ * Changes peer source address.
+ *
+ * NOTE:
+ * This will cause the connection to drop and start again.
+ */
+void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
+				 const struct in_addr *addr);
+
 #endif

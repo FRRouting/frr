@@ -221,6 +221,36 @@ DEFPY  (ldp_router_id,
 	return (ldp_vty_router_id(vty, no, address));
 }
 
+DEFPY  (ldp_ordered_control,
+        ldp_ordered_control_cmd,
+        "[no] ordered-control",
+        NO_STR
+        "Configure LDP ordered label distribution control mode\n")
+{
+	return (ldp_vty_ordered_control(vty, no));
+}
+
+DEFPY  (ldp_wait_for_sync,
+        ldp_wait_for_sync_cmd,
+        "[no] wait-for-sync (1-10000)$waitforsync",
+        NO_STR
+        "Time to wait for LDP-IGP Sync to complete label exchange\n"
+        "Time (seconds)\n")
+{
+        return (ldp_vty_wait_for_sync_interval(vty, no, waitforsync));
+
+}
+
+DEFPY  (ldp_allow_broken_lsps,
+	ldp_allow_broken_lsps_cmd,
+	"[no] install allow-broken-lsps",
+	NO_STR
+	"install lsps\n"
+	"if no remote-label install with imp-null")
+{
+	return (ldp_vty_allow_broken_lsp(vty, no));
+}
+
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
 	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
@@ -538,7 +568,7 @@ DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 
 DEFPY  (ldp_debug_mpls_ldp_type,
 	ldp_debug_mpls_ldp_type_cmd,
-	"[no] debug mpls ldp <errors|event|labels|zebra>$type",
+	"[no] debug mpls ldp <errors|event|labels|sync|zebra>$type",
 	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -546,6 +576,7 @@ DEFPY  (ldp_debug_mpls_ldp_type,
 	"Errors\n"
 	"LDP event information\n"
 	"LDP label allocation information\n"
+	"LDP sync information\n"
 	"LDP zebra information\n")
 {
 	return (ldp_vty_debug(vty, no, type, NULL, NULL));
@@ -607,6 +638,8 @@ DEFPY  (ldp_show_mpls_ldp_binding,
 	"Show detailed information\n"
 	JSON_STR)
 {
+	if (!(ldpd_conf->flags & F_LDPD_ENABLED))
+		return CMD_SUCCESS;
 	if (!local_label_str)
 		local_label = NO_LABEL;
 	if (!remote_label_str)
@@ -682,6 +715,18 @@ DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	JSON_STR)
 {
 	return (ldp_vty_show_neighbor(vty, lsr_id_str, 1, NULL, json));
+}
+
+DEFPY  (ldp_show_mpls_ldp_igp_sync,
+	ldp_show_mpls_ldp_igp_sync_cmd,
+	"show mpls ldp igp-sync [json]$json",
+	"Show mpls ldp ldp-sync information\n"
+	"MPLS information\n"
+	"Label Distribution Protocol\n"
+	"LDP-IGP Sync information\n"
+	JSON_STR)
+{
+	return (ldp_vty_show_ldp_sync(vty, json));
 }
 
 DEFPY  (ldp_show_l2vpn_atom_binding,
@@ -770,14 +815,14 @@ ldp_vty_init (void)
 {
 	cmd_variable_handler_register(l2vpn_var_handlers);
 
-	install_node(&ldp_node, ldp_config_write);
-	install_node(&ldp_ipv4_node, NULL);
-	install_node(&ldp_ipv6_node, NULL);
-	install_node(&ldp_ipv4_iface_node, NULL);
-	install_node(&ldp_ipv6_iface_node, NULL);
-	install_node(&ldp_l2vpn_node, ldp_l2vpn_config_write);
-	install_node(&ldp_pseudowire_node, NULL);
-	install_node(&ldp_debug_node, ldp_debug_config_write);
+	install_node(&ldp_node);
+	install_node(&ldp_ipv4_node);
+	install_node(&ldp_ipv6_node);
+	install_node(&ldp_ipv4_iface_node);
+	install_node(&ldp_ipv6_iface_node);
+	install_node(&ldp_l2vpn_node);
+	install_node(&ldp_pseudowire_node);
+	install_node(&ldp_debug_node);
 	install_default(LDP_NODE);
 	install_default(LDP_IPV4_NODE);
 	install_default(LDP_IPV6_NODE);
@@ -807,6 +852,9 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_neighbor_session_holdtime_cmd);
 	install_element(LDP_NODE, &ldp_neighbor_ttl_security_cmd);
 	install_element(LDP_NODE, &ldp_router_id_cmd);
+	install_element(LDP_NODE, &ldp_ordered_control_cmd);
+	install_element(LDP_NODE, &ldp_wait_for_sync_cmd);
+	install_element(LDP_NODE, &ldp_allow_broken_lsps_cmd);
 
 	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);
@@ -876,4 +924,5 @@ ldp_vty_init (void)
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_binding_cmd);
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_vc_cmd);
 	install_element(VIEW_NODE, &ldp_show_debugging_mpls_ldp_cmd);
+	install_element(VIEW_NODE, &ldp_show_mpls_ldp_igp_sync_cmd);
 }

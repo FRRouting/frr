@@ -121,7 +121,7 @@ static void parse_test(struct test_segment *t)
 
 	printf("%s: %s\n", t->name, t->desc);
 
-	ecom = ecommunity_parse((uint8_t *)t->data, t->len);
+	ecom = ecommunity_parse((uint8_t *)t->data, t->len, 0);
 
 	printf("ecom: %s\nvalidating...:\n", ecommunity_str(ecom));
 

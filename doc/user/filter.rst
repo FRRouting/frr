@@ -9,10 +9,8 @@ defined, it can be applied in any direction.
 IP Access List
 ==============
 
-.. index:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
 .. clicmd:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
 
-.. index:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
 .. clicmd:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
 
    seq
@@ -37,6 +35,18 @@ IP Access List
       access-list filter permit 10.0.0.0/8
       access-list filter seq 13 permit 10.0.0.0/7
 
+.. clicmd:: show <ip|ipv6> access-list [json]
+
+   Display all IPv4 or IPv6 access lists.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show <ip|ipv6> access-list WORD [json]
+
+   Display the specified IPv4 or IPv6 access list.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 
 IP Prefix List
 ==============
@@ -50,10 +60,8 @@ filters to arbitrary points of prefix-list using sequential number specification
 If no ip prefix-list is specified, it acts as permit. If *ip prefix-list*
 is defined, and no match is found, default deny is applied.
 
-.. index:: ip prefix-list NAME (permit|deny) PREFIX [le LEN] [ge LEN]
 .. clicmd:: ip prefix-list NAME (permit|deny) PREFIX [le LEN] [ge LEN]
 
-.. index:: ip prefix-list NAME seq NUMBER (permit|deny) PREFIX [le LEN] [ge LEN]
 .. clicmd:: ip prefix-list NAME seq NUMBER (permit|deny) PREFIX [le LEN] [ge LEN]
 
    You can create *ip prefix-list* using above commands.
@@ -98,88 +106,67 @@ is defined, and no match is found, default deny is applied.
    In the case of no le or ge command, the prefix length must match exactly the
    length specified in the prefix list.
 
-.. index:: no ip prefix-list NAME
-.. clicmd:: no ip prefix-list NAME
 
 .. _ip-prefix-list-description:
 
 ip prefix-list description
 --------------------------
 
-.. index:: ip prefix-list NAME description DESC
 .. clicmd:: ip prefix-list NAME description DESC
 
    Descriptions may be added to prefix lists. This command adds a
    description to the prefix list.
 
-.. index:: no ip prefix-list NAME description [DESC]
-.. clicmd:: no ip prefix-list NAME description [DESC]
-
-   Deletes the description from a prefix list. It is possible to use the
-   command without the full description.
-
-.. _ip-prefix-list-sequential-number-control:
-
-ip prefix-list sequential number control
-----------------------------------------
-
-.. index:: ip prefix-list sequence-number
-.. clicmd:: ip prefix-list sequence-number
-
-   With this command, the IP prefix list sequential number is displayed.
-   This is the default behavior.
-
-.. index:: no ip prefix-list sequence-number
-.. clicmd:: no ip prefix-list sequence-number
-
-   With this command, the IP prefix list sequential number is not
-   displayed.
 
 .. _showing-ip-prefix-list:
 
 Showing ip prefix-list
 ----------------------
 
-.. index:: show ip prefix-list
-.. clicmd:: show ip prefix-list
+.. clicmd:: show ip prefix-list [json]
 
    Display all IP prefix lists.
 
-.. index:: show ip prefix-list NAME
-.. clicmd:: show ip prefix-list NAME
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show ip prefix-list NAME [json]
 
    Show IP prefix list can be used with a prefix list name.
 
-.. index:: show ip prefix-list NAME seq NUM
-.. clicmd:: show ip prefix-list NAME seq NUM
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show ip prefix-list NAME seq NUM [json]
 
    Show IP prefix list can be used with a prefix list name and sequential
    number.
 
-.. index:: show ip prefix-list NAME A.B.C.D/M
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M
 
    If the command longer is used, all prefix lists with prefix lengths equal to
    or longer than the specified length will be displayed. If the command first
    match is used, the first prefix length match will be displayed.
 
-.. index:: show ip prefix-list NAME A.B.C.D/M longer
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M longer
-.. index:: show ip prefix-list NAME A.B.C.D/M first-match
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M first-match
-.. index:: show ip prefix-list summary
-.. clicmd:: show ip prefix-list summary
-.. index:: show ip prefix-list summary NAME
-.. clicmd:: show ip prefix-list summary NAME
-.. index:: show ip prefix-list detail
-.. clicmd:: show ip prefix-list detail
-.. index:: show ip prefix-list detail NAME
-.. clicmd:: show ip prefix-list detail NAME
+.. clicmd:: show ip prefix-list summary [json]
+.. clicmd:: show ip prefix-list summary NAME [json]
+.. clicmd:: show ip prefix-list detail [json]
+.. clicmd:: show ip prefix-list detail NAME [json]
+
+.. clicmd:: debug prefix-list NAME match <A.B.C.D/M|X:X::X:X/M> [address-mode]
+
+   Execute the prefix list matching code for the specified list and prefix.
+   Shows which entry matched, if any.  (``address-mode`` is used for
+   PIM RP lookups and skips prefix length checks.)
+
+   The return value from this command is success only if the prefix-list
+   result is to permit the prefix, so the command can be used in scripting.
 
 Clear counter of ip prefix-list
 -------------------------------
 
-.. index:: clear ip prefix-list [NAME [A.B.C.D/M]]
 .. clicmd:: clear ip prefix-list [NAME [A.B.C.D/M]]
 
    Clears the counters of all IP prefix lists. Clear IP Prefix List can be used

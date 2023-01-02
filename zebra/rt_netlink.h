@@ -60,11 +60,21 @@ extern "C" {
 #define RTPROT_PBR         195
 #define RTPROT_ZSTATIC     196
 #define RTPROT_OPENFABRIC  197
+#define RTPROT_SRTE        198
 
 void rt_netlink_init(void);
 
 /* MPLS label forwarding table change, using dataplane context information. */
-extern int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx);
+extern ssize_t netlink_mpls_multipath_msg_encode(int cmd,
+						 struct zebra_dplane_ctx *ctx,
+						 void *buf, size_t buflen);
+
+extern ssize_t netlink_route_multipath_msg_encode(int cmd,
+						  struct zebra_dplane_ctx *ctx,
+						  uint8_t *data, size_t datalen,
+						  bool fpm, bool force_nhg);
+extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
+					 void *data, size_t datalen);
 
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
@@ -72,6 +82,12 @@ extern int netlink_route_read(struct zebra_ns *zns);
 extern int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);
 extern int netlink_nexthop_read(struct zebra_ns *zns);
+extern ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
+					  const struct zebra_dplane_ctx *ctx,
+					  void *buf, size_t buflen);
+
+extern ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+				       size_t buflen);
 
 extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 extern int netlink_macfdb_read(struct zebra_ns *zns);
@@ -83,9 +99,51 @@ extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);
 extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    struct interface *br_if,
-					    struct ethaddr *mac, uint16_t vid);
-extern int netlink_neigh_read_specific_ip(struct ipaddr *ip,
+					    const struct ethaddr *mac,
+					    uint16_t vid);
+extern int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 					  struct interface *vlan_if);
+extern vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
+
+struct nl_batch;
+extern enum netlink_msg_status
+netlink_put_route_update_msg(struct nl_batch *bth,
+			     struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_nexthop_update_msg(struct nl_batch *bth,
+			       struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_mac_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_neigh_update_msg(struct nl_batch *bth,
+			     struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+
+#ifdef NETLINK_DEBUG
+const char *nlmsg_type2str(uint16_t type);
+const char *af_type2str(int type);
+const char *ifi_type2str(int type);
+const char *rta_type2str(int type);
+const char *rtm_type2str(int type);
+const char *rtm_protocol2str(int type);
+const char *rtm_scope2str(int type);
+const char *rtm_rta2str(int type);
+const char *neigh_rta2str(int type);
+const char *ifa_rta2str(int type);
+const char *nhm_rta2str(int type);
+const char *nlmsg_flags2str(uint16_t flags, char *buf, size_t buflen);
+const char *if_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *rtm_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *neigh_state2str(uint32_t flags, char *buf, size_t buflen);
+const char *neigh_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *ifa_flags2str(uint32_t flags, char *buf, size_t buflen);
+const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
+
+void nl_dump(void *msg, size_t msglen);
+#endif /* NETLINK_DEBUG */
 
 #ifdef __cplusplus
 }

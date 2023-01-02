@@ -21,10 +21,10 @@ else
   CONF_RPKI=--disable-rpki
 endif
 
-ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
-  CONF_SYSTEMD=--enable-systemd=yes
+ifeq ($(filter pkg.frr.lua,$(DEB_BUILD_PROFILES)),)
+  CONF_LUA=--disable-scripting
 else
-  CONF_SYSTEMD=--enable-systemd=no
+  CONF_LUA=--enable-scripting
 endif
 
 export PYTHON=python3
@@ -35,7 +35,6 @@ export PYTHON=python3
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
 	dh_auto_configure -- \
-		--enable-exampledir=/usr/share/doc/frr/examples/ \
 		--localstatedir=/var/run/frr \
 		--sbindir=/usr/lib/frr \
 		--sysconfdir=/etc/frr \
@@ -45,8 +44,8 @@ override_dh_auto_configure:
 		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
 		--disable-dependency-tracking \
 		\
-		$(CONF_SYSTEMD) \
 		$(CONF_RPKI) \
+		$(CONF_LUA) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
@@ -72,9 +71,7 @@ override_dh_auto_install:
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/generate_support_bundle.py
 
 # let dh_systemd_* and dh_installinit do their thing automatically
-ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
-	cp tools/frr.service debian/frr.service
-endif
+	cp build/tools/frr.service debian/frr.service
 	cp build/tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 
@@ -82,8 +79,6 @@ endif
 	mkdir -p debian/tmp/etc
 	cp -r tools/etc/* debian/tmp/etc/
 	-rm debian/tmp/etc/frr/daemons.conf
-
-	sed -e 's#^!log file #!log file /var/log/frr/#' -i debian/tmp/usr/share/doc/frr/examples/*sample*
 
 # drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f

@@ -58,23 +58,23 @@
 #include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_errors.h"
 
-void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
+void eigrp_send_reply(struct eigrp_neighbor *nbr,
+		      struct eigrp_prefix_descriptor *pe)
 {
 	struct eigrp_packet *ep;
 	uint16_t length = EIGRP_HEADER_LEN;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
-	struct eigrp_prefix_entry *pe2;
+	struct eigrp_prefix_descriptor *pe2;
 
 	// TODO: Work in progress
 	/* Filtering */
 	/* get list from eigrp process */
-	pe2 = XCALLOC(MTYPE_EIGRP_PREFIX_ENTRY,
-		      sizeof(struct eigrp_prefix_entry));
-	memcpy(pe2, pe, sizeof(struct eigrp_prefix_entry));
+	pe2 = XCALLOC(MTYPE_EIGRP_PREFIX_DESCRIPTOR,
+		      sizeof(struct eigrp_prefix_descriptor));
+	memcpy(pe2, pe, sizeof(struct eigrp_prefix_descriptor));
 
 	if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 				      pe2->destination)) {
@@ -122,7 +122,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 		eigrp_send_packet_reliably(nbr);
 	}
 
-	XFREE(MTYPE_EIGRP_PREFIX_ENTRY, pe2);
+	XFREE(MTYPE_EIGRP_PREFIX_DESCRIPTOR, pe2);
 }
 
 /*EIGRP REPLY read function*/
@@ -161,27 +161,24 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 		dest_addr.family = AF_INET;
 		dest_addr.u.prefix4 = tlv->destination;
 		dest_addr.prefixlen = tlv->prefix_length;
-		struct eigrp_prefix_entry *dest =
+		struct eigrp_prefix_descriptor *dest =
 			eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 							 &dest_addr);
 		/*
 		 * Destination must exists
 		 */
 		if (!dest) {
-			char buf[PREFIX_STRLEN];
-
 			flog_err(
 				EC_EIGRP_PACKET,
-				"%s: Received prefix %s which we do not know about",
-				__PRETTY_FUNCTION__,
-				prefix2str(&dest_addr, buf, sizeof(buf)));
+				"%s: Received prefix %pFX which we do not know about",
+				__func__, &dest_addr);
 			eigrp_IPv4_InternalTLV_free(tlv);
 			continue;
 		}
 
 		struct eigrp_fsm_action_message msg;
-		struct eigrp_nexthop_entry *entry =
-			eigrp_prefix_entry_lookup(dest->entries, nbr);
+		struct eigrp_route_descriptor *entry =
+			eigrp_route_descriptor_lookup(dest->entries, nbr);
 
 		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_IN,
 					      &dest_addr)) {

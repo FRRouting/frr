@@ -115,7 +115,7 @@ int pim_is_group_224_0_0_0_24(struct in_addr group_addr)
 
 	group.family = AF_INET;
 	group.u.prefix4 = group_addr;
-	group.prefixlen = IPV4_MAX_PREFIXLEN;
+	group.prefixlen = IPV4_MAX_BITLEN;
 
 	return prefix_match(&group_224, &group);
 }
@@ -134,7 +134,7 @@ int pim_is_group_224_4(struct in_addr group_addr)
 
 	group.family = AF_INET;
 	group.u.prefix4 = group_addr;
-	group.prefixlen = 32;
+	group.prefixlen = IPV4_MAX_BITLEN;
 
 	return prefix_match(&group_all, &group);
 }
@@ -148,7 +148,7 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, struct in_addr *grp)
 		return false;
 
 	grp_pfx.family = AF_INET;
-	grp_pfx.prefixlen = 32;
+	grp_pfx.prefixlen = IPV4_MAX_BITLEN;
 	grp_pfx.u.prefix4 = *grp;
 
 	pl = prefix_list_lookup(AFI_IP, pim_ifp->boundary_oil_plist);

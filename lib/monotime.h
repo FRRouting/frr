@@ -112,6 +112,26 @@ static inline char *time_to_string(time_t ts, char *buf)
 	return ctime_r(&tbuf, buf);
 }
 
+/* Convert interval to human-friendly string, used in cli output e.g. */
+static inline const char *frrtime_to_interval(time_t t, char *buf,
+					      size_t buflen)
+{
+	struct tm tm;
+
+	gmtime_r(&t, &tm);
+
+	if (t < ONE_DAY_SECOND)
+		snprintf(buf, buflen, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+			 tm.tm_sec);
+	else if (t < ONE_WEEK_SECOND)
+		snprintf(buf, buflen, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+			 tm.tm_min);
+	else
+		snprintf(buf, buflen, "%02dw%dd%02dh", tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
+	return buf;
+}
+
 #ifdef __cplusplus
 }
 #endif

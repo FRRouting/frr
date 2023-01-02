@@ -5,12 +5,12 @@
 if RIPD
 noinst_LIBRARIES += ripd/librip.a
 sbin_PROGRAMS += ripd/ripd
-dist_examples_DATA += ripd/ripd.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/ripd/rip_cli.c \
-	$(top_srcdir)/ripd/rip_debug.c \
-	$(top_srcdir)/ripd/ripd.c \
+	ripd/rip_cli.c \
+	ripd/rip_debug.c \
+	ripd/ripd.c \
 	# end
+vtysh_daemons += ripd
 
 if SNMP
 module_LTLIBRARIES += ripd/ripd_snmp.la
@@ -35,8 +35,9 @@ ripd_librip_a_SOURCES = \
 	ripd/ripd.c \
 	# end
 
-ripd/rip_cli_clippy.c: $(CLIPPY_DEPS)
-ripd/rip_cli.$(OBJEXT): ripd/rip_cli_clippy.c
+clippy_scan += \
+	ripd/rip_cli.c \
+	# end
 
 noinst_HEADERS += \
 	ripd/rip_debug.h \
@@ -55,6 +56,6 @@ nodist_ripd_ripd_SOURCES = \
 	# end
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c
-ripd_ripd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
-ripd_ripd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ripd_ripd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
+ripd_ripd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ripd_ripd_snmp_la_LIBADD = lib/libfrrsnmp.la

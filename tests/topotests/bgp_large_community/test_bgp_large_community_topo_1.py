@@ -50,44 +50,41 @@ import pytest
 import time
 from os import path as os_path
 import sys
-from json import load as json_load
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
-    start_topology, write_test_header,
-    write_test_footer, reset_config_on_routers,
-    create_route_maps, create_bgp_community_lists,
-    create_prefix_lists, verify_bgp_community, step,
-    check_address_types
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    reset_config_on_routers,
+    create_route_maps,
+    create_bgp_community_lists,
+    create_prefix_lists,
+    verify_bgp_community,
+    step,
+    check_address_types,
+    required_linux_kernel_version,
 )
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp,
-    clear_bgp_and_verify
-)
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
+from lib.topojson import build_config_from_json
+
+pytestmark = [pytest.mark.bgpd]
+
 
 # Save the Current Working Directory to find configuration files.
 CWD = os_path.dirname(os_path.realpath(__file__))
 sys.path.append(os_path.join(CWD, "../"))
 sys.path.append(os_path.join(CWD, "../lib/"))
 
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/bgp_large_community_topo_1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json_load(topoJson)
-except IOError:
-    logger.info("Could not read file:", jsonFile)
 
 # Global variables
 bgp_convergence = False
 NETWORK = {
     "ipv4": ["200.50.2.0", "200.50.2.1", "200.50.2.0"],
-    "ipv6": ["1::1", "1::2", "1::0"]
+    "ipv6": ["1::1", "1::2", "1::0"],
 }
 MASK = {"ipv4": "32", "ipv6": "128"}
 NET_MASK = {"ipv4": "24", "ipv6": "120"}
@@ -104,9 +101,8 @@ LARGE_COMM = {
     "pf_list_1": "0:0:1 0:0:10 0:0:100",
     "pf_list_2": "0:0:2 0:0:20 0:0:200",
     "agg_1": "0:0:1 0:0:2 0:0:10 0:0:20 0:0:100 0:0:200 2:1:1 "
-             "2:2:1 2:3:1 2:4:1 2:5:1",
-    "agg_2": "0:0:2 0:0:20 0:0:200 2:1:1 "
-             "2:2:1 2:3:1 2:4:1 2:5:1"
+    "2:2:1 2:3:1 2:4:1 2:5:1",
+    "agg_2": "0:0:2 0:0:20 0:0:200 2:1:1 " "2:2:1 2:3:1 2:4:1 2:5:1",
 }
 STANDARD_COMM = {
     "r1": "1:1 1:2 1:3 1:4 1:5",
@@ -115,24 +111,8 @@ STANDARD_COMM = {
     "pf_list_1": "0:1 0:10 0:100",
     "pf_list_2": "0:2 0:20 0:200",
     "agg_1": "0:1 0:2 0:10 0:20 0:100 0:200 2:1 2:2 2:3 2:4 2:5",
-    "agg_2": "0:2 0:20 0:200 2:1 2:2 2:3 2:4 2:5"
+    "agg_2": "0:2 0:20 0:200 2:1 2:2 2:3 2:4 2:5",
 }
-
-
-class CreateTopo(Topo):
-    """
-    Test topology builder
-
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -141,6 +121,11 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("4.15")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
     global ADDR_TYPES
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -149,7 +134,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_large_community_topo_1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -169,8 +157,9 @@ def setup_module(mod):
     ##tgen.mininet_cli()
     # Api call verify whether BGP is converged
     bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is True, ("setup_module :Failed \n Error:"
-                                     " {}".format(bgp_convergence))
+    assert bgp_convergence is True, "setup_module :Failed \n Error:" " {}".format(
+        bgp_convergence
+    )
 
     ADDR_TYPES = check_address_types()
     logger.info("Running setup_module() done")
@@ -190,8 +179,9 @@ def teardown_module():
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    logger.info("Testsuite end time: {}".
-                format(time.asctime(time.localtime(time.time()))))
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
     logger.info("=" * 40)
 
 
@@ -206,13 +196,9 @@ def config_router_r1(tgen, topo, tc_name):
                         "action": "permit",
                         "seq_id": "10",
                         "set": {
-                            "large_community": {
-                                "num": LARGE_COMM["r1"]
-                            },
-                            "community": {
-                                "num": STANDARD_COMM["r1"]
-                            }
-                        }
+                            "large_community": {"num": LARGE_COMM["r1"]},
+                            "community": {"num": STANDARD_COMM["r1"]},
+                        },
                     }
                 ]
             }
@@ -221,8 +207,7 @@ def config_router_r1(tgen, topo, tc_name):
 
     step("Configuring LC1 on r1")
     result = create_route_maps(tgen, input_dict_1)
-    assert result is True, "Test case {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     # Configure neighbor for route map
     input_dict_2 = {
@@ -233,68 +218,64 @@ def config_router_r1(tgen, topo, tc_name):
                         "unicast": {
                             "advertise_networks": [
                                 {
-                                    "network": "%s/%s" % (
-                                        NETWORK["ipv4"][0], MASK["ipv4"]),
-                                    "no_of_network": 4
+                                    "network": "%s/%s"
+                                    % (NETWORK["ipv4"][0], MASK["ipv4"]),
+                                    "no_of_network": 4,
                                 }
                             ],
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
                                         "r1-link1": {
-                                            "route_maps": [{
-                                                "name": "LC1",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC1", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 },
                                 "r3": {
                                     "dest_link": {
                                         "r1-link1": {
-                                            "route_maps": [{
-                                                "name": "LC1",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC1", "direction": "out"}
+                                            ]
                                         }
                                     }
-                                }
-                            }
+                                },
+                            },
                         }
                     },
                     "ipv6": {
                         "unicast": {
                             "advertise_networks": [
                                 {
-                                    "network": "%s/%s" % (
-                                        NETWORK["ipv6"][0], MASK["ipv6"]),
-                                    "no_of_network": 4
+                                    "network": "%s/%s"
+                                    % (NETWORK["ipv6"][0], MASK["ipv6"]),
+                                    "no_of_network": 4,
                                 }
                             ],
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
                                         "r1-link1": {
-                                            "route_maps": [{
-                                                "name": "LC1",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC1", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 },
                                 "r3": {
                                     "dest_link": {
                                         "r1-link1": {
-                                            "route_maps": [{
-                                                "name": "LC1",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC1", "direction": "out"}
+                                            ]
                                         }
                                     }
-                                }
-                            }
+                                },
+                            },
                         }
-                    }
+                    },
                 }
             }
         }
@@ -302,8 +283,7 @@ def config_router_r1(tgen, topo, tc_name):
 
     step("Applying LC1 on r1 neighbors and advertising networks")
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Test case {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     CONFIG_ROUTER_R1 = True
 
@@ -319,13 +299,9 @@ def config_router_r2(tgen, topo, tc_name):
                         "action": "permit",
                         "seq_id": "10",
                         "set": {
-                            "large_community": {
-                                "num": LARGE_COMM["r2"]
-                            },
-                            "community": {
-                                "num": STANDARD_COMM["r2"]
-                            }
-                        }
+                            "large_community": {"num": LARGE_COMM["r2"]},
+                            "community": {"num": STANDARD_COMM["r2"]},
+                        },
                     }
                 ]
             }
@@ -334,8 +310,7 @@ def config_router_r2(tgen, topo, tc_name):
 
     step("Configuring route-maps LC2 on r2")
     result = create_route_maps(tgen, input_dict)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_1 = {
         "r2": {
@@ -347,10 +322,9 @@ def config_router_r2(tgen, topo, tc_name):
                                 "r4": {
                                     "dest_link": {
                                         "r2-link1": {
-                                            "route_maps": [{
-                                                "name": "LC2",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC2", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 }
@@ -363,16 +337,15 @@ def config_router_r2(tgen, topo, tc_name):
                                 "r4": {
                                     "dest_link": {
                                         "r2-link1": {
-                                            "route_maps": [{
-                                                "name": "LC2",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC2", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
@@ -380,8 +353,7 @@ def config_router_r2(tgen, topo, tc_name):
 
     step("Applying LC2 on r2 neighbors in out direction")
     result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     CONFIG_ROUTER_R2 = True
 
@@ -399,13 +371,13 @@ def config_router_additive(tgen, topo, tc_name):
                         "set": {
                             "large_community": {
                                 "num": LARGE_COMM["r2"],
-                                "action": "additive"
+                                "action": "additive",
                             },
                             "community": {
                                 "num": STANDARD_COMM["r2"],
-                                "action": "additive"
-                            }
-                        }
+                                "action": "additive",
+                            },
+                        },
                     }
                 ]
             }
@@ -414,8 +386,7 @@ def config_router_additive(tgen, topo, tc_name):
 
     step("Configuring LC2 with community attributes as additive")
     result = create_route_maps(tgen, input_dict)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     # tgen.mininet_cli()
     CONFIG_ROUTER_ADDITIVE = True
@@ -434,47 +405,41 @@ def config_for_as_path(tgen, topo, tc_name):
                     "pf_list_1": [
                         {
                             "seqid": "10",
-                            "network": "%s/%s" % (NETWORK["ipv4"][0],
-                                                  MASK["ipv4"]),
-                            "action": "permit"
+                            "network": "%s/%s" % (NETWORK["ipv4"][0], MASK["ipv4"]),
+                            "action": "permit",
                         }
                     ],
                     "pf_list_2": [
                         {
                             "seqid": "10",
-                            "network": "%s/%s" % (NETWORK["ipv4"][1],
-                                                  MASK["ipv4"]),
-                            "action": "permit"
+                            "network": "%s/%s" % (NETWORK["ipv4"][1], MASK["ipv4"]),
+                            "action": "permit",
                         }
-                    ]
+                    ],
                 },
                 "ipv6": {
                     "pf_list_3": [
                         {
                             "seqid": "10",
-                            "network": "%s/%s" % (NETWORK["ipv6"][0],
-                                                  MASK["ipv6"]),
-                            "action": "permit"
+                            "network": "%s/%s" % (NETWORK["ipv6"][0], MASK["ipv6"]),
+                            "action": "permit",
                         }
                     ],
                     "pf_list_4": [
                         {
                             "seqid": "10",
-                            "network": "%s/%s" % (NETWORK["ipv6"][1],
-                                                  MASK["ipv6"]),
-                            "action": "permit"
+                            "network": "%s/%s" % (NETWORK["ipv6"][1], MASK["ipv6"]),
+                            "action": "permit",
                         }
-                    ]
-                }
-
+                    ],
+                },
             }
         }
     }
 
     step("Configuring prefix-lists on r1 to filter networks")
     result = create_prefix_lists(tgen, input_dict_1)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_2 = {
         "r1": {
@@ -483,81 +448,50 @@ def config_for_as_path(tgen, topo, tc_name):
                     {
                         "action": "permit",
                         "seq_id": 10,
-                        "match": {
-                            "ipv4": {
-                                "prefix_lists": "pf_list_1"
-                            }
-                        },
+                        "match": {"ipv4": {"prefix_lists": "pf_list_1"}},
                         "set": {
-                            "large_community": {
-                                "num": LARGE_COMM["pf_list_1"]
-                            },
-                            "community": {
-                                "num": STANDARD_COMM["pf_list_1"]
-                            }
-                        }
+                            "large_community": {"num": LARGE_COMM["pf_list_1"]},
+                            "community": {"num": STANDARD_COMM["pf_list_1"]},
+                        },
                     },
                     {
                         "action": "permit",
                         "seq_id": 20,
-                        "match": {
-                            "ipv6": {
-                                "prefix_lists": "pf_list_3"
-                            }
-                        },
+                        "match": {"ipv6": {"prefix_lists": "pf_list_3"}},
                         "set": {
-                            "large_community": {
-                                "num": LARGE_COMM["pf_list_1"]
-                            },
-                            "community": {
-                                "num": STANDARD_COMM["pf_list_1"]
-                            }
-                        }
+                            "large_community": {"num": LARGE_COMM["pf_list_1"]},
+                            "community": {"num": STANDARD_COMM["pf_list_1"]},
+                        },
                     },
                     {
                         "action": "permit",
                         "seq_id": 30,
-                        "match": {
-                            "ipv4": {
-                                "prefix_lists": "pf_list_2"
-                            }
-                        },
+                        "match": {"ipv4": {"prefix_lists": "pf_list_2"}},
                         "set": {
-                            "large_community": {
-                                "num": LARGE_COMM["pf_list_2"]
-                            },
-                            "community": {
-                                "num": STANDARD_COMM["pf_list_2"]
-                            }
-                        }
+                            "large_community": {"num": LARGE_COMM["pf_list_2"]},
+                            "community": {"num": STANDARD_COMM["pf_list_2"]},
+                        },
                     },
                     {
                         "action": "permit",
                         "seq_id": 40,
-                        "match": {
-                            "ipv6": {
-                                "prefix_lists": "pf_list_4"
-                            }
-                        },
+                        "match": {"ipv6": {"prefix_lists": "pf_list_4"}},
                         "set": {
-                            "large_community": {
-                                "num": LARGE_COMM["pf_list_2"]
-                            },
-                            "community": {
-                                "num": STANDARD_COMM["pf_list_2"]
-                            }
-                        }
-                    }
+                            "large_community": {"num": LARGE_COMM["pf_list_2"]},
+                            "community": {"num": STANDARD_COMM["pf_list_2"]},
+                        },
+                    },
                 ]
             }
         }
     }
 
-    step("Applying prefix-lists match in route-map LC1 on r1. Setting"
-         " community attritbute for filtered networks")
+    step(
+        "Applying prefix-lists match in route-map LC1 on r1. Setting"
+        " community attritbute for filtered networks"
+    )
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     config_router_additive(tgen, topo, tc_name)
 
@@ -569,22 +503,21 @@ def config_for_as_path(tgen, topo, tc_name):
                     "action": "permit",
                     "name": "ANY",
                     "value": LARGE_COMM["pf_list_1"],
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ANY",
                     "value": STANDARD_COMM["pf_list_1"],
-                }
+                },
             ]
         }
     }
 
     step("Configuring bgp community lists on r4")
     result = create_bgp_community_lists(tgen, input_dict_3)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_4 = {
         "r4": {
@@ -595,14 +528,9 @@ def config_for_as_path(tgen, topo, tc_name):
                         "seq_id": "10",
                         "match": {
                             "large_community_list": {"id": "ANY"},
-                            "community_list": {"id": "ANY"}
+                            "community_list": {"id": "ANY"},
                         },
-                        "set": {
-                            "aspath": {
-                                "as_num": "4000000",
-                                "as_action": "prepend"
-                            }
-                        }
+                        "set": {"path": {"as_num": "4000000", "as_action": "prepend"}},
                     }
                 ]
             }
@@ -611,8 +539,7 @@ def config_for_as_path(tgen, topo, tc_name):
 
     step("Applying community list on route-map on r4")
     result = create_route_maps(tgen, input_dict_4)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_5 = {
         "r4": {
@@ -624,10 +551,9 @@ def config_for_as_path(tgen, topo, tc_name):
                                 "r5": {
                                     "dest_link": {
                                         "r4-link1": {
-                                            "route_maps": [{
-                                                "name": "LC4",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC4", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 }
@@ -640,16 +566,15 @@ def config_for_as_path(tgen, topo, tc_name):
                                 "r5": {
                                     "dest_link": {
                                         "r4-link1": {
-                                            "route_maps": [{
-                                                "name": "LC4",
-                                                "direction": "out"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC4", "direction": "out"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
@@ -657,8 +582,7 @@ def config_for_as_path(tgen, topo, tc_name):
 
     step("Applying route-map LC4 out from r4 to r5 ")
     result = create_router_bgp(tgen, topo, input_dict_5)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
 
 #####################################################
@@ -690,8 +614,8 @@ def test_large_community_set(request):
                         "seq_id": "10",
                         "set": {
                             "large_community": {"num": LARGE_COMM["r1"]},
-                            "community": {"num": STANDARD_COMM["r1"]}
-                        }
+                            "community": {"num": STANDARD_COMM["r1"]},
+                        },
                     }
                 ]
             }
@@ -700,8 +624,7 @@ def test_large_community_set(request):
 
     step("Trying to set bgp communities")
     result = create_route_maps(tgen, input_dict)
-    assert result is True, "Test case {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -728,15 +651,15 @@ def test_large_community_advertise(request):
     }
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r2", [NETWORK[adt][0]],
-                                      input_dict)
+        result = verify_bgp_community(tgen, adt, "r2", [NETWORK[adt][0]], input_dict)
         assert result is True, "Test case {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-        result = verify_bgp_community(tgen, adt, "r3", [NETWORK[adt][0]],
-                                      input_dict)
+        result = verify_bgp_community(tgen, adt, "r3", [NETWORK[adt][0]], input_dict)
         assert result is True, "Test case {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -759,14 +682,14 @@ def test_large_community_transitive(request):
 
     input_dict_1 = {
         "largeCommunity": LARGE_COMM["r1"],
-        "community": STANDARD_COMM["r1"]
+        "community": STANDARD_COMM["r1"],
     }
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][0]],
-                                      input_dict_1)
+        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][0]], input_dict_1)
         assert result is True, "Test case {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -790,14 +713,14 @@ def test_large_community_override(request):
 
     input_dict_3 = {
         "largeCommunity": LARGE_COMM["r2"],
-        "community": STANDARD_COMM["r2"]
+        "community": STANDARD_COMM["r2"],
     }
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][1]],
-                                      input_dict_3)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][1]], input_dict_3)
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -823,14 +746,14 @@ def test_large_community_additive(request):
 
     input_dict_1 = {
         "largeCommunity": "%s %s" % (LARGE_COMM["r1"], LARGE_COMM["r2"]),
-        "community": "%s %s" % (STANDARD_COMM["r1"], STANDARD_COMM["r2"])
+        "community": "%s %s" % (STANDARD_COMM["r1"], STANDARD_COMM["r2"]),
     }
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][0]],
-                                      input_dict_1)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][0]], input_dict_1)
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -853,30 +776,28 @@ def test_large_community_match_as_path(request):
     config_for_as_path(tgen, topo, tc_name)
 
     input_dict = {
-        "largeCommunity": "%s %s" % (
-            LARGE_COMM["pf_list_1"], LARGE_COMM["r2"]),
-        "community": "%s %s" % (
-            STANDARD_COMM["pf_list_1"], STANDARD_COMM["r2"]),
+        "largeCommunity": "%s %s" % (LARGE_COMM["pf_list_1"], LARGE_COMM["r2"]),
+        "community": "%s %s" % (STANDARD_COMM["pf_list_1"], STANDARD_COMM["r2"]),
     }
 
     input_dict_1 = {
-        "largeCommunity": "%s %s" % (
-            LARGE_COMM["pf_list_2"], LARGE_COMM["r2"]),
-        "community": "%s %s" % (
-            STANDARD_COMM["pf_list_2"], STANDARD_COMM["r2"]),
+        "largeCommunity": "%s %s" % (LARGE_COMM["pf_list_2"], LARGE_COMM["r2"]),
+        "community": "%s %s" % (STANDARD_COMM["pf_list_2"], STANDARD_COMM["r2"]),
     }
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r5", [NETWORK[adt][0]],
-                                      input_dict)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(tgen, adt, "r5", [NETWORK[adt][0]], input_dict)
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-        result = verify_bgp_community(tgen, adt, "r5", [NETWORK[adt][1]],
-                                      input_dict_1, expected=False)
+        result = verify_bgp_community(
+            tgen, adt, "r5", [NETWORK[adt][1]], input_dict_1, expected=False
+        )
 
-        assert result is not True, "Test case {} : Should fail \n Error: {}". \
-            format(tc_name, result)
+        assert result is not True, "Test case {} : Should fail \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -909,22 +830,22 @@ def test_large_community_match_all(request):
                     "action": "permit",
                     "name": "ANY",
                     "value": "1:1:1",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ALL",
                     "value": "1:1:1 1:2:1 1:3:1 1:4:1 1:5:1 2:1:1 2:2:1",
-                    "large": True
+                    "large": True,
                 },
                 {
                     "community_type": "expanded",
                     "action": "permit",
                     "name": "EXP_ALL",
                     "value": "1:1:1 1:2:1 1:3:1 1:4:1 1:5:1 2:[1-5]:1",
-                    "large": True
-                }
+                    "large": True,
+                },
             ]
         }
     }
@@ -932,8 +853,7 @@ def test_large_community_match_all(request):
     step("Create bgp community lists for ANY, EXACT and EXP_ALL match")
 
     result = create_bgp_community_lists(tgen, input_dict_1)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_2 = {
         "r4": {
@@ -942,18 +862,18 @@ def test_large_community_match_all(request):
                     {
                         "action": "permit",
                         "seq_id": "10",
-                        "match": {"large-community-list": {"id": "ANY"}}
+                        "match": {"large-community-list": {"id": "ANY"}},
                     },
                     {
                         "action": "permit",
                         "seq_id": "20",
-                        "match": {"large-community-list": {"id": "EXACT"}}
+                        "match": {"large-community-list": {"id": "EXACT"}},
                     },
                     {
                         "action": "permit",
                         "seq_id": "30",
-                        "match": {"large-community-list": {"id": "EXP_ALL"}}
-                    }
+                        "match": {"large-community-list": {"id": "EXP_ALL"}},
+                    },
                 ]
             }
         }
@@ -961,8 +881,7 @@ def test_large_community_match_all(request):
 
     step("Applying bgp community lits on LC4 route-map")
     result = create_route_maps(tgen, input_dict_2)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_3 = {
         "r4": {
@@ -974,10 +893,9 @@ def test_large_community_match_all(request):
                                 "r5": {
                                     "dest_link": {
                                         "r4-link1": {
-                                            "route_maps": [{
-                                                "name": "LC4",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC4", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
@@ -990,16 +908,15 @@ def test_large_community_match_all(request):
                                 "r5": {
                                     "dest_link": {
                                         "r4-link1": {
-                                            "route_maps": [{
-                                                "name": "LC4",
-                                                "direction": "in"
-                                            }]
+                                            "route_maps": [
+                                                {"name": "LC4", "direction": "in"}
+                                            ]
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             }
         }
@@ -1008,24 +925,23 @@ def test_large_community_match_all(request):
     step("Apply route-mpa LC4 on r4 for r2 neighbor, direction 'in'")
 
     result = create_router_bgp(tgen, topo, input_dict_3)
-    assert result is True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_4 = {
         "largeCommunity": "1:1:1 1:2:1 1:3:1 1:4:1 1:5:1 2:1:1 2:2:1 2:3:1 "
-                          "2:4:1 2:5:1"
+        "2:4:1 2:5:1"
     }
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][0]],
-                                      input_dict_4)
-        assert result is True, "Test case {} : Should fail \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(tgen, adt, "r4", [NETWORK[adt][0]], input_dict_4)
+        assert result is True, "Test case {} : Should fail \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
 
-#@pytest.mark.skip(reason="as-set not working for ipv6")
+# @pytest.mark.skip(reason="as-set not working for ipv6")
 def test_large_community_aggregate_network(request):
     """
     Restart router and check if large community and community
@@ -1047,7 +963,7 @@ def test_large_community_aggregate_network(request):
 
     input_dict = {
         "community": STANDARD_COMM["agg_1"],
-        "largeCommunity": LARGE_COMM["agg_1"]
+        "largeCommunity": LARGE_COMM["agg_1"],
     }
 
     input_dict_1 = {
@@ -1058,9 +974,9 @@ def test_large_community_aggregate_network(request):
                         "unicast": {
                             "aggregate_address": [
                                 {
-                                    "network": "%s/%s" % (
-                                        NETWORK["ipv4"][2], NET_MASK["ipv4"]),
-                                    "as_set": True
+                                    "network": "%s/%s"
+                                    % (NETWORK["ipv4"][2], NET_MASK["ipv4"]),
+                                    "as_set": True,
                                 }
                             ]
                         }
@@ -1069,13 +985,13 @@ def test_large_community_aggregate_network(request):
                         "unicast": {
                             "aggregate_address": [
                                 {
-                                    "network": "%s/%s" % (
-                                        NETWORK["ipv6"][2], NET_MASK["ipv6"]),
-                                    "as_set": True
+                                    "network": "%s/%s"
+                                    % (NETWORK["ipv6"][2], NET_MASK["ipv6"]),
+                                    "as_set": True,
                                 }
                             ]
                         }
-                    }
+                    },
                 }
             }
         }
@@ -1083,16 +999,15 @@ def test_large_community_aggregate_network(request):
 
     step("Configuring aggregate address as-set on r2")
     result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Test case {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r4",
-                                      ["%s/%s" % (NETWORK[adt][2],
-                                                  NET_MASK[adt])],
-                                      input_dict)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(
+            tgen, adt, "r4", ["%s/%s" % (NETWORK[adt][2], NET_MASK[adt])], input_dict
+        )
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     input_dict_2 = {
         "r1": {
@@ -1102,10 +1017,10 @@ def test_large_community_aggregate_network(request):
                         "unicast": {
                             "advertise_networks": [
                                 {
-                                    "network": "%s/%s" % (
-                                        NETWORK["ipv4"][0], MASK["ipv4"]),
+                                    "network": "%s/%s"
+                                    % (NETWORK["ipv4"][0], MASK["ipv4"]),
                                     "no_of_network": 1,
-                                    "delete": True
+                                    "delete": True,
                                 }
                             ]
                         }
@@ -1114,14 +1029,14 @@ def test_large_community_aggregate_network(request):
                         "unicast": {
                             "advertise_networks": [
                                 {
-                                    "network": "%s/%s" % (
-                                        NETWORK["ipv6"][0], MASK["ipv6"]),
+                                    "network": "%s/%s"
+                                    % (NETWORK["ipv6"][0], MASK["ipv6"]),
                                     "no_of_network": 1,
-                                    "delete": True
+                                    "delete": True,
                                 }
                             ]
                         }
-                    }
+                    },
                 }
             }
         }
@@ -1129,22 +1044,21 @@ def test_large_community_aggregate_network(request):
 
     step("Stop advertising one of the networks")
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Test case {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict_3 = {
         "community": STANDARD_COMM["agg_2"],
-        "largeCommunity": LARGE_COMM["agg_2"]
+        "largeCommunity": LARGE_COMM["agg_2"],
     }
 
     for adt in ADDR_TYPES:
         step("Verifying bgp community values on r5 is also modified")
-        result = verify_bgp_community(tgen, adt, "r4",
-                                      ["%s/%s" % (NETWORK[adt][2],
-                                                  NET_MASK[adt])],
-                                      input_dict_3)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(
+            tgen, adt, "r4", ["%s/%s" % (NETWORK[adt][2], NET_MASK[adt])], input_dict_3
+        )
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1168,7 +1082,7 @@ def test_large_community_boundary_values(request):
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ANY",
-                    "value": "0:-1"
+                    "value": "0:-1",
                 }
             ]
         }
@@ -1176,8 +1090,9 @@ def test_large_community_boundary_values(request):
 
     step("Checking boundary value for community 0:-1")
     result = create_bgp_community_lists(tgen, input_dict)
-    assert result is not True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Checking community attribute 0:65536")
     input_dict_2 = {
@@ -1187,7 +1102,7 @@ def test_large_community_boundary_values(request):
                     "community_type": "standard",
                     "action": "permit",
                     "name": "ANY",
-                    "value": "0:65536"
+                    "value": "0:65536",
                 }
             ]
         }
@@ -1195,8 +1110,9 @@ def test_large_community_boundary_values(request):
 
     step("Checking boundary value for community 0:65536")
     result = create_bgp_community_lists(tgen, input_dict_2)
-    assert result is not True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Checking boundary value for community 0:4294967296")
     input_dict_3 = {
@@ -1207,15 +1123,16 @@ def test_large_community_boundary_values(request):
                     "action": "permit",
                     "name": "ANY",
                     "value": "0:4294967296",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
 
     result = create_bgp_community_lists(tgen, input_dict_3)
-    assert result is not True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
     step("Checking boundary value for community 0:-1:1")
 
     input_dict_4 = {
@@ -1226,15 +1143,49 @@ def test_large_community_boundary_values(request):
                     "action": "permit",
                     "name": "ANY",
                     "value": "0:-1:1",
-                    "large": True
+                    "large": True,
                 }
             ]
         }
     }
 
     result = create_bgp_community_lists(tgen, input_dict_4)
-    assert result is not True, "Test case {} : Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
+
+
+def test_large_community_invalid_chars(request):
+    """
+    BGP canonical lcommunities must only be digits
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    input_dict = {
+        "r4": {
+            "bgp_community_lists": [
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "ANY",
+                    "value": "1:a:2",
+                    "large": True,
+                }
+            ]
+        }
+    }
+
+    step("Checking boundary value for community 1:a:2")
+    result = create_bgp_community_lists(tgen, input_dict)
+    assert result is not True, "Test case {} : Failed \n Error: {}".format(
+        tc_name, result
+    )
 
 
 def test_large_community_after_clear_bgp(request):
@@ -1253,25 +1204,22 @@ def test_large_community_after_clear_bgp(request):
     reset_config_on_routers(tgen)
     config_router_r1(tgen, topo, tc_name)
 
-    input_dict = {
-        "largeCommunity": LARGE_COMM["r1"],
-        "community": STANDARD_COMM["r1"]
-    }
+    input_dict = {"largeCommunity": LARGE_COMM["r1"], "community": STANDARD_COMM["r1"]}
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r2", [NETWORK[adt][0]],
-                                      input_dict)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(tgen, adt, "r2", [NETWORK[adt][0]], input_dict)
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step("Clearing BGP on r1")
     clear_bgp_and_verify(tgen, topo, "r1")
 
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, "r2", [NETWORK[adt][0]],
-                                      input_dict)
-        assert result is True, "Test case {} : Failed \n Error: {}". \
-            format(tc_name, result)
+        result = verify_bgp_community(tgen, adt, "r2", [NETWORK[adt][0]], input_dict)
+        assert result is True, "Test case {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 

@@ -13,6 +13,10 @@
 #include "thread.h"
 #include "sockunion.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct resolver_query {
 	void (*callback)(struct resolver_query *, const char *errstr, int n,
 			 union sockunion *);
@@ -27,5 +31,9 @@ void resolver_resolve(struct resolver_query *query, int af,
 		      const char *hostname, void (*cb)(struct resolver_query *,
 						       const char *, int,
 						       union sockunion *));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_RESOLVER_H */

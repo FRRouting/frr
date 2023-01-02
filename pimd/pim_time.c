@@ -37,7 +37,7 @@ static int gettime_monotonic(struct timeval *tv)
 	if (result) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "%s: gettimeofday() failure: errno=%d: %s",
-			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+			     __func__, errno, safe_strerror(errno));
 	}
 
 	return result;
@@ -54,7 +54,7 @@ int64_t pim_time_monotonic_sec(void)
 	if (gettime_monotonic(&now_tv)) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "%s: gettime_monotonic() failure: errno=%d: %s",
-			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+			     __func__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -73,7 +73,7 @@ int64_t pim_time_monotonic_dsec(void)
 	if (gettime_monotonic(&now_tv)) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "%s: gettime_monotonic() failure: errno=%d: %s",
-			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+			     __func__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -91,7 +91,7 @@ int64_t pim_time_monotonic_usec(void)
 	if (gettime_monotonic(&now_tv)) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "%s: gettime_monotonic() failure: errno=%d: %s",
-			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+			     __func__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -106,7 +106,7 @@ int pim_time_mmss(char *buf, int buf_size, long sec)
 	long mm;
 	int wr;
 
-	zassert(buf_size >= 5);
+	assert(buf_size >= 5);
 
 	mm = sec / 60;
 	sec %= 60;
@@ -122,7 +122,7 @@ static int pim_time_hhmmss(char *buf, int buf_size, long sec)
 	long mm;
 	int wr;
 
-	zassert(buf_size >= 8);
+	assert(buf_size >= 8);
 
 	hh = sec / 3600;
 	sec %= 3600;
@@ -156,7 +156,7 @@ void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct thread *t_timer)
 
 void pim_time_uptime(char *buf, int buf_size, int64_t uptime_sec)
 {
-	zassert(buf_size >= 8);
+	assert(buf_size >= 8);
 
 	pim_time_hhmmss(buf, buf_size, uptime_sec);
 }

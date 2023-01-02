@@ -17,6 +17,7 @@
 /* C++ called, they want their templates back */
 #define item		concat(item_, TYPE)
 #define itm		concat(itm_, TYPE)
+#define itmswap		concat(itmswap_, TYPE)
 #define head		concat(head_, TYPE)
 #define list		concat(TYPE, )
 #define list_head	concat(TYPE, _head)
@@ -25,7 +26,9 @@
 #define list_hash	concat(TYPE, _hash)
 #define list_init	concat(TYPE, _init)
 #define list_fini	concat(TYPE, _fini)
+#define list_const_first concat(TYPE, _const_first)
 #define list_first	concat(TYPE, _first)
+#define list_const_next	concat(TYPE, _const_next)
 #define list_next	concat(TYPE, _next)
 #define list_next_safe	concat(TYPE, _next_safe)
 #define list_count	concat(TYPE, _count)
@@ -38,14 +41,15 @@
 #define list_find_gteq	concat(TYPE, _find_gteq)
 #define list_del	concat(TYPE, _del)
 #define list_pop	concat(TYPE, _pop)
+#define list_swap_all	concat(TYPE, _swap_all)
 
-#define ts_hash		concat(ts_hash_, TYPE)
+#define ts_hash_head	concat(ts_hash_head_, TYPE)
 
 #ifndef REALTYPE
 #define REALTYPE TYPE
 #endif
 
-PREDECL(REALTYPE, list)
+PREDECL(REALTYPE, list);
 struct item {
 	uint64_t val;
 	struct list_item itm;
@@ -57,7 +61,7 @@ static int list_cmp(const struct item *a, const struct item *b);
 
 #if IS_HASH(REALTYPE)
 static uint32_t list_hash(const struct item *a);
-DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash);
 
 static uint32_t list_hash(const struct item *a)
 {
@@ -70,7 +74,7 @@ static uint32_t list_hash(const struct item *a)
 }
 
 #else
-DECLARE(REALTYPE, list, struct item, itm, list_cmp)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp);
 #endif
 
 static int list_cmp(const struct item *a, const struct item *b)
@@ -83,14 +87,16 @@ static int list_cmp(const struct item *a, const struct item *b)
 }
 
 #else /* !IS_SORTED */
-DECLARE(REALTYPE, list, struct item, itm)
+DECLARE(REALTYPE, list, struct item, itm);
 #endif
 
 #define NITEM 10000
-struct item itm[NITEM];
+#define NITEM_SWAP 100 /* other container for swap */
+struct item itm[NITEM], itmswap[NITEM_SWAP];
 static struct list_head head = concat(INIT_, REALTYPE)(head);
 
-static void ts_hash(const char *text, const char *expect)
+static void ts_hash_head(struct list_head *h, const char *text,
+			 const char *expect)
 {
 	int64_t us = monotime_since(&ref, NULL);
 	SHA256_CTX ctx;
@@ -100,13 +106,13 @@ static void ts_hash(const char *text, const char *expect)
 	char hashtext[65];
 	uint32_t swap_count, count;
 
-	count = list_count(&head);
+	count = list_count(h);
 	swap_count = htonl(count);
 
 	SHA256_Init(&ctx);
 	SHA256_Update(&ctx, &swap_count, sizeof(swap_count));
 
-	frr_each (list, &head, item) {
+	frr_each (list, h, item) {
 		struct {
 			uint32_t val_upper, val_lower, index;
 		} hashitem = {
@@ -123,25 +129,30 @@ static void ts_hash(const char *text, const char *expect)
 	for (i = 0; i < sizeof(hash); i++)
 		sprintf(hashtext + i * 2, "%02x", hash[i]);
 
-	printf("%7"PRId64"us  %-25s %s%s\n", us, text,
+	printfrr("%7"PRId64"us  %-25s %s%s\n", us, text,
 	       expect ? " " : "*", hashtext);
 	if (expect && strcmp(expect, hashtext)) {
-		printf("%-21s %s\n", "EXPECTED:", expect);
+		printfrr("%-21s %s\n", "EXPECTED:", expect);
 		assert(0);
 	}
 	monotime(&ref);
 }
 /* hashes will have different item ordering */
 #if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
-#define ts_hashx(pos, csum) ts_hash(pos, NULL)
+#define ts_hash(pos, csum) ts_hash_head(&head, pos, NULL)
+#define ts_hashx(pos, csum) ts_hash_head(&head, pos, NULL)
+#define ts_hash_headx(head, pos, csum) ts_hash_head(head, pos, NULL)
 #else
-#define ts_hashx(pos, csum) ts_hash(pos, csum)
+#define ts_hash(pos, csum) ts_hash_head(&head, pos, csum)
+#define ts_hashx(pos, csum) ts_hash_head(&head, pos, csum)
+#define ts_hash_headx(head, pos, csum) ts_hash_head(head, pos, csum)
 #endif
 
 static void concat(test_, TYPE)(void)
 {
 	size_t i, j, k, l;
 	struct prng *prng;
+	struct prng *prng_swap __attribute__((unused));
 	struct item *item, *prev __attribute__((unused));
 	struct item dummy __attribute__((unused));
 
@@ -149,7 +160,11 @@ static void concat(test_, TYPE)(void)
 	for (i = 0; i < NITEM; i++)
 		itm[i].val = i;
 
-	printf("%s start\n", str(TYPE));
+	memset(itmswap, 0, sizeof(itmswap));
+	for (i = 0; i < NITEM_SWAP; i++)
+		itmswap[i].val = i;
+
+	printfrr("%s start\n", str(TYPE));
 	ts_start();
 
 	list_init(&head);
@@ -176,19 +191,80 @@ static void concat(test_, TYPE)(void)
 	assert(list_first(&head) != NULL);
 	ts_hashx("fill", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
 
+#if !IS_ATOMIC(REALTYPE)
+	struct list_head other;
+
+	list_init(&other);
+	list_swap_all(&head, &other);
+
+	assert(list_count(&head) == 0);
+	assert(!list_first(&head));
+	assert(list_count(&other) == k);
+	assert(list_first(&other) != NULL);
+	ts_hash_headx(
+		&other, "swap1",
+		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
+
+	prng_swap = prng_new(0x1234dead);
+	l = 0;
+	for (i = 0; i < NITEM_SWAP; i++) {
+		j = prng_rand(prng_swap) % NITEM_SWAP;
+		if (itmswap[j].scratchpad == 0) {
+			list_add(&head, &itmswap[j]);
+			itmswap[j].scratchpad = 1;
+			l++;
+		}
+#if !IS_HEAP(REALTYPE)
+		else {
+			struct item *rv = list_add(&head, &itmswap[j]);
+			assert(rv == &itmswap[j]);
+		}
+#endif
+	}
+	assert(list_count(&head) == l);
+	assert(list_first(&head) != NULL);
+	ts_hash_headx(
+		&head, "swap-fill",
+		"26df437174051cf305d1bbb62d779ee450ca764167a1e7a94be1aece420008e6");
+
+	list_swap_all(&head, &other);
+
+	assert(list_count(&other) == l);
+	assert(list_first(&other));
+	ts_hash_headx(
+		&other, "swap2a",
+		"26df437174051cf305d1bbb62d779ee450ca764167a1e7a94be1aece420008e6");
+	assert(list_count(&head) == k);
+	assert(list_first(&head) != NULL);
+	ts_hash_headx(
+		&head, "swap2b",
+		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
+#endif /* !IS_ATOMIC */
+
 	k = 0;
-	prev = NULL;
-	frr_each(list, &head, item) {
+
+#if IS_ATOMIC(REALTYPE)
+	struct list_head *chead = &head;
+	struct item *citem, *cprev = NULL;
+
+	frr_each(list, chead, citem) {
+#else
+	const struct list_head *chead = &head;
+	const struct item *citem, *cprev = NULL;
+
+	frr_each(list_const, chead, citem) {
+#endif
+
 #if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
 		/* hash table doesn't give sorting */
-		(void)prev;
+		(void)cprev;
 #else
-		assert(!prev || prev->val < item->val);
+		assert(!cprev || cprev->val < citem->val);
 #endif
-		prev = item;
+		cprev = citem;
 		k++;
 	}
-	assert(list_count(&head) == k);
+	assert(list_count(chead) == k);
 	ts_ref("walk");
 
 #if IS_UNIQ(REALTYPE)
@@ -330,6 +406,50 @@ static void concat(test_, TYPE)(void)
 	assert(list_count(&head) == k);
 	assert(list_first(&head) != NULL);
 	ts_hash("fill / add_tail", "eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+#if !IS_ATOMIC(REALTYPE)
+	struct list_head other;
+
+	list_init(&other);
+	list_swap_all(&head, &other);
+
+	assert(list_count(&head) == 0);
+	assert(!list_first(&head));
+	assert(list_count(&other) == k);
+	assert(list_first(&other) != NULL);
+	ts_hash_head(
+		&other, "swap1",
+		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+	prng_swap = prng_new(0x1234dead);
+	l = 0;
+	for (i = 0; i < NITEM_SWAP; i++) {
+		j = prng_rand(prng_swap) % NITEM_SWAP;
+		if (itmswap[j].scratchpad == 0) {
+			list_add_tail(&head, &itmswap[j]);
+			itmswap[j].scratchpad = 1;
+			l++;
+		}
+	}
+	assert(list_count(&head) == l);
+	assert(list_first(&head) != NULL);
+	ts_hash_head(
+		&head, "swap-fill",
+		"833e6ae437e322dfbd36eda8cfc33a61109be735b43f15d256c05e52d1b01909");
+
+	list_swap_all(&head, &other);
+
+	assert(list_count(&other) == l);
+	assert(list_first(&other));
+	ts_hash_head(
+		&other, "swap2a",
+		"833e6ae437e322dfbd36eda8cfc33a61109be735b43f15d256c05e52d1b01909");
+	assert(list_count(&head) == k);
+	assert(list_first(&head) != NULL);
+	ts_hash_head(
+		&head, "swap2b",
+		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+#endif
 
 	for (i = 0; i < NITEM / 2; i++) {
 		j = prng_rand(prng) % NITEM;
@@ -530,13 +650,17 @@ static void concat(test_, TYPE)(void)
 	list_fini(&head);
 	ts_ref("fini");
 	ts_end();
-	printf("%s end\n", str(TYPE));
+	printfrr("%s end\n", str(TYPE));
 }
 
+#undef ts_hash
 #undef ts_hashx
+#undef ts_hash_head
+#undef ts_hash_headx
 
 #undef item
 #undef itm
+#undef itmswap
 #undef head
 #undef list
 #undef list_head
@@ -558,6 +682,7 @@ static void concat(test_, TYPE)(void)
 #undef list_find_gteq
 #undef list_del
 #undef list_pop
+#undef list_swap_all
 
 #undef REALTYPE
 #undef TYPE

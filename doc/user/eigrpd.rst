@@ -65,7 +65,6 @@ Certain signals have special meanings to *eigrpd*.
 EIGRP Configuration
 ===================
 
-.. index:: router eigrp (1-65535) [vrf NAME]
 .. clicmd:: router eigrp (1-65535) [vrf NAME]
 
    The `router eigrp` command is necessary to enable EIGRP. To disable EIGRP,
@@ -73,16 +72,7 @@ EIGRP Configuration
    carrying out any of the EIGRP commands.  Specify vrf NAME if you want
    eigrp to work within the specified vrf.
 
-.. index:: no router eigrp (1-65535) [vrf NAME]
-.. clicmd:: no router eigrp (1-65535) [vrf NAME]
-
-   Disable EIGRP.
-
-.. index:: network NETWORK
 .. clicmd:: network NETWORK
-
-.. index:: no network NETWORK
-.. clicmd:: no network NETWORK
 
    Set the EIGRP enable interface by `network`. The interfaces which
    have addresses matching with `network` are enabled.
@@ -104,11 +94,8 @@ EIGRP Configuration
       !
 
 
-.. index:: passive-interface (IFNAME|default)
 .. clicmd:: passive-interface (IFNAME|default)
 
-.. index:: no passive-interface IFNAME
-.. clicmd:: no passive-interface IFNAME
 
    This command sets the specified interface to passive mode. On passive mode
    interface, all receiving packets are ignored and eigrpd does not send either
@@ -123,74 +110,26 @@ EIGRP Configuration
 How to Announce EIGRP route
 ===========================
 
-.. index:: redistribute kernel
-.. clicmd:: redistribute kernel
+Redistribute routes into EIGRP:
 
-.. index:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
+.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ospf|rip|sharp|static|table> [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]
 
-.. index:: no redistribute kernel
-.. clicmd:: no redistribute kernel
+   The ``redistribute`` family of commands imports routing information from
+   other sources into EIGRP's tables. Redistribution may be disabled with the
+   ``no`` form of the commands.
 
-   `redistribute kernel` redistributes routing information from kernel route
-   entries into the EIGRP tables. `no redistribute kernel` disables the routes.
+   Note that connected routes on interfaces EIGRP is enabled on are announced
+   by default.
 
-.. index:: redistribute static
-.. clicmd:: redistribute static
+   Optionally, various EIGRP metrics may be specified. These metrics will be
+   applied to the imported routes.
 
-.. index:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: no redistribute static
-.. clicmd:: no redistribute static
-
-   `redistribute static` redistributes routing information from static route
-   entries into the EIGRP tables. `no redistribute static` disables the routes.
-
-.. index:: redistribute connected
-.. clicmd:: redistribute connected
-
-.. index:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: no redistribute connected
-.. clicmd:: no redistribute connected
-
-   Redistribute connected routes into the EIGRP tables. `no redistribute
-   connected` disables the connected routes in the EIGRP tables. This command
-   redistribute connected of the interface which EIGRP disabled. The connected
-   route on EIGRP enabled interface is announced by default.
-
-.. index:: redistribute ospf
-.. clicmd:: redistribute ospf
-
-.. index:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: no redistribute ospf
-.. clicmd:: no redistribute ospf
-
-   `redistribute ospf` redistributes routing information from ospf route
-   entries into the EIGRP tables. `no redistribute ospf` disables the routes.
-
-.. index:: redistribute bgp
-.. clicmd:: redistribute bgp
-
-.. index:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-.. clicmd:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
-
-.. index:: no redistribute bgp
-.. clicmd:: no redistribute bgp
-
-   `redistribute bgp` redistributes routing information from bgp route entries
-   into the EIGRP tables. `no redistribute bgp` disables the routes.
 
 .. _show-eigrp-information:
 
 Show EIGRP Information
 ======================
 
-.. index:: show ip eigrp [vrf NAME] topology
 .. clicmd:: show ip eigrp [vrf NAME] topology
 
    Display current EIGRP status.
@@ -208,14 +147,12 @@ Show EIGRP Information
       P  10.0.2.0/24, 1 successors, FD is 256256, serno: 0
              via Connected, enp0s3
 
-.. index:: show ip eigrp [vrf NAME] interface
 .. clicmd:: show ip eigrp [vrf NAME] interface
 
    Display the list of interfaces associated with a particular eigrp
    instance.
 
-..index:: show ip eigrp [vrf NAME] neighbor
-..clicmd:: show ip eigrp [vrf NAME] neighbor
+.. clicmd:: show ip eigrp [vrf NAME] neighbor
 
    Display the list of neighbors that have been established within
    a particular eigrp instance.
@@ -225,14 +162,12 @@ EIGRP Debug Commands
 
 Debug for EIGRP protocol.
 
-.. index:: debug eigrp packets
 .. clicmd:: debug eigrp packets
 
    Debug eigrp packets
 
    ``debug eigrp`` will show EIGRP packets that are sent and received.
 
-.. index:: debug eigrp transmit
 .. clicmd:: debug eigrp transmit
 
    Debug eigrp transmit events
@@ -240,11 +175,25 @@ Debug for EIGRP protocol.
    ``debug eigrp transmit`` will display detailed information about the EIGRP
    transmit events.
 
-.. index:: show debugging eigrp
 .. clicmd:: show debugging eigrp
 
    Display *eigrpd*'s debugging option.
 
    ``show debugging eigrp`` will show all information currently set for eigrpd
    debug.
+
+
+Sample configuration
+====================
+
+.. code-block:: frr
+
+   hostname eigrpd
+   password zebra
+   enable password please-set-at-here
+   !
+   router eigrp 4453
+     network 192.168.1.0/24
+   !
+   log stdout
 

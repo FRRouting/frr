@@ -91,11 +91,11 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 	if (gate_str) {
 		/* Gateway is a IPv4 or IPv6 nexthop. */
 		ret = inet_pton(AF_INET6, gate_str, &gate.ipv6);
-		if (ret)
+		if (ret == 1)
 			gtype = NEXTHOP_TYPE_IPV6;
 		else {
 			ret = inet_pton(AF_INET, gate_str, &gate.ipv4);
-			if (ret)
+			if (ret == 1)
 				gtype = NEXTHOP_TYPE_IPV4;
 			else {
 				vty_out(vty, "%% Invalid nexthop\n");
@@ -131,7 +131,7 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		ret = zebra_mpls_static_lsp_del(zvrf, in_label, gtype, &gate,
 						0);
 
-	if (ret) {
+	if (ret != 0) {
 		vty_out(vty, "%% LSP cannot be %s\n",
 			add_cmd ? "added" : "deleted");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -449,15 +449,21 @@ DEFUN (no_mpls_label_global_block,
 	return zebra_mpls_global_block(vty, 0, NULL, NULL);
 }
 
+static int zebra_mpls_config(struct vty *vty);
 /* MPLS node for MPLS LSP. */
-static struct cmd_node mpls_node = {MPLS_NODE, "", 1};
+static struct cmd_node mpls_node = {
+	.name = "mpls",
+	.node = MPLS_NODE,
+	.prompt = "",
+	.config_write = zebra_mpls_config,
+};
 
 /* MPLS VTY.  */
 void zebra_mpls_vty_init(void)
 {
 	install_element(VIEW_NODE, &show_mpls_status_cmd);
 
-	install_node(&mpls_node, zebra_mpls_config);
+	install_node(&mpls_node);
 
 	install_element(CONFIG_NODE, &mpls_transit_lsp_cmd);
 	install_element(CONFIG_NODE, &no_mpls_transit_lsp_cmd);

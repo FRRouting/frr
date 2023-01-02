@@ -1,0 +1,11 @@
+gcc-frr-plugin (9.3.0d15+equi1) unstable; urgency=medium
+
+  * update & rebuild for gcc 9.3.0-15+equi1
+
+ -- David Lamparter <equinox-debian@diac24.net>  Tue, 14 Jul 2020 19:49:24 +0200
+
+gcc-frr-plugin (9.3.0d8+equi2) unstable; urgency=medium
+
+  * package created (+equi1 used during development, never released.)
+
+ -- David Lamparter <equinox-debian@diac24.net>  Sun, 29 Mar 2020 08:32:24 +0200

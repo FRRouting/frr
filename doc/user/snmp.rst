@@ -11,7 +11,9 @@ a SNMP agent using the the AgentX protocol (:rfc:`2741`) and make the
 routing protocol MIBs available through it.
 
 Note that SNMP Support needs to be enabled at compile-time and loaded as module
-on daemon startup. Refer to :ref:`loadable-module-support` on the latter.
+on daemon startup. Refer to :ref:`loadable-module-support` on the latter.  If
+you do not start the daemons with snmp module support snmp will not work
+properly.
 
 .. _getting-and-installing-an-snmp-agent:
 
@@ -22,6 +24,41 @@ The supported SNMP agent is AgentX. We recommend to use
 the latest version of `net-snmp` which was formerly known as `ucd-snmp`. It is
 free and open software and available at `http://www.net-snmp.org/ <http://www.net-snmp.org/>`_
 and as binary package for most Linux distributions.
+
+.. _net-smtp-configuration:
+
+NET-SNMP configuration
+======================
+
+Routers with a heavy amount of routes (e.g. BGP full table) might experience
+problems with a hanging vtysh from time to time, 100% CPU on the snmpd or
+even crashes of the frr daemon(s) due to stalls within AgentX. Once snmp
+agents connects they start receiving a heavy amount of SNMP data (all the
+routes) which cannot be handled quick enough. It's recommended (by several
+vendors as well) to exclude these OID's unless you really need them, which
+can be achieved by amending the default view from SNMP
+
+:file:`/etc/snmp/snmpd.conf`:
+
+::
+
+   # This is the default view
+   view all    included  .1 80
+   # Remove ipRouteTable from view
+   view all    excluded  .1.3.6.1.2.1.4.21
+   # Remove ipNetToMediaTable from view
+   view all    excluded  .1.3.6.1.2.1.4.22
+   # Remove ipNetToPhysicalPhysAddress from view
+   view all    excluded  .1.3.6.1.2.1.4.35
+   # Remove ipCidrRouteTable  from view
+   view all    excluded  .1.3.6.1.2.1.4.24
+   # Optionally protect SNMP private/secret values
+   view all    excluded  .1.3.6.1.6.3.15
+   view all    excluded  .1.3.6.1.6.3.16
+   view all    excluded  .1.3.6.1.6.3.18
+   # Optionally allow SNMP public info (sysName, location, etc)
+   view system included  .iso.org.dod.internet.mgmt.mib-2.system
+
 
 .. _agentx-configuration:
 
@@ -93,10 +130,7 @@ need to configure FRR to use another transport, you can configure it through
 
 Here is the syntax for using AgentX:
 
-.. index:: agentx
 .. clicmd:: agentx
-.. index:: no agentx
-.. clicmd:: no agentx
 
 
 .. include:: snmptrap.rst

@@ -34,7 +34,7 @@
 #include "bgpd/rfapi/vnc_debug.h"
 
 struct agg_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,
-			     struct prefix *p)
+			     const struct prefix *p)
 {
 	struct agg_table *t = NULL;
 	struct agg_node *rn = NULL;
@@ -66,7 +66,7 @@ struct agg_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,
 }
 
 struct agg_node *vnc_etn_lookup(struct bgp *bgp, vnc_export_type_t type,
-				struct prefix *p)
+				const struct prefix *p)
 {
 	struct agg_table *t = NULL;
 	struct agg_node *rn = NULL;
@@ -98,7 +98,7 @@ struct agg_node *vnc_etn_lookup(struct bgp *bgp, vnc_export_type_t type,
 }
 
 struct vnc_export_info *vnc_eti_get(struct bgp *bgp, vnc_export_type_t etype,
-				    struct prefix *p, struct peer *peer,
+				    const struct prefix *p, struct peer *peer,
 				    uint8_t type, uint8_t subtype)
 {
 	struct agg_node *etn;
@@ -165,8 +165,9 @@ void vnc_eti_delete(struct vnc_export_info *goner)
 
 struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
 					   vnc_export_type_t etype,
-					   struct prefix *p, struct peer *peer,
-					   uint8_t type, uint8_t subtype)
+					   const struct prefix *p,
+					   struct peer *peer, uint8_t type,
+					   uint8_t subtype)
 {
 	struct agg_node *etn;
 	struct vnc_export_info *eti;

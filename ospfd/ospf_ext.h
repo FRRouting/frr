@@ -151,10 +151,6 @@ struct ospf_ext_lp {
 	 */
 	uint8_t scope;
 
-	/* area pointer if flooding is Type 10 Null if flooding is AS scope */
-	struct ospf_area *area;
-	struct in_addr area_id;
-
 	/* List of interface with Segment Routing enable */
 	struct list *iflist;
 };
@@ -193,6 +189,7 @@ extern int ospf_ext_init(void);
 extern void ospf_ext_term(void);
 extern void ospf_ext_finish(void);
 extern void ospf_ext_update_sr(bool enable);
+extern void ospf_ext_link_srlb_update(void);
 extern uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp,
 					       uint32_t index,
 					       struct prefix_ipv4 *p,

@@ -4,7 +4,7 @@ endif
 
 qpb_libfrr_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
 qpb_libfrr_pb_la_LIBADD = $(PROTOBUF_C_LIBS)
-qpb_libfrr_pb_la_LDFLAGS = -version-info 0:0:0
+qpb_libfrr_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 
 qpb_libfrr_pb_la_SOURCES = \
 	qpb/qpb.c \
@@ -29,12 +29,13 @@ CLEANFILES += \
 	# end
 
 EXTRA_DIST += qpb/qpb.proto
+SUFFIXES += .proto .pb-c.c .pb-c.h
 
 if HAVE_PROTOBUF
 
 # Rules
 .proto.pb.h:
-	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $(top_srcdir)/$^
+	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_builddir) $^
 
 AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
 am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
@@ -42,7 +43,8 @@ am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
 am__v_PROTOC_C_1 =
 
 .proto.pb-c.c:
-	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_srcdir) $(top_srcdir)/$^
+	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
+	$(AM_V_GEN)$(SED) -e '1i#include "config.h"' -i $@
 .pb-c.c.pb-c.h:
 	@/bin/true
 

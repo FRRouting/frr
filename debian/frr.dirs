@@ -1,8 +1,7 @@
-etc/logrotate.d/
 etc/frr/
 etc/iproute2/rt_protos.d/
+etc/logrotate.d/
 usr/share/doc/frr/
-usr/share/doc/frr/examples/
 usr/share/lintian/overrides/
 usr/share/yang/
 var/log/frr/

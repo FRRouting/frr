@@ -58,7 +58,7 @@
 /* User compatibility constant */
 #define CS2MS 10
 
-DECLARE_MGROUP(VRRPD)
+DECLARE_MGROUP(VRRPD);
 
 /* Northbound */
 extern const struct frr_yang_module_info frr_vrrpd_info;

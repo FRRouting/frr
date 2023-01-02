@@ -35,10 +35,10 @@ extern "C" {
  *
  *   mydaemon.h:
  *     #include "hook.h"
- *     DECLARE_HOOK (some_update_event, (struct eventinfo *info), (info))
+ *     DECLARE_HOOK (some_update_event, (struct eventinfo *info), (info));
  *
  *   mydaemon.c:
- *     DEFINE_HOOK (some_update_event, (struct eventinfo *info), (info))
+ *     DEFINE_HOOK (some_update_event, (struct eventinfo *info), (info));
  *     ...
  *     hook_call (some_update_event, info)
  *
@@ -114,7 +114,9 @@ struct hookent {
 	struct hookent *next;
 	void *hookfn; /* actually a function pointer */
 	void *hookarg;
-	bool has_arg;
+	bool has_arg : 1;
+	bool ent_on_heap : 1;
+	bool ent_used : 1;
 	int priority;
 	struct frrmod_runtime *module;
 	const char *fnname;
@@ -133,21 +135,33 @@ struct hook {
  * always use hook_register(), which uses the static inline helper from
  * DECLARE_HOOK in order to get type safety
  */
-extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
-			   bool has_arg, struct frrmod_runtime *module,
+extern void _hook_register(struct hook *hook, struct hookent *stackent,
+			   void *funcptr, void *arg, bool has_arg,
+			   struct frrmod_runtime *module,
 			   const char *funcname, int priority);
+
+/* most hook_register calls are not in a loop or similar and can use a
+ * statically allocated "struct hookent" from the data segment
+ */
+#define _hook_reg_svar(hook, funcptr, arg, has_arg, module, funcname, prio)    \
+	do {                                                                   \
+		static struct hookent stack_hookent = {};                      \
+		_hook_register(hook, &stack_hookent, funcptr, arg, has_arg,    \
+			       module, funcname, prio);                        \
+	} while (0)
+
 #define hook_register(hookname, func)                                          \
-	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
+	_hook_reg_svar(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
 		       NULL, false, THIS_MODULE, #func, HOOK_DEFAULT_PRIORITY)
 #define hook_register_arg(hookname, func, arg)                                 \
-	_hook_register(&_hook_##hookname,                                      \
+	_hook_reg_svar(&_hook_##hookname,                                      \
 		       _hook_typecheck_arg_##hookname(func), arg, true,        \
 		       THIS_MODULE, #func, HOOK_DEFAULT_PRIORITY)
 #define hook_register_prio(hookname, prio, func)                               \
-	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
+	_hook_reg_svar(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
 		       NULL, false, THIS_MODULE, #func, prio)
 #define hook_register_arg_prio(hookname, prio, func, arg)                      \
-	_hook_register(&_hook_##hookname,                                      \
+	_hook_reg_svar(&_hook_##hookname,                                      \
 		       _hook_typecheck_arg_##hookname(func), arg, true,        \
 		       THIS_MODULE, #func, prio)
 
@@ -169,8 +183,14 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 #define HOOK_ADDDEF(...) (void *hookarg , ## __VA_ARGS__)
 #define HOOK_ADDARG(...) (hookarg , ## __VA_ARGS__)
 
+/* and another helper to convert () into (void) to get a proper prototype */
+#define _SKIP_10(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, ret, ...) ret
+#define _MAKE_VOID(...) _SKIP_10(, ##__VA_ARGS__, , , , , , , , , , void)
+
+#define HOOK_VOIDIFY(...) (_MAKE_VOID(__VA_ARGS__) __VA_ARGS__)
+
 /* use in header file - declares the hook and its arguments
- * usage:  DECLARE_HOOK(my_hook, (int arg1, struct foo *arg2), (arg1, arg2))
+ * usage:  DECLARE_HOOK(my_hook, (int arg1, struct foo *arg2), (arg1, arg2));
  * as above, "passlist" must use the same order and same names as "arglist"
  *
  * theoretically passlist is not neccessary, but let's keep things simple and
@@ -178,16 +198,19 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
  */
 #define DECLARE_HOOK(hookname, arglist, passlist)                              \
 	extern struct hook _hook_##hookname;                                   \
-	__attribute__((unused)) static void *_hook_typecheck_##hookname(       \
-		int(*funcptr) arglist)                                         \
+	__attribute__((unused)) static inline void *                           \
+		_hook_typecheck_##hookname(int(*funcptr) HOOK_VOIDIFY arglist) \
 	{                                                                      \
 		return (void *)funcptr;                                        \
 	}                                                                      \
-	__attribute__((unused)) static void *_hook_typecheck_arg_##hookname(   \
-		int(*funcptr) HOOK_ADDDEF arglist)                             \
+	__attribute__((unused)) static inline void                             \
+		*_hook_typecheck_arg_##hookname(int(*funcptr)                  \
+							HOOK_ADDDEF arglist)   \
 	{                                                                      \
 		return (void *)funcptr;                                        \
-	}
+	}                                                                      \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 #define DECLARE_KOOH(hookname, arglist, passlist)                              \
 	DECLARE_HOOK(hookname, arglist, passlist)
 
@@ -197,14 +220,14 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	struct hook _hook_##hookname = {                                       \
 		.name = #hookname, .entries = NULL, .reverse = rev,            \
 	};                                                                     \
-	static int hook_call_##hookname arglist                                \
+	static int hook_call_##hookname HOOK_VOIDIFY arglist                   \
 	{                                                                      \
 		int hooksum = 0;                                               \
 		struct hookent *he = _hook_##hookname.entries;                 \
 		void *hookarg;                                                 \
 		union {                                                        \
 			void *voidptr;                                         \
-			int(*fptr) arglist;                                    \
+			int(*fptr) HOOK_VOIDIFY arglist;                       \
 			int(*farg) HOOK_ADDDEF arglist;                        \
 		} hookp;                                                       \
 		for (; he; he = he->next) {                                    \
@@ -216,7 +239,8 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 				hooksum += hookp.farg HOOK_ADDARG passlist;    \
 		}                                                              \
 		return hooksum;                                                \
-	}
+	}                                                                      \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 #define DEFINE_HOOK(hookname, arglist, passlist)                               \
 	DEFINE_HOOK_INT(hookname, arglist, passlist, false)

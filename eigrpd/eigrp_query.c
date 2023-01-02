@@ -52,13 +52,12 @@
 #include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_memory.h"
 
 uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 {
 	struct eigrp_interface *iface;
 	struct listnode *node, *node2, *nnode2;
-	struct eigrp_prefix_entry *pe;
+	struct eigrp_prefix_descriptor *pe;
 	uint32_t counter;
 
 	if (eigrp == NULL) {
@@ -118,7 +117,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			dest_addr.family = AF_INET;
 			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
-			struct eigrp_prefix_entry *dest =
+			struct eigrp_prefix_descriptor *dest =
 				eigrp_topology_table_lookup_ipv4(
 					eigrp->topology_table, &dest_addr);
 
@@ -126,9 +125,9 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			 * know)*/
 			if (dest != NULL) {
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_nexthop_entry *entry =
-					eigrp_prefix_entry_lookup(dest->entries,
-								  nbr);
+				struct eigrp_route_descriptor *entry =
+					eigrp_route_descriptor_lookup(
+						dest->entries, nbr);
 				msg.packet_type = EIGRP_OPC_QUERY;
 				msg.eigrp = eigrp;
 				msg.data_type = EIGRP_INT;
@@ -164,7 +163,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	uint16_t length = EIGRP_HEADER_LEN;
 	struct listnode *node, *nnode, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
-	struct eigrp_prefix_entry *pe;
+	struct eigrp_prefix_descriptor *pe;
 	bool has_tlv = false;
 	bool new_packet = true;
 	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);

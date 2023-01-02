@@ -35,6 +35,8 @@
 #define OSPF6_ROUTER_BIT_V     (1 << 2)
 #define OSPF6_ROUTER_BIT_E     (1 << 1)
 #define OSPF6_ROUTER_BIT_B     (1 << 0)
+#define OSPF6_ROUTER_BIT_NT    (1 << 4)
+
 
 /* OSPF options */
 /* present in HELLO, DD, LSA */
@@ -69,9 +71,11 @@ struct ospf6_prefix {
 #define OSPF6_PREFIX_OPTION_LA (1 << 1)  /* Local Address */
 #define OSPF6_PREFIX_OPTION_MC (1 << 2)  /* MultiCast */
 #define OSPF6_PREFIX_OPTION_P  (1 << 3)  /* Propagate (NSSA) */
+#define OSPF6_PREFIX_OPTION_DN                                                 \
+	(1 << 4) /* DN bit to prevent loops in VPN environment */
 
 /* caddr_t OSPF6_PREFIX_BODY (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_BODY(x) ((caddr_t)(x) + sizeof (struct ospf6_prefix))
+#define OSPF6_PREFIX_BODY(x) ((caddr_t)(x) + sizeof(struct ospf6_prefix))
 
 /* size_t OSPF6_PREFIX_SPACE (int prefixlength); */
 #define OSPF6_PREFIX_SPACE(x) ((((x) + 31) / 32) * 4)

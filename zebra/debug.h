@@ -48,7 +48,8 @@ extern "C" {
 #define ZEBRA_DEBUG_NHT 0x01
 #define ZEBRA_DEBUG_NHT_DETAILED 0x02
 
-#define ZEBRA_DEBUG_MPLS    0x01
+#define ZEBRA_DEBUG_MPLS             0x01
+#define ZEBRA_DEBUG_MPLS_DETAILED    0x02
 
 #define ZEBRA_DEBUG_VXLAN   0x01
 
@@ -61,6 +62,13 @@ extern "C" {
 
 #define ZEBRA_DEBUG_NHG             0x01
 #define ZEBRA_DEBUG_NHG_DETAILED    0x02
+
+#define ZEBRA_DEBUG_EVPN_MH_ES 0x01
+#define ZEBRA_DEBUG_EVPN_MH_NH 0x02
+#define ZEBRA_DEBUG_EVPN_MH_MAC 0x04
+#define ZEBRA_DEBUG_EVPN_MH_NEIGH 0x08
+
+#define ZEBRA_DEBUG_PBR 0x01
 
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
@@ -86,6 +94,8 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_NHT_DETAILED (zebra_debug_nht & ZEBRA_DEBUG_NHT_DETAILED)
 
 #define IS_ZEBRA_DEBUG_MPLS  (zebra_debug_mpls & ZEBRA_DEBUG_MPLS)
+#define IS_ZEBRA_DEBUG_MPLS_DETAIL \
+	(zebra_debug_mpls & ZEBRA_DEBUG_MPLS_DETAILED)
 #define IS_ZEBRA_DEBUG_VXLAN (zebra_debug_vxlan & ZEBRA_DEBUG_VXLAN)
 #define IS_ZEBRA_DEBUG_PW  (zebra_debug_pw & ZEBRA_DEBUG_PW)
 
@@ -100,6 +110,17 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_NHG_DETAIL \
 	(zebra_debug_nexthop & ZEBRA_DEBUG_NHG_DETAILED)
 
+#define IS_ZEBRA_DEBUG_EVPN_MH_ES \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ES)
+#define IS_ZEBRA_DEBUG_EVPN_MH_NH \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NH)
+#define IS_ZEBRA_DEBUG_EVPN_MH_MAC \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_MAC)
+#define IS_ZEBRA_DEBUG_EVPN_MH_NEIGH \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NEIGH)
+
+#define IS_ZEBRA_DEBUG_PBR (zebra_debug_pbr & ZEBRA_DEBUG_PBR)
+
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
 extern unsigned long zebra_debug_kernel;
@@ -112,6 +133,8 @@ extern unsigned long zebra_debug_pw;
 extern unsigned long zebra_debug_dplane;
 extern unsigned long zebra_debug_mlag;
 extern unsigned long zebra_debug_nexthop;
+extern unsigned long zebra_debug_evpn_mh;
+extern unsigned long zebra_debug_pbr;
 
 extern void zebra_debug_init(void);
 

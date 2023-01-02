@@ -103,10 +103,8 @@ kernel_route(enum babel_kernel_routes operation, const unsigned char *pref,
     switch (operation) {
         case ROUTE_ADD:
             return zebra_route(1, family, pref, plen, gate, ifindex, metric);
-            break;
         case ROUTE_FLUSH:
             return zebra_route(0, family, pref, plen, gate, ifindex, metric);
-            break;
         case ROUTE_MODIFY:
             if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
                newifindex == ifindex)
@@ -119,7 +117,6 @@ kernel_route(enum babel_kernel_routes operation, const unsigned char *pref,
             rc = zebra_route(1, family, pref, plen, newgate, newifindex,
                              newmetric);
             return rc;
-            break;
     }
 
     return 0;
@@ -179,11 +176,11 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
 	switch (family) {
         case AF_INET:
             uchar_to_inaddr(&api_nh->gate.ipv4, gate);
-            if (IPV4_ADDR_SAME (&api_nh->gate.ipv4, &quagga_prefix.u.prefix4) &&
-                    quagga_prefix.prefixlen == 32) {
-                api_nh->type = NEXTHOP_TYPE_IFINDEX;
-            } else {
-                api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	    if (IPV4_ADDR_SAME(&api_nh->gate.ipv4, &quagga_prefix.u.prefix4)
+		&& quagga_prefix.prefixlen == IPV4_MAX_BITLEN) {
+		    api_nh->type = NEXTHOP_TYPE_IFINDEX;
+	    } else {
+		    api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
             }
             break;
         case AF_INET6:

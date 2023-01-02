@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "vector.h"
 #include "distribute.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "babel_main.h"
 #include "util.h"
@@ -41,7 +42,7 @@ THE SOFTWARE.
 #include "xroute.h"
 #include "babel_errors.h"
 
-DEFINE_MTYPE_STATIC(BABELD, BABEL_IF, "Babel Interface")
+DEFINE_MTYPE_STATIC(BABELD, BABEL_IF, "Babel Interface");
 
 #define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
 
@@ -58,13 +59,6 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
-static struct cmd_node babel_interface_node =  /* babeld's interface node.    */
-{
-    INTERFACE_NODE,
-    "%s(config-if)# ",
-    1 /* VTYSH */
-};
-
 
 int
 babel_interface_up (ZAPI_CALLBACK_ARGS)
@@ -174,16 +168,18 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
     if (prefix->family == AF_INET) {
         flush_interface_routes(ifc->ifp, 0);
         babel_ifp = babel_get_if_nfo(ifc->ifp);
-        if (babel_ifp->ipv4 != NULL
-            && memcmp(babel_ifp->ipv4, &prefix->u.prefix4, 4) == 0) {
-            free(babel_ifp->ipv4);
-            babel_ifp->ipv4 = NULL;
+	if (babel_ifp->ipv4 != NULL
+	    && memcmp(babel_ifp->ipv4, &prefix->u.prefix4, IPV4_MAX_BYTELEN)
+		       == 0) {
+		free(babel_ifp->ipv4);
+		babel_ifp->ipv4 = NULL;
         }
     }
 
     send_request(ifc->ifp, NULL, 0);
     send_update(ifc->ifp, 0, NULL, 0);
 
+    connected_free(&ifc);
     return 0;
 }
 
@@ -689,8 +685,7 @@ interface_recalculate(struct interface *ifp)
 
     rc = resize_receive_buffer(mtu);
     if(rc < 0)
-        zlog_warn("couldn't resize "
-                  "receive buffer for interface %s (%d) (%d bytes).\n",
+        zlog_warn("couldn't resize receive buffer for interface %s (%d) (%d bytes).",
                   ifp->name, ifp->ifindex, mtu);
 
     memset(&mreq, 0, sizeof(mreq));
@@ -822,9 +817,11 @@ is_interface_ll_address(struct interface *ifp, const unsigned char *address)
         return 0;
 
     FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node) {
-        if(connected->address->family == AF_INET6 &&
-           memcmp(&connected->address->u.prefix6, address, 16) == 0)
-            return 1;
+	    if (connected->address->family == AF_INET6
+		&& memcmp(&connected->address->u.prefix6, address,
+			  IPV6_MAX_BYTELEN)
+			   == 0)
+		    return 1;
     }
 
     return 0;
@@ -893,8 +890,7 @@ static void
 show_babel_neighbour_sub (struct vty *vty, struct neighbour *neigh)
 {
     vty_out (vty,
-             "Neighbour %s dev %s reach %04x rxcost %d txcost %d "
-             "rtt %s rttcost %d%s.\n",
+             "Neighbour %s dev %s reach %04x rxcost %d txcost %d rtt %s rttcost %d%s.\n",
              format_address(neigh->address),
              neigh->ifp->name,
              neigh->reach,
@@ -939,13 +935,13 @@ static int
 babel_prefix_eq(struct prefix *prefix, unsigned char *p, int plen)
 {
     if(prefix->family == AF_INET6) {
-        if(prefix->prefixlen != plen ||
-           memcmp(&prefix->u.prefix6, p, 16) != 0)
-            return 0;
+	    if (prefix->prefixlen != plen
+		|| memcmp(&prefix->u.prefix6, p, IPV6_MAX_BYTELEN) != 0)
+		    return 0;
     } else if(prefix->family == AF_INET) {
-        if(plen < 96 || !v4mapped(p) || prefix->prefixlen != plen - 96 ||
-           memcmp(&prefix->u.prefix4, p + 12, 4) != 0)
-            return 0;
+	    if (plen < 96 || !v4mapped(p) || prefix->prefixlen != plen - 96
+		|| memcmp(&prefix->u.prefix4, p + 12, IPV4_MAX_BYTELEN) != 0)
+		    return 0;
     } else {
         return 0;
     }
@@ -957,36 +953,39 @@ static void
 show_babel_routes_sub(struct babel_route *route, struct vty *vty,
                       struct prefix *prefix)
 {
-    const unsigned char *nexthop =
-        memcmp(route->nexthop, route->neigh->address, 16) == 0 ?
-        NULL : route->nexthop;
-    char channels[100];
+	const unsigned char *nexthop =
+		memcmp(route->nexthop, route->neigh->address, IPV6_MAX_BYTELEN)
+				== 0
+			? NULL
+			: route->nexthop;
+	char channels[100];
 
-    if(prefix && !babel_prefix_eq(prefix, route->src->prefix, route->src->plen))
-        return;
+	if (prefix
+	    && !babel_prefix_eq(prefix, route->src->prefix, route->src->plen))
+		return;
 
-    if(route->channels[0] == 0)
-        channels[0] = '\0';
-    else {
-        int k, j = 0;
-        snprintf(channels, 100, " chan (");
-        j = strlen(channels);
-        for(k = 0; k < DIVERSITY_HOPS; k++) {
-            if(route->channels[k] == 0)
-                break;
-            if(k > 0)
-                channels[j++] = ',';
-            snprintf(channels + j, 100 - j, "%u", route->channels[k]);
-            j = strlen(channels);
-        }
-        snprintf(channels + j, 100 - j, ")");
-        if(k == 0)
-            channels[0] = '\0';
+	if (route->channels[0] == 0)
+		channels[0] = '\0';
+	else {
+		int k, j = 0;
+		snprintf(channels, sizeof(channels), " chan (");
+		j = strlen(channels);
+		for (k = 0; k < DIVERSITY_HOPS; k++) {
+			if (route->channels[k] == 0)
+				break;
+			if (k > 0)
+				channels[j++] = ',';
+			snprintf(channels + j, 100 - j, "%u",
+				 route->channels[k]);
+			j = strlen(channels);
+		}
+		snprintf(channels + j, 100 - j, ")");
+		if (k == 0)
+			channels[0] = '\0';
     }
 
     vty_out (vty,
-            "%s metric %d refmetric %d id %s seqno %d%s age %d "
-            "via %s neigh %s%s%s%s\n",
+            "%s metric %d refmetric %d id %s seqno %d%s age %d via %s neigh %s%s%s%s\n",
             format_prefix(route->src->prefix, route->src->plen),
             route_metric(route), route->refmetric,
             format_eui64(route->src->id),
@@ -1106,6 +1105,7 @@ DEFUN (show_babel_route_addr,
 {
     struct in_addr addr;
     char buf[INET_ADDRSTRLEN + 8];
+    char buf1[INET_ADDRSTRLEN + 8];
     struct route_stream *routes = NULL;
     struct xroute_stream *xroutes = NULL;
     struct prefix prefix;
@@ -1118,7 +1118,8 @@ DEFUN (show_babel_route_addr,
     }
 
     /* Quagga has no convenient prefix constructors. */
-    snprintf(buf, sizeof(buf), "%s/%d", inet_ntoa(addr), 32);
+    snprintf(buf, sizeof(buf), "%s/%d",
+	     inet_ntop(AF_INET, &addr, buf1, sizeof(buf1)), 32);
 
     ret = str2prefix(buf, &prefix);
     if (ret == 0) {
@@ -1247,8 +1248,7 @@ babel_if_init(void)
     babel_enable_if = vector_init (1);
 
     /* install interface node and commands */
-    install_node (&babel_interface_node, interface_config_write);
-    if_cmd_init();
+    if_cmd_init(interface_config_write);
 
     install_element(BABEL_NODE, &babel_network_cmd);
     install_element(BABEL_NODE, &no_babel_network_cmd);
@@ -1362,7 +1362,7 @@ interface_config_write (struct vty *vty)
                 write++;
             }
         }
-        vty_endframe (vty, "!\n");
+        vty_endframe (vty, "exit\n!\n");
         write++;
     }
     return write;
@@ -1394,7 +1394,7 @@ babel_interface_allocate (void)
     /* All flags are unset */
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
-    babel_ifp->hello_seqno = (random() & 0xFFFF);
+    babel_ifp->hello_seqno = (frr_weak_random() & 0xFFFF);
     babel_ifp->rtt_min = 10000;
     babel_ifp->rtt_max = 120000;
     babel_ifp->max_rtt_penalty = 150;

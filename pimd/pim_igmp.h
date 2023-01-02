@@ -69,6 +69,12 @@
 
 #define IGMP_DEFAULT_VERSION (3)
 
+#define IGMP_GET_INT16(ptr, output)                                            \
+	do {                                                                   \
+		output = *(ptr) << 8;                                          \
+		output |= *((ptr) + 1);                                        \
+	} while (0)
+
 struct igmp_join {
 	struct in_addr group_addr;
 	struct in_addr source_addr;
@@ -86,18 +92,21 @@ struct igmp_sock {
 	struct thread
 		*t_igmp_query_timer; /* timer: issue IGMP general queries */
 	struct thread *t_other_querier_timer; /* timer: other querier present */
-
-	int querier_query_interval;      /* QQI */
+	struct in_addr querier_addr;	  /* IP address of the querier */
+	int querier_query_interval;	   /* QQI */
 	int querier_robustness_variable; /* QRV */
 	int startup_query_count;
 
 	bool mtrace_only;
 
-	struct list *igmp_group_list; /* list of struct igmp_group */
-	struct hash *igmp_group_hash;
-
 	struct igmp_stats rx_stats;
 };
+
+struct pim_interface;
+
+void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp);
+void pim_igmp_if_reset(struct pim_interface *pim_ifp);
+void pim_igmp_if_fini(struct pim_interface *pim_ifp);
 
 struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 					      struct in_addr ifaddr);
@@ -110,11 +119,13 @@ void igmp_sock_delete(struct igmp_sock *igmp);
 void igmp_sock_free(struct igmp_sock *igmp);
 void igmp_sock_delete_all(struct interface *ifp);
 int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len);
-
+bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *ip_hlen);
 void pim_igmp_general_query_on(struct igmp_sock *igmp);
 void pim_igmp_general_query_off(struct igmp_sock *igmp);
 void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp);
 void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp);
+
+int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 
 #define IGMP_SOURCE_MASK_FORWARDING        (1 << 0)
 #define IGMP_SOURCE_MASK_DELETE            (1 << 1)
@@ -170,7 +181,7 @@ struct igmp_group {
 	int group_filtermode_isexcl;    /* 0=INCLUDE, 1=EXCLUDE */
 	struct list *group_source_list; /* list of struct igmp_source */
 	time_t group_creation;
-	struct igmp_sock *group_igmp_sock; /* back pointer */
+	struct interface *interface;
 	int64_t last_igmp_v1_report_dsec;
 	int64_t last_igmp_v2_report_dsec;
 };
@@ -180,15 +191,16 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 					  struct in_addr group_addr);
 
+struct igmp_source *igmp_get_source_by_addr(struct igmp_group *group,
+					    struct in_addr src_addr,
+					    bool *created);
+
 void igmp_group_delete_empty_include(struct igmp_group *group);
 
 void igmp_startup_mode_on(struct igmp_sock *igmp);
 
 void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 			 const char *ifname);
-
-struct igmp_source *source_new(struct igmp_group *group,
-			       struct in_addr src_addr);
 
 void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 		     const char *ifname, char *query_buf, int query_buf_size,

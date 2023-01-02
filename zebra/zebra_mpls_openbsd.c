@@ -44,7 +44,7 @@ struct {
 } kr_state;
 
 static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
-				const zebra_nhlfe_t *nhlfe)
+				const struct zebra_nhlfe *nhlfe)
 {
 	struct iovec iov[5];
 	struct rt_msghdr hdr;
@@ -136,7 +136,7 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 #endif
 
 static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
-				const zebra_nhlfe_t *nhlfe)
+				const struct zebra_nhlfe *nhlfe)
 {
 	struct iovec iov[5];
 	struct rt_msghdr hdr;
@@ -239,8 +239,9 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 
 static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 {
-	const zebra_nhlfe_t *nhlfe;
-	struct nexthop *nexthop = NULL;
+	const struct nhlfe_list_head *head;
+	const struct zebra_nhlfe *nhlfe;
+	const struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
 	int action;
 
@@ -258,7 +259,8 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		return -1;
 	}
 
-	for (nhlfe = dplane_ctx_get_nhlfe(ctx); nhlfe; nhlfe = nhlfe->next) {
+	head = dplane_ctx_get_nhlfe_list(ctx);
+	frr_each(nhlfe_list_const, head, nhlfe) {
 		nexthop = nhlfe->nexthop;
 		if (!nexthop)
 			continue;
@@ -274,8 +276,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
 			if (nhlfe->nexthop->nh_label->num_labels > 1) {
 				flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
-					  "%s: can't push %u labels at once "
-					  "(maximum is 1)",
+					  "%s: can't push %u labels at once (maximum is 1)",
 					  __func__,
 					  nhlfe->nexthop->nh_label->num_labels);
 				continue;
@@ -302,7 +303,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		}
 	}
 
-	return (0);
+	return 0;
 }
 
 enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
@@ -456,6 +457,9 @@ int mpls_kernel_init(void)
 			; /* nothing */
 
 	kr_state.rtseq = 1;
+
+	/* Strict pseudowire reachability checking required for obsd */
+	mpls_pw_reach_strict = true;
 
 	return 0;
 }

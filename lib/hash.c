@@ -29,10 +29,11 @@
 #include "command.h"
 #include "libfrr.h"
 #include "frr_pthread.h"
+#include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
-DEFINE_MTYPE_STATIC(LIB, HASH_BACKET, "Hash Bucket")
-DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
+DEFINE_MTYPE_STATIC(LIB, HASH, "Hash");
+DEFINE_MTYPE_STATIC(LIB, HASH_BUCKET, "Hash Bucket");
+DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index");
 
 static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
@@ -77,9 +78,20 @@ void *hash_alloc_intern(void *arg)
 	return arg;
 }
 
+/*
+ * ssq = ssq + (new^2 - old^2)
+ *     = ssq + ((new + old) * (new - old))
+ */
 #define hash_update_ssq(hz, old, new)                                          \
-	atomic_fetch_add_explicit(&hz->stats.ssq, (new + old) * (new - old),   \
-				  memory_order_relaxed);
+	do {                                                                   \
+		int _adjust = (new + old) * (new - old);                       \
+		if (_adjust < 0)                                               \
+			atomic_fetch_sub_explicit(&hz->stats.ssq, -_adjust,    \
+						  memory_order_relaxed);       \
+		else                                                           \
+			atomic_fetch_add_explicit(&hz->stats.ssq, _adjust,     \
+						  memory_order_relaxed);       \
+	} while (0)
 
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand(struct hash *hash)
@@ -127,6 +139,8 @@ static void hash_expand(struct hash *hash)
 
 void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 {
+	frrtrace(2, frr_libfrr, hash_get, hash, data);
+
 	unsigned int key;
 	unsigned int index;
 	void *newdata;
@@ -154,12 +168,14 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 			index = key & (hash->size - 1);
 		}
 
-		bucket = XCALLOC(MTYPE_HASH_BACKET, sizeof(struct hash_bucket));
+		bucket = XCALLOC(MTYPE_HASH_BUCKET, sizeof(struct hash_bucket));
 		bucket->data = newdata;
 		bucket->key = key;
 		bucket->next = hash->index[index];
 		hash->index[index] = bucket;
 		hash->count++;
+
+		frrtrace(3, frr_libfrr, hash_insert, hash, data, key);
 
 		int oldlen = bucket->next ? bucket->next->len : 0;
 		int newlen = oldlen + 1;
@@ -195,7 +211,7 @@ unsigned int string_hash_make(const char *str)
 
 void *hash_release(struct hash *hash, void *data)
 {
-	void *ret;
+	void *ret = NULL;
 	unsigned int key;
 	unsigned int index;
 	struct hash_bucket *bucket;
@@ -223,13 +239,16 @@ void *hash_release(struct hash *hash, void *data)
 			hash_update_ssq(hash, oldlen, newlen);
 
 			ret = bucket->data;
-			XFREE(MTYPE_HASH_BACKET, bucket);
+			XFREE(MTYPE_HASH_BUCKET, bucket);
 			hash->count--;
-			return ret;
+			break;
 		}
 		pp = bucket;
 	}
-	return NULL;
+
+	frrtrace(3, frr_libfrr, hash_release, hash, data, ret);
+
+	return ret;
 }
 
 void hash_iterate(struct hash *hash, void (*func)(struct hash_bucket *, void *),
@@ -283,7 +302,7 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
 			if (free_func)
 				(*free_func)(hb->data);
 
-			XFREE(MTYPE_HASH_BACKET, hb);
+			XFREE(MTYPE_HASH_BUCKET, hb);
 			hash->count--;
 		}
 		hash->index[i] = NULL;

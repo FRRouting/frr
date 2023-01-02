@@ -37,6 +37,7 @@ net.ipv4.icmp_errors_use_inbound_ifaddr=1
 
 #   Keep ipv6 permanent addresses on an admin down
 net.ipv6.conf.all.keep_addr_on_down=1
+net.ipv6.route.skip_notify_on_dev_down=1
 
 # igmp
 net.ipv4.igmp_max_memberships=1000
@@ -55,7 +56,4 @@ net.ipv6.neigh.default.base_reachable_time_ms=14400000
 
 # Use neigh information on selection of nexthop for multipath hops
 net.ipv4.fib_multipath_use_neigh=1
-
-# Allows Apps to Work with VRF
-net.ipv4.tcp_l3mdev_accept=1
 ```

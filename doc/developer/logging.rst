@@ -1,5 +1,9 @@
-Developer's Guide to Logging
-============================
+.. _logging:
+
+.. highlight:: c
+
+Logging
+=======
 
 One of the most frequent decisions to make while writing code for FRR is what
 to log, what level to log it at, and when to log it.  Here is a list of
@@ -50,58 +54,30 @@ are available:
       if (ret != buf)
          XFREE(MTYPE_FOO, ret);
 
-Extensions
-^^^^^^^^^^
+.. c:function:: ssize_t bprintfrr(struct fbuf *fb, const char *fmt, ...)
+.. c:function:: ssize_t vbprintfrr(struct fbuf *fb, const char *fmt, va_list)
 
-``printfrr()`` format strings can be extended with suffixes after `%p` or
-`%d`.  The following extended format specifiers are available:
+   These are the "lowest level" functions, which the other variants listed
+   above use to implement their functionality on top.  Mainly useful for
+   implementing printfrr extensions since those get a ``struct fbuf *`` to
+   write their output to.
 
-+-----------+--------------------------+----------------------------------------------+
-| Specifier | Argument                 | Output                                       |
-+===========+==========================+==============================================+
-| ``%Lu``   | ``uint64_t``             | ``12345``                                    |
-+-----------+--------------------------+----------------------------------------------+
-| ``%Ld``   | ``int64_t``              | ``-12345``                                   |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pI4``  | ``struct in_addr *``     | ``1.2.3.4``                                  |
-|           |                          |                                              |
-|           | ``in_addr_t *``          |                                              |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pI6``  | ``struct in6_addr *``    | ``fe80::1234``                               |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pFX``  | ``struct prefix *``      | ``fe80::1234/64``                            |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pSG4`` | ``struct prefix_sg *``   | ``(*,1.2.3.4)``                              |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pRN``  | ``struct route_node *``  | ``192.168.1.0/24`` (dst-only node)           |
-|           |                          |                                              |
-|           |                          | ``2001:db8::/32 from fe80::/64`` (SADR node) |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pNHv`` | ``struct nexthop *``     | ``1.2.3.4, via eth0``                        |
-+-----------+--------------------------+----------------------------------------------+
-| ``%pNHs`` | ``struct nexthop *``     | ``1.2.3.4 if 15``                            |
-+-----------+--------------------------+----------------------------------------------+
+.. c:macro:: FMT_NSTD(expr)
 
-Printf features like field lengths can be used normally with these extensions,
-e.g. ``%-15pI4`` works correctly.
+   This macro turns off/on format warnings as needed when non-ISO-C
+   compatible printfrr extensions are used (e.g. ``%.*p`` or ``%Ld``.)::
 
-The extension specifier after ``%p`` or ``%d`` is always an uppercase letter;
-by means of established pattern uppercase letters and numbers form the type
-identifier which may be followed by lowercase flags.
+      vty_out(vty, "standard compatible %pI4\n", &addr);
+      FMT_NSTD(vty_out(vty, "non-standard %-47.*pHX\n", (int)len, buf));
 
-You can grep the FRR source for ``printfrr_ext_autoreg`` to see all extended
-printers and what exactly they do.  More printers are likely to be added as
-needed/useful, so the list above may become outdated.
-
-``%Ld`` is not an "extension" for printfrr; it's wired directly into the main
-printf logic.
+   When the frr-format plugin is in use, this macro is a no-op since the
+   frr-format plugin supports all printfrr extensions.  Since the FRR CI
+   includes a system with the plugin enabled, this means format errors will
+   not slip by undetected even with FMT_NSTD.
 
 .. note::
 
-   The ``zlog_*``/``flog_*`` and ``vty_out`` functions all use printfrr
-   internally, so these extensions are available there.  However, they are
-   **not** available when calling ``snprintf`` directly.  You need to call
-   ``snprintfrr`` instead.
+   ``printfrr()`` does not support the ``%n`` format.
 
 AS-Safety
 ^^^^^^^^^
@@ -114,8 +90,252 @@ AS-Safety
   while AS-Safe)
 * extensions are only AS-Safe if their printer is AS-Safe
 
-Errors and warnings
+printfrr Extensions
 -------------------
+
+``printfrr()`` format strings can be extended with suffixes after `%p` or `%d`.
+Printf features like field lengths can be used normally with these extensions,
+e.g. ``%-15pI4`` works correctly, **except if the extension consumes the
+width or precision**.  Extensions that do so are listed below as ``%*pXX``
+rather than ``%pXX``.
+
+The extension specifier after ``%p`` or ``%d`` is always an uppercase letter;
+by means of established pattern uppercase letters and numbers form the type
+identifier which may be followed by lowercase flags.
+
+You can grep the FRR source for ``printfrr_ext_autoreg`` to see all extended
+printers and what exactly they do.  More printers are likely to be added as
+needed/useful, so the list here may be outdated.
+
+.. note::
+
+   The ``zlog_*``/``flog_*`` and ``vty_out`` functions all use printfrr
+   internally, so these extensions are available there.  However, they are
+   **not** available when calling ``snprintf`` directly.  You need to call
+   ``snprintfrr`` instead.
+
+Networking data types
+^^^^^^^^^^^^^^^^^^^^^
+
+.. role:: frrfmtout(code)
+
+.. frrfmt:: %pI4 (struct in_addr *, in_addr_t *)
+
+   :frrfmtout:`1.2.3.4`
+
+.. frrfmt:: %pI6 (struct in6_addr *)
+
+   :frrfmtout:`fe80::1234`
+
+.. frrfmt:: %pEA (struct ethaddr *)
+
+   :frrfmtout:`01:23:45:67:89:ab`
+
+.. frrfmt:: %pIA (struct ipaddr *)
+
+   :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234`
+
+.. frrfmt:: %pFX (struct prefix *)
+
+   :frrfmtout:`1.2.3.0/24` / :frrfmtout:`fe80::1234/64`
+
+   This accepts the following types:
+
+   - :c:struct:`prefix`
+   - :c:struct:`prefix_ipv4`
+   - :c:struct:`prefix_ipv6`
+   - :c:struct:`prefix_eth`
+   - :c:struct:`prefix_evpn`
+   - :c:struct:`prefix_fs`
+
+   It does **not** accept the following types:
+
+   - :c:struct:`prefix_ls`
+   - :c:struct:`prefix_rd`
+   - :c:struct:`prefix_ptr`
+   - :c:struct:`prefix_sg` (use :frrfmt:`%pSG4`)
+   - :c:union:`prefixptr` (dereference to get :c:struct:`prefix`)
+   - :c:union:`prefixconstptr` (dereference to get :c:struct:`prefix`)
+
+.. frrfmt:: %pSG4 (struct prefix_sg *)
+
+   :frrfmtout:`(*,1.2.3.4)`
+
+   This is *(S,G)* output for use in pimd.  (Note prefix_sg is not a prefix
+   "subclass" like the other prefix_* structs.)
+
+.. frrfmt:: %pSU (union sockunion *)
+
+   ``%pSU``: :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234`
+
+   ``%pSUs``: :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234%89`
+   (adds IPv6 scope ID as integer)
+
+   ``%pSUp``: :frrfmtout:`1.2.3.4:567` / :frrfmtout:`[fe80::1234]:567`
+   (adds port)
+
+   ``%pSUps``: :frrfmtout:`1.2.3.4:567` / :frrfmtout:`[fe80::1234%89]:567`
+   (adds port and scope ID)
+
+.. frrfmt:: %pRN (struct route_node *, struct bgp_node *, struct agg_node *)
+
+   :frrfmtout:`192.168.1.0/24` (dst-only node)
+
+   :frrfmtout:`2001:db8::/32 from fe80::/64` (SADR node)
+
+.. frrfmt:: %pNH (struct nexthop *)
+
+   ``%pNHvv``: :frrfmtout:`via 1.2.3.4, eth0` — verbose zebra format
+
+   ``%pNHv``: :frrfmtout:`1.2.3.4, via eth0` — slightly less verbose zebra format
+
+   ``%pNHs``: :frrfmtout:`1.2.3.4 if 15` — same as :c:func:`nexthop2str()`
+
+   ``%pNHcg``: :frrfmtout:`1.2.3.4` — compact gateway only
+
+   ``%pNHci``: :frrfmtout:`eth0` — compact interface only
+
+.. frrfmt:: %pBD (struct bgp_dest *)
+
+   :frrfmtout:`fe80::1234/64`
+
+   (only available in bgpd.)
+
+.. frrfmt:: %dPF (int)
+
+   :frrfmtout:`AF_INET`
+
+   Prints an `AF_*` / `PF_*` constant.  ``PF`` is used here to avoid confusion
+   with `AFI` constants, even though the FRR codebase prefers `AF_INET` over
+   `PF_INET` & co.
+
+.. frrfmt:: %dSO (int)
+
+   :frrfmtout:`SOCK_STREAM`
+
+General utility formats
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. frrfmt:: %m (no argument)
+
+   :frrfmtout:`Permission denied`
+
+   Prints ``strerror(errno)``.  Does **not** consume any input argument, don't
+   pass ``errno``!
+
+   (This is a GNU extension not specific to FRR.  FRR guarantees it is
+   available on all systems in printfrr, though BSDs support it in printf too.)
+
+.. frrfmt:: %pSQ (char *)
+
+   ([S]tring [Q]uote.)  Like ``%s``, but produce a quoted string.  Options:
+
+      ``n`` - treat ``NULL`` as empty string instead.
+
+      ``q`` - include ``""`` quotation marks.  Note: ``NULL`` is printed as
+      ``(null)``, not ``"(null)"`` unless ``n`` is used too.  This is
+      intentional.
+
+      ``s`` - use escaping suitable for RFC5424 syslog.  This means ``]`` is
+      escaped too.
+
+   If a length is specified (``%*pSQ`` or ``%.*pSQ``), null bytes in the input
+   string do not end the string and are just printed as ``\x00``.
+
+.. frrfmt:: %pSE (char *)
+
+   ([S]tring [E]scape.)  Like ``%s``, but escape special characters.
+   Options:
+
+      ``n`` - treat ``NULL`` as empty string instead.
+
+   Unlike :frrfmt:`%pSQ`, this escapes many more characters that are fine for
+   a quoted string but not on their own.
+
+   If a length is specified (``%*pSE`` or ``%.*pSE``), null bytes in the input
+   string do not end the string and are just printed as ``\x00``.
+
+.. frrfmt:: %pVA (struct va_format *)
+
+   Recursively invoke printfrr, with arguments passed in through:
+
+   .. c:struct:: va_format
+
+      .. c:member:: const char *fmt
+
+         Format string to use for the recursive printfrr call.
+
+      .. c:member:: va_list *va
+
+         Formatting arguments.  Note this is passed as a pointer, not - as in
+         most other places - a direct struct reference.  Internally uses
+         ``va_copy()`` so repeated calls can be made (e.g. for determining
+         output length.)
+
+.. frrfmt:: %pFB (struct fbuf *)
+
+   Insert text from a ``struct fbuf *``, i.e. the output of a call to
+   :c:func:`bprintfrr()`.
+
+.. frrfmt:: %*pHX (void *, char *, unsigned char *)
+
+   ``%pHX``: :frrfmtout:`12 34 56 78`
+
+   ``%pHXc``: :frrfmtout:`12:34:56:78` (separate with [c]olon)
+
+   ``%pHXn``: :frrfmtout:`12345678` (separate with [n]othing)
+
+   Insert hexdump.  This specifier requires a precision or width to be
+   specified.  A precision (``%.*pHX``) takes precedence, but generates a
+   compiler warning since precisions are undefined for ``%p`` in ISO C.  If
+   no precision is given, the width is used instead (and normal handling of
+   the width is suppressed).
+
+   Note that width and precision are ``int`` arguments, not ``size_t``.  Use
+   like::
+
+     char *buf;
+     size_t len;
+
+     snprintfrr(out, sizeof(out), "... %*pHX ...", (int)len, buf);
+
+     /* with padding to width - would generate a warning due to %.*p */
+     FMT_NSTD(snprintfrr(out, sizeof(out), "... %-47.*pHX ...", (int)len, buf));
+
+.. frrfmt:: %*pHS (void *, char *, unsigned char *)
+
+   ``%pHS``: :frrfmtout:`hex.dump`
+
+   This is a complementary format for :frrfmt:`%*pHX` to print the text
+   representation for a hexdump.  Non-printable characters are replaced with
+   a dot.
+
+Integer formats
+^^^^^^^^^^^^^^^
+
+.. note::
+
+   These formats currently only exist for advanced type checking with the
+   ``frr-format`` GCC plugin.  They should not be used directly since they will
+   cause compiler warnings when used without the plugin.  Use with
+   :c:macro:`FMT_NSTD` if necessary.
+
+   It is possible ISO C23 may introduce another format for these, possibly
+   ``%w64d`` discussed in `JTC 1/SC 22/WG 14/N2680 <http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2680.pdf>`_.
+
+.. frrfmt:: %Lu (uint64_t)
+
+   :frrfmtout:`12345`
+
+.. frrfmt:: %Ld (int64_t)
+
+   :frrfmtout:`-12345`
+
+Log levels
+----------
+
+Errors and warnings
+^^^^^^^^^^^^^^^^^^^
 
 If it is something that the user will want to look at and maybe do
 something, it is either an **error** or a **warning**.
@@ -161,7 +381,7 @@ Examples for errors:
 
 
 Informational messages
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 Anything that provides introspection to the user during normal operation
 is an **info** message.
@@ -200,7 +420,7 @@ Examples:
 
 
 Debug messages and asserts
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Everything that is only interesting on-demand, or only while developing,
 is a **debug** message.  It might be interesting to the user for a
@@ -237,3 +457,180 @@ Examples:
 * some field that is absolutely needed is :code:`NULL`
 * any other kind of data structure corruption that will cause the daemon
   to crash sooner or later, one way or another
+
+Thread-local buffering
+----------------------
+
+The core logging code in :file:`lib/zlog.c` allows setting up per-thread log
+message buffers in order to improve logging performance.  The following rules
+apply for this buffering:
+
+* Only messages of priority *DEBUG* or *INFO* are buffered.
+* Any higher-priority message causes the thread's entire buffer to be flushed,
+  thus message ordering is preserved on a per-thread level.
+* There is no guarantee on ordering between different threads;  in most cases
+  this is arbitrary to begin with since the threads essentially race each
+  other in printing log messages.  If an order is established with some
+  synchronization primitive, add calls to :c:func:`zlog_tls_buffer_flush()`.
+* The buffers are only ever accessed by the thread they are created by.  This
+  means no locking is necessary.
+
+Both the main/default thread and additional threads created by
+:c:func:`frr_pthread_new()` with the default :c:func:`frr_run()` handler will
+initialize thread-local buffering and call :c:func:`zlog_tls_buffer_flush()`
+when idle.
+
+If some piece of code runs for an extended period, it may be useful to insert
+calls to :c:func:`zlog_tls_buffer_flush()` in appropriate places:
+
+.. c:function:: void zlog_tls_buffer_flush(void)
+
+   Write out any pending log messages that the calling thread may have in its
+   buffer.  This function is safe to call regardless of the per-thread log
+   buffer being set up / in use or not.
+
+When working with threads that do not use the :c:type:`struct thread_master`
+event loop, per-thread buffers can be managed with:
+
+.. c:function:: void zlog_tls_buffer_init(void)
+
+   Set up thread-local buffering for log messages.  This function may be
+   called repeatedly without adverse effects, but remember to call
+   :c:func:`zlog_tls_buffer_fini()` at thread exit.
+
+   .. warning::
+
+      If this function is called, but :c:func:`zlog_tls_buffer_flush()` is
+      not used, log message output will lag behind since messages will only be
+      written out when the buffer is full.
+
+      Exiting the thread without calling :c:func:`zlog_tls_buffer_fini()`
+      will cause buffered log messages to be lost.
+
+.. c:function:: void zlog_tls_buffer_fini(void)
+
+   Flush pending messages and tear down thread-local log message buffering.
+   This function may be called repeatedly regardless of whether
+   :c:func:`zlog_tls_buffer_init()` was ever called.
+
+Log targets
+-----------
+
+The actual logging subsystem (in :file:`lib/zlog.c`) is heavily separated
+from the actual log writers.  It uses an atomic linked-list (`zlog_targets`)
+with RCU to maintain the log targets to be called.  This list is intended to
+function as "backend" only, it **is not used for configuration**.
+
+Logging targets provide their configuration layer on top of this and maintain
+their own capability to enumerate and store their configuration.  Some targets
+(e.g. syslog) are inherently single instance and just stuff their config in
+global variables.  Others (e.g. file/fd output) are multi-instance capable.
+There is another layer boundary here between these and the VTY configuration
+that they use.
+
+Basic internals
+^^^^^^^^^^^^^^^
+
+.. c:type:: struct zlog_target
+
+   This struct needs to be filled in by any log target and then passed to
+   :c:func:`zlog_target_replace()`.  After it has been registered,
+   **RCU semantics apply**.  Most changes to associated data should make a
+   copy, change that, and then replace the entire struct.
+
+   Additional per-target data should be "appended" by embedding this struct
+   into a larger one, for use with `containerof()`, and
+   :c:func:`zlog_target_clone()` and :c:func:`zlog_target_free()` should be
+   used to allocate/free the entire container struct.
+
+   Do not use this structure to maintain configuration.  It should only
+   contain (a copy of) the data needed to perform the actual logging.  For
+   example, the syslog target uses this:
+
+   .. code-block:: c
+
+      struct zlt_syslog {
+          struct zlog_target zt;
+          int syslog_facility;
+      };
+
+      static void zlog_syslog(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
+      {
+          struct zlt_syslog *zte = container_of(zt, struct zlt_syslog, zt);
+          size_t i;
+
+          for (i = 0; i < nmsgs; i++)
+              if (zlog_msg_prio(msgs[i]) <= zt->prio_min)
+                  syslog(zlog_msg_prio(msgs[i]) | zte->syslog_facility, "%s",
+                         zlog_msg_text(msgs[i], NULL));
+      }
+
+
+.. c:function:: struct zlog_target *zlog_target_clone(struct memtype *mt, struct zlog_target *oldzt, size_t size)
+
+   Allocates a logging target struct.  Note that the ``oldzt`` argument may be
+   ``NULL`` to allocate a "from scratch".  If ``oldzt`` is not ``NULL``, the
+   generic bits in :c:type:`struct zlog_target` are copied.  **Target specific
+   bits are not copied.**
+
+.. c:function:: struct zlog_target *zlog_target_replace(struct zlog_target *oldzt, struct zlog_target *newzt)
+
+   Adds, replaces or deletes a logging target (either ``oldzt`` or ``newzt`` may be ``NULL``.)
+
+   Returns ``oldzt`` for freeing.  The target remains possibly in use by
+   other threads until the RCU cycle ends.  This implies you cannot release
+   resources (e.g. memory, file descriptors) immediately.
+
+   The replace operation is not atomic; for a brief period it is possible that
+   messages are delivered on both ``oldzt`` and ``newzt``.
+
+   .. warning::
+
+      ``oldzt`` must remain **functional** until the RCU cycle ends.
+
+.. c:function:: void zlog_target_free(struct memtype *mt, struct zlog_target *zt)
+
+   Counterpart to :c:func:`zlog_target_clone()`, frees a target (using RCU.)
+
+.. c:member:: void (*zlog_target.logfn)(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsg)
+
+   Called on a target to deliver "normal" logging messages.  ``msgs`` is an
+   array of opaque structs containing the actual message.  Use ``zlog_msg_*``
+   functions to access message data (this is done to allow some optimizations,
+   e.g.  lazy formatting the message text and timestamp as needed.)
+
+   .. note::
+
+      ``logfn()`` must check each individual message's priority value against
+      the configured ``prio_min``.  While the ``prio_min`` field is common to
+      all targets and used by the core logging code to early-drop unneeded log
+      messages, the array is **not** filtered for each ``logfn()`` call.
+
+.. c:member:: void (*zlog_target.logfn_sigsafe)(struct zlog_target *zt, const char *text, size_t len)
+
+   Called to deliver "exception" logging messages (i.e. SEGV messages.)
+   Must be Async-Signal-Safe (may not allocate memory or call "complicated"
+   libc functions.)  May be ``NULL`` if the log target cannot handle this.
+
+Standard targets
+^^^^^^^^^^^^^^^^
+
+:file:`lib/zlog_targets.c` provides the standard file / fd / syslog targets.
+The syslog target is single-instance while file / fd targets can be
+instantiated as needed.  There are 3 built-in targets that are fully
+autonomous without any config:
+
+- startup logging to `stderr`, until either :c:func:`zlog_startup_end()` or
+  :c:func:`zlog_aux_init()` is called.
+- stdout logging for non-daemon programs using :c:func:`zlog_aux_init()`
+- crashlogs written to :file:`/var/tmp/frr.daemon.crashlog`
+
+The regular CLI/command-line logging setup is handled by :file:`lib/log_vty.c`
+which makes the appropriate instantiations of syslog / file / fd targets.
+
+.. todo::
+
+  :c:func:`zlog_startup_end()` should do an explicit switchover from
+  startup stderr logging to configured logging.  Currently, configured logging
+  starts in parallel as soon as the respective setup is executed.  This results
+  in some duplicate logging.

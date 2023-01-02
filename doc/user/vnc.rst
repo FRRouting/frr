@@ -110,7 +110,6 @@ These are the statements that can appear between ``vnc defaults`` and
 - :clicmd:`export bgp|zebra route-map MAP-NAME`
 - :clicmd:`export bgp|zebra no route-map`
 
-.. index:: exit-vnc
 .. clicmd:: exit-vnc
 
    Exit VNC configuration mode.
@@ -136,7 +135,6 @@ Defaults section.
 
 **At least one `nve-group` is mandatory for useful VNC operation.**
 
-.. index:: vnc nve-group NAME
 .. clicmd:: vnc nve-group NAME
 
   Enter VNC configuration mode for defining the NVE group `name`.
@@ -149,14 +147,8 @@ Defaults section.
      exit-vnc
 
 
-.. index:: no vnc nve-group NAME
-.. clicmd:: no vnc nve-group NAME
+The following statements are valid in an NVE group definition:
 
-   Delete the NVE group named `name`.
-
-   The following statements are valid in an NVE group definition:
-
-.. index:: l2rd NVE-ID-VALUE
 .. clicmd:: l2rd NVE-ID-VALUE
 
    Set the value used to distinguish NVEs connected to the same physical
@@ -166,7 +158,6 @@ Defaults section.
    1-255, or it may be specified as `auto:vn`, which means to use the
    least-significant octet of the originating NVE's VN address.
 
-.. index:: prefix vn|un A.B.C.D/M|X:X::X:X/M
 .. clicmd:: prefix vn|un A.B.C.D/M|X:X::X:X/M
 
    Specify the matching prefix for this NVE group by either virtual-network
@@ -178,7 +169,6 @@ Defaults section.
    These prefixes are used only for determining assignments of NVEs to NVE
    Groups.
 
-.. index:: rd ROUTE-DISTINGUISHER
 .. clicmd:: rd ROUTE-DISTINGUISHER
 
    Specify the route distinguisher for routes advertised via BGP
@@ -202,7 +192,6 @@ Defaults section.
    `route-distinguisher` is configured, then the advertised RD is set to
    ``two-byte-autonomous-system-number=0:four-byte-integer=0``.
 
-.. index:: response-lifetime LIFETIME|infinite
 .. clicmd:: response-lifetime LIFETIME|infinite
 
    Specify the response lifetime, in seconds, to be included in RFP response
@@ -218,13 +207,10 @@ Defaults section.
    `response-lifetime` is configured, the value 3600 will be used. The maximum
    response lifetime is 2147483647.
 
-.. index:: rt export RT-LIST
 .. clicmd:: rt export RT-LIST
 
-.. index:: rt import RT-LIST
 .. clicmd:: rt import RT-LIST
 
-.. index:: rt both RT-LIST
 .. clicmd:: rt both RT-LIST
 
    Specify route target import and export lists. `rt-list` is a
@@ -258,7 +244,6 @@ Defaults section.
    simultaneously, and is equivalent to `rt export `rt-list`` followed by
    `rt import `rt-list``.
 
-.. index:: export bgp|zebra route-map MAP-NAME
 .. clicmd:: export bgp|zebra route-map MAP-NAME
 
    Specify that the named route-map should be applied to routes being exported
@@ -266,7 +251,6 @@ Defaults section.
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
-.. index:: export bgp|zebra no route-map
 .. clicmd:: export bgp|zebra no route-map
 
    Specify that no route-map should be applied to routes being exported to bgp
@@ -274,7 +258,6 @@ Defaults section.
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
-.. index:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
 .. clicmd:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
 
    Specify that the named prefix-list filter should be applied to routes being
@@ -283,7 +266,6 @@ Defaults section.
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
-.. index:: export bgp|zebra no ipv4|ipv6 prefix-list
 .. clicmd:: export bgp|zebra no ipv4|ipv6 prefix-list
 
    Specify that no prefix-list filter should be applied to routes being
@@ -309,7 +291,6 @@ Note that a corresponding NVE group configuration must be present, and that
 other NVE associated configuration information, notably RD, is not impacted by
 L2 Group Configuration.
 
-.. index:: vnc l2-group NAME
 .. clicmd:: vnc l2-group NAME
 
    Enter VNC configuration mode for defining the L2 group `name`.
@@ -322,35 +303,26 @@ L2 Group Configuration.
        exit-vnc
 
 
-.. index:: no vnc l2-group NAME
-.. clicmd:: no vnc l2-group NAME
 
    Delete the L2 group named `name`.
 
 The following statements are valid in a L2 group definition:
 
-.. index:: logical-network-id VALUE
 .. clicmd:: logical-network-id VALUE
 
    Define the Logical Network Identifier with a value in the range of
    0-4294967295 that identifies the logical Ethernet segment.
 
-.. index:: labels LABEL-LIST
 .. clicmd:: labels LABEL-LIST
 
-.. index:: no labels LABEL-LIST
-.. clicmd:: no labels LABEL-LIST
 
    Add or remove labels associated with the group. `label-list` is a
    space separated list of label values in the range of 0-1048575.
 
-.. index:: rt import RT-TARGET
 .. clicmd:: rt import RT-TARGET
 
-.. index:: rt export RT-TARGET
 .. clicmd:: rt export RT-TARGET
 
-.. index:: rt both RT-TARGET
 .. clicmd:: rt both RT-TARGET
 
    Specify the route target import and export value associated with the group.
@@ -484,14 +456,10 @@ There is currently no policy (prefix-list or route-map) support for
 Redistribution Command Syntax
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. index:: vnc redistribute ipv4|ipv6 bgp|bgp-direct|ipv6 bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 .. clicmd:: vnc redistribute ipv4|ipv6 bgp|bgp-direct|ipv6 bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 
-.. index:: vnc redistribute ipv4|ipv6 bgp-direct-to-nve-groups view VIEWNAME
 .. clicmd:: vnc redistribute ipv4|ipv6 bgp-direct-to-nve-groups view VIEWNAME
 
-.. index:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
-.. clicmd:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 
    Import (or do not import) prefixes from another routing protocols. Specify
    both the address family to import (`ipv4` or `ipv6`) and the protocol
@@ -502,17 +470,13 @@ Redistribution Command Syntax
    Prefixes from all other protocols (including `bgp`) are imported via the
    `zebra` kernel routing process.
 
-.. index:: vnc redistribute mode plain|nve-group|resolve-nve
 .. clicmd:: vnc redistribute mode plain|nve-group|resolve-nve
 
    Redistribute routes from other protocols into VNC using the specified mode.
    Not all combinations of modes and protocols are supported.
 
-.. index:: vnc redistribute nve-group GROUP-NAME
 .. clicmd:: vnc redistribute nve-group GROUP-NAME
 
-.. index:: no vnc redistribute nve-group GROUP-NAME
-.. clicmd:: no vnc redistribute nve-group GROUP-NAME
 
    When using `nve-group` mode, assign (or do not assign) the NVE group
    `group-name` to routes redistributed from another routing protocol.
@@ -522,7 +486,6 @@ Redistribution Command Syntax
    prefix must be specified as a full-length (/32 for IPv4, /128 for IPv6)
    prefix.
 
-.. index:: vnc redistribute lifetime LIFETIME|infinite
 .. clicmd:: vnc redistribute lifetime LIFETIME|infinite
 
    Assign a registration lifetime, either `lifetime` seconds or `infinite`, to
@@ -530,7 +493,6 @@ Redistribution Command Syntax
    received via RFP registration messages from an NVE. `lifetime` can be any
    integer between 1 and 4294967295, inclusive.
 
-.. index:: vnc redistribute resolve-nve roo-ec-local-admin 0-65536
 .. clicmd:: vnc redistribute resolve-nve roo-ec-local-admin 0-65536
 
    Assign a value to the local-administrator subfield used in the
@@ -545,25 +507,21 @@ specified outside the context of an nve-group, then they apply only for
 redistribution modes `plain` and `resolve-nve`, and then only for routes
 being redistributed from `bgp-direct`.
 
-.. index:: vnc redistribute bgp-direct (ipv4|ipv6) prefix-list LIST-NAME
 .. clicmd:: vnc redistribute bgp-direct (ipv4|ipv6) prefix-list LIST-NAME
 
    When redistributing `bgp-direct` routes,
    specifies that the named prefix-list should be applied.
 
-.. index:: vnc redistribute bgp-direct no (ipv4|ipv6) prefix-list
 .. clicmd:: vnc redistribute bgp-direct no (ipv4|ipv6) prefix-list
 
    When redistributing `bgp-direct` routes,
    specifies that no prefix-list should be applied.
 
-.. index:: vnc redistribute bgp-direct route-map  MAP-NAME
 .. clicmd:: vnc redistribute bgp-direct route-map  MAP-NAME
 
    When redistributing `bgp-direct` routes,
    specifies that the named route-map should be applied.
 
-.. index:: vnc redistribute bgp-direct no route-map
 .. clicmd:: vnc redistribute bgp-direct no route-map
 
    When redistributing `bgp-direct` routes,
@@ -582,7 +540,6 @@ downstream protocol must also be configured to import the routes.  For example,
 when VNC routes are exported to unicast BGP, the BGP configuration must include
 a corresponding `redistribute vnc-direct` statement.
 
-.. index:: export bgp|zebra mode none|group-nve|registering-nve|ce
 .. clicmd:: export bgp|zebra mode none|group-nve|registering-nve|ce
 
    Specify how routes should be exported to bgp or zebra.  If the mode is
@@ -600,10 +557,8 @@ a corresponding `redistribute vnc-direct` statement.
 
    The default for both bgp and zebra is mode `none`.
 
-.. index:: vnc export bgp|zebra group-nve group GROUP-NAME
 .. clicmd:: vnc export bgp|zebra group-nve group GROUP-NAME
 
-.. index:: vnc export bgp|zebra group-nve no group GROUP-NAME
 .. clicmd:: vnc export bgp|zebra group-nve no group GROUP-NAME
 
    When export mode is `group-nve`, export (or do not export) prefixes from the
@@ -702,14 +657,12 @@ manually and dynamically added information.
    `local-next-hop` parameter is used to delete specific local nexthop
    information.
 
-.. index:: clear vnc mac (\\*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (\\*|(1-4294967295)) (\\*|[(vn|un) (A.B.C.D|X:X::X:X|\\*) [(un|vn) (A.B.C.D|X:X::X:X|\*)] [prefix (\\*|A.B.C.D/M|X:X::X:X/M)])
 .. clicmd:: clear vnc mac (\*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (\*|(1-4294967295)) (\*|[(vn|un) (A.B.C.D|X:X::X:X|\*) [(un|vn) (A.B.C.D|X:X::X:X|\*)] [prefix (\*|A.B.C.D/M|X:X::X:X/M)])
 
    Delete mac forwarding information. Any or all of these parameters may be
    wildcarded to (potentially) match more than one registration. The default
    value for the `prefix` parameter is the wildcard value `*`.
 
-.. index:: clear vnc nve (\*|((vn|un) (A.B.C.D|X:X::X:X) [(un|vn) (A.B.C.D|X:X::X:X)]))
 .. clicmd:: clear vnc nve (\*|((vn|un) (A.B.C.D|X:X::X:X) [(un|vn) (A.B.C.D|X:X::X:X)]))
 
    Delete prefixes associated with the NVE specified by the given VN and UN
@@ -729,24 +682,20 @@ running-configuration` command when in `enable` mode.
 The following commands are used to clear and display Virtual Network Control
 related information:
 
-.. index:: clear vnc counters
 .. clicmd:: clear vnc counters
 
    Reset the counter values stored by the NVA. Counter
    values can be seen using the `show vnc` commands listed above. This
    command is only available in `enable` mode.
 
-.. index:: show vnc summary
 .. clicmd:: show vnc summary
 
    Print counter values and other general information
    about the NVA. Counter values can be reset
    using the `clear vnc counters` command listed below.
 
-.. index:: show vnc nves
 .. clicmd:: show vnc nves
 
-.. index:: show vnc nves vn|un ADDRESS
 .. clicmd:: show vnc nves vn|un ADDRESS
 
    Display the NVA's current clients. Specifying `address` limits the output to
@@ -754,10 +703,8 @@ related information:
    communicated with the NVE, per-NVE summary counters and each NVE's addresses
    will be displayed.
 
-.. index:: show vnc queries
 .. clicmd:: show vnc queries
 
-.. index:: show vnc queries PREFIX
 .. clicmd:: show vnc queries PREFIX
 
    Display active Query information. Queries remain valid for the default
@@ -768,10 +715,8 @@ related information:
    Query information is provided for each querying NVE, and includes the Query
    Target and the time remaining before the information is removed.
 
-.. index:: show vnc registrations [all|local|remote|holddown|imported]
 .. clicmd:: show vnc registrations [all|local|remote|holddown|imported]
 
-.. index:: show vnc registrations [all|local|remote|holddown|imported] PREFIX
 .. clicmd:: show vnc registrations [all|local|remote|holddown|imported] PREFIX
 
    Display local, remote, holddown, and/or imported registration information.
@@ -791,10 +736,8 @@ related information:
    registrations, the amount of time remaining before the information is
    removed.
 
-.. index:: show vnc responses [active|removed]
 .. clicmd:: show vnc responses [active|removed]
 
-.. index:: show vnc responses [active|removed] PREFIX
 .. clicmd:: show vnc responses [active|removed] PREFIX
 
    Display all, active and/or removed response information which are
@@ -811,7 +754,6 @@ related information:
    the administrative cost, the provided response lifetime and the time
    remaining before the information is to be removed or will become inactive.
 
-.. index:: show memory vnc
 .. clicmd:: show memory vnc
 
    Print the number of memory items allocated by the NVA.

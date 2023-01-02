@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include "filter.h"
 #include "plist.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -45,8 +46,8 @@ THE SOFTWARE.
 #include "babel_zebra.h"
 #include "babel_errors.h"
 
-DEFINE_MGROUP(BABELD, "babeld")
-DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure")
+DEFINE_MGROUP(BABELD, "babeld");
+DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
 static int babel_init_routing_process(struct thread *thread);
 static void babel_get_myid(void);
@@ -69,11 +70,14 @@ static time_t expiry_time;
 static time_t source_expiry_time;
 
 /* Babel node structure. */
+static int babel_config_write (struct vty *vty);
 static struct cmd_node cmd_babel_node =
 {
+    .name = "babel",
     .node   = BABEL_NODE,
+    .parent_node = CONFIG_NODE,
     .prompt = "%s(config-router)# ",
-    .vtysh  = 1,
+    .config_write = babel_config_write,
 };
 
 /* print current babel configuration on vty */
@@ -128,6 +132,8 @@ babel_config_write (struct vty *vty)
 
     lines += config_write_distribute (vty, babel_routing_process->distribute_ctx);
 
+    vty_out (vty, "exit\n");
+
     return lines;
 }
 
@@ -138,7 +144,7 @@ babel_create_routing_process (void)
     assert (babel_routing_process == NULL);
 
     /* Allocaste Babel instance. */
-    babel_routing_process = XCALLOC (MTYPE_BABEL, sizeof (struct babel));
+    babel_routing_process = XCALLOC(MTYPE_BABEL, sizeof(struct babel));
 
     /* Initialize timeouts */
     gettime(&babel_now);
@@ -165,7 +171,6 @@ babel_create_routing_process (void)
     return 0;
 fail:
     XFREE(MTYPE_BABEL, babel_routing_process);
-    babel_routing_process = NULL;
     return -1;
 }
 
@@ -211,7 +216,7 @@ babel_read_protocol (struct thread *thread)
 static int
 babel_init_routing_process(struct thread *thread)
 {
-    myseqno = (random() & 0xFFFF);
+    myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
     babel_load_state_file();
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
@@ -262,8 +267,7 @@ babel_get_myid(void)
         return;
     }
 
-    flog_err(EC_BABEL_CONFIG,
-	      "Warning: couldn't find router id -- using random value.");
+    flog_err(EC_BABEL_CONFIG, "Couldn't find router id -- using random value.");
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
@@ -314,17 +318,12 @@ babel_clean_routing_process(void)
     flush_all_routes();
     babel_interface_close_all();
 
-    /* cancel threads */
-    if (babel_routing_process->t_read != NULL) {
-        thread_cancel(babel_routing_process->t_read);
-    }
-    if (babel_routing_process->t_update != NULL) {
-        thread_cancel(babel_routing_process->t_update);
-    }
+    /* cancel events */
+    thread_cancel(&babel_routing_process->t_read);
+    thread_cancel(&babel_routing_process->t_update);
 
     distribute_list_delete(&babel_routing_process->distribute_ctx);
     XFREE(MTYPE_BABEL, babel_routing_process);
-    babel_routing_process = NULL;
 }
 
 /* Function used with timeout. */
@@ -501,9 +500,7 @@ static void
 babel_set_timer(struct timeval *timeout)
 {
     long msecs = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
-    if (babel_routing_process->t_update != NULL) {
-        thread_cancel(babel_routing_process->t_update);
-    }
+    thread_cancel(&(babel_routing_process->t_update));
     thread_add_timer_msec(master, babel_main_loop, NULL, msecs, &babel_routing_process->t_update);
 }
 
@@ -717,11 +714,97 @@ DEFUN (babel_set_smoothing_half_life,
     return CMD_SUCCESS;
 }
 
+DEFUN (babel_distribute_list,
+       babel_distribute_list_cmd,
+       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
+				      argv[1 + prefix]->arg, ifname);
+}
+
+DEFUN (babel_no_distribute_list,
+       babel_no_distribute_list_cmd,
+       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, true,
+					 argv[3 + prefix]->text,
+					 argv[2 + prefix]->arg, ifname);
+}
+
+DEFUN (babel_ipv6_distribute_list,
+       babel_ipv6_distribute_list_cmd,
+       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, false, argv[3 + prefix]->text,
+				      argv[2 + prefix]->arg, ifname);
+}
+
+DEFUN (babel_no_ipv6_distribute_list,
+       babel_no_ipv6_distribute_list_cmd,
+       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "IPv6\n"
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, false,
+					 argv[4 + prefix]->text,
+					 argv[3 + prefix]->arg, ifname);
+}
+
 void
 babeld_quagga_init(void)
 {
 
-    install_node(&cmd_babel_node, &babel_config_write);
+    install_node(&cmd_babel_node);
 
     install_element(CONFIG_NODE, &router_babel_cmd);
     install_element(CONFIG_NODE, &no_router_babel_cmd);
@@ -732,6 +815,13 @@ babeld_quagga_init(void)
     install_element(BABEL_NODE, &babel_diversity_factor_cmd);
     install_element(BABEL_NODE, &babel_set_resend_delay_cmd);
     install_element(BABEL_NODE, &babel_set_smoothing_half_life_cmd);
+
+    install_element(BABEL_NODE, &babel_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_no_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_ipv6_distribute_list_cmd);
+    install_element(BABEL_NODE, &babel_no_ipv6_distribute_list_cmd);
+
+    vrf_cmd_init(NULL);
 
     babel_if_init();
 
@@ -744,9 +834,6 @@ babeld_quagga_init(void)
     prefix_list_init ();
     prefix_list_add_hook (babel_distribute_update_all);
     prefix_list_delete_hook (babel_distribute_update_all);
-
-    /* Distribute list install. */
-    distribute_list_init(BABEL_NODE);
 }
 
 /* Stubs to adapt Babel's filtering calls to Quagga's infrastructure. */

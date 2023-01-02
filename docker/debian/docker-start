@@ -1,10 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
-set -e
-
-##
-# For volume mounts...
-##
-chown -R frr:frr /etc/frr
-/etc/init.d/frr start
-exec sleep 10000d
+source /usr/lib/frr/frrcommon.sh
+/usr/lib/frr/watchfrr $(daemon_list)

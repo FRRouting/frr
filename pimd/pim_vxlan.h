@@ -66,17 +66,14 @@ struct pim_vxlan_sg {
 
 enum pim_vxlan_mlag_flags {
 	PIM_VXLAN_MLAGF_NONE = 0,
-	PIM_VXLAN_MLAGF_ENABLED = (1 << 0)
-};
-
-enum pim_vxlan_mlag_role {
-	PIM_VXLAN_MLAG_ROLE_SECONDARY = 0,
-	PIM_VXLAN_MLAG_ROLE_PRIMARY
+	PIM_VXLAN_MLAGF_ENABLED = (1 << 0),
+	PIM_VXLAN_MLAGF_DO_REG = (1 << 1)
 };
 
 struct pim_vxlan_mlag {
 	enum pim_vxlan_mlag_flags flags;
-	enum pim_vxlan_mlag_role role;
+	/* XXX - remove this variable from here */
+	int role;
 	bool peer_state;
 	/* routed interface setup on top of MLAG peerlink */
 	struct interface *peerlink_rif;
@@ -112,7 +109,7 @@ struct pim_vxlan {
  */
 static inline bool pim_vxlan_is_orig_mroute(struct pim_vxlan_sg *vxlan_sg)
 {
-	return (vxlan_sg->sg.src.s_addr != 0);
+	return (vxlan_sg->sg.src.s_addr != INADDR_ANY);
 }
 
 static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
@@ -120,6 +117,12 @@ static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
 	return (up->sg.src.s_addr != INADDR_ANY) &&
 		up->rpf.source_nexthop.interface &&
 		if_is_loopback_or_vrf(up->rpf.source_nexthop.interface);
+}
+
+static inline bool pim_vxlan_is_term_dev_cfg(struct pim_instance *pim,
+			struct interface *ifp)
+{
+	return pim->vxlan.term_if_cfg == ifp;
 }
 
 extern struct pim_vxlan *pim_vxlan_p;
@@ -141,6 +144,10 @@ extern bool pim_vxlan_get_register_src(struct pim_instance *pim,
 extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 				struct interface *peerlink_rif,
 				struct in_addr *reg_addr);
-extern void pim_vxlan_config_write(struct vty *vty, char *spaces, int *writes);
+extern bool pim_vxlan_do_mlag_reg(void);
+extern void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
+		struct pim_upstream *up, bool inherit);
 
+/* Shutdown of PIM stop the thread */
+extern void pim_vxlan_terminate(void);
 #endif /* PIM_VXLAN_H */

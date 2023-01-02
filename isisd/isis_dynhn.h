@@ -30,11 +30,17 @@ struct isis_dynhn {
 	int level;
 };
 
-void dyn_cache_init(void);
-void isis_dynhn_insert(const uint8_t *id, const char *hostname, int level);
-void isis_dynhn_remove(const uint8_t *id);
-struct isis_dynhn *dynhn_find_by_id(const uint8_t *id);
-struct isis_dynhn *dynhn_find_by_name(const char *hostname);
-void dynhn_print_all(struct vty *vty);
+void dyn_cache_init(struct isis *isis);
+void dyn_cache_finish(struct isis *isis);
+void isis_dynhn_insert(struct isis *isis, const uint8_t *id,
+		       const char *hostname, int level);
+void isis_dynhn_remove(struct isis *isis, const uint8_t *id);
+struct isis_dynhn *dynhn_find_by_id(struct isis *isis, const uint8_t *id);
+struct isis_dynhn *dynhn_find_by_name(struct isis *isis, const char *hostname);
+void dynhn_print_all(struct vty *vty, struct isis *isis);
+
+/* Snmp support */
+struct isis_dynhn *dynhn_snmp_next(struct isis *isis, const uint8_t *id,
+				   int level);
 
 #endif /* _ZEBRA_ISIS_DYNHN_H */

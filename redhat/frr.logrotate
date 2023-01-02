@@ -14,6 +14,14 @@
     endscript
 }
 
+/var/log/frr/babeld.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/babeld.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
 /var/log/frr/bgpd.log {
     notifempty
     missingok
@@ -101,3 +109,44 @@
         /bin/kill -USR1 `cat /var/run/frr/fabricd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
+
+/var/log/frr/pbrd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/pbrd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/pimd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/pimd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/sharpd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/sharpd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/staticd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/static.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/vrrpd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/vrrpd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+

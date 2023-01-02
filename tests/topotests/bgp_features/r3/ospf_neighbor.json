@@ -1,0 +1,16 @@
+{
+  "neighbors":{
+    "192.168.0.1":[
+      {
+        "priority":10,
+        "state":"Full\/DR"
+      }
+    ],
+    "192.168.0.2":[
+      {
+        "priority":10,
+        "state":"Full\/DR"
+      }
+    ]
+  }
+}

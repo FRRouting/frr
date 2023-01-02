@@ -142,11 +142,9 @@ static int eigrp_route_match_add(struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "%% Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * Intentionally not handling these cases
@@ -169,11 +167,9 @@ static int eigrp_route_match_delete(struct vty *vty,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "%% Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * These cases intentionally ignored
@@ -195,7 +191,6 @@ static int eigrp_route_set_add(struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		/*
 		 * rip, ripng and other protocols share the set metric command
@@ -230,11 +225,9 @@ static int eigrp_route_set_delete(struct vty *vty,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "%% Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * These cases intentionally not handled
@@ -272,8 +265,8 @@ route_match_metric(void *rule, struct prefix *prefix, route_map_object_t type,
 	//  uint32_t *metric;
 	//  uint32_t  check;
 	//  struct rip_info *rinfo;
-	//  struct eigrp_nexthop_entry *te;
-	//  struct eigrp_prefix_entry *pe;
+	//  struct eigrp_route_descriptor *te;
+	//  struct eigrp_prefix_descriptor *pe;
 	//  struct listnode *node, *node2, *nnode, *nnode2;
 	//  struct eigrp *e;
 	//
@@ -302,7 +295,7 @@ static void *route_match_metric_compile(const char *arg)
 {
 	//  uint32_t *metric;
 	//
-	//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (uint32_t));
+	//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 	//  *metric = atoi (arg);
 	//
 	//  if(*metric > 0)
@@ -581,7 +574,7 @@ static void *route_match_tag_compile(const char *arg)
 {
 	//  unsigned short *tag;
 	//
-	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned short));
+	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(unsigned short));
 	//  *tag = atoi (arg);
 	//
 	//  return tag;
@@ -674,7 +667,7 @@ static void *route_set_metric_compile(const char *arg)
 	//    return NULL;*/
 	//
 	//  mod = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-	//    sizeof (struct rip_metric_modifier));
+	//    sizeof(struct rip_metric_modifier));
 	//  mod->type = type;
 	//  mod->metric = metric;
 
@@ -725,7 +718,7 @@ static void *route_set_ip_nexthop_compile(const char *arg)
 	//  int ret;
 	//  struct in_addr *address;
 	//
-	//  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct
+	//  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(struct
 	//  in_addr));
 	//
 	//  ret = inet_aton (arg, address);
@@ -782,7 +775,7 @@ static void *route_set_tag_compile(const char *arg)
 {
 	//  unsigned short *tag;
 	//
-	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned short));
+	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(unsigned short));
 	//  *tag = atoi (arg);
 	//
 	//  return tag;
@@ -1137,6 +1130,48 @@ ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag (0-65535)", NO_STR SET_STR
       "Tag value for routing protocol\n"
       "Tag value\n")
 
+DEFUN (eigrp_distribute_list,
+       eigrp_distribute_list_cmd,
+       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
+				      argv[1 + prefix]->arg, ifname);
+}
+
+DEFUN (eigrp_no_distribute_list,
+       eigrp_no_distribute_list_cmd,
+       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const char *ifname = NULL;
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+
+	return distribute_list_no_parser(vty, prefix, true,
+					 argv[3 + prefix]->text,
+					 argv[2 + prefix]->arg, ifname);
+}
+
 
 /* Route-map init */
 void eigrp_route_map_init()
@@ -1145,6 +1180,9 @@ void eigrp_route_map_init()
 	route_map_init_vty();
 	route_map_add_hook(eigrp_route_map_update);
 	route_map_delete_hook(eigrp_route_map_update);
+
+	install_element(EIGRP_NODE, &eigrp_distribute_list_cmd);
+	install_element(EIGRP_NODE, &eigrp_no_distribute_list_cmd);
 
 	/*route_map_install_match (&route_match_metric_cmd);
 	  route_map_install_match (&route_match_interface_cmd);*/

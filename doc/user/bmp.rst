@@ -73,8 +73,7 @@ setup.
 
 There is one option that applies to the BGP instance as a whole:
 
-.. index:: bmp mirror buffer-limit(0-4294967294)
-.. clicmd:: [no] bmp mirror buffer-limit(0-4294967294)
+.. clicmd:: bmp mirror buffer-limit(0-4294967294)
 
    This sets the maximum amount of memory used for buffering BGP messages
    (updates, keepalives, ...) for sending in BMP Route Mirroring.
@@ -94,8 +93,7 @@ There is one option that applies to the BGP instance as a whole:
 
 All other configuration is managed per targets:
 
-.. index:: bmp targets NAME
-.. clicmd:: [no] bmp targets NAME
+.. clicmd:: bmp targets NAME
 
    Create/delete a targets group.  As implied by the plural name, targets may
    cover multiple outbound active BMP sessions as well as inbound passive
@@ -110,8 +108,7 @@ BMP session configuration
 Inside a ``bmp targets`` block, the following commands control session
 establishment:
 
-.. index:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC}
-.. clicmd:: [no] bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC}
+.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC}
 
    Add/remove an active outbound BMP session.  HOSTNAME is resolved via DNS,
    if multiple addresses are returned they are tried in nondeterministic
@@ -124,14 +121,13 @@ establishment:
    ``ip access-list`` and ``ipv6 access-list`` are checked for outbound
    connections resulting from ``bmp connect`` statements.
 
-.. index:: bmp listener <X:X::X:X|A.B.C.D> port (1-65535)
-.. clicmd:: [no] bmp listener <X:X::X:X|A.B.C.D> port (1-65535)
+.. clicmd:: bmp listener <X:X::X:X|A.B.C.D> port (1-65535)
 
    Accept incoming BMP sessions on the specified address and port.  You can
    use ``0.0.0.0`` and ``::`` to listen on all IPv4/IPv6 addresses.
 
-.. clicmd:: [no] ip access-list NAME
-.. clicmd:: [no] ipv6 access-list NAME
+.. clicmd:: ip access-list NAME
+.. clicmd:: ipv6 access-list NAME
 
    Restrict BMP sessions to the addresses allowed by the respective access
    lists.  The access lists are checked for both passive and active BMP
@@ -143,14 +139,12 @@ BMP data feed configuration
 The following commands configure what BMP messages are sent on sessions
 associated with a particular ``bmp targets``:
 
-.. index:: bmp stats [interval (100-86400000)]
-.. clicmd:: [no] bmp stats [interval (100-86400000)]
+.. clicmd:: bmp stats [interval (100-86400000)]
 
    Send BMP Statistics (counter) messages at the specified interval (in
    milliseconds.)
 
-.. index:: bmp monitor AFI SAFI <pre-policy|post-policy>
-.. clicmd:: [no] bmp monitor AFI SAFI <pre-policy|post-policy>
+.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
    IPv6 are currently valid for AFI, and only unicast and multicast are valid
@@ -159,8 +153,7 @@ associated with a particular ``bmp targets``:
    All BGP neighbors are included in Route Monitoring.  Options to select
    a subset of BGP sessions may be added in the future.
 
-.. index:: bmp mirror
-.. clicmd:: [no] bmp mirror
+.. clicmd:: bmp mirror
 
    Perform Route Mirroring for all BGP neighbors.  Since this provides a
    direct feed of BGP messages, there are no AFI/SAFI options to be

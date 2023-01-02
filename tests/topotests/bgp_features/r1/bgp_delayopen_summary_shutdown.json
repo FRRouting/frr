@@ -1,0 +1,11 @@
+{
+"ipv4Unicast":{
+  "as":65000,
+  "peers":{
+    "192.168.101.2":{
+      "remoteAs":65100,
+      "state":"Idle (Admin)"
+    }
+  }
+}
+}

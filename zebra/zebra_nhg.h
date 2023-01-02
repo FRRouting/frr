@@ -26,6 +26,10 @@
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This struct is used exclusively for dataplane
  * interaction via a dataplane context.
  *
@@ -40,16 +44,27 @@ struct nh_grp {
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
 
 /*
- * Hashtables contiaining entries found in `zebra_router`.
+ * Hashtables containing nhg entries is in `zebra_router`.
  */
-
 struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
+
+	/* Time since last update */
+	time_t uptime;
+
+	/* Source protocol - zebra or another daemon */
 	int type;
 
-	struct nexthop_group *nhg;
+	/* zapi instance and session id, for groups from other daemons */
+	uint16_t zapi_instance;
+	uint32_t zapi_session;
+
+	struct nexthop_group nhg;
+
+	/* If supported, a mapping of backup nexthops. */
+	struct nhg_backup_info *backup_info;
 
 	/* If this is not a group, it
 	 * will be a single nexthop
@@ -73,6 +88,7 @@ struct nhg_hash_entry {
 	 * faster with ID's.
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
+
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -95,19 +111,54 @@ struct nhg_hash_entry {
  * Is this a nexthop that is recursively resolved?
  */
 #define NEXTHOP_GROUP_RECURSIVE (1 << 3)
+
 /*
- * This is a nexthop group we got from the kernel, it is identical to
- * one we already have. (The kernel allows duplicate nexthops, we don't
- * since we hash on them). We are only tracking it in our ID table,
- * it is unusable by our created routes but may be used by routes we get
- * from the kernel. Therefore, it is unhashable.
+ * Backup nexthop support - identify groups that are backups for
+ * another group.
  */
-#define NEXTHOP_GROUP_UNHASHABLE (1 << 4)
+#define NEXTHOP_GROUP_BACKUP (1 << 4)
+
+/*
+ * The NHG has been release by an upper level protocol via the
+ * `zebra_nhg_proto_del()` API.
+ *
+ * We use this flag to track this state in case the NHG is still being used
+ * by routes therefore holding their refcnts as well. Otherwise, the NHG will
+ * be removed and uninstalled.
+ *
+ */
+#define NEXTHOP_GROUP_PROTO_RELEASED (1 << 5)
+
+/*
+ * Track FPM installation status..
+ */
+#define NEXTHOP_GROUP_FPM (1 << 6)
+};
+
+/* Upper 4 bits of the NHG are reserved for indicating the NHG type */
+#define NHG_ID_TYPE_POS 28
+enum nhg_type {
+	NHG_TYPE_L3 = 0,
+	NHG_TYPE_L2_NH, /* NHs in a L2 NHG used as a MAC/FDB dest */
+	NHG_TYPE_L2,    /* L2 NHG used as a MAC/FDB dest */
 };
 
 /* Was this one we created, either this session or previously? */
-#define ZEBRA_NHG_CREATED(NHE) ((NHE->type) == ZEBRA_ROUTE_NHG)
+#define ZEBRA_NHG_CREATED(NHE)                                                 \
+	(((NHE->type) <= ZEBRA_ROUTE_MAX) && (NHE->type != ZEBRA_ROUTE_KERNEL))
 
+/* Is this an NHE owned by zebra and not an upper level protocol? */
+#define ZEBRA_OWNED(NHE) (NHE->type == ZEBRA_ROUTE_NHG)
+
+#define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
+
+/*
+ * Backup nexthops: this is a group object itself, so
+ * that the backup nexthops can use the same code as a normal object.
+ */
+struct nhg_backup_info {
+	struct nhg_hash_entry *nhe;
+};
 
 enum nhg_ctx_op_e {
 	NHG_CTX_OP_NONE = 0,
@@ -134,8 +185,9 @@ struct nhg_ctx {
 
 	vrf_id_t vrf_id;
 	afi_t afi;
+
 	/*
-	 * This should only every be ZEBRA_ROUTE_NHG unless we get a a kernel
+	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a a kernel
 	 * created nexthop not made by us.
 	 */
 	int type;
@@ -161,14 +213,41 @@ struct nhg_ctx {
 void zebra_nhg_enable_kernel_nexthops(bool set);
 bool zebra_nhg_kernel_nexthops_enabled(void);
 
+/* Global control for zebra to only use proto-owned nexthops */
+void zebra_nhg_set_proto_nexthops_only(bool set);
+bool zebra_nhg_proto_nexthops_only(void);
+
+/* Global control for use of activated backups for recursive resolution. */
+void zebra_nhg_set_recursive_use_backups(bool set);
+bool zebra_nhg_recursive_use_backups(void);
+
 /**
  * NHE abstracted tree functions.
- * Use these where possible instead of the direct ones access ones.
+ * Use these where possible instead of direct access.
  */
 struct nhg_hash_entry *zebra_nhg_alloc(void);
 void zebra_nhg_free(struct nhg_hash_entry *nhe);
 /* In order to clear a generic hash, we need a generic api, sigh. */
 void zebra_nhg_hash_free(void *p);
+
+/* Init an nhe, for use in a hash lookup for example. There's some fuzziness
+ * if the nhe represents only a single nexthop, so we try to capture that
+ * variant also.
+ */
+void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
+		    const struct nexthop *nh);
+
+/*
+ * Shallow copy of 'orig', into new/allocated nhe.
+ */
+struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
+				      uint32_t id);
+
+/* Allocate, free backup nexthop info objects */
+struct nhg_backup_info *zebra_nhg_backup_alloc(void);
+void zebra_nhg_backup_free(struct nhg_backup_info **p);
+
+struct nexthop_group *zebra_nhg_get_backup_nhg(struct nhg_hash_entry *nhe);
 
 extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
 
@@ -195,6 +274,7 @@ extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
  * the rib meta queue.
  */
 extern int nhg_ctx_process(struct nhg_ctx *ctx);
+void nhg_ctx_free(struct nhg_ctx **ctx);
 
 /* Find via kernel nh creation */
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
@@ -204,9 +284,51 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
-/* Find via route creation */
-extern struct nhg_hash_entry *
-zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi);
+/* Find an nhe based on a nexthop_group */
+extern struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
+						 struct nexthop_group *nhg,
+						 afi_t rt_afi, int type);
+
+/* Find an nhe based on a route's nhe, used during route creation */
+struct nhg_hash_entry *
+zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
+
+
+/**
+ * Functions for Add/Del/Replace via protocol NHG creation.
+ *
+ * The NHEs will not be hashed. They will only be present in the
+ * ID table and therefore not sharable.
+ *
+ * It is the owning protocols job to manage these.
+ */
+
+/*
+ * Add NHE. If already exists, Replace.
+ *
+ * Returns allocated NHE on success, otherwise NULL.
+ */
+struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
+					   uint16_t instance, uint32_t session,
+					   struct nexthop_group *nhg,
+					   afi_t afi);
+
+/*
+ * Del NHE.
+ *
+ * Returns deleted NHE on success, otherwise NULL.
+ *
+ * Caller must decrement ref with zebra_nhg_decrement_ref() when done.
+ */
+struct nhg_hash_entry *zebra_nhg_proto_del(uint32_t id, int type);
+
+/*
+ * Remove specific by proto NHGs.
+ *
+ * Called after client disconnect.
+ *
+ */
+unsigned long zebra_nhg_score_proto(int type);
 
 /* Reference counter functions */
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
@@ -228,11 +350,22 @@ struct zebra_dplane_ctx;
 extern void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 
 
-/* Sweet the nhg hash tables for old entries on restart */
+/* Sweep the nhg hash tables for old entries on restart */
 extern void zebra_nhg_sweep_table(struct hash *hash);
+
+/*
+ * We are shutting down but the nexthops should be kept
+ * as that -r has been specified and we don't want to delete
+ * the routes unintentionally
+ */
+extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* __ZEBRA_NHG_H__ */

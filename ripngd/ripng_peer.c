@@ -34,7 +34,7 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer");
 
 static struct ripng_peer *ripng_peer_new(void)
 {
@@ -95,8 +95,7 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	peer = ripng_peer_lookup(ripng, addr);
 
 	if (peer) {
-		if (peer->t_timeout)
-			thread_cancel(peer->t_timeout);
+		thread_cancel(&peer->t_timeout);
 	} else {
 		peer = ripng_peer_new();
 		peer->ripng = ripng;
@@ -105,7 +104,6 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	}
 
 	/* Update timeout thread. */
-	peer->t_timeout = NULL;
 	thread_add_timer(master, ripng_peer_timeout, peer,
 			 RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
 
@@ -141,7 +139,6 @@ void ripng_peer_bad_packet(struct ripng *ripng, struct sockaddr_in6 *from)
 static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 {
 	time_t uptime;
-	struct tm *tm;
 
 	/* If there is no connection has been done before print `never'. */
 	if (peer->uptime == 0) {
@@ -152,17 +149,9 @@ static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 	/* Get current time. */
 	uptime = time(NULL);
 	uptime -= peer->uptime;
-	tm = gmtime(&uptime);
 
-	if (uptime < ONE_DAY_SECOND)
-		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
-	else if (uptime < ONE_WEEK_SECOND)
-		snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
-	else
-		snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+	frrtime_to_interval(uptime, buf, len);
+
 	return buf;
 }
 
@@ -174,8 +163,8 @@ void ripng_peer_display(struct vty *vty, struct ripng *ripng)
 	char timebuf[RIPNG_UPTIME_LEN];
 
 	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
-		vty_out(vty, "    %s \n%14s %10d %10d %10d      %s\n",
-			inet6_ntoa(peer->addr), " ", peer->recv_badpackets,
+		vty_out(vty, "    %pI6 \n%14s %10d %10d %10d      %s\n",
+			&peer->addr, " ", peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIPNG_DISTANCE_DEFAULT,
 			ripng_peer_uptime(peer, timebuf, RIPNG_UPTIME_LEN));
 	}

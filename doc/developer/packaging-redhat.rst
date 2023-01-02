@@ -18,10 +18,6 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
       yum install rpm-build net-snmp-devel pam-devel libcap-devel
 
-   If your platform uses systemd::
-
-      yum install systemd-devel
-
    For CentOS 7 and CentOS 8, the package will be built using python3
    and requires additional python3 packages::
 

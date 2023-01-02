@@ -84,7 +84,7 @@ struct debug {
 	const char *desc;
 };
 
-PREDECL_LIST(debug_cb_list)
+PREDECL_LIST(debug_cb_list);
 /*
  * Callback set for debugging code.
  *

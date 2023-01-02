@@ -268,6 +268,7 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 				    &ad->addr);
 		if (!cie)
 			goto err;
+		cie->mtu = htons(ad->mtu);
 		cie->holding_time = htons(ad->holdtime);
 		break;
 	default:

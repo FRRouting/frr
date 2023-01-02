@@ -66,8 +66,8 @@
  * always happens from the front of the queue.)
  */
 
-PREDECL_DLIST(bmp_qlist)
-PREDECL_HASH(bmp_qhash)
+PREDECL_DLIST(bmp_qlist);
+PREDECL_HASH(bmp_qhash);
 
 struct bmp_queue_entry {
 	struct bmp_qlist_item bli;
@@ -79,6 +79,9 @@ struct bmp_queue_entry {
 	safi_t safi;
 
 	size_t refcount;
+
+	/* initialized only for L2VPN/EVPN (S)AFIs */
+	struct prefix_rd rd;
 };
 
 /* This is for BMP Route Mirroring, which feeds fully raw BGP PDUs out to BMP
@@ -89,7 +92,7 @@ struct bmp_queue_entry {
  * with a size limit.  Refcount works the same as for monitoring above.
  */
 
-PREDECL_LIST(bmp_mirrorq)
+PREDECL_LIST(bmp_mirrorq);
 
 struct bmp_mirrorq {
 	struct bmp_mirrorq_item bmi;
@@ -109,7 +112,7 @@ enum {
 	BMP_AFI_LIVE,
 };
 
-PREDECL_LIST(bmp_session)
+PREDECL_LIST(bmp_session);
 
 struct bmp_active;
 struct bmp_targets;
@@ -153,6 +156,7 @@ struct bmp {
 	 * table entry, the sync* fields note down what we sent last
 	 */
 	struct prefix syncpos;
+	struct bgp_dest *syncrdpos;
 	uint64_t syncpeerid;
 	afi_t syncafi;
 	safi_t syncsafi;
@@ -162,7 +166,7 @@ struct bmp {
  * succeeds, "bmp" is set up.
  */
 
-PREDECL_SORTLIST_UNIQ(bmp_actives)
+PREDECL_SORTLIST_UNIQ(bmp_actives);
 
 #define BMP_DFLT_MINRETRY	30000
 #define BMP_DFLT_MAXRETRY	720000
@@ -187,7 +191,7 @@ struct bmp_active {
 };
 
 /* config & state for passive / listening sockets */
-PREDECL_SORTLIST_UNIQ(bmp_listeners)
+PREDECL_SORTLIST_UNIQ(bmp_listeners);
 
 struct bmp_listener {
 	struct bmp_listeners_item bli;
@@ -205,7 +209,7 @@ struct bmp_listener {
  * bmp_active items.  If they have the same config, BMP session should be
  * put in the same targets since that's a bit more effective.
  */
-PREDECL_SORTLIST_UNIQ(bmp_targets)
+PREDECL_SORTLIST_UNIQ(bmp_targets);
 
 struct bmp_targets {
 	struct bmp_targets_item bti;
@@ -221,7 +225,11 @@ struct bmp_targets {
 #define BMP_STAT_DEFAULT_TIMER	60000
 	int stat_msec;
 
-	/* only IPv4 & IPv6 / unicast & multicast supported for now */
+	/* only supporting:
+	 * - IPv4 / unicast & multicast
+	 * - IPv6 / unicast & multicast
+	 * - L2VPN / EVPN
+	 */
 #define BMP_MON_PREPOLICY	(1 << 0)
 #define BMP_MON_POSTPOLICY	(1 << 1)
 	uint8_t afimon[AFI_MAX][SAFI_MAX];
@@ -237,13 +245,13 @@ struct bmp_targets {
 
 	uint64_t cnt_accept, cnt_aclrefused;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bmp_targets)
+DECLARE_QOBJ_TYPE(bmp_targets);
 
 /* per struct peer * data.  Lookup by peer->qobj_node.nid, created on demand,
  * deleted in peer_backward hook. */
-PREDECL_HASH(bmp_peerh)
+PREDECL_HASH(bmp_peerh);
 
 struct bmp_bgp_peer {
 	struct bmp_peerh_item bpi;
@@ -259,7 +267,9 @@ struct bmp_bgp_peer {
 };
 
 /* per struct bgp * data */
-PREDECL_HASH(bmp_bgph)
+PREDECL_HASH(bmp_bgph);
+
+#define BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE 0x00
 
 struct bmp_bgp {
 	struct bmp_bgph_item bbi;
@@ -299,6 +309,6 @@ enum {
 	BMP_STATS_FRR_NH_INVALID        = 65531,
 };
 
-DECLARE_MGROUP(BMP)
+DECLARE_MGROUP(BMP);
 
 #endif /*_BGP_BMP_H_*/

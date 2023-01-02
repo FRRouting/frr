@@ -35,9 +35,13 @@ extern "C" {
 /* Pseudowire flags. */
 #define F_PSEUDOWIRE_CWORD	0x01
 
-/* Pseudowire status. */
-#define PW_STATUS_DOWN		0
-#define PW_STATUS_UP		1
+/* Pseudowire status TLV */
+#define PW_FORWARDING 0
+#define PW_NOT_FORWARDING (1 << 0)
+#define PW_LOCAL_RX_FAULT (1 << 1)
+#define PW_LOCAL_TX_FAULT (1 << 2)
+#define PW_PSN_RX_FAULT (1 << 3)
+#define PW_PSN_TX_FAULT (1 << 4)
 
 /*
  * Protocol-specific information about the pseudowire.

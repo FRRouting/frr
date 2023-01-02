@@ -32,6 +32,7 @@ This list tries to collect them to one source of information:
     commit "ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing"
   Workaround:
     Set sysctl net.ipv4.ip_forward_use_pmtu=1
+    See: https://marc.info/?t=143636239500003&r=1&w=2 for details
     (Should fix kernel to have this by default on for tunnel devices)
 
 - subtle path mtu mishandling issues

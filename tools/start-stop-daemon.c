@@ -235,7 +235,7 @@ static const char *next_dirname(const char *s)
 {
 	const char *cur;
 
-	cur = (const char *)s;
+	cur = s;
 
 	if (*cur != '\0') {
 		for (; *cur != '/'; ++cur)
@@ -255,7 +255,7 @@ static void add_namespace(const char *path)
 	const char *nsdirname, *nsname, *cur;
 	struct namespace *namespace;
 
-	cur = (const char *)path;
+	cur = path;
 	nsdirname = nsname = "";
 
 	while ((cur = next_dirname(cur))[0] != '\0') {
@@ -273,7 +273,7 @@ static void add_namespace(const char *path)
 		badusage("invalid namepspace path");
 
 	namespace = xmalloc(sizeof(*namespace));
-	namespace->path = (const char *)path;
+	namespace->path = path;
 	namespace->nstype = nstype;
 	LIST_INSERT_HEAD(&namespace_head, namespace, list);
 }
@@ -410,8 +410,7 @@ static void parse_schedule_item(const char *string, struct schedule_item *item)
 		item->type = sched_signal;
 	} else {
 		badusage(
-			"invalid schedule item (must be [-]<signal-name>, "
-			"-<signal-number>, <timeout> or `forever'");
+			"invalid schedule item (must be [-]<signal-name>, -<signal-number>, <timeout> or `forever'");
 	}
 }
 
@@ -436,8 +435,7 @@ static void parse_schedule(const char *schedule_str)
 		parse_schedule_item(schedule_str, &schedule[1]);
 		if (schedule[1].type != sched_timeout) {
 			badusage(
-				"--retry takes timeout, or schedule list"
-				" of at least two items");
+				"--retry takes timeout, or schedule list of at least two items");
 		}
 		schedule[2].type = sched_signal;
 		schedule[2].value = SIGKILL;
@@ -451,8 +449,7 @@ static void parse_schedule(const char *schedule_str)
 					: (ptrdiff_t)strlen(schedule_str);
 			if (str_len >= (ptrdiff_t)sizeof(item_buf))
 				badusage(
-					"invalid schedule item: far too long"
-					" (you must delimit items with slashes)");
+					"invalid schedule item: far too long (you must delimit items with slashes)");
 			memcpy(item_buf, schedule_str, str_len);
 			item_buf[str_len] = 0;
 			schedule_str = slash ? slash + 1 : NULL;
@@ -461,8 +458,7 @@ static void parse_schedule(const char *schedule_str)
 			if (schedule[count].type == sched_forever) {
 				if (repeatat >= 0)
 					badusage(
-						"invalid schedule: `forever'"
-						" appears more than once");
+						"invalid schedule: `forever' appears more than once");
 				repeatat = count;
 				continue;
 			}
@@ -574,8 +570,7 @@ static void parse_options(int argc, char *const *argv)
 	if (signal_str != NULL) {
 		if (parse_signal(signal_str, &signal_nr) != 0)
 			badusage(
-				"signal value must be numeric or name"
-				" of signal (KILL, INTR, ...)");
+				"signal value must be numeric or name of signal (KILL, INTR, ...)");
 	}
 
 	if (schedule_str != NULL) {
@@ -605,9 +600,9 @@ static void parse_options(int argc, char *const *argv)
 static int pid_is_exec(pid_t pid, const struct stat *esb)
 {
 	struct stat sb;
-	char buf[32];
+	char buf[PATH_MAX];
 
-	sprintf(buf, "/proc/%ld/exe", (long)pid);
+	snprintf(buf, sizeof(buf), "/proc/%ld/exe", (long)pid);
 	if (stat(buf, &sb) != 0)
 		return 0;
 	return (sb.st_dev == esb->st_dev && sb.st_ino == esb->st_ino);
@@ -617,9 +612,9 @@ static int pid_is_exec(pid_t pid, const struct stat *esb)
 static int pid_is_user(pid_t pid, uid_t uid)
 {
 	struct stat sb;
-	char buf[32];
+	char buf[PATH_MAX];
 
-	sprintf(buf, "/proc/%ld", (long)pid);
+	snprintf(buf, sizeof(buf), "/proc/%ld", (long)pid);
 	if (stat(buf, &sb) != 0)
 		return 0;
 	return (sb.st_uid == uid);
@@ -628,11 +623,11 @@ static int pid_is_user(pid_t pid, uid_t uid)
 
 static int pid_is_cmd(pid_t pid, const char *name)
 {
-	char buf[32];
+	char buf[PATH_MAX];
 	FILE *f;
 	int c;
 
-	sprintf(buf, "/proc/%ld/stat", (long)pid);
+	snprintf(buf, sizeof(buf), "/proc/%ld/stat", (long)pid);
 	f = fopen(buf, "r");
 	if (!f)
 		return 0;

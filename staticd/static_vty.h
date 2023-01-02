@@ -19,10 +19,26 @@
 #ifndef __STATIC_VTY_H__
 #define __STATIC_VTY_H__
 
-void static_config_install_delayed_routes(struct static_vrf *svrf);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int static_config(struct vty *vty, struct static_vrf *svrf,
-		  afi_t afi, safi_t safi, const char *cmd);
+void static_cli_show(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults);
+void static_cli_show_end(struct vty *vty, struct lyd_node *dnode);
+void static_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults);
+void static_src_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults);
+int static_nexthop_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
+int static_route_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
+int static_src_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
+int static_path_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2);
 
 void static_vty_init(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

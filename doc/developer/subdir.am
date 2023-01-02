@@ -11,26 +11,30 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-debian8.rst \
 	doc/developer/building-frr-for-debian9.rst \
 	doc/developer/building-frr-for-fedora.rst \
+	doc/developer/building-frr-for-opensuse.rst \
 	doc/developer/building-frr-for-freebsd10.rst \
 	doc/developer/building-frr-for-freebsd11.rst \
 	doc/developer/building-frr-for-freebsd9.rst \
 	doc/developer/building-frr-for-netbsd6.rst \
 	doc/developer/building-frr-for-netbsd7.rst \
-	doc/developer/building-frr-for-omnios.rst \
 	doc/developer/building-frr-for-openbsd6.rst \
 	doc/developer/building-frr-for-openwrt.rst \
 	doc/developer/building-frr-for-ubuntu1404.rst \
 	doc/developer/building-frr-for-ubuntu1604.rst \
 	doc/developer/building-frr-for-ubuntu1804.rst \
+	doc/developer/building-frr-for-ubuntu2004.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
+	doc/developer/cross-compiling.rst \
 	doc/developer/frr-release-procedure.rst \
+	doc/developer/grpc.rst \
 	doc/developer/hooks.rst \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
 	doc/developer/library.rst \
+	doc/developer/link-state.rst \
 	doc/developer/lists.rst \
 	doc/developer/locking.rst \
 	doc/developer/logging.rst \
@@ -43,11 +47,20 @@ dev_RSTFILES = \
 	doc/developer/packaging-debian.rst \
 	doc/developer/packaging-redhat.rst \
 	doc/developer/packaging.rst \
+	doc/developer/path-internals-daemon.rst \
+	doc/developer/path-internals-pcep.rst \
+	doc/developer/path-internals.rst \
+	doc/developer/path.rst \
 	doc/developer/rcu.rst \
+	doc/developer/scripting.rst \
+	doc/developer/static-linking.rst \
+	doc/developer/tracing.rst \
 	doc/developer/testing.rst \
 	doc/developer/topotests-snippets.rst \
+	doc/developer/topotests-markers.rst \
 	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
+	doc/developer/xrefs.rst \
 	doc/developer/zebra.rst \
 	# end
 

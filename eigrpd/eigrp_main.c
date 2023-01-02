@@ -66,6 +66,8 @@
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_errors.h"
 #include "eigrpd/eigrp_vrf.h"
+#include "eigrpd/eigrp_cli.h"
+#include "eigrpd/eigrp_yang.h"
 //#include "eigrpd/eigrp_routemap.h"
 
 /* eigprd privileges */
@@ -139,7 +141,10 @@ struct quagga_signal_t eigrp_signals[] = {
 
 static const struct frr_yang_module_info *const eigrpd_yang_modules[] = {
 	&frr_eigrpd_info,
+	&frr_filter_info,
 	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
@@ -150,7 +155,8 @@ FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 		.n_signals = array_size(eigrp_signals),
 
 		.privs = &eigrpd_privs, .yang_modules = eigrpd_yang_modules,
-		.n_yang_modules = array_size(eigrpd_yang_modules), )
+		.n_yang_modules = array_size(eigrpd_yang_modules),
+);
 
 /* EIGRPd main routine. */
 int main(int argc, char **argv, char **envp)
@@ -171,7 +177,6 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -221,12 +226,10 @@ int main(int argc, char **argv, char **envp)
 	  route_map_add_hook (eigrp_rmap_update);
 	  route_map_delete_hook (eigrp_rmap_update);*/
 	/*if_rmap_init (EIGRP_NODE); */
-	/* Distribute list install. */
-	distribute_list_init(EIGRP_NODE);
 
 	frr_config_fork();
 	frr_run(master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }
