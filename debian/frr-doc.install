@@ -3,14 +3,14 @@
 # other
 README.md         usr/share/doc/frr
 doc/figures/*.png usr/share/doc/frr
-doc/figures/fig-normal-processing.png usr/share/info
-doc/figures/fig-rs-processing.png usr/share/info
-doc/figures/fig-vnc-commercial-route-reflector.png usr/share/info
-doc/figures/fig-vnc-frr-route-reflector.png usr/share/info
-doc/figures/fig-vnc-gw.png usr/share/info
-doc/figures/fig-vnc-mesh.png usr/share/info
-doc/figures/fig-vnc-redundant-route-reflectors.png usr/share/info
-doc/figures/fig_topologies_full.png usr/share/info
-doc/figures/fig_topologies_rs.png usr/share/info
+doc/figures/fig-normal-processing.png              usr/share/info/frr-figures
+doc/figures/fig-rs-processing.png                  usr/share/info/frr-figures
+doc/figures/fig-vnc-commercial-route-reflector.png usr/share/info/frr-figures
+doc/figures/fig-vnc-frr-route-reflector.png        usr/share/info/frr-figures
+doc/figures/fig-vnc-gw.png                         usr/share/info/frr-figures
+doc/figures/fig-vnc-mesh.png                       usr/share/info/frr-figures
+doc/figures/fig-vnc-redundant-route-reflectors.png usr/share/info/frr-figures
+doc/figures/fig_topologies_full.png                usr/share/info/frr-figures
+doc/figures/fig_topologies_rs.png                  usr/share/info/frr-figures
 usr/share/doc/frr/html
 usr/share/info/
