@@ -5,6 +5,7 @@
 !/source
 !/patches/
 !/patches/xref_mips64el_pcrel.patch
+!/patches/sphinx-missing-overrides.patch
 
 /*.log
 /*.substvars

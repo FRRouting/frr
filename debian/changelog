@@ -12,6 +12,7 @@ frr (8.4.1-1) UNRELEASED; urgency=medium
   * libyang-related pcre3 dep replaced with pcre2 (closes: #1000032)
   * disable ELF magic on mips64el
   * fixed texinfo figure installation directory
+  * enable dh_sphinxdoc to get rid of embedded javascript in frr-doc
 
  -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 12:19:01 +0100
 
