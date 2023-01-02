@@ -1,3 +1,18 @@
+frr (8.4.1-1) UNRELEASED; urgency=medium
+
+  * New upstream release FRR 8.4.1 (closes: #1017518)
+  * New frr@ systemd service unit to run inside network namespace
+  * egrep to grep -E
+  * upstream fix ospfd crash (PR 8876) (closes: #981139)
+  * upstream fix isisd parsing issues CVE-2022-26125, CVE-2022-26126 and
+    babeld parsing issues CVE-2022-26127, CVE-2022-26128, CVE-2022-26129
+    (closes: #1008010)
+  * upstream fix bgpd out-of-bounds read CVE-2022-37032 (closes: #1021016)
+  * upstream fix bgpd UAF CVE-2022-37035 (closes: #1016978)
+  * libyang-related pcre3 dep replaced with pcre2 (closes: #1000032)
+
+ -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 12:19:01 +0100
+
 frr (8.1-1) unstable; urgency=medium
 
   * New upstream release FRR 8.1
