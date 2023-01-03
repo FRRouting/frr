@@ -1762,3 +1762,16 @@ void pim_iface_init(void)
 	if_zapi_callbacks(pim_ifp_create, pim_ifp_up, pim_ifp_down,
 			  pim_ifp_destroy);
 }
+
+static void pim_if_membership_clear(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+	assert(pim_ifp);
+
+	if (pim_ifp->pim_enable && pim_ifp->gm_enable)
+		return;
+
+	pim_ifchannel_membership_clear(ifp);
+}

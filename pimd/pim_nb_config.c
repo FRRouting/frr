@@ -45,20 +45,6 @@ MACRO_REQUIRE_SEMICOLON()
 #define yang_dnode_get_pimaddr yang_dnode_get_ipv4
 #endif /* PIM_IPV != 6 */
 
-static void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
-
-	if (pim_ifp->pim_enable && pim_ifp->gm_enable) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
-
 /*
  * When PIM is disabled on interface, IGMPv3 local membership
  * information is not injected into PIM interface state.
