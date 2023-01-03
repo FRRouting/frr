@@ -1308,6 +1308,8 @@ is to correctly set up `LD_LIBRARY_PATH` so that libraries from the build tree
 are used.  (On some systems, `libtool` is also available from PATH, but this is
 not always the case.)
 
+.. _cli-workflow:
+
 CLI changes
 -----------
 
@@ -1374,9 +1376,23 @@ the development mailing list / public Slack instance.
 JSON Output
 ^^^^^^^^^^^
 
-* All JSON keys are to be camelCased, with no spaces
+New JSON output in FRR needs to be backed by schema, in particular a YANG model.
+When adding new JSON, first search for an existing YANG model, either in FRR or
+a standard model (e.g., IETF) and use that model as the basis for any JSON
+structure and *especially* for key names and canonical values formats.
+
+If no YANG model exists to support the JSON then an FRR YANG model needs to be
+added to or created to support the JSON format.
+
+* All JSON keys are to be ``camelCased``, with no spaces. YANG modules almost
+  always use ``kebab-case`` (i.e., all lower case with hyphens to separate
+  words), so these identifiers need to be mapped to ``camelCase`` by removing
+  the hyphen (or symbol) and capitalizing the following letter, for
+  example "router-id" becomes "routerId"
 * Commands which output JSON should produce ``{}`` if they have nothing to
   display
+* In general JSON commands include a ``json`` keyword typically at the end of
+  the CLI command (e.g., ``show ip ospf json``)
 
 Use of const
 ^^^^^^^^^^^^
