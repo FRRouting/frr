@@ -502,3 +502,11 @@ the creation of the VLAN subinterfaces and directly enslave "eth0" to "br10".
       ip link set eth0 master br10
 
 This completes the necessary configuration for an L2VNI.
+
+Displaying EVPN information
+---------------------------
+
+.. clicmd:: show evpn mac vni (1-16777215) detail [json]
+
+   Display detailed information about MAC addresses for
+   a specified VNI.

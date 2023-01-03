@@ -3511,7 +3511,26 @@ DEFUN (show_evpn_mac_vni,
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = zebra_vrf_get_evpn();
-	zebra_vxlan_print_macs_vni(vty, zvrf, vni, uj);
+	zebra_vxlan_print_macs_vni(vty, zvrf, vni, uj, false);
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_evpn_mac_vni_detail,
+       show_evpn_mac_vni_detail_cmd,
+       "show evpn mac vni " CMD_VNI_RANGE " detail [json]",
+       SHOW_STR
+       "EVPN\n"
+       "MAC addresses\n"
+       "VXLAN Network Identifier\n"
+       "VNI number\n"
+       "Detailed Information On Each VNI MAC\n"
+       JSON_STR)
+{
+	struct zebra_vrf *zvrf;
+	bool uj = use_json(argc, argv);
+
+	zvrf = zebra_vrf_get_evpn();
+	zebra_vxlan_print_macs_vni(vty, zvrf, vni, uj, true);
 	return CMD_SUCCESS;
 }
 
@@ -4819,6 +4838,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_detail_cmd);
+	install_element(VIEW_NODE, &show_evpn_mac_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_vtep_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_mac_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_vtep_cmd);

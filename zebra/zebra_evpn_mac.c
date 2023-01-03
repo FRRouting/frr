@@ -653,8 +653,13 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 				json_object_int_add(json_mac, "vlan", vid);
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			json_object_string_add(json_mac, "type", "remote");
-			json_object_string_addf(json_mac, "remoteVtep", "%pI4",
-						&mac->fwd_info.r_vtep_ip);
+			if (mac->es)
+				json_object_string_add(json_mac, "remoteEs",
+						       mac->es->esi_str);
+			else
+				json_object_string_addf(
+					json_mac, "remoteVtep", "%pI4",
+					&mac->fwd_info.r_vtep_ip);
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
 			json_object_string_add(json_mac, "type", "auto");
 
@@ -937,8 +942,13 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				"", mac->loc_seq, mac->rem_seq);
 		} else {
 			json_object_string_add(json_mac, "type", "remote");
-			json_object_string_addf(json_mac, "remoteVtep", "%pI4",
-						&mac->fwd_info.r_vtep_ip);
+			if (mac->es)
+				json_object_string_add(json_mac, "remoteEs",
+						       mac->es->esi_str);
+			else
+				json_object_string_addf(
+					json_mac, "remoteVtep", "%pI4",
+					&mac->fwd_info.r_vtep_ip);
 			json_object_object_add(json_mac_hdr, buf1, json_mac);
 			json_object_int_add(json_mac, "localSequence",
 					    mac->loc_seq);
