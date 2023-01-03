@@ -10263,35 +10263,158 @@ DEFUN (show_bgp_views,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_bgp_vrfs,
+static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
+					 int *peers_estbd)
+{
+	struct peer *peer;
+	struct listnode *node;
+
+	*peers_cfgd = *peers_estbd = 0;
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			continue;
+		(*peers_cfgd)++;
+		if (peer_established(peer))
+			(*peers_estbd)++;
+	}
+}
+
+static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
+			   const char *type)
+{
+	int peers_cfg, peers_estb;
+
+	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
+
+	if (json) {
+		int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
+					    ? -1
+					    : (int64_t)bgp->vrf_id;
+		json_object_string_add(json, "type", type);
+		json_object_int_add(json, "vrfId", vrf_id_ui);
+		json_object_string_addf(json, "routerId", "%pI4",
+					&bgp->router_id);
+		json_object_int_add(json, "numConfiguredPeers", peers_cfg);
+		json_object_int_add(json, "numEstablishedPeers", peers_estb);
+		json_object_int_add(json, "l3vni", bgp->l3vni);
+		json_object_string_addf(json, "rmac", "%pEA", &bgp->rmac);
+		json_object_string_add(
+			json, "interface",
+			ifindex2ifname(bgp->l3vni_svi_ifindex, bgp->vrf_id));
+	}
+}
+
+static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
+				       json_object *json, const char *name,
+				       const char *type, bool use_vrf)
+{
+	int peers_cfg, peers_estb;
+
+	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
+
+	if (use_vrf) {
+		if (json) {
+			print_bgp_vrfs(bgp, vty, json, type);
+		} else {
+			vty_out(vty, "BGP instance %s VRF id %d\n",
+				bgp->name_pretty,
+				bgp->vrf_id == VRF_UNKNOWN ? -1
+							   : (int)bgp->vrf_id);
+			vty_out(vty, "Router Id %pI4\n", &bgp->router_id);
+			vty_out(vty,
+				"Num Configured Peers %d, Established %d\n",
+				peers_cfg, peers_estb);
+			if (bgp->l3vni) {
+				vty_out(vty,
+					"L3VNI %u, L3VNI-SVI %s, Router MAC %pEA\n",
+					bgp->l3vni,
+					ifindex2ifname(bgp->l3vni_svi_ifindex,
+						       bgp->vrf_id),
+					&bgp->rmac);
+			}
+		}
+	} else {
+		if (json) {
+			print_bgp_vrfs(bgp, vty, json, type);
+		} else {
+			vty_out(vty, "%4s  %-5d  %-16pI4  %-9u  %-10u  %-37s\n",
+				type,
+				bgp->vrf_id == VRF_UNKNOWN ? -1
+							   : (int)bgp->vrf_id,
+				&bgp->router_id, peers_cfg, peers_estb, name);
+			vty_out(vty, "%11s  %-16u  %-21pEA  %-20s\n", " ",
+				bgp->l3vni, &bgp->rmac,
+				ifindex2ifname(bgp->l3vni_svi_ifindex,
+					       bgp->vrf_id));
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_bgp_vrfs,
        show_bgp_vrfs_cmd,
-       "show [ip] bgp vrfs [json]",
+       "show [ip] bgp vrfs [<VRFNAME$vrf_name>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        "Show BGP VRFs\n"
+       "Specific VRF name\n"
        JSON_STR)
 {
-	char buf[ETHER_ADDR_STRLEN];
 	struct list *inst = bm->bgp;
 	struct listnode *node;
 	struct bgp *bgp;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
+	json_object *json_vrf = NULL;
 	int count = 0;
+	const char *name = vrf_name;
+	const char *type;
 
-	if (uj) {
+	if (uj)
 		json = json_object_new_object();
-		json_vrfs = json_object_new_object();
+
+	if (name) {
+		if (strmatch(name, VRF_DEFAULT_NAME)) {
+			bgp = bgp_get_default();
+			type = "DFLT";
+		} else {
+			bgp = bgp_lookup_by_name(name);
+			type = "VRF";
+		}
+		if (!bgp) {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% Specified BGP instance not found\n");
+
+			return CMD_WARNING;
+		}
 	}
 
+	if (vrf_name) {
+		if (uj)
+			json_vrf = json_object_new_object();
+
+		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, name, type,
+					    true);
+
+		if (uj) {
+			json_object_object_add(json, name, json_vrf);
+			vty_json(vty, json);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	if (uj)
+		json_vrfs = json_object_new_object();
+
 	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
-		const char *name, *type;
-		struct peer *peer;
-		struct listnode *node2, *nnode2;
-		int peers_cfg, peers_estb;
-		json_object *json_vrf = NULL;
+		const char *name;
 
 		/* Skip Views. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -10306,19 +10429,8 @@ DEFUN (show_bgp_vrfs,
 			vty_out(vty, "%11s  %-16s  %-21s  %-6s\n", " ",
 				"L3-VNI", "RouterMAC", "Interface");
 		}
-
-		peers_cfg = peers_estb = 0;
 		if (uj)
 			json_vrf = json_object_new_object();
-
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node2, nnode2, peer)) {
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-				continue;
-			peers_cfg++;
-			if (peer_established(peer))
-				peers_estb++;
-		}
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			name = VRF_DEFAULT_NAME;
@@ -10328,49 +10440,16 @@ DEFUN (show_bgp_vrfs,
 			type = "VRF";
 		}
 
+		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, name, type,
+					    false);
 
-		if (uj) {
-			int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
-						    ? -1
-						    : (int64_t)bgp->vrf_id;
-			char buf[BUFSIZ] = {0};
-
-			json_object_string_add(json_vrf, "type", type);
-			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
-			json_object_string_addf(json_vrf, "routerId", "%pI4",
-						&bgp->router_id);
-			json_object_int_add(json_vrf, "numConfiguredPeers",
-					    peers_cfg);
-			json_object_int_add(json_vrf, "numEstablishedPeers",
-					    peers_estb);
-
-			json_object_int_add(json_vrf, "l3vni", bgp->l3vni);
-			json_object_string_add(
-				json_vrf, "rmac",
-				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
-			json_object_string_add(json_vrf, "interface",
-				ifindex2ifname(bgp->l3vni_svi_ifindex,
-					       bgp->vrf_id));
+		if (uj)
 			json_object_object_add(json_vrfs, name, json_vrf);
-		} else {
-			vty_out(vty, "%4s  %-5d  %-16pI4  %-9u  %-10u  %-37s\n",
-				type,
-				bgp->vrf_id == VRF_UNKNOWN ? -1
-							   : (int)bgp->vrf_id,
-				&bgp->router_id, peers_cfg, peers_estb, name);
-			vty_out(vty,"%11s  %-16u  %-21s  %-20s\n", " ",
-				bgp->l3vni,
-				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)),
-				ifindex2ifname(bgp->l3vni_svi_ifindex,
-					       bgp->vrf_id));
-		}
 	}
 
 	if (uj) {
 		json_object_object_add(json, "vrfs", json_vrfs);
-
 		json_object_int_add(json, "totalVrfs", count);
-
 		vty_json(vty, json);
 	} else {
 		if (count)
