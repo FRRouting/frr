@@ -7183,10 +7183,8 @@ DEFUN (show_ip_ospf_database_max,
 						   use_vrf, json, uj);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string(json));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return ret;
 }
