@@ -2208,7 +2208,7 @@ DEFPY (show_route_detail,
 	 [json$json] [nexthop-group$ng]",
        SHOW_STR
        IP_STR
-       "IPv6 forwarding table\n"
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_FULL_CMD_HELP_STR
        "Network in the IP routing table to display\n"
