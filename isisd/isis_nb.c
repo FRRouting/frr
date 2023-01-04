@@ -1107,6 +1107,36 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid",
+			.cbs = {
+				.get_next = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_get_next,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/af",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_af_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/value",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_value_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/weight",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_weight_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/protection-requested",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_protection_requested_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-changes",
 			.cbs = {
 				.get_elem = lib_interface_state_isis_event_counters_adjacency_changes_get_elem,
