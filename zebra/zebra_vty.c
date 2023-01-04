@@ -764,9 +764,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	}
 
 	/* Distance and metric display. */
-	if (((re->type == ZEBRA_ROUTE_CONNECT) &&
+	if (((re->type == ZEBRA_ROUTE_CONNECT ||
+	      re->type == ZEBRA_ROUTE_LOCAL) &&
 	     (re->distance || re->metric)) ||
-	    (re->type != ZEBRA_ROUTE_CONNECT))
+	    (re->type != ZEBRA_ROUTE_CONNECT && re->type != ZEBRA_ROUTE_LOCAL))
 		len += vty_out(vty, " [%u/%u]", re->distance,
 			       re->metric);
 
@@ -2251,7 +2252,8 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table)
 				vrf_id_to_name(re->vrf_id));
 			vty_out(vty, "   flags: %u\n", re->flags);
 
-			if (re->type != ZEBRA_ROUTE_CONNECT) {
+			if (re->type != ZEBRA_ROUTE_CONNECT &&
+			    re->type != ZEBRA_ROUTE_LOCAL) {
 				vty_out(vty, "   distance: %u\n", re->distance);
 				vty_out(vty, "   metric: %u\n", re->metric);
 			}

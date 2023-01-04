@@ -865,7 +865,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 	((uint32_t)250000000) /* Bottom 28 bits then rounded down */
 #define ZEBRA_NHG_PROTO_SPACING (ZEBRA_NHG_PROTO_UPPER / ZEBRA_ROUTE_MAX)
 #define ZEBRA_NHG_PROTO_LOWER                                                  \
-	(ZEBRA_NHG_PROTO_SPACING * (ZEBRA_ROUTE_CONNECT + 1))
+	(ZEBRA_NHG_PROTO_SPACING * (ZEBRA_ROUTE_LOCAL + 1))
 
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 

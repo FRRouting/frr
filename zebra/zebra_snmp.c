@@ -223,6 +223,8 @@ static int proto_trans(int type)
 		return 1; /* other */
 	case ZEBRA_ROUTE_CONNECT:
 		return 2; /* local interface */
+	case ZEBRA_ROUTE_LOCAL:
+		return 2;
 	case ZEBRA_ROUTE_STATIC:
 		return 3; /* static route */
 	case ZEBRA_ROUTE_RIP:

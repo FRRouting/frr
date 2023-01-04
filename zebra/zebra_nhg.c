@@ -2129,7 +2129,8 @@ zebra_nhg_connected_ifindex(struct route_node *rn, struct route_entry *match,
 	 * of those ifindexes match as well.
 	 */
 	RNODE_FOREACH_RE (rn, re) {
-		if (re->type != ZEBRA_ROUTE_CONNECT)
+		if (re->type != ZEBRA_ROUTE_CONNECT &&
+		    re->type != ZEBRA_ROUTE_LOCAL)
 			continue;
 
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))

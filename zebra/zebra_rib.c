@@ -103,6 +103,9 @@ static const struct {
 	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT,
 				 ZEBRA_CONNECT_DISTANCE_DEFAULT,
 				 META_QUEUE_CONNECTED},
+	[ZEBRA_ROUTE_LOCAL] = {ZEBRA_ROUTE_LOCAL,
+			       ZEBRA_CONNECT_DISTANCE_DEFAULT,
+			       META_QUEUE_CONNECTED},
 	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC,
 				ZEBRA_STATIC_DISTANCE_DEFAULT,
 				META_QUEUE_STATIC},
@@ -522,7 +525,8 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 			if (rn)
 				route_lock_node(rn);
 		} else {
-			if (match->type != ZEBRA_ROUTE_CONNECT) {
+			if (match->type != ZEBRA_ROUTE_CONNECT &&
+			    match->type != ZEBRA_ROUTE_LOCAL) {
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					return NULL;
@@ -624,7 +628,8 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	if (!match)
 		return NULL;
 
-	if (match->type == ZEBRA_ROUTE_CONNECT)
+	if (match->type == ZEBRA_ROUTE_CONNECT ||
+	    match->type == ZEBRA_ROUTE_LOCAL)
 		return match;
 
 	if (CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED))
@@ -1123,27 +1128,15 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
 
-/* Check if 'alternate' RIB entry is better than 'current'. */
-static struct route_entry *rib_choose_best(struct route_entry *current,
-					   struct route_entry *alternate)
+static struct route_entry *rib_choose_best_type(uint8_t route_type,
+						struct route_entry *current,
+						struct route_entry *alternate)
 {
-	if (current == NULL)
-		return alternate;
-
-	/* filter route selection in following order:
-	 * - connected beats other types
-	 * - if both connected, loopback or vrf wins
-	 * - lower distance beats higher
-	 * - lower metric beats higher for equal distance
-	 * - last, hence oldest, route wins tie break.
+	/*
+	 * We know that alternate and current are now non-NULL
 	 */
-
-	/* Connected routes. Check to see if either are a vrf
-	 * or loopback interface.  If not, pick the last connected
-	 * route of the set of lowest metric connected routes.
-	 */
-	if (alternate->type == ZEBRA_ROUTE_CONNECT) {
-		if (current->type != ZEBRA_ROUTE_CONNECT)
+	if (alternate->type == route_type) {
+		if (current->type != route_type)
 			return alternate;
 
 		/* both are connected.  are either loop or vrf? */
@@ -1172,7 +1165,41 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 		return current;
 	}
 
-	if (current->type == ZEBRA_ROUTE_CONNECT)
+	return NULL;
+}
+
+/* Check if 'alternate' RIB entry is better than 'current'. */
+static struct route_entry *rib_choose_best(struct route_entry *current,
+					   struct route_entry *alternate)
+{
+	struct route_entry *possible;
+
+	if (current == NULL)
+		return alternate;
+
+	/* filter route selection in following order:
+	 * - Local beats Connected
+	 * - connected beats other types
+	 * - if both connected, loopback or vrf wins
+	 * - lower distance beats higher
+	 * - lower metric beats higher for equal distance
+	 * - last, hence oldest, route wins tie break.
+	 */
+
+	/* Connected or Local routes. Check to see if either are a vrf
+	 * or loopback interface.  If not, pick the last connected
+	 * route of the set of lowest metric connected routes.
+	 */
+	possible = rib_choose_best_type(ZEBRA_ROUTE_LOCAL, current, alternate);
+	if (possible)
+		return possible;
+
+	possible = rib_choose_best_type(ZEBRA_ROUTE_CONNECT, current, alternate);
+	if (possible)
+		return possible;
+
+	if (current->type == ZEBRA_ROUTE_CONNECT ||
+	    current->type == ZEBRA_ROUTE_LOCAL)
 		return current;
 
 	/* higher distance loses */
@@ -1507,7 +1534,8 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
 				   re->metric != dplane_ctx_get_metric(ctx)) {
 				result = false;
-			} else if (re->type == ZEBRA_ROUTE_CONNECT) {
+			} else if (re->type == ZEBRA_ROUTE_CONNECT ||
+				   re->type == ZEBRA_ROUTE_LOCAL) {
 				result = nexthop_group_equal_no_recurse(
 					&re->nhe->nhg, dplane_ctx_get_ng(ctx));
 			}
@@ -1565,7 +1593,7 @@ static bool rib_compare_routes(const struct route_entry *re1,
 	 * v6 link-locals, and we also support multiple addresses in the same
 	 * subnet on a single interface.
 	 */
-	if (re1->type != ZEBRA_ROUTE_CONNECT)
+	if (re1->type != ZEBRA_ROUTE_CONNECT && re1->type != ZEBRA_ROUTE_LOCAL)
 		return true;
 
 	return false;
@@ -2968,7 +2996,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (re->type == ZEBRA_ROUTE_KERNEL &&
 		    re->metric != ere->re->metric)
 			continue;
-		if (re->type == ZEBRA_ROUTE_CONNECT &&
+		if ((re->type == ZEBRA_ROUTE_CONNECT ||
+		     re->type == ZEBRA_ROUTE_LOCAL) &&
 		    (rtnh = re->nhe->nhg.nexthop) &&
 		    rtnh->type == NEXTHOP_TYPE_IFINDEX && nh) {
 			if (rtnh->ifindex != nh->ifindex)

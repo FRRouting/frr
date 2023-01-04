@@ -6,6 +6,6 @@
       "type":"connected"
     }
   ],
-  "routesTotal":32,
-  "routesTotalFib":32
+  "routesTotal":64,
+  "routesTotalFib":64
 }

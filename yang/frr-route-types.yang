@@ -54,44 +54,47 @@ module frr-route-types {
       enum connected {
         value 2;
       }
-      enum static {
+      enum local {
         value 3;
       }
-      enum rip {
+      enum static {
         value 4;
       }
+      enum rip {
+        value 5;
+      }
       enum ospf {
-        value 6;
+        value 7;
       }
       enum isis {
-        value 8;
-      }
-      enum bgp {
         value 9;
       }
-      enum eigrp {
-        value 11;
+      enum bgp {
+        value 10;
       }
-      enum nhrp {
+      enum eigrp {
         value 12;
       }
+      enum nhrp {
+        value 13;
+      }
       enum table {
-        value 15;
+        value 16;
       }
       enum vnc {
-        value 17;
-      }
-      enum vnc-direct {
         value 18;
       }
-      enum babel {
-        value 22;
+      enum vnc-direct {
+        value 19;
       }
-      enum sharp {
+      enum babel {
         value 23;
       }
+      enum sharp {
+        value 24;
+      }
       enum openfabric {
-        value 26;
+        value 27;
       }
     }
   }
@@ -104,41 +107,44 @@ module frr-route-types {
       enum connected {
         value 2;
       }
-      enum static {
+      enum local {
         value 3;
       }
+      enum static {
+        value 4;
+      }
       enum ripng {
-        value 5;
+        value 6;
       }
       enum ospf6 {
-        value 7;
-      }
-      enum isis {
         value 8;
       }
-      enum bgp {
+      enum isis {
         value 9;
       }
+      enum bgp {
+        value 10;
+      }
       enum nhrp {
-        value 12;
+        value 13;
       }
       enum table {
-        value 15;
+        value 16;
       }
       enum vnc {
-        value 17;
-      }
-      enum vnc-direct {
         value 18;
       }
-      enum babel {
-        value 22;
+      enum vnc-direct {
+        value 19;
       }
-      enum sharp {
+      enum babel {
         value 23;
       }
+      enum sharp {
+        value 24;
+      }
       enum openfabric {
-        value 26;
+        value 27;
       }
     }
   }

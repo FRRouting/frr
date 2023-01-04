@@ -237,8 +237,7 @@ DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
 DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 #define DYNAMIC_CLIENT_GR_DISABLED(_client)                                    \
-	((_client->proto <= ZEBRA_ROUTE_CONNECT)                               \
-	 || !(_client->gr_instance_count))
+	((_client->proto <= ZEBRA_ROUTE_LOCAL) || !(_client->gr_instance_count))
 
 /*
  * Initialize Zebra API server.
