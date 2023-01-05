@@ -6,6 +6,7 @@
 !/patches/
 !/patches/xref_mips64el_pcrel.patch
 !/patches/xref_symvalid.patch
+!/patches/zserv_time_atomics.patch
 
 /*.log
 /*.substvars
