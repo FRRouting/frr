@@ -2711,10 +2711,6 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (ere->src_p_provided)
 		apply_mask_ipv6(&ere->src_p);
 
-	/* Set default distance by route type. */
-	if (re->distance == 0)
-		re->distance = route_distance(re->type);
-
 	/* Lookup route node.*/
 	rn = srcdest_rnode_get(table, &ere->p,
 			       ere->src_p_provided ? &ere->src_p : NULL);
@@ -2759,6 +2755,14 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
+	}
+
+	/* Set default distance by route type. */
+	if (re->distance == 0) {
+		if (same && !zebra_router_notify_on_ack())
+			re->distance = same->distance;
+		else
+			re->distance = route_distance(re->type);
 	}
 
 	/* If this route is kernel/connected route, notify the dataplane. */
