@@ -35,6 +35,8 @@
 extern "C" {
 #endif
 
+#define ROUTE_INSTALLATION_METRIC 20
+
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
 #define RSYSTEM_ROUTE(type)                                                    \

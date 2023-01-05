@@ -2077,7 +2077,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	 * by the routing protocol and for communicating with protocol peers.
 	 */
 	if (!nl_attr_put32(&req->n, datalen, RTA_PRIORITY,
-			   NL_DEFAULT_ROUTE_METRIC))
+			   ROUTE_INSTALLATION_METRIC))
 		return 0;
 
 #if defined(SUPPORT_REALMS)
