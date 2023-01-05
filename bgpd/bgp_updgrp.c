@@ -164,6 +164,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
 	dst->local_role = src->local_role;
+	dst->as_path_loop_detection = src->as_path_loop_detection;
 
 	if (src->soo[afi][safi]) {
 		ecommunity_free(&dst->soo[afi][safi]);
@@ -360,6 +361,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word(peer->max_packet_size, key);
 	key = jhash_1word(peer->pmax_out[afi][safi], key);
 
+	if (peer->as_path_loop_detection)
+		key = jhash_2words(peer->as, peer->as_path_loop_detection, key);
+
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
 					strlen(peer->group->name), SEED1),
@@ -454,12 +458,13 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			(intmax_t)CHECK_FLAG(peer->flags, PEER_UPDGRP_FLAGS),
 			(intmax_t)CHECK_FLAG(flags, PEER_UPDGRP_AF_FLAGS));
 		zlog_debug(
-			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u",
+			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u, as_path_loop_detection: %d",
 			peer, (uint32_t)peer->addpath_type[afi][safi],
 			CHECK_FLAG(peer->cap, PEER_UPDGRP_CAP_FLAGS),
 			CHECK_FLAG(peer->af_cap[afi][safi],
 				   PEER_UPDGRP_AF_CAP_FLAGS),
-			peer->v_routeadv, peer->change_local_as);
+			peer->v_routeadv, peer->change_local_as,
+			peer->as_path_loop_detection);
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
