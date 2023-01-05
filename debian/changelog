@@ -2,6 +2,7 @@ frr (8.4.1-2) UNRELEASED; urgency=medium
 
   * commit to git tarball as source instead of dist tarball
   * ditch unneeded sphinx missing files patch
+  * fix clippy symbol lookup issue (build SEGV on mips64el)
 
  -- David Lamparter <equinox-debian@diac24.net>  Thu, 05 Jan 2023 17:44:59 +0100
 
