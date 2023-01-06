@@ -502,7 +502,7 @@ static int config_write_host(struct vty *vty)
 		else if (cputime_threshold != 5000000)
 #endif
 			vty_out(vty, "service cputime-warning %lu\n",
-				cputime_threshold);
+				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
@@ -512,7 +512,7 @@ static int config_write_host(struct vty *vty)
 		else if (walltime_threshold != 5000000)
 #endif
 			vty_out(vty, "service walltime-warning %lu\n",
-				walltime_threshold);
+				walltime_threshold / 1000);
 
 		if (host.advanced)
 			vty_out(vty, "service advanced-vty\n");
