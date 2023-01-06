@@ -82,6 +82,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/advertise-high-metrics",
+			.cbs = {
+				.cli_show = cli_show_advertise_high_metrics,
+				.modify = isis_instance_advertise_high_metrics_modify,
+			}
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",
 			.cbs = {
 				.cli_show = cli_show_isis_metric_style,

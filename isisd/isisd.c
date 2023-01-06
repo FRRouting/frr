@@ -2503,6 +2503,9 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 		vty_out(vty, "  RX counters per PDU type:\n");
 		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
 
+		vty_out(vty, "  Advertise high metrics: %s\n",
+			area->advertise_high_metrics ? "Enabled" : "Disabled");
+
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((area->is_type & level) == 0)
 				continue;
@@ -3245,6 +3248,12 @@ void config_end_lsp_generate(struct isis_area *area)
 		if (CHECK_FLAG(area->is_type, IS_LEVEL_2))
 			lsp_generate(area, IS_LEVEL_2);
 	}
+}
+
+void isis_area_advertise_high_metrics_set(struct isis_area *area,
+					  bool advertise_high_metrics)
+{
+	/* TODO */
 }
 
 /*
