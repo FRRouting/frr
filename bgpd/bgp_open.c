@@ -1129,13 +1129,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 	return 0;
 }
 
-static int bgp_auth_parse(struct peer *peer, size_t length)
-{
-	bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
-			BGP_NOTIFY_OPEN_AUTH_FAILURE);
-	return -1;
-}
-
 static bool strict_capability_same(struct peer *peer)
 {
 	int i, j;
@@ -1339,17 +1332,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			zlog_debug(
 				"%s rcvd OPEN w/ optional parameter type %u (%s) len %u",
 				peer->host, opt_type,
-				opt_type == BGP_OPEN_OPT_AUTH
-					? "Authentication"
-					: opt_type == BGP_OPEN_OPT_CAP
-						  ? "Capability"
-						  : "Unknown",
+				opt_type == BGP_OPEN_OPT_CAP ? "Capability"
+							     : "Unknown",
 				opt_length);
 
 		switch (opt_type) {
-		case BGP_OPEN_OPT_AUTH:
-			ret = bgp_auth_parse(peer, opt_length);
-			break;
 		case BGP_OPEN_OPT_CAP:
 			ret = bgp_capability_parse(peer, opt_length,
 						   mp_capability, &error);

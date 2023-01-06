@@ -1891,7 +1891,6 @@ struct bgp_nlri {
 #define BGP_MSG_ROUTE_REFRESH_OLD              128
 
 /* BGP open optional parameter.  */
-#define BGP_OPEN_OPT_AUTH                        1
 #define BGP_OPEN_OPT_CAP                         2
 
 /* BGP4 attribute type codes.  */
@@ -1956,7 +1955,6 @@ struct bgp_nlri {
 #define BGP_NOTIFY_OPEN_BAD_PEER_AS              2
 #define BGP_NOTIFY_OPEN_BAD_BGP_IDENT            3
 #define BGP_NOTIFY_OPEN_UNSUP_PARAM              4
-#define BGP_NOTIFY_OPEN_AUTH_FAILURE             5
 #define BGP_NOTIFY_OPEN_UNACEP_HOLDTIME          6
 #define BGP_NOTIFY_OPEN_UNSUP_CAPBL              7
 #define BGP_NOTIFY_OPEN_ROLE_MISMATCH           11
@@ -1968,7 +1966,6 @@ struct bgp_nlri {
 #define BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR          4
 #define BGP_NOTIFY_UPDATE_ATTR_LENG_ERR          5
 #define BGP_NOTIFY_UPDATE_INVAL_ORIGIN           6
-#define BGP_NOTIFY_UPDATE_AS_ROUTE_LOOP          7
 #define BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP         8
 #define BGP_NOTIFY_UPDATE_OPT_ATTR_ERR           9
 #define BGP_NOTIFY_UPDATE_INVAL_NETWORK         10
