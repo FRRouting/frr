@@ -4150,6 +4150,28 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
 .. clicmd:: show bgp [afi] [safi] [all] [wide|json]
 
+.. clicmd:: show bgp vrfs [<VRFNAME$vrf_name>] [json]
+
+   The command displays all bgp vrf instances basic info like router-id,
+   configured and established neighbors,
+   evpn related basic info like l3vni, router-mac, vxlan-interface.
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
+
+   .. code-block:: frr
+
+      torc-11# show bgp vrfs
+      Type  Id     routerId          #PeersCfg  #PeersEstb  Name
+                   L3-VNI            RouterMAC              Interface
+      DFLT  0      17.0.0.6          3          3           default
+                   0                 00:00:00:00:00:00      unknown
+       VRF  21     17.0.0.6          0          0           sym_1
+                   8888              34:11:12:22:22:01      vlan4034_l3
+       VRF  32     17.0.0.6          0          0           sym_2
+                   8889              34:11:12:22:22:01      vlan4035_l3
+
+      Total number of VRFs (including default): 3
+
 .. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec> | l2vpn evpn]
 
    These commands display BGP routes for the specific routing table indicated by
