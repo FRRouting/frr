@@ -8808,6 +8808,32 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_path_attribute_discard,
+      neighbor_path_attribute_discard_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard (1-255)...",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Drop specified attributes from incoming UPDATE messages\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	const char *discard_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		discard_attrs = argv_concat(argv, argc, idx);
+
+	bgp_path_attribute_discard_vty(vty, peer, discard_attrs);
+
+	return CMD_SUCCESS;
+}
+
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6)
 {
@@ -17444,6 +17470,15 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s sender-as-path-loop-detection\n",
 			addr);
 
+	/* path-attribute discard */
+	char discard_attrs_str[BUFSIZ] = {0};
+	bool discard_attrs = bgp_path_attribute_discard(
+		peer, discard_attrs_str, sizeof(discard_attrs_str));
+
+	if (discard_attrs)
+		vty_out(vty, " neighbor %s path-attribute discard %s\n", addr,
+			discard_attrs_str);
+
 	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
 			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
 
@@ -19558,6 +19593,9 @@ void bgp_vty_init(void)
 	/* "neighbor sender-as-path-loop-detection" commands. */
 	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
 	install_element(BGP_NODE, &no_neighbor_aspath_loop_detection_cmd);
+
+	/* "neighbor path-attribute discard" commands. */
+	install_element(BGP_NODE, &neighbor_path_attribute_discard_cmd);
 
 	/* "neighbor passive" commands. */
 	install_element(BGP_NODE, &neighbor_passive_cmd);
