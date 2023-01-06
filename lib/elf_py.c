@@ -293,7 +293,7 @@ static PyObject *elfreloc_getsection(PyObject *self, PyObject *args)
 	if (!w->es)
 		Py_RETURN_NONE;
 
-	if (w->symidx == 0) {
+	if (!w->symvalid || w->symidx == 0) {
 		size_t idx = 0;
 		Elf_Scn *scn;
 
