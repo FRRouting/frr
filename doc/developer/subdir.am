@@ -71,6 +71,7 @@ EXTRA_DIST += \
 	doc/developer/draft-zebra-00.ms \
 	doc/developer/ldpd-basic-test-setup.md \
 	doc/developer/release-announcement-template.md \
+	doc/developer/_static/overrides.css \
 	# end
 
 DEVBUILD = doc/developer/_build
