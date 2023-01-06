@@ -394,7 +394,7 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 				   struct bgp_path_info *pi)
 {
-	frrtrace(2, frr_bgp, bgp_path_info_add, dest, pi, name);
+	frrtrace(3, frr_bgp, bgp_path_info_add, dest, pi, name);
 	struct bgp_path_info *top;
 
 	top = bgp_dest_get_bgp_path_info(dest);
