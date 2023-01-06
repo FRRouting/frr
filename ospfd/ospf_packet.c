@@ -1787,9 +1787,10 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 				continue;
 			}
 		} else if (IS_OPAQUE_LSA(lsah->type)) {
-			flog_warn(EC_OSPF_PACKET,
-				  "LSA[Type%d:%pI4]: Opaque capability mismatch?",
-				  lsah->type, &lsah->id);
+			flog_warn(
+				EC_OSPF_PACKET,
+				"LSA[Type%d:%pI4] from %pI4: Opaque capability mismatch?",
+				lsah->type, &lsah->id, &lsah->adv_router);
 			continue;
 		}
 
