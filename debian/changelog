@@ -1,4 +1,4 @@
-frr (8.4.1-2) UNRELEASED; urgency=medium
+frr (8.4.1-2) unstable; urgency=medium
 
   * commit to git tarball as source instead of dist tarball
   * ditch unneeded sphinx missing files patch
@@ -6,7 +6,7 @@ frr (8.4.1-2) UNRELEASED; urgency=medium
   * correctly mark :native for libelf-dev & libpython3-dev to fix cross-build
   * use mutex for zserv stats (atomic uint64_t is too wide for 32-bit archs)
 
- -- David Lamparter <equinox-debian@diac24.net>  Thu, 05 Jan 2023 17:44:59 +0100
+ -- David Lamparter <equinox-debian@diac24.net>  Fri, 06 Jan 2023 14:59:57 +0100
 
 frr (8.4.1-1) unstable; urgency=medium
 
