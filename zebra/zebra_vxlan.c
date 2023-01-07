@@ -3511,6 +3511,12 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json = json_object_new_object();
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zvrf->advertise_gw_macip ? "Yes" : "No");
+		json_object_string_add(json, "advertiseSviMacip",
+				       zvrf->advertise_svi_macip ? "Yes"
+								 : "No");
+		json_object_string_add(json, "advertiseSviMac",
+				       zebra_evpn_mh_do_adv_svi_mac() ? "Yes"
+								      : "No");
 		json_object_int_add(json, "numVnis", num_vnis);
 		json_object_int_add(json, "numL2Vnis", num_l2vnis);
 		json_object_int_add(json, "numL3Vnis", num_l3vnis);
