@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  docker_daily_master:
+  docker_stable:
     if: github.repository == 'frrouting/frr'
     runs-on: ubuntu-latest
     permissions:
