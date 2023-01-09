@@ -1212,8 +1212,8 @@ def verify_upstream_iif(
             )
             return errormsg
 
-        logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-        return True
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
 
 @retry(retry_timeout=12)
