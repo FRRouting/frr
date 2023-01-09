@@ -66,16 +66,21 @@ static int acl_get_seq_cb(const struct lyd_node *dnode, void *arg)
  *
  * \param[in] vty shell context with the candidate configuration.
  * \param[in] xpath the XPath to look for the sequence leaf.
- * \returns next unused sequence number.
+ * \returns next unused sequence number, -1 if out of range when adding.
  */
-static long acl_get_seq(struct vty *vty, const char *xpath)
+static int64_t acl_get_seq(struct vty *vty, const char *xpath, bool is_remove)
 {
 	int64_t seq = 0;
 
 	yang_dnode_iterate(acl_get_seq_cb, &seq, vty->candidate_config->dnode,
 			   "%s/entry", xpath);
 
-	return seq + 5;
+	seq += 5;
+	if (!is_remove && seq > UINT32_MAX) {
+		vty_out(vty, "%% Malformed sequence value\n");
+		return -1;
+	}
+	return seq;
 }
 
 static int acl_remove_if_empty(struct vty *vty, const char *iptype,
@@ -98,7 +103,7 @@ static int acl_remove_if_empty(struct vty *vty, const char *iptype,
 	 * NOTE: if the list is empty it will return the first sequence
 	 * number: 5.
 	 */
-	if (acl_get_seq(vty, xpath) != 5)
+	if (acl_get_seq(vty, xpath, true) != 5)
 		return CMD_SUCCESS;
 
 	/* Nobody is using this list, lets remove it. */
@@ -174,16 +179,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -321,16 +329,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -483,16 +494,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -670,16 +684,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -857,16 +874,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/access-list[type='mac'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -1167,7 +1187,7 @@ static int plist_remove_if_empty(struct vty *vty, const char *iptype,
 	 * NOTE: if the list is empty it will return the first sequence
 	 * number: 5.
 	 */
-	if (acl_get_seq(vty, xpath) != 5)
+	if (acl_get_seq(vty, xpath, true) != 5)
 		return CMD_SUCCESS;
 
 	/* Nobody is using this list, lets remove it. */
@@ -1275,16 +1295,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -1476,16 +1499,19 @@ DEFPY_YANG(
 	 */
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (seq_str == NULL) {
 		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath);
+		sseq = acl_get_seq(vty, xpath, false);
+		if (sseq < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
 	} else
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%s']", xpath, seq_str);
 
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
