@@ -742,7 +742,7 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     result = verify_pim_bsr(tgen, topo, "l1", BSR_IP_1, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "Expected: b1 should be chosen as BSR \n "
+        "Expected: b1 should be chosen as BSR in {} \n "
         "Found: {}".format(tc_name, "l1", result)
     )
 

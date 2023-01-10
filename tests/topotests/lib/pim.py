@@ -1147,7 +1147,7 @@ def verify_upstream_iif(
                                     in_interface,
                                     group_addr_json[src_address]["inboundInterface"],
                                     joinState,
-                                    group_addr_json[src_address]["joinState"]
+                                    group_addr_json[src_address]["joinState"],
                                 )
                             )
                             return errormsg
@@ -1166,7 +1166,7 @@ def verify_upstream_iif(
                                 in_interface,
                                 group_addr_json[src_address]["inboundInterface"],
                                 joinState,
-                                group_addr_json[src_address]["joinState"]
+                                group_addr_json[src_address]["joinState"],
                             )
                         )
                         return errormsg
@@ -1186,7 +1186,7 @@ def verify_upstream_iif(
                                     in_interface,
                                     group_addr_json[src_address]["inboundInterface"],
                                     regState,
-                                    group_addr_json[src_address]["regState"]
+                                    group_addr_json[src_address]["regState"],
                                 )
                             )
                             return errormsg

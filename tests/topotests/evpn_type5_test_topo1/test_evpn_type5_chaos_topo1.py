@@ -968,7 +968,7 @@ def test_RT_verification_auto_p0(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "Expected: Malformed Auto-RT value should not be accepted \n "
+            "Expected: Malformed Auto-RT value should not be accepted in {} \n "
             "Found: {}".format(tc_name, "d2", result)
         )
 
@@ -1002,7 +1002,7 @@ def test_RT_verification_auto_p0(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "Expected: Malformed Auto-RT value should not be accepted \n "
+            "Expected: Malformed Auto-RT value should not be accepted in {} \n "
             "Found: {}".format(tc_name, "d2", result)
         )
 

@@ -497,7 +497,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         "Testcase {} : Failed \n "
         "Expected: [{}]: RP Info should not be Unknown after removing static"
         " route from c2 \n"
-        "Found: {}".format(tc_name, data["dut"], data["iif"], result)
+        "Found: {}".format(tc_name, data["dut"], result)
     )
 
     step("Verify (s,g) populated after adding default route ")
@@ -775,7 +775,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
         "Testcase {} : Failed \n "
         "Expected: [{}]: RP Info should not be Unknown after removing static"
         " route from c2 \n"
-        "Found: {}".format(tc_name, data["dut"], data["iif"], result)
+        "Found: {}".format(tc_name, data["dut"], result)
     )
 
     step("Verify (s,g) populated after adding default route ")
