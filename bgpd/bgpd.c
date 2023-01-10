@@ -72,6 +72,7 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_linkstate.h"
+#include "bgpd/bgp_linkstate_vty.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_addpath.h"
@@ -8237,6 +8238,7 @@ void bgp_init(unsigned short instance)
 	bgp_ethernetvpn_init();
 	bgp_flowspec_vty_init();
 	bgp_linkstate_init();
+	bgp_linkstate_vty_init();
 
 	/* Access list initialize. */
 	access_list_init();
