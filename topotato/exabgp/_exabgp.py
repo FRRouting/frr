@@ -185,8 +185,16 @@ class ExaBGP:
             path = self._cmdobj.path
 
             self._cmdobj.proc_cli = router.popen(
-                ["exabgpcli", "--root", path, self._cmdobj._cmd],
-                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                [
+                    "exabgpcli",
+                    "--root",
+                    path,
+                    "--env",
+                    os.path.join(path, "exabgp.env"),
+                    self._cmdobj._cmd
+                ],
+                cwd=os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__))),
             )
 
             self.is_cli_ok()
