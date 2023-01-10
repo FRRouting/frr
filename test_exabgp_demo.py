@@ -10,7 +10,7 @@ from topotato.exabgp import ExaBGP
 
 
 @topology_fixture()
-def allproto_topo(topo):
+def topology(topo):
     """
     [ r1 ]
       |
@@ -51,22 +51,10 @@ class Configs(FRRConfigs):
   #% endblock
   """
 
-
-@config_fixture(Configs)
-def configs(config, allproto_topo):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    return FRRNetworkInstance(configs.topology, configs).prepare()
-
-
-class ExaBGPDemo(TestBase):
-    instancefn = testenv
+class ExaBGPDemo(TestBase, AutoFixture, topo=topology, configs=Configs):
 
     @topotatofunc
-    def prepare(self, topo, r1, r2, r3):
+    def prepare(self, r2, r3):
 
         configuration = """
 neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} {
@@ -91,7 +79,7 @@ neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} {
         yield from self.peer2.start()
 
     @topotatofunc
-    def bgp_check(self, topo, r1, r2, r3):
+    def bgp_check(self, r1, r2, r3):
 
         expected = {
             "ipv4Unicast": {
@@ -106,7 +94,7 @@ neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} {
         )
 
     @topotatofunc
-    def exabgp_announcement(self, topo, r1, r2, r3):
+    def exabgp_announcement(self, r1):
 
         yield from self.peer2.execute(
             f"neighbor {r1.ifaces[0].ip4[0].ip} announce route 100.10.0.0/24 next-hop self"
