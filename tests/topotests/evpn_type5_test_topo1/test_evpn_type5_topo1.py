@@ -901,7 +901,7 @@ def test_RT_verification_manual_p0(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "Expected: RT value out of boundary error \n "
+        "Expected: RT value out of boundary error in {} \n "
         "Found: {}".format(tc_name, dut, result)
     )
 
