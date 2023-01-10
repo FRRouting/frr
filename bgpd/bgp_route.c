@@ -581,6 +581,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool new_proxy;
 	bool new_origin, exist_origin;
 	struct bgp_path_info *bpi_ultimate;
+	struct peer *peer_new, *peer_exist;
 
 	*paths_eq = 0;
 
@@ -1397,16 +1398,25 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* locally configured routes to advertise do not have su_remote */
-	if (new->peer->su_remote == NULL) {
+	if (new->sub_type == BGP_ROUTE_IMPORTED) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(new);
+		peer_new = bpi_ultimate->peer;
+	} else if (new->peer->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 0;
-	}
-	if (exist->peer->su_remote == NULL) {
+	} else
+		peer_new = new->peer;
+
+	if (exist->sub_type == BGP_ROUTE_IMPORTED) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(exist);
+		peer_exist = bpi_ultimate->peer;
+	} else if (exist->peer->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 1;
-	}
+	} else
+		peer_exist = exist->peer;
 
-	ret = sockunion_cmp(new->peer->su_remote, exist->peer->su_remote);
+	ret = sockunion_cmp(peer_new->su_remote, peer_exist->su_remote);
 
 	if (ret == 1) {
 		*reason = bgp_path_selection_neighbor_ip;
