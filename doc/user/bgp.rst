@@ -4505,7 +4505,7 @@ Displaying Update Group Information
    Display Information about update-group events in FRR.
 
 Displaying Nexthop Information
---------------------
+------------------------------
 .. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop ipv4 [A.B.C.D] [detail] [json]
 
 .. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop ipv6 [X:X::X:X] [detail] [json]
