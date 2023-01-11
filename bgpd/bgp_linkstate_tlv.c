@@ -29,24 +29,26 @@ struct bgp_linkstate_tlv_info {
 #define MAX_SZ 0xFFFF
 #define UNDEF_MULTPL 1
 
+/* clang-format off */
 struct bgp_linkstate_tlv_info bgp_linkstate_tlv_infos[BGP_LS_TLV_MAX] = {
-		/* NLRI TLV */
-		[BGP_LS_TLV_LOCAL_NODE_DESCRIPTORS] = {"Local Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
-		[BGP_LS_TLV_REMOTE_NODE_DESCRIPTORS] = {"Remote Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
-		[BGP_LS_TLV_LINK_LOCAL_REMOTE_IDENTIFIERS] = {"Link Local/Remote Identifiers", 2, 2, UNDEF_MULTPL},
-		[BGP_LS_TLV_IPV4_INTERFACE_ADDRESS] = {"IPv4 interface address", 4, 4, UNDEF_MULTPL},
-		[BGP_LS_TLV_IPV4_NEIGHBOR_ADDRESS] = {"IPv4 neighbor address", 4, 4, UNDEF_MULTPL},
-		[BGP_LS_TLV_IPV6_INTERFACE_ADDRESS] = {"IPv6 interface address", 16, 16, UNDEF_MULTPL},
-		[BGP_LS_TLV_IPV6_NEIGHBOR_ADDRESS] = {"IPv6 neighbor address", 16, 16, UNDEF_MULTPL},
-		[BGP_LS_TLV_OSPF_ROUTE_TYPE] = {"OSPF Route Type", 1, 1, UNDEF_MULTPL},
-		[BGP_LS_TLV_IP_REACHABILITY_INFORMATION] = {"IP Reachability Information", 2, 17, UNDEF_MULTPL},
-		[BGP_LS_TLV_AUTONOMOUS_SYSTEM] = {"Autonomous System", 4, 4, UNDEF_MULTPL},
-		[BGP_LS_TLV_BGP_LS_IDENTIFIER] = {"BGP-LS Identifier", 4, 4, UNDEF_MULTPL},
-		[BGP_LS_TLV_OSPF_AREA_ID] = {"OSPF Area-ID", 4, 4, UNDEF_MULTPL},
-		[BGP_LS_TLV_IGP_ROUTER_ID] = {"IGP Router-ID", 4, 8, UNDEF_MULTPL},
-		/* NRLI & BGP-LS Attributes */
-		[BGP_LS_TLV_MULTI_TOPOLOGY_ID] = {"Multi-Topology ID", 2, MAX_SZ, 2},
+	/* NLRI TLV */
+	[BGP_LS_TLV_LOCAL_NODE_DESCRIPTORS] = {"Local Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
+	[BGP_LS_TLV_REMOTE_NODE_DESCRIPTORS] = {"Remote Node Descriptors", 1, MAX_SZ, UNDEF_MULTPL},
+	[BGP_LS_TLV_LINK_LOCAL_REMOTE_IDENTIFIERS] = {"Link Local/Remote Identifiers", 2, 2, UNDEF_MULTPL},
+	[BGP_LS_TLV_IPV4_INTERFACE_ADDRESS] = {"IPv4 interface address", 4, 4, UNDEF_MULTPL},
+	[BGP_LS_TLV_IPV4_NEIGHBOR_ADDRESS] = {"IPv4 neighbor address", 4, 4, UNDEF_MULTPL},
+	[BGP_LS_TLV_IPV6_INTERFACE_ADDRESS] = {"IPv6 interface address", 16, 16, UNDEF_MULTPL},
+	[BGP_LS_TLV_IPV6_NEIGHBOR_ADDRESS] = {"IPv6 neighbor address", 16, 16, UNDEF_MULTPL},
+	[BGP_LS_TLV_OSPF_ROUTE_TYPE] = {"OSPF Route Type", 1, 1, UNDEF_MULTPL},
+	[BGP_LS_TLV_IP_REACHABILITY_INFORMATION] = {"IP Reachability Information", 2, 17, UNDEF_MULTPL},
+	[BGP_LS_TLV_AUTONOMOUS_SYSTEM] = {"Autonomous System", 4, 4, UNDEF_MULTPL},
+	[BGP_LS_TLV_BGP_LS_IDENTIFIER] = {"BGP-LS Identifier", 4, 4, UNDEF_MULTPL},
+	[BGP_LS_TLV_OSPF_AREA_ID] = {"OSPF Area-ID", 4, 4, UNDEF_MULTPL},
+	[BGP_LS_TLV_IGP_ROUTER_ID] = {"IGP Router-ID", 4, 8, UNDEF_MULTPL},
+	/* NRLI & BGP-LS Attributes */
+	[BGP_LS_TLV_MULTI_TOPOLOGY_ID] = {"Multi-Topology ID", 2, MAX_SZ, 2},
 };
+/* clang-format on */
 
 /* Return the TLV length is valid for the TLV type */
 static bool bgp_ls_tlv_check_size(enum bgp_linkstate_tlv type, size_t length)

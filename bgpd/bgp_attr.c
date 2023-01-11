@@ -43,6 +43,9 @@
 #include "bgp_linkstate_tlv.h"
 #include "bgp_mac.h"
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_ATTR_LS, "BGP Attribute Link-State");
+DEFINE_MTYPE_STATIC(BGPD, BGP_ATTR_LS_DATA, "BGP Attribute Link-State Data");
+
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
 	{BGP_ATTR_ORIGIN, "ORIGIN"},
@@ -66,6 +69,7 @@ static const struct message attr_str[] = {
 #ifdef ENABLE_BGP_VNC_ATTR
 	{BGP_ATTR_VNC, "VNC"},
 #endif
+	{BGP_ATTR_LINK_STATE, "LINK_STATE"},
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
 	{BGP_ATTR_PREFIX_SID, "PREFIX_SID"},
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
@@ -389,6 +393,23 @@ static bool overlay_index_same(const struct attr *a1, const struct attr *a2)
 	return bgp_route_evpn_same(bgp_attr_get_evpn_overlay(a1),
 				   bgp_attr_get_evpn_overlay(a2));
 }
+
+static bool bgp_attr_ls_same(const struct bgp_attr_ls *ls1,
+			     const struct bgp_attr_ls *ls2)
+{
+	if (!ls1 && ls2)
+		return false;
+	if (!ls2 && ls1)
+		return false;
+	if (!ls1 && !ls2)
+		return true;
+
+	if (ls1->length != ls2->length)
+		return false;
+
+	return !memcmp(ls1->data, ls2->data, ls1->length);
+}
+
 
 /* Unknown transit attribute. */
 static struct hash *transit_hash;
@@ -848,7 +869,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->srte_color == attr2->srte_color &&
 		    attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type &&
-		    attr1->otc == attr2->otc)
+		    attr1->otc == attr2->otc &&
+		    bgp_attr_ls_same(attr1->link_state, attr2->link_state))
 			return true;
 	}
 
@@ -1384,6 +1406,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_CLUSTER_LIST:
 	case BGP_ATTR_OTC:
 		return BGP_ATTR_PARSE_WITHDRAW;
+	case BGP_ATTR_LINK_STATE:
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR, subcode,
@@ -1469,6 +1492,7 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_LINK_STATE] = BGP_ATTR_FLAG_OPTIONAL,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -3244,6 +3268,31 @@ aigp_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
+/* Link-State (rfc7752) */
+static enum bgp_attr_parse_ret
+bgp_attr_linkstate(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	const bgp_size_t length = args->length;
+	struct stream *s = peer->curr;
+	struct bgp_attr_ls *bgp_attr_ls;
+	void *bgp_attr_ls_data;
+
+
+	if (STREAM_READABLE(s) == 0)
+		return BGP_ATTR_PARSE_PROCEED;
+
+	bgp_attr_ls = XCALLOC(MTYPE_BGP_ATTR_LS, sizeof(struct bgp_attr_ls));
+	bgp_attr_ls->length = length;
+	bgp_attr_ls_data = XCALLOC(MTYPE_BGP_ATTR_LS_DATA, length);
+	bgp_attr_ls->data = bgp_attr_ls_data;
+	stream_get(bgp_attr_ls_data, s, length);
+	attr->link_state = bgp_attr_ls;
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* OTC attribute. */
 static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 {
@@ -3635,6 +3684,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 			break;
 		case BGP_ATTR_AIGP:
 			ret = bgp_attr_aigp(&attr_args);
+			break;
+		case BGP_ATTR_LINK_STATE:
+			ret = bgp_attr_linkstate(&attr_args);
 			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
@@ -4721,6 +4773,14 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		/* VNC attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_VNC);
 #endif
+	}
+
+	/* BGP Link-State */
+	if (attr && attr->link_state) {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+		stream_putc(s, BGP_ATTR_LINK_STATE);
+		stream_putc(s, attr->link_state->length);
+		stream_put(s, attr->link_state->data, attr->link_state->length);
 	}
 
 	/* PMSI Tunnel */
