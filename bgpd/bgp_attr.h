@@ -136,6 +136,13 @@ struct bgp_attr_srv6_l3vpn {
 	uint8_t transposition_offset;
 };
 
+struct bgp_attr_ls {
+	unsigned long refcnt;
+
+	uint8_t length;
+	void *data;
+};
+
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -276,6 +283,8 @@ struct attr {
 	struct bgp_attr_srv6_l3vpn *srv6_l3vpn;
 
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
+
+	struct bgp_attr_ls *link_state; /*  BGP Link State attribute  */
 
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
