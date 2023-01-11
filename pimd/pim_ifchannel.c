@@ -711,6 +711,8 @@ static void on_ifjoin_prune_pending_timer(struct thread *t)
 			pim_channel_del_oif(
 				ch->upstream->channel_oil, ifp,
 				PIM_OIF_FLAG_PROTO_STAR, __func__);
+			pim_channel_del_oif(ch->upstream->channel_oil, ifp,
+					    PIM_OIF_FLAG_PROTO_PIM, __func__);
 			if (!ch->upstream->channel_oil->installed)
 				pim_upstream_mroute_add(
 					ch->upstream->channel_oil,
