@@ -4389,7 +4389,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 			"Tx %s family %s IF %s(%u) Neigh %pIA %s %s flags 0x%x state 0x%x %sext_flags 0x%x",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			ip, link_ip ? "Link " : "MAC ", buf2, flags, state,
+			ip, link_ip ? "Link" : "MAC", buf2, flags, state,
 			ext ? "ext " : "", ext_flags);
 
 	return netlink_neigh_update_msg_encode(

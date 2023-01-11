@@ -5070,8 +5070,8 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 			ipaddr2str(link_ip, buf1, sizeof(buf1));
 		zlog_debug("init neigh ctx %s: ifp %s, %s %s, ip %pIA",
 			   dplane_op2str(op), ifp->name,
-			   link_family == AF_ETHERNET ? "mac " : "link ",
-			   buf1, ip);
+			   link_family == AF_ETHERNET ? "mac" : "link", buf1,
+			   ip);
 	}
 
 	ctx = dplane_ctx_alloc();
