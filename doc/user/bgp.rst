@@ -4199,7 +4199,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    The ``terse`` option can be used in combination with the remote-as, neighbor,
    failed and established filters, and with the ``wide`` option as well.
 
-.. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [json]
+.. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [detail] [json]
 
    This command shows information on a specific BGP peer of the relevant
    afi and safi selected.
@@ -4213,6 +4213,13 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    The ``received-routes`` keyword displays all routes belonging to this
    address-family (prior to inbound policy) that were received by this peer.
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
+
+   If ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] neighbors PEER received prefix-filter [json]
 
@@ -4306,7 +4313,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
-.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [json|wide]
+.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [detail] [json|wide]
 
    Display the routes advertised to a BGP neighbor or received routes
    from neighbor or filtered routes received from neighbor based on the
@@ -4322,6 +4329,11 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    routes displayed for all AFIs and SAFIs.
    if afi is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selcted AFI
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
 
    If ``json`` option is specified, output is displayed in JSON format.
 
