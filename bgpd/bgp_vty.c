@@ -819,6 +819,9 @@ struct peer *peer_and_group_lookup_vty(struct vty *vty, const char *peer_str)
 
 	if (peer) {
 		if (peer_dynamic_neighbor(peer)) {
+			zlog_warn(
+				"%pBP: Operation not allowed on a dynamic neighbor",
+				peer);
 			vty_out(vty,
 				"%% Operation not allowed on a dynamic neighbor\n");
 			return NULL;
@@ -830,6 +833,8 @@ struct peer *peer_and_group_lookup_vty(struct vty *vty, const char *peer_str)
 	if (group)
 		return group->conf;
 
+	zlog_warn("Specify remote-as or peer-group commands first before: %s",
+		  vty->buf);
 	vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
 
 	return NULL;
