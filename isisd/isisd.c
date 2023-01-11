@@ -3253,7 +3253,53 @@ void config_end_lsp_generate(struct isis_area *area)
 void isis_area_advertise_high_metrics_set(struct isis_area *area,
 					  bool advertise_high_metrics)
 {
-	/* TODO */
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	int max_metric;
+	char xpath[XPATH_MAXLEN];
+	struct lyd_node *dnode;
+	int configured_metric_l1;
+	int configured_metric_l2;
+
+	if (area->advertise_high_metrics == advertise_high_metrics)
+		return;
+
+	if (advertise_high_metrics) {
+		if (area->oldmetric && area->newmetric)
+			max_metric = ISIS_NARROW_METRIC_INFINITY;
+		else if (area->newmetric)
+			max_metric = MAX_WIDE_LINK_METRIC;
+		else
+			max_metric = MAX_NARROW_LINK_METRIC;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						max_metric);
+			isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						max_metric);
+		}
+
+		area->advertise_high_metrics = true;
+	} else {
+		area->advertise_high_metrics = false;
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			/* Get configured metric */
+			snprintf(xpath, XPATH_MAXLEN,
+				 "/frr-interface:lib/interface[name='%s']",
+				 circuit->interface->name);
+			dnode = yang_dnode_get(running_config->dnode, xpath);
+
+			configured_metric_l1 = yang_dnode_get_uint32(
+				dnode, "./frr-isisd:isis/metric/level-1");
+			configured_metric_l2 = yang_dnode_get_uint32(
+				dnode, "./frr-isisd:isis/metric/level-2");
+
+			isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						configured_metric_l1);
+			isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						configured_metric_l2);
+		}
+	}
 }
 
 /*
