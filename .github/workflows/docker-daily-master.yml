@@ -48,6 +48,6 @@ jobs:
           context: .
           file: ./docker/alpine/Dockerfile
           push: true
-          tags: ${{ secrets.QUAY_USERNAME }}/frr:master
+          tags: quay.io/frrouting/frr:master
           build-args: PKGVER=${{ steps.vars.outputs.date }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
