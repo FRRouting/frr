@@ -219,5 +219,8 @@ extern char *bgp_linkstate_nlri_prefix_display(char *buf, size_t size,
 extern void bgp_linkstate_nlri_prefix_json(json_object *json,
 					   uint16_t nlri_type, uintptr_t prefix,
 					   uint16_t len);
+extern void bgp_linkstate_tlv_attribute_display(struct vty *vty,
+						struct bgp_attr_ls *attr_ls,
+						int indent, json_object *json);
 
 #endif /* BGP_LINKSTATE_TLV_H */

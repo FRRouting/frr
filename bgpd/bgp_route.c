@@ -10112,6 +10112,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
 	json_object *json_adv_to = NULL;
+	json_object *json_bgp_ls_attr = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -11045,10 +11046,28 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				"      Time until Long-lived stale route deleted: %lu\n",
 				llgr_remaining);
 	}
-	if (safi == SAFI_LINKSTATE && json_paths)
-		bgp_linkstate_nlri_prefix_json(
-			json_path, bn->rn->p.u.prefix_linkstate.nlri_type,
-			bn->rn->p.u.prefix_linkstate.ptr, bn->rn->p.prefixlen);
+
+	if (safi == SAFI_LINKSTATE) {
+		/* BGP Link-State NLRI */
+		if (json_paths)
+			bgp_linkstate_nlri_prefix_json(
+				json_path, bn->rn->p.u.prefix_linkstate.nlri_type,
+				bn->rn->p.u.prefix_linkstate.ptr, bn->rn->p.prefixlen);
+
+		/* BGP Link-State Attributes */
+		if (attr->link_state) {
+			if (json_paths) {
+				json_bgp_ls_attr = json_object_new_object();
+				json_object_object_add(json_path,
+						       "linkStateAttributes",
+						       json_bgp_ls_attr);
+			} else {
+				vty_out(vty, "  BGP-LS attributes:\n");
+			}
+			bgp_linkstate_tlv_attribute_display(
+				vty, attr->link_state, 4, json_bgp_ls_attr);
+		}
+	}
 
 	/* Output some debug about internal state of the dest flags */
 	if (json_paths) {
