@@ -8684,7 +8684,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	afi_t afi;
 	route_map_result_t ret;
 	struct bgp_redist *red;
-	struct interface *ifp;
 
 	/* Make default attribute. */
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
@@ -8734,11 +8733,6 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	}
 	attr.nh_type = nhtype;
 	attr.nh_ifindex = ifindex;
-	ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
-	if (ifp && if_is_operative(ifp))
-		SET_FLAG(attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
-	else
-		UNSET_FLAG(attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
 
 	attr.med = metric;
 	attr.distance = distance;
@@ -9425,10 +9419,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						       "link-local");
 
 				if ((IPV6_ADDR_CMP(&attr->mp_nexthop_global,
-						   &attr->mp_nexthop_local) !=
-				     0) &&
-				    !CHECK_FLAG(attr->nh_flag,
-						BGP_ATTR_NH_MP_PREFER_GLOBAL))
+						   &attr->mp_nexthop_local)
+				     != 0)
+				    && !attr->mp_nexthop_prefer_global)
 					json_object_boolean_true_add(
 						json_nexthop_ll, "used");
 				else
@@ -9440,11 +9433,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		} else {
 			/* Display LL if LL/Global both in table unless
 			 * prefer-global is set */
-			if (((attr->mp_nexthop_len ==
-			      BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) &&
-			     !CHECK_FLAG(attr->nh_flag,
-					 BGP_ATTR_NH_MP_PREFER_GLOBAL)) ||
-			    (path->peer->conf_if)) {
+			if (((attr->mp_nexthop_len
+			      == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+			     && !attr->mp_nexthop_prefer_global)
+			    || (path->peer->conf_if)) {
 				if (path->peer->conf_if) {
 					len = vty_out(vty, "%s",
 						      path->peer->conf_if);
@@ -10706,8 +10698,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_boolean_true_add(json_nexthop_ll,
 						     "accessible");
 
-			if (!CHECK_FLAG(attr->nh_flag,
-					BGP_ATTR_NH_MP_PREFER_GLOBAL))
+			if (!attr->mp_nexthop_prefer_global)
 				json_object_boolean_true_add(json_nexthop_ll,
 							     "used");
 			else
@@ -10717,8 +10708,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, "    (%s) %s\n",
 				inet_ntop(AF_INET6, &attr->mp_nexthop_local,
 					  buf, INET6_ADDRSTRLEN),
-				CHECK_FLAG(attr->nh_flag,
-					   BGP_ATTR_NH_MP_PREFER_GLOBAL)
+				attr->mp_nexthop_prefer_global
 					? "(prefer-global)"
 					: "(used)");
 		}
