@@ -1325,14 +1325,6 @@ static struct zebra_nhlfe *nhlfe_add(struct zebra_lsp *lsp,
 	if (!lsp)
 		return NULL;
 
-	/* Must have labels */
-	if (num_labels == 0 || labels == NULL) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("%s: invalid nexthop: no labels", __func__);
-
-		return NULL;
-	}
-
 	/* Allocate new object */
 	nhlfe = nhlfe_alloc(lsp, lsp_type, gtype, gate, ifindex, num_labels,
 			    labels);
@@ -1510,16 +1502,18 @@ static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 
 	json_nhlfe = json_object_new_object();
 	json_object_string_add(json_nhlfe, "type", nhlfe_type2str(nhlfe->type));
-	json_object_int_add(json_nhlfe, "outLabel",
-			    nexthop->nh_label->label[0]);
-
-	json_label_stack = json_object_new_array();
-	json_object_object_add(json_nhlfe, "outLabelStack", json_label_stack);
-	for (i = 0; i < nexthop->nh_label->num_labels; i++)
-		json_object_array_add(
-			json_label_stack,
-			json_object_new_int(nexthop->nh_label->label[i]));
-
+	if (nexthop->nh_label) {
+		json_object_int_add(json_nhlfe, "outLabel",
+				    nexthop->nh_label->label[0]);
+		json_label_stack = json_object_new_array();
+		json_object_object_add(json_nhlfe, "outLabelStack",
+				       json_label_stack);
+		for (i = 0; i < nexthop->nh_label->num_labels; i++)
+			json_object_array_add(
+				json_label_stack,
+				json_object_new_int(
+					nexthop->nh_label->label[i]));
+	}
 	json_object_int_add(json_nhlfe, "distance", nhlfe->distance);
 
 	if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
@@ -2270,11 +2264,9 @@ struct zebra_nhlfe *zebra_mpls_lsp_add_nh(struct zebra_lsp *lsp,
 {
 	struct zebra_nhlfe *nhlfe;
 
-	if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
-		return NULL;
-
 	nhlfe = nhlfe_add(lsp, lsp_type, nh->type, &nh->gate, nh->ifindex,
-			  nh->nh_label->num_labels, nh->nh_label->label,
+			  nh->nh_label ? nh->nh_label->num_labels : 0,
+			  nh->nh_label ? nh->nh_label->label : NULL,
 			  false /*backup*/);
 
 	return nhlfe;
@@ -2290,12 +2282,9 @@ struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nh(struct zebra_lsp *lsp,
 {
 	struct zebra_nhlfe *nhlfe;
 
-	if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
-		return NULL;
-
-	nhlfe = nhlfe_add(lsp, lsp_type, nh->type, &nh->gate,
-				 nh->ifindex, nh->nh_label->num_labels,
-				 nh->nh_label->label, true);
+	nhlfe = nhlfe_add(lsp, lsp_type, nh->type, &nh->gate, nh->ifindex,
+			  nh->nh_label ? nh->nh_label->num_labels : 0,
+			  nh->nh_label ? nh->nh_label->label : NULL, true);
 
 	return nhlfe;
 }
@@ -3133,13 +3122,18 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 		struct nexthop *nh = nhlfe->nexthop;
 
 		assert(nh);
-		assert(nh->nh_label);
 
 		/* Clear deleted flag (in case it was set) */
 		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
-		if (nh->nh_label->num_labels == num_out_labels
-		    && !memcmp(nh->nh_label->label, out_labels,
-			       sizeof(mpls_label_t) * num_out_labels))
+
+		if (!nh->nh_label || num_out_labels == 0)
+			/* No change */
+			return nhlfe;
+
+		if (nh->nh_label &&
+		    nh->nh_label->num_labels == num_out_labels &&
+		    !memcmp(nh->nh_label->label, out_labels,
+			    sizeof(mpls_label_t) * num_out_labels))
 			/* No change */
 			return nhlfe;
 
@@ -3160,7 +3154,7 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 		}
 
 		/* Update out label(s), trigger processing. */
-		if (nh->nh_label->num_labels == num_out_labels)
+		if (nh->nh_label && nh->nh_label->num_labels == num_out_labels)
 			memcpy(nh->nh_label->label, out_labels,
 			       sizeof(mpls_label_t) * num_out_labels);
 		else {
@@ -3179,8 +3173,11 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 			char buf2[MPLS_LABEL_STRLEN];
 
 			nhlfe2str(nhlfe, buf, sizeof(buf));
-			mpls_label2str(num_out_labels, out_labels, buf2,
-				       sizeof(buf2), 0, 0);
+			if (num_out_labels)
+				mpls_label2str(num_out_labels, out_labels, buf2,
+					       sizeof(buf2), 0, 0);
+			else
+				snprintf(buf2, sizeof(buf2), "-");
 
 			zlog_debug("Add LSP in-label %u type %d %snexthop %s out-label(s) %s",
 				   lsp->ile.in_label, type, backup_str, buf,
@@ -3820,7 +3817,8 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					break;
 				}
 
-				if (nexthop->type != NEXTHOP_TYPE_IFINDEX)
+				if (nexthop->type != NEXTHOP_TYPE_IFINDEX &&
+				    nexthop->nh_label)
 					out_label_str = mpls_label2str(
 						nexthop->nh_label->num_labels,
 						&nexthop->nh_label->label[0],
