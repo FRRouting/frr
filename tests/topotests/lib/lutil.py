@@ -379,6 +379,7 @@ def luCommand(
     wait_time=0.5,
 ):
     if op != "wait":
+        LUtil.wait(target, command, regexp, "wait", result, returnJson, 10)
         return LUtil.command(target, command, regexp, op, result, returnJson)
     else:
         return LUtil.wait(
