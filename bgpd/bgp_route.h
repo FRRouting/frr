@@ -14,6 +14,7 @@
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
+#include "bgp_label.h"
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
