@@ -3789,11 +3789,10 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			if (nbr) {
 				if (use_json) {
 					json_object_string_addf(
-						json_interface_sub, "drId",
-						"%pI4", &nbr->router_id);
+						json_oi, "drId", "%pI4",
+						&nbr->router_id);
 					json_object_string_addf(
-						json_interface_sub, "drAddress",
-						"%pI4",
+						json_oi, "drAddress", "%pI4",
 						&nbr->address.u.prefix4);
 				} else {
 					vty_out(vty,
