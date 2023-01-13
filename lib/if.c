@@ -564,24 +564,9 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 	return count;
 }
 
-/* Get the VRF loopback interface, i.e. the loopback on the default VRF
- * or the VRF interface.
- */
-struct interface *if_get_vrf_loopback(vrf_id_t vrf_id)
-{
-	struct interface *ifp = NULL;
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		if (if_is_loopback(ifp))
-			return ifp;
-
-	return NULL;
-}
 
 /* Get interface by name if given name interface doesn't exist create
- * one.
- */
+   one. */
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 				 const char *vrf_name)
 {

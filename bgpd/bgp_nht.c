@@ -46,7 +46,6 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_rd.h"
-#include "bgpd/bgp_mplsvpn.h"
 
 extern struct zclient *zclient;
 
@@ -389,7 +388,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (pi && is_route_parent_evpn(pi))
 		bnc->is_evpn_gwip_nexthop = true;
 
-	if (is_bgp_static_route && !CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE)) {
+	if (is_bgp_static_route) {
 		SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
 
 		/* If we're toggling the type, re-register */
@@ -424,8 +423,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
-	} else if (peer && !connected &&
-		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)) {
+	} else if (peer && !connected
+		   && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)) {
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
@@ -835,13 +834,10 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
-	struct bgp_path_info *pi;
-	struct bgp_dest *dest;
 	struct bgp *bgp;
 	struct prefix match;
 	struct zapi_route nhr;
 	afi_t afi;
-	safi_t safi;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
@@ -862,36 +858,24 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	tree = &bgp->nexthop_cache_table[afi];
 
 	bnc_nhc = bnc_find(tree, &match, nhr.srte_color, 0);
-	if (bnc_nhc)
+	if (!bnc_nhc) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug(
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
+				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+	} else
 		bgp_process_nexthop_update(bnc_nhc, &nhr, false);
-	else if (BGP_DEBUG(nht, NHT))
-		zlog_debug(
-			"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
-			&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 
 	tree = &bgp->import_check_table[afi];
 
 	bnc_import = bnc_find(tree, &match, nhr.srte_color, 0);
-	if (bnc_import) {
+	if (!bnc_import) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug(
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
+				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+	} else
 		bgp_process_nexthop_update(bnc_import, &nhr, true);
-
-		safi = nhr.safi;
-		if (bgp->rib[afi][safi]) {
-			dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi,
-						&match, NULL);
-
-			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
-			     pi = pi->next)
-				if (pi->peer == bgp->peer_self &&
-				    pi->type == ZEBRA_ROUTE_BGP &&
-				    pi->sub_type == BGP_ROUTE_STATIC)
-					vpn_leak_from_vrf_update(
-						bgp_get_default(), bgp, pi);
-		}
-	} else if (BGP_DEBUG(nht, NHT))
-		zlog_debug(
-			"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
-			&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -1005,8 +989,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			 */
 			else if (pi->attr->mp_nexthop_len
 				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				if (CHECK_FLAG(pi->attr->nh_flag,
-					       BGP_ATTR_NH_MP_PREFER_GLOBAL))
+				if (pi->attr->mp_nexthop_prefer_global)
 					p->u.prefix6 =
 						pi->attr->mp_nexthop_global;
 				else
