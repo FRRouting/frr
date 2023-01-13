@@ -95,6 +95,9 @@ struct bgp_adj_in {
 	/* Received attribute.  */
 	struct attr *attr;
 
+	/* VPN label information */
+	struct bgp_labels *labels;
+
 	/* timestamp (monotime) */
 	time_t uptime;
 
@@ -135,7 +138,8 @@ struct bgp_synchronize {
 extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
 extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
-			   struct attr *attr, uint32_t addpath_id);
+			   struct attr *attr, uint32_t addpath_id,
+			   struct bgp_labels *labels);
 extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);

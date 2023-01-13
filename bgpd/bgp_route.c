@@ -4600,7 +4600,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			memcpy(&attr->evpn_overlay, evpn,
 			       sizeof(struct bgp_route_evpn));
 		}
-		bgp_adj_in_set(dest, peer, attr, addpath_id);
+		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
 	/* Update permitted loop count */
@@ -5673,8 +5673,8 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 		if (pi->peer == peer)
 			break;
 
-	num_labels = bgp_path_info_num_labels(pi);
-	label_pnt = num_labels ? &pi->extra->labels->label[0] : NULL;
+	num_labels = ain->labels ? ain->labels->num_labels : 0;
+	label_pnt = num_labels ? &ain->labels->label[0] : NULL;
 	if (pi)
 		memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
 		       sizeof(evpn));
