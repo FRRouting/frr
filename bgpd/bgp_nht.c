@@ -46,6 +46,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 extern struct zclient *zclient;
 
@@ -1149,10 +1150,11 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
-		if (!(path->type == ZEBRA_ROUTE_BGP
-		      && ((path->sub_type == BGP_ROUTE_NORMAL)
-			  || (path->sub_type == BGP_ROUTE_STATIC)
-			  || (path->sub_type == BGP_ROUTE_IMPORTED))))
+		if (!(path->type == ZEBRA_ROUTE_BGP &&
+		      ((path->sub_type == BGP_ROUTE_NORMAL) ||
+		       (path->sub_type == BGP_ROUTE_STATIC) ||
+		       (path->sub_type == BGP_ROUTE_IMPORTED))) &&
+		    !(path->sub_type == BGP_ROUTE_REDISTRIBUTE))
 			continue;
 
 		dest = path->net;
@@ -1239,8 +1241,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 		path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
-		if (path_valid != bnc_is_valid_nexthop) {
-			if (path_valid) {
+		if (path->sub_type == BGP_ROUTE_REDISTRIBUTE ||
+		    path_valid != bnc_is_valid_nexthop) {
+			if (!bnc_is_valid_nexthop) {
 				/* No longer valid, clear flag; also for EVPN
 				 * routes, unimport from VRFs if needed.
 				 */
@@ -1264,6 +1267,14 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
 					bgp_evpn_import_route(bgp_path,
 						afi, safi, bgp_dest_get_prefix(dest), path);
+
+				if (SAFI_UNICAST == safi &&
+				    (bgp_path->inst_type !=
+					    BGP_INSTANCE_TYPE_VIEW)) {
+					vpn_leak_from_vrf_update(
+						bgp_get_default(), bgp_path,
+						path);
+				}
 			}
 		}
 
