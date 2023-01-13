@@ -4251,7 +4251,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			memcpy(&attr->evpn_overlay, evpn,
 			       sizeof(struct bgp_route_evpn));
 		}
-		bgp_adj_in_set(dest, peer, attr, addpath_id);
+		bgp_adj_in_set(dest, peer, attr, addpath_id, label, num_labels);
 	}
 
 	/* Update permitted loop count */
@@ -5333,7 +5333,6 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 					   safi_t safi, struct prefix_rd *prd)
 {
 	struct bgp_path_info *pi;
-	uint32_t num_labels = 0;
 	mpls_label_t *label_pnt = NULL;
 	struct bgp_route_evpn evpn;
 
@@ -5341,10 +5340,8 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 		if (pi->peer == peer)
 			break;
 
-	if (pi && pi->extra)
-		num_labels = pi->extra->num_labels;
-	if (num_labels)
-		label_pnt = &pi->extra->label[0];
+	if (ain->num_labels)
+		label_pnt = &ain->label[0];
 	if (pi)
 		memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
 		       sizeof(evpn));
@@ -5353,7 +5350,7 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 
 	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
 		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-		   label_pnt, num_labels, 1, &evpn);
+		   label_pnt, ain->num_labels, 1, &evpn);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
