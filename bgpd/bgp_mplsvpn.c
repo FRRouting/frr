@@ -1095,9 +1095,8 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	}
 
 	if (debug)
-		zlog_debug("%s: %pFX nexthop is %svalid (in vrf %s)", __func__,
-			   p, (nh_valid ? "" : "not "),
-			   bgp_nexthop->name_pretty);
+		zlog_debug("%s: %pFX nexthop is %svalid (in %s)", __func__, p,
+			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);
 
 	return nh_valid;
 }
@@ -1900,8 +1899,8 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	}
 
 	if (debug)
-		zlog_debug("%s: updating RD %pRD, %pFX to vrf %s", __func__,
-			   prd, p, to_bgp->name_pretty);
+		zlog_debug("%s: updating RD %pRD, %pFX to %s", __func__, prd, p,
+			   to_bgp->name_pretty);
 
 	/* shallow copy */
 	static_attr = *path_vpn->attr;
