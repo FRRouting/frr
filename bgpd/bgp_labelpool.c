@@ -24,6 +24,8 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_rd.h"
 
 #define BGP_LABELPOOL_ENABLE_TESTS 0
 
@@ -1080,6 +1082,99 @@ DEFUN(show_bgp_labelpool_chunks, show_bgp_labelpool_chunks_cmd,
 	return CMD_SUCCESS;
 }
 
+static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
+				       struct bgp *bgp, bool detail)
+{
+	struct bgp_label_per_nexthop_cache_head *tree;
+	struct bgp_label_per_nexthop_cache *iter;
+	safi_t safi;
+	void *src;
+	char buf[PREFIX2STR_BUFFER];
+	char labelstr[MPLS_LABEL_STRLEN];
+	struct bgp_dest *dest;
+	struct bgp_path_info *path;
+	struct bgp *bgp_path;
+	struct bgp_table *table;
+	time_t tbuf;
+
+	vty_out(vty, "Current BGP label nexthop cache for %s, VRF %s\n",
+		afi2str(afi), bgp->name_pretty);
+
+	tree = &bgp->mpls_labels_per_nexthop[afi];
+	frr_each (bgp_label_per_nexthop_cache, tree, iter) {
+		if (afi2family(afi) == AF_INET)
+			src = (void *)&iter->nexthop.u.prefix4;
+		else
+			src = (void *)&iter->nexthop.u.prefix6;
+
+		vty_out(vty, " %s, label %s #paths %u\n",
+			inet_ntop(afi2family(afi), src, buf, sizeof(buf)),
+			mpls_label2str(1, &iter->label, labelstr,
+				       sizeof(labelstr), 0, true),
+			iter->path_count);
+		if (iter->nh)
+			vty_out(vty, "  if %s\n",
+				ifindex2ifname(iter->nh->ifindex,
+					       iter->nh->vrf_id));
+		tbuf = time(NULL) - (monotime(NULL) - iter->last_update);
+		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		if (!detail)
+			continue;
+		vty_out(vty, "  Paths:\n");
+		LIST_FOREACH (path, &(iter->paths), label_nh_thread) {
+			dest = path->net;
+			table = bgp_dest_table(dest);
+			assert(dest && table);
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			safi = table->safi;
+			bgp_path = table->bgp;
+
+			if (dest->pdest) {
+				vty_out(vty, "    %d/%d %pBD RD ", afi, safi,
+					dest);
+
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
+					(struct prefix_rd *)bgp_dest_get_prefix(
+						dest->pdest));
+				vty_out(vty, " %s flags 0x%x\n",
+					bgp_path->name_pretty, path->flags);
+			} else
+				vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
+					afi, safi, dest, bgp_path->name_pretty,
+					path->flags);
+		}
+	}
+}
+
+DEFPY(show_bgp_nexthop_label, show_bgp_nexthop_label_cmd,
+      "show bgp [<view|vrf> VIEWVRFNAME] label-nexthop [detail]",
+      SHOW_STR BGP_STR BGP_INSTANCE_HELP_STR
+      "BGP label per-nexthop table\n"
+      "Show detailed information\n")
+{
+	int idx = 0;
+	char *vrf = NULL;
+	struct bgp *bgp;
+	bool detail = false;
+	int afi;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[++idx]->arg;
+		bgp = bgp_lookup_by_name(vrf);
+	} else
+		bgp = bgp_get_default();
+
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+		show_bgp_nexthop_label_afi(vty, afi, bgp, detail);
+	return CMD_SUCCESS;
+}
+
 #if BGP_LABELPOOL_ENABLE_TESTS
 /*------------------------------------------------------------------------
  *			Testing code start
@@ -1616,4 +1711,9 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 		nexthop_free(blnc->nh);
 	blnc->nh = NULL;
 	XFREE(MTYPE_LABEL_PER_NEXTHOP_CACHE, blnc);
+}
+
+void bgp_label_per_nexthop_init(void)
+{
+	install_element(VIEW_NODE, &show_bgp_nexthop_label_cmd);
 }

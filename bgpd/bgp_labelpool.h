@@ -92,4 +92,5 @@ bgp_label_per_nexthop_new(struct bgp_label_per_nexthop_cache_head *tree,
 struct bgp_label_per_nexthop_cache *
 bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
 			   struct prefix *nexthop);
+void bgp_label_per_nexthop_init(void);
 #endif /* _FRR_BGP_LABELPOOL_H */
