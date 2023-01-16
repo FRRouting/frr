@@ -273,8 +273,9 @@ void bgp_keepalives_on(struct peer *peer)
 			peer_lock(peer);
 		}
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
+		/* Force the keepalive thread to wake up */
+		pthread_cond_signal(peerhash_cond);
 	}
-	bgp_keepalives_wake();
 }
 
 void bgp_keepalives_off(struct peer *peer)
@@ -304,19 +305,15 @@ void bgp_keepalives_off(struct peer *peer)
 	}
 }
 
-void bgp_keepalives_wake(void)
-{
-	frr_with_mutex (peerhash_mtx) {
-		pthread_cond_signal(peerhash_cond);
-	}
-}
-
 int bgp_keepalives_stop(struct frr_pthread *fpt, void **result)
 {
 	assert(fpt->running);
 
-	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
-	bgp_keepalives_wake();
+	frr_with_mutex (peerhash_mtx) {
+		atomic_store_explicit(&fpt->running, false,
+				      memory_order_relaxed);
+		pthread_cond_signal(peerhash_cond);
+	}
 
 	pthread_join(fpt->thread, result);
 	return 0;
