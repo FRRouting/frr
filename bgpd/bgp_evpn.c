@@ -2119,10 +2119,11 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		char buf3[ESI_STR_LEN];
 
 		zlog_debug(
-			"VRF %s vni %u type-2 route evp %pFX RMAC %pEA nexthop %pI4 esi %s",
+			"VRF %s vni %u type-%u route evp %pFX RMAC %pEA nexthop %pI4 esi %s",
 			vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id)
-				     : " ",
-			vpn->vni, p, &attr.rmac, &attr.mp_nexthop_global_in,
+				     : "None",
+			vpn->vni, p->prefix.route_type, p, &attr.rmac,
+			&attr.mp_nexthop_global_in,
 			esi_to_str(esi, buf3, sizeof(buf3)));
 	}
 
