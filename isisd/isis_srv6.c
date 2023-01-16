@@ -31,6 +31,9 @@ void isis_srv6_area_init(struct isis_area *area)
 
 	/* Initialize SRv6 Data Base */
 	memset(srv6db, 0, sizeof(*srv6db));
+
+	/* Pull defaults from the YANG module */
+	srv6db->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SRV6);
 }
 
 /**
