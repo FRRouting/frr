@@ -1,0 +1,198 @@
+{
+  "routes": {
+    "Link OSPFv3 ID:0xffffffffffffffff Local{AS:4294967295 ID:4294967295 Area:4294967295 Rtr:10.10.10.11:2.2.2.2} Remote{AS:4294967295 ID:4294967295 Area:4294967295 Rtr:10.10.10.10:1.1.1.1} Link{IPv4:10.1.0.1 Neigh-IPv4:10.1.0.2 IPv6:2001::1 Neigh-IPv6:2001::2 MT:0,2}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "link",
+          "protocol": "OSPFv3",
+          "identifier": "0xffffffffffffffff",
+          "local": {
+            "as": 4294967295,
+            "identifier": 4294967295,
+            "area": 4294967295,
+            "routerID": "10.10.10.11:2.2.2.2"
+          },
+          "remote": {
+            "as": 4294967295,
+            "identifier": 4294967295,
+            "area": 4294967295,
+            "routerID": "10.10.10.10:1.1.1.1"
+          },
+          "link": {
+            "interfaceIPv4": "10.1.0.1",
+            "neighborIPv4": "10.1.0.2",
+            "interfaceIPv6": "2001::1",
+            "neighborIPv6": "2001::2",
+            "mtID": " MT:0,2"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "IPv6-Prefix OSPFv3 ID:0x20 Local{AS:65001 ID:0 Area:0 Rtr:10.10.10.10} Prefix{OSPF-Route-Type:1 IPv6:12:12::12:12/128 MT:2}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "IPv6 prefix",
+          "protocol": "OSPFv3",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "area": 0,
+            "routerID": "10.10.10.10"
+          },
+          "ipv6Prefix": {
+            "ospfRouteType": 1,
+            "ipReachability": "12:12::12:12/128",
+            "mtID": " MT:2"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "IPv6-Prefix ISIS-L2 ID:0x20 Local{AS:65001 ID:0 Rtr:0000.0000.1003.00} Prefix{IPv6:12:12::12:12/128 MT:2}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "IPv6 prefix",
+          "protocol": "ISIS-L2",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "routerId": "0000.0000.1003.00"
+          },
+          "ipv6Prefix": {
+            "ipReachability": "12:12::12:12/128",
+            "mtID": " MT:2"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "IPv4-Prefix OSPFv2 ID:0x20 Local{AS:65001 ID:0 Area:0 Rtr:10.10.10.10:1.1.1.1} Prefix{IPv4:89.10.11.0/24}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "IPv4 prefix",
+          "protocol": "OSPFv2",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "area": 0,
+            "routerID": "10.10.10.10:1.1.1.1"
+          },
+          "ipv4Prefix": {
+            "ipReachability": "89.10.11.0/24"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "Node OSPFv2 ID:0x20 Local{AS:65001 ID:0 Area:0 Rtr:10.10.10.10:1.1.1.1}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "node",
+          "protocol": "OSPFv2",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "area": 0,
+            "routerID": "10.10.10.10:1.1.1.1"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "Node OSPFv2 ID:0x20 Local{AS:65001 ID:0 Area:0 Rtr:10.10.10.10}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "node",
+          "protocol": "OSPFv2",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "area": 0,
+            "routerID": "10.10.10.10"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "Node ISIS-L1 ID:0x20 Local{AS:65001 ID:0 Rtr:0000.0000.1003.00}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "node",
+          "protocol": "ISIS-L1",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "routerId": "0000.0000.1003.00"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ],
+    "Link ISIS-L1 ID:0x20 Local{AS:65001 ID:0 Rtr:0000.0000.1001} Remote{AS:65001 ID:0 Rtr:0000.0000.1000} Link{IPv4:10.1.0.1 Neigh-IPv4:10.1.0.2 IPv6:2001::1 Neigh-IPv6:2001::2 MT:0,2}/XX": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "linkStateNLRI": {
+          "nlriType": "link",
+          "protocol": "ISIS-L1",
+          "identifier": "0x20",
+          "local": {
+            "as": 65001,
+            "identifier": 0,
+            "routerID": "0000.0000.1001"
+          },
+          "remote": {
+            "as": 65001,
+            "identifier": 0,
+            "routerID": "0000.0000.1000"
+          },
+          "link": {
+            "interfaceIPv4": "10.1.0.1",
+            "neighborIPv4": "10.1.0.2",
+            "interfaceIPv6": "2001::1",
+            "neighborIPv6": "2001::2",
+            "mtID": " MT:0,2"
+          }
+        },
+        "weight": 0,
+        "origin": "IGP"
+      }
+    ]
+  }
+}
