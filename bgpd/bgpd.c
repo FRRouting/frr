@@ -8241,6 +8241,8 @@ void bgp_init(unsigned short instance)
 
 	bgp_lp_vty_init();
 
+	bgp_label_per_nexthop_init();
+
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }
 
