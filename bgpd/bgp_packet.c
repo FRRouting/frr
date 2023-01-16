@@ -48,6 +48,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_linkstate_tlv.h"
 #include "bgpd/bgp_trace.h"
 
 DEFINE_HOOK(bgp_packet_dump,
@@ -348,7 +349,11 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
+	case SAFI_LINKSTATE:
+		return bgp_nlri_parse_linkstate(peer, attr, packet,
+						mp_withdraw);
 	}
+
 	return BGP_NLRI_PARSE_ERROR;
 }
 
@@ -2034,8 +2039,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			nlri_ret = BGP_NLRI_PARSE_ERROR;
 		}
 
-		if (nlri_ret < BGP_NLRI_PARSE_OK
-		    && nlri_ret != BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW) {
+		if (nlri_ret < BGP_NLRI_PARSE_OK &&
+		    nlri_ret != BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW &&
+		    nlri_ret != BGP_NLRI_PARSE_ERROR_PREFIX_LINKSTATE) {
 			flog_err(EC_BGP_UPDATE_RCV,
 				 "%s [Error] Error parsing NLRI", peer->host);
 			if (peer_established(peer))

@@ -97,6 +97,8 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT -13
 #define BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY -14
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
+#define BGP_NLRI_PARSE_ERROR_PREFIX_LINKSTATE -16
+#define BGP_NLRI_PARSE_ERROR_PACKET_LINKSTATE -17
 #define BGP_NLRI_PARSE_ERROR -32
 
 /* 1. local MAC-IP/type-2 paths in the VNI routing table are linked to the
