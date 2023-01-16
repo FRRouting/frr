@@ -342,6 +342,7 @@ void config_end_lsp_generate(struct isis_area *area);
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
+#define ISIS_SRV6	"/frr-isisd:isis/instance/segment-routing-srv6"
 
 /* Master of threads. */
 extern struct event_loop *master;
