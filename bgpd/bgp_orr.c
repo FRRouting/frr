@@ -159,6 +159,7 @@ static void bgp_orr_group_free(struct bgp_orr_group *orr_group)
 
 	/* Unset ORR Group parameters */
 	XFREE(MTYPE_BGP_ORR_GROUP_NAME, orr_group->name);
+	memset(orr_group, 0, sizeof(struct bgp_orr_group));
 
 	listnode_delete(bgp->orr_group[afi][safi], orr_group);
 	XFREE(MTYPE_BGP_ORR_GROUP, orr_group);
@@ -932,7 +933,6 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 {
 	afi_t afi;
 	safi_t safi;
-	bool add = false;
 	bool root_found = false;
 	uint32_t instId = 0;
 	uint32_t numEntries = 0;
@@ -943,7 +943,7 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 
 	struct list *orr_group_list = NULL;
 	struct bgp_orr_group *group = NULL;
-	struct listnode *node, *nnode;
+	struct listnode *node;
 
 	struct bgp_orr_igp_metric *igp_metric = NULL;
 	struct list *bgp_orr_igp_metric = NULL;
@@ -955,7 +955,6 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 	afi = family2afi(table->root.family);
 	safi = table->safi;
 	instId = table->instId;
-	add = table->add;
 	numEntries = table->num_entries;
 	prefix_copy(&root, &table->root);
 
@@ -986,8 +985,8 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 		zlog_debug("[BGP-ORR] %s: Address family %s", __func__,
 			   get_afi_safi_str(afi, safi, false));
 		zlog_debug("[BGP-ORR] %s: Root %pFX", __func__, &root);
-		zlog_debug("[BGP-ORR] %s: Number of entries to be %s %d",
-			   __func__, add ? "added" : "deleted", numEntries);
+		zlog_debug("[BGP-ORR] %s: Number of entries %d", __func__,
+			   numEntries);
 		zlog_debug("[BGP-ORR] %s: Prefix (Cost) :", __func__);
 		for (entry = 0; entry < numEntries; entry++)
 			zlog_debug("[BGP-ORR] %s: %pFX (%d)", __func__,
@@ -1008,52 +1007,27 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 		 * group
 		 */
 		if (prefix_cmp(&pfx, &root) == 0) {
-			if (add) {
-				/* Add new routes */
-				if (!group->igp_metric_info)
-					group->igp_metric_info = list_new();
+			if (!group->igp_metric_info)
+				group->igp_metric_info = list_new();
 
-				bgp_orr_igp_metric = group->igp_metric_info;
-				if (!bgp_orr_igp_metric)
+			bgp_orr_igp_metric = group->igp_metric_info;
+			if (!bgp_orr_igp_metric)
+				bgp_orr_igp_metric_register(group, false);
+			assert(bgp_orr_igp_metric);
+
+			for (entry = 0; entry < numEntries; entry++) {
+				igp_metric = XCALLOC(
+					MTYPE_ORR_IGP_INFO,
+					sizeof(struct bgp_orr_igp_metric));
+				if (!igp_metric)
 					bgp_orr_igp_metric_register(group,
 								    false);
-				assert(bgp_orr_igp_metric);
 
-				for (entry = 0; entry < numEntries; entry++) {
-					igp_metric = XCALLOC(
-						MTYPE_ORR_IGP_INFO,
-						sizeof(struct
-						       bgp_orr_igp_metric));
-					if (!igp_metric)
-						bgp_orr_igp_metric_register(
-							group, false);
-
-					prefix_copy(
-						&igp_metric->prefix,
-						&table->nexthop[entry].prefix);
-					igp_metric->igp_metric =
-						table->nexthop[entry].metric;
-					listnode_add(bgp_orr_igp_metric,
-						     igp_metric);
-				}
-			} else {
-				/* Delete old routes */
-				for (entry = 0; entry < numEntries; entry++) {
-					for (ALL_LIST_ELEMENTS(
-						     group->igp_metric_info,
-						     node, nnode, igp_metric)) {
-						if (prefix_cmp(
-							    &igp_metric->prefix,
-							    &table->nexthop[entry]
-								     .prefix))
-							continue;
-						listnode_delete(
-							group->igp_metric_info,
-							igp_metric);
-						XFREE(MTYPE_ORR_IGP_INFO,
-						      igp_metric);
-					}
-				}
+				prefix_copy(&igp_metric->prefix,
+					    &table->nexthop[entry].prefix);
+				igp_metric->igp_metric =
+					table->nexthop[entry].metric;
+				listnode_add(bgp_orr_igp_metric, igp_metric);
 			}
 			root_found = true;
 			break;
