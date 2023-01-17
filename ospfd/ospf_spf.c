@@ -1942,8 +1942,6 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	ospf_ase_calculate_schedule(ospf);
 	ospf_ase_calculate_timer_add(ospf);
 
-	ospf_orr_spf_calculate_schedule(ospf);
-
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
 			"%s: ospf install new route, vrf %s id %u new_table count %lu",
@@ -1967,6 +1965,7 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 #ifdef SUPPORT_OSPF_API
 	ospf_apiserver_notify_reachable(ospf->oall_rtrs, ospf->all_rtrs);
 #endif
+
 	/* Free old ABR/ASBR routing table */
 	if (ospf->old_rtrs) {
 		ospf_rtrs_free(ospf->old_rtrs);
@@ -2010,10 +2009,11 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 }
 
 /* Worker for ORR SPF calculation scheduler. */
-void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
+static void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 {
 	afi_t afi;
 	safi_t safi;
+	struct ospf_area *area;
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
 	struct route_table *all_rtrs = NULL;
@@ -2021,13 +2021,12 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 	unsigned long ia_time, rt_time;
 	unsigned long abr_time, total_spf_time, spf_time;
 	struct listnode *rnode;
+	struct listnode *anode, *annode;
 	struct list *orr_root_list;
 	struct orr_root *root;
 	char rbuf[32]; /* reason_buf */
 
-	ospf_orr_debug("%s: SPF: Timer (SPF calculation expire)", __func__);
-
-	ospf->t_orr_calc = NULL;
+	ospf->t_spf_calc = NULL;
 
 	/* Execute SPF for each ORR Root node */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -2053,16 +2052,28 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 			new_rtrs =
 				route_table_init(); /* ABR/ASBR routing table */
 
-			/*
-			 * If we have opaque enabled then track all router
-			 * reachability
-			 */
-			if (CHECK_FLAG(ospf->opaque,
-				       OPAQUE_OPERATION_READY_BIT))
-				all_rtrs = route_table_init();
-			ospf_orr_spf_calculate_areas(ospf, new_table, all_rtrs,
-						     new_rtrs,
-						     root->router_lsa_rcvd);
+			/* Calculate SPF for each area. */
+			for (ALL_LIST_ELEMENTS(ospf->areas, anode, annode,
+					       area)) {
+				/*
+				 * Do backbone last, so as to first discover
+				 * intra-area paths for any back-bone
+				 * virtual-links
+				 */
+				if (ospf->backbone && ospf->backbone == area)
+					continue;
+
+				ospf_spf_calculate(area, root->router_lsa_rcvd,
+						   new_table, all_rtrs,
+						   new_rtrs, false, true);
+			}
+
+			/* SPF for backbone, if required */
+			if (ospf->backbone)
+				ospf_spf_calculate(ospf->backbone,
+						   root->router_lsa_rcvd,
+						   new_table, all_rtrs,
+						   new_rtrs, false, true);
 
 			spf_time = monotime_since(&spf_start_time, NULL);
 
@@ -2074,17 +2085,9 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 			ia_time = monotime_since(&start_time, NULL);
 
 			/*
-			 * REVISIT :
-			 * Pruning of unreachable networks, routers skipped.
+			 * REVISIT : Pruning of unreachable networks,routers and
+			 * ase routes calculation skipped
 			 */
-
-			/* Note: RFC 2328 16.3. is apparently missing. */
-			/* Calculate AS external routes, see RFC 2328 16.4.
-			 * There is a dedicated routing table for external
-			 * routes which is not handled here directly
-			 */
-			ospf_ase_calculate_schedule(ospf);
-			ospf_ase_calculate_timer_add(ospf);
 
 			ospf_orr_debug(
 				"%s: ospf install new route, vrf %s id %u new_table count %lu",
@@ -2095,12 +2098,6 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 			monotime(&start_time);
 			ospf_orr_route_install(root, new_table);
 			rt_time = monotime_since(&start_time, NULL);
-
-			/*
-			 * REVISIT :
-			 * Freeing up and Updating old all routers routing table
-			 * skipped.
-			 */
 
 			/* Free old ABR/ASBR routing table */
 			if (root->old_rtrs)
@@ -2153,6 +2150,8 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 
 		} /* ALL_LIST_ELEMENTS_RO() */
 	} /* FOREACH_AFI_SAFI() */
+
+	ospf_clear_spf_reason_flags();
 }
 
 /*
@@ -2214,8 +2213,14 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 
 	ospf->t_spf_calc = NULL;
 
-	thread_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
-			      delay, &ospf->t_spf_calc);
+	if (spf_reason_flags & (1 << SPF_FLAG_ORR_ROOT_CHANGE))
+		thread_add_timer_msec(master,
+				      ospf_orr_spf_calculate_schedule_worker,
+				      ospf, delay, &ospf->t_spf_calc);
+	else
+		thread_add_timer_msec(master,
+				      ospf_spf_calculate_schedule_worker, ospf,
+				      delay, &ospf->t_spf_calc);
 }
 
 /* Restart OSPF SPF algorithm*/

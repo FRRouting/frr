@@ -105,6 +105,5 @@ extern int vertex_parent_cmp(void *aa, void *bb);
 
 extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
 extern void ospf_restart_spf(struct ospf *ospf);
-extern void ospf_orr_spf_calculate_schedule_worker(struct thread *thread);
 /* void ospf_spf_calculate_timer_add (); */
 #endif /* _QUAGGA_OSPF_SPF_H */
