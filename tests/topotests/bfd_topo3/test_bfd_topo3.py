@@ -51,6 +51,7 @@ def setup_module(mod):
         "s1": ("r1", "r2"),
         "s2": ("r2", "r3"),
         "s3": ("r3", "r4"),
+        "s4": ("r4", "r5", "r6"),
     }
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
@@ -68,6 +69,10 @@ def setup_module(mod):
         daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_BGP, daemon_file)
+
+        daemon_file = "{}/{}/staticd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_STATIC, daemon_file)
 
     # Initialize all routers.
     tgen.start_router()
@@ -100,6 +105,10 @@ def test_wait_bgp_convergence():
     expect_loopback_route("r1", "ip", "10.254.254.3/32", "bgp")
     # Wait for R1 <-> R4 convergence.
     expect_loopback_route("r1", "ip", "10.254.254.4/32", "bgp")
+    # Wait for R1 <-> R5 convergence.
+    expect_loopback_route("r1", "ip", "10.254.254.5/32", "bgp")
+    # Wait for R1 <-> R6 convergence.
+    expect_loopback_route("r1", "ip", "10.254.254.6/32", "bgp")
 
     # Wait for R2 <-> R1 convergence.
     expect_loopback_route("r2", "ip", "10.254.254.1/32", "bgp")
@@ -107,6 +116,10 @@ def test_wait_bgp_convergence():
     expect_loopback_route("r2", "ip", "10.254.254.3/32", "bgp")
     # Wait for R2 <-> R4 convergence.
     expect_loopback_route("r2", "ip", "10.254.254.4/32", "bgp")
+    # Wait for R2 <-> R5 convergence.
+    expect_loopback_route("r2", "ip", "10.254.254.5/32", "bgp")
+    # Wait for R2 <-> R6 convergence.
+    expect_loopback_route("r2", "ip", "10.254.254.6/32", "bgp")
 
     # Wait for R3 <-> R1 convergence.
     expect_loopback_route("r3", "ip", "10.254.254.1/32", "bgp")
@@ -114,6 +127,10 @@ def test_wait_bgp_convergence():
     expect_loopback_route("r3", "ip", "10.254.254.2/32", "bgp")
     # Wait for R3 <-> R4 convergence.
     expect_loopback_route("r3", "ip", "10.254.254.4/32", "bgp")
+    # Wait for R3 <-> R5 convergence.
+    expect_loopback_route("r3", "ip", "10.254.254.5/32", "bgp")
+    # Wait for R3 <-> R6 convergence.
+    expect_loopback_route("r3", "ip", "10.254.254.6/32", "bgp")
 
     # Wait for R4 <-> R1 convergence.
     expect_loopback_route("r4", "ip", "10.254.254.1/32", "bgp")
@@ -121,6 +138,15 @@ def test_wait_bgp_convergence():
     expect_loopback_route("r4", "ip", "10.254.254.2/32", "bgp")
     # Wait for R4 <-> R3 convergence.
     expect_loopback_route("r4", "ip", "10.254.254.3/32", "bgp")
+    # Wait for R4 <-> R5 convergence.
+    expect_loopback_route("r4", "ip", "10.254.254.5/32", "static")
+    # Wait for R4 <-> R6 convergence.
+    expect_loopback_route("r4", "ip", "10.254.254.6/32", "static")
+
+    # Wait for R5 <-> R6 convergence.
+    expect_loopback_route("r3", "ipv6", "2001:db8:5::/64", "static")
+    # Wait for R6 <-> R5 convergence.
+    expect_loopback_route("r6", "ipv6", "2001:db8:1::/64", "static")
 
 
 def test_wait_bfd_convergence():
@@ -149,6 +175,70 @@ def test_wait_bfd_convergence():
     expect_bfd_configuration("r2")
     expect_bfd_configuration("r3")
     expect_bfd_configuration("r4")
+    expect_bfd_configuration("r5")
+    expect_bfd_configuration("r6")
+
+
+def test_static_route_monitoring():
+    "Test static route monitoring output."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("test BFD static route status")
+
+    def expect_static_bfd_output(router, filename):
+        "Load JSON file and compare with 'show bfd peer json'"
+        logger.info("waiting BFD configuration on router {}".format(router))
+        bfd_config = json.loads(
+            open("{}/{}/{}.json".format(CWD, router, filename)).read()
+        )
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show bfd static route json",
+            bfd_config,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assertmsg = '"{}" BFD static route status failure'.format(router)
+        assert result is None, assertmsg
+
+    expect_static_bfd_output("r3", "bfd-static")
+    expect_static_bfd_output("r6", "bfd-static")
+
+    logger.info("Setting r4 link down ...")
+
+    tgen.gears["r4"].link_enable("r4-eth0", False)
+
+    expect_static_bfd_output("r3", "bfd-static-down")
+    expect_static_bfd_output("r6", "bfd-static-down")
+
+
+def test_expect_static_rib_removal():
+    "Test that route got removed from RIB (staticd and bgpd)."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def expect_route_missing(router, iptype, route):
+        "Wait until route is present on RIB for protocol."
+        logger.info("waiting route {} to disapear in {}".format(route, router))
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show {} route json".format(iptype),
+            {route: None},
+        )
+        rv, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assertmsg = '"{}" convergence failure'.format(router)
+        assert result is None, assertmsg
+
+    expect_route_missing("r1", "ip", "10.254.254.5/32")
+    expect_route_missing("r2", "ip", "10.254.254.5/32")
+    expect_route_missing("r3", "ip", "10.254.254.5/32")
+    expect_route_missing("r3", "ipv6", "2001:db8:5::/64")
+    expect_route_missing("r6", "ipv6", "2001:db8:1::/64")
 
 
 def teardown_module(_mod):

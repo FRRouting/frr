@@ -276,6 +276,8 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
+	/* Copy back pointers. */
+	nh->rn = rn;
 	nh->pn = pn;
 
 	nh->type = type;
@@ -393,6 +395,8 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	struct route_node *rn = pn->rn;
 
 	static_nexthop_list_del(&(pn->nexthop_list), nh);
+	/* Remove BFD session/configuration if any. */
+	bfd_sess_free(&nh->bsp);
 
 	if (nh->nh_vrf_id == VRF_UNKNOWN)
 		goto EXIT;
@@ -432,6 +436,8 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up,
 		nh->ifindex = IFINDEX_INTERNAL;
 	}
 
+	/* Remove previously configured route if any. */
+	static_uninstall_path(pn);
 	static_install_path(pn);
 }
 
