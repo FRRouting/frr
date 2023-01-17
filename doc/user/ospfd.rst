@@ -1145,10 +1145,6 @@ Debugging OSPF
 .. clicmd:: show debugging ospf
 
 
-.. clicmd:: debug ospf orr
-
-   Enable or disable debugging of BGP Optimal Route Reflection.
-
 
 Sample Configuration
 ====================
