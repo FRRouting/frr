@@ -4203,6 +4203,25 @@ static void peer_drop_dynamic_neighbor(struct peer *peer)
 			   peer->group->name, dncount);
 }
 
+bool bgp_path_attribute_discard(struct peer *peer, char *buf, size_t size)
+{
+	if (!buf)
+		return false;
+
+	buf[0] = '\0';
+
+	for (unsigned int i = 0; i < BGP_ATTR_MAX; i++) {
+		if (peer->discard_attrs[i])
+			snprintf(buf + strlen(buf), size - strlen(buf), "%s%d",
+				 (strlen(buf) > 0) ? " " : "", i);
+	}
+
+	if (strlen(buf) > 0)
+		return true;
+
+	return false;
+}
+
 /* If peer is configured at least one address family return 1. */
 bool peer_active(struct peer *peer)
 {

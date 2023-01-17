@@ -1704,6 +1704,13 @@ Configuring Peers
 
    Default: disabled.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> path-attribute discard (1-255)...
+
+   Drops specified path attributes from BGP UPDATE messages from the specified neighbor.
+
+   If you do not want specific attributes, you can drop them using this command, and
+   let the BGP proceed by ignoring those attributes.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> graceful-shutdown
 
    Mark all routes from this neighbor as less preferred by setting ``graceful-shutdown``
