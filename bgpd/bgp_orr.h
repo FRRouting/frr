@@ -68,8 +68,6 @@ extern int bgp_afi_safi_orr_group_set_vty(struct vty *vty, afi_t afi,
 					  const char *primary_str,
 					  const char *secondary_str,
 					  const char *tertiary_str, bool set);
-extern int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
-				const char *orr_group_name);
 extern int peer_orr_group_set_vty(struct vty *vty, const char *ip_str,
 				  afi_t afi, safi_t safi,
 				  const char *orr_group_name, bool set);
