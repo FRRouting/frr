@@ -11305,7 +11305,8 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 					continue;
 				if (!json)
 					vty_out(vty,
-						"Calculated from location %pI4\n",
+						"Calculated from location"
+						" %pI4\n",
 						&root->router_id);
 				show_ip_ospf_route_network(
 					vty, ospf, root->new_table, json_vrf);

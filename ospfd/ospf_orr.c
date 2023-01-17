@@ -45,7 +45,7 @@
 #include "ospf_te.h"
 
 static void ospf_show_orr_root(struct orr_root *root);
-static void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi);
+void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi);
 static struct orr_root *ospf_orr_root_new(struct ospf *ospf, afi_t afi,
 					  safi_t safi, struct prefix *p)
 {
@@ -246,10 +246,7 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 
 		ospf->orr_spf_request--;
 	}
-
-	if (IS_DEBUG_OSPF_ORR)
-		ospf_show_orr(ospf, afi, safi);
-
+	ospf_show_orr(ospf, afi, safi);
 	return 0;
 }
 
@@ -319,7 +316,7 @@ static void ospf_show_orr_root(struct orr_root *root)
 		       &root->adv_router);
 }
 
-static void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi)
+void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi)
 {
 	struct listnode *node = NULL;
 	struct orr_root *orr_root = NULL;
@@ -393,8 +390,7 @@ void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add)
 		if (root) {
 			IPV4_ADDR_COPY(&root->adv_router,
 				       &lsa->data->adv_router);
-			if (IS_DEBUG_OSPF_ORR)
-				ospf_show_orr(ospf, afi, safi);
+			ospf_show_orr(ospf, afi, safi);
 			break;
 		}
 	}

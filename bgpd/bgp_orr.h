@@ -58,8 +58,6 @@ enum bgp_orr_msg_type {
 	BGP_ORR_IMSG_MAX
 };
 
-extern struct zclient *zclient;
-
 extern void bgp_config_write_orr(struct vty *vty, struct bgp *bgp, afi_t afi,
 				 safi_t safi);
 
