@@ -119,7 +119,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -188,10 +188,8 @@ def test_ospf_gr_helper_tc3_p1(request):
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
     assert (
         ospf_covergence is True
-    ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
-    step(
-        "Configure DR pririty 100 on R0 and clear ospf neighbors " "on all the routers."
-    )
+    ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
+    step("Configure DR pririty 100 on R0 and clear ospf neighbors  on all the routers.")
 
     input_dict = {
         "r0": {
@@ -282,10 +280,8 @@ def test_ospf_gr_helper_tc4_p1(request):
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
     assert (
         ospf_covergence is True
-    ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
-    step(
-        "Configure DR pririty 100 on R0 and clear ospf neighbors " "on all the routers."
-    )
+    ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
+    step("Configure DR pririty 100 on R0 and clear ospf neighbors  on all the routers.")
 
     input_dict = {
         "r0": {

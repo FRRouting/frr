@@ -114,7 +114,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -196,9 +196,7 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, input_dict, lan=True)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step(
-        "Configure DR pririty 100 on R0 and clear ospf neighbors " "on all the routers."
-    )
+    step("Configure DR pririty 100 on R0 and clear ospf neighbors  on all the routers.")
 
     input_dict = {
         "r0": {
@@ -234,9 +232,7 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, input_dict, lan=True)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step(
-        "Configure DR pririty 150 on R0 and clear ospf neighbors " "on all the routers."
-    )
+    step("Configure DR pririty 150 on R0 and clear ospf neighbors  on all the routers.")
 
     input_dict = {
         "r0": {
@@ -355,7 +351,7 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, lan=True, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r0: OSPF neighbors-hip is up \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r0: OSPF neighbors-hip is up \n Error: {}".format(
         tc_name, result
     )
 
