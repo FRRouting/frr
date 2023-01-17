@@ -555,7 +555,7 @@ int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 int bgp_afi_safi_orr_group_set_vty(struct vty *vty, afi_t afi, safi_t safi,
 				   const char *name, const char *primary_str,
 				   const char *secondary_str,
-				   const char *tertiary_str, bool unset)
+				   const char *tertiary_str, bool set)
 {
 	int ret = CMD_WARNING_CONFIG_FAILED;
 	struct bgp *bgp;
@@ -567,7 +567,7 @@ int bgp_afi_safi_orr_group_set_vty(struct vty *vty, afi_t afi, safi_t safi,
 		return ret;
 	}
 
-	if (unset) {
+	if (!set) {
 		ret = bgp_afi_safi_orr_group_unset(bgp, afi, safi, name);
 		if (ret != CMD_SUCCESS)
 			vty_out(vty,
@@ -611,7 +611,7 @@ int bgp_afi_safi_orr_group_set_vty(struct vty *vty, afi_t afi, safi_t safi,
 
 /* Set optimal route reflection group name to the peer. */
 int peer_orr_group_set_vty(struct vty *vty, const char *ip_str, afi_t afi,
-			   safi_t safi, const char *orr_group_name, bool unset)
+			   safi_t safi, const char *orr_group_name, bool set)
 {
 	int ret = CMD_WARNING_CONFIG_FAILED;
 	struct peer *peer;
@@ -626,7 +626,7 @@ int peer_orr_group_set_vty(struct vty *vty, const char *ip_str, afi_t afi,
 		return ret;
 	}
 
-	if (!unset) {
+	if (set) {
 		ret = peer_orr_group_set(peer, afi, safi, orr_group_name);
 		if (ret != CMD_SUCCESS)
 			vty_out(vty, "%% ORR Group '%s' is not configured\n",
@@ -763,9 +763,13 @@ bool peer_orr_rrclient_check(struct peer *peer, afi_t afi, safi_t safi)
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(orr_group_list, node, orr_group)) {
-		/* Check if peer configured as primary/secondary/tertiary root
-		 */
-		if (is_orr_root_node(orr_group, peer->host))
+		/*Check if peer configured as primary/secondary/tertiary root */
+		if ((orr_group->primary &&
+		     strmatch(peer->host, orr_group->primary->host)) ||
+		    (orr_group->secondary &&
+		     strmatch(peer->host, orr_group->secondary->host)) ||
+		    (orr_group->tertiary &&
+		     strmatch(peer->host, orr_group->tertiary->host)))
 			return true;
 		/*
 		 * Check if peer is mapped to any ORR Group in this
