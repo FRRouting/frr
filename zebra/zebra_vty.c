@@ -3169,11 +3169,11 @@ DEFUN (no_vrf_vni_mapping,
 }
 
 /* show vrf */
-DEFUN (show_vrf_vni,
+DEFPY (show_vrf_vni,
        show_vrf_vni_cmd,
-       "show vrf vni [json]",
+       "show vrf [<NAME$vrf_name|all$vrf_all>] vni [json]",
        SHOW_STR
-       "VRF\n"
+       VRF_FULL_CMD_HELP_STR
        "VNI\n"
        JSON_STR)
 {
@@ -3182,20 +3182,69 @@ DEFUN (show_vrf_vni,
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
 	bool uj = use_json(argc, argv);
+	bool use_vrf = false;
 
-	if (uj) {
+	if (uj)
 		json = json_object_new_object();
-		json_vrfs = json_object_new_array();
+
+	/* show vrf vni used to display across all vrfs
+	 * This is enhanced to support only for specific
+	 * vrf based output.
+	 */
+	if (vrf_all || !vrf_name) {
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			zvrf = vrf->info;
+			if (!zvrf)
+				continue;
+
+			use_vrf = true;
+			break;
+		}
+		if (use_vrf) {
+			if (!uj)
+				vty_out(vty,
+					"%-37s %-10s %-20s %-20s %-5s %-18s\n",
+					"VRF", "VNI", "VxLAN IF", "L3-SVI",
+					"State", "Rmac");
+			else
+				json_vrfs = json_object_new_array();
+		} else {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty, "%% VRF does not exist\n");
+
+			return CMD_WARNING;
+		}
 	}
 
-	if (!uj)
-		vty_out(vty, "%-37s %-10s %-20s %-20s %-5s %-18s\n", "VRF",
-			"VNI", "VxLAN IF", "L3-SVI", "State", "Rmac");
+	if (use_vrf) {
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			zvrf = vrf->info;
+			if (!zvrf)
+				continue;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		zvrf = vrf->info;
-		if (!zvrf)
-			continue;
+			zebra_vxlan_print_vrf_vni(vty, zvrf, json_vrfs);
+		}
+	} else if (vrf_name) {
+		zvrf = zebra_vrf_lookup_by_name(vrf_name);
+		if (!zvrf) {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% VRF '%s' specified does not exist\n",
+					vrf_name);
+
+			return CMD_WARNING;
+		}
+
+		if (!uj)
+			vty_out(vty, "%-37s %-10s %-20s %-20s %-5s %-18s\n",
+				"VRF", "VNI", "VxLAN IF", "L3-SVI", "State",
+				"Rmac");
+		else
+			json_vrfs = json_object_new_array();
 
 		zebra_vxlan_print_vrf_vni(vty, zvrf, json_vrfs);
 	}
