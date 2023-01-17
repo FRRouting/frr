@@ -26,8 +26,7 @@ extern "C" {
 #endif
 
 /* REVISIT: Need to check if we can use zero length array */
-#define ORR_MAX_PREFIX		100
-#define ORR_GROUP_NAME_SIZE	32
+#define ORR_MAX_PREFIX 100
 
 struct orr_prefix_metric {
 	struct prefix prefix;
@@ -40,7 +39,6 @@ struct orr_igp_metric_reg {
 	uint8_t proto;
 	safi_t safi;
 	struct prefix prefix;
-	char group_name[ORR_GROUP_NAME_SIZE];
 };
 
 /* IGP-BGP message structures */
@@ -61,8 +59,6 @@ struct orr_igp_metric_info {
 struct orr_root {
 	afi_t afi;
 	safi_t safi;
-
-	char group_name[ORR_GROUP_NAME_SIZE];
 
 	/* MPLS_TE prefix and router ID */
 	struct prefix prefix;

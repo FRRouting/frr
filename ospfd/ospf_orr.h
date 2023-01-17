@@ -22,7 +22,6 @@
 #define _ZEBRA_OSPF_ORR_H
 
 #define BGP_OSPF_LSINFINITY 65535
-#define OSPF_ORR_CALC_INTERVAL 1
 
 /* Macro to log debug message */
 #define ospf_orr_debug(...)                                                    \
@@ -37,19 +36,9 @@ extern int ospf_orr_igp_metric_register(struct orr_igp_metric_reg orr_reg);
 extern void ospf_orr_igp_metric_send_update(struct orr_root *root,
 					    unsigned short instance);
 extern void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add);
+extern struct orr_root *ospf_get_orr(struct ospf *ospf, afi_t afi, safi_t safi);
 extern void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa);
 extern void ospf_orr_route_install(struct orr_root *root,
 				   struct route_table *rt);
-extern void ospf_orr_spf_calculate_schedule(struct ospf *ospf);
-extern void ospf_orr_spf_calculate_area(struct ospf *ospf,
-					struct ospf_area *area,
-					struct route_table *new_table,
-					struct route_table *all_rtrs,
-					struct route_table *new_rtrs,
-					struct ospf_lsa *lsa_rcvd);
-extern void ospf_orr_spf_calculate_areas(struct ospf *ospf,
-					 struct route_table *new_table,
-					 struct route_table *all_rtrs,
-					 struct route_table *new_rtrs,
-					 struct ospf_lsa *lsa_rcvd);
+
 #endif /* _ZEBRA_OSPF_ORR_H */
