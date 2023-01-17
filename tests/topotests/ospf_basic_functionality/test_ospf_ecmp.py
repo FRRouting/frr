@@ -127,7 +127,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -181,7 +181,7 @@ def test_ospf_ecmp_tc16_p0(request):
     step("Verify that OSPF is up with 8 neighborship sessions.")
     dut = "r1"
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -230,7 +230,7 @@ def test_ospf_ecmp_tc16_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -240,7 +240,7 @@ def test_ospf_ecmp_tc16_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -272,7 +272,7 @@ def test_ospf_ecmp_tc16_p0(request):
     step("Verify that OSPF is up with 8 neighborship sessions.")
     dut = "r1"
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -299,7 +299,7 @@ def test_ospf_ecmp_tc16_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -316,7 +316,7 @@ def test_ospf_ecmp_tc16_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -356,7 +356,7 @@ def test_ospf_ecmp_tc17_p0(request):
     step("Verify that OSPF is up with 2 neighborship sessions.")
     dut = "r1"
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -407,7 +407,7 @@ def test_ospf_ecmp_tc17_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -424,7 +424,7 @@ def test_ospf_ecmp_tc17_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 

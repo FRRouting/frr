@@ -128,7 +128,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -182,7 +182,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
     step("Verify that OSPF is up with 8 neighborship sessions.")
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -235,7 +235,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
 
     dut = "r0"
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -244,7 +244,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
 
     dut = "r2"
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -274,7 +274,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -291,7 +291,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 

@@ -140,7 +140,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -214,9 +214,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
 
     redistribute_ospf(tgen, topo, "r0", "static", delete=True)
 
-    step(
-        "Create prefix-list in R0 to permit 10.0.20.1/32 prefix &" " deny 10.0.20.2/32"
-    )
+    step("Create prefix-list in R0 to permit 10.0.20.1/32 prefix &  deny 10.0.20.2/32")
 
     # Create ip prefix list
     pfx_list = {
@@ -307,7 +305,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -316,7 +314,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are present in fib \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are present in fib \n Error: {}".format(
         tc_name, result
     )
 
@@ -360,7 +358,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -369,7 +367,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -417,7 +415,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -426,7 +424,7 @@ def test_ospf_routemaps_functionality_tc19_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -477,7 +475,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, retry_timeout=4, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -492,7 +490,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -512,7 +510,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -521,7 +519,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -536,7 +534,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -545,7 +543,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -566,7 +564,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -575,7 +573,7 @@ def test_ospf_routemaps_functionality_tc20_p0(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -874,7 +872,7 @@ def test_ospf_routemaps_functionality_tc24_p0(request):
     result = verify_prefix_lists(tgen, pfx_list)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n Prefix list not " "present. Error: {}".format(
+    ), "Testcase {} : Failed \n Prefix list not  present. Error: {}".format(
         tc_name, result
     )
 
@@ -943,7 +941,7 @@ def test_ospf_routemaps_functionality_tc24_p0(request):
     result = verify_prefix_lists(tgen, pfx_list)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n Prefix list not " "present. Error: {}".format(
+    ), "Testcase {} : Failed \n Prefix list not  present. Error: {}".format(
         tc_name, result
     )
 
@@ -1091,7 +1089,7 @@ def test_ospf_routemaps_functionality_tc25_p0(request):
 
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 

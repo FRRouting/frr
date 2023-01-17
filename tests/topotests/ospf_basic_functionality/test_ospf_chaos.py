@@ -124,7 +124,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -190,7 +190,7 @@ def test_ospf_chaos_tc31_p1(request):
     step("Verify OSPF neighbors after base config is done.")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -211,7 +211,7 @@ def test_ospf_chaos_tc31_p1(request):
     dut = "r0"
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
-    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is not True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -221,7 +221,7 @@ def test_ospf_chaos_tc31_p1(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -230,7 +230,7 @@ def test_ospf_chaos_tc31_p1(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -240,7 +240,7 @@ def test_ospf_chaos_tc31_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -263,7 +263,7 @@ def test_ospf_chaos_tc31_p1(request):
     dut = "r1"
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo, dut=dut, expected=False)
-    assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is not True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -273,7 +273,7 @@ def test_ospf_chaos_tc31_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R1")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -329,7 +329,7 @@ def test_ospf_chaos_tc32_p1(request):
     step("Verify OSPF neighbors after base config is done.")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -351,7 +351,7 @@ def test_ospf_chaos_tc32_p1(request):
     step("Verify OSPF neighbors are up after restarting R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -374,7 +374,7 @@ def test_ospf_chaos_tc32_p1(request):
     step("Verify OSPF neighbors are up after restarting R1")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -434,7 +434,7 @@ def test_ospf_chaos_tc34_p1(request):
     step("Verify OSPF neighbors after base config is done.")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -457,7 +457,7 @@ def test_ospf_chaos_tc34_p1(request):
     result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: OSPF routes are present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: OSPF routes are present \n Error: {}".format(
         tc_name, result
     )
 
@@ -466,7 +466,7 @@ def test_ospf_chaos_tc34_p1(request):
     )
     assert (
         result is not True
-    ), "Testcase {} : Failed \n " "r1: routes are still present \n Error: {}".format(
+    ), "Testcase {} : Failed \n  r1: routes are still present \n Error: {}".format(
         tc_name, result
     )
 
@@ -476,7 +476,7 @@ def test_ospf_chaos_tc34_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
@@ -501,7 +501,7 @@ def test_ospf_chaos_tc34_p1(request):
     step("Verify OSPF neighbors are up after bringing back ospfd in R1")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error  {}".format(
         ospf_covergence
     )
 
