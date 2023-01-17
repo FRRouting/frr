@@ -2093,7 +2093,7 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 
 			/* Update routing table. */
 			monotime(&start_time);
-			ospf_orr_route_install(root, new_table, ospf->instance);
+			ospf_orr_route_install(root, new_table);
 			rt_time = monotime_since(&start_time, NULL);
 
 			/*
@@ -2144,6 +2144,13 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 						abr_time, ospf->areas->count);
 				zlog_info("Reason(s) for SPF: %s", rbuf);
 			}
+
+			root->new_table = new_table;
+			root->new_rtrs = new_rtrs;
+
+			/* Send IGP Metric update to BGP */
+			ospf_orr_igp_metric_send_update(root, ospf->instance);
+
 		} /* ALL_LIST_ELEMENTS_RO() */
 	} /* FOREACH_AFI_SAFI() */
 }

@@ -172,6 +172,5 @@ extern void ospf_delete_discard_route(struct ospf *, struct route_table *,
 				      struct prefix_ipv4 *);
 extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
 				 struct ospf_route *);
-extern int ospf_route_exist_new_table(struct route_table *rt,
-				      struct prefix_ipv4 *prefix);
+
 #endif /* _ZEBRA_OSPF_ROUTE_H */

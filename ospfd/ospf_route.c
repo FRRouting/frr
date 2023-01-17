@@ -151,8 +151,8 @@ void ospf_route_table_free(struct route_table *rt)
    otherwise return 0. Since the ZEBRA-RIB does an implicit
    withdraw, it is not necessary to send a delete, an add later
    will act like an implicit delete. */
-int ospf_route_exist_new_table(struct route_table *rt,
-			       struct prefix_ipv4 *prefix)
+static int ospf_route_exist_new_table(struct route_table *rt,
+				      struct prefix_ipv4 *prefix)
 {
 	struct route_node *rn;
 
