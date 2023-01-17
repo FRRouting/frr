@@ -474,6 +474,8 @@ afi_t bgp_vty_afi_from_str(const char *afi_str)
 		afi = AFI_IP6;
 	else if (strmatch(afi_str, "l2vpn"))
 		afi = AFI_L2VPN;
+	else if (strmatch(afi_str, "link-state"))
+		afi = AFI_LINKSTATE;
 	return afi;
 }
 
@@ -493,6 +495,10 @@ int argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (afi)
 			*afi = AFI_L2VPN;
+	} else if (argv_find(argv, argc, "link-state", index)) {
+		ret = 1;
+		if (afi)
+			*afi = AFI_LINKSTATE;
 	}
 	return ret;
 }
@@ -548,6 +554,10 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_FLOWSPEC;
+	} else if (argv_find(argv, argc, "link-state", index)) {
+		ret = 1;
+		if (safi)
+			*safi = SAFI_LINKSTATE;
 	}
 	return ret;
 }
@@ -4242,6 +4252,7 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
       "ipv6-vpn|"
       "ipv6-labeled-unicast|"
       "ipv6-flowspec|"
+      "link-state|"
       "l2vpn-evpn>$afi_safi",
       NO_STR
       BGP_STR
@@ -4256,6 +4267,7 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
       "Activate ipv6-vpn for a peer by default\n"
       "Activate ipv6-labeled-unicast for a peer by default\n"
       "Activate ipv6-flowspec for a peer by default\n"
+      "Activate link-state for a peer by default\n"
       "Activate l2vpn-evpn for a peer by default\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -4265,8 +4277,13 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 	strlcpy(afi_safi_str, afi_safi, sizeof(afi_safi_str));
 	char *afi_str = strtok_r(afi_safi_str, "-", &afi_safi_str_tok);
 	char *safi_str = strtok_r(NULL, "-", &afi_safi_str_tok);
-	afi_t afi = bgp_vty_afi_from_str(afi_str);
+	afi_t afi;
 	safi_t safi;
+
+	if (strmatch(afi_safi, "link-state"))
+		afi = bgp_vty_afi_from_str("link-state");
+	else
+		afi = bgp_vty_afi_from_str(afi_str);
 
 	/*
 	 * Impossible situation but making coverity happy
@@ -4275,6 +4292,8 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 
 	if (strmatch(safi_str, "labeled"))
 		safi = bgp_vty_safi_from_str("labeled-unicast");
+	else if (strmatch(afi_safi, "link-state"))
+		safi = bgp_vty_safi_from_str("link-state");
 	else
 		safi = bgp_vty_safi_from_str(safi_str);
 
