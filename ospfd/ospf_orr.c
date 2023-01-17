@@ -325,7 +325,7 @@ void ospf_orr_igp_metric_send_update_delete(struct orr_root *root,
 	int ret;
 	uint8_t count = 0;
 	struct route_node *rn;
-	struct ospf_route *or;
+	struct ospf_route *or ;
 	struct orr_igp_metric_info msg;
 
 	if (!root->old_table)

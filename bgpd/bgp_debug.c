@@ -2386,7 +2386,7 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(cond_adv, COND_ADV)) {
 		vty_out(vty, "debug bgp conditional-advertisement\n");
-		write++;
+		write++
 	}
 
 	if (CONF_BGP_DEBUG(optimal_route_reflection, ORR)) {
