@@ -3592,6 +3592,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *new_select;
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
+	struct bgp *new_bgp_orig = NULL;
 	int debug = 0;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
@@ -3658,6 +3659,18 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		bgp_mplsvpn_handle_label_allocation(bgp, dest, new_select,
 						    old_select, afi);
 
+	if (safi == SAFI_MPLS_VPN && new_select && new_select->extra &&
+	    new_select->extra->vrfleak && new_select->extra->vrfleak->bgp_orig)
+		new_bgp_orig = new_select->extra->vrfleak->bgp_orig;
+	if (new_bgp_orig && CHECK_FLAG(new_bgp_orig->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_LABEL_TO_SEND)) {
+		zclient_send_vrf_label(zclient, new_bgp_orig->vrf_id, afi,
+				       new_bgp_orig->vpn_policy[afi]
+					       .tovpn_zebra_vrf_label_to_send,
+				       ZEBRA_LSP_BGP);
+		UNSET_FLAG(new_bgp_orig->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_TO_SEND);
+	}
 	if (debug)
 		zlog_debug(
 			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",

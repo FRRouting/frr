@@ -281,10 +281,8 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 		vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
 	}
 	if (direction == BGP_VPN_POLICY_DIR_TOVPN) {
-
 		if (bgp_vrf->vpn_policy[afi].tovpn_label !=
-			bgp_vrf->vpn_policy[afi]
-			       .tovpn_zebra_vrf_label_last_sent) {
+		    bgp_vrf->vpn_policy[afi].tovpn_zebra_vrf_label_to_send) {
 			vpn_leak_zebra_vrf_label_update(bgp_vrf, afi);
 		}
 
