@@ -1818,6 +1818,13 @@ Configuring Peers
    and is not displayed.
    The `bgp default l2vpn-evpn` form of the command is displayed.
 
+.. clicmd:: bgp default link-state
+
+   This command allows the user to specify that the link-state link-state
+   address family is turned on by default or not. This command defaults to off
+   and is not displayed.
+   The `bgp default link-state` form of the command is displayed.
+
 .. clicmd:: bgp default show-hostname
 
    This command shows the hostname of the peer in certain BGP commands
@@ -5217,6 +5224,7 @@ Show command json output:
 
 .. include:: flowspec.rst
 
+.. include:: bgp-linkstate.rst
 
 .. _bgp-fast-convergence:
 
