@@ -34,6 +34,11 @@ void isis_srv6_area_init(struct isis_area *area)
 
 	/* Pull defaults from the YANG module */
 	srv6db->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SRV6);
+
+	srv6db->config.max_seg_left_msd = SRV6_MAX_SEG_LEFT;
+	srv6db->config.max_end_pop_msd = SRV6_MAX_END_POP;
+	srv6db->config.max_h_encaps_msd = SRV6_MAX_H_ENCAPS;
+	srv6db->config.max_end_d_msd = SRV6_MAX_END_D;
 }
 
 /**
