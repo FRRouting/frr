@@ -30,7 +30,6 @@
 extern "C" {
 #endif
 
-#define NL_DEFAULT_ROUTE_METRIC 20
 
 /*
  * Additional protocol strings to push into routes
