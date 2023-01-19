@@ -511,7 +511,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 done:
 
 	if (ri->pref_src) {
-		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, &ri->pref_src,
+		nl_attr_put(&req->n, in_buf_len, RTA_PREFSRC, ri->pref_src,
 			    bytelen);
 	}
 
