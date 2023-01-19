@@ -4028,8 +4028,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			}
 		} break;
 		case SAFI_MPLS_VPN: {
-			if (attr->mp_nexthop_len
-				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+			if (attr->mp_nexthop_len ==
+			    BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 				stream_putc(s, 48);
 				stream_putl(s, 0); /* RD = 0, per RFC */
 				stream_putl(s, 0);
