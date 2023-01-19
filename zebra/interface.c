@@ -1436,7 +1436,8 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"%s: if %s(%u) zebra info pointer is NULL",
-					__func__, ifp->name, ifp->ifindex);
+					__func__, ifp ? ifp->name : "(null)",
+					ifp ? ifp->ifindex : ifindex);
 			return;
 		}
 		if (afi == AFI_IP) {
