@@ -18928,10 +18928,6 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_rib_stale_time_cmd);
 
-	/* "bgp inq-limit command */
-	install_element(BGP_NODE, &bgp_inq_limit_cmd);
-	install_element(BGP_NODE, &no_bgp_inq_limit_cmd);
-
 	/* "bgp graceful-shutdown" commands */
 	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
