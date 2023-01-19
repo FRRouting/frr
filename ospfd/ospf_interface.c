@@ -30,6 +30,7 @@
 #include "command.h"
 #include "stream.h"
 #include "log.h"
+#include "network.h"
 #include "zclient.h"
 #include "bfd.h"
 #include "ldp_sync.h"
@@ -274,7 +275,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	oi->t_ls_upd_event = NULL;
 	oi->t_ls_ack_direct = NULL;
 
-	oi->crypt_seqnum = time(NULL);
+	oi->crypt_seqnum = frr_sequence32_next();
 
 	ospf_opaque_type9_lsa_init(oi);
 
