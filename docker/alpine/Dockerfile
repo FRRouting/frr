@@ -1,5 +1,5 @@
 # This stage builds a dist tarball from the source
-FROM alpine:latest as source-builder
+FROM alpine:3.14 as source-builder
 
 RUN mkdir -p /src/alpine
 COPY alpine/APKBUILD.in /src/alpine
@@ -21,7 +21,7 @@ RUN cd /src \
 	&& make dist
 
 # This stage builds an apk from the dist tarball
-FROM alpine:latest as alpine-builder
+FROM alpine:3.14 as alpine-builder
 # Don't use nocache here so that abuild can use the cache
 RUN apk add \
 		--update-cache \
@@ -44,7 +44,7 @@ RUN cd /dist \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
-FROM alpine:latest
+FROM alpine:3.14
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \
