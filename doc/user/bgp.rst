@@ -3755,6 +3755,11 @@ The following command is available in ``config`` mode as well as in the
    Set the BGP Input Queue limit for all peers when messaging parsing. Increase
    this only if you have the memory to handle large queues of messages at once.
 
+.. clicmd:: bgp output-queue-limit (1-4294967295)
+
+   Set the BGP Output Queue limit for all peers when messaging parsing. Increase
+   this only if you have the memory to handle large queues of messages at once.
+
 .. _bgp-displaying-bgp-information:
 
 Displaying BGP Information
