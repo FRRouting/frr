@@ -2279,7 +2279,8 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	 * Let the kernel to decide with double lookup the real next-hop
 	 * interface when installing the route.
 	 */
-	if (src_bgp || bpi_ultimate->sub_type == BGP_ROUTE_STATIC) {
+	if (src_bgp || bpi_ultimate->sub_type == BGP_ROUTE_STATIC ||
+	    bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE) {
 		ifp = if_get_vrf_loopback(src_vrf->vrf_id);
 		if (ifp)
 			static_attr.nh_ifindex = ifp->ifindex;
