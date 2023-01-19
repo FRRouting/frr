@@ -5561,7 +5561,7 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"EVPN SVI macip Adv %s on VNI %d , currently %s",
+				"EVPN SVI macip Adv %s on VNI %d, currently %s",
 				advertise ? "enabled" : "disabled", vni,
 				advertise_svi_macip_enabled(zevpn)
 					? "enabled"
@@ -5637,7 +5637,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN subnet Adv %s on VNI %d , currently %s",
+		zlog_debug("EVPN subnet Adv %s on VNI %d, currently %s",
 			   advertise ? "enabled" : "disabled", vni,
 			   zevpn->advertise_subnet ? "enabled" : "disabled");
 
@@ -5726,10 +5726,10 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"EVPN gateway macip Adv %s on VNI %d , currently %s",
+				"EVPN gateway macip Adv %s on VNI %d, currently %s",
 				advertise ? "enabled" : "disabled", vni,
 				advertise_gw_macip_enabled(zevpn) ? "enabled"
-								 : "disabled");
+								  : "disabled");
 
 		if (zevpn->advertise_gw_macip == advertise)
 			return;
