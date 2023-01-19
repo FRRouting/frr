@@ -137,7 +137,7 @@ log_time(time_t t)
 	char		*buf;
 	static char	 tfbuf[TF_BUFS][TF_LEN];	/* ring buffer */
 	static int	 idx = 0;
-	unsigned int	 sec, min, hrs, day, week;
+	uint64_t	 sec, min, hrs, day, week;
 
 	buf = tfbuf[idx++];
 	if (idx == TF_BUFS)
@@ -155,11 +155,17 @@ log_time(time_t t)
 	week /= 7;
 
 	if (week > 0)
-		snprintf(buf, TF_LEN, "%02uw%01ud%02uh", week, day, hrs);
+		snprintfrr(buf, TF_LEN,
+			   "%02" PRIu64 "w%01" PRIu64 "d%02" PRIu64 "h", week,
+			   day, hrs);
 	else if (day > 0)
-		snprintf(buf, TF_LEN, "%01ud%02uh%02um", day, hrs, min);
+		snprintfrr(buf, TF_LEN,
+			   "%01" PRIu64 "d%02" PRIu64 "h%02" PRIu64 "m", day,
+			   hrs, min);
 	else
-		snprintf(buf, TF_LEN, "%02u:%02u:%02u", hrs, min, sec);
+		snprintfrr(buf, TF_LEN,
+			   "%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64, hrs, min,
+			   sec);
 
 	return (buf);
 }
