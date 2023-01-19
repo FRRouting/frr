@@ -52,8 +52,6 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_errors.h"
-#include "ospfd/ospf_te.h"
-#include "ospfd/ospf_orr.h"
 
 static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
 							struct prefix_ipv4 *p,
@@ -2645,13 +2643,6 @@ ospf_router_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
 
 		ospf_refresher_register_lsa(ospf, new);
 	}
-	/* For BGP ORR SPF should be calculated from specified root(s) */
-	else if (ospf->orr_spf_request) {
-		ospf_lsa_unlock(&area->router_lsa_rcvd);
-		area->router_lsa_rcvd = ospf_lsa_lock(new);
-		ospf_orr_root_update_rcvd_lsa(area->router_lsa_rcvd);
-	}
-
 	if (rt_recalc)
 		ospf_spf_calculate_schedule(ospf, SPF_FLAG_ROUTER_LSA_INSTALL);
 	return new;
@@ -2663,6 +2654,7 @@ static struct ospf_lsa *ospf_network_lsa_install(struct ospf *ospf,
 						 struct ospf_lsa *new,
 						 int rt_recalc)
 {
+
 	/* RFC 2328 Section 13.2 Router-LSAs and network-LSAs
 	   The entire routing table must be recalculated, starting with
 	   the shortest path calculations for each area (not just the
@@ -3411,82 +3403,6 @@ struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *area, uint32_t type,
 	return NULL;
 }
 
-struct ospf_lsa *ospf_lsa_lookup_by_adv_rid(struct ospf_area *area,
-					    uint32_t type, struct in_addr id)
-{
-	struct ospf_lsa *lsa = NULL;
-	struct route_node *rn = NULL;
-
-	switch (type) {
-	case OSPF_ROUTER_LSA:
-		for (rn = route_top(ROUTER_LSDB(area)); rn;
-		     rn = route_next(rn)) {
-			lsa = rn->info;
-			if (lsa) {
-				if (IPV4_ADDR_SAME(&lsa->data->adv_router,
-						   &id)) {
-					route_unlock_node(rn);
-					return lsa;
-				}
-			}
-		}
-		break;
-	case OSPF_NETWORK_LSA:
-	case OSPF_SUMMARY_LSA:
-	case OSPF_ASBR_SUMMARY_LSA:
-	case OSPF_AS_EXTERNAL_LSA:
-	case OSPF_AS_NSSA_LSA:
-	case OSPF_OPAQUE_LINK_LSA:
-	case OSPF_OPAQUE_AREA_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		/* Currently not used. */
-		break;
-	default:
-		break;
-	}
-
-	return NULL;
-}
-
-struct ospf_lsa *ospf_lsa_lookup_by_mpls_te_rid(struct ospf_area *area,
-						uint32_t type,
-						struct in_addr id)
-{
-	struct ospf_lsa *lsa = NULL;
-	struct route_node *rn = NULL;
-	struct lsa_header *lsah = NULL;
-	uint32_t lsid;
-	uint8_t opaque_type;
-	struct tlv_header *tlvh = NULL;
-	struct te_tlv_router_addr *router_addr = NULL;
-
-	if (type != OSPF_OPAQUE_AREA_LSA)
-		return NULL;
-
-	for (rn = route_top(OPAQUE_AREA_LSDB(area)); rn; rn = route_next(rn)) {
-		lsa = rn->info;
-		if (lsa) {
-			lsah = lsa->data;
-			lsid = ntohl(lsah->id.s_addr);
-			opaque_type = GET_OPAQUE_TYPE(lsid);
-			if (opaque_type != OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA)
-				continue;
-
-			tlvh = TLV_HDR_TOP(lsah);
-			if (!tlvh ||
-			    (ntohs(tlvh->type) != TE_TLV_ROUTER_ADDR) ||
-			    (ntohs(tlvh->length) != TE_LINK_SUBTLV_DEF_SIZE))
-				continue;
-			router_addr = (struct te_tlv_router_addr *)tlvh;
-			if (IPV4_ADDR_SAME(&router_addr->value, &id)) {
-				route_unlock_node(rn);
-				return lsa;
-			}
-		}
-	}
-	return NULL;
-}
-
 struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *area,
 					   struct lsa_header *lsah)
 {
@@ -3918,9 +3834,8 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 	struct as_external_lsa *al;
 	struct prefix_ipv4 p;
 
-	if (!CHECK_FLAG(lsa->flags, OSPF_LSA_SELF) && !IS_LSA_SELF(lsa) &&
-	    !IS_LSA_ORR(lsa))
-		return NULL;
+	assert(CHECK_FLAG(lsa->flags, OSPF_LSA_SELF));
+	assert(IS_LSA_SELF(lsa));
 	assert(lsa->lock > 0);
 
 	switch (lsa->data->type) {
@@ -3990,8 +3905,7 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	uint16_t index, current_index;
 
 	assert(lsa->lock > 0);
-	if (!IS_LSA_SELF(lsa) && !IS_LSA_ORR(lsa))
-		return;
+	assert(IS_LSA_SELF(lsa));
 
 	if (lsa->refresh_list < 0) {
 		int delay;
@@ -4040,8 +3954,7 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	assert(lsa->lock > 0);
-	if (!IS_LSA_SELF(lsa) || !IS_LSA_ORR(lsa))
-		return;
+	assert(IS_LSA_SELF(lsa));
 	if (lsa->refresh_list >= 0) {
 		struct list *refresh_list =
 			ospf->lsa_refresh_queue.qs[lsa->refresh_list];

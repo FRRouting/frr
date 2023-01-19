@@ -78,8 +78,6 @@
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
-#include "bgpd/bgp_orr.h"
-
 
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 	{
@@ -947,9 +945,6 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 		break;
 	case BGP_ERR_INVALID_INTERNAL_ROLE:
 		str = "External roles can be set only on eBGP session";
-		break;
-	case BGP_ERR_PEER_ORR_CONFIGURED:
-		str = "Deconfigure optimal-route-reflection on this peer first";
 		break;
 	}
 	if (str) {
@@ -6253,43 +6248,6 @@ ALIAS_HIDDEN(no_neighbor_route_reflector_client,
 	     "no neighbor <A.B.C.D|X:X::X:X|WORD> route-reflector-client",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Configure a neighbor as Route Reflector client\n")
-
-/* optimal-route-reflection Root Routers configuration */
-DEFPY (optimal_route_reflection,
-       optimal_route_reflection_cmd,
-       "[no$no] optimal-route-reflection WORD$orr_group [<A.B.C.D|X:X::X:X>$primary [<A.B.C.D|X:X::X:X>$secondary [<A.B.C.D|X:X::X:X>$tertiary]]]",
-       NO_STR
-       "Create ORR group and assign root router(s)\n"
-       "ORR Group name\n"
-       "Primary Root address\n"
-       "Primary Root IPv6 address\n"
-       "Secondary Root address\n"
-       "Secondary Root IPv6 address\n"
-       "Tertiary Root address\n"
-       "Tertiary Root IPv6 address\n")
-{
-	if (!no && !primary) {
-		vty_out(vty, "%% Specify Primary Root address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return bgp_afi_safi_orr_group_set_vty(
-		vty, bgp_node_afi(vty), bgp_node_safi(vty), orr_group,
-		primary_str, secondary_str, tertiary_str, !!no);
-}
-
-/* neighbor optimal-route-reflection group*/
-DEFPY (neighbor_optimal_route_reflection,
-       neighbor_optimal_route_reflection_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor optimal-route-reflection WORD$orr_group",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Apply ORR group configuration to the neighbor\n"
-       "ORR group name\n")
-{
-	return peer_orr_group_set_vty(vty, neighbor, bgp_node_afi(vty),
-				      bgp_node_safi(vty), orr_group, !!no);
-}
 
 /* neighbor route-server-client. */
 DEFUN (neighbor_route_server_client,
@@ -12742,11 +12700,6 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_RSERVER_CLIENT))
 			vty_out(vty, "  Route-Server Client\n");
-
-		if (peer_af_flag_check(p, afi, safi, PEER_FLAG_ORR_GROUP))
-			vty_out(vty, "  ORR group (configured) : %s\n",
-				p->orr_group_name[afi][safi]);
-
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
 			vty_out(vty,
 				"  Inbound soft reconfiguration allowed\n");
@@ -17780,10 +17733,6 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 					: "");
 		}
 	}
-
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP))
-		vty_out(vty, "  neighbor %s optimal-route-reflection %s\n",
-			addr, peer->orr_group_name[afi][safi]);
 }
 
 static void bgp_vpn_config_write(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -17889,9 +17838,6 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				vty_out(vty, "  import vrf %s\n", name);
 		}
 	}
-
-	/* Optimal Route Reflection */
-	bgp_config_write_orr(vty, bgp, afi, safi);
 
 	vty_endframe(vty, " exit-address-family\n");
 }
@@ -19457,34 +19403,6 @@ void bgp_vty_init(void)
 			&no_neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_reflector_client_cmd);
-
-	/* "optimal-route-reflection" commands */
-	install_element(BGP_IPV4_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV4M_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV4L_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV6_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV6M_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV6L_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_VPNV4_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_VPNV6_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_EVPN_NODE, &optimal_route_reflection_cmd);
-
-	/* "neighbor optimal-route-reflection" commands */
-	install_element(BGP_IPV4_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV4_NODE,
-			&neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV6_NODE,
-			&neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_optimal_route_reflection_cmd);
 
 	/* "neighbor route-server" commands.*/
 	install_element(BGP_NODE, &neighbor_route_server_client_hidden_cmd);

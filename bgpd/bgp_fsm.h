@@ -176,6 +176,4 @@ const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);
 const char *print_global_gr_mode(enum global_mode gl_mode);
 const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd);
 int bgp_peer_reg_with_nht(struct peer *peer);
-
-extern void bgp_peer_update_orr_active_roots(struct peer *peer);
 #endif /* _QUAGGA_BGP_FSM_H */

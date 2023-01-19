@@ -814,7 +814,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	THREAD_OFF(ospf->t_write);
 	THREAD_OFF(ospf->t_spf_calc);
 	THREAD_OFF(ospf->t_ase_calc);
-	THREAD_OFF(ospf->t_orr_calc);
 	THREAD_OFF(ospf->t_maxage);
 	THREAD_OFF(ospf->t_maxage_walker);
 	THREAD_OFF(ospf->t_abr_task);
