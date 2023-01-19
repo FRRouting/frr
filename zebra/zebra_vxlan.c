@@ -5554,6 +5554,7 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		struct zebra_if *zif = NULL;
 		struct zebra_l2info_vxlan zl2_info;
 		struct interface *vlan_if = NULL;
+		int old_advertise;
 
 		zevpn = zebra_evpn_lookup(vni);
 		if (!zevpn)
@@ -5567,13 +5568,14 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 					? "enabled"
 					: "disabled");
 
-		if (zevpn->advertise_svi_macip == advertise)
-			return;
+		old_advertise = advertise_svi_macip_enabled(zevpn);
 
 		/* Store flag even though SVI is not present.
 		 * Once SVI comes up triggers self MAC-IP route add.
 		 */
 		zevpn->advertise_svi_macip = advertise;
+		if (advertise_svi_macip_enabled(zevpn) == old_advertise)
+			return;
 
 		ifp = zevpn->vxlan_if;
 		if (!ifp)
@@ -5719,6 +5721,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 		struct zebra_l2info_vxlan zl2_info;
 		struct interface *vlan_if = NULL;
 		struct interface *vrr_if = NULL;
+		int old_advertise;
 
 		zevpn = zebra_evpn_lookup(vni);
 		if (!zevpn)
@@ -5731,10 +5734,11 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 				advertise_gw_macip_enabled(zevpn) ? "enabled"
 								  : "disabled");
 
-		if (zevpn->advertise_gw_macip == advertise)
-			return;
+		old_advertise = advertise_gw_macip_enabled(zevpn);
 
 		zevpn->advertise_gw_macip = advertise;
+		if (advertise_gw_macip_enabled(zevpn) == old_advertise)
+			return;
 
 		ifp = zevpn->vxlan_if;
 		if (!ifp)
