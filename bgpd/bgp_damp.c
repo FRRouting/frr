@@ -327,7 +327,8 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw, afi_t afi,
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
 
-static void bgp_damp_parameter_set(int hlife, int reuse, int sup, int maxsup,
+static void bgp_damp_parameter_set(time_t hlife, unsigned int reuse,
+				   unsigned int sup, time_t maxsup,
 				   struct bgp_damp_config *bdc)
 {
 	double reuse_max_ratio;
