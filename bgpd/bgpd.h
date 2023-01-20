@@ -176,8 +176,9 @@ struct bgp_master {
 	/* DSCP value for TCP sessions */
 	uint8_t tcp_dscp;
 
-#define BM_DEFAULT_INQ_LIMIT 10000
+#define BM_DEFAULT_Q_LIMIT 10000
 	uint32_t inq_limit;
+	uint32_t outq_limit;
 
 	QOBJ_FIELDS;
 };
