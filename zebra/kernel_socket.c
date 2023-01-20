@@ -1516,13 +1516,13 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 	return 0;
 }
 
-void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q handled_list;
+	struct dplane_ctx_list_head handled_list;
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
-	TAILQ_INIT(&handled_list);
+	dplane_ctx_q_init(&handled_list);
 
 	while (true) {
 		ctx = dplane_ctx_dequeue(ctx_list);
@@ -1642,7 +1642,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 		dplane_ctx_enqueue_tail(&handled_list, ctx);
 	}
 
-	TAILQ_INIT(ctx_list);
+	dplane_ctx_q_init(ctx_list);
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
