@@ -9,6 +9,7 @@ import functools
 import ipaddress
 import json
 import os
+import re
 import platform
 import socket
 import subprocess
@@ -131,6 +132,7 @@ DEBUG_LOGS = {
         "debug ospf6 zebra",
     ],
 }
+
 
 def is_string(value):
     try:
@@ -403,7 +405,7 @@ def kill_router_daemons(tgen, router, daemons, save_config=True):
         return errormsg
 
 
-def start_router_daemons(tgen, router, daemons):
+def start_router_daemons(tgen, router, daemons, plugins=None):
     """
     Daemons defined by user would be started
     * `tgen`  : topogen object
@@ -417,7 +419,7 @@ def start_router_daemons(tgen, router, daemons):
         router_list = tgen.routers()
 
         # Start daemons
-        res = router_list[router].startDaemons(daemons)
+        res = router_list[router].startDaemons(daemons, plugins)
 
     except Exception as e:
         errormsg = traceback.format_exc()
@@ -2317,6 +2319,7 @@ def create_route_maps(tgen, input_dict, build=False):
     # med: metric value advertised for AS
     # aspath: set AS path value
     # weight: weight for the route
+    # dscp: dscp for the routed traffic, int or code point name
     # community: standard community value to be attached
     # large_community: large community value to be attached
     # community_additive: if set to "additive", adds community/large-community
@@ -2349,6 +2352,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         "set": {
                             "locPrf": 150,
                             "metric": 30,
+                            "dscp": "af21",
                             "path": {
                                 "num": 20000,
                                 "action": "prepend",
@@ -2447,6 +2451,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         ipv6_data = set_data.setdefault("ipv6", {})
                         local_preference = set_data.setdefault("locPrf", None)
                         metric = set_data.setdefault("metric", None)
+                        dscp = set_data.setdefault("dscp", None)
                         metric_type = set_data.setdefault("metric-type", None)
                         as_path = set_data.setdefault("path", {})
                         weight = set_data.setdefault("weight", None)
@@ -2476,6 +2481,14 @@ def create_route_maps(tgen, input_dict, build=False):
                                 rmap_data.append("no set metric {}".format(metric))
                             else:
                                 rmap_data.append("set metric {}".format(metric))
+
+                        # Dscp
+                        if dscp:
+                            del_comm = set_data.setdefault("delete", None)
+                            if del_comm:
+                                rmap_data.append("no set dscp {}".format(dscp))
+                            else:
+                                rmap_data.append("set dscp {}".format(dscp))
 
                         # Origin
                         if origin:
@@ -4873,6 +4886,7 @@ class TcpDumpHelper(HostApplicationHelper):
                 matches,
             )
         return matches != 0, matches
+
 
 def verify_ip_nht(tgen, input_dict):
     """
