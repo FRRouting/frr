@@ -1907,8 +1907,9 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	/* A route MUST NOT ever be accepted back into its source VRF, even if
 	 * it carries one or more RTs that match that VRF.
 	 */
-	if (prd && memcmp(&prd->val, &to_bgp->vpn_policy[afi].tovpn_rd.val,
-			  ECOMMUNITY_SIZE) == 0) {
+	if (CHECK_FLAG(path_vpn->flags, BGP_PATH_ACCEPT_OWN) && prd &&
+	    memcmp(&prd->val, &to_bgp->vpn_policy[afi].tovpn_rd.val,
+		   ECOMMUNITY_SIZE) == 0) {
 		if (debug)
 			zlog_debug(
 				"%s: skipping import, match RD (%pRD) of src VRF (%s) and the prefix (%pFX)",
