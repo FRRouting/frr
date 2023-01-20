@@ -318,11 +318,14 @@ def check_show_bgp_vpn_prefix_not_found(router, ipversion, prefix, rd, label=Non
     return None
 
 
-def check_show_bgp_vpn_prefix_found(router, ipversion, prefix, rd):
+def check_show_bgp_vpn_prefix_found(router, ipversion, prefix, rd, label=None):
     output = json.loads(
         router.vtysh_cmd("show bgp {} vpn {} json".format(ipversion, prefix))
     )
-    expected = {rd: {"prefix": prefix}}
+    if label:
+        expected = {rd: {"prefix": prefix, "paths": [{"remoteLabel": label}]}}
+    else:
+        expected = {rd: {"prefix": prefix}}
     return topotest.json_cmp(output, expected)
 
 
@@ -874,6 +877,135 @@ def test_route_with_multiple_nexthop():
     logger.info("Disabling a recursive route for redistribution")
     tgen.gears["r1"].vtysh_cmd(
         "configure terminal\nvrf vrf1\nno ipv6 route 172:31::30/128 172:31::20\n",
+        isjson=False,
+    )
+
+
+def test_network_command():
+    """
+    Test with network declaration
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("Disabling redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno redistribute static\n",
+        isjson=False,
+    )
+    topotest.sleep(3, "Checking BGP VPNv6 labels on r2")
+    group1 = ["172:31::14/128", "172:31::15/128"]
+    for entry in group1:
+        dump = tgen.gears["r2"].vtysh_cmd(
+            "show bgp ipv6 vpn {} json".format(entry), isjson=True
+        )
+        for rd in dump:
+            assert False, "r2, {}, route distinguisher {} present".format(entry, rd)
+    logger.info("Use network command for host networks declared in static instead")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 172:31::14/128\n",
+        isjson=False,
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 172:31::15/128\n",
+        isjson=False,
+    )
+    topotest.sleep(3, "Checking BGP VPNv6 labels on r2")
+    # 172:31::12 uses LL as nexthop
+    # 172:31::16 uses GA as nexthop
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::12/128"])
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::15/128"])
+
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::14/128"])
+    mpls_table_check(tgen.gears["r1"], whitelist=["192:2::14"])
+
+    logger.info(" Remove network to 172:31::14/128")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno network 172:31::14/128\n",
+        isjson=False,
+    )
+    topotest.sleep(3, "Checking BGP VPNv6 labels on r2")
+    group1 = ["172:31::14/128"]
+    for entry in group1:
+        dump = tgen.gears["r2"].vtysh_cmd(
+            "show bgp ipv6 vpn {} json".format(entry), isjson=True
+        )
+        for rd in dump:
+            assert False, "r2, {}, route distinguisher {} present".format(entry, rd)
+    mpls_table_check(tgen.gears["r1"], blacklist=["192:2::14"])
+
+    # diagnostic
+    logger.info("Dumping label nexthop table")
+    tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 label-nexthop detail", isjson=False)
+    logger.info("Dumping bgp network import-check-table")
+    tgen.gears["r1"].vtysh_cmd(
+        "show bgp vrf vrf1 import-check-table detail", isjson=False
+    )
+
+    logger.info("Restoring 172:31::14 prefix on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 172:31::14/128\n",
+        isjson=False,
+    )
+
+
+def test_network_without_import_check_command():
+    """
+    Test with network declaration under 'no bgp network import-check'
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("Disabling redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno redistribute static\n",
+        isjson=False,
+    )
+    logger.info("Disabling network import check")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\nno bgp network import-check\n",
+        isjson=False,
+    )
+    logger.info("Declaring networks")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 33:33::/64\nnetwork 172:31::15/128\n",
+        isjson=False,
+    )
+    topotest.sleep(3, "Checking BGP VPNv4 labels on r2 for 33:33::/64")
+    # Check r2 received vpnv4 update with 172.31.0.30
+    test_func = functools.partial(
+        check_show_bgp_vpn_prefix_found,
+        tgen.gears["r2"],
+        "ipv6",
+        "33:33::/64",
+        "444:1",
+        label=222,
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "r2, vpnv6 update 33:33::/64 with label 222 not found"
+
+    logger.info(
+        "Checking BGP VPNv6 labels on r2 distinct for 33:33::/64 and 172:31::15/128"
+    )
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::15/128"])
+    bgp_vpnv6_table_check(
+        tgen.gears["r2"],
+        group=["192:168::255/112", "192:2::/64", "172:31::30/128", "33:33::/64"],
+    )
+
+    logger.info("Restoring previous configuration without network")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno network 33:33::/64\nno network 172:31::15/128\n",
+        isjson=False,
+    )
+    logger.info("Enabling network import check")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\nbgp network import-check\n",
+        isjson=False,
+    )
+    logger.info("Restoring redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nredistribute static\n",
         isjson=False,
     )
 
