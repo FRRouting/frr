@@ -301,6 +301,23 @@ def ltemplateVersionCheck(
     return ret
 
 
+def not_debian10():
+    tgen = get_topogen()
+    router = tgen.gears["r1"]
+
+    uname = router.cmd("uname -a")
+
+    if "Debian" not in uname:
+        return True
+
+    debian_version = router.cmd("cat /etc/debian_version")
+
+    if "10." in debian_version:
+        return "Skipping Debian 10 because of https://bugzilla.redhat.com/show_bug.cgi?id=1813599 bug"
+
+    return True
+
+
 # for testing
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
