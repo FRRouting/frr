@@ -735,6 +735,18 @@ def version_cmp(v1, v2):
     return 0
 
 
+def interface_to_ifindex(node, iface):
+    """
+    Gets the interface index using its name. Returns None on failure.
+    """
+    interfaces = json.loads(node.cmd_raises("ip -j link show"))
+    for interface in interfaces:
+        if interface["ifname"] == iface:
+            return int(interface["ifindex"])
+
+    return None
+
+
 def interface_set_status(node, ifacename, ifaceaction=False, vrf_name=None):
     if ifaceaction:
         str_ifaceaction = "no shutdown"
@@ -1797,7 +1809,7 @@ class Router(Node):
             log = file.read()
         return log
 
-    def startRouterDaemons(self, daemons=None, tgen=None):
+    def startRouterDaemons(self, daemons=None, tgen=None, plugins=None):
         "Starts FRR daemons for this router."
 
         asan_abort = bool(g_pytest_config.option.asan_abort)
@@ -2196,6 +2208,13 @@ class Router(Node):
             start_daemon("mgmtd")
             while "mgmtd" in daemons_list:
                 daemons_list.remove("mgmtd")
+
+        # XXX: handle plugins properly - per daemon
+        bgpd_plugins = plugins.get("bgpd") if plugins else None
+        if "bgpd" in daemons_list and bgpd_plugins:
+            start_daemon("bgpd", bgpd_plugins)
+            while "bgpd" in daemons_list:
+                daemons_list.remove("bgpd")
 
         # Start Zebra after mgmtd
         if "zebra" in daemons_list:

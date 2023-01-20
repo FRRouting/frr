@@ -349,7 +349,7 @@ class Topogen(object):
         self.peern += 1
         return self.gears[name]
 
-    def add_host(self, name, ip, defaultRoute):
+    def add_host(self, name, ip, defaultRoute, **kwargs):
         """
         Adds a new host to the topology. This function has the following
         parameters:
@@ -361,7 +361,9 @@ class Topogen(object):
         if name in self.gears:
             raise KeyError("host already exists")
 
-        self.gears[name] = TopoHost(self, name, ip=ip, defaultRoute=defaultRoute)
+        self.gears[name] = TopoHost(
+            self, name, ip=ip, defaultRoute=defaultRoute, **kwargs
+        )
         self.peern += 1
         return self.gears[name]
 
@@ -926,7 +928,7 @@ class TopoRouter(TopoGear):
         self.logger.debug("stopping (no assert)")
         return self.net.stopRouter(False)
 
-    def startDaemons(self, daemons):
+    def startDaemons(self, daemons, plugins=None):
         """
         Start Daemons: to start specific daemon(user defined daemon only)
         * Start daemons (e.g. FRR)
@@ -934,7 +936,7 @@ class TopoRouter(TopoGear):
         """
         self.logger.debug("starting")
         nrouter = self.net
-        result = nrouter.startRouterDaemons(daemons)
+        result = nrouter.startRouterDaemons(daemons, plugins=plugins)
 
         if daemons is None:
             daemons = nrouter.daemons.keys()

@@ -1,0 +1,383 @@
+{
+    "address_types": ["ipv4"],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 30,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 30,
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32,
+        "ipv6": "2001:DB8:F::",
+        "v6mask": 128
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "30",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                { "redist_type": "static" },
+                                { "redist_type": "connected" }
+                            ],
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "bgp_community_lists": [
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_1",
+                    "value": "60:1"
+                },
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_2",
+                    "value": "60:2"
+                },
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_3",
+                    "value": "60:3"
+                },
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_4",
+                    "value": "60:4"
+                },
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_5",
+                    "value": "60:5"
+                },
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_6",
+                    "value": "60:6"
+                },
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "comm_list_7",
+                    "value": "60:7"
+                }
+            ],
+            "route_maps": {
+                "QPPB": [
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_1" } },
+                        "set": { "dscp": "10" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_2" } },
+                        "set": { "dscp": "20" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_3" } },
+                        "set": { "dscp": "30" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_4" } },
+                        "set": { "dscp": "40" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_5" } },
+                        "set": { "dscp": "50" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_6" } },
+                        "set": { "dscp": "15" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "community_list": { "id": "comm_list_7" } },
+                        "set": { "dscp": "25" }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_1"} },
+                        "set": { "dscp": "63" }
+                    },
+                    { "action": "permit" }
+                ]
+            },
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1": [
+                        {
+                            "seqid": "69",
+                            "network": "10.69.0.0/30",
+                            "action": "permit"
+                        }
+                    ]
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "10",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                { "redist_type": "static" },
+                                { "redist_type": "connected" }
+                            ],
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2": {
+                                            "route_maps": [{
+                                                "name": "send_community",
+                                                "direction": "out"
+                                            }]
+                                        }
+                                    }
+                                },
+                                "r3": {
+                                    "dest_link": {
+                                        "r2": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "route_maps": {
+                "send_community": [
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_1"} },
+                        "set": {
+                            "community": {
+                                "num": "60:1",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_2"} },
+                        "set": {
+                            "community": {
+                                "num": "60:2",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_3"} },
+                        "set": {
+                            "community": {
+                                "num": "60:3",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_4"} },
+                        "set": {
+                            "community": {
+                                "num": "60:4",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_5"} },
+                        "set": {
+                            "community": {
+                                "num": "60:5",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_6"} },
+                        "set": {
+                            "community": {
+                                "num": "60:6",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    {
+                        "action": "permit",
+                        "match": { "ipv4": {"prefix_lists": "pf_list_7"} },
+                        "set": {
+                            "community": {
+                                "num": "60:7",
+                                "action": "additive"
+                            }
+                        }
+                    },
+                    { "action": "permit" }
+                ]
+            },
+            "prefix_lists": {
+                "ipv4": {
+                    "pf_list_1": [{
+                        "network": "10.61.0.1/32",
+                        "action": "permit"
+                    }],
+                    "pf_list_2": [{
+                        "network": "10.62.0.1/32",
+                        "action": "permit"
+                    }],
+                    "pf_list_3": [{
+                        "network": "10.63.0.1/32",
+                        "action": "permit"
+                    }],
+                    "pf_list_4": [{
+                        "network": "10.64.0.1/32",
+                        "action": "permit"
+                    }],
+                    "pf_list_5": [{
+                        "network": "10.65.0.1/32",
+                        "action": "permit"
+                    }],
+                    "pf_list_6": [{
+                        "network": "10.66.0.1/32",
+                        "action": "permit"
+                    }],
+                    "pf_list_7": [{
+                        "network": "10.67.0.1/32",
+                        "action": "permit"
+                    }]
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "10",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                { "redist_type": "static" },
+                                { "redist_type": "connected" }
+                            ],
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r3": {}
+                                    }
+                                },
+                                "r4": {
+                                    "dest_link": {
+                                        "r3": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "r4": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "60",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                { "redist_type": "static" },
+                                { "redist_type": "connected" }
+                            ],
+                            "neighbor": {
+                                "r3": {
+                                    "dest_link": {
+                                        "r4": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
