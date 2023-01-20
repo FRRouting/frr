@@ -89,7 +89,7 @@ struct fpm_nl_ctx {
 	 * When a FPM server connection becomes a bottleneck, we must keep the
 	 * data plane contexts until we get a chance to process them.
 	 */
-	struct dplane_ctx_q ctxqueue;
+	struct dplane_ctx_list_head ctxqueue;
 	pthread_mutex_t ctxqueue_mutex;
 
 	/* data plane events. */
@@ -1473,7 +1473,7 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 	fnc->socket = -1;
 	fnc->disabled = true;
 	fnc->prov = prov;
-	TAILQ_INIT(&fnc->ctxqueue);
+	dplane_ctx_q_init(&fnc->ctxqueue);
 	pthread_mutex_init(&fnc->ctxqueue_mutex, NULL);
 
 	/* Set default values. */

@@ -72,7 +72,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
  */
 static pthread_mutex_t dplane_mutex;
 static struct thread *t_dplane;
-static struct dplane_ctx_q rib_dplane_q;
+static struct dplane_ctx_list_head rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
@@ -4613,13 +4613,13 @@ static void handle_pw_result(struct zebra_dplane_ctx *ctx)
 static void rib_process_dplane_results(struct thread *thread)
 {
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q ctxlist;
+	struct dplane_ctx_list_head ctxlist;
 	bool shut_p = false;
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
 	do {
-		TAILQ_INIT(&ctxlist);
+		dplane_ctx_q_init(&ctxlist);
 
 		/* Take lock controlling queue of results */
 		frr_with_mutex (&dplane_mutex) {
@@ -4788,7 +4788,7 @@ static void rib_process_dplane_results(struct thread *thread)
  * the dataplane pthread. We enqueue the results here for processing by
  * the main thread later.
  */
-static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
+static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 {
 	/* Take lock controlling queue of results */
 	frr_with_mutex (&dplane_mutex) {
@@ -4833,7 +4833,7 @@ void rib_init(void)
 
 	/* Init dataplane, and register for results */
 	pthread_mutex_init(&dplane_mutex, NULL);
-	TAILQ_INIT(&rib_dplane_q);
+	dplane_ctx_q_init(&rib_dplane_q);
 	zebra_dplane_init(rib_dplane_results);
 }
 
