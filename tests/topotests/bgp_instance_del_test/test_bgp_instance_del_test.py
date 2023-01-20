@@ -30,6 +30,14 @@ def test_check_linux_vrf():
     ltemplateTest("scripts/check_linux_vrf.py", False, CliOnFail, CheckFunc)
 
 
+def test_check_linux_vrf_ip_vrf_exec():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    # CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = "not_debian10()"
+    ltemplateTest("scripts/check_linux_vrf_ip_vrf_exec.py", False, CliOnFail, CheckFunc)
+
+
 def test_adjacencies():
     CliOnFail = None
     # For debugging, uncomment the next line
@@ -69,6 +77,16 @@ def test_check_linux_mpls():
     # uncomment next line to start cli *before* script is run
     # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'
     ltemplateTest("scripts/check_linux_mpls.py", False, CliOnFail, CheckFunc)
+
+
+def test_check_linux_mpls_ip_vrf_exec():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    # CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = "not_debian10()"
+    ltemplateTest(
+        "scripts/check_linux_mpls_ip_vrf_exec.py", False, CliOnFail, CheckFunc
+    )
 
 
 def test_del_bgp_instances():

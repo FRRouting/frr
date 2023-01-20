@@ -25,6 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.ltemplate import not_debian10
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -184,18 +185,21 @@ def test_vrf_route_leak_test1():
 
     r1 = tgen.gears["r1"]
 
-    result, output = check_bgp_ping_own_ip(r1)
-    assert (
-        result
-    ), "Ping from VRF fails - check https://bugzilla.kernel.org/show_bug.cgi?id=203483\n:{}".format(
-        output
-    )
+    if not_debian10() == True:
+        result, output = check_bgp_ping_own_ip(r1)
+        assert (
+            result
+        ), "Ping from VRF fails - check https://bugzilla.kernel.org/show_bug.cgi?id=203483\n:{}".format(
+            output
+        )
 
     for vrf in ["EVA", "DONNA"]:
         result, diff = check_bgp_rib(r1, vrf, True)
         assert result, "BGP RIB VRF {} check failed:\n{}".format(vrf, diff)
         result, output = check_bgp_fib(r1, vrf, True)
         assert result, "BGP FIB VRF {} check failed:\n{}".format(vrf, output)
+        if not_debian10() != True:
+            continue
         result, output = check_bgp_ping(r1, vrf)
         assert result, "Ping from VRF {} failed:\n{}".format(vrf, output)
 
@@ -220,6 +224,8 @@ def test_vrf_route_leak_test2():
         assert result, "BGP RIB VRF {} check failed:\n{}".format(vrf, diff)
         result, output = check_bgp_fib(r1, vrf, True)
         assert result, "BGP FIB VRF {} check failed:\n{}".format(vrf, output)
+        if not_debian10() != True:
+            continue
         result, output = check_bgp_ping(r1, vrf)
         assert result, "Ping from VRF {} failed:\n{}".format(vrf, output)
 
@@ -262,6 +268,8 @@ def test_vrf_route_leak_test4():
         assert result, "BGP RIB VRF {} check failed:\n{}".format(vrf, diff)
         result, output = check_bgp_fib(r1, vrf, True)
         assert result, "BGP FIB VRF {} check failed:\n{}".format(vrf, output)
+        if not_debian10() != True:
+            continue
         result, output = check_bgp_ping(r1, vrf)
         assert result, "Ping from VRF {} failed:\n{}".format(vrf, output)
 
