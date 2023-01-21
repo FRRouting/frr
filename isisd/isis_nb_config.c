@@ -2765,7 +2765,7 @@ int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->pad_hellos = yang_dnode_get_bool(args->dnode, NULL);
+	circuit->pad_hellos = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
 }

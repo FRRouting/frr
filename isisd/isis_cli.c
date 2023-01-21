@@ -2239,15 +2239,22 @@ void cli_show_ip_isis_threeway_shake(struct vty *vty,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
  */
-DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd, "[no] isis hello padding",
-      NO_STR
-      "IS-IS routing protocol\n"
-      "Add padding to IS-IS hello packets\n"
-      "Pad hello packets\n")
+DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd,
+	   "[no] isis hello padding [sometimes]$padding_type",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   "Type of padding for IS-IS hello packets\n"
+	   "Pad hello packets\n"
+	   "Add padding to hello packets during adjacency formation only.\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
-			      NB_OP_MODIFY, no ? "false" : "true");
-
+	if (no) {
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+				      NB_OP_MODIFY, "disabled");
+	} else {
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+				      NB_OP_MODIFY,
+				      padding_type ? padding_type : "always");
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2255,10 +2262,13 @@ void cli_show_ip_isis_hello_padding(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	int hello_padding_type = yang_dnode_get_enum(dnode, NULL);
+	if (hello_padding_type == ISIS_HELLO_PADDING_DISABLED)
 		vty_out(vty, " no");
-
-	vty_out(vty, " isis hello padding\n");
+	vty_out(vty, " isis hello padding");
+	if (hello_padding_type == ISIS_HELLO_PADDING_SOMETIMES)
+		vty_out(vty, " sometimes");
+	vty_out(vty, "\n");
 }
 
 /*
