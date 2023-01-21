@@ -63,6 +63,15 @@ struct isis_circuit_arg {
 	struct isis_circuit *circuit;
 };
 
+/*
+ * Hello padding types
+ */
+enum isis_hello_padding {
+	ISIS_HELLO_PADDING_ALWAYS,
+	ISIS_HELLO_PADDING_DISABLED,
+	ISIS_HELLO_PADDING_SOMETIMES
+};
+
 struct isis_circuit {
 	enum isis_circuit_state state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
@@ -100,7 +109,7 @@ struct isis_circuit {
 		struct isis_p2p_info p2p;
 	} u;
 	uint8_t priority[ISIS_LEVELS]; /* l1/2 IS configured priority */
-	int pad_hellos;     /* add padding to Hello PDUs ? */
+	enum isis_hello_padding pad_hellos; /* type of Hello PDUs padding */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 	uint64_t lsp_error_counter;
