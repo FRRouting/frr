@@ -206,6 +206,10 @@ ISIS interface
 
    Add padding to IS-IS hello packets.
 
+.. clicmd:: isis hello padding sometimes
+
+   Add padding to IS-IS hello packets during adjacency formation only.
+
 .. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
 
    Set Hello interval in seconds globally, for an area (level-1) or a domain
