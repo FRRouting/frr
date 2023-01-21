@@ -572,6 +572,98 @@ def test_isis_advertise_passive_only():
     assert result is True, result
 
 
+def test_isis_hello_padding_sometimes():
+    """Check that IIH packets is only padded when adjacency is still being formed
+    when isis hello padding sometimes is configured
+    """
+    tgen = get_topogen()
+    net = get_topogen().net
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing isis hello padding sometimes behavior")
+    r3 = tgen.gears["r3"]
+
+    # Reduce hello-multiplier to make the adjacency go down faster.
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth0
+            isis hello-multiplier 2
+        """
+    )
+
+    r1 = tgen.gears["r1"]
+    cmd_output = r1.vtysh_cmd(
+        """
+        configure
+        interface r1-eth0
+            isis hello padding sometimes
+        end
+        debug isis adj-packets
+        """
+    )
+    result = check_last_iih_packet_for_padding(r1, expect_padding=False)
+    assert result is True, result
+
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth0
+            shutdown
+        """
+    )
+    result = check_last_iih_packet_for_padding(r1, expect_padding=True)
+    assert result is True, result
+
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth0
+            no shutdown
+        """
+    )
+    result = check_last_iih_packet_for_padding(r1, expect_padding=False)
+    assert result is True, result
+
+
+@retry(retry_timeout=5)
+def check_last_iih_packet_for_padding(router, expect_padding):
+    logfilename = "{}/{}".format(router.gearlogdir, "isisd.log")
+    last_hello_packet_line = None
+    with open(logfilename, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if re.search("Sending .+? IIH", line):
+                last_hello_packet_line = line
+
+    if last_hello_packet_line is None:
+        return "Expected IIH packet in {}, but no packet found".format(logfilename)
+
+    interface_name, packet_length = re.search(
+        r"Sending .+ IIH on (.+), length (\d+)", last_hello_packet_line
+    ).group(1, 2)
+    packet_length = int(packet_length)
+    interface_output = router.vtysh_cmd("show interface {} json".format(interface_name))
+    interface_json = json.loads(interface_output)
+    padded_packet_length = interface_json[interface_name]["mtu"] - 3
+    if expect_padding:
+        if packet_length == padded_packet_length:
+            return True
+        return (
+            "Expected padded packet with length {}, got packet with length {}".format(
+                padded_packet_length, packet_length
+            )
+        )
+    if packet_length < padded_packet_length:
+        return True
+    return "Expected unpadded packet with length less than {}, got packet with length {}".format(
+        padded_packet_length, packet_length
+    )
+
+
 @retry(retry_timeout=5)
 def check_advertised_prefixes(router, lsp_id, expected_prefixes):
     output = router.vtysh_cmd("show isis database detail {}".format(lsp_id))
