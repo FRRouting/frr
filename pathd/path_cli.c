@@ -762,6 +762,8 @@ DEFPY(srte_policy_candidate_exp,
       "List of SIDs\n"
       "Name of the Segment List\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
@@ -769,8 +771,10 @@ DEFPY(srte_policy_candidate_exp,
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "explicit");
 	nb_cli_enqueue_change(vty, "./segment-list-name", NB_OP_MODIFY,
 			      list_name);
-	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
-				    preference_str);
+
+	snprintf(xpath, sizeof(xpath), "./candidate-path[preference='%s']",
+		 preference_str);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY_NOSH(
@@ -785,6 +789,7 @@ DEFPY_NOSH(
 	"Dynamic Path\n")
 {
 	char xpath[XPATH_MAXLEN + XPATH_CANDIDATE_BASELEN];
+	char xpath2[XPATH_MAXLEN];
 	int ret;
 
 	snprintf(xpath, sizeof(xpath), "%s/candidate-path[preference='%s']",
@@ -795,8 +800,10 @@ DEFPY_NOSH(
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "dynamic");
-	ret = nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
-				   preference_str);
+
+	snprintf(xpath2, sizeof(xpath2), "./candidate-path[preference='%s']",
+		 preference_str);
+	ret = nb_cli_apply_changes(vty, xpath2);
 
 	if (ret == CMD_SUCCESS)
 		VTY_PUSH_XPATH(SR_CANDIDATE_DYN_NODE, xpath);
@@ -972,10 +979,13 @@ DEFPY(srte_policy_no_candidate,
       "Name of the Segment List\n"
       "Dynamic Path\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
-				    preference_str);
+	snprintf(xpath, sizeof(xpath), "./candidate-path[preference='%s']",
+		 preference_str);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY(srte_candidate_objfun,

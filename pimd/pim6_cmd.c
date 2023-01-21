@@ -603,10 +603,13 @@ DEFPY (interface_ipv6_mld,
        IPV6_STR
        IFACE_MLD_STR)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 "frr-routing:ipv6");
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY (interface_no_ipv6_mld,
@@ -618,6 +621,7 @@ DEFPY (interface_no_ipv6_mld,
 {
 	const struct lyd_node *pim_enable_dnode;
 	char pim_if_xpath[XPATH_MAXLEN + 64];
+	char xpath[XPATH_MAXLEN];
 
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
 		 "%s/frr-pim:pim/address-family[address-family='%s']",
@@ -639,8 +643,9 @@ DEFPY (interface_no_ipv6_mld,
 					      "false");
 	}
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 "frr-routing:ipv6");
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY (interface_ipv6_mld_version,
@@ -651,11 +656,14 @@ DEFPY (interface_ipv6_mld_version,
        "MLD version\n"
        "MLD version number\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
 	nb_cli_enqueue_change(vty, "./mld-version", NB_OP_MODIFY, version_str);
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 "frr-routing:ipv6");
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY (interface_no_ipv6_mld_version,
@@ -667,10 +675,13 @@ DEFPY (interface_no_ipv6_mld_version,
        "MLD version\n"
        "MLD version number\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./mld-version", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 "frr-routing:ipv6");
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY (interface_ipv6_mld_query_interval,
@@ -682,6 +693,7 @@ DEFPY (interface_ipv6_mld_query_interval,
        "Query interval in seconds\n")
 {
 	const struct lyd_node *pim_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -697,8 +709,9 @@ DEFPY (interface_ipv6_mld_query_interval,
 	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
 			      q_interval_str);
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 "frr-routing:ipv6");
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY (interface_no_ipv6_mld_query_interval,
@@ -710,10 +723,13 @@ DEFPY (interface_no_ipv6_mld_query_interval,
       IFACE_MLD_QUERY_INTERVAL_STR
       IGNORED_IN_NO_STR)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 "frr-routing:ipv6");
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 DEFPY (ipv6_mld_group_watermark,

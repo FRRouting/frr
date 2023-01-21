@@ -240,6 +240,8 @@ DEFPY_YANG (ripng_offset_list,
        "Metric value\n"
        "Interface to match\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, acl);
@@ -248,9 +250,10 @@ DEFPY_YANG (ripng_offset_list,
 	} else
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(
-		vty, "./offset-list[interface='%s'][direction='%s']",
-		ifname ? ifname : "*", direction);
+	snprintf(xpath, sizeof(xpath),
+		 "./offset-list[interface='%s'][direction='%s']",
+		 ifname ? ifname : "*", direction);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_ripng_offset_list(struct vty *vty, const struct lyd_node *dnode,
@@ -307,6 +310,8 @@ DEFPY_YANG (ripng_redistribute,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./route-map",
@@ -318,8 +323,9 @@ DEFPY_YANG (ripng_redistribute,
 	} else
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./redistribute[protocol='%s']",
-				    protocol);
+	snprintf(xpath, sizeof(xpath), "./redistribute[protocol='%s']",
+		 protocol);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_ripng_redistribute(struct vty *vty, const struct lyd_node *dnode,

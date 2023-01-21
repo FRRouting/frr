@@ -228,6 +228,8 @@ DEFPY_YANG (rip_distance_source,
        "IP source prefix\n"
        "Access list name\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
@@ -237,8 +239,9 @@ DEFPY_YANG (rip_distance_source,
 	} else
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./distance/source[prefix='%s']",
-				    prefix_str);
+	snprintf(xpath, sizeof(xpath), "./distance/source[prefix='%s']",
+		 prefix_str);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_rip_distance_source(struct vty *vty, const struct lyd_node *dnode,
@@ -334,6 +337,8 @@ DEFPY_YANG (rip_offset_list,
        "Metric value\n"
        "Interface to match\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, acl);
@@ -342,9 +347,11 @@ DEFPY_YANG (rip_offset_list,
 	} else
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(
-		vty, "./offset-list[interface='%s'][direction='%s']",
-		ifname ? ifname : "*", direction);
+	snprintf(xpath, sizeof(xpath),
+		 "./offset-list[interface='%s'][direction='%s']",
+		 ifname ? ifname : "*", direction);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_rip_offset_list(struct vty *vty, const struct lyd_node *dnode,
@@ -446,6 +453,8 @@ DEFPY_YANG (rip_redistribute,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./route-map",
@@ -457,8 +466,9 @@ DEFPY_YANG (rip_redistribute,
 	} else
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./redistribute[protocol='%s']",
-				    protocol);
+	snprintf(xpath, sizeof(xpath), "./redistribute[protocol='%s']",
+		 protocol);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_rip_redistribute(struct vty *vty, const struct lyd_node *dnode,

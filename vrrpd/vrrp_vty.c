@@ -60,6 +60,7 @@ DEFPY_YANG(vrrp_vrid,
       VRRP_VERSION_STR)
 {
 	char valbuf[20];
+	char xpath[XPATH_MAXLEN];
 
 	snprintf(valbuf, sizeof(valbuf), "%ld", version ? version : vd.version);
 
@@ -70,7 +71,8 @@ DEFPY_YANG(vrrp_vrid,
 		nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, valbuf);
 	}
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath), VRRP_XPATH_ENTRY, vrid);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_vrrp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -95,10 +97,13 @@ DEFPY_YANG(vrrp_shutdown,
       VRRP_VRID_STR
       "Force VRRP router into administrative shutdown\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./shutdown", NB_OP_MODIFY,
 			      no ? "false" : "true");
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath), VRRP_XPATH_ENTRY, vrid);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode,
@@ -121,9 +126,13 @@ DEFPY_YANG(vrrp_priority,
       VRRP_PRIORITY_STR
       "Priority value\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, priority_str);
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 /*
@@ -138,9 +147,12 @@ DEFPY_YANG(no_vrrp_priority,
       VRRP_PRIORITY_STR
       "Priority value\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, NULL);
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_priority(struct vty *vty, const struct lyd_node *dnode,
@@ -163,6 +175,7 @@ DEFPY_YANG(vrrp_advertisement_interval,
       "Advertisement interval in milliseconds; must be multiple of 10\n")
 {
 	char val[20];
+	char xpath[XPATH_MAXLEN];
 
 	/* all internal computations are in centiseconds */
 	advertisement_interval /= CS2MS;
@@ -170,7 +183,8 @@ DEFPY_YANG(vrrp_advertisement_interval,
 	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
 			      val);
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 /*
@@ -183,10 +197,14 @@ DEFPY_YANG(no_vrrp_advertisement_interval,
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
       "Advertisement interval in milliseconds; must be multiple of 10\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
 			      NULL);
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath), VRRP_XPATH_ENTRY, vrid);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_advertisement_interval(struct vty *vty, const struct lyd_node *dnode,
@@ -212,10 +230,13 @@ DEFPY_YANG(vrrp_ip,
       "Add IPv4 address\n"
       VRRP_IP_STR)
 {
+	char xpath[XPATH_MAXLEN];
 	int op = no ? NB_OP_DESTROY : NB_OP_CREATE;
+
 	nb_cli_enqueue_change(vty, "./v4/virtual-address", op, ip_str);
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_ip(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -241,9 +262,12 @@ DEFPY_YANG(vrrp_ip6,
       VRRP_IP_STR)
 {
 	int op = no ? NB_OP_DESTROY : NB_OP_CREATE;
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./v6/virtual-address", op, ipv6_str);
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_ipv6(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -266,10 +290,14 @@ DEFPY_YANG(vrrp_preempt,
       VRRP_VRID_STR
       "Preempt mode\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./preempt", NB_OP_MODIFY,
 			      no ? "false" : "true");
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_preempt(struct vty *vty, const struct lyd_node *dnode,
@@ -293,10 +321,14 @@ DEFPY_YANG(vrrp_checksum_with_ipv4_pseudoheader,
       VRRP_VRID_STR
       "Checksum mode in VRRPv3\n")
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./checksum-with-ipv4-pseudoheader",
 			      NB_OP_MODIFY, no ? "false" : "true");
 
-	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+	snprintf(xpath, sizeof(xpath),  VRRP_XPATH_ENTRY, vrid);
+
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 void cli_show_checksum_with_ipv4_pseudoheader(struct vty *vty,

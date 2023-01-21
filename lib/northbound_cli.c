@@ -251,34 +251,13 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+int nb_cli_apply_changes(struct vty *vty, const char *xpath_base)
 {
-	char xpath_base[XPATH_MAXLEN] = {};
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
 	return nb_cli_apply_changes_internal(vty, xpath_base, false);
 }
 
-int nb_cli_apply_changes_clear_pending(struct vty *vty,
-				       const char *xpath_base_fmt, ...)
+int nb_cli_apply_changes_clear_pending(struct vty *vty, const char *xpath_base)
 {
-	char xpath_base[XPATH_MAXLEN] = {};
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
 	return nb_cli_apply_changes_internal(vty, xpath_base, true);
 }
 

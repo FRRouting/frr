@@ -350,14 +350,19 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 
 int pim_process_ip_pim_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (enable)
 		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
 				      "true");
@@ -365,14 +370,16 @@ int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
 		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
 				      "false");
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_ip_pim_cmd(struct vty *vty)
 {
 	const struct lyd_node *mld_enable_dnode;
 	char mld_if_xpath[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
 
 	int printed =
 		snprintf(mld_if_xpath, sizeof(mld_if_xpath),
@@ -402,31 +409,39 @@ int pim_process_no_ip_pim_cmd(struct vty *vty)
 					      "false");
 	}
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
 			      drpriority_str);
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_ip_pim_drprio_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
 				 const char *hold_str)
 {
 	const struct lyd_node *mld_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	mld_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -447,21 +462,27 @@ int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
 		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
 				      hold_str);
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_ip_pim_hello_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no)
 {
+	char xpath[XPATH_MAXLEN];
+
 	if (no)
 		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
 				      "false");
@@ -473,64 +494,77 @@ int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no)
 				      "true");
 	}
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ip_pim_boundary_oil_cmd(struct vty *vty, const char *oil)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
 			      oil);
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY,
 			      NULL);
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY, interface);
 
 	if (!source_str) {
 		char buf[SRCDEST2STR_BUFFER];
 
 		inet_ntop(AF_INET6, &in6addr_any, buf, sizeof(buf));
-		return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
-					    FRR_PIM_AF_XPATH_VAL, buf,
-					    group_str);
+
+		snprintf(xpath, sizeof(xpath), FRR_PIM_MROUTE_XPATH,
+			 FRR_PIM_AF_XPATH_VAL, buf, group_str);
+		return nb_cli_apply_changes(vty, xpath);
 	}
 
-	return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL, source_str,
-				    group_str);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_MROUTE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL, source_str, group_str);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 				 const char *group_str, const char *source_str)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	if (!source_str) {
 		char buf[SRCDEST2STR_BUFFER];
 
 		inet_ntop(AF_INET6, &in6addr_any, buf, sizeof(buf));
-		return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
-					    FRR_PIM_AF_XPATH_VAL, buf,
-					    group_str);
+
+		snprintf(xpath, sizeof(xpath), FRR_PIM_MROUTE_XPATH,
+			 FRR_PIM_AF_XPATH_VAL, buf, group_str);
+		return nb_cli_apply_changes(vty, xpath);
 	}
 
-	return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL, source_str,
-				    group_str);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_MROUTE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL, source_str, group_str);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
@@ -3332,6 +3366,7 @@ int gm_process_query_max_response_time_cmd(struct vty *vty,
 					   const char *qmrt_str)
 {
 	const struct lyd_node *pim_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -3347,22 +3382,28 @@ int gm_process_query_max_response_time_cmd(struct vty *vty,
 
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
 			      qmrt_str);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int gm_process_no_query_max_response_time_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
 			      NULL);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int gm_process_last_member_query_count_cmd(struct vty *vty,
 					   const char *lmqc_str)
 {
 	const struct lyd_node *pim_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -3377,22 +3418,29 @@ int gm_process_last_member_query_count_cmd(struct vty *vty,
 
 	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
 			      lmqc_str);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int gm_process_no_last_member_query_count_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
 			      NULL);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int gm_process_last_member_query_interval_cmd(struct vty *vty,
 					      const char *lmqi_str)
 {
 	const struct lyd_node *pim_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -3407,16 +3455,22 @@ int gm_process_last_member_query_interval_cmd(struct vty *vty,
 
 	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
 			      lmqi_str);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./last-member-query-interval",
 			      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
@@ -3443,6 +3497,7 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 int pim_process_bsm_cmd(struct vty *vty)
 {
 	const struct lyd_node *gm_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	gm_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					  FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -3458,21 +3513,25 @@ int pim_process_bsm_cmd(struct vty *vty)
 
 	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_bsm_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
 	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_unicast_bsm_cmd(struct vty *vty)
 {
 	const struct lyd_node *gm_enable_dnode;
+	char xpath[XPATH_MAXLEN];
 
 	gm_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					  FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -3488,16 +3547,20 @@ int pim_process_unicast_bsm_cmd(struct vty *vty)
 
 	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 int pim_process_no_unicast_bsm_cmd(struct vty *vty)
 {
+	char xpath[XPATH_MAXLEN];
+
 	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    FRR_PIM_AF_XPATH_VAL);
+	snprintf(xpath, sizeof(xpath), FRR_PIM_INTERFACE_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, xpath);
 }
 
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
