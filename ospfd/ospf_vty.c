@@ -11117,7 +11117,8 @@ static int show_ip_ospf_border_routers_common(struct vty *vty,
 			vty_out(vty, "No OSPF routing information exist\n");
 		else {
 			json_object_free(json_router);
-			json_object_free(json_vrf);
+			if (use_vrf)
+				json_object_free(json_vrf);
 		}
 		return CMD_SUCCESS;
 	}
