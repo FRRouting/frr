@@ -1053,7 +1053,10 @@ def verify_ospf_rib(
                     cmd = "{} json".format(cmd)
 
                     ospf_rib_json = run_frr_cmd(rnode, cmd, isjson=True)
-
+                    try:
+                        ospf_rib_json = ospf_rib_json["routes"]
+                    except KeyError:
+                        pass
                     # Verifying output dictionary ospf_rib_json is not empty
                     if bool(ospf_rib_json) is False:
                         errormsg = (
