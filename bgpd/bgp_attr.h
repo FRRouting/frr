@@ -415,7 +415,7 @@ extern void attr_show_all(struct vty *vty);
 extern unsigned long int attr_count(void);
 extern unsigned long int attr_unknown_count(void);
 extern void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
-					   const char *discard_attrs);
+					   const char *discard_attrs, bool set);
 
 /* Cluster list prototypes. */
 extern bool cluster_loop_check(struct cluster_list *cluster,
