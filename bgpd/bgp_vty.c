@@ -8787,7 +8787,34 @@ DEFPY(neighbor_path_attribute_discard,
 	if (idx)
 		discard_attrs = argv_concat(argv, argc, idx);
 
-	bgp_path_attribute_discard_vty(vty, peer, discard_attrs);
+	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_neighbor_path_attribute_discard,
+      no_neighbor_path_attribute_discard_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard [(1-255)]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Drop specified attributes from incoming UPDATE messages\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	const char *discard_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		discard_attrs = argv[idx]->arg;
+
+	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, false);
 
 	return CMD_SUCCESS;
 }
@@ -19541,6 +19568,7 @@ void bgp_vty_init(void)
 
 	/* "neighbor path-attribute discard" commands. */
 	install_element(BGP_NODE, &neighbor_path_attribute_discard_cmd);
+	install_element(BGP_NODE, &no_neighbor_path_attribute_discard_cmd);
 
 	/* "neighbor passive" commands. */
 	install_element(BGP_NODE, &neighbor_passive_cmd);

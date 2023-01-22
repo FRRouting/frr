@@ -5097,18 +5097,29 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 }
 
 void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
-				    const char *discard_attrs)
+				    const char *discard_attrs, bool set)
 {
 	int i, num_attributes;
 	char **attributes;
 	afi_t afi;
 	safi_t safi;
 
+
+	/* If `no` command specified without arbitrary attributes,
+	 * then flush all.
+	 */
+	if (!discard_attrs) {
+		for (i = 0; i < BGP_ATTR_MAX; i++)
+			peer->discard_attrs[i] = false;
+		goto discard_soft_clear;
+	}
+
 	if (discard_attrs) {
 		frrstr_split(discard_attrs, " ", &attributes, &num_attributes);
 
-		for (i = 0; i < BGP_ATTR_MAX; i++)
-			peer->discard_attrs[i] = false;
+		if (set)
+			for (i = 0; i < BGP_ATTR_MAX; i++)
+				peer->discard_attrs[i] = false;
 
 		for (i = 0; i < num_attributes; i++) {
 			uint8_t attr_num = strtoul(attributes[i], NULL, 10);
@@ -5142,10 +5153,10 @@ void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 				continue;
 			}
 
-			peer->discard_attrs[attr_num] = true;
+			peer->discard_attrs[attr_num] = set;
 		}
 		XFREE(MTYPE_TMP, attributes);
-
+	discard_soft_clear:
 		/* Configuring path attributes to be discarded will trigger
 		 * an inbound Route Refresh to ensure that the routing table
 		 * is up to date.
