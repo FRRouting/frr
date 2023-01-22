@@ -7387,9 +7387,12 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if ((ospf == NULL) || !ospf->oi_running) {
-				vty_out(vty,
-					"%% OSPF is not enabled in vrf %s\n",
-					vrf_name);
+				if (uj)
+					vty_json(vty, json);
+				else
+					vty_out(vty,
+						"%% OSPF is not enabled in vrf %s\n",
+						vrf_name);
 				return CMD_SUCCESS;
 			}
 
@@ -7400,7 +7403,11 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF is not enabled on vrf default\n");
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% OSPF is not enabled on vrf default\n");
 			return CMD_SUCCESS;
 		}
 
@@ -11273,7 +11280,12 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
 	if (ospf->new_table == NULL) {
-		vty_out(vty, "No OSPF routing information exist\n");
+		if (json) {
+			if (use_vrf)
+				json_object_free(json_vrf);
+		} else {
+			vty_out(vty, "No OSPF routing information exist\n");
+		}
 		return CMD_SUCCESS;
 	}
 
