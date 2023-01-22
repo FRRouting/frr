@@ -1711,6 +1711,11 @@ Configuring Peers
    If you do not want specific attributes, you can drop them using this command, and
    let the BGP proceed by ignoring those attributes.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> path-attribute treat-as-withdraw (1-255)...
+
+   Received BGP UPDATES that contain specified path attributes are treat-as-withdraw. If
+   there is an existing prefix in the BGP routing table, it will be removed.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> graceful-shutdown
 
    Mark all routes from this neighbor as less preferred by setting ``graceful-shutdown``
