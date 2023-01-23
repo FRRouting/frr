@@ -378,6 +378,10 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		/* Fill in the labels */
 		llen = bgp_nlri_get_labels(peer, pnt, psize, &label);
 		p.prefixlen = prefixlen - BSIZE(llen);
+		if (attr) {
+			attr->num_labels = 1;
+			attr->label_tbl[0] = label;
+		}
 
 		/* There needs to be at least one label */
 		if (prefixlen < 24) {
@@ -440,7 +444,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
 				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				   NULL, &label, 1, 0, NULL);
+				   NULL, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,

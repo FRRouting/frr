@@ -4510,12 +4510,14 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		num_labels++;
 		STREAM_GET(&label[1], pkt, BGP_LABEL_BYTES);
 	}
+	if (attr)
+		bgp_labels_set(attr, label, num_labels, true, false);
 
 	/* Process the route. */
 	if (attr)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			   &label[0], num_labels, 0, &evpn);
+			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, 0,
+			   &evpn);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label[0],
@@ -4605,8 +4607,8 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	/* Process the route. */
 	if (attr)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
-			   0, 0, NULL);
+			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, 0,
+			   NULL);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
@@ -4702,6 +4704,8 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	memset(&label, 0, sizeof(label));
 	memcpy(&label, pfx, BGP_LABEL_BYTES);
 
+	if (attr)
+		bgp_labels_set(attr, &label, 1, true, false);
 	/*
 	 * If in future, we are required to access additional fields,
 	 * we MUST increment pfx by BGP_LABEL_BYTES in before reading the next
@@ -4739,8 +4743,8 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	/* Process the route. */
 	if (attr && is_valid_update)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			   &label, 1, 0, &evpn);
+			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, 0,
+			   &evpn);
 	else {
 		if (!is_valid_update) {
 			char attr_str[BUFSIZ] = {0};
