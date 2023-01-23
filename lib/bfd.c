@@ -129,8 +129,6 @@ struct bfd_sessions_global {
 	struct thread_master *tm;
 	/** Pointer to zebra client data structure. */
 	struct zclient *zc;
-	/** Zebra next hop tracking (NHT) client. */
-	struct zclient *nht_zclient;
 
 	/** Debugging state. */
 	bool debugging;
@@ -147,10 +145,6 @@ static const struct in6_addr i6a_zero;
 /*
  * Prototypes
  */
-static void bfd_nht_zclient_connect(struct thread *thread);
-
-static void bfd_nht_zclient_connected(struct zclient *zclient);
-static int bfd_nht_update(ZAPI_CALLBACK_ARGS);
 
 static void bfd_source_cache_get(struct bfd_session_params *session);
 static void bfd_source_cache_put(struct bfd_session_params *session);
@@ -158,15 +152,14 @@ static void bfd_source_cache_put(struct bfd_session_params *session);
 static inline void
 bfd_source_cache_register(const struct bfd_source_cache *source)
 {
-	zclient_send_rnh(bsglobal.nht_zclient, ZEBRA_NEXTHOP_REGISTER,
-			 &source->address, SAFI_UNICAST, false, false,
-			 source->vrf_id);
+	zclient_send_rnh(bsglobal.zc, ZEBRA_NEXTHOP_REGISTER, &source->address,
+			 SAFI_UNICAST, false, false, source->vrf_id);
 }
 
 static inline void
 bfd_source_cache_unregister(const struct bfd_source_cache *source)
 {
-	zclient_send_rnh(bsglobal.nht_zclient, ZEBRA_NEXTHOP_UNREGISTER,
+	zclient_send_rnh(bsglobal.zc, ZEBRA_NEXTHOP_UNREGISTER,
 			 &source->address, SAFI_UNICAST, false, false,
 			 source->vrf_id);
 }
@@ -1074,20 +1067,11 @@ static int bfd_protocol_integration_finish(void)
 	if (!SLIST_EMPTY(&bsglobal.source_list))
 		zlog_warn("BFD integration source cache not empty");
 
-	zclient_stop(bsglobal.nht_zclient);
-	zclient_free(bsglobal.nht_zclient);
-
 	return 0;
 }
 
-static zclient_handler *const bfd_nht_handlers[] = {
-	[ZEBRA_NEXTHOP_UPDATE] = bfd_nht_update,
-};
-
 void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 {
-	struct zclient_options bfd_nht_options = zclient_options_default;
-
 	/* Initialize data structure. */
 	TAILQ_INIT(&bsglobal.bsplist);
 	SLIST_INIT(&bsglobal.source_list);
@@ -1101,16 +1085,6 @@ void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zc, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
-
-	/* Start NHT client (for automatic source decisions). */
-	bsglobal.nht_zclient =
-		zclient_new(tm, &bfd_nht_options, bfd_nht_handlers,
-			    array_size(bfd_nht_handlers));
-	bsglobal.nht_zclient->sock = -1;
-	bsglobal.nht_zclient->privs = zc->privs;
-	bsglobal.nht_zclient->zebra_connected = bfd_nht_zclient_connected;
-	thread_add_timer(tm, bfd_nht_zclient_connect, bsglobal.nht_zclient, 1,
-			 &bsglobal.nht_zclient->t_connect);
 
 	hook_register(frr_fini, bfd_protocol_integration_finish);
 }
@@ -1378,27 +1352,7 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 	return false;
 }
 
-static void bfd_nht_zclient_connect(struct thread *thread)
-{
-	struct zclient *zclient = THREAD_ARG(thread);
-
-	if (bsglobal.debugging)
-		zlog_debug("BFD NHT zclient connection attempt");
-
-	if (zclient_start(zclient) == -1) {
-		if (bsglobal.debugging)
-			zlog_debug("BFD NHT zclient connection failed");
-
-		thread_add_timer(bsglobal.tm, bfd_nht_zclient_connect, zclient,
-				 3, &zclient->t_connect);
-		return;
-	}
-
-	if (bsglobal.debugging)
-		zlog_debug("BFD NHT zclient connection succeeded");
-}
-
-static void bfd_nht_zclient_connected(struct zclient *zclient)
+void bfd_nht_zclient_connected(struct zclient *zclient)
 {
 	struct bfd_source_cache *source;
 
@@ -1409,28 +1363,19 @@ static void bfd_nht_zclient_connected(struct zclient *zclient)
 		bfd_source_cache_register(source);
 }
 
-static int bfd_nht_update(ZAPI_CALLBACK_ARGS)
+int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
 {
 	struct bfd_source_cache *source;
-	struct zapi_route route;
-	struct prefix match;
-
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &route)) {
-		zlog_warn("BFD NHT update decode failure");
-		return 0;
-	}
-	if (cmd != ZEBRA_NEXTHOP_UPDATE)
-		return 0;
 
 	if (bsglobal.debugging)
-		zlog_debug("BFD NHT update for %pFX", &route.prefix);
+		zlog_debug("BFD NHT update for %pFX", &route->prefix);
 
 	SLIST_FOREACH (source, &bsglobal.source_list, entry) {
-		if (source->vrf_id != route.vrf_id)
+		if (source->vrf_id != route->vrf_id)
 			continue;
-		if (!prefix_same(&match, &source->address))
+		if (!prefix_same(match, &source->address))
 			continue;
-		if (bfd_source_cache_update(source, &route))
+		if (bfd_source_cache_update(source, route))
 			bfd_source_cache_update_sessions(source);
 	}
 
