@@ -223,7 +223,7 @@ static inline bool is_selfroute(int proto)
 	return false;
 }
 
-static inline int zebra2proto(int proto)
+int zebra2proto(int proto)
 {
 	switch (proto) {
 	case ZEBRA_ROUTE_BABEL:

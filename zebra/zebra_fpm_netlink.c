@@ -253,14 +253,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
  */
 static uint8_t netlink_proto_from_route_type(int type)
 {
-	switch (type) {
-	case ZEBRA_ROUTE_KERNEL:
-	case ZEBRA_ROUTE_CONNECT:
-		return RTPROT_KERNEL;
-
-	default:
-		return RTPROT_ZEBRA;
-	}
+	return zebra2proto(type);
 }
 
 /*
