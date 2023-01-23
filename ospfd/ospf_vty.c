@@ -7314,16 +7314,26 @@ static int show_ip_ospf_database_type_adv_router_common(struct vty *vty,
 		type = OSPF_OPAQUE_AREA_LSA;
 	else if (strncmp(argv[arg_base + idx_type]->text, "opaque-as", 9) == 0)
 		type = OSPF_OPAQUE_AS_LSA;
-	else
+	else {
+		if (uj) {
+			if (use_vrf)
+				json_object_free(json_vrf);
+		}
 		return CMD_WARNING;
+	}
 
 	/* `show ip ospf database LSA adv-router ADV_ROUTER'. */
 	if (strncmp(argv[arg_base + 5]->text, "s", 1) == 0)
 		adv_router = ospf->router_id;
 	else {
 		ret = inet_aton(argv[arg_base + 6]->arg, &adv_router);
-		if (!ret)
+		if (!ret) {
+			if (uj) {
+				if (use_vrf)
+					json_object_free(json_vrf);
+			}
 			return CMD_WARNING;
+		}
 	}
 
 	show_lsa_detail_adv_router(vty, ospf, type, &adv_router, json_vrf);
