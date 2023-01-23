@@ -56,6 +56,8 @@ user_RSTFILES = \
 EXTRA_DIST += \
 	$(user_RSTFILES) \
 	doc/user/Useful_Sysctl_Settings.md \
+	doc/user/_static/overrides.css \
+	doc/user/_static/overrides.js \
 	# end
 
 USERBUILD = doc/user/_build

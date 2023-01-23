@@ -79,6 +79,13 @@ apps:
             - network
             - network-bind
             - network-control
+    pim6d:
+        command: bin/pim6d-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     ldpd:
         command: bin/ldpd-service
         daemon: simple
@@ -195,6 +202,12 @@ apps:
             - network-control
     pimd-debug:
         command: sbin/pimd -f $SNAP_DATA/pimd.conf --pid_file $SNAP_DATA/pimd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pim6d-debug:
+        command: sbin/pim6d -f $SNAP_DATA/pim6d.conf --pid_file $SNAP_DATA/pim6d.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
         plugs:
             - network
             - network-bind
@@ -360,6 +373,7 @@ parts:
             - --enable-user=root
             - --enable-group=root
             - --enable-pimd
+            - --enable-pim6d
             - --enable-ldpd
             - --enable-fpm
             - --enable-protobuf
@@ -382,6 +396,7 @@ parts:
             ospf6d.conf.default: etc/frr/ospf6d.conf.default
             ospfd.conf.default: etc/frr/ospfd.conf.default
             pimd.conf.default: etc/frr/pimd.conf.default
+            pim6d.conf.default: etc/frr/pim6d.conf.default
             ripd.conf.default: etc/frr/ripd.conf.default
             ripngd.conf.default: etc/frr/ripngd.conf.default
             ldpd.conf.default: etc/frr/ldpd.conf.default
@@ -417,4 +432,3 @@ parts:
             README.usage.md: doc/README.usage.md
             README.snap_build.md: doc/README.snap_build.md
             extra_version_info.txt: doc/extra_version_info.txt
-

@@ -793,7 +793,32 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Nov 17 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Jan 09 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Mon Jan 09 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.2
+- bfdd: fix ipv4 socket source selection
+- bgpd : fix crash for `set ipv4/ipv6 vpn next-hop` command
+- bgpd: stop overriding nexthop when bgp unnumbered
+- bgpd: fix aggregated routes are withdrawn abnormally
+- bgpd: fix a few memory leaks
+- build: enable pim6d by default
+- build: fix sed regex in lua macro
+- doc : add freebsd 13 build docs
+- isisd: fix memory leak
+- lib:  disable vrf before terminating interfaces
+- lib: do not log `echo ping` commands from watchfrr
+- ospf6d:  fix infinite loop when adding asbr route
+- ospfd: fix rfc conformance test cases 25.19 and 27.6
+- ospfd: fix typo and report the P2P link name in the warning
+- ospfd: report the router IP with opaque capability mismatch
+- ospfd: fix memory leak
+- pimd: consistently ignore prefix list mask len
+- staticd: do not crash when modifying an existing static route with color
+- zebra: free all memory associated ctx->u.iptable.interface_name_list
+- zebra: fix tracepoint changes for lttng
+- zebra: free up route map name memory on vrf deletion event
+- zebra: use `mpls enable`, not `mpls` when generating a config
+- tools: Ignore agentx command for frr-reload.py
 
 * Thu Nov 17 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.1
 - zebra: reuse netinet/if_ether.h to avoid redefinition of struct ethhdr

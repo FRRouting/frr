@@ -629,7 +629,8 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 
 			pim_addr_to_prefix(&src, sg.src);
 
-			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
+			if (prefix_list_apply_ext(plist, NULL, &src, true) ==
+			    PREFIX_DENY) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
 						       src_addr);
 				if (PIM_DEBUG_PIM_PACKETS)

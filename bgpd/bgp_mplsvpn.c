@@ -1195,7 +1195,8 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	} else {
 		if (!CHECK_FLAG(from_bgp->af_flags[afi][SAFI_UNICAST],
 				BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
-			if (afi == AFI_IP) {
+			if (afi == AFI_IP &&
+			    !BGP_ATTR_NEXTHOP_AFI_IP6(path_vrf->attr)) {
 				/*
 				 * For ipv4, copy to multiprotocol
 				 * nexthop field

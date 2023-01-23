@@ -222,14 +222,16 @@ static void zserv_write(struct thread *thread)
 	struct stream *msg;
 	uint32_t wcmd = 0;
 	struct stream_fifo *cache;
+	uint64_t time_now = monotime(NULL);
 
 	/* If we have any data pending, try to flush it first */
 	switch (buffer_flush_all(client->wb, client->sock)) {
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		atomic_store_explicit(&client->last_write_time, monotime(NULL),
-				      memory_order_relaxed);
+		frr_with_mutex (&client->stats_mtx) {
+			client->last_write_time = time_now;
+		}
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return;
 	case BUFFER_EMPTY:
@@ -263,20 +265,19 @@ static void zserv_write(struct thread *thread)
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		atomic_store_explicit(&client->last_write_time, monotime(NULL),
-				      memory_order_relaxed);
+		frr_with_mutex (&client->stats_mtx) {
+			client->last_write_time = time_now;
+		}
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return;
 	case BUFFER_EMPTY:
 		break;
 	}
 
-	atomic_store_explicit(&client->last_write_cmd, wcmd,
-			      memory_order_relaxed);
-
-	atomic_store_explicit(&client->last_write_time, monotime(NULL),
-			      memory_order_relaxed);
-
+	frr_with_mutex (&client->stats_mtx) {
+		client->last_write_cmd = wcmd;
+		client->last_write_time = time_now;
+	}
 	return;
 
 zwrite_fail:
@@ -423,11 +424,13 @@ static void zserv_read(struct thread *thread)
 	}
 
 	if (p2p < p2p_orig) {
+		uint64_t time_now = monotime(NULL);
+
 		/* update session statistics */
-		atomic_store_explicit(&client->last_read_time, monotime(NULL),
-				      memory_order_relaxed);
-		atomic_store_explicit(&client->last_read_cmd, hdr.command,
-				      memory_order_relaxed);
+		frr_with_mutex (&client->stats_mtx) {
+			client->last_read_time = time_now;
+			client->last_read_cmd = hdr.command;
+		}
 
 		/* publish read packets on client's input queue */
 		frr_with_mutex (&client->ibuf_mtx) {
@@ -621,6 +624,7 @@ static void zserv_client_free(struct zserv *client)
 		buffer_free(client->wb);
 
 	/* Free buffer mutexes */
+	pthread_mutex_destroy(&client->stats_mtx);
 	pthread_mutex_destroy(&client->obuf_mtx);
 	pthread_mutex_destroy(&client->ibuf_mtx);
 
@@ -741,13 +745,12 @@ static struct zserv *zserv_client_create(int sock)
 	client->obuf_fifo = stream_fifo_new();
 	client->ibuf_work = stream_new(stream_size);
 	client->obuf_work = stream_new(stream_size);
+	client->connect_time = monotime(NULL);
 	pthread_mutex_init(&client->ibuf_mtx, NULL);
 	pthread_mutex_init(&client->obuf_mtx, NULL);
+	pthread_mutex_init(&client->stats_mtx, NULL);
 	client->wb = buffer_new(0);
 	TAILQ_INIT(&(client->gr_info_queue));
-
-	atomic_store_explicit(&client->connect_time, monotime(NULL),
-			      memory_order_relaxed);
 
 	/* Initialize flags */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
@@ -1009,8 +1012,14 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "------------------------ \n");
 	vty_out(vty, "FD: %d \n", client->sock);
 
-	connect_time = (time_t) atomic_load_explicit(&client->connect_time,
-						     memory_order_relaxed);
+	frr_with_mutex (&client->stats_mtx) {
+		connect_time = client->connect_time;
+		last_read_time = client->last_read_time;
+		last_write_time = client->last_write_time;
+
+		last_read_cmd = client->last_read_cmd;
+		last_write_cmd = client->last_write_cmd;
+	}
 
 	vty_out(vty, "Connect Time: %s \n",
 		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF));
@@ -1029,16 +1038,6 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 
 	vty_out(vty, "Client will %sbe notified about it's routes status\n",
 		client->notify_owner ? "" : "Not ");
-
-	last_read_time = (time_t)atomic_load_explicit(&client->last_read_time,
-						      memory_order_relaxed);
-	last_write_time = (time_t)atomic_load_explicit(&client->last_write_time,
-						       memory_order_relaxed);
-
-	last_read_cmd = atomic_load_explicit(&client->last_read_cmd,
-					     memory_order_relaxed);
-	last_write_cmd = atomic_load_explicit(&client->last_write_cmd,
-					      memory_order_relaxed);
 
 	vty_out(vty, "Last Msg Rx Time: %s \n",
 		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF));
@@ -1173,12 +1172,11 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 	char wbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
 
-	connect_time = (time_t)atomic_load_explicit(&client->connect_time,
-						    memory_order_relaxed);
-	last_read_time = (time_t)atomic_load_explicit(&client->last_read_time,
-						      memory_order_relaxed);
-	last_write_time = (time_t)atomic_load_explicit(&client->last_write_time,
-						       memory_order_relaxed);
+	frr_with_mutex (&client->stats_mtx) {
+		connect_time = client->connect_time;
+		last_read_time = client->last_read_time;
+		last_write_time = client->last_write_time;
+	}
 
 	if (client->instance || client->session_id)
 		snprintfrr(client_string, sizeof(client_string), "%s[%u:%u]",

@@ -89,6 +89,25 @@ static int ospf_network_match_iface(const struct connected *,
 				    const struct prefix *);
 static void ospf_finish_final(struct ospf *);
 
+/* API to clean refresh queues and LSAs */
+static void ospf_free_refresh_queue(struct ospf *ospf)
+{
+	for (int i = 0; i < OSPF_LSA_REFRESHER_SLOTS; i++) {
+		struct list *list = ospf->lsa_refresh_queue.qs[i];
+		struct listnode *node, *nnode;
+		struct ospf_lsa *lsa;
+
+		if (list) {
+			for (ALL_LIST_ELEMENTS(list, node, nnode, lsa)) {
+				listnode_delete(list, lsa);
+				lsa->refresh_list = -1;
+				ospf_lsa_unlock(&lsa);
+			}
+			list_delete(&list);
+			ospf->lsa_refresh_queue.qs[i] = NULL;
+		}
+	}
+}
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
 
 int p_spaces_compare_func(const struct p_space *a, const struct p_space *b)
@@ -893,6 +912,8 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	route_table_finish(ospf->rt_aggr_tbl);
 
+
+	ospf_free_refresh_queue(ospf);
 
 	list_delete(&ospf->areas);
 	list_delete(&ospf->oi_write_q);

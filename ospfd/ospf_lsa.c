@@ -426,8 +426,10 @@ struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi)
 
 	/* PtoP link must have only 1 neighbor. */
 	if (ospf_nbr_count(oi, 0) > 1)
-		flog_warn(EC_OSPF_PTP_NEIGHBOR,
-			  "Point-to-Point link has more than 1 neighobrs.");
+		flog_warn(
+			EC_OSPF_PTP_NEIGHBOR,
+			"Point-to-Point link on interface %s has more than 1 neighbor.",
+			oi->ifp->name);
 
 	return nbr;
 }
@@ -3564,6 +3566,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	struct ospf_interface *oi;
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
+	struct ospf_if_params *oip;
 	int need_to_flush_ase = 0;
 
 	ospf->inst_shutdown = 1;
@@ -3596,6 +3599,12 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 				ospf_lsa_flush_area(oi->network_lsa_self, area);
 				ospf_lsa_unlock(&oi->network_lsa_self);
 				oi->network_lsa_self = NULL;
+
+				oip = ospf_lookup_if_params(
+					oi->ifp, oi->address->u.prefix4);
+				if (oip)
+					oip->network_lsa_seqnum = htonl(
+						OSPF_INVALID_SEQUENCE_NUMBER);
 			}
 
 			if (oi->type != OSPF_IFTYPE_VIRTUALLINK

@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [8.4.1], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [8.4.2], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -636,7 +636,7 @@ AC_ARG_ENABLE([isisd],
 AC_ARG_ENABLE([pimd],
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
 AC_ARG_ENABLE([pim6d],
-  AS_HELP_STRING([--enable-pim6d], [build pim6d]))
+  AS_HELP_STRING([--disable-pim6d], [do not build pim6d]))
 AC_ARG_ENABLE([pbrd],
   AS_HELP_STRING([--disable-pbrd], [do not build pbrd]))
 AC_ARG_ENABLE([sharpd],
@@ -1753,7 +1753,7 @@ AS_IF([test "$enable_pimd" != "no"], [
   AC_DEFINE([HAVE_PIMD], [1], [pimd])
 ])
 
-AS_IF([test "$enable_pim6d" = "yes"], [
+AS_IF([test "$enable_pim6d" != "no"], [
   AC_DEFINE([HAVE_PIM6D], [1], [pim6d])
 ])
 
@@ -2066,7 +2066,7 @@ if test "$enable_rpki" = "yes"; then
 fi
 
 dnl ------------------------------------
-dnl pimd is not supported on OpenBSD and MacOS
+dnl pimd and pim6d not supported on OpenBSD and MacOS
 dnl ------------------------------------
 if test "$enable_pimd" != "no"; then
 AC_MSG_CHECKING([for pimd OS support])
@@ -2081,6 +2081,19 @@ case "$host_os" in
     ;;
   *)
     AC_MSG_RESULT([yes])
+    ;;
+esac
+fi
+
+if test "$enable_pim6d" != "no"; then
+AC_MSG_CHECKING([for pim6d OS support])
+case "$host_os" in
+  linux*)
+    AC_MSG_RESULT([yes])
+    ;;
+  *)
+    AC_MSG_RESULT([no])
+    enable_pim6d="no"
     ;;
 esac
 fi
@@ -2717,7 +2730,7 @@ AM_CONDITIONAL([BABELD], [test "$enable_babeld" != "no"])
 AM_CONDITIONAL([OSPF6D], [test "$enable_ospf6d" != "no"])
 AM_CONDITIONAL([ISISD], [test "$enable_isisd" != "no"])
 AM_CONDITIONAL([PIMD], [test "$enable_pimd" != "no"])
-AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" = "yes"])
+AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" != "no"])
 AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
 AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
