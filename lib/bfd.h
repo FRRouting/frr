@@ -473,8 +473,6 @@ extern bool bfd_protocol_integration_debug(void);
  */
 extern bool bfd_protocol_integration_shutting_down(void);
 
-extern void bfd_nht_zclient_connected(struct zclient *zclient);
-
 /* Update nexthop-tracking (nht) information for BFD auto source selection.
  * The function must be called from the daemon callback function
  * that deals with the ZEBRA_NEXTHOP_UPDATE zclient command
