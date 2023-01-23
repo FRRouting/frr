@@ -1514,6 +1514,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
             [
                 ctx_keys[0].startswith(x)
                 for x in [
+                    "agentx",
                     "frr version",
                     "frr defaults",
                     "username",
@@ -1913,6 +1914,7 @@ if __name__ == "__main__":
         "bgpd",
         "fabricd",
         "isisd",
+        "babeld",
         "ospf6d",
         "ospfd",
         "pbrd",
@@ -1924,6 +1926,7 @@ if __name__ == "__main__":
         "staticd",
         "vrrpd",
         "ldpd",
+        "nhrpd",
         "pathd",
         "bfdd",
         "eigrpd",

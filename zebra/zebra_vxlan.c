@@ -2869,7 +2869,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
  * Display MACs for a VNI (VTY command handler).
  */
 void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				vni_t vni, bool use_json)
+				vni_t vni, bool use_json, bool detail)
 {
 	struct zebra_evpn *zevpn;
 	uint32_t num_macs;
@@ -2902,17 +2902,28 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	wctx.json = json_mac;
 
 	if (!use_json) {
-		vty_out(vty,
-			"Number of MACs (local and remote) known for this VNI: %u\n",
-			num_macs);
-		vty_out(vty,
-			"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
-		vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC", "Type",
-			"Flags", "Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
+		if (detail) {
+			vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n",
+				zevpn->vni, num_macs);
+		} else {
+			vty_out(vty,
+				"Number of MACs (local and remote) known for this VNI: %u\n",
+				num_macs);
+			vty_out(vty,
+				"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
+			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC",
+				"Type", "Flags", "Intf/Remote ES/VTEP", "VLAN",
+				"Seq #'s");
+		}
 	} else
 		json_object_int_add(json, "numMacs", num_macs);
 
-	hash_iterate(zevpn->mac_table, zebra_evpn_print_mac_hash, &wctx);
+	if (detail)
+		hash_iterate(zevpn->mac_table, zebra_evpn_print_mac_hash_detail,
+			     &wctx);
+	else
+		hash_iterate(zevpn->mac_table, zebra_evpn_print_mac_hash,
+			     &wctx);
 
 	if (use_json) {
 		json_object_object_add(json, "macs", json_mac);
@@ -3511,6 +3522,12 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json = json_object_new_object();
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zvrf->advertise_gw_macip ? "Yes" : "No");
+		json_object_string_add(json, "advertiseSviMacip",
+				       zvrf->advertise_svi_macip ? "Yes"
+								 : "No");
+		json_object_string_add(json, "advertiseSviMac",
+				       zebra_evpn_mh_do_adv_svi_mac() ? "Yes"
+								      : "No");
 		json_object_int_add(json, "numVnis", num_vnis);
 		json_object_int_add(json, "numL2Vnis", num_l2vnis);
 		json_object_int_add(json, "numL3Vnis", num_l3vnis);

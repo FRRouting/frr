@@ -81,6 +81,26 @@ DEBUG_LOGS = {
         "debug pim packets register",
         "debug pim nht",
     ],
+    "pim6d": [
+        "debug pimv6 events",
+        "debug pimv6 packets",
+        "debug pimv6 packet-dump send",
+        "debug pimv6 packet-dump receive",
+        "debug pimv6 trace",
+        "debug pimv6 trace detail",
+        "debug pimv6 zebra",
+        "debug pimv6 bsm",
+        "debug pimv6 packets hello",
+        "debug pimv6 packets joins",
+        "debug pimv6 packets register",
+        "debug pimv6 nht",
+        "debug pimv6 nht detail",
+        "debug mroute6",
+        "debug mroute6 detail",
+        "debug mld events",
+        "debug mld packets",
+        "debug mld trace",
+    ],
     "bgpd": [
         "debug bgp neighbor-events",
         "debug bgp updates",
@@ -961,7 +981,7 @@ def generate_support_bundle():
     return True
 
 
-def start_topology(tgen, daemon=None):
+def start_topology(tgen):
     """
     Starting topology, create tmp files which are loaded to routers
     to start daemons and then start routers
@@ -1009,38 +1029,70 @@ def start_topology(tgen, daemon=None):
         except IOError as err:
             logger.error("I/O error({0}): {1}".format(err.errno, err.strerror))
 
-        # Loading empty zebra.conf file to router, to start the zebra daemon
+        topo = tgen.json_topo
+        feature = set()
+
+        if "feature" in topo:
+            feature.update(topo["feature"])
+
+        if rname in topo["routers"]:
+            for key in topo["routers"][rname].keys():
+                feature.add(key)
+
+            for val in topo["routers"][rname]["links"].values():
+                if "pim" in val:
+                    feature.add("pim")
+                    break
+            for val in topo["routers"][rname]["links"].values():
+                if "pim6" in val:
+                    feature.add("pim6")
+                    break
+            for val in topo["routers"][rname]["links"].values():
+                if "ospf6" in val:
+                    feature.add("ospf6")
+                    break
+        if "switches" in topo and rname in topo["switches"]:
+            for val in topo["switches"][rname]["links"].values():
+                if "ospf" in val:
+                    feature.add("ospf")
+                    break
+                if "ospf6" in val:
+                    feature.add("ospf6")
+                    break
+
+        # Loading empty zebra.conf file to router, to start the zebra deamon
         router.load_config(
             TopoRouter.RD_ZEBRA, "{}/{}/zebra.conf".format(tgen.logdir, rname)
         )
 
-        # Loading empty bgpd.conf file to router, to start the bgp daemon
-        router.load_config(
-            TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(tgen.logdir, rname)
-        )
-
-        if daemon and "ospfd" in daemon:
-            # Loading empty ospf.conf file to router, to start the bgp daemon
+        # Loading empty bgpd.conf file to router, to start the bgp deamon
+        if "bgp" in feature:
             router.load_config(
-                TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(tgen.logdir, rname)
+                TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(tgen.logdir, rname)
             )
 
-        if daemon and "ospf6d" in daemon:
-            # Loading empty ospf.conf file to router, to start the bgp daemon
-            router.load_config(
-                TopoRouter.RD_OSPF6, "{}/{}/ospf6d.conf".format(tgen.logdir, rname)
-            )
-
-        if daemon and "pimd" in daemon:
-            # Loading empty pimd.conf file to router, to start the pim deamon
+        # Loading empty pimd.conf file to router, to start the pim deamon
+        if "pim" in feature:
             router.load_config(
                 TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(tgen.logdir, rname)
             )
 
-        if daemon and "pim6d" in daemon:
-            # Loading empty pimd.conf file to router, to start the pim6d deamon
+        # Loading empty pimd.conf file to router, to start the pim deamon
+        if "pim6" in feature:
             router.load_config(
                 TopoRouter.RD_PIM6, "{}/{}/pim6d.conf".format(tgen.logdir, rname)
+            )
+
+        if "ospf" in feature:
+            # Loading empty ospf.conf file to router, to start the ospf deamon
+            router.load_config(
+                TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(tgen.logdir, rname)
+            )
+
+        if "ospf6" in feature:
+            # Loading empty ospf.conf file to router, to start the ospf deamon
+            router.load_config(
+                TopoRouter.RD_OSPF6, "{}/{}/ospf6d.conf".format(tgen.logdir, rname)
             )
 
     # Starting routers

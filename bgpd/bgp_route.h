@@ -663,9 +663,10 @@ DECLARE_HOOK(bgp_process,
 #define BGP_SHOW_OPT_AFI_IP6 (1 << 4)
 #define BGP_SHOW_OPT_ESTABLISHED (1 << 5)
 #define BGP_SHOW_OPT_FAILED (1 << 6)
-#define BGP_SHOW_OPT_DETAIL (1 << 7)
+#define BGP_SHOW_OPT_JSON_DETAIL (1 << 7)
 #define BGP_SHOW_OPT_TERSE (1 << 8)
-#define BGP_SHOW_OPT_STATUS (1 << 9)
+#define BGP_SHOW_OPT_ROUTES_DETAIL (1 << 9)
+#define BGP_SHOW_OPT_STATUS (1 << 10)
 
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
@@ -866,7 +867,7 @@ extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
-			     bool use_json);
+			     uint16_t show_flags);
 extern void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
@@ -883,4 +884,12 @@ bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
 extern bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi);
 extern const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 						safi_t safi);
+extern void bgp_path_info_free_with_caller(const char *caller,
+					   struct bgp_path_info *path);
+extern void bgp_path_info_add_with_caller(const char *caller,
+					  struct bgp_dest *dest,
+					  struct bgp_path_info *pi);
+#define bgp_path_info_add(A, B)                                                \
+	bgp_path_info_add_with_caller(__func__, (A), (B))
+#define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))
 #endif /* _QUAGGA_BGP_ROUTE_H */

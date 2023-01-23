@@ -750,6 +750,113 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring
+ */
+int route_next_hop_bfd_create(struct nb_cb_create_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_monitor_enable(sn, args->dnode);
+	return NB_OK;
+}
+
+int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_monitor_disable(sn);
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/source
+ */
+int route_next_hop_bfd_source_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *sn;
+	struct ipaddr source;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	yang_dnode_get_ip(&source, args->dnode, NULL);
+	static_next_hop_bfd_source(sn, &source);
+	return NB_OK;
+}
+
+int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_auto_source(sn);
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/multi-hop
+ */
+int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_multi_hop(sn,
+				      yang_dnode_get_bool(args->dnode, NULL));
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/profile
+ */
+int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_profile(sn,
+				    yang_dnode_get_string(args->dnode, NULL));
+
+	return NB_OK;
+}
+
+int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_profile(sn, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(

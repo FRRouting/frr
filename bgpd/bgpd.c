@@ -92,7 +92,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
-#include "bgpd/bgp_orr.h"
+#include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
@@ -1194,6 +1194,7 @@ static void peer_free(struct peer *peer)
 /* increase reference count on a struct peer */
 struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
 {
+	frrtrace(2, frr_bgp, bgp_peer_lock, peer, name);
 	assert(peer && (peer->lock >= 0));
 
 	peer->lock++;
@@ -1206,6 +1207,7 @@ struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
  */
 struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
 {
+	frrtrace(2, frr_bgp, bgp_peer_unlock, peer, name);
 	assert(peer && (peer->lock > 0));
 
 	peer->lock--;
@@ -1893,8 +1895,6 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 /* Change peer's AS number.  */
 void peer_as_change(struct peer *peer, as_t as, int as_specified)
 {
-	afi_t afi;
-	safi_t safi;
 	enum bgp_peer_sort origtype, newtype;
 
 	/* Stop peer. */
@@ -1933,11 +1933,6 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 
 	/* reflector-client reset */
 	if (newtype != BGP_PEER_IBGP) {
-
-		FOREACH_AFI_SAFI (afi, safi)
-			UNSET_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_ORR_GROUP);
-
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_UNICAST],
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_MULTICAST],
@@ -3573,7 +3568,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Registering BGP instance %s to zebra",
-				   __func__, name);
+				   __func__, bgp->name_pretty);
 		bgp_zebra_instance_register(bgp);
 	}
 
@@ -3929,8 +3924,6 @@ void bgp_free(struct bgp *bgp)
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
 	}
 
-	bgp_orr_cleanup(bgp);
-
 	XFREE(MTYPE_BGP, bgp->name);
 	XFREE(MTYPE_BGP, bgp->name_pretty);
 	XFREE(MTYPE_BGP, bgp->snmp_stats);
@@ -4198,6 +4191,25 @@ static void peer_drop_dynamic_neighbor(struct peer *peer)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s dropped from group %s, count %d", peer->host,
 			   peer->group->name, dncount);
+}
+
+bool bgp_path_attribute_discard(struct peer *peer, char *buf, size_t size)
+{
+	if (!buf)
+		return false;
+
+	buf[0] = '\0';
+
+	for (unsigned int i = 0; i < BGP_ATTR_MAX; i++) {
+		if (peer->discard_attrs[i])
+			snprintf(buf + strlen(buf), size - strlen(buf), "%s%d",
+				 (strlen(buf) > 0) ? " " : "", i);
+	}
+
+	if (strlen(buf) > 0)
+		return true;
+
+	return false;
 }
 
 /* If peer is configured at least one address family return 1. */
@@ -4715,11 +4727,6 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	/* Special check for reflector client.  */
 	if (flag & PEER_FLAG_REFLECTOR_CLIENT && ptype != BGP_PEER_IBGP)
 		return BGP_ERR_NOT_INTERNAL_PEER;
-
-	/* Do not remove reflector client when ORR is configured on this peer */
-	if (flag & PEER_FLAG_REFLECTOR_CLIENT && !set &&
-	    peer_orr_rrclient_check(peer, afi, safi))
-		return BGP_ERR_PEER_ORR_CONFIGURED;
 
 	/* Special check for remove-private-AS.  */
 	if (flag & PEER_FLAG_REMOVE_PRIVATE_AS && ptype == BGP_PEER_IBGP)
@@ -7937,7 +7944,8 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
 	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
-	bm->inq_limit = BM_DEFAULT_INQ_LIMIT;
+	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
+	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
 
 	bgp_mac_init();
 	/* init the rd id space.

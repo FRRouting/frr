@@ -86,7 +86,6 @@ from lib.common_config import (
     socat_send_mld_join,
     socat_send_pim6_traffic,
     kill_socat,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -162,12 +161,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -272,9 +268,6 @@ def test_pim6_add_delete_static_RP_p0(request):
         check_router_status(tgen)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Shut link b/w R1 and R3 and R1 and R4 as per testcase topology")
@@ -284,8 +277,9 @@ def test_pim6_add_delete_static_RP_p0(request):
         shutdown_bringup_interface(tgen, "r1", intf, ifaceaction=False)
 
     step("Enable PIM6 between r1 and r2")
-    step("Enable MLD on r1 interface and send MLD " "join {} to r1".\
-         format(GROUP_RANGE_1))
+    step(
+        "Enable MLD on r1 interface and send MLD " "join {} to r1".format(GROUP_RANGE_1)
+    )
     step("Configure r2 loopback interface as RP")
     input_dict = {
         "r2": {
@@ -471,9 +465,6 @@ def test_pim6_SPT_RPT_path_same_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Shut link b/w R1->R3, R1->R4 and R3->R1, R3->R4 as per " "testcase topology")
@@ -488,8 +479,11 @@ def test_pim6_SPT_RPT_path_same_p1(request):
         shutdown_bringup_interface(tgen, "r3", intf, ifaceaction=False)
 
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
-    step("Configure RP on r2 (loopback interface) for the group range {}".\
-        format(GROUP_ADDRESS_1))
+    step(
+        "Configure RP on r2 (loopback interface) for the group range {}".format(
+            GROUP_ADDRESS_1
+        )
+    )
     input_dict = {
         "r2": {
             "pim6": {
@@ -507,7 +501,9 @@ def test_pim6_SPT_RPT_path_same_p1(request):
     result = create_pim_config(tgen, TOPO, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Enable MLD on r1 interface and send MLD join {} to R1".format(GROUP_ADDRESS_1))
+    step(
+        "Enable MLD on r1 interface and send MLD join {} to R1".format(GROUP_ADDRESS_1)
+    )
     intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
     intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
     result = socat_send_mld_join(
@@ -642,9 +638,6 @@ def test_pim6_RP_configured_as_LHR_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -777,9 +770,6 @@ def test_pim6_RP_configured_as_FHR_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -908,9 +898,6 @@ def test_pim6_SPT_RPT_path_different_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -1081,15 +1068,15 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
     step("Enable the PIM66 on all the interfaces of r1, r2, r3 and r4 routers")
-    step("Configure RP on r2 (loopback interface) for the group range {}".\
-        format(GROUP_RANGE_4))
+    step(
+        "Configure RP on r2 (loopback interface) for the group range {}".format(
+            GROUP_RANGE_4
+        )
+    )
     input_dict = {
         "r2": {
             "pim6": {
@@ -1259,9 +1246,9 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: rp-info is present for group {} \n Error: {}".format(tc_name,
-                                                                  GROUP_RANGE_4,
-                                                                  result)
+        "r1: rp-info is present for group {} \n Error: {}".format(
+            tc_name, GROUP_RANGE_4, result
+        )
     )
 
     step(

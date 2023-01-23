@@ -309,6 +309,15 @@ the default route.
    User can get that information as JSON string when ``json`` key word
    at the end of cli is presented.
 
+.. clicmd:: show ip nht route-map [vrf <NAME|all>] [json]
+
+   This command displays route-map attach point to nexthop tracking and
+   displays list of protocol with its applied route-map.
+   When zebra considers sending NHT resoultion, the nofification only
+   sent to appropriate client protocol only after applying route-map filter.
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
+
 PBR dataplane programming
 =========================
 
@@ -1342,7 +1351,7 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type]
+.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [json]
 
    Display nexthop groups created by zebra.  The [vrf NAME] option
    is only meaningful if you have started zebra with the --vrfwnetns

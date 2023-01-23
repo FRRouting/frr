@@ -987,10 +987,12 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 				}
 			}
 		}
-		if (nhe_id || ng)
+		if (nhe_id || ng) {
 			dplane_rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p,
 						 re, ng, startup, ctx);
-		else {
+			if (ng)
+				nexthop_group_delete(&ng);
+		} else {
 			/*
 			 * I really don't see how this is possible
 			 * but since we are testing for it let's
@@ -2075,7 +2077,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	 * by the routing protocol and for communicating with protocol peers.
 	 */
 	if (!nl_attr_put32(&req->n, datalen, RTA_PRIORITY,
-			   NL_DEFAULT_ROUTE_METRIC))
+			   ROUTE_INSTALLATION_METRIC))
 		return 0;
 
 #if defined(SUPPORT_REALMS)
@@ -2499,7 +2501,7 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
  */
 ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				   const struct zebra_dplane_ctx *ctx,
-				   void *buf, size_t buflen)
+				   void *buf, size_t buflen, bool fpm)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2526,9 +2528,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 	/*
 	 * Nothing to do if the kernel doesn't support nexthop objects or
-	 * we dont want to install this type of NHG
+	 * we dont want to install this type of NHG, but FPM may possible to
+	 * handle this.
 	 */
-	if (!kernel_nexthops_supported()) {
+	if (!fpm && !kernel_nexthops_supported()) {
 		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
 			zlog_debug(
 				"%s: nhg_id %u (%s): kernel nexthops not supported, ignoring",
@@ -2848,7 +2851,7 @@ static ssize_t netlink_nexthop_msg_encoder(struct zebra_dplane_ctx *ctx,
 		return -1;
 	}
 
-	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen);
+	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen, false);
 }
 
 enum netlink_msg_status
@@ -4386,7 +4389,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 			"Tx %s family %s IF %s(%u) Neigh %pIA %s %s flags 0x%x state 0x%x %sext_flags 0x%x",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			ip, link_ip ? "Link " : "MAC ", buf2, flags, state,
+			ip, link_ip ? "Link" : "MAC", buf2, flags, state,
 			ext ? "ext " : "", ext_flags);
 
 	return netlink_neigh_update_msg_encode(

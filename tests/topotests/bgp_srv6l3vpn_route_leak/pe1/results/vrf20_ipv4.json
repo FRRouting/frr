@@ -1,0 +1,22 @@
+{
+    "172.16.0.0\/24": [
+        {
+            "prefix": "172.16.0.0\/24",
+            "prefixLen": 24,
+            "protocol": "bgp",
+            "vrfName": "vrf20",
+            "selected": true,
+            "destSelected": true,
+            "installed": true,
+            "nexthops": [
+                {
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "eth0",
+                    "vrf": "vrf10",
+                    "active": true
+                }
+            ]
+        }
+    ]
+}

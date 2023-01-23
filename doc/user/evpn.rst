@@ -441,7 +441,7 @@ Here a traditional ``vxlan`` interface is created with the name "vni100" which
 uses a VTEP-IP of 100.64.0.1, carries VNI 100, and has Dynamic VTEP learning
 disabled. IPv6 address autoconfiguration is disabled for "vni100", then the
 interface is enslaved to "br100", ARP/ND suppression is enabled, and Dynamic
-VTEP Learning is disabled.
+MAC Learning is disabled.
 
 .. code-block:: shell
 
@@ -502,3 +502,29 @@ the creation of the VLAN subinterfaces and directly enslave "eth0" to "br10".
       ip link set eth0 master br10
 
 This completes the necessary configuration for an L2VNI.
+
+Displaying EVPN information
+---------------------------
+
+.. clicmd:: show evpn mac vni (1-16777215) detail [json]
+
+   Display detailed information about MAC addresses for
+   a specified VNI.
+
+.. clicmd:: show vrf [<NAME$vrf_name|all$vrf_all>] vni [json]
+
+   Displays VRF to L3VNI mapping. It also displays L3VNI associated
+   router-mac, svi interface and vxlan interface.
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
+
+   .. code-block:: frr
+
+      tor2# show vrf vni
+      VRF                                   VNI        VxLAN IF             L3-SVI               State Rmac
+      sym_1                                 9288       vxlan21              vlan210_l3           Up    21:31:36:ff:ff:20
+      sym_2                                 9289       vxlan21              vlan210_l3           Up    21:31:36:ff:ff:20
+      sym_3                                 9290       vxlan21              vlan210_l3           Up    21:31:36:ff:ff:20
+      tor2# show vrf sym_1 vni
+      VRF                                   VNI        VxLAN IF             L3-SVI               State Rmac
+      sym_1                                 9288       vxlan21              vlan210_l3           Up    44:38:36:ff:ff:20

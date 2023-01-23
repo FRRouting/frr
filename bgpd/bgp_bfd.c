@@ -521,10 +521,8 @@ DEFUN (neighbor_bfd_check_controlplane_failure,
 	else
 		idx_peer = 1;
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer) {
-		vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
+	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		bgp_group_configure_bfd(peer);

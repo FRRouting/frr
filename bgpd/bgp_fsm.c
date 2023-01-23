@@ -1245,7 +1245,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 
 /* Called after event occurred, this function change status and reset
    read/write and timer thread. */
-void bgp_fsm_change_status(struct peer *peer, int status)
+void bgp_fsm_change_status(struct peer *peer, enum bgp_fsm_status status)
 {
 	struct bgp *bgp;
 	uint32_t peer_count;
@@ -1338,9 +1338,6 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	if (bgp_update_delay_configured(peer->bgp)
 	    && bgp_update_delay_applicable(peer->bgp))
 		bgp_update_delay_process_status_change(peer);
-
-	/* BGP ORR : Update Active Root */
-	bgp_peer_update_orr_active_roots(peer);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s fd %d went from %s to %s", peer->host, peer->fd,

@@ -353,6 +353,54 @@ The following commands are available inside the interface configuration node.
    that interface.
 
 
+.. _bfd-static-peer-config:
+
+BFD Static Route Monitoring Configuration
+-----------------------------------------
+
+A monitored static route conditions the installation to the RIB on the
+BFD session running state: when BFD session is up the route is installed
+to RIB, but when the BFD session is down it is removed from the RIB.
+
+The following commands are available inside the configuration node:
+
+.. clicmd:: ip route A.B.C.D/M A.B.C.D bfd [{multi-hop|source A.B.C.D|profile BFDPROF}]
+
+   Configure a static route for ``A.B.C.D/M`` using gateway ``A.B.C.D`` and use
+   the gateway address as BFD peer destination address.
+
+.. clicmd:: ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X bfd [{multi-hop|source X:X::X:X|profile BFDPROF}]
+
+   Configure a static route for ``X:X::X:X/M`` using gateway
+   ``X:X::X:X`` and use the gateway address as BFD peer destination
+   address.
+
+The static routes when uninstalled will no longer show up in the output of
+the command ``show ip route`` or ``show ipv6 route``, instead we must use the
+BFD static route show command to see these monitored route status.
+
+.. clicmd:: show bfd static route [json]
+
+   Show all monitored static routes and their status.
+
+   Example output:
+
+   ::
+
+      Showing BFD monitored static routes:
+
+        Route groups:
+          rtg1 peer 172.16.0.1 (status: uninstalled):
+              2001:db8::100/128
+
+      Next hops:
+        VRF default IPv4 Unicast:
+            192.168.100.0/24 peer 172.16.0.1 (status: uninstalled)
+
+        VRF default IPv4 Multicast:
+
+        VRF default IPv6 Unicast:
+
 .. _bfd-configuration:
 
 Configuration

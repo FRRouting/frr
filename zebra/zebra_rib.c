@@ -1306,6 +1306,7 @@ static void rib_process(struct route_node *rn)
 									vrf),
 								vrf_id, rn);
 						rib_unlink(rn, re);
+						continue;
 					} else
 						SET_FLAG(re->status,
 							 ROUTE_ENTRY_REMOVED);
@@ -2711,10 +2712,6 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (ere->src_p_provided)
 		apply_mask_ipv6(&ere->src_p);
 
-	/* Set default distance by route type. */
-	if (re->distance == 0)
-		re->distance = route_distance(re->type);
-
 	/* Lookup route node.*/
 	rn = srcdest_rnode_get(table, &ere->p,
 			       ere->src_p_provided ? &ere->src_p : NULL);
@@ -2759,6 +2756,22 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
+	}
+
+	/* Set default distance by route type. */
+	if (re->distance == 0) {
+		if (same && !zebra_router_notify_on_ack())
+			re->distance = same->distance;
+		else
+			re->distance = route_distance(re->type);
+	}
+
+	if (re->metric == ROUTE_INSTALLATION_METRIC &&
+	    CHECK_FLAG(re->flags, ZEBRA_FLAG_SELFROUTE)) {
+		if (same && !zebra_router_notify_on_ack())
+			re->metric = same->metric;
+		else
+			re->metric = 0;
 	}
 
 	/* If this route is kernel/connected route, notify the dataplane. */
@@ -3681,14 +3694,14 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 					struct zebra_vrf *zvrf)
 {
-	struct zebra_early_route *zer;
+	struct zebra_early_route *ere;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(l, node, nnode, zer)) {
-		if (zvrf && zer->re->vrf_id != zvrf->vrf->vrf_id)
+	for (ALL_LIST_ELEMENTS(l, node, nnode, ere)) {
+		if (zvrf && ere->re->vrf_id != zvrf->vrf->vrf_id)
 			continue;
 
-		XFREE(MTYPE_RE, zer);
+		early_route_memory_free(ere);
 		node->data = NULL;
 		list_delete_node(l, node);
 		mq->size--;
@@ -3743,7 +3756,6 @@ static void rib_queue_init(void)
 
 	/* fill in the work queue spec */
 	zrouter.ribq->spec.workfunc = &meta_queue_process;
-	zrouter.ribq->spec.errorfunc = NULL;
 	zrouter.ribq->spec.completion_func = NULL;
 	/* XXX: TODO: These should be runtime configurable via vty */
 	zrouter.ribq->spec.max_retries = 3;

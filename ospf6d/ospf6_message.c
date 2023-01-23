@@ -2015,6 +2015,9 @@ static void ospf6_auth_trailer_copy_keychain_key(struct ospf6_interface *oi)
 			 * these values
 			 */
 			oi->at_data.hash_algo = key->hash_algo;
+			if (oi->at_data.auth_key)
+				XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY,
+				      oi->at_data.auth_key);
 			oi->at_data.auth_key = XSTRDUP(
 				MTYPE_OSPF6_AUTH_MANUAL_KEY, key->string);
 			oi->at_data.key_id = key->index;

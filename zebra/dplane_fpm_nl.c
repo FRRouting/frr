@@ -604,7 +604,10 @@ static void fpm_read(struct thread *t)
 				    hdr, 0, false, ctx) != 1) {
 				dplane_ctx_fini(&ctx);
 				stream_pulldown(fnc->ibuf);
-				return;
+				/*
+				 * Let's continue to read other messages
+				 * Even if we ignore this one.
+				 */
 			}
 			break;
 		default:
@@ -863,7 +866,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_NH_DELETE:
 		rv = netlink_nexthop_msg_encode(RTM_DELNEXTHOP, ctx, nl_buf,
-						sizeof(nl_buf));
+						sizeof(nl_buf), true);
 		if (rv <= 0) {
 			zlog_err("%s: netlink_nexthop_msg_encode failed",
 				 __func__);
@@ -875,7 +878,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 		rv = netlink_nexthop_msg_encode(RTM_NEWNEXTHOP, ctx, nl_buf,
-						sizeof(nl_buf));
+						sizeof(nl_buf), true);
 		if (rv <= 0) {
 			zlog_err("%s: netlink_nexthop_msg_encode failed",
 				 __func__);

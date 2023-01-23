@@ -208,8 +208,19 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  * some build issue with it just add -DFRR_XREF_NO_NOTE to your build flags
  * to disable it.
  */
-#ifdef FRR_XREF_NO_NOTE
+#if defined(FRR_XREF_NO_NOTE) || defined(__mips64)
 #define XREF_NOTE ""
+
+/* mips64 note:  MIPS64 (regardless of endianness, both mips64 & mips64el)
+ * does not have a 64-bit PC-relative relocation type.  Unfortunately, a
+ * 64-bit PC-relative relocation is exactly what the below asm magic emits.
+ * Therefore, the xref ELF note is permanently disabled on MIPS64.
+ *
+ * For some context, refer to https://reviews.llvm.org/D80390
+ *
+ * As noted above, xref extraction still works through the section header
+ * path, so no functionality is lost.
+ */
 #else
 
 #if __SIZEOF_POINTER__ == 4

@@ -1489,7 +1489,7 @@ static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 		ea->fmt++;
 	}
 
-	if (!ipa)
+	if (!ipa || !ipa->ipa_type)
 		return bputs(buf, "(null)");
 
 	if (use_star) {

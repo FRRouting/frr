@@ -398,7 +398,6 @@ struct cmd_node {
 #define BGP_SOFT_IN_STR "Send route-refresh unless using 'soft-reconfiguration inbound'\n"
 #define BGP_SOFT_OUT_STR "Resend all outbound updates\n"
 #define BGP_SOFT_RSCLIENT_RIB_STR "Soft reconfig for rsclient RIB\n"
-#define BGP_ORR_DEBUG "Enable Optimal Route Reflection Debugging logs\n"
 #define OSPF_STR "OSPF information\n"
 #define NEIGHBOR_STR "Specify neighbor router\n"
 #define DEBUG_STR "Debugging functions\n"
@@ -496,6 +495,13 @@ struct cmd_node {
 /* Describing roles */
 #define ROLE_STR                                                               \
 	"Providing transit\nRoute server\nRS client\nUsing transit\nPublic/private peering\n"
+
+/* BFD protocol integration strings. */
+#define BFD_INTEGRATION_STR "BFD monitoring\n"
+#define BFD_INTEGRATION_MULTI_HOP_STR "Use BFD multi hop session\n"
+#define BFD_INTEGRATION_SOURCE_STR "Use source for BFD session\n"
+#define BFD_INTEGRATION_SOURCEV4_STR "Use IPv4 source for BFD session\n"
+#define BFD_INTEGRATION_SOURCEV6_STR "Use IPv4 source for BFD session\n"
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);

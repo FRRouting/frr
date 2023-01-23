@@ -1136,16 +1136,18 @@ def verify_upstream_iif(
                         if group_addr_json[src_address]["joinState"] != "Joined":
                             errormsg = (
                                 "[DUT %s]: Verifying iif "
-                                "(Inbound Interface) for (%s,%s) and"
-                                " joinState :%s [FAILED]!! "
-                                " Expected: %s, Found: %s"
+                                "(Inbound Interface) and joinState "
+                                "for (%s, %s), Expected iif: %s, "
+                                "Found iif : %s,  and Expected "
+                                "joinState :%s , Found joinState: %s"
                                 % (
                                     dut,
                                     src_address,
                                     grp_addr,
-                                    group_addr_json[src_address]["joinState"],
                                     in_interface,
                                     group_addr_json[src_address]["inboundInterface"],
+                                    joinState,
+                                    group_addr_json[src_address]["joinState"],
                                 )
                             )
                             return errormsg
@@ -1153,16 +1155,18 @@ def verify_upstream_iif(
                     elif group_addr_json[src_address]["joinState"] != joinState:
                         errormsg = (
                             "[DUT %s]: Verifying iif "
-                            "(Inbound Interface) for (%s,%s) and"
-                            " joinState :%s [FAILED]!! "
-                            " Expected: %s, Found: %s"
+                            "(Inbound Interface) and joinState "
+                            "for (%s, %s), Expected iif: %s, "
+                            "Found iif : %s,  and Expected "
+                            "joinState :%s , Found joinState: %s"
                             % (
                                 dut,
                                 src_address,
                                 grp_addr,
-                                group_addr_json[src_address]["joinState"],
                                 in_interface,
                                 group_addr_json[src_address]["inboundInterface"],
+                                joinState,
+                                group_addr_json[src_address]["joinState"],
                             )
                         )
                         return errormsg
@@ -1171,16 +1175,18 @@ def verify_upstream_iif(
                         if group_addr_json[src_address]["regState"] != regState:
                             errormsg = (
                                 "[DUT %s]: Verifying iif "
-                                "(Inbound Interface) for (%s,%s) and"
-                                " rejstate :%s [FAILED]!! "
-                                " Expected: %s, Found: %s"
+                                "(Inbound Interface) and regState "
+                                "for (%s, %s), Expected iif: %s, "
+                                "Found iif : %s,  and Expected "
+                                "regState :%s , Found regState: %s"
                                 % (
                                     dut,
                                     src_address,
                                     grp_addr,
-                                    group_addr_json[src_address]["regState"],
                                     in_interface,
                                     group_addr_json[src_address]["inboundInterface"],
+                                    regState,
+                                    group_addr_json[src_address]["regState"],
                                 )
                             )
                             return errormsg
@@ -1212,8 +1218,8 @@ def verify_upstream_iif(
             )
             return errormsg
 
-        logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-        return True
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
 
 @retry(retry_timeout=12)

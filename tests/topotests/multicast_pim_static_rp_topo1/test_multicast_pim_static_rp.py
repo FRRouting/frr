@@ -223,12 +223,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -378,9 +375,8 @@ def test_add_delete_static_RP_p0(request):
     result = verify_igmp_groups(tgen, dut, interface, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: igmp group present without any IGMP join \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: IGMP groups should not be present without any IGMP join\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Verify show ip pim interface traffic without any IGMP join")
@@ -448,17 +444,18 @@ def test_add_delete_static_RP_p0(request):
     result = verify_pim_rp_info(
         tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: RP info present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: RP info should not be present \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Verify upstream IIF interface")
     result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream IIF interface present \n Error: {}".format(tc_name, result)
+        "Expected: [{}]: Upstream IIF interface {} should not be present\n "
+        "Found: {}".format(tc_name, dut, iif, result)
     )
 
     step("r1: Verify upstream join state and join timer")
@@ -467,24 +464,25 @@ def test_add_delete_static_RP_p0(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream join state is up and join timer is running \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     # 20
     step("r1: Verify PIM state")
     result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
-    assert result is not True, "Testcase {} :Failed \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: PIM state should not be up \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Verify ip mroutes")
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: mroutes are still present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (*, G) should not be present \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Verify show ip pim interface traffic without any IGMP join")
@@ -641,9 +639,8 @@ def test_SPT_RPT_path_same_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S, G) upstream join state is up and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -770,16 +767,16 @@ def test_not_reachable_static_RP_p0(request):
     result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "OIL is not same and IIF is not cleared on R1 \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: OIL should be same and IIF should be cleared\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: upstream IIF should be unknown , verify using show ip pim" "upstream")
     result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream IIF is not unknown \n Error: {}".format(tc_name, result)
+        "Expected: [{}]: Upstream IIF interface {} should be unknown \n "
+        "Found: {}".format(tc_name, dut, iif, result)
     )
 
     step(
@@ -791,9 +788,8 @@ def test_not_reachable_static_RP_p0(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: join state is joined and timer is not stopped \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step(
@@ -814,11 +810,9 @@ def test_not_reachable_static_RP_p0(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: (*, G) are not cleared from mroute table \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared from mroute table\n "
+        "Found: {}".format(tc_name, dut, result)
     )
-    logger.info("Expected behavior: %s", result)
 
     # Uncomment next line for debugging
     # tgen.mininet_cli()
@@ -880,10 +874,10 @@ def test_add_RP_after_join_received_p1(request):
     result = verify_pim_rp_info(
         tgen, TOPO, dut, GROUP_RANGE_ALL, iif, rp_address, SOURCE, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: rp-info is present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: RP-info should not be present \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("joinTx value before join sent")
@@ -908,7 +902,8 @@ def test_add_RP_after_join_received_p1(request):
     result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream IFF interface is present \n Error: {}".format(tc_name, result)
+        "Expected: [{}]: Upstream IIF interface {} should not be present \n "
+        "Found: {}".format(tc_name, dut, iif, result)
     )
 
     step("r1: Verify upstream join state and join timer")
@@ -918,25 +913,24 @@ def test_add_RP_after_join_received_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream join state is joined and timer is running \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Verify PIM state")
     result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: PIM state is up\n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: PIM state should not be up\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Verify ip mroutes")
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: mroutes are still present\n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (*, G) should not be present in mroute table \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Configure static RP")
@@ -1061,7 +1055,8 @@ def test_reachable_static_RP_after_join_p0(request):
     result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream IIF interface is present\n Error: {}".format(tc_name, result)
+        "Expected: [{}]: Upstream IIF interface {} should not be present \n "
+        "Found: {}".format(tc_name, dut, iif, result)
     )
 
     step("r1 : Verify upstream join state and join timer")
@@ -1070,25 +1065,24 @@ def test_reachable_static_RP_after_join_p0(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: upstream join state is joined and timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1 : Verify PIM state")
     result = verify_pim_state(tgen, dut, iif, oif, GROUP_ADDRESS, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: PIM state is up\n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: PIM state should not be up \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1 : Verify ip mroutes")
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r1: mroutes are still present\n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (*, G) should not be present \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r1: Make RP reachable")
@@ -1332,9 +1326,8 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: rp-info is present for group 225.1.1.1 \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: RP-info should not be present \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step(

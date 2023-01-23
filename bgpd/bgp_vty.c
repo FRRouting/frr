@@ -78,8 +78,6 @@
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
-#include "bgpd/bgp_orr.h"
-
 
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
 	{
@@ -819,6 +817,9 @@ struct peer *peer_and_group_lookup_vty(struct vty *vty, const char *peer_str)
 
 	if (peer) {
 		if (peer_dynamic_neighbor(peer)) {
+			zlog_warn(
+				"%pBP: Operation not allowed on a dynamic neighbor",
+				peer);
 			vty_out(vty,
 				"%% Operation not allowed on a dynamic neighbor\n");
 			return NULL;
@@ -830,6 +831,8 @@ struct peer *peer_and_group_lookup_vty(struct vty *vty, const char *peer_str)
 	if (group)
 		return group->conf;
 
+	zlog_warn("Specify remote-as or peer-group commands first before: %s",
+		  vty->buf);
 	vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
 
 	return NULL;
@@ -942,9 +945,6 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 		break;
 	case BGP_ERR_INVALID_INTERNAL_ROLE:
 		str = "External roles can be set only on eBGP session";
-		break;
-	case BGP_ERR_PEER_ORR_CONFIGURED:
-		str = "Deconfigure optimal-route-reflection on this peer first";
 		break;
 	}
 	if (str) {
@@ -6249,43 +6249,6 @@ ALIAS_HIDDEN(no_neighbor_route_reflector_client,
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Configure a neighbor as Route Reflector client\n")
 
-/* optimal-route-reflection Root Routers configuration */
-DEFPY (optimal_route_reflection,
-       optimal_route_reflection_cmd,
-       "[no$no] optimal-route-reflection WORD$orr_group [<A.B.C.D|X:X::X:X>$primary [<A.B.C.D|X:X::X:X>$secondary [<A.B.C.D|X:X::X:X>$tertiary]]]",
-       NO_STR
-       "Create ORR group and assign root router(s)\n"
-       "ORR Group name\n"
-       "Primary Root address\n"
-       "Primary Root IPv6 address\n"
-       "Secondary Root address\n"
-       "Secondary Root IPv6 address\n"
-       "Tertiary Root address\n"
-       "Tertiary Root IPv6 address\n")
-{
-	if (!no && !primary) {
-		vty_out(vty, "%% Specify Primary Root address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return bgp_afi_safi_orr_group_set_vty(
-		vty, bgp_node_afi(vty), bgp_node_safi(vty), orr_group,
-		primary_str, secondary_str, tertiary_str, !!no);
-}
-
-/* neighbor optimal-route-reflection group*/
-DEFPY (neighbor_optimal_route_reflection,
-       neighbor_optimal_route_reflection_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor optimal-route-reflection WORD$orr_group",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Apply ORR group configuration to the neighbor\n"
-       "ORR group name\n")
-{
-	return peer_orr_group_set_vty(vty, neighbor, bgp_node_afi(vty),
-				      bgp_node_safi(vty), orr_group, !!no);
-}
-
 /* neighbor route-server-client. */
 DEFUN (neighbor_route_server_client,
        neighbor_route_server_client_cmd,
@@ -8803,6 +8766,32 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_path_attribute_discard,
+      neighbor_path_attribute_discard_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute discard (1-255)...",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Drop specified attributes from incoming UPDATE messages\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	const char *discard_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		discard_attrs = argv_concat(argv, argc, idx);
+
+	bgp_path_attribute_discard_vty(vty, peer, discard_attrs);
+
+	return CMD_SUCCESS;
+}
+
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6)
 {
@@ -10263,35 +10252,158 @@ DEFUN (show_bgp_views,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_bgp_vrfs,
+static inline void calc_peers_cfgd_estbd(struct bgp *bgp, int *peers_cfgd,
+					 int *peers_estbd)
+{
+	struct peer *peer;
+	struct listnode *node;
+
+	*peers_cfgd = *peers_estbd = 0;
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			continue;
+		(*peers_cfgd)++;
+		if (peer_established(peer))
+			(*peers_estbd)++;
+	}
+}
+
+static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
+			   const char *type)
+{
+	int peers_cfg, peers_estb;
+
+	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
+
+	if (json) {
+		int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
+					    ? -1
+					    : (int64_t)bgp->vrf_id;
+		json_object_string_add(json, "type", type);
+		json_object_int_add(json, "vrfId", vrf_id_ui);
+		json_object_string_addf(json, "routerId", "%pI4",
+					&bgp->router_id);
+		json_object_int_add(json, "numConfiguredPeers", peers_cfg);
+		json_object_int_add(json, "numEstablishedPeers", peers_estb);
+		json_object_int_add(json, "l3vni", bgp->l3vni);
+		json_object_string_addf(json, "rmac", "%pEA", &bgp->rmac);
+		json_object_string_add(
+			json, "interface",
+			ifindex2ifname(bgp->l3vni_svi_ifindex, bgp->vrf_id));
+	}
+}
+
+static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
+				       json_object *json, const char *name,
+				       const char *type, bool use_vrf)
+{
+	int peers_cfg, peers_estb;
+
+	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
+
+	if (use_vrf) {
+		if (json) {
+			print_bgp_vrfs(bgp, vty, json, type);
+		} else {
+			vty_out(vty, "BGP instance %s VRF id %d\n",
+				bgp->name_pretty,
+				bgp->vrf_id == VRF_UNKNOWN ? -1
+							   : (int)bgp->vrf_id);
+			vty_out(vty, "Router Id %pI4\n", &bgp->router_id);
+			vty_out(vty,
+				"Num Configured Peers %d, Established %d\n",
+				peers_cfg, peers_estb);
+			if (bgp->l3vni) {
+				vty_out(vty,
+					"L3VNI %u, L3VNI-SVI %s, Router MAC %pEA\n",
+					bgp->l3vni,
+					ifindex2ifname(bgp->l3vni_svi_ifindex,
+						       bgp->vrf_id),
+					&bgp->rmac);
+			}
+		}
+	} else {
+		if (json) {
+			print_bgp_vrfs(bgp, vty, json, type);
+		} else {
+			vty_out(vty, "%4s  %-5d  %-16pI4  %-9u  %-10u  %-37s\n",
+				type,
+				bgp->vrf_id == VRF_UNKNOWN ? -1
+							   : (int)bgp->vrf_id,
+				&bgp->router_id, peers_cfg, peers_estb, name);
+			vty_out(vty, "%11s  %-16u  %-21pEA  %-20s\n", " ",
+				bgp->l3vni, &bgp->rmac,
+				ifindex2ifname(bgp->l3vni_svi_ifindex,
+					       bgp->vrf_id));
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_bgp_vrfs,
        show_bgp_vrfs_cmd,
-       "show [ip] bgp vrfs [json]",
+       "show [ip] bgp vrfs [<VRFNAME$vrf_name>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        "Show BGP VRFs\n"
+       "Specific VRF name\n"
        JSON_STR)
 {
-	char buf[ETHER_ADDR_STRLEN];
 	struct list *inst = bm->bgp;
 	struct listnode *node;
 	struct bgp *bgp;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
+	json_object *json_vrf = NULL;
 	int count = 0;
+	const char *name = vrf_name;
+	const char *type;
 
-	if (uj) {
+	if (uj)
 		json = json_object_new_object();
-		json_vrfs = json_object_new_object();
+
+	if (name) {
+		if (strmatch(name, VRF_DEFAULT_NAME)) {
+			bgp = bgp_get_default();
+			type = "DFLT";
+		} else {
+			bgp = bgp_lookup_by_name(name);
+			type = "VRF";
+		}
+		if (!bgp) {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% Specified BGP instance not found\n");
+
+			return CMD_WARNING;
+		}
 	}
 
+	if (vrf_name) {
+		if (uj)
+			json_vrf = json_object_new_object();
+
+		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, name, type,
+					    true);
+
+		if (uj) {
+			json_object_object_add(json, name, json_vrf);
+			vty_json(vty, json);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	if (uj)
+		json_vrfs = json_object_new_object();
+
 	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
-		const char *name, *type;
-		struct peer *peer;
-		struct listnode *node2, *nnode2;
-		int peers_cfg, peers_estb;
-		json_object *json_vrf = NULL;
+		const char *name;
 
 		/* Skip Views. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -10306,19 +10418,8 @@ DEFUN (show_bgp_vrfs,
 			vty_out(vty, "%11s  %-16s  %-21s  %-6s\n", " ",
 				"L3-VNI", "RouterMAC", "Interface");
 		}
-
-		peers_cfg = peers_estb = 0;
 		if (uj)
 			json_vrf = json_object_new_object();
-
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node2, nnode2, peer)) {
-			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-				continue;
-			peers_cfg++;
-			if (peer_established(peer))
-				peers_estb++;
-		}
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			name = VRF_DEFAULT_NAME;
@@ -10328,49 +10429,16 @@ DEFUN (show_bgp_vrfs,
 			type = "VRF";
 		}
 
+		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, name, type,
+					    false);
 
-		if (uj) {
-			int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
-						    ? -1
-						    : (int64_t)bgp->vrf_id;
-			char buf[BUFSIZ] = {0};
-
-			json_object_string_add(json_vrf, "type", type);
-			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
-			json_object_string_addf(json_vrf, "routerId", "%pI4",
-						&bgp->router_id);
-			json_object_int_add(json_vrf, "numConfiguredPeers",
-					    peers_cfg);
-			json_object_int_add(json_vrf, "numEstablishedPeers",
-					    peers_estb);
-
-			json_object_int_add(json_vrf, "l3vni", bgp->l3vni);
-			json_object_string_add(
-				json_vrf, "rmac",
-				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
-			json_object_string_add(json_vrf, "interface",
-				ifindex2ifname(bgp->l3vni_svi_ifindex,
-					       bgp->vrf_id));
+		if (uj)
 			json_object_object_add(json_vrfs, name, json_vrf);
-		} else {
-			vty_out(vty, "%4s  %-5d  %-16pI4  %-9u  %-10u  %-37s\n",
-				type,
-				bgp->vrf_id == VRF_UNKNOWN ? -1
-							   : (int)bgp->vrf_id,
-				&bgp->router_id, peers_cfg, peers_estb, name);
-			vty_out(vty,"%11s  %-16u  %-21s  %-20s\n", " ",
-				bgp->l3vni,
-				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)),
-				ifindex2ifname(bgp->l3vni_svi_ifindex,
-					       bgp->vrf_id));
-		}
 	}
 
 	if (uj) {
 		json_object_object_add(json, "vrfs", json_vrfs);
-
 		json_object_int_add(json, "totalVrfs", count);
-
 		vty_json(vty, json);
 	} else {
 		if (count)
@@ -12648,11 +12716,6 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_RSERVER_CLIENT))
 			vty_out(vty, "  Route-Server Client\n");
-
-		if (peer_af_flag_check(p, afi, safi, PEER_FLAG_ORR_GROUP))
-			vty_out(vty, "  ORR group (configured) : %s\n",
-				p->orr_group_name[afi][safi]);
-
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
 			vty_out(vty,
 				"  Inbound soft reconfiguration allowed\n");
@@ -14709,7 +14772,7 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
-	int find = 0;
+	bool found = false;
 	safi_t safi = SAFI_UNICAST;
 	json_object *json_neighbor = NULL;
 
@@ -14737,27 +14800,31 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 				     && !strcmp(peer->conf_if, conf_if))
 				    || (peer->hostname
 					&& !strcmp(peer->hostname, conf_if))) {
-					find = 1;
+					found = true;
 					bgp_show_peer_gr_status(vty, peer,
 								json_neighbor);
 				}
 			} else {
 				if (sockunion_same(&peer->su, su)) {
-					find = 1;
+					found = true;
 					bgp_show_peer_gr_status(vty, peer,
 								json_neighbor);
 				}
 			}
-			if (json && find)
-				json_object_object_add(json, peer->host,
-						       json_neighbor);
+			if (json) {
+				if (found)
+					json_object_object_add(json, peer->host,
+							       json_neighbor);
+				else
+					json_object_free(json_neighbor);
+			}
 		}
 
-		if (find)
+		if (found)
 			break;
 	}
 
-	if (type == show_peer && !find) {
+	if (type == show_peer && !found) {
 		if (json)
 			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
 		else
@@ -17372,6 +17439,15 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s sender-as-path-loop-detection\n",
 			addr);
 
+	/* path-attribute discard */
+	char discard_attrs_str[BUFSIZ] = {0};
+	bool discard_attrs = bgp_path_attribute_discard(
+		peer, discard_attrs_str, sizeof(discard_attrs_str));
+
+	if (discard_attrs)
+		vty_out(vty, " neighbor %s path-attribute discard %s\n", addr,
+			discard_attrs_str);
+
 	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
 			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
 
@@ -17673,10 +17749,6 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 					: "");
 		}
 	}
-
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP))
-		vty_out(vty, "  neighbor %s optimal-route-reflection %s\n",
-			addr, peer->orr_group_name[afi][safi]);
 }
 
 static void bgp_vpn_config_write(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -17783,9 +17855,6 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 	}
 
-	/* Optimal Route Reflection */
-	bgp_config_write_orr(vty, bgp, afi, safi);
-
 	vty_endframe(vty, " exit-address-family\n");
 }
 
@@ -17829,8 +17898,11 @@ int bgp_config_write(struct vty *vty)
 		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
 
 	/* BGP InQ limit */
-	if (bm->inq_limit != BM_DEFAULT_INQ_LIMIT)
+	if (bm->inq_limit != BM_DEFAULT_Q_LIMIT)
 		vty_out(vty, "bgp input-queue-limit %u\n", bm->inq_limit);
+
+	if (bm->outq_limit != BM_DEFAULT_Q_LIMIT)
+		vty_out(vty, "bgp output-queue-limit %u\n", bm->outq_limit);
 
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
@@ -18566,10 +18638,36 @@ DEFPY (no_bgp_inq_limit,
        "Set the BGP Input Queue limit for all peers when message parsing\n"
        "Input-Queue limit\n")
 {
-	bm->inq_limit = BM_DEFAULT_INQ_LIMIT;
+	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 
 	return CMD_SUCCESS;
 }
+
+DEFPY (bgp_outq_limit,
+       bgp_outq_limit_cmd,
+       "bgp output-queue-limit (1-4294967295)$limit",
+       BGP_STR
+       "Set the BGP Output Queue limit for all peers when message parsing\n"
+       "Output-Queue limit\n")
+{
+	bm->outq_limit = limit;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_outq_limit,
+       no_bgp_outq_limit_cmd,
+       "no bgp output-queue-limit [(1-4294967295)$limit]",
+       NO_STR
+       BGP_STR
+       "Set the BGP Output Queue limit for all peers when message parsing\n"
+       "Output-Queue limit\n")
+{
+	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
+
+	return CMD_SUCCESS;
+}
+
 
 /* Initialization of BGP interface. */
 static void bgp_vty_if_init(void)
@@ -18623,6 +18721,8 @@ void bgp_vty_init(void)
 	/* "global bgp inq-limit command */
 	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
 	install_element(CONFIG_NODE, &no_bgp_inq_limit_cmd);
+	install_element(CONFIG_NODE, &bgp_outq_limit_cmd);
+	install_element(CONFIG_NODE, &no_bgp_outq_limit_cmd);
 
 	/* "bgp local-mac" hidden commands. */
 	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
@@ -18824,10 +18924,6 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_eor_cmd);
 	install_element(BGP_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_rib_stale_time_cmd);
-
-	/* "bgp inq-limit command */
-	install_element(BGP_NODE, &bgp_inq_limit_cmd);
-	install_element(BGP_NODE, &no_bgp_inq_limit_cmd);
 
 	/* "bgp graceful-shutdown" commands */
 	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
@@ -19351,34 +19447,6 @@ void bgp_vty_init(void)
 	install_element(BGP_EVPN_NODE, &neighbor_route_reflector_client_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_route_reflector_client_cmd);
 
-	/* "optimal-route-reflection" commands */
-	install_element(BGP_IPV4_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV4M_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV4L_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV6_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV6M_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_IPV6L_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_VPNV4_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_VPNV6_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &optimal_route_reflection_cmd);
-	install_element(BGP_EVPN_NODE, &optimal_route_reflection_cmd);
-
-	/* "neighbor optimal-route-reflection" commands */
-	install_element(BGP_IPV4_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV4M_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV4L_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV6_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV6M_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_IPV6L_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_VPNV4_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_VPNV6_NODE, &neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV4_NODE,
-			&neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_FLOWSPECV6_NODE,
-			&neighbor_optimal_route_reflection_cmd);
-	install_element(BGP_EVPN_NODE, &neighbor_optimal_route_reflection_cmd);
-
 	/* "neighbor route-server" commands.*/
 	install_element(BGP_NODE, &neighbor_route_server_client_hidden_cmd);
 	install_element(BGP_NODE, &no_neighbor_route_server_client_hidden_cmd);
@@ -19486,6 +19554,9 @@ void bgp_vty_init(void)
 	/* "neighbor sender-as-path-loop-detection" commands. */
 	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
 	install_element(BGP_NODE, &no_neighbor_aspath_loop_detection_cmd);
+
+	/* "neighbor path-attribute discard" commands. */
+	install_element(BGP_NODE, &neighbor_path_attribute_discard_cmd);
 
 	/* "neighbor passive" commands. */
 	install_element(BGP_NODE, &neighbor_passive_cmd);

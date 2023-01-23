@@ -50,6 +50,7 @@ class lUtil:
     l_line = 0
     l_dotall_experiment = False
     l_last_nl = None
+    l_wait_strict = 1
 
     fout = ""
     fsum = ""
@@ -189,7 +190,7 @@ Total %-4d                                                           %-4d %d\n\
             self.log("unable to read: " + tstFile)
             sys.exit(1)
 
-    def command(self, target, command, regexp, op, result, returnJson, startt=None):
+    def command(self, target, command, regexp, op, result, returnJson, startt=None, force_result=False):
         global net
         if op == "jsoncmp_pass" or op == "jsoncmp_fail":
             returnJson = True
@@ -292,7 +293,7 @@ Total %-4d                                                           %-4d %d\n\
                     9,
                 )
         if startt != None:
-            if js != None or ret is not False:
+            if js != None or ret is not False or force_result is not False:
                 delta = time.time() - startt
                 self.result(target, success, "%s +%4.2f secs" % (result, delta))
         elif op == "pass" or op == "fail":
@@ -322,12 +323,23 @@ Total %-4d                                                           %-4d %d\n\
         n = 0
         startt = time.time()
 
+        if (op == "wait-strict") or ((op == "wait") and self.l_wait_strict):
+            strict = True
+        else:
+            strict = False
+
         # Calculate the amount of `sleep`s we are going to peform.
         wait_count = int(math.ceil(wait / wait_time)) + 1
 
+        force_result = False
         while wait_count > 0:
             n += 1
-            found = self.command(target, command, regexp, op, result, returnJson, startt)
+
+            # log a failure on last iteration if we don't get desired regexp
+            if strict and (wait_count == 1):
+                force_result = True
+
+            found = self.command(target, command, regexp, op, result, returnJson, startt, force_result)
             if found is not False:
                 break
 
@@ -378,12 +390,14 @@ def luCommand(
     returnJson=False,
     wait_time=0.5,
 ):
-    if op != "wait":
-        return LUtil.command(target, command, regexp, op, result, returnJson)
-    else:
+    waitops = ["wait", "wait-strict", "wait-nostrict"]
+
+    if op in waitops:
         return LUtil.wait(
             target, command, regexp, op, result, time, returnJson, wait_time
         )
+    else:
+        return LUtil.command(target, command, regexp, op, result, returnJson)
 
 
 def luLast(usenl=False):
@@ -453,6 +467,25 @@ def luShowFail():
     sf.close()
     if printed > 0:
         logger.error("See %s for details of errors" % LUtil.fout_name)
+
+#
+# Sets default wait type for luCommand(op="wait) (may be overridden by
+# specifying luCommand(op="wait-strict") or luCommand(op="wait-nostrict")).
+#
+# "nostrict" is the historical default behavior, which is to ignore
+# failures to match the specified regexp in the specified time.
+#
+# "strict" means that failure to match the specified regexp in the
+# specified time yields an explicit, logged failure result
+#
+def luSetWaitType(waittype):
+    if waittype == "strict":
+        LUtil.l_wait_strict = 1
+    else:
+        if waittype == "nostrict":
+            LUtil.l_wait_strict = 0
+        else:
+            raise ValueError('waittype must be one of "strict" or "nostrict"')
 
 
 # for testing

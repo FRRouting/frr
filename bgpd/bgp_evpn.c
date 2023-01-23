@@ -6436,14 +6436,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 
 	/* Locate VNI hash */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
-	if (!vpn) {
-		if (bgp_debug_zebra(NULL))
-			flog_warn(
-				EC_BGP_EVPN_VPN_VNI,
-				"%u: VNI hash entry for VNI %u not found at DEL",
-				bgp->vrf_id, vni);
+	if (!vpn)
 		return 0;
-	}
 
 	/* Remove all local EVPN routes and schedule for processing (to
 	 * withdraw from peers).
@@ -6912,6 +6906,7 @@ static void bgp_evpn_remote_ip_hash_del(struct bgpevpn *vpn,
 	if (ip->macip_path_list->count == 0) {
 		bgp_evpn_remote_ip_process_nexthops(vpn, &ip->addr, false);
 		hash_release(vpn->remote_ip_hash, ip);
+		list_delete(&ip->macip_path_list);
 		XFREE(MTYPE_EVPN_REMOTE_IP, ip);
 	}
 }

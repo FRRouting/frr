@@ -67,12 +67,9 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
-#include "bgpd/bgp_orr.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
-
-static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
@@ -1532,7 +1529,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		api_nh->weight = nh_weight;
 
-		if (mpinfo->extra && !sid_zero(&mpinfo->extra->sid[0].sid) &&
+		if (mpinfo->extra &&
+		    bgp_is_valid_label(&mpinfo->extra->label[0]) &&
+		    !sid_zero(&mpinfo->extra->sid[0].sid) &&
 		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
 			sid_info = &mpinfo->extra->sid[0];
 
@@ -1540,12 +1539,16 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			       sizeof(api_nh->seg6_segs));
 
 			if (sid_info->transposition_len != 0) {
-				if (!bgp_is_valid_label(
-					    &mpinfo->extra->label[0]))
-					continue;
-
 				mpls_lse_decode(mpinfo->extra->label[0], &label,
 						&ttl, &exp, &bos);
+
+				if (label < MPLS_LABEL_UNRESERVED_MIN) {
+					if (bgp_debug_zebra(&api.prefix))
+						zlog_debug(
+							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
+					continue;
+				}
+
 				transpose_sid(&api_nh->seg6_segs, label,
 					      sid_info->transposition_offset,
 					      sid_info->transposition_len);
@@ -1626,9 +1629,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		zlog_debug(
 			"Tx route %s VRF %u %pFX metric %u tag %" ROUTE_TAG_PRI
 			" count %d nhg %d",
-			valid_nh_count ? "add" : "delete", bgp->vrf_id,
-			&api.prefix, api.metric, api.tag, api.nexthop_num,
-			nhg_id);
+			is_add ? "add" : "delete", bgp->vrf_id, &api.prefix,
+			api.metric, api.tag, api.nexthop_num, nhg_id);
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 
@@ -3412,7 +3414,6 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
-	[ZEBRA_OPAQUE_MESSAGE] = bgp_opaque_msg_handler,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)
@@ -3864,35 +3865,4 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
 	return srv6_manager_release_locator_chunk(zclient, name);
-}
-
-/*
- * ORR messages between processes
- */
-static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
-{
-	struct stream *s;
-	struct zapi_opaque_msg info;
-	struct orr_igp_metric_info table;
-	int ret = 0;
-
-	s = zclient->ibuf;
-
-	if (zclient_opaque_decode(s, &info) != 0) {
-		bgp_orr_debug("%s: opaque decode failed", __func__);
-		return -1;
-	}
-
-	switch (info.type) {
-	case ORR_IGP_METRIC_UPDATE:
-		STREAM_GET(&table, s, sizeof(table));
-		ret = bgg_orr_message_process(BGP_ORR_IMSG_IGP_METRIC_UPDATE,
-					      (void *)&table);
-		break;
-	default:
-		break;
-	}
-
-stream_failure:
-	return ret;
 }

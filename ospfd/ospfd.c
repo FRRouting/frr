@@ -814,7 +814,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	THREAD_OFF(ospf->t_write);
 	THREAD_OFF(ospf->t_spf_calc);
 	THREAD_OFF(ospf->t_ase_calc);
-	THREAD_OFF(ospf->t_orr_calc);
 	THREAD_OFF(ospf->t_maxage);
 	THREAD_OFF(ospf->t_maxage_walker);
 	THREAD_OFF(ospf->t_abr_task);
@@ -852,6 +851,10 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_route_delete(ospf, ospf->new_table);
 		ospf_route_table_free(ospf->new_table);
 	}
+	if (ospf->oall_rtrs)
+		ospf_rtrs_free(ospf->oall_rtrs);
+	if (ospf->all_rtrs)
+		ospf_rtrs_free(ospf->all_rtrs);
 	if (ospf->old_rtrs)
 		ospf_rtrs_free(ospf->old_rtrs);
 	if (ospf->new_rtrs)

@@ -354,6 +354,7 @@ int main(int argc, char **argv, char **env)
 	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
+	const char *histfile_env = getenv("VTYSH_HISTFILE");
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -611,10 +612,8 @@ int main(int argc, char **argv, char **env)
 	 * VTYSH_HISTFILE is preferred over command line
 	 * argument (-H/--histfile).
 	 */
-	if (getenv("VTYSH_HISTFILE")) {
-		const char *file = getenv("VTYSH_HISTFILE");
-
-		strlcpy(history_file, file, sizeof(history_file));
+	if (histfile_env) {
+		strlcpy(history_file, histfile_env, sizeof(history_file));
 	} else if (histfile) {
 		strlcpy(history_file, histfile, sizeof(history_file));
 	} else {

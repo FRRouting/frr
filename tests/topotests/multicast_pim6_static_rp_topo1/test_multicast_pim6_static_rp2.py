@@ -75,7 +75,7 @@ from lib.common_config import (
     socat_send_mld_join,
     socat_send_pim6_traffic,
     kill_socat,
-    topo_daemons,
+    create_debug_log_config,
 )
 from lib.pim import (
     create_pim_config,
@@ -165,12 +165,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -251,6 +248,7 @@ def verify_state_incremented(state_before, state_after):
 #
 #####################################################
 
+
 def test_pim6_multiple_groups_same_RP_address_p2(request):
     """
     Configure multiple  groups (10 grps) with same RP address
@@ -275,10 +273,16 @@ def test_pim6_multiple_groups_same_RP_address_p2(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
+
+    input_dict = {
+        "r1": {"debug": {"log_file": "r1_debug.log", "enable": ["pim6d"]}},
+        "r2": {"debug": {"log_file": "r2_debug.log", "enable": ["pim6d"]}},
+        "r3": {"debug": {"log_file": "r3_debug.log", "enable": ["pim6d"]}},
+        "r4": {"debug": {"log_file": "r4_debug.log", "enable": ["pim6d"]}},
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
 
     step("Enable MLD on r1 interface")
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
@@ -597,9 +601,6 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -676,17 +677,21 @@ def test_pim6_multiple_groups_different_RP_address_p2(request):
 
     step("r1: Verify (*, G) upstream IIF interface")
     dut = "r1"
-    iif = TOPO["routers"]["r1"]["links"]["r2"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, STAR, group_address_list)
-    assert result is True, ASSERT_MSG.format(tc_name, result)
+    iif1 = TOPO["routers"]["r1"]["links"]["r2"]["interface"]
+    iif2 = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
 
-    step("r1: Verify (*, G) upstream join state and join timer")
-    result = verify_join_state_and_timer(
-        tgen, dut, iif, STAR, group_address_list, addr_type="ipv6"
-    )
-    assert result is True, ASSERT_MSG.format(tc_name, result)
+    for _iif, _group in zip([iif1, iif2], [GROUP_ADDRESS_LIST_1, GROUP_ADDRESS_LIST_2]):
+        result = verify_upstream_iif(tgen, dut, _iif, STAR, _group)
+        assert result is True, ASSERT_MSG.format(tc_name, result)
+
+        step("r1: Verify (*, G) upstream join state and join timer")
+        result = verify_join_state_and_timer(
+            tgen, dut, _iif, STAR, _group, addr_type="ipv6"
+        )
+        assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
+    iif = TOPO["routers"]["r1"]["links"]["r2"]["interface"]
     oif = TOPO["routers"]["r1"]["links"]["r0"]["interface"]
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, ASSERT_MSG.format(tc_name, result)
@@ -1192,9 +1197,6 @@ def test_pim6_delete_RP_shut_noshut_upstream_interface_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
