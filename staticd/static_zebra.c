@@ -182,6 +182,8 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
 	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
+
+	bfd_nht_zclient_connected(zclient);
 }
 
 /* API to check whether the configured nexthop address is
@@ -210,6 +212,9 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		zlog_err("Failure to decode nexthop update message");
 		return 1;
 	}
+
+	if (zclient->bfd_integration)
+		bfd_nht_update(&matched, &nhr);
 
 	if (matched.family == AF_INET6)
 		afi = AFI_IP6;
