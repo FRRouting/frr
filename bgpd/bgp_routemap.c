@@ -3585,7 +3585,8 @@ route_set_ipv6_nexthop_local(void *rule, const struct prefix *p, void *object)
 	path->attr->mp_nexthop_local = *address;
 
 	/* Set nexthop length. */
-	if (path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+	if (path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+	    path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 		path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 
 	SET_FLAG(path->attr->rmap_change_flags,
