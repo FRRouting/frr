@@ -150,6 +150,9 @@ const char *ifa_flags2str(uint32_t flags, char *buf, size_t buflen);
 const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
 
 void nl_dump(void *msg, size_t msglen);
+
+extern int zebra2proto(int proto);
+
 #endif /* NETLINK_DEBUG */
 
 #ifdef __cplusplus
