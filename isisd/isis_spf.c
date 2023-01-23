@@ -2714,12 +2714,14 @@ void isis_spf_init(void)
 
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 {
+	uint64_t last_run_duration = spftree->last_run_duration;
+
 	vty_out(vty, "      last run elapsed  : ");
 	vty_out_timestr(vty, spftree->last_run_timestamp);
 	vty_out(vty, "\n");
 
-	vty_out(vty, "      last run duration : %u usec\n",
-		(uint32_t)spftree->last_run_duration);
+	vty_out(vty, "      last run duration : %" PRIu64 " usec\n",
+		last_run_duration);
 
 	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }
