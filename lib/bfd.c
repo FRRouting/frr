@@ -149,22 +149,6 @@ static const struct in6_addr i6a_zero;
 static void bfd_source_cache_get(struct bfd_session_params *session);
 static void bfd_source_cache_put(struct bfd_session_params *session);
 
-static inline void
-bfd_source_cache_register(const struct bfd_source_cache *source)
-{
-	zclient_send_rnh(bsglobal.zc, ZEBRA_NEXTHOP_REGISTER, &source->address,
-			 SAFI_UNICAST, false, false, source->vrf_id);
-}
-
-static inline void
-bfd_source_cache_unregister(const struct bfd_source_cache *source)
-{
-	zclient_send_rnh(bsglobal.zc, ZEBRA_NEXTHOP_UNREGISTER,
-			 &source->address, SAFI_UNICAST, false, false,
-			 source->vrf_id);
-}
-
-
 /*
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
  *                     went down from the message sent from Zebra to clients.
@@ -1226,8 +1210,6 @@ static void bfd_source_cache_get(struct bfd_session_params *session)
 	session->source_cache = source;
 	source->refcount = 1;
 
-	bfd_source_cache_register(source);
-
 	return;
 }
 
@@ -1242,7 +1224,6 @@ static void bfd_source_cache_put(struct bfd_session_params *session)
 		return;
 	}
 
-	bfd_source_cache_unregister(session->source_cache);
 	SLIST_REMOVE(&bsglobal.source_list, session->source_cache,
 		     bfd_source_cache, entry);
 	XFREE(MTYPE_BFD_SOURCE, session->source_cache);
@@ -1350,17 +1331,6 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 	memset(&source->source, 0, sizeof(source->source));
 	source->valid = false;
 	return false;
-}
-
-void bfd_nht_zclient_connected(struct zclient *zclient)
-{
-	struct bfd_source_cache *source;
-
-	if (bsglobal.debugging)
-		zlog_debug("BFD NHT zclient connected");
-
-	SLIST_FOREACH (source, &bsglobal.source_list, entry)
-		bfd_source_cache_register(source);
 }
 
 int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
