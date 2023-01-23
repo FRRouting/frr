@@ -290,7 +290,7 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 	  New neighbor?
 	*/
 
-	neigh = pim_neighbor_find(ifp, src_addr);
+	neigh = pim_neighbor_find(ifp, src_addr, false);
 	if (!neigh) {
 		/* Add as new neighbor */
 

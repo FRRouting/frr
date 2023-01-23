@@ -419,7 +419,7 @@ struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 }
 
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
-				       pim_addr source_addr)
+				       pim_addr source_addr, bool secondary)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
@@ -436,6 +436,13 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 		if (!pim_addr_cmp(source_addr, neigh->source_addr)) {
 			return neigh;
 		}
+	}
+
+	if (secondary) {
+		struct prefix p;
+
+		pim_addr_to_prefix(&p, source_addr);
+		return pim_neighbor_find_by_secondary(ifp, &p);
 	}
 
 	return NULL;
