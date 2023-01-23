@@ -1,7 +1,6 @@
 {
    "vrfId":0,
    "vrfName":"default",
-   "tableVersion":1,
    "routerId":"1.1.1.1",
    "defaultLocPrf":100,
    "localAS":65500,
@@ -17,7 +16,6 @@
                   "prefix":"10.201.0.0",
                   "prefixLen":24,
                   "network":"10.201.0.0\/24",
-                  "version":1,
                   "metric":0,
                   "weight":32768,
                   "peerId":"(unspec)",
@@ -28,6 +26,7 @@
                   "nexthops":[
                      {
                         "ip":"0.0.0.0",
+                        "hostname":"r1",
                         "afi":"ipv4",
                         "used":true
                      }
@@ -45,7 +44,6 @@
                   "prefix":"10.200.0.0",
                   "prefixLen":24,
                   "network":"10.200.0.0\/24",
-                  "version":1,
                   "metric":0,
                   "locPrf":100,
                   "weight":0,
@@ -55,6 +53,7 @@
                   "nexthops":[
                      {
                         "ip":"10.125.0.2",
+                        "hostname":"r2",
                         "afi":"ipv4",
                         "used":true
                      }
