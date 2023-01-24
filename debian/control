@@ -106,6 +106,7 @@ Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends},
          ${sphinxdoc:Depends}
+Built-Using: ${sphinxdoc:Built-Using}
 Suggests: frr
 Conflicts: quagga-doc
 Description: FRRouting suite - user manual
