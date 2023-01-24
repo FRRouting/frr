@@ -211,6 +211,9 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 1;
 	}
 
+	if (zclient->bfd_integration)
+		bfd_nht_update(&matched, &nhr);
+
 	if (matched.family == AF_INET6)
 		afi = AFI_IP6;
 
