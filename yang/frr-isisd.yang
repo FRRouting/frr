@@ -881,6 +881,9 @@ module frr-isisd {
           description
             "This leaf describes the state of the interface.";
         }
+
+        uses adjacency-sids;
+        uses lan-adjacency-sids;
       }
     }
   }
@@ -1001,6 +1004,76 @@ module frr-isisd {
       type extended-circuit-id;
       description
         "Eextended circuit-id of the interface.";
+    }
+  }
+
+  grouping adjacency-sids {
+    description
+      "IS-IS segment routing adjacency SID grouping.";
+    container adjacency-sids {
+      description
+        "This container lists the information of adjacency SID.";
+      list adjacency-sid {
+        leaf af {
+          type uint8;
+          description
+            "This leaf describes the protocol-family associated with the
+              adjacency SID.";
+        }
+
+        leaf value {
+          type uint32;
+          description
+            "This leaf describes the value of adjacency SID.";
+        }
+
+        leaf weight {
+          type uint8;
+          description
+            "This leaf describes the weight of the adjacency SID.";
+        }
+
+        leaf protection-requested {
+          type boolean;
+          description
+            "This leaf describes if the adjacency SID must be protected.";
+        }
+      }
+    }
+  }
+
+  grouping lan-adjacency-sids {
+    description
+      "IS-IS segment routing LAN adjacency SID grouping.";
+    container lan-adjacency-sids {
+      description
+        "This container lists the information of LAN adjacency SID.";
+      list lan-adjacency-sid {
+        leaf af {
+          type uint8;
+          description
+            "This leaf describes the protocol-family associated with the
+              LAN adjacency SID.";
+        }
+
+        leaf value {
+          type uint32;
+          description
+            "This leaf describes the value of LAN adjacency SID.";
+        }
+
+        leaf weight {
+          type uint8;
+          description
+            "This leaf describes the weight of the LAN adjacency SID.";
+        }
+
+        leaf protection-requested {
+          type boolean;
+          description
+            "This leaf describes if the LAN adjacency SID must be protected.";
+        }
+      }
     }
   }
 

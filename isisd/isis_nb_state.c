@@ -216,6 +216,228 @@ struct yang_data *lib_interface_state_isis_adjacencies_adjacency_state_get_elem(
 
 /*
  * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid
+ */
+const void *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_get_next(
+	struct nb_cb_get_next_args *args)
+{
+	const struct isis_adjacency *adj = args->parent_list_entry;
+	const struct sr_adjacency *sra = args->list_entry, *sra_next = NULL;
+	struct listnode *node, *node_next;
+
+	if (args->list_entry == NULL)
+		sra_next = listnode_head(adj->adj_sids);
+	else {
+		node = listnode_lookup(adj->adj_sids, sra);
+		node_next = listnextnode(node);
+		if (node_next)
+			sra_next = listgetdata(node_next);
+	}
+
+	return sra_next;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/af
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_af_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		/* Adjacency SID is not published with circuit type Broadcast */
+		return NULL;
+	case CIRCUIT_T_P2P:
+		return yang_data_new_uint8(args->xpath, sra->u.adj_sid->family);
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/value
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_value_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		/* Adjacency SID is not published with circuit type Broadcast */
+		return NULL;
+	case CIRCUIT_T_P2P:
+		return yang_data_new_uint32(args->xpath, sra->u.adj_sid->sid);
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/weight
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_weight_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		/* Adjacency SID is not published with circuit type Broadcast */
+		return NULL;
+	case CIRCUIT_T_P2P:
+		return yang_data_new_uint8(args->xpath, sra->u.adj_sid->weight);
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/protection-requested
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_protection_requested_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		/* Adjacency SID is not published with circuit type Broadcast */
+		return NULL;
+	case CIRCUIT_T_P2P:
+		return yang_data_new_bool(args->xpath,
+					  sra->u.adj_sid->flags &
+						  EXT_SUBTLV_LINK_ADJ_SID_BFLG);
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid
+ */
+const void *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_get_next(
+	struct nb_cb_get_next_args *args)
+{
+	const struct isis_adjacency *adj = args->parent_list_entry;
+	const struct sr_adjacency *sra = args->list_entry, *sra_next = NULL;
+	struct listnode *node, *node_next;
+
+	if (args->list_entry == NULL)
+		sra_next = listnode_head(adj->adj_sids);
+	else {
+		node = listnode_lookup(adj->adj_sids, sra);
+		node_next = listnextnode(node);
+		if (node_next)
+			sra_next = listgetdata(node_next);
+	}
+
+	return sra_next;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/af
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_af_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		return yang_data_new_uint8(args->xpath,
+					   sra->u.ladj_sid->family);
+	case CIRCUIT_T_P2P:
+		/* LAN adjacency SID is not published with circuit type P2P */
+		return NULL;
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/value
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_value_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		return yang_data_new_uint32(args->xpath, sra->u.ladj_sid->sid);
+	case CIRCUIT_T_P2P:
+		/* LAN adjacency SID is not published with circuit type P2P */
+		return NULL;
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/weight
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_weight_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		return yang_data_new_uint8(args->xpath,
+					   sra->u.ladj_sid->weight);
+	case CIRCUIT_T_P2P:
+		/* LAN adjacency SID is not published with circuit type P2P */
+		return NULL;
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/protection-requested
+ */
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_protection_requested_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	const struct sr_adjacency *sra = args->list_entry;
+
+	switch (sra->adj->circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		return yang_data_new_bool(args->xpath,
+					  sra->u.ladj_sid->flags &
+						  EXT_SUBTLV_LINK_ADJ_SID_BFLG);
+	case CIRCUIT_T_P2P:
+		/* LAN adjacency SID is not published with circuit type P2P */
+		return NULL;
+	}
+
+	return NULL;
+}
+
+/*
+ * XPath:
  * /frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-changes
  */
 struct yang_data *
