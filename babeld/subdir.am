@@ -43,4 +43,8 @@ noinst_HEADERS += \
 	babeld/xroute.h \
 	# end
 
+clippy_scan += \
+	babeld/babel_interface.c \
+	babeld/babeld.c
+
 babeld_babeld_LDADD = lib/libfrr.la $(LIBCAP)
