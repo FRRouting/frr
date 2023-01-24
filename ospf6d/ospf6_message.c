@@ -28,6 +28,7 @@
 #include "linklist.h"
 #include "lib_errors.h"
 #include "checksum.h"
+#include "network.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -2300,7 +2301,7 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 	/* if this is initial one, initialize sequence number for DbDesc */
 	if (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
 	    && (on->dbdesc_seqnum == 0)) {
-		on->dbdesc_seqnum = monotime(NULL);
+		on->dbdesc_seqnum = frr_sequence32_next();
 	}
 
 	/* reserved */
