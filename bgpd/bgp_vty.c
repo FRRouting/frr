@@ -8819,6 +8819,59 @@ DEFPY(no_neighbor_path_attribute_discard,
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_path_attribute_treat_as_withdraw,
+      neighbor_path_attribute_treat_as_withdraw_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	const char *withdraw_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		withdraw_attrs = argv_concat(argv, argc, idx);
+
+	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
+      no_neighbor_path_attribute_treat_as_withdraw_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	const char *withdraw_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		withdraw_attrs = argv_concat(argv, argc, idx);
+
+	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, false);
+
+	return CMD_SUCCESS;
+}
+
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6)
 {
@@ -17459,6 +17512,16 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s path-attribute discard %s\n", addr,
 			discard_attrs_str);
 
+	/* path-attribute treat-as-withdraw */
+	char withdraw_attrs_str[BUFSIZ] = {0};
+	bool withdraw_attrs = bgp_path_attribute_treat_as_withdraw(
+		peer, withdraw_attrs_str, sizeof(withdraw_attrs_str));
+
+	if (withdraw_attrs)
+		vty_out(vty,
+			" neighbor %s path-attribute treat-as-withdraw %s\n",
+			addr, withdraw_attrs_str);
+
 	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
 			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
 
@@ -19569,6 +19632,12 @@ void bgp_vty_init(void)
 	/* "neighbor path-attribute discard" commands. */
 	install_element(BGP_NODE, &neighbor_path_attribute_discard_cmd);
 	install_element(BGP_NODE, &no_neighbor_path_attribute_discard_cmd);
+
+	/* "neighbor path-attribute treat-as-withdraw" commands. */
+	install_element(BGP_NODE,
+			&neighbor_path_attribute_treat_as_withdraw_cmd);
+	install_element(BGP_NODE,
+			&no_neighbor_path_attribute_treat_as_withdraw_cmd);
 
 	/* "neighbor passive" commands. */
 	install_element(BGP_NODE, &neighbor_passive_cmd);

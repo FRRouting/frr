@@ -1768,6 +1768,9 @@ struct peer {
 	/* Path attributes discard */
 	bool discard_attrs[BGP_ATTR_MAX];
 
+	/* Path attributes treat-as-withdraw */
+	bool withdraw_attrs[BGP_ATTR_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
@@ -2620,6 +2623,8 @@ extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 				  int outbound);
 extern bool bgp_path_attribute_discard(struct peer *peer, char *buf,
 				       size_t size);
+extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
+						 size_t size);
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
