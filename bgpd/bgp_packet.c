@@ -2033,7 +2033,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlris[i], 1);
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
+						  &nlris[i], 1);
 			break;
 		default:
 			nlri_ret = BGP_NLRI_PARSE_ERROR;
