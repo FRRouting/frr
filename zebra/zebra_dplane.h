@@ -24,7 +24,6 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
-#include "lib/queue.h"
 #include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
@@ -265,14 +264,15 @@ void dplane_enable_sys_route_notifs(void);
  * they cannot share existing global data structures safely.
  */
 
-/* Define a tailq list type for context blocks. The list is exposed/public,
+/* Define a list type for context blocks. The list is exposed/public,
  * but the internal linkage in the context struct is private, so there
  * are accessor apis that support enqueue and dequeue.
  */
-TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
+
+PREDECL_DLIST(dplane_ctx_list);
 
 /* Declare a type for (optional) extended interface info objects. */
-TAILQ_HEAD(dplane_intf_extra_q, dplane_intf_extra);
+PREDECL_DLIST(dplane_intf_extra_list);
 
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
@@ -300,18 +300,21 @@ void dplane_ctx_fini(struct zebra_dplane_ctx **pctx);
 /* Enqueue a context block to caller's tailq. This exists so that the
  * context struct can remain opaque.
  */
-void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,
+void dplane_ctx_enqueue_tail(struct dplane_ctx_list_head *q,
 			     const struct zebra_dplane_ctx *ctx);
 
 /* Append a list of context blocks to another list - again, just keeping
  * the context struct opaque.
  */
-void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
-			    struct dplane_ctx_q *from_list);
+void dplane_ctx_list_append(struct dplane_ctx_list_head *to_list,
+			    struct dplane_ctx_list_head *from_list);
 
 /* Dequeue a context block from the head of caller's tailq */
-struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q);
-struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q);
+struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q);
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
+
+/* Init a list of contexts */
+void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
 
 /*
  * Accessors for information from the context object
@@ -1036,7 +1039,7 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 
 /* Dequeue work to a list, maintain counter and locking, return count */
 int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
-				    struct dplane_ctx_q *listp);
+				    struct dplane_ctx_list_head *listp);
 
 /* Current completed work queue length */
 uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov);
@@ -1061,7 +1064,7 @@ void dplane_enable_intf_extra_info(void);
  * so the expectation is that the contexts are queued for the zebra
  * main pthread.
  */
-void zebra_dplane_init(int (*) (struct dplane_ctx_q *));
+void zebra_dplane_init(int (*)(struct dplane_ctx_list_head *));
 
 /*
  * Start the dataplane pthread. This step needs to be run later than the

@@ -121,7 +121,7 @@ extern int kernel_del_mac_nhg(uint32_t nhg_id);
 /*
  * Message batching interface.
  */
-extern void kernel_update_multi(struct dplane_ctx_q *ctx_list);
+extern void kernel_update_multi(struct dplane_ctx_list_head *ctx_list);
 
 /*
  * Called by the dplane pthread to read incoming OS messages and dispatch them.

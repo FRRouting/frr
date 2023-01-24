@@ -202,13 +202,13 @@ struct nl_batch {
 
 	const struct zebra_dplane_info *zns;
 
-	struct dplane_ctx_q ctx_list;
+	struct dplane_ctx_list_head ctx_list;
 
 	/*
 	 * Pointer to the queue of completed contexts outbound back
 	 * towards the dataplane module.
 	 */
-	struct dplane_ctx_q *ctx_out_q;
+	struct dplane_ctx_list_head *ctx_out_q;
 };
 
 int netlink_config_write_helper(struct vty *vty)
@@ -1446,10 +1446,11 @@ static void nl_batch_reset(struct nl_batch *bth)
 	bth->msgcnt = 0;
 	bth->zns = NULL;
 
-	TAILQ_INIT(&(bth->ctx_list));
+	dplane_ctx_q_init(&(bth->ctx_list));
 }
 
-static void nl_batch_init(struct nl_batch *bth, struct dplane_ctx_q *ctx_out_q)
+static void nl_batch_init(struct nl_batch *bth,
+			  struct dplane_ctx_list_head *ctx_out_q)
 {
 	/*
 	 * If the size of the buffer has changed, free and then allocate a new
@@ -1665,14 +1666,14 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	return FRR_NETLINK_ERROR;
 }
 
-void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct nl_batch batch;
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q handled_list;
+	struct dplane_ctx_list_head handled_list;
 	enum netlink_msg_status res;
 
-	TAILQ_INIT(&handled_list);
+	dplane_ctx_q_init(&handled_list);
 	nl_batch_init(&batch, &handled_list);
 
 	while (true) {
@@ -1703,7 +1704,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 
 	nl_batch_send(&batch);
 
-	TAILQ_INIT(ctx_list);
+	dplane_ctx_q_init(ctx_list);
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
