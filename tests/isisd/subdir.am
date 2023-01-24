@@ -21,7 +21,7 @@ EXTRA_DIST += \
 	# end
 
 tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
-	@mkdir -p tests/isisd
+	@$(MKDIR_P) tests/isisd
 	$(AM_V_GEN)gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
 CLEANFILES += tests/isisd/test_fuzz_isis_tlv_tests.h
 
