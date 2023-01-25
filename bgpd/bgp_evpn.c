@@ -2749,10 +2749,13 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Update the tunnel-ip hash */
 	bgp_tip_del(bgp, &vpn->originator_ip);
-	bgp_tip_add(bgp, &originator_ip);
-
-	/* filter routes as martian nexthop db has changed */
-	bgp_filter_evpn_routes_upon_martian_nh_change(bgp);
+	if (bgp_tip_add(bgp, &originator_ip))
+		/* The originator_ip was not already present in the
+		 * bgp martian next-hop table as a tunnel-ip, so we
+		 * need to go back and filter routes matching the new
+		 * martian next-hop.
+		 */
+		bgp_filter_evpn_routes_upon_martian_nh_change(bgp);
 
 	/* Need to withdraw type-3 route as the originator IP is part
 	 * of the key.
@@ -6567,10 +6570,13 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	SET_FLAG(vpn->flags, VNI_FLAG_LIVE);
 
 	/* tunnel is now active, add tunnel-ip to db */
-	bgp_tip_add(bgp, &originator_ip);
-
-	/* filter routes as nexthop database has changed */
-	bgp_filter_evpn_routes_upon_martian_nh_change(bgp);
+	if (bgp_tip_add(bgp, &originator_ip))
+		/* The originator_ip was not already present in the
+		 * bgp martian next-hop table as a tunnel-ip, so we
+		 * need to go back and filter routes matching the new
+		 * martian next-hop.
+		 */
+		bgp_filter_evpn_routes_upon_martian_nh_change(bgp);
 
 	/*
 	 * Create EVPN type-3 route and schedule for processing.
