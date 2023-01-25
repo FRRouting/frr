@@ -188,15 +188,30 @@ void bgp_tip_hash_destroy(struct bgp *bgp)
 	bgp->tip_hash = NULL;
 }
 
-void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
+/* Add/Update Tunnel-IP entry of bgp martian next-hop table.
+ *
+ * Returns true only if we add a _new_ TIP so the caller knows that an
+ * actionable change has occurred. If we find an existing TIP then we
+ * only need to update the refcnt, since the collection of known TIPs
+ * has not changed.
+ */
+bool bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 {
 	struct tip_addr tmp;
 	struct tip_addr *addr;
+	bool tip_added = false;
 
 	tmp.addr = *tip;
 
-	addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
+	addr = hash_lookup(bgp->tip_hash, &tmp);
+	if (!addr) {
+		addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
+		tip_added = true;
+	}
+
 	addr->refcnt++;
+
+	return tip_added;
 }
 
 void bgp_tip_del(struct bgp *bgp, struct in_addr *tip)
