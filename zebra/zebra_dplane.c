@@ -5551,9 +5551,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 			prov->dp_name, prov->dp_id, in, in_q, in_max,
 			out, out_q, out_max);
 
-		DPLANE_LOCK();
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
-		DPLANE_UNLOCK();
 	}
 
 	return CMD_SUCCESS;
@@ -6592,9 +6590,7 @@ static bool dplane_work_pending(void)
 		if (ctx != NULL)
 			break;
 
-		DPLANE_LOCK();
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
-		DPLANE_UNLOCK();
 	}
 
 	if (ctx != NULL)
@@ -6822,9 +6818,7 @@ static void dplane_thread_loop(struct thread *event)
 				   counter, dplane_provider_get_name(prov));
 
 		/* Locate next provider */
-		DPLANE_LOCK();
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
-		DPLANE_UNLOCK();
 	}
 
 	/*
@@ -6968,9 +6962,7 @@ void zebra_dplane_start(void)
 			(prov->dp_start)(prov);
 
 		/* Locate next provider */
-		DPLANE_LOCK();
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
-		DPLANE_UNLOCK();
 	}
 
 	frr_pthread_run(zdplane_info.dg_pthread, NULL);
