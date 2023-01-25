@@ -2736,15 +2736,18 @@ static int bgp_evpn_mcast_grp_change(struct bgp *bgp, struct bgpevpn *vpn,
  * Note: Route re-advertisement happens elsewhere after other processing
  * other changes.
  */
-static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
-				   struct in_addr originator_ip)
+static void handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
+				    struct in_addr originator_ip)
 {
 	struct prefix_evpn p;
+
+	if (IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
+		return;
 
 	/* If VNI is not live, we only need to update the originator ip */
 	if (!is_vni_live(vpn)) {
 		vpn->originator_ip = originator_ip;
-		return 0;
+		return;
 	}
 
 	/* Update the tunnel-ip hash */
@@ -2765,7 +2768,7 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Update the tunnel IP and re-advertise all routes for this VNI. */
 	vpn->originator_ip = originator_ip;
-	return 0;
+	return;
 }
 
 static struct bgp_path_info *
@@ -6548,8 +6551,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		/* If tunnel endpoint IP has changed, update (and delete prior
 		 * type-3 route, if needed.)
 		 */
-		if (!IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
-			handle_tunnel_ip_change(bgp, vpn, originator_ip);
+		handle_tunnel_ip_change(bgp, vpn, originator_ip);
 
 		/* Update all routes with new endpoint IP and/or export RT
 		 * for VRFs
