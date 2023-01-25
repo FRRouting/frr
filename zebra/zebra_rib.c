@@ -4337,25 +4337,6 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 	}
 }
 
-static void rib_update_handle_vrf(vrf_id_t vrf_id, enum rib_update_event event,
-				  int rtype)
-{
-	struct route_table *table;
-
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%s: Handling VRF %s event %s", __func__,
-			   vrf_id_to_name(vrf_id), rib_update_event2str(event));
-
-	/* Process routes of interested address-families. */
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (table)
-		rib_update_table(table, event, rtype);
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (table)
-		rib_update_table(table, event, rtype);
-}
-
 static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 {
 	struct zebra_router_table *zrt;
@@ -4371,7 +4352,6 @@ static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 
 struct rib_update_ctx {
 	enum rib_update_event event;
-	bool vrf_all;
 	vrf_id_t vrf_id;
 };
 
@@ -4399,10 +4379,7 @@ static void rib_update_handler(struct thread *thread)
 
 	ctx = THREAD_ARG(thread);
 
-	if (ctx->vrf_all)
-		rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
-	else
-		rib_update_handle_vrf(ctx->vrf_id, ctx->event, ZEBRA_ROUTE_ALL);
+	rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
 
 	rib_update_ctx_fini(&ctx);
 }
@@ -4422,7 +4399,6 @@ void rib_update(enum rib_update_event event)
 		return;
 
 	ctx = rib_update_ctx_init(0, event);
-	ctx->vrf_all = true;
 
 	thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
 			 &t_rib_update_threads[event]);
