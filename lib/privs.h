@@ -58,13 +58,12 @@ struct zebra_privs_t {
 	int cap_num_p;		      /* number of caps in arrays */
 	int cap_num_i;
 
-	/* Mutex and counter used to avoid race conditions in multi-threaded
+	/* counter used to avoid race conditions in multi-threaded
 	 * processes. If privs status is process-wide, we need to
 	 * control changes to the privilege status among threads.
 	 * If privs changes are per-thread, we need to be able to
 	 * manage that too.
 	 */
-	pthread_mutex_t mutex;
 	struct zebra_privs_refs_t process_refs;
 
 	STAILQ_HEAD(thread_refs_q, zebra_privs_refs_t) thread_refs;
