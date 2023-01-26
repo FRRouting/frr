@@ -26,6 +26,7 @@
 #include "printfrr.h"
 #include <lib/json.h>
 #include "link_state.h"
+#include "iso.h"
 
 /* Link State Memory allocation */
 DEFINE_MTYPE_STATIC(LIB, LS_DB, "Link State Database");
@@ -1965,13 +1966,9 @@ static const char *const status2txt[] = {
 static const char *ls_node_id_to_text(struct ls_node_id lnid, char *str,
 				      size_t size)
 {
-	if (lnid.origin == ISIS_L1 || lnid.origin == ISIS_L2) {
-		uint8_t *id;
-
-		id = lnid.id.iso.sys_id;
-		snprintfrr(str, size, "%02x%02x.%02x%02x.%02x%02x", id[0],
-			   id[1], id[2], id[3], id[4], id[5]);
-	} else
+	if (lnid.origin == ISIS_L1 || lnid.origin == ISIS_L2)
+		snprintfrr(str, size, "%pSY", lnid.id.iso.sys_id);
+	else
 		snprintfrr(str, size, "%pI4", &lnid.id.ip.addr);
 
 	return str;
