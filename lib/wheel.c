@@ -118,21 +118,6 @@ void wheel_delete(struct timer_wheel *wheel)
 	XFREE(MTYPE_TIMER_WHEEL, wheel);
 }
 
-int wheel_stop(struct timer_wheel *wheel)
-{
-	THREAD_OFF(wheel->timer);
-	return 0;
-}
-
-int wheel_start(struct timer_wheel *wheel)
-{
-	if (!wheel->timer)
-		thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
-				      wheel->nexttime, &wheel->timer);
-
-	return 0;
-}
-
 int wheel_add_item(struct timer_wheel *wheel, void *item)
 {
 	long long slot;
