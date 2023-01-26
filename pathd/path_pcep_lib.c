@@ -38,7 +38,8 @@ DEFINE_MTYPE_STATIC(PATHD, PCEPLIB_MESSAGES, "PCEPlib PCEP Messages");
 #define MAX_PATH_NAME_SIZE 255
 
 /* pceplib logging callback */
-static int pceplib_logging_cb(int level, const char *fmt, va_list args);
+static int pceplib_logging_cb(int level, const char *fmt, va_list args)
+	PRINTFRR(2, 0);
 
 /* Socket callbacks */
 static int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
