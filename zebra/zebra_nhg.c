@@ -1820,7 +1820,7 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (policy) {
-		int i = 0;
+		int label_num = 0;
 
 		/*
 		 * Don't push the first SID if the corresponding action in the
@@ -1828,10 +1828,11 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		 */
 		if (!newhop->nh_label || !newhop->nh_label->num_labels
 		    || newhop->nh_label->label[0] == MPLS_LABEL_IMPLICIT_NULL)
-			i = 1;
+			label_num = 1;
 
-		for (; i < policy->segment_list.label_num; i++)
-			labels[num_labels++] = policy->segment_list.labels[i];
+		for (; label_num < policy->segment_list.label_num; label_num++)
+			labels[num_labels++] =
+				policy->segment_list.labels[label_num];
 		label_type = policy->segment_list.type;
 	} else if (newhop->nh_label) {
 		for (i = 0; i < newhop->nh_label->num_labels; i++) {
