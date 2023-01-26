@@ -299,7 +299,7 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		sizeof(rs_timer_xpath));
 
 	/* RFC4601 */
-	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
+	v = yang_dnode_get_uint16(vty->candidate_config->dnode, "%s",
 				  rs_timer_xpath);
 	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
 	if (v > UINT16_MAX)
@@ -688,7 +688,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 		return NB_OK;
 	}
 
-	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
+	plist = yang_dnode_get_string(plist_dnode, "%s", plist_xpath);
 	if (strcmp(prefix_list, plist)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;

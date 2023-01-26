@@ -377,7 +377,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			}
 		}
 
-		ret = nb_cli_apply_changes(vty, xpath_prefix);
+		ret = nb_cli_apply_changes(vty, "%s", xpath_prefix);
 	} else {
 		if (args->source)
 			snprintf(ab_xpath, sizeof(ab_xpath),
@@ -411,7 +411,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
 
 		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY, NULL);
-		ret = nb_cli_apply_changes(vty, ab_xpath);
+		ret = nb_cli_apply_changes(vty, "%s", ab_xpath);
 	}
 
 	return ret;
