@@ -746,6 +746,7 @@ static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 	}
 }
 
+PRINTFRR(6, 7)
 static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		     struct sockaddr_any *local, ifindex_t ifindex,
 		     vrf_id_t vrfid, const char *fmt, ...)

@@ -108,6 +108,7 @@ int main(int argc, char **argv)
 
 #include "log.h"
 
+PRINTFRR(3, 0)
 void vzlogx(const struct xref_logmsg *xref, int prio,
 	    const char *format, va_list args)
 {

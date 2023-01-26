@@ -219,6 +219,7 @@ ferr_r ferr_clear(void)
 	return ferr_ok();
 }
 
+PRINTFRR(7, 0)
 static ferr_r ferr_set_va(const char *file, int line, const char *func,
 			  enum ferr_kind kind, const char *pathname,
 			  int errno_val, const char *text, va_list va)

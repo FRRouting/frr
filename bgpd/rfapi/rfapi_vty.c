@@ -322,6 +322,7 @@ int rfapiDebugPrintf(void *dummy, const char *format, ...)
 	return 0;
 }
 
+PRINTFRR(2, 3)
 static int rfapiStdioPrintf(void *stream, const char *format, ...)
 {
 	FILE *file = NULL;

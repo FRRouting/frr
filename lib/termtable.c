@@ -130,6 +130,7 @@ struct ttable *ttable_new(const struct ttable_style *style)
  *
  * @return pointer to the first cell of allocated row
  */
+PRINTFRR(3, 0)
 static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 						const char *format, va_list ap)
 {

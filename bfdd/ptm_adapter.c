@@ -81,6 +81,7 @@ static void bfdd_client_deregister(struct stream *msg);
 /*
  * Functions
  */
+PRINTFRR(2, 3)
 static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
 	char timers[3][128] = {};
