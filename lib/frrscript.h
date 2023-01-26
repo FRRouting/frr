@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 /* Forward declarations */
-extern struct zebra_dplane_ctx ctx;
+struct zebra_dplane_ctx;
 extern void lua_pushzebra_dplane_ctx(lua_State *L,
 				     const struct zebra_dplane_ctx *ctx);
 extern void lua_decode_zebra_dplane_ctx(lua_State *L, int idx,
