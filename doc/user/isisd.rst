@@ -212,7 +212,7 @@ ISIS interface
 
    Add padding to IS-IS hello packets.
 
-.. clicmd:: isis hello padding sometimes
+.. clicmd:: isis hello padding during-adjacency-formation
 
    Add padding to IS-IS hello packets during adjacency formation only.
 

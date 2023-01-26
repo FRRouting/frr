@@ -128,7 +128,7 @@ module frr-isisd {
         description
           "Do not add any padding to hello packets.";
       } 
-      enum "sometimes" {
+      enum "during-adjacency-formation" {
         value 2;
         description
           "Add padding to hello packets during adjacency formation only.";

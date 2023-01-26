@@ -299,8 +299,8 @@ const char *isis_hello_padding2string(int hello_padding_type)
 	switch (hello_padding_type) {
 	case ISIS_HELLO_PADDING_DISABLED:
 		return "no";
-	case ISIS_HELLO_PADDING_SOMETIMES:
-		return "sometimes";
+	case ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION:
+		return "during-adjacency-formation";
 	case ISIS_HELLO_PADDING_ALWAYS:
 		return "yes";
 	}

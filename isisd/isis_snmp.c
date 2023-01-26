@@ -2162,7 +2162,8 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 		 * return false if lan hellos must be padded
 		 */
 		if (circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
-		    (circuit->pad_hellos == ISIS_HELLO_PADDING_SOMETIMES &&
+		    (circuit->pad_hellos ==
+			     ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION &&
 		     circuit->upadjcount[0] + circuit->upadjcount[1] == 0))
 			return SNMP_INTEGER(ISIS_SNMP_TRUTH_VALUE_FALSE);
 
