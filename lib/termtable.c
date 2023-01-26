@@ -436,13 +436,12 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 				abspad -= row[j].style.border.right_on ? 1 : 0;
 
 			/* print text */
-			const char *fmt;
 			if (row[j].style.align == LEFT)
-				fmt = "%-*s";
+				pos += sprintf(&buf[pos], "%-*s", abspad,
+					       row[j].text);
 			else
-				fmt = "%*s";
-
-			pos += sprintf(&buf[pos], fmt, abspad, row[j].text);
+				pos += sprintf(&buf[pos], "%*s", abspad,
+					       row[j].text);
 
 			/* print right padding */
 			for (int k = 0; k < row[j].style.rpad; k++)
