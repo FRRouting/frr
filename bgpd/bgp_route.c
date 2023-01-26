@@ -9483,7 +9483,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			json_object_string_add(json_path, "path",
 					       attr->aspath->str);
 		else
-			aspath_print_vty(vty, "%s", attr->aspath, " ");
+			aspath_print_vty(vty, attr->aspath);
 	}
 
 	/* Print origin */
@@ -9701,7 +9701,7 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 
 			/* Print aspath */
 			if (attr->aspath)
-				aspath_print_vty(vty, "%s", attr->aspath, " ");
+				aspath_print_vty(vty, attr->aspath);
 
 			/* Print origin */
 			vty_out(vty, "%s", bgp_origin_str[attr->origin]);
@@ -9968,7 +9968,7 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 						use_json, NULL));
 
 		if (attr->aspath)
-			aspath_print_vty(vty, "%s", attr->aspath, " ");
+			aspath_print_vty(vty, attr->aspath);
 
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
@@ -10045,7 +10045,7 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 			vty_out(vty, "%*s ", 8, " ");
 
 		if (attr->aspath)
-			aspath_print_vty(vty, "%s", attr->aspath, " ");
+			aspath_print_vty(vty, attr->aspath);
 
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
@@ -10329,7 +10329,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					       attr->aspath->json);
 		} else {
 			if (attr->aspath->segments)
-				aspath_print_vty(vty, "  %s", attr->aspath, "");
+				vty_out(vty, "  %s", attr->aspath->str);
 			else
 				vty_out(vty, "  Local");
 		}
