@@ -70,7 +70,7 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 	 * prefix length <= le.
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_le)) {
-		le = yang_dnode_get_uint8(args->dnode, xpath_le);
+		le = yang_dnode_get_uint8(args->dnode, "%s", xpath_le);
 		if (p.prefixlen > le)
 			goto log_and_fail;
 	}
@@ -80,7 +80,7 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 	 * prefix length <= ge.
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_ge)) {
-		ge = yang_dnode_get_uint8(args->dnode, xpath_ge);
+		ge = yang_dnode_get_uint8(args->dnode, "%s", xpath_ge);
 		if (p.prefixlen > ge)
 			goto log_and_fail;
 	}
@@ -91,8 +91,8 @@ static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 	 */
 	if (yang_dnode_exists(args->dnode, xpath_le)
 	    && yang_dnode_exists(args->dnode, xpath_ge)) {
-		le = yang_dnode_get_uint8(args->dnode, xpath_le);
-		ge = yang_dnode_get_uint8(args->dnode, xpath_ge);
+		le = yang_dnode_get_uint8(args->dnode, "%s", xpath_le);
+		ge = yang_dnode_get_uint8(args->dnode, "%s", xpath_ge);
 		if (ge > le)
 			goto log_and_fail;
 	}
@@ -273,7 +273,8 @@ static int _acl_is_dup(const struct lyd_node *dnode, void *arg)
 			return YANG_ITER_CONTINUE;
 
 		/* Check if different value. */
-		if (strcmp(yang_dnode_get_string(dnode, ada->ada_xpath[idx]),
+		if (strcmp(yang_dnode_get_string(dnode, "%s",
+						 ada->ada_xpath[idx]),
 			   ada->ada_value[idx]))
 			return YANG_ITER_CONTINUE;
 	}
@@ -328,8 +329,8 @@ static bool acl_cisco_is_dup(const struct lyd_node *dnode)
 		}
 
 		ada.ada_xpath[arg_idx] = cisco_entries[idx];
-		ada.ada_value[arg_idx] =
-			yang_dnode_get_string(entry_dnode, cisco_entries[idx]);
+		ada.ada_value[arg_idx] = yang_dnode_get_string(
+			entry_dnode, "%s", cisco_entries[idx]);
 		arg_idx++;
 		idx++;
 	}
@@ -378,8 +379,8 @@ static bool acl_zebra_is_dup(const struct lyd_node *dnode,
 		}
 
 		ada.ada_xpath[arg_idx] = zebra_entries[idx];
-		ada.ada_value[arg_idx] =
-			yang_dnode_get_string(entry_dnode, zebra_entries[idx]);
+		ada.ada_value[arg_idx] = yang_dnode_get_string(
+			entry_dnode, "%s", zebra_entries[idx]);
 		arg_idx++;
 		idx++;
 	}

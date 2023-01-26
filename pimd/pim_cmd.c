@@ -4777,14 +4777,11 @@ DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
       "Connection retry period (in seconds)\n")
 {
 	const char *vrfname;
-	char xpath[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
-		 "pim", vrfname, "frr-routing:ipv4");
 	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_MODIFY, holdtime_str);
 	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_MODIFY, keepalive_str);
 	if (connretry_str)
@@ -4794,8 +4791,8 @@ DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
 		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY,
 				      NULL);
 
-	nb_cli_apply_changes(vty, xpath);
-
+	nb_cli_apply_changes(vty, FRR_PIM_MSDP_XPATH, "frr-pim:pimd", "pim",
+			     vrfname, "frr-routing:ipv4");
 	return CMD_SUCCESS;
 }
 
@@ -4810,20 +4807,17 @@ DEFPY(no_ip_msdp_timers, no_ip_msdp_timers_cmd,
       IGNORED_IN_NO_STR)
 {
 	const char *vrfname;
-	char xpath[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
-		 "pim", vrfname, "frr-routing:ipv4");
-
 	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY, NULL);
 
-	nb_cli_apply_changes(vty, xpath);
+	nb_cli_apply_changes(vty, FRR_PIM_MSDP_XPATH, "frr-pim:pimd", "pim",
+			     vrfname, "frr-routing:ipv4");
 
 	return CMD_SUCCESS;
 }
