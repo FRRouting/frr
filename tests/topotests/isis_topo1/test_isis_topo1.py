@@ -572,9 +572,9 @@ def test_isis_advertise_passive_only():
     assert result is True, result
 
 
-def test_isis_hello_padding_sometimes():
+def test_isis_hello_padding_during_adjacency_formation():
     """Check that IIH packets is only padded when adjacency is still being formed
-    when isis hello padding sometimes is configured
+    when isis hello padding during-adjacency-formation is configured
     """
     tgen = get_topogen()
     net = get_topogen().net
@@ -582,7 +582,7 @@ def test_isis_hello_padding_sometimes():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Testing isis hello padding sometimes behavior")
+    logger.info("Testing isis hello padding during-adjacency-formation behavior")
     r3 = tgen.gears["r3"]
 
     # Reduce hello-multiplier to make the adjacency go down faster.
@@ -599,7 +599,7 @@ def test_isis_hello_padding_sometimes():
         """
         configure
         interface r1-eth0
-            isis hello padding sometimes
+            isis hello padding during-adjacency-formation
         end
         debug isis adj-packets
         """

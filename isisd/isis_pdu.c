@@ -1966,7 +1966,8 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	bool should_pad_hello =
 		circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
-		(circuit->pad_hellos == ISIS_HELLO_PADDING_SOMETIMES &&
+		(circuit->pad_hellos ==
+			 ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION &&
 		 circuit->upadjcount[0] + circuit->upadjcount[1] == 0);
 
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,

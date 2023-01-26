@@ -69,7 +69,7 @@ struct isis_circuit_arg {
 enum isis_hello_padding {
 	ISIS_HELLO_PADDING_ALWAYS,
 	ISIS_HELLO_PADDING_DISABLED,
-	ISIS_HELLO_PADDING_SOMETIMES
+	ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION
 };
 
 struct isis_circuit {

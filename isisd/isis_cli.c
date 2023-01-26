@@ -2240,7 +2240,7 @@ void cli_show_ip_isis_threeway_shake(struct vty *vty,
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
  */
 DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd,
-	   "[no] isis hello padding [sometimes]$padding_type",
+	   "[no] isis hello padding [during-adjacency-formation]$padding_type",
 	   NO_STR
 	   "IS-IS routing protocol\n"
 	   "Type of padding for IS-IS hello packets\n"
@@ -2266,8 +2266,8 @@ void cli_show_ip_isis_hello_padding(struct vty *vty,
 	if (hello_padding_type == ISIS_HELLO_PADDING_DISABLED)
 		vty_out(vty, " no");
 	vty_out(vty, " isis hello padding");
-	if (hello_padding_type == ISIS_HELLO_PADDING_SOMETIMES)
-		vty_out(vty, " sometimes");
+	if (hello_padding_type == ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION)
+		vty_out(vty, " during-adjacency-formation");
 	vty_out(vty, "\n");
 }
 

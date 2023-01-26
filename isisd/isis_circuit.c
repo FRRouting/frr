@@ -1327,9 +1327,9 @@ static int isis_interface_config_write(struct vty *vty)
 				vty_out(vty, " no " PROTO_NAME " hello padding\n");
 				write++;
 				break;
-			case ISIS_HELLO_PADDING_SOMETIMES:
+			case ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION:
 				vty_out(vty, PROTO_NAME
-					" hello padding sometimes\n");
+					" hello padding during-adjacency-formation\n");
 				write++;
 				break;
 			case ISIS_HELLO_PADDING_ALWAYS:
