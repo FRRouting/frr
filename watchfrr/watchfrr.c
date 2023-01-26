@@ -512,7 +512,11 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 	restart->kills = 0;
 	{
 		char cmd[strlen(command) + strlen(restart->name) + 1];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* user supplied command string has a %s for the daemon name */
 		snprintf(cmd, sizeof(cmd), command, restart->name);
+#pragma GCC diagnostic pop
 		if ((restart->pid = run_background(cmd)) > 0) {
 			thread_add_timer(master, restart_kill, restart,
 					 gs.restart_timeout, &restart->t_kill);

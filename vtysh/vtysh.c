@@ -2759,6 +2759,15 @@ static char *do_prepend(struct vty *vty, struct cmd_token **argv, int argc)
 	return frrstr_join(argstr, argc + off, " ");
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+/* 'headline' is a format string with a %s for the daemon name
+ *
+ * Also for some reason GCC emits the warning on the end of the function
+ * (optimization maybe?) rather than on the vty_out line, so this pragma
+ * wraps the entire function rather than just the vty_out line.
+ */
+
 static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *headline)
 {
@@ -2777,6 +2786,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 
 	return ret;
 }
+#pragma GCC diagnostic pop
 
 static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
@@ -4353,7 +4363,11 @@ char *vtysh_prompt(void)
 {
 	static char buf[512];
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* prompt formatting has a %s in the cmd_node prompt string. */
 	snprintf(buf, sizeof(buf), cmd_prompt(vty->node), cmd_hostname_get());
+#pragma GCC diagnostic pop
 	return buf;
 }
 
