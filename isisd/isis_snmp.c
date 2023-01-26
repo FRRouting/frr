@@ -838,12 +838,12 @@ static int isis_snmp_conv_next(uint8_t *buf, size_t max_len, size_t *out_len,
  */
 static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 					    struct isis_area **ret_area,
-					    struct area_addr **ret_addr)
+					    struct iso_address **ret_addr)
 {
 	uint8_t cmp_buf[ISIS_SNMP_OSI_ADDR_LEN_MAX];
 	size_t addr_len;
 	struct isis_area *area = NULL;
-	struct area_addr *addr = NULL;
+	struct iso_address *addr = NULL;
 	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -885,15 +885,15 @@ static int isis_snmp_area_addr_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 
 static int isis_snmp_area_addr_lookup_next(oid *oid_idx, size_t oid_idx_len,
 					   struct isis_area **ret_area,
-					   struct area_addr **ret_addr)
+					   struct iso_address **ret_addr)
 {
 	uint8_t cmp_buf[ISIS_SNMP_OSI_ADDR_LEN_MAX];
 	size_t addr_len;
 	int try_exact = 0;
 	struct isis_area *found_area = NULL;
 	struct isis_area *area = NULL;
-	struct area_addr *found_addr = NULL;
-	struct area_addr *addr = NULL;
+	struct iso_address *found_addr = NULL;
+	struct iso_address *addr = NULL;
 	struct listnode *addr_node;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
@@ -1506,7 +1506,7 @@ static uint8_t *isis_snmp_find_man_area(struct variable *v, oid *name,
 					WriteMethod **write_method)
 {
 	int res;
-	struct area_addr *area_addr = NULL;
+	struct iso_address *area_addr = NULL;
 	oid *oid_idx;
 	size_t oid_idx_len;
 	size_t off = 0;
@@ -2490,6 +2490,11 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 	uint32_t delta_ticks;
 	time_t now_time;
 
+	/* Ring buffer to print SNPA */
+#define FORMAT_BUF_COUNT 4
+	static char snpa[FORMAT_BUF_COUNT][ISO_SYSID_STRLEN];
+	static size_t cur_buf = 0;
+
 	*write_method = NULL;
 
 	if (*length <= v->namelen) {
@@ -2536,9 +2541,10 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 		return SNMP_INTEGER(adj->threeway_state);
 
 	case ISIS_ISADJ_NEIGHSNPAADDRESS: {
-		const char *snpa = (char *)snpa_print(adj->snpa);
-		*var_len = strlen(snpa);
-		return (uint8_t *)snpa;
+		cur_buf = (cur_buf + 1) % FORMAT_BUF_COUNT;
+		snprintfrr(snpa[cur_buf], ISO_SYSID_STRLEN, "%pSY", adj->snpa);
+		*var_len = strlen(snpa[cur_buf]);
+		return (uint8_t *)snpa[cur_buf];
 	}
 
 	case ISIS_ISADJ_NEIGHSYSTYPE:

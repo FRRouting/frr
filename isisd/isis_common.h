@@ -11,14 +11,6 @@
 #ifndef ISIS_COMMON_H
 #define ISIS_COMMON_H
 
-/*
- * Area Address
- */
-struct area_addr {
-	uint8_t addr_len;
-	uint8_t area_addr[20];
-};
-
 struct isis_passwd {
 	uint8_t len;
 #define ISIS_PASSWD_TYPE_UNUSED   0

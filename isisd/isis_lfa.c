@@ -1466,8 +1466,8 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 		if (ldp_label == MPLS_INVALID_LABEL) {
 			if (IS_DEBUG_LFA)
 				zlog_debug(
-					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %s",
-					sysid_print(vadj->sadj->id));
+					"ISIS-LFA: failed to activate RLFA: missing LDP label to reach PQ node through %pSY",
+					vadj->sadj->id);
 			return -1;
 		}
 

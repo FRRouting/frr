@@ -903,7 +903,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	struct ls_edge *edge, *dst;
 	struct ls_attributes *attr;
 
-	te_debug("  |- Process Extended IS for %s", sysid_print(id));
+	te_debug("  |- Process Extended IS for %pSY", id);
 
 	/* Check parameters */
 	if (old_metric || !args || !tlvs)
@@ -1167,14 +1167,14 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	ted = mta->ted;
 
-	te_debug("ISIS-TE(%s): Parse LSP %s", lsp->area->area_tag,
-		 sysid_print(lsp->hdr.lsp_id));
+	te_debug("ISIS-TE(%s): Parse LSP %pSY", lsp->area->area_tag,
+		 lsp->hdr.lsp_id);
 
 	/* First parse LSP to obtain the corresponding Vertex */
 	vertex = lsp_to_vertex(ted, lsp);
 	if (!vertex) {
-		zlog_warn("Unable to build Vertex from LSP %s. Abort!",
-			  sysid_print(lsp->hdr.lsp_id));
+		zlog_warn("Unable to build Vertex from LSP %pSY. Abort!",
+			  lsp->hdr.lsp_id);
 		return;
 	}
 
@@ -1238,8 +1238,8 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
 
-	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %s",
-		 lsp->area->area_tag, sysid_print(lsp->hdr.lsp_id));
+	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %pSY",
+		 lsp->area->area_tag, lsp->hdr.lsp_id);
 
 	/* Compute Link State Node ID from IS-IS sysID ... */
 	if (lsp->level == ISIS_LEVEL1)

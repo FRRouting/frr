@@ -696,10 +696,9 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		}
 #ifdef EXTREME_DEGUG
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: if_id %d, isomtu %d snpa %s", __func__,
-				   circuit->interface->ifindex,
-				   ISO_MTU(circuit),
-				   snpa_print(circuit->u.bc.snpa));
+			zlog_debug("%s: if_id %d, isomtu %d snpa %pSY",
+				   __func__, circuit->interface->ifindex,
+				   ISO_MTU(circuit), circuit->u.bc.snpa);
 #endif /* EXTREME_DEBUG */
 
 		circuit->u.bc.adjdb[0] = list_new();
@@ -996,8 +995,8 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 		json_object_string_add(iface_json, "level",
 				       circuit_t2string(circuit->is_type));
 		if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-			json_object_string_add(iface_json, "snpa",
-					       snpa_print(circuit->u.bc.snpa));
+			json_object_string_addf(iface_json, "snpa", "%pSY",
+						circuit->u.bc.snpa);
 
 
 		levels_json = json_object_new_array();
@@ -1123,8 +1122,7 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			circuit_type2string(circuit->circ_type));
 		vty_out(vty, ", Level: %s", circuit_t2string(circuit->is_type));
 		if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-			vty_out(vty, ", SNPA: %-10s",
-				snpa_print(circuit->u.bc.snpa));
+			vty_out(vty, ", SNPA: %-10pSY", circuit->u.bc.snpa);
 		vty_out(vty, "\n");
 		if (circuit->is_type & IS_LEVEL_1) {
 			vty_out(vty, "    Level-1 Information:\n");

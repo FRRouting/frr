@@ -1022,14 +1022,14 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 		if (!cap)
 			continue;
 
-		ttable_add_row(
-			tt, "%s|%u - %u|%u - %u|%s|%u",
-			sysid_print(lsp->hdr.lsp_id), cap->srgb.lower_bound,
-			cap->srgb.lower_bound + cap->srgb.range_size - 1,
-			cap->srlb.lower_bound,
-			cap->srlb.lower_bound + cap->srlb.range_size - 1,
-			cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
-			cap->msd);
+		ttable_add_row(tt, "%pSY|%u - %u|%u - %u|%s|%u",
+			       lsp->hdr.lsp_id, cap->srgb.lower_bound,
+			       cap->srgb.lower_bound + cap->srgb.range_size - 1,
+			       cap->srlb.lower_bound,
+			       cap->srlb.lower_bound + cap->srlb.range_size - 1,
+			       cap->algo[0] == SR_ALGORITHM_SPF ? "SPF"
+								: "S-SPF",
+			       cap->msd);
 	}
 
 	/* Dump the generated table. */
