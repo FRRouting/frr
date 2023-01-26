@@ -941,13 +941,10 @@ static void phase_check(void)
 		if (!IS_UP(gs.special))
 			break;
 		zlog_info("Phased restart: %s is now up.", gs.special->name);
-		{
-			struct daemon *dmn;
-			for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-				if (dmn != gs.special)
-					run_job(&dmn->restart, "start",
-						gs.start_command, 1, 0);
-			}
+		for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+			if (dmn != gs.special)
+				run_job(&dmn->restart, "start",
+					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
 		THREAD_OFF(gs.t_phase_hanging);
