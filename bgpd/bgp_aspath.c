@@ -2122,16 +2122,12 @@ const char *aspath_print(struct aspath *as)
 }
 
 /* Printing functions */
-/* Feed the AS_PATH to the vty; the suffix string follows it only in case
+/* Feed the AS_PATH to the vty; the space suffix follows it only in case
  * AS_PATH wasn't empty.
  */
-void aspath_print_vty(struct vty *vty, const char *format, struct aspath *as,
-		      const char *suffix)
+void aspath_print_vty(struct vty *vty, struct aspath *as)
 {
-	assert(format);
-	vty_out(vty, format, as->str);
-	if (as->str_len && strlen(suffix))
-		vty_out(vty, "%s", suffix);
+	vty_out(vty, "%s%s", as->str, as->str_len ? " " : "");
 }
 
 static void aspath_show_all_iterator(struct hash_bucket *bucket,
