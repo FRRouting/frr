@@ -619,9 +619,6 @@ extern void print_version(const char *);
 extern int cmd_banner_motd_file(const char *);
 extern void cmd_banner_motd_line(const char *line);
 
-/* struct host global, ick */
-extern struct host host;
-
 struct cmd_variable_handler {
 	const char *tokenname, *varname;
 	void (*completions)(vector out, struct cmd_token *token);
