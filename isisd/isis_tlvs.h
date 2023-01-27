@@ -474,6 +474,8 @@ enum isis_tlv_type {
 	/* RFC 9352 section #4.4 */
 	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
 
+	ISIS_SUBTLV_SRV6_END_SID = 5,
+
 	/* draft-ietf-lsr-isis-srv6-extensions */
 	ISIS_SUBSUBTLV_SID_STRUCTURE = 1,
 
