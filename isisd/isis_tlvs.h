@@ -476,6 +476,8 @@ enum isis_tlv_type {
 
 	ISIS_SUBTLV_SRV6_END_SID = 5,
 
+	ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE = 1,
+
 	/* draft-ietf-lsr-isis-srv6-extensions */
 	ISIS_SUBSUBTLV_SID_STRUCTURE = 1,
 
