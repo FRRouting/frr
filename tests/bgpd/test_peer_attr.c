@@ -176,9 +176,9 @@ struct test_peer_attr {
 
 	enum test_peer_attr_type type;
 	union {
-		uint32_t flag;
+		uint64_t flag;
 		struct {
-			uint32_t flag;
+			uint64_t flag;
 			size_t direct;
 		} filter;
 	} u;
