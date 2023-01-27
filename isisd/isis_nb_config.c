@@ -35,6 +35,7 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
+#include "isisd/isis_srv6.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_redist.h"
@@ -3473,6 +3474,55 @@ int isis_instance_segment_routing_srv6_enabled_modify(
 	/* Regenerate LSPs to advertise SRv6 capabilities or signal that the
 	 * node is no longer SRv6-capable. */
 	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/locator
+ */
+int isis_instance_segment_routing_srv6_locator_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
+				    true);
+
+	loc_name = yang_dnode_get_string(args->dnode, NULL);
+
+	if (strncmp(loc_name, area->srv6db.config.srv6_locator_name,
+		    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "SRv6 locator %s is already configured", loc_name);
+		return NB_ERR_NO_CHANGES;
+	}
+
+	/* Remove previously configured locator */
+	if (strncmp(area->srv6db.config.srv6_locator_name, "",
+		    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
+		sr_debug("Unsetting previously configured SRv6 locator");
+		if (!isis_srv6_locator_unset(area)) {
+			zlog_warn("Failed to unset SRv6 locator");
+			return NB_ERR;
+		}
+	}
+
+	strlcpy(area->srv6db.config.srv6_locator_name, loc_name,
+		sizeof(area->srv6db.config.srv6_locator_name));
+
+	sr_debug("Configured SRv6 locator %s for IS-IS area %s", loc_name,
+		 area->area_tag);
+
+	sr_debug("Trying to get a chunk from locator %s for IS-IS area %s",
+		 loc_name, area->area_tag);
+
+	if (isis_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
+		return NB_ERR;
 
 	return NB_OK;
 }
