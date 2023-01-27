@@ -845,7 +845,7 @@ void bfd_recv_cb(struct thread *t)
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "too small (%ld bytes)", mlen);
+			 "too small (%zd bytes)", mlen);
 		return;
 	}
 
