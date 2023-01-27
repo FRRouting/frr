@@ -871,6 +871,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/locator",
 			.cbs = {
 				.modify = isis_instance_segment_routing_srv6_locator_modify,
+				.destroy = isis_instance_segment_routing_srv6_locator_destroy,
 			},
 		},
 		{

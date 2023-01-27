@@ -3527,6 +3527,41 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	return NB_OK;
 }
 
+int isis_instance_segment_routing_srv6_locator_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
+				    true);
+
+	loc_name = yang_dnode_get_string(args->dnode, NULL);
+
+	sr_debug("Trying to unset SRv6 locator %s", loc_name);
+
+	if (strncmp(loc_name, area->srv6db.config.srv6_locator_name,
+		    sizeof(area->srv6db.config.srv6_locator_name)) != 0) {
+		sr_debug("SRv6 locator %s is not configured", loc_name);
+		snprintf(args->errmsg, args->errmsg_len,
+			 "SRv6 locator %s is not configured", loc_name);
+		return NB_ERR_NO_CHANGES;
+	}
+
+	if (!isis_srv6_locator_unset(area)) {
+		zlog_warn("Failed to unset SRv6 locator");
+		return NB_ERR;
+	}
+
+	sr_debug("Deleted SRv6 locator %s for IS-IS area %s", loc_name,
+		 area->area_tag);
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
