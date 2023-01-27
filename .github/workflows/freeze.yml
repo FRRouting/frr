@@ -7,7 +7,7 @@ on:
 jobs:
   freeze_warning:
     if: ${{ contains(github.event.*.labels.*.name, 'freeze') }}
-    name: Warn before merging if a "freeze" label exists
+    name: freeze
     runs-on: ubuntu-latest
     steps:
       - name: Check for "freeze" label
