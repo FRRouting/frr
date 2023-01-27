@@ -2006,6 +2006,11 @@ module frr-isisd {
           reference
             "RFC 9352";
         }
+        leaf locator {
+          type string;
+          description
+            "SRv6 locator.";
+        }
       }
 
       container mpls {
