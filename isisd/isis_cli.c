@@ -2040,6 +2040,18 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/locator
  */
+DEFPY (isis_srv6_locator,
+       isis_srv6_locator_cmd,
+       "[no] locator NAME$loc_name",
+       NO_STR
+       "Specify SRv6 locator\n"
+       "Specify SRv6 locator\n")
+{
+	nb_cli_enqueue_change(vty, "./locator", NB_OP_MODIFY, loc_name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
@@ -3864,6 +3876,7 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &isis_srv6_enable_cmd);
 	install_element(ISIS_NODE, &no_isis_srv6_enable_cmd);
+	install_element(ISIS_SRV6_NODE, &isis_srv6_locator_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
 
