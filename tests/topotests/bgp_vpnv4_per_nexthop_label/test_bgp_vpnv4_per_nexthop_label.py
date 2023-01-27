@@ -724,6 +724,7 @@ def test_changing_default_label_value():
 def test_unconfigure_allocation_mode_nexthop():
     """
     Test unconfiguring allocation mode per nexthop
+    Check on r2 that new MPLS label values have been propagated
     Check that show mpls table has no entry with label 17 (previously used)
     Check that all VPN updates on r1 should have label value moved to 222
     Check that show mpls table will only have 222 label value
@@ -739,10 +740,27 @@ def test_unconfigure_allocation_mode_nexthop():
         isjson=False,
     )
 
+    # Check r2 ipv4 route convergence with the configuration change on r1
+    # this test requires adj-rib-out propagation of label value
+    logger.info("r2, checking IPv4 routes for convergence on r2 VRF1")
+    router = tgen.gears["r2"]
+    json_file = "{}/{}/ipv4_routes_vrf1.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route vrf vrf1 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
     # Check r1 updated the MPLS entry with the 222 label value
     logger.info(
         "r1, mpls table, check that MPLS entry with inLabel set to 17 is not present"
     )
+    router = tgen.gears["r1"]
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, 17
     )
@@ -806,6 +824,55 @@ def test_reconfigure_allocation_mode_nexthop():
     # Check mpls table with all values
     logger.info("Checking MPLS values on show mpls table of r1")
     mpls_table_check(router, label_list=label_list)
+
+
+def test_route_with_multiple_nexthop():
+    """
+    Test when a redistributed route has multiple hops visible
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enabling a second next-hop for 172.31.0.20")
+    tgen.gears["r13"].vtysh_cmd(
+        "configure terminal\nrouter bgp\naddress-family ipv4 unicast\nnetwork 172.31.0.20/32\n",
+        isjson=False,
+    )
+    logger.info("Enabling a recursive route for redistribution")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nvrf vrf1\nip route 172.31.0.30/32 172.31.0.20\n",
+        isjson=False,
+    )
+    # that route should be sent along with label for 192.0.2.11
+    topotest.sleep(3, "Checking BGP VPNv4 labels on r2")
+    bgp_vpnv4_table_check(
+        tgen.gears["r2"], group=["192.168.255.0/24", "192.0.2.0/24", "172.31.0.30/32"]
+    )
+
+    # diagnostic
+    logger.info("Dumping label nexthop table")
+    tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 label-nexthop detail", isjson=False)
+
+    logger.info("Disabling the second next-hop for 172.31.0.20")
+    tgen.gears["r13"].vtysh_cmd(
+        "configure terminal\nrouter bgp\naddress-family ipv4 unicast\nno network 172.31.0.20/32\n",
+        isjson=False,
+    )
+    topotest.sleep(3, "Checking BGP VPNv4 labels on r2")
+    bgp_vpnv4_table_check(
+        tgen.gears["r2"],
+        group=["172.31.0.11/32", "172.31.0.20/32", "172.31.0.111/32", "172.31.0.30/32"],
+    )
+
+    # diagnostic
+    tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 label-nexthop detail", isjson=False)
+
+    logger.info("Disabling a recursive route for redistribution")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nvrf vrf1\nno ip route 172.31.0.30/32 172.31.0.20\n",
+        isjson=False,
+    )
 
 
 def test_memory_leak():
