@@ -73,7 +73,10 @@ char *mlag_lib_msgid_to_str(enum mlag_msg_type msg_type, char *buf, size_t size)
 	case MLAG_PEER_FRR_STATUS:
 		snprintf(buf, size, "Mlag Peer FRR Status");
 		break;
-	default:
+	case MLAG_PIM_CFG_DUMP:
+		snprintf(buf, size, "Mlag Pim Configuration Dump");
+		break;
+	case MLAG_MSG_NONE:
 		snprintf(buf, size, "Unknown %d", msg_type);
 		break;
 	}
