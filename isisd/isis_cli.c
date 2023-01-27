@@ -2047,7 +2047,10 @@ DEFPY (isis_srv6_locator,
        "Specify SRv6 locator\n"
        "Specify SRv6 locator\n")
 {
-	nb_cli_enqueue_change(vty, "./locator", NB_OP_MODIFY, loc_name);
+	if (no)
+		nb_cli_enqueue_change(vty, "./locator", NB_OP_DESTROY, loc_name);
+	else
+		nb_cli_enqueue_change(vty, "./locator", NB_OP_MODIFY, loc_name);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
