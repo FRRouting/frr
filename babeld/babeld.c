@@ -165,7 +165,7 @@ babel_create_routing_process (void)
     }
 
     /* Threads. */
-    thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    thread_add_read(master, babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
     /* wait a little: zebra will announce interfaces, addresses, routes... */
     thread_add_timer_msec(master, babel_init_routing_process, NULL, 200L, &babel_routing_process->t_update);
 
