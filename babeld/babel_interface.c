@@ -632,15 +632,15 @@ interface_recalculate(struct interface *ifp)
 
     rc = setsockopt(protocol_socket, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                     (char*)&mreq, sizeof(mreq));
-    if(rc < 0) {
-        flog_err_sys(EC_LIB_SOCKET,
-		  "setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
-                  ifp->name, safe_strerror(errno));
-        /* This is probably due to a missing link-local address,
-         so down this interface, and wait until the main loop
-         tries to up it again. */
-        interface_reset(ifp);
-        return -1;
+    if (rc < 0 && errno != EADDRINUSE) {
+	    flog_err_sys(EC_LIB_SOCKET,
+			 "setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
+			 ifp->name, safe_strerror(errno));
+	    /* This is probably due to a missing link-local address,
+	     so down this interface, and wait until the main loop
+	     tries to up it again. */
+	    interface_reset(ifp);
+	    return -1;
     }
 
     set_timeout(&babel_ifp->hello_timeout, babel_ifp->hello_interval);
