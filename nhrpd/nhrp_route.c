@@ -139,7 +139,17 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		/* Regular route, so these are announced
 		 * to other routing daemons */
 		break;
-	default:
+	case NHRP_CACHE_INVALID:
+	case NHRP_CACHE_INCOMPLETE:
+		/*
+		 * I cannot believe that we want to set a FIB_OVERRIDE
+		 * for invalid state or incomplete.  But this matches
+		 * the original code.  Someone will probably notice
+		 * the problem eventually
+		 */
+	case NHRP_CACHE_CACHED:
+	case NHRP_CACHE_LOCAL:
+	case NHRP_CACHE_NUM_TYPES:
 		SET_FLAG(api.flags, ZEBRA_FLAG_FIB_OVERRIDE);
 		break;
 	}
