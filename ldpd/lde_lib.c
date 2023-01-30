@@ -178,7 +178,7 @@ rt_dump(pid_t pid)
 			rtctl.prefix.v6 = fn->fec.u.ipv6.prefix;
 			rtctl.prefixlen = fn->fec.u.ipv6.prefixlen;
 			break;
-		default:
+		case FEC_TYPE_PWID:
 			continue;
 		}
 
@@ -505,7 +505,7 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 		    fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
-	default:
+	case FEC_TYPE_PWID:
 		break;
 	}
 
@@ -665,7 +665,7 @@ lde_check_request(struct map *map, struct lde_nbr *ln)
 			lde_send_notification(ln, S_LOOP_DETECTED, map->msg_id,
 			    htons(MSG_TYPE_LABELREQUEST));
 			return;
-		default:
+		case FEC_TYPE_PWID:
 			break;
 		}
 	}

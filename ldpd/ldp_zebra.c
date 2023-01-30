@@ -597,7 +597,7 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			if (!(kr.flags & F_CONNECTED))
 				continue;
 			break;
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
 			continue;
 		}
 
