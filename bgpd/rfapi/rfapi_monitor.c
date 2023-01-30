@@ -244,7 +244,13 @@ void rfapiMonitorExtraFlush(safi_t safi, struct agg_node *rn)
 		}
 		break;
 
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_EVPN:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		assert(0);
 	}
 	XFREE(MTYPE_RFAPI_IT_EXTRA, hie);
@@ -306,7 +312,13 @@ void rfapiMonitorExtraPrune(safi_t safi, struct agg_node *rn)
 		}
 		break;
 
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_EVPN:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		assert(0);
 	}
 	XFREE(MTYPE_RFAPI_IT_EXTRA, hie);

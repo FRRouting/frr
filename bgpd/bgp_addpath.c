@@ -174,9 +174,11 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 			return true;
 		else
 			return false;
-	default:
+	case BGP_ADDPATH_MAX:
 		return false;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static void bgp_addpath_flush_type_rn(struct bgp *bgp, afi_t afi, safi_t safi,

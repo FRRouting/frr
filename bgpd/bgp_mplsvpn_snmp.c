@@ -1264,7 +1264,7 @@ bgp_lookup_route(struct bgp *l3vpn_bgp, struct bgp_dest **dest,
 			    == 0)
 				return pi;
 			break;
-		default:
+		case IPADDR_NONE:
 			return pi;
 		}
 	}
@@ -1627,13 +1627,13 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 				case BLACKHOLE_REJECT:
 					return SNMP_INTEGER(
 						MPLSL3VPNVRFRTECIDRTYPEREJECT);
-				default:
+				case BLACKHOLE_UNSPEC:
+				case BLACKHOLE_NULL:
+				case BLACKHOLE_ADMINPROHIB:
 					return SNMP_INTEGER(
 						MPLSL3VPNVRFRTECIDRTYPEBLACKHOLE);
 				}
-			default:
-				return SNMP_INTEGER(
-					MPLSL3VPNVRFRTECIDRTYPEOTHER);
+				break;
 			}
 		} else
 			return SNMP_INTEGER(MPLSL3VPNVRFRTECIDRTYPEOTHER);

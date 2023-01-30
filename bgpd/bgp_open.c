@@ -167,7 +167,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"capabilityErrorMultiProtocolAfi",
 						"L2VPN");
 					break;
-				default:
+				case AFI_UNSPEC:
+				case AFI_MAX:
 					json_object_int_add(
 						json_cap,
 						"capabilityErrorMultiProtocolAfiUnknown",
@@ -217,7 +218,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"capabilityErrorMultiProtocolSafi",
 						"flowspec");
 					break;
-				default:
+				case SAFI_UNSPEC:
+				case SAFI_MAX:
 					json_object_int_add(
 						json_cap,
 						"capabilityErrorMultiProtocolSafiUnknown",
@@ -237,7 +239,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 				case AFI_L2VPN:
 					vty_out(vty, "AFI L2VPN, ");
 					break;
-				default:
+				case AFI_UNSPEC:
+				case AFI_MAX:
 					vty_out(vty, "AFI Unknown %d, ",
 						ntohs(mpc.afi));
 					break;
@@ -264,7 +267,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 				case SAFI_EVPN:
 					vty_out(vty, "SAFI EVPN");
 					break;
-				default:
+				case SAFI_UNSPEC:
+				case SAFI_MAX:
 					vty_out(vty, "SAFI Unknown %d ",
 						mpc.safi);
 					break;

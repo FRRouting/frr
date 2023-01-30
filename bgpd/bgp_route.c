@@ -12056,9 +12056,16 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_ENCAP:
 	case SAFI_EVPN:
 		return (struct prefix_rd *)(bgp_dest_get_prefix(dest));
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		return NULL;
 	}
+
+	assert(!"Reached end of function when we were not expecting it");
 }
 
 /* Display specified route of BGP table. */
@@ -13283,7 +13290,8 @@ static void bgp_table_stats_walker(struct thread *t)
 	case AFI_L2VPN:
 		space = EVPN_ROUTE_PREFIXLEN;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		return;
 	}
 
@@ -13538,7 +13546,8 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 	case AFI_L2VPN:
 		bitlen = EVPN_ROUTE_PREFIXLEN;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		break;
 	}
 
