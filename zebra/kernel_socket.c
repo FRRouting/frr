@@ -1226,7 +1226,8 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	case BLACKHOLE_REJECT:
 		msg.rtm.rtm_flags |= RTF_REJECT;
 		break;
-	default:
+	case BLACKHOLE_NULL:
+	case BLACKHOLE_ADMINPROHIB:
 		msg.rtm.rtm_flags |= RTF_BLACKHOLE;
 		break;
 	}

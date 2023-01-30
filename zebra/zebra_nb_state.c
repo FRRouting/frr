@@ -706,7 +706,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_nh_type_get_elem(
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		return yang_data_new_string(args->xpath, "ip6-ifindex");
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 

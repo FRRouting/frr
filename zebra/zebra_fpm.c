@@ -902,7 +902,7 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
 #endif /* HAVE_NETLINK */
 		break;
 
-	default:
+	case ZFPM_MSG_FORMAT_NONE:
 		break;
 	}
 
