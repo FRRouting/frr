@@ -750,17 +750,17 @@ extern int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *,
 				 const char *, const char *, const char *);
 
 /* this is primarily for MPLS-VPN */
-extern int bgp_update(struct peer *peer, const struct prefix *p,
-		      uint32_t addpath_id, struct attr *attr,
-		      afi_t afi, safi_t safi, int type, int sub_type,
-		      struct prefix_rd *prd, mpls_label_t *label,
-		      uint32_t num_labels, int soft_reconfig,
-		      struct bgp_route_evpn *evpn);
-extern int bgp_withdraw(struct peer *peer, const struct prefix *p,
-			uint32_t addpath_id, struct attr *attr, afi_t afi,
-			safi_t safi, int type, int sub_type,
-			struct prefix_rd *prd, mpls_label_t *label,
-			uint32_t num_labels, struct bgp_route_evpn *evpn);
+extern void bgp_update(struct peer *peer, const struct prefix *p,
+		       uint32_t addpath_id, struct attr *attr, afi_t afi,
+		       safi_t safi, int type, int sub_type,
+		       struct prefix_rd *prd, mpls_label_t *label,
+		       uint32_t num_labels, int soft_reconfig,
+		       struct bgp_route_evpn *evpn);
+extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
+			 uint32_t addpath_id, struct attr *attr, afi_t afi,
+			 safi_t safi, int type, int sub_type,
+			 struct prefix_rd *prd, mpls_label_t *label,
+			 uint32_t num_labels, struct bgp_route_evpn *evpn);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process(struct bgp *, struct bgp_dest *, afi_t, safi_t);
