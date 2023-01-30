@@ -1933,7 +1933,8 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 			thread_add_event(master, ripng_triggered_update, ripng,
 					 0, &ripng->t_triggered_update);
 		break;
-	default:
+	case RIPNG_ZEBRA:
+	case RIPNG_REQUEST_EVENT:
 		break;
 	}
 }
