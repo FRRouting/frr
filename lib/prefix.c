@@ -148,11 +148,11 @@ const char *afi2str(afi_t afi)
 	case AFI_L2VPN:
 		return "l2vpn";
 	case AFI_MAX:
+	case AFI_UNSPEC:
 		return "bad-value";
-	default:
-		break;
 	}
-	return NULL;
+
+	assert(!"Reached end of function we should never reach");
 }
 
 const char *safi2str(safi_t safi)
@@ -172,9 +172,12 @@ const char *safi2str(safi_t safi)
 		return "labeled-unicast";
 	case SAFI_FLOWSPEC:
 		return "flowspec";
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
 		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never reach");
 }
 
 /* If n includes p prefix then return 1 else return 0. */
@@ -1507,7 +1510,7 @@ static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 				return bputch(buf, '*');
 			break;
 
-		default:
+		case IPADDR_NONE:
 			break;
 		}
 	}

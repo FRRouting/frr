@@ -267,9 +267,22 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 			return false;
 		return cmd_subgraph_equal(ga, gb, a->forkjoin);
 
-	default:
+	case VARIABLE_TKN:
+	case IPV4_TKN:
+	case IPV4_PREFIX_TKN:
+	case IPV6_PREFIX_TKN:
+	case IPV6_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
+	case JOIN_TKN:
+	case START_TKN:
+	case END_TKN:
+	case NEG_ONLY_TKN:
+	case WORD_TKN:
 		return true;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static void cmd_fork_bump_attr(struct graph_node *gn, struct graph_node *join,
@@ -477,7 +490,7 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 
 	char nbuf[512];
 	struct cmd_token *tok = gn->data;
-	const char *color;
+	const char *color = NULL;
 
 	if (wasend) {
 		wasend = false;
@@ -526,10 +539,23 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 	case WORD_TKN:
 		color = "#ffffff";
 		break;
-	default:
+	case RANGE_TKN:
+	case IPV4_TKN:
+	case IPV4_PREFIX_TKN:
+	case IPV6_TKN:
+	case IPV6_PREFIX_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
+	case END_TKN:
+	case VARIABLE_TKN:
 		color = "#ffffff";
 		break;
 	}
+
+	/*
+	 * Some compilers have the mistaken belief that we can
+	 * get here without initializing color.
+	 */
 	snprintf(nbuf, sizeof(nbuf),
 		 ">, style = filled, fillcolor = \"%s\" ];\n", color);
 	buffer_putstr(buf, nbuf);

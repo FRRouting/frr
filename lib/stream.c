@@ -635,7 +635,7 @@ uint32_t stream_get_ipv4(struct stream *s)
 
 bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 {
-	uint16_t ipa_len;
+	uint16_t ipa_len = 0;
 
 	STREAM_VERIFY_SANE(s);
 
@@ -654,7 +654,7 @@ bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 	case IPADDR_V6:
 		ipa_len = IPV6_MAX_BYTELEN;
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown ip address-family: %u", __func__,
 			 ip->ipa_type);
@@ -947,7 +947,7 @@ bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip)
 	case IPADDR_V6:
 		stream_write(s, (uint8_t *)&ip->ipaddr_v6, 16);
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown ip address-family: %u", __func__,
 			 ip->ipa_type);

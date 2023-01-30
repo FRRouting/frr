@@ -2714,7 +2714,11 @@ static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 				vty_serv->sock, &vty_serv->t_accept);
 		break;
 #endif /* VTYSH */
-	default:
+	case VTY_READ:
+	case VTY_WRITE:
+	case VTY_TIMEOUT_RESET:
+	case VTYSH_READ:
+	case VTYSH_WRITE:
 		assert(!"vty_event_serv() called incorrectly");
 	}
 }
@@ -2753,7 +2757,8 @@ static void vty_event(enum vty_event event, struct vty *vty)
 			thread_add_timer(vty_master, vty_timeout, vty,
 					 vty->v_timeout, &vty->t_timeout);
 		break;
-	default:
+	case VTY_SERV:
+	case VTYSH_SERV:
 		assert(!"vty_event() called incorrectly");
 	}
 }

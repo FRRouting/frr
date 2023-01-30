@@ -1754,7 +1754,8 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 					ret = RMAP_MATCH;
 				break;
 
-			default:
+			case RMAP_OKAY:
+			case RMAP_ERROR:
 				break;
 			}
 

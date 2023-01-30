@@ -877,7 +877,8 @@ static int log_5424_show(struct vty *vty)
 			}
 			break;
 
-		default:
+		case ZLOG_FMT_3164:
+		case ZLOG_FMT_LOCAL:
 			vty_out(vty,
 				"  structured data is not supported by the selected format\n");
 			break;

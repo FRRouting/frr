@@ -949,7 +949,8 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			return CMD_ERR_INCOMPLETE;
 		case MATCHER_AMBIGUOUS:
 			return CMD_ERR_AMBIGUOUS;
-		default:
+		case MATCHER_NO_MATCH:
+		case MATCHER_OK:
 			return CMD_ERR_NO_MATCH;
 		}
 	}

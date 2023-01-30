@@ -1682,7 +1682,8 @@ int zapi_tc_class_encode(uint8_t cmd, struct stream *s, struct tc_class *class)
 		stream_putq(s, class->u.htb.rate);
 		stream_putq(s, class->u.htb.ceil);
 		break;
-	default:
+	case TC_QDISC_UNSPEC:
+	case TC_QDISC_NOQUEUE:
 		/* not implemented */
 		break;
 	}
@@ -1730,7 +1731,10 @@ int zapi_tc_filter_encode(uint8_t cmd, struct stream *s,
 		}
 		stream_putl(s, filter->u.flower.classid);
 		break;
-	default:
+	case TC_FILTER_UNSPEC:
+	case TC_FILTER_BPF:
+	case TC_FILTER_FLOW:
+	case TC_FILTER_U32:
 		/* not implemented */
 		break;
 	}
