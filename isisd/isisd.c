@@ -2340,9 +2340,11 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 		return "l1-psnp";
 	case L2_PARTIAL_SEQ_NUM_INDEX:
 		return "l2-psnp";
-	default:
+	case PDU_COUNTER_SIZE:
 		return "???????";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 static void common_isis_summary_json(struct json_object *json,

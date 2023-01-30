@@ -1587,8 +1587,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 		vertex->N.ip.priority = priority;
 		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
 			struct isis_spftree *pre_spftree;
-			struct route_table *route_table;
-			bool allow_ecmp;
+			struct route_table *route_table = NULL;
+			bool allow_ecmp = false;
 
 			switch (spftree->type) {
 			case SPF_TYPE_RLFA:
@@ -1606,7 +1606,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 					return;
 				}
 				break;
-			default:
+			case SPF_TYPE_FORWARD:
+			case SPF_TYPE_REVERSE:
 				break;
 			}
 
@@ -1624,7 +1625,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 				pre_spftree->lfa.protection_counters
 					.tilfa[vertex->N.ip.priority] += 1;
 				break;
-			default:
+			case SPF_TYPE_FORWARD:
+			case SPF_TYPE_REVERSE:
 				route_table = spftree->route_table;
 				allow_ecmp = true;
 
@@ -1699,7 +1701,14 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 					     VTYPE_IPREACH_TE))
 				continue;
 			break;
-		default:
+		case VTYPE_PSEUDO_IS:
+		case VTYPE_PSEUDO_TE_IS:
+		case VTYPE_NONPSEUDO_IS:
+		case VTYPE_NONPSEUDO_TE_IS:
+		case VTYPE_ES:
+		case VTYPE_IPREACH_TE:
+		case VTYPE_IP6REACH_INTERNAL:
+		case VTYPE_IP6REACH_EXTERNAL:
 			break;
 		}
 
