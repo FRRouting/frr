@@ -1788,9 +1788,12 @@ no_nexthops:
 			ctxnhg->nexthop != NULL ? "" : " (empty)");
 
 	/* Set the flag about the dedicated fib list */
-	SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
-	if (ctxnhg->nexthop)
-		copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop, NULL);
+	if (zrouter.asic_notification_nexthop_control) {
+		SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
+		if (ctxnhg->nexthop)
+			copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop,
+				      NULL);
+	}
 
 check_backups:
 
