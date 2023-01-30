@@ -354,6 +354,9 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			nhaddr = nh->gate.ipv4;
 			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			continue;
 #else
 		case NEXTHOP_TYPE_IPV6:
 			if (nh->ifindex == IFINDEX_INTERNAL)
@@ -363,12 +366,15 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			nhaddr = nh->gate.ipv6;
 			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			continue;
 #endif
 		case NEXTHOP_TYPE_IFINDEX:
 			nhaddr = bsr_addr;
 			break;
 
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
 			continue;
 		}
 

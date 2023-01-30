@@ -529,7 +529,7 @@ static void on_assert_timer(struct thread *t)
 	case PIM_IFASSERT_I_AM_LOSER:
 		assert_action_a5(ch);
 		break;
-	default: {
+	case PIM_IFASSERT_NOINFO: {
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_warn(
 				"%s: (S,G)=%s invalid assert state %d on interface %s",

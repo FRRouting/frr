@@ -281,7 +281,12 @@ void pim_msdp_write(struct thread *thread)
 		case PIM_MSDP_V4_SOURCE_ACTIVE:
 			mp->sa_tx_cnt++;
 			break;
-		default:;
+		case PIM_MSDP_V4_SOURCE_ACTIVE_REQUEST:
+		case PIM_MSDP_V4_SOURCE_ACTIVE_RESPONSE:
+		case PIM_MSDP_RESERVED:
+		case PIM_MSDP_TRACEROUTE_PROGRESS:
+		case PIM_MSDP_TRACEROUTE_REPLY:
+			break;
 		}
 		if (PIM_DEBUG_MSDP_PACKETS) {
 			pim_msdp_pkt_dump(mp, type, len, false /*rx*/, s);
@@ -626,8 +631,13 @@ static void pim_msdp_pkt_rx(struct pim_msdp_peer *mp)
 		mp->sa_rx_cnt++;
 		pim_msdp_pkt_sa_rx(mp, len);
 		break;
-	default:
+	case PIM_MSDP_V4_SOURCE_ACTIVE_REQUEST:
+	case PIM_MSDP_V4_SOURCE_ACTIVE_RESPONSE:
+	case PIM_MSDP_RESERVED:
+	case PIM_MSDP_TRACEROUTE_PROGRESS:
+	case PIM_MSDP_TRACEROUTE_REPLY:
 		mp->unk_rx_cnt++;
+		break;
 	}
 }
 

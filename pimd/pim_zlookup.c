@@ -263,6 +263,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				&nh_ip4, nh_ifi, &addr);
 #endif
 			break;
+		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			stream_get(&nh_ip6, s, sizeof(nh_ip6));
 			nh_ifi = stream_getl(s);
@@ -307,7 +308,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			++num_ifindex;
 #endif
 			break;
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
 			/* do nothing */
 			zlog_warn(
 				"%s: found non-ifindex nexthop type=%d for address %pPAs(%s)",

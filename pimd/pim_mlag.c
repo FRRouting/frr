@@ -871,7 +871,11 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 			pim_mlag_process_mroute_del(msg);
 		}
 	} break;
-	default:
+	case MLAG_MSG_NONE:
+	case MLAG_REGISTER:
+	case MLAG_DEREGISTER:
+	case MLAG_DUMP:
+	case MLAG_PIM_CFG_DUMP:
 		break;
 	}
 	return 0;
