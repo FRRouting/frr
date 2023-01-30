@@ -209,7 +209,8 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
 					vrf->vrf_id))
 			return false;
 		break;
-	default:
+	case STATIC_IFNAME:
+	case STATIC_BLACKHOLE:
 		break;
 	}
 
@@ -302,7 +303,8 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		nh->addr.ipv6 = ipaddr->ipaddr_v6;
 		break;
-	default:
+	case STATIC_IFNAME:
+	case STATIC_BLACKHOLE:
 		break;
 	}
 	/*
