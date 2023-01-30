@@ -3957,11 +3957,11 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 	return false;
 }
 
-int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
-	       struct attr *attr, afi_t afi, safi_t safi, int type,
-	       int sub_type, struct prefix_rd *prd, mpls_label_t *label,
-	       uint32_t num_labels, int soft_reconfig,
-	       struct bgp_route_evpn *evpn)
+void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
+		struct attr *attr, afi_t afi, safi_t safi, int type,
+		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
+		uint32_t num_labels, int soft_reconfig,
+		struct bgp_route_evpn *evpn)
 {
 	int ret;
 	int aspath_loop_count = 0;
@@ -4337,7 +4337,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
 
-			return 0;
+			return;
 		}
 
 		/* Withdraw/Announce before we fully processed the withdraw */
@@ -4551,7 +4551,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			ret = bgp_damp_update(pi, dest, afi, safi);
 			if (ret == BGP_DAMP_SUPPRESSED) {
 				bgp_dest_unlock_node(dest);
-				return 0;
+				return;
 			}
 		}
 
@@ -4671,7 +4671,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_unlink_nexthop(pi);
 			bgp_path_info_delete(dest, pi);
 		}
-		return 0;
+		return;
 	} // End of implicit withdraw
 
 	/* Received Logging. */
@@ -4834,7 +4834,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_path_info_delete(dest, new);
 	}
 
-	return 0;
+	return;
 
 /* This BGP update is filtered.  Log the reason then update BGP
    entry.  */
@@ -4897,13 +4897,14 @@ filtered:
 	}
 #endif
 
-	return 0;
+	return;
 }
 
-int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
-		 struct attr *attr, afi_t afi, safi_t safi, int type,
-		 int sub_type, struct prefix_rd *prd, mpls_label_t *label,
-		 uint32_t num_labels, struct bgp_route_evpn *evpn)
+void bgp_withdraw(struct peer *peer, const struct prefix *p,
+		  uint32_t addpath_id, struct attr *attr, afi_t afi,
+		  safi_t safi, int type, int sub_type, struct prefix_rd *prd,
+		  mpls_label_t *label, uint32_t num_labels,
+		  struct bgp_route_evpn *evpn)
 {
 	struct bgp *bgp;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
@@ -4948,7 +4949,7 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					peer->host, pfx_buf);
 			}
 			bgp_dest_unlock_node(dest);
-			return 0;
+			return;
 		}
 
 	/* Lookup withdrawn route. */
@@ -4990,7 +4991,7 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Unlock bgp_node_get() lock. */
 	bgp_dest_unlock_node(dest);
 
-	return 0;
+	return;
 }
 
 void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi,
@@ -5122,10 +5123,10 @@ static void bgp_soft_reconfig_table_flag(struct bgp_table *table, bool flag)
 	}
 }
 
-static int bgp_soft_reconfig_table_update(struct peer *peer,
-					  struct bgp_dest *dest,
-					  struct bgp_adj_in *ain, afi_t afi,
-					  safi_t safi, struct prefix_rd *prd)
+static void bgp_soft_reconfig_table_update(struct peer *peer,
+					   struct bgp_dest *dest,
+					   struct bgp_adj_in *ain, afi_t afi,
+					   safi_t safi, struct prefix_rd *prd)
 {
 	struct bgp_path_info *pi;
 	uint32_t num_labels = 0;
@@ -5146,17 +5147,15 @@ static int bgp_soft_reconfig_table_update(struct peer *peer,
 	else
 		memset(&evpn, 0, sizeof(evpn));
 
-	return bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
-			  ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
-			  BGP_ROUTE_NORMAL, prd, label_pnt, num_labels, 1,
-			  &evpn);
+	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
+		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
+		   label_pnt, num_labels, 1, &evpn);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 				    struct bgp_table *table,
 				    struct prefix_rd *prd)
 {
-	int ret;
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
 
@@ -5168,13 +5167,8 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (ain->peer != peer)
 				continue;
 
-			ret = bgp_soft_reconfig_table_update(peer, dest, ain,
-							     afi, safi, prd);
-
-			if (ret < 0) {
-				bgp_dest_unlock_node(dest);
-				return;
-			}
+			bgp_soft_reconfig_table_update(peer, dest, ain, afi,
+						       safi, prd);
 		}
 }
 
@@ -5189,7 +5183,6 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 static void bgp_soft_reconfig_table_task(struct thread *thread)
 {
 	uint32_t iter, max_iter;
-	int ret;
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
 	struct peer *peer;
@@ -5222,27 +5215,10 @@ static void bgp_soft_reconfig_table_task(struct thread *thread)
 				if (ain->peer != peer)
 					continue;
 
-				ret = bgp_soft_reconfig_table_update(
+				bgp_soft_reconfig_table_update(
 					peer, dest, ain, table->afi,
 					table->safi, prd);
 				iter++;
-
-				if (ret < 0) {
-					bgp_dest_unlock_node(dest);
-					listnode_delete(
-						table->soft_reconfig_peers,
-						peer);
-					bgp_announce_route(peer, table->afi,
-							   table->safi, false);
-					if (list_isempty(
-						    table->soft_reconfig_peers)) {
-						list_delete(
-							&table->soft_reconfig_peers);
-						bgp_soft_reconfig_table_flag(
-							table, false);
-						return;
-					}
-				}
 			}
 		}
 	}
@@ -5959,7 +5935,6 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	uint8_t *lim;
 	struct prefix p;
 	int psize;
-	int ret;
 	afi_t afi;
 	safi_t safi;
 	bool addpath_capable;
@@ -6072,23 +6047,18 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 
 		/* Normal process. */
 		if (attr)
-			ret = bgp_update(peer, &p, addpath_id, attr, afi, safi,
-					 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-					 NULL, NULL, 0, 0, NULL);
+			bgp_update(peer, &p, addpath_id, attr, afi, safi,
+				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				   NULL, 0, 0, NULL);
 		else
-			ret = bgp_withdraw(peer, &p, addpath_id, attr, afi,
-					   safi, ZEBRA_ROUTE_BGP,
-					   BGP_ROUTE_NORMAL, NULL, NULL, 0,
-					   NULL);
+			bgp_withdraw(peer, &p, addpath_id, attr, afi, safi,
+				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				     NULL, 0, NULL);
 
 		/* Do not send BGP notification twice when maximum-prefix count
 		 * overflow. */
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
 			return BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW;
-
-		/* Address family configuration mismatch. */
-		if (ret < 0)
-			return BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY;
 	}
 
 	/* Packet length consistency check. */
