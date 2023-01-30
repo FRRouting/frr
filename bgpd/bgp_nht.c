@@ -1150,6 +1150,10 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
+		if (path->sub_type == BGP_ROUTE_REDISTRIBUTE
+                    && ((path->type == ZEBRA_ROUTE_VNC)
+                        || (path->type == ZEBRA_ROUTE_VNC_DIRECT)))
+                        continue;
 		if (!(path->type == ZEBRA_ROUTE_BGP &&
 		      ((path->sub_type == BGP_ROUTE_NORMAL) ||
 		       (path->sub_type == BGP_ROUTE_STATIC) ||
