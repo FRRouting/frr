@@ -279,22 +279,20 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		}
 	}
 
+	if (peer->hostname) {
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		peer->hostname = NULL;
+	}
 	if (from_peer->hostname != NULL) {
-		if (peer->hostname) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-			peer->hostname = NULL;
-		}
-
 		peer->hostname = from_peer->hostname;
 		from_peer->hostname = NULL;
 	}
 
+	if (peer->domainname) {
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		peer->domainname = NULL;
+	}
 	if (from_peer->domainname != NULL) {
-		if (peer->domainname) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-			peer->domainname = NULL;
-		}
-
 		peer->domainname = from_peer->domainname;
 		from_peer->domainname = NULL;
 	}
