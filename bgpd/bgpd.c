@@ -1156,6 +1156,7 @@ static void peer_free(struct peer *peer)
 
 	XFREE(MTYPE_PEER_DESC, peer->desc);
 	XFREE(MTYPE_BGP_PEER_HOST, peer->host);
+	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
 	XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
 
