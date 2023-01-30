@@ -923,12 +923,13 @@ uint16_t pcep_encode_obj_ro(struct pcep_object_header *hdr,
 				index += LENGTH_10WORDS;
 				break;
 
-			default:
+			case PCEP_SR_SUBOBJ_NAI_ABSENT:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		} break;
 
-		default:
+		case RO_SUBOBJ_UNKNOWN:
 			break;
 		}
 	}
@@ -1712,7 +1713,7 @@ struct pcep_object_header *pcep_decode_obj_ro(struct pcep_object_header *hdr,
 			} break;
 
 			case PCEP_SR_SUBOBJ_NAI_ABSENT:
-			default:
+			case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 				break;
 			}
 		} break;
