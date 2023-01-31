@@ -10214,17 +10214,10 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 		json_object_int_add(json_vrf, "supportedGracePeriod",
 				    ospf->supported_grace_time);
 
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-		if (ospf->last_exit_reason != OSPF_GR_HELPER_EXIT_NONE) {
-			json_object_string_add(
-				json_vrf, "LastExitReason",
-				ospf_exit_reason2str(ospf->last_exit_reason));
+		if (ospf->last_exit_reason != OSPF_GR_HELPER_EXIT_NONE)
 			json_object_string_add(
 				json_vrf, "lastExitReason",
 				ospf_exit_reason2str(ospf->last_exit_reason));
-		}
 
 		if (ospf->active_restarter_cnt)
 			json_object_int_add(json_vrf, "activeRestarterCnt",
@@ -10257,16 +10250,11 @@ CPP_NOTICE("Remove JSON object commands with keys starting with capital")
 				continue;
 
 			if (uj) {
-				json_object_object_get_ex(json_vrf, "Neighbors",
-							  &json_neighbors);
 				json_object_object_get_ex(json_vrf, "neighbors",
 							  &json_neighbors);
 				if (!json_neighbors) {
 					json_neighbors =
 						json_object_new_object();
-					json_object_object_add(json_vrf,
-							       "Neighbors",
-							       json_neighbors);
 					json_object_object_add(json_vrf,
 							       "neighbors",
 							       json_neighbors);
@@ -10563,9 +10551,6 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 	return;
 }
 
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
-#endif
 static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				       struct route_table *rt,
 				       json_object *json)
@@ -10667,12 +10652,6 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 							json_object_string_add(
 								json_nexthop,
 								"ip", " ");
-							json_object_string_add(
-								json_nexthop,
-								"directly attached to",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
 							json_object_string_add(
 								json_nexthop,
 								"directlyAttachedTo",
@@ -10818,12 +10797,6 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 								"ip", " ");
 							json_object_string_add(
 								json_nexthop,
-								"directly attached to",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-							json_object_string_add(
-								json_nexthop,
 								"directlyAttachedTo",
 								ifindex2ifname(
 									path->ifindex,
@@ -10948,12 +10921,6 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 						json_object_string_add(
 							json_nexthop, "ip",
 							" ");
-						json_object_string_add(
-							json_nexthop,
-							"directly attached to",
-							ifindex2ifname(
-								path->ifindex,
-								ospf->vrf_id));
 						json_object_string_add(
 							json_nexthop,
 							"directlyAttachedTo",
@@ -11664,8 +11631,6 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
 			ospf->aggr_delay_interval);
 	} else {
-		json_object_int_add(json_vrf, "aggregation delay interval",
-				    ospf->aggr_delay_interval);
 		json_object_int_add(json_vrf, "aggregationDelayInterval",
 				    ospf->aggr_delay_interval);
 	}
@@ -11684,37 +11649,17 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 
 				json_object_object_add(json_vrf, buf,
 						       json_aggr);
-
-				json_object_string_add(json_aggr,
-						       "Summary address", buf);
 				json_object_string_add(json_aggr,
 						       "summaryAddress", buf);
-
-				json_object_string_add(
-					json_aggr, "Metric-type",
-					(mtype == EXTERNAL_METRIC_TYPE_1)
-						? "E1"
-						: "E2");
 				json_object_string_add(
 					json_aggr, "metricType",
 					(mtype == EXTERNAL_METRIC_TYPE_1)
 						? "E1"
 						: "E2");
 
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-				json_object_int_add(json_aggr, "Metric", mval);
 				json_object_int_add(json_aggr, "metric", mval);
-
-				json_object_int_add(json_aggr, "Tag",
-						    aggr->tag);
 				json_object_int_add(json_aggr, "tag",
 						    aggr->tag);
-
-				json_object_int_add(
-					json_aggr, "External route count",
-					OSPF_EXTERNAL_RT_COUNT(aggr));
 				json_object_int_add(
 					json_aggr, "externalRouteCount",
 					OSPF_EXTERNAL_RT_COUNT(aggr));
