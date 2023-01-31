@@ -472,10 +472,13 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 						uint32_t *label)
 {
 	struct bgp_path_info *new;
+	struct attr local_attr, *new_attr;
 
-	new = info_make(type, sub_type, 0, peer, attr, NULL);
+	local_attr = *attr;
 
-	new->attr = bgp_attr_intern(attr);
+	new_attr = bgp_attr_intern(&local_attr);
+
+	new = info_make(type, sub_type, 0, peer, new_attr, NULL);
 
 	bgp_path_info_extra_get(new);
 	if (prd) {
