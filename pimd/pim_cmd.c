@@ -3045,102 +3045,41 @@ DEFPY (no_ip_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
-DEFUN (ip_pim_ssm_prefix_list,
+DEFPY (ip_pim_ssm_prefix_list,
        ip_pim_ssm_prefix_list_cmd,
-       "ip pim ssm prefix-list WORD",
+       "ip pim ssm prefix-list WORD$word",
        IP_STR
-       "pim multicast routing\n"
+       PIM_STR
        "Source Specific Multicast\n"
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	const char *vrfname;
-	char ssm_plist_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
-
-	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, argv[4]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_ssm_command(vty, word);
 }
 
-DEFUN (no_ip_pim_ssm_prefix_list,
+DEFPY (no_ip_pim_ssm_prefix_list,
        no_ip_pim_ssm_prefix_list_cmd,
        "no ip pim ssm prefix-list",
        NO_STR
        IP_STR
-       "pim multicast routing\n"
+       PIM_STR
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	const char *vrfname;
-	char ssm_plist_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
-
-	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_ssm_command(vty);
 }
 
-DEFUN (no_ip_pim_ssm_prefix_list_name,
+DEFPY (no_ip_pim_ssm_prefix_list_name,
        no_ip_pim_ssm_prefix_list_name_cmd,
-       "no ip pim ssm prefix-list WORD",
+       "no ip pim ssm prefix-list WORD$word",
        NO_STR
        IP_STR
-       "pim multicast routing\n"
+       PIM_STR
        "Source Specific Multicast\n"
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	const char *vrfname;
-	const struct lyd_node *ssm_plist_dnode;
-	char ssm_plist_xpath[XPATH_MAXLEN];
-	const char *ssm_plist_name;
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
-	ssm_plist_dnode = yang_dnode_get(vty->candidate_config->dnode,
-					 ssm_plist_xpath);
-
-	if (!ssm_plist_dnode) {
-		vty_out(vty,
-			"%% pim ssm prefix-list %s doesn't exist\n",
-			argv[5]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ssm_plist_name = yang_dnode_get_string(ssm_plist_dnode, ".");
-
-	if (ssm_plist_name && !strcmp(ssm_plist_name, argv[5]->arg)) {
-		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY,
-				      NULL);
-
-		return nb_cli_apply_changes(vty, NULL);
-	}
-
-	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[5]->arg);
-
-	return CMD_WARNING_CONFIG_FAILED;
+	return pim_process_no_ssm_word_command(vty, word);
 }
 
 DEFPY (show_ip_pim_ssm_range,

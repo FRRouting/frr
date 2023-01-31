@@ -232,8 +232,8 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		++writes;
 	}
 	if (ssm->plist_name) {
-		vty_out(vty, "%sip pim ssm prefix-list %s\n", spaces,
-			ssm->plist_name);
+		vty_out(vty, "%s" PIM_AF_NAME " pim ssm prefix-list %s\n",
+			spaces, ssm->plist_name);
 		++writes;
 	}
 	if (pim->register_plist) {

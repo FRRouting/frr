@@ -348,6 +348,76 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+int pim_process_ssm_command(struct vty *vty, const char *word)
+{
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrfname, FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/ssm-prefix-list", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, word);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_ssm_command(struct vty *vty)
+{
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrfname, FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/ssm-prefix-list", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_ssm_word_command(struct vty *vty, const char *word)
+{
+	const char *vrfname;
+	const struct lyd_node *ssm_plist_dnode;
+	char xpath[XPATH_MAXLEN];
+	const char *ssm_plist_name;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrfname, FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/ssm-prefix-list", sizeof(xpath));
+	ssm_plist_dnode = yang_dnode_get(vty->candidate_config->dnode, xpath);
+
+	if (!ssm_plist_dnode) {
+		vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", word);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ssm_plist_name = yang_dnode_get_string(ssm_plist_dnode, ".");
+
+	if (ssm_plist_name && !strcmp(ssm_plist_name, word)) {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", word);
+
+	return CMD_WARNING_CONFIG_FAILED;
+}
+
 int pim_process_ip_pim_cmd(struct vty *vty)
 {
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");

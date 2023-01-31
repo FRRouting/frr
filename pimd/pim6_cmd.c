@@ -221,6 +221,43 @@ DEFPY (no_ipv6_pim_register_suppress,
 	return pim_process_no_register_suppress_cmd(vty);
 }
 
+DEFPY (ipv6_pim_ssm_prefix_list,
+       ipv6_pim_ssm_prefix_list_cmd,
+       "ipv6 pim ssm prefix-list WORD$word",
+       IPV6_STR
+       PIM_STR
+       "Source Specific Multicast\n"
+       "Group range prefix-list filter\n"
+       "Name of a prefix-list\n")
+{
+	return pim_process_ssm_command(vty, word);
+}
+
+DEFPY (no_ipv6_pim_ssm_prefix_list,
+       no_ipv6_pim_ssm_prefix_list_cmd,
+       "no ipv6 pim ssm prefix-list",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Source Specific Multicast\n"
+       "Group range prefix-list filter\n")
+{
+	return pim_process_no_ssm_command(vty);
+}
+
+DEFPY (no_ipv6_pim_ssm_prefix_list_name,
+       no_ipv6_pim_ssm_prefix_list_name_cmd,
+       "no ipv6 pim ssm prefix-list WORD$word",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Source Specific Multicast\n"
+       "Group range prefix-list filter\n"
+       "Name of a prefix-list\n")
+{
+	return pim_process_no_ssm_word_command(vty, word);
+}
+
 DEFPY (interface_ipv6_pim,
        interface_ipv6_pim_cmd,
        "ipv6 pim [passive$passive]",
@@ -1004,7 +1041,7 @@ DEFPY (show_ipv6_pim_ssm_range,
        "PIM group type\n"
        JSON_STR)
 {
-       return pim_show_group_type_cmd_helper(vrf, vty, !!json);
+	return pim_show_group_type_cmd_helper(vrf, vty, !!json);
 }
 
 DEFPY (show_ipv6_pim_interface,
@@ -1774,6 +1811,9 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_ssm_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_ssm_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_ssm_prefix_list_name_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);

@@ -38,6 +38,9 @@ int pim_process_rp_kat_cmd(struct vty *vty, const char *rpkat);
 int pim_process_no_rp_kat_cmd(struct vty *vty);
 int pim_process_register_suppress_cmd(struct vty *vty, const char *rst);
 int pim_process_no_register_suppress_cmd(struct vty *vty);
+int pim_process_ssm_command(struct vty *vty, const char *word);
+int pim_process_no_ssm_command(struct vty *vty);
+int pim_process_no_ssm_word_command(struct vty *vty, const char *word);
 int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		       const char *group_str);
 int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
