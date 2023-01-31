@@ -61,7 +61,7 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 		 vrf_name);
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	ret = nb_cli_apply_changes(vty, base_xpath);
+	ret = nb_cli_apply_changes(vty, "%s", base_xpath);
 	if (ret == CMD_SUCCESS)
 		VTY_PUSH_XPATH(ISIS_NODE, base_xpath);
 
@@ -1427,7 +1427,7 @@ DEFPY_YANG(
 				      overload ? "true" : "false");
 	}
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return nb_cli_apply_changes(vty, "%s", base_xpath);
 }
 
 void cli_show_isis_mt_ipv4_multicast(struct vty *vty,

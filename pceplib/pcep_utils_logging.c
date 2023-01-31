@@ -27,10 +27,12 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include "compiler.h"
 #include "pcep_utils_logging.h"
 
 /* Forward declaration */
-int pcep_stdout_logger(int priority, const char *format, va_list args);
+int pcep_stdout_logger(int priority, const char *format, va_list args)
+	PRINTFRR(2, 0);
 
 static pcep_logger_func logger_func = pcep_stdout_logger;
 static int logging_level_ = LOG_INFO;

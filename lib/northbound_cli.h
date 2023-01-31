@@ -71,7 +71,8 @@ extern void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
  *    CMD_SUCCESS on success, CMD_WARNING_CONFIG_FAILED otherwise.
  */
 extern int nb_cli_apply_changes_clear_pending(struct vty *vty,
-					      const char *xpath_base_fmt, ...);
+					      const char *xpath_base_fmt, ...)
+	PRINTFRR(2, 3);
 
 /*
  * Apply enqueued changes to the candidate configuration, this function
@@ -89,7 +90,7 @@ extern int nb_cli_apply_changes_clear_pending(struct vty *vty,
  *    CMD_SUCCESS on success, CMD_WARNING_CONFIG_FAILED otherwise.
  */
 extern int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt,
-				...);
+				...) PRINTFRR(2, 3);
 
 /*
  * Execute a YANG RPC or Action.

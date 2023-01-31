@@ -343,6 +343,15 @@ void vty_hello(struct vty *vty)
 		vty_out(vty, "%s", host.motd);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+/* prompt formatting has a %s in the cmd_node prompt string.
+ *
+ * Also for some reason GCC emits the warning on the end of the function
+ * (optimization maybe?) rather than on the vty_out line, so this pragma
+ * wraps the entire function rather than just the vty_out line.
+ */
+
 /* Put out prompt and wait input from user. */
 static void vty_prompt(struct vty *vty)
 {
@@ -350,6 +359,7 @@ static void vty_prompt(struct vty *vty)
 		vty_out(vty, cmd_prompt(vty->node), cmd_hostname_get());
 	}
 }
+#pragma GCC diagnostic pop
 
 /* Send WILL TELOPT_ECHO to remote server. */
 static void vty_will_echo(struct vty *vty)
@@ -464,8 +474,12 @@ static int vty_command(struct vty *vty, char *buf)
 			 vty->address);
 
 		/* format the prompt */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* prompt formatting has a %s in the cmd_node prompt string */
 		snprintf(prompt_str, sizeof(prompt_str), cmd_prompt(vty->node),
 			 vty_str);
+#pragma GCC diagnostic pop
 
 		/* now log the command */
 		zlog_notice("%s%s", prompt_str, buf);

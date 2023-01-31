@@ -1220,7 +1220,7 @@ DEFPY_YANG_NOSH (interface,
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
 
@@ -1279,7 +1279,7 @@ DEFPY_YANG (no_interface,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, xpath_list);
+	return nb_cli_apply_changes(vty, "%s", xpath_list);
 }
 
 static void netns_ifname_split(const char *xpath, char *ifname, char *vrfname)
