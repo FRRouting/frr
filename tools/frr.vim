@@ -34,3 +34,44 @@ endfunction
 
 " auto-apply the above based on path rules
 "autocmd BufRead,BufNewFile /home/.../frr/*.[ch] call CStyleFRR()
+
+" only load xref file once, remember on script-scope
+let s:xrefjson = ""
+let s:xrefpath = ""
+
+" call directly to force reload with :call FRRLoadXrefJson()
+function! FRRLoadXrefJson() abort
+	let s:xrefpath = findfile("frr.xref", ".;")
+	if empty(s:xrefpath)
+		throw "frr.xref JSON file not found in current or parent directories"
+	endif
+	let xreflines = readfile(s:xrefpath)
+	let s:xrefjson = json_decode(join(xreflines, "\n"))
+endfunction
+
+function! FRRXrefJson() abort
+	if empty(s:xrefjson)
+		call FRRLoadXrefJson()
+	endif
+	return s:xrefjson
+endfunction
+
+function! FRRGotoXref(ident) abort
+	let refs = FRRXrefJson()["refs"]
+	if has_key(refs, a:ident)
+		" TODO: in rare cases, one ID may occur in multiple places.
+		" Add some UI for that.  (This happens if the exact same
+		" format string is logged in multiple places in the same
+		" file.)
+		let loc = refs[a:ident][0]
+		let basepath = fnamemodify(s:xrefpath, ":p:h")
+		let path = fnamemodify(basepath . "/" . loc["file"], ":.")
+		execute "e ".fnameescape(path)
+		execute ":".loc["line"]
+	else
+		echoerr printf("cannot find xref with ID %s", a:ident)
+	endif
+endfunction
+
+" invoke as :GotoXref 23456-ABCDE
+command! -bang -nargs=1 GotoXref :call FRRGotoXref(<q-args>)
