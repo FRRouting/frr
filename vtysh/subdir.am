@@ -37,5 +37,5 @@ $(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
 
 CLEANFILES += vtysh/vtysh_daemons.h
 vtysh/vtysh_daemons.h:
-	mkdir -p vtysh
+	@$(MKDIR_P) vtysh
 	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h
