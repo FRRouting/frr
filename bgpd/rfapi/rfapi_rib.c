@@ -676,7 +676,7 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
-		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
+		vo->v.l2addr.label = decode_label(&bpi->attr->label_tbl[0]);
 
 		rfapi_vn_options_free(
 			ri->vn_options); /* maybe free old version */

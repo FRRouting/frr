@@ -170,10 +170,9 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			    && !dest_affected)
 				continue;
 
-			if (pi->extra)
-				num_labels = pi->extra->num_labels;
+			num_labels = pi->attr->num_labels;
 			if (num_labels)
-				label_pnt = &pi->extra->label[0];
+				label_pnt = &pi->attr->label_tbl[0];
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;

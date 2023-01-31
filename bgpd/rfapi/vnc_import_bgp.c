@@ -414,7 +414,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	uint32_t lifetime;
 	uint32_t *plifetime;
 	struct bgp_attr_encap_subtlv *encaptlvs;
-	uint32_t label = 0;
+	uint32_t label;
 
 	struct rfapi_un_option optary[3];
 	struct rfapi_un_option *opt = NULL;
@@ -470,8 +470,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	if (bgp_attr_get_ecommunity(bpi->attr))
 		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
-	if (bpi->extra)
-		label = decode_label(&bpi->extra->label[0]);
+	label = decode_label(&bpi->attr->label_tbl[0]);
 
 	add_vnc_route(&vncHDResolveNve, bgp, SAFI_MPLS_VPN,
 		      prefix,	  /* unicast route prefix */
@@ -1695,13 +1694,13 @@ static void vnc_import_bgp_exterior_add_route_it(
 				 */
 				have_usable_route = 1;
 
-				if (bpi_interior->extra) {
+				if (bpi_interior->extra)
 					prd = &bpi_interior->extra->vnc.import
 						       .rd;
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
-				} else
+				else
 					prd = NULL;
+				label = decode_label(
+					&bpi_interior->attr->label_tbl[0]);
 
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
@@ -1864,13 +1863,13 @@ void vnc_import_bgp_exterior_del_route(
 				 */
 				have_usable_route = 1;
 
-				if (bpi_interior->extra) {
+				if (bpi_interior->extra)
 					prd = &bpi_interior->extra->vnc.import
 						       .rd;
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
-				} else
+				else
 					prd = NULL;
+				label = decode_label(
+					&bpi_interior->attr->label_tbl[0]);
 
 				rfapiBgpInfoFilteredImportVPN(
 					it, FIF_ACTION_KILL, bpi_interior->peer,
@@ -2017,12 +2016,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 			assert(bpi_exterior);
 			assert(pfx_exterior);
 
-			if (bpi_interior->extra) {
+			if (bpi_interior->extra)
 				prd = &bpi_interior->extra->vnc.import.rd;
-				label = decode_label(
-					&bpi_interior->extra->label[0]);
-			} else
+			else
 				prd = NULL;
+			label = decode_label(&bpi_interior->attr->label_tbl[0]);
 
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
@@ -2130,14 +2128,13 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 */
 				for (bpi = par->info; bpi; bpi = bpi->next) {
 
-					if (bpi->extra) {
+					if (bpi->extra)
 						prd = &bpi->extra->vnc.import
 							       .rd;
-						label = decode_label(
-							&bpi->extra->label[0]);
-					} else
+					else
 						prd = NULL;
-
+					label = decode_label(
+						&bpi->attr->label_tbl[0]);
 					rfapiBgpInfoFilteredImportVPN(
 						it, FIF_ACTION_KILL, bpi->peer,
 						NULL, /* rfd */
@@ -2152,14 +2149,13 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * Add constructed exterior routes based on
 				 * the new interior route at longer prefix.
 				 */
-				if (bpi_interior->extra) {
+				if (bpi_interior->extra)
 					prd = &bpi_interior->extra->vnc.import
 						       .rd;
-					label = decode_label(
-						&bpi_interior->extra->label[0]);
-				} else
+				else
 					prd = NULL;
-
+				label = decode_label(
+					&bpi_interior->attr->label_tbl[0]);
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(struct attr));
 				new_attr = *bpi_interior->attr;
@@ -2271,13 +2267,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 			 * Add constructed exterior routes based on the
 			 * new interior route at the longer prefix.
 			 */
-			if (bpi_interior->extra) {
+			if (bpi_interior->extra)
 				prd = &bpi_interior->extra->vnc.import.rd;
-				label = decode_label(
-					&bpi_interior->extra->label[0]);
-			} else
+			else
 				prd = NULL;
-
+			label = decode_label(&bpi_interior->attr->label_tbl[0]);
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
 			new_attr = *bpi_interior->attr;
@@ -2379,12 +2373,11 @@ void vnc_import_bgp_exterior_del_route_interior(
 		struct prefix_rd *prd;
 		uint32_t label = 0;
 
-		if (bpi_interior->extra) {
+		if (bpi_interior->extra)
 			prd = &bpi_interior->extra->vnc.import.rd;
-			label = decode_label(&bpi_interior->extra->label[0]);
-		} else
+		else
 			prd = NULL;
-
+		label = decode_label(&bpi_interior->attr->label_tbl[0]);
 		rfapiBgpInfoFilteredImportVPN(
 			it, FIF_ACTION_KILL, bpi_interior->peer, NULL, /* rfd */
 			pfx_exterior, NULL, afi, prd, bpi_interior->attr,
@@ -2456,13 +2449,11 @@ void vnc_import_bgp_exterior_del_route_interior(
 				if (bpi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
 					continue;
 
-				if (bpi->extra) {
+				if (bpi->extra)
 					prd = &bpi->extra->vnc.import.rd;
-					label = decode_label(
-						&bpi->extra->label[0]);
-				} else
+				else
 					prd = NULL;
-
+				label = decode_label(&bpi->attr->label_tbl[0]);
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
 				new_attr = *bpi->attr;

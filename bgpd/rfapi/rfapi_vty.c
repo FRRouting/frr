@@ -414,11 +414,11 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 	}
 
 	if (bpi->extra != NULL) {
-		if (bpi->extra->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
+		if (bpi->attr->label_tbl[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
 			vty_out(vty, " label=VRF2VRF");
 		else
 			vty_out(vty, " label=%u",
-				decode_label(&bpi->extra->label[0]));
+				decode_label(&bpi->attr->label_tbl[0]));
 
 		if (bpi->extra->num_sids) {
 			vty_out(vty, " sid=%pI6", &bpi->extra->sid[0].sid);
@@ -1022,6 +1022,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	char buf_lifetime[BUFSIZ];
 	int nlines = 0;
 	const struct prefix *p = agg_node_get_prefix(rn);
+	uint32_t l;
 
 	if (!stream)
 		return 0; /* for debug log, print into buf & call output once */
@@ -1062,13 +1063,8 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   sizeof(buf_ntop)));
-		if (bpi->extra) {
-			uint32_t l = decode_label(&bpi->extra->label[0]);
-			snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
-		} else /* should never happen */
-		{
-			snprintf(buf_vn, sizeof(buf_vn), "Label: N/A");
-		}
+		l = decode_label(&bpi->attr->label_tbl[0]);
+		snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
 	} else {
 		snprintf(buf_vn, sizeof(buf_vn), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
@@ -1172,8 +1168,8 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			}
 		}
 	}
-	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->extra) {
-		uint32_t l = decode_label(&bpi->extra->label[0]);
+	if (tun_type != BGP_ENCAP_TYPE_MPLS) {
+		uint32_t l = decode_label(&bpi->attr->label_tbl[0]);
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
 			if (nlines == 1)

@@ -789,9 +789,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 						      safi);
 				label_pnt = &label;
 				num_labels = 1;
-			} else if (path && path->extra) {
-				label_pnt = &path->extra->label[0];
-				num_labels = path->extra->num_labels;
+			} else if (path) {
+				label_pnt = &path->attr->label_tbl[0];
+				num_labels = path->attr->num_labels;
 			}
 
 			if (stream_empty(snlri))

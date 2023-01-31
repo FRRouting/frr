@@ -348,6 +348,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	struct bgp_path_info *remote_pi = NULL; /* remote route entry if any */
 	struct attr *attr_new = NULL;
 	struct prefix_evpn *evp;
+	mpls_label_t label = 0;
 
 	*ri = NULL;
 	evp = (struct prefix_evpn *)bgp_dest_get_prefix(dest);
@@ -382,6 +383,12 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	/* create or update the entry */
 	if (!local_pi) {
 
+		if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
+			if (vpn)
+				vni2label(vpn->vni, &label);
+			bgp_labels_set(attr, &label, 1, true, false);
+		}
+
 		/* Add or update attribute to hash */
 		attr_new = bgp_attr_intern(attr);
 
@@ -389,15 +396,6 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		tmp_pi = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
 				   bgp->peer_self, attr_new, dest);
 		SET_FLAG(tmp_pi->flags, BGP_PATH_VALID);
-
-		if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
-			bgp_path_info_extra_get(tmp_pi);
-			tmp_pi->extra->num_labels = 1;
-			if (vpn)
-				vni2label(vpn->vni, &tmp_pi->extra->label[0]);
-			else
-				tmp_pi->extra->label[0] = 0;
-		}
 
 		/* add the newly created path to the route-node */
 		bgp_path_info_add(dest, tmp_pi);

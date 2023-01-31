@@ -466,9 +466,9 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 		mpls_label_t *label = NULL;
 		uint32_t num_labels = 0;
 
-		if (path && path->extra) {
-			label = path->extra->label;
-			num_labels = path->extra->num_labels;
+		if (path) {
+			label = ain->attr->label_tbl;
+			num_labels = ain->attr->num_labels;
 		}
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest),
 				 ain->addpath_rx_id, ain->attr, afi, safi,

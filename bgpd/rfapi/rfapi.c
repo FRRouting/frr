@@ -873,6 +873,9 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
+	/* encode label */
+	encode_label(label_val, &attr.label_tbl[0]);
+
 	/*
 	 * bgp_attr_intern creates a new reference to a cached
 	 * attribute, but leaves the following bits of trash:
@@ -1024,7 +1027,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	/* save backref to rfapi handle */
 	bgp_path_info_extra_get(new);
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
-	encode_label(label_val, &new->extra->label[0]);
 
 	/* debug */
 

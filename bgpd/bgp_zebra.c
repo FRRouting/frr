@@ -1296,8 +1296,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	struct bgp_path_info *mpinfo_cp = &local_info;
 	route_tag_t tag;
 	struct bgp_sid_info *sid_info;
-	mpls_label_t *labels;
-	uint32_t num_labels = 0;
 	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
@@ -1389,8 +1387,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
-		labels = NULL;
-		num_labels = 0;
 		uint32_t nh_weight;
 		bool is_evpn;
 		bool is_parent_evpn;
@@ -1429,10 +1425,11 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (bgp_debug_zebra(&api.prefix)) {
 			if (mpinfo->extra) {
-				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
-					   __func__, p,
-					   bgp_is_valid_label(
-						   &mpinfo->extra->label[0]));
+				zlog_debug(
+					"%s: p=%pFX, bgp_is_valid_label: %d",
+					__func__, p,
+					bgp_is_valid_label(
+						&mpinfo->attr->label_tbl[0]));
 			} else {
 				zlog_debug(
 					"%s: p=%pFX, extra is NULL, no label",
@@ -1500,22 +1497,19 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			|| mpinfo->peer->sort == BGP_PEER_CONFED))
 			allow_recursion = true;
 
-		if (mpinfo->extra) {
-			labels = mpinfo->extra->label;
-			num_labels = mpinfo->extra->num_labels;
-		}
-
-		if (labels && (num_labels > 0) &&
-		    (is_evpn || bgp_is_valid_label(&labels[0]))) {
+		if ((mpinfo->attr->num_labels > 0) &&
+		    (is_evpn ||
+		     bgp_is_valid_label(&mpinfo->attr->label_tbl[0]))) {
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
 
 			if (is_evpn) {
 				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
-					labels, num_labels);
+					mpinfo->attr->label_tbl,
+					mpinfo->attr->num_labels);
 				nh_label_type = ZEBRA_LSP_EVPN;
 			} else {
-				mpls_lse_decode(labels[0], &nh_label, &ttl,
-						&exp, &bos);
+				mpls_lse_decode(mpinfo->attr->label_tbl[0],
+						&nh_label, &ttl, &exp, &bos);
 			}
 
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
@@ -1533,7 +1527,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api_nh->weight = nh_weight;
 
 		if (mpinfo->extra && !is_evpn &&
-		    bgp_is_valid_label(&labels[0]) &&
+		    bgp_is_valid_label(&mpinfo->attr->label_tbl[0]) &&
 		    !sid_zero(&mpinfo->extra->sid[0].sid)) {
 			sid_info = &mpinfo->extra->sid[0];
 
@@ -1541,8 +1535,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			       sizeof(api_nh->seg6_segs));
 
 			if (sid_info->transposition_len != 0) {
-				mpls_lse_decode(labels[0], &nh_label, &ttl,
-						&exp, &bos);
+				mpls_lse_decode(mpinfo->attr->label_tbl[0],
+						&nh_label, &ttl, &exp, &bos);
 
 				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
 					if (bgp_debug_zebra(&api.prefix))

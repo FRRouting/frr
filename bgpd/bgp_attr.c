@@ -41,6 +41,7 @@
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
