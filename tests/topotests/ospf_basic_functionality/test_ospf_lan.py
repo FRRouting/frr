@@ -143,7 +143,7 @@ def teardown_module():
 
     try:
         # Stop toplogy and Remove tmp files
-        tgen.stop_topology
+        tgen.stop_topology()
 
     except OSError:
         # OSError exception is raised when mininet tries to stop switch
