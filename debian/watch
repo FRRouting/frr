@@ -1,5 +1,10 @@
 version=4
 
-opts=uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/ \
+opts="\
+searchmode=plain,\
+uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha)\d*)$/$1~$2/,\
+downloadurlmangle=s&releases/>FRR\s*(\d\S+)\s+Release<&archive/refs/tags/frr-$1.tar.gz&,\
+filenamemangle=s&>FRR\s*(\d\S+)\s+Release<&frr-$1.tar.gz&,\
+" \
 https://github.com/FRRouting/frr/releases/ \
-	.*/frr-(\d\S+)\.(?:zip|tgz|tbz|txz|(?:tar\.(?:gz|bz2|xz)))
+	>FRR\s*(\d\S+)\s+Release<
