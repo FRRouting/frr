@@ -512,7 +512,16 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 	restart->kills = 0;
 	{
 		char cmd[strlen(command) + strlen(restart->name) + 1];
+		char tbuf[30];
+
 		snprintf(cmd, sizeof(cmd), command, restart->name);
+
+		/* Allow the restart script to see the timeout watchfrr will
+		 * be using.
+		 */
+		snprintf(tbuf, sizeof(tbuf), "%ld", gs.restart_timeout);
+		setenv("FRR_WATCHFRR_TIMEOUT", tbuf, 1);
+
 		if ((restart->pid = run_background(cmd)) > 0) {
 			thread_add_timer(master, restart_kill, restart,
 					 gs.restart_timeout, &restart->t_kill);

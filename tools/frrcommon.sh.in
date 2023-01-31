@@ -211,13 +211,39 @@ daemon_stop() {
 		return 1
 	fi
 
-	debug "kill -2 $pid"
-	kill -2 "$pid"
 	cnt=1200
+
+	#
+	# Allow calling program to convey the timeout it may be using
+	#
+	if [ -n "$FRR_WATCHFRR_TIMEOUT" ] ; then
+		$(( cnt = "$FRR_WATCHFRR_TIMEOUT" - 5 ))
+		$(( cnt *= 10 ))
+	fi
+
+	debug "kill -2 $pid, cnt $cnt"
+	log_success_msg "Stopping $dmninst, pid $pid ..."
+	kill -2 "$pid"
 	while kill -0 "$pid" 2>/dev/null; do
 		sleep .1
 		[ $(( cnt -= 1 )) -gt 0 ] || break
 	done
+
+	# Really kill the daemon if it didn't react to SIGINT
+	if kill -0 "$pid" 2>/dev/null; then
+		debug "kill -9 $dmninst, pid $pid"
+		log_success_msg "Failed to stop $dmninst, killing pid $pid ..."
+
+		kill -9 "$pid"
+
+		# And wait a bit for the kill to take effect
+		cnt=5
+		while kill -0 "$pid" 2>/dev/null; do
+			sleep .1
+			[ $(( cnt -= 1 )) -gt 0 ] || break
+		done
+	fi
+
 	if kill -0 "$pid" 2>/dev/null; then
 		log_failure_msg "Failed to stop $dmninst, pid $pid still running"
 		still_running=1
