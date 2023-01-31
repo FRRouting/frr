@@ -1,0 +1,19 @@
+name: commitlint
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+
+jobs:
+  lint:
+    if: github.repository == 'frrouting/frr'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Commit
+        uses: wagoid/commitlint-github-action@v5
+        with:
+          configFile: .github/commitlint.config.js
