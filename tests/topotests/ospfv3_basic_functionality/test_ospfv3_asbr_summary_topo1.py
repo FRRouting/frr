@@ -332,11 +332,11 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -403,11 +403,11 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -444,11 +444,11 @@ def test_ospfv3_type5_summary_tc42_p0(request):
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -527,11 +527,11 @@ def test_ospfv3_type5_summary_tc42_p0(request):
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -665,11 +665,11 @@ def test_ospfv3_type5_summary_tc42_p0(request):
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -822,11 +822,11 @@ def test_ospfv3_type5_summary_tc43_p0(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -857,11 +857,11 @@ def test_ospfv3_type5_summary_tc43_p0(request):
 
     input_dict = {
         "2011::/16": {
-            "Summary address": "2011::/16",
-            "Metric-type": "E2",
+            "summaryAddress": "2011::/16",
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -901,11 +901,11 @@ def test_ospfv3_type5_summary_tc43_p0(request):
 
     input_dict = {
         "2011::/32": {
-            "Summary address": "2011::/32",
-            "Metric-type": "E2",
+            "summaryAddress": "2011::/32",
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 0,
+            "externalRouteCount": 0,
         }
     }
     dut = "r0"
@@ -1084,11 +1084,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1234,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1136,11 +1136,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1234,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1179,11 +1179,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1228,11 +1228,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 4294967295,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1287,11 +1287,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 88888,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1521,11 +1521,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1234,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1570,11 +1570,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1234,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1613,11 +1613,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     step("Verify that show ip ospf summary should show the summaries with tag.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1662,11 +1662,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 4294967295,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1721,11 +1721,11 @@ def ospfv3_type5_summary_tc45_p0(request):
     )
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 88888,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1914,8 +1914,8 @@ def test_ospfv3_type5_summary_tc46_p0(request):
     step("Verify that show ip ospf summary should show the " "configured summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -1965,11 +1965,11 @@ def test_ospfv3_type5_summary_tc46_p0(request):
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 1234,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2023,8 +2023,8 @@ def test_ospfv3_type5_summary_tc46_p0(request):
     step("Verify that show ip ospf summary should show the " "configured summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2085,11 +2085,11 @@ def test_ospfv3_type5_summary_tc46_p0(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2207,11 +2207,11 @@ def test_ospfv3_type5_summary_tc48_p0(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2304,11 +2304,11 @@ def test_ospfv3_type5_summary_tc48_p0(request):
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2341,11 +2341,11 @@ def test_ospfv3_type5_summary_tc48_p0(request):
     )
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2378,11 +2378,11 @@ def test_ospfv3_type5_summary_tc48_p0(request):
     )
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2558,11 +2558,11 @@ def test_ospfv3_type5_summary_tc51_p2(request):
 
     input_dict = {
         SUMMARY["ipv6"][3]: {
-            "Summary address": SUMMARY["ipv6"][3],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][3],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 0,
+            "externalRouteCount": 0,
         }
     }
     dut = "r0"
@@ -2653,11 +2653,11 @@ def test_ospfv3_type5_summary_tc49_p2(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -2709,11 +2709,11 @@ def test_ospfv3_type5_summary_tc49_p2(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
-            "Summary address": SUMMARY["ipv6"][0],
-            "Metric-type": "E2",
+            "summaryAddress": SUMMARY["ipv6"][0],
+            "metricType": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
