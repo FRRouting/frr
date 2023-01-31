@@ -72,7 +72,6 @@ void pim_ssm_prefix_list_update(struct pim_instance *pim,
 static int pim_is_grp_standard_ssm(struct prefix *group)
 {
 	pim_addr addr = pim_addr_from_prefix(group);
-
 	return pim_addr_ssm(addr);
 }
 

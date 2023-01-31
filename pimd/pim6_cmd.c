@@ -994,6 +994,19 @@ DEFPY (show_ipv6_pim_channel,
 	return pim_show_channel_cmd_helper(vrf, vty, !!json);
 }
 
+DEFPY (show_ipv6_pim_ssm_range,
+       show_ipv6_pim_ssm_range_cmd,
+       "show ipv6 pim [vrf NAME] group-type [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM group type\n"
+       JSON_STR)
+{
+       return pim_show_group_type_cmd_helper(vrf, vty, !!json);
+}
+
 DEFPY (show_ipv6_pim_interface,
        show_ipv6_pim_interface_cmd,
        "show ipv6 pim [vrf NAME] interface [detail|WORD]$interface [json$json]",
@@ -1834,6 +1847,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_state_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_state_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_channel_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_ssm_range_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_join_cmd);

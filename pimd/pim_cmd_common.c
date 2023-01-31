@@ -2190,6 +2190,20 @@ int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj)
 	return CMD_SUCCESS;
 }
 
+int pim_show_group_type_cmd_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	ip_pim_ssm_show_group_range(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 int pim_show_interface_cmd_helper(const char *vrf, struct vty *vty, bool uj,
 				  bool mlag, const char *interface)
 {
@@ -2776,9 +2790,18 @@ void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 
 		json = json_object_new_object();
 		json_object_string_add(json, "ssmGroups", range_str);
+#if PIM_IPV == 6
+		if (!ssm->plist_name)
+			json_object_string_add(json, "x", "any valid scope");
+#endif
 		vty_json(vty, json);
-	} else
+	} else {
 		vty_out(vty, "SSM group range : %s\n", range_str);
+#if PIM_IPV == 6
+		if (!ssm->plist_name)
+			vty_out(vty, "x: any valid scope\n");
+#endif
+	}
 }
 
 struct vty_pnc_cache_walk_data {
