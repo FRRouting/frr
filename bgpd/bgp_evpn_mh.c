@@ -706,7 +706,6 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id)
 {
-	int ret;
 	esi_t esi;
 	uint8_t ipaddr_len;
 	struct in_addr vtep_ip;
@@ -750,15 +749,15 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	build_evpn_type4_prefix(&p, &esi, vtep_ip);
 	/* Process the route. */
 	if (attr) {
-		ret = bgp_update(peer, (struct prefix *)&p, addpath_id, attr,
-				afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				&prd, NULL, 0, 0, NULL);
+		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
+			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
+			   0, 0, NULL);
 	} else {
-		ret = bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr,
-				afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				&prd, NULL, 0, NULL);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
+			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
+			     NULL, 0, NULL);
 	}
-	return ret;
+	return 0;
 }
 
 /* Check if a prefix belongs to the local ES */
@@ -1180,7 +1179,6 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id)
 {
-	int ret;
 	struct prefix_rd prd;
 	esi_t esi;
 	uint32_t eth_tag;
@@ -1219,15 +1217,15 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	build_evpn_type1_prefix(&p, eth_tag, &esi, vtep_ip);
 	/* Process the route. */
 	if (attr) {
-		ret = bgp_update(peer, (struct prefix *)&p, addpath_id, attr,
-				afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				&prd, NULL, 0, 0, NULL);
+		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
+			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
+			   0, 0, NULL);
 	} else {
-		ret = bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr,
-				afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				&prd, NULL, 0, NULL);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
+			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
+			     NULL, 0, NULL);
 	}
-	return ret;
+	return 0;
 }
 
 void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
