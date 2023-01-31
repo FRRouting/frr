@@ -1827,12 +1827,12 @@ def verify_pim_state(
         else:
             pim_state_json = show_pim_state_json[grp_addr][src_address]
 
-        if pim_state_json["Installed"] == installed_fl:
+        if pim_state_json["installed"] == installed_fl:
             logger.info(
                 "[DUT %s]: group  %s is installed flag: %s",
                 dut,
                 grp_addr,
-                pim_state_json["Installed"],
+                pim_state_json["installed"],
             )
             for interface, data in pim_state_json[iif].items():
                 if interface != oil:

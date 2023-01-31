@@ -2,7 +2,7 @@
   "r1-mpw0":{
     "peerId":"2.2.2.2",
     "vcId":100,
-    "VpnName":"CUST_A",
+    "vpnName":"CUST_A",
     "status":"up"
   }
 }

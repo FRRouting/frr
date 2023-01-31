@@ -4277,7 +4277,7 @@ def verify_attributes_for_evpn_routes(
                         for _rd, route_data in evpn_rd_value_json.items():
                             if route_data["ip"] == route:
                                 for rt_data in route_data["paths"]:
-                                    if vni_dict[vrf] == rt_data["VNI"]:
+                                    if vni_dict[vrf] == rt_data["vni"]:
                                         rt_string = rt_data["extendedCommunity"][
                                             "string"
                                         ]

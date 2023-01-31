@@ -1,8 +1,8 @@
 {
-  "Ledger":0,
-  "InUse":0,
-  "Requests":0,
-  "LabelChunks":0,
-  "Pending":0,
-  "Reconnects":0
+  "ledger":0,
+  "inUse":0,
+  "requests":0,
+  "labelChunks":0,
+  "pending":0,
+  "reconnects":0
 }

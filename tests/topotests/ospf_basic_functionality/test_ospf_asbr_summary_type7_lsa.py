@@ -290,11 +290,11 @@ def test_ospf_type5_summary_tc44_p0(request):
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
         SUMMARY["ipv4"][3]: {
-            "Summary address": SUMMARY["ipv4"][3],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][3],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
@@ -342,11 +342,11 @@ def test_ospf_type5_summary_tc44_p0(request):
     step("Verify that type7 LSAs received from neighbor are not summarised.")
     input_dict = {
         "13.0.0.0/8": {
-            "Summary address": "13.0.0.0/8",
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 0,
+            "summaryAddress": "13.0.0.0/8",
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 0,
         }
     }
     dut = "r0"
@@ -358,11 +358,11 @@ def test_ospf_type5_summary_tc44_p0(request):
     step("Verify that already originated summary is intact.")
     input_dict = {
         SUMMARY["ipv4"][3]: {
-            "Summary address": SUMMARY["ipv4"][3],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
+            "summaryAddress": SUMMARY["ipv4"][3],
+            "metricType": "E2",
+            "metric": 20,
+            "tag": 0,
+            "externalRouteCount": 5,
         }
     }
     dut = "r0"
