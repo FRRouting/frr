@@ -604,7 +604,11 @@ void vzlogx(const struct xref_logmsg *xref, int prio,
 #ifdef HAVE_LTTNG
 	va_list copy;
 	va_copy(copy, ap);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	char *msg = vasprintfrr(MTYPE_LOG_MESSAGE, fmt, copy);
+#pragma GCC diagnostic pop
 
 	switch (prio) {
 	case LOG_ERR:

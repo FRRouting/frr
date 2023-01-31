@@ -53,7 +53,12 @@ int db_init(const char *path_fmt, ...)
 		return -1;
 
 	va_start(ap, path_fmt);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	vsnprintf(path, sizeof(path), path_fmt, ap);
+#pragma GCC diagnostic pop
+
 	va_end(ap);
 
 	if (sqlite3_open_v2(path, &dbp,
@@ -312,7 +317,12 @@ int db_execute(const char *stmt_fmt, ...)
 		return -1;
 
 	va_start(ap, stmt_fmt);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	vsnprintf(stmt, sizeof(stmt), stmt_fmt, ap);
+#pragma GCC diagnostic pop
+
 	va_end(ap);
 
 	if (sqlite3_exec(dbp, stmt, NULL, 0, NULL) != SQLITE_OK) {
