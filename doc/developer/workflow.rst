@@ -342,6 +342,19 @@ summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
 of the included patches.
 
+Squash commits
+--------------
+
+Before merging make sure a PR has squashed the following kinds of commits:
+
+- Fixes/review feedback
+- Typos
+- Merges and rebases
+- Work in progress
+
+This helps to automatically generate human-readable changelog messages.
+
+
 .. _license-for-contributions:
 
 License for Contributions
