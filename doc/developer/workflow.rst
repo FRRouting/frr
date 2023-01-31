@@ -368,6 +368,20 @@ There is a built-in commit linter. Basic rules:
 - Commit messages must start with a capital letter
 - Commit messages must not end with a period ``.``
 
+Why was my pull request closed?
+-------------------------------
+
+Pull requests older than 180 days will be closed. Exceptions can be made for
+pull requests that have active review comments, or that are awaiting other
+dependent pull requests. Closed pull requests are easy to recreate, and little
+work is lost by closing a pull request that subsequently needs to be reopened.
+
+We want to limit the total number of pull requests in flight to:
+
+- Maintain a clean project
+- Remove old pull requests that would be difficult to rebase as the underlying code has changed over time
+- Encourage code velocity
+
 .. _license-for-contributions:
 
 License for Contributions
