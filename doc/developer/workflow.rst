@@ -354,6 +354,19 @@ Before merging make sure a PR has squashed the following kinds of commits:
 
 This helps to automatically generate human-readable changelog messages.
 
+Commit Guidelines
+-----------------
+
+There is a built-in commit linter. Basic rules:
+
+- Commit messages must be prefixed with the name of the changed subsystem, followed
+  by a colon and a space and start with an imperative verb.
+
+   `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
+   the supported subsystems.
+
+- Commit messages must start with a capital letter
+- Commit messages must not end with a period ``.``
 
 .. _license-for-contributions:
 
