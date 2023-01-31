@@ -221,7 +221,12 @@ static char *str_vprintf(const char *fmt, va_list ap)
 
 	while (1) {
 		va_copy(apc, ap);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 		ret = vsnprintf(buf, buf_size, fmt, apc);
+#pragma GCC diagnostic pop
+
 		va_end(apc);
 
 		if (ret >= 0 && ret < buf_size)

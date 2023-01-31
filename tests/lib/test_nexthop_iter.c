@@ -48,7 +48,12 @@ static void str_appendf(char **buf, const char *format, ...)
 	char *pbuf;
 
 	va_start(ap, format);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	rv = vasprintf(&pbuf, format, ap);
+#pragma GCC diagnostic pop
+
 	va_end(ap);
 	assert(rv >= 0);
 
