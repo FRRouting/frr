@@ -193,6 +193,16 @@ struct isis_router_cap_fad {
 };
 #endif /* ifndef FABRICD */
 
+/* SRv6 Capabilities as per RFC 9352 section #2 */
+struct isis_srv6_cap {
+	bool is_srv6_capable;
+
+	uint16_t flags;
+#define ISIS_SUBTLV_SRV6_FLAG_O 0x4000
+#define SUPPORTS_SRV6_OAM(srv6)                                                \
+	(CHECK_FLAG((srv6)->flags, ISIS_SUBTLV_SRV6_FLAG_O))
+};
+
 struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
@@ -208,6 +218,9 @@ struct isis_router_cap {
 	/* RFC9350 Flex-Algorithm */
 	struct isis_router_cap_fad *fads[SR_ALGORITHM_COUNT];
 #endif /* ifndef FABRICD */
+
+	/* RFC 9352 section #2 */
+	struct isis_srv6_cap srv6_cap;
 };
 
 struct isis_item {
