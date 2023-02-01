@@ -4014,6 +4014,9 @@ DEFUN (vtysh_traceroute6,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20240201
+CPP_NOTICE("Remove HAVE_SHELL_ACCESS and it's documentation");
+#endif
 #if defined(HAVE_SHELL_ACCESS)
 DEFUN (vtysh_telnet,
        vtysh_telnet_cmd,
