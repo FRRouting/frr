@@ -62,7 +62,8 @@ extern int rfapiStr2EthAddr(const char *str, struct ethaddr *ea);
 extern const char *rfapi_ntop(int af, const void *src, char *buf,
 			      socklen_t size);
 
-extern int rfapiDebugPrintf(void *dummy, const char *format, ...);
+extern int rfapiDebugPrintf(void *dummy, const char *format, ...)
+	PRINTFRR(2, 3);
 
 extern int rfapiStream2Vty(void *stream,			  /* input */
 			   int (**fp)(void *, const char *, ...), /* output */

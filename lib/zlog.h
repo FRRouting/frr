@@ -71,8 +71,8 @@ struct xrefdata_logmsg {
  * determine whether something is a log message or something else.
  */
 
-extern void vzlogx(const struct xref_logmsg *xref, int prio,
-		   const char *fmt, va_list ap);
+extern void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
+		   va_list ap) PRINTFRR(3, 0);
 #define vzlog(prio, ...) vzlogx(NULL, prio, __VA_ARGS__)
 
 PRINTFRR(2, 3)
