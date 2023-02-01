@@ -50,7 +50,7 @@
     "nexthops":[
       {
         "ip":" ",
-        "directly attached to":"lo"
+        "directlyAttachedTo":"lo"
       }
     ]
   },
@@ -127,7 +127,7 @@
     "nexthops":[
       {
         "ip":" ",
-        "directly attached to":"eth-rt4"
+        "directlyAttachedTo":"eth-rt4"
       }
     ]
   },

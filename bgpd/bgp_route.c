@@ -9858,8 +9858,6 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 		if (!json_path) {
 			vty_out(vty, "?");
 		} else {
-			json_object_string_add(json_nexthop, "Error",
-					       "Unsupported address-family");
 			json_object_string_add(json_nexthop, "error",
 					       "Unsupported address-family");
 		}
@@ -10227,12 +10225,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				if (tag_buf[0] != '\0')
 					vty_out(vty, " VNI %s", tag_buf);
 			} else {
-				if (tag_buf[0]) {
-					json_object_string_add(json_path, "VNI",
-							       tag_buf);
+				if (tag_buf[0])
 					json_object_string_add(json_path, "vni",
 							       tag_buf);
-				}
 			}
 		}
 	}
