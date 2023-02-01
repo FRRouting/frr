@@ -997,15 +997,13 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	}
 
 	ifaddr = pim_ifp->primary_address;
-#if PIM_IPV != 6
-	/* IPv6 API is always by interface index */
+
 	if (!ispimreg && !is_vxlan_term && pim_addr_is_any(ifaddr)) {
 		zlog_warn(
 			"%s: could not get address for interface %s ifindex=%d",
 			__func__, ifp->name, ifp->ifindex);
 		return -4;
 	}
-#endif
 
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
 
