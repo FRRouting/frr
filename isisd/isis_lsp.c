@@ -1210,6 +1210,14 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			/* And finally MSD */
 			rcap->msd = srdb->config.msd;
 		}
+
+		/* Add SRv6 Sub-TLVs if SRv6 is enabled */
+		if (area->srv6db.config.enabled) {
+			rcap->srv6_cap.is_srv6_capable = true;
+
+			/* SRv6 flags */
+			rcap->srv6_cap.flags = 0;
+		}
 	}
 
 	/* IPv4 address and TE router ID TLVs.
