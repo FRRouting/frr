@@ -4629,8 +4629,19 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 
 	evpn_show_all_routes(vty, bgp, type, json, detail);
 
+<<<<<<< HEAD
 	if (uj)
 		vty_json(vty, json);
+=======
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and as such we need to save as much time as is
+	 * possible.
+	 */
+	if (uj)
+		vty_json_no_pretty(vty, json);
+
+>>>>>>> 2d4460de6 (bgpd: Convert evpn output to not pretty print json)
 	return CMD_SUCCESS;
 }
 
