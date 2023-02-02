@@ -55,6 +55,9 @@ struct isis_srv6_db {
 	/* List of SRv6 Locator chunks */
 	struct list *srv6_locator_chunks;
 
+	/* List of SRv6 SIDs allocated by the IS-IS instance */
+	struct list *srv6_sids;
+
 	/* Area SRv6 configuration. */
 	struct {
 		/* Administrative status of SRv6 */
