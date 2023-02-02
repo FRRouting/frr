@@ -57,4 +57,6 @@ void isis_zebra_vrf_register(struct isis *isis);
 void isis_zebra_vrf_deregister(struct isis *isis);
 int isis_zebra_ls_register(bool up);
 
+extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
+
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

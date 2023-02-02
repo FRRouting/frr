@@ -820,6 +820,18 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+/**
+ * Request an SRv6 locator chunk to the SRv6 Manager (zebra) asynchronously.
+ *
+ * @param locator_name Name of SRv6 locator
+ *
+ * @result 0 on success, -1 otherwise
+ */
+int isis_zebra_srv6_manager_get_locator_chunk(const char *name)
+{
+	return srv6_manager_get_locator_chunk(zclient, name);
+}
+
 static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_ROUTER_ID_UPDATE] = isis_router_id_update_zebra,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = isis_zebra_if_address_add,
