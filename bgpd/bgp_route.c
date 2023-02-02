@@ -11588,7 +11588,16 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				else
 					vty_out(vty, ",\"%pFX\": ", dest_p);
 			}
-			vty_json(vty, json_paths);
+			/*
+			 * We are using no_pretty here because under
+			 * extremely high settings( say lots and lots of
+			 * routes with lots and lots of ways to reach
+			 * that route via different paths ) this can
+			 * save several minutes of output when FRR
+			 * is run on older cpu's or more underperforming
+			 * routers out there
+			 */
+			vty_json_no_pretty(vty, json_paths);
 			json_paths = NULL;
 			first = 0;
 		} else
