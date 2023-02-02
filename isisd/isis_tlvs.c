@@ -4235,6 +4235,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 {
 	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
+	size_t subtlv_len, subtlv_len_pos;
 	bool sr_algo_subtlv_present = false;
 
 	if (!router_cap)
@@ -4390,6 +4391,58 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 						stream_putc(s,
 							    router_cap->algo[i]);
 			}
+		}
+
+		/* And finish with MSDs if set as per RFC 9352 section #4 */
+		if (router_cap->srv6_msd.max_seg_left_msd +
+			    router_cap->srv6_msd.max_end_pop_msd +
+			    router_cap->srv6_msd.max_h_encaps_msd +
+			    router_cap->srv6_msd.max_end_d_msd !=
+		    0) {
+			stream_putc(s, ISIS_SUBTLV_NODE_MSD);
+
+			subtlv_len_pos = stream_get_endp(s);
+			/* Put 0 as Sub-TLV length for now, real length will be
+			 * adjusted later */
+			stream_putc(s, 0);
+
+			/* RFC 9352 section #4.1 */
+			if (router_cap->srv6_msd.max_seg_left_msd != 0) {
+				stream_putc(s, ISIS_SUBTLV_SRV6_MAX_SL_MSD);
+				stream_putc(
+					s,
+					router_cap->srv6_msd.max_seg_left_msd);
+			}
+
+			/* RFC 9352 section #4.2 */
+			if (router_cap->srv6_msd.max_end_pop_msd != 0) {
+				stream_putc(s,
+					    ISIS_SUBTLV_SRV6_MAX_END_POP_MSD);
+				stream_putc(
+					s,
+					router_cap->srv6_msd.max_end_pop_msd);
+			}
+
+			/* RFC 9352 section #4.3 */
+			if (router_cap->srv6_msd.max_h_encaps_msd != 0) {
+				stream_putc(s,
+					    ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD);
+				stream_putc(
+					s,
+					router_cap->srv6_msd.max_h_encaps_msd);
+			}
+
+			/* RFC 9352 section #4.4 */
+			if (router_cap->srv6_msd.max_end_d_msd != 0) {
+				stream_putc(s, ISIS_SUBTLV_SRV6_MAX_END_D_MSD);
+				stream_putc(s,
+					    router_cap->srv6_msd.max_end_d_msd);
+			}
+
+			/* Adjust Node MSD Sub-TLV length which depends on MSDs
+			 * presence */
+			subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+			stream_putc_at(s, subtlv_len_pos, subtlv_len);
 		}
 	}
 
