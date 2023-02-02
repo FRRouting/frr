@@ -4629,14 +4629,13 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 
 	evpn_show_all_routes(vty, bgp, type, json, detail);
 
-	if (uj) {
-		if (detail) {
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
-			json_object_free(json);
-		} else {
-			vty_json(vty, json);
-		}
-	}
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and as such we need to save as much time as is
+	 * possible.
+	 */
+	if (uj)
+		vty_json_no_pretty(vty, json);
 
 	return CMD_SUCCESS;
 }
