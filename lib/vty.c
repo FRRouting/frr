@@ -281,7 +281,8 @@ done:
 	return len;
 }
 
-int vty_json(struct vty *vty, struct json_object *json)
+static int vty_json_helper(struct vty *vty, struct json_object *json,
+			   uint32_t options)
 {
 	const char *text;
 
@@ -294,6 +295,18 @@ int vty_json(struct vty *vty, struct json_object *json)
 	json_object_free(json);
 
 	return CMD_SUCCESS;
+}
+
+int vty_json(struct vty *vty, struct json_object *json)
+{
+	return vty_json_helper(vty, json,
+			       JSON_C_TO_STRING_PRETTY |
+				       JSON_C_TO_STRING_NOSLASHESCAPE);
+}
+
+int vty_json_no_pretty(struct vty *vty, struct json_object *json)
+{
+	return vty_json_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
 /* Output current time to the vty. */
