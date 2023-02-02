@@ -173,12 +173,11 @@ static int read_ibuf_work(struct peer *peer)
 	uint16_t pktsize = 0;
 	struct stream *pkt;
 
-	/* Hold the I/O lock, we might not have space on the InQ */
-	frr_mutex_lock_autounlock(&peer->io_mtx);
 	/* ============================================== */
-
-	if (peer->ibuf->count >= bm->inq_limit)
-		return -ENOMEM;
+	frr_with_mutex (&peer->io_mtx) {
+		if (peer->ibuf->count >= bm->inq_limit)
+			return -ENOMEM;
+	}
 
 	/* check that we have enough data for a header */
 	if (ringbuf_remain(ibw) < BGP_HEADER_SIZE)
@@ -211,7 +210,9 @@ static int read_ibuf_work(struct peer *peer)
 	stream_set_endp(pkt, pktsize);
 
 	frrtrace(2, frr_bgp, packet_read, peer, pkt);
-	stream_fifo_push(peer->ibuf, pkt);
+	frr_with_mutex (&peer->io_mtx) {
+		stream_fifo_push(peer->ibuf, pkt);
+	}
 
 	return pktsize;
 }
