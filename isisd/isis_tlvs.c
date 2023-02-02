@@ -4647,6 +4647,47 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			}
 			break;
 #endif /* ifndef FABRICD */
+		case ISIS_SUBTLV_SRV6_CAPABILITIES:
+			sbuf_push(log, indent,
+				  "Unpacking SRv6 Capabilities sub-TLV...\n");
+			/* Check that SRv6 capabilities sub-TLV is correctly
+			 * formated */
+			if (length < ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE) {
+				sbuf_push(
+					log, indent,
+					"WARNING: Unexpected SRv6 Capabilities sub-TLV size (expected %d or more bytes, got %hhu)\n",
+					ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE,
+					length);
+				stream_forward_getp(s, length);
+				break;
+			}
+			/* Only one SRv6 capabilities is supported. Skip
+			 * subsequent one */
+			if (rcap->srv6_cap.is_srv6_capable) {
+				sbuf_push(
+					log, indent,
+					"WARNING: SRv6 Capabilities sub-TLV present multiple times, ignoring.\n");
+				stream_forward_getp(s, length);
+				break;
+			}
+			rcap->srv6_cap.is_srv6_capable = true;
+			rcap->srv6_cap.flags = stream_getw(s);
+
+			/* The SRv6 Capabilities Sub-TLV may contain optional
+			 * Sub-Sub-TLVs, as per RFC 9352 section #2.
+			 * Skip any Sub-Sub-TLV contained in the SRv6
+			 * Capabilities Sub-TLV that is not currently supported
+			 * by IS-IS.
+			 */
+			if (length > ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE)
+				sbuf_push(
+					log, indent,
+					"Skipping unknown sub-TLV (%hhu bytes)\n",
+					length);
+			stream_forward_getp(
+				s, length - ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
+
+			break;
 		default:
 			stream_forward_getp(s, length);
 			break;
