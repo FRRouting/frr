@@ -4464,6 +4464,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	uint8_t length;
 	uint8_t subtlv_len;
 	uint8_t size;
+	int num_msd;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
@@ -4632,19 +4633,66 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 
 			break;
 		case ISIS_SUBTLV_NODE_MSD:
+			sbuf_push(log, indent,
+				  "Unpacking Node MSD sub-TLV...\n");
+
 			/* Check that MSD is correctly formated */
-			if (length < MSD_TLV_SIZE) {
+			if (length % 2) {
+				sbuf_push(
+					log, indent,
+					"WARNING: Unexpected MSD sub-TLV length\n");
 				stream_forward_getp(s, length);
 				break;
 			}
-			msd_type = stream_getc(s);
-			rcap->msd = stream_getc(s);
-			/* Only BMI-MSD type has been defined in RFC 8491 */
-			if (msd_type != MSD_TYPE_BASE_MPLS_IMPOSITION)
-				rcap->msd = 0;
-			/* Only one MSD is standardized. Skip others */
-			if (length > MSD_TLV_SIZE)
-				stream_forward_getp(s, length - MSD_TLV_SIZE);
+
+			/* Get the number of MSDs carried in the value field of
+			 * the Node MSD sub-TLV. The value field consists of one
+			 * or more pairs of a 1-octet MSD-Type and 1-octet
+			 * MSD-Value */
+			num_msd = length / 2;
+
+			/* Unpack MSDs */
+			for (int i = 0; i < num_msd; i++) {
+				msd_type = stream_getc(s);
+
+				switch (msd_type) {
+				case MSD_TYPE_BASE_MPLS_IMPOSITION:
+					/* BMI-MSD type as per RFC 8491 */
+					rcap->msd = stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_SL_MSD:
+					/* SRv6 Maximum Segments Left MSD Type
+					 * as per RFC 9352 section #4.1 */
+					rcap->srv6_msd.max_seg_left_msd =
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_END_POP_MSD:
+					/* SRv6 Maximum End Pop MSD Type as per
+					 * RFC 9352 section #4.2 */
+					rcap->srv6_msd.max_end_pop_msd =
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD:
+					/* SRv6 Maximum H.Encaps MSD Type as per
+					 * RFC 9352 section #4.3 */
+					rcap->srv6_msd.max_h_encaps_msd =
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_END_D_MSD:
+					/* SRv6 Maximum End D MSD Type as per
+					 * RFC 9352 section #4.4 */
+					rcap->srv6_msd.max_end_d_msd =
+						stream_getc(s);
+					break;
+				default:
+					/* Unknown MSD, let's skip it */
+					sbuf_push(
+						log, indent,
+						"WARNING: Skipping unknown MSD Type %hhu (1 byte)\n",
+						msd_type);
+					stream_forward_getp(s, 1);
+				}
+			}
 			break;
 #ifndef FABRICD
 		case ISIS_SUBTLV_FAD:
