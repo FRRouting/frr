@@ -1540,7 +1540,7 @@ static void show_ext_sub(struct vty *vty, char *name,
 		sbuf_push(&buf, 4,
 			  "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(ext->delay) ? "Anomalous" : "Normal",
-			  ext->delay);
+			  ext->delay & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_MM_DELAY)) {
 		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(ext->min_delay) ? "Anomalous" : "Normal",
