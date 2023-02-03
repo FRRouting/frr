@@ -1837,10 +1837,20 @@ Configuring Peers
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [json] [wide]
+.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [detail] [json] [wide]
 
    For the given neighbor, WORD, that is specified list the routes selected
    by BGP as having the best path.
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
+
+   If ``json`` option is specified, output is displayed in JSON format.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
 
 .. _bgp-peer-filtering:
 
