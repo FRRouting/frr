@@ -14199,6 +14199,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					      header2, json, json_scode,
 					      json_ocode, wide, detail);
 
+			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
+
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
 				if (pi->peer != peer)
@@ -14207,10 +14209,23 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 					continue;
 
-				route_vty_out_tmp(vty, dest,
-						  bgp_dest_get_prefix(dest),
-						  pi->attr, safi, use_json,
-						  json_ar, wide);
+				if (detail) {
+					if (use_json)
+						json_net =
+							json_object_new_object();
+					bgp_show_path_info(
+						NULL /* prefix_rd */, dest, vty,
+						bgp, afi, safi, json_net,
+						BGP_PATH_SHOW_BESTPATH,
+						&display, RPKI_NOT_BEING_USED);
+					if (use_json)
+						json_object_object_addf(
+							json_ar, json_net,
+							"%pFX", rn_p);
+				} else
+					route_vty_out_tmp(
+						vty, dest, rn_p, pi->attr, safi,
+						use_json, json_ar, wide);
 				(*output_count)++;
 			}
 		}
@@ -14401,7 +14416,7 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 
 DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
        show_ip_bgp_instance_neighbor_bestpath_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> bestpath-routes [json$uj | wide$wide]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] neighbors <A.B.C.D|X:X::X:X|WORD> bestpath-routes [detail$detail] [json$uj | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -14413,6 +14428,7 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display the routes selected by best path\n"
+       "Display detailed version of routes\n"
        JSON_STR
        "Increase table width for longer prefixes\n")
 {
@@ -14425,6 +14441,9 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 	enum bgp_show_adj_route_type type = bgp_show_adj_route_bestpath;
 	int idx = 0;
 	uint16_t show_flags = 0;
+
+	if (detail)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 
 	if (uj)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
