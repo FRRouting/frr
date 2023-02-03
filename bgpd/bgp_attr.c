@@ -1633,7 +1633,8 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 	 * such messages, conformant BGP speakers SHOULD use the "Treat-as-
 	 * withdraw" error handling behavior as per [RFC7606].
 	 */
-	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+	if (peer->bgp && peer->bgp->reject_as_sets &&
+	    aspath_check_as_sets(attr->aspath)) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
 			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
 			 peer);
