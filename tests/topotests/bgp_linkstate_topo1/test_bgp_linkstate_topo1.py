@@ -104,6 +104,36 @@ def test_show_bgp_link_state():
         assert result is None, "Failed to see BGP prefixes on {}".format(rname)
 
 
+def test_show_bgp_link_state_detail():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _show_bgp_link_state_json(rname, expected):
+        output = json.loads(
+            tgen.gears[rname].vtysh_cmd("show bgp link-state link-state detail-routes json")
+        )
+        json_output = {
+            prefix.split("/")[0] + "/XX": item["linkStateAttributes"]
+            for prefix, data in output["routes"].items()
+            for item in data
+            if "linkStateAttributes" in item
+        }
+
+        return topotest.json_cmp(json_output, expected)
+
+    step("Check BGP Link-State Attributes tables")
+    for rname in ["r2", "r3"]:
+        expected = open(
+            os.path.join(CWD, "{}/linkstate_detail.json".format(rname))
+        ).read()
+        expected_json = json.loads(expected)
+        test_func = functools.partial(_show_bgp_link_state_json, rname, expected_json)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+        assert result is None, "Failed to display BGP-LS Attributes on {}".format(rname)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
