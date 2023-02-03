@@ -13976,16 +13976,17 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 	       const char *rmap_name, json_object *json, json_object *json_ar,
 	       json_object *json_scode, json_object *json_ocode,
 	       uint16_t show_flags, int *header1, int *header2, char *rd_str,
-	       unsigned long *output_count, unsigned long *filtered_count)
+	       const struct prefix *match, unsigned long *output_count,
+	       unsigned long *filtered_count)
 {
-	struct bgp_adj_in *ain;
-	struct bgp_adj_out *adj;
+	struct bgp_adj_in *ain = NULL;
+	struct bgp_adj_out *adj = NULL;
 	struct bgp_dest *dest;
 	struct bgp *bgp;
 	struct attr attr;
 	int ret;
 	struct update_subgroup *subgrp;
-	struct peer_af *paf;
+	struct peer_af *paf = NULL;
 	bool route_filtered;
 	bool detail = CHECK_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
@@ -13998,6 +13999,98 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 	json_object *json_net = NULL;
 
 	bgp = peer->bgp;
+
+	/* If the user supplied a prefix, look for a matching route instead
+	 * of walking the whole table.
+	 */
+	if (match) {
+		dest = bgp_node_match(table, match);
+		if (!dest) {
+			if (!use_json)
+				vty_out(vty, "Network not in table\n");
+			return;
+		}
+
+		const struct prefix *rn_p = bgp_dest_get_prefix(dest);
+
+		if (rn_p->prefixlen != match->prefixlen) {
+			if (!use_json)
+				vty_out(vty, "Network not in table\n");
+			bgp_dest_unlock_node(dest);
+			return;
+		}
+
+		if (type == bgp_show_adj_route_received ||
+		    type == bgp_show_adj_route_filtered) {
+			for (ain = dest->adj_in; ain; ain = ain->next) {
+				if (ain->peer == peer) {
+					attr = *ain->attr;
+					break;
+				}
+			}
+			/* bail out if if adj_out is empty, or
+			 * if the prefix isn't in this peer's
+			 * adj_in
+			 */
+			if (!ain || ain->peer != peer) {
+				if (!use_json)
+					vty_out(vty, "Network not in table\n");
+				bgp_dest_unlock_node(dest);
+				return;
+			}
+		} else if (type == bgp_show_adj_route_advertised) {
+			bool peer_found = false;
+
+			RB_FOREACH (adj, bgp_adj_out_rb, &dest->adj_out) {
+				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
+					if (paf->peer == peer && adj->attr) {
+						attr = *adj->attr;
+						peer_found = true;
+						break;
+					}
+				}
+				if (peer_found)
+					break;
+			}
+			/* bail out if if adj_out is empty, or
+			 * if the prefix isn't in this peer's
+			 * adj_out
+			 */
+			if (!paf || !peer_found) {
+				if (!use_json)
+					vty_out(vty, "Network not in table\n");
+				bgp_dest_unlock_node(dest);
+				return;
+			}
+		}
+
+		ret = bgp_output_modifier(peer, rn_p, &attr, afi, safi,
+					  rmap_name);
+
+		if (ret != RMAP_DENY) {
+			show_adj_route_header(vty, peer, table, header1,
+					      header2, json, json_scode,
+					      json_ocode, wide, detail);
+
+			if (use_json)
+				json_net = json_object_new_object();
+
+			bgp_show_path_info(NULL /* prefix_rd */, dest, vty, bgp,
+					   afi, safi, json_net,
+					   BGP_PATH_SHOW_ALL, &display,
+					   RPKI_NOT_BEING_USED);
+			if (use_json)
+				json_object_object_addf(json_ar, json_net,
+							"%pFX", rn_p);
+			(*output_count)++;
+		} else
+			(*filtered_count)++;
+
+		bgp_attr_flush(&attr);
+		bgp_dest_unlock_node(dest);
+		return;
+	}
+
 
 	subgrp = peer_subgroup(peer, afi, safi);
 
@@ -14234,7 +14327,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			   safi_t safi, enum bgp_show_adj_route_type type,
-			   const char *rmap_name, uint16_t show_flags)
+			   const char *rmap_name, const struct prefix *match,
+			   uint16_t show_flags)
 {
 	struct bgp *bgp;
 	struct bgp_table *table;
@@ -14360,11 +14454,11 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 
 			prefix_rd2str(prd, rd_str, sizeof(rd_str));
 
-			show_adj_route(vty, peer, table, afi, safi, type,
-				       rmap_name, json, json_routes, json_scode,
-				       json_ocode, show_flags, &header1,
-				       &header2, rd_str, &output_count_per_rd,
-				       &filtered_count_per_rd);
+			show_adj_route(
+				vty, peer, table, afi, safi, type, rmap_name,
+				json, json_routes, json_scode, json_ocode,
+				show_flags, &header1, &header2, rd_str, match,
+				&output_count_per_rd, &filtered_count_per_rd);
 
 			/* Don't include an empty RD in the output! */
 			if (json_routes && (output_count_per_rd > 0))
@@ -14377,7 +14471,7 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 	} else
 		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
 			       json, json_ar, json_scode, json_ocode,
-			       show_flags, &header1, &header2, rd_str,
+			       show_flags, &header1, &header2, rd_str, match,
 			       &output_count, &filtered_count);
 
 	if (use_json) {
@@ -14402,7 +14496,7 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 
 		vty_json(vty, json);
 	} else if (output_count > 0) {
-		if (filtered_count > 0)
+		if (!match && filtered_count > 0)
 			vty_out(vty,
 				"\nTotal number of prefixes %ld (%ld filtered)\n",
 				output_count, filtered_count);
@@ -14464,13 +14558,13 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 	if (!peer)
 		return CMD_WARNING;
 
-	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name,
+	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name, NULL,
 			       show_flags);
 }
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [detail$detail] [json$uj | wide$wide]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -14487,6 +14581,8 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       "Display the filtered routes received from neighbor\n"
       "Route-map to modify the attributes\n"
       "Name of the route map\n"
+      "IPv4 prefix\n"
+      "IPv6 prefix\n"
       "Display detailed version of routes\n"
       JSON_STR
       "Increase table width for longer prefixes\n")
@@ -14503,7 +14599,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 	struct listnode *node;
 	struct bgp *abgp;
 
-	if (detail)
+	if (detail || prefix_str)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 
 	if (uj) {
@@ -14545,7 +14641,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 
 	if (!all)
 		return peer_adj_routes(vty, peer, afi, safi, type, route_map,
-				       show_flags);
+				       prefix_str ? prefix : NULL, show_flags);
 	if (uj)
 		vty_out(vty, "{\n");
 
@@ -14573,7 +14669,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 								 false));
 
 				peer_adj_routes(vty, peer, afi, safi, type,
-						route_map, show_flags);
+						route_map, prefix, show_flags);
 			}
 		}
 	} else {
@@ -14597,7 +14693,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 								 false));
 
 				peer_adj_routes(vty, peer, afi, safi, type,
-						route_map, show_flags);
+						route_map, prefix, show_flags);
 			}
 		}
 	}
