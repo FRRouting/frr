@@ -343,4 +343,9 @@ extern void bgp_linkstate_nlri_prefix_json(json_object *json,
 					   uint16_t nlri_type, void *prefix);
 extern void bgp_nlri_encode_linkstate(struct stream *s, const struct prefix *p);
 
+extern void bgp_linkstate_tlv_attribute_display(struct vty *vty,
+						struct bgp_attr_ls *attr_ls,
+						int indent, json_object *json);
+
+
 #endif /* BGP_LINKSTATE_TLV_H */
