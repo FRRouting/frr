@@ -22,10 +22,10 @@ Installing Topotest Requirements
 
 .. code:: shell
 
-   apt-get install gdb
-   apt-get install iproute2
-   apt-get install net-tools
-   apt-get install python3-pip
+   sudo apt-get install gdb
+   sudo apt-get install iproute2
+   sudo apt-get install net-tools
+   sudo apt-get install python3-pip
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4'
    python3 -m pip install 'pytest-xdist>=2.3.0'
@@ -75,9 +75,9 @@ following steps will get you there on Ubuntu 20.04.
 
 .. code:: shell
 
-   apt install libsnmp-dev
-   apt install snmpd snmp
-   apt install snmp-mibs-downloader
+   sudo apt install libsnmp-dev
+   sudo apt install snmpd snmp
+   sudo apt install snmp-mibs-downloader
    download-mibs
    wget http://www.iana.org/assignments/ianaippmmetricsregistry-mib/ianaippmmetricsregistry-mib -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB
    wget http://pastebin.com/raw.php?i=p3QyuXzZ -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
