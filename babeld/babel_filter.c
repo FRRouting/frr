@@ -44,15 +44,18 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
     struct prefix_list *plist;
     int distribute;
     struct babel *babel;
+    afi_t family;
 
     p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
     p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
     if (p.family == AF_INET) {
         uchar_to_inaddr(&p.u.prefix4, prefix);
         distribute = output ? DISTRIBUTE_V4_OUT : DISTRIBUTE_V4_IN;
+        family = AFI_IP;
     } else {
         uchar_to_in6addr(&p.u.prefix6, prefix);
         distribute = output ? DISTRIBUTE_V6_OUT : DISTRIBUTE_V6_IN;
+        family = AFI_IP6;
     }
 
     if (babel_ifp != NULL && babel_ifp->list[distribute]) {
@@ -79,7 +82,7 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
         dist = distribute_lookup (babel->distribute_ctx, NULL);
     if (dist) {
         if (dist->list[distribute]) {
-            alist = access_list_lookup (p.family, dist->list[distribute]);
+            alist = access_list_lookup (family, dist->list[distribute]);
 
             if (alist) {
                 if (access_list_apply (alist, &p) == FILTER_DENY) {
@@ -90,7 +93,7 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
 	    }
 	}
         if (dist->prefix[distribute]) {
-            plist = prefix_list_lookup (p.family, dist->prefix[distribute]);
+            plist = prefix_list_lookup (family, dist->prefix[distribute]);
             if (plist) {
                 if (prefix_list_apply (plist, &p) == PREFIX_DENY) {
                     debugf(BABEL_DEBUG_FILTER,"%pFX filtered by distribute %s",
