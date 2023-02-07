@@ -292,8 +292,7 @@ static int vty_json_helper(struct vty *vty, struct json_object *json,
 	if (!json)
 		return CMD_SUCCESS;
 
-	text = json_object_to_json_string_ext(
-		json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+	text = json_object_to_json_string_ext(json, options);
 	vty_out(vty, "%s\n", text);
 	json_object_free(json);
 
