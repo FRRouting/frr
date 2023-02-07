@@ -5,6 +5,9 @@ on:
     types:
       - opened
       - reopened
+      - synchronize
+      - labeled
+      - unlabeled
 
 jobs:
   lint:
