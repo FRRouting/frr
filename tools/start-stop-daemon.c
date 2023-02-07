@@ -885,7 +885,7 @@ static int run_stop_schedule(void)
 					      strerror(errno));
 			}
 
-		default:
+		case sched_forever:
 			assert(!"schedule[].type value must be valid");
 		}
 

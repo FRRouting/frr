@@ -135,7 +135,9 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		if (args->source)
 			assert(!!str2prefix(args->source, &src));
 		break;
-	default:
+	case AFI_L2VPN:
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		break;
 	}
 

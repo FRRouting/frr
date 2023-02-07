@@ -260,8 +260,14 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 			}
 			break;
 
-		default:
-			assert(0);
+		case SAFI_UNSPEC:
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_EVPN:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_FLOWSPEC:
+		case SAFI_MAX:
+			assert(!"Passed in safi should be impossible");
 		}
 	}
 
@@ -2967,7 +2973,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 		rt = import_table->imported_encap[afi];
 		break;
 
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
@@ -3416,7 +3424,8 @@ void rfapiBgpInfoFilteredImportVPN(
 		rt = import_table->imported_vpn[afi];
 		break;
 
-	default:
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
@@ -3808,11 +3817,19 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	case SAFI_ENCAP:
 		return rfapiBgpInfoFilteredImportEncap;
 
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_EVPN:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		/* not expected */
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad safi %d", __func__, safi);
 		return rfapiBgpInfoFilteredImportBadSafi;
 	}
+
+	assert(!"Reached end of function when we were not expecting to");
 }
 
 void rfapiProcessUpdate(struct peer *peer,
@@ -4028,8 +4045,8 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 {
 	struct agg_node *rn;
 	struct bgp_path_info *bpi;
-	struct agg_table *rt;
-	void (*timer_service_func)(struct thread *);
+	struct agg_table *rt = NULL;
+	void (*timer_service_func)(struct thread *) = NULL;
 
 	assert(afi == AFI_IP || afi == AFI_IP6);
 
@@ -4044,13 +4061,18 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 		rt = import_table->imported_encap[afi];
 		timer_service_func = rfapiWithdrawTimerEncap;
 		break;
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_EVPN:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		/* Suppress uninitialized variable warning */
 		rt = NULL;
 		timer_service_func = NULL;
 		assert(0);
 	}
-
 
 	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 		for (bpi = rn->info; bpi; bpi = bpi->next) {

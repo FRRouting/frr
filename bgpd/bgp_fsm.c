@@ -2397,7 +2397,7 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 	case Clearing:
 	case Deleted:
-	default:
+	case BGP_STATUS_MAX:
 		break;
 	}
 }

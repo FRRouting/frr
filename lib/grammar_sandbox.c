@@ -195,7 +195,7 @@ DEFUN (grammar_test_match,
 		case MATCHER_AMBIGUOUS:
 			vty_out(vty, "%% Ambiguous command\n");
 			break;
-		default:
+		case MATCHER_OK:
 			vty_out(vty, "%% Unknown error\n");
 			break;
 		}

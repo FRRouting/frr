@@ -143,7 +143,7 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 	case NEXTHOP_TYPE_IFINDEX:
 		stream_putl(s, nexthop->ifindex);
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		/* do nothing */
 		break;
 	}
@@ -576,7 +576,9 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		else
 			client->redist_v6_del_cnt++;
 		break;
-	default:
+	case AFI_L2VPN:
+	case AFI_MAX:
+	case AFI_UNSPEC:
 		break;
 	}
 
@@ -3424,7 +3426,10 @@ static inline void zread_tc_filter(ZAPI_HANDLER_ARGS)
 			STREAM_GETL(s, filter.filter.u.flower.classid);
 			break;
 		}
-		default:
+		case TC_FILTER_BPF:
+		case TC_FILTER_FLOW:
+		case TC_FILTER_U32:
+		case TC_FILTER_UNSPEC:
 			break;
 		}
 

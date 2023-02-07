@@ -1079,9 +1079,11 @@ static const char *objfun_type_name(enum objfun_type type)
 		return "mss";
 	case OBJFUN_MSN:
 		return "msn";
-	default:
+	case OBJFUN_UNDEFINED:
 		return NULL;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,

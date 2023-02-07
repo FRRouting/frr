@@ -77,7 +77,7 @@ static inline int qpb__address_family__get(Qpb__AddressFamily pb_family,
 
 	case QPB__ADDRESS_FAMILY__UNKNOWN_AF:
 		return 0;
-	default: /* protobuf "magic value" _QPB__ADDRESS_FAMILY_IS_INT_SIZE */
+	case _QPB__ADDRESS_FAMILY_IS_INT_SIZE:
 		return 0;
 	}
 

@@ -281,7 +281,8 @@ int srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 		segment->nai_local_iface = local_iface;
 		status = srte_ted_do_query_type_e(segment, &pre, local_iface);
 		break;
-	default:
+	case SRTE_SEGMENT_NAI_TYPE_NONE:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
 		segment->nai_local_addr.ipa_type = IPADDR_NONE;
 		segment->nai_local_iface = 0;
 		segment->nai_remote_addr.ipa_type = IPADDR_NONE;
@@ -472,7 +473,11 @@ int srte_policy_update_ted_sid(void)
 						s_entry, &prefix_cli,
 						s_entry->nai_algorithm);
 				break;
-			default:
+			case SRTE_SEGMENT_NAI_TYPE_NONE:
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
 				break;
 			}
 		}
@@ -1025,9 +1030,11 @@ static uint32_t filter_type_to_flag(enum affinity_filter_type type)
 		return F_CANDIDATE_HAS_INCLUDE_ANY;
 	case AFFINITY_FILTER_INCLUDE_ALL:
 		return F_CANDIDATE_HAS_INCLUDE_ALL;
-	default:
+	case AFFINITY_FILTER_UNDEFINED:
 		return 0;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static const char *filter_type_name(enum affinity_filter_type type)
@@ -1039,9 +1046,11 @@ static const char *filter_type_name(enum affinity_filter_type type)
 		return "include-any";
 	case AFFINITY_FILTER_INCLUDE_ALL:
 		return "include-all";
-	default:
+	case AFFINITY_FILTER_UNDEFINED:
 		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /**
@@ -1155,7 +1164,9 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_UP:
 		case SRTE_POLICY_STATUS_DOWN:
 			return;
-		default:
+		case SRTE_POLICY_STATUS_UNKNOWN:
+		case SRTE_POLICY_STATUS_UP:
+		case SRTE_POLICY_STATUS_GOING_DOWN:
 			policy->status = SRTE_POLICY_STATUS_DOWN;
 			srte_policy_status_log(policy);
 			break;
@@ -1165,7 +1176,10 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		switch (policy->status) {
 		case SRTE_POLICY_STATUS_UP:
 			return;
-		default:
+		case SRTE_POLICY_STATUS_UNKNOWN:
+		case SRTE_POLICY_STATUS_DOWN:
+		case SRTE_POLICY_STATUS_GOING_DOWN:
+		case SRTE_POLICY_STATUS_GOING_UP:
 			policy->status = SRTE_POLICY_STATUS_UP;
 			srte_policy_status_log(policy);
 			break;
@@ -1263,9 +1277,11 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 		return "BGP";
 	case SRTE_ORIGIN_LOCAL:
 		return "Local";
-	default:
+	case SRTE_ORIGIN_UNDEFINED:
 		return "Unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 void path_policy_show_debugging(struct vty *vty)

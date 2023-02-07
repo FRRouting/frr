@@ -270,7 +270,8 @@ path_pcep_config_list_path_hops(struct srte_segment_list *segment_list)
 			       sizeof(struct ipaddr));
 			hop->nai.remote_iface = segment->nai_remote_iface;
 			break;
-		default:
+		case SRTE_SEGMENT_NAI_TYPE_NONE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
 			break;
 		}
 		last_hop = hop;
@@ -489,9 +490,12 @@ status_int_to_ext(enum srte_policy_status status)
 		return PCEP_LSP_OPERATIONAL_GOING_UP;
 	case SRTE_POLICY_STATUS_GOING_DOWN:
 		return PCEP_LSP_OPERATIONAL_GOING_DOWN;
-	default:
+	case SRTE_POLICY_STATUS_DOWN:
+	case SRTE_POLICY_STATUS_UNKNOWN:
 		return PCEP_LSP_OPERATIONAL_DOWN;
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type)
@@ -539,7 +543,10 @@ enum srte_segment_nai_type srte_nai_type(enum pcep_sr_subobj_nai type)
 		return SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY;
 	case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
 		return SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY;
-	default:
+	case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
+	case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 		return SRTE_SEGMENT_NAI_TYPE_NONE;
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }

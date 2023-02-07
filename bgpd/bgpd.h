@@ -2421,7 +2421,9 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
-		default:
+		case SAFI_EVPN:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
 		break;
@@ -2439,7 +2441,9 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
-		default:
+		case SAFI_EVPN:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
 		break;
@@ -2447,12 +2451,23 @@ static inline int afindex(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_EVPN:
 			return BGP_AF_L2VPN_EVPN;
-		default:
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_FLOWSPEC:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
-	default:
+		break;
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		return BGP_AF_MAX;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /* If the peer is not a peer-group but is bound to a peer-group return 1 */

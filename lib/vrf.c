@@ -610,7 +610,7 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	case VRF_BACKEND_NETNS:
 	case VRF_BACKEND_VRF_LITE:
 		break;
-	default:
+	case VRF_BACKEND_MAX:
 		return -1;
 	}
 

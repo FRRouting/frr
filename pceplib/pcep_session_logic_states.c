@@ -242,7 +242,22 @@ bool verify_pcep_open_object(pcep_session *session,
 		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
 			break;
 
-		default:
+		case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+		case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+		case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+		case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
+		case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+		case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+		case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+		case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+		case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+		case PCEP_OBJ_TYPE_CISCO_BSID:
+		case PCEP_OBJ_TLV_TYPE_ARBITRARY:
 			/* TODO how to handle unrecognized TLV ?? */
 			pcep_log(
 				LOG_INFO,
@@ -895,7 +910,7 @@ void handle_timer_event(pcep_session_event *event)
 
 	case SESSION_STATE_INITIALIZED:
 	case SESSION_STATE_PCEP_CONNECTED:
-	default:
+	case SESSION_STATE_UNKNOWN:
 		pcep_log(
 			LOG_INFO,
 			"%s: handle_timer_event unrecognized state transition, timer_id [%d] state [%d] session [%d]",
@@ -1120,7 +1135,8 @@ void handle_socket_comm_event(pcep_session_event *event)
 			message_enqueued = true;
 			break;
 
-		default:
+		case PCEP_TYPE_START_TLS:
+		case PCEP_TYPE_MAX:
 			pcep_log(LOG_INFO, "%s: \t UnSupported message",
 				 __func__);
 			send_pcep_error(session,

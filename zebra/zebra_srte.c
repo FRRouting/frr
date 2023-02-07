@@ -140,7 +140,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 		stream_putc(s, IPV6_MAX_BITLEN);
 		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown policy endpoint address family: %u",
 			  __func__, policy->endpoint.ipa_type);
@@ -202,7 +202,7 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = policy->endpoint.ipaddr_v6;
 		break;
-	default:
+	case IPADDR_NONE:
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown policy endpoint address family: %u",
 			  __func__, policy->endpoint.ipa_type);

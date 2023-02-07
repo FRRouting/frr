@@ -484,9 +484,11 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 		return "up";
 	case ISIS_ADJ_INITIALIZING:
 		return "init";
-	default:
+	case ISIS_ADJ_UNKNOWN:
 		return "failed";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 void isis_adj_expire(struct thread *thread)
@@ -954,8 +956,9 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 		return IS_LEVEL_2;
 	case ISIS_ADJ_LEVEL1AND2:
 		return IS_LEVEL_1 | IS_LEVEL_2;
-	default:
-		break;
+	case ISIS_ADJ_NONE:
+		return 0;
 	}
-	return 0;
+
+	assert(!"Reached end of function where we are not expecting to");
 }

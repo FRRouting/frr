@@ -77,9 +77,11 @@ static const char *pdu_counter_index_to_name(enum pdu_counter_index index)
 		return "L1 PSNP";
 	case L2_PARTIAL_SEQ_NUM_INDEX:
 		return "L2 PSNP";
-	default:
+	case PDU_COUNTER_SIZE:
 		return "???????";
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }
 
 void pdu_counter_count(pdu_counter_t counter, uint8_t pdu_type)

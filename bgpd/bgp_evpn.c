@@ -1228,7 +1228,7 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	int ret;
 	uint8_t flags;
-	int flood_control;
+	int flood_control = VXLAN_FLOOD_DISABLED;
 	uint32_t seq;
 
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
@@ -1298,7 +1298,12 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 			flood_control = VXLAN_FLOOD_PIM_SM;
 			break;
 
-		default:
+		case PMSI_TNLTYPE_NO_INFO:
+		case PMSI_TNLTYPE_RSVP_TE_P2MP:
+		case PMSI_TNLTYPE_MLDP_P2MP:
+		case PMSI_TNLTYPE_PIM_SSM:
+		case PMSI_TNLTYPE_PIM_BIDIR:
+		case PMSI_TNLTYPE_MLDP_MP2MP:
 			flood_control = VXLAN_FLOOD_DISABLED;
 			break;
 		}

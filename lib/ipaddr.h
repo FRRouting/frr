@@ -70,9 +70,11 @@ static inline int ipaddr_family(const struct ipaddr *ip)
 		return AF_INET;
 	case IPADDR_V6:
 		return AF_INET6;
-	default:
+	case IPADDR_NONE:
 		return AF_UNSPEC;
 	}
+
+	assert(!"Reached end of function where we should never hit");
 }
 
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
@@ -158,9 +160,11 @@ static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
 	case IPADDR_V6:
 		return memcmp((void *)&a->ipaddr_v6, (void *)&b->ipaddr_v6,
 			      sizeof(a->ipaddr_v6));
-	default:
+	case IPADDR_NONE:
 		return 0;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static inline bool ipaddr_is_zero(const struct ipaddr *ip)

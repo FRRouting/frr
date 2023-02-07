@@ -315,7 +315,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				ri->rtm_type = RTN_UNREACHABLE;
 				break;
 			case BLACKHOLE_NULL:
-			default:
+			case BLACKHOLE_UNSPEC:
 				ri->rtm_type = RTN_BLACKHOLE;
 				break;
 			}

@@ -539,7 +539,7 @@ void ospf_spf_remove_resource(struct vertex *vertex, struct list *vertex_list,
 					       vertex_list);
 
 		break;
-	default:
+	case OSPF_TI_LFA_UNDEFINED_PROTECTION:
 		/* do nothing */
 		break;
 	}

@@ -888,7 +888,14 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		if (cleanup)
 			return -1;
 	} break;
-	default:
+	case MLAG_REGISTER:
+	case MLAG_DEREGISTER:
+	case MLAG_STATUS_UPDATE:
+	case MLAG_DUMP:
+	case MLAG_PIM_CFG_DUMP:
+	case MLAG_VXLAN_UPDATE:
+	case MLAG_PEER_FRR_STATUS:
+	case MLAG_MSG_NONE:
 		break;
 	}
 

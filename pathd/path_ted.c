@@ -527,7 +527,7 @@ uint32_t path_ted_config_write(struct vty *vty)
 		case IMPORT_OSPFv3:
 			vty_out(vty, "  mpls-te import ospfv3\n");
 			break;
-		default:
+		case IMPORT_UNKNOWN:
 			break;
 		}
 	}

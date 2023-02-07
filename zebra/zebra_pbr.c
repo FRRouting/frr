@@ -648,7 +648,8 @@ static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
 			zebra_neigh_ref(action->ifindex, &ip, rule);
 			break;
 
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
+		case NEXTHOP_TYPE_IFINDEX:
 			action->afi = AFI_UNSPEC;
 		}
 	}

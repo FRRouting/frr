@@ -603,7 +603,9 @@ void pcep_thread_timer_handler(struct thread *thread)
 		pcep_thread_remove_candidate_path_segments(ctrl_state,
 							   pcc_state);
 		break;
-	default:
+	case TM_PCEPLIB_TIMER:
+	case TM_UNDEFINED:
+	case TM_MAX:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unknown controller timer triggered: %u", timer_type);
 		break;
@@ -823,7 +825,7 @@ void pcep_thread_event_handler(struct thread *thread)
 		pcep_pcc_send_error(ctrl_state, pcc_state, error,
 				    (bool)sub_type);
 		break;
-	default:
+	case EV_PCEPLIB_EVENT:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected event received in controller thread: %u",
 			  type);
@@ -1074,10 +1076,16 @@ const char *timer_type_name(enum pcep_ctrl_timer_type type)
 		return "PCEPLIB_TIMER";
 	case TM_TIMEOUT:
 		return "TIMEOUT";
-	default:
+	case TM_CALCULATE_BEST_PCE:
+		return "BEST_PCE";
+	case TM_SESSION_TIMEOUT_PCC:
+		return "TIMEOUT_PCC";
+	case TM_MAX:
 		return "UNKNOWN";
 	}
-};
+
+	assert(!"Reached end of function where we did not expect to");
+}
 
 const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 {
@@ -1086,7 +1094,9 @@ const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 		return "UNDEFINED";
 	case TO_COMPUTATION_REQUEST:
 		return "COMPUTATION_REQUEST";
-	default:
+	case TO_MAX:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we did not expect to");
 }

@@ -745,7 +745,8 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	case TC_QDISC_NOQUEUE:
 		/* "noqueue" is the default qdisc */
 		break;
-	default:
+	case TC_QDISC_HTB:
+	case TC_QDISC_UNSPEC:
 		break;
 	}
 

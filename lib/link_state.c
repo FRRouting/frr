@@ -443,7 +443,7 @@ struct ls_vertex *ls_vertex_add(struct ls_ted *ted, struct ls_node *node)
 	case ISIS_L2:
 		key = sysid_to_key(node->adv.id.iso.sys_id);
 		break;
-	default:
+	case UNKNOWN:
 		key = 0;
 		break;
 	}
@@ -565,7 +565,7 @@ struct ls_vertex *ls_find_vertex_by_id(struct ls_ted *ted,
 	case ISIS_L2:
 		vertex.key = sysid_to_key(nid.id.iso.sys_id);
 		break;
-	default:
+	case UNKNOWN:
 		return NULL;
 	}
 
@@ -1649,7 +1649,8 @@ struct ls_message *ls_vertex2msg(struct ls_message *msg,
 	case SYNC:
 		msg->event = LS_MSG_EVENT_SYNC;
 		break;
-	default:
+	case UNSET:
+	case ORPHAN:
 		msg->event = LS_MSG_EVENT_UNDEF;
 		break;
 	}
@@ -1681,7 +1682,8 @@ struct ls_message *ls_edge2msg(struct ls_message *msg, struct ls_edge *edge)
 	case SYNC:
 		msg->event = LS_MSG_EVENT_SYNC;
 		break;
-	default:
+	case UNSET:
+	case ORPHAN:
 		msg->event = LS_MSG_EVENT_UNDEF;
 		break;
 	}
@@ -1717,7 +1719,8 @@ struct ls_message *ls_subnet2msg(struct ls_message *msg,
 	case SYNC:
 		msg->event = LS_MSG_EVENT_SYNC;
 		break;
-	default:
+	case UNSET:
+	case ORPHAN:
 		msg->event = LS_MSG_EVENT_UNDEF;
 		break;
 	}

@@ -1049,7 +1049,9 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 		p.prefix = nh_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
-	default:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		return RMAP_NOMATCH;
 	}
 	alist = access_list_lookup(AFI_IP, (char *)rule);
@@ -1105,7 +1107,9 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefix = nh_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
-	default:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		return RMAP_NOMATCH;
 	}
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
@@ -1364,7 +1368,9 @@ route_match_ip_nexthop_prefix_len(void *rule, const struct prefix *prefix,
 		p.prefix = nh_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
-	default:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		return RMAP_NOMATCH;
 	}
 	return ((p.prefixlen == *prefixlen) ? RMAP_MATCH : RMAP_NOMATCH);

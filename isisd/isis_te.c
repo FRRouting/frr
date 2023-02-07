@@ -1344,7 +1344,8 @@ void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event)
 	case LSP_DEL:
 		isis_te_delete_lsp(area->mta, lsp0);
 		break;
-	default:
+	case LSP_UNKNOWN:
+	case LSP_TICK:
 		break;
 	}
 }

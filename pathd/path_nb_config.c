@@ -239,7 +239,10 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 			args->dnode, "./local-prefix-len");
 		local_prefix_len = atoi(local_prefix_len_buf);
 		break;
-	default:
+	case SRTE_SEGMENT_NAI_TYPE_NONE:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
 		break;
 	}
 

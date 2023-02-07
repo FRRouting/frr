@@ -547,7 +547,8 @@ void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		pbrms->family = AF_INET;
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 }

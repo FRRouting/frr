@@ -210,7 +210,7 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		ret = pcep_main_event_remove_candidate_segments(
 			(const char *)payload, true);
 		break;
-	default:
+	case PCEP_MAIN_EVENT_UNDEFINED:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected event received in the main thread: %u",
 			  type);

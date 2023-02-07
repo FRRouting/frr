@@ -113,9 +113,13 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 		if (addr)
 			memcpy(&p->u.prefix6, addr, sizeof(struct in6_addr));
 		return 0;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		return -1;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
@@ -133,7 +137,9 @@ static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	case AFI_IP6:
 		zvrf->rid6_user_assigned.u.prefix6 = p->u.prefix6;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		return -1;
 	}
 

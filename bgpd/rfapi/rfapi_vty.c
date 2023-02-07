@@ -1863,7 +1863,7 @@ void rfapiPrintNhl(void *stream, struct rfapi_next_hop_entry *next_hops)
 					   vo->v.local_nexthop.cost, HVTYNL);
 					break;
 
-				default:
+				case RFAPI_VN_OPTION_TYPE_INTERNAL_RD:
 					fp(out,
 					   "%svn option type %d (unknown)%s",
 					   offset, vo->type, HVTYNL);
@@ -1881,7 +1881,7 @@ void rfapiPrintNhl(void *stream, struct rfapi_next_hop_entry *next_hops)
 					rfapi_print_tunneltype_option(
 						stream, 8, &uo->v.tunnel);
 					break;
-				default:
+				case RFAPI_UN_OPTION_TYPE_PROVISIONAL:
 					fp(out, "%sUN Option type %d%s", offset,
 					   uo->type, vty_newline);
 					break;
@@ -4175,7 +4175,8 @@ static int rfapi_vty_show_nve_summary(struct vty *vty,
 		case SHOW_NVE_SUMMARY_RESPONSES:
 			rfapiRibShowResponsesSummary(vty);
 
-		default:
+		case SHOW_NVE_SUMMARY_UNKNOWN_NVES:
+		case SHOW_NVE_SUMMARY_MAX:
 			break;
 		}
 		vty_out(vty, "\n");

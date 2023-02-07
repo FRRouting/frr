@@ -450,9 +450,11 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		pcc_state->sess = NULL;
 		pcc_state->status = PCEP_PCC_DISCONNECTED;
 		return 0;
-	default:
+	case PCEP_PCC_INITIALIZED:
 		return 1;
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
@@ -614,7 +616,8 @@ void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 			free_req_entry(req);
 		}
 		break;
-	default:
+	case TO_UNDEFINED:
+	case TO_MAX:
 		break;
 	}
 }
@@ -674,7 +677,7 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 		if (pcc_state->caps.is_stateful)
 			send_report(pcc_state, path);
 		return;
-	default:
+	case PCEP_PATH_UNDEFINED:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected pathd event received by pcc %s: %u",
 			  pcc_state->tag, type);
@@ -748,7 +751,7 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		       || pcc_state->status == PCEP_PCC_OPERATING);
 		handle_pcep_message(ctrl_state, pcc_state, event->message);
 		break;
-	default:
+	case PCC_CONNECTION_FAILURE:
 		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEPLIB_EVENT,
 			  "Unexpected event from pceplib: %s",
 			  format_pcep_event(event));
@@ -1179,7 +1182,15 @@ void handle_pcep_message(struct ctrl_state *ctrl_state,
 	case PCEP_TYPE_PCREP:
 		handle_pcep_comp_reply(ctrl_state, pcc_state, msg);
 		break;
-	default:
+	case PCEP_TYPE_OPEN:
+	case PCEP_TYPE_KEEPALIVE:
+	case PCEP_TYPE_PCREQ:
+	case PCEP_TYPE_PCNOTF:
+	case PCEP_TYPE_ERROR:
+	case PCEP_TYPE_CLOSE:
+	case PCEP_TYPE_REPORT:
+	case PCEP_TYPE_START_TLS:
+	case PCEP_TYPE_MAX:
 		flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_MESSAGE,
 			  "Unexpected pcep message from pceplib: %s",
 			  format_pcep_message(msg));
@@ -1953,9 +1964,11 @@ static uint32_t hash_nbkey(const struct lsp_nb_key *nbkey)
 	case IPADDR_V6:
 		return jhash(&nbkey->endpoint.ipaddr_v6,
 			     sizeof(nbkey->endpoint.ipaddr_v6), hash);
-	default:
+	case IPADDR_NONE:
 		return hash;
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }
 
 static int cmp_nbkey(const struct lsp_nb_key *a, const struct lsp_nb_key *b)

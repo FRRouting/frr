@@ -178,10 +178,14 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV4_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV4_NODE;
-		default:
+		case SAFI_UNSPEC:
+		case SAFI_ENCAP:
+		case SAFI_EVPN:
+		case SAFI_MAX:
 			/* not expected */
 			return BGP_IPV4_NODE;
 		}
+		break;
 	case AFI_IP6:
 		switch (safi) {
 		case SAFI_UNICAST:
@@ -194,10 +198,14 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV6_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV6_NODE;
-		default:
-			/* not expected */
+		case SAFI_UNSPEC:
+		case SAFI_ENCAP:
+		case SAFI_EVPN:
+		case SAFI_MAX:
+			/* not expected and the return value seems wrong */
 			return BGP_IPV4_NODE;
 		}
+		break;
 	case AFI_L2VPN:
 		return BGP_EVPN_NODE;
 	case AFI_UNSPEC:
@@ -535,7 +543,9 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-labeled-unicast";
 		case SAFI_FLOWSPEC:
 			return "ipv4-flowspec";
-		default:
+		case SAFI_UNSPEC:
+		case SAFI_EVPN:
+		case SAFI_MAX:
 			return "unknown-afi/safi";
 		}
 		break;
@@ -553,7 +563,9 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-labeled-unicast";
 		case SAFI_FLOWSPEC:
 			return "ipv6-flowspec";
-		default:
+		case SAFI_UNSPEC:
+		case SAFI_EVPN:
+		case SAFI_MAX:
 			return "unknown-afi/safi";
 		}
 		break;
@@ -561,15 +573,24 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_EVPN:
 			return "l2vpn-evpn";
-		default:
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_FLOWSPEC:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return "unknown-afi/safi";
 		}
+		break;
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		return "unknown-afi/safi";
 	}
 	/* all AFIs are accounted for above, so this shouldn't happen */
-	return "unknown-afi/safi";
+
+	assert(!"Reached end of function where we did not expect to");
 }
 
 int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,

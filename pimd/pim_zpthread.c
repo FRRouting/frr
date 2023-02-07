@@ -35,7 +35,7 @@ int32_t mlag_bulk_cnt;
 static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 {
 	uint32_t fill_msg_type = msg_type;
-	uint16_t data_len;
+	uint16_t data_len = 0;
 	uint16_t msg_cnt = 1;
 
 	if (msg_type == MLAG_MSG_NONE)
@@ -54,7 +54,14 @@ static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 		data_len = sizeof(struct mlag_mroute_del);
 		fill_msg_type = MLAG_MROUTE_DEL_BULK;
 		break;
-	default:
+	case MLAG_MSG_NONE:
+	case MLAG_STATUS_UPDATE:
+	case MLAG_DUMP:
+	case MLAG_MROUTE_ADD_BULK:
+	case MLAG_MROUTE_DEL_BULK:
+	case MLAG_PIM_CFG_DUMP:
+	case MLAG_VXLAN_UPDATE:
+	case MLAG_PEER_FRR_STATUS:
 		data_len = 0;
 		break;
 	}

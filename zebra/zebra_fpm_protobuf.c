@@ -186,7 +186,8 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 				msg->route_type = FPM__ROUTE_TYPE__UNREACHABLE;
 				break;
 			case BLACKHOLE_NULL:
-			default:
+			case BLACKHOLE_UNSPEC:
+			case BLACKHOLE_ADMINPROHIB:
 				msg->route_type = FPM__ROUTE_TYPE__BLACKHOLE;
 				break;
 			}

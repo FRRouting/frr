@@ -2250,7 +2250,9 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			endpoint.ipa_type = IPADDR_V6;
 			endpoint.ipaddr_v6 = nexthop->gate.ipv6;
 			break;
-		default:
+		case AFI_UNSPEC:
+		case AFI_L2VPN:
+		case AFI_MAX:
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: unknown address-family: %u", __func__,
 				 afi);
@@ -2291,7 +2293,9 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = nexthop->gate.ipv6;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		assert(afi != AFI_IP && afi != AFI_IP6);
 		break;
 	}

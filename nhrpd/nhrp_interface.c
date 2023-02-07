@@ -184,16 +184,17 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info, *nbmanifp = NULL;
 	struct interface *nbmaifp = NULL;
 	union sockunion nbma;
+	struct in_addr saddr = {0};
 
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
 		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
 
-	switch (ifp->ll_type) {
-	case ZEBRA_LLT_IPGRE: {
-		struct in_addr saddr = {0};
-
+	if (ifp->ll_type != ZEBRA_LLT_IPGRE)
+		debugf(NHRP_DEBUG_IF, "%s: Ignoring non GRE interface type %u",
+		       __func__, ifp->ll_type);
+	else {
 		if (!gre_info) {
 			nhrp_send_zebra_gre_request(ifp);
 			return;
@@ -214,9 +215,6 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 			nbmaifp =
 				if_lookup_by_index(nifp->link_idx,
 						   nifp->link_vrf_id);
-	} break;
-	default:
-		break;
 	}
 
 	if (nbmaifp)

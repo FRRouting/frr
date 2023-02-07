@@ -231,7 +231,7 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 			prefix_copy(prefix, &prefix_local);
 		break;
 	case BGP_FLOWSPEC_VALIDATE_ONLY:
-	default:
+	case BGP_FLOWSPEC_RETURN_JSON:
 		break;
 	}
 	return offset;
@@ -326,7 +326,7 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			mval++;
 			break;
 		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
+		case BGP_FLOWSPEC_RETURN_JSON:
 			/* no action */
 			break;
 		}
@@ -436,7 +436,7 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 			mval++;
 			break;
 		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
+		case BGP_FLOWSPEC_RETURN_JSON:
 			/* no action */
 			break;
 		}

@@ -421,35 +421,33 @@ pfkey_md5sig_remove(struct nbr *nbr)
 int
 pfkey_establish(struct nbr *nbr, struct nbr_params *nbrp)
 {
-	if (nbrp->auth.method == AUTH_NONE)
-		return (0);
-
 	switch (nbr->auth.method) {
 	case AUTH_MD5SIG:
 		strlcpy(nbr->auth.md5key, nbrp->auth.md5key,
 		    sizeof(nbr->auth.md5key));
-		return (pfkey_md5sig_establish(nbr, nbrp));
-	default:
-		break;
+		return pfkey_md5sig_establish(nbr, nbrp);
+	case AUTH_NONE:
+		return 0;
 	}
 
-	return (0);
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 int
 pfkey_remove(struct nbr *nbr)
 {
-	if (nbr->auth.method == AUTH_NONE || !nbr->auth.established)
-		return (0);
+	if (!nbr->auth.established)
+		return 0;
 
 	switch (nbr->auth.method) {
 	case AUTH_MD5SIG:
-		return (pfkey_md5sig_remove(nbr));
-	default:
+		return pfkey_md5sig_remove(nbr);
+	case AUTH_NONE:
+		return 0;
 		break;
 	}
 
-	return (0);
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 int

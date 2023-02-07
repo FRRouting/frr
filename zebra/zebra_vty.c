@@ -405,7 +405,8 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		}
 		break;
 
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 

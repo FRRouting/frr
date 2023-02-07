@@ -1401,7 +1401,8 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 			json_object_string_addf(json_nexthop, "source", "%pI6",
 						&nexthop->src.ipv6);
 		break;
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1523,7 +1524,8 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
 			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
 		break;
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
