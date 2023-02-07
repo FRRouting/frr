@@ -5401,7 +5401,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 					   struct in_addr *router_id,
 					   bool use_json, uint8_t use_vrf,
-					   bool is_detail)
+					   bool is_detail,
+					   json_object *json_vrf)
 {
 	struct listnode *node;
 	struct ospf_neighbor *nbr;
@@ -5435,6 +5436,14 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 						     use_json);
 	}
 
+	if (json_vrf && use_json) {
+		json_object_object_add(
+			json_vrf,
+			(ospf->vrf_id == VRF_DEFAULT) ? "default" : ospf->name,
+			json);
+		return CMD_SUCCESS;
+	}
+
 	if (use_json)
 		vty_json(vty, json);
 	else
@@ -5443,23 +5452,51 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_ip_ospf_neighbor_id, show_ip_ospf_neighbor_id_cmd,
-      "show ip ospf neighbor A.B.C.D$router_id [detail$detail] [json$json]",
-      SHOW_STR IP_STR
+DEFPY(show_ip_ospf_neighbor_id,
+      show_ip_ospf_neighbor_id_cmd,
+      "show ip ospf [vrf NAME$vrf_name] neighbor A.B.C.D$router_id [detail$detail] [json$json]",
+      SHOW_STR
+      IP_STR
       "OSPF information\n"
+      VRF_CMD_HELP_STR
       "Neighbor list\n"
       "Neighbor ID\n"
-      "Detailed output\n" JSON_STR)
+      "Detailed output\n"
+      JSON_STR)
 {
 	struct ospf *ospf;
 	struct listnode *node;
 	int ret = CMD_SUCCESS;
+	int inst = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-		if (!ospf->oi_running)
-			continue;
-		ret = show_ip_ospf_neighbor_id_common(vty, ospf, &router_id,
-						      !!json, 0, !!detail);
+	if (vrf_name && !strmatch(vrf_name, "all")) {
+		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
+		if (ospf == NULL || !ospf->oi_running) {
+			if (!json)
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
+			else
+				vty_json_empty(vty);
+
+			return CMD_SUCCESS;
+		}
+		ret = show_ip_ospf_neighbor_id_common(
+			vty, ospf, &router_id, !!json, 0, !!detail, NULL);
+	} else {
+		json_object *json_vrf = NULL;
+
+		if (json)
+			json_vrf = json_object_new_object();
+		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+			if (!ospf->oi_running)
+				continue;
+			ret = show_ip_ospf_neighbor_id_common(
+				vty, ospf, &router_id, !!json, 0, !!detail,
+				json_vrf);
+		}
+		if (json)
+			vty_json(vty, json_vrf);
 	}
 
 	return ret;
@@ -5484,7 +5521,7 @@ DEFPY(show_ip_ospf_instance_neighbor_id, show_ip_ospf_instance_neighbor_id_cmd,
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_id_common(vty, ospf, &router_id, !!json, 0,
-					       !!detail);
+					       !!detail, NULL);
 }
 
 static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
