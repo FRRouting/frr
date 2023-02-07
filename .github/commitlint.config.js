@@ -10,6 +10,7 @@ module.exports = {
 				'babeld',
 				'bfdd',
 				'bgpd',
+				'build',
 				'doc',
 				'docker',
 				'eigrpd',
