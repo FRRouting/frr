@@ -1192,7 +1192,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 			if (!ecommunity_cmp(
 				    bgp_attr_get_ecommunity(bpi->attr),
 				    bgp_attr_get_ecommunity(new_attr))) {
-				vpn_leak_to_vrf_withdraw(to_bgp, bpi);
+				vpn_leak_to_vrf_withdraw(bpi);
 				bgp_aggregate_decrement(to_bgp, p, bpi, afi,
 							safi);
 				bgp_path_info_delete(bn, bpi);
@@ -1722,7 +1722,7 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 
 	if (bpi) {
 		/* withdraw from looped vrfs as well */
-		vpn_leak_to_vrf_withdraw(to_bgp, bpi);
+		vpn_leak_to_vrf_withdraw(bpi);
 
 		bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
 		bgp_path_info_delete(bn, bpi);
@@ -1777,7 +1777,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 						zlog_debug("%s: deleting it",
 							   __func__);
 					/* withdraw from leak-to vrfs as well */
-					vpn_leak_to_vrf_withdraw(to_bgp, bpi);
+					vpn_leak_to_vrf_withdraw(bpi);
 					bgp_aggregate_decrement(
 						to_bgp, bgp_dest_get_prefix(bn),
 						bpi, afi, safi);
@@ -1873,7 +1873,10 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
-			zlog_debug("%s: skipping: %s", __func__, debugmsg);
+			zlog_debug(
+				"%s: from vpn (%s) to vrf (%s), skipping: %s",
+				__func__, from_bgp->name_pretty,
+				to_bgp->name_pretty, debugmsg);
 		return false;
 	}
 
@@ -2115,8 +2118,7 @@ bool vpn_leak_to_vrf_update(struct bgp *from_bgp,
 	return leak_success;
 }
 
-void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,	   /* from */
-			      struct bgp_path_info *path_vpn) /* route */
+void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 {
 	const struct prefix *p;
 	afi_t afi;
@@ -2159,7 +2161,8 @@ void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,	   /* from */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 		if (!vpn_leak_from_vpn_active(bgp, afi, &debugmsg)) {
 			if (debug)
-				zlog_debug("%s: skipping: %s", __func__,
+				zlog_debug("%s: from %s, skipping: %s",
+					   __func__, bgp->name_pretty,
 					   debugmsg);
 			continue;
 		}

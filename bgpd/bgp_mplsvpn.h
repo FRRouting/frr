@@ -75,8 +75,7 @@ extern bool vpn_leak_to_vrf_update(struct bgp *from_bgp,
 				   struct bgp_path_info *path_vpn,
 				   struct prefix_rd *prd);
 
-extern void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,
-				     struct bgp_path_info *path_vpn);
+extern void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn);
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
