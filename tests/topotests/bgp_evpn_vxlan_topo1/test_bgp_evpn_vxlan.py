@@ -144,7 +144,6 @@ def teardown_module(mod):
 
 def show_vni_json_elide_ifindex(pe, vni, expected):
     output_json = pe.vtysh_cmd("show evpn vni {} json".format(vni), isjson=True)
-
     if "ifindex" in output_json:
         output_json.pop("ifindex")
 
