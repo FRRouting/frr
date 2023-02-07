@@ -699,6 +699,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 	while ((str = ecommunity_gettoken(str, (void *)&eval, &token))) {
 		switch (token) {
 		case ecommunity_token_rt:
+		case ecommunity_token_rt6:
 		case ecommunity_token_soo:
 			if (!keyword_included || keyword) {
 				if (ecom)
@@ -746,7 +747,6 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 						    ecom->unit_size);
 			break;
 		case ecommunity_token_unknown:
-		default:
 			if (ecom)
 				ecommunity_free(&ecom);
 			return NULL;
