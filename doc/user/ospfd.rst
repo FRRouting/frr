@@ -794,13 +794,13 @@ Showing Information
 
 .. clicmd:: show ip ospf neighbor [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE [json]
 
 .. clicmd:: show ip ospf neighbor detail [json]
 
-.. clicmd:: show ip ospf neighbor A.B.C.D [detail] [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor A.B.C.D [detail] [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE detail [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE detail [json]
 
    Display lsa information of LSDB.
    Json o/p of this command covers base route information
