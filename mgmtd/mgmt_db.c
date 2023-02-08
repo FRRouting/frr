@@ -25,6 +25,7 @@
 #include "mgmtd/mgmt_db.h"
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
+#include "mgmt_util.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define MGMTD_DB_DBG(fmt, ...)                                                 \
@@ -51,6 +52,26 @@ struct mgmt_db_ctx {
 		struct nb_config *cfg_root;
 		struct lyd_node *dnode_root;
 	} root;
+};
+
+struct mgmt_db_iter_ctxt {
+	struct mgmt_db_ctx *db_ctxt;
+	void (*db_iter_fn)(struct mgmt_db_ctx *db_ctxt,
+			   char *xpath,
+			   struct lyd_node *node,
+			   struct nb_node *nb_node,
+			   void *ctxt);
+	char **xpaths;
+	int *num_nodes;
+	bool alloc_xpath_copy;
+	void *usr_ctxt;
+};
+
+struct mgmt_db_child_collect_ctxt {
+	char **child_xpath;
+	void **child_ctxt;
+	int max_child;
+	int num_child;
 };
 
 struct mgmt_cmt_info_t {
@@ -105,6 +126,206 @@ static int mgmt_db_dump_in_memory(struct mgmt_db_ctx *db_ctx,
 		lyd_print_tree(out, root, format, options);
 
 	return 0;
+}
+
+static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctxt,
+			      char *base_xpath,
+			      struct lyd_node *base_dnode,
+			      void (*mgmt_db_node_iter_fn)(
+					struct mgmt_db_ctx *db_ctxt,
+					char *xpath, struct lyd_node *node,
+					struct nb_node *nb_node, void *ctxt),
+			      void *ctxt, char *xpaths[], int *num_nodes,
+			      int tree_depth, bool alloc_xp_copy,
+			      bool iter_base)
+{
+	char *xpath, *xpath_buf, *iter_xp;
+	int ret, num_left = 0, num_found = 0;
+	struct lyd_node *dnode;
+	struct nb_node *nbnode;
+	bool alloc_xp = false;
+	bool same_as_base;
+
+	if (xpaths)
+		assert(num_nodes);
+
+	if (num_nodes && !*num_nodes)
+		return 0;
+
+	if (num_nodes) {
+		num_left = *num_nodes;
+		MGMTD_DB_DBG(" -- START: num_left:%d", num_left);
+		*num_nodes = 0;
+	}
+
+	MGMTD_DB_DBG(" -- START: Base: %s, Tree-Depth: %d, Iter-Base: %d",
+		     base_xpath, tree_depth, iter_base);
+
+	if (!base_dnode)
+		base_dnode = yang_dnode_get(
+			db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
+					   : db_ctxt->root.dnode_root,
+			base_xpath);
+	if (!base_dnode)
+		return -1;
+
+	if (iter_base && mgmt_db_node_iter_fn) {
+		/*
+		 * In case the caller is interested in getting a copy
+		 * of the xpath for themselves (by setting
+		 * 'alloc_xp_copy' to 'true') we make a copy for the
+		 * caller and pass it. Else we pass the original xpath
+		 * buffer.
+		 *
+		 * NOTE: In such case caller will have to take care of
+		 * the copy later.
+		 */
+		iter_xp = alloc_xp_copy ? strdup(base_xpath) : base_xpath;
+		nbnode = (struct nb_node *)base_dnode->schema->priv;
+		(*mgmt_db_node_iter_fn)(db_ctxt, iter_xp, base_dnode, nbnode,
+					ctxt);
+
+		if (num_nodes) {
+			(*num_nodes)++;
+			num_left--;
+		}
+	}
+
+	/*
+	 * If the base_xpath points to leaf node, or this the bottom of the
+	 * tree depth desiredwe can skip the rest of the tree walk
+	 */
+	if (base_dnode->schema->nodetype & LYD_NODE_TERM
+		|| !tree_depth)
+		return 0;
+
+	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
+		assert(dnode->schema && dnode->schema->priv);
+		nbnode = (struct nb_node *)dnode->schema->priv;
+
+		xpath = NULL;
+		if (xpaths) {
+			if (!xpaths[*num_nodes]) {
+				alloc_xp = true;
+				xpaths[*num_nodes] =
+					(char *)calloc(1, MGMTD_MAX_XPATH_LEN);
+			}
+			xpath = lyd_path(dnode, LYD_PATH_STD,
+					 xpaths[*num_nodes],
+					 MGMTD_MAX_XPATH_LEN);
+		} else {
+			alloc_xp = true;
+			xpath_buf = (char *)calloc(1, MGMTD_MAX_XPATH_LEN);
+			xpath = lyd_path(dnode, LYD_PATH_STD, xpath_buf,
+					 MGMTD_MAX_XPATH_LEN);
+		}
+
+		assert(xpath);
+		same_as_base = strncmp(xpath, base_xpath, strlen(xpath))
+				? false : true;
+		MGMTD_DB_DBG(" -- Child XPATH: %s, Same-as-Base: %d",
+			     xpath, same_as_base);
+
+		if (num_nodes)
+			num_found = num_left;
+
+		ret = mgmt_walk_db_nodes(db_ctxt, xpath, dnode,
+					 mgmt_db_node_iter_fn, ctxt,
+					 xpaths ? &xpaths[*num_nodes] : NULL,
+					 num_nodes ? &num_found : NULL,
+					 same_as_base ?
+					 	tree_depth : tree_depth - 1,
+					 alloc_xp_copy, !same_as_base);
+
+		if (num_nodes) {
+			num_left -= num_found;
+			(*num_nodes) += num_found;
+		}
+
+		if (ret != 0)
+			break;
+
+		if (alloc_xp)
+			free(xpath);
+	}
+
+	if (num_nodes) {
+		MGMTD_DB_DBG(" -- END: *num_nodes:%d, num_left:%d", *num_nodes,
+			     num_left);
+	}
+
+	return 0;
+}
+
+static void mgmt_db_collect_child_node(struct mgmt_db_ctx *db_ctxt, char *xpath,
+				       struct lyd_node *node,
+				       struct nb_node *nb_node, void *ctxt)
+{
+	struct mgmt_db_child_collect_ctxt *coll_ctxt;
+
+	coll_ctxt = (struct mgmt_db_child_collect_ctxt *) ctxt;
+
+	if (coll_ctxt->num_child >= coll_ctxt->max_child) {
+		MGMTD_DB_ERR("Number of child %d exceeded maximum %d",
+			     coll_ctxt->num_child, coll_ctxt->max_child);
+		return;
+	}
+
+	coll_ctxt->child_xpath[coll_ctxt->num_child] = xpath;
+	coll_ctxt->child_ctxt[coll_ctxt->num_child] = node;
+	MGMTD_DB_DBG("   -- [%d] Child XPATH: %s", coll_ctxt->num_child+1,
+		     coll_ctxt->child_xpath[coll_ctxt->num_child]);
+	coll_ctxt->num_child++;
+}
+
+static void mgmt_db_get_child_nodes(char *base_xpath, char *child_xpath[],
+				    void *child_ctxt[], int *num_child,
+				    void *ctxt, char *xpath_key)
+{
+	struct mgmt_db_iter_ctxt *iter_ctxt;
+	struct mgmt_db_ctx *db_ctxt;
+	int max_child;
+	struct mgmt_db_child_collect_ctxt coll_ctxt = { 0 };
+
+	iter_ctxt = (struct mgmt_db_iter_ctxt *)ctxt;
+	db_ctxt = iter_ctxt->db_ctxt;
+	max_child = *num_child;
+	*num_child = 0;
+	coll_ctxt.child_ctxt = child_ctxt;
+	coll_ctxt.child_xpath = child_xpath;
+	coll_ctxt.max_child = max_child;
+	mgmt_walk_db_nodes(db_ctxt, base_xpath, NULL,
+			   mgmt_db_collect_child_node, &coll_ctxt,
+			   NULL, NULL, 1, true, false);
+	*num_child = coll_ctxt.num_child;
+}
+
+static int mgmt_db_iter_data_nodes(char *node_xpath, void *node_ctxt,
+				   void *ctxt)
+{
+	struct mgmt_db_iter_ctxt *iter_ctxt;
+	struct mgmt_db_ctx *db_ctxt;
+	struct lyd_node *dnode;
+
+	iter_ctxt = (struct mgmt_db_iter_ctxt *)ctxt;
+	db_ctxt = iter_ctxt->db_ctxt;
+	dnode = (struct lyd_node *)node_ctxt;
+
+	if (!dnode) {
+		dnode = yang_dnode_get(db_ctxt->config_db ? 
+				       db_ctxt->root.cfg_root->dnode :
+				       db_ctxt->root.dnode_root,
+				       node_xpath);
+		if (!dnode)
+			return -1;
+	}
+
+	return mgmt_walk_db_nodes(db_ctxt, node_xpath, dnode,
+				  iter_ctxt->db_iter_fn,
+				  iter_ctxt->usr_ctxt,
+				  iter_ctxt->xpaths,
+				  iter_ctxt->num_nodes, -1,
+				  iter_ctxt->alloc_xpath_copy, true);
 }
 
 static int mgmt_db_replace_dst_with_src_db(struct mgmt_db_ctx *src,
@@ -626,131 +847,6 @@ struct nb_config *mgmt_db_get_nb_config(struct mgmt_db_ctx *db_ctx)
 	return db_ctx->config_db ? db_ctx->root.cfg_root : NULL;
 }
 
-static int mgmt_walk_db_nodes(
-	struct mgmt_db_ctx *db_ctx, char *base_xpath,
-	struct lyd_node *base_dnode,
-	void (*mgmt_db_node_iter_fn)(struct mgmt_db_ctx *db_ctx, char *xpath,
-				     struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx),
-	void *ctx, char *xpaths[], int *num_nodes, bool childs_as_well,
-	bool alloc_xp_copy)
-{
-	uint32_t indx;
-	char *xpath, *xpath_buf, *iter_xp;
-	int ret, num_left = 0, num_found = 0;
-	struct lyd_node *dnode;
-	struct nb_node *nbnode;
-	bool alloc_xp = false;
-
-	if (xpaths)
-		assert(num_nodes);
-
-	if (num_nodes && !*num_nodes)
-		return 0;
-
-	if (num_nodes) {
-		num_left = *num_nodes;
-		MGMTD_DB_DBG(" -- START: num_left:%d", num_left);
-		*num_nodes = 0;
-	}
-
-	MGMTD_DB_DBG(" -- START: Base: %s", base_xpath);
-
-	if (!base_dnode)
-		base_dnode = yang_dnode_get(
-			db_ctx->config_db ? db_ctx->root.cfg_root->dnode
-					   : db_ctx->root.dnode_root,
-			base_xpath);
-	if (!base_dnode)
-		return -1;
-
-	if (mgmt_db_node_iter_fn) {
-		/*
-		 * In case the caller is interested in getting a copy
-		 * of the xpath for themselves (by setting
-		 * 'alloc_xp_copy' to 'true') we make a copy for the
-		 * caller and pass it. Else we pass the original xpath
-		 * buffer.
-		 *
-		 * NOTE: In such case caller will have to take care of
-		 * the copy later.
-		 */
-		iter_xp = alloc_xp_copy ? strdup(base_xpath) : base_xpath;
-
-		nbnode = (struct nb_node *)base_dnode->schema->priv;
-		(*mgmt_db_node_iter_fn)(db_ctx, iter_xp, base_dnode, nbnode,
-					ctx);
-	}
-
-	if (num_nodes) {
-		(*num_nodes)++;
-		num_left--;
-	}
-
-	/*
-	 * If the base_xpath points to a leaf node, or we don't need to
-	 * visit any children we can skip the tree walk.
-	 */
-	if (!childs_as_well || base_dnode->schema->nodetype & LYD_NODE_TERM)
-		return 0;
-
-	indx = 0;
-	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
-		assert(dnode->schema && dnode->schema->priv);
-
-		xpath = NULL;
-		if (xpaths) {
-			if (!xpaths[*num_nodes]) {
-				alloc_xp = true;
-				xpaths[*num_nodes] =
-					(char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			}
-			xpath = lyd_path(dnode, LYD_PATH_STD,
-					 xpaths[*num_nodes],
-					 MGMTD_MAX_XPATH_LEN);
-		} else {
-			alloc_xp = true;
-			xpath_buf = (char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			(void) lyd_path(dnode, LYD_PATH_STD, xpath_buf,
-					 MGMTD_MAX_XPATH_LEN);
-			xpath = xpath_buf;
-		}
-
-		assert(xpath);
-		MGMTD_DB_DBG(" -- XPATH: %s", xpath);
-
-		if (num_nodes)
-			num_found = num_left;
-
-		ret = mgmt_walk_db_nodes(db_ctx, xpath, dnode,
-					 mgmt_db_node_iter_fn, ctx,
-					 xpaths ? &xpaths[*num_nodes] : NULL,
-					 num_nodes ? &num_found : NULL,
-					 childs_as_well, alloc_xp_copy);
-
-		if (num_nodes) {
-			num_left -= num_found;
-			(*num_nodes) += num_found;
-		}
-
-		if (alloc_xp)
-			free(xpath);
-
-		if (ret != 0)
-			break;
-
-		indx++;
-	}
-
-
-	if (num_nodes) {
-		MGMTD_DB_DBG(" -- END: *num_nodes:%d, num_left:%d", *num_nodes,
-			     num_left);
-	}
-
-	return 0;
-}
-
 int mgmt_db_lookup_data_nodes(struct mgmt_db_ctx *db_ctx, const char *xpath,
 			      char *dxpaths[], int *num_nodes,
 			      bool get_childs_as_well, bool alloc_xp_copy)
@@ -766,9 +862,10 @@ int mgmt_db_lookup_data_nodes(struct mgmt_db_ctx *db_ctx, const char *xpath,
 	strlcpy(base_xpath, xpath, sizeof(base_xpath));
 	mgmt_remove_trailing_separator(base_xpath, '/');
 
-	return (mgmt_walk_db_nodes(db_ctx, base_xpath, NULL, NULL, NULL,
-				   dxpaths, num_nodes, get_childs_as_well,
-				   alloc_xp_copy));
+	return mgmt_walk_db_nodes(db_ctx, base_xpath, NULL, NULL, NULL,
+				   dxpaths, num_nodes,
+				   get_childs_as_well ? -1 : 1,
+				   alloc_xp_copy, true);
 }
 
 struct lyd_node *mgmt_db_find_data_node_by_xpath(struct mgmt_db_ctx *db_ctx,
@@ -861,12 +958,13 @@ int mgmt_db_iter_data(struct mgmt_db_ctx *db_ctx, char *base_xpath,
 	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
+	struct mgmt_db_iter_ctxt iter_ctxt =  { 0 };
 
 	if (!db_ctx)
 		return -1;
 
+	mgmt_remove_trailing_separator(base_xpath, '*');
 	mgmt_remove_trailing_separator(base_xpath, '/');
-
 	strlcpy(xpath, base_xpath, sizeof(xpath));
 
 	MGMTD_DB_DBG(" -- START DB walk for DBid: %d", db_ctx->db_id);
@@ -884,14 +982,23 @@ int mgmt_db_iter_data(struct mgmt_db_ctx *db_ctx, char *base_xpath,
 			base_dnode = base_dnode->prev;
 
 		LY_LIST_FOR (base_dnode, node) {
-			ret = mgmt_walk_db_nodes(
-				db_ctx, xpath, node, mgmt_db_node_iter_fn,
-				ctx, NULL, NULL, true, alloc_xp_copy);
+			lyd_path(node, LYD_PATH_STD, xpath, sizeof(xpath));
+			ret = mgmt_db_iter_data(db_ctx, xpath,
+						mgmt_db_node_iter_fn,
+		      				ctx, alloc_xp_copy);
 		}
-	} else
-		ret = mgmt_walk_db_nodes(db_ctx, xpath, base_dnode,
-					 mgmt_db_node_iter_fn, ctx, NULL, NULL,
-					 true, alloc_xp_copy);
+	} else {
+		iter_ctxt.db_ctxt = db_ctx;
+		iter_ctxt.db_iter_fn = mgmt_db_node_iter_fn;
+		iter_ctxt.alloc_xpath_copy = alloc_xp_copy;
+		iter_ctxt.xpaths = NULL;
+		iter_ctxt.num_nodes = NULL;
+		iter_ctxt.usr_ctxt = ctx;
+		ret = mgmt_xpath_resolve_wildcard(base_xpath, 0,
+					mgmt_db_get_child_nodes,
+					mgmt_db_iter_data_nodes,
+					(void *)&iter_ctxt, 0);
+	}
 
 	return ret;
 }

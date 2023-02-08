@@ -111,63 +111,6 @@ static inline Mgmtd__DatabaseId mgmt_get_db_id_by_name(const char *db_name)
 	return MGMTD_DB_NONE;
 }
 
-/*
- * Appends trail wildcard '/' '*' to a given xpath.
- *
- * xpath
- *     YANG xpath.
- *
- * path_len
- *     xpath length.
- */
-static inline void mgmt_xpath_append_trail_wildcard(char *xpath,
-						    size_t *xpath_len)
-{
-	if (!xpath || !xpath_len)
-		return;
-
-	if (!*xpath_len)
-		*xpath_len = strlen(xpath);
-
-	if (*xpath_len > 2 && *xpath_len < MGMTD_MAX_XPATH_LEN - 2) {
-		if (xpath[*xpath_len - 1] == '/') {
-			xpath[*xpath_len] = '*';
-			xpath[*xpath_len + 1] = 0;
-			(*xpath_len)++;
-		} else if (xpath[*xpath_len - 1] != '*') {
-			xpath[*xpath_len] = '/';
-			xpath[*xpath_len + 1] = '*';
-			xpath[*xpath_len + 2] = 0;
-			(*xpath_len) += 2;
-		}
-	}
-}
-
-/*
- * Removes trail wildcard '/' '*' from a given xpath.
- *
- * xpath
- *     YANG xpath.
- *
- * path_len
- *     xpath length.
- */
-static inline void mgmt_xpath_remove_trail_wildcard(char *xpath,
-						    size_t *xpath_len)
-{
-	if (!xpath || !xpath_len)
-		return;
-
-	if (!*xpath_len)
-		*xpath_len = strlen(xpath);
-
-	if (*xpath_len > 2 && xpath[*xpath_len - 2] == '/'
-	    && xpath[*xpath_len - 1] == '*') {
-		xpath[*xpath_len - 2] = 0;
-		(*xpath_len) -= 2;
-	}
-}
-
 /* Initialise database */
 extern int mgmt_db_init(struct mgmt_master *cm);
 
