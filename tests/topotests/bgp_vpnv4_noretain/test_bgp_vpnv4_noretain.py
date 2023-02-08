@@ -134,11 +134,20 @@ def teardown_module(_mod):
 
 
 def router_json_cmp_exact_filter(router, cmd, expected):
-    # filter out tableVersion, version and nhVrfID
-    output = router.cmd('vtysh -c "{}" | grep -v ersion | grep -v nhVrfId'.format(cmd))
+    output = router.vtysh_cmd(cmd)
     logger.info("{}: {}\n{}".format(router.name, cmd, output))
 
     json_output = json.loads(output)
+
+    # filter out tableVersion, version and nhVrfID
+    json_output.pop("tableVersion")
+    for rd, data in json_output["routes"]["routeDistinguishers"].items():
+        for prefix, attrs in data.items():
+            for attr in attrs:
+                if "nhVrfId" in attr:
+                    attr.pop("nhVrfId")
+                if "version" in attr:
+                    attr.pop("version")
 
     return topotest.json_cmp(json_output, expected, exact=True)
 
