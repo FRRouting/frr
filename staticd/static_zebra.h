@@ -3,9 +3,6 @@
  * Zebra connect library for staticd
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
  */
 #ifndef __STATIC_ZEBRA_H__
 #define __STATIC_ZEBRA_H__

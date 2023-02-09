@@ -3,10 +3,6 @@
  * VRRP ARP handling.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __VRRP_ARP_H__
 #define __VRRP_ARP_H__
