@@ -595,7 +595,7 @@ algorithm is used to forward packets.
 Single Vxlan Device Support
 ===========================
 
-FRR supports a new way of configuring VLAN-to-VNI mappings for EVPN-VXLAN,
+FRR supports configuring VLAN-to-VNI mappings for EVPN-VXLAN,
 when working with the Linux kernel. In this new way, the mapping of a VLAN
 to a VNI is configured against a container VXLAN interface which is referred
 to as a ‘Single VXLAN device (SVD)’. Multiple VLAN to VNI mappings can be
