@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-bfdd {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/bfdd";

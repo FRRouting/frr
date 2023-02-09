@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-test-module {
   yang-version 1.1;
   namespace "urn:frr-test-module";

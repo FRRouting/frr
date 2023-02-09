@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-filter {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/filter";
