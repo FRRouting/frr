@@ -251,6 +251,21 @@ void bgp_attr_flush_encap(struct attr *attr)
 #endif
 }
 
+static bool labels_same(const struct attr *attr1, const struct attr *attr2)
+{
+	uint32_t i;
+
+	if (attr1->num_labels != attr2->num_labels)
+		return false;
+	if (attr1->num_labels == 0)
+		return true;
+	for (i = 0; i < attr1->num_labels; i++) {
+		if (attr1->label_tbl[i] != attr2->label_tbl[i])
+			return false;
+	}
+	return true;
+}
+
 /*
  * Compare encap sub-tlv chains
  *
@@ -758,6 +773,9 @@ unsigned int attrhash_key_make(const void *p)
 	     attr->originator_id.s_addr);
 	MIX3(attr->tag, attr->label, attr->label_index);
 
+	MIX(attr->num_labels);
+	if (attr->num_labels == 0)
+		key = jhash(&attr->label_tbl, sizeof(attr->label_tbl), key);
 	if (attr->aspath)
 		MIX(aspath_key_make(attr->aspath));
 	if (bgp_attr_get_community(attr))
@@ -816,6 +834,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->weight == attr2->weight
 		    && attr1->tag == attr2->tag
 		    && attr1->label_index == attr2->label_index
+		    && labels_same(attr1, attr2)
 		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
 		    && bgp_attr_get_ecommunity(attr1)
 			       == bgp_attr_get_ecommunity(attr2)
@@ -1050,6 +1069,8 @@ struct attr *bgp_attr_intern(struct attr *attr)
 struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 				  uint8_t origin)
 {
+	int i;
+
 	memset(attr, 0, sizeof(struct attr));
 
 	attr->origin = origin;
@@ -1060,6 +1081,9 @@ struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 	attr->tag = 0;
 	attr->label_index = BGP_INVALID_LABEL_INDEX;
 	attr->label = MPLS_INVALID_LABEL;
+	attr->num_labels = 0;
+	for (i = 0; i < BGP_MAX_LABELS; i++)
+		attr->label_tbl[i] = MPLS_INVALID_LABEL;
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 	attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 	attr->local_pref = bgp->default_local_pref;
@@ -1077,6 +1101,7 @@ struct attr *bgp_attr_aggregate_intern(
 	struct attr attr;
 	struct attr *new;
 	route_map_result_t ret;
+	int i;
 
 	memset(&attr, 0, sizeof(attr));
 
@@ -1123,6 +1148,10 @@ struct attr *bgp_attr_aggregate_intern(
 
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
+	attr.num_labels = 0;
+	for (i = 0; i < BGP_MAX_LABELS; i++)
+		attr.label_tbl[i] = MPLS_INVALID_LABEL;
+
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 	if (!aggregate->as_set || atomic_aggregate)

@@ -9,6 +9,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_label.h"
 #include "srte.h"
 
 /* Simple bit mapping. */
@@ -258,6 +259,10 @@ struct attr {
 
 	/* MPLS label */
 	mpls_label_t label;
+
+	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
+	mpls_label_t label_tbl[BGP_MAX_LABELS];
+	uint32_t num_labels;
 
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
