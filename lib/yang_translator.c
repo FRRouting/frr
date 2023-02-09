@@ -165,6 +165,7 @@ struct yang_translator *yang_translator_load(const char *path)
 		flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
 			  "%s: module translator \"%s\" is loaded already",
 			  __func__, family);
+		yang_dnode_free(dnode);
 		return NULL;
 	}
 
