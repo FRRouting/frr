@@ -140,7 +140,7 @@ struct if_stats {
 #endif /* HAVE_PROC_NET_DEV */
 
 /* Here are "non-official" architectural constants. */
-#define TE_EXT_MASK             0x0FFFFFFF
+#define TE_EXT_MASK             0x00FFFFFF
 #define TE_EXT_ANORMAL          0x80000000
 #define LOSS_PRECISION          0.000003
 /* TE_MEGA_BIT and TE_BYTE are utilized to convert TE bandwidth */

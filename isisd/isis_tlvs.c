@@ -401,7 +401,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				  "%s Average Link Delay: %u (micro-sec)\n",
 				  IS_ANORMAL(exts->delay) ? "Anomalous"
 							  : "Normal",
-				  exts->delay);
+				  exts->delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(exts, EXT_MM_DELAY)) {
 		if (json) {

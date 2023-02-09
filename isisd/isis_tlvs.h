@@ -484,7 +484,7 @@ enum ext_subtlv_size {
  * For Delay and packet Loss, upper bit (A) indicates if the value is
  * normal (0) or anomalous (1).
  */
-#define IS_ANORMAL(v) (v & 0x80000000)
+#define IS_ANORMAL(v) (v & TE_EXT_ANORMAL)
 
 struct isis_ext_subtlvs {
 
