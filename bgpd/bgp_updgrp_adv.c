@@ -934,10 +934,14 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					if (subgroup_announce_check(
 						    dest, pi, subgrp,
 						    bgp_dest_get_prefix(dest),
-						    &attr, NULL))
+						    &attr, NULL)) {
+						struct attr *default_attr =
+							bgp_attr_intern(&attr);
+
 						bgp_adj_out_set_subgroup(
-							dest, subgrp, &attr,
-							pi);
+							dest, subgrp,
+							default_attr, pi);
+					}
 			}
 			bgp_dest_unlock_node(dest);
 		}
