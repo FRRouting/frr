@@ -1977,6 +1977,10 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified,
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
 			   PEER_FLAG_REFLECTOR_CLIENT);
+		UNSET_FLAG(peer->af_flags[AFI_LINKSTATE][SAFI_LINKSTATE],
+			   PEER_FLAG_REFLECTOR_CLIENT);
+		UNSET_FLAG(peer->af_flags[AFI_LINKSTATE][SAFI_LINKSTATE_VPN],
+			   PEER_FLAG_REFLECTOR_CLIENT);
 	}
 }
 
@@ -4316,7 +4320,9 @@ bool peer_active(struct peer *peer)
 	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
 	    || peer->afc[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
+	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE]
+	    || peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE_VPN])
 		return true;
 	return false;
 }
@@ -4336,7 +4342,9 @@ bool peer_active_nego(struct peer *peer)
 	    || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
+	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc_nego[AFI_LINKSTATE][SAFI_LINKSTATE]
+	    || peer->afc_nego[AFI_LINKSTATE][SAFI_LINKSTATE_VPN])
 		return true;
 	return false;
 }
