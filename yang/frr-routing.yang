@@ -172,6 +172,20 @@ module frr-routing {
   }
 
 
+  identity linkstate-linkstate {
+    base afi-safi-type;
+    description
+      "This identity represents the link-state address family.";
+  }
+
+
+  identity linkstate-linkstate-vpn {
+    base afi-safi-type;
+    description
+      "This identity represents the link-state VPN address family.";
+  }
+
+
   identity control-plane-protocol {
     description
       "Base identity from which control-plane protocol identities are
