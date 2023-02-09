@@ -1,0 +1,67 @@
+{
+  "::ffff:c000:200/120": [
+    {
+      "prefix": "::ffff:c000:200/120",
+      "protocol": "connected",
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-p2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "::ffff:c633:6405/128": [
+    {
+      "prefix": "::ffff:c633:6405/128",
+      "protocol": "6pe",
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 3,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "::ffff:c000:203",
+          "afi": "ipv6",
+          "interfaceName": "eth-p2",
+          "active": true,
+          "labels": [
+            1055
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "::ffff:cb00:7100/120": [
+    {
+      "prefix": "::ffff:cb00:7100/120",
+      "protocol": "connected",
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-p1",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
