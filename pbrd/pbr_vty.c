@@ -935,12 +935,12 @@ static void vty_show_pbrms(struct vty *vty,
 
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->nhgrp_name),
 				pbr_nht_get_table(pbrms->nhgrp_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->nhgrp_name) ? "yes"
 									 : "no",
 				pbr_nht_get_table(pbrms->nhgrp_name));
@@ -950,12 +950,12 @@ static void vty_show_pbrms(struct vty *vty,
 		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->internal_nhg_name),
 				pbr_nht_get_table(pbrms->internal_nhg_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->internal_nhg_name)
 					? "yes"
 					: "no",
