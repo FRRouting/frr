@@ -252,6 +252,14 @@ void bgp_attr_flush_encap(struct attr *attr)
 #endif
 }
 
+static bool labels_same(const struct attr *attr1, const struct attr *attr2)
+{
+	return bgp_labels_same((const mpls_label_t *)attr1->label_tbl,
+			       attr1->num_labels,
+			       (const mpls_label_t *)attr2->label_tbl,
+			       attr2->num_labels);
+}
+
 /*
  * Compare encap sub-tlv chains
  *
@@ -770,6 +778,10 @@ unsigned int attrhash_key_make(const void *p)
 	     attr->originator_id.s_addr);
 	MIX3(attr->tag, attr->label, attr->label_index);
 
+	MIX(attr->num_labels);
+	if (attr->num_labels)
+		key = jhash(&attr->label_tbl,
+			    attr->num_labels * sizeof(mpls_label_t), key);
 	if (attr->aspath)
 		MIX(aspath_key_make(attr->aspath));
 	if (bgp_attr_get_community(attr))
@@ -871,6 +883,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->srte_color == attr2->srte_color &&
 		    attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type &&
+		    labels_same(attr1, attr2) &&
 		    attr1->otc == attr2->otc)
 			return true;
 	}

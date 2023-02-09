@@ -9,6 +9,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_label.h"
 #include "srte.h"
 
 /* Simple bit mapping. */
@@ -219,7 +220,7 @@ struct attr {
 	/* ifIndex corresponding to mp_nexthop_local. */
 	ifindex_t nh_lla_ifindex;
 
-	/* MPLS label */
+	/* MPLS label (VNI) */
 	mpls_label_t label;
 
 	/* Extended Communities attribute. */
@@ -266,8 +267,11 @@ struct attr {
 	/* route tag */
 	route_tag_t tag;
 
-	/* Label index */
+	/* Prefix SID - Label index */
 	uint32_t label_index;
+
+	/* MPLS label table */
+	mpls_label_t label_tbl[BGP_MAX_LABELS];
 
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
@@ -306,6 +310,9 @@ struct attr {
 
 	/* EVPN ES */
 	esi_t esi;
+
+	/* number of labels in MPLS label table */
+	uint8_t num_labels;
 
 	/* SR-TE Color */
 	uint32_t srte_color;
