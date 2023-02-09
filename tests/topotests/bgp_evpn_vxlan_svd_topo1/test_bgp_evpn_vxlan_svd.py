@@ -204,6 +204,13 @@ def check_vni_macs_present(tgen, router, vni, maclist):
             )
     return None
 
+def check_flood_entry_present(pe, vni, vtep):
+    output = pe.run("bridge fdb get 00:00:00:00:00:00 dev vxlan0 vni {} self".format(vni))
+
+    if str(vtep) not in output:
+        return output
+
+    return None
 
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
@@ -233,6 +240,11 @@ def test_pe1_converge_evpn():
         logger.warning("%s", result)
         assert None, '"{}" missing expected MACs'.format(pe1.name)
 
+    vtep = "10.30.30.30"
+    test_func = partial(check_flood_entry_present, pe1, 101, vtep)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" Flood FDB Entry for VTEP {} not found'.format(pe1.name, vtep)
+    assert result is None, assertmsg
 
 def test_pe2_converge_evpn():
     "Wait for protocol convergence"
@@ -263,6 +275,11 @@ def test_pe2_converge_evpn():
         logger.warning("%s", result)
         assert None, '"{}" missing expected MACs'.format(pe2.name)
 
+    vtep = "10.10.10.10"
+    test_func = partial(check_flood_entry_present, pe2, 101, vtep)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" Flood FDB Entry for VTEP {} not found'.format(pe2.name, vtep)
+    assert result is None, assertmsg
 
 def mac_learn_test(host, local):
     "check the host MAC gets learned by the VNI"
