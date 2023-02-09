@@ -106,7 +106,7 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 DECLARE_LIST(mgmt_txn_badapters, struct mgmt_be_client_adapter,
 	     txn_list_linkage);
 
-union mgmt_be_xpath_subscr_info {
+union mgmt_data_subscr_info {
 	uint8_t subscribed;
 	struct {
 		uint8_t validate_config : 1;
@@ -115,9 +115,29 @@ union mgmt_be_xpath_subscr_info {
 	};
 };
 
-struct mgmt_be_client_subscr_info {
-	union mgmt_be_xpath_subscr_info xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
+PREDECL_LIST(mgmt_xpaths);
+struct mgmt_xpath_entry {
+	const char *xpath;
+	union mgmt_data_subscr_info subscr_info;
+	struct mgmt_xpaths_item xpaths_linkage;
 };
+DECLARE_LIST(mgmt_xpaths, struct mgmt_xpath_entry, xpaths_linkage);
+ 
+#define FOREACH_XPATH_IN_LIST(list, xp)						\
+	frr_each_safe(mgmt_xpaths, (list), (xp))
+
+struct mgmt_be_xpath_subscr_info {
+	union mgmt_data_subscr_info subscr_info;
+	struct mgmt_xpaths_head xpaths;
+};
+
+struct mgmt_be_client_subscr_info {
+	struct mgmt_be_xpath_subscr_info
+ 		xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
+};
+
+#define FOREACH_XPATH_IN_XPMAP(subscr, id, xp)					\
+	FOREACH_XPATH_IN_LIST(&(subscr)->xpath_subscr[(id)].xpaths, (xp))
 
 /*
  * NOTE: List of YANG modules for every Backend Clients gets added here.
@@ -125,6 +145,8 @@ struct mgmt_be_client_subscr_info {
  * first.
  */
 extern const struct frr_yang_module_info frr_mgmt_staticd_info;
+extern const struct frr_yang_module_info frr_mgmt_interface_info;
+extern const struct frr_yang_module_info frr_mgmt_vrf_info;
 
 /* Initialise backend adapter module. */
 extern int mgmt_be_adapter_init(struct thread_master *tm);
@@ -228,6 +250,11 @@ extern int
 mgmt_be_send_cfg_apply_req(struct mgmt_be_client_adapter *adapter,
 			      uint64_t txn_id);
 
+extern int
+mgmt_be_send_get_data_req(struct mgmt_be_client_adapter *adptr,
+			     uint64_t txn_id, uint64_t batch_id,
+			     struct mgmt_be_datareq *data_req);
+
 /*
  * Dump backend adapter status to vty.
  */
@@ -239,11 +266,17 @@ extern void mgmt_be_adapter_status_write(struct vty *vty);
 extern void mgmt_be_xpath_register_write(struct vty *vty);
 
 /*
- * Maps a YANG dtata Xpath to one or more
+ * Maps a YANG data Xpath to one or more
  * backend clients that should be contacted for various purposes.
  */
 extern int mgmt_be_get_subscr_info_for_xpath(
 	const char *xpath, struct mgmt_be_client_subscr_info *subscr_info);
+
+/*
+ * Cleanup xpath map
+ */
+extern void mgmt_be_cleanup_xpath_map(
+	struct mgmt_be_client_subscr_info *subscr);
 
 /*
  * Dump backend client information for a given xpath to vty.

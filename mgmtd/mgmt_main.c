@@ -213,8 +213,8 @@ static void mgmt_vrf_terminate(void)
  * all individual Backend clients.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
-	&frr_filter_info,  &frr_interface_info, &frr_route_map_info,
-	&frr_routing_info, &frr_vrf_info,       &frr_mgmt_staticd_info,
+	&frr_filter_info,  &frr_mgmt_interface_info, &frr_route_map_info,
+	&frr_routing_info, &frr_mgmt_vrf_info,       &frr_mgmt_staticd_info,
 };
 
 FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,

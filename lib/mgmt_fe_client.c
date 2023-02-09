@@ -710,7 +710,9 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
-	case _MGMTD__FE_MESSAGE__MESSAGE_IS_INT_SIZE:
+	// TODO: Later restore this once the protobuf issue on
+	// Ubuntu-18.04 is resolved
+	// case _MGMTD__FE_MESSAGE__MESSAGE_IS_INT_SIZE:
 	default:
 		/*
 		 * A 'default' case is being added contrary to the

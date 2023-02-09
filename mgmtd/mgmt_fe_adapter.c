@@ -650,8 +650,10 @@ static int mgmt_fe_send_getdata_reply(struct mgmt_fe_session_ctx *session,
 	fe_msg.getdata_reply = &getdata_reply;
 
 	MGMTD_FE_ADAPTER_DBG(
-		"Sending GET_DATA_REPLY message to MGMTD Frontend client '%s'",
-		session->adapter->name);
+		"Sending GET_DATA_REPLY message to MGMTD Frontend client '%s' (req-id:%llu, success: %c, next-indx: %lld)",
+		session->adapter->name, getdata_reply.req_id,
+		getdata_reply.success ? 'Y' : 'N',
+		getdata_reply.data? getdata_reply.data->next_indx : -2);
 
 	/*
 	 * Cleanup the SHOW transaction associated with this session.
@@ -1426,7 +1428,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
-	case _MGMTD__FE_MESSAGE__MESSAGE_IS_INT_SIZE:
+	// TODO: Later restore this once the protobuf issue on
+	// Ubuntu-18.04 is resolved
+	// case _MGMTD__FE_MESSAGE__MESSAGE_IS_INT_SIZE:
 	default:
 		/*
 		 * A 'default' case is being added contrary to the

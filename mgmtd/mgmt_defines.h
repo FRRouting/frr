@@ -28,7 +28,10 @@
 
 #define MGMTD_MAX_NUM_XPATH_REG 128
 
-#define MGMTD_MAX_NUM_DATA_REQ_IN_BATCH 32
+#define MGMTD_MAX_NUM_DATA_REQ_IN_BATCH						\
+	((10 * MGMTD_BE_MSG_MAX_LEN)						\
+	 / MGMTD_MAX_XPATH_LEN)
+
 #define MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH 8
 
 #define MGMTD_MAX_CFG_CHANGES_IN_BATCH                                         \

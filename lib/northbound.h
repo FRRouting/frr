@@ -713,6 +713,8 @@ typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
 
 /* Iterate over direct child nodes only. */
 #define NB_OPER_DATA_ITER_NORECURSE 0x0001
+#define NB_OPER_DATA_ITER_VISITLISTKEYS 0x0002
+#define NB_OPER_DATA_ITER_SKIPLEAFS 0x0004
 
 /* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
@@ -1280,6 +1282,26 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
 extern int nb_oper_data_iterate(const char *xpath,
 				struct yang_translator *translator,
 				uint32_t flags, nb_oper_data_cb cb, void *arg);
+
+extern const void *nb_oper_get_list_entry(const char *xpath,
+					  struct nb_node *nb_node,
+					  struct lyd_node **pdnode,
+					  struct yang_list_keys *list_keys);
+
+extern int nb_oper_data_iter_node(const struct lysc_node *snode,
+				  const char *xpath_parent,
+				  const void *list_entry,
+				  const struct yang_list_keys *list_keys,
+				  struct yang_translator *translator,
+				  bool first, uint32_t flags,
+				  nb_oper_data_cb cb, void *arg);
+
+extern int nb_oper_data_iter_children(const struct lysc_node *snode,
+				      const char *xpath, const void *list_entry,
+				      const struct yang_list_keys *list_keys,
+				      struct yang_translator *translator,
+				      bool first, uint32_t flags,
+				      nb_oper_data_cb cb, void *arg);
 
 /*
  * Validate if the northbound operation is valid for the given node.

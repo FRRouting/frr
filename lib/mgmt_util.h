@@ -173,7 +173,7 @@ extern int mgmt_xpath_eval_regexp_match(const char *xpath_regexp,
 extern int mgmt_xpath_find_first_wildcard(const char *xpath, int *key_end);
 
 extern int mgmt_xpath_resolve_wildcard(char *xpath, int start_indx,
-				       void (*get_child_fn)(char *base_xpath,
+				       int (*get_child_fn)(char *base_xpath,
 							char *child_xpath[],
 						        void *child_ctxt[],
 							int *num_child,

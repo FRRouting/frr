@@ -66,6 +66,7 @@ extern "C" {
  */
 #define MGMTD_BE_CLIENT_BGPD "bgpd"
 #define MGMTD_BE_CLIENT_STATICD "staticd"
+#define MGMTD_BE_CLIENT_ZEBRA "zebra"
 
 
 #define MGMTD_BE_CONTAINER_NODE_VAL "<<container>>"

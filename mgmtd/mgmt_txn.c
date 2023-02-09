@@ -50,6 +50,7 @@ enum mgmt_txn_event {
 	MGMTD_TXN_PROC_GETCFG,
 	MGMTD_TXN_PROC_GETDATA,
 	MGMTD_TXN_COMMITCFG_TIMEOUT,
+	MGMTD_TXN_GETDATA_TIMEOUT,
 	MGMTD_TXN_CLEANUP
 };
 
@@ -103,7 +104,7 @@ struct mgmt_txn_be_cfg_batch {
 	uint64_t batch_id;
 	enum mgmt_be_client_id be_id;
 	struct mgmt_be_client_adapter *be_adapter;
-	union mgmt_be_xpath_subscr_info
+	struct mgmt_be_xpath_subscr_info
 		xp_subscr[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangCfgDataReq cfg_data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangCfgDataReq * cfg_datap[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
@@ -174,16 +175,28 @@ struct mgmt_commit_cfg_req {
 	struct mgmt_commit_stats *cmt_stats;
 };
 
-struct mgmt_get_data_reply {
-	/* Buffer space for preparing data reply */
-	int num_reply;
-	int last_batch;
-	Mgmtd__YangDataReply data_reply;
-	Mgmtd__YangData reply_data[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-	Mgmtd__YangData * reply_datap[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-	Mgmtd__YangDataValue reply_value[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-	char *reply_xpathp[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+PREDECL_LIST(mgmt_txn_data_batch_list);
+
+struct mgmt_txn_be_data_batch {
+	struct mgmt_txn_req *txn_req;
+	uint64_t batch_id;
+	enum mgmt_be_client_id be_id;
+	struct mgmt_be_client_adapter *be_adapter;
+	struct mgmt_be_xpath_subscr_info
+		xp_subscr[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
+	Mgmtd__YangGetDataReq get_data[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
+	Mgmtd__YangGetDataReq * get_datap[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
+	Mgmtd__YangData data[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
+	size_t num_get_data;
+	int buf_space_left;
+	struct mgmt_txn_data_batch_list_item list_linkage;
 };
+
+DECLARE_LIST(mgmt_txn_data_batch_list, struct mgmt_txn_be_data_batch,
+	     list_linkage);
+
+#define FOREACH_TXN_DATA_BATCH_IN_LIST(list, batch)                            \
+	frr_each_safe(mgmt_txn_data_batch_list, list, batch)
 
 struct mgmt_get_data_req {
 	Mgmtd__DatabaseId db_id;
@@ -198,7 +211,41 @@ struct mgmt_get_data_req {
 	 */
 	struct mgmt_get_data_reply *reply;
 
+	/*
+	 * Details on all the Backend Clients associated with
+	 * this commit.
+	 */
+	struct mgmt_be_client_subscr_info subscr_info;
+
+	/*
+	 * List of backend batches for this commit to be validated
+	 * and applied at the backend.
+	 */
+	struct mgmt_txn_data_batch_list_head
+		batch_list[MGMTD_BE_CLIENT_ID_MAX];
+	
+	/*
+	 * The last batch added for any backend client. This is always on
+	 * 'batches'
+	 */
+	struct mgmt_txn_be_data_batch
+		*last_data_batch[MGMTD_BE_CLIENT_ID_MAX];
+
+	struct hash *batches;
+	uint64_t next_batch_id;
+	int last_batch_cnt;
 	int total_reply;
+};
+
+struct mgmt_get_data_reply {
+	/* Buffer space for preparing data reply */
+	int num_reply;
+	int last_batch;
+	Mgmtd__YangDataReply data_reply;
+	Mgmtd__YangData reply_data[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	Mgmtd__YangData * reply_datap[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	Mgmtd__YangDataValue reply_value[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	char *reply_xpathp[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
 };
 
 struct mgmt_txn_req {
@@ -231,6 +278,7 @@ struct mgmt_txn_ctx {
 	struct thread *proc_comm_cfg;
 	struct thread *proc_get_cfg;
 	struct thread *proc_get_data;
+	struct thread *get_data_timeout;
 	struct thread *comm_cfg_timeout;
 	struct thread *clnup;
 
@@ -263,6 +311,7 @@ struct mgmt_txn_ctx {
 	 */
 	struct mgmt_txn_reqs_head get_data_reqs;
 	struct mgmt_txn_reqs_head pending_get_datas;
+	bool be_txn_create_sent[MGMTD_BE_CLIENT_ID_MAX];
 	/*
 	 * There will always be one commit-config allowed for a given
 	 * transaction/session. No need to maintain lists for it.
@@ -295,8 +344,8 @@ static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file,
 static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 			     int line);
 static int
-mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
-				 struct mgmt_be_client_adapter *adapter);
+mgmt_txn_send_be_txn_delete(struct mgmt_txn_req *txn_req,
+			    struct mgmt_be_client_adapter *adapter);
 
 static struct thread_master *mgmt_txn_tm;
 static struct mgmt_master *mgmt_txn_mm;
@@ -436,6 +485,136 @@ static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
 
 	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = NULL;
 }
+ 
+static struct mgmt_txn_be_data_batch *
+mgmt_txn_data_batch_alloc(struct mgmt_txn_req *txn_req,
+			   enum mgmt_be_client_id id,
+			   struct mgmt_be_client_adapter *be_adapter)
+{	
+	struct mgmt_txn_be_data_batch *data_btch;
+
+	data_btch = XCALLOC(MTYPE_MGMTD_TXN_DATA_BATCH,
+			   sizeof(struct mgmt_txn_be_data_batch));
+	assert(data_btch);
+	data_btch->be_id = id;
+
+	data_btch->txn_req = txn_req;
+	MGMTD_TXN_LOCK(txn_req->txn);
+	assert(txn_req->req.get_data);
+	mgmt_txn_data_batch_list_add_tail(
+		&txn_req->req.get_data->batch_list[id],
+		data_btch);
+	data_btch->be_adapter = be_adapter;
+	data_btch->buf_space_left = MGMTD_BE_CFGDATA_MAX_MSG_LEN;
+	if (be_adapter)
+		mgmt_be_adapter_lock(be_adapter);
+
+	txn_req->req.get_data->last_data_batch[id] =
+		data_btch;
+	if (!txn_req->req.get_data->next_batch_id)
+		txn_req->req.get_data->next_batch_id++;
+	data_btch->batch_id =
+		txn_req->req.get_data->next_batch_id++;
+	hash_get(txn_req->req.get_data->batches, data_btch,
+		 hash_alloc_intern);
+
+	return data_btch;
+}	
+
+static void
+mgmt_txn_data_batch_free(struct mgmt_txn_be_data_batch **data_btch)
+{	
+	size_t indx;
+	struct mgmt_get_data_req *getdata_req;
+	struct mgmt_txn_ctx *txn;
+
+	assert((*data_btch)->txn_req && (*data_btch)->txn_req->txn
+	       && (*data_btch)->txn_req->txn->type == MGMTD_TXN_TYPE_SHOW);
+	
+	txn = (*data_btch)->txn_req->txn;
+	
+	MGMTD_TXN_DBG(" Batch: %p, Trxn: %p", *data_btch, (*data_btch)->txn_req->txn);
+
+	getdata_req = (*data_btch)->txn_req->req.get_data;
+	hash_release(getdata_req->batches, *data_btch);
+	mgmt_txn_data_batch_list_del(
+		&getdata_req->batch_list[(*data_btch)->be_id], *data_btch);
+
+	if ((*data_btch)->be_adapter)
+		mgmt_be_adapter_unlock(&(*data_btch)->be_adapter);
+
+	for (indx = 0; indx < (*data_btch)->num_get_data; indx++) {
+		if ((*data_btch)->data[indx].xpath) {
+			free((*data_btch)->data[indx].xpath);
+			(*data_btch)->data[indx].xpath = NULL;
+		}
+	}
+
+	MGMTD_TXN_UNLOCK(&txn);
+
+	XFREE(MTYPE_MGMTD_TXN_DATA_BATCH, *data_btch);
+	*data_btch = NULL;
+}	
+
+static unsigned int mgmt_txn_databatch_hash_key(const void *data)
+{	
+	const struct mgmt_txn_be_data_batch *batch = data;
+
+	return jhash2((uint32_t *) &batch->batch_id,
+		      sizeof(batch->batch_id) / sizeof(uint32_t), 0);
+}	
+
+static bool mgmt_txn_databatch_hash_cmp(const void *d1, const void *d2)
+{	
+	const struct mgmt_txn_be_data_batch *batch1 = d1;
+	const struct mgmt_txn_be_data_batch *batch2 = d2;
+
+	return (batch1->batch_id == batch2->batch_id);
+}	
+
+static void mgmt_txn_databatch_hash_free(void *data)
+{	
+	struct mgmt_txn_be_data_batch *batch = data;
+
+	mgmt_txn_data_batch_free(&batch);
+}	
+
+static inline struct mgmt_txn_be_data_batch *
+mgmt_txn_databatch_id2ctx(struct mgmt_txn_ctx *txn, uint64_t batch_id,
+			  bool search_pending)
+{	
+	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn_be_data_batch key = {0};
+	struct mgmt_txn_be_data_batch *batch = NULL;
+
+	FOREACH_TXN_REQ_IN_LIST (search_pending ? &txn->pending_get_datas : 
+					&txn->get_data_reqs, txn_req) {
+		if (!txn_req->req.get_data)
+			continue;
+		key.batch_id = batch_id;
+		batch = hash_lookup(txn_req->req.get_data->batches,
+			    &key);
+		if (batch)
+			break;
+	}
+
+	return batch;
+}	
+
+static void mgmt_txn_cleanup_be_data_batches(struct mgmt_txn_req *txn_req,
+						 enum mgmt_be_client_id id)
+{	
+	struct mgmt_txn_be_data_batch *data_btch;
+	struct mgmt_txn_data_batch_list_head *list;
+
+	list = &txn_req->req.get_data->batch_list[id];
+	FOREACH_TXN_DATA_BATCH_IN_LIST (list, data_btch)
+		mgmt_txn_data_batch_free(&data_btch);
+
+	mgmt_txn_data_batch_list_fini(list);
+
+	txn_req->req.get_data->last_data_batch[id] = NULL;
+}	
 
 static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 						 uint64_t req_id,
@@ -494,12 +673,23 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REQ,
 				sizeof(struct mgmt_get_data_req));
 		assert(txn_req->req.get_data);
+
+		FOREACH_MGMTD_BE_CLIENT_ID (id) {
+			mgmt_txn_data_batch_list_init(
+				&txn_req->req.get_data->batch_list[id]);
+		}
+
+		txn_req->req.get_data->batches =
+			hash_create(mgmt_txn_databatch_hash_key,
+				    mgmt_txn_databatch_hash_cmp,
+				    "MGMT Data Batches");
 		mgmt_txn_reqs_add_tail(&txn->get_data_reqs, txn_req);
 		MGMTD_TXN_DBG(
 			"Added a new GETDATA Req: %p for Txn: %p, Sessn: 0x%llx",
 			txn_req, txn, (unsigned long long)txn->session_id);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_GETDATA_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:
 		break;
 	}
@@ -558,11 +748,11 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			    && (*txn_req)
 				       ->req.commit_cfg.subscr_info
 				       .xpath_subscr[id]
-				       .subscribed) {
+				       .subscr_info.subscribed) {
 				adapter = mgmt_be_get_adapter_by_id(id);
 				if (adapter)
 					mgmt_txn_send_be_txn_delete(
-						(*txn_req)->txn, adapter);
+						*txn_req, adapter);
 			}
 
 			mgmt_txn_cleanup_be_cfg_batches((*txn_req)->txn,
@@ -601,12 +791,36 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		req_list = &(*txn_req)->txn->get_data_reqs;
 		MGMTD_TXN_DBG("Deleting GETDATA Req: %p for Txn: %p",
 			       *txn_req, (*txn_req)->txn);
+		FOREACH_MGMTD_BE_CLIENT_ID (id) {
+			/*
+			 * Send TXN_DELETE to cleanup state for this
+			 * transaction on backend
+			 */
+			if ((*txn_req)->req.get_data->subscr_info
+				       .xpath_subscr[id]
+				       .subscr_info.subscribed) {
+				adapter = mgmt_be_get_adapter_by_id(id);
+				if (adapter)
+					mgmt_txn_send_be_txn_delete(
+						(*txn_req), adapter);
+			}
+
+			mgmt_txn_cleanup_be_data_batches((*txn_req),
+							     id);
+			if ((*txn_req)->req.get_data->batches) {
+				hash_clean((*txn_req)->req.get_data->batches,
+					   mgmt_txn_databatch_hash_free);
+				hash_free((*txn_req)->req.get_data->batches);
+				(*txn_req)->req.get_data->batches = NULL;
+			}
+		}
 		if ((*txn_req)->req.get_data->reply)
 			XFREE(MTYPE_MGMTD_TXN_GETDATA_REPLY,
 			      (*txn_req)->req.get_data->reply);
 		XFREE(MTYPE_MGMTD_TXN_GETDATA_REQ, (*txn_req)->req.get_data);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_GETDATA_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:
 		break;
 	}
@@ -615,7 +829,8 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		mgmt_txn_reqs_del(pending_list, *txn_req);
 		MGMTD_TXN_DBG("Removed Req: %p from pending-list (left:%d)",
 			      *txn_req, (int)mgmt_txn_reqs_count(pending_list));
-	} else if (req_list) {
+	}
+	if (req_list) {
 		mgmt_txn_reqs_del(req_list, *txn_req);
 		MGMTD_TXN_DBG("Removed Req: %p from request-list (left:%d)",
 			      *txn_req, (int)mgmt_txn_reqs_count(req_list));
@@ -749,6 +964,46 @@ static void mgmt_txn_process_set_cfg(struct thread *thread)
 			(int)left);
 		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_SETCFG);
 	}
+}
+ 
+static int mgmt_txn_send_get_data_reply(struct mgmt_txn_req *txn_req,
+					 enum mgmt_result result,
+					 const char *error_if_any)
+{
+	struct mgmt_txn_ctx *txn;
+
+	if (!txn_req || !txn_req->txn)
+		return -1;
+
+	txn = txn_req->txn;
+	
+	if (txn->session_id
+	    && (mgmt_fe_send_get_data_reply(
+			    txn->session_id,
+			    txn->txn_id,
+			    txn_req->req.get_data->db_id,
+			    txn_req->req_id,
+			    result, NULL, error_if_any)
+		    != 0)) {
+		MGMTD_TXN_ERR(
+			"Failed to send GET-DATA-REPLY for Trxn %p, Sessn: 0x%llx, Req: %lld",
+			txn, txn->session_id,
+			txn_req->req_id);
+	}
+
+	mgmt_txn_req_free(&txn_req);
+
+	/*
+	 * The SHOW Transaction should be destroyed from Frontend-adapter.
+	 * But in case the transaction is not triggered from a front-end session
+	 * we need to cleanup by itself.
+	 */
+	if (!txn->session_id
+	    && mgmt_txn_reqs_count(&txn->get_data_reqs)
+	    && mgmt_txn_reqs_count(&txn->pending_get_datas))
+		mgmt_txn_register_event(txn, MGMTD_TXN_CLEANUP);
+
+	return 0;
 }
 
 static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
@@ -924,7 +1179,8 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	 * Check if all clients has moved to next phase or not.
 	 */
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscribed &&
+		if (cmtcfg_req->subscr_info.xpath_subscr[id]
+			    .subscr_info.subscribed &&
 		    mgmt_txn_batches_count(&cmtcfg_req->curr_batches[id])) {
 			/*
 			 * There's atleast once client who hasn't moved to
@@ -1000,6 +1256,74 @@ mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	return 0;
 }
 
+static int mgmt_txn_create_getdata_batches(struct mgmt_txn_req *txn_req,
+					    struct mgmt_be_client_adapter *adapter,
+					    struct mgmt_be_client_subscr_info subscr_info,
+					    int id)
+{
+	struct mgmt_txn_be_data_batch *getdata_btch;
+	struct mgmt_get_data_req *getdata_req;
+	struct mgmt_xpath_entry *xp_map = NULL;
+	char *xpath = NULL;
+	int xpath_len;
+	int num_batches = 0;
+
+	getdata_req = txn_req->req.get_data;
+
+	FOREACH_XPATH_IN_LIST (&subscr_info.xpath_subscr[id].xpaths, xp_map) {
+		MGMTD_TXN_DBG("   -- %s", xp_map->xpath);
+		xpath = (char *)xp_map->xpath;
+		xpath_len = strlen(xpath) + 1;
+		getdata_btch = getdata_req->last_data_batch[id];
+		if (!getdata_btch
+			|| (getdata_btch->num_get_data
+				== MGMTD_MAX_NUM_DATA_REQ_IN_BATCH)
+			|| (getdata_btch->buf_space_left
+				< (xpath_len))) {
+			/* Allocate a new data batch */
+			getdata_btch = mgmt_txn_data_batch_alloc(
+				&(*txn_req), id, adapter);
+		}
+
+		getdata_btch->buf_space_left -= (xpath_len);
+		memcpy(&getdata_btch->xp_subscr[getdata_btch->num_get_data],
+			&subscr_info.xpath_subscr[id],
+			sizeof(getdata_btch->xp_subscr[0]));
+		
+		mgmt_yang_get_data_req_init(
+					&getdata_btch->get_data[getdata_btch->num_get_data]);
+		getdata_btch->get_datap[getdata_btch->num_get_data] =
+			&getdata_btch->get_data[getdata_btch->num_get_data];
+
+		mgmt_yang_data_init(
+			&getdata_btch->data[getdata_btch->num_get_data]);
+		getdata_btch->get_data[getdata_btch->num_get_data].data =
+			&getdata_btch->data[getdata_btch->num_get_data];
+		getdata_btch->data[getdata_btch->num_get_data].xpath = xpath;
+		xpath = NULL;
+		
+		getdata_req->subscr_info.xpath_subscr[id]
+					.subscr_info.subscribed |=
+					subscr_info.xpath_subscr[id]
+						.subscr_info.subscribed;
+		MGMTD_TXN_DBG(
+			"     -- %s, {V:%d, N:%d, O:%d}, Batch: %p, Item:%d",
+			adapter->name,
+			subscr_info.xpath_subscr[id]
+				.subscr_info.validate_config,
+			subscr_info.xpath_subscr[id]
+				.subscr_info.notify_config,
+			subscr_info.xpath_subscr[id]
+				.subscr_info.own_oper_data,
+			getdata_btch, (int)getdata_btch->num_get_data);
+		getdata_btch->num_get_data++;
+		num_batches++;
+	}
+	getdata_req->last_batch_cnt = num_batches;
+
+	return 0;
+}
+
 static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 					   struct nb_config_cbs *changes)
 {
@@ -1055,8 +1379,10 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		value_len = strlen(value) + 1;
 		found_validator = false;
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
-			if (!subscr_info.xpath_subscr[id].validate_config
-			    && !subscr_info.xpath_subscr[id].notify_config)
+			if (!subscr_info.xpath_subscr[id]
+				     .subscr_info.validate_config
+			    && !subscr_info.xpath_subscr[id]
+					.subscr_info.notify_config)
 				continue;
 
 			adapter = mgmt_be_get_adapter_by_id(id);
@@ -1110,17 +1436,22 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				.encoded_str_val = value;
 			value = NULL;
 
-			if (subscr_info.xpath_subscr[id].validate_config)
+			if (subscr_info.xpath_subscr[id]
+				    .subscr_info.validate_config)
 				found_validator = true;
 
-			cmtcfg_req->subscr_info.xpath_subscr[id].subscribed |=
-				subscr_info.xpath_subscr[id].subscribed;
-			MGMTD_TXN_DBG(
-				" -- %s, {V:%d, N:%d}, Batch: %p, Item:%d",
-				adapter->name,
-				subscr_info.xpath_subscr[id].validate_config,
-				subscr_info.xpath_subscr[id].notify_config,
-				cfg_btch, (int)cfg_btch->num_cfg_data);
+			cmtcfg_req->subscr_info.xpath_subscr[id]
+				.subscr_info.subscribed |=
+				subscr_info.xpath_subscr[id]
+					.subscr_info.subscribed;
+ 			MGMTD_TXN_DBG(
+ 				" -- %s, {V:%d, N:%d}, Batch: %p, Item:%d",
+ 				adapter->name,
+				subscr_info.xpath_subscr[id]
+					.subscr_info.validate_config,
+				subscr_info.xpath_subscr[id]
+					.subscr_info.notify_config,
+ 				cfg_btch, (int)cfg_btch->num_cfg_data);
 
 			cfg_btch->num_cfg_data++;
 			num_chgs++;
@@ -1143,12 +1474,16 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 	}
 
 	cmtcfg_req->next_phase = MGMTD_COMMIT_PHASE_TXN_CREATE;
+
+	mgmt_be_cleanup_xpath_map(&subscr_info);
 	return 0;
 
 mgmt_txn_create_config_batches_failed:
 
 	if (xpath)
 		free(xpath);
+
+	mgmt_be_cleanup_xpath_map(&subscr_info);
 
 	return -1;
 }
@@ -1351,7 +1686,8 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscribed) {
+		if (cmtcfg_req->subscr_info.xpath_subscr[id]
+			.subscr_info.subscribed) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (mgmt_be_create_txn(adapter, txn->txn_id)
 			    != 0) {
@@ -1363,7 +1699,7 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 
 			FOREACH_TXN_CFG_BATCH_IN_LIST (
 				&txn->commit_cfg_req->req.commit_cfg
-					 .curr_batches[id],
+					.curr_batches[id],
 				cfg_btch)
 				cfg_btch->comm_phase =
 					MGMTD_COMMIT_PHASE_TXN_CREATE;
@@ -1399,7 +1735,8 @@ mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	assert(cmtcfg_req->subscr_info.xpath_subscr[adapter->id].subscribed);
+	assert(cmtcfg_req->subscr_info.xpath_subscr[adapter->id]
+		       .subscr_info.subscribed);
 
 	indx = 0;
 	num_batches =
@@ -1442,24 +1779,37 @@ mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 }
 
 static int
-mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
-				 struct mgmt_be_client_adapter *adapter)
+mgmt_txn_send_be_txn_delete(struct mgmt_txn_req *txn_req,
+			    struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_commit_cfg_req *cmtcfg_req;
+	struct mgmt_get_data_req *getdata_req;
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
 
-	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
+	assert(txn_req->txn->type == MGMTD_TXN_TYPE_SHOW
+		|| (txn_req->txn->type == MGMTD_TXN_TYPE_CONFIG 
+		&& txn_req->txn->commit_cfg_req));
 
-	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	if (cmtcfg_req->subscr_info.xpath_subscr[adapter->id].subscribed) {
-		adapter = mgmt_be_get_adapter_by_id(adapter->id);
-		(void)mgmt_be_destroy_txn(adapter, txn->txn_id);
+	if (txn_req->txn->type == MGMTD_TXN_TYPE_CONFIG) {
+		cmtcfg_req = &txn_req->txn->commit_cfg_req->req.commit_cfg;
+		if (cmtcfg_req->subscr_info.xpath_subscr[adapter->id]
+			.subscr_info.subscribed) {
+			adapter = mgmt_be_get_adapter_by_id(adapter->id);
+			(void)mgmt_be_destroy_txn(adapter, txn_req->txn->txn_id);
 
-		FOREACH_TXN_CFG_BATCH_IN_LIST (
-			&txn->commit_cfg_req->req.commit_cfg
-				 .curr_batches[adapter->id],
-			cfg_btch)
-			cfg_btch->comm_phase = MGMTD_COMMIT_PHASE_TXN_DELETE;
+			FOREACH_TXN_CFG_BATCH_IN_LIST (
+				&txn_req->txn->commit_cfg_req->req.commit_cfg
+					.curr_batches[adapter->id],
+				cfg_btch)
+				cfg_btch->comm_phase = MGMTD_COMMIT_PHASE_TXN_DELETE;
+		}
+	} else if (txn_req->txn->type == MGMTD_TXN_TYPE_SHOW) {
+		getdata_req = txn_req->req.get_data;
+		if (getdata_req->subscr_info.xpath_subscr[adapter->id]
+			.subscr_info.subscribed) {
+			if (adapter)
+				(void)mgmt_be_destroy_txn(adapter, txn_req->txn->txn_id);
+		}
 	}
 
 	return 0;
@@ -1520,7 +1870,10 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	}
 
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].notify_config) {
+		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscr_info
+			.notify_config ||
+			cmtcfg_req->subscr_info.xpath_subscr[id].subscr_info
+			.validate_config) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				return -1;
@@ -1698,12 +2051,11 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	data_reply->next_indx =
 		(!get_reply->last_batch ? get_req->total_reply : -1);
 
-	MGMTD_TXN_DBG("Sending %d Get-Config/Data replies (next-idx:%lld)",
-		(int) data_reply->n_data,
-		(long long)data_reply->next_indx);
-
 	switch (txn_req->req_event) {
 	case MGMTD_TXN_PROC_GETCFG:
+		MGMTD_TXN_DBG("Sending %d GET_CONFIG_REPLY (next-idx:%lld)",
+			(int) data_reply->n_data,
+			(long long)data_reply->next_indx);
 		if (mgmt_fe_send_get_cfg_reply(
 			    txn_req->txn->session_id, txn_req->txn->txn_id,
 			    get_req->db_id, txn_req->req_id, MGMTD_SUCCESS,
@@ -1717,6 +2069,9 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 		}
 		break;
 	case MGMTD_TXN_PROC_GETDATA:
+		MGMTD_TXN_DBG("Sending %d GET_DATA_REPLY (next-idx:%lld)",
+			(int) data_reply->n_data,
+			(long long)data_reply->next_indx);
 		if (mgmt_fe_send_get_data_reply(
 			    txn_req->txn->session_id, txn_req->txn->txn_id,
 			    get_req->db_id, txn_req->req_id, MGMTD_SUCCESS,
@@ -1732,6 +2087,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_GETDATA_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:
 		MGMTD_TXN_ERR("Invalid Txn-Req-Event %u",
 			       txn_req->req_event);
@@ -1814,6 +2170,7 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_GETDATA_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:
 		assert(!"Wrong txn request type!");
 		break;
@@ -1952,6 +2309,179 @@ static void mgmt_txn_process_get_cfg(struct thread *thread)
 	}
 }
 
+static void mgmt_txn_abort_get_data(struct mgmt_txn_ctx *txn,
+				    const char *err_if_any)
+{
+	struct mgmt_txn_req *txn_req;
+
+	MGMTD_TXN_ERR(
+		"Aborting GETDATA process for SHOW Trxn %p!!! Reason: %s",
+		txn, err_if_any ? err_if_any : "Unknown failure");
+
+	/*
+	 * Send a GET_DATA_REPLY with failure with each of pending get data reqs.
+	 * NOTE: The transaction cleanup will be triggered from Front-end
+	 * adapter.
+	 */
+	FOREACH_TXN_REQ_IN_LIST (&txn->get_data_reqs, txn_req) {
+		mgmt_txn_send_get_data_reply(
+			txn_req, MGMTD_INTERNAL_ERROR,
+			err_if_any ? err_if_any : "Unknown failure");
+	}
+
+	FOREACH_TXN_REQ_IN_LIST (&txn->pending_get_datas, txn_req) {
+		mgmt_txn_send_get_data_reply(
+			txn_req, MGMTD_INTERNAL_ERROR,
+			err_if_any ? err_if_any : "Unknown failure");
+ 	}
+}
+
+static void mgmt_txn_get_data_timedout(struct thread *thread)
+{
+	struct mgmt_txn_ctx *txn;
+
+	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	assert(txn && txn->type == MGMTD_TXN_TYPE_SHOW);
+
+	mgmt_txn_abort_get_data(
+		txn, "Operation on the backend timed-out!");
+}
+ 
+static int mgmt_txn_get_data(struct mgmt_txn_ctx *txn,
+			      struct mgmt_txn_req *txn_req)
+{
+	struct mgmt_txn_reqs_head *req_list = NULL;
+	struct mgmt_txn_reqs_head *pending_list = NULL;
+	int indx;
+	struct mgmt_get_data_req *get_data;
+	struct mgmt_be_datareq data_req = {0};
+	struct mgmt_txn_be_data_batch *data_btch;
+
+	struct mgmt_be_client_subscr_info subscr;
+	enum mgmt_be_client_id id;
+	struct mgmt_be_client_adapter *adapter;
+
+	switch (txn_req->req_event) {
+	case MGMTD_TXN_PROC_GETDATA:
+		req_list = &txn->get_data_reqs;
+		pending_list = &txn->pending_get_datas;
+		break;
+	case MGMTD_TXN_PROC_GETCFG:
+	case MGMTD_TXN_PROC_SETCFG:
+	case MGMTD_TXN_PROC_COMMITCFG:
+	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_GETDATA_TIMEOUT:
+	case MGMTD_TXN_CLEANUP:
+		assert(!"Wrong txn request type!");
+		break;
+	}
+
+	get_data = txn_req->req.get_data;
+
+	if (!get_data->reply) {
+		get_data->reply = XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REPLY,
+					  sizeof(struct mgmt_get_data_reply));
+		if (!get_data->reply) {
+			mgmt_fe_send_get_data_reply(
+				txn->session_id, txn->txn_id,
+				get_data->db_id, txn_req->req_id,
+				MGMTD_INTERNAL_ERROR, NULL,
+				"Internal error: Unable to allocate reply buffers!");
+			goto mgmt_txn_get_data_failed;
+		}
+	}
+
+	for (indx = 0; indx < get_data->num_xpaths; indx++) {
+		MGMTD_TXN_DBG("Trying to get all data under '%s'",
+			       get_data->xpaths[indx]);
+		if (mgmt_be_get_subscr_info_for_xpath(get_data->xpaths[indx], &subscr) != 0) {
+			MGMTD_TXN_DBG("ERROR: Failed to get subscriber for '%s'",
+				get_data->xpaths[indx]);
+			goto mgmt_txn_get_data_failed;
+		}
+
+		FOREACH_MGMTD_BE_CLIENT_ID (id) {
+			if (subscr.xpath_subscr[id].subscr_info.own_oper_data) {
+				MGMTD_TXN_DBG("  -- Client: '%s'",
+					mgmt_be_client_id2name(id));
+				adapter = mgmt_be_get_adapter_by_id(id);
+				if (adapter) {
+					MGMTD_TXN_DBG("    -- Adapter: %p", adapter);
+					/*
+					 * Creates batches from xpath
+					 */
+					if (mgmt_txn_create_getdata_batches(txn_req, 
+									  adapter, subscr, id)
+							!= 0) {
+							mgmt_fe_send_get_data_reply(
+								txn->session_id, txn->txn_id,
+								get_data->db_id, txn_req->req_id,
+								MGMTD_INTERNAL_ERROR, NULL,
+								"Failed to create get data batches!");
+							goto mgmt_txn_get_data_failed;		
+					}
+				} else {
+					MGMTD_TXN_DBG("    -- Adapter: Not created Skipping batch creation!");
+				}
+			}
+		}
+	}
+
+	FOREACH_MGMTD_BE_CLIENT_ID (id) {
+		if (subscr.xpath_subscr[id].subscr_info.subscribed) {
+			adapter = mgmt_be_get_adapter_by_id(id);
+			if (adapter) {
+				if (!txn->be_txn_create_sent[id]) {
+				    	if (mgmt_be_create_txn(adapter, txn->txn_id)
+						!= 0) {
+						mgmt_fe_send_get_data_reply(
+							txn->session_id, txn->txn_id,
+							get_data->db_id, txn_req->req_id,
+							MGMTD_INTERNAL_ERROR, NULL,
+							"Internal error: Unable to create transaction!");
+						return -1;
+					}
+
+					txn->be_txn_create_sent[id] = true;
+				} else {
+					FOREACH_TXN_DATA_BATCH_IN_LIST (
+						&txn_req->req.get_data
+							->batch_list[adapter->id],
+						data_btch) {
+						MGMTD_TXN_DBG("Sending xpath:%s batch: %lld txn-id: %lld",
+								data_btch->get_data->data->xpath,
+								get_data->last_data_batch[adapter->id]->batch_id,
+								txn->txn_id);
+						data_req.getdata_reqs = data_btch->get_datap;
+						data_req.num_reqs = data_btch->num_get_data;
+						mgmt_be_send_get_data_req(adapter, txn->txn_id,
+							get_data->last_data_batch[adapter->id]->batch_id,
+							&data_req);
+					}
+				}
+			}
+		}
+	}
+
+mgmt_txn_get_data_failed:
+
+	if (pending_list) {
+		/*
+		 * Move the transaction to corresponding pending list.
+		 */
+		if (req_list)
+			mgmt_txn_reqs_del(req_list, txn_req);
+		txn_req->pending_be_proc = true;
+		mgmt_txn_reqs_add_tail(pending_list, txn_req);
+		MGMTD_TXN_DBG(
+			"Moved Req: %p for Trxn: %p from Req-List to Pending-List",
+			txn_req, txn_req->txn);
+	}
+
+	return 0;
+}
+
+
 static void mgmt_txn_process_get_data(struct thread *thread)
 {
 	struct mgmt_txn_ctx *txn;
@@ -1994,15 +2524,15 @@ static void mgmt_txn_process_get_data(struct thread *thread)
 			}
 		} else {
 			/*
-			 * TODO: Trigger GET procedures for Backend
-			 * For now return back error.
+			 * Trigger GET procedures for Backend
 			 */
-			mgmt_fe_send_get_data_reply(
-				txn->session_id, txn->txn_id,
-				txn_req->req.get_data->db_id, txn_req->req_id,
-				MGMTD_INTERNAL_ERROR, NULL,
-				"GET-DATA on Oper DB is not supported yet!");
-			error = true;
+			if (mgmt_txn_get_data(txn, txn_req) != 0) {
+				MGMTD_TXN_ERR(
+				"Unable to retrieve data from backend for Trxn %p, Sessn: 0x%llx, Req: %lld!",
+				txn, txn->session_id, 
+				txn_req->req_id);
+				error = true;
+			}
 		}
 
 	mgmt_txn_process_get_data_done:
@@ -2185,6 +2715,7 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 		THREAD_OFF((*txn)->proc_get_data);
 		THREAD_OFF((*txn)->proc_comm_cfg);
 		THREAD_OFF((*txn)->comm_cfg_timeout);
+		THREAD_OFF((*txn)->get_data_timeout);
 		hash_release(mgmt_txn_mm->txn_hash, *txn);
 		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
 
@@ -2255,6 +2786,13 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 		thread_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_data,
 				    txn, &tv, &txn->proc_get_data);
 		assert(txn->proc_get_data);
+		break;
+	case MGMTD_TXN_GETDATA_TIMEOUT:
+		thread_add_timer_msec(mgmt_txn_tm,
+				      mgmt_txn_get_data_timedout, txn,
+				      MGMTD_TXN_GET_DATA_MAX_DELAY_MSEC,
+				      &txn->get_data_timeout);
+		assert(txn->get_data_timeout);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 		thread_add_timer_msec(mgmt_txn_tm,
@@ -2522,11 +3060,14 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 				if (cmtcfg_req
 				    && cmtcfg_req->subscr_info
 					       .xpath_subscr[adapter->id]
-					       .subscribed) {
+					       .subscr_info.subscribed) {
 					mgmt_txn_send_commit_cfg_reply(
 						txn, MGMTD_INTERNAL_ERROR,
 						"Backend daemon disconnected while processing commit!");
 				}
+			} else {
+				mgmt_txn_abort_get_data(txn,
+						"Backend daemon disconnected while processing GETDATA request!");
 			}
 		}
 	}
@@ -2534,16 +3075,11 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 	return 0;
 }
 
-int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create,
-				      bool success,
-				      struct mgmt_be_client_adapter *adapter)
+static int mgmt_txn_notify_cfg_txn_reply(struct mgmt_txn_ctx *txn, bool create,
+					 bool success,
+					 struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_txn_ctx *txn;
 	struct mgmt_commit_cfg_req *cmtcfg_req = NULL;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG)
-		return -1;
 
 	if (!create && !txn->commit_cfg_req)
 		return 0;
@@ -2576,6 +3112,75 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create,
 			mgmt_move_be_commit_to_next_phase(txn, adapter);
 	}
 
+	return 0;
+}
+
+static int mgmt_txn_notify_show_txn_reply(struct mgmt_txn_ctx *txn, bool create,
+				      	    bool success,
+				            struct mgmt_be_client_adapter *adapter)
+{
+	struct mgmt_txn_req *txn_req;
+	struct mgmt_get_data_req *getdata_req = NULL;
+	struct mgmt_be_datareq data_req = {0};
+	struct mgmt_txn_be_data_batch *data_btch;
+
+	if (!create)
+		return 0;
+
+	if (success) {
+		MGMTD_TXN_DBG("Sending xpath to client: %s txn-id: %lld",
+				mgmt_be_client_id2name(adapter->id), txn->txn_id);
+		/*
+		 * Send get data request to backend adapter
+		 */
+		FOREACH_TXN_REQ_IN_LIST (&txn->pending_get_datas, txn_req) {
+			getdata_req = txn_req->req.get_data;
+			FOREACH_TXN_DATA_BATCH_IN_LIST (
+				&txn_req->req.get_data
+					->batch_list[adapter->id],
+				data_btch) {
+				MGMTD_TXN_DBG("Sending xpath:%s batch: %lld txn-id: %lld", 
+						data_btch->get_data->data->xpath,
+						getdata_req->last_data_batch[adapter->id]->batch_id,
+						txn->txn_id);
+				data_req.getdata_reqs = data_btch->get_datap;
+				data_req.num_reqs = data_btch->num_get_data;
+				mgmt_be_send_get_data_req(adapter, txn->txn_id,
+					getdata_req->last_data_batch[adapter->id]->batch_id,
+					&data_req);
+			}
+		}
+		/*
+		 * Start the GETDATA Timeout Timer to abort Trxn if things get stuck at
+		 * backend.
+		 */
+		mgmt_txn_register_event(txn, MGMTD_TXN_GETDATA_TIMEOUT);
+	}
+
+	return 0;
+}
+
+int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create,
+				 bool success,
+				 struct mgmt_be_client_adapter *adapter)
+{
+	struct mgmt_txn_ctx *txn;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+
+	MGMTD_TXN_DBG("Got TXN REPLY from client: %s txn-id: %lld success: %d", mgmt_be_client_id2name(adapter->id), txn_id, success);
+	if (!txn || (txn->type != MGMTD_TXN_TYPE_CONFIG
+			&& txn->type != MGMTD_TXN_TYPE_SHOW))
+		return -1;
+
+	switch (txn->type) {
+	case MGMTD_TXN_TYPE_CONFIG:
+		return mgmt_txn_notify_cfg_txn_reply(txn, create, success, adapter);
+	case MGMTD_TXN_TYPE_SHOW:
+		return mgmt_txn_notify_show_txn_reply(txn, create, success, adapter);
+	case MGMTD_TXN_TYPE_NONE:
+		return -1;
+	}
 	return 0;
 }
 
@@ -2671,9 +3276,9 @@ int mgmt_txn_notify_be_cfg_validate_reply(
 
 extern int
 mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
-				       uint64_t batch_ids[],
-				       size_t num_batch_ids, char *error_if_any,
-				       struct mgmt_be_client_adapter *adapter)
+				   uint64_t batch_ids[],
+				   size_t num_batch_ids, char *error_if_any,
+				   struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
@@ -2695,7 +3300,8 @@ mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 			error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
-			"Internal error! Failed to apply config data on backend!");
+			error_if_any ? error_if_any :
+			"Internal error! Failed to process GET_DATA request on backend!");
 		return 0;
 	}
 
@@ -2716,7 +3322,7 @@ mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 		 * Send TXN-DELETE to wrap up the transaction for this backend.
 		 */
 		SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
-		mgmt_txn_send_be_txn_delete(txn, adapter);
+		mgmt_txn_send_be_txn_delete(txn->commit_cfg_req, adapter);
 	}
 
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
@@ -2744,6 +3350,88 @@ int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
 	}
 
 	return mgmt_txn_send_commit_cfg_reply(txn, result, error_if_any);
+}
+
+extern int
+mgmt_txn_notify_be_getdata_req_reply(uint64_t txn_id, bool success,
+				     uint64_t batch_id,
+				     Mgmtd__YangDataReply *data_reply,
+				     char *error_if_any,
+				     struct mgmt_be_client_adapter *adapter)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn_be_data_batch *batch;
+	struct mgmt_get_data_req *get_req = NULL;
+	struct mgmt_get_data_reply *get_reply;
+	Mgmtd__YangData *data;
+	Mgmtd__YangDataValue *data_value;
+	size_t indx;
+	enum mgmt_be_client_id id;
+	bool last_batch = false;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+	if (!txn || txn->type != MGMTD_TXN_TYPE_SHOW)
+		return -1;
+
+	batch = mgmt_txn_databatch_id2ctx(txn, batch_id, true);
+	if (!batch)
+		return -1;
+
+	txn_req = batch->txn_req;
+
+	if (!success) {
+		MGMTD_TXN_ERR(
+			"GETDATA_REQ sent to '%s' failed for Trxn %p, Batch [0x%llx], Err: %s",
+			adapter->name, txn, (unsigned long long)batch_id,
+			error_if_any ? error_if_any : "None");
+		mgmt_txn_send_get_data_reply(
+			txn_req, MGMTD_INTERNAL_ERROR,
+			error_if_any ? error_if_any :
+			"Internal error! Failed to process GET_DATA request on backend!");
+		return 0;
+	}
+
+	get_req = batch->txn_req->req.get_data;
+	get_reply = get_req->reply;
+	mgmt_init_get_data_reply(get_reply);
+	get_reply->num_reply = data_reply->n_data;
+	if (data_reply->next_indx == -1) {
+		last_batch = true;
+		mgmt_txn_data_batch_free(&batch);
+		FOREACH_MGMTD_BE_CLIENT_ID (id) {
+			zlog_debug("%s batch list size of client %d is %lu", __func__, id, mgmt_txn_data_batch_list_count(&get_req->batch_list[id]));
+			if (mgmt_txn_data_batch_list_count(&get_req->batch_list[id])) {
+				last_batch = false;
+				break;
+			}
+		}
+	}
+
+	get_reply->last_batch = last_batch;
+
+	for (indx = 0; indx < data_reply->n_data; indx++) {
+		data = &get_reply->reply_data[indx];
+		data_value = &get_reply->reply_value[indx];
+		mgmt_yang_data_init(data);
+		data->xpath = strndup(data_reply->data[indx]->xpath, MGMTD_MAX_XPATH_LEN);
+		mgmt_yang_data_value_init(data_value);
+		data_value->value_case = data_reply->data[indx]->value->value_case;
+		data_value->encoded_str_val = data_reply->data[indx]->value->encoded_str_val;
+		data->value = data_value;
+	}
+
+	mgmt_txn_send_getcfg_reply_data(txn_req, get_req);
+	if (get_reply->last_batch) {
+ 		/*
+ 		 * All data from the specific backend has been replied.
+ 		 * Send TXN-DELETE to wrap up the transaction for this backend.
+ 		 */
+ 		SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
+		mgmt_txn_req_free(&txn_req);
+ 	}
+
+	return 0;
 }
 
 int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,

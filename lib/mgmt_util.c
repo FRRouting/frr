@@ -267,7 +267,7 @@ int mgmt_xpath_find_first_wildcard(const char *xpath, int *key_end)
 }
 
 int mgmt_xpath_resolve_wildcard(char *xpath, int start_indx,
-				void (*get_child_fn)(char *base_xpath,
+				int (*get_child_fn)(char *base_xpath,
 						     char *child_xpath[],
 						     void *child_ctxt[],
 						     int *num_child,
@@ -315,7 +315,11 @@ int mgmt_xpath_resolve_wildcard(char *xpath, int start_indx,
 		xpath[start_indx + wc_key_start - 1] = '\0';
 	}
 	num_child = array_size(chld_xpath);
-	(*get_child_fn)(xpath, chld_xpath, chld_ctxt, &num_child, ctxt, xpath_key);
+	ret = (*get_child_fn)(xpath, chld_xpath, chld_ctxt, &num_child, ctxt, xpath_key);
+	if (ret) {
+		zlog_debug("%s Value of get child function %d", __func__, ret);
+		return ret;
+	}
 	if (wc_key_start >= 0)
 		xpath[start_indx + wc_key_start - 1] = orig;
 

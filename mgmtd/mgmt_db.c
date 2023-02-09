@@ -54,22 +54,22 @@ struct mgmt_db_ctx {
 	} root;
 };
 
-struct mgmt_db_iter_ctxt {
-	struct mgmt_db_ctx *db_ctxt;
-	void (*db_iter_fn)(struct mgmt_db_ctx *db_ctxt,
+struct mgmt_db_iter_ctx {
+	struct mgmt_db_ctx *db_ctx;
+	void (*db_iter_fn)(struct mgmt_db_ctx *db_ctx,
 			   char *xpath,
 			   struct lyd_node *node,
 			   struct nb_node *nb_node,
-			   void *ctxt);
+			   void *ctx);
 	char **xpaths;
 	int *num_nodes;
 	bool alloc_xpath_copy;
-	void *usr_ctxt;
+	void *usr_ctx;
 };
 
-struct mgmt_db_child_collect_ctxt {
+struct mgmt_db_child_collect_ctx {
 	char **child_xpath;
-	void **child_ctxt;
+	void **child_ctx;
 	int max_child;
 	int num_child;
 };
@@ -128,14 +128,14 @@ static int mgmt_db_dump_in_memory(struct mgmt_db_ctx *db_ctx,
 	return 0;
 }
 
-static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctxt,
+static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctx,
 			      char *base_xpath,
 			      struct lyd_node *base_dnode,
 			      void (*mgmt_db_node_iter_fn)(
-					struct mgmt_db_ctx *db_ctxt,
+					struct mgmt_db_ctx *db_ctx,
 					char *xpath, struct lyd_node *node,
-					struct nb_node *nb_node, void *ctxt),
-			      void *ctxt, char *xpaths[], int *num_nodes,
+					struct nb_node *nb_node, void *ctx),
+			      void *ctx, char *xpaths[], int *num_nodes,
 			      int tree_depth, bool alloc_xp_copy,
 			      bool iter_base)
 {
@@ -163,8 +163,8 @@ static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctxt,
 
 	if (!base_dnode)
 		base_dnode = yang_dnode_get(
-			db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
-					   : db_ctxt->root.dnode_root,
+			db_ctx->config_db ? db_ctx->root.cfg_root->dnode
+					   : db_ctx->root.dnode_root,
 			base_xpath);
 	if (!base_dnode)
 		return -1;
@@ -182,8 +182,8 @@ static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctxt,
 		 */
 		iter_xp = alloc_xp_copy ? strdup(base_xpath) : base_xpath;
 		nbnode = (struct nb_node *)base_dnode->schema->priv;
-		(*mgmt_db_node_iter_fn)(db_ctxt, iter_xp, base_dnode, nbnode,
-					ctxt);
+		(*mgmt_db_node_iter_fn)(db_ctx, iter_xp, base_dnode, nbnode,
+					ctx);
 
 		if (num_nodes) {
 			(*num_nodes)++;
@@ -229,8 +229,8 @@ static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctxt,
 		if (num_nodes)
 			num_found = num_left;
 
-		ret = mgmt_walk_db_nodes(db_ctxt, xpath, dnode,
-					 mgmt_db_node_iter_fn, ctxt,
+		ret = mgmt_walk_db_nodes(db_ctx, xpath, dnode,
+					 mgmt_db_node_iter_fn, ctx,
 					 xpaths ? &xpaths[*num_nodes] : NULL,
 					 num_nodes ? &num_found : NULL,
 					 same_as_base ?
@@ -257,75 +257,77 @@ static int mgmt_walk_db_nodes(struct mgmt_db_ctx *db_ctxt,
 	return 0;
 }
 
-static void mgmt_db_collect_child_node(struct mgmt_db_ctx *db_ctxt, char *xpath,
+static void mgmt_db_collect_child_node(struct mgmt_db_ctx *db_ctx, char *xpath,
 				       struct lyd_node *node,
-				       struct nb_node *nb_node, void *ctxt)
+				       struct nb_node *nb_node, void *ctx)
 {
-	struct mgmt_db_child_collect_ctxt *coll_ctxt;
+	struct mgmt_db_child_collect_ctx *coll_ctx;
 
-	coll_ctxt = (struct mgmt_db_child_collect_ctxt *) ctxt;
+	coll_ctx = (struct mgmt_db_child_collect_ctx *) ctx;
 
-	if (coll_ctxt->num_child >= coll_ctxt->max_child) {
+	if (coll_ctx->num_child >= coll_ctx->max_child) {
 		MGMTD_DB_ERR("Number of child %d exceeded maximum %d",
-			     coll_ctxt->num_child, coll_ctxt->max_child);
+			     coll_ctx->num_child, coll_ctx->max_child);
 		return;
 	}
 
-	coll_ctxt->child_xpath[coll_ctxt->num_child] = xpath;
-	coll_ctxt->child_ctxt[coll_ctxt->num_child] = node;
-	MGMTD_DB_DBG("   -- [%d] Child XPATH: %s", coll_ctxt->num_child+1,
-		     coll_ctxt->child_xpath[coll_ctxt->num_child]);
-	coll_ctxt->num_child++;
+	coll_ctx->child_xpath[coll_ctx->num_child] = xpath;
+	coll_ctx->child_ctx[coll_ctx->num_child] = node;
+	MGMTD_DB_DBG("   -- [%d] Child XPATH: %s", coll_ctx->num_child+1,
+		     coll_ctx->child_xpath[coll_ctx->num_child]);
+	coll_ctx->num_child++;
 }
 
-static void mgmt_db_get_child_nodes(char *base_xpath, char *child_xpath[],
-				    void *child_ctxt[], int *num_child,
-				    void *ctxt, char *xpath_key)
+static int mgmt_db_get_child_nodes(char *base_xpath, char *child_xpath[],
+				    void *child_ctx[], int *num_child,
+				    void *ctx, char *xpath_key)
 {
-	struct mgmt_db_iter_ctxt *iter_ctxt;
-	struct mgmt_db_ctx *db_ctxt;
+	struct mgmt_db_iter_ctx *iter_ctx;
+	struct mgmt_db_ctx *db_ctx;
 	int max_child;
-	struct mgmt_db_child_collect_ctxt coll_ctxt = { 0 };
+	struct mgmt_db_child_collect_ctx coll_ctx = { 0 };
 
-	iter_ctxt = (struct mgmt_db_iter_ctxt *)ctxt;
-	db_ctxt = iter_ctxt->db_ctxt;
+	iter_ctx = (struct mgmt_db_iter_ctx *)ctx;
+	db_ctx = iter_ctx->db_ctx;
 	max_child = *num_child;
 	*num_child = 0;
-	coll_ctxt.child_ctxt = child_ctxt;
-	coll_ctxt.child_xpath = child_xpath;
-	coll_ctxt.max_child = max_child;
-	mgmt_walk_db_nodes(db_ctxt, base_xpath, NULL,
-			   mgmt_db_collect_child_node, &coll_ctxt,
+	coll_ctx.child_ctx = child_ctx;
+	coll_ctx.child_xpath = child_xpath;
+	coll_ctx.max_child = max_child;
+	mgmt_walk_db_nodes(db_ctx, base_xpath, NULL,
+			   mgmt_db_collect_child_node, &coll_ctx,
 			   NULL, NULL, 1, true, false);
-	*num_child = coll_ctxt.num_child;
+	*num_child = coll_ctx.num_child;
+
+	return 0;
 }
 
-static int mgmt_db_iter_data_nodes(char *node_xpath, void *node_ctxt,
-				   void *ctxt)
+static int mgmt_db_iter_data_nodes(char *node_xpath, void *node_ctx,
+				   void *ctx)
 {
-	struct mgmt_db_iter_ctxt *iter_ctxt;
-	struct mgmt_db_ctx *db_ctxt;
+	struct mgmt_db_iter_ctx *iter_ctx;
+	struct mgmt_db_ctx *db_ctx;
 	struct lyd_node *dnode;
 
-	iter_ctxt = (struct mgmt_db_iter_ctxt *)ctxt;
-	db_ctxt = iter_ctxt->db_ctxt;
-	dnode = (struct lyd_node *)node_ctxt;
+	iter_ctx = (struct mgmt_db_iter_ctx *)ctx;
+	db_ctx = iter_ctx->db_ctx;
+	dnode = (struct lyd_node *)node_ctx;
 
 	if (!dnode) {
-		dnode = yang_dnode_get(db_ctxt->config_db ? 
-				       db_ctxt->root.cfg_root->dnode :
-				       db_ctxt->root.dnode_root,
+		dnode = yang_dnode_get(db_ctx->config_db ? 
+				       db_ctx->root.cfg_root->dnode :
+				       db_ctx->root.dnode_root,
 				       node_xpath);
 		if (!dnode)
 			return -1;
 	}
 
-	return mgmt_walk_db_nodes(db_ctxt, node_xpath, dnode,
-				  iter_ctxt->db_iter_fn,
-				  iter_ctxt->usr_ctxt,
-				  iter_ctxt->xpaths,
-				  iter_ctxt->num_nodes, -1,
-				  iter_ctxt->alloc_xpath_copy, true);
+	return mgmt_walk_db_nodes(db_ctx, node_xpath, dnode,
+				  iter_ctx->db_iter_fn,
+				  iter_ctx->usr_ctx,
+				  iter_ctx->xpaths,
+				  iter_ctx->num_nodes, -1,
+				  iter_ctx->alloc_xpath_copy, true);
 }
 
 static int mgmt_db_replace_dst_with_src_db(struct mgmt_db_ctx *src,
@@ -958,7 +960,7 @@ int mgmt_db_iter_data(struct mgmt_db_ctx *db_ctx, char *base_xpath,
 	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
-	struct mgmt_db_iter_ctxt iter_ctxt =  { 0 };
+	struct mgmt_db_iter_ctx iter_ctx =  { 0 };
 
 	if (!db_ctx)
 		return -1;
@@ -988,16 +990,16 @@ int mgmt_db_iter_data(struct mgmt_db_ctx *db_ctx, char *base_xpath,
 		      				ctx, alloc_xp_copy);
 		}
 	} else {
-		iter_ctxt.db_ctxt = db_ctx;
-		iter_ctxt.db_iter_fn = mgmt_db_node_iter_fn;
-		iter_ctxt.alloc_xpath_copy = alloc_xp_copy;
-		iter_ctxt.xpaths = NULL;
-		iter_ctxt.num_nodes = NULL;
-		iter_ctxt.usr_ctxt = ctx;
+		iter_ctx.db_ctx = db_ctx;
+		iter_ctx.db_iter_fn = mgmt_db_node_iter_fn;
+		iter_ctx.alloc_xpath_copy = alloc_xp_copy;
+		iter_ctx.xpaths = NULL;
+		iter_ctx.num_nodes = NULL;
+		iter_ctx.usr_ctx = ctx;
 		ret = mgmt_xpath_resolve_wildcard(base_xpath, 0,
 					mgmt_db_get_child_nodes,
 					mgmt_db_iter_data_nodes,
-					(void *)&iter_ctxt, 0);
+					(void *)&iter_ctx, 0);
 	}
 
 	return ret;
