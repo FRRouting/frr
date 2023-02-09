@@ -448,6 +448,26 @@ function load_log(timetable, obj) {
 	/* TODO: obj.data.args */
 }
 
+function load_vtysh(timetable, obj) {
+	var row;
+
+	row = create(timetable, "div", "clicmd");
+	row.obj = obj;
+
+	create(row, "span", "tstamp", (obj.ts - ts_start).toFixed(3));
+	create(row, "span", "rtrname", obj.data.router);
+	create(row, "span", "dmnname", obj.data.daemon);
+	create(row, "span", "clicmdtext", obj.data.command);
+
+	if (obj.data.text) {
+		row.classList.add("cli-has-out");
+		row.onclick = onclickclicmd;
+
+		var textrow = create(timetable, "div", "cliout");
+		create(textrow, "span", "cliouttext", obj.data.text);
+	}
+}
+
 function load_protocols(obj, row, protodefs, protos) {
 	while (protos.length > 0) {
 		var proto = protos.shift();
@@ -777,6 +797,8 @@ function init() {
 			load_packet(timetable, obj, pdmltree);
 		else if (obj.data.type == "log")
 			load_log(timetable, obj);
+		else if (obj.data.type == "vtysh")
+			load_vtysh(timetable, obj);
 	}
 
 	anchor_update();

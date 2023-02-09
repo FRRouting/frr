@@ -24,6 +24,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    Generator,
     List,
     Literal,
     Mapping,
@@ -37,9 +38,10 @@ from typing import (
 import jinja2
 
 from .utils import deindent, ClassHooks
-from .timeline import Timeline
+from .timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
 from .exceptions import TopotatoDaemonCrash
+from .pcapng import Context
 
 if typing.TYPE_CHECKING:
     from . import toponom
@@ -341,6 +343,144 @@ class FRRConfigs(dict, ClassHooks):
         return cls
 
 
+class TimedVtysh(TimedElement):
+    """
+    Record output from an FRR vtysh invocation.
+
+    This creates the appropriate wrapping for vtysh output to go into the
+    :py:class:`Timeline`.
+
+    One instance of this class represents only one vtysh command, if executing
+    multiple commands in one go they each receive their own object.
+    """
+
+    rtrname: str
+    daemon: str
+
+    cmd: str
+    """vtysh command that was executed.  Whitespace is stripped."""
+
+    retcode: int
+    """
+    vtysh return code.
+
+    .. todo::
+
+       wrap ``CMD_*`` enum values from ``command.h``.
+    """
+
+    text: str
+    """command output.  Whitespace is NOT stripped."""
+
+    last: bool
+    """
+    Set if this command is the last of a multi-command batch.
+
+    This is used to know when to stop running the Timeline event poller.
+    """
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        ts: float,
+        rtrname: str,
+        daemon: str,
+        cmd: str,
+        retcode: int,
+        text: str,
+        last: bool,
+    ):
+        super().__init__()
+        self._ts = ts
+        self.rtrname = rtrname
+        self.daemon = daemon
+        self.cmd = cmd
+        self.retcode = retcode
+        self.text = text
+        self.last = last
+
+    @property
+    def ts(self):
+        return (self._ts, 0)
+
+    def serialize(self, context: Context):
+        jsdata = {
+            "type": "vtysh",
+            "router": self.rtrname,
+            "daemon": self.daemon,
+            "command": self.cmd,
+            "retcode": self.retcode,
+            "text": self.text,
+        }
+        return (jsdata, None)
+
+
+class VtyshPoll(MiniPollee):
+    """
+    vtysh read poll event handler.
+
+    Instances of this class are dynamically added (and removed) from the
+    :py:class:`Timeline` event poll list while commands are executed.
+
+    This also handles sending the next command when the previous one is done.
+    """
+
+    rtrname: str
+    daemon: str
+
+    _cur_cmd: Optional[str]
+    _cur_out: Optional[bytes]
+
+    def __init__(self, rtrname: str, daemon: str, sock: socket.socket, cmds: List[str]):
+        self.rtrname = rtrname
+        self.daemon = daemon
+        self._sock = sock
+        self._cmds = cmds
+        self._cur_cmd = None
+        self._cur_out = None
+
+    def send_cmd(self):
+        assert self._cur_cmd is None
+
+        if not self._cmds:
+            return
+
+        self._cur_cmd = cmd = self._cmds.pop(0)
+        self._cur_out = b""
+
+        self._sock.setblocking(True)
+        self._sock.sendall(cmd.strip().encode("UTF-8") + b"\0")
+        self._sock.setblocking(False)
+
+    def fileno(self) -> Optional[int]:
+        return self._sock.fileno()
+
+    def readable(self) -> Generator[TimedElement, None, None]:
+        # TODO: timeout? socket close?
+        assert self._cur_cmd is not None
+        assert self._cur_out is not None
+
+        self._cur_out += self._sock.recv(4096)
+
+        if len(self._cur_out) >= 4 and self._cur_out[-4:-1] == b"\0\0\0":
+            rc = self._cur_out[-1]
+            raw = self._cur_out[:-4]
+            text = raw.decode("UTF-8").replace("\r\n", "\n")
+
+            # accept a few more non-error return codes?
+            last = rc != 0 or not self._cmds
+
+            yield TimedVtysh(
+                time.time(), self.rtrname, self.daemon, self._cur_cmd, rc, text, last
+            )
+
+            self._cur_cmd = None
+            self._cur_out = None
+
+            if not last:
+                self.send_cmd()
+
+
 class FRRNetworkInstance(NetworkInstance):
     """
     Main network representation & interface, adding the FRR bits to NetworkInstance
@@ -512,6 +652,33 @@ class FRRNetworkInstance(NetworkInstance):
                         break
 
             return (ret.decode("UTF-8").replace("\r\n", "\n"), rc)
+
+        def vtysh_polled(self, timeline: Timeline, daemon, cmds, timeout=5.0):
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+            fn = self.tempfile("run/%s.vty" % (daemon))
+
+            sock.connect(fn)
+            cmds = [c.strip() for c in cmds.splitlines() if c.strip() != ""]
+
+            # TODO: refactor & reintegrate with vtysh_fast
+            vpoll = VtyshPoll(self.name, daemon, sock, cmds)
+
+            text = []
+            retcode = None
+
+            with timeline.with_pollee(vpoll) as poller:
+                vpoll.send_cmd()
+
+                end = time.time() + timeout
+                for event in poller.run_iter(end):
+                    if not isinstance(event, TimedVtysh):
+                        continue
+                    text.append(event.text)
+                    retcode = event.retcode
+                    if event.last:
+                        break
+
+            return ("".join(text), retcode)
 
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)

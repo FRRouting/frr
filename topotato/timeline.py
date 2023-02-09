@@ -280,3 +280,18 @@ class Timeline(MiniPoller, List[TimedElement]):
 
     def uninstall(self, pollee: MiniPollee):
         self.pollees.remove(pollee)
+
+    class WithPollee:
+        def __init__(self, poller: "Timeline", pollee: MiniPollee):
+            self._poller = poller
+            self._pollee = pollee
+
+        def __enter__(self):
+            self._poller.install(self._pollee)
+            return self._poller
+
+        def __exit__(self, exc_type, exc_value, tb):
+            self._poller.uninstall(self._pollee)
+
+    def with_pollee(self, pollee: MiniPollee):
+        return self.WithPollee(self, pollee)

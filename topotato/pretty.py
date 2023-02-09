@@ -16,8 +16,7 @@ import tempfile
 import logging
 from xml.etree import ElementTree
 
-import typing
-from typing import Dict, Type
+from typing import Dict, Type, Optional
 
 import docutils.core
 import jinja2
@@ -27,24 +26,11 @@ from . import base, assertions
 from .utils import ClassHooks, exec_find, deindent
 from .scapy import ScapySend
 from .timeline import TimedElement
-from .pcapng import Sink, SectionHeader, Context
-
-if not typing.TYPE_CHECKING:
-    from py.xml import html  # pylint: disable=no-name-in-module,import-error
-else:
-
-    class html:
-        class div:
-            pass
-
-        class span:
-            pass
-
-        class pre:
-            pass
+from .pcapng import Sink, SectionHeader
 
 
 logger = logging.getLogger("topotato")
+
 
 def _docrender(item):
     obj = item.obj
@@ -58,68 +44,12 @@ def _docrender(item):
     parts = docutils.core.publish_parts(docstr, writer_name="html4")
     return markupsafe.Markup(f"<div class=\"docstring\">{parts['fragment']}</div>")
 
+
 jenv = jinja2.Environment(
     loader=jinja2.PackageLoader("topotato.pretty", "html"),
     autoescape=True,
 )
 jenv.filters["docrender"] = _docrender
-
-
-class fmt(html):
-    """custom styling"""
-
-    class _cssclass:
-        class_: str
-
-        def __init__(self, *args, **kwargs):
-            if getattr(self, "class_", None) is not None:
-                kwargs.setdefault("class_", self.class_)
-            super().__init__(*args, **kwargs)
-
-    class timetable(_cssclass, html.div):
-        class_ = "timetable"
-
-    class tstamp(_cssclass, html.span):
-        class_ = "tstamp"
-
-    class rtrname(_cssclass, html.span):
-        class_ = "rtrname"
-
-    class dmnname(_cssclass, html.span):
-        class_ = "dmnname"
-
-    class logmsg(_cssclass, html.div):
-        class_ = "logmsg"
-
-    class logtext(_cssclass, html.span):
-        class_ = "logtext"
-
-    class logarg(_cssclass, html.span):
-        class_ = "logarg"
-
-    class logmeta(_cssclass, html.span):
-        class_ = "logmeta"
-
-    class uid(_cssclass, html.span):
-        class_ = "uid"
-
-    class logprio(_cssclass, html.span):
-        class_ = "logprio"
-
-    class clicmd(_cssclass, html.div):
-        class_ = "clicmd"
-
-    class clicmdtext(_cssclass, html.span):
-        class_ = "clicmdtext"
-
-    class cliout(_cssclass, html.div):
-        class_ = "cliout"
-
-    class cliouttext(_cssclass, html.pre):
-        class_ = "cliouttext"
-
-    class assertmatchitem(_cssclass, html.div):
-        class_ = "assert-match-item"
 
 
 # migrate to javascript
@@ -315,12 +245,14 @@ class PrettyTopotatoFunc(PrettyItem, matches=base.TopotatoFunction):
 
 
 class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
+    idx: Optional[int]
+
     def __init__(self, prettysession, item):
         super().__init__(prettysession, item)
         self.timed = []
         self.ts_end = None
         self.instance = None
-        self.html = None
+        self.idx = None
 
     def when_call(self, call, result):
         super().when_call(call, result)
@@ -333,14 +265,6 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
         if not hasattr(self.instance, "pretty"):
             self.instance.pretty = PrettyInstance(self.prettysession, self.instance)
         self.instance.pretty.append(self)
-
-    def finalize(self, idx):
-        loghtml = fmt.timetable()
-        for subidx, e in enumerate(self.timed):
-            loghtml.extend(e.html("i%di%d" % (idx, subidx), self.instance.ts_rel))
-            loghtml.append("\n")
-
-        self.html = loghtml
 
 
 class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
@@ -391,9 +315,6 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 
     def when_call(self, call, result):
         super().when_call(call, result)
-
-        for idx, prettyitem in enumerate(self.instance.pretty):
-            prettyitem.finalize(idx)
 
         # FIXME: flush scapy sockets / timeline(final=True)!
 
@@ -448,65 +369,6 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 
 class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
     template = jenv.get_template("item_vtysh.html.j2")
-
-    # pylint: disable=too-many-instance-attributes
-    class Line(TimedElement):
-        # pylint: disable=too-many-arguments
-        def __init__(self, ts, router, daemon, cmd, out, rc, result, same):
-            super().__init__()
-
-            #    delaytext = (' <span class="delay">(after %.2fs)</span>' % after) if after is not None else ""
-            #    ver_text.append('<dt><span class="rtr">%s</span> <span class="daemon">%s</span> <span class="cmd">%s</span> <span class="status status-%d">%d</span>%s</dt><dd>%s</dd>' % (
-            #        rtr, daemon, cmd, rc, rc, delaytext, out))
-
-            self._ts = ts
-            self._router = router
-            self._daemon = daemon
-            self._cmd = cmd
-            self._out = out
-            self._rc = rc
-            self._result = result
-            self._same = same
-
-        @property
-        def ts(self):
-            return (self._ts, 0)
-
-        def serialize(self, context: Context):
-            return (None, None)
-
-        def html(self, id_, ts_rel):
-            clicmd = fmt.clicmd(
-                [
-                    fmt.tstamp("%.3f" % (self._ts - ts_rel)),
-                    fmt.rtrname(self._router),
-                    fmt.dmnname(self._daemon),
-                    fmt.clicmdtext(self._cmd),
-                ]
-            )
-            clicmd.attr.id = id_
-            if self._same:
-                clicmd.attr.class_ += " cli-same"
-
-            ret = [clicmd]
-            if self._out.strip() != "":
-                clicmd.attr.onclick = "onclickclicmd(event);"
-                clicmd.attr.class_ += " cli-has-out"
-                ret.append(fmt.cliout([fmt.cliouttext(self._out)]))
-            return ret
-
-    def when_call(self, call, result):
-        super().when_call(call, result)
-
-        for rtr, daemon in self.item.commands.keys():
-            cmds = self.item.commands[rtr, daemon]
-            prev_out = None
-
-            for ts, cmd, out, rc, cresult in cmds:
-                self.timed.append(
-                    self.Line(ts, rtr, daemon, cmd, out, rc, cresult, prev_out == out)
-                )
-                prev_out = out
 
 
 class PrettyScapy(PrettyTopotato, matches=ScapySend):
