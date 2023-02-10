@@ -75,11 +75,6 @@
 #include <endian.h>
 #endif
 
-/* machine dependent includes */
-#ifdef HAVE_LINUX_VERSION_H
-#include <linux/version.h>
-#endif /* HAVE_LINUX_VERSION_H */
-
 #ifdef HAVE_ASM_TYPES_H
 #include <asm/types.h>
 #endif /* HAVE_ASM_TYPES_H */
