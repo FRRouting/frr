@@ -793,7 +793,9 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Nov 01 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Feb 07 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Tue Feb 07 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5
 
 * Tue Nov 01 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4
 - New BGP command (neighbor PEER soo) to configure SoO to prevent routing loops and suboptimal routing on dual-homed sites.
