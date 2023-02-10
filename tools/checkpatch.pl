@@ -3627,7 +3627,9 @@ sub process {
 
 # no C99 // comments
 		if ($line =~ m{//}) {
-			if (!$allow_c99_comments) {
+			if ($rawlines[$linenr - 1] =~ /SPDX-License-Identifier:/) {
+				# ignore
+			} elsif (!$allow_c99_comments) {
 				if(ERROR("C99_COMMENTS",
 					 "do not use C99 // comments\n" . $herecurr) &&
 				   $fix) {
