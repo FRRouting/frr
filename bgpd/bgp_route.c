@@ -184,9 +184,12 @@ struct bgp_dest *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 {
 	struct bgp_path_info_extra *new;
+	uint32_t i;
+
 	new = XCALLOC(MTYPE_BGP_ROUTE_EXTRA,
 		      sizeof(struct bgp_path_info_extra));
-	new->label[0] = MPLS_INVALID_LABEL;
+	for (i = 0; i < BGP_MAX_LABELS; i++)
+		new->label[i] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
 	new->bgp_fs_pbr = NULL;
 	new->bgp_fs_iprule = NULL;
