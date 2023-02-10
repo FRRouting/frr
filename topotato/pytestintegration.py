@@ -149,7 +149,7 @@ def pytest_sessionstart(session):
     session.pretty = PrettySession(session, reportato_dir, source_url)
 
 
-@pytest.mark.hookwrapper
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
