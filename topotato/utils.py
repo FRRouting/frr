@@ -194,6 +194,10 @@ def _json_list_cmp(list1, list2, parent, result):
         return
 
     flags = [{}, {}]
+    # don't modify input list with l.pop(0) below...
+    list1 = list1[:]
+    list2 = list2[:]
+
     for i, l in [(0, list1), (1, list2)]:
         while l and isinstance(l[0], JSONCompareDirective):
             item = l.pop(0)
