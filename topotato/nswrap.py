@@ -164,7 +164,7 @@ class LinuxNamespace:
         nsname = sys.argv[1]
         frrtmp = "/var/tmp/frr"
 
-        subprocess.check_call(["hostname", nsname])
+        subprocess.check_call(["hostname", nsname.replace("_", "-")])
         try:
             os.mkdir(frrtmp)
         except FileExistsError:
