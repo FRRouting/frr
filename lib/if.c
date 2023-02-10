@@ -234,6 +234,11 @@ static struct interface *if_create_name(const char *name, struct vrf *vrf)
 	return ifp;
 }
 
+struct interface *if_create_virtual(struct vrf *vrf)
+{
+	return if_create_name("", vrf);
+}
+
 /* Create new interface structure. */
 void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 {
