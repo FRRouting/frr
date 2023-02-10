@@ -65,7 +65,8 @@ function hideall(evt) {
 var anchor_active = null;
 var anchor_current = {};
 const anchor_defaults = {
-	"log": "ewni"
+	"log": "ewni",
+	"cli": null,
 };
 
 const log_keys = {
@@ -114,8 +115,26 @@ function log_show(key, sel) {
 	}
 }
 
+function cli_show(key, sel) {
+	var show_normal = (sel !== "-");
+	var show_repeat = (sel === "r");
+
+	console.log("cli_show", key, sel);
+	for (target of Array.from(document.getElementsByClassName("clicmd"))) {
+		var vis = target.classList.contains("cli-same") ? show_repeat : show_normal;
+
+		if (vis)
+			target.style.display = "contents";
+		else
+			target.style.display = "none";
+	}
+
+	document.getElementById("cf-cli-repeat").disabled = !show_normal;
+}
+
 const anchor_funcs = {
 	"log": log_show,
+	"cli": cli_show,
 };
 
 function anchor_apply(opts) {
@@ -211,6 +230,22 @@ function onclicklog(evt) {
 		}
 		opts["log"] = optstr.join("");
 	}
+	anchor_export(opts);
+}
+
+function onclickcli(evt) {
+	const srcid = evt.target.id;
+	const checked = evt.target.checked;
+
+	opts = {...anchor_current};
+
+	if (!document.getElementById("cf-cli").checked)
+		opts["cli"] = "-";
+	else if (document.getElementById("cf-cli-repeat").checked)
+		opts["cli"] = "r";
+	else
+		opts["cli"] = null;
+
 	anchor_export(opts);
 }
 
@@ -450,6 +485,7 @@ function load_log(timetable, obj) {
 
 function load_vtysh(timetable, obj) {
 	var row;
+	var prev_cmds = timetable.querySelectorAll("div.clicmd");
 
 	row = create(timetable, "div", "clicmd");
 	row.obj = obj;
@@ -465,6 +501,12 @@ function load_vtysh(timetable, obj) {
 
 		var textrow = create(timetable, "div", "cliout");
 		create(textrow, "span", "cliouttext", obj.data.text);
+
+		if (prev_cmds.length > 0) {
+			var last_cmd = prev_cmds[prev_cmds.length - 1];
+			if (last_cmd.obj.data.text == obj.data.text)
+				row.classList.add("cli-same");
+		}
 	}
 }
 
