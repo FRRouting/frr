@@ -402,9 +402,6 @@ typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
 
-/* Name of hook calls */
-#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
-
 #ifdef __cplusplus
 }
 #endif
