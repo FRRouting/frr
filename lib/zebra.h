@@ -75,10 +75,6 @@
 #include <endian.h>
 #endif
 
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
-
 /* misc include group */
 #include <stdarg.h>
 
