@@ -32,7 +32,6 @@
 #include "filter.h"
 #include "vty.h"
 #include "sigevent.h"
-#include "lib/version.h"
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"
