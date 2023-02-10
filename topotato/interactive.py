@@ -37,9 +37,11 @@ class Interactive:
     pause_on_fail: bool = False
 
     def __init__(self):
-        if not os.path.isdir(taskbasedir):
+        try:
             os.mkdir(taskbasedir)
             os.chmod(taskbasedir, 0o1777)
+        except FileExistsError:
+            pass
 
     def _post(self, content: Dict[str, Any]):
         with self.statefile as fd:
