@@ -1907,7 +1907,8 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		return false;
 	}
 
-	if (debug)
+	rd_buf[0] = '\0';
+	if (debug && prd)
 		prefix_rd2str(prd, rd_buf, sizeof(rd_buf), to_bgp->asnotation);
 
 	/* A route MUST NOT ever be accepted back into its source VRF, even if
