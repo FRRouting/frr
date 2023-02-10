@@ -101,14 +101,14 @@ function log_show(key, sel) {
 
 	for (target of Array.from(document.getElementsByClassName("logmsg"))) {
 		var enable = false;
-		var prio = Array.from(target.classList).filter(s => s.startsWith("prio-"))[0]
+		var prio = Array.from(target.classList).filter(s => s.startsWith("prio-"))[0];
 
 		if (prio === undefined)
 			prio = "prio-startup";
 		if (prio in enabled)
 			enable = enabled[prio];
 		else
-			enable = true;
+			enable = (sel != "-");
 		if (target.classList.contains("assert-match"))
 			enable = true;
 		target.style.display = enable ? "contents" : "none";
