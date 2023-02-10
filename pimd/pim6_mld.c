@@ -2737,7 +2737,7 @@ static void gm_show_joins_one(struct vty *vty, struct gm_if *gm_ifp,
 		}
 
 		js_src = json_object_new_object();
-		json_object_object_addf(js_group, js_src, "%pPA",
+		json_object_object_addf(js_group, js_src, "%pPAs",
 					&sg->sgaddr.src);
 
 		json_object_string_add(js_src, "state", gm_states[sg->state]);
@@ -2800,6 +2800,7 @@ static void gm_show_joins_vrf(struct vty *vty, struct vrf *vrf,
 
 	if (js) {
 		js_vrf = json_object_new_object();
+		json_object_string_add(js_vrf, "vrf", vrf->name);
 		json_object_object_add(js, vrf->name, js_vrf);
 	}
 
