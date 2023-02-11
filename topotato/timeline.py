@@ -240,13 +240,17 @@ class Timeline(MiniPoller, List[TimedElement]):
     def record(self, element: TimedElement):
         bisect.insort(self, element)
 
-    def serialize(self, sink: Sink):
+    def serialize(self, sink: Sink) -> Tuple[List, Dict[str, Any]]:
         ret = []
+        toplevel: Dict[str, Any] = {}
 
         for poller in self.pollees:
-            for _, block in poller.serialize(sink):
+            for jsdata, block in poller.serialize(sink):
                 if block:
                     sink.write(block)
+                if jsdata:
+                    for k, v in jsdata.items():
+                        toplevel.setdefault(k, {}).update(v)
 
         for item in self:
             jsdata, block = item.serialize(sink)
@@ -254,7 +258,7 @@ class Timeline(MiniPoller, List[TimedElement]):
                 ret.append({"ts": item.ts[0], "data": jsdata})
             if block:
                 sink.write(block)
-        return ret
+        return ret, toplevel
 
     def iter_since(
         self, start: float = float("-inf")

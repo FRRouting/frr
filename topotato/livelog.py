@@ -11,7 +11,7 @@ import syslog
 from collections import namedtuple
 
 import typing
-from typing import Dict, Generator, Optional, Tuple
+from typing import Dict, Generator, Optional, Set, Tuple
 
 from .timeline import MiniPollee, TimedElement
 from .pcapng import JournalExport, Context
@@ -238,11 +238,17 @@ class LiveLog(MiniPollee):
     are received from the fd through the topotato event loop.
     """
 
+    xrefs_seen: Set[str]
+    """
+    All FRR unique xref identifiers seen in log messages on this socket.
+    """
+
     def __init__(self, router: "FRRNetworkInstance.RouterNS", daemon: str):
         super().__init__()
 
         self._router = router
         self._daemon = daemon
+        self.xrefs_seen = set()
 
         rdfd, wrfd = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         rdfd.setblocking(False)
@@ -321,4 +327,19 @@ class LiveLog(MiniPollee):
                 self._rdfd = None
                 return
 
-            yield LogMessage(self._router, self._daemon, rddata)
+            logmsg = LogMessage(self._router, self._daemon, rddata)
+            self.xrefs_seen.add(logmsg.uid)
+            yield logmsg
+
+    def serialize(self, context: Context):
+        """
+        Output subset of xrefs data for javascript to look up on.
+        """
+        all_xrefs = self._router.xrefs()
+        xrefs = {
+            uid: data
+            for uid, data in all_xrefs["refs"].items()
+            if uid in self.xrefs_seen
+        }
+
+        yield ({"xrefs": xrefs}, None)

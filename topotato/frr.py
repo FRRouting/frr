@@ -513,6 +513,9 @@ class FRRNetworkInstance(NetworkInstance):
                 self.instance.timeline.install(self.livelogs[daemon])
             return self.livelogs[daemon].wrfd
 
+        def xrefs(self):
+            return FRRConfigs.xrefs
+
         def start(self):
             super().start()
 

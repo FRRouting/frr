@@ -16,7 +16,7 @@ import tempfile
 import logging
 from xml.etree import ElementTree
 
-from typing import Dict, Type, Optional
+from typing import Dict, List, Type, Optional
 
 import docutils.core
 import jinja2
@@ -170,6 +170,9 @@ class PrettyInstance(list):
         data["timed"] = items[-1]._jsdata
         if items[-1]._pdml:
             data["pdml"] = items[-1]._pdml
+        # ugh...
+        for k, v in items[-1]._jstoplevel.items():
+            data.setdefault(k, {}).update(v)
         data_json = json.dumps(data, ensure_ascii=True).encode("ASCII")
         data_bz = base64.b64encode(zlib.compress(data_json, level=6)).decode("ASCII")
 
@@ -311,7 +314,8 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
 class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
     _pcap: bytes
     _pdml: str
-    _jsdata = str
+    _jsdata: List
+    _jstoplevel: Dict
 
     def when_call(self, call, result):
         super().when_call(call, result)
@@ -325,7 +329,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
             shdr = SectionHeader()
             pcapng.write(shdr)
 
-            jsdata = self.instance.timeline.serialize(pcapng)
+            jsdata, jstoplevel = self.instance.timeline.serialize(pcapng)
             pcapng.flush()
 
             fd.seek(0)
@@ -357,6 +361,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 
             self._pdml = pdml.decode("UTF-8")
             self._jsdata = jsdata
+            self._jstoplevel = jstoplevel
 
         self.instance.pretty.report()
 

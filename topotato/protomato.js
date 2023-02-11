@@ -464,7 +464,7 @@ function create(parent_, tagname, clsname, text = undefined) {
 	return element;
 }
 
-function load_log(timetable, obj) {
+function load_log(timetable, obj, xrefs) {
 	var row, logmeta;
 
 	row = create(timetable, "div", "logmsg");
@@ -476,7 +476,28 @@ function load_log(timetable, obj) {
 	create(row, "span", "dmnname", obj.data.daemon);
 
 	logmeta = create(row, "span", "logmeta");
-	create(logmeta, "span", "uid", obj.data.uid);
+	if (obj.data.uid in xrefs) {
+		var srclocs = new Set();
+
+		for (srcloc of xrefs[obj.data.uid]) {
+			srclocs.add([srcloc["file"], srcloc["line"]]);
+		}
+		if (srclocs.size != 1) {
+			var uidspan = create(logmeta, "span", "uid uid-ambiguous", obj.data.uid);
+			uidspan.title = "xref uid is ambiguous";
+		} else {
+			[xref_file, xref_line] = Array.from(srclocs)[0];
+			row.xref_file = xref_file;
+			row.xref_line = xref_line;
+
+			var uidspan = create(logmeta, "a", "uid", obj.data.uid);
+			uidspan.title = `${xref_file} line ${xref_line}`;
+			/* TODO: uidspan.href = `${xref_file}#L${xref_line}`; */
+		}
+	} else {
+		var uidspan = create(logmeta, "span", "uid uid-unknown", obj.data.uid);
+		uidspan.title = "xref uid not found";
+	}
 
 	create(row, "span", "logprio", obj.data.prio);
 	logtext = create(row, "span", "logtext", "");
@@ -894,7 +915,7 @@ function init() {
 		if (obj.data.type == "packet")
 			load_packet(timetable, obj, pdmltree);
 		else if (obj.data.type == "log")
-			load_log(timetable, obj);
+			load_log(timetable, obj, jsdata["xrefs"]);
 		else if (obj.data.type == "vtysh")
 			load_vtysh(timetable, obj);
 	}

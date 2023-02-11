@@ -304,6 +304,14 @@ svg {
 	content:"⋄";
 	color: #00e;
 }
+.logmeta .uid-unknown:after {
+	content:" ⍰";
+	color: #e00;
+}
+.logmeta .uid-ambiguous:after {
+	content:" ⌹";
+	color: #c60;
+}
 
 .logprio {
 	grid-column-start: 5;
