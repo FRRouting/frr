@@ -479,8 +479,15 @@ function load_log(timetable, obj) {
 	create(logmeta, "span", "uid", obj.data.uid);
 
 	create(row, "span", "logprio", obj.data.prio);
-	create(row, "span", "logtext", obj.data.text.substr(obj.data.arghdrlen));
-	/* TODO: obj.data.args */
+	logtext = create(row, "span", "logtext", "");
+
+	var prev_e = obj.data.arghdrlen;
+	for ([s, e] of Object.values(obj.data.args)) {
+		logtext.append(obj.data.text.substr(prev_e, s - prev_e));
+		create(logtext, "span", "logarg", obj.data.text.substr(s, e - s));
+		prev_e = e;
+	}
+	logtext.append(obj.data.text.substr(prev_e));
 }
 
 function load_vtysh(timetable, obj) {
