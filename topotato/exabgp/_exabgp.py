@@ -11,8 +11,9 @@ from pathlib import Path
 import tempfile
 import time
 
-from jinja2 import Environment
+from typing import Optional
 
+from jinja2 import Environment
 
 from topotato.assertions import TopotatoModifier
 from topotato.base import skiptrace
@@ -38,7 +39,9 @@ class ExaBGP:
     >>> yield from self.peer.stop()
     """
 
-    def __init__(self, rtr: Router, conf: str, custom_environment: str = None):
+    def __init__(
+        self, rtr: Router, conf: str, custom_environment: Optional[str] = None
+    ):
         self._all_routers = rtr.network.routers
         self._rtr = rtr
         self._conf = conf
@@ -94,6 +97,7 @@ class ExaBGP:
                 os.mkfifo(f"{exabgp_cli_file_path}.in", mode=0o600)
                 os.mkfifo(f"{exabgp_cli_file_path}.out", mode=0o600)
 
+            # pylint: disable=protected-access
             def create_env():
                 env_dir = os.path.join(tempdir, "exabgp.env")
 
@@ -156,7 +160,7 @@ class ExaBGP:
             )
 
             self.is_cli_ok()
-            
+
         def run(self):
             router = self.instance.routers[self._rtr.name]
             path = self._cmdobj.path
@@ -176,6 +180,15 @@ class ExaBGP:
             self.is_bgp_daemon_running()
 
     class Execute(Action):
+        _cmd: str
+
+        # pylint: disable=arguments-differ,too-many-arguments,protected-access
+        @classmethod
+        def from_parent(cls, parent, name, cmdobj, cmd: str):  # type: ignore
+            self = super().from_parent(parent, name=name, cmdobj=cmdobj)
+            self._cmd = cmd
+            return self
+
         # pylint: disable=consider-using-with
         def __call__(self):
 
@@ -191,10 +204,9 @@ class ExaBGP:
                     path,
                     "--env",
                     os.path.join(path, "exabgp.env"),
-                    self._cmdobj._cmd
+                    self._cmd,
                 ],
-                cwd=os.path.dirname(os.path.dirname(
-                    os.path.abspath(__file__))),
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             )
 
             self.is_cli_ok()
@@ -220,8 +232,7 @@ class ExaBGP:
 
     @skiptrace
     def execute(self, cmd):
-        self._cmd = cmd
-        yield from self.Execute.make(self)
+        yield from self.Execute.make(self, cmd)
 
     @skiptrace
     def stop(self):
