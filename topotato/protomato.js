@@ -662,6 +662,55 @@ const protocols = {
 		create(row, "span", "pktcol l-5 p-pim detail last", text);
 		return false;
 	},
+	"ospf": function (obj, row, proto, protos) {
+		header = pdml_get(proto, "ospf.header");
+
+		type = pdml_get_attr(header, "ospf.msg", "showname").split(": ").slice(1).join(": ");
+		type_num = pdml_get_attr(header, "ospf.msg", "show");
+		area = pdml_get_attr(header, "ospf.area_id", "show");
+
+		if (type_num == 1) {
+			hello = pdml_get(proto, "ospf.hello");
+			prio = pdml_get_attr(hello, "ospf.hello.router_priority", "show");
+			dr = pdml_get_attr(hello, "ospf.hello.designated_router", "show");
+			text = `Hello (prio=${prio}, DR=${dr})`;
+		} else if (type_num == 4) {
+			const braces = /\((.*)\)/;
+			const maxitems = 3;
+
+			lsupd = pdml_get(proto, "");
+			items = new Array;
+			for (lsa of lsupd.querySelectorAll("field[name='']")) {
+				if (lsa.parentElement != lsupd)
+					continue;
+
+				name = lsa.getAttribute("show");
+				match = braces.exec(name);
+				if (match)
+					name = match[1];
+				name = name.replace("Inter-Area-Prefix", "IAP");
+				name = name.replace("Inter-Area-Router", "IAR");
+				name = name.replace("Inter-Area-", "IA-");
+				name = name.replace("Intra-Area-", "");
+				items.push(name);
+			}
+			if (items.length > maxitems) {
+				var cut = items.length - maxitems;
+
+				items = items.slice(0, maxitems);
+				items.push(`…+${cut}`);
+			}
+			text = `LS Update (${items.join(", ")})`;
+		} else {
+			text = type;
+		}
+		if (area != "0.0.0.0")
+			text = `(A ${area}) ${text}`;
+
+		create(row, "span", "pktcol l-4 p-ospf", "OSPF");
+		create(row, "span", "pktcol l-5 p-ospf detail last", text);
+		return false;
+	},
 	"bgp": function (obj, row, proto, protos) {
 		const rex = /^.*: (.*?) Message.*/;
 
