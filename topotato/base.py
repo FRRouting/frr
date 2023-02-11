@@ -171,6 +171,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
             consumer = base.__dict__.get("consume_kwargs")
             if not consumer:
                 continue
+            # pylint: disable=unnecessary-dunder-call
             consumer = consumer.__get__(None, cls)
             finalize.extend(consumer(kw))
 

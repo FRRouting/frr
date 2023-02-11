@@ -208,6 +208,7 @@ class PotatoolSession(WatchedSession):
 
         return argv
 
+    # pylint: disable=unnecessary-dunder-call
     @classmethod
     def apply(cls, cmdname, cmd, args):
         if isinstance(cmd, (classmethod, staticmethod)):

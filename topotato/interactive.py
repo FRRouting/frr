@@ -22,6 +22,7 @@ from .utils import LockedFile, AtomicPublishFile, deindent
 
 if typing.TYPE_CHECKING:
     from .base import TopotatoItem
+    from .frr import FRRNetworkInstance
 
 
 taskbasedir = "/tmp/topotato-%s" % os.uname().nodename
@@ -200,7 +201,7 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
 """
         )
 
-    def show_instance_for_stop(self, instance):
+    def show_instance_for_stop(self, instance: "FRRNetworkInstance"):
         network: toponom.Network = instance.network
 
         self.show_diagram(network, sys.stdout)

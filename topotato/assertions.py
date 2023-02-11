@@ -17,6 +17,7 @@ import inspect
 from collections import OrderedDict
 
 from typing import (
+    cast,
     Any,
     ClassVar,
     List,
@@ -342,9 +343,9 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
 
     # pylint: disable=arguments-differ,protected-access
     @classmethod
-    def from_parent(cls, parent, name, link, pkt, **kwargs):
+    def from_parent(cls, parent, name, link, pkt, **kwargs) -> "AssertPacket":  # type: ignore
         name = "%s:%s/packet" % (name, link)
-        self: AssertPacket = super().from_parent(parent, name=name, **kwargs)
+        self = cast(AssertPacket, super().from_parent(parent, name=name, **kwargs))
 
         self._link = link
         self._pkt = pkt
@@ -409,9 +410,9 @@ class AssertLog(TopotatoAssertion, TimedMixin):
 
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
-    def from_parent(cls, parent, name, rtr, daemon, msg, **kwargs):
+    def from_parent(cls, parent, name, rtr, daemon, msg, **kwargs) -> "AssertLog":  # type: ignore
         name = "%s:%s/%s/log" % (name, rtr.name, daemon)
-        self: AssertLog = super().from_parent(parent, name=name, **kwargs)
+        self = cast(AssertLog, super().from_parent(parent, name=name, **kwargs))
 
         self._rtr = rtr
         self._daemon = daemon
@@ -447,9 +448,9 @@ class AssertLog(TopotatoAssertion, TimedMixin):
 class Delay(TopotatoAssertion, TimedMixin):
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
-    def from_parent(cls, parent, name, **kwargs):
+    def from_parent(cls, parent, name, **kwargs) -> "Delay":  # type: ignore
         name = "%s" % (name,)
-        self: AssertLog = super().from_parent(parent, name=name, **kwargs)
+        self = cast(Delay, super().from_parent(parent, name=name, **kwargs))
 
         return self
 
@@ -466,9 +467,12 @@ class DaemonRestart(TopotatoModifier):
 
     # pylint: disable=arguments-differ,protected-access
     @classmethod
-    def from_parent(cls, parent, name, rtr, daemon, **kwargs):
-        self: DaemonRestart = super().from_parent(
-            parent, name="%s:%s/%s/restart" % (name, rtr.name, daemon), **kwargs
+    def from_parent(cls, parent, name, rtr, daemon, **kwargs) -> "DaemonRestart":  # type: ignore
+        self = cast(
+            DaemonRestart,
+            super().from_parent(
+                parent, name="%s:%s/%s/restart" % (name, rtr.name, daemon), **kwargs
+            ),
         )
         self._rtr = rtr
         self._daemon = daemon
