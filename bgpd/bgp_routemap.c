@@ -489,6 +489,13 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
    access-list name. */
 static void *route_match_ip_address_compile(const char *arg)
 {
+	struct access_list *alist;
+
+	alist = access_list_lookup(AFI_IP, arg);
+	if (!alist)
+		zlog_warn(
+			"Access List specified %s does not exist yet, default will be NO_MATCH until it is created",
+			arg);
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
@@ -506,7 +513,7 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 	route_match_ip_address_free
 };
 
-/* `match ip next-hop IP_ADDRESS' */
+/* `match ip next-hop <IP_ADDRESS_ACCESS_LIST_NAME>' */
 
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
@@ -3218,6 +3225,14 @@ route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 
 static void *route_match_ipv6_address_compile(const char *arg)
 {
+	struct access_list *alist;
+
+	alist = access_list_lookup(AFI_IP6, arg);
+	if (!alist)
+		zlog_warn(
+			"Access List specified %s does not exist yet, default will be NO_MATCH until it is created",
+			arg);
+
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
@@ -3332,7 +3347,7 @@ static const struct route_map_rule_cmd route_match_ipv6_next_hop_address_cmd = {
 	route_match_ipv6_next_hop_address_free
 };
 
-/* `match ip next-hop IP_ADDRESS' */
+/* `match ip next-hop address IP_ADDRESS' */
 
 static enum route_map_cmd_result_t
 route_match_ipv4_next_hop(void *rule, const struct prefix *prefix, void *object)
