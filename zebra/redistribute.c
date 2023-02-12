@@ -118,13 +118,15 @@ static void zebra_redistribute(struct zserv *client, int type,
 		RNODE_FOREACH_RE (rn, newre) {
 			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
-					"%s: client %s %pRN(%u:%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
+					"%s: client %s %pRN(%u:%u) checking: selected=%d, type=%s, instance=%u, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
 					zebra_route_string(client->proto), rn,
 					vrf_id, newre->instance,
 					!!CHECK_FLAG(newre->flags,
 						     ZEBRA_FLAG_SELECTED),
-					newre->type, newre->distance,
+					zebra_route_string(newre->type),
+					newre->instance,
+					newre->distance,
 					newre->metric,
 					zebra_check_addr(&rn->p));
 
