@@ -2958,6 +2958,7 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 	uint64_t peer_distinguisher = 0, per_af_sum;
 	uint64_t af_stat[AFI_MAX][SAFI_MAX];
 	size_t count = 0, count_pos, len;
+	struct update_subgroup *subgrp;
 	uint8_t peer_type_flag;
 	struct timeval tv;
 	struct stream *s;
@@ -2996,6 +2997,13 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 			bmp_stat_put_af_u64(s, &count, BMP_STATS_SIZE_LOC_RIB_SAFI, afi, safi,
 					    af_stat[afi][safi]),
 			bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB, per_af_sum), false);
+
+	BMP_PER_AF_STAT(afi, safi, af_stat, per_af_sum,
+			((subgrp = peer_subgroup(peer, afi, safi)) ? subgrp->pscount : 0),
+			bmp_stat_put_af_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_OUT_POST_SAFI, afi,
+					    safi, af_stat[afi][safi]),
+			bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_OUT_POST, per_af_sum),
+			false);
 	if (bt->stats_send_experimental)
 		bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID, peer->stat_pfx_nh_invalid);
 
@@ -3030,9 +3038,11 @@ static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt)
 	struct peer *peer;
 	struct listnode *node;
 
+	if (bt->stat_msec)
+		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec, &bt->t_stats);
+
 	/* Walk down all peers */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-
 		if (!peer_established(peer->connection))
 			continue;
 
