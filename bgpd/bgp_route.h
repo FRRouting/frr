@@ -14,6 +14,7 @@
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
+#include "bgp_mpath.h"
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
@@ -330,6 +331,8 @@ struct bgp_path_info {
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 #define BGP_PATH_UNSORTED (1 << 19)
+#define BGP_PATH_BMP_LOCKED (1 << 20)
+#define BGP_PATH_BMP_ADJIN_CHG (1 << 21)
 /*
  * BGP_PATH_MULTIPATH_NEW is set on those bgp_path_info
  * nodes that we have decided should possibly be in the
@@ -338,7 +341,7 @@ struct bgp_path_info {
  * decide on whether or not a bgp_path_info is on
  * the actual ecmp path.
  */
-#define BGP_PATH_MULTIPATH_NEW (1 << 20)
+#define BGP_PATH_MULTIPATH_NEW (1 << 22)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -700,14 +703,23 @@ static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	      struct peer *peer, bool withdraw),
-	     (bgp, afi, safi, bn, peer, withdraw));
+	      uint32_t addpath_id, struct peer *peer, bool post),
+	     (bgp, afi, safi, bn, addpath_id, peer, post));
+
+/* called before bgp_process() */
+DECLARE_HOOK(bgp_process_main_one,
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest),
+	     (bgp, afi, safi, dest));
 
 /* called when a route is updated in the rib */
 DECLARE_HOOK(bgp_route_update,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct bgp_path_info *old_route, struct bgp_path_info *new_route),
 	     (bgp, afi, safi, bn, old_route, new_route));
+
+
+DECLARE_HOOK(bgp_process_main_one_end,
+	     (struct bgp *bgp, struct bgp_path_info *path), (bgp, path));
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)
@@ -893,11 +905,18 @@ extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       safi_t safi,
 					       uint32_t addpath_tx_id);
 
+/* used by bmp to ignore certain conditions in rib-out pre-policy check */
+#define BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY (1 << 0)
+#define BGP_ANNCHK_SPECIAL_IGNORE_PATH_STATUS (1 << 1)
+#define BGP_ANNCHK_SPECIAL_PREPOLICY                                           \
+	(BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY |                                \
+	 BGP_ANNCHK_SPECIAL_IGNORE_PATH_STATUS)
 extern bool subgroup_announce_check(struct bgp_dest *dest,
 				    struct bgp_path_info *pi,
 				    struct update_subgroup *subgrp,
 				    const struct prefix *p, struct attr *attr,
-				    struct attr *post_attr);
+				    struct attr *post_attr,
+				    uint8_t special_cond);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
@@ -921,7 +940,8 @@ extern void bgp_attr_add_gshut_community(struct attr *attr);
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			       struct bgp_maxpaths_cfg *mpath_cfg,
 			       struct bgp_path_info_pair *result, afi_t afi,
-			       safi_t safi);
+			       safi_t safi,
+			       struct bgp_mpath_diff_head *mpath_diff_list);
 extern void bgp_zebra_clear_route_change_flags(struct bgp_dest *dest);
 extern bool bgp_zebra_has_route_changed(struct bgp_path_info *selected);
 

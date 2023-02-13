@@ -35,6 +35,22 @@ struct bgp_path_info_mpath {
 	uint64_t cum_bw;
 };
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_MPATH_DIFF, "multipath diff in decision process");
+PREDECL_LIST(bgp_mpath_diff);
+
+struct bgp_path_info_mpath_diff {
+	struct bgp_mpath_diff_item next;
+	struct bgp_path_info *path;
+	bool update;
+};
+
+DECLARE_LIST(bgp_mpath_diff, struct bgp_path_info_mpath_diff, next);
+
+extern void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff,
+				  struct bgp_path_info *bpi, bool update);
+
+extern void bgp_mpath_diff_clear(struct bgp_mpath_diff_head *diff);
+
 /* Functions to support maximum-paths configuration */
 extern int bgp_maximum_paths_set(struct bgp *bgp, afi_t afi, safi_t safi,
 				 int peertype, uint16_t maxpaths,
@@ -49,7 +65,8 @@ extern int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1, struct bgp_path
 extern void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				       struct bgp_path_info *new_best,
 				       struct bgp_path_info *old_best, uint32_t num_candidates,
-				       struct bgp_maxpaths_cfg *mpath_cfg);
+				       struct bgp_maxpaths_cfg *mpath_cfg,
+				       struct bgp_mpath_diff_head *mpath_diff_list);
 extern void
 bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 				     struct bgp_path_info *old_best);

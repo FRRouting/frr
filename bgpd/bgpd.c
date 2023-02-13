@@ -3960,6 +3960,9 @@ void bgp_instance_down(struct bgp *bgp)
 	struct listnode *node;
 	struct listnode *next;
 
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
+
 	/* Cleanup evpn instance state */
 	bgp_evpn_instance_down(bgp);
 

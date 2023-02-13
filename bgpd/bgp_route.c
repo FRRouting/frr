@@ -92,6 +92,9 @@ DEFINE_HOOK(bgp_route_update,
 	     struct bgp_path_info *old_route, struct bgp_path_info *new_route),
 	    (bgp, afi, safi, bn, old_route, new_route));
 
+DEFINE_HOOK(bgp_process_main_one_end,
+	    (struct bgp *bgp, struct bgp_path_info *path), (bgp, path));
+
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -155,9 +158,13 @@ static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 }
 
 DEFINE_HOOK(bgp_process,
-	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	     struct peer *peer, bool withdraw),
-	    (bgp, afi, safi, bn, peer, withdraw));
+	    (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
+	     uint32_t addpath_id, struct peer *peer, bool post),
+	    (bgp, afi, safi, bn, addpath_id, peer, post));
+
+DEFINE_HOOK(bgp_process_main_one,
+	    (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest),
+	    (bgp, afi, safi, dest));
 
 /** Test if path is suppressed. */
 bool bgp_path_suppressed(struct bgp_path_info *pi)
@@ -508,8 +515,6 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	bgp_dest_lock_node(dest);
 	peer_lock(pi->peer); /* bgp_path_info peer reference */
 	bgp_dest_set_defer_flag(dest, false);
-	if (pi->peer)
-		pi->peer->stat_pfx_loc_rib++;
 	hook_call(bgp_snmp_update_stats, dest, pi, true);
 }
 
@@ -528,8 +533,6 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	pi->next = NULL;
 	pi->prev = NULL;
 
-	if (pi->peer)
-		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 
 	bgp_path_info_unlock(pi);
@@ -542,8 +545,6 @@ static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 	pi->next = NULL;
 	pi->prev = NULL;
 
-	if (pi->peer)
-		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 	bgp_path_info_unlock(pi);
 
@@ -2136,7 +2137,7 @@ void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
 			     const struct prefix *p, struct attr *attr,
-			     struct attr *post_attr)
+			     struct attr *post_attr, uint8_t special_cond)
 {
 	struct bgp_filter *filter;
 	struct peer *from;
@@ -2169,6 +2170,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	filter = &peer->filter[afi][safi];
 	bgp = SUBGRP_INST(subgrp);
 	piattr = bgp_path_info_mpath_count(pi) > 1 ? bgp_path_info_mpath_attr(pi) : pi->attr;
+
+	/* special conditions for bmp rib-out pre-policy check */
+	bool ignore_policy =
+		CHECK_FLAG(special_cond, BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY);
+	bool ignore_path_status =
+		CHECK_FLAG(special_cond, BGP_ANNCHK_SPECIAL_IGNORE_PATH_STATUS);
+
 
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT) &&
 	    peer->pmax_out[afi][safi] != 0 &&
@@ -2209,21 +2217,22 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* With addpath we may be asked to TX all kinds of paths so make sure
 	 * pi is valid */
-	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)
-	    || CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)
-	    || CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+	if (!ignore_path_status && (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) ||
+				    CHECK_FLAG(pi->flags, BGP_PATH_HISTORY) ||
+				    CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))) {
 		return false;
 	}
 
 	/* If this is not the bestpath then check to see if there is an enabled
 	 * addpath
 	 * feature that requires us to advertise it */
-	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+	if (!ignore_path_status && !CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 		if (!bgp_addpath_capable(pi, peer, afi, safi))
 			return false;
 
 	/* Aggregate-address suppress check. */
-	if (bgp_path_suppressed(pi) && !UNSUPPRESS_MAP_NAME(filter))
+	if (!ignore_policy && bgp_path_suppressed(pi) &&
+	    !UNSUPPRESS_MAP_NAME(filter))
 		return false;
 
 	/*
@@ -2312,7 +2321,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* ORF prefix-list filter check */
-	if (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV) &&
+	if (!ignore_policy &&
+	    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV) &&
 	    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV))
 		if (peer->orf_plist[afi][safi]) {
 			if (prefix_list_apply(peer->orf_plist[afi][safi], p)
@@ -2327,7 +2337,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 
 	/* Output filter check. */
-	if (bgp_output_filter(peer, p, piattr, afi, safi) == FILTER_DENY) {
+	if (!ignore_policy &&
+	    bgp_output_filter(peer, p, piattr, afi, safi) == FILTER_DENY) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug("%pBP [Update:SEND] %pFX is filtered", peer,
 				   p);
@@ -2501,7 +2512,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    bgp_otc_egress(peer, attr))
 		return false;
 
-	if (filter->advmap.update_type == UPDATE_TYPE_WITHDRAW &&
+	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
+	bgp_peer_as_override(bgp, afi, safi, peer, attr);
+
+	if (!ignore_policy &&
+	    filter->advmap.update_type == UPDATE_TYPE_WITHDRAW &&
 	    filter->advmap.aname &&
 	    route_map_lookup_by_name(filter->advmap.aname)) {
 		struct bgp_path_info rmap_path = {0};
@@ -2528,7 +2543,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* Route map & unsuppress-map apply. */
-	if (!post_attr &&
+	if (!ignore_policy && !post_attr &&
 	    (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
 		struct bgp_path_info rmap_path = {0};
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
@@ -2903,7 +2918,8 @@ static void bgp_route_select_timer_expire(struct event *thread)
 void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			struct bgp_maxpaths_cfg *mpath_cfg,
 			struct bgp_path_info_pair *result, afi_t afi,
-			safi_t safi)
+			safi_t safi,
+			struct bgp_mpath_diff_head *mpath_diff_list)
 {
 	struct bgp_path_info *new_select, *look_thru;
 	struct bgp_path_info *old_select, *worse, *first;
@@ -3081,6 +3097,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 			if (old_select != first &&
 			    CHECK_FLAG(first->flags, BGP_PATH_REMOVED)) {
+				bgp_mpath_diff_insert(mpath_diff_list, first, false);
 				dest = bgp_path_info_reap_unsorted(dest, first);
 				assert(dest);
 			} else {
@@ -3330,7 +3347,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		}
 	}
 
-	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, num_candidates, mpath_cfg);
+	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, num_candidates, mpath_cfg, mpath_diff_list);
 	bgp_path_info_mpath_aggregate_update(new_select, old_select);
 
 	bgp_addpath_update_ids(bgp, dest, afi, safi);
@@ -3379,9 +3396,12 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	 */
 	advertise = bgp_check_advertise(bgp, dest, safi);
 
+	bgp_adj_out_updated(subgrp, dest, selected, addpath_tx_id, &attr, false,
+			    selected && advertise ? false : true, __func__);
+
 	if (selected) {
 		if (subgroup_announce_check(dest, selected, subgrp, p, pattr,
-					    NULL)) {
+					    NULL, 0)) {
 			/* Route is selected, if the route is already installed
 			 * in FIB, then it is advertised
 			 */
@@ -3739,9 +3759,14 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		return;
 	}
 
+	hook_call(bgp_process_main_one, bgp, afi, safi, dest);
+	struct bgp_mpath_diff_head mpath_diff;
+
+	bgp_mpath_diff_init(&mpath_diff);
+
 	/* Best path selection. */
 	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,
-			   afi, safi);
+			   afi, safi, &mpath_diff);
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
@@ -3763,6 +3788,37 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
 			__func__, dest, bgp->name_pretty, afi2str(afi),
 			safi2str(safi), old_select, new_select);
+
+
+	struct bgp_path_info_mpath_diff *diff;
+
+	/* call bmp hook for loc-rib route update / withdraw after flags were
+	 * set
+	 */
+	if (old_select || new_select) {
+		hook_call(bgp_route_update, bgp, afi, safi, dest, old_select,
+			  new_select);
+	}
+
+	if (debug)
+		zlog_debug("%s: multipath diff %p computed, mpath_changed=%d",
+			   __func__, &mpath_diff,
+			   (int)bgp_mpath_diff_count(&mpath_diff));
+	frr_each (bgp_mpath_diff, &mpath_diff, diff) {
+		if (diff->path) {
+			if (debug)
+				zlog_debug(
+					"[%s] bpi: %p, dest=%pBD peer=%pBP, rx_id=%" PRIu32,
+					diff->update ? "+" : "-", diff->path,
+					diff->path->net, diff->path->peer,
+					diff->path->addpath_rx_id);
+
+			hook_call(bgp_route_update, bgp, afi, safi, dest,
+				  diff->path, diff->update ? diff->path : NULL);
+		} else if (debug)
+			zlog_debug("[%s] diff: %p no path",
+				   diff->update ? "+" : "-", diff);
+	}
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
@@ -3817,7 +3873,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
 		bgp_zebra_clear_route_change_flags(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
-		return;
+
+		goto out;
 	}
 
 	/* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set
@@ -3844,6 +3901,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* TODO BMP insert rib update hook */
 	if (old_select)
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
+
 	if (new_select) {
 		if (debug)
 			zlog_debug("%s: %pBD setting SELECTED flag", __func__,
@@ -3854,15 +3912,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
-
-	/* call bmp hook for loc-rib route update / withdraw after flags were
-	 * set
-	 */
-	if (old_select || new_select) {
-		hook_call(bgp_route_update, bgp, afi, safi, dest, old_select,
-			  new_select);
-	}
-
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
@@ -3933,6 +3982,32 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	if (old_select && CHECK_FLAG(old_select->flags, BGP_PATH_REMOVED))
 		bgp_path_info_reap(dest, old_select);
 
+out:
+	if (old_select) {
+		if (old_select->peer)
+			old_select->peer->stat_loc_rib_count[afi][safi]--;
+
+		hook_call(bgp_process_main_one_end, bgp, old_select);
+	}
+
+	if (new_select && new_select->peer)
+		new_select->peer->stat_loc_rib_count[afi][safi]++;
+
+	struct bgp_path_info *mpath;
+
+	frr_each (bgp_mpath_diff, &mpath_diff, diff) {
+		mpath = diff->path;
+
+		if (!mpath)
+			continue;
+
+		if (mpath->peer)
+			mpath->peer->stat_loc_rib_count[afi][safi] += diff->update ? 1 : -1;
+
+		hook_call(bgp_process_main_one_end, bgp, mpath);
+	}
+	bgp_mpath_diff_clear(&mpath_diff);
+	bgp_mpath_diff_fini(&mpath_diff);
 	return;
 }
 
@@ -4384,7 +4459,8 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	hook_call(bgp_process, peer->bgp, afi, safi, dest, peer, true);
+	hook_call(bgp_process, peer->bgp, afi, safi, dest,
+		  pi ? pi->addpath_rx_id : 0, peer, true);
 	bgp_process(peer->bgp, dest, pi, afi, safi);
 }
 
@@ -4742,7 +4818,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			else
 				evpn_overlay_free(evpn);
 		}
-		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
+		bgp_adj_in_set(dest, afi, safi, peer, attr, addpath_id, &bgp_labels);
 	}
 
 	/* Check previously received route. */
@@ -5028,7 +5104,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		pi->uptime = monotime(NULL);
 		same_attr = attrhash_cmp(pi->attr, attr_new);
 
-		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
+		hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer,
+			  true);
 
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && same_attr &&
@@ -5404,7 +5481,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (safi == SAFI_EVPN && CHECK_FLAG(new->flags, BGP_PATH_VALID))
 		bgp_evpn_import_route(bgp, afi, safi, p, new);
 
-	hook_call(bgp_process, bgp, afi, safi, dest, peer, false);
+	hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer, true);
 
 	/* Process change. */
 	bgp_process(bgp, dest, new, afi, safi);
@@ -5443,7 +5520,7 @@ filtered:
 		XFREE(MTYPE_BGP_ROUTE, new);
 	}
 
-	hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
+	hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer, false);
 
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		if (!peer->rcvd_attr_printed) {
@@ -5531,8 +5608,8 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	 * if there was no entry, we don't need to do anything more.
 	 */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
-	    && peer != bgp->peer_self)
-		if (!bgp_adj_in_unset(&dest, peer, addpath_id)) {
+	    && peer != bgp->peer_self) {
+		if (!bgp_adj_in_unset(&dest, afi, safi, peer, addpath_id)) {
 			assert(dest);
 			peer->stat_pfx_dup_withdraw++;
 
@@ -5548,6 +5625,10 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			bgp_dest_unlock_node(dest);
 			return;
 		}
+
+		hook_call(bgp_process, peer->bgp, afi, safi, dest, addpath_id,
+			  peer, false);
+	}
 
 	/* Lookup withdrawn route. */
 	assert(dest);
@@ -6121,7 +6202,7 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(&dest, ain);
+				bgp_adj_in_remove(&dest, afi, safi, ain);
 
 			ain = ain_next;
 
@@ -6231,7 +6312,7 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(&dest, ain);
+				bgp_adj_in_remove(&dest, afi, safi, ain);
 
 			ain = ain_next;
 

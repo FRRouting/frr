@@ -162,8 +162,8 @@ bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 }
 
 
-void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
-		    uint32_t addpath_id, struct bgp_labels *labels)
+void bgp_adj_in_set(struct bgp_dest *dest, afi_t afi, safi_t safi,
+		    struct peer *peer, struct attr *attr, uint32_t addpath_id, struct bgp_labels *labels)
 {
 	struct bgp_adj_in *adj;
 
@@ -182,29 +182,29 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 	}
 	adj = XCALLOC(MTYPE_BGP_ADJ_IN, sizeof(struct bgp_adj_in));
 	adj->peer = peer_lock(peer); /* adj_in peer reference */
+	adj->peer->stat_adj_in_count[afi][safi]++;
 	adj->attr = bgp_attr_intern(attr);
 	adj->uptime = monotime(NULL);
 	adj->addpath_rx_id = addpath_id;
 	adj->labels = bgp_labels_intern(labels);
 	BGP_ADJ_IN_ADD(dest, adj);
-	peer->stat_pfx_adj_rib_in++;
 	bgp_dest_lock_node(dest);
 }
 
-void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai)
+void bgp_adj_in_remove(struct bgp_dest **dest, afi_t afi, safi_t safi,
+		       struct bgp_adj_in *bai)
 {
 	bgp_attr_unintern(&bai->attr);
 	bgp_labels_unintern(&bai->labels);
-	if (bai->peer)
-		bai->peer->stat_pfx_adj_rib_in--;
 	BGP_ADJ_IN_DEL(*dest, bai);
+	bai->peer->stat_adj_in_count[afi][safi]--;
 	*dest = bgp_dest_unlock_node(*dest);
 	peer_unlock(bai->peer); /* adj_in peer reference */
 	XFREE(MTYPE_BGP_ADJ_IN, bai);
 }
 
-bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
-		      uint32_t addpath_id)
+bool bgp_adj_in_unset(struct bgp_dest **dest, afi_t afi, safi_t safi,
+		      struct peer *peer, uint32_t addpath_id)
 {
 	struct bgp_adj_in *adj;
 	struct bgp_adj_in *adj_next;
@@ -218,7 +218,7 @@ bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 		adj_next = adj->next;
 
 		if (adj->peer == peer && adj->addpath_rx_id == addpath_id)
-			bgp_adj_in_remove(dest, adj);
+			bgp_adj_in_remove(dest, afi, safi, adj);
 
 		adj = adj_next;
 

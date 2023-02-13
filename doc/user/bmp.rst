@@ -73,7 +73,7 @@ All of FRR's BMP configuration options are located inside the
 :clicmd:`router bgp ASN` block.  Configure BGP first before proceeding to BMP
 setup.
 
-There is one option that applies to the BGP instance as a whole:
+There are two options that apply to the BGP instance as a whole:
 
 .. clicmd:: bmp mirror buffer-limit(0-4294967294)
 
@@ -92,6 +92,33 @@ There is one option that applies to the BGP instance as a whole:
    is sent.
 
    BMP Route Monitoring is not affected by this option.
+
+.. clicmd:: bmp startup-delay delay(0-4294967294)
+
+   This sets the delay (in milliseconds) after module startup
+   for BMP sessions to become active.
+
+   This setting is useful for BMP Monitoring because it allows BMP
+   to wait a bit for BGP to converge and the whole BGP state. It avoids
+   sending empty RIB content during synchronization on startup followed
+   by multiple incremental updates. It also avoids RIB-Out Pre-Policy Monitoring
+   to send duplicated messages on startup triggered by the reconfiguration of peer
+   policies.
+
+   This setting applies to all sessions defined in the same BGP Instance.
+   On module initialization (at BGP Startup), the time is recorded. Then,
+   established sessions will wait "delay" after this recorded time to start
+   sending BMP Mirroring, the initial BMP Monitoring synchronization and
+   following BMP Monitoring Messages containing incremental updates.
+
+   BMP Peer Up Messages are sent if the peer becomes available during this
+   period of time.
+
+   The startup delay is applied for BMP startup only. BMP Sessions configured
+   while the daemon is running will only wait if this initial timer has not expired
+   yet.
+
+   BMP Session Establishment is not affected by this option.
 
 All other configuration is managed per targets:
 
@@ -153,15 +180,20 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages whose code is defined as
    experimental (in the [65531-65534] range).
 
-.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy|loc-rib>
+.. clicmd:: bmp monitor AFI SAFI <rib-in|loc-rib|rib-out> <pre-policy|post-policy>
 
-   Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
+   Perform Route Monitoring for the specified AFI, SAFI and RIB.  Only IPv4 and
    IPv6 are currently valid for AFI. SAFI valid values are currently
    unicast, multicast, evpn and vpn.
    Other AFI/SAFI combinations may be added in the future.
 
    All BGP neighbors are included in Route Monitoring.  Options to select
    a subset of BGP sessions may be added in the future.
+
+   Pre-Policy and Post-Policy flags do not apply to Local-RIB monitoring.
+
+   BMP Local-RIB Monitoring is defined in :rfc:`9069`
+   BMP RIB-Out Monitoring is defined in :rfc:`8671`
 
 .. clicmd:: bmp mirror
 
@@ -171,3 +203,49 @@ associated with a particular ``bmp targets``:
 
    All BGP neighbors are included in Route Mirroring.  Options to select
    a subset of BGP sessions may be added in the future.
+
+BMP Troubleshooting
+-------------
+
+
+When encountering problems with BMP, it may be interesting to know the current
+state of the latter.
+
+.. clicmd:: show bmp
+
+   Displays information about the current state of BMP including targets, sessions,
+   configured modes, global settings, ...
+
+.. code-block:: frr
+BMP Module started at Fri Feb 24 13:05:50 2023
+
+BMP state for BGP VRF default:
+
+  Route Mirroring         0 bytes (0 messages) pending
+                          0 bytes maximum buffer used
+
+  Startup delay : 10000ms
+
+  Targets "my_targets":
+    Route Mirroring disabled
+    Route Monitoring IPv4 unicast rib-out pre-policy rib-out post-policy
+    Listeners:
+
+    Outbound connections:
+ remote              state                       timer      local
+ ----------------------------------------------------------------------
+ 99.99.99.99:12345   Up      99.99.99.99:12345   00:00:04   (unspec)
+
+    1 connected clients:
+ remote              uptime     state          MonSent   MirrSent   MirrLost   ByteSent   ByteQ   ByteQKernel
+ ---------------------------------------------------------------------------------------------------------------
+ 99.99.99.99:12345   00:00:04   Startup-Wait   0         0          0          61         0       0
+::
+
+   Here we have a single BGP instance running on VRF default. No specific mirroring settings but a
+   startup delay of 10000ms.
+   This instance has a single target with rib-out pre-policy and post-policy monitoring, no mirroring.
+   This target has a single session open with client 99.99.99.99 on port 12345 which is in state Startup-Wait.
+   This session will start sending monitoring messages as soon as the current time is
+   "Fri Feb 24 13:05:50 2023" + 10000ms = "Fri Feb 24 13:06:00 2023" which explains why it is in
+   Startup-Wait mode and has not sent Monitoring Messages yet.
