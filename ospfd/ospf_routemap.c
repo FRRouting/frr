@@ -134,8 +134,13 @@ route_match_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
-	if (alist == NULL)
+	if (alist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (access_list_apply(alist, &p) == FILTER_DENY ? RMAP_NOMATCH
 							    : RMAP_MATCH);
@@ -249,8 +254,13 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 	/* struct prefix_ipv4 match; */
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
-	if (alist == NULL)
+	if (alist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (access_list_apply(alist, prefix) == FILTER_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);
