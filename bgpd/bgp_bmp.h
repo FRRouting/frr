@@ -75,6 +75,10 @@ struct bmp_queue_entry {
 	struct bmp_qlist_item bli;
 	struct bmp_rbtree_item bhi;
 
+	uint32_t addpath_id;
+
+#define BMP_QUEUE_FLAGS_NONE (0)
+	uint8_t flags;
 	struct prefix p;
 	uint64_t peerid;
 	afi_t afi;
@@ -84,6 +88,9 @@ struct bmp_queue_entry {
 
 	/* initialized only for L2VPN/EVPN (S)AFIs */
 	struct prefix_rd rd;
+
+	/* BGP instance of the path, for the paths of a deleted peer */
+	uint64_t bgp_id;
 };
 
 /* This is for BMP Route Mirroring, which feeds fully raw BGP PDUs out to BMP
@@ -162,6 +169,7 @@ struct bmp {
 	struct prefix syncpos;
 	struct bgp_dest *syncrdpos;
 	uint64_t syncpeerid;
+	uint32_t syncaddpathid;
 	afi_t syncafi;
 	safi_t syncsafi;
 	struct bgp *sync_bgp;
