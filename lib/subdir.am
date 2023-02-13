@@ -152,6 +152,7 @@ clippy_scan += \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
 	lib/plist.c \
+	lib/routemap.c \
 	lib/routemap_cli.c \
 	lib/thread.c \
 	lib/vty.c \

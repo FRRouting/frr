@@ -37,6 +37,10 @@ DECLARE_MTYPE(ROUTE_MAP_NAME);
 DECLARE_MTYPE(ROUTE_MAP_RULE);
 DECLARE_MTYPE(ROUTE_MAP_COMPILED);
 
+#define DEBUG_ROUTEMAP 0x01
+#define DEBUG_ROUTEMAP_DETAIL 0x02
+extern uint32_t rmap_debug;
+
 /* Route map's type. */
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
 

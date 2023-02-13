@@ -36,6 +36,8 @@
 #include "json.h"
 #include "jhash.h"
 
+#include "lib/routemap_clippy.c"
+
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_INDEX, "Route map index");
@@ -614,8 +616,7 @@ static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
 
-#define DEBUG_ROUTEMAP 0x01
-static uint32_t rmap_debug;
+uint32_t rmap_debug;
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -3159,24 +3160,34 @@ DEFUN (rmap_show_unused,
 	return vty_show_unused_route_map(vty);
 }
 
-DEFUN (debug_rmap,
+DEFPY (debug_rmap,
        debug_rmap_cmd,
-       "debug route-map",
+       "debug route-map [detail]$detail",
        DEBUG_STR
-       "Debug option set for route-maps\n")
+       "Debug option set for route-maps\n"
+       "Detailed output\n")
 {
-	SET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	if (!detail)
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	else
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP | DEBUG_ROUTEMAP_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_rmap,
+DEFPY (no_debug_rmap,
        no_debug_rmap_cmd,
-       "no debug route-map",
+       "no debug route-map [detail]$detail",
        NO_STR
        DEBUG_STR
-       "Debug option set for route-maps\n")
+       "Debug option set for route-maps\n"
+       "Detailed output\n")
 {
-	UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	if (!detail)
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	else
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP | DEBUG_ROUTEMAP_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
