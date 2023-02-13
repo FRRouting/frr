@@ -690,8 +690,13 @@ route_match_address_prefix_list(void *rule, afi_t afi,
 	struct prefix_list *plist;
 
 	plist = prefix_list_lookup(afi, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	if (prefix->family == AF_FLOWSPEC)
 		return route_match_prefix_list_flowspec(afi, plist,
@@ -746,8 +751,13 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
+		if (plist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		return (prefix_list_apply(plist, &p) == PREFIX_DENY
 				? RMAP_NOMATCH
@@ -790,8 +800,13 @@ route_match_ipv6_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefixlen = IPV6_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP6, (char *)rule);
-		if (!plist)
+		if (!plist) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		if (prefix_list_apply(plist, &p) == PREFIX_PERMIT)
 			return RMAP_MATCH;
@@ -890,8 +905,13 @@ route_match_ip_route_source_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
+		if (plist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		return (prefix_list_apply(plist, &p) == PREFIX_DENY
 				? RMAP_NOMATCH
