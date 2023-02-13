@@ -270,29 +270,48 @@ static inline int bmp_get_peer_type_vrf(vrf_id_t vrf_id)
 }
 
 /* determine the peer type for per-peer headers from a struct peer
- * provide a bgp->peer_self for loc-rib
+ * bgp->peer_self will NOT give loc-rib peer type
  */
 static inline int bmp_get_peer_type(struct peer *peer)
 {
-	if (peer->bgp->peer_self == peer)
-		return BMP_PEER_TYPE_LOC_RIB_INSTANCE;
-
 	return bmp_get_peer_type_vrf(peer->bgp->vrf_id);
 }
 
-static inline int bmp_get_peer_distinguisher(struct bgp *bgp, afi_t afi, uint8_t peer_type,
-					     uint64_t *result_ref)
+/* compute peer distinguisher from bmp session, afi
+ * store it in result_ref
+ *
+ * providing AFI_UNSPEC as afi value will use any RD configured in the VRF
+ *
+ * returns	1 on error that needs message discarding
+ *		0 if successful
+ */
+static inline int bmp_get_peer_distinguisher(struct bgp *bgp, afi_t afi, uint64_t *result_ref)
 {
 	/* use RD if set in VRF config */
 	struct prefix_rd *prd;
 
-	/* sending vrf_id or rd could be turned into an option at some point */
-	if (peer_type == BMP_PEER_TYPE_LOCAL_INSTANCE || bgp->vrf_id == VRF_UNKNOWN)
-		return 1;
-
 	/* vrf default => ok, distinguisher 0 */
 	if (bgp->inst_type == VRF_DEFAULT)
-		return (*result_ref = 0);
+		return (int)(*result_ref = 0);
+
+	/* afi not known, use any afi configured in this vrf */
+	if (afi == AFI_UNSPEC) {
+		for (afi_t afi_rd_lookup = AFI_IP; afi_rd_lookup < AFI_MAX; afi_rd_lookup++) {
+			if (CHECK_FLAG(bgp->vpn_policy[afi_rd_lookup].flags,
+				       BGP_VPN_POLICY_TOVPN_RD_SET)) {
+				afi = afi_rd_lookup;
+				/* we found an AFI with a RD set */
+				break;
+			}
+		}
+
+		/* no RD found for any AFI => error => skip message */
+		if (afi == AFI_UNSPEC) {
+			zlog_warn(
+				"skipping bmp message for reason: can't get peer distinguisher (no RD configured)");
+			return 1;
+		}
+	}
 
 	prd = &bgp->vpn_policy[AFI_IP].tovpn_rd;
 	if ((afi == AFI_IP || afi == AFI_UNSPEC) &&
@@ -306,6 +325,13 @@ static inline int bmp_get_peer_distinguisher(struct bgp *bgp, afi_t afi, uint8_t
 	    CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags, BGP_VPN_POLICY_TOVPN_RD_SET)) {
 		memcpy(result_ref, prd->val, sizeof(prd->val));
 		return 0;
+	}
+
+	/* VRF has no id => error => message should be skipped */
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		zlog_warn(
+			"skipping bmp message for reason: can't get peer distinguisher (VRF badly configured)");
+		return 1;
 	}
 
 	/* use VRF id converted to ::vrf_id 64bits format */
@@ -577,7 +603,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	struct timeval uptime, uptime_real;
 	struct timeval *uptime_tv = NULL;
 	uint8_t peer_type;
-	bool is_locrib = false;
+	bool is_locrib;
 	uint64_t peer_distinguisher = 0;
 
 	/* peer->uptime is monotonic and is 0 when the session has never
@@ -592,11 +618,10 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		uptime_tv = &uptime_real;
 	}
 
-	peer_type = bmp_get_peer_type(peer);
-	if (peer_type == BMP_PEER_TYPE_LOC_RIB_INSTANCE)
-		is_locrib = true;
+	is_locrib = peer->bgp->peer_self == peer;
+	peer_type = is_locrib ? BMP_PEER_TYPE_LOC_RIB_INSTANCE : bmp_get_peer_type(peer);
 
-	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type, &peer_distinguisher)) {
+	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, &peer_distinguisher)) {
 		zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
 			  peer->host);
 		return NULL;
@@ -614,10 +639,11 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, peer_distinguisher, uptime_tv);
 
 		/* Local Address (16 bytes) */
-		if (is_locrib)
-			stream_put(s, 0, 16);
+		if (!peer->connection || !peer->connection->su_local || is_locrib)
+			stream_put(s, 0, IPV6_MAX_BYTELEN);
 		else if (peer->connection->su_local->sa.sa_family == AF_INET6)
-			stream_put(s, &peer->connection->su_local->sin6.sin6_addr, 16);
+			stream_put(s, &peer->connection->su_local->sin6.sin6_addr,
+				   IPV6_MAX_BYTELEN);
 		else if (peer->connection->su_local->sa.sa_family == AF_INET) {
 			stream_putl(s, 0);
 			stream_putl(s, 0);
@@ -626,7 +652,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		}
 
 		/* Local Port, Remote Port */
-		if (!peer->connection->su_local || is_locrib)
+		if (!peer->connection || !peer->connection->su_local || is_locrib)
 			stream_putw(s, 0);
 		else if (peer->connection->su_local->sa.sa_family == AF_INET6)
 			stream_putw(s, htons(peer->connection->su_local->sin6.sin6_port));
@@ -995,8 +1021,7 @@ static void bmp_wrmirror_lost(struct bmp *bmp, struct pullwr *pullwr)
 
 	peer_type_flag = bmp_get_peer_type_vrf(bmp->targets->bgp->vrf_id);
 
-	if (bmp_get_peer_distinguisher(bmp->targets->bgp, AFI_UNSPEC, peer_type_flag,
-				       &peer_distinguisher)) {
+	if (bmp_get_peer_distinguisher(bmp->targets->bgp, AFI_UNSPEC, &peer_distinguisher)) {
 		zlog_warn("skipping bmp message for reason: can't get peer distinguisher");
 		return;
 	}
@@ -1043,7 +1068,7 @@ static bool bmp_wrmirror(struct bmp *bmp, struct pullwr *pullwr)
 
 	peer_type_flag = bmp_get_peer_type_vrf(bmp->targets->bgp->vrf_id);
 
-	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag, &peer_distinguisher)) {
+	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, &peer_distinguisher)) {
 		zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
 			  peer->host);
 		goto out;
@@ -1272,10 +1297,13 @@ static void bmp_eor_write(struct bmp *bmp, struct stream *s, struct peer *peer, 
 	uint64_t peer_distinguisher = 0;
 
 	/* skip this message if peer distinguisher is not available */
-	if (bmp_get_peer_distinguisher(bgp, afi, peer_type_flag, &peer_distinguisher)) {
+	if (bmp_get_peer_distinguisher(bgp, afi, &peer_distinguisher)) {
 		zlog_warn("skipping bmp message for reason: can't get peer distinguisher");
 		return;
 	}
+
+	if (peer_type_flag != BMP_PEER_TYPE_LOC_RIB_INSTANCE)
+		peer_type_flag = bmp_get_peer_type(peer);
 
 	s2 = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -1478,11 +1506,8 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 	uint64_t peer_distinguisher = 0;
 	/* skip this message if peer distinguisher is not available */
-	if (bmp_get_peer_distinguisher(peer->bgp, afi, peer_type_flag, &peer_distinguisher)) {
-		zlog_warn(
-			"skipping bmp message for reason: can't get peer distinguisher");
+	if (bmp_get_peer_distinguisher(peer->bgp, afi, &peer_distinguisher))
 		return;
-	}
 
 	monotime_to_realtime(&tv, &uptime_real);
 	if (attr)
@@ -1610,21 +1635,22 @@ static void bmp_update_syncro_set(struct bmp *bmp, afi_t afi, safi_t safi, struc
 	}
 }
 
-static void bmp_eor_afi_safi(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t peer_type_flag)
+static void bmp_eor_afi_safi(struct bmp *bmp, afi_t afi, safi_t safi)
 {
 	struct bgp *sync_bgp;
 
+	sync_bgp = bmp_get_next_bgp(bmp->targets, bmp->sync_bgp, afi, safi);
 	zlog_info("bmp[%s] %s %s table completed (EoR) (BGP %s)", bmp->remote, afi2str(afi),
 		  safi2str(safi), bmp->sync_bgp->name_pretty);
 
 	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_PREPOLICY))
-		bmp_eor(bmp, afi, safi, 0, peer_type_flag, bmp->sync_bgp);
+		bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, bmp->sync_bgp);
 	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_POSTPOLICY))
-		bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, peer_type_flag, bmp->sync_bgp);
+		bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, BMP_PEER_TYPE_GLOBAL_INSTANCE,
+			bmp->sync_bgp);
 	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_LOC_RIB))
 		bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, bmp->sync_bgp);
 
-	sync_bgp = bmp_get_next_bgp(bmp->targets, bmp->sync_bgp, afi, safi);
 	if (sync_bgp) {
 		memset(&bmp->syncpos, 0, sizeof(bmp->syncpos));
 		bmp->syncpos.family = afi2family(afi);
@@ -1640,7 +1666,6 @@ static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 	uint8_t bpi_num_labels, adjin_num_labels;
 	afi_t afi;
 	safi_t safi;
-	uint8_t peer_type_flag;
 
 	if (bmp->syncafi == AFI_MAX) {
 		FOREACH_AFI_SAFI (afi, safi) {
@@ -1689,8 +1714,6 @@ afibreak:
 	struct bgp_dest *bn = NULL;
 	struct bgp_path_info *bpi = NULL, *bpiter;
 	struct bgp_adj_in *adjin = NULL, *adjiter;
-
-	peer_type_flag = bmp_get_peer_type_vrf(bmp->sync_bgp->vrf_id);
 
 	if ((afi == AFI_L2VPN && safi == SAFI_EVPN) ||
 	    (safi == SAFI_MPLS_VPN)) {
@@ -1742,8 +1765,7 @@ afibreak:
 							return true;
 				}
 			eor:
-							bmp_eor_afi_safi(bmp, afi, safi,
-									 peer_type_flag);
+							bmp_eor_afi_safi(bmp, afi, safi);
 							return true;
 			}
 			bmp->syncpeerid = 0;
@@ -1821,21 +1843,17 @@ afibreak:
 			    bpi_num_labels);
 	}
 
-	if (bpi)
-		peer_type_flag = bmp_get_peer_type(bpi->peer);
-
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_VALID) &&
 	    CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_POSTPOLICY))
-		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, peer_type_flag, bn_p, prd, bpi->attr,
-			    bpi, afi, safi, bpi->uptime,
+		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bmp_get_peer_type(bpi->peer), bn_p,
+			    prd, bpi->attr, bpi, afi, safi, bpi->uptime,
 			    bpi_num_labels ? bpi->extra->labels->label : NULL, bpi_num_labels);
 
 	if (adjin) {
 		adjin_num_labels = adjin->labels ? adjin->labels->num_labels : 0;
-		bmp_monitor(bmp, adjin->peer, 0, peer_type_flag, bn_p, prd, adjin->attr, NULL, afi,
-			    safi, adjin->uptime,
-			    adjin_num_labels ? &adjin->labels->label[0] : NULL,
-			    adjin_num_labels);
+		bmp_monitor(bmp, adjin->peer, 0, bmp_get_peer_type(adjin->peer), bn_p, prd,
+			    adjin->attr, NULL, afi, safi, adjin->uptime,
+			    adjin_num_labels ? &adjin->labels->label[0] : NULL, adjin_num_labels);
 	}
 
 	if (bn)
@@ -2255,8 +2273,9 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 	safi_t safi;
 	afi_t afi;
 
-	peer_type_flag = bmp_get_peer_type(peer);
-	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag, &peer_distinguisher)) {
+	peer_type_flag = peer == bt->bgp->peer_self ? BMP_PEER_TYPE_LOC_RIB_INSTANCE
+						    : bmp_get_peer_type(peer);
+	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, &peer_distinguisher)) {
 		zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
 			  peer->host);
 		return;
