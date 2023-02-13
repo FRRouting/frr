@@ -901,6 +901,7 @@ function init() {
 	var timetable;
 	var ts_end = parseFloat('-Infinity');
 	var item_idx = -1;
+	var xrefs = ("xrefs" in jsdata) ? jsdata["xrefs"] : new Object();
 
 	for (idx in jsdata.timed) {
 		var obj = jsdata.timed[idx];
@@ -915,7 +916,7 @@ function init() {
 		if (obj.data.type == "packet")
 			load_packet(timetable, obj, pdmltree);
 		else if (obj.data.type == "log")
-			load_log(timetable, obj, jsdata["xrefs"]);
+			load_log(timetable, obj, xrefs);
 		else if (obj.data.type == "vtysh")
 			load_vtysh(timetable, obj);
 	}
