@@ -274,9 +274,12 @@ static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 }
 
 DEFINE_HOOK(bgp_process,
-	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	     struct peer *peer, bool withdraw),
-	    (bgp, afi, safi, bn, peer, withdraw));
+	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn, uint32_t addpath_id,
+	     struct peer *peer, bool post),
+	    (bgp, afi, safi, bn, addpath_id, peer, post));
+
+DEFINE_HOOK(bgp_process_main_one, (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest),
+	    (bgp, afi, safi, dest));
 
 DEFINE_HOOK(bgp_adj_in_needed, (struct peer *peer, afi_t afi, safi_t safi), (peer, afi, safi));
 
@@ -4487,6 +4490,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		return;
 	}
 
+	hook_call(bgp_process_main_one, bgp, afi, safi, dest);
 	struct bgp_mpath_diff_head mpath_diff;
 
 	bgp_mpath_diff_init(&mpath_diff);
@@ -4521,6 +4525,29 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 
 	struct bgp_path_info_mpath_diff *diff;
+
+	/* call bmp hook for loc-rib route update / withdraw after flags were
+	 * set
+	 */
+	if (old_select || new_select) {
+		hook_call(bgp_route_update, bgp, afi, safi, dest, old_select, new_select);
+	}
+
+	if (debug)
+		zlog_debug("%s: multipath diff %p computed, mpath_changed=%d", __func__,
+			   &mpath_diff, (int)bgp_mpath_diff_count(&mpath_diff));
+	frr_each (bgp_mpath_diff, &mpath_diff, diff) {
+		if (diff->path) {
+			if (debug)
+				zlog_debug("[%s] bpi: %p, dest=%pBD peer=%pBP, rx_id=%" PRIu32,
+					   diff->update ? "+" : "-", diff->path, diff->path->net,
+					   diff->path->peer, diff->path->addpath_rx_id);
+
+			hook_call(bgp_route_update, bgp, afi, safi, dest, diff->path,
+				  diff->update ? diff->path : NULL);
+		} else if (debug)
+			zlog_debug("[%s] diff: %p no path", diff->update ? "+" : "-", diff);
+	}
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
@@ -4607,6 +4634,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	/* TODO BMP insert rib update hook */
 	if (old_select)
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
+
 	if (new_select) {
 		if (debug)
 			zlog_debug("%s: (%s:%u:%u)%pBD setting SELECTED flag", __func__,
@@ -4624,15 +4652,6 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 	}
-
-	/* call bmp hook for loc-rib route update / withdraw after flags were
-	 * set
-	 */
-	if (old_select || new_select) {
-		hook_call(bgp_route_update, bgp, afi, safi, dest, old_select,
-			  new_select);
-	}
-
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
@@ -5791,7 +5810,7 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	hook_call(bgp_process, peer->bgp, afi, safi, dest, peer, true);
+	hook_call(bgp_process, peer->bgp, afi, safi, dest, pi ? pi->addpath_rx_id : 0, peer, true);
 	bgp_process(peer->bgp, dest, pi, afi, safi);
 }
 
@@ -6619,7 +6638,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 		}
 
-		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
+		hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer, true);
 
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && same_attr &&
@@ -7133,7 +7152,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	bgp_ls_originate_bgp_prefix(bgp, afi, safi, dest, new);
 
-	hook_call(bgp_process, bgp, afi, safi, dest, peer, false);
+	hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer, true);
 
 	/* Process change. */
 	bgp_process(bgp, dest, new, afi, safi);
@@ -7178,7 +7197,7 @@ filtered:
 		XFREE(MTYPE_BGP_ROUTE, new);
 	}
 
-	hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
+	hook_call(bgp_process, bgp, afi, safi, dest, addpath_id, peer, false);
 
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		if (!bm->rcvd_attr_printed && bm->rcvd_attr_str[0]) {
@@ -7271,7 +7290,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	 * and
 	 * if there was no entry, we don't need to do anything more.
 	 */
-	if (bgp_adj_in_needed(peer, afi, safi) && peer != bgp->peer_self)
+	if (bgp_adj_in_needed(peer, afi, safi) && peer != bgp->peer_self) {
 		if (!bgp_adj_in_unset(&dest, afi, safi, peer, addpath_id)) {
 			assert(dest);
 			peer->stat_pfx_dup_withdraw++;
@@ -7287,6 +7306,9 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			}
 			return;
 		}
+
+		hook_call(bgp_process, peer->bgp, afi, safi, dest, addpath_id, peer, false);
+	}
 
 	/* Lookup withdrawn route. */
 	assert(dest);

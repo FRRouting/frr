@@ -400,6 +400,7 @@ struct bgp_path_info {
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
 /* Type-5 export was suppressed by skip-evpn-imported. */
 #define BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED (1 << 24)
+#define BGP_PATH_BMP_ADJIN_CHG (1 << 25)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -833,9 +834,14 @@ static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
 
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
-	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	      struct peer *peer, bool withdraw),
-	     (bgp, afi, safi, bn, peer, withdraw));
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn, uint32_t addpath_id,
+	      struct peer *peer, bool post),
+	     (bgp, afi, safi, bn, addpath_id, peer, post));
+
+/* called before bgp_process() */
+DECLARE_HOOK(bgp_process_main_one,
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest),
+	     (bgp, afi, safi, dest));
 
 /* whether a component other than soft-reconfiguration inbound needs the
  * peer's Adj-RIB-In to be maintained (e.g. BMP pre-policy monitoring)
