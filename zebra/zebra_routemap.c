@@ -1113,8 +1113,13 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		return RMAP_NOMATCH;
 	}
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (prefix_list_apply(plist, &p) == PREFIX_DENY ? RMAP_NOMATCH
 							    : RMAP_MATCH);
@@ -1206,8 +1211,13 @@ route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 	struct prefix_list *plist;
 
 	plist = prefix_list_lookup(afi, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);
