@@ -153,7 +153,7 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages whose code is defined as
    experimental (in the [65531-65534] range).
 
-.. clicmd:: bmp monitor AFI SAFI <rib-in|loc-rib> <pre-policy|post-policy>
+.. clicmd:: bmp monitor AFI SAFI <rib-in|loc-rib|rib-out> <pre-policy|post-policy>
 
    Perform Route Monitoring for the specified AFI, SAFI and RIB.  Only IPv4 and
    IPv6 are currently valid for AFI. SAFI valid values are currently
@@ -166,6 +166,7 @@ associated with a particular ``bmp targets``:
    Pre-Policy and Post-Policy flags do not apply to Local-RIB monitoring.
 
    BMP Local-RIB Monitoring is defined in :rfc:`9069`
+   BMP RIB-Out Monitoring is defined in :rfc:`8671`
 
    .. note::
 
