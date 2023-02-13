@@ -164,27 +164,19 @@ DEFUN (show_ip_rpf,
 				&ctx);
 }
 
-DEFUN (show_ip_rpf_addr,
+DEFPY (show_ip_rpf_addr,
        show_ip_rpf_addr_cmd,
-       "show ip rpf A.B.C.D",
+       "show ip rpf A.B.C.D$address",
        SHOW_STR
        IP_STR
        "Display RPF information for multicast source\n"
        "IP multicast source address (e.g. 10.0.0.0)\n")
 {
-	int idx_ipv4 = 3;
-	struct in_addr addr;
 	struct route_node *rn;
 	struct route_entry *re;
-	int ret;
 
-	ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-	if (ret == 0) {
-		vty_out(vty, "%% Malformed address\n");
-		return CMD_WARNING;
-	}
-
-	re = rib_match_ipv4_multicast(VRF_DEFAULT, addr, &rn);
+	re = rib_match_multicast(AFI_IP, VRF_DEFAULT, (union g_addr *)&address,
+				 &rn);
 
 	if (re)
 		vty_show_ip_route_detail(vty, rn, 1, false, false);
