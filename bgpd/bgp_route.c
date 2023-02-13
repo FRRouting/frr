@@ -3561,10 +3561,9 @@ static void bgp_route_select_timer_expire(struct event *event)
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
-void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
-			struct bgp_maxpaths_cfg *mpath_cfg,
-			struct bgp_path_info_pair *result, afi_t afi,
-			safi_t safi)
+void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest, struct bgp_maxpaths_cfg *mpath_cfg,
+			struct bgp_path_info_pair *result, afi_t afi, safi_t safi,
+			struct bgp_mpath_diff_head *mpath_diff_list)
 {
 	struct bgp_path_info *new_select, *look_thru;
 	struct bgp_path_info *old_select, *worse, *first;
@@ -3753,6 +3752,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 			if (old_select != first &&
 			    CHECK_FLAG(first->flags, BGP_PATH_REMOVED)) {
+				bgp_mpath_diff_insert(mpath_diff_list, pi, false);
 				dest = bgp_path_info_reap_unsorted(dest, first);
 				assert(dest);
 			} else {
@@ -4017,7 +4017,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		}
 	}
 
-	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, num_candidates, mpath_cfg);
+	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, num_candidates, mpath_cfg,
+				   mpath_diff_list);
 	bgp_path_info_mpath_aggregate_update(new_select, old_select);
 
 	bgp_addpath_update_ids(bgp, dest, afi, safi);
@@ -4465,9 +4466,13 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		return;
 	}
 
+	struct bgp_mpath_diff_head mpath_diff;
+
+	bgp_mpath_diff_init(&mpath_diff);
+
 	/* Best path selection. */
-	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,
-			   afi, safi);
+	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new, afi, safi,
+			   &mpath_diff);
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
@@ -4492,6 +4497,9 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 			"%s: p=(%s:%u:%u)%pBD afi=%s, safi=%s, old_select=%p, new_select=%p",
 			__func__, dv.name, dv.id, dv.table_id, dest, afi2str(afi),
 			safi2str(safi), old_select, new_select);
+
+
+	struct bgp_path_info_mpath_diff *diff;
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
@@ -4688,6 +4696,20 @@ out:
 
 	if (new_select && new_select->peer)
 		new_select->peer->stat_loc_rib_count[afi][safi]++;
+
+	struct bgp_path_info *mpath;
+
+	frr_each (bgp_mpath_diff, &mpath_diff, diff) {
+		mpath = diff->path;
+
+		if (!mpath)
+			continue;
+
+		if (mpath->peer)
+			mpath->peer->stat_loc_rib_count[afi][safi] += diff->update ? 1 : -1;
+	}
+	bgp_mpath_diff_clear(&mpath_diff);
+	bgp_mpath_diff_fini(&mpath_diff);
 }
 
 void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
