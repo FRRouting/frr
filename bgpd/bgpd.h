@@ -1502,7 +1502,7 @@ enum bgp_fsm_status {
 	BGP_STATUS_MAX,
 };
 
-#define PEER_HOSTNAME(peer) ((peer)->host ? (peer)->host : "(unknown peer)")
+#define PEER_HOSTNAME(peer) ((peer) && (peer)->host ? (peer)->host : "(unknown peer)")
 
 struct llgr_info {
 	uint32_t stale_time;
