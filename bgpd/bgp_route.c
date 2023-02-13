@@ -728,8 +728,6 @@ void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
 	bgp_dest_lock_node(dest);
 	peer_lock(pi->peer); /* bgp_path_info peer reference */
 	bgp_dest_set_defer_flag(dest, false);
-	if (pi->peer)
-		pi->peer->stat_pfx_loc_rib++;
 	hook_call(bgp_snmp_update_stats, dest, pi, true);
 }
 
@@ -755,8 +753,6 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	if (table)
 		bgp_pi_hash_del(&table->pi_hash, pi);
 
-	if (pi->peer)
-		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 
 	bgp_path_info_unlock(pi);
@@ -776,8 +772,6 @@ static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 	if (table)
 		bgp_pi_hash_del(&table->pi_hash, pi);
 
-	if (pi->peer)
-		pi->peer->stat_pfx_loc_rib--;
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 	bgp_path_info_unlock(pi);
 
@@ -4577,7 +4571,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		bgp_zebra_clear_route_change_flags(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
-		return;
+
+		goto out;
 	}
 
 	/* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set
@@ -4708,7 +4703,12 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	 */
 	bgp_upa_check_prefix_aggregates(bgp, dest, afi, safi, new_select);
 
-	return;
+out:
+	if (old_select && old_select->peer)
+		old_select->peer->stat_loc_rib_count[afi][safi]--;
+
+	if (new_select && new_select->peer)
+		new_select->peer->stat_loc_rib_count[afi][safi]++;
 }
 
 void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
@@ -6180,7 +6180,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_attr_set_evpn_overlay(attr, evpn);
 			p_evpn = NULL;
 		}
-		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
+		bgp_adj_in_set(dest, afi, safi, peer, attr, addpath_id, &bgp_labels);
 	}
 
 	/* Check previously received route using pi_hash */
@@ -7250,7 +7250,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	 * if there was no entry, we don't need to do anything more.
 	 */
 	if (bgp_adj_in_needed(peer, afi, safi) && peer != bgp->peer_self)
-		if (!bgp_adj_in_unset(&dest, peer, addpath_id)) {
+		if (!bgp_adj_in_unset(&dest, afi, safi, peer, addpath_id)) {
 			assert(dest);
 			peer->stat_pfx_dup_withdraw++;
 
@@ -7872,7 +7872,7 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(&dest, ain);
+				bgp_adj_in_remove(&dest, afi, safi, ain);
 
 			ain = ain_next;
 
@@ -8189,7 +8189,7 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 			ain_next = ain->next;
 
 			if (bgp_clearing_batch_check_peer(cinfo, ain->peer))
-				bgp_adj_in_remove(&dest, ain);
+				bgp_adj_in_remove(&dest, table->afi, table->safi, ain);
 
 			ain = ain_next;
 
@@ -8447,7 +8447,7 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 			ain_next = ain->next;
 
 			if (ain->peer == peer)
-				bgp_adj_in_remove(&dest, ain);
+				bgp_adj_in_remove(&dest, afi, safi, ain);
 
 			ain = ain_next;
 
