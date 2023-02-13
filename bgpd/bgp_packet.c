@@ -644,29 +644,11 @@ void bgp_keepalive_send(struct peer *peer)
 	bgp_writes_on(peer->connection);
 }
 
-/*
- * Creates a BGP Open packet and appends it to the peer's output queue.
- * Sets capabilities as necessary.
- */
-void bgp_open_send(struct peer_connection *connection)
+struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime,
+				    as_t local_as)
 {
-	struct stream *s;
-	uint16_t send_holdtime;
-	as_t local_as;
-	struct peer *peer = connection->peer;
 
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
-
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
+	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make open packet. */
 	bgp_packet_set_marker(s, BGP_MSG_OPEN);
@@ -697,6 +679,33 @@ void bgp_open_send(struct peer_connection *connection)
 
 	/* Set BGP packet length. */
 	bgp_packet_set_size(s);
+
+	return s;
+}
+
+/*
+ * Creates a BGP Open packet and appends it to the peer's output queue.
+ * Sets capabilities as necessary.
+ */
+void bgp_open_send(struct peer_connection *connection)
+{
+	struct stream *s;
+	uint16_t send_holdtime;
+	as_t local_as;
+	struct peer *peer = connection->peer;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		send_holdtime = peer->holdtime;
+	else
+		send_holdtime = peer->bgp->default_holdtime;
+
+	/* local-as Change */
+	if (peer->change_local_as)
+		local_as = peer->change_local_as;
+	else
+		local_as = peer->local_as;
+
+	s = bgp_open_make(peer, send_holdtime, local_as);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
