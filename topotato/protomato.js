@@ -511,6 +511,82 @@ function load_log(timetable, obj, xrefs) {
 	logtext.append(obj.data.text.substr(prev_e));
 }
 
+const whitespace_re = /^([ \t]+)/;
+
+/* NB: the fact that this is text-level mangling rather than parsing JSON is
+ * absolutely intentional.  This being a test system, we need to
+ *  (a) not modify the test target's output, in case it provides hints about
+ *      something going wrong somewhere
+ *  (b) deal with potentially malformed JSON (e.g. in FRR, a random call to
+ *      vtysh_out() in the middle of outputting JSON data)
+ */
+function json_to_tree(textrow, text) {
+	var lines = text.split("\n");
+	var nest = new Array();
+	var indent = new Array();
+
+	if (text.endsWith("\n"))
+		lines.pop();
+
+	nest.unshift(create(textrow, "div", "cliouttext clijson"));
+	indent.unshift("");
+
+	while (lines.length > 0) {
+		var line = lines.shift();
+		var use_nest  = nest[0];
+
+		while (!line.startsWith(indent[0])) {
+			indent.shift();
+			use_nest = nest.shift();
+		}
+
+		if (!line.endsWith("]") &&
+		    !line.endsWith("],") &&
+		    !line.endsWith("}") &&
+		    !line.endsWith("},"))
+			use_nest = nest[0];
+
+		var cur_flex = create(use_nest, "div", "clijsonflex");
+		var cur = create(cur_flex, "span", "clijsonitem", line);
+
+		/* indent of *next* line! */
+		var indent_m = whitespace_re.exec(lines[0]);
+		if (indent_m && (line.endsWith("[") || line.endsWith("{"))) {
+			let new_nest = create(nest[0], "div", "clijsonnest");
+			new_nest.style.maxHeight = "fit-content";
+			nest.unshift(new_nest);
+			indent.unshift(indent_m[1]);
+
+			let unshorten = create(cur_flex, "span", "cliunshorten");
+			unshorten.style.display = "inline";
+			let shorten = create(cur_flex, "span", "clishorten");
+			shorten.style.display = "none";
+
+			for (shorten_line of lines.slice(0, 10)) {
+				if (!shorten_line.startsWith(indent[0]))
+					break;
+				shorten.append(shorten_line + " ");
+			}
+
+			cur_flex.onclick = function() {
+				if (new_nest.style.maxHeight != "fit-content") {
+					new_nest.style.maxHeight = "fit-content";
+					shorten.style.display = "none";
+					unshorten.style.display = "inline";
+				} else {
+					/* collapsed content with max-height: 0
+					 * is still "present" for selecting &
+					 * copypasting
+					 */
+					new_nest.style.maxHeight = "0";
+					unshorten.style.display = "none";
+					shorten.style.display = "inline";
+				}
+			}
+		}
+	}
+}
+
 function load_vtysh(timetable, obj) {
 	var row;
 	var prev_cmds = timetable.querySelectorAll("div.clicmd");
@@ -528,7 +604,12 @@ function load_vtysh(timetable, obj) {
 		row.onclick = onclickclicmd;
 
 		var textrow = create(timetable, "div", "cliout");
-		create(textrow, "span", "cliouttext", obj.data.text);
+		textrow.obj = obj;
+
+		if (obj.data.text[0] == "{")
+			json_to_tree(textrow, obj.data.text);
+		else
+			create(textrow, "span", "cliouttext", obj.data.text);
 
 		if (prev_cmds.length > 0) {
 			var last_cmd = prev_cmds[prev_cmds.length - 1];

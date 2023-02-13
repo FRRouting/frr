@@ -386,6 +386,41 @@ svg {
 	white-space: pre-wrap;
 	max-width:132ch;
 }
+.clijsonflex {
+	display: flex;
+	flex-direction: row;
+}
+.clijsonitem {
+	flex: none;
+}
+.clijsonnest {
+	overflow-y: hidden;
+}
+.clishorten {
+	flex: auto;
+	font-family: var(--font-plain-narrow);
+	white-space: nowrap;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
+	user-select: none;
+	margin-left: 1em;
+	color: #cc9;
+	font-size: 10pt;
+}
+.clishorten:before {
+	content:"⊞";
+	color:#8f8;
+}
+.cliunshorten {
+	flex: auto;
+	font-family: var(--font-plain-narrow);
+	margin-left: 1em;
+	font-size: 10pt;
+}
+.cliunshorten:before {
+	content:"⊟";
+	color:#f88;
+}
 
 .pkt {
 	display: contents;
