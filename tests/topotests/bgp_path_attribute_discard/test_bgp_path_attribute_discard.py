@@ -81,24 +81,28 @@ def test_bgp_path_attribute_discard():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
-                "192.168.100.101/32": [
-                    {
-                        "valid": True,
-                        "atomicAggregate": True,
-                        "community": {
-                            "string": "65001:101",
-                        },
-                    }
-                ],
-                "192.168.100.102/32": [
-                    {
-                        "valid": True,
-                        "originatorId": "10.0.0.2",
-                        "community": {
-                            "string": "65001:102",
-                        },
-                    }
-                ],
+                "192.168.100.101/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "atomicAggregate": True,
+                            "community": {
+                                "string": "65001:101",
+                            },
+                        }
+                    ],
+                },
+                "192.168.100.102/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "originatorId": "10.0.0.2",
+                            "community": {
+                                "string": "65001:102",
+                            },
+                        }
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -120,20 +124,24 @@ def test_bgp_path_attribute_discard():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
-                "192.168.100.101/32": [
-                    {
-                        "valid": True,
-                        "atomicAggregate": None,
-                        "community": None,
-                    }
-                ],
-                "192.168.100.102/32": [
-                    {
-                        "valid": True,
-                        "originatorId": None,
-                        "community": None,
-                    }
-                ],
+                "192.168.100.101/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "atomicAggregate": None,
+                            "community": None,
+                        }
+                    ],
+                },
+                "192.168.100.102/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "originatorId": None,
+                            "community": None,
+                        }
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)

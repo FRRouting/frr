@@ -118,12 +118,16 @@ def test_bgp_community_alias():
         )
         expected = {
             "routes": {
-                "172.16.16.1/32": [
-                    {
-                        "community": {"string": "community-r2-1 65001:2"},
-                        "largeCommunity": {"string": "large-community-r2-1 65001:1:2"},
-                    }
-                ]
+                "172.16.16.1/32": {
+                    "paths": [
+                        {
+                            "community": {"string": "community-r2-1 65001:2"},
+                            "largeCommunity": {
+                                "string": "large-community-r2-1 65001:1:2"
+                            },
+                        }
+                    ]
+                }
             }
         }
         return topotest.json_cmp(output, expected)

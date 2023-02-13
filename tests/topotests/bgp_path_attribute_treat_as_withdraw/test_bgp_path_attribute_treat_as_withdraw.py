@@ -82,17 +82,21 @@ def test_bgp_path_attribute_treat_as_withdraw():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
-                "10.10.10.10/32": [
-                    {
-                        "valid": True,
-                        "atomicAggregate": True,
-                    }
-                ],
-                "10.10.10.20/32": [
-                    {
-                        "valid": True,
-                    }
-                ],
+                "10.10.10.10/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "atomicAggregate": True,
+                        }
+                    ],
+                },
+                "10.10.10.20/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                        }
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -115,11 +119,13 @@ def test_bgp_path_attribute_treat_as_withdraw():
         expected = {
             "routes": {
                 "10.10.10.10/32": None,
-                "10.10.10.20/32": [
-                    {
-                        "valid": True,
-                    }
-                ],
+                "10.10.10.20/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                        }
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)
