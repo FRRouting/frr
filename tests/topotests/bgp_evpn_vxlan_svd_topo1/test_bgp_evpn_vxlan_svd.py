@@ -205,6 +205,9 @@ def check_vni_macs_present(tgen, router, vni, maclist):
     return None
 
 def check_flood_entry_present(pe, vni, vtep):
+    if not topotest.iproute2_is_fdb_get_capable():
+        return None
+
     output = pe.run("bridge fdb get 00:00:00:00:00:00 dev vxlan0 vni {} self".format(vni))
 
     if str(vtep) not in output:
