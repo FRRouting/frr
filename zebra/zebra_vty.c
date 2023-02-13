@@ -146,11 +146,12 @@ DEFUN (no_ip_multicast_mode,
 }
 
 
-DEFUN (show_ip_rpf,
+DEFPY (show_ip_rpf,
        show_ip_rpf_cmd,
-       "show ip rpf [json]",
+       "show [ip$ip|ipv6$ipv6] rpf [json]",
        SHOW_STR
        IP_STR
+       IPV6_STR
        "Display RPF information for multicast source\n"
        JSON_STR)
 {
@@ -159,9 +160,9 @@ DEFUN (show_ip_rpf,
 		.multi = false,
 	};
 
-	return do_show_ip_route(vty, VRF_DEFAULT_NAME, AFI_IP, SAFI_MULTICAST,
-				false, uj, 0, NULL, false, 0, 0, 0, false,
-				&ctx);
+	return do_show_ip_route(vty, VRF_DEFAULT_NAME, ip ? AFI_IP : AFI_IP6,
+				SAFI_MULTICAST, false, uj, 0, NULL, false, 0, 0,
+				0, false, &ctx);
 }
 
 DEFPY (show_ip_rpf_addr,
@@ -176,6 +177,28 @@ DEFPY (show_ip_rpf_addr,
 	struct route_entry *re;
 
 	re = rib_match_multicast(AFI_IP, VRF_DEFAULT, (union g_addr *)&address,
+				 &rn);
+
+	if (re)
+		vty_show_ip_route_detail(vty, rn, 1, false, false);
+	else
+		vty_out(vty, "%% No match for RPF lookup\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_rpf_addr,
+       show_ipv6_rpf_addr_cmd,
+       "show ipv6 rpf X:X::X:X$address",
+       SHOW_STR
+       IPV6_STR
+       "Display RPF information for multicast source\n"
+       "IPv6 multicast source address\n")
+{
+	struct route_node *rn;
+	struct route_entry *re;
+
+	re = rib_match_multicast(AFI_IP6, VRF_DEFAULT, (union g_addr *)&address,
 				 &rn);
 
 	if (re)
@@ -4583,6 +4606,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_ip_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);
+	install_element(VIEW_NODE, &show_ipv6_rpf_addr_cmd);
 
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);

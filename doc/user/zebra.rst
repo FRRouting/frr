@@ -974,7 +974,7 @@ unicast topology!
    Unreachable routes do not receive special treatment and do not cause
    fallback to a second lookup.
 
-.. clicmd:: show ip rpf ADDR
+.. clicmd:: show [ip|ipv6] rpf ADDR
 
    Performs a Multicast RPF lookup, as configured with ``ip multicast
    rpf-lookup-mode MODE``. ADDR specifies the multicast source address to look
@@ -984,7 +984,6 @@ unicast topology!
 
       > show ip rpf 192.0.2.1
       Routing entry for 192.0.2.0/24 using Unicast RIB
-
       Known via "kernel", distance 0, metric 0, best
       * 198.51.100.1, via eth0
 
@@ -992,7 +991,7 @@ unicast topology!
    Indicates that a multicast source lookup for 192.0.2.1 would use an
    Unicast RIB entry for 192.0.2.0/24 with a gateway of 198.51.100.1.
 
-.. clicmd:: show ip rpf
+.. clicmd:: show [ip|ipv6] rpf
 
    Prints the entire Multicast RIB. Note that this is independent of the
    configured RPF lookup mode, the Multicast RIB may be printed yet not
