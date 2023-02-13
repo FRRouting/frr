@@ -200,12 +200,12 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         )
         clear_bgp(tgen, addr_type, "r2")
 
-    step(" All BGP nbrs are down as authentication is mismatch on both" " the sides")
+    step(" All BGP nbrs are down as authentication is mismatch on both  the sides")
 
     bgp_convergence = verify_bgp_convergence(tgen, topo, expected=False)
     assert (
         bgp_convergence is not True
-    ), "Testcase {} : " "Failed \n BGP nbrs must be down. Error: {}".format(
+    ), "Testcase {} :  Failed \n BGP nbrs must be down. Error: {}".format(
         tc_name, bgp_convergence
     )
 
@@ -252,7 +252,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
 
     step("All BGP nbrs are up as authentication is matched now")
     bgp_convergence = verify_bgp_convergence(tgen, topo)
-    assert bgp_convergence is True, "Testcase {} : Failed \n " "Error: {}".format(
+    assert bgp_convergence is True, "Testcase {} : Failed \n  Error: {}".format(
         tc_name, bgp_convergence
     )
 
@@ -302,7 +302,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
             "show ip prefix list"
         )
         result = verify_prefix_lists(tgen, input_dict_2)
-        assert result is not True, "Testcase {} : Failed \n" " Error: {}".format(
+        assert result is not True, "Testcase {} : Failed \n  Error: {}".format(
             tc_name, result
         )
 
@@ -405,7 +405,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
             tc_name, result
         )
 
-        step("Apply prefix list P1 on BGP neighbors 1 2 3 4 connected from " "frr r1")
+        step("Apply prefix list P1 on BGP neighbors 1 2 3 4 connected from  frr r1")
         # Configure prefix list to bgp neighbor
         input_dict_4 = {
             "r2": {
@@ -919,7 +919,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         )
         assert (
             result4 is not True
-        ), "Testcase {} : Failed \n" "routes are still present \n Error: {}".format(
+        ), "Testcase {} : Failed \n routes are still present \n Error: {}".format(
             tc_name, result4
         )
 
