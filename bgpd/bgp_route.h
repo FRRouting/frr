@@ -15,6 +15,7 @@
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
+#include "bgp_mpath.h"
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
@@ -376,6 +377,8 @@ struct bgp_path_info {
 #define BGP_PATH_UPA                                                                              \
 	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
+#define BGP_PATH_BMP_LOCKED    (1 << 24)
+#define BGP_PATH_BMP_ADJIN_CHG (1 << 25)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -808,9 +811,14 @@ static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
 
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
-	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	      struct peer *peer, bool withdraw),
-	     (bgp, afi, safi, bn, peer, withdraw));
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn, uint32_t addpath_id,
+	      struct peer *peer, bool post),
+	     (bgp, afi, safi, bn, addpath_id, peer, post));
+
+/* called before bgp_process() */
+DECLARE_HOOK(bgp_process_main_one,
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *dest),
+	     (bgp, afi, safi, dest));
 
 /* whether a component other than soft-reconfiguration inbound needs the
  * peer's Adj-RIB-In to be maintained (e.g. BMP pre-policy monitoring)
@@ -827,6 +835,7 @@ extern int bgp_pi_hash_cmp(const struct bgp_path_info *p1, const struct bgp_path
 extern uint32_t bgp_pi_hash_hashfn(const struct bgp_path_info *pi);
 
 DECLARE_HASH(bgp_pi_hash, struct bgp_path_info, pi_hash_link, bgp_pi_hash_cmp, bgp_pi_hash_hashfn);
+DECLARE_HOOK(bgp_process_main_one_end, (struct bgp *bgp, struct bgp_path_info *path), (bgp, path));
 
 /* UPA prefix hash - for tracking unreachable prefixes */
 extern int bgp_upa_prefix_cmp(const struct bgp_upa_prefix_entry *e1,
@@ -1032,11 +1041,15 @@ extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       safi_t safi,
 					       uint32_t addpath_tx_id);
 
-extern bool subgroup_announce_check(struct bgp_dest *dest,
-				    struct bgp_path_info *pi,
-				    struct update_subgroup *subgrp,
-				    const struct prefix *p, struct attr *attr,
-				    struct attr *post_attr);
+/* used by bmp to ignore certain conditions in rib-out pre-policy check */
+#define BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY  (1 << 0)
+#define BGP_ANNCHK_SPECIAL_IGNORE_PATH_STATUS (1 << 1)
+#define BGP_ANNCHK_SPECIAL_PREPOLICY                                                              \
+	(BGP_ANNCHK_SPECIAL_IGNORE_OUT_POLICY | BGP_ANNCHK_SPECIAL_IGNORE_PATH_STATUS)
+extern bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
+				    struct update_subgroup *subgrp, const struct prefix *p,
+				    struct attr *attr, struct attr *post_attr,
+				    uint8_t special_cond);
 
 /* for encap/vpn */
 extern struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table,
@@ -1056,8 +1069,8 @@ extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			       struct bgp_maxpaths_cfg *mpath_cfg,
-			       struct bgp_path_info_pair *result, afi_t afi,
-			       safi_t safi);
+			       struct bgp_path_info_pair *result, afi_t afi, safi_t safi,
+			       struct bgp_mpath_diff_head *mpath_diff_list);
 extern void bgp_zebra_clear_route_change_flags(struct bgp_dest *dest);
 extern bool bgp_zebra_has_route_changed(struct bgp_path_info *selected);
 

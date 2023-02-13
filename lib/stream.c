@@ -1050,6 +1050,41 @@ int stream_put_in6_addr_at(struct stream *s, size_t putp,
 	return 16;
 }
 
+/* Put prefix by nlri type format. */
+int stream_put_prefix_addpath(struct stream *s, const struct prefix *p, bool addpath_capable,
+			      uint32_t addpath_tx_id)
+{
+	size_t psize;
+	size_t psize_with_addpath;
+
+	STREAM_VERIFY_SANE(s);
+
+	psize = PSIZE(p->prefixlen);
+
+	if (addpath_capable)
+		psize_with_addpath = psize + 4;
+	else
+		psize_with_addpath = psize;
+
+	if (STREAM_WRITEABLE(s) < (psize_with_addpath + sizeof(uint8_t))) {
+		STREAM_BOUND_WARN(s, "put");
+		return 0;
+	}
+
+	if (addpath_capable) {
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
+		s->data[s->endp++] = (uint8_t)addpath_tx_id;
+	}
+
+	s->data[s->endp++] = p->prefixlen;
+	memcpy(s->data + s->endp, &p->u.prefix, psize);
+	s->endp += psize;
+
+	return psize;
+}
+
 int stream_put_prefix(struct stream *s, const struct prefix *p)
 {
 	size_t psize;
