@@ -40,7 +40,7 @@ Please note that *zebra* must be invoked before *pimd*.
 
 To stop *pimd* please use::
 
-   kill `cat /var/run/pimd.pid`
+   kill `cat /var/run/frr/pimd.pid`
 
 Certain signals have special meanings to *pimd*.
 
