@@ -28,6 +28,21 @@
 
 #define BMP_READ_BUFSIZ	1024
 
+/* macro that sends a stat per AFI/SAFI and the total sum of sub-stats.
+ * per AFI/SAFI is not sent if 0 and force_zero == false
+ */
+#define BMP_PER_AF_STAT(afi_var, safi_var, af_stat_arr, sum_var, safi_stat, safi_stat_call,       \
+			sum_stat_call, force_zero)                                                \
+	do {                                                                                      \
+		(sum_var) = 0;                                                                    \
+		FOREACH_AFI_SAFI ((afi_var), (safi_var)) {                                        \
+			(sum_var) += ((af_stat_arr)[(afi_var)][(safi_var)] = (safi_stat));        \
+			if ((force_zero) || (af_stat_arr)[(afi_var)][(safi_var)])                 \
+				(safi_stat_call);                                                 \
+		};                                                                                \
+		(sum_stat_call);                                                                  \
+	} while (0)
+
 /* bmp->state */
 #define BMP_None        0
 #define BMP_PeerUp      2
@@ -327,21 +342,21 @@ enum {
 };
 
 enum {
-	BMP_STATS_PFX_REJECTED          = 0,
-	BMP_STATS_PFX_DUP_ADV           = 1,
-	BMP_STATS_PFX_DUP_WITHDRAW      = 2,
-	BMP_STATS_UPD_LOOP_CLUSTER      = 3,
-	BMP_STATS_UPD_LOOP_ASPATH       = 4,
-	BMP_STATS_UPD_LOOP_ORIGINATOR   = 5,
-	BMP_STATS_UPD_LOOP_CONFED       = 6,
-	BMP_STATS_SIZE_ADJ_RIB_IN       = 7,
-	BMP_STATS_SIZE_LOC_RIB          = 8,
-	BMP_STATS_SIZE_ADJ_RIB_IN_SAFI  = 9,
-	BMP_STATS_SIZE_LOC_RIB_IN_SAFI  = 10,
-	BMP_STATS_UPD_7606_WITHDRAW     = 11,
-	BMP_STATS_PFX_7606_WITHDRAW     = 12,
-	BMP_STATS_UPD_DUP               = 13,
-	BMP_STATS_FRR_NH_INVALID        = 65531,
+	BMP_STATS_PFX_REJECTED = 0,
+	BMP_STATS_PFX_DUP_ADV = 1,
+	BMP_STATS_PFX_DUP_WITHDRAW = 2,
+	BMP_STATS_UPD_LOOP_CLUSTER = 3,
+	BMP_STATS_UPD_LOOP_ASPATH = 4,
+	BMP_STATS_UPD_LOOP_ORIGINATOR = 5,
+	BMP_STATS_UPD_LOOP_CONFED = 6,
+	BMP_STATS_SIZE_ADJ_RIB_IN = 7,
+	BMP_STATS_SIZE_LOC_RIB = 8,
+	BMP_STATS_SIZE_ADJ_RIB_IN_SAFI = 9,
+	BMP_STATS_SIZE_LOC_RIB_SAFI = 10,
+	BMP_STATS_UPD_7606_WITHDRAW = 11,
+	BMP_STATS_PFX_7606_WITHDRAW = 12,
+	BMP_STATS_UPD_DUP = 13,
+	BMP_STATS_FRR_NH_INVALID = 65531,
 };
 
 DECLARE_MGROUP(BMP);
