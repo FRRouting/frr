@@ -2233,13 +2233,27 @@ static void bmp_stat_put_u64(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
+static void bmp_stat_put_af_u64(struct stream *s, size_t *cnt, uint16_t type, afi_t afi,
+				safi_t safi, uint64_t value)
+{
+	stream_putw(s, type);
+	stream_putw(s, 2 + 1 + 8);
+	stream_putw(s, afi_int2iana(afi));
+	stream_putc(s, safi_int2iana(safi));
+	stream_putq(s, value);
+	(*cnt)++;
+}
+
 static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 {
+	uint64_t peer_distinguisher = 0, per_af_sum;
+	uint64_t af_stat[AFI_MAX][SAFI_MAX];
 	size_t count = 0, count_pos, len;
-	uint64_t peer_distinguisher = 0;
 	uint8_t peer_type_flag;
-	struct stream *s;
 	struct timeval tv;
+	struct stream *s;
+	safi_t safi;
+	afi_t afi;
 
 	peer_type_flag = bmp_get_peer_type(peer);
 	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag, &peer_distinguisher)) {
@@ -2262,10 +2276,18 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 	bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_CLUSTER, peer->stat_pfx_cluster_loop);
 	bmp_stat_put_u32(s, &count, BMP_STATS_PFX_DUP_WITHDRAW, peer->stat_pfx_dup_withdraw);
 	bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW, peer->stat_pfx_withdraw);
+
+	BMP_PER_AF_STAT(afi, safi, af_stat, per_af_sum, peer->stat_adj_in_count[afi][safi],
+			bmp_stat_put_af_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN_SAFI, afi, safi,
+					    af_stat[afi][safi]),
+			bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN, per_af_sum), false);
+
+	BMP_PER_AF_STAT(afi, safi, af_stat, per_af_sum, peer->stat_loc_rib_count[afi][safi],
+			bmp_stat_put_af_u64(s, &count, BMP_STATS_SIZE_LOC_RIB_SAFI, afi, safi,
+					    af_stat[afi][safi]),
+			bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB, per_af_sum), false);
 	if (bt->stats_send_experimental)
 		bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID, peer->stat_pfx_nh_invalid);
-	bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN, peer->stat_pfx_adj_rib_in);
-	bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB, peer->stat_pfx_loc_rib);
 
 	stream_putl_at(s, count_pos, count);
 
