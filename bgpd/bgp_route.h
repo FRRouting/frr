@@ -15,6 +15,7 @@
 #include "bgp_table.h"
 #include "bgp_addpath_types.h"
 #include "bgp_rpki.h"
+#include "bgp_mpath.h"
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
@@ -1076,8 +1077,8 @@ extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			       struct bgp_maxpaths_cfg *mpath_cfg,
-			       struct bgp_path_info_pair *result, afi_t afi,
-			       safi_t safi);
+			       struct bgp_path_info_pair *result, afi_t afi, safi_t safi,
+			       struct bgp_mpath_diff_head *mpath_diff_list);
 extern void bgp_zebra_clear_route_change_flags(struct bgp_dest *dest);
 extern bool bgp_zebra_has_route_changed(struct bgp_path_info *selected);
 
