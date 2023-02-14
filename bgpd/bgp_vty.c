@@ -12979,6 +12979,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			  json_object *json)
 {
 	struct bgp *bgp;
+	struct in_addr router_id_null = {INADDR_ANY};
 	char timebuf[BGP_UPTIME_LEN];
 	char dn_flag[2];
 	afi_t afi;
@@ -13177,7 +13178,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		/* BGP Version. */
 		json_object_int_add(json_neigh, "bgpVersion", 4);
 		json_object_string_addf(json_neigh, "remoteRouterId", "%pI4",
-					&p->remote_id);
+					(p->status == Established)
+						? &p->remote_id
+						: &router_id_null);
 		json_object_string_addf(json_neigh, "localRouterId", "%pI4",
 					&bgp->router_id);
 
@@ -13305,7 +13308,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* BGP Version. */
 		vty_out(vty, "  BGP version 4");
-		vty_out(vty, ", remote router ID %pI4", &p->remote_id);
+		vty_out(vty, ", remote router ID %pI4",
+			(p->status == Established) ? &p->remote_id
+						   : &router_id_null);
 		vty_out(vty, ", local router ID %pI4\n", &bgp->router_id);
 
 		/* Confederation */
@@ -14622,7 +14627,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	}
 
 	/* Local address. */
-	if (p->su_local) {
+	if (p->su_local && (p->status == Established)) {
 		if (use_json) {
 			json_object_string_addf(json_neigh, "hostLocal", "%pSU",
 						p->su_local);
@@ -14640,7 +14645,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	}
 
 	/* Remote address. */
-	if (p->su_remote) {
+	if (p->su_remote && (p->status == Established)) {
 		if (use_json) {
 			json_object_string_addf(json_neigh, "hostForeign",
 						"%pSU", p->su_remote);
@@ -14659,7 +14664,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	}
 
 	/* Nexthop display. */
-	if (p->su_local) {
+	if (p->su_local && (p->status == Established)) {
 		if (use_json) {
 			json_object_string_addf(json_neigh, "nexthop", "%pI4",
 						&p->nexthop.v4);
