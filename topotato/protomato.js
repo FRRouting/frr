@@ -552,11 +552,11 @@ function json_to_tree(textrow, text) {
 		    !line.endsWith("},"))
 			use_nest = nest[0];
 
-		var cur_flex = create(use_nest, "div", "clijsonflex");
-		var cur = create(cur_flex, "span", "clijsonitem", line);
+		let cur_flex = create(use_nest, "div", "clijsonflex");
+		let cur = create(cur_flex, "span", "clijsonitem", line);
 
 		/* indent of *next* line! */
-		var indent_m = whitespace_re.exec(lines[0]);
+		let indent_m = whitespace_re.exec(lines[0]);
 		if (indent_m && (line.endsWith("[") || line.endsWith("{"))) {
 			let new_nest = create(nest[0], "div", "clijsonnest");
 			new_nest.style.maxHeight = "fit-content";
@@ -565,6 +565,8 @@ function json_to_tree(textrow, text) {
 
 			let unshorten = create(cur_flex, "span", "cliunshorten");
 			unshorten.style.display = "inline";
+			let collapse = create(cur_flex, "span", "clicollapse");
+			collapse.style.display = "inline";
 			let shorten = create(cur_flex, "span", "clishorten");
 			shorten.style.display = "none";
 
@@ -574,19 +576,32 @@ function json_to_tree(textrow, text) {
 				shorten.append(shorten_line + " ");
 			}
 
+			cur_flex.do_collapse = function() {
+				/* collapsed content with max-height: 0
+				 * is still "present" for selecting &
+				 * copypasting
+				 */
+				new_nest.style.maxHeight = "0";
+				collapse.style.display = "none";
+				unshorten.style.display = "none";
+				shorten.style.display = "inline";
+			}
 			cur_flex.onclick = function() {
+				event.stopPropagation();
 				if (new_nest.style.maxHeight != "fit-content") {
 					new_nest.style.maxHeight = "fit-content";
 					shorten.style.display = "none";
 					unshorten.style.display = "inline";
+					collapse.style.display = "inline";
 				} else {
-					/* collapsed content with max-height: 0
-					 * is still "present" for selecting &
-					 * copypasting
-					 */
-					new_nest.style.maxHeight = "0";
-					unshorten.style.display = "none";
-					shorten.style.display = "inline";
+					cur_flex.do_collapse();
+				}
+			}
+			collapse.onclick = function() {
+				event.stopPropagation();
+				for (const child of new_nest.children) {
+					if ("do_collapse" in child)
+						child.do_collapse();
 				}
 			}
 		}

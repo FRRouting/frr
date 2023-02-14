@@ -413,7 +413,7 @@ svg {
 	color:#8f8;
 }
 .cliunshorten {
-	flex: auto;
+	flex: initial;
 	font-family: var(--font-plain-narrow);
 	margin-left: 1em;
 	font-size: 10pt;
@@ -421,6 +421,17 @@ svg {
 .cliunshorten:before {
 	content:"⊟";
 	color:#f88;
+}
+.clicollapse {
+	flex: initial;
+	font-family: var(--font-plain-narrow);
+	user-select: none;
+	margin-left: 0.2em;
+	font-size: 10pt;
+}
+.clicollapse:before {
+	content:"⊡";
+	color:#fe7;
 }
 
 .pkt {
