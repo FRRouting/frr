@@ -593,7 +593,7 @@ class FRRNetworkInstance(NetworkInstance):
             # want record-priority & timestamp precision...
             self.vtysh_fast(
                 daemon,
-                "enable\nconfigure\nlog file %s\nend\nclear log cmdline-targets"
+                "enable\nconfigure\nlog file %s\ndebug memstats-at-exit\nend\nclear log cmdline-targets"
                 % self.logfiles[daemon],
             )
             if use_integrated:
