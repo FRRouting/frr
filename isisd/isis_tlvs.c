@@ -2000,6 +2000,10 @@ static struct isis_subtlvs *copy_subtlvs(struct isis_subtlvs *subtlvs)
 
 	rv->source_prefix =
 		copy_subtlv_ipv6_source_prefix(subtlvs->source_prefix);
+
+	copy_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+		   &subtlvs->srv6_end_sids, &rv->srv6_end_sids);
+
 	return rv;
 }
 
