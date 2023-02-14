@@ -2014,6 +2014,9 @@ static void format_subtlvs(struct isis_subtlvs *subtlvs, struct sbuf *buf,
 		     &subtlvs->prefix_sids, buf, json, indent);
 
 	format_subtlv_ipv6_source_prefix(subtlvs->source_prefix, buf, json, indent);
+
+	format_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+		     &subtlvs->srv6_end_sids, buf, json, indent);
 }
 
 static void isis_free_subtlvs(struct isis_subtlvs *subtlvs)
