@@ -6533,6 +6533,15 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 #define ITEM_SUBTLV_OPS(_name_, _desc_) \
 	ITEM_TLV_OPS(_name_, _desc_)
 
+#define SUBSUBTLV_OPS(_name_, _desc_)                                          \
+	static const struct tlv_ops subsubtlv_##_name_##_ops = {               \
+		.name = _desc_,                                                \
+		.unpack = unpack_subsubtlv_##_name_,                           \
+	}
+
+#define ITEM_SUBSUBTLV_OPS(_name_, _desc_) \
+	ITEM_TLV_OPS(_name_, _desc_)
+
 ITEM_TLV_OPS(area_address, "TLV 1 Area Addresses");
 ITEM_TLV_OPS(oldstyle_reach, "TLV 2 IS Reachability");
 ITEM_TLV_OPS(lan_neighbor, "TLV 6 LAN Neighbors");
