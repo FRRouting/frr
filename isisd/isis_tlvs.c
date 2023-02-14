@@ -2029,6 +2029,9 @@ static void isis_free_subtlvs(struct isis_subtlvs *subtlvs)
 
 	XFREE(MTYPE_ISIS_SUBTLV, subtlvs->source_prefix);
 
+	free_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+		   &subtlvs->srv6_end_sids);
+
 	XFREE(MTYPE_ISIS_SUBTLV, subtlvs);
 }
 
