@@ -2698,7 +2698,6 @@ def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=N
     """
     Using scapy Raw() method to send BSR raw packet from one FRR
     to other
-
     Parameters:
     -----------
     * `tgen` : Topogen object
@@ -2706,26 +2705,26 @@ def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=N
     * `senderRouter` : Sender router
     * `receiverRouter` : Receiver router
     * `packet` : BSR packet in raw format
-
     returns:
     --------
     errormsg or True
     """
-
     global CWD
     result = ""
+    count = 1
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
     python3_path = tgen.net.get_exec_path(["python3", "python"])
     script_path = os.path.join(CWD, "send_bsr_packet.py")
     node = tgen.net[senderRouter]
-
     for destLink, data in topo["routers"][senderRouter]["links"].items():
         if "type" in data and data["type"] == "loopback":
             continue
-
         if "pim" in data and data["pim"] == "enable":
             sender_interface = data["interface"]
+
+        if "pim6" in data and data["pim6"] == "enable":
+            sender_interface = data["interface"]
+            count = 5
 
         packet = topo["routers"][senderRouter]["bsm"]["bsr_packets"][packet]["data"]
 
@@ -2735,7 +2734,7 @@ def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=N
             packet,
             sender_interface,
             "--interval=1",
-            "--count=1",
+            "--count={}".format(count),
         ]
         logger.info("Scapy cmd: \n %s", cmd)
         node.cmd_raises(cmd)
@@ -2747,62 +2746,61 @@ def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=N
 def find_rp_from_bsrp_info(tgen, dut, bsr, grp=None):
     """
     Find which RP is having lowest prioriy and returns rp IP
-
     Parameters
     ----------
     * `tgen`: topogen object
     * `dut`: device under test
     * `bsr`: BSR address
     * 'grp': Group Address
-
     Usage
     -----
     dut = "r1"
     result = verify_pim_rp_info(tgen, dut, bsr)
-
     Returns:
     dictionary: group and RP, which has to be installed as per
                 lowest priority or highest priority
     """
-
     rp_details = {}
     rnode = tgen.routers()[dut]
 
     logger.info("[DUT: %s]: Fetching rp details from bsrp-info", dut)
-    bsrp_json = run_frr_cmd(rnode, "show ip pim bsrp-info json", isjson=True)
+
+    addr_type = validate_ip_address(bsr)
+
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
+
+    rnode = tgen.routers()[dut]
+    bsrp_json = run_frr_cmd(
+        rnode, "show {} pim bsrp-info json".format(ip_cmd), isjson=True
+    )
 
     if grp not in bsrp_json:
         return {}
-
     for group, rp_data in bsrp_json.items():
         if group == "BSR Address" and bsrp_json["BSR Address"] == bsr:
             continue
-
         if group != grp:
             continue
-
         rp_priority = {}
         rp_hash = {}
-
         for rp, value in rp_data.items():
             if rp == "Pending RP count":
                 continue
             rp_priority[value["Rp Address"]] = value["Rp Priority"]
             rp_hash[value["Rp Address"]] = value["Hash Val"]
-
         priority_dict = dict(zip(rp_priority.values(), rp_priority.keys()))
         hash_dict = dict(zip(rp_hash.values(), rp_hash.keys()))
-
         # RP with lowest priority
         if len(priority_dict) != 1:
             rp_p, lowest_priority = sorted(rp_priority.items(), key=lambda x: x[1])[0]
             rp_details[group] = rp_p
-
         # RP with highest hash value
         if len(priority_dict) == 1:
             rp_h, highest_hash = sorted(rp_hash.items(), key=lambda x: x[1])[-1]
             rp_details[group] = rp_h
-
         # RP with highest IP address
         if len(priority_dict) == 1 and len(hash_dict) == 1:
             rp_details[group] = sorted(rp_priority.keys())[-1]
@@ -2816,7 +2814,6 @@ def verify_pim_grp_rp_source(
 ):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
-
     Parameters
     ----------
     * `tgen`: topogen object
@@ -2826,28 +2823,32 @@ def verify_pim_grp_rp_source(
     * 'rp_source': source from which rp installed
     * 'rpadd': rp address
     * `expected` : expected results from API, by-default True
-
     Usage
     -----
     dut = "r1"
     group_address = "225.1.1.1"
     rp_source = "BSR"
     result = verify_pim_rp_and_source(tgen, topo, dut, group_address, rp_source)
-
     Returns
     -------
     errormsg(str) or True
     """
-
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
     if dut not in tgen.routers():
         return False
+
+    addr_type = validate_ip_address(grp_addr)
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
 
     rnode = tgen.routers()[dut]
 
     logger.info("[DUT: %s]: Verifying ip rp info", dut)
-    show_ip_rp_info_json = run_frr_cmd(rnode, "show ip pim rp-info json", isjson=True)
+    show_ip_rp_info_json = run_frr_cmd(
+        rnode, "show {} pim rp-info json".format(ip_cmd), isjson=True
+    )
 
     if rpadd != None:
         rp_json = show_ip_rp_info_json[rpadd]
@@ -2878,7 +2879,6 @@ def verify_pim_grp_rp_source(
             "Expected: %s, %s but not found" % (dut, grp_addr, rp_source)
         )
         return errormsg
-
     for rp in show_ip_rp_info_json:
         rp_json = show_ip_rp_info_json[rp]
         logger.info("%s", rp_json)
@@ -2904,14 +2904,11 @@ def verify_pim_grp_rp_source(
                     )
                 )
                 return errormsg
-
     errormsg = (
         "[DUT %s]: Verifying Group and rp_source [FAILED]"
         "Expected: %s, %s but not found" % (dut, grp_addr, rp_source)
     )
-
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-
     return errormsg
 
 
@@ -2920,7 +2917,6 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     """
     Verify all PIM interface are up and running, config is verified
     using "show ip pim interface" cli
-
     Parameters
     ----------
     * `tgen`: topogen object
@@ -2928,28 +2924,33 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     * `dut` : device under test
     * 'bsr' : bsr ip to be verified
     * `expected` : expected results from API, by-default True
-
     Usage
     -----
     result = verify_pim_bsr(tgen, topo, dut, bsr_ip)
-
     Returns
     -------
     errormsg(str) or True
     """
-
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
     for router in tgen.routers():
         if router != dut:
             continue
 
         logger.info("[DUT: %s]: Verifying PIM bsr status:", dut)
 
-        rnode = tgen.routers()[dut]
-        pim_bsr_json = rnode.vtysh_cmd("show ip pim bsr json", isjson=True)
+        addr_type = validate_ip_address(bsr_ip)
 
-        logger.info("show_ip_pim_bsr_json: \n %s", pim_bsr_json)
+        if addr_type == "ipv4":
+            ip_cmd = "ip"
+        elif addr_type == "ipv6":
+            ip_cmd = "ipv6"
+
+        rnode = tgen.routers()[dut]
+        pim_bsr_json = rnode.vtysh_cmd(
+            "show {} pim bsr json".format(ip_cmd), isjson=True
+        )
+
+        logger.info("show_pim_bsr_json: \n %s", pim_bsr_json)
 
         # Verifying PIM bsr
         if pim_bsr_json["bsr"] != bsr_ip:
@@ -2960,13 +2961,11 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
                 % (dut, bsr_ip, pim_bsr_json["bsr"])
             )
             return errormsg
-
         logger.info(
             "[DUT %s]:" " bsr status: found, Address :%s" " [PASSED]!!",
             dut,
             pim_bsr_json["bsr"],
         )
-
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
@@ -2978,7 +2977,6 @@ def verify_pim_upstream_rpf(
     """
     Verify IP/IPv6 PIM upstream rpf, config is verified
     using "show ip/ipv6 pim neighbor" cli
-
     Parameters
     ----------
     * `tgen`: topogen object
@@ -2989,48 +2987,47 @@ def verify_pim_upstream_rpf(
                           needs to be checked
     * `rp` : RP address
     * `expected` : expected results from API, by-default True
-
     Usage
     -----
     result = verify_pim_upstream_rpf(gen, topo, dut, interface,
                                         group_addresses, rp=None)
-
     Returns
     -------
     errormsg(str) or True
     """
-
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
     if "pim" in topo["routers"][dut]:
         logger.info("[DUT: %s]: Verifying ip pim upstream rpf:", dut)
 
         rnode = tgen.routers()[dut]
+        for grp in group_addresses:
+            addr_type = validate_ip_address(grp)
+
+        if addr_type == "ipv4":
+            ip_cmd = "ip"
+        elif addr_type == "ipv6":
+            ip_cmd = "ipv6"
+
         show_ip_pim_upstream_rpf_json = rnode.vtysh_cmd(
-            "show ip pim upstream-rpf json", isjson=True
+            "show {} pim upstream-rpf json".format(ip_cmd), isjson=True
         )
 
         logger.info(
             "show_ip_pim_upstream_rpf_json: \n %s", show_ip_pim_upstream_rpf_json
         )
-
         if type(group_addresses) is not list:
             group_addresses = [group_addresses]
-
         for grp_addr in group_addresses:
             for destLink, data in topo["routers"][dut]["links"].items():
                 if "type" in data and data["type"] == "loopback":
                     continue
-
                 if "pim" not in topo["routers"][destLink]:
                     continue
-
                 # Verify RP info
                 if rp is None:
                     rp_details = find_rp_details(tgen, topo)
                 else:
                     rp_details = {dut: rp}
-
                 if dut in rp_details:
                     pim_nh_intf_ip = topo["routers"][dut]["links"]["lo"]["ipv4"].split(
                         "/"
@@ -3038,16 +3035,12 @@ def verify_pim_upstream_rpf(
                 else:
                     if destLink not in interface:
                         continue
-
                     links = topo["routers"][destLink]["links"]
                     pim_neighbor = {key: links[key] for key in [dut]}
-
                     data = pim_neighbor[dut]
                     if "pim" in data and data["pim"] == "enable":
                         pim_nh_intf_ip = data["ipv4"].split("/")[0]
-
                 upstream_rpf_json = show_ip_pim_upstream_rpf_json[grp_addr]["*"]
-
                 # Verifying ip pim upstream rpf
                 if (
                     upstream_rpf_json["rpfInterface"] == interface
@@ -3067,7 +3060,6 @@ def verify_pim_upstream_rpf(
                         )
                     )
                     return errormsg
-
                 logger.info(
                     "[DUT %s]: Verifying group: %s,"
                     " rpf interface: %s, "
@@ -3077,95 +3069,111 @@ def verify_pim_upstream_rpf(
                     interface,
                     pim_nh_intf_ip,
                 )
-
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
-def enable_disable_pim_unicast_bsm(tgen, router, intf, enable=True):
+def enable_disable_pim_unicast_bsm(tgen, router, intf, enable=True, address_type=None):
     """
     Helper API to enable or disable pim bsm on interfaces
-
     Parameters
     ----------
     * `tgen` : Topogen object
     * `router` : router id to be configured.
     * `intf` : Interface to be configured
     * `enable` : this flag denotes if config should be enabled or disabled
-
     Returns
     -------
     True or False
     """
     result = False
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
     try:
         config_data = []
         cmd = "interface {}".format(intf)
         config_data.append(cmd)
+        if address_type == "ipv6":
+            if enable == True:
+                config_data.append("ipv6 pim unicast-bsm")
+            else:
+                config_data.append("no ipv6 pim unicast-bsm")
 
-        if enable == True:
-            config_data.append("ip pim unicast-bsm")
+            result = create_common_configuration(
+                tgen, router, config_data, "interface_config", build=False
+            )
+            if result is not True:
+                return False
         else:
-            config_data.append("no ip pim unicast-bsm")
+            if enable == True:
+                config_data.append("ip pim unicast-bsm")
+            else:
+                config_data.append("no ip pim unicast-bsm")
 
-        result = create_common_configuration(
-            tgen, router, config_data, "interface_config", build=False
-        )
-        if result is not True:
-            return False
+            result = create_common_configuration(
+                tgen, router, config_data, "interface_config", build=False
+            )
+            if result is not True:
+                return False
 
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
         logger.error(errormsg)
         return errormsg
-
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
-def enable_disable_pim_bsm(tgen, router, intf, enable=True):
+def enable_disable_pim_bsm(tgen, router, intf, enable=True, address_type=None):
     """
     Helper API to enable or disable pim bsm on interfaces
-
     Parameters
     ----------
     * `tgen` : Topogen object
     * `router` : router id to be configured.
     * `intf` : Interface to be configured
     * `enable` : this flag denotes if config should be enabled or disabled
+    * `address_type` : mention address type, ipv4/ipv6
 
     Returns
     -------
     True or False
     """
+
     result = False
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
     try:
         config_data = []
         cmd = "interface {}".format(intf)
         config_data.append(cmd)
+        if address_type == "ipv6":
+            if enable is True:
+                config_data.append("ipv6 pim bsm")
+            else:
+                config_data.append("no ipv6 pim bsm")
 
-        if enable is True:
-            config_data.append("ip pim bsm")
+            result = create_common_configuration(
+                tgen, router, config_data, "interface_config", build=False
+            )
+            if result is not True:
+                return False
         else:
-            config_data.append("no ip pim bsm")
+            if enable is True:
+                config_data.append("ip pim bsm")
+            else:
+                config_data.append("no ip pim bsm")
 
-        result = create_common_configuration(
-            tgen, router, config_data, "interface_config", build=False
-        )
-        if result is not True:
-            return False
+            result = create_common_configuration(
+                tgen, router, config_data, "interface_config", build=False
+            )
+            if result is not True:
+                return False
 
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
         logger.error(errormsg)
         return errormsg
-
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
