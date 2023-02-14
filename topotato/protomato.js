@@ -464,6 +464,8 @@ function create(parent_, tagname, clsname, text = undefined) {
 	return element;
 }
 
+const mono_xrefs = new Set(["VDSXN-XE88Y", "SH01T-57BR4", "TCYNJ-TRV01", "TRN9Y-VYTR4"]);
+
 function load_log(timetable, obj, xrefs) {
 	var row, logmeta;
 
@@ -476,6 +478,10 @@ function load_log(timetable, obj, xrefs) {
 	create(row, "span", "dmnname", obj.data.daemon);
 
 	logmeta = create(row, "span", "logmeta");
+
+	if (mono_xrefs.has(obj.data.uid))
+		row.classList.add("mono");
+
 	if (obj.data.uid in xrefs) {
 		var srclocs = new Set();
 

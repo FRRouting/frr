@@ -331,8 +331,9 @@ svg {
 	border-bottom:1px solid #f04;
 	font-weight:500;
 }
-.logmsg.prio-crit .logtext {
-	font-family:var(--font-mono-narrower);
+.logmsg.prio-crit .logtext,
+.logmsg.mono .logtext {
+	font-family:var(--font-mono-narrow);
 	white-space:pre-wrap;
 }
 
