@@ -43,26 +43,10 @@ from .timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
 from .exceptions import TopotatoDaemonCrash
 from .pcapng import Context
+from .osdep import NetworkInstance
 
 if typing.TYPE_CHECKING:
     from . import toponom
-
-if sys.platform == "linux":
-    from .topolinux import NetworkInstance
-elif sys.platform == "freebsd12":
-    from .topofreebsd import NetworkInstance
-else:
-
-    class NetworkInstance(ClassHooks):
-        class RouterNS:
-            pass
-
-        def __init__(self, *args, **kwargs):
-            raise NotImplementedError("no support for OS %r" % sys.platform)
-
-        @classmethod
-        def _check_env(cls, *, result, **kwargs):
-            raise NotImplementedError("no support for OS %r" % sys.platform)
 
 
 logger = logging.getLogger("topotato")
