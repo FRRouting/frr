@@ -43,7 +43,7 @@ def pytest_report_teststatus(report):
 def pytest_addhooks(pluginmanager):
     pluginmanager.add_hookspecs(hooks)
     pluginmanager.register(TopotatoItem)
-    pluginmanager.register(Interactive())
+    pluginmanager.register(Interactive)
 
 
 def pytest_addoption(parser):
