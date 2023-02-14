@@ -358,6 +358,18 @@ svg {
 	font-weight: 300;
 }
 
+.event {
+	display: contents;
+}
+.event .dmnname {
+	grid-column-end: 6;
+}
+.eventtext {
+	grid-column-start: 6;
+	grid-column-end: span 2;
+	font-style: italic;
+}
+
 .clicmd {
 	display: contents;
 }
@@ -440,7 +452,8 @@ svg {
 
 .pktcol,
 .logmsg > span,
-.clicmd > span {
+.clicmd > span,
+.event > span {
 	border-bottom: 1px solid #aaa;
 	background-color:#eee;
 	/* border-radius: 3pt; */

@@ -15,6 +15,7 @@ import typing
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     Generator,
     Iterable,
@@ -236,6 +237,22 @@ class TimedElement(ABC):
 
     def __lt__(self, other):
         return self.ts < other.ts
+
+
+class FrameworkEvent(TimedElement):
+    typ: ClassVar[str]
+
+    def __init__(self):
+        super().__init__()
+        self._ts = time.time()
+        self._data = {"type": self.typ}
+
+    @property
+    def ts(self):
+        return (self._ts, 0)
+
+    def serialize(self, context: Context):
+        return (self._data, None)
 
 
 class _Dummy(TimedElement):

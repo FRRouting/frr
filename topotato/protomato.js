@@ -517,6 +517,24 @@ function load_log(timetable, obj, xrefs) {
 	logtext.append(obj.data.text.substr(prev_e));
 }
 
+function load_other(timetable, obj, xrefs) {
+	let row = create(timetable, "div", "event");
+	row.obj = obj;
+
+	create(row, "span", "tstamp", (obj.ts - ts_start).toFixed(3));
+	create(row, "span", "rtrname", obj.data.router || "");
+	create(row, "span", "dmnname", obj.data.daemon || "");
+	let textspan = create(row, "span", "eventtext");
+
+	if (obj.data.type == "log_closed") {
+		row.classList.add("event-log-closed");
+		textspan.append("log connection closed")
+	} else {
+		row.classList.add("event-unknown");
+		textspan.append(`unknown event: ${obj.data.type}`)
+	}
+}
+
 const whitespace_re = /^([ \t]+)/;
 
 /* NB: the fact that this is text-level mangling rather than parsing JSON is
@@ -1021,6 +1039,8 @@ function init() {
 			load_log(timetable, obj, xrefs);
 		else if (obj.data.type == "vtysh")
 			load_vtysh(timetable, obj);
+		else
+			load_other(timetable, obj);
 	}
 
 	anchor_update();

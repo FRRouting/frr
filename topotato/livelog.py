@@ -13,7 +13,7 @@ from collections import namedtuple
 import typing
 from typing import Dict, Generator, Optional, Set, Tuple
 
-from .timeline import MiniPollee, TimedElement
+from .timeline import MiniPollee, TimedElement, FrameworkEvent
 from .pcapng import JournalExport, Context
 
 if typing.TYPE_CHECKING:
@@ -228,6 +228,15 @@ class LogMessage(TimedElement):
         return "<%s @%.6f %r>" % (self.__class__.__name__, self._ts, self.text)
 
 
+class LogClosed(FrameworkEvent):
+    typ = "log_closed"
+
+    def __init__(self, rtrname: str, daemon: str):
+        super().__init__()
+        self._data["router"] = rtrname
+        self._data["daemon"] = daemon
+
+
 class LiveLog(MiniPollee):
     """
     Receiver for log messages from an FRR daemon.
@@ -323,6 +332,7 @@ class LiveLog(MiniPollee):
                 return
 
             if len(rddata) == 0:
+                yield LogClosed(self._router.name, self._daemon)
                 self._rdfd.close()
                 self._rdfd = None
                 return
