@@ -5521,6 +5521,21 @@ static void copy_mt_items(enum isis_tlv_context context,
 	}
 }
 
+/* Functions related to TLV 27 SRv6 Locator as per RFC 9352 section #7.1*/
+static struct isis_item *copy_item_srv6_locator(struct isis_item *i)
+{
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+	struct isis_srv6_locator_tlv *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->metric = loc->metric;
+	rv->flags = loc->flags;
+	rv->algorithm = loc->algorithm;
+	rv->prefix = loc->prefix;
+	rv->subtlvs = copy_subtlvs(loc->subtlvs);
+
+	return (struct isis_item *)rv;
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
