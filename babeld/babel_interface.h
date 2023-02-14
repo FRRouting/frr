@@ -100,7 +100,7 @@ if_up(struct interface *ifp)
 {
     return (if_is_operative(ifp) &&
             ifp->connected != NULL &&
-            (babel_get_if_nfo(ifp)->flags & BABEL_IF_IS_UP));
+            CHECK_FLAG(babel_get_if_nfo(ifp)->flags, BABEL_IF_IS_UP));
 }
 
 struct buffered_update {
