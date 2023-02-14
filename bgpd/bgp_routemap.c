@@ -475,8 +475,13 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 
 	if (prefix->family == AF_INET) {
 		alist = access_list_lookup(AFI_IP, (char *)rule);
-		if (alist == NULL)
+		if (alist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		return (access_list_apply(alist, prefix) == FILTER_DENY
 				? RMAP_NOMATCH
@@ -489,6 +494,13 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
    access-list name. */
 static void *route_match_ip_address_compile(const char *arg)
 {
+	struct access_list *alist;
+
+	alist = access_list_lookup(AFI_IP, arg);
+	if (!alist)
+		zlog_warn(
+			"Access List specified %s does not exist yet, default will be NO_MATCH until it is created",
+			arg);
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
@@ -506,7 +518,7 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 	route_match_ip_address_free
 };
 
-/* `match ip next-hop IP_ADDRESS' */
+/* `match ip next-hop <IP_ADDRESS_ACCESS_LIST_NAME>' */
 
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
@@ -523,8 +535,14 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
-		if (alist == NULL)
+		if (alist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
+
 			return RMAP_NOMATCH;
+		}
 
 		return (access_list_apply(alist, &p) == FILTER_DENY
 				? RMAP_NOMATCH
@@ -577,8 +595,14 @@ route_match_ip_route_source(void *rule, const struct prefix *pfx, void *object)
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
-		if (alist == NULL)
+		if (alist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
+
 			return RMAP_NOMATCH;
+		}
 
 		return (access_list_apply(alist, &p) == FILTER_DENY
 				? RMAP_NOMATCH
@@ -666,8 +690,13 @@ route_match_address_prefix_list(void *rule, afi_t afi,
 	struct prefix_list *plist;
 
 	plist = prefix_list_lookup(afi, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	if (prefix->family == AF_FLOWSPEC)
 		return route_match_prefix_list_flowspec(afi, plist,
@@ -722,8 +751,13 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
+		if (plist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		return (prefix_list_apply(plist, &p) == PREFIX_DENY
 				? RMAP_NOMATCH
@@ -766,8 +800,13 @@ route_match_ipv6_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefixlen = IPV6_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP6, (char *)rule);
-		if (!plist)
+		if (!plist) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		if (prefix_list_apply(plist, &p) == PREFIX_PERMIT)
 			return RMAP_MATCH;
@@ -866,8 +905,13 @@ route_match_ip_route_source_prefix_list(void *rule, const struct prefix *prefix,
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
+		if (plist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
 			return RMAP_NOMATCH;
+		}
 
 		return (prefix_list_apply(plist, &p) == PREFIX_DENY
 				? RMAP_NOMATCH
@@ -926,11 +970,21 @@ route_match_mac_address(void *rule, const struct prefix *prefix, void *object)
 	struct prefix p;
 
 	alist = access_list_lookup(AFI_L2VPN, (char *)rule);
-	if (alist == NULL)
-		return RMAP_NOMATCH;
+	if (alist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 
-	if (prefix->u.prefix_evpn.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return RMAP_NOMATCH;
+	}
+	if (prefix->u.prefix_evpn.route_type != BGP_EVPN_MAC_IP_ROUTE) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix %pFX is not a EVPN MAC IP ROUTE defaulting to NO_MATCH",
+				__func__, prefix);
+		return RMAP_NOMATCH;
+	}
 
 	p.family = AF_ETHERNET;
 	p.prefixlen = ETH_ALEN * 8;
@@ -3206,8 +3260,14 @@ route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 
 	if (prefix->family == AF_INET6) {
 		alist = access_list_lookup(AFI_IP6, (char *)rule);
-		if (alist == NULL)
+		if (alist == NULL) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
+
 			return RMAP_NOMATCH;
+		}
 
 		return (access_list_apply(alist, prefix) == FILTER_DENY
 				? RMAP_NOMATCH
@@ -3218,6 +3278,14 @@ route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 
 static void *route_match_ipv6_address_compile(const char *arg)
 {
+	struct access_list *alist;
+
+	alist = access_list_lookup(AFI_IP6, arg);
+	if (!alist)
+		zlog_warn(
+			"Access List specified %s does not exist yet, default will be NO_MATCH until it is created",
+			arg);
+
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
@@ -3249,8 +3317,14 @@ route_match_ipv6_next_hop(void *rule, const struct prefix *prefix, void *object)
 		p.prefixlen = IPV6_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP6, (char *)rule);
-		if (!alist)
+		if (!alist) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+					__func__, (char *)rule);
+
 			return RMAP_NOMATCH;
+		}
 
 		if (access_list_apply(alist, &p) == FILTER_PERMIT)
 			return RMAP_MATCH;
@@ -3332,7 +3406,7 @@ static const struct route_map_rule_cmd route_match_ipv6_next_hop_address_cmd = {
 	route_match_ipv6_next_hop_address_free
 };
 
-/* `match ip next-hop IP_ADDRESS' */
+/* `match ip next-hop address IP_ADDRESS' */
 
 static enum route_map_cmd_result_t
 route_match_ipv4_next_hop(void *rule, const struct prefix *prefix, void *object)
