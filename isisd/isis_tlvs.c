@@ -1983,6 +1983,19 @@ struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
 	return result;
 }
 
+static struct isis_subsubtlvs *
+isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
+{
+	if (!subsubtlvs)
+		return NULL;
+
+	struct isis_subsubtlvs *rv = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
+
+	rv->context = subsubtlvs->context;
+
+	return rv;
+}
+
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
