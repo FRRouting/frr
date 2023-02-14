@@ -3023,7 +3023,7 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
  * If 'type' is non-zero, only routes matching that type are shown.
  */
 static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
-				 json_object *json, int detail)
+				 json_object *json, int detail, bool self_orig)
 {
 	struct bgp_dest *rd_dest;
 	struct bgp_table *table;
@@ -3081,6 +3081,9 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 
 			pi = bgp_dest_get_bgp_path_info(dest);
 			if (pi) {
+				if (self_orig && (pi->peer != bgp->peer_self))
+					continue;
+
 				/* Overall header/legend displayed once. */
 				if (header) {
 					bgp_evpn_show_route_header(vty, bgp,
@@ -3200,7 +3203,7 @@ int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 	if (use_json)
 		json = json_object_new_object();
 
-	evpn_show_all_routes(vty, bgp, type, json, detail);
+	evpn_show_all_routes(vty, bgp, type, json, detail, false);
 
 	if (use_json)
 		vty_json(vty, json);
@@ -4773,7 +4776,7 @@ int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv, int argc)
  */
 DEFUN(show_bgp_l2vpn_evpn_route,
       show_bgp_l2vpn_evpn_route_cmd,
-      "show bgp l2vpn evpn route [detail] [type "EVPN_TYPE_ALL_LIST"] [json]",
+      "show bgp l2vpn evpn route [detail] [type "EVPN_TYPE_ALL_LIST"] ["BGP_SELF_ORIG_CMD_STR"] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4782,12 +4785,15 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       "Display Detailed Information\n"
       EVPN_TYPE_HELP_STR
       EVPN_TYPE_ALL_LIST_HELP_STR
+      BGP_SELF_ORIG_HELP_STR
       JSON_STR)
 {
 	struct bgp *bgp;
 	int detail = 0;
 	int type = 0;
 	bool uj = false;
+	int arg_idx = 0;
+	bool self_orig = false;
 	json_object *json = NULL;
 
 	uj = use_json(argc, argv);
@@ -4805,7 +4811,10 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 	if (argv_find(argv, argc, "detail", &detail))
 		detail = 1;
 
-	evpn_show_all_routes(vty, bgp, type, json, detail);
+	if (argv_find(argv, argc, BGP_SELF_ORIG_CMD_STR, &arg_idx))
+		self_orig = true;
+
+	evpn_show_all_routes(vty, bgp, type, json, detail, self_orig);
 
 	/*
 	 * This is an extremely expensive operation at scale
@@ -4871,7 +4880,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 		return CMD_WARNING;
 
 	if (rd_all)
-		evpn_show_all_routes(vty, bgp, type, json, 1);
+		evpn_show_all_routes(vty, bgp, type, json, 1, false);
 	else
 		evpn_show_route_rd(vty, bgp, &prd, type, json);
 

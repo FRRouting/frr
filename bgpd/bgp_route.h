@@ -61,6 +61,7 @@ enum bgp_show_type {
 	bgp_show_type_detail,
 	bgp_show_type_rpki,
 	bgp_show_type_prefix_version,
+	bgp_show_type_self_originated,
 };
 
 enum bgp_show_adj_route_type {

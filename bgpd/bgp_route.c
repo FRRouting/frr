@@ -11458,6 +11458,10 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				    || CHECK_FLAG(pi->flags, BGP_PATH_HISTORY))
 					continue;
 			}
+			if (type == bgp_show_type_self_originated) {
+				if (pi->peer != bgp->peer_self)
+					continue;
+			}
 
 			if (!use_json && header) {
 				vty_out(vty,
@@ -12610,6 +12614,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           |alias ALIAS_NAME\
           |A.B.C.D/M longer-prefixes\
           |X:X::X:X/M longer-prefixes\
+          |"BGP_SELF_ORIG_CMD_STR"\
           |detail-routes$detail_routes\
           ] [json$uj [detail$detail_json] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
@@ -12659,6 +12664,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "Display route and more specific routes\n"
       "IPv6 prefix\n"
       "Display route and more specific routes\n"
+      BGP_SELF_ORIG_HELP_STR
       "Display detailed version of all routes\n"
       JSON_STR
       "Display detailed version of JSON output\n"
@@ -12852,6 +12858,10 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		sh_type = bgp_show_type_prefix_longer;
 		output_arg = &p;
 	}
+
+	/* self originated only */
+	if (argv_find(argv, argc, BGP_SELF_ORIG_CMD_STR, &idx))
+		sh_type = bgp_show_type_self_originated;
 
 	if (!all) {
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
