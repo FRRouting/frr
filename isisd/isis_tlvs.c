@@ -2054,6 +2054,11 @@ static int pack_subtlvs(struct isis_subtlvs *subtlvs, struct stream *s)
 	if (rv)
 		return rv;
 
+	rv = pack_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+			&subtlvs->srv6_end_sids, s, NULL, NULL, NULL, NULL);
+	if (rv)
+		return rv;
+
 	size_t subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
 	if (subtlv_len > 255)
 		return 1;
