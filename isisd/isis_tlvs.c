@@ -2070,6 +2070,29 @@ static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
+				     struct sbuf *buf, struct json_object *json,
+				     int indent)
+{
+	struct isis_srv6_end_sid_subtlv *sid =
+		(struct isis_srv6_end_sid_subtlv *)i;
+
+	if (json) {
+		struct json_object *sid_json;
+		sid_json = json_object_new_object();
+		json_object_object_add(json, "srv6-end-sid", sid_json);
+		json_object_string_add(sid_json, "endpoint-behavior",
+				       seg6local_action2str(sid->behavior));
+		json_object_string_addf(sid_json, "sid-value", "%pI6",
+					&sid->sid);
+	} else {
+		sbuf_push(buf, indent, "SRv6 End SID ");
+		sbuf_push(buf, 0, "Endpoint Behavior: %s, ",
+			  seg6local_action2str(sid->behavior));
+		sbuf_push(buf, 0, "SID value: %pI6\n", &sid->sid);
+	}
+}
+
 /* Functions related to TLVs 1 Area Addresses */
 
 static struct isis_item *copy_item_area_address(struct isis_item *i)
