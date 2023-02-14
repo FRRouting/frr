@@ -671,6 +671,9 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 
 struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 {
+	if (!ifp)
+		return NULL;
+
 	struct vrrp_vrouter vr;
 
 	vr.vrid = vrid;
