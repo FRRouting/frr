@@ -95,6 +95,9 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Configure the maximum size of generated LSPs, in bytes.
 
+.. clicmd:: advertise-passive-only
+
+   Advertise prefixes of passive interfaces only.
 
 .. _isis-timer:
 
