@@ -5757,6 +5757,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	RB_INIT(isis_mt_item_list, &result->mt_ip_reach);
 	init_item_list(&result->ipv6_reach);
 	RB_INIT(isis_mt_item_list, &result->mt_ipv6_reach);
+	RB_INIT(isis_mt_item_list, &result->srv6_locator);
 
 	return result;
 }
