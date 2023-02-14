@@ -124,6 +124,9 @@ class NetworkInstance(ClassHooks):
             super().start()
             self.check_call([self._exec.get("ip", "ip"), "link", "set", "lo", "up"])
 
+        def end_prep(self):
+            pass
+
         def routes(
             self, af: Union[Literal[4], Literal[6]] = 4, local=False
         ) -> Dict[str, Any]:
@@ -439,6 +442,8 @@ class NetworkInstance(ClassHooks):
                 os.set_blocking(self.scapys[br].fileno(), False)
 
     def stop(self):
+        for rns in self.routers.values():
+            rns.end_prep()
         for rns in self.routers.values():
             rns.end()
         self.switch_ns.end()

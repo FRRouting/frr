@@ -262,7 +262,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
 
         for _ in self.timeline.run_tick(self._timing):
             cmdtime = time.time()
-            out, rc = router.vtysh_polled(self.timeline, self._daemon, self._command)
+            _, out, rc = router.vtysh_polled(self.timeline, self._daemon, self._command)
             if rc != 0:
                 result = TopotatoCLIUnsuccessfulFail("vtysh return value %d" % rc)
             else:

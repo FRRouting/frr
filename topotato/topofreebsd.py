@@ -58,6 +58,9 @@ class NetworkInstance(ClassHooks):
             super().start()
             self.check_call(["ifconfig", "lo0", "up"])
 
+        def end_prep(self):
+            pass
+
         def routes(self, af=4, local=False):
             """
             get a json representation of all IPvX kernel routes
@@ -328,6 +331,8 @@ class NetworkInstance(ClassHooks):
         # self.dumpcap = self.switch_ns.popen(['dumpcap', '-B', '1', '-t', '-w', self.pcapfile] + args)
 
     def stop(self):
+        for rtr in self.routers.values():
+            rtr.end_prep()
         for rtr in self.routers.values():
             rtr.end()
         self.switch_ns.end()

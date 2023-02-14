@@ -798,7 +798,9 @@ class TopotatoClass(_pytest.python.Class):
                     continue
 
                 try:
-                    out, rc = router.vtysh_fast(daemon, "show version")
+                    _, out, rc = router.vtysh_polled(
+                        netinst.timeline, daemon, "show version"
+                    )
                 except ConnectionRefusedError:
                     failed.append((rtr, daemon))
                 startitem.commands.setdefault((rtr, daemon), []).append(
@@ -821,9 +823,5 @@ class TopotatoClass(_pytest.python.Class):
         netinst = stopitem.instance
 
         netinst.stop()
-
-        for router in netinst.routers.values():
-            for daemonlog in router.livelogs.values():
-                daemonlog.close_prep()
 
         netinst.timeline.sleep(1, final=True)

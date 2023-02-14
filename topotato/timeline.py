@@ -12,7 +12,17 @@ import select
 from dataclasses import dataclass
 
 import typing
-from typing import List, Tuple, Generator, Optional, Dict, Any, Callable
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 from .pcapng import Context, Block, Sink
 
 if typing.TYPE_CHECKING:
@@ -104,7 +114,7 @@ class MiniPoller:
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.pollees)
 
-    def sleep(self, duration: float, final=False):
+    def sleep(self, duration: float, final: Union[bool, Iterable[MiniPollee]] = False):
         """
         Delay for some time while processing events.
 
@@ -133,7 +143,7 @@ class MiniPoller:
         pass
 
     def run_iter(
-        self, deadline=float("inf"), final=False
+        self, deadline=float("inf"), final: Union[bool, Iterable[MiniPollee]] = False
     ) -> Generator["TimedElement", None, None]:
         """
         Process events and yield :py:class:`TimedElement` items as they happen.
@@ -142,19 +152,28 @@ class MiniPoller:
         :param final: drain events until all MiniPollees report None as fd.
         """
 
+        if isinstance(final, Iterable):
+            _final = set(final)
+        elif final is True:
+            _final = set(self.pollees)
+        else:
+            _final = set()
+
         # always run at least one iteration
         first = True
 
         while True:
             fdmap: Dict[int, MiniPollee] = {}
+
             for target in self.pollees:
                 fileno = target.fileno()
                 if fileno is None:
                     continue
                 fdmap[fileno] = target
 
-            if final and not fdmap:
+            if final is not False and not set(fdmap.values()) & _final:
                 break
+
             fds = list(fdmap.keys())
 
             timeout = max(deadline - time.time(), 0)

@@ -11,9 +11,10 @@ import logging
 import os
 import pwd
 import re
-import select
 import shlex
+import signal
 import socket
+import struct
 import subprocess
 import sys
 import time
@@ -496,6 +497,7 @@ class FRRNetworkInstance(NetworkInstance):
 
         instance: "FRRNetworkInstance"
         logfiles: Dict[str, str]
+        pids: Dict[str, int]
         rundir: Optional[str]
         rtrcfg: Dict[str, str]
         livelogs: Dict[str, LiveLog]
@@ -504,6 +506,7 @@ class FRRNetworkInstance(NetworkInstance):
             super().__init__(instance, name)
             self.logfiles = {}
             self.livelogs = {}
+            self.pids = {}
             self.rundir = None
             self.rtrcfg = {}
 
@@ -591,11 +594,14 @@ class FRRNetworkInstance(NetworkInstance):
                 ) from e
 
             # want record-priority & timestamp precision...
-            self.vtysh_fast(
+            pid, _, _ = self.vtysh_polled(
+                self.instance.timeline,
                 daemon,
                 "enable\nconfigure\nlog file %s\ndebug memstats-at-exit\nend\nclear log cmdline-targets"
                 % self.logfiles[daemon],
             )
+            self.pids[daemon] = pid
+
             if use_integrated:
                 self.vtysh(["-d", daemon, "-f", cfgpath])
 
@@ -613,9 +619,28 @@ class FRRNetworkInstance(NetworkInstance):
 
             self.start_daemon(daemon)
 
-        def stop(self):
+        def end_prep(self):
             for livelog in self.livelogs.values():
-                self.instance.timeline.uninstall(livelog)
+                livelog.close_prep()
+
+            for daemon, pid in list(reversed(self.pids.items())):
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    # stagger SIGTERM signals a tiiiiny bit
+                    self.instance.timeline.sleep(0.01)
+                except ProcessLookupError:
+                    del self.pids[daemon]
+                    # FIXME: log something
+
+            super().end_prep()
+
+        def end(self):
+            livelogs = self.livelogs.values()
+
+            # TODO: move this to instance level
+            self.instance.timeline.sleep(1.0, final=livelogs)
+
+            for livelog in self.livelogs.values():
                 livelog.close()
 
             super().end()
@@ -628,42 +653,19 @@ class FRRNetworkInstance(NetworkInstance):
                 stdout=subprocess.PIPE,
             )
 
-        def vtysh_fast(self, daemon, cmds, timeout=5.0):
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-            fn = self.tempfile("run/%s.vty" % (daemon))
-
-            sock.connect(fn)
-            cmds = [
-                c.strip().encode("UTF-8") for c in cmds.splitlines() if c.strip != ""
-            ]
-
-            ret = b""
-            for cmd in cmds:
-                sock.setblocking(True)
-                sock.sendall(cmd + b"\0")
-                sock.setblocking(False)
-
-                start = time.time()
-                while True:
-                    r = select.select([sock], [], [], start + timeout - time.time())
-                    if len(r[0]) == 0:
-                        raise IOError("vty connection timed out")
-                    ret += sock.recv(4096)
-                    if len(ret) >= 4 and ret[-4:-1] == b"\0\0\0":
-                        rc = ret[-1]
-                        ret = ret[:-4]
-                        break
-
-            return (ret.decode("UTF-8").replace("\r\n", "\n"), rc)
-
         def vtysh_polled(self, timeline: Timeline, daemon, cmds, timeout=5.0):
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
             fn = self.tempfile("run/%s.vty" % (daemon))
 
             sock.connect(fn)
+            peercred = sock.getsockopt(
+                socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3I")
+            )
+            pid, _, _ = struct.unpack("3I", peercred)
+
             cmds = [c.strip() for c in cmds.splitlines() if c.strip() != ""]
 
-            # TODO: refactor & reintegrate with vtysh_fast
+            # TODO: refactor
             vpoll = VtyshPoll(self.name, daemon, sock, cmds)
 
             text = []
@@ -681,7 +683,7 @@ class FRRNetworkInstance(NetworkInstance):
                     if event.last:
                         break
 
-            return ("".join(text), retcode)
+            return (pid, "".join(text), retcode)
 
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)
