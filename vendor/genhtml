@@ -116,7 +116,7 @@ our $nav_offset = 10;
 # Clicking on a function name should show the source code at a position a
 # few lines before the first line of code of that function. This number
 # specifies that offset in lines.
-our $func_offset = 2;
+our $func_offset = 0;
 
 our $overview_title = "top level";
 
@@ -4348,7 +4348,7 @@ sub write_source_line(*$$$$$)
 
 	# Write out a line number navigation anchor every $nav_resolution
 	# lines if necessary
-	$anchor_start	= "<a name=\"$_[1]\">";
+	$anchor_start	= "<a name=\"L$_[1]\">";
 	$anchor_end	= "</a>";
 
 
@@ -5509,7 +5509,7 @@ END_OF_HTML
 
 		write_html(*HTML_HANDLE, <<END_OF_HTML)
 	    <tr>
-              <td class="coverFn"><a href="$source#$startline">$name</a></td>
+              <td class="coverFn"><a href="$source#L$startline">$name</a></td>
               <td class="$countstyle">$count</td>
             </tr>
 END_OF_HTML
