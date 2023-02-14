@@ -2015,6 +2015,26 @@ static void free_subsubtlv_srv6_sid_structure(
 	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
 }
 
+static int pack_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct, struct stream *s)
+{
+	if (!sid_struct)
+		return 0;
+
+	if (STREAM_WRITEABLE(s) < 6) {
+		return 1;
+	}
+
+	stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+	stream_putc(s, 4);
+	stream_putc(s, sid_struct->loc_block_len);
+	stream_putc(s, sid_struct->loc_node_len);
+	stream_putc(s, sid_struct->func_len);
+	stream_putc(s, sid_struct->arg_len);
+
+	return 0;
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
