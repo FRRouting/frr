@@ -2035,6 +2035,33 @@ static int pack_subsubtlv_srv6_sid_structure(
 	return 0;
 }
 
+static int unpack_subsubtlv_srv6_sid_structure(
+	enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
+	struct stream *s, struct sbuf *log, void *dest, int indent)
+{
+	struct isis_subsubtlvs *subsubtlvs = dest;
+	struct isis_srv6_sid_structure_subsubtlv sid_struct = {};
+
+	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
+	if (tlv_len != 4) {
+		sbuf_push(
+			log, indent,
+			"Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 4 bytes, got %hhu)\n",
+			tlv_len);
+		return 1;
+	}
+
+	sid_struct.loc_block_len = stream_getc(s);
+	sid_struct.loc_node_len = stream_getc(s);
+	sid_struct.func_len = stream_getc(s);
+	sid_struct.arg_len = stream_getc(s);
+
+	subsubtlvs->srv6_sid_structure =
+		copy_subsubtlv_srv6_sid_structure(&sid_struct);
+
+	return 0;
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
