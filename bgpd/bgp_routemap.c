@@ -1403,10 +1403,6 @@ static void *route_match_local_pref_compile(const char *arg)
 	char *endptr = NULL;
 	unsigned long tmpval;
 
-	/* Locpref value shoud be integer. */
-	if (!all_digit(arg))
-		return NULL;
-
 	errno = 0;
 	tmpval = strtoul(arg, &endptr, 10);
 	if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
