@@ -1955,6 +1955,26 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	return 0;
 }
 
+/* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure
+ * as per RFC 9352 section #9 */
+static struct isis_srv6_sid_structure_subsubtlv *
+copy_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct)
+{
+	if (!sid_struct)
+		return NULL;
+
+	struct isis_srv6_sid_structure_subsubtlv *rv =
+		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
+
+	rv->loc_block_len = sid_struct->loc_block_len;
+	rv->loc_node_len = sid_struct->loc_node_len;
+	rv->func_len = sid_struct->func_len;
+	rv->arg_len = sid_struct->arg_len;
+
+	return rv;
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
