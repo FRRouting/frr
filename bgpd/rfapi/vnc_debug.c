@@ -19,7 +19,6 @@
 
 #include "lib/zebra.h"
 
-#include <lib/version.h>
 #include "lib/prefix.h"
 #include "lib/linklist.h"
 #include "lib/stream.h"

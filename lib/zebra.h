@@ -75,15 +75,6 @@
 #include <endian.h>
 #endif
 
-/* machine dependent includes */
-#ifdef HAVE_LINUX_VERSION_H
-#include <linux/version.h>
-#endif /* HAVE_LINUX_VERSION_H */
-
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
-
 /* misc include group */
 #include <stdarg.h>
 
@@ -383,17 +374,25 @@ typedef enum {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 
 /* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT      1
-#define ZEBRA_RIP_DISTANCE_DEFAULT       120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT     120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT      110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT     110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT      115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT      200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT       20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT      15
+#define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
+#define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
+#define ZEBRA_STATIC_DISTANCE_DEFAULT       1
+#define ZEBRA_RIP_DISTANCE_DEFAULT        120
+#define ZEBRA_RIPNG_DISTANCE_DEFAULT      120
+#define ZEBRA_OSPF_DISTANCE_DEFAULT       110
+#define ZEBRA_OSPF6_DISTANCE_DEFAULT      110
+#define ZEBRA_ISIS_DISTANCE_DEFAULT       115
+#define ZEBRA_IBGP_DISTANCE_DEFAULT       200
+#define ZEBRA_EBGP_DISTANCE_DEFAULT        20
+#define ZEBRA_TABLE_DISTANCE_DEFAULT       15
+#define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
+#define ZEBRA_NHRP_DISTANCE_DEFAULT        10
+#define ZEBRA_LDP_DISTANCE_DEFAULT        150
+#define ZEBRA_BABEL_DISTANCE_DEFAULT      100
+#define ZEBRA_SHARP_DISTANCE_DEFAULT      150
+#define ZEBRA_PBR_DISTANCE_DEFAULT        200
+#define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
+#define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
@@ -418,9 +417,6 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
-
-/* Name of hook calls */
-#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

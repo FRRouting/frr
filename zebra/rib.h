@@ -625,6 +625,9 @@ extern pid_t pid;
 
 extern bool v6_rr_semantics;
 
+/* Name of hook calls */
+#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
+
 #ifdef __cplusplus
 }
 #endif

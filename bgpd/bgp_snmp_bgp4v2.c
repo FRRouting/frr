@@ -33,7 +33,6 @@
 #include "filter.h"
 #include "hook.h"
 #include "libfrr.h"
-#include "lib/version.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"

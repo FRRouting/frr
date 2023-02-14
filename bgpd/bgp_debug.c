@@ -20,7 +20,6 @@
 
 #include <zebra.h>
 
-#include <lib/version.h>
 #include "lib/bfd.h"
 #include "lib/printfrr.h"
 #include "prefix.h"
