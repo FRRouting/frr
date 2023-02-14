@@ -5536,6 +5536,50 @@ static struct isis_item *copy_item_srv6_locator(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
+				     struct sbuf *buf, struct json_object *json,
+				     int indent)
+{
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+
+	if (json) {
+		struct json_object *loc_json;
+		loc_json = json_object_new_object();
+		json_object_object_add(json, "srv6-locator", loc_json);
+		json_object_int_add(loc_json, "mt-id", mtid);
+		json_object_string_addf(loc_json, "prefix", "%pFX",
+					&loc->prefix);
+		json_object_int_add(loc_json, "metric", loc->metric);
+		json_object_string_add(
+			loc_json, "d-flag",
+			CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D)
+				? "yes"
+				: "");
+		json_object_int_add(loc_json, "algorithm", loc->algorithm);
+		json_object_string_add(loc_json, "mt-name",
+				       isis_mtid2str(mtid));
+		if (loc->subtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(loc_json, "subtlvs",
+					       subtlvs_json);
+			format_subtlvs(loc->subtlvs, NULL, subtlvs_json, 0);
+		}
+	} else {
+		sbuf_push(buf, indent, "SRv6 Locator: %pFX (Metric: %u)%s",
+			  &loc->prefix, loc->metric,
+			  CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D)
+				  ? " D-flag"
+				  : "");
+		sbuf_push(buf, 0, " %s\n", isis_mtid2str(mtid));
+
+		if (loc->subtlvs) {
+			sbuf_push(buf, indent, "  Sub-TLVs:\n");
+			format_subtlvs(loc->subtlvs, buf, NULL, indent + 4);
+		}
+	}
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
