@@ -6412,6 +6412,8 @@ TLV_OPS(router_cap, "TLV 242 Router Capability");
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
+ITEM_TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
+
 static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	[ISIS_CONTEXT_LSP] = {
 		[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
