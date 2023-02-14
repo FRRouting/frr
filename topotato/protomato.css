@@ -377,8 +377,13 @@ svg {
 	grid-column-start: 6;
 	grid-column-end: span 2;
 
+	display: flex;
+	align-items: center;
 	font-family: var(--font-mono);
 	white-space:pre-wrap;
+}
+.clicmdtext > span {
+	flex: auto;
 }
 
 .cliout {
@@ -460,28 +465,55 @@ svg {
 	padding: 2pt 3pt;
 }
 .clicmd > span {
-	color:#080;
-	background-color:#ddd;
+	color:#000;
+	background-color:#f3f3f3;
+	border-top: 1px dashed #888;
 }
+.clicmd .cmd-ret {
+	flex: initial;
+	font-family: var(--font-plain);
+	font-size: 10pt;
+}
+.clicmd.cmd-err .cmd-ret:before {
+	content: "🛑";
+}
+.clicmd.cmd-err > span {
+	color: #fff;
+	font-weight: bold;
+	background-color: #c44;
+}
+.clicmd.cmd-warning .cmd-ret:before {
+	content: "⚠";
+}
+.clicmd.cmd-warning > span {
+	color: #fff;
+	font-weight: bold;
+	background-color: #a50;
+}
+
 .clicmd.cli-same {
 	display:none;
 }
 .clicmd.cli-same > span {
 	background-color:#f9f9f9;
-	color:#8a8;
+	color:#77aa95;
 }
 .clicmd.cli-same > span.clicmdtext::after {
-	content:"⇡";
+	content:" ⇡";
 	color:#444;
 	font-weight:700;
 }
+.clicmdtext:before {
+	content: "⊡ ";
+	color:#05c;
+}
 .clicmd.cli-has-out > span.clicmdtext::before {
-	content: "⏵ ";
-	color:#000;
+	content:"⊞ ";
+	color:#0a0;
 }
 .clicmd.cli-has-out.cli-expanded > span.clicmdtext::before {
-	content: "⏷ ";
-	color:#000;
+	content:"⊟ ";
+	color:#e44;
 }
 
 .tstamp {

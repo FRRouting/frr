@@ -626,6 +626,26 @@ function json_to_tree(textrow, text) {
 	}
 }
 
+const vtysh_retcodes = {
+	0: ["cmd-success", null],
+	1: ["cmd-warning", "CMD_WARNING"],
+	2: ["cmd-err", "CMD_ERR_NO_MATCH"],
+	3: ["cmd-err", "CMD_ERR_AMBIGUOUS"],
+	4: ["cmd-err", "CMD_ERR_INCOMPLETE"],
+	5: ["cmd-err", "CMD_ERR_EXEED_ARGC_MAX"],
+	6: ["cmd-err", "CMD_ERR_NOTHING_TODO"],
+	/* 7 CMD_COMPLETE_FULL_MATCH should never be seen */
+	/* 8 CMD_COMPLETE_MATCH should never be seen */
+	/* 9 CMD_COMPLETE_LIST_MATCH should never be seen */
+	10: ["cmd-success", "CMD_SUCCESS_DAEMON"],
+	11: ["cmd-err", "CMD_ERR_NO_FILE"],
+	/* 12 - CMD_SUSPEND should never be seen */
+	13: ["cmd-warning", "CMD_WARNING_CONFIG_FAILED"],
+	14: ["cmd-success", "CMD_NOT_MY_INSTANCE"],
+	15: ["cmd-err", "CMD_NO_LEVEL_UP"],
+	16: ["cmd-err", "CMD_ERR_NO_DAEMON"],
+};
+
 function load_vtysh(timetable, obj) {
 	var row;
 	var prev_cmds = timetable.querySelectorAll("div.clicmd");
@@ -636,7 +656,18 @@ function load_vtysh(timetable, obj) {
 	create(row, "span", "tstamp", (obj.ts - ts_start).toFixed(3));
 	create(row, "span", "rtrname", obj.data.router);
 	create(row, "span", "dmnname", obj.data.daemon);
-	create(row, "span", "clicmdtext", obj.data.command);
+	let cmdspan = create(row, "span", "clicmdtext");
+	create(cmdspan, "span", "", obj.data.command);
+
+	if (obj.data.retcode in vtysh_retcodes) {
+		const [cls, name] = vtysh_retcodes[obj.data.retcode];
+		if (name !== null)
+			create(cmdspan, "span", "cmd-ret", " " + name);
+		row.classList.add(cls);
+	} else {
+		create(cmdspan, "span", "cmd-ret", ` unknown retcode ${obj.data.retcode}`);
+		row.classList.add("cmd-err");
+	}
 
 	if (obj.data.text) {
 		row.classList.add("cli-has-out");
