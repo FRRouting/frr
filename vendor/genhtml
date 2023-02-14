@@ -76,7 +76,7 @@ use Cwd qw/abs_path cwd/;
 # Global constants
 our $title		= "LCOV - code coverage report";
 our $tool_dir		= abs_path(dirname($0));
-our $lcov_version	= 'LCOV version '.`"$tool_dir"/get_version.sh --full`;
+our $lcov_version	= 'LCOV version v1.16-topotato';
 our $lcov_url		= "https://github.com/linux-test-project/lcov";
 our $tool_name		= basename($0);
 
