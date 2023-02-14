@@ -124,6 +124,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWTFILTER, "RTM_NEWTFILTER"},
 					   {RTM_DELTFILTER, "RTM_DELTFILTER"},
 					   {RTM_GETTFILTER, "RTM_GETTFILTER"},
+					   {RTM_NEWVLAN, "RTM_NEWVLAN"},
+					   {RTM_DELVLAN, "RTM_DELVLAN"},
+					   {RTM_GETVLAN, "RTM_GETVLAN"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -432,6 +435,10 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
 		return netlink_tfilter_change(h, ns_id, startup);
+	case RTM_NEWVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
+	case RTM_DELVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
 
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:
@@ -703,6 +710,12 @@ bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 		   uint32_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint32_t));
+}
+
+bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+		   uint64_t data)
+{
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint64_t));
 }
 
 struct rtattr *nl_attr_nest(struct nlmsghdr *n, unsigned int maxlen, int type)
@@ -1080,7 +1093,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 				   nl_msg_type_to_str(msg_type), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	} else {
-		if ((msg_type != RTM_GETNEXTHOP) || !startup)
+		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
+		    !startup)
 			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
 				 "%s error: %s, type=%s(%u), seq=%u, pid=%u",
 				 nl->name, safe_strerror(-errnum),
@@ -1761,7 +1775,7 @@ void kernel_init(struct zebra_ns *zns)
 {
 	uint32_t groups, dplane_groups, ext_groups;
 #if defined SOL_NETLINK
-	int one, ret;
+	int one, ret, grp;
 #endif
 
 	/*
@@ -1772,6 +1786,11 @@ void kernel_init(struct zebra_ns *zns)
 	 * keeping track of all the different values would
 	 * lead to confusion, so we need to convert the
 	 * RTNLGRP_XXX to a bit position for ourself
+	 *
+	 *
+	 * NOTE: If the bit is >= 32, you must use setsockopt(). Those
+	 * groups are added further below after SOL_NETLINK is verified to
+	 * exist.
 	 */
 	groups = RTMGRP_LINK                   |
 			RTMGRP_IPV4_ROUTE              |
@@ -1851,6 +1870,18 @@ void kernel_init(struct zebra_ns *zns)
 	 * sure that we want to pull into our build system.
 	 */
 #if defined SOL_NETLINK
+
+	/*
+	 * setsockopt multicast group subscriptions that don't fit in nl_groups
+	 */
+	grp = RTNLGRP_BRVLAN;
+	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
+			 &grp, sizeof(grp));
+
+	if (ret < 0)
+		zlog_notice(
+			"Registration for RTNLGRP_BRVLAN Membership failed : %d %s",
+			errno, safe_strerror(errno));
 	/*
 	 * Let's tell the kernel that we want to receive extended
 	 * ACKS over our command socket(s)

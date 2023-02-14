@@ -1413,8 +1413,14 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 		     label_index < nexthop->nh_label->num_labels; label_index++)
 			json_object_array_add(
 				json_labels,
-				json_object_new_int(
-					nexthop->nh_label->label[label_index]));
+				json_object_new_int((
+					(nexthop->nh_label_type ==
+					 ZEBRA_LSP_EVPN)
+						? label2vni(
+							  &nexthop->nh_label->label
+								   [label_index])
+						: nexthop->nh_label->label
+							  [label_index])));
 
 		json_object_object_add(json_nexthop, "labels", json_labels);
 	}
@@ -1534,7 +1540,7 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		vty_out(vty, ", label %s",
 			mpls_label2str(nexthop->nh_label->num_labels,
 				       nexthop->nh_label->label, buf,
-				       sizeof(buf), 1));
+				       sizeof(buf), nexthop->nh_label_type, 1));
 	}
 
 	if (nexthop->nh_srv6) {

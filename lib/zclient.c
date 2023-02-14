@@ -1035,6 +1035,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 	 */
 	if (api_nh->label_num > 0) {
 		stream_putc(s, api_nh->label_num);
+		stream_putc(s, api_nh->label_type);
 		stream_put(s, &api_nh->labels[0],
 			   api_nh->label_num * sizeof(mpls_label_t));
 	}
@@ -1397,6 +1398,7 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 	/* MPLS labels for BGP-LU or Segment Routing */
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)) {
 		STREAM_GETC(s, api_nh->label_num);
+		STREAM_GETC(s, api_nh->label_type);
 		if (api_nh->label_num > MPLS_MAX_LABELS) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
@@ -1948,6 +1950,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			znh->labels[i] = nh->nh_label->label[i];
 
 		znh->label_num = i;
+		znh->label_type = nh->nh_label_type;
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
 	}
 

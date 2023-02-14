@@ -170,6 +170,8 @@ nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
 nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg);
 
+extern bool nexthop_group_has_label(const struct nexthop_group *nhg);
+
 #ifdef __cplusplus
 }
 #endif

@@ -80,7 +80,7 @@ int mpls_str2label(const char *label_str, uint8_t *num_labels,
  * Label to string conversion, labels in string separated by '/'.
  */
 char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
-		     int len, int pretty)
+		     int len, enum lsp_types_t type, int pretty)
 {
 	char label_buf[BUFSIZ];
 	int i;
@@ -90,9 +90,14 @@ char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 		if (i != 0)
 			strlcat(buf, "/", len);
 		if (pretty)
-			label2str(labels[i], label_buf, sizeof(label_buf));
+			label2str(labels[i], type, label_buf,
+				  sizeof(label_buf));
 		else
-			snprintf(label_buf, sizeof(label_buf), "%u", labels[i]);
+			snprintf(label_buf, sizeof(label_buf), "%u",
+				 ((type == ZEBRA_LSP_EVPN)
+					  ? label2vni(&labels[i])
+					  : labels[i]));
+
 		strlcat(buf, label_buf, len);
 	}
 

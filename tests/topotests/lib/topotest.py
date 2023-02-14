@@ -595,6 +595,29 @@ def iproute2_is_vrf_capable():
             pass
     return False
 
+def iproute2_is_fdb_get_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling `bridge fdb get` commands to query neigh table resolution.
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["bridge", "fdb", "get", "help"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_out = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if "Usage" in str(iproute2_out):
+                return True
+        except Exception:
+            pass
+    return False
 
 def module_present_linux(module, load):
     """

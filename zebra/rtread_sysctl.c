@@ -84,7 +84,12 @@ void macfdb_read(struct zebra_ns *zns)
 }
 
 void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-			    struct interface *br_if)
+			    struct interface *br_if, vlanid_t vid)
+{
+}
+
+void macfdb_read_mcast_entry_for_vni(struct zebra_ns *zns,
+				     struct interface *ifp, vni_t vni)
 {
 }
 
@@ -110,6 +115,10 @@ void kernel_read_pbr_rules(struct zebra_ns *zns)
 }
 
 void kernel_read_tc_qdisc(struct zebra_ns *zns)
+{
+}
+
+void vlan_read(struct zebra_ns *zns)
 {
 }
 

@@ -31,7 +31,7 @@ extern "C" {
 	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
 
 
-#define NL_RCV_PKT_BUF_SIZE     32768
+#define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
 
 /*
@@ -48,6 +48,8 @@ extern bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint16_t data);
 extern bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint32_t data);
+extern bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+			  uint64_t data);
 
 /*
  * nl_attr_nest - start an attribute nest.
