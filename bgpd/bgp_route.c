@@ -4482,7 +4482,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Update MPLS label */
 		if (has_valid_label) {
 			extra = bgp_path_info_extra_get(pi);
-			if (extra->label != label) {
+			if (memcmp(&extra->label[0], &label[0],
+				   num_labels * sizeof(mpls_label_t))) {
 				memcpy(&extra->label, label,
 				       num_labels * sizeof(mpls_label_t));
 				extra->num_labels = num_labels;
