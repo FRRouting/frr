@@ -52,6 +52,21 @@ struct isis_srv6_sid {
 	struct isis_area *area;
 };
 
+/* SRv6 Locator */
+struct isis_srv6_locator {
+	struct isis_srv6_locator *next;
+
+	uint32_t metric;
+
+	uint8_t flags;
+#define ISIS_SRV6_LOCATOR_FLAG_D 1 << 7
+
+	uint8_t algorithm;
+	struct prefix_ipv6 prefix;
+
+	struct list *srv6_sid;
+};
+
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
 
