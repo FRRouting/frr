@@ -114,6 +114,9 @@ extern void isis_srv6_area_term(struct isis_area *area);
 void isis_srv6_init(void);
 void isis_srv6_term(void);
 
+void isis_srv6_sid_structure2subsubtlv(
+	const struct isis_srv6_sid *sid,
+	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv);
 void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
 void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
