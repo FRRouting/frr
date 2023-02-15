@@ -192,6 +192,8 @@ struct ls_attributes *ls_attributes_new(struct ls_node_id adv,
 		return NULL;
 	}
 
+	admin_group_init(&new->ext_admin_group);
+
 	return new;
 }
 
@@ -214,6 +216,8 @@ void ls_attributes_del(struct ls_attributes *attr)
 		return;
 
 	ls_attributes_srlg_del(attr);
+
+	admin_group_term(&attr->ext_admin_group);
 
 	XFREE(MTYPE_LS_DB, attr);
 }
@@ -245,6 +249,9 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 		return 0;
 	if (CHECK_FLAG(l1->flags, LS_ATTR_ADM_GRP)
 	    && (l1->standard.admin_group != l2->standard.admin_group))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_EXT_ADM_GRP) &&
+	    !admin_group_cmp(&l1->ext_admin_group, &l2->ext_admin_group))
 		return 0;
 	if (CHECK_FLAG(l1->flags, LS_ATTR_LOCAL_ADDR)
 	    && !IPV4_ADDR_SAME(&l1->standard.local, &l2->standard.local))
@@ -1206,9 +1213,12 @@ stream_failure:
 static struct ls_attributes *ls_parse_attributes(struct stream *s)
 {
 	struct ls_attributes *attr;
+	uint8_t nb_ext_adm_grp;
+	uint32_t bitmap_data;
 	size_t len;
 
 	attr = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_attributes));
+	admin_group_init(&attr->ext_admin_group);
 	attr->srlgs = NULL;
 
 	STREAM_GET(&attr->adv, s, sizeof(struct ls_node_id));
@@ -1223,6 +1233,15 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		STREAM_GETL(s, attr->standard.te_metric);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		STREAM_GETL(s, attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP)) {
+		/* Extended Administrative Group */
+		STREAM_GETC(s, nb_ext_adm_grp);
+		for (size_t i = 0; i < nb_ext_adm_grp; i++) {
+			STREAM_GETL(s, bitmap_data);
+			admin_group_bulk_set(&attr->ext_admin_group,
+					     bitmap_data, i);
+		}
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		attr->standard.local.s_addr = stream_get_ipv4(s);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
@@ -1430,7 +1449,7 @@ static int ls_format_node(struct stream *s, struct ls_node *node)
 
 static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 {
-	size_t len;
+	size_t len, nb_ext_adm_grp;
 
 	/* Push Advertise node information first */
 	stream_put(s, &attr->adv, sizeof(struct ls_node_id));
@@ -1449,6 +1468,14 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 		stream_putl(s, attr->standard.te_metric);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		stream_putl(s, attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP)) {
+		/* Extended Administrative Group */
+		nb_ext_adm_grp = admin_group_nb_words(&attr->ext_admin_group);
+		stream_putc(s, nb_ext_adm_grp);
+		for (size_t i = 0; i < nb_ext_adm_grp; i++)
+			stream_putl(s, admin_group_get_offset(
+					       &attr->ext_admin_group, i));
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		stream_put_ipv4(s, attr->standard.local.s_addr);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
@@ -2166,9 +2193,11 @@ void ls_show_vertices(struct ls_ted *ted, struct vty *vty,
 static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 			     bool verbose)
 {
+	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
 	struct ls_attributes *attr;
 	struct sbuf sbuf;
 	char buf[INET6_BUFSIZ];
+	int indent;
 
 	attr = edge->attributes;
 	sbuf_init(&sbuf, NULL, 0);
@@ -2198,6 +2227,20 @@ static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		sbuf_push(&sbuf, 4, "Admin Group: 0x%x\n",
 			  attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP) &&
+	    admin_group_nb_words(&attr->ext_admin_group) != 0) {
+		indent = 4;
+		sbuf_push(&sbuf, indent, "Ext Admin Group: %s\n",
+			  admin_group_string(
+				  admin_group_buf, ADMIN_GROUP_PRINT_MAX_SIZE,
+				  indent + strlen("Ext Admin Group: "),
+				  &attr->ext_admin_group));
+		if (admin_group_buf[0] != '\0' &&
+		    (sbuf.pos + strlen(admin_group_buf) +
+		     SBUF_DEFAULT_SIZE / 2) < sbuf.size)
+			sbuf_push(&sbuf, indent + 2, "Bit positions: %s\n",
+				  admin_group_buf);
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		sbuf_push(&sbuf, 4, "Local IPv4 address: %pI4\n",
 			  &attr->standard.local);
@@ -2308,8 +2351,13 @@ end:
 static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 {
 	struct ls_attributes *attr;
-	struct json_object *jte, *jbw, *jobj, *jsr = NULL, *jsrlg;
+	struct json_object *jte, *jbw, *jobj, *jsr = NULL, *jsrlg, *js_ext_ag,
+					      *js_ext_ag_arr_word,
+					      *js_ext_ag_arr_bit;
 	char buf[INET6_BUFSIZ];
+	char buf_ag[strlen("0xffffffff") + 1];
+	uint32_t bitmap;
+	size_t i;
 
 	attr = edge->attributes;
 
@@ -2333,6 +2381,30 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADM_GRP))
 		json_object_int_add(jte, "admin-group",
 				    attr->standard.admin_group);
+	if (CHECK_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP)) {
+		js_ext_ag = json_object_new_object();
+		json_object_object_add(jte, "extAdminGroup", js_ext_ag);
+		js_ext_ag_arr_word = json_object_new_array();
+		json_object_object_add(js_ext_ag, "words", js_ext_ag_arr_word);
+		js_ext_ag_arr_bit = json_object_new_array();
+		json_object_object_add(js_ext_ag, "bitPositions",
+				       js_ext_ag_arr_bit);
+		for (i = 0; i < admin_group_nb_words(&attr->ext_admin_group);
+		     i++) {
+			bitmap = admin_group_get_offset(&attr->ext_admin_group,
+							i);
+			snprintf(buf_ag, sizeof(buf_ag), "0x%08x", bitmap);
+			json_object_array_add(js_ext_ag_arr_word,
+					      json_object_new_string(buf_ag));
+		}
+		for (i = 0;
+		     i < (admin_group_size(&attr->ext_admin_group) * WORD_SIZE);
+		     i++) {
+			if (admin_group_get(&attr->ext_admin_group, i))
+				json_object_array_add(js_ext_ag_arr_bit,
+						      json_object_new_int(i));
+		}
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
 		snprintfrr(buf, INET6_BUFSIZ, "%pI4", &attr->standard.local);
 		json_object_string_add(jte, "local-address", buf);

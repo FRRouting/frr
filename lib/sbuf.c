@@ -33,8 +33,8 @@ void sbuf_init(struct sbuf *dest, char *buf, size_t size)
 		dest->buf = buf;
 		dest->size = size;
 	} else {
-		dest->buf = XMALLOC(MTYPE_TMP, 4096);
-		dest->size = 4096;
+		dest->buf = XMALLOC(MTYPE_TMP, SBUF_DEFAULT_SIZE);
+		dest->size = SBUF_DEFAULT_SIZE;
 	}
 
 	dest->pos = 0;

@@ -11,6 +11,10 @@ module frr-zebra {
     prefix inet;
   }
 
+  import frr-affinity-map {
+    prefix frr-affinity-map;
+  }
+
   import frr-route-map {
     prefix frr-route-map;
   }
@@ -1985,7 +1989,55 @@ module frr-zebra {
         description
           "Link bandwidth informational parameter, in megabits.";
       }
-      // TODO -- link-params for (experimental/partial TE use in IGP extensions)
+      container link-params {
+        description
+          "link-params for Traffic-Engineering (TE) use in IGP extensions.";
+        choice admin-group-mode {
+          description "Admin-group mode";
+          case legacy {
+            description
+              "Legacy mode. Only support standard admin-group (RFC3630/5305/5329)";
+            leaf legacy-admin-group {
+              description "Admin-Group value";
+              type uint32;
+            }
+          }
+          case affinity {
+            container affinities {
+              leaf-list affinity {
+                type string;
+                max-elements "256";
+                description
+                  "Array of Attribute Names";
+              }
+            }
+          }
+        }
+        leaf affinity-mode {
+          description
+            "Affinity mode";
+          default "extended";
+          type enumeration {
+              enum extended {
+              value 0;
+              description
+                "Extended Admin-Group only (RFC7308)";
+            }
+            enum standard {
+            value 1;
+              description
+                "Standard Admin-Group only (RFC3630/5305/5329)";
+            }
+            enum both {
+              value 2;
+              description
+                "Standard and extended Admin-Group";
+            }
+          }
+        }
+        // TODO -- other link-params options
+        // for (experimental/partial TE use in IGP extensions)
+      }
       container state {
         config false;
         description

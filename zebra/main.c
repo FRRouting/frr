@@ -33,6 +33,7 @@
 #include "sigevent.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "affinitymap.h"
 #include "routemap.h"
 #include "routing_nb.h"
 
@@ -259,6 +260,7 @@ struct frr_signal_t zebra_signals[] = {
 	},
 };
 
+/* clang-format off */
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -266,8 +268,10 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_zebra_info,
 	&frr_vrf_info,
 	&frr_routing_info,
+	&frr_affinity_map_info,
 	&frr_zebra_route_map_info,
 };
+/* clang-format on */
 
 FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,

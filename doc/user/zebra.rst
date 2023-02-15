@@ -222,8 +222,6 @@ Link Parameters Commands
 
 .. clicmd:: unrsv-bw (0-7) BANDWIDTH
 
-.. clicmd:: admin-grp BANDWIDTH
-
    These commands specifies the Traffic Engineering parameters of the interface
    in conformity to RFC3630 (OSPF) or RFC5305 (ISIS).  There are respectively
    the TE Metric (different from the OSPF or ISIS metric), Maximum Bandwidth
@@ -233,6 +231,36 @@ Link Parameters Commands
 
    Note that BANDWIDTH is specified in IEEE floating point format and express
    in Bytes/second.
+
+.. clicmd:: admin-grp 0x(0-FFFFFFFF)
+
+   This commands configures the Traffic Engineering Admin-Group of the interface
+   as specified in RFC3630 (OSPF) or RFC5305 (ISIS). Admin-group is also known
+   as Resource Class/Color in the OSPF protocol.
+
+.. clicmd:: [no] affinity AFFINITY-MAP-NAME
+
+   This commands configures the Traffic Engineering Admin-Group of the
+   interface using the affinity-map definitions (:ref:`affinity-map`).
+   Multiple AFFINITY-MAP-NAME can be specified at the same time. Affinity-map
+   names are added or removed if ``no`` is present. It means that specifying one
+   value does not override the full list.
+
+   ``admin-grp`` and ``affinity`` commands provide two ways of setting
+   admin-groups. They cannot be both set on the same interface.
+
+.. clicmd:: [no] affinity-mode [extended|standard|both]
+
+   This commands configures which admin-group format is set by the affinity
+   command. ``extended`` Admin-Group is the default and uses the RFC7308 format.
+   ``standard`` mode uses the standard admin-group format that is defined by
+   RFC3630, RFC5305 and RFC5329. When the ``standard`` mode is set,
+   affinity-maps with bit-positions higher than 31 cannot be applied to the
+   interface. The ``both`` mode allows setting standard and extended admin-group
+   on the link at the same time. In   this case, the bit-positions 0 to 31 are
+   the same on standard and extended admin-groups.
+
+   Note that extended admin-groups are only supported by IS-IS for the moment.
 
 .. clicmd:: delay (0-16777215) [min (0-16777215) | max (0-16777215)]
 

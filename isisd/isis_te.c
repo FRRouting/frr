@@ -218,6 +218,13 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		} else
 			UNSET_SUBTLV(ext, EXT_ADM_GRP);
 
+		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
+			admin_group_copy(&ext->ext_admin_group,
+					 &ifp->link_params->ext_admin_grp);
+			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+		} else
+			UNSET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+
 		/* If known, register local IPv4 addr from ip_addr list */
 		if (listcount(circuit->ip_addrs) != 0) {
 			addr = (struct prefix_ipv4 *)listgetdata(
@@ -757,6 +764,11 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 	if (CHECK_FLAG(tlvs->status, EXT_ADM_GRP)) {
 		attr->standard.admin_group = tlvs->adm_group;
 		SET_FLAG(attr->flags, LS_ATTR_ADM_GRP);
+	}
+	if (CHECK_FLAG(tlvs->status, EXT_EXTEND_ADM_GRP)) {
+		admin_group_copy(&attr->ext_admin_group,
+				 &tlvs->ext_admin_group);
+		SET_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_LLRI)) {
 		attr->standard.local_id = tlvs->local_llri;

@@ -26,6 +26,7 @@
 #include "memory.h"
 #include "qobj.h"
 #include "hook.h"
+#include "admin_group.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -153,6 +154,15 @@ struct if_stats {
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
 
+enum affinity_mode {
+	/* RFC7308 Extended Administrative group */
+	AFFINITY_MODE_EXTENDED = 0,
+	/* RFC3630/RFC5305/RFC5329 Administrative group */
+	AFFINITY_MODE_STANDARD = 1,
+	/* Standard and Extended Administrative group */
+	AFFINITY_MODE_BOTH = 2,
+};
+
 /*
  * Link Parameters Status:
  *  equal to 0: unset
@@ -172,6 +182,7 @@ struct if_stats {
 #define LP_RES_BW               0x0400
 #define LP_AVA_BW               0x0800
 #define LP_USE_BW               0x1000
+#define LP_EXTEND_ADM_GRP 0x2000
 
 #define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
 #define IS_PARAM_SET(lp, st) (lp->lp_status & st)
@@ -181,7 +192,10 @@ struct if_stats {
 #define UNSET_PARAM(lp, st) (lp->lp_status) &= ~(st)
 #define RESET_LINK_PARAM(lp) (lp->lp_status = LP_UNSET)
 
-/* Link Parameters for Traffic Engineering */
+/* Link Parameters for Traffic Engineering
+ * Do not forget to update if_link_params_copy()
+ * and if_link_params_cmp() when updating the structure
+ */
 struct if_link_params {
 	uint32_t lp_status; /* Status of Link Parameters: */
 	uint32_t te_metric; /* Traffic Engineering metric */
@@ -190,7 +204,8 @@ struct if_link_params {
 	float max_rsv_bw;		/* Maximum Reservable Bandwidth */
 	float unrsv_bw[MAX_CLASS_TYPE]; /* Unreserved Bandwidth per Class Type
 					   (8) */
-	uint32_t admin_grp;		/* Administrative group */
+	uint32_t admin_grp; /* RFC5305/RFC5329 Administrative group */
+	struct admin_group ext_admin_grp; /* RFC7308 Extended Admin group */
 	uint32_t rmt_as;		/* Remote AS number */
 	struct in_addr rmt_ip;		/* Remote IP address */
 	uint32_t av_delay;		/* Link Average Delay */
@@ -592,6 +607,10 @@ struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
 struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
+bool if_link_params_cmp(struct if_link_params *iflp1,
+			struct if_link_params *iflp2);
+void if_link_params_copy(struct if_link_params *dst,
+			 struct if_link_params *src);
 struct if_link_params *if_link_params_get(struct interface *);
 struct if_link_params *if_link_params_enable(struct interface *ifp);
 struct if_link_params *if_link_params_init(struct interface *ifp);
