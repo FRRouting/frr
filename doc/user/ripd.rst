@@ -40,7 +40,8 @@ sequence for running RIP is like below:
 Please note that *zebra* must be invoked before *ripd*.
 
 To stop *ripd*. Please use::
-   kill `cat /var/run/ripd.pid`
+
+   kill `cat /var/run/frr/ripd.pid`
 
 Certain signals have special meanings to *ripd*.
 
@@ -92,9 +93,6 @@ RIP Configuration
    The `router rip` command is necessary to enable RIP. To disable RIP, use the
    `no router rip` command. RIP must be enabled before carrying out any of the
    RIP commands.
-
-
-   Disable RIP.
 
 .. clicmd:: network NETWORK
 

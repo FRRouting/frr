@@ -32,7 +32,7 @@ Please note that *zebra* must be invoked before *pim6d*.
 
 To stop *pim6d* please use::
 
-   kill `cat /var/run/pim6d.pid`
+   kill `cat /var/run/frr/pim6d.pid`
 
 Certain signals have special meanings to *pim6d*.
 
