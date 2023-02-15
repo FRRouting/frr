@@ -18,6 +18,14 @@
 #define SRV6_MAX_H_ENCAPS 2
 #define SRV6_MAX_END_D 5
 
+/* SRv6 SID structure */
+struct isis_srv6_sid_structure {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* SRv6 SID not bound to any adjacency */
 struct isis_srv6_sid {
 	struct isis_srv6_sid *next;
