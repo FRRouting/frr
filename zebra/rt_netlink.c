@@ -2021,6 +2021,25 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 	if (lla)
 		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char ip_str[INET6_ADDRSTRLEN + 8];
+		struct interface *ifp = if_lookup_by_index_per_ns(
+			zebra_ns_lookup(ns_id), ifindex);
+		if (ifp) {
+			if (family == AF_INET6)
+				snprintfrr(ip_str, sizeof(ip_str), "ipv6 %pI6",
+					   (struct in6_addr *)addr);
+			else
+				snprintfrr(ip_str, sizeof(ip_str), "ipv4 %pI4",
+					   (in_addr_t *)addr);
+			zlog_debug(
+				"%s: %s ifname %s ifindex %u addr %s mac %pEA vrf %s(%u)",
+				__func__, nl_msg_type_to_str(cmd), ifp->name,
+				ifindex, ip_str, (struct ethaddr *)lla,
+				vrf_id_to_name(ifp->vrf->vrf_id),
+				ifp->vrf->vrf_id);
+		}
+	}
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    false);
 }
