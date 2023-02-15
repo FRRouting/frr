@@ -16,20 +16,22 @@ import tempfile
 import logging
 from xml.etree import ElementTree
 
-from typing import Dict, List, Type, Optional
+from typing import ClassVar, Dict, List, Type, Optional
 
+import pytest
 import docutils.core
 import jinja2
 import markupsafe
 
 from . import base, assertions
-from .utils import ClassHooks, exec_find, deindent
+from .utils import exec_find, deindent, get_dir
 from .scapy import ScapySend
 from .timeline import TimedElement
 from .pcapng import Sink, SectionHeader
 
 
 logger = logging.getLogger("topotato")
+_pretty_session = pytest.StashKey["PrettySession"]()
 
 
 def _docrender(item):
@@ -91,6 +93,8 @@ class PrettyExtraFile:
 
 
 class PrettySession:
+    exec_dot: ClassVar[Optional[str]]
+
     def __init__(self, session, outdir=None, source_url=None):
         self.session = session
         self.outdir = outdir
@@ -106,6 +110,55 @@ class PrettySession:
         if not hasattr(item, "pretty"):
             item.pretty = PrettyItem.make(self, item)
         item.pretty(call, result)
+
+    @staticmethod
+    @pytest.hookimpl()
+    def pytest_addoption(parser):
+        parser.addoption(
+            "--reportato-dir",
+            type=str,
+            default=None,
+            help="output directory for topotato HTML report",
+        )
+        parser.addoption(
+            "--source-url",
+            type=str,
+            default=None,
+            help="URL to use as base in HTML report source links",
+        )
+
+        parser.addini(
+            "reportato_dir", "Default output directory for topotato HTML report"
+        )
+
+    # pylint: disable=unused-argument
+    @classmethod
+    @pytest.hookimpl()
+    def pytest_topotato_envcheck(cls, session, result):
+        cls.exec_dot = exec_find("dot")
+        if cls.exec_dot is None:
+            result.warning("graphviz (dot) not found; network diagrams won't be drawn.")
+
+    @classmethod
+    @pytest.hookimpl()
+    def pytest_sessionstart(cls, session):
+        if session.config.getoption("--collect-only"):
+            return
+
+        outdir = get_dir(session, "--reportato-dir", "reportato_dir")
+        source_url = session.config.getoption("--source-url")
+
+        session.stash[_pretty_session] = cls(session, outdir, source_url)
+
+    @staticmethod
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_runtest_makereport(item, call):
+        outcome = yield
+        report = outcome.get_result()
+
+        self = item.session.stash.get(_pretty_session, None)
+        if self:
+            self.push(item, call, report)
 
 
 class PrettyInstance(list):
@@ -186,7 +239,7 @@ class PrettyInstance(list):
             fd.write(output.encode("UTF-8"))
 
 
-class PrettyItem(ClassHooks):
+class PrettyItem:
     itemclasses: Dict[Type[base.TopotatoItem], Type["PrettyItem"]] = {}
     template = jenv.get_template("item.html.j2")
 
@@ -273,12 +326,6 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
 class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
     toposvg: bytes
 
-    @classmethod
-    def _check_env(cls, *, result, **kwargs):
-        cls.exec_dot = exec_find("dot")
-        if cls.exec_dot is None:
-            result.warning("graphviz (dot) not found; network diagrams won't be drawn.")
-
     # pylint: disable=consider-using-with
     def when_call(self, call, result):
         super().when_call(call, result)
@@ -292,9 +339,9 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
         dot = self.instance.network.dot()
         yield PrettyExtraFile(self, "dotfile", ".dot", "text/plain; charset=utf-8", dot)
 
-        if self.exec_dot:
+        if self.prettysession.exec_dot:
             graphviz = subprocess.Popen(
-                ["dot", "-Tsvg", "-o/dev/stdout"],
+                [self.prettysession.exec_dot, "-Tsvg", "-o/dev/stdout"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
             )

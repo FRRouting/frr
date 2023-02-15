@@ -17,12 +17,13 @@ import signal
 import pytest
 
 from . import hooks
-from .utils import ClassHooks
+from .utils import EnvcheckResult
 from .base import TopotatoItem
 from .frr import FRRConfigs
 from .toponom import LAN
 from .interactive import Interactive
 from .pretty import PrettySession
+from .osdep import NetworkInstance
 
 logger = logging.getLogger("topotato")
 
@@ -42,7 +43,10 @@ def pytest_report_teststatus(report):
 
 def pytest_addhooks(pluginmanager):
     pluginmanager.add_hookspecs(hooks)
+    pluginmanager.register(NetworkInstance)
     pluginmanager.register(TopotatoItem)
+    pluginmanager.register(FRRConfigs)
+    pluginmanager.register(PrettySession)
     pluginmanager.register(Interactive)
 
 
@@ -67,31 +71,6 @@ def pytest_addoption(parser):
     parser.addoption(
         "--show-topology", type=str, default=None, help="show specific topology"
     )
-    parser.addoption(
-        "--frr-builddir",
-        type=str,
-        default=None,
-        help="override frr_builddir pytest.ini option",
-    )
-    parser.addoption(
-        "--reportato-dir",
-        type=str,
-        default=None,
-        help="output directory for topotato HTML report",
-    )
-    parser.addoption(
-        "--source-url",
-        type=str,
-        default=None,
-        help="URL to use as base in HTML report source links",
-    )
-
-    parser.addini(
-        "frr_builddir",
-        "FRR build directory (normally same as source, but out-of-tree is supported)",
-        default="../frr",
-    )
-    parser.addini("reportato_dir", "Default output directory for topotato HTML report")
 
 
 # @pytest.hookimpl()
@@ -104,29 +83,14 @@ def pytest_sessionstart(session):
     tw = session.config.get_terminal_writer()
     session.terminal_writer = tw
 
-    def get_dir(optname, ininame):
-        basedir = os.getcwd()
-        val = session.config.getoption(optname)
-        if not val:
-            basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            val = session.config.getini(ininame)
-
-        if val is None:
-            return None
-        if not os.path.isabs(val):
-            val = os.path.abspath(os.path.join(basedir, val))
-        return val
-
     if session.config.getoption("--collect-only"):
         return
 
     tw.sep("=", "topotato initialization", bold=True)
 
-    FRRConfigs.frrpath = get_dir("--frr-builddir", "frr_builddir")
-    reportato_dir = get_dir("--reportato-dir", "reportato_dir")
-    source_url = session.config.getoption("--source-url")
+    envstate = EnvcheckResult()
 
-    envstate = ClassHooks.check_env_all()
+    session.config.hook.pytest_topotato_envcheck(session=session, result=envstate)
 
     if os.getuid() != 0:
         envstate.errors.append("topotato must be run as root.")
@@ -146,15 +110,12 @@ def pytest_sessionstart(session):
         tw.sep("=", "topotato aborting", bold=True)
         raise EnvironmentError("\n".join([str(e) for e in envstate.errors]))
 
-    session.pretty = PrettySession(session, reportato_dir, source_url)
 
-
+# pylint: disable=unused-argument
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
-
-    item.session.pretty.push(item, call, report)
 
     if not isinstance(item, TopotatoItem):
         return

@@ -18,7 +18,6 @@ from typing import (
     Optional,
 )
 
-from .utils import ClassHooks
 from .jailwrap import FreeBSDJail
 from .toponom import LAN, Network
 
@@ -35,7 +34,7 @@ def ifname(host, iface):
     return "%s_%s" % (host, iface)
 
 
-class NetworkInstance(ClassHooks):
+class NetworkInstance:
     """
     represent a test setup with all its routers & switches
     """

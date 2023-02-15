@@ -429,50 +429,34 @@ def exec_find(name, stacklevel=1):
     return None
 
 
-class ClassHooks:
-    _hooked_classes: List[type] = []
+def get_dir(session, optname, ininame):
+    basedir = os.getcwd()
+    val = session.config.getoption(optname)
+    if not val:
+        basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        val = session.config.getini(ininame)
 
-    class Result:
-        def __init__(self):
-            super().__init__()
-            self.warnings = []
-            self.errors = []
+    if val is None:
+        return None
+    if not os.path.isabs(val):
+        val = os.path.abspath(os.path.join(basedir, val))
+    return val
 
-        def __bool__(self):
-            return len(self.errors) == 0
 
-        def warning(self, *args):
-            self.warnings.append(args)
+class EnvcheckResult:
+    def __init__(self):
+        super().__init__()
+        self.warnings = []
+        self.errors = []
 
-        def error(self, *args):
-            self.errors.append(args)
+    def __bool__(self):
+        return len(self.errors) == 0
 
-    @classmethod
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        ClassHooks._hooked_classes.append(cls)
+    def warning(self, *args):
+        self.warnings.append(args)
 
-    @classmethod
-    def _check_env(cls, *, result, **kwargs):
-        pass
-
-    @classmethod
-    def check_env_all(cls, **kwargs):
-        result = cls.Result()
-        for subcls in cls._hooked_classes:
-            for parent in subcls.__mro__[1:]:
-                # pylint: disable=protected-access
-                if (
-                    subcls._check_env.__code__
-                    is getattr(parent, "_check_env", ClassHooks._check_env).__code__
-                ):
-                    break
-            else:
-                try:
-                    subcls._check_env(result=result, **kwargs)
-                except EnvironmentError as e:
-                    result.errors.append(e)
-        return result
+    def error(self, *args):
+        self.errors.append(args)
 
 
 _PathLike = Union[os.PathLike, str, bytes]

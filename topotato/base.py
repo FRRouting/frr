@@ -41,7 +41,6 @@ from .exceptions import (
     TopotatoUnhandledArgs,
 )
 from .livescapy import LiveScapy
-from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
     from _pytest._code.code import ExceptionInfo, TracebackEntry
@@ -111,7 +110,7 @@ class ItemGroup(list):
 
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
-class TopotatoItem(nodes.Item, ClassHooks):
+class TopotatoItem(nodes.Item):
     """
     pytest base class for test "items" - asserts, route checks, etc.
 

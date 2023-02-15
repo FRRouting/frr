@@ -7,7 +7,8 @@ topotato OS-dependent submodule imports/dispatching
 # pylint: disable=unused-import
 
 import sys
-from .utils import ClassHooks
+
+import pytest
 
 
 if sys.platform == "linux":
@@ -16,7 +17,7 @@ elif sys.platform == "freebsd12":
     from .topofreebsd import NetworkInstance
 else:
 
-    class NetworkInstance(ClassHooks):
+    class NetworkInstance:
         class RouterNS:
             pass
 
@@ -24,5 +25,6 @@ else:
             raise NotImplementedError("no support for OS %r" % sys.platform)
 
         @classmethod
-        def _check_env(cls, *, result, **kwargs):
+        @pytest.hookimpl()
+        def pytest_topotato_envcheck(cls, session, result):
             raise NotImplementedError("no support for OS %r" % sys.platform)

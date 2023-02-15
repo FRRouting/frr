@@ -36,9 +36,10 @@ from typing import (
     cast,
 )
 
+import pytest
 import jinja2
 
-from .utils import deindent, ClassHooks
+from .utils import deindent, get_dir, EnvcheckResult
 from .timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
 from .exceptions import TopotatoDaemonCrash
@@ -90,7 +91,7 @@ class FRRSetupError(EnvironmentError):
     pass
 
 
-class FRRConfigs(dict, ClassHooks):
+class FRRConfigs(dict):
     """
     set of config files for an FRR setup
 
@@ -117,15 +118,33 @@ class FRRConfigs(dict, ClassHooks):
 
     daemons_integrated_only = frozenset("pim6d".split())
 
+    @staticmethod
+    @pytest.hookimpl()
+    def pytest_addoption(parser):
+        parser.addoption(
+            "--frr-builddir",
+            type=str,
+            default=None,
+            help="FRR build directory (overrides frr_builddir pytest.ini option)",
+        )
+
+        parser.addini(
+            "frr_builddir",
+            "FRR build directory (normally same as source, but out-of-tree is supported)",
+            default="../frr",
+        )
+
     # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     @classmethod
-    def _check_env(cls, *, result, **kwargs):
+    @pytest.hookimpl()
+    def pytest_topotato_envcheck(cls, session, result: EnvcheckResult):
         """
         grab some setup information about a FRR build from frrpath
 
         among other things, this figures out which daemons are even available
         """
-        cls.frrpath = frrpath = os.path.abspath(cls.frrpath)
+        frrpath = get_dir(session, "--frr-builddir", "frr_builddir")
+        cls.frrpath = frrpath = os.path.abspath(frrpath)
 
         logger.debug("FRR build directory: %r", frrpath)
         try:
