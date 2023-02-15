@@ -2021,6 +2021,18 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 	if (lla)
 		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char ip_str[256];
+		struct interface *ifp =
+			if_lookup_by_index(ifindex, VRF_DEFAULT);
+		if (AF_INET6 == family)
+			snprintfrr(ip_str, sizeof(ip_str), "ipv6 %pI6", addr);
+		else
+			snprintfrr(ip_str, sizeof(ip_str), "ipv4 %pI4", addr);
+		zlog_debug("%s: %s ifname %s ifindex %u addr %s mac %pEA",
+			   __func__, nl_msg_type_to_str(cmd),
+			   ifp ? ifp->name : "null", ifindex, ip_str, lla);
+	}
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    false);
 }
