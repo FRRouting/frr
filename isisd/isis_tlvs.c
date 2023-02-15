@@ -6836,6 +6836,9 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	},
 	[ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR] = {
 		[ISIS_SUBTLV_SRV6_END_SID] = &tlv_srv6_end_sid_ops,
+	},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID] = {
+		[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] = &subsubtlv_srv6_sid_structure_ops,
 	}
 };
 
