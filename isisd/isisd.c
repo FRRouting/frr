@@ -100,6 +100,9 @@ static struct isis_master isis_master;
 /* ISIS process wide configuration pointer to export. */
 struct isis_master *im;
 
+/* ISIS config processing thread */
+struct thread *t_isis_cfg;
+
 #ifndef FABRICD
 DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
 #endif /* ifndef FABRICD */
@@ -3244,6 +3247,16 @@ void isis_area_overload_on_startup_set(struct isis_area *area,
 	if (area->overload_on_startup_time != startup_time) {
 		area->overload_on_startup_time = startup_time;
 		isis_restart_write_overload_time(area, startup_time);
+	}
+}
+
+void config_end_lsp_generate(struct isis_area *area)
+{
+	if (listcount(area->area_addrs) > 0) {
+		if (CHECK_FLAG(area->is_type, IS_LEVEL_1))
+			lsp_generate(area, IS_LEVEL_1);
+		if (CHECK_FLAG(area->is_type, IS_LEVEL_2))
+			lsp_generate(area, IS_LEVEL_2);
 	}
 }
 
