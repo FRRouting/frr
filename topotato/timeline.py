@@ -43,6 +43,8 @@ class TimingParams:
         return self
 
     def ticks(self):
+        now = time.time()
+
         # immediate tick
         yield float("-inf")
 
@@ -51,7 +53,8 @@ class TimingParams:
         deadline = start + (self.maxwait or 0.0)
 
         while nexttick < deadline:
-            yield nexttick
+            if nexttick >= now:
+                yield nexttick
             nexttick += self.delay
 
     def evaluate(self):
