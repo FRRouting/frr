@@ -1806,7 +1806,6 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	struct interface *ifp;
 	char rd_buf[RD_ADDRSTRLEN];
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
-	int i;
 
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
@@ -1867,9 +1866,7 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 
 	/* shallow copy */
 	static_attr = *path_vpn->attr;
-	static_attr.num_labels = 0;
-	for (i = 0; i < BGP_MAX_LABELS; i++)
-		static_attr.label_tbl[i] = MPLS_INVALID_LABEL;
+	bgp_labels_init(&static_attr);
 
 	struct ecommunity *old_ecom;
 	struct ecommunity *new_ecom;

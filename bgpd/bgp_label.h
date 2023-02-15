@@ -102,4 +102,9 @@ struct attr *bgp_labels_set(struct attr *attr,
 			    uint32_t num_labels, bool direct_copy,
 			    bool set_valid_label);
 
+static inline void bgp_labels_init(struct attr *attr)
+{
+	bgp_labels_set(attr, NULL, 0, true, false);
+}
+
 #endif /* _BGP_LABEL_H */
