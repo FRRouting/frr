@@ -1506,6 +1506,22 @@ sub read_info_file($)
 			or die("ERROR: cannot start gunzip to decompress ".
 			       "file $_[0]!\n");
 	}
+	elsif ($_[0] =~ /\.xz$/)
+	{
+		# Check for availability of xz tool
+		system_no_output(1, "xz" ,"-h")
+			and die("ERROR: xz command not available!\n");
+
+		# Check integrity of compressed file
+		system_no_output(1, "xz", "-t", $_[0])
+			and die("ERROR: integrity check failed for ".
+				"compressed file $_[0]!\n");
+
+		# Open compressed file
+		open(INFO_HANDLE, "-|", "xz -c -d '$_[0]'")
+			or die("ERROR: cannot start xz to decompress ".
+			       "file $_[0]!\n");
+	}
 	else
 	{
 		# Open decompressed file
