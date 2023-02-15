@@ -7774,6 +7774,11 @@ void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 	 * configuration */
 	isis_srv6_end_sid2subtlv(sid, sid_subtlv);
 
+	/* Add the SRv6 SID Structure Sub-Sub-TLV */
+	sid_subtlv->subsubtlvs =
+		isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
+	isis_subsubtlvs_set_srv6_sid_structure(sid_subtlv->subsubtlvs, sid);
+
 	/* Append the SRv6 End SID Sub-TLV to the Sub-TLVs list */
 	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid_subtlv);
 }
