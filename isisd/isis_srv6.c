@@ -21,6 +21,28 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
 
 /**
+ * Fill in SRv6 Locator TLV with information from an SRv6 locator.
+ *
+ * @param loc	     SRv6 Locator configuration
+ * @param loc_tlv    SRv6 Locator TLV to be updated
+ */
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv)
+{
+	/* Set SRv6 Locator metric */
+	loc_tlv->metric = loc->metric;
+
+	/* Set SRv6 Locator flags */
+	loc_tlv->flags = loc->flags;
+
+	/* Set SRv6 Locator algorithm */
+	loc_tlv->algorithm = loc->algorithm;
+
+	/* Set SRv6 Locator prefix */
+	loc_tlv->prefix = loc->prefix;
+}
+
+/**
  * Unset the SRv6 locator for a given IS-IS area.
  *
  * @param area	IS-IS area
