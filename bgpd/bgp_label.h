@@ -97,5 +97,9 @@ static inline uint8_t label_bos(mpls_label_t *label)
 
 bool bgp_labels_same(const struct attr *attr1, mpls_label_t *tbl,
 		     uint32_t num_labels);
+struct attr *bgp_labels_set(struct attr *attr,
+			    mpls_label_t *label, /* array of labels */
+			    uint32_t num_labels, bool direct_copy,
+			    bool set_valid_label);
 
 #endif /* _BGP_LABEL_H */
