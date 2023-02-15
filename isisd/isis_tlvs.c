@@ -6795,6 +6795,7 @@ SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
 ITEM_TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
 ITEM_SUBTLV_OPS(srv6_end_sid, "Sub-TLV 5 SRv6 End SID");
+SUBSUBTLV_OPS(srv6_sid_structure, "Sub-Sub-TLV 1 SRv6 SID Structure");
 
 static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	[ISIS_CONTEXT_LSP] = {
