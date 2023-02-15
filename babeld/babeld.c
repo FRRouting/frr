@@ -277,7 +277,7 @@ babel_get_myid(void)
         exit(1);
     }
     /* Clear group and global bits */
-    myid[0] &= ~3;
+    UNSET_FLAG (myid[0], 3);
 }
 
 /* Make some noise so that others notice us, and send retractions in

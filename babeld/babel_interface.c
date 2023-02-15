@@ -66,7 +66,7 @@ static vector babel_enable_if;                 /* enable interfaces (by cmd). */
 
 int babel_ifp_up(struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface up'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface up'");
 
     interface_recalculate(ifp);
     return 0;
@@ -75,7 +75,7 @@ int babel_ifp_up(struct interface *ifp)
 int
 babel_ifp_down(struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface down'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface down'");
 
     if (ifp == NULL) {
         return 0;
@@ -87,7 +87,7 @@ babel_ifp_down(struct interface *ifp)
 
 int babel_ifp_create (struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface add'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface add'");
 
     interface_recalculate(ifp);
 
@@ -97,7 +97,7 @@ int babel_ifp_create (struct interface *ifp)
 int
 babel_ifp_destroy(struct interface *ifp)
 {
-    debugf(BABEL_DEBUG_IF, "receive a 'interface delete'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface delete'");
 
     if (IS_ENABLE(ifp))
         interface_reset(ifp);
@@ -112,7 +112,7 @@ babel_interface_address_add (ZAPI_CALLBACK_ARGS)
     struct connected *ifc;
     struct prefix *prefix;
 
-    debugf(BABEL_DEBUG_IF, "receive a 'interface address add'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface address add'");
 
     ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD,
                                         zclient->ibuf, vrf_id);
@@ -148,7 +148,7 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
     struct connected *ifc;
     struct prefix *prefix;
 
-    debugf(BABEL_DEBUG_IF, "receive a 'interface address delete'");
+    debugf(BABEL_DEBUG_IF, "receive an 'interface address delete'");
 
     ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
                                         zclient->ibuf, vrf_id);
