@@ -459,3 +459,20 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 	return BGP_NLRI_PARSE_OK;
 }
+
+bool bgp_labels_same(const struct attr *attr1, mpls_label_t *tbl,
+		     uint32_t num_labels)
+{
+	uint32_t i;
+
+	if (attr1->num_labels != num_labels)
+		return false;
+	if (attr1->num_labels == 0)
+		return true;
+
+	for (i = 0; i < attr1->num_labels; i++) {
+		if (attr1->label_tbl[i] != tbl[i])
+			return false;
+	}
+	return true;
+}

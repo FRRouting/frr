@@ -95,4 +95,7 @@ static inline uint8_t label_bos(mpls_label_t *label)
 	return (t[2] & 0x01);
 };
 
+bool bgp_labels_same(const struct attr *attr1, mpls_label_t *tbl,
+		     uint32_t num_labels);
+
 #endif /* _BGP_LABEL_H */

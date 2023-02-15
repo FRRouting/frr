@@ -253,17 +253,8 @@ void bgp_attr_flush_encap(struct attr *attr)
 
 static bool labels_same(const struct attr *attr1, const struct attr *attr2)
 {
-	uint32_t i;
-
-	if (attr1->num_labels != attr2->num_labels)
-		return false;
-	if (attr1->num_labels == 0)
-		return true;
-	for (i = 0; i < attr1->num_labels; i++) {
-		if (attr1->label_tbl[i] != attr2->label_tbl[i])
-			return false;
-	}
-	return true;
+	return bgp_labels_same(attr1, (mpls_label_t *)attr2->label_tbl,
+			       attr2->num_labels);
 }
 
 /*
