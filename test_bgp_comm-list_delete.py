@@ -16,7 +16,7 @@ from topotato.v1 import *
 
 
 @topology_fixture()
-def bgp_comm_list_delete_topo(topo):
+def topology(topo):
     """
     [ r1 ]
       |
@@ -83,20 +83,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def configs(config, bgp_comm_list_delete_topo):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):  # pylint: disable=redefined-outer-name
-    return FRRNetworkInstance(configs.topology, configs).prepare()
-
-
-class BGPCommListDeleteTest(TestBase):
-
-    instancefn = testenv
-
+class BGPCommListDeleteTest(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def _bgp_converge_bgpstate(self, topo, r1, r2):
 

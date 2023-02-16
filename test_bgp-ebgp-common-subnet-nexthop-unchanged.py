@@ -17,7 +17,7 @@ common subnet with this address.
 
 
 @topology_fixture()
-def allproto_topo(topo):
+def topology(topo):
     """
     [ r1 ]
       |
@@ -83,19 +83,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def configs(config, allproto_topo):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    return FRRNetworkInstance(configs.topology, configs).prepare()
-
-
-class BGPEbgpCommonSubnetNhUnchanged(TestBase):
-    instancefn = testenv
-
+class BGPEbgpCommonSubnetNhUnchanged(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def bgp_converge(self, topo, r1, r2, r3):
         expected = {

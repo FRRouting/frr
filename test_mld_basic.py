@@ -19,7 +19,7 @@ from scapy.all import (
 
 
 @topology_fixture()
-def mld_topo1(topo):
+def topology(topo):
     """
     [     ]-----[ h1 ]
     [     ]
@@ -57,27 +57,13 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def mld_topo1_configs(config, mld_topo1):
-    return config
-
-
-@instance_fixture()
-def mld_topo1_testenv(mld_topo1_configs):
-    instance = FRRNetworkInstance(mld_topo1_configs.topology, mld_topo1_configs)
-    instance.prepare()
-    return instance
-
-
 def iter_mld_records(report):
     for record in report.records:
         while isinstance(record, ICMPv6MLDMultAddrRec):
             yield record
             record = record.payload
 
-class MLDBasic(TestBase):
-    instancefn = mld_topo1_testenv
-
+class MLDBasic(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc(include_startup=True)
     def prepare(self, topo, dut, h1, h2, src):
         self.receiver = MulticastReceiver(h1, h1.iface_to('dut'))

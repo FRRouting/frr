@@ -23,7 +23,7 @@ __topotests_replaces__ = {
 }
 
 @topology_fixture()
-def pim_topo1(topo):
+def topology(topo):
     """
     [ rp ]
        |
@@ -94,21 +94,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def configs(config, pim_topo1):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    instance = FRRNetworkInstance(configs.topology, configs)
-    instance.prepare()
-    return instance
-
-
-class PIMTopo1Test(TestBase):
-    instancefn = testenv
-
+class PIMTopo1Test(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def prepare(self, topo, rp, r1, r2, r3):
         # wait for BGP to come up

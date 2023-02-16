@@ -21,7 +21,7 @@ __topotests_replaces__ = {
 
 
 @topology_fixture()
-def pim_topo2(topo):
+def topology(topo):
     """
     [ r1 ]----{     }
               { sw1 }
@@ -77,18 +77,6 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def configs(config, pim_topo2):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    instance = FRRNetworkInstance(configs.topology, configs)
-    instance.prepare()
-    return instance
-
-
 # TODO: move this into topotato
 def iter_lan_nbrs(rtr):
     for iface in rtr.ifaces:
@@ -100,11 +88,10 @@ def iter_lan_nbrs(rtr):
             yield (iface, otherrtr, lanif.other)
 
 
-class PIMTopo2Test(TestBase):
+class PIMTopo2Test(TestBase, AutoFixture, topo=topology, configs=Configs):
     """
     Sequence of checks exercising PIM and BFD neighbor establishing.
     """
-    instancefn = testenv
 
     @topotatofunc
     def pim_neigh_up(self, topo, r1, r2, r3, r4):

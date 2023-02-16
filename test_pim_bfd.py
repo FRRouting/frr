@@ -11,7 +11,7 @@ from topotato.v1 import *
 
 
 @topology_fixture()
-def pim_bfd_topo(topo):
+def topology(topo):
     """
     [ r1 ]
        |
@@ -58,21 +58,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def pim_bfd_configs(config, pim_bfd_topo):
-    return config
-
-
-@instance_fixture()
-def pim_bfd_testenv(pim_bfd_configs):
-    instance = FRRNetworkInstance(pim_bfd_configs.topology, pim_bfd_configs)
-    instance.prepare()
-    return instance
-
-
-class PIMBFDTest(TestBase):
-    instancefn = pim_bfd_testenv
-
+class PIMBFDTest(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def test(self, topo, r1, r2, r3, r4):
         def expect_neighbor(rtr, ifname, peer, deadline):

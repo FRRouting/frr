@@ -11,7 +11,7 @@ from topotato.v1 import *
 
 
 @topology_fixture()
-def rip_topo(topo):
+def topology(topo):
     """
     [    ]--{ stub1 }
     [    ]
@@ -83,21 +83,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def rip_configs(config, rip_topo):
-    return config
-
-
-@instance_fixture()
-def rip_testenv(rip_configs):
-    instance = FRRNetworkInstance(rip_configs.topology, rip_configs)
-    instance.prepare()
-    return instance
-
-
-class RIPBasic(TestBase):
-    instancefn = rip_testenv
-
+class RIPBasic(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def test(self, topo, r1, r2, r3, rtsta):
         compare = r"""

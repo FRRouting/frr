@@ -19,7 +19,7 @@ from scapy.all import (
 
 
 @topology_fixture()
-def pim6_topo1(topo):
+def topology(topo):
     """
     [ h1 ]--{ lan }--[ r1 ]---[ r2 ]---[ h2 ]
     """
@@ -71,21 +71,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def pim6_topo1_configs(config, pim6_topo1):
-    return config
-
-
-@instance_fixture()
-def pim6_topo1_testenv(pim6_topo1_configs):
-    instance = FRRNetworkInstance(pim6_topo1_configs.topology, pim6_topo1_configs)
-    instance.prepare()
-    return instance
-
-
-class PIM6Basic(TestBase):
-    instancefn = pim6_topo1_testenv
-
+class PIM6Basic(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def prepare(self, topo, h1, h2, r1, r2):
         self.receiver = MulticastReceiver(h2, h2.iface_to('r2'))

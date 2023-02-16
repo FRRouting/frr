@@ -20,7 +20,7 @@ from topotato import *
 
 
 @topology_fixture()
-def allproto_topo(topo):
+def topology(topo):
     """
     [ r1 ]
        |
@@ -73,19 +73,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def configs(config, allproto_topo):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    return FRRNetworkInstance(configs.topology, configs).prepare()
-
-
-class BGPDistanceChange(TestBase):
-    instancefn = testenv
-
+class BGPDistanceChange(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def bgp_converge(self, topo, r1, r2):
         expected = {

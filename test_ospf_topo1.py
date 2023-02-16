@@ -9,7 +9,7 @@ from topotato.v1 import *
 
 
 @topology_fixture()
-def ospf_topo1(topo):
+def topology(topo):
     """
     {lan1}  {lan2}
        |      |
@@ -83,21 +83,7 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def ospf_topo1_configs(config, ospf_topo1):
-    return config
-
-
-@instance_fixture()
-def ospf_topo1_testenv(ospf_topo1_configs):
-    instance = FRRNetworkInstance(ospf_topo1_configs.topology, ospf_topo1_configs)
-    instance.prepare()
-    return instance
-
-
-class OSPFTopo1Test(TestBase):
-    instancefn = ospf_topo1_testenv
-
+class OSPFTopo1Test(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
     def test_initial(self, topo, r1, r2, r3, r4):
         yield from AssertVtysh.make(r1, 'ospfd', 'show ip ospf route', r'''
