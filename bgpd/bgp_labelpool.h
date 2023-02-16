@@ -74,6 +74,8 @@ struct bgp_label_per_nexthop_cache {
 	/* list of path_vrfs using it */
 	LIST_HEAD(path_lists, bgp_path_info) paths;
 
+	time_t last_update;
+
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_label_per_nexthop_cache_head *tree;
 };

@@ -1472,6 +1472,7 @@ static mpls_label_t _vpn_leak_from_vrf_get_per_nexthop_label(
 		LIST_INSERT_HEAD(&(blnc->paths), pi, label_nh_thread);
 		pi->label_nexthop_cache = blnc;
 		pi->label_nexthop_cache->path_count++;
+		blnc->last_update = monotime(NULL);
 	}
 
 	/* then add or update the selected nexthop */
