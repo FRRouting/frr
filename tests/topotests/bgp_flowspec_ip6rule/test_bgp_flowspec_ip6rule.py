@@ -143,6 +143,15 @@ def build_topo(tgen):
     switch5.add_link(tgen.gears["r1"])
 
 
+def check_ping6(router, dst, src, nb):
+    tgen = get_topogen()
+
+    router = tgen.gears[router]
+    output = router.run("ping6 {} -I {} -f -c {}".format(dst, src, nb))
+
+    return "{} packets transmitted, {} received".format(nb, nb) in output
+
+
 #####################################################
 ##
 ##   Tests starting
@@ -207,15 +216,12 @@ def setup_module(module):
         TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
     )
     router.start()
-    pingrouter = tgen.gears["r2"]
-    logger.info("Check Ping from  R2(1001::2) to R3(2002::2)")
-    output = pingrouter.run("ping6 2002::2 -I 1001::2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping6 from R2 to R3(2002::2) should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping from  R2(1001::1) to R3(2002::2) OK")
+
+    msg = "Check Ping from  R2(1001::2) to R3(2002::2)"
+    logger.info(msg)
+    test_func = functools.partial(check_ping6, "r2", "2002::2", "1001::2", 1000)
+    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert result, "{} NOK".format(msg)
 
     # Starting Peer1 with ExaBGP
     logger.info("Launching exaBGP on peer1")
