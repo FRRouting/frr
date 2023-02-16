@@ -66,6 +66,11 @@ struct bgp_label_per_nexthop_cache {
 	/* back pointer to bgp instance */
 	struct bgp *to_bgp;
 
+	/* copy a nexthop resolution from bgp nexthop tracking
+	 * used to extract the interface nexthop
+	 */
+	struct nexthop *nh;
+
 	/* list of path_vrfs using it */
 	LIST_HEAD(path_lists, bgp_path_info) paths;
 

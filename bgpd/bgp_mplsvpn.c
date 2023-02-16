@@ -1388,8 +1388,9 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 
 	/* update paths */
 	if (blnc->label != MPLS_INVALID_LABEL)
-		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_ADD, blnc->label,
-					     ZEBRA_LSP_BGP, &blnc->nexthop);
+		bgp_zebra_send_nexthop_label(
+			ZEBRA_MPLS_LABELS_ADD, blnc->label, blnc->nh->ifindex,
+			blnc->nh->vrf_id, ZEBRA_LSP_BGP, &blnc->nexthop);
 
 	LIST_FOREACH (pi, &(blnc->paths), label_nh_thread) {
 		if (!pi->net)
@@ -1470,6 +1471,21 @@ static mpls_label_t _vpn_leak_from_vrf_get_per_nexthop_label(
 		pi->label_nexthop_cache = blnc;
 		pi->label_nexthop_cache->path_count++;
 	}
+
+	/* then add or update the selected nexthop */
+	if (!blnc->nh)
+		blnc->nh = nexthop_dup(bnc->nexthop, NULL);
+	else if (!nexthop_same(bnc->nexthop, blnc->nh)) {
+		nexthop_free(blnc->nh);
+		blnc->nh = nexthop_dup(bnc->nexthop, NULL);
+		if (blnc->label != MPLS_INVALID_LABEL) {
+			bgp_zebra_send_nexthop_label(
+				ZEBRA_MPLS_LABELS_REPLACE, blnc->label,
+				bnc->nexthop->ifindex, bnc->nexthop->vrf_id,
+				ZEBRA_LSP_BGP, &blnc->nexthop);
+		}
+	}
+
 	return blnc->label;
 }
 

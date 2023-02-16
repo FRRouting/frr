@@ -1606,10 +1606,14 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 {
 	if (blnc->label != MPLS_INVALID_LABEL) {
 		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
-					     blnc->label, ZEBRA_LSP_BGP,
+					     blnc->label, blnc->nh->ifindex,
+					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
 					     &blnc->nexthop);
 		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
 	}
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
+	if (blnc->nh)
+		nexthop_free(blnc->nh);
+	blnc->nh = NULL;
 	XFREE(MTYPE_LABEL_PER_NEXTHOP_CACHE, blnc);
 }
