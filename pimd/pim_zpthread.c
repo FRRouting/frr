@@ -38,9 +38,6 @@ static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 	uint16_t data_len = 0;
 	uint16_t msg_cnt = 1;
 
-	if (msg_type == MLAG_MSG_NONE)
-		return;
-
 	switch (msg_type) {
 	case MLAG_REGISTER:
 	case MLAG_DEREGISTER:
@@ -55,6 +52,7 @@ static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 		fill_msg_type = MLAG_MROUTE_DEL_BULK;
 		break;
 	case MLAG_MSG_NONE:
+		return;
 	case MLAG_STATUS_UPDATE:
 	case MLAG_DUMP:
 	case MLAG_MROUTE_ADD_BULK:
