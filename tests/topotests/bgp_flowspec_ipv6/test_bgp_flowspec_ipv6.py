@@ -317,14 +317,27 @@ def teardown_module(module):
     tgen.stop_topology()
 
 
+def show_bgp_flowspec_summary(router, afi, peer):
+    tgen = get_topogen()
+
+    output = json.loads(
+        tgen.gears[router].vtysh_cmd("show bgp {} flowspec summary json".format(afi))
+    )
+    logger.info(output)
+    status = output.get("peers", {}).get(peer, {}).get("state", "").lower()
+    return status == "established"
+
+
 def test_bgp_convergence():
     "Test for BGP topology convergence"
     tgen = get_topogen()
 
-    # Skip if previous fatal error condition is raised
-    topotest.sleep(10, "starting BGP peering with peer1")
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    test_func = functools.partial(
+        show_bgp_flowspec_summary, "r1", "ipv6", "192.168.0.161"
+    )
+    _, res = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assertmsg = "BGP router network did not converge"
+    assert res, assertmsg
 
 
 def test_bgp_flowspec():
@@ -418,7 +431,12 @@ def test_bgp_flowspec():
     peer2.start(peer_dir, env_file)
     logger.info("peer2")
 
-    topotest.sleep(10, "starting BGP peering with peer2")
+    test_func = functools.partial(
+        show_bgp_flowspec_summary, "r1", "ipv6", "192.168.0.160"
+    )
+    _, res = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assertmsg = "BGP r1 network did not converge"
+    assert res, assertmsg
 
     logger.info("Check BGP FS entry for ICMP Ping from 1001::2 to 3003::3 is dropped")
     output = router.vtysh_cmd(
