@@ -84,6 +84,7 @@ import sys
 import platform
 import pytest
 import getopt
+import functools
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -157,6 +158,15 @@ def build_topo(tgen):
     switch6.add_link(tgen.gears["r5"])
     switch5.add_link(tgen.gears["r1"])
     switch6.add_link(tgen.gears["r1"])
+
+
+def check_ping6(router, dst, src, nb):
+    tgen = get_topogen()
+
+    router = tgen.gears[router]
+    output = router.run("ping6 {} -I {} -f -c {}".format(dst, src, nb))
+
+    return "{} packets transmitted, {} received".format(nb, nb) in output
 
 
 #####################################################
@@ -275,24 +285,17 @@ ipv6 route 3003::/112 2002::2
 """
     )
 
-    pingrouter = tgen.gears["r2"]
-    logger.info("Check Ping from  R2(1001::1) to R3(2002::2)")
-    output = pingrouter.run("ping6 2002::2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping from R2 to R3(2002::2) should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping from  R2(1001::1) to R3(2002::2) OK")
+    msg = "Check Ping from R2(1001::2) to R3(2002::2)"
+    logger.info(msg)
+    test_func = functools.partial(check_ping6, "r2", "2002::2", "1001::2", 1000)
+    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert result, "{} NOK".format(msg)
 
-    logger.info("Check Ping from  R2(1001::1) to R3(3003::3)")
-    output = pingrouter.run("ping6 3003::3 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping from R2 to R3(3003::3) should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping from  R2(1001::1) to R3(3003::3) OK")
+    msg = "Check Ping from R2(1001::2) to R3(3003::3)"
+    logger.info(msg)
+    test_func = functools.partial(check_ping6, "r2", "3003::3", "1001::2", 1000)
+    _, result = topotest.run_and_expect(test_func, True, count=10, wait=0.5)
+    assert result, "{} NOK".format(msg)
 
     # Starting Peer1 with ExaBGP
     logger.info("Launching exaBGP on peer1")
