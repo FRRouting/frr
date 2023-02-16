@@ -80,6 +80,7 @@ import sys
 import platform
 import pytest
 import getopt
+import functools
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -247,10 +248,27 @@ def test_bgp_convergence():
     "Test for BGP topology convergence"
     tgen = get_topogen()
 
-    # Skip if previous fatal error condition is raised
-    topotest.sleep(10, "starting BGP peering with peer1")
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    def _show_bgp_flowspec_summary(router, afi):
+        output = json.loads(
+            tgen.gears[router].vtysh_cmd(
+                "show bgp {} flowspec summary json".format(afi)
+            )
+        )
+        logger.info(output)
+        status = (
+            output.get("peers", {}).get("192.168.0.161", {}).get("state", "").lower()
+        )
+        return status == "established"
+
+    test_func = functools.partial(_show_bgp_flowspec_summary, "r1", "ipv4")
+    _, res = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assertmsg = "BGP router network did not converge - IPv4"
+    assert res, assertmsg
+
+    test_func = functools.partial(_show_bgp_flowspec_summary, "r1", "ipv6")
+    _, res = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assertmsg = "BGP router network did not converge - IPv6"
+    assert res, assertmsg
 
 
 def test_bgp_flowspec():
