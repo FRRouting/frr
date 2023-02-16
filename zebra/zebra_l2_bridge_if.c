@@ -209,6 +209,8 @@ static int zebra_l2_bridge_if_vlan_update(struct interface *ifp,
 
 	zif = (struct zebra_if *)ifp->info;
 	bvlan = zebra_l2_bridge_if_vlan_find(zif, bvl->vid);
+	if (!bvlan)
+		return 0;
 
 	if (chgflags & ZEBRA_BRIDGEIF_ACCESS_BD_CHANGE)
 		bvlan->access_bd = bvl->access_bd;
