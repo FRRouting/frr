@@ -194,7 +194,7 @@ def setup_module(module):
     ]
     for cmd in cmds:
         output = router.run(cmd)
-        logger.info("output: " + output)
+        logger.info("{} output: {}".format(router.name, output.strip()))
 
     cmds = [
         "ip link add {0}-cust{1} type vrf table 10",
@@ -206,9 +206,10 @@ def setup_module(module):
 
     for cmd in cmds:
         cmd = cmd.format("r1", "1", "2")
-        logger.info("cmd: " + cmd)
-        output = router.run(cmd.format("r1", "1", "2"))
-        logger.info("output: " + output)
+        logger.info("{}: {}".format(router.name, cmd))
+        output = router.run(cmd)
+        if output is not None and output != "":
+            logger.info("{} output: {}".format(router.name, output.strip()))
 
     # Start r2 to r5
     for i in range(2, 6):
