@@ -842,7 +842,8 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct bgp_dest *dest,
 					const struct prefix *p,
 					const struct prefix_rd *prd, afi_t afi,
-					safi_t safi, json_object *json);
+					safi_t safi, json_object *json,
+					bool incremental_print);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn, const struct prefix *p,
 				 struct bgp_path_info *path, afi_t afi,

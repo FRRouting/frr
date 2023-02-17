@@ -138,30 +138,34 @@ def test_bgp_aigp():
         )
         expected = {
             "routes": {
-                "10.0.0.71/32": [
-                    {
-                        "aigpMetric": 101,
-                        "valid": True,
-                    },
-                    {
-                        "aigpMetric": 91,
-                        "valid": True,
-                        "bestpath": {"selectionReason": "AIGP"},
-                        "nexthops": [{"hostname": "r3", "accessible": True}],
-                    },
-                ],
-                "10.0.0.72/32": [
-                    {
-                        "aigpMetric": 102,
-                        "valid": True,
-                    },
-                    {
-                        "aigpMetric": 92,
-                        "valid": True,
-                        "bestpath": {"selectionReason": "AIGP"},
-                        "nexthops": [{"hostname": "r3", "accessible": True}],
-                    },
-                ],
+                "10.0.0.71/32": {
+                    "paths": [
+                        {
+                            "aigpMetric": 101,
+                            "valid": True,
+                        },
+                        {
+                            "aigpMetric": 91,
+                            "valid": True,
+                            "bestpath": {"selectionReason": "AIGP"},
+                            "nexthops": [{"hostname": "r3", "accessible": True}],
+                        },
+                    ],
+                },
+                "10.0.0.72/32": {
+                    "paths": [
+                        {
+                            "aigpMetric": 102,
+                            "valid": True,
+                        },
+                        {
+                            "aigpMetric": 92,
+                            "valid": True,
+                            "bestpath": {"selectionReason": "AIGP"},
+                            "nexthops": [{"hostname": "r3", "accessible": True}],
+                        },
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)
