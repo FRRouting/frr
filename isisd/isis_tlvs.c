@@ -5841,6 +5841,8 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_tlv_threeway_adj(tlvs->threeway_adj);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
+	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR,
+		      &tlvs->srv6_locator);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
