@@ -1178,6 +1178,8 @@ static void peer_free(struct peer *peer)
 
 	XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
 
+	XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+
 	/* Remove BFD configuration. */
 	if (peer->bfd_config)
 		bgp_peer_remove_bfd_config(peer);
@@ -2631,6 +2633,7 @@ int peer_delete(struct peer *peer)
 
 	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+	XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
 
 	peer_unlock(peer); /* initial reference */
 
@@ -2773,6 +2776,13 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE))
 		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_ENHE))
 			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
+
+	/* capability software-version apply */
+	if (!CHECK_FLAG(peer->flags_override,
+			PEER_FLAG_CAPABILITY_SOFT_VERSION))
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION))
+			SET_FLAG(peer->flags,
+				 PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
 	/* password apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_PASSWORD))
@@ -4386,6 +4396,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_PORT, 0, peer_change_reset},
 	{PEER_FLAG_AIGP, 0, peer_change_none},
 	{PEER_FLAG_GRACEFUL_SHUTDOWN, 0, peer_change_none},
+	{PEER_FLAG_CAPABILITY_SOFT_VERSION, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {

@@ -2020,9 +2020,16 @@ Capability Negotiation
 
 .. clicmd:: neighbor PEER override-capability
 
-
    Override the result of Capability Negotiation with local configuration.
    Ignore remote peer's capability value.
+
+.. clicmd:: neighbor PEER capability software-version
+
+   Send the software version in the BGP OPEN message to the neighbor. This is
+   very useful in environments with a large amount of peers with different
+   versions of FRR or any other vendor.
+
+   Disabled by default.
 
 .. _bgp-as-path-access-lists:
 

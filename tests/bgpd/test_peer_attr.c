@@ -176,9 +176,9 @@ struct test_peer_attr {
 
 	enum test_peer_attr_type type;
 	union {
-		uint32_t flag;
+		uint64_t flag;
 		struct {
-			uint32_t flag;
+			uint64_t flag;
 			size_t direct;
 		} filter;
 	} u;
@@ -277,6 +277,18 @@ static struct test_peer_attr test_peer_attrs[] = {
 	{
 		.cmd = "capability extended-nexthop",
 		.u.flag = PEER_FLAG_CAPABILITY_ENHE,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.o.invert_peer = true,
+		.o.use_iface_peer = true,
+	},
+	{
+		.cmd = "capability software-version",
+		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
+		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
+		.cmd = "capability software-version",
+		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
 		.type = PEER_AT_GLOBAL_FLAG,
 		.o.invert_peer = true,
 		.o.use_iface_peer = true,

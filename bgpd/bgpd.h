@@ -1250,6 +1250,8 @@ struct peer {
 #define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1U << 24)
 #define PEER_CAP_ROLE_ADV                   (1U << 25) /* role advertised */
 #define PEER_CAP_ROLE_RCV                   (1U << 26) /* role received */
+#define PEER_CAP_SOFT_VERSION_ADV (1U << 27)
+#define PEER_CAP_SOFT_VERSION_RCV (1U << 28)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1376,6 +1378,7 @@ struct peer {
 #define PEER_FLAG_PORT (1ULL << 33)
 #define PEER_FLAG_AIGP (1ULL << 34)
 #define PEER_FLAG_GRACEFUL_SHUTDOWN (1ULL << 35)
+#define PEER_FLAG_CAPABILITY_SOFT_VERSION (1ULL << 36)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1770,6 +1773,10 @@ struct peer {
 
 	/* Path attributes treat-as-withdraw */
 	bool withdraw_attrs[BGP_ATTR_MAX];
+
+	/* BGP Software Version Capability */
+#define BGP_MAX_SOFT_VERSION 64
+	char *soft_version;
 
 	QOBJ_FIELDS;
 };

@@ -606,6 +606,7 @@ extern const char *cmd_domainname_get(void);
 extern const char *cmd_system_get(void);
 extern const char *cmd_release_get(void);
 extern const char *cmd_version_get(void);
+extern const char *cmd_software_version_get(void);
 extern bool cmd_allow_reserved_ranges_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
