@@ -1142,9 +1142,18 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		/* If one path has a label but the other does not, do not treat
 		 * them as equals for multipath
 		 */
-		if ((new->extra &&bgp_is_valid_label(&new->extra->label[0]))
-		    != (exist->extra
-			&& bgp_is_valid_label(&exist->extra->label[0]))) {
+		int newl, existl;
+
+		newl = existl = 0;
+
+		if (new->extra)
+			newl = new->extra->num_labels;
+		if (exist->extra)
+			existl = exist->extra->num_labels;
+		if (((new->extra &&bgp_is_valid_label(&new->extra->label[0])) !=
+		     (exist->extra &&
+		      bgp_is_valid_label(&exist->extra->label[0]))) ||
+		    (newl != existl)) {
 			if (debug)
 				zlog_debug(
 					"%s: %s and %s cannot be multipath, one has a label while the other does not",
@@ -2590,9 +2599,12 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				continue;
 			if (BGP_PATH_HOLDDOWN(pi1))
 				continue;
-			if (pi1->peer != bgp->peer_self)
+			if (pi1->peer != bgp->peer_self &&
+			    !CHECK_FLAG(pi1->peer->sflags,
+					PEER_STATUS_NSF_WAIT)) {
 				if (!peer_established(pi1->peer))
 					continue;
+			}
 
 			new_select = pi1;
 			if (pi1->next) {
