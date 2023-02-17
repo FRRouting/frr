@@ -669,7 +669,7 @@ static struct route_map *route_map_add(const char *name)
 	if (!map->ipv6_prefix_table)
 		map->ipv6_prefix_table = route_table_init();
 
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Add route-map %s", name);
 	return map;
 }
@@ -689,7 +689,7 @@ static void route_map_free_map(struct route_map *map)
 	while ((index = map->head) != NULL)
 		route_map_index_delete(index, 0);
 
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Deleting route-map %s", map->name);
 
 	list = &route_map_master;
@@ -1120,7 +1120,7 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 
 	QOBJ_UNREG(index);
 
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Deleting route-map %s sequence %d",
 			   index->map->name, index->pref);
 
@@ -1231,7 +1231,7 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 		route_map_notify_dependencies(map->name, RMAP_EVENT_CALL_ADDED);
 	}
 
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Route-map %s add sequence %d, type: %s",
 			   map->name, pref, route_map_type_str(type));
 
@@ -1814,7 +1814,7 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	if (map->optimization_disabled ||
 	    (prefix->family == AF_INET && !map->ipv4_prefix_table) ||
 	    (prefix->family == AF_INET6 && !map->ipv6_prefix_table)) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"Skipping route-map optimization for route-map: %s, pfx: %pFX, family: %d",
 				map->name, prefix, prefix->family);
@@ -2569,12 +2569,14 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	 */
 	if (prefix->family == AF_EVPN) {
 		if (evpn_prefix2prefix(prefix, &conv) != 0) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"Unable to convert EVPN prefix %pFX into IPv4/IPv6 prefix. Falling back to non-optimized route-map lookup",
 					prefix);
 		} else {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"Converted EVPN prefix %pFX into %pFX for optimized route-map lookup",
 					prefix, &conv);
@@ -2586,13 +2588,13 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	index = route_map_get_index(map, prefix, match_object, &match_ret);
 	if (index) {
 		index->applied++;
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
 				"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
 				map->name, index->pref, prefix,
 				route_map_cmd_result_str(match_ret));
 	} else {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
 				"No best match sequence for pfx: %pFX in route-map: %s, result: %s",
 				prefix, map->name,
@@ -2615,7 +2617,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
 							  prefix, match_object);
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)) {
+			if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
 					map->name, index->pref, prefix,
@@ -2728,7 +2730,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 route_map_apply_end:
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Route-map: %s, prefix: %pFX, result: %s",
 			   (map ? map->name : "null"), prefix,
 			   route_map_result_str(ret));
@@ -2783,7 +2785,7 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	tmp_dep_data.rname = arg;
 	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
 	if (dep_data) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug("Clearing reference for %s to %s count: %d",
 				   dep->dep_name, tmp_dep_data.rname,
 				   dep_data->refcnt);
@@ -2803,7 +2805,7 @@ static void route_map_clear_all_references(char *rmap_name)
 {
 	int i;
 
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Clearing references for %s", rmap_name);
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
@@ -2879,7 +2881,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_LLIST_ADDED:
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_FILTER_ADDED:
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug("Adding dependency for filter %s in route-map %s",
 				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(
@@ -2908,7 +2910,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_LLIST_DELETED:
 	case RMAP_EVENT_CALL_DELETED:
 	case RMAP_EVENT_FILTER_DELETED:
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug("Deleting dependency for filter %s in route-map %s",
 				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(dephash, dname, NULL);
@@ -3034,7 +3036,7 @@ static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 	dep_data = bucket->data;
 	rmap_name = dep_data->rname;
 
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 		zlog_debug("Notifying %s of dependency", rmap_name);
 	if (route_map_master.event_hook)
 		(*route_map_master.event_hook)(rmap_name);
@@ -3082,7 +3084,7 @@ void route_map_notify_dependencies(const char *affected_name,
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
 
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug("Filter %s updated", dep->dep_name);
 		hash_iterate(dep->dep_rmap_hash, route_map_process_dependency,
 			     (void *)event);
