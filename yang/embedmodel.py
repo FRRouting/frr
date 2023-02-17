@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# SPDX-License-Identifier: NONE
 #
 # YANG module to C wrapper
 # written 2018 by David Lamparter, placed in Public Domain.

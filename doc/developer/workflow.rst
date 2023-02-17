@@ -671,33 +671,36 @@ above) added to the file. The header should be:
 
 .. code-block:: c
 
+    // SPDX-License-Identifier: GPL-2.0-or-later
     /*
      * Title/Function of file
      * Copyright (C) YEAR  Author’s Name
-     *
-     * This program is free software; you can redistribute it and/or modify it
-     * under the terms of the GNU General Public License as published by the Free
-     * Software Foundation; either version 2 of the License, or (at your option)
-     * any later version.
-     *
-     * This program is distributed in the hope that it will be useful, but WITHOUT
-     * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-     * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-     * more details.
-     *
-     * You should have received a copy of the GNU General Public License along
-     * with this program; see the file COPYING; if not, write to the Free Software
-     * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
      */
 
     #include <zebra.h>
 
-Please copy-paste this header verbatim. In particular:
+A ``SPDX-License-Identifier`` header is required in all source files, i.e.
+``.c``, ``.h``, ``.cpp`` and ``.py`` files.  The license boilerplate should be
+removed in these files.  Some existing files are missing this header, this is
+slowly being fixed.
 
-- Do not replace "This program" with "FRR"
-- Do not change the address of the FSF
-- keep ``#include <zebra.h>``.  The absolute first header included in any C
-  file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H guard)
+A ``SPDX-License-Identifier`` header *and* the full license boilerplate is
+required in schema definition files, i.e. ``.yang`` and ``.proto``.  The
+rationale for this is that these files are likely to be individually copied to
+places outside FRR, and having only the SPDX header would become a "dangling
+pointer".
+
+.. warning::
+
+   **DO NOT REMOVE A "Copyright" LINE OR AUTHOR NAME, EVER.**
+
+   **DO NOT APPLY AN SPDX HEADER WHEN THE LICENSE IS UNCLEAR, UNLESS YOU HAVE
+   CHECKED WITH *ALL* SIGNIFICANT AUTHORS.**
+
+Please to keep ``#include <zebra.h>``.  The absolute first header included in
+any C file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H
+guard.)
+
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------

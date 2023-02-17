@@ -1,9 +1,7 @@
+// SPDX-License-Identifier: MIT
 /* nhrp_protocol.h - NHRP protocol definitions
  *
  * Copyright (c) 2007-2012 Timo Teräs <timo.teras@iki.fi>
- *
- * This software is licensed under the MIT License.
- * See MIT-LICENSE.txt for additional details.
  */
 
 #ifndef NHRP_PROTOCOL_H

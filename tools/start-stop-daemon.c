@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: NONE
 /*
  * A rewrite of the original Debian's start-stop-daemon Perl script
  * in C (faster - it is executed many times during system startup).
