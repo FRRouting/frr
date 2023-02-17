@@ -348,8 +348,12 @@ extern void vty_endframe(struct vty *, const char *);
 extern bool vty_set_include(struct vty *vty, const char *regexp);
 /* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
  * NULL check and json_object_free() is included.
+ *
+ * _no_pretty means do not add a bunch of newlines and dump the output
+ * as densely as possible.
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
+extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
 
 /* post fd to be passed to the vtysh client
  * fd is owned by the VTY code after this and will be closed when done
