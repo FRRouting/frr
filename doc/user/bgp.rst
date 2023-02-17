@@ -2113,9 +2113,6 @@ is 4 octet long. The following format is used to define the community value.
    ``7675:80`` can be used when AS 7675 wants to pass local policy value 80 to
    neighboring peer.
 
-``internet``
-   ``internet`` represents well-known communities value 0.
-
 ``graceful-shutdown``
    ``graceful-shutdown`` represents well-known communities value
    ``GRACEFUL_SHUTDOWN`` ``0xFFFF0000`` ``65535:0``. :rfc:`8326` implements
@@ -2486,17 +2483,6 @@ community-list.
     match community FILTER
 
 
-The communities value keyword ``internet`` has special meanings in standard
-community lists. In the below example ``internet`` matches all BGP routes even
-if the route does not have communities attribute at all. So community list
-``INTERNET`` is the same as ``FILTER`` in the previous example.
-
-.. code-block:: frr
-
-   bgp community-list standard INTERNET deny 1:1
-   bgp community-list standard INTERNET permit internet
-
-
 The following configuration is an example of communities value deletion.  With
 this configuration the community values ``100:1`` and ``100:2`` are removed
 from BGP updates. For communities value deletion, only ``permit``
@@ -2565,9 +2551,6 @@ Extended Community Lists
    it return permit or deny based upon the extcommunity-list definition. When
    there is no matched entry, deny will be returned. When `extcommunity` is
    empty it matches to any routes.
-
-   A special handling for ``internet`` community is applied. It matches
-   any community.
 
 .. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 

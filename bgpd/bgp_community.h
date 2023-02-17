@@ -30,6 +30,9 @@ struct community {
 };
 
 /* Well-known communities value.  */
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 #define COMMUNITY_INTERNET                      0x0
 #define COMMUNITY_GSHUT                         0xFFFF0000
 #define COMMUNITY_ACCEPT_OWN                    0xFFFF0001
