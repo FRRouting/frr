@@ -441,37 +441,39 @@ babel_fill_with_next_timeout(struct timeval *tv)
 #if (defined NO_DEBUG)
 #define printIfMin(a,b,c,d)
 #else
-#define printIfMin(a,b,c,d) \
-  if (UNLIKELY(debug & BABEL_DEBUG_TIMEOUT)) {printIfMin(a,b,c,d);}
+#define printIfMin(a, b, c, d)                                                 \
+	if (unlikely(debug & BABEL_DEBUG_TIMEOUT)) {                           \
+		printIfMin(a, b, c, d);                                        \
+	}
 
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-    struct interface *ifp = NULL;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *ifp = NULL;
 
-    *tv = check_neighbours_timeout;
-    printIfMin(tv, 0, "check_neighbours_timeout", NULL);
-    timeval_min_sec(tv, expiry_time);
-    printIfMin(tv, 1, "expiry_time", NULL);
-    timeval_min_sec(tv, source_expiry_time);
-    printIfMin(tv, 1, "source_expiry_time", NULL);
-    timeval_min(tv, &resend_time);
-    printIfMin(tv, 1, "resend_time", NULL);
-    FOR_ALL_INTERFACES(vrf, ifp) {
-        babel_interface_nfo *babel_ifp = NULL;
-        if(!if_up(ifp))
-            continue;
-        babel_ifp = babel_get_if_nfo(ifp);
-        timeval_min(tv, &babel_ifp->flush_timeout);
-        printIfMin(tv, 1, "flush_timeout", ifp->name);
-        timeval_min(tv, &babel_ifp->hello_timeout);
-        printIfMin(tv, 1, "hello_timeout", ifp->name);
-        timeval_min(tv, &babel_ifp->update_timeout);
-        printIfMin(tv, 1, "update_timeout", ifp->name);
-        timeval_min(tv, &babel_ifp->update_flush_timeout);
-        printIfMin(tv, 1, "update_flush_timeout",ifp->name);
-    }
-    timeval_min(tv, &unicast_flush_timeout);
-    printIfMin(tv, 1, "unicast_flush_timeout", NULL);
-    printIfMin(tv, 2, NULL, NULL);
+	*tv = check_neighbours_timeout;
+	printIfMin(tv, 0, "check_neighbours_timeout", NULL);
+	timeval_min_sec(tv, expiry_time);
+	printIfMin(tv, 1, "expiry_time", NULL);
+	timeval_min_sec(tv, source_expiry_time);
+	printIfMin(tv, 1, "source_expiry_time", NULL);
+	timeval_min(tv, &resend_time);
+	printIfMin(tv, 1, "resend_time", NULL);
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		babel_interface_nfo *babel_ifp = NULL;
+		if (!if_up(ifp))
+			continue;
+		babel_ifp = babel_get_if_nfo(ifp);
+		timeval_min(tv, &babel_ifp->flush_timeout);
+		printIfMin(tv, 1, "flush_timeout", ifp->name);
+		timeval_min(tv, &babel_ifp->hello_timeout);
+		printIfMin(tv, 1, "hello_timeout", ifp->name);
+		timeval_min(tv, &babel_ifp->update_timeout);
+		printIfMin(tv, 1, "update_timeout", ifp->name);
+		timeval_min(tv, &babel_ifp->update_flush_timeout);
+		printIfMin(tv, 1, "update_flush_timeout", ifp->name);
+	}
+	timeval_min(tv, &unicast_flush_timeout);
+	printIfMin(tv, 1, "unicast_flush_timeout", NULL);
+	printIfMin(tv, 2, NULL, NULL);
 #undef printIfMin
 #endif
 }
