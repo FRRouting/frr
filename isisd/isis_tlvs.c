@@ -96,7 +96,8 @@ static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(EXTENDED_IP_REACH, ISIS_ITEMS, extended_ip_reach),
 	PACK_ENTRY(MT_IP_REACH, ISIS_MT_ITEMS, mt_ip_reach),
 	PACK_ENTRY(IPV6_REACH, ISIS_ITEMS, ipv6_reach),
-	PACK_ENTRY(MT_IPV6_REACH, ISIS_MT_ITEMS, mt_ipv6_reach)
+	PACK_ENTRY(MT_IPV6_REACH, ISIS_MT_ITEMS, mt_ipv6_reach),
+	PACK_ENTRY(SRV6_LOCATOR, ISIS_MT_ITEMS, srv6_locator)
 };
 
 /* This is a forward definition. The table is actually initialized
