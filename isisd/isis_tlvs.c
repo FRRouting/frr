@@ -2006,6 +2006,14 @@ static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
 {
 }
 
+static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
+{
+	if (!subsubtlvs)
+		return;
+
+	XFREE(MTYPE_ISIS_SUBSUBTLV, subsubtlvs);
+}
+
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
