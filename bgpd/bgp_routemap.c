@@ -3024,11 +3024,11 @@ static void *route_set_origin_compile(const char *arg)
 	origin = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
 
 	if (strcmp(arg, "igp") == 0)
-		*origin = 0;
+		*origin = BGP_ORIGIN_IGP;
 	else if (strcmp(arg, "egp") == 0)
-		*origin = 1;
+		*origin = BGP_ORIGIN_EGP;
 	else
-		*origin = 2;
+		*origin = BGP_ORIGIN_INCOMPLETE;
 
 	return origin;
 }
