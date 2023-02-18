@@ -749,6 +749,8 @@ AC_ARG_ENABLE([bgp-bmp],
   AS_HELP_STRING([--disable-bgp-bmp],[turn off BGP BMP support]))
 AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
+AC_ARG_ENABLE([qppb],
+  AS_HELP_STRING([--enable-qppb], [enable QPPB support for BGP (requires libbpf)]))
 AC_ARG_ENABLE([config_rollbacks],
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
 AC_ARG_ENABLE([sysrepo],
@@ -2080,6 +2082,18 @@ if test "$enable_config_rollbacks" = "yes"; then
 fi
 
 dnl ---------------
+dnl configuration QPPB
+dnl ---------------
+QPPB=false
+if test "$enable_qppb" = "yes"; then
+  PKG_CHECK_MODULES([LIBBPF], [libbpf], [
+    QPPB=true
+  ], [
+    AC_MSG_ERROR([--enable-qppb given but libbpf was not found on your system.])
+  ])
+fi
+
+dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
@@ -2748,6 +2762,7 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
+AM_CONDITIONAL([QPPB], [$QPPB])
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])

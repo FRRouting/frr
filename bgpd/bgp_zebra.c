@@ -63,6 +63,8 @@ static bool bgp_zebra_label_manager_connect(void);
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 	    (bgp, ifp));
+DEFINE_HOOK(bgp_qppb_mark_prefix,
+	    (const struct prefix *p, uint8_t dscp, bool add), (p, dscp, add));
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
 
@@ -1670,6 +1672,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
 			   __func__, p, (recursion_flag ? "" : "NOT "));
 	}
+	hook_call(bgp_qppb_mark_prefix, p, dscp, is_add);
 	return zclient_route_send(is_add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 				  zclient, &api);
 }

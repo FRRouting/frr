@@ -2753,6 +2753,8 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
 	      const struct prefix *prefix),
 	     (peer, attr, prefix));
+DECLARE_HOOK(bgp_qppb_mark_prefix,
+	     (const struct prefix *p, uint8_t dscp, bool add), (p, dscp, add));
 
 void peer_nsf_stop(struct peer *peer);
 
