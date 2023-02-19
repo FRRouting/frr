@@ -617,14 +617,6 @@ class OspfOpaqueClient(OspfApiClient):
             mp = struct.pack(msg_fmt[mt], lsa_type, otype)
             await self.msg_send_raises(mt, mp)
 
-    async def _assure_opaque_ready(self, lsa_type, otype):
-        async with self.ready_lock:
-            if self.ready_cond[lsa_type].get(otype) is True:
-                return
-
-        await self._register_opaque_data(lsa_type, otype)
-        await self.wait_opaque_ready(lsa_type, otype)
-
     async def _handle_msg_loop(self):
         try:
             logging.debug("entering async msg handling loop")
@@ -825,6 +817,7 @@ class OspfOpaqueClient(OspfApiClient):
         Raises:
             See `msg_send_raises`
         """
+        assert self.ready_cond.get(lsa_type, {}).get(otype) is True, "Not Registered!"
 
         if lsa_type == LSA_TYPE_OPAQUE_LINK:
             ifaddr, aid = int(addr), 0
@@ -842,7 +835,6 @@ class OspfOpaqueClient(OspfApiClient):
             *OspfOpaqueClient._opaque_args(lsa_type, otype, oid, data),
         )
         msg += data
-        await self._assure_opaque_ready(lsa_type, otype)
         await self.msg_send_raises(mt, msg)
 
     async def delete_opaque_data(self, addr, lsa_type, otype, oid, flags=0):
@@ -854,20 +846,30 @@ class OspfOpaqueClient(OspfApiClient):
         Args:
             addr: depends on lsa_type, LINK => ifaddr, AREA => area ID, AS => ignored
             lsa_type: LSA_TYPE_OPAQUE_{LINK,AREA,AS}
-            otype: (octet) opaque type. Note: the type will be registered if the user
-                has not explicity done that yet with `register_opaque_data`.
+            otype: (octet) opaque type.
             oid: (3 octets) ID of this opaque data
             flags: (octet) optional flags (e.g., OSPF_API_DEL_ZERO_LEN_LSA, defaults to no flags)
         Raises:
             See `msg_send_raises`
         """
-        if (lsa_type, otype) in self.opaque_change_cb:
-            del self.opaque_change_cb[(lsa_type, otype)]
+        assert self.ready_cond.get(lsa_type, {}).get(otype) is True, "Not Registered!"
 
         mt = MSG_DELETE_REQUEST
-        await self._assure_opaque_ready(lsa_type, otype)
         mp = struct.pack(msg_fmt[mt], int(addr), lsa_type, otype, flags, oid)
         await self.msg_send_raises(mt, mp)
+
+    async def is_registered(self, lsa_type, otype):
+        """Determine if an (lsa_type, otype) tuple has been registered with FRR
+
+        This determines if the type has been registered, but not necessarily if it is
+        ready, if that is required use the `wait_opaque_ready` metheod.
+
+        Args:
+            lsa_type: LSA_TYPE_OPAQUE_{LINK,AREA,AS}
+            otype: (octet) opaque type.
+        """
+        async with self.ready_lock:
+            return self.ready_cond.get(lsa_type, {}).get(otype) is not None
 
     async def register_opaque_data(self, lsa_type, otype, callback=None):
         """Register intent to advertise opaque data.
@@ -878,8 +880,7 @@ class OspfOpaqueClient(OspfApiClient):
 
         Args:
             lsa_type: LSA_TYPE_OPAQUE_{LINK,AREA,AS}
-            otype: (octet) opaque type. Note: the type will be registered if the user
-                has not explicity done that yet with `register_opaque_data`.
+            otype: (octet) opaque type.
             callback: if given, callback will be called when changes are received for
                 LSA of the given (lsa_type, otype). The callbacks signature is:
 
@@ -895,6 +896,10 @@ class OspfOpaqueClient(OspfApiClient):
         Raises:
             See `msg_send_raises`
         """
+        assert not await self.is_registered(
+            lsa_type, otype
+        ), "Registering registered type"
+
         if callback:
             self.opaque_change_cb[(lsa_type, otype)] = callback
         elif (lsa_type, otype) in self.opaque_change_cb:
@@ -933,8 +938,7 @@ class OspfOpaqueClient(OspfApiClient):
 
         Args:
             lsa_type: LSA_TYPE_OPAQUE_{LINK,AREA,AS}
-            otype: (octet) opaque type. Note: the type will be registered if the user
-                has not explicity done that yet with `register_opaque_data`.
+            otype: (octet) opaque type.
             callback: if given, callback will be called when changes are received for
                 LSA of the given (lsa_type, otype). The callbacks signature is:
 
@@ -951,17 +955,8 @@ class OspfOpaqueClient(OspfApiClient):
 
             See `msg_send_raises`
         """
-        if callback:
-            self.opaque_change_cb[(lsa_type, otype)] = callback
-        elif (lsa_type, otype) in self.opaque_change_cb:
-            logging.warning(
-                "OSPFCLIENT: register: removing callback for %s opaque-type %s",
-                lsa_typename(lsa_type),
-                otype,
-            )
-            del self.opaque_change_cb[(lsa_type, otype)]
-
-        return await self._assure_opaque_ready(lsa_type, otype)
+        await self.register_opaque_data(lsa_type, otype, callback)
+        await self.wait_opaque_ready(lsa_type, otype)
 
     async def unregister_opaque_data(self, lsa_type, otype):
         """Unregister intent to advertise opaque data.
@@ -971,11 +966,13 @@ class OspfOpaqueClient(OspfApiClient):
 
         Args:
             lsa_type: LSA_TYPE_OPAQUE_{LINK,AREA,AS}
-            otype: (octet) opaque type. Note: the type will be registered if the user
-                has not explicity done that yet with `register_opaque_data`.
+            otype: (octet) opaque type.
         Raises:
             See `msg_send_raises`
         """
+        assert await self.is_registered(
+            lsa_type, otype
+        ), "Unregistering unregistered type"
 
         if (lsa_type, otype) in self.opaque_change_cb:
             del self.opaque_change_cb[(lsa_type, otype)]
@@ -1119,6 +1116,10 @@ async def async_main(args):
                     except ValueError:
                         addr = ip(aval)
                 oargs = [addr, ltype, int(_s.pop(False)), int(_s.pop(False))]
+
+                if not await c.is_registered(oargs[1], oargs[2]):
+                    await c.register_opaque_data_wait(oargs[1], oargs[2])
+
                 if what.casefold() == "add":
                     try:
                         b = bytes.fromhex(_s.pop(False))
