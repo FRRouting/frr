@@ -16,35 +16,23 @@ import tempfile
 import logging
 from xml.etree import ElementTree
 
-import typing
-from typing import Dict, Type
+from typing import ClassVar, Dict, List, Type, Optional
 
+import pytest
 import docutils.core
 import jinja2
 import markupsafe
 
 from . import base, assertions
-from .utils import ClassHooks, exec_find, deindent
+from .utils import exec_find, deindent, get_dir
 from .scapy import ScapySend
 from .timeline import TimedElement
-from .pcapng import Sink, SectionHeader, Context
-
-if not typing.TYPE_CHECKING:
-    from py.xml import html  # pylint: disable=no-name-in-module,import-error
-else:
-
-    class html:
-        class div:
-            pass
-
-        class span:
-            pass
-
-        class pre:
-            pass
+from .pcapng import Sink, SectionHeader
 
 
 logger = logging.getLogger("topotato")
+_pretty_session = pytest.StashKey["PrettySession"]()
+
 
 def _docrender(item):
     obj = item.obj
@@ -58,68 +46,12 @@ def _docrender(item):
     parts = docutils.core.publish_parts(docstr, writer_name="html4")
     return markupsafe.Markup(f"<div class=\"docstring\">{parts['fragment']}</div>")
 
+
 jenv = jinja2.Environment(
     loader=jinja2.PackageLoader("topotato.pretty", "html"),
     autoescape=True,
 )
 jenv.filters["docrender"] = _docrender
-
-
-class fmt(html):
-    """custom styling"""
-
-    class _cssclass:
-        class_: str
-
-        def __init__(self, *args, **kwargs):
-            if getattr(self, "class_", None) is not None:
-                kwargs.setdefault("class_", self.class_)
-            super().__init__(*args, **kwargs)
-
-    class timetable(_cssclass, html.div):
-        class_ = "timetable"
-
-    class tstamp(_cssclass, html.span):
-        class_ = "tstamp"
-
-    class rtrname(_cssclass, html.span):
-        class_ = "rtrname"
-
-    class dmnname(_cssclass, html.span):
-        class_ = "dmnname"
-
-    class logmsg(_cssclass, html.div):
-        class_ = "logmsg"
-
-    class logtext(_cssclass, html.span):
-        class_ = "logtext"
-
-    class logarg(_cssclass, html.span):
-        class_ = "logarg"
-
-    class logmeta(_cssclass, html.span):
-        class_ = "logmeta"
-
-    class uid(_cssclass, html.span):
-        class_ = "uid"
-
-    class logprio(_cssclass, html.span):
-        class_ = "logprio"
-
-    class clicmd(_cssclass, html.div):
-        class_ = "clicmd"
-
-    class clicmdtext(_cssclass, html.span):
-        class_ = "clicmdtext"
-
-    class cliout(_cssclass, html.div):
-        class_ = "cliout"
-
-    class cliouttext(_cssclass, html.pre):
-        class_ = "cliouttext"
-
-    class assertmatchitem(_cssclass, html.div):
-        class_ = "assert-match-item"
 
 
 # migrate to javascript
@@ -161,6 +93,8 @@ class PrettyExtraFile:
 
 
 class PrettySession:
+    exec_dot: ClassVar[Optional[str]]
+
     def __init__(self, session, outdir=None, source_url=None):
         self.session = session
         self.outdir = outdir
@@ -176,6 +110,55 @@ class PrettySession:
         if not hasattr(item, "pretty"):
             item.pretty = PrettyItem.make(self, item)
         item.pretty(call, result)
+
+    @staticmethod
+    @pytest.hookimpl()
+    def pytest_addoption(parser):
+        parser.addoption(
+            "--reportato-dir",
+            type=str,
+            default=None,
+            help="output directory for topotato HTML report",
+        )
+        parser.addoption(
+            "--source-url",
+            type=str,
+            default=None,
+            help="URL to use as base in HTML report source links",
+        )
+
+        parser.addini(
+            "reportato_dir", "Default output directory for topotato HTML report"
+        )
+
+    # pylint: disable=unused-argument
+    @classmethod
+    @pytest.hookimpl()
+    def pytest_topotato_envcheck(cls, session, result):
+        cls.exec_dot = exec_find("dot")
+        if cls.exec_dot is None:
+            result.warning("graphviz (dot) not found; network diagrams won't be drawn.")
+
+    @classmethod
+    @pytest.hookimpl()
+    def pytest_sessionstart(cls, session):
+        if session.config.getoption("--collect-only"):
+            return
+
+        outdir = get_dir(session, "--reportato-dir", "reportato_dir")
+        source_url = session.config.getoption("--source-url")
+
+        session.stash[_pretty_session] = cls(session, outdir, source_url)
+
+    @staticmethod
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_runtest_makereport(item, call):
+        outcome = yield
+        report = outcome.get_result()
+
+        self = item.session.stash.get(_pretty_session, None)
+        if self:
+            self.push(item, call, report)
 
 
 class PrettyInstance(list):
@@ -240,6 +223,9 @@ class PrettyInstance(list):
         data["timed"] = items[-1]._jsdata
         if items[-1]._pdml:
             data["pdml"] = items[-1]._pdml
+        # ugh...
+        for k, v in items[-1]._jstoplevel.items():
+            data.setdefault(k, {}).update(v)
         data_json = json.dumps(data, ensure_ascii=True).encode("ASCII")
         data_bz = base64.b64encode(zlib.compress(data_json, level=6)).decode("ASCII")
 
@@ -253,7 +239,7 @@ class PrettyInstance(list):
             fd.write(output.encode("UTF-8"))
 
 
-class PrettyItem(ClassHooks):
+class PrettyItem:
     itemclasses: Dict[Type[base.TopotatoItem], Type["PrettyItem"]] = {}
     template = jenv.get_template("item.html.j2")
 
@@ -315,12 +301,14 @@ class PrettyTopotatoFunc(PrettyItem, matches=base.TopotatoFunction):
 
 
 class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
+    idx: Optional[int]
+
     def __init__(self, prettysession, item):
         super().__init__(prettysession, item)
         self.timed = []
         self.ts_end = None
         self.instance = None
-        self.html = None
+        self.idx = None
 
     def when_call(self, call, result):
         super().when_call(call, result)
@@ -334,23 +322,9 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
             self.instance.pretty = PrettyInstance(self.prettysession, self.instance)
         self.instance.pretty.append(self)
 
-    def finalize(self, idx):
-        loghtml = fmt.timetable()
-        for subidx, e in enumerate(self.timed):
-            loghtml.extend(e.html("i%di%d" % (idx, subidx), self.instance.ts_rel))
-            loghtml.append("\n")
-
-        self.html = loghtml
-
 
 class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
     toposvg: bytes
-
-    @classmethod
-    def _check_env(cls, *, result, **kwargs):
-        cls.exec_dot = exec_find("dot")
-        if cls.exec_dot is None:
-            result.warning("graphviz (dot) not found; network diagrams won't be drawn.")
 
     # pylint: disable=consider-using-with
     def when_call(self, call, result):
@@ -365,9 +339,9 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
         dot = self.instance.network.dot()
         yield PrettyExtraFile(self, "dotfile", ".dot", "text/plain; charset=utf-8", dot)
 
-        if self.exec_dot:
+        if self.prettysession.exec_dot:
             graphviz = subprocess.Popen(
-                ["dot", "-Tsvg", "-o/dev/stdout"],
+                [self.prettysession.exec_dot, "-Tsvg", "-o/dev/stdout"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
             )
@@ -387,13 +361,11 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
 class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
     _pcap: bytes
     _pdml: str
-    _jsdata = str
+    _jsdata: List
+    _jstoplevel: Dict
 
     def when_call(self, call, result):
         super().when_call(call, result)
-
-        for idx, prettyitem in enumerate(self.instance.pretty):
-            prettyitem.finalize(idx)
 
         # FIXME: flush scapy sockets / timeline(final=True)!
 
@@ -404,7 +376,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
             shdr = SectionHeader()
             pcapng.write(shdr)
 
-            jsdata = self.instance.timeline.serialize(pcapng)
+            jsdata, jstoplevel = self.instance.timeline.serialize(pcapng)
             pcapng.flush()
 
             fd.seek(0)
@@ -436,6 +408,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 
             self._pdml = pdml.decode("UTF-8")
             self._jsdata = jsdata
+            self._jstoplevel = jstoplevel
 
         self.instance.pretty.report()
 
@@ -448,65 +421,6 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 
 class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
     template = jenv.get_template("item_vtysh.html.j2")
-
-    # pylint: disable=too-many-instance-attributes
-    class Line(TimedElement):
-        # pylint: disable=too-many-arguments
-        def __init__(self, ts, router, daemon, cmd, out, rc, result, same):
-            super().__init__()
-
-            #    delaytext = (' <span class="delay">(after %.2fs)</span>' % after) if after is not None else ""
-            #    ver_text.append('<dt><span class="rtr">%s</span> <span class="daemon">%s</span> <span class="cmd">%s</span> <span class="status status-%d">%d</span>%s</dt><dd>%s</dd>' % (
-            #        rtr, daemon, cmd, rc, rc, delaytext, out))
-
-            self._ts = ts
-            self._router = router
-            self._daemon = daemon
-            self._cmd = cmd
-            self._out = out
-            self._rc = rc
-            self._result = result
-            self._same = same
-
-        @property
-        def ts(self):
-            return (self._ts, 0)
-
-        def serialize(self, context: Context):
-            return (None, None)
-
-        def html(self, id_, ts_rel):
-            clicmd = fmt.clicmd(
-                [
-                    fmt.tstamp("%.3f" % (self._ts - ts_rel)),
-                    fmt.rtrname(self._router),
-                    fmt.dmnname(self._daemon),
-                    fmt.clicmdtext(self._cmd),
-                ]
-            )
-            clicmd.attr.id = id_
-            if self._same:
-                clicmd.attr.class_ += " cli-same"
-
-            ret = [clicmd]
-            if self._out.strip() != "":
-                clicmd.attr.onclick = "onclickclicmd(event);"
-                clicmd.attr.class_ += " cli-has-out"
-                ret.append(fmt.cliout([fmt.cliouttext(self._out)]))
-            return ret
-
-    def when_call(self, call, result):
-        super().when_call(call, result)
-
-        for rtr, daemon in self.item.commands.keys():
-            cmds = self.item.commands[rtr, daemon]
-            prev_out = None
-
-            for ts, cmd, out, rc, cresult in cmds:
-                self.timed.append(
-                    self.Line(ts, rtr, daemon, cmd, out, rc, cresult, prev_out == out)
-                )
-                prev_out = out
 
 
 class PrettyScapy(PrettyTopotato, matches=ScapySend):

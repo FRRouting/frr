@@ -3,20 +3,8 @@
 # Copyright (C) 2022 Nathan Mangar
 
 """
-Test if works the following commands:
-router bgp 65031
-  address-family ipv4 unicast
-    aggregate-address 172.16.255.0/24 route-map aggr-rmap
-route-map aggr-rmap permit 10
-  set metric 123
+Test if default-originate works with ONLY match operations.
 """
-
-__topotests_file__ = (
-    "bgp_aggregate_address_route_map/test_bgp_aggregate-address_route-map.py",
-)
-__topotests_gitrev__ = "4953ca977f3a5de8109ee6353ad07f816ca1774c"
-
-# pylint: disable=invalid-name, missing-class-docstring, missing-function-docstring, line-too-long, consider-using-f-string, wildcard-import, unused-wildcard-import, f-string-without-interpolation
 
 from topotato import *
 
@@ -64,6 +52,8 @@ class Configs(FRRConfigs):
       no bgp ebgp-requires-policy
       neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} remote-as 65000
       neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} timers 3 10
+      address-family ipv4 unicast
+        redistribute connected
       exit-address-family
     !
     #%   elif router.name == 'r1'
@@ -73,22 +63,27 @@ class Configs(FRRConfigs):
       neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
       address-family ipv4 unicast
         redistribute connected
-        aggregate-address 172.16.255.0/24 route-map aggr-rmap
+          network 192.168.13.0/24 route-map internal
+          neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} default-originate route-map default
       exit-address-family
     !
-    route-map aggr-rmap permit 10
-      set metric 123
+    bgp community-list standard default seq 5 permit 65000:1
+    !
+    route-map default permit 10
+      match community default
+    !
+    route-map internal permit 10
+      set community 65000:1
     !
     #%   endif
     #% endblock
     """
 
 
-class BGPAggregateAddressRouteMap(
-    TestBase, AutoFixture, topo=topology, configs=Configs
-):
+class BGPDefaultOriginateRouteMapMatch(TestBase, AutoFixture, topo=topology, configs=Configs):
+    # Establish BGP connection
     @topotatofunc
-    def bgp_converge(self, _, r1, r2):
+    def bgp_converge(self, topo, r1, r2):
         expected = {
             str(r1.ifaces[0].ip4[0].ip): {
                 "bgpState": "Established",
@@ -104,12 +99,8 @@ class BGPAggregateAddressRouteMap(
         )
 
     @topotatofunc
-    def bgp_aggregate_address_has_metric(self, _, r2):
-        expected = {"paths": [{"metric": 123}]}
+    def bgp_default_route_is_valid(self, topo, r1, r2):
+        expected = {"paths": [{"valid": True}]}
         yield from AssertVtysh.make(
-            r2,
-            "bgpd",
-            f"show ip bgp 172.16.255.0/24 json",
-            maxwait=1.0,
-            compare=expected,
+            r2, "bgpd", f"show ip bgp 0.0.0.0/0 json", maxwait=5.0, compare=expected
         )

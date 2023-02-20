@@ -23,10 +23,12 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
+import pytest
+
 import scapy.all  # type: ignore
 import scapy.config  # type: ignore
 
-from .utils import ClassHooks, exec_find
+from .utils import exec_find, EnvcheckResult
 from .nswrap import LinuxNamespace
 from .toponom import LAN, LinkIface, Network
 
@@ -52,7 +54,7 @@ def proc_write(path: str, value: str):
     ]
 
 
-class NetworkInstance(ClassHooks):
+class NetworkInstance:
     """
     represent a test setup with all its routers & switches
     """
@@ -80,17 +82,15 @@ class NetworkInstance(ClassHooks):
         "0",
     ]
 
-    # pylint: disable=arguments-differ
+    # pylint: disable=unused-argument
     @classmethod
-    def _check_env(cls, *, result, **kwargs):
+    @pytest.hookimpl()
+    def pytest_topotato_envcheck(cls, session, result: EnvcheckResult):
         for name, cur in cls._exec.items():
             if cur is None:
                 cls._exec[name] = cur = exec_find(name)
             if cur is None:
-                if name not in cls._exec_optional:
-                    result.error("%s is required to run on Linux systems", name)
-                else:
-                    result.warning(cls._exec_optional[name])
+                result.error("%s is required to run on Linux systems", name)
 
     class BaseNS(LinuxNamespace):
         """
@@ -123,6 +123,9 @@ class NetworkInstance(ClassHooks):
         def start(self):
             super().start()
             self.check_call([self._exec.get("ip", "ip"), "link", "set", "lo", "up"])
+
+        def end_prep(self):
+            pass
 
         def routes(
             self, af: Union[Literal[4], Literal[6]] = 4, local=False
@@ -439,6 +442,8 @@ class NetworkInstance(ClassHooks):
                 os.set_blocking(self.scapys[br].fileno(), False)
 
     def stop(self):
+        for rns in self.routers.values():
+            rns.end_prep()
         for rns in self.routers.values():
             rns.end()
         self.switch_ns.end()

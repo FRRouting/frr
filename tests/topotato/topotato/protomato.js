@@ -65,7 +65,8 @@ function hideall(evt) {
 var anchor_active = null;
 var anchor_current = {};
 const anchor_defaults = {
-	"log": "ewni"
+	"log": "ewni",
+	"cli": null,
 };
 
 const log_keys = {
@@ -100,22 +101,40 @@ function log_show(key, sel) {
 
 	for (target of Array.from(document.getElementsByClassName("logmsg"))) {
 		var enable = false;
-		var prio = Array.from(target.classList).filter(s => s.startsWith("prio-"))[0]
+		var prio = Array.from(target.classList).filter(s => s.startsWith("prio-"))[0];
 
 		if (prio === undefined)
 			prio = "prio-startup";
 		if (prio in enabled)
 			enable = enabled[prio];
 		else
-			enable = true;
+			enable = (sel != "-");
 		if (target.classList.contains("assert-match"))
 			enable = true;
 		target.style.display = enable ? "contents" : "none";
 	}
 }
 
+function cli_show(key, sel) {
+	var show_normal = (sel !== "-");
+	var show_repeat = (sel === "r");
+
+	console.log("cli_show", key, sel);
+	for (target of Array.from(document.getElementsByClassName("clicmd"))) {
+		var vis = target.classList.contains("cli-same") ? show_repeat : show_normal;
+
+		if (vis)
+			target.style.display = "contents";
+		else
+			target.style.display = "none";
+	}
+
+	document.getElementById("cf-cli-repeat").disabled = !show_normal;
+}
+
 const anchor_funcs = {
 	"log": log_show,
+	"cli": cli_show,
 };
 
 function anchor_apply(opts) {
@@ -211,6 +230,22 @@ function onclicklog(evt) {
 		}
 		opts["log"] = optstr.join("");
 	}
+	anchor_export(opts);
+}
+
+function onclickcli(evt) {
+	const srcid = evt.target.id;
+	const checked = evt.target.checked;
+
+	opts = {...anchor_current};
+
+	if (!document.getElementById("cf-cli").checked)
+		opts["cli"] = "-";
+	else if (document.getElementById("cf-cli-repeat").checked)
+		opts["cli"] = "r";
+	else
+		opts["cli"] = null;
+
 	anchor_export(opts);
 }
 
@@ -429,7 +464,9 @@ function create(parent_, tagname, clsname, text = undefined) {
 	return element;
 }
 
-function load_log(timetable, obj) {
+const mono_xrefs = new Set(["VDSXN-XE88Y", "SH01T-57BR4", "TCYNJ-TRV01", "TRN9Y-VYTR4"]);
+
+function load_log(timetable, obj, xrefs) {
 	var row, logmeta;
 
 	row = create(timetable, "div", "logmsg");
@@ -441,11 +478,215 @@ function load_log(timetable, obj) {
 	create(row, "span", "dmnname", obj.data.daemon);
 
 	logmeta = create(row, "span", "logmeta");
-	create(logmeta, "span", "uid", obj.data.uid);
+
+	if (mono_xrefs.has(obj.data.uid))
+		row.classList.add("mono");
+
+	if (obj.data.uid in xrefs) {
+		var srclocs = new Set();
+
+		for (srcloc of xrefs[obj.data.uid]) {
+			srclocs.add([srcloc["file"], srcloc["line"]]);
+		}
+		if (srclocs.size != 1) {
+			var uidspan = create(logmeta, "span", "uid uid-ambiguous", obj.data.uid);
+			uidspan.title = "xref uid is ambiguous";
+		} else {
+			[xref_file, xref_line] = Array.from(srclocs)[0];
+			row.xref_file = xref_file;
+			row.xref_line = xref_line;
+
+			var uidspan = create(logmeta, "a", "uid", obj.data.uid);
+			uidspan.title = `${xref_file} line ${xref_line}`;
+			/* TODO: uidspan.href = `${xref_file}#L${xref_line}`; */
+		}
+	} else {
+		var uidspan = create(logmeta, "span", "uid uid-unknown", obj.data.uid);
+		uidspan.title = "xref uid not found";
+	}
 
 	create(row, "span", "logprio", obj.data.prio);
-	create(row, "span", "logtext", obj.data.text.substr(obj.data.arghdrlen));
-	/* TODO: obj.data.args */
+	logtext = create(row, "span", "logtext", "");
+
+	var prev_e = obj.data.arghdrlen;
+	for ([s, e] of Object.values(obj.data.args)) {
+		logtext.append(obj.data.text.substr(prev_e, s - prev_e));
+		create(logtext, "span", "logarg", obj.data.text.substr(s, e - s));
+		prev_e = e;
+	}
+	logtext.append(obj.data.text.substr(prev_e));
+}
+
+function load_other(timetable, obj, xrefs) {
+	let row = create(timetable, "div", "event");
+	row.obj = obj;
+
+	create(row, "span", "tstamp", (obj.ts - ts_start).toFixed(3));
+	create(row, "span", "rtrname", obj.data.router || "");
+	create(row, "span", "dmnname", obj.data.daemon || "");
+	let textspan = create(row, "span", "eventtext");
+
+	if (obj.data.type == "log_closed") {
+		row.classList.add("event-log-closed");
+		textspan.append("log connection closed")
+	} else {
+		row.classList.add("event-unknown");
+		textspan.append(`unknown event: ${obj.data.type}`)
+	}
+}
+
+const whitespace_re = /^([ \t]+)/;
+
+/* NB: the fact that this is text-level mangling rather than parsing JSON is
+ * absolutely intentional.  This being a test system, we need to
+ *  (a) not modify the test target's output, in case it provides hints about
+ *      something going wrong somewhere
+ *  (b) deal with potentially malformed JSON (e.g. in FRR, a random call to
+ *      vtysh_out() in the middle of outputting JSON data)
+ */
+function json_to_tree(textrow, text) {
+	var lines = text.split("\n");
+	var nest = new Array();
+	var indent = new Array();
+
+	if (text.endsWith("\n"))
+		lines.pop();
+
+	nest.unshift(create(textrow, "div", "cliouttext clijson"));
+	indent.unshift("");
+
+	while (lines.length > 0) {
+		var line = lines.shift();
+		var use_nest  = nest[0];
+
+		while (!line.startsWith(indent[0])) {
+			indent.shift();
+			use_nest = nest.shift();
+		}
+
+		if (!line.endsWith("]") &&
+		    !line.endsWith("],") &&
+		    !line.endsWith("}") &&
+		    !line.endsWith("},"))
+			use_nest = nest[0];
+
+		let cur_flex = create(use_nest, "div", "clijsonflex");
+		let cur = create(cur_flex, "span", "clijsonitem", line);
+
+		/* indent of *next* line! */
+		let indent_m = whitespace_re.exec(lines[0]);
+		if (indent_m && (line.endsWith("[") || line.endsWith("{"))) {
+			let new_nest = create(nest[0], "div", "clijsonnest");
+			new_nest.style.maxHeight = "fit-content";
+			nest.unshift(new_nest);
+			indent.unshift(indent_m[1]);
+
+			let unshorten = create(cur_flex, "span", "cliunshorten");
+			unshorten.style.display = "inline";
+			let collapse = create(cur_flex, "span", "clicollapse");
+			collapse.style.display = "inline";
+			let shorten = create(cur_flex, "span", "clishorten");
+			shorten.style.display = "none";
+
+			for (shorten_line of lines.slice(0, 10)) {
+				if (!shorten_line.startsWith(indent[0]))
+					break;
+				shorten.append(shorten_line + " ");
+			}
+
+			cur_flex.do_collapse = function() {
+				/* collapsed content with max-height: 0
+				 * is still "present" for selecting &
+				 * copypasting
+				 */
+				new_nest.style.maxHeight = "0";
+				collapse.style.display = "none";
+				unshorten.style.display = "none";
+				shorten.style.display = "inline";
+			}
+			cur_flex.onclick = function() {
+				event.stopPropagation();
+				if (new_nest.style.maxHeight != "fit-content") {
+					new_nest.style.maxHeight = "fit-content";
+					shorten.style.display = "none";
+					unshorten.style.display = "inline";
+					collapse.style.display = "inline";
+				} else {
+					cur_flex.do_collapse();
+				}
+			}
+			collapse.onclick = function() {
+				event.stopPropagation();
+				for (const child of new_nest.children) {
+					if ("do_collapse" in child)
+						child.do_collapse();
+				}
+			}
+		}
+	}
+}
+
+const vtysh_retcodes = {
+	0: ["cmd-success", null],
+	1: ["cmd-warning", "CMD_WARNING"],
+	2: ["cmd-err", "CMD_ERR_NO_MATCH"],
+	3: ["cmd-err", "CMD_ERR_AMBIGUOUS"],
+	4: ["cmd-err", "CMD_ERR_INCOMPLETE"],
+	5: ["cmd-err", "CMD_ERR_EXEED_ARGC_MAX"],
+	6: ["cmd-err", "CMD_ERR_NOTHING_TODO"],
+	/* 7 CMD_COMPLETE_FULL_MATCH should never be seen */
+	/* 8 CMD_COMPLETE_MATCH should never be seen */
+	/* 9 CMD_COMPLETE_LIST_MATCH should never be seen */
+	10: ["cmd-success", "CMD_SUCCESS_DAEMON"],
+	11: ["cmd-err", "CMD_ERR_NO_FILE"],
+	/* 12 - CMD_SUSPEND should never be seen */
+	13: ["cmd-warning", "CMD_WARNING_CONFIG_FAILED"],
+	14: ["cmd-success", "CMD_NOT_MY_INSTANCE"],
+	15: ["cmd-err", "CMD_NO_LEVEL_UP"],
+	16: ["cmd-err", "CMD_ERR_NO_DAEMON"],
+};
+
+function load_vtysh(timetable, obj) {
+	var row;
+	var prev_cmds = timetable.querySelectorAll("div.clicmd");
+
+	row = create(timetable, "div", "clicmd");
+	row.obj = obj;
+
+	create(row, "span", "tstamp", (obj.ts - ts_start).toFixed(3));
+	create(row, "span", "rtrname", obj.data.router);
+	create(row, "span", "dmnname", obj.data.daemon);
+	let cmdspan = create(row, "span", "clicmdtext");
+	create(cmdspan, "span", "", obj.data.command);
+
+	if (obj.data.retcode in vtysh_retcodes) {
+		const [cls, name] = vtysh_retcodes[obj.data.retcode];
+		if (name !== null)
+			create(cmdspan, "span", "cmd-ret", " " + name);
+		row.classList.add(cls);
+	} else {
+		create(cmdspan, "span", "cmd-ret", ` unknown retcode ${obj.data.retcode}`);
+		row.classList.add("cmd-err");
+	}
+
+	if (obj.data.text) {
+		row.classList.add("cli-has-out");
+		row.onclick = onclickclicmd;
+
+		var textrow = create(timetable, "div", "cliout");
+		textrow.obj = obj;
+
+		if (obj.data.text[0] == "{")
+			json_to_tree(textrow, obj.data.text);
+		else
+			create(textrow, "span", "cliouttext", obj.data.text);
+
+		if (prev_cmds.length > 0) {
+			var last_cmd = prev_cmds[prev_cmds.length - 1];
+			if (last_cmd.obj.data.text == obj.data.text)
+				row.classList.add("cli-same");
+		}
+	}
 }
 
 function load_protocols(obj, row, protodefs, protos) {
@@ -598,6 +839,55 @@ const protocols = {
 		}
 		create(row, "span", "pktcol l-4 p-pim", "PIM");
 		create(row, "span", "pktcol l-5 p-pim detail last", text);
+		return false;
+	},
+	"ospf": function (obj, row, proto, protos) {
+		header = pdml_get(proto, "ospf.header");
+
+		type = pdml_get_attr(header, "ospf.msg", "showname").split(": ").slice(1).join(": ");
+		type_num = pdml_get_attr(header, "ospf.msg", "show");
+		area = pdml_get_attr(header, "ospf.area_id", "show");
+
+		if (type_num == 1) {
+			hello = pdml_get(proto, "ospf.hello");
+			prio = pdml_get_attr(hello, "ospf.hello.router_priority", "show");
+			dr = pdml_get_attr(hello, "ospf.hello.designated_router", "show");
+			text = `Hello (prio=${prio}, DR=${dr})`;
+		} else if (type_num == 4) {
+			const braces = /\((.*)\)/;
+			const maxitems = 3;
+
+			lsupd = pdml_get(proto, "");
+			items = new Array;
+			for (lsa of lsupd.querySelectorAll("field[name='']")) {
+				if (lsa.parentElement != lsupd)
+					continue;
+
+				name = lsa.getAttribute("show");
+				match = braces.exec(name);
+				if (match)
+					name = match[1];
+				name = name.replace("Inter-Area-Prefix", "IAP");
+				name = name.replace("Inter-Area-Router", "IAR");
+				name = name.replace("Inter-Area-", "IA-");
+				name = name.replace("Intra-Area-", "");
+				items.push(name);
+			}
+			if (items.length > maxitems) {
+				var cut = items.length - maxitems;
+
+				items = items.slice(0, maxitems);
+				items.push(`…+${cut}`);
+			}
+			text = `LS Update (${items.join(", ")})`;
+		} else {
+			text = type;
+		}
+		if (area != "0.0.0.0")
+			text = `(A ${area}) ${text}`;
+
+		create(row, "span", "pktcol l-4 p-ospf", "OSPF");
+		create(row, "span", "pktcol l-5 p-ospf detail last", text);
 		return false;
 	},
 	"bgp": function (obj, row, proto, protos) {
@@ -762,6 +1052,7 @@ function init() {
 	var timetable;
 	var ts_end = parseFloat('-Infinity');
 	var item_idx = -1;
+	var xrefs = ("xrefs" in jsdata) ? jsdata["xrefs"] : new Object();
 
 	for (idx in jsdata.timed) {
 		var obj = jsdata.timed[idx];
@@ -776,7 +1067,11 @@ function init() {
 		if (obj.data.type == "packet")
 			load_packet(timetable, obj, pdmltree);
 		else if (obj.data.type == "log")
-			load_log(timetable, obj);
+			load_log(timetable, obj, xrefs);
+		else if (obj.data.type == "vtysh")
+			load_vtysh(timetable, obj);
+		else
+			load_other(timetable, obj);
 	}
 
 	anchor_update();

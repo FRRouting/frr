@@ -22,9 +22,11 @@ from .utils import LockedFile, AtomicPublishFile, deindent
 
 if typing.TYPE_CHECKING:
     from .base import TopotatoItem
+    from .frr import FRRNetworkInstance
 
 
 taskbasedir = "/tmp/topotato-%s" % os.uname().nodename
+_interactive_session = pytest.StashKey["Interactive"]()
 
 
 class Interactive:
@@ -37,16 +39,19 @@ class Interactive:
     pause_on_fail: bool = False
 
     def __init__(self):
-        if not os.path.isdir(taskbasedir):
+        try:
             os.mkdir(taskbasedir)
             os.chmod(taskbasedir, 0o1777)
+        except FileExistsError:
+            pass
 
     def _post(self, content: Dict[str, Any]):
         with self.statefile as fd:
             fd.write(json.dumps(content))
 
     @pytest.hookimpl()
-    def pytest_addoption(self, parser, pluginmanager):
+    @staticmethod
+    def pytest_addoption(parser, pluginmanager):
         parser.addoption(
             "--pause-on-fail",
             action="store_const",
@@ -62,8 +67,9 @@ class Interactive:
         )
 
     @pytest.hookimpl()
-    def pytest_sessionstart(self, session):
-        session.interactive = self
+    @classmethod
+    def pytest_sessionstart(cls, session):
+        self = session.stash[_interactive_session] = cls()
         self.session = session
 
         self.pause_on_fail = bool(session.config.getoption("--pause-on-fail"))
@@ -108,8 +114,14 @@ class Interactive:
 
         LinuxNamespace.taskdir = taskdir
 
+    @staticmethod
     @pytest.hookimpl()
-    def pytest_topotato_run(self, item: "TopotatoItem", testfunc: Callable):
+    def pytest_topotato_run(item: "TopotatoItem", testfunc: Callable):
+        self = item.session.stash[_interactive_session]
+        # pylint: disable=protected-access
+        self._topotato_run(item, testfunc)
+
+    def _topotato_run(self, item: "TopotatoItem", testfunc: Callable):
         state: Dict[str, Any] = {
             "status": "running",
             "nodeid": item.nodeid,
@@ -198,7 +210,7 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
 """
         )
 
-    def show_instance_for_stop(self, instance):
+    def show_instance_for_stop(self, instance: "FRRNetworkInstance"):
         network: toponom.Network = instance.network
 
         self.show_diagram(network, sys.stdout)
@@ -206,8 +218,14 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
         sys.stdout.write("\n")
         self.show_banner(sys.stdout)
 
+    @staticmethod
     @pytest.hookimpl()
-    def pytest_topotato_failure(self, item, excinfo, excrepr, codeloc):
+    def pytest_topotato_failure(item, excinfo, excrepr, codeloc):
+        self = item.session.stash[_interactive_session]
+        # pylint: disable=protected-access
+        self._topotato_failure(item, excinfo, excrepr, codeloc)
+
+    def _topotato_failure(self, item, excinfo, excrepr, codeloc):
         if not self.pause_on_fail:
             return
 

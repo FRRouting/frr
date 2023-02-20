@@ -164,9 +164,11 @@ class LinuxNamespace:
         nsname = sys.argv[1]
         frrtmp = "/var/tmp/frr"
 
-        subprocess.check_call(["hostname", nsname])
-        if not os.path.isdir(frrtmp):
+        subprocess.check_call(["hostname", nsname.replace("_", "-")])
+        try:
             os.mkdir(frrtmp)
+        except FileExistsError:
+            pass
         subprocess.check_call(["mount", "-t", "tmpfs", "none", frrtmp])
 
         taskfilename = os.path.join(os.environ["TOPOTATO_TASKDIR"], "ns-" + nsname)
