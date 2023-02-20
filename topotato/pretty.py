@@ -31,7 +31,7 @@ from .pcapng import Sink, SectionHeader
 
 
 logger = logging.getLogger("topotato")
-_pretty_session = pytest.StashKey["PrettySession"]()
+# _pretty_session = pytest.StashKey["PrettySession"]()
 
 
 def _docrender(item):
@@ -148,7 +148,8 @@ class PrettySession:
         outdir = get_dir(session, "--reportato-dir", "reportato_dir")
         source_url = session.config.getoption("--source-url")
 
-        session.stash[_pretty_session] = cls(session, outdir, source_url)
+        # session.stash[_pretty_session] = cls(session, outdir, source_url)
+        session.pretty_session = cls(session, outdir, source_url)
 
     @staticmethod
     @pytest.hookimpl(hookwrapper=True)
@@ -156,7 +157,8 @@ class PrettySession:
         outcome = yield
         report = outcome.get_result()
 
-        self = item.session.stash.get(_pretty_session, None)
+        # self = item.session.stash.get(_pretty_session, None)
+        self = getattr(item.session, "pretty_session", None)
         if self:
             self.push(item, call, report)
 
