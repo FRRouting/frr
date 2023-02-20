@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_adjacency.c
  *                             handling of IS-IS adjacencies
@@ -5,20 +6,6 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -212,6 +199,36 @@ static const char *adj_level2string(int level)
 	return NULL; /* not reached */
 }
 
+static void isis_adj_route_switchover(struct isis_adjacency *adj)
+{
+	union g_addr ip = {};
+	ifindex_t ifindex;
+	unsigned int i;
+
+	if (!adj->circuit || !adj->circuit->interface)
+		return;
+
+	ifindex = adj->circuit->interface->ifindex;
+
+	for (i = 0; i < adj->ipv4_address_count; i++) {
+		ip.ipv4 = adj->ipv4_addresses[i];
+		isis_circuit_switchover_routes(adj->circuit, AF_INET, &ip,
+					       ifindex);
+	}
+
+	for (i = 0; i < adj->ll_ipv6_count; i++) {
+		ip.ipv6 = adj->ll_ipv6_addrs[i];
+		isis_circuit_switchover_routes(adj->circuit, AF_INET6, &ip,
+					       ifindex);
+	}
+
+	for (i = 0; i < adj->global_ipv6_count; i++) {
+		ip.ipv6 = adj->global_ipv6_addrs[i];
+		isis_circuit_switchover_routes(adj->circuit, AF_INET6, &ip,
+					       ifindex);
+	}
+}
+
 void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage)
@@ -297,6 +314,16 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 
 	if (new_state == old_state)
 		return;
+
+	if (old_state == ISIS_ADJ_UP &&
+	    !CHECK_FLAG(adj->circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z)) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"ISIS-Adj (%s): Starting fast-reroute on state change %d->%d: %s",
+				circuit->area->area_tag, old_state, new_state,
+				reason ? reason : "unspecified");
+		isis_adj_route_switchover(adj);
+	}
 
 	adj->adj_state = new_state;
 	send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);
@@ -444,9 +471,11 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 		return "up";
 	case ISIS_ADJ_INITIALIZING:
 		return "init";
-	default:
+	case ISIS_ADJ_UNKNOWN:
 		return "failed";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 void isis_adj_expire(struct thread *thread)
@@ -914,8 +943,9 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 		return IS_LEVEL_2;
 	case ISIS_ADJ_LEVEL1AND2:
 		return IS_LEVEL_1 | IS_LEVEL_2;
-	default:
-		break;
+	case ISIS_ADJ_NONE:
+		return 0;
 	}
-	return 0;
+
+	assert(!"Reached end of function where we are not expecting to");
 }

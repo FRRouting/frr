@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra's client header.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ZCLIENT_H
@@ -35,6 +20,8 @@ struct zclient;
 
 /* For union g_addr */
 #include "nexthop.h"
+/* For resilience */
+#include "nexthop_group.h"
 
 /* For union pw_protocol_fields */
 #include "pw.h"
@@ -239,6 +226,12 @@ typedef enum {
 	ZEBRA_GRE_GET,
 	ZEBRA_GRE_UPDATE,
 	ZEBRA_GRE_SOURCE_SET,
+	ZEBRA_TC_QDISC_INSTALL,
+	ZEBRA_TC_QDISC_UNINSTALL,
+	ZEBRA_TC_CLASS_ADD,
+	ZEBRA_TC_CLASS_DELETE,
+	ZEBRA_TC_FILTER_ADD,
+	ZEBRA_TC_FILTER_DELETE,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -419,6 +412,7 @@ struct zapi_nexthop {
 
 	/* MPLS labels for BGP-LU or Segment Routing */
 	uint8_t label_num;
+	enum lsp_types_t label_type;
 	mpls_label_t labels[MPLS_MAX_LABELS];
 
 	struct ethaddr rmac;
@@ -460,6 +454,8 @@ struct zapi_nexthop {
 struct zapi_nhg {
 	uint16_t proto;
 	uint32_t id;
+
+	struct nhg_resilience resilience;
 
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
@@ -537,6 +533,13 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
+
+/*
+ * This flag lets us know that we think the route entry
+ * received has caused us to be out of sync with the
+ * kernel (NLM_F_APPEND at the very least )
+ */
+#define ZEBRA_FLAG_OUTOFSYNC          0x400
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

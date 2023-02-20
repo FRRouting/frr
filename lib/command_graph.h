@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI graph handling
  *
@@ -6,20 +7,6 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_COMMAND_GRAPH_H
@@ -73,10 +60,11 @@ enum cmd_token_type {
 #define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
 
 /* Command attributes */
-enum { CMD_ATTR_NORMAL,
-       CMD_ATTR_DEPRECATED,
-       CMD_ATTR_HIDDEN,
-       CMD_ATTR_YANG,
+enum {
+	CMD_ATTR_YANG = (1 << 0),
+	CMD_ATTR_HIDDEN = (1 << 1),
+	CMD_ATTR_DEPRECATED = (1 << 2),
+	CMD_ATTR_NOSH = (1 << 3),
 };
 
 enum varname_src {

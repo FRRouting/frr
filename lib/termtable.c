@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ASCII table generator.
  * Copyright (C) 2017  Cumulus Networks
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include <stdio.h>
@@ -130,6 +117,7 @@ struct ttable *ttable_new(const struct ttable_style *style)
  *
  * @return pointer to the first cell of allocated row
  */
+PRINTFRR(3, 0)
 static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 						const char *format, va_list ap)
 {
@@ -435,13 +423,12 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 				abspad -= row[j].style.border.right_on ? 1 : 0;
 
 			/* print text */
-			const char *fmt;
 			if (row[j].style.align == LEFT)
-				fmt = "%-*s";
+				pos += sprintf(&buf[pos], "%-*s", abspad,
+					       row[j].text);
 			else
-				fmt = "%*s";
-
-			pos += sprintf(&buf[pos], fmt, abspad, row[j].text);
+				pos += sprintf(&buf[pos], "%*s", abspad,
+					       row[j].text);
 
 			/* print right padding */
 			for (int k = 0; k < row[j].style.rpad; k++)

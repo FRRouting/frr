@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * libnetlink.c	RTnetlink service routines.
- *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -92,7 +88,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 			rth->local.nl_family);
 		return -1;
 	}
-	rth->seq = (uint32_t)time(NULL);
+	rth->seq = getpid();
 	return 0;
 }
 

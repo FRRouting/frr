@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
-*
-* Copyright 2009-2016, LabN Consulting, L.L.C.
-*
-*
-* This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation; either version 2
-* of the License, or (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License along
-* with this program; see the file COPYING; if not, write to the Free Software
-* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
-*/
+ * Copyright 2009-2016, LabN Consulting, L.L.C.
+ */
 
 /*
  * File:	rfapi_import.c
@@ -260,8 +245,14 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 			}
 			break;
 
-		default:
-			assert(0);
+		case SAFI_UNSPEC:
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_EVPN:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_FLOWSPEC:
+		case SAFI_MAX:
+			assert(!"Passed in safi should be impossible");
 		}
 	}
 
@@ -2091,14 +2082,8 @@ static void rfapiItBiIndexAdd(struct agg_node *rn, /* Import table VPN node */
 	assert(bpi);
 	assert(bpi->extra);
 
-	{
-		char buf[RD_ADDRSTRLEN];
-
-		vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %s", __func__,
-				       bpi, bpi->peer,
-				       prefix_rd2str(&bpi->extra->vnc.import.rd,
-						     buf, sizeof(buf)));
-	}
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX_W_ALLOC(rn);
 	if (!sl) {
@@ -2164,7 +2149,6 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 
 #ifdef DEBUG_BI_SEARCH
 	{
-		char buf[RD_ADDRSTRLEN];
 		char buf_aux_pfx[PREFIX_STRLEN];
 
 		if (aux_prefix) {
@@ -2173,10 +2157,9 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 		} else
 			strlcpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
 
-		vnc_zlog_debug_verbose("%s want prd=%s, peer=%p, aux_prefix=%s",
-				       __func__,
-				       prefix_rd2str(prd, buf, sizeof(buf)),
-				       peer, buf_aux_pfx);
+		vnc_zlog_debug_verbose(
+			"%s want prd=%pRD, peer=%p, aux_prefix=%s", __func__,
+			prd, peer, buf_aux_pfx);
 		rfapiItBiIndexDump(rn);
 	}
 #endif
@@ -2190,16 +2173,10 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 		for (bpi_result = rn->info; bpi_result;
 		     bpi_result = bpi_result->next) {
 #ifdef DEBUG_BI_SEARCH
-			{
-				char buf[RD_ADDRSTRLEN];
-
-				vnc_zlog_debug_verbose(
-					"%s: bpi has prd=%s, peer=%p", __func__,
-					prefix_rd2str(&bpi_result->extra->vnc
-							       .import.rd,
-						      buf, sizeof(buf)),
-					bpi_result->peer);
-			}
+			vnc_zlog_debug_verbose(
+				"%s: bpi has prd=%pRD, peer=%p", __func__,
+				&bpi_result->extra->vnc.import.rd,
+				bpi_result->peer);
 #endif
 			if (peer == bpi_result->peer
 			    && !prefix_cmp((struct prefix *)&bpi_result->extra
@@ -2261,14 +2238,8 @@ static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
 	struct skiplist *sl;
 	int rc;
 
-	{
-		char buf[RD_ADDRSTRLEN];
-
-		vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %s", __func__,
-				       bpi, bpi->peer,
-				       prefix_rd2str(&bpi->extra->vnc.import.rd,
-						     buf, sizeof(buf)));
-	}
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX(rn);
 	assert(sl);
@@ -2928,7 +2899,8 @@ static void rfapiBgpInfoFilteredImportEncap(
 
 	vnc_zlog_debug_verbose(
 		"%s: entry: %s: prefix %s/%d", __func__, action_str,
-		inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf)),
+		p->prefixlen);
 
 	memset(&p_firstbpi_old, 0, sizeof(p_firstbpi_old));
 	memset(&p_firstbpi_new, 0, sizeof(p_firstbpi_new));
@@ -2986,7 +2958,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 		rt = import_table->imported_encap[afi];
 		break;
 
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
@@ -3435,7 +3409,8 @@ void rfapiBgpInfoFilteredImportVPN(
 		rt = import_table->imported_vpn[afi];
 		break;
 
-	default:
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
@@ -3827,11 +3802,19 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	case SAFI_ENCAP:
 		return rfapiBgpInfoFilteredImportEncap;
 
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_EVPN:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		/* not expected */
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad safi %d", __func__, safi);
 		return rfapiBgpInfoFilteredImportBadSafi;
 	}
+
+	assert(!"Reached end of function when we were not expecting to");
 }
 
 void rfapiProcessUpdate(struct peer *peer,
@@ -4047,8 +4030,8 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 {
 	struct agg_node *rn;
 	struct bgp_path_info *bpi;
-	struct agg_table *rt;
-	void (*timer_service_func)(struct thread *);
+	struct agg_table *rt = NULL;
+	void (*timer_service_func)(struct thread *) = NULL;
 
 	assert(afi == AFI_IP || afi == AFI_IP6);
 
@@ -4063,13 +4046,18 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 		rt = import_table->imported_encap[afi];
 		timer_service_func = rfapiWithdrawTimerEncap;
 		break;
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_EVPN:
+	case SAFI_LABELED_UNICAST:
+	case SAFI_FLOWSPEC:
+	case SAFI_MAX:
 		/* Suppress uninitialized variable warning */
 		rt = NULL;
 		timer_service_func = NULL;
 		assert(0);
 	}
-
 
 	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 		for (bpi = rn->info; bpi; bpi = bpi->next) {

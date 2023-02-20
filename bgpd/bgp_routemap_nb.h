@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020        Vmware
  *                           Sarita Patra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_BGP_ROUTEMAP_NB_H_
@@ -106,6 +93,10 @@ int lib_route_map_entry_set_action_rmap_set_action_table_modify(struct nb_cb_mod
 int lib_route_map_entry_set_action_rmap_set_action_table_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_atomic_aggregate_create(struct nb_cb_create_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_atomic_aggregate_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_aigp_metric_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_aigp_metric_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_prepend_as_path_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_prepend_as_path_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_last_as_modify(struct nb_cb_modify_args *args);

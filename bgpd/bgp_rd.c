@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP RD definitions for BGP-based VPNs (IP/EVPN)
  * -- brought over from bgpd/bgp_mplsvpn.c
  * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -210,4 +194,18 @@ void form_auto_rd(struct in_addr router_id,
 	prd->prefixlen = 64;
 	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &router_id, rd_id);
 	(void)str2prefix_rd(buf, prd);
+}
+
+printfrr_ext_autoreg_p("RD", printfrr_prd);
+static ssize_t printfrr_prd(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
+{
+	char rd_buf[RD_ADDRSTRLEN];
+
+	if (!ptr)
+		return bputs(buf, "(null)");
+
+	prefix_rd2str(ptr, rd_buf, sizeof(rd_buf));
+
+	return bputs(buf, rd_buf);
 }

@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_YANG_H_
@@ -331,7 +318,8 @@ extern void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
  *    Schema name of the libyang data node.
  */
 extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
-					      const char *xpath_fmt, ...);
+					      const char *xpath_fmt, ...)
+	PRINTFRR(2, 3);
 
 /*
  * Find a libyang data node by its YANG data path.
@@ -366,7 +354,8 @@ extern struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
  *    The libyang data node if found, or NULL if not found.
  */
 extern struct lyd_node *yang_dnode_getf(const struct lyd_node *dnode,
-					const char *path_fmt, ...);
+					const char *path_fmt, ...)
+	PRINTFRR(2, 3);
 
 /*
  * Check if a libyang data node exists.
@@ -400,7 +389,7 @@ extern bool yang_dnode_exists(const struct lyd_node *dnode, const char *xpath);
  *    true if a libyang data node was found, false otherwise.
  */
 extern bool yang_dnode_existsf(const struct lyd_node *dnode,
-			       const char *xpath_fmt, ...);
+			       const char *xpath_fmt, ...) PRINTFRR(2, 3);
 
 /*
  * Iterate over all libyang data nodes that satisfy an XPath query.
@@ -422,7 +411,7 @@ extern bool yang_dnode_existsf(const struct lyd_node *dnode,
  */
 void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 			const struct lyd_node *dnode, const char *xpath_fmt,
-			...);
+			...) PRINTFRR(4, 5);
 
 /*
  * Check if the libyang data node contains a default value. Non-presence
@@ -459,7 +448,7 @@ extern bool yang_dnode_is_default(const struct lyd_node *dnode,
  *    true if the data node contains the default value, false otherwise.
  */
 extern bool yang_dnode_is_defaultf(const struct lyd_node *dnode,
-				   const char *xpath_fmt, ...);
+				   const char *xpath_fmt, ...) PRINTFRR(2, 3);
 
 /*
  * Check if the libyang data node and all of its children contain default
@@ -566,7 +555,8 @@ extern struct list *yang_data_list_new(void);
  *    Pointer to yang_data if found, NULL otherwise.
  */
 extern struct yang_data *yang_data_list_find(const struct list *list,
-					     const char *xpath_fmt, ...);
+					     const char *xpath_fmt, ...)
+	PRINTFRR(2, 3);
 
 /*
  * Create and set up a libyang context (for use by the translator)

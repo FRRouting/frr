@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP open message handling
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -59,6 +44,7 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
 	{CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart"},
 	{CAPABILITY_CODE_ROLE, "Role"},
+	{CAPABILITY_CODE_SOFT_VERSION, "Software Version"},
 	{0}};
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
@@ -79,6 +65,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
 		[CAPABILITY_CODE_LLGR] = CAPABILITY_CODE_LLGR_LEN,
 		[CAPABILITY_CODE_ROLE] = CAPABILITY_CODE_ROLE_LEN,
+		[CAPABILITY_CODE_SOFT_VERSION] = CAPABILITY_CODE_SOFT_VERSION_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -103,6 +90,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
 		[CAPABILITY_CODE_LLGR] = 1,
 		[CAPABILITY_CODE_ROLE] = 1,
+		[CAPABILITY_CODE_SOFT_VERSION] = 1,
 };
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
@@ -167,7 +155,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"capabilityErrorMultiProtocolAfi",
 						"L2VPN");
 					break;
-				default:
+				case AFI_UNSPEC:
+				case AFI_MAX:
 					json_object_int_add(
 						json_cap,
 						"capabilityErrorMultiProtocolAfiUnknown",
@@ -217,7 +206,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"capabilityErrorMultiProtocolSafi",
 						"flowspec");
 					break;
-				default:
+				case SAFI_UNSPEC:
+				case SAFI_MAX:
 					json_object_int_add(
 						json_cap,
 						"capabilityErrorMultiProtocolSafiUnknown",
@@ -237,7 +227,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 				case AFI_L2VPN:
 					vty_out(vty, "AFI L2VPN, ");
 					break;
-				default:
+				case AFI_UNSPEC:
+				case AFI_MAX:
 					vty_out(vty, "AFI Unknown %d, ",
 						ntohs(mpc.afi));
 					break;
@@ -264,7 +255,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 				case SAFI_EVPN:
 					vty_out(vty, "SAFI EVPN");
 					break;
-				default:
+				case SAFI_UNSPEC:
+				case SAFI_MAX:
 					vty_out(vty, "SAFI Unknown %d ",
 						mpc.safi);
 					break;
@@ -357,6 +349,7 @@ static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
 }
 
 static const struct message orf_type_str[] = {
+	{ORF_TYPE_RESERVED, "Reserved"},
 	{ORF_TYPE_PREFIX, "Prefixlist"},
 	{ORF_TYPE_PREFIX_OLD, "Prefixlist (old)"},
 	{0}};
@@ -433,6 +426,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		switch (hdr->code) {
 		case CAPABILITY_CODE_ORF:
 			switch (type) {
+			case ORF_TYPE_RESERVED:
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s Addr-family %d/%d has reserved ORF type, ignoring",
+						peer->host, afi, safi);
+				break;
 			case ORF_TYPE_PREFIX:
 				break;
 			default:
@@ -443,6 +442,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 			break;
 		case CAPABILITY_CODE_ORF_OLD:
 			switch (type) {
+			case ORF_TYPE_RESERVED:
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s Addr-family %d/%d has reserved ORF type, ignoring",
+						peer->host, afi, safi);
+				break;
 			case ORF_TYPE_PREFIX_OLD:
 				break;
 			default:
@@ -904,6 +909,41 @@ static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 	return 0;
 }
 
+static int bgp_capability_software_version(struct peer *peer,
+					   struct capability_header *hdr)
+{
+	struct stream *s = BGP_INPUT(peer);
+	char str[BGP_MAX_SOFT_VERSION + 1];
+	size_t end = stream_get_getp(s) + hdr->length;
+	uint8_t len;
+
+	SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
+
+	len = stream_getc(s);
+	if (stream_get_getp(s) + len > end) {
+		flog_warn(
+			EC_BGP_CAPABILITY_INVALID_DATA,
+			"%s: Received malformed Software Version capability from peer %s",
+			__func__, peer->host);
+		return -1;
+	}
+
+	if (len) {
+		stream_get(str, s, len);
+		str[len] = '\0';
+
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+
+		peer->soft_version = XSTRDUP(MTYPE_BGP_SOFT_VERSION, str);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s sent Software Version: %s", peer->host,
+				   peer->soft_version);
+	}
+
+	return 0;
+}
+
 /**
  * Parse given capability.
  * XXX: This is reading into a stream, but not using stream API
@@ -972,6 +1012,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_ENHANCED_RR:
 		case CAPABILITY_CODE_EXT_MESSAGE:
 		case CAPABILITY_CODE_ROLE:
+		case CAPABILITY_CODE_SOFT_VERSION:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -1072,6 +1113,9 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_ROLE:
 			ret = bgp_capability_role(peer, &caphdr);
 			break;
+		case CAPABILITY_CODE_SOFT_VERSION:
+			ret = bgp_capability_software_version(peer, &caphdr);
+			break;
 		default:
 			if (caphdr.code > 128) {
 				/* We don't send Notification for unknown vendor
@@ -1114,13 +1158,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		}
 	}
 	return 0;
-}
-
-static int bgp_auth_parse(struct peer *peer, size_t length)
-{
-	bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
-			BGP_NOTIFY_OPEN_AUTH_FAILURE);
-	return -1;
 }
 
 static bool strict_capability_same(struct peer *peer)
@@ -1185,15 +1222,30 @@ as_t peek_for_as4_capability(struct peer *peer, uint16_t length)
 		uint8_t opt_type;
 		uint16_t opt_length;
 
-		/* Check the length. */
-		if (stream_get_getp(s) + 2 > end)
+		/* Ensure we can read the option type */
+		if (stream_get_getp(s) + 1 > end)
 			goto end;
 
-		/* Fetch option type and length. */
+		/* Fetch the option type */
 		opt_type = stream_getc(s);
-		opt_length = BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)
-				     ? stream_getw(s)
-				     : stream_getc(s);
+
+		/*
+		 * Check the length and fetch the opt_length
+		 * If the peer is BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)
+		 * then we do a getw which is 2 bytes.  So we need to
+		 * ensure that we can read that as well
+		 */
+		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
+			if (stream_get_getp(s) + 2 > end)
+				goto end;
+
+			opt_length = stream_getw(s);
+		} else {
+			if (stream_get_getp(s) + 1 > end)
+				goto end;
+
+			opt_length = stream_getc(s);
+		}
 
 		/* Option length check. */
 		if (stream_get_getp(s) + opt_length > end)
@@ -1263,19 +1315,40 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		uint8_t opt_type;
 		uint16_t opt_length;
 
-		/* Must have at least an OPEN option header */
-		if (STREAM_READABLE(s) < 2) {
+		/*
+		 * Check that we can read the opt_type and fetch it
+		 */
+		if (STREAM_READABLE(s) < 1) {
 			zlog_info("%s Option length error", peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
 		}
-
-		/* Fetch option type and length. */
 		opt_type = stream_getc(s);
-		opt_length = BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)
-				     ? stream_getw(s)
-				     : stream_getc(s);
+
+		/*
+		 * Check the length of the stream to ensure that
+		 * FRR can properly read the opt_length. Then read it
+		 */
+		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
+			if (STREAM_READABLE(s) < 2) {
+				zlog_info("%s Option length error", peer->host);
+				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				return -1;
+			}
+
+			opt_length = stream_getw(s);
+		} else {
+			if (STREAM_READABLE(s) < 1) {
+				zlog_info("%s Option length error", peer->host);
+				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				return -1;
+			}
+
+			opt_length = stream_getc(s);
+		}
 
 		/* Option length check. */
 		if (STREAM_READABLE(s) < opt_length) {
@@ -1290,17 +1363,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			zlog_debug(
 				"%s rcvd OPEN w/ optional parameter type %u (%s) len %u",
 				peer->host, opt_type,
-				opt_type == BGP_OPEN_OPT_AUTH
-					? "Authentication"
-					: opt_type == BGP_OPEN_OPT_CAP
-						  ? "Capability"
-						  : "Unknown",
+				opt_type == BGP_OPEN_OPT_CAP ? "Capability"
+							     : "Unknown",
 				opt_length);
 
 		switch (opt_type) {
-		case BGP_OPEN_OPT_AUTH:
-			ret = bgp_auth_parse(peer, opt_length);
-			break;
 		case BGP_OPEN_OPT_CAP:
 			ret = bgp_capability_parse(peer, opt_length,
 						   mp_capability, &error);
@@ -1609,7 +1676,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	as_t local_as;
 	uint8_t afi_safi_count = 0;
-	int adv_addpath_tx = 0;
+	bool adv_addpath_tx = false;
 
 	/* Non-Ext OP Len. */
 	cp = stream_get_endp(s);
@@ -1748,7 +1815,17 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 			 * will use it is
 			 * configured */
 			if (peer->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
-				adv_addpath_tx = 1;
+				adv_addpath_tx = true;
+
+			/* If we have enabled labeled unicast, we MUST check
+			 * against unicast SAFI because addpath IDs are
+			 * allocated under unicast SAFI, the same as the RIB
+			 * is managed in unicast SAFI.
+			 */
+			if (safi == SAFI_LABELED_UNICAST)
+				if (peer->addpath_type[afi][SAFI_UNICAST] !=
+				    BGP_ADDPATH_NONE)
+					adv_addpath_tx = true;
 		}
 	}
 
@@ -1789,6 +1866,10 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 				SET_FLAG(flags, BGP_ADDPATH_TX);
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_ADDPATH_AF_TX_ADV);
+				if (safi == SAFI_LABELED_UNICAST)
+					SET_FLAG(
+						peer->af_cap[afi][SAFI_UNICAST],
+						PEER_CAP_ADDPATH_AF_TX_ADV);
 			} else {
 				UNSET_FLAG(peer->af_cap[afi][safi],
 					   PEER_CAP_ADDPATH_AF_TX_ADV);
@@ -1873,6 +1954,50 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 
 	bgp_peer_send_gr_capability(s, peer, ext_opt_params);
 	bgp_peer_send_llgr_capability(s, peer, ext_opt_params);
+
+	/* Software Version capability
+	 * An implementation is REQUIRED Extended Optional Parameters
+	 * Length for BGP OPEN Message support as defined in [RFC9072].
+	 * The inclusion of the Software Version Capability is OPTIONAL.
+	 * If an implementation supports the inclusion of the capability,
+	 * the implementation MUST include a configuration switch to enable
+	 * or disable its use, and that switch MUST be off by default.
+	 */
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION) ||
+	    peer->sort == BGP_PEER_IBGP) {
+		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
+		stream_putc(s, BGP_OPEN_OPT_CAP);
+		rcapp = stream_get_endp(s);
+		ext_opt_params ? stream_putw(s, 0)
+			       : stream_putc(s, 0); /* Capability Length */
+		stream_putc(s, CAPABILITY_CODE_SOFT_VERSION);
+		capp = stream_get_endp(s);
+		stream_putc(s, 0); /* dummy placeholder len */
+
+		/* The Capability Length SHOULD be no greater than 64.
+		 * This is the limit to allow other capabilities as much
+		 * space as they require.
+		 */
+		len = strlen(cmd_software_version_get());
+		if (len > BGP_MAX_SOFT_VERSION)
+			len = BGP_MAX_SOFT_VERSION;
+
+		stream_putc(s, len);
+		stream_put(s, cmd_software_version_get(), len);
+
+		/* Software Version capability Len. */
+		len = stream_get_endp(s) - rcapp - 1;
+		ext_opt_params ? stream_putw_at(s, rcapp, len - 1)
+			       : stream_putc_at(s, rcapp, len);
+
+		/* Total Capability Len. */
+		len = stream_get_endp(s) - capp - 1;
+		stream_putc_at(s, capp, len);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s Sending Software Version cap, value: %s",
+				   peer->host, cmd_software_version_get());
+	}
 
 	/* Total Opt Parm Len. */
 	len = stream_get_endp(s) - cp - 1;

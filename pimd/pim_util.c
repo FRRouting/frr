@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -150,7 +137,9 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp)
 	pim_addr_to_prefix(&grp_pfx, *grp);
 
 	pl = prefix_list_lookup(PIM_AFI, pim_ifp->boundary_oil_plist);
-	return pl ? prefix_list_apply(pl, &grp_pfx) == PREFIX_DENY : false;
+	return pl ? prefix_list_apply_ext(pl, NULL, &grp_pfx, true) ==
+			       PREFIX_DENY
+		  : false;
 }
 
 
@@ -165,4 +154,16 @@ int pim_get_all_mcast_group(struct prefix *prefix)
 		return 0;
 #endif
 	return 1;
+}
+
+bool pim_addr_is_multicast(pim_addr addr)
+{
+#if PIM_IPV == 4
+	if (IN_MULTICAST(addr.s_addr))
+		return true;
+#else
+	if (IN6_IS_ADDR_MULTICAST(&addr))
+		return true;
+#endif
+	return false;
 }

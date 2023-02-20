@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP pbr
  * Copyright (C) 6WIND
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -1636,9 +1623,8 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				ptr_ip = &api->actions[i].u.zr.redirect_ip_v4;
 			else
 				ptr_ip = &api->actions[i].u.zr.redirect_ip_v6;
-			if (inet_ntop(afi2family(api->afi),
-				      ptr_ip, local_buff,
-				      INET6_ADDRSTRLEN) != NULL) {
+			if (inet_ntop(afi2family(api->afi), ptr_ip, local_buff,
+				      sizeof(local_buff)) != NULL) {
 				delta = snprintf(ptr, len,
 					  "@redirect ip nh %s", local_buff);
 				len -= delta;
@@ -2074,6 +2060,9 @@ static void bgp_pbr_icmp_action(struct bgp *bgp, struct bgp_path_info *path,
 					bgp, path, bpf);
 		}
 	}
+
+	bpf->src_port = NULL;
+	bpf->dst_port = NULL;
 }
 
 static void bgp_pbr_policyroute_remove_from_zebra_recursive(

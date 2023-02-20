@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -389,8 +376,10 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	uint8_t *curr = tlv_buf;
 	uint8_t *pastend = tlv_buf + tlv_buf_size;
 	uint8_t *tmp;
+#if PIM_IPV == 4
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
+#endif
 
 	/*
 	 * Append options
@@ -452,19 +441,20 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 
 	/* Secondary Address List */
 	if (ifp->connected->count) {
-		curr = pim_tlv_append_addrlist_ucast(curr, pastend,
-						     ifp->connected, AF_INET);
+		curr = pim_tlv_append_addrlist_ucast(curr, pastend, ifp,
+						     PIM_AF);
 		if (!curr) {
 			if (PIM_DEBUG_PIM_HELLO) {
 				zlog_debug(
-					"%s: could not set PIM hello v4 Secondary Address List option for interface %s",
-					__func__, ifp->name);
+					"%s: could not set PIM hello %s Secondary Address List option for interface %s",
+					__func__, PIM_AF_NAME, ifp->name);
 			}
 			return -4;
 		}
+#if PIM_IPV == 4
 		if (pim->send_v6_secondary) {
-			curr = pim_tlv_append_addrlist_ucast(
-				curr, pastend, ifp->connected, AF_INET6);
+			curr = pim_tlv_append_addrlist_ucast(curr, pastend, ifp,
+							     AF_INET6);
 			if (!curr) {
 				if (PIM_DEBUG_PIM_HELLO) {
 					zlog_debug(
@@ -474,6 +464,7 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 				return -4;
 			}
 		}
+#endif
 	}
 
 	return curr - tlv_buf;

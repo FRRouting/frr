@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BMP support.
  * Copyright (C) 2018 Yasuhiro Ohara
  * Copyright (C) 2019 David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -853,8 +840,9 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	stream_putw(s, 0);
 
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
-	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr,
-			&vecarr, NULL, afi, safi, peer, NULL, NULL, 0, 0, 0);
+	total_attr_len =
+		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi,
+				     safi, peer, NULL, NULL, 0, 0, 0, NULL);
 
 	/* space check? */
 
@@ -2033,9 +2021,7 @@ static const struct cmd_variable_handler bmp_targets_var_handlers[] = {
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_bmp_clippy.c"
-#endif
 
 DEFPY_NOSH(bmp_targets_main,
       bmp_targets_cmd,

@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "zebra.h"
@@ -743,7 +732,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		fb.outpos_i = 0;
 
 		va_copy(args, msg->args);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* format-string checking is done further up the chain */
 		need += vbprintfrr(&fb, msg->fmt, args);
+#pragma GCC diagnostic pop
 		va_end(args);
 
 		msg->textlen = need;
@@ -762,7 +755,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 			fb.outpos_i = 0;
 
 			va_copy(args, msg->args);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+			/* same as above */
 			vbprintfrr(&fb, msg->fmt, args);
+#pragma GCC diagnostic pop
 			va_end(args);
 
 			bputch(&fb, '\n');

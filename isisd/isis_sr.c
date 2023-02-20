@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of Segment Routing for IS-IS as per RFC 8667
  *
@@ -5,20 +6,6 @@
  *
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Contributor: Renato Westphal <renato@opensourcerouting.org> for NetDEF
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1057,8 +1044,9 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
-      "show isis segment-routing node",
-      SHOW_STR PROTO_HELP
+      "show " PROTO_NAME " segment-routing node",
+      SHOW_STR
+      PROTO_HELP
       "Segment-Routing\n"
       "Segment-Routing node\n")
 {

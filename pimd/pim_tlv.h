@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM_TLV_H
@@ -82,7 +69,7 @@ uint8_t *pim_tlv_append_2uint16(uint8_t *buf, const uint8_t *buf_pastend,
 uint8_t *pim_tlv_append_uint32(uint8_t *buf, const uint8_t *buf_pastend,
 			       uint16_t option_type, uint32_t option_value);
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
-				       struct list *ifconnected, int family);
+				       struct interface *ifp, int family);
 
 int pim_tlv_parse_holdtime(const char *ifname, pim_addr src_addr,
 			   pim_hello_options *hello_options,

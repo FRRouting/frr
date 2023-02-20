@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -128,7 +115,6 @@ from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
     create_static_routes,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -223,12 +209,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -456,9 +439,9 @@ def test_restart_pimd_process_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -624,9 +607,9 @@ def test_multiple_groups_same_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -648,9 +631,9 @@ def test_multiple_groups_same_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (S, G) ip mroutes")
@@ -769,9 +752,9 @@ def test_multiple_groups_same_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (S, G) ip mroutes")
@@ -791,9 +774,9 @@ def test_multiple_groups_same_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -967,9 +950,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (S, G) ip mroutes")
@@ -989,9 +972,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1057,9 +1040,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r4: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r4: Verify (S, G) ip mroutes")
@@ -1077,8 +1060,11 @@ def test_multiple_groups_different_RP_address_p2(request):
     result = verify_join_state_and_timer(
         tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, expected=False
     )
-    assert result is not True, "Testcase {} :Failed \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1228,9 +1214,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (S, G) ip mroutes")
@@ -1250,9 +1236,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1318,9 +1304,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r4: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r4: Verify (S, G) ip mroutes")
@@ -1340,9 +1326,9 @@ def test_multiple_groups_different_RP_address_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1466,9 +1452,8 @@ def test_shutdown_primary_path_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (*, G) ip mroutes")
@@ -1478,9 +1463,8 @@ def test_shutdown_primary_path_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (*, G) ip mroutes")
@@ -1490,9 +1474,9 @@ def test_shutdown_primary_path_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared after shutting"
+        "link from R1 to R3 \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: No shutdown the link from R1 to R3 from R3 node")
@@ -1651,9 +1635,9 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: (*,G) mroutes are not cleared after shut of R1 to R0 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared after shutting"
+        "link from R1 to R0 \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (*, G) ip mroutes cleared")
@@ -1663,9 +1647,9 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (*,G) mroutes are not cleared after shut of R1 to R0 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared after shutting"
+        "link from R1 to R0 \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     write_test_footer(tc_name)
@@ -1774,9 +1758,9 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: (*,G) mroutes are not cleared after shut of R1 to R2 and R3 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared after shutting"
+        "link from R2 to R3 \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (*, G) ip mroutes cleared")
@@ -1786,9 +1770,9 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (*,G) mroutes are not cleared after shut of R1 to R2 and R3 link\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: mroute (*, G) should be cleared after shutting"
+        "link from R2 to R3 \n"
+        "Found: {}".format(tc_name, dut, result)
     )
 
     write_test_footer(tc_name)

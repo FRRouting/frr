@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF network related functions
  *   Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -104,11 +89,12 @@ int ospf_if_add_alldrouters(struct ospf *top, struct prefix *p,
 			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllDRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
 			top->fd, &p->u.prefix4, ifindex,
 			safe_strerror(errno));
-	else
-		zlog_debug(
-			"interface %pI4 [%u] join AllDRouters Multicast group.",
-			&p->u.prefix4, ifindex);
-
+	else {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"interface %pI4 [%u] join AllDRouters Multicast group.",
+				&p->u.prefix4, ifindex);
+	}
 	return ret;
 }
 

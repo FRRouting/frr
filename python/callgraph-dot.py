@@ -1,20 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # callgraph json to graphviz generator for FRR
 #
 # Copyright (C) 2020  David Lamparter for NetDEF, Inc.
-#
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the Free
-# Software Foundation; either version 2 of the License, or (at your option)
-# any later version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-# more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; see the file COPYING; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 import re
 import sys
@@ -321,15 +308,31 @@ extra_info = {
         "lsp_processq_complete",
     ],
     # zebra - main WQ
-    ("mq_add_handler", "work_queue_add"): ["meta_queue_process",],
-    ("meta_queue_process", "work_queue_add"): ["meta_queue_process",],
+    ("mq_add_handler", "work_queue_add"): [
+        "meta_queue_process",
+    ],
+    ("meta_queue_process", "work_queue_add"): [
+        "meta_queue_process",
+    ],
     # bgpd - label pool WQ
-    ("bgp_lp_get", "work_queue_add"): ["lp_cbq_docallback",],
-    ("bgp_lp_event_chunk", "work_queue_add"): ["lp_cbq_docallback",],
-    ("bgp_lp_event_zebra_up", "work_queue_add"): ["lp_cbq_docallback",],
+    ("bgp_lp_get", "work_queue_add"): [
+        "lp_cbq_docallback",
+    ],
+    ("bgp_lp_event_chunk", "work_queue_add"): [
+        "lp_cbq_docallback",
+    ],
+    ("bgp_lp_event_zebra_up", "work_queue_add"): [
+        "lp_cbq_docallback",
+    ],
     # bgpd - main WQ
-    ("bgp_process", "work_queue_add"): ["bgp_process_wq", "bgp_processq_del",],
-    ("bgp_add_eoiu_mark", "work_queue_add"): ["bgp_process_wq", "bgp_processq_del",],
+    ("bgp_process", "work_queue_add"): [
+        "bgp_process_wq",
+        "bgp_processq_del",
+    ],
+    ("bgp_add_eoiu_mark", "work_queue_add"): [
+        "bgp_process_wq",
+        "bgp_processq_del",
+    ],
     # clear node WQ
     ("bgp_clear_route_table", "work_queue_add"): [
         "bgp_clear_route_node",
@@ -337,7 +340,9 @@ extra_info = {
         "bgp_clear_node_complete",
     ],
     # rfapi WQs
-    ("rfapi_close", "work_queue_add"): ["rfapi_deferred_close_workfunc",],
+    ("rfapi_close", "work_queue_add"): [
+        "rfapi_deferred_close_workfunc",
+    ],
     ("rfapiRibUpdatePendingNode", "work_queue_add"): [
         "rfapiRibDoQueuedCallback",
         "rfapiRibQueueItemDelete",

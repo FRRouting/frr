@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2015 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -36,7 +23,6 @@
 #include "pim_rp.h"
 #include "pim_register.h"
 #include "pim_upstream.h"
-#include "pim_br.h"
 #include "pim_rpf.h"
 #include "pim_oil.h"
 #include "pim_zebra.h"
@@ -629,7 +615,8 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 
 			pim_addr_to_prefix(&src, sg.src);
 
-			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
+			if (prefix_list_apply_ext(plist, NULL, &src, true) ==
+			    PREFIX_DENY) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
 						       src_addr);
 				if (PIM_DEBUG_PIM_PACKETS)
@@ -642,24 +629,13 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		}
 
 		if (*bits & PIM_REGISTER_BORDER_BIT) {
-			pim_addr pimbr = pim_br_get_pmbr(&sg);
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s: Received Register message with Border bit set",
+					"%s: Received Register message with Border bit set, ignoring",
 					__func__);
 
-			if (pim_addr_is_any(pimbr))
-				pim_br_set_pmbr(&sg, src_addr);
-			else if (pim_addr_cmp(src_addr, pimbr)) {
-				pim_register_stop_send(ifp, &sg, dest_addr,
-						       src_addr);
-				if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug(
-						"%s: Sending register-Stop to %s and dropping mr. packet",
-						__func__, "Sender");
 				/* Drop Packet Silently */
-				return 0;
-			}
+			return 0;
 		}
 
 		struct pim_upstream *upstream = pim_upstream_find(pim, &sg);

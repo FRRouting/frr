@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_suppress_fib.py
 #
 # Copyright (c) 2019 by
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -84,8 +71,6 @@ def test_bgp_route():
 
     r3 = tgen.gears["r3"]
 
-    sleep(5)
-
     json_file = "{}/r3/v4_route.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
@@ -95,7 +80,7 @@ def test_bgp_route():
         "show ip route 40.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=2, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
     assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
 
@@ -108,9 +93,20 @@ def test_bgp_route():
         "show ip route 50.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
+
+    json_file = "{}/r3/v4_route3.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp,
+        r3,
+        "show ip route 10.0.0.3 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
 
 
 def test_bgp_better_admin_won():

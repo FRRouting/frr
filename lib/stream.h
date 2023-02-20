@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Packet interface
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_STREAM_H
@@ -386,6 +371,18 @@ extern void stream_fifo_free(struct stream_fifo *fifo);
  * bit), for 64-bit values (you need to cast them anyway), and neither for
  * encoding (because it's downcasted.)
  */
+static inline const uint8_t *ptr_get_be64(const uint8_t *ptr, uint64_t *out)
+{
+	uint32_t tmp1, tmp2;
+
+	memcpy(&tmp1, ptr, sizeof(tmp1));
+	memcpy(&tmp2, ptr + sizeof(tmp1), sizeof(tmp1));
+
+	*out = (((uint64_t)ntohl(tmp1)) << 32) | ntohl(tmp2);
+
+	return ptr + 8;
+}
+
 static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 {
 	uint32_t tmp;

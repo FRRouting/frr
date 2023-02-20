@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2016-2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_TYPESAFE_H
@@ -850,9 +839,12 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	struct thash_item **np = &h->hh.entries[hbits];                        \
 	while (*np && (*np)->hashval < hval)                                   \
 		np = &(*np)->next;                                             \
-	if (*np && cmpfn(container_of(*np, type, field.hi), item) == 0) {      \
-		h->hh.count--;                                                 \
-		return container_of(*np, type, field.hi);                      \
+	while (*np && (*np)->hashval == hval) {                                \
+		if (cmpfn(container_of(*np, type, field.hi), item) == 0) {     \
+			h->hh.count--;                                         \
+			return container_of(*np, type, field.hi);              \
+		}                                                              \
+		np = &(*np)->next;                                             \
 	}                                                                      \
 	item->field.hi.next = *np;                                             \
 	*np = &item->field.hi;                                                 \

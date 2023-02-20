@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP FlowSpec VTY
  * Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -338,18 +325,14 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			local_buff[0] = '\0';
 			if (p->u.prefix_flowspec.family == AF_INET
 			    && attr->nexthop.s_addr != INADDR_ANY)
-				inet_ntop(AF_INET,
-					  &attr->nexthop.s_addr,
-					  local_buff,
-					  INET6_ADDRSTRLEN);
+				inet_ntop(AF_INET, &attr->nexthop.s_addr,
+					  local_buff, sizeof(local_buff));
 			else if (p->u.prefix_flowspec.family == AF_INET6 &&
 				 attr->mp_nexthop_len != 0 &&
 				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV4 &&
 				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV4)
-				inet_ntop(AF_INET6,
-					  &attr->mp_nexthop_global,
-					  local_buff,
-					  INET6_ADDRSTRLEN);
+				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
+					  local_buff, sizeof(local_buff));
 			if (local_buff[0] != '\0')
 				vty_out(vty, "\tNLRI NH %s\n",
 					local_buff);

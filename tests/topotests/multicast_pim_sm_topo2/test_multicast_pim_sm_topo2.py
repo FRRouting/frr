@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -157,7 +144,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.19")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel version should be >= 4.19")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -172,12 +159,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -457,12 +441,11 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -666,12 +649,11 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -1056,8 +1038,9 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
         tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
     )
     assert result is not True, (
-        "Testcase {} : Failed Error: \n "
-        "mroutes are still present, after waiting for 10 mins".format(tc_name)
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: Upstream IIF should be unknown \n "
+        "Found: {}".format(tc_name, "l1", result)
     )
 
     step("No shut the Source interface just after the upstream is expired" " from FRR1")
@@ -1088,12 +1071,11 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -1413,9 +1395,11 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
+        )
 
     write_test_footer(tc_name)
 
@@ -1610,12 +1594,11 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step(
         "No traffic impact observed on other receivers verify using"
@@ -1823,12 +1806,11 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
         "f1-i8-eth2",
         expected=False,
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n mroutes are" " still present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+        "Found: {}".format(tc_name, data["dut"], result)
     )
-    logger.info("Expected Behavior: {}".format(result))
 
     result = verify_upstream_iif(
         tgen, "f1", "Unknown", "10.0.5.2", _IGMP_JOIN_RANGE, joinState="NotJoined"

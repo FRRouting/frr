@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * API message handling module for OSPF daemon and client.
  * Copyright (C) 2001, 2002 Ralph Keller
  * Copyright (c) 2022, LabN Consulting, L.L.C.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -532,16 +517,17 @@ struct msg *new_msg_originate_request(uint32_t seqnum, struct in_addr ifaddr,
 	return msg_new(MSG_ORIGINATE_REQUEST, omsg, seqnum, omsglen);
 }
 
-struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr area_id,
+struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr addr,
 				   uint8_t lsa_type, uint8_t opaque_type,
-				   uint32_t opaque_id)
+				   uint32_t opaque_id, uint8_t flags)
 {
 	struct msg_delete_request dmsg;
-	dmsg.area_id = area_id;
+	dmsg.addr = addr;
 	dmsg.lsa_type = lsa_type;
 	dmsg.opaque_type = opaque_type;
 	dmsg.opaque_id = htonl(opaque_id);
 	memset(&dmsg.pad, 0, sizeof(dmsg.pad));
+	dmsg.flags = flags;
 
 	return msg_new(MSG_DELETE_REQUEST, &dmsg, seqnum,
 		       sizeof(struct msg_delete_request));

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Monitor status of frr daemons and restart if necessary.
  *
  * Copyright (C) 2004  Andrew J. Schorr
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -112,6 +99,7 @@ static struct global_state {
 	long period;
 	long timeout;
 	long restart_timeout;
+	bool reading_configuration;
 	long min_restart_interval;
 	long max_restart_interval;
 	long operational_timeout;
@@ -365,6 +353,16 @@ static void restart_kill(struct thread *t_kill)
 	struct timeval delay;
 
 	time_elapsed(&delay, &restart->time);
+
+	if (gs.reading_configuration) {
+		zlog_err(
+			"%s %s child process appears to still be reading configuration, delaying for another %lu time",
+			restart->what, restart->name, gs.restart_timeout);
+		thread_add_timer(master, restart_kill, restart,
+				 gs.restart_timeout, &restart->t_kill);
+		return;
+	}
+
 	zlog_warn(
 		"%s %s child process %d still running after %ld seconds, sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
@@ -501,7 +499,11 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 	restart->kills = 0;
 	{
 		char cmd[strlen(command) + strlen(restart->name) + 1];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* user supplied command string has a %s for the daemon name */
 		snprintf(cmd, sizeof(cmd), command, restart->name);
+#pragma GCC diagnostic pop
 		if ((restart->pid = run_background(cmd)) > 0) {
 			thread_add_timer(master, restart_kill, restart,
 					 gs.restart_timeout, &restart->t_kill);
@@ -930,13 +932,10 @@ static void phase_check(void)
 		if (!IS_UP(gs.special))
 			break;
 		zlog_info("Phased restart: %s is now up.", gs.special->name);
-		{
-			struct daemon *dmn;
-			for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-				if (dmn != gs.special)
-					run_job(&dmn->restart, "start",
-						gs.start_command, 1, 0);
-			}
+		for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+			if (dmn != gs.special)
+				run_job(&dmn->restart, "start",
+					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
 		THREAD_OFF(gs.t_phase_hanging);
@@ -1059,6 +1058,8 @@ void watchfrr_status(struct vty *vty)
 	vty_out(vty, " Min Restart Interval: %ld\n", gs.min_restart_interval);
 	vty_out(vty, " Max Restart Interval: %ld\n", gs.max_restart_interval);
 	vty_out(vty, " Restart Timeout: %ld\n", gs.restart_timeout);
+	vty_out(vty, " Reading Configuration: %s\n",
+		gs.reading_configuration ? "yes" : "no");
 	if (gs.restart.pid)
 		vty_out(vty, "    global restart running, pid %ld\n",
 			(long)gs.restart.pid);
@@ -1263,6 +1264,16 @@ static void netns_setup(const char *nsname)
 	exit(1);
 }
 #endif
+
+static void watchfrr_start_config(void)
+{
+	gs.reading_configuration = true;
+}
+
+static void watchfrr_end_config(void)
+{
+	gs.reading_configuration = false;
+}
 
 static void watchfrr_init(int argc, char **argv)
 {
@@ -1558,6 +1569,7 @@ int main(int argc, char **argv)
 	master = frr_init();
 	watchfrr_error_init();
 	watchfrr_init(argc, argv);
+	cmd_init_config_callbacks(watchfrr_start_config, watchfrr_end_config);
 	watchfrr_vty_init();
 
 	frr_config_fork();

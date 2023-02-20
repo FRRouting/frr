@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_circuit.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISIS_CIRCUIT_H
@@ -28,6 +15,7 @@
 #include "qobj.h"
 #include "prefix.h"
 #include "ferr.h"
+#include "nexthop.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -141,6 +129,7 @@ struct isis_circuit {
 	struct list *ipv6_non_link; /* our non-link local IPv6 addresses */
 	uint16_t upadjcount[ISIS_LEVELS];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
+#define ISIS_CIRCUIT_IF_DOWN_FROM_Z 0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
 	struct {
@@ -209,6 +198,9 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 void isis_circuit_print_json(struct isis_circuit *circuit,
 			     struct json_object *json, char detail);
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
+void isis_circuit_switchover_routes(struct isis_circuit *circuit, int family,
+				    union g_addr *nexthop_ip,
+				    ifindex_t ifindex);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP VTY interface.
  * Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_VTY_H
@@ -56,18 +41,14 @@ struct bgp;
 	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
 
-#define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, json)                    \
+#define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json)                              \
 	do {                                                                   \
-		bgp_show_neighbor_graceful_restart_local_mode(vty, p,          \
-							      use_json, json); \
-		bgp_show_neighbor_graceful_restart_remote_mode(                \
-			vty, p, use_json, json);                               \
-		bgp_show_neighnor_graceful_restart_flags(vty, p, use_json,     \
-							 json);                \
-		bgp_show_neighbor_graceful_restart_time(vty, p, use_json,      \
-							json);                 \
+		bgp_show_neighbor_graceful_restart_local_mode(vty, p, json);   \
+		bgp_show_neighbor_graceful_restart_remote_mode(vty, p, json);  \
+		bgp_show_neighnor_graceful_restart_flags(vty, p, json);        \
+		bgp_show_neighbor_graceful_restart_time(vty, p, json);         \
 		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(    \
-			vty, p, use_json, json);                               \
+			vty, p, json);                                         \
 	} while (0)
 
 #define VTY_BGP_GR_DEFINE_LOOP_VARIABLE                                        \
@@ -185,5 +166,6 @@ int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 				safi_t safi, const char *neighbor, int as_type,
 				as_t as, uint16_t show_flags);
+extern bool peergroup_flag_check(struct peer *peer, uint64_t flag);
 
 #endif /* _QUAGGA_BGP_VTY_H */

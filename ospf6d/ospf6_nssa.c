@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFv3 Not So Stubby Area implementation.
  *
  * Copyright (C) 2021 Kaushik Nath
  * Copyright (C) 2021 Soman K.S
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include <zebra.h>
@@ -49,9 +36,7 @@
 #include "ospf6_asbr.h"
 #include "ospf6d.h"
 #include "ospf6_nssa.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_nssa_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 unsigned char config_debug_ospf6_nssa = 0;
@@ -1092,7 +1077,25 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 			ospf6_nssa_lsa_originate(aggr->route, area, true);
 		}
 	}
+}
 
+static void ospf6_ase_lsa_refresh(struct ospf6 *o)
+{
+	struct ospf6_lsa *old;
+
+	for (struct ospf6_route *route = ospf6_route_head(o->external_table);
+	     route; route = ospf6_route_next(route)) {
+		old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
+					route->path.origin.id, o->router_id,
+					o->lsdb);
+		if (old) {
+			THREAD_OFF(old->refresh);
+			thread_add_event(master, ospf6_lsa_refresh, old, 0,
+					 &old->refresh);
+		} else {
+			ospf6_as_external_lsa_originate(route, o);
+		}
+	}
 }
 
 void ospf6_area_nssa_update(struct ospf6_area *area)
@@ -1136,6 +1139,36 @@ void ospf6_area_nssa_update(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("Normal area %s", area->name);
 		ospf6_nssa_flush_area(area);
+
+		/* Check if router is ABR */
+		if (ospf6_check_and_set_router_abr(area->ospf6)) {
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug("Router is ABR area %s", area->name);
+			ospf6_schedule_abr_task(area->ospf6);
+			ospf6_ase_lsa_refresh(area->ospf6);
+		} else {
+			uint16_t type;
+			struct ospf6_lsa *lsa = NULL;
+
+			/*
+			 * Refresh all type-5 LSAs so they get installed
+			 * in the converted ares
+			 */
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug("Refresh type-5 LSAs, area %s",
+					   area->name);
+
+			type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
+			for (ALL_LSDB_TYPED_ADVRTR(area->ospf6->lsdb, type,
+						   area->ospf6->router_id,
+						   lsa)) {
+				if (IS_OSPF6_DEBUG_NSSA)
+					ospf6_lsa_header_print(lsa);
+				THREAD_OFF(lsa->refresh);
+				thread_add_event(master, ospf6_lsa_refresh, lsa,
+						 0, &lsa->refresh);
+			}
+		}
 	}
 }
 

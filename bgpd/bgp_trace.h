@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Tracing for BGP
  *
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #if !defined(_BGP_TRACE_H) || defined(TRACEPOINT_HEADER_MULTI_READ)
@@ -246,6 +233,71 @@ TRACEPOINT_EVENT(
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, bgp_dest_unlock, TRACE_INFO)
+
+/*
+ * peer_lock/peer_unlock
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_peer_lock,
+	TP_ARGS(struct peer *, peer,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(unsigned int, count, peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_lock, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_peer_unlock,
+	TP_ARGS(struct peer *, peer,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(unsigned int, count, peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_unlock, TRACE_INFO)
+
+/*
+ * bgp_path_info_add/bgp_path_info_free
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_path_info_add,
+	TP_ARGS(struct bgp_dest *, dest,
+		struct bgp_path_info *, bpi,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(prefix, bgp_dest_get_prefix_str(dest))
+		ctf_string(peer, PEER_HOSTNAME(bpi->peer))
+		ctf_integer(unsigned int, dest_lock,
+			    bgp_dest_get_lock_count(dest))
+		ctf_integer(unsigned int, peer_lock, bpi->peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_path_info_free,
+	TP_ARGS(struct bgp_path_info *, bpi,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(prefix, bgp_dest_get_prefix_str(bpi->net))
+		ctf_string(peer, PEER_HOSTNAME(bpi->peer))
+		ctf_integer(unsigned int, dest_lock,
+			    bgp_dest_get_lock_count(bpi->net))
+		ctf_integer(unsigned int, peer_lock, bpi->peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_free, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_bgp,

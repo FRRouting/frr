@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Route map northbound CLI implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include <zebra.h>
@@ -26,9 +12,7 @@
 #include "lib/northbound_cli.h"
 #include "lib/routemap.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/routemap_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
 
 #define ROUTE_MAP_CMD_STR \
 	"Create route-map or enter route-map command mode\n" \
@@ -1089,6 +1073,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				"./rmap-set-action/frr-bgp-route-map:origin"));
 	} else if (IS_SET_ATOMIC_AGGREGATE(action)) {
 		vty_out(vty, " set atomic-aggregate\n");
+	} else if (IS_SET_AIGP_METRIC(action)) {
+		vty_out(vty, " set aigp-metric %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:aigp-metric"));
 	} else if (IS_SET_ORIGINATOR_ID(action)) {
 		vty_out(vty, " set originator-id %s\n",
 			yang_dnode_get_string(

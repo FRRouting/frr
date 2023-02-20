@@ -5,5 +5,5 @@ Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
 Origin codes:  i - IGP, e - EGP, ? - incomplete
 RPKI validation codes: V valid, I invalid, N Not found
 
-   Network          Next Hop            Metric LocPrf Weight Path
-*> fc00::/64        ::                       0         32768 i
+    Network          Next Hop            Metric LocPrf Weight Path
+ *> fc00::/64        ::                       0         32768 i

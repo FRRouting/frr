@@ -14,6 +14,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-opensuse.rst \
 	doc/developer/building-frr-for-freebsd10.rst \
 	doc/developer/building-frr-for-freebsd11.rst \
+	doc/developer/building-frr-for-freebsd13.rst \
 	doc/developer/building-frr-for-freebsd9.rst \
 	doc/developer/building-frr-for-netbsd6.rst \
 	doc/developer/building-frr-for-netbsd7.rst \
@@ -70,6 +71,7 @@ EXTRA_DIST += \
 	doc/developer/draft-zebra-00.ms \
 	doc/developer/ldpd-basic-test-setup.md \
 	doc/developer/release-announcement-template.md \
+	doc/developer/_static/overrides.css \
 	# end
 
 DEVBUILD = doc/developer/_build

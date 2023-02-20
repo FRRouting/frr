@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPF version 2 daemon program.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -89,6 +74,25 @@ static int ospf_network_match_iface(const struct connected *,
 				    const struct prefix *);
 static void ospf_finish_final(struct ospf *);
 
+/* API to clean refresh queues and LSAs */
+static void ospf_free_refresh_queue(struct ospf *ospf)
+{
+	for (int i = 0; i < OSPF_LSA_REFRESHER_SLOTS; i++) {
+		struct list *list = ospf->lsa_refresh_queue.qs[i];
+		struct listnode *node, *nnode;
+		struct ospf_lsa *lsa;
+
+		if (list) {
+			for (ALL_LIST_ELEMENTS(list, node, nnode, lsa)) {
+				listnode_delete(list, lsa);
+				lsa->refresh_list = -1;
+				ospf_lsa_unlock(&lsa);
+			}
+			list_delete(&list);
+			ospf->lsa_refresh_queue.qs[i] = NULL;
+		}
+	}
+}
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
 
 int p_spaces_compare_func(const struct p_space *a, const struct p_space *b)
@@ -832,6 +836,10 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_route_delete(ospf, ospf->new_table);
 		ospf_route_table_free(ospf->new_table);
 	}
+	if (ospf->oall_rtrs)
+		ospf_rtrs_free(ospf->oall_rtrs);
+	if (ospf->all_rtrs)
+		ospf_rtrs_free(ospf->all_rtrs);
 	if (ospf->old_rtrs)
 		ospf_rtrs_free(ospf->old_rtrs);
 	if (ospf->new_rtrs)
@@ -893,6 +901,8 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	route_table_finish(ospf->rt_aggr_tbl);
 
+
+	ospf_free_refresh_queue(ospf);
 
 	list_delete(&ospf->areas);
 	list_delete(&ospf->oi_write_q);

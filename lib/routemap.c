@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Route map function.
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,6 +20,8 @@
 #include "table.h"
 #include "json.h"
 #include "jhash.h"
+
+#include "lib/routemap_clippy.c"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
@@ -613,7 +600,8 @@ static unsigned int route_map_dep_hash_make_key(const void *p);
 static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
-static bool rmap_debug;
+
+uint32_t rmap_debug;
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -681,7 +669,7 @@ static struct route_map *route_map_add(const char *name)
 	if (!map->ipv6_prefix_table)
 		map->ipv6_prefix_table = route_table_init();
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Add route-map %s", name);
 	return map;
 }
@@ -701,7 +689,7 @@ static void route_map_free_map(struct route_map *map)
 	while ((index = map->head) != NULL)
 		route_map_index_delete(index, 0);
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Deleting route-map %s", map->name);
 
 	list = &route_map_master;
@@ -1059,7 +1047,6 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 
 		if (map) {
 			vty_show_route_map_entry(vty, map, json_proto);
-			return CMD_SUCCESS;
 		} else if (!use_json) {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
 				frr_protonameinst, name);
@@ -1133,7 +1120,7 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 
 	QOBJ_UNREG(index);
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Deleting route-map %s sequence %d",
 			   index->map->name, index->pref);
 
@@ -1244,7 +1231,7 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 		route_map_notify_dependencies(map->name, RMAP_EVENT_CALL_ADDED);
 	}
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Route-map %s add sequence %d, type: %s",
 			   map->name, pref, route_map_type_str(type));
 
@@ -1755,7 +1742,8 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 					ret = RMAP_MATCH;
 				break;
 
-			default:
+			case RMAP_OKAY:
+			case RMAP_ERROR:
 				break;
 			}
 
@@ -1816,7 +1804,24 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	struct route_map_index *index = NULL, *best_index = NULL;
 	struct route_map_index *head_index = NULL;
 	struct route_table *table = NULL;
-	unsigned char family = prefix->family;
+	struct prefix conv;
+	unsigned char family;
+
+	/*
+	 * Handling for matching evpn_routes in the prefix table.
+	 *
+	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
+	 * prefix matching on.
+	 */
+	if (prefix->family == AF_EVPN) {
+		if (evpn_prefix2prefix(prefix, &conv) != 0)
+			return NULL;
+
+		prefix = &conv;
+	}
+
+
+	family = prefix->family;
 
 	if (family == AF_INET)
 		table = map->ipv4_prefix_table;
@@ -1891,12 +1896,7 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 static int route_map_candidate_list_cmp(struct route_map_index *idx1,
 					struct route_map_index *idx2)
 {
-	if (!idx1)
-		return -1;
-	if (!idx2)
-		return 1;
-
-	return (idx1->pref - idx2->pref);
+	return idx1->pref - idx2->pref;
 }
 
 /*
@@ -2568,13 +2568,13 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 					    &match_ret);
 		if (index) {
 			index->applied++;
-			if (rmap_debug)
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 				zlog_debug(
 					"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
 					map->name, index->pref, prefix,
 					route_map_cmd_result_str(match_ret));
 		} else {
-			if (rmap_debug)
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 				zlog_debug(
 					"No best match sequence for pfx: %pFX in route-map: %s, result: %s",
 					prefix, map->name,
@@ -2600,7 +2600,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
 							  prefix, match_object);
-			if (rmap_debug) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
 					map->name, index->pref, prefix,
@@ -2713,7 +2713,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 route_map_apply_end:
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Route-map: %s, prefix: %pFX, result: %s",
 			   (map ? map->name : "null"), prefix,
 			   route_map_result_str(ret));
@@ -2768,7 +2768,7 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	tmp_dep_data.rname = arg;
 	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
 	if (dep_data) {
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Clearing reference for %s to %s count: %d",
 				   dep->dep_name, tmp_dep_data.rname,
 				   dep_data->refcnt);
@@ -2788,7 +2788,7 @@ static void route_map_clear_all_references(char *rmap_name)
 {
 	int i;
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Clearing references for %s", rmap_name);
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
@@ -2864,7 +2864,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_LLIST_ADDED:
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_FILTER_ADDED:
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Adding dependency for filter %s in route-map %s",
 				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(
@@ -2893,7 +2893,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_LLIST_DELETED:
 	case RMAP_EVENT_CALL_DELETED:
 	case RMAP_EVENT_FILTER_DELETED:
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Deleting dependency for filter %s in route-map %s",
 				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(dephash, dname, NULL);
@@ -2947,7 +2947,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	}
 
 	if (dep) {
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			hash_iterate(dep->dep_rmap_hash,
 				     route_map_print_dependency, dname);
 	}
@@ -3019,7 +3019,7 @@ static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 	dep_data = bucket->data;
 	rmap_name = dep_data->rname;
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Notifying %s of dependency", rmap_name);
 	if (route_map_master.event_hook)
 		(*route_map_master.event_hook)(rmap_name);
@@ -3067,7 +3067,7 @@ void route_map_notify_dependencies(const char *affected_name,
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
 
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Filter %s updated", dep->dep_name);
 		hash_iterate(dep->dep_rmap_hash, route_map_process_dependency,
 			     (void *)event);
@@ -3145,24 +3145,34 @@ DEFUN (rmap_show_unused,
 	return vty_show_unused_route_map(vty);
 }
 
-DEFUN (debug_rmap,
+DEFPY (debug_rmap,
        debug_rmap_cmd,
-       "debug route-map",
+       "debug route-map [detail]$detail",
        DEBUG_STR
-       "Debug option set for route-maps\n")
+       "Debug option set for route-maps\n"
+       "Detailed output\n")
 {
-	rmap_debug = true;
+	if (!detail)
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	else
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP | DEBUG_ROUTEMAP_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_rmap,
+DEFPY (no_debug_rmap,
        no_debug_rmap_cmd,
-       "no debug route-map",
+       "no debug route-map [detail]$detail",
        NO_STR
        DEBUG_STR
-       "Debug option set for route-maps\n")
+       "Debug option set for route-maps\n"
+       "Detailed output\n")
 {
-	rmap_debug = false;
+	if (!detail)
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	else
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP | DEBUG_ROUTEMAP_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
@@ -3175,12 +3185,18 @@ static struct cmd_node rmap_debug_node = {
 	.config_write = rmap_config_write_debug,
 };
 
+void route_map_show_debug(struct vty *vty)
+{
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+		vty_out(vty, "debug route-map\n");
+}
+
 /* Configuration write function. */
 static int rmap_config_write_debug(struct vty *vty)
 {
 	int write = 0;
 
-	if (rmap_debug) {
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)) {
 		vty_out(vty, "debug route-map\n");
 		write++;
 	}
@@ -3382,7 +3398,7 @@ void route_map_init(void)
 			8, route_map_dep_hash_make_key, route_map_dep_hash_cmp,
 			"Route Map Dep Hash");
 
-	rmap_debug = false;
+	UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
 
 	route_map_cli_init();
 

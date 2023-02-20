@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Create a basic stage set up to build APKs
-FROM alpine:3.15 as alpine-builder
+FROM alpine:3.17 as alpine-builder
 RUN apk add \
 		--update-cache \
 		abuild \
@@ -12,18 +12,8 @@ RUN apk add \
 	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 RUN adduser -D -G abuild builder && su builder -c 'abuild-keygen -a -n'
 
-# This stage builds a libyang APK from source
-FROM alpine-builder as libyang-builder
-RUN mkdir -p /libyang && chown -R builder /pkgs /libyang
-# -- Not currently needed - libyang currently available in Alpine upstream
-# COPY docker/alpine/libyang/ /libyang
-# USER builder
-# RUN cd /libyang \
-# 	&& abuild checksum \
-# 	&& abuild -r -P /pkgs/apk
-
 # This stage builds a dist tarball from the source
-FROM alpine:3.15 as source-builder
+FROM alpine:3.17 as source-builder
 
 RUN mkdir -p /src/alpine
 COPY alpine/APKBUILD.in /src/alpine
@@ -36,14 +26,7 @@ RUN source /src/alpine/APKBUILD.in \
 		py-pip \
 		rtrlib \
 	&& pip install pytest
-
 RUN mkdir -p /pkgs/apk
-# -- Not needed while libyang is not built
-# COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
-# RUN apk add \
-# 		--no-cache \
-# 		--allow-untrusted /pkgs/apk/*/*.apk \
-
 COPY . /src
 ARG PKGVER
 RUN cd /src \
@@ -54,12 +37,7 @@ RUN cd /src \
 	&& make dist
 
 # This stage builds an APK from the dist tarball
-FROM alpine-builder as frr-apk-builder
-# -- Not needed while libyang is not built
-# COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
-# RUN apk add \
-# 		--no-cache \
-# 		--allow-untrusted /pkgs/apk/*/*.apk
+FROM alpine-builder as alpine-apk-builder
 COPY --from=source-builder /src/frr-*.tar.gz /src/alpine/* /dist/
 RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
 RUN chown -R builder /dist /pkgs
@@ -70,9 +48,9 @@ RUN cd /dist \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
-FROM alpine:3.15
+FROM alpine:3.17
 RUN mkdir -p /pkgs/apk
-COPY --from=frr-apk-builder /pkgs/apk/ /pkgs/apk/
+COPY --from=alpine-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \
 		--no-cache \
 		--update-cache \

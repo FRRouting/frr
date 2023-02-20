@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISISD_ISIS_NB_H_
@@ -37,7 +24,8 @@ int isis_instance_dynamic_hostname_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_send_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_receive_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_modify(struct nb_cb_modify_args *args);
-int isis_instance_overload_modify(struct nb_cb_modify_args *args);
+int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args);
+int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
@@ -368,6 +356,36 @@ lib_interface_state_isis_adjacencies_adjacency_neighbor_priority_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_state_isis_adjacencies_adjacency_state_get_elem(
 	struct nb_cb_get_elem_args *args);
+const void *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_get_next(
+	struct nb_cb_get_next_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_af_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_value_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_weight_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_protection_requested_get_elem(
+	struct nb_cb_get_elem_args *args);
+const void *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_get_next(
+	struct nb_cb_get_next_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_af_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_value_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_weight_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_protection_requested_get_elem(
+	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_state_isis_event_counters_adjacency_changes_get_elem(
 	struct nb_cb_get_elem_args *args);
@@ -442,6 +460,9 @@ void cli_show_isis_attached_receive(struct vty *vty,
 				    bool show_defaults);
 void cli_show_isis_overload(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
+void cli_show_isis_overload_on_startup(struct vty *vty,
+				       const struct lyd_node *dnode,
+				       bool show_defaults);
 void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode,

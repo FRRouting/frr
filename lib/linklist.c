@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Generic linked list routine.
  * Copyright (C) 1997, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,6 +12,37 @@
 
 DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List");
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node");
+
+/* these *do not* cleanup list nodes and referenced data, as the functions
+ * do - these macros simply {de,at}tach a listnode from/to a list.
+ */
+
+/* List node attach macro.  */
+#define LISTNODE_ATTACH(L, N)                                                  \
+	do {                                                                   \
+		(N)->prev = (L)->tail;                                         \
+		(N)->next = NULL;                                              \
+		if ((L)->head == NULL)                                         \
+			(L)->head = (N);                                       \
+		else                                                           \
+			(L)->tail->next = (N);                                 \
+		(L)->tail = (N);                                               \
+		(L)->count++;                                                  \
+	} while (0)
+
+/* List node detach macro.  */
+#define LISTNODE_DETACH(L, N)                                                  \
+	do {                                                                   \
+		if ((N)->prev)                                                 \
+			(N)->prev->next = (N)->next;                           \
+		else                                                           \
+			(L)->head = (N)->next;                                 \
+		if ((N)->next)                                                 \
+			(N)->next->prev = (N)->prev;                           \
+		else                                                           \
+			(L)->tail = (N)->prev;                                 \
+		(L)->count--;                                                  \
+	} while (0)
 
 struct list *list_new(void)
 {
@@ -98,9 +114,10 @@ void listnode_add_head(struct list *list, void *val)
 
 	node->next = list->head;
 
-	if (list->head == NULL)
+	if (list->head == NULL) {
 		list->head = node;
-	else
+		list->tail = node;
+	} else
 		list->head->prev = node;
 	list->head = node;
 

@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc. ("NetDEF")
 # in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -155,7 +142,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.16")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.16")
 
     global ADDR_TYPES
 
@@ -726,19 +713,17 @@ def test_BGP_GR_chaos_29_p1(request):
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes before shutting down BGPd daemon
         result = verify_rib(tgen, addr_type, dut, input_dict, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Step 4] : Start BGPd daemon on R1..")
 
@@ -981,11 +966,9 @@ def test_BGP_GR_chaos_33_p1(request):
             )
             assert result is not True, (
                 "Testcase {} : Failed \n "
-                "r3: routes are still present in BGP RIB\n Error: {}".format(
-                    tc_name, result
-                )
+                "Expected: Routes should not be present in {} FIB \n "
+                "Found: {}".format(tc_name, dut, result)
             )
-            logger.info(" Expected behavior: {}".format(result))
 
         if addr_type == "ipv6":
             if "link_local" in PREFERRED_NEXT_HOP:
@@ -998,11 +981,9 @@ def test_BGP_GR_chaos_33_p1(request):
             )
             assert result is not True, (
                 "Testcase {} : Failed \n "
-                "r3: routes are still present in ZEBRA\n Error: {}".format(
-                    tc_name, result
-                )
+                "Expected: Routes should not be present in {} FIB \n "
+                "Found: {}".format(tc_name, dut, result)
             )
-            logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Step 4] : Start BGPd daemon on R1 and R4..")
 
@@ -1182,31 +1163,28 @@ def test_BGP_GR_chaos_34_2_p1(request):
         result = verify_f_bit(
             tgen, topo, addr_type, input_dict, "r3", "r1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r3: F-bit is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: F-bit should not be set to True in r3\n"
+            "Found: {}".format(tc_name, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying BGP RIB routes after starting BGPd daemon
         input_dict_1 = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     write_test_footer(tc_name)
 

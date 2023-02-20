@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Nexthop Group header.
  * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Donald Sharp
  *                    Stephen Worley
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #ifndef __ZEBRA_NHG_H__
 #define __ZEBRA_NHG_H__
@@ -228,6 +212,7 @@ struct nhg_ctx {
 		struct nh_grp grp[MULTIPATH_NUM];
 	} u;
 
+	struct nhg_resilience resilience;
 	enum nhg_ctx_op_e op;
 	enum nhg_ctx_status status;
 };
@@ -308,7 +293,8 @@ void nhg_ctx_free(struct nhg_ctx **ctx);
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 struct nh_grp *grp, uint8_t count,
 				 vrf_id_t vrf_id, afi_t afi, int type,
-				 int startup);
+				 int startup,
+				 struct nhg_resilience *resilience);
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 

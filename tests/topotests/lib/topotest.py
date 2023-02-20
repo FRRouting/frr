@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # topotest.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2016 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 import difflib
@@ -355,6 +342,16 @@ def run_and_expect(func, what, count=20, wait=3):
     else:
         func_name = func.__name__
 
+    # Just a safety-check to avoid running topotests with very
+    # small wait/count arguments.
+    wait_time = wait * count
+    if wait_time < 5:
+        assert (
+            wait_time >= 5
+        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
+            count, wait
+        )
+
     logger.info(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
             func_name, wait, count
@@ -401,6 +398,16 @@ def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
         func_name = func.func.__name__
     else:
         func_name = func.__name__
+
+    # Just a safety-check to avoid running topotests with very
+    # small wait/count arguments.
+    wait_time = wait * count
+    if wait_time < 5:
+        assert (
+            wait_time >= 5
+        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
+            count, wait
+        )
 
     logger.info(
         "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
@@ -575,6 +582,29 @@ def iproute2_is_vrf_capable():
             pass
     return False
 
+def iproute2_is_fdb_get_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling `bridge fdb get` commands to query neigh table resolution.
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["bridge", "fdb", "get", "help"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_out = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if "Usage" in str(iproute2_out):
+                return True
+        except Exception:
+            pass
+    return False
 
 def module_present_linux(module, load):
     """
@@ -1868,15 +1898,16 @@ class Router(Node):
                 # Exclude empty string at end of list
                 for d in dmns[:-1]:
                     if re.search(r"%s" % daemon, d):
-                        daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                        daemonpidfile = d.rstrip()
+                        daemonpid = self.cmd("cat %s" % daemonpidfile).rstrip()
                         if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                             logger.info(
                                 "{}: killing {}".format(
                                     self.name,
-                                    os.path.basename(d.rstrip().rsplit(".", 1)[0]),
+                                    os.path.basename(daemonpidfile.rsplit(".", 1)[0]),
                                 )
                             )
-                            self.cmd("kill -9 %s" % daemonpid)
+                            os.kill(int(daemonpid), signal.SIGKILL)
                             if pid_exists(int(daemonpid)):
                                 numRunning += 1
                         while wait and numRunning > 0:
@@ -1902,12 +1933,12 @@ class Router(Node):
                                                 ),
                                             )
                                         )
-                                        self.cmd("kill -9 %s" % daemonpid)
+                                        os.kill(int(daemonpid), signal.SIGKILL)
                                     if daemonpid.isdigit() and not pid_exists(
                                         int(daemonpid)
                                     ):
                                         numRunning -= 1
-                        self.cmd("rm -- {}".format(d.rstrip()))
+                        self.cmd("rm -- {}".format(daemonpidfile))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
                         if self.checkRouterVersion("<", minErrorVersion):

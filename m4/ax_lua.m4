@@ -519,7 +519,7 @@ AC_DEFUN([AX_LUA_HEADERS],
         [
           ax_cv_lua_header_version=`echo LUA_VERSION | \
             $CC -P -E $LUA_INCLUDE -imacros lua.h - | \
-                $SED -e 's%"\s*"%%g' -e 's%^\s*%%' | \
+                $SED -e 's%"@<:@@<:@:space:@:>@@:>@*"%%g' -e 's%^@<:@@<:@:space:@:>@@:>@*%%' | \
                 tr -d '"\n' | \
                     $SED -n "s|^Lua \(@<:@0-9@:>@\{1,\}\.@<:@0-9@:>@\{1,\}\).\{0,\}|\1|p"`
         ])

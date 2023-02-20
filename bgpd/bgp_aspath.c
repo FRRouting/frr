@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* AS path management routines.
  * Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2005 Sun Microsystems, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1187,6 +1172,33 @@ int aspath_loop_check(struct aspath *aspath, as_t asno)
 	return count;
 }
 
+/* AS path loop check.  If aspath contains asno
+ * that is a confed id then return >= 1.
+ */
+int aspath_loop_check_confed(struct aspath *aspath, as_t asno)
+{
+	struct assegment *seg;
+	int count = 0;
+
+	if (aspath == NULL || aspath->segments == NULL)
+		return 0;
+
+	seg = aspath->segments;
+
+	while (seg) {
+		unsigned int i;
+
+		for (i = 0; i < seg->length; i++)
+			if (seg->type != AS_CONFED_SEQUENCE &&
+			    seg->type != AS_CONFED_SET && seg->as[i] == asno)
+				count++;
+
+		seg = seg->next;
+	}
+	return count;
+}
+
+
 /* When all of AS path is private AS return 1.  */
 bool aspath_private_as_check(struct aspath *aspath)
 {
@@ -2095,16 +2107,12 @@ const char *aspath_print(struct aspath *as)
 }
 
 /* Printing functions */
-/* Feed the AS_PATH to the vty; the suffix string follows it only in case
+/* Feed the AS_PATH to the vty; the space suffix follows it only in case
  * AS_PATH wasn't empty.
  */
-void aspath_print_vty(struct vty *vty, const char *format, struct aspath *as,
-		      const char *suffix)
+void aspath_print_vty(struct vty *vty, struct aspath *as)
 {
-	assert(format);
-	vty_out(vty, format, as->str);
-	if (as->str_len && strlen(suffix))
-		vty_out(vty, "%s", suffix);
+	vty_out(vty, "%s%s", as->str, as->str_len ? " " : "");
 }
 
 static void aspath_show_all_iterator(struct hash_bucket *bucket,

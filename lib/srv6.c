@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SRv6 definitions
  * Copyright (C) 2020  Hiroki Shirokura, LINE Corporation
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -57,6 +44,8 @@ const char *seg6local_action2str(uint32_t action)
 		return "End.AS";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
 		return "End.AM";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		return "End.DT46";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	default:
@@ -83,8 +72,6 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
 {
-	char b0[128];
-
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
@@ -93,18 +80,17 @@ const char *seg6local_context2str(char *str, size_t size,
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		inet_ntop(AF_INET6, &ctx->nh6, b0, 128);
-		snprintf(str, size, "nh6 %s", b0);
+		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		inet_ntop(AF_INET, &ctx->nh4, b0, 128);
-		snprintf(str, size, "nh4 %s", b0);
+		snprintfrr(str, size, "nh4 %pI4", &ctx->nh4);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		snprintf(str, size, "table %u", ctx->table);
 		return str;
 
@@ -122,6 +108,13 @@ const char *seg6local_context2str(char *str, size_t size,
 	}
 }
 
+static void srv6_locator_chunk_list_free(void *data)
+{
+	struct srv6_locator_chunk *chunk = data;
+
+	srv6_locator_chunk_free(&chunk);
+}
+
 struct srv6_locator *srv6_locator_alloc(const char *name)
 {
 	struct srv6_locator *locator = NULL;
@@ -129,7 +122,7 @@ struct srv6_locator *srv6_locator_alloc(const char *name)
 	locator = XCALLOC(MTYPE_SRV6_LOCATOR, sizeof(struct srv6_locator));
 	strlcpy(locator->name, name, sizeof(locator->name));
 	locator->chunks = list_new();
-	locator->chunks->del = (void (*)(void *))srv6_locator_chunk_free;
+	locator->chunks->del = srv6_locator_chunk_list_free;
 
 	QOBJ_REG(locator, srv6_locator);
 	return locator;
@@ -154,9 +147,9 @@ void srv6_locator_free(struct srv6_locator *locator)
 	}
 }
 
-void srv6_locator_chunk_free(struct srv6_locator_chunk *chunk)
+void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk)
 {
-	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, chunk);
+	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, *chunk);
 }
 
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
@@ -228,9 +221,23 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	/* set prefix */
 	json_object_string_addf(jo_root, "prefix", "%pFX", &loc->prefix);
 
+	/* set block_bits_length */
+	json_object_int_add(jo_root, "blockBitsLength", loc->block_bits_length);
+
+	/* set node_bits_length */
+	json_object_int_add(jo_root, "nodeBitsLength", loc->node_bits_length);
+
 	/* set function_bits_length */
 	json_object_int_add(jo_root, "functionBitsLength",
 			    loc->function_bits_length);
+
+	/* set argument_bits_length */
+	json_object_int_add(jo_root, "argumentBitsLength",
+			    loc->argument_bits_length);
+
+	/* set true if the locator is a Micro-segment (uSID) locator */
+	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+		json_object_string_add(jo_root, "behavior", "usid");
 
 	/* set status_up */
 	json_object_boolean_add(jo_root, "statusUp",
@@ -276,6 +283,10 @@ json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 	/* set argument_bits_length */
 	json_object_int_add(jo_root, "argumentBitsLength",
 			    loc->argument_bits_length);
+
+	/* set true if the locator is a Micro-segment (uSID) locator */
+	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+		json_object_string_add(jo_root, "behavior", "usid");
 
 	/* set algonum */
 	json_object_int_add(jo_root, "algoNum", loc->algonum);

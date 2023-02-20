@@ -3,6 +3,7 @@
 #
 
 user_RSTFILES = \
+	doc/user/affinitymap.rst \
 	doc/user/babeld.rst \
 	doc/user/ldpd.rst \
 	doc/user/basic.rst \
@@ -11,6 +12,7 @@ user_RSTFILES = \
 	doc/user/bugs.rst \
 	doc/user/conf.py \
 	doc/user/eigrpd.rst \
+	doc/user/evpn.rst \
 	doc/user/extlog.rst \
 	doc/user/fabricd.rst \
 	doc/user/filter.rst \
@@ -22,6 +24,7 @@ user_RSTFILES = \
 	doc/user/ipv6.rst \
 	doc/user/isisd.rst \
 	doc/user/kernel.rst \
+	doc/user/nexthop_groups.rst \
 	doc/user/nhrpd.rst \
 	doc/user/ospf6d.rst \
 	doc/user/ospfd.rst \
@@ -56,6 +59,8 @@ user_RSTFILES = \
 EXTRA_DIST += \
 	$(user_RSTFILES) \
 	doc/user/Useful_Sysctl_Settings.md \
+	doc/user/_static/overrides.css \
+	doc/user/_static/overrides.js \
 	# end
 
 USERBUILD = doc/user/_build

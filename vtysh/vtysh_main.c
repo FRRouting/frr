@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Virtual terminal interface shell.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -111,6 +96,8 @@ static void vtysh_rl_callback(char *line_read)
 
 	if (!vtysh_loop_exited)
 		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+
+	free(line_read);
 }
 
 /* SIGTSTP handler.  This function care user's ^Z input. */
@@ -352,6 +339,7 @@ int main(int argc, char **argv, char **env)
 	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
+	const char *histfile_env = getenv("VTYSH_HISTFILE");
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -609,10 +597,8 @@ int main(int argc, char **argv, char **env)
 	 * VTYSH_HISTFILE is preferred over command line
 	 * argument (-H/--histfile).
 	 */
-	if (getenv("VTYSH_HISTFILE")) {
-		const char *file = getenv("VTYSH_HISTFILE");
-
-		strlcpy(history_file, file, sizeof(history_file));
+	if (histfile_env) {
+		strlcpy(history_file, histfile_env, sizeof(history_file));
 	} else if (histfile) {
 		strlcpy(history_file, histfile, sizeof(history_file));
 	} else {

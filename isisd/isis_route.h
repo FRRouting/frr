@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol               - isis_route.h
  *
@@ -7,20 +8,6 @@
  *
  *                                         based on ../ospf6d/ospf6_route.[ch]
  *                                         by Yasuhiro Ohara
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef _ZEBRA_ISIS_ROUTE_H
 #define _ZEBRA_ISIS_ROUTE_H
@@ -85,5 +72,10 @@ void isis_route_invalidate_table(struct isis_area *area,
 /* Cleanup route node when freeing routing table. */
 void isis_route_node_cleanup(struct route_table *table,
 			     struct route_node *node);
+
+void isis_route_switchover_nexthop(struct isis_area *area,
+				   struct route_table *table, int family,
+				   union g_addr *nexthop_addr,
+				   ifindex_t ifindex);
 
 #endif /* _ZEBRA_ISIS_ROUTE_H */

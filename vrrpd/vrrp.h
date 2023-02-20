@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP global definitions and state machine.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __VRRP_H__
 #define __VRRP_H__
@@ -53,6 +40,7 @@
 #define VRRP_DEFAULT_ADVINT 100
 #define VRRP_DEFAULT_PREEMPT true
 #define VRRP_DEFAULT_ACCEPT true
+#define VRRP_DEFAULT_CHECKSUM_WITH_IPV4_PSEUDOHEADER true
 #define VRRP_DEFAULT_SHUTDOWN false
 
 /* User compatibility constant */
@@ -70,6 +58,7 @@ struct vrrp_defaults {
 	uint16_t advertisement_interval;
 	bool preempt_mode;
 	bool accept_mode;
+	bool checksum_with_ipv4_pseudoheader;
 	bool shutdown;
 };
 
@@ -265,6 +254,14 @@ struct vrrp_vrouter {
 	 * it is not the IPvX address owner. The default is False.
 	 */
 	bool accept_mode;
+
+	/*
+	 * Indicates whether this router computes and accepts VRRPv3 checksums
+	 * without pseudoheader, for device interoperability.
+	 *
+	 * This option should only affect IPv4 virtual routers.
+	 */
+	bool checksum_with_ipv4_pseudoheader;
 
 	struct vrrp_router *v4;
 	struct vrrp_router *v6;

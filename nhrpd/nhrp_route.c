@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP routing functions
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -139,7 +135,17 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		/* Regular route, so these are announced
 		 * to other routing daemons */
 		break;
-	default:
+	case NHRP_CACHE_INVALID:
+	case NHRP_CACHE_INCOMPLETE:
+		/*
+		 * I cannot believe that we want to set a FIB_OVERRIDE
+		 * for invalid state or incomplete.  But this matches
+		 * the original code.  Someone will probably notice
+		 * the problem eventually
+		 */
+	case NHRP_CACHE_CACHED:
+	case NHRP_CACHE_LOCAL:
+	case NHRP_CACHE_NUM_TYPES:
 		SET_FLAG(api.flags, ZEBRA_FLAG_FIB_OVERRIDE);
 		break;
 	}

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of rfc2370.
  * Copyright (C) 2001 KDD R&D Laboratories, Inc.
  * http://www.kddlabs.co.jp/
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -2048,6 +2033,17 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 	if ((lsa = oipi->lsa) == NULL) {
 		flog_warn(EC_OSPF_LSA, "%s: Something wrong?", __func__);
 		goto out;
+	}
+
+	if (lsa->opaque_zero_len_delete &&
+	    lsa->data->length != htons(sizeof(struct lsa_header))) {
+		/* minimize the size of the withdrawal: */
+		/*     increment the sequence number and make len just header */
+		/*     and update checksum */
+		lsa->data->ls_seqnum = lsa_seqnum_increment(lsa);
+		lsa->data->length = htons(sizeof(struct lsa_header));
+		lsa->data->checksum = 0;
+		lsa->data->checksum = ospf_lsa_checksum(lsa->data);
 	}
 
 	/* Delete this lsa from neighbor retransmit-list. */

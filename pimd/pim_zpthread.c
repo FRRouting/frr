@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,11 +22,8 @@ int32_t mlag_bulk_cnt;
 static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 {
 	uint32_t fill_msg_type = msg_type;
-	uint16_t data_len;
+	uint16_t data_len = 0;
 	uint16_t msg_cnt = 1;
-
-	if (msg_type == MLAG_MSG_NONE)
-		return;
 
 	switch (msg_type) {
 	case MLAG_REGISTER:
@@ -54,7 +38,15 @@ static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 		data_len = sizeof(struct mlag_mroute_del);
 		fill_msg_type = MLAG_MROUTE_DEL_BULK;
 		break;
-	default:
+	case MLAG_MSG_NONE:
+		return;
+	case MLAG_STATUS_UPDATE:
+	case MLAG_DUMP:
+	case MLAG_MROUTE_ADD_BULK:
+	case MLAG_MROUTE_DEL_BULK:
+	case MLAG_PIM_CFG_DUMP:
+	case MLAG_VXLAN_UPDATE:
+	case MLAG_PEER_FRR_STATUS:
 		data_len = 0;
 		break;
 	}

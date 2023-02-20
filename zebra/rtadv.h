@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Router advertisement
  * Copyright (C) 2005 6WIND <jean-mickael.guerin@6wind.com>
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RTADV_H
@@ -308,6 +293,7 @@ struct rtadv_prefix {
 #define ND_OPT_HA_INFORMATION	8   /* HA Information Option */
 #endif
 
+
 #ifndef HAVE_STRUCT_ND_OPT_ADV_INTERVAL
 struct nd_opt_adv_interval { /* Advertisement interval option */
 	uint8_t nd_opt_ai_type;
@@ -323,6 +309,12 @@ struct nd_opt_adv_interval { /* Advertisement interval option */
 #define nd_opt_ai_reserved	nd_opt_adv_interval_reserved
 #define nd_opt_ai_interval	nd_opt_adv_interval_ival
 #endif
+#endif
+#ifndef ND_OPT_RTR_ADV_INTERVAL
+#define ND_OPT_RTR_ADV_INTERVAL 7
+#endif
+#ifndef ND_OPT_HOME_AGENT_INFO
+#define ND_OPT_HOME_AGENT_INFO 8
 #endif
 
 #ifndef HAVE_STRUCT_ND_OPT_HOMEAGENT_INFO

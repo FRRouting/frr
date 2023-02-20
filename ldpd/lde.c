@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2004, 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004 Esben Norby <norby@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -760,7 +749,7 @@ lde_update_label(struct fec_node *fn)
 		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
-	default:
+	case FEC_TYPE_PWID:
 		break;
 	}
 
@@ -790,7 +779,7 @@ lde_update_label(struct fec_node *fn)
 			    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLICIT_NULL);
 			return MPLS_LABEL_IPV6_EXPLICIT_NULL;
-		default:
+		case FEC_TYPE_PWID:
 			break;
 		}
 	}
@@ -929,7 +918,7 @@ lde_fec2prefix(const struct fec *fec, struct prefix *prefix)
 		prefix->u.prefix6 = fec->u.ipv6.prefix;
 		prefix->prefixlen = fec->u.ipv6.prefixlen;
 		break;
-	default:
+	case FEC_TYPE_PWID:
 		prefix->family = AF_UNSPEC;
 		break;
 	}
@@ -1314,7 +1303,7 @@ lde_send_labelrequest(struct lde_nbr *ln, struct fec_node *fn,
 			if (!ln->v6_enabled)
 				return;
 			break;
-		default:
+		case FEC_TYPE_PWID:
 			fatalx("lde_send_labelrequest: unknown af");
 		}
 	} else
@@ -1595,7 +1584,7 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 			if (lde_addr->af != AF_INET6)
 				continue;
 			break;
-		default:
+		case FEC_TYPE_PWID:
 			continue;
 		}
 

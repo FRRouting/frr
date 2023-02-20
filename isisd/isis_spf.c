@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol                  - isis_spf.c
  *                                              The SPT algorithm
@@ -6,20 +7,6 @@
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2017        Christian Franke <chris@opensourcerouting.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1297,6 +1284,7 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 		if (lsp_adj == NULL || lsp_adj->hdr.rem_lifetime == 0) {
 			/* Delete one-way adjacency. */
 			listnode_delete(spftree->sadj_list, sadj);
+			isis_spf_adj_free(sadj);
 			continue;
 		}
 
@@ -1313,6 +1301,7 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 		if (args.reverse_metric == UINT32_MAX) {
 			/* Delete one-way adjacency. */
 			listnode_delete(spftree->sadj_list, sadj);
+			isis_spf_adj_free(sadj);
 			continue;
 		}
 		sadj->metric = args.reverse_metric;
@@ -1585,8 +1574,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 		vertex->N.ip.priority = priority;
 		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
 			struct isis_spftree *pre_spftree;
-			struct route_table *route_table;
-			bool allow_ecmp;
+			struct route_table *route_table = NULL;
+			bool allow_ecmp = false;
 
 			switch (spftree->type) {
 			case SPF_TYPE_RLFA:
@@ -1604,7 +1593,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 					return;
 				}
 				break;
-			default:
+			case SPF_TYPE_FORWARD:
+			case SPF_TYPE_REVERSE:
 				break;
 			}
 
@@ -1622,7 +1612,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 				pre_spftree->lfa.protection_counters
 					.tilfa[vertex->N.ip.priority] += 1;
 				break;
-			default:
+			case SPF_TYPE_FORWARD:
+			case SPF_TYPE_REVERSE:
 				route_table = spftree->route_table;
 				allow_ecmp = true;
 
@@ -1697,7 +1688,14 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 					     VTYPE_IPREACH_TE))
 				continue;
 			break;
-		default:
+		case VTYPE_PSEUDO_IS:
+		case VTYPE_PSEUDO_TE_IS:
+		case VTYPE_NONPSEUDO_IS:
+		case VTYPE_NONPSEUDO_TE_IS:
+		case VTYPE_ES:
+		case VTYPE_IPREACH_TE:
+		case VTYPE_IP6REACH_INTERNAL:
+		case VTYPE_IP6REACH_EXTERNAL:
 			break;
 		}
 
@@ -1851,6 +1849,15 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 }
 
+void isis_spf_switchover_routes(struct isis_area *area,
+				struct isis_spftree **trees, int family,
+				union g_addr *nexthop_ip, ifindex_t ifindex,
+				int level)
+{
+	isis_route_switchover_nexthop(area, trees[level - 1]->route_table,
+				      family, nexthop_ip, ifindex);
+}
+
 static void isis_run_spf_cb(struct thread *thread)
 {
 	struct isis_spf_run *run = THREAD_ARG(thread);
@@ -1922,9 +1929,19 @@ void isis_spf_timer_free(void *run)
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line)
 {
-	struct isis_spftree *spftree = area->spftree[SPFTREE_IPV4][level - 1];
-	time_t now = monotime(NULL);
-	int diff = now - spftree->last_run_monotime;
+	struct isis_spftree *spftree;
+	time_t now;
+	long tree_diff, diff;
+	int tree;
+
+	now = monotime(NULL);
+	diff = 0;
+	for (tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		spftree = area->spftree[tree][level - 1];
+		tree_diff = difftime(now - spftree->last_run_monotime, 0);
+		if (tree_diff != now && (diff == 0 || tree_diff < diff))
+			diff = tree_diff;
+	}
 
 	if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return 0;
@@ -1934,7 +1951,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 	if (IS_DEBUG_SPF_EVENTS) {
 		zlog_debug(
-			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %d sec ago Caller: %s %s:%d",
+			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %ld sec ago Caller: %s %s:%d",
 			area->area_tag, level, diff, func, file, line);
 	}
 
@@ -2255,7 +2272,8 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 
 					label2str(
 						nexthop->label_stack->label[i],
-						buf_label, sizeof(buf_label));
+						0, buf_label,
+						sizeof(buf_label));
 					if (i != 0)
 						strlcat(buf_labels, "/",
 							sizeof(buf_labels));
@@ -2263,7 +2281,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 						sizeof(buf_labels));
 				}
 			} else if (nexthop->sr.present)
-				label2str(nexthop->sr.label, buf_labels,
+				label2str(nexthop->sr.label, 0, buf_labels,
 					  sizeof(buf_labels));
 			else
 				strlcpy(buf_labels, "-", sizeof(buf_labels));
@@ -2693,12 +2711,14 @@ void isis_spf_init(void)
 
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 {
+	uint64_t last_run_duration = spftree->last_run_duration;
+
 	vty_out(vty, "      last run elapsed  : ");
 	vty_out_timestr(vty, spftree->last_run_timestamp);
 	vty_out(vty, "\n");
 
-	vty_out(vty, "      last run duration : %u usec\n",
-		(uint32_t)spftree->last_run_duration);
+	vty_out(vty, "      last run duration : %" PRIu64 " usec\n",
+		last_run_duration);
 
 	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }

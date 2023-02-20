@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIMv6 MLD querier
  * Copyright (C) 2021-2022  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -2319,9 +2306,7 @@ void gm_ifp_update(struct interface *ifp)
 
 #include "lib/command.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_mld_clippy.c"
-#endif
 
 static struct vrf *gm_cmd_vrf_lookup(struct vty *vty, const char *vrf_str,
 				     int *err)
@@ -2430,6 +2415,8 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 						gm_ifp->t_other_querier);
 		json_object_int_add(js_if, "timerRobustnessValue",
 				    gm_ifp->cur_qrv);
+		json_object_int_add(js_if, "lastMemberQueryCount",
+				    gm_ifp->cur_lmqc);
 		json_object_int_add(js_if, "timerQueryIntervalMsec",
 				    gm_ifp->cur_query_intv);
 		json_object_int_add(js_if, "timerQueryResponseTimerMsec",
@@ -2737,7 +2724,7 @@ static void gm_show_joins_one(struct vty *vty, struct gm_if *gm_ifp,
 		}
 
 		js_src = json_object_new_object();
-		json_object_object_addf(js_group, js_src, "%pPA",
+		json_object_object_addf(js_group, js_src, "%pPAs",
 					&sg->sgaddr.src);
 
 		json_object_string_add(js_src, "state", gm_states[sg->state]);
@@ -2800,6 +2787,7 @@ static void gm_show_joins_vrf(struct vty *vty, struct vrf *vrf,
 
 	if (js) {
 		js_vrf = json_object_new_object();
+		json_object_string_add(js_vrf, "vrf", vrf->name);
 		json_object_object_add(js, vrf->name, js_vrf);
 	}
 
@@ -2995,9 +2983,9 @@ DEFPY(gm_debug_show,
       "debug show mld interface IFNAME",
       DEBUG_STR
       SHOW_STR
-      "MLD"
+      MLD_STR
       INTERFACE_STR
-      "interface name")
+      "interface name\n")
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;

@@ -294,6 +294,12 @@ Basic Config Commands
       log files to quickly balloon in size.  Remember to disable backtraces
       when they're no longer needed.
 
+.. clicmd:: debug routemap [detail]
+
+   This command turns on debugging of routemaps.  When detail is specified
+   more data is provided to the operator about the reasoning about what
+   is going on in the routemap code.
+
 .. clicmd:: service password-encryption
 
    Encrypt password.
@@ -616,6 +622,10 @@ Terminal Mode Commands
    When executing this command from ``vtysh``, each of the daemons' memory
    usage is printed sequentially. You can specify the daemon's name to print
    only its memory usage.
+
+.. clicmd:: show motd
+
+   Show current motd banner.
 
 .. clicmd:: show history
 

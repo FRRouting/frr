@@ -1,23 +1,10 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """Following tests are covered to test route-map functionality.
@@ -1022,12 +1009,11 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
     dut = "r4"
@@ -1036,10 +1022,10 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nExpected behaviour: routes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     write_test_footer(tc_name)
@@ -1293,12 +1279,11 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
     dut = "r4"
@@ -1307,12 +1292,11 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -2139,12 +2123,11 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n Error Routes are still present: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     # Remove applied rmap from neighbor
     input_dict_4 = {
@@ -2553,12 +2536,11 @@ def test_rmap_without_match_and_set_clause_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
     # Uncomment next line for debugging
@@ -2801,12 +2783,11 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
             input_dict_3_addr_type[addr_type],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nAttributes are not set \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: BGP attributes should not be set in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
     dut = "r5"
@@ -2835,12 +2816,11 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
             input_dict_3_addr_type[addr_type],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nAttributes are not set \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: BGP attributes should not be set in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -3644,12 +3624,11 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
     dut = "r4"
@@ -3658,12 +3637,11 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -3963,12 +3941,11 @@ def test_create_rmap_to_match_tag_deny_outbound_prefixes_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nroutes are denied \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 

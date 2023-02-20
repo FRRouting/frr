@@ -40,7 +40,7 @@ Please note that *zebra* must be invoked before *pimd*.
 
 To stop *pimd* please use::
 
-   kill `cat /var/run/pimd.pid`
+   kill `cat /var/run/frr/pimd.pid`
 
 Certain signals have special meanings to *pimd*.
 
@@ -578,7 +578,7 @@ cause great confusion.
 
 .. clicmd:: show ip pim bsm-database
 
-   Display all fragments ofstored bootstrap message in user readable format.
+   Display all fragments of stored bootstrap message in user readable format.
 
 .. clicmd:: mtrace A.B.C.D [A.B.C.D]
 

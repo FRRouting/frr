@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP northbound bindings.
  * Copyright (C) 2019  Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -602,6 +589,26 @@ lib_interface_vrrp_vrrp_group_shutdown_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/checksum-with-
+ *        ipv4-pseudoheader
+ */
+static int lib_interface_vrrp_vrrp_group_checksum_with_ipv4_pseudoheader_modify(
+	struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct vrrp_vrouter *vr;
+	bool checksum_with_ipv4_ph;
+
+	vr = nb_running_get_entry(args->dnode, NULL, true);
+	checksum_with_ipv4_ph = yang_dnode_get_bool(args->dnode, NULL);
+	vr->checksum_with_ipv4_pseudoheader = checksum_with_ipv4_ph;
+
+	return NB_OK;
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_vrrpd_info = {
 	.name = "frr-vrrpd",
@@ -641,6 +648,13 @@ const struct frr_yang_module_info frr_vrrpd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/accept-mode",
 			.cbs = {
 				.modify = lib_interface_vrrp_vrrp_group_accept_mode_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/checksum-with-ipv4-pseudoheader",
+			.cbs = {
+				.modify = lib_interface_vrrp_vrrp_group_checksum_with_ipv4_pseudoheader_modify,
+				.cli_show = cli_show_checksum_with_ipv4_pseudoheader,
 			}
 		},
 		{

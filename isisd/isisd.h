@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isisd.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISISD_H
@@ -142,6 +129,7 @@ struct isis_area {
 	struct flags flags;
 	struct thread *t_tick; /* LSP walker */
 	struct thread *t_lsp_refresh[ISIS_LEVELS];
+	struct thread *t_overload_on_startup_timer;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
 	struct thread *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
@@ -180,7 +168,9 @@ struct isis_area {
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */
 	char overload_bit;
+	bool overload_configured;
 	uint32_t overload_counter;
+	uint32_t overload_on_startup_time;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -288,8 +278,13 @@ struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
+void isis_area_switchover_routes(struct isis_area *area, int family,
+				 union g_addr *nexthop_ip, ifindex_t ifindex,
+				 int level);
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
+void isis_area_overload_on_startup_set(struct isis_area *area,
+				       uint32_t startup_time);
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit);
 void isis_area_attached_bit_receive_set(struct isis_area *area,
 					bool attached_bit);
@@ -315,7 +310,10 @@ void show_isis_database_lspdb_json(struct json_object *json,
 void show_isis_database_lspdb_vty(struct vty *vty, struct isis_area *area,
 				  int level, struct lspdb_head *lspdb,
 				  const char *argv, int ui_level);
-
+char *isis_restart_filepath(void);
+void isis_restart_write_overload_time(struct isis_area *isis_area,
+				      uint32_t overload_time);
+uint32_t isis_restart_read_overload_time(struct isis_area *isis_area);
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"

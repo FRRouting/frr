@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Link State Advertisement
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -188,6 +173,7 @@ struct ospf_lsa *ospf_lsa_new(void)
 	new->refresh_list = -1;
 	new->vrf_id = VRF_DEFAULT;
 	new->to_be_acknowledged = 0;
+	new->opaque_zero_len_delete = 0;
 
 	return new;
 }
@@ -425,8 +411,10 @@ struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi)
 
 	/* PtoP link must have only 1 neighbor. */
 	if (ospf_nbr_count(oi, 0) > 1)
-		flog_warn(EC_OSPF_PTP_NEIGHBOR,
-			  "Point-to-Point link has more than 1 neighobrs.");
+		flog_warn(
+			EC_OSPF_PTP_NEIGHBOR,
+			"Point-to-Point link on interface %s has more than 1 neighbor.",
+			oi->ifp->name);
 
 	return nbr;
 }
@@ -2202,7 +2190,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 	   */
 
 	if (ospf->router_id.s_addr == INADDR_ANY) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (ei && IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
 				&ei->p.prefix);
@@ -2211,7 +2199,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	/* Create new AS-external-LSA instance. */
 	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (ei && IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: Could not originate AS-external-LSA",
 				&ei->p.prefix);
@@ -3512,7 +3500,8 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2,
 	    && CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
-	assert(l1->size > OSPF_LSA_HEADER_SIZE);
+	if (l1->size == OSPF_LSA_HEADER_SIZE)
+		return 0; /* nothing to compare */
 
 	p1 = (char *)l1->data;
 	p2 = (char *)l2->data;
@@ -3562,6 +3551,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	struct ospf_interface *oi;
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
+	struct ospf_if_params *oip;
 	int need_to_flush_ase = 0;
 
 	ospf->inst_shutdown = 1;
@@ -3594,6 +3584,12 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 				ospf_lsa_flush_area(oi->network_lsa_self, area);
 				ospf_lsa_unlock(&oi->network_lsa_self);
 				oi->network_lsa_self = NULL;
+
+				oip = ospf_lookup_if_params(
+					oi->ifp, oi->address->u.prefix4);
+				if (oip)
+					oip->network_lsa_seqnum = htonl(
+						OSPF_INVALID_SEQUENCE_NUMBER);
 			}
 
 			if (oi->type != OSPF_IFTYPE_VIRTUALLINK

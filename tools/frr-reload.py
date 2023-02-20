@@ -1,23 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Frr Reloader
 # Copyright (C) 2014 Cumulus Networks, Inc.
-#
-# This file is part of Frr.
-#
-# Frr is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2, or (at your option) any
-# later version.
-#
-# Frr is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Frr; see the file COPYING.  If not, write to the Free
-# Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-#  02111-1307, USA.
 #
 """
 This program
@@ -890,7 +874,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         ):
             if ctx_keys[0] in del_nbr_dict:
                 for nbr in del_nbr_dict[ctx_keys[0]]:
-                    re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+                    re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
                     nb_exp = "neighbor %s .*" % nbr
                     if not re_nbr_pg:
                         re_nb = re.search(nb_exp, line)
@@ -997,7 +981,7 @@ def delete_move_lines(lines_to_add, lines_to_del):
             # 'no neighbor peer [interface] peer-group <>' is in lines_to_del
             # copy the neighbor and look for all config removal lines associated
             # to neighbor and delete them from the lines_to_del
-            re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+            re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
             if re_nbr_pg:
                 if ctx_keys[0] not in del_nbr_dict:
                     del_nbr_dict[ctx_keys[0]] = list()
@@ -1376,6 +1360,37 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 lines_to_add.append((add_cmd, None))
                 lines_to_del_to_del.append((ctx_keys, None))
 
+        # bgp community-list, large-community-list, extcommunity-list can be
+        # specified without a seq number. However, the running config always
+        # adds `seq X` (sequence number). So, ignore such lines as well.
+        # Examples:
+        #      bgp community-list standard clist seq 5 permit 222:213
+        #      bgp large-community-list standard llist seq 5 permit 65001:65001:1
+        #      bgp extcommunity-list standard elist seq 5 permit soo 123:123
+        re_bgp_lists = re.search(
+            "^(bgp )(community-list|large-community-list|extcommunity-list)(\s+\S+\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+            ctx_keys[0],
+        )
+        if re_bgp_lists:
+            found = False
+            tmpline = (
+                re_bgp_lists.group(1)
+                + re_bgp_lists.group(2)
+                + re_bgp_lists.group(3)
+                + re_bgp_lists.group(4)
+                + re_bgp_lists.group(6)
+                + re_bgp_lists.group(7)
+            )
+            for ctx in lines_to_add:
+                if ctx[0][0] == tmpline:
+                    lines_to_del_to_del.append((ctx_keys, None))
+                    lines_to_add_to_del.append(((tmpline,), None))
+                    found = True
+            if found is False:
+                add_cmd = ("no " + ctx_keys[0],)
+                lines_to_add.append((add_cmd, None))
+                lines_to_del_to_del.append((ctx_keys, None))
+
         if (
             len(ctx_keys) == 3
             and ctx_keys[0].startswith("router bgp")
@@ -1483,6 +1498,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
             [
                 ctx_keys[0].startswith(x)
                 for x in [
+                    "agentx",
                     "frr version",
                     "frr defaults",
                     "username",
@@ -1882,6 +1898,7 @@ if __name__ == "__main__":
         "bgpd",
         "fabricd",
         "isisd",
+        "babeld",
         "ospf6d",
         "ospfd",
         "pbrd",
@@ -1893,6 +1910,7 @@ if __name__ == "__main__":
         "staticd",
         "vrrpd",
         "ldpd",
+        "nhrpd",
         "pathd",
         "bfdd",
         "eigrpd",

@@ -1,23 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 # December 22 2021, Christian Hopps <chopps@labn.net>
 #
 # Copyright 2021-2022, LabN Consulting, L.L.C.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; see the file COPYING; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 #
 
 import argparse
@@ -62,12 +49,15 @@ smsg_info = {
     MSG_REGISTER_EVENT: ("REGISTER_EVENT", FMT_LSA_FILTER),
     MSG_SYNC_LSDB: ("SYNC_LSDB", FMT_LSA_FILTER),
     MSG_ORIGINATE_REQUEST: ("ORIGINATE_REQUEST", ">II" + FMT_LSA_HEADER[1:]),
-    MSG_DELETE_REQUEST: ("DELETE_REQUEST", ">IBBxxL"),
+    MSG_DELETE_REQUEST: ("DELETE_REQUEST", ">IBBxBL"),
     MSG_SYNC_REACHABLE: ("MSG_SYNC_REACHABLE", ""),
     MSG_SYNC_ISM: ("MSG_SYNC_ISM", ""),
     MSG_SYNC_NSM: ("MSG_SYNC_NSM", ""),
     MSG_SYNC_ROUTER_ID: ("MSG_SYNC_ROUTER_ID", ""),
 }
+
+# OSPF API MSG Delete Flag.
+OSPF_API_DEL_ZERO_LEN_LSA = 0x01  # send withdrawal with no LSA data
 
 # --------------------------
 # Messages from OSPF daemon.
@@ -842,7 +832,7 @@ class OspfOpaqueClient(OspfApiClient):
         await self._assure_opaque_ready(lsa_type, otype)
         await self.msg_send_raises(mt, msg)
 
-    async def delete_opaque_data(self, addr, lsa_type, otype, oid):
+    async def delete_opaque_data(self, addr, lsa_type, otype, oid, flags=0):
         """Delete an instance of opaque data.
 
         Delete an instance of opaque data. This call will register for the given
@@ -854,6 +844,7 @@ class OspfOpaqueClient(OspfApiClient):
             otype: (octet) opaque type. Note: the type will be registered if the user
                 has not explicity done that yet with `register_opaque_data`.
             oid: (3 octets) ID of this opaque data
+            flags: (octet) optional flags (e.g., OSPF_API_DEL_ZERO_LEN_LSA, defaults to no flags)
         Raises:
             See `msg_send_raises`
         """
@@ -862,7 +853,7 @@ class OspfOpaqueClient(OspfApiClient):
 
         mt = MSG_DELETE_REQUEST
         await self._assure_opaque_ready(lsa_type, otype)
-        mp = struct.pack(msg_fmt[mt], int(addr), lsa_type, otype, oid)
+        mp = struct.pack(msg_fmt[mt], int(addr), lsa_type, otype, flags, oid)
         await self.msg_send_raises(mt, mp)
 
     async def register_opaque_data(self, lsa_type, otype, callback=None):
@@ -1099,6 +1090,12 @@ async def async_main(args):
             for action in args.actions:
                 _s = action.split(",")
                 what = _s.pop(False)
+                if what.casefold() == "wait":
+                    stime = int(_s.pop(False))
+                    logging.info("waiting %s seconds", stime)
+                    await asyncio.sleep(stime)
+                    logging.info("wait complete: %s seconds", stime)
+                    continue
                 ltype = int(_s.pop(False))
                 if ltype == 11:
                     addr = ip(0)
@@ -1109,23 +1106,28 @@ async def async_main(args):
                     except ValueError:
                         addr = ip(aval)
                 oargs = [addr, ltype, int(_s.pop(False)), int(_s.pop(False))]
-                assert len(_s) <= 1, "Bad format for action argument"
-                try:
-                    b = bytes.fromhex(_s.pop(False))
-                except IndexError:
-                    b = b""
-                logging.info("opaque data is %s octets", len(b))
-                # Needs to be multiple of 4 in length
-                mod = len(b) % 4
-                if mod:
-                    b += b"\x00" * (4 - mod)
-                    logging.info("opaque padding to %s octets", len(b))
-
                 if what.casefold() == "add":
+                    try:
+                        b = bytes.fromhex(_s.pop(False))
+                    except IndexError:
+                        b = b""
+                    logging.info("opaque data is %s octets", len(b))
+                    # Needs to be multiple of 4 in length
+                    mod = len(b) % 4
+                    if mod:
+                        b += b"\x00" * (4 - mod)
+                        logging.info("opaque padding to %s octets", len(b))
+
                     await c.add_opaque_data(*oargs, b)
                 else:
                     assert what.casefold().startswith("del")
-                    await c.delete_opaque_data(*oargs)
+                    f = 0
+                    if len(_s) >= 1:
+                        try:
+                            f = int(_s.pop(False))
+                        except IndexError:
+                            f = 0
+                    await c.delete_opaque_data(*oargs, f)
             if args.exit:
                 return 0
     except Exception as error:
@@ -1147,7 +1149,9 @@ def main(*args):
     ap.add_argument("--server", default="localhost", help="OSPF API server")
     ap.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     ap.add_argument(
-        "actions", nargs="*", help="(ADD|DEL),LSATYPE,[ADDR,],OTYPE,OID,[HEXDATA]"
+        "actions",
+        nargs="*",
+        help="(ADD|DEL),LSATYPE,[ADDR,],OTYPE,OID,[HEXDATA|DEL_FLAG]",
     )
     args = ap.parse_args()
 

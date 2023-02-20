@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -72,8 +59,21 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	 * If the RPT and WC are set it's a (*,G)
 	 * and the source is the RP
 	 */
-	if ((source_flags & PIM_RPT_BIT_MASK)
-	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
+	if (CHECK_FLAG(source_flags, PIM_WILDCARD_BIT_MASK)) {
+		/* As per RFC 7761 Section 4.9.1:
+		 * The RPT (or Rendezvous Point Tree) bit is a 1-bit value for
+		 * use with PIM Join/Prune messages (see Section 4.9.5.1). If
+		 * the WC bit is 1, the RPT bit MUST be 1.
+		 */
+		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
+			if (PIM_DEBUG_PIM_J_P)
+				zlog_debug(
+					"Discarding (*,G)=%pSG join since WC bit is set but RPT bit is unset",
+					sg);
+
+			return;
+		}
+
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 		pim_addr rpf_addr;
 
@@ -127,8 +127,21 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 	++pim_ifp->pim_ifstat_prune_recv;
 
-	if ((source_flags & PIM_RPT_BIT_MASK)
-	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
+	if (CHECK_FLAG(source_flags, PIM_WILDCARD_BIT_MASK)) {
+		/* As per RFC 7761 Section 4.9.1:
+		 * The RPT (or Rendezvous Point Tree) bit is a 1-bit value for
+		 * use with PIM Join/Prune messages (see Section 4.9.5.1). If
+		 * the WC bit is 1, the RPT bit MUST be 1.
+		 */
+		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
+			if (PIM_DEBUG_PIM_J_P)
+				zlog_debug(
+					"Discarding (*,G)=%pSG prune since WC bit is set but RPT bit is unset",
+					sg);
+
+			return;
+		}
+
 		/*
 		 * RFC 4601 Section 4.5.2:
 		 * Received Prune(*,G) messages are processed even if the

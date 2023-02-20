@@ -1,6 +1,7 @@
 debian/frr.conf usr/lib/tmpfiles.d
 etc/
 tools/etc/frr/frr.conf etc/frr/
+tools/etc/logrotate.d/frr etc/logrotate.d/
 tools/frr-reload usr/lib/frr/
 usr/bin/mtracebis
 usr/bin/vtysh

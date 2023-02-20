@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020 Volta Networks, Inc
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
@@ -29,9 +20,7 @@
 #include "pathd/path_errors.h"
 #include "pathd/path_ted.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_ted_clippy.c"
-#endif
 
 static struct ls_ted *path_ted_create_ted(void);
 static void path_ted_register_vty(void);
@@ -162,7 +151,7 @@ bool path_ted_is_initialized(void)
  *
  * @return		Ptr to ted or NULL
  */
-struct ls_ted *path_ted_create_ted()
+struct ls_ted *path_ted_create_ted(void)
 {
 	struct ls_ted *ted = ls_ted_new(TED_KEY, TED_NAME, TED_ASN);
 
@@ -243,16 +232,16 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		}
 		break;
 	case IPADDR_V6:
-		key = (uint64_t)(local->ip._v6_addr.s6_addr32[0] & 0xffffffff)
-		      | ((uint64_t)local->ip._v6_addr.s6_addr32[1] << 32);
+		key = (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[2]) << 32 |
+		      (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[3]);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
-			if ((memcmp(&edge->attributes->standard.remote6,
-				    &remote->ip._v6_addr,
-				    sizeof(remote->ip._v6_addr))
-			     && CHECK_FLAG(edge->attributes->flags,
-					   LS_ATTR_ADJ_SID))) {
-				sid = edge->attributes->adj_sid[0]
+			if ((0 == memcmp(&edge->attributes->standard.remote6,
+					 &remote->ip._v6_addr,
+					 sizeof(remote->ip._v6_addr)) &&
+			     CHECK_FLAG(edge->attributes->flags,
+					LS_ATTR_ADJ_SID6))) {
+				sid = edge->attributes->adj_sid[ADJ_PRI_IPV6]
 					      .sid; /* from primary */
 				break;
 			}
@@ -462,7 +451,7 @@ DEFPY (show_pathd_ted_db,
 	json_object *json = NULL;
 
 	if (!ted_state_g.enabled) {
-		vty_out(vty, "PATHD TED database is not enabled\n");
+		vty_out(vty, "Traffic Engineering database is not enabled\n");
 		return CMD_WARNING;
 	}
 	if (strcmp(ver_json, "json") == 0) {
@@ -488,6 +477,12 @@ int path_ted_cli_debug_config_write(struct vty *vty)
 		return 1;
 	}
 	return 0;
+}
+
+void path_ted_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
+		vty_out(vty, "  Path TED debugging is on\n");
 }
 
 int path_ted_cli_debug_set_all(uint32_t flags, bool set)
@@ -523,7 +518,7 @@ uint32_t path_ted_config_write(struct vty *vty)
 		case IMPORT_OSPFv3:
 			vty_out(vty, "  mpls-te import ospfv3\n");
 			break;
-		default:
+		case IMPORT_UNKNOWN:
 			break;
 		}
 	}

@@ -1,25 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN MAC Data structures and definitions
  * These are "internal" to this function.
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
  * Copyright (C) 2020 Volta Networks.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_EVPN_MAC_H
@@ -176,17 +160,6 @@ struct rmac_walk_ctx {
 	struct json_object *json;
 };
 
-/* temporary datastruct to pass info between the mac-update and
- * neigh-update while handling mac-ip routes
- */
-struct sync_mac_ip_ctx {
-	bool ignore_macip;
-	bool mac_created;
-	bool mac_inactive;
-	bool mac_dp_update_deferred;
-	struct zebra_mac *mac;
-};
-
 /**************************** SYNC MAC handling *****************************/
 /* if the mac has been added of a mac-route from the peer
  * or if it is being referenced by a neigh added by the
@@ -232,6 +205,8 @@ struct zebra_mac *zebra_evpn_mac_lookup(struct zebra_evpn *zevi,
 					const struct ethaddr *mac);
 struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevi,
 				     const struct ethaddr *macaddr);
+struct zebra_mac *zebra_evpn_mac_add_auto(struct zebra_evpn *zevi,
+					  const struct ethaddr *macaddr);
 int zebra_evpn_mac_del(struct zebra_evpn *zevi, struct zebra_mac *mac);
 int zebra_evpn_macip_send_msg_to_client(uint32_t id,
 					const struct ethaddr *macaddr,
@@ -255,20 +230,22 @@ int zebra_evpn_mac_send_add_to_client(vni_t vni, const struct ethaddr *macaddr,
 int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 				      uint32_t flags, bool force);
 void zebra_evpn_send_mac_list_to_client(struct zebra_evpn *zevi);
-struct zebra_mac *zebra_evpn_proc_sync_mac_update(
-	struct zebra_evpn *zevi, const struct ethaddr *macaddr,
-	uint16_t ipa_len, const struct ipaddr *ipaddr, uint8_t flags,
-	uint32_t seq, const esi_t *esi, struct sync_mac_ip_ctx *ctx);
+struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevi,
+						  const struct ethaddr *macaddr,
+						  uint16_t ipa_len,
+						  const struct ipaddr *ipaddr,
+						  uint8_t flags, uint32_t seq,
+						  const esi_t *esi);
 void zebra_evpn_sync_mac_del(struct zebra_mac *mac);
 void zebra_evpn_rem_mac_del(struct zebra_evpn *zevi, struct zebra_mac *mac);
 void zebra_evpn_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt);
-int zebra_evpn_mac_remote_macip_add(
-	struct zebra_evpn *zevpn, struct zebra_vrf *zvrf,
-	const struct ethaddr *macaddr, uint16_t ipa_len,
-	const struct ipaddr *ipaddr, struct zebra_mac **macp,
-	struct in_addr vtep_ip, uint8_t flags, uint32_t seq, const esi_t *esi);
+int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
+				    struct zebra_vrf *zvrf,
+				    const struct ethaddr *macaddr,
+				    struct in_addr vtep_ip, uint8_t flags,
+				    uint32_t seq, const esi_t *esi);
 
 int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				    struct zebra_evpn *zevpn,

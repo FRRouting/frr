@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF version 2  Interface State Machine
  *   From RFC2328 [OSPF Version 2]
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -223,8 +208,10 @@ int ospf_dr_election(struct ospf_interface *oi)
 
 	new_state = ospf_ism_state(oi);
 
-	zlog_debug("DR-Election[1st]: Backup %pI4", &BDR(oi));
-	zlog_debug("DR-Election[1st]: DR     %pI4", &DR(oi));
+	if (IS_DEBUG_OSPF(ism, ISM_STATUS)) {
+		zlog_debug("DR-Election[1st]: Backup %pI4", &BDR(oi));
+		zlog_debug("DR-Election[1st]: DR     %pI4", &DR(oi));
+	}
 
 	if (new_state != old_state
 	    && !(new_state == ISM_DROther && old_state < ISM_DROther)) {
@@ -233,8 +220,10 @@ int ospf_dr_election(struct ospf_interface *oi)
 
 		new_state = ospf_ism_state(oi);
 
-		zlog_debug("DR-Election[2nd]: Backup %pI4", &BDR(oi));
-		zlog_debug("DR-Election[2nd]: DR     %pI4", &DR(oi));
+		if (IS_DEBUG_OSPF(ism, ISM_STATUS)) {
+			zlog_debug("DR-Election[2nd]: Backup %pI4", &BDR(oi));
+			zlog_debug("DR-Election[2nd]: DR     %pI4", &DR(oi));
+		}
 	}
 
 	list_delete(&el_list);

@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFv3 Not So Stubby Area implementation.
  *
  * Copyright (C) 2021 Kaushik Nath
  * Copyright (C) 2021 Soman K.S
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef OSPF6_NSSA_H
@@ -45,7 +32,7 @@ extern unsigned char config_debug_ospf6_nssa;
 #define OSPF6_LSA_APPROVED      0x08
 #define OSPF6_LSA_LOCAL_XLT     0x40
 
-#define OSPF6_ABR_TASK_DELAY    7
+#define OSPF6_ABR_TASK_DELAY    5
 
 int ospf6_area_nssa_no_summary_set(struct ospf6 *ospf6, struct in_addr area_id);
 int ospf6_area_nssa_unset(struct ospf6 *ospf6, struct ospf6_area *area);

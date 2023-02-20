@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4 dump routine
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -117,9 +102,13 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	if (bgp_dump->filename[0] != DIRECTORY_SEP) {
 		snprintf(fullpath, sizeof(fullpath), "%s/%s", vty_get_cwd(),
 			 bgp_dump->filename);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* user supplied date/time format string */
 		ret = strftime(realpath, MAXPATHLEN, fullpath, &tm);
 	} else
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, &tm);
+#pragma GCC diagnostic pop
 
 	if (ret == 0) {
 		flog_warn(EC_BGP_DUMP, "%s: strftime error", __func__);
@@ -376,7 +365,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 
 		/* Dump attribute. */
 		/* Skip prefix & AFI/SAFI for MP_NLRI */
-		bgp_dump_routes_attr(obuf, path->attr, p);
+		bgp_dump_routes_attr(obuf, path, p);
 
 		cur_endp = stream_get_endp(obuf);
 		if (cur_endp > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE

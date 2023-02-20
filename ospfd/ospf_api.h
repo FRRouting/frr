@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * API message handling module for OSPF daemon and client.
  * Copyright (C) 2001, 2002 Ralph Keller
  * Copyright (c) 2022, LabN Consulting, L.L.C.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 
@@ -185,11 +170,19 @@ struct msg_originate_request {
 	struct lsa_header data;
 };
 
+
+/* OSPF API MSG Delete Flag. */
+#define OSPF_API_DEL_ZERO_LEN_LSA 0x01 /* send withdrawal with no LSA data */
+
+#define IS_DEL_ZERO_LEN_LSA(x) ((x)->flags & OSPF_API_DEL_ZERO_LEN_LSA)
+
 struct msg_delete_request {
-	struct in_addr area_id; /* "0.0.0.0" for AS-external opaque LSAs */
+	struct in_addr addr; /* intf IP for link local, area for type 10,
+				"0.0.0.0" for AS-external */
 	uint8_t lsa_type;
 	uint8_t opaque_type;
-	uint8_t pad[2]; /* padding */
+	uint8_t pad;   /* padding */
+	uint8_t flags; /* delete flags */
 	uint32_t opaque_id;
 };
 
@@ -290,7 +283,7 @@ struct apimsg {
 	} u;
 };
 
-#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_LSA_SIZE)
+#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_PACKET_SIZE)
 
 /* -----------------------------------------------------------
  * Prototypes for specific messages
@@ -311,10 +304,9 @@ extern struct msg *new_msg_originate_request(uint32_t seqnum,
 					     struct in_addr ifaddr,
 					     struct in_addr area_id,
 					     struct lsa_header *data);
-extern struct msg *new_msg_delete_request(uint32_t seqnum,
-					  struct in_addr area_id,
+extern struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr addr,
 					  uint8_t lsa_type, uint8_t opaque_type,
-					  uint32_t opaque_id);
+					  uint32_t opaque_id, uint8_t flags);
 
 /* Messages sent by OSPF daemon */
 extern struct msg *new_msg_reply(uint32_t seqnum, uint8_t rc);

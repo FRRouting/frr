@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * clippy (CLI preparator in python) wrapper for FRR command_graph
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* note: this wrapper is intended to be used as build-time helper.  while
@@ -226,8 +213,8 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 			wrap->type = "???";
 		}
 
-		wrap->deprecated = (tok->attr == CMD_ATTR_DEPRECATED);
-		wrap->hidden = (tok->attr == CMD_ATTR_HIDDEN);
+		wrap->deprecated = !!(tok->attr & CMD_ATTR_DEPRECATED);
+		wrap->hidden = !!(tok->attr & CMD_ATTR_HIDDEN);
 		wrap->text = tok->text;
 		wrap->desc = tok->desc;
 		wrap->varname = tok->varname;
@@ -351,6 +338,12 @@ PyMODINIT_FUNC command_py_init(void)
 
 	pymod = modcreate();
 	if (!pymod)
+		initret(NULL);
+
+	if (PyModule_AddIntMacro(pymod, CMD_ATTR_YANG)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_HIDDEN)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_NOSH))
 		initret(NULL);
 
 	Py_INCREF(&typeobj_graph_node);

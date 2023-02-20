@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Definitions for prescriptive topology module (PTM).
  * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_PTM_H
@@ -63,14 +48,12 @@ struct zebra_ptm_cb {
 #define ZEBRA_IF_PTM_ENABLE_ON     1
 #define ZEBRA_IF_PTM_ENABLE_UNSPEC 2
 
-#define IS_BFD_ENABLED_PROTOCOL(protocol) ( \
-	(protocol) == ZEBRA_ROUTE_BGP || \
-	(protocol) == ZEBRA_ROUTE_OSPF || \
-	(protocol) == ZEBRA_ROUTE_OSPF6 || \
-	(protocol) == ZEBRA_ROUTE_ISIS || \
-	(protocol) == ZEBRA_ROUTE_PIM || \
-	(protocol) == ZEBRA_ROUTE_OPENFABRIC \
-)
+#define IS_BFD_ENABLED_PROTOCOL(protocol)                                      \
+	((protocol) == ZEBRA_ROUTE_BGP || (protocol) == ZEBRA_ROUTE_OSPF ||    \
+	 (protocol) == ZEBRA_ROUTE_OSPF6 || (protocol) == ZEBRA_ROUTE_ISIS ||  \
+	 (protocol) == ZEBRA_ROUTE_PIM ||                                      \
+	 (protocol) == ZEBRA_ROUTE_OPENFABRIC ||                               \
+	 (protocol) == ZEBRA_ROUTE_STATIC)
 
 void zebra_ptm_init(void);
 void zebra_ptm_finish(void);

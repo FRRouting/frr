@@ -27,16 +27,16 @@ else
   CONF_LUA=--enable-scripting
 endif
 
-ifeq ($(filter pkg.frr.pim6d,$(DEB_BUILD_PROFILES)),)
-  CONF_PIM6=--disable-pim6d
-else
+ifeq ($(filter pkg.frr.nopim6d,$(DEB_BUILD_PROFILES)),)
   CONF_PIM6=--enable-pim6d
+else
+  CONF_PIM6=--disable-pim6d
 endif
 
 export PYTHON=python3
 
 %:
-	dh $@
+	dh $@ -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
@@ -76,11 +76,13 @@ override_dh_auto_install:
 
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr-reload.py
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/generate_support_bundle.py
+	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr_babeltrace.py
+	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/ospfclient.py
 
 # let dh_systemd_* and dh_installinit do their thing automatically
-	cp tools/frr.service debian/frr.service
-	cp tools/frr@.service debian/frr@.service
-	cp tools/frrinit.sh debian/frr.init
+	cp build/tools/frr.service debian/frr.service
+	cp build/tools/frr@.service debian/frr@.service
+	cp build/tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 
 # install config files
@@ -92,12 +94,6 @@ override_dh_auto_install:
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
 	-rm debian/tmp/usr/lib/frr/ssd
-
-# use installed js libraries
-	-rm -f debian/tmp/usr/share/doc/frr/html/_static/jquery.js
-	ln -s /usr/share/javascript/jquery/jquery.js debian/tmp/usr/share/doc/frr/html/_static/jquery.js
-	-rm -f debian/tmp/usr/share/doc/frr/html/_static/underscore.js
-	ln -s /usr/share/javascript/underscore/underscore.js debian/tmp/usr/share/doc/frr/html/_static/underscore.js
 
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
@@ -113,6 +109,11 @@ override_dh_makeshlibs:
 
 override_dh_missing:
 	dh_missing --fail-missing
+
+ifneq ($(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
+override_dh_auto_test:
+	true
+endif
 
 override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both

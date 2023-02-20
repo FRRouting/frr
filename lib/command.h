@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra configuration command interface routine
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_COMMAND_H
@@ -90,6 +75,7 @@ struct host {
 };
 
 /* List of CLI nodes. Please remember to update the name array in command.c. */
+/* clang-format off */
 enum node_type {
 	AUTH_NODE,		 /* Authentication mode of vty interface. */
 	VIEW_NODE,		 /* View node. Default mode of vty interface. */
@@ -106,6 +92,7 @@ enum node_type {
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
+	AFFMAP_NODE,		 /* Affinity map node. */
 	IP_NODE,		 /* Static ip route node. */
 	VRF_NODE,		 /* VRF mode node. */
 	INTERFACE_NODE,		 /* Interface mode node. */
@@ -186,6 +173,7 @@ enum node_type {
 	BMP_NODE,		/* BMP config under router bgp */
 	NODE_TYPE_MAX, /* maximum */
 };
+/* clang-format on */
 
 extern vector cmdvec;
 extern const struct message tokennames[];
@@ -251,9 +239,6 @@ struct cmd_node {
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
-/* Turn off these macros when using cpp with extract.pl */
-#ifndef VTYSH_EXTRACT_PL
-
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
 	static const struct cmd_element cmdname = {                            \
@@ -280,16 +265,17 @@ struct cmd_node {
 			    int argc __attribute__((unused)),                  \
 			    struct cmd_token *argv[] __attribute__((unused)))
 
-#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
-	funcdecl_##funcname
-
-#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFPY(funcname, cmdname, cmdstr, helpstr)
+/* DEFPY variants */
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
 	funcdecl_##funcname
+
+#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
+
+#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
 #define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
@@ -298,17 +284,18 @@ struct cmd_node {
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 #define DEFPY_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
-	DEFPY_YANG(funcname, cmdname, cmdstr, helpstr)
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
-#define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
-	DEFUN_CMD_FUNC_TEXT(funcname)
+/* DEFUN variants */
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
 	DEFUN_CMD_FUNC_TEXT(funcname)
+
+#define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
 
 #define DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
@@ -318,75 +305,55 @@ struct cmd_node {
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN(funcname, cmdname, cmdstr, helpstr)
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
 #define DEFUN_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
-	DEFUN_YANG(funcname, cmdname, cmdstr, helpstr)
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
 /* DEFSH for vtysh. */
+#define DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, attr)                     \
+	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, attr, daemon)
+
 #define DEFSH(daemon, cmdname, cmdstr, helpstr)                                \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, 0, daemon)
+	DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, 0)
 
 #define DEFSH_HIDDEN(daemon, cmdname, cmdstr, helpstr)                         \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN,     \
-			  daemon)
-
-#define DEFSH_YANG(daemon, cmdname, cmdstr, helpstr)                           \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, daemon)
+	DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
 
 /* DEFUN + DEFSH */
-#define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)       \
-	DEFUN_CMD_FUNC_TEXT(funcname)
-
-/* DEFUN + DEFSH with attributes */
 #define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon)    \
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
+#define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
+	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, 0)
+
 #define DEFUNSH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)             \
 	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
 		     CMD_ATTR_HIDDEN)
 
-#define DEFUNSH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)         \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
-		     CMD_ATTR_DEPRECATED)
-
-#define DEFUNSH_YANG(daemon, funcname, cmdname, cmdstr, helpstr)               \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
-
 /* ALIAS macro which define existing command's alias. */
-#define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)
-
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
 
-#define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  0)
+#define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
 
+#define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
+
+/* note: DEPRECATED implies HIDDEN, and other than that there is currently no
+ * difference.  It's purely for expressing intent in the source code - a
+ * DEPRECATED command is supposed to go away, a HIDDEN one is likely to stay.
+ */
 #define ALIAS_DEPRECATED(funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, 0)
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_DEPRECATED | CMD_ATTR_HIDDEN)
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, 0)
-
-#define ALIAS_SH(daemon, funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)
-
-#define ALIAS_SH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)            \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  daemon)
-
-#define ALIAS_SH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)        \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, daemon)
-
-#endif /* VTYSH_EXTRACT_PL */
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 /* Some macroes */
 
@@ -404,6 +371,8 @@ struct cmd_node {
 #define SHOW_STR "Show running system information\n"
 #define IP_STR "IP information\n"
 #define IPV6_STR "IPv6 information\n"
+#define IP_ADDR_STR "IPv4 Address\n"
+#define IP6_ADDR_STR "IPv6 Address\n"
 #define SRTE_STR "SR-TE information\n"
 #define SRTE_COLOR_STR "SR-TE Color information\n"
 #define NO_STR "Negate a command or set its defaults\n"
@@ -515,6 +484,13 @@ struct cmd_node {
 #define ROLE_STR                                                               \
 	"Providing transit\nRoute server\nRS client\nUsing transit\nPublic/private peering\n"
 
+/* BFD protocol integration strings. */
+#define BFD_INTEGRATION_STR "BFD monitoring\n"
+#define BFD_INTEGRATION_MULTI_HOP_STR "Use BFD multi hop session\n"
+#define BFD_INTEGRATION_SOURCE_STR "Use source for BFD session\n"
+#define BFD_INTEGRATION_SOURCEV4_STR "Use IPv4 source for BFD session\n"
+#define BFD_INTEGRATION_SOURCEV6_STR "Use IPv4 source for BFD session\n"
+
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
@@ -526,7 +502,6 @@ struct xref_install_element {
 	enum node_type node_type;
 };
 
-#ifndef VTYSH_EXTRACT_PL
 #define install_element(node_type_, cmd_element_) do {                         \
 		static const struct xref_install_element _xref                 \
 				__attribute__((used)) = {                      \
@@ -538,7 +513,6 @@ struct xref_install_element {
 		XREF_LINK(_xref.xref);                                         \
 		_install_element(node_type_, cmd_element_);                    \
 	} while (0)
-#endif
 
 extern void _install_element(enum node_type, const struct cmd_element *);
 
@@ -617,6 +591,7 @@ extern const char *cmd_domainname_get(void);
 extern const char *cmd_system_get(void);
 extern const char *cmd_release_get(void);
 extern const char *cmd_version_get(void);
+extern const char *cmd_software_version_get(void);
 extern bool cmd_allow_reserved_ranges_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
@@ -633,9 +608,6 @@ extern void print_version(const char *);
 extern int cmd_banner_motd_file(const char *);
 extern void cmd_banner_motd_line(const char *line);
 
-/* struct host global, ick */
-extern struct host host;
-
 struct cmd_variable_handler {
 	const char *tokenname, *varname;
 	void (*completions)(vector out, struct cmd_token *token);
@@ -648,6 +620,12 @@ cmd_variable_handler_register(const struct cmd_variable_handler *cvh);
 extern char *cmd_variable_comp2str(vector comps, unsigned short cols);
 
 extern void command_setup_early_logging(const char *dest, const char *level);
+
+/*
+ * Allow a mechanism for `debug XXX` commands that live
+ * under the lib directory to output their debug status
+ */
+extern void cmd_show_lib_debugs(struct vty *vty);
 
 #ifdef __cplusplus
 }

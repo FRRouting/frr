@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2017 Cumulus Networks, Inc.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * bfd_packet.c: implements the BFD protocol packet handling.
  *
@@ -746,6 +733,7 @@ static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 	}
 }
 
+PRINTFRR(6, 7)
 static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		     struct sockaddr_any *local, ifindex_t ifindex,
 		     vrf_id_t vrfid, const char *fmt, ...)
@@ -844,7 +832,7 @@ void bfd_recv_cb(struct thread *t)
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "too small (%ld bytes)", mlen);
+			 "too small (%zd bytes)", mlen);
 		return;
 	}
 
@@ -1397,8 +1385,6 @@ int bp_peer_socket(const struct bfd_session *bs)
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin.sin_addr, &bs->key.local, sizeof(sin.sin_addr));
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
-		sin.sin_addr.s_addr = INADDR_ANY;
 
 	pcount = 0;
 	do {

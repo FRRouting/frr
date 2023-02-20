@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPng daemon
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1933,7 +1918,8 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 			thread_add_event(master, ripng_triggered_update, ripng,
 					 0, &ripng->t_triggered_update);
 		break;
-	default:
+	case RIPNG_ZEBRA:
+	case RIPNG_REQUEST_EVENT:
 		break;
 	}
 }
@@ -2581,10 +2567,17 @@ static int ripng_vrf_new(struct vrf *vrf)
 
 static int ripng_vrf_delete(struct vrf *vrf)
 {
+	struct ripng *ripng;
+
 	if (IS_RIPNG_DEBUG_EVENT)
 		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
 			   vrf->vrf_id);
 
+	ripng = ripng_lookup_by_vrf_name(vrf->name);
+	if (!ripng)
+		return 0;
+
+	ripng_clean(ripng);
 	return 0;
 }
 

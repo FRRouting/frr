@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Flooding -- RFC2328 Section 13.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -648,6 +633,13 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 						     OSPF_SEND_PACKET_DIRECT);
 		}
 	} else
+		/* Optimization: for P2MP interfaces,
+		   don't send back out the incoming interface immediately,
+		   allow time to rx multicast ack to the rx'ed (multicast)
+		   update */
+		if (retx_flag != 1 ||
+		    oi->type != OSPF_IFTYPE_POINTOMULTIPOINT || inbr == NULL ||
+		    oi != inbr->oi)
 		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
 				     OSPF_SEND_PACKET_INDIRECT);
 
@@ -810,6 +802,11 @@ int ospf_flood_through(struct ospf *ospf, struct ospf_neighbor *inbr,
 		lsa_ack_flag = ospf_flood_through_area(lsa->area, inbr, lsa);
 		break;
 	}
+
+	/* always need to send ack when incoming intf is PTP or P2MP */
+	if (inbr != NULL && (inbr->oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
+			     inbr->oi->type == OSPF_IFTYPE_POINTOPOINT))
+		lsa_ack_flag = 1;
 
 	return (lsa_ack_flag);
 }

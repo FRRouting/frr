@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Nexthop Group Code.
  * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Donald Sharp
  *                    Stephen Worley
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #include <zebra.h>
 
@@ -44,6 +28,7 @@
 #include "zebra/interface.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
+#include "zebra/zebra_vxlan.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
@@ -563,6 +548,15 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	if (nhe1->afi != nhe2->afi)
 		return false;
 
+	if (nhe1->nhg.nhgr.buckets != nhe2->nhg.nhgr.buckets)
+		return false;
+
+	if (nhe1->nhg.nhgr.idle_timer != nhe2->nhg.nhgr.idle_timer)
+		return false;
+
+	if (nhe1->nhg.nhgr.unbalanced_timer != nhe2->nhg.nhgr.unbalanced_timer)
+		return false;
+
 	/* Nexthops should be in-order, so we simply compare them in-place */
 	for (nexthop1 = nhe1->nhg.nexthop, nexthop2 = nhe2->nhg.nexthop;
 	     nexthop1 && nexthop2;
@@ -621,7 +615,8 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 
 static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 				 struct nhg_connected_tree_head *depends,
-				 struct nh_grp *grp, uint8_t count)
+				 struct nh_grp *grp, uint8_t count,
+				 struct nhg_resilience *resilience)
 {
 	nhg_connected_tree_init(depends);
 
@@ -651,6 +646,9 @@ static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 
 		copy_nexthops(&nhg->nexthop, depend->nhg.nexthop, NULL);
 	}
+
+	if (resilience)
+		nhg->nhgr = *resilience;
 
 	return 0;
 }
@@ -985,6 +983,11 @@ static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
 	return ctx->u.grp;
 }
 
+static struct nhg_resilience *nhg_ctx_get_resilience(struct nhg_ctx *ctx)
+{
+	return &ctx->resilience;
+}
+
 static struct nhg_ctx *nhg_ctx_new(void)
 {
 	struct nhg_ctx *new;
@@ -1018,7 +1021,8 @@ done:
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 				    struct nh_grp *grp, vrf_id_t vrf_id,
-				    afi_t afi, int type, uint8_t count)
+				    afi_t afi, int type, uint8_t count,
+				    struct nhg_resilience *resilience)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1029,6 +1033,9 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 	ctx->afi = afi;
 	ctx->type = type;
 	ctx->count = count;
+
+	if (resilience)
+		ctx->resilience = *resilience;
 
 	if (count)
 		/* Copy over the array */
@@ -1176,7 +1183,8 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	if (nhg_ctx_get_count(ctx)) {
 		nhg = nexthop_group_new();
 		if (zebra_nhg_process_grp(nhg, &nhg_depends,
-					  nhg_ctx_get_grp(ctx), count)) {
+					  nhg_ctx_get_grp(ctx), count,
+					  nhg_ctx_get_resilience(ctx))) {
 			depends_decrement_free(&nhg_depends);
 			nexthop_group_delete(&nhg);
 			return -ENOENT;
@@ -1306,7 +1314,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 /* Kernel-side, you either get a single new nexthop or a array of ID's */
 int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 			  uint8_t count, vrf_id_t vrf_id, afi_t afi, int type,
-			  int startup)
+			  int startup, struct nhg_resilience *nhgr)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1320,7 +1328,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		 */
 		id_counter = id;
 
-	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count);
+	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count, nhgr);
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_NEW);
 
 	/* Under statup conditions, we need to handle them immediately
@@ -1343,7 +1351,7 @@ int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id)
 {
 	struct nhg_ctx *ctx = NULL;
 
-	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0);
+	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0, NULL);
 
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
@@ -1797,7 +1805,7 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (policy) {
-		int i = 0;
+		int label_num = 0;
 
 		/*
 		 * Don't push the first SID if the corresponding action in the
@@ -1805,10 +1813,11 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		 */
 		if (!newhop->nh_label || !newhop->nh_label->num_labels
 		    || newhop->nh_label->label[0] == MPLS_LABEL_IMPLICIT_NULL)
-			i = 1;
+			label_num = 1;
 
-		for (; i < policy->segment_list.label_num; i++)
-			labels[num_labels++] = policy->segment_list.labels[i];
+		for (; label_num < policy->segment_list.label_num; label_num++)
+			labels[num_labels++] =
+				policy->segment_list.labels[label_num];
 		label_type = policy->segment_list.type;
 	} else if (newhop->nh_label) {
 		for (i = 0; i < newhop->nh_label->num_labels; i++) {
@@ -1898,10 +1907,42 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 }
 
 /*
- * When resolving a recursive nexthop, capture backup nexthop(s) also
- * so they can be conveyed through the dataplane to the FIB. We'll look
- * at the backups in the resolving nh 'nexthop' and its nhe, and copy them
- * into the route's resolved nh 'resolved' and its nhe 'nhe'.
+ * Downstream VNI and Single VXlan device check.
+ *
+ * If it has nexthop VNI labels at this point it must be D-VNI allocated
+ * and all the nexthops have to be on an SVD.
+ *
+ * If SVD is not available, mark as inactive.
+ */
+static bool nexthop_set_evpn_dvni_svd(vrf_id_t re_vrf_id,
+				      struct nexthop *nexthop)
+{
+	if (!is_vrf_l3vni_svd_backed(re_vrf_id)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+			struct vrf *vrf = vrf_lookup_by_id(re_vrf_id);
+
+			zlog_debug(
+				"nexthop %pNHv D-VNI but route's vrf %s(%u) doesn't use SVD",
+				nexthop, VRF_LOGNAME(vrf), re_vrf_id);
+		}
+
+		return false;
+	}
+
+	nexthop->ifindex = get_l3vni_vxlan_ifindex(re_vrf_id);
+	nexthop->vrf_id = 0;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("nexthop %pNHv using SVD", nexthop);
+
+	return true;
+}
+
+/*
+ * Given a nexthop we need to properly recursively resolve
+ * the route.  As such, do a table lookup to find and match
+ * if at all possible.  Set the nexthop->ifindex and resolved_id
+ * as appropriate
  */
 static int resolve_backup_nexthops(const struct nexthop *nexthop,
 				   const struct nhg_hash_entry *nhe,
@@ -2171,6 +2212,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	 * sure the nexthop's interface is known and is operational.
 	 */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
+		/* DVNI/SVD Checks for EVPN routes */
+		if (nexthop->nh_label &&
+		    nexthop->nh_label_type == ZEBRA_LSP_EVPN &&
+		    !nexthop_set_evpn_dvni_svd(vrf_id, nexthop))
+			return 0;
+
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (!ifp) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -2226,7 +2273,9 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			endpoint.ipa_type = IPADDR_V6;
 			endpoint.ipaddr_v6 = nexthop->gate.ipv6;
 			break;
-		default:
+		case AFI_UNSPEC:
+		case AFI_L2VPN:
+		case AFI_MAX:
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: unknown address-family: %u", __func__,
 				 afi);
@@ -2267,7 +2316,9 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = nexthop->gate.ipv6;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		assert(afi != AFI_IP && afi != AFI_IP6);
 		break;
 	}
@@ -2369,11 +2420,33 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 
 			resolved = 0;
 
-			/* Only useful if installed */
-			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED)) {
+			/*
+			 * Only useful if installed or being Route Replacing
+			 * Why Being Route Replaced as well?
+			 * Imagine a route A and route B( that depends on A )
+			 * for recursive resolution and A already exists in the
+			 * zebra rib.  If zebra receives the routes
+			 * for resolution at aproximately the same time in the [
+			 * B, A ] order on the workQ.  If this happens then
+			 * normal route resolution will happen and B will be
+			 * resolved successfully and then A will be resolved
+			 * successfully. Now imagine the reversed order [A, B].
+			 * A will be resolved and then scheduled for installed
+			 * (Thus not having the ROUTE_ENTRY_INSTALLED flag ).  B
+			 * will then get resolved and fail to be installed
+			 * because the original below test.  Let's `loosen` this
+			 * up a tiny bit and allow the
+			 * ROUTE_ENTRY_ROUTE_REPLACING flag ( that is set when a
+			 * Route Replace operation is being initiated on A now )
+			 * to now satisfy this situation.  This will allow
+			 * either order in the workQ to work properly.
+			 */
+			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED) &&
+			    !CHECK_FLAG(match->status,
+					ROUTE_ENTRY_ROUTE_REPLACING)) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
-						"%s: match %p (%pNG) not installed",
+						"%s: match %p (%pNG) not installed or being Route Replaced",
 						__func__, match, match->nhe);
 
 				goto done_with_match;
@@ -2618,10 +2691,8 @@ skip_check:
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(
-				"%u:%pRN: Filtering out with NH out %s due to route map",
-				re->vrf_id, rn,
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
+				"%u:%pRN: Filtering out with NH %pNHv due to route map",
+				re->vrf_id, rn, nexthop);
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
@@ -2658,6 +2729,51 @@ done:
 	return valid;
 }
 
+/* Checks if the first nexthop is EVPN. If not, early return.
+ *
+ * This is used to determine if there is a mismatch between l3VNI
+ * of the route's vrf and the nexthops in use's VNI labels.
+ *
+ * If there is a mismatch, we keep the labels as these MUST be DVNI nexthops.
+ *
+ * IF there is no mismatch, we remove the labels and handle the routes as
+ * we have traditionally with evpn.
+ */
+static bool nexthop_list_set_evpn_dvni(struct route_entry *re,
+				       struct nexthop_group *nhg)
+{
+	struct nexthop *nexthop;
+	vni_t re_vrf_vni;
+	vni_t nh_vni;
+	bool use_dvni = false;
+
+	nexthop = nhg->nexthop;
+
+	if (!nexthop->nh_label || nexthop->nh_label_type != ZEBRA_LSP_EVPN)
+		return false;
+
+	re_vrf_vni = get_l3vni_vni(re->vrf_id);
+
+	for (; nexthop; nexthop = nexthop->next) {
+		if (!nexthop->nh_label ||
+		    nexthop->nh_label_type != ZEBRA_LSP_EVPN)
+			continue;
+
+		nh_vni = label2vni(&nexthop->nh_label->label[0]);
+
+		if (nh_vni != re_vrf_vni)
+			use_dvni = true;
+	}
+
+	/* Using traditional way, no VNI encap - remove labels */
+	if (!use_dvni) {
+		for (nexthop = nhg->nexthop; nexthop; nexthop = nexthop->next)
+			nexthop_del_labels(nexthop);
+	}
+
+	return use_dvni;
+}
+
 /*
  * Process a list of nexthops, given an nhe, determining
  * whether each one is ACTIVE/installable at this time.
@@ -2673,11 +2789,15 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 	uint32_t counter = 0;
 	struct nexthop *nexthop;
 	struct nexthop_group *nhg = &nhe->nhg;
+	bool vni_removed = false;
 
 	nexthop = nhg->nexthop;
 
 	/* Init recursive nh mtu */
 	re->nexthop_mtu = 0;
+
+	/* Handler for dvni evpn nexthops. Has to be done at nhg level */
+	vni_removed = !nexthop_list_set_evpn_dvni(re, nhg);
 
 	/* Process nexthops one-by-one */
 	for ( ; nexthop; nexthop = nexthop->next) {
@@ -2716,16 +2836,17 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 			counter++;
 
 		/* Check for changes to the nexthop - set ROUTE_ENTRY_CHANGED */
-		if (prev_active != new_active || prev_index != nexthop->ifindex
-		    || ((nexthop->type >= NEXTHOP_TYPE_IFINDEX
-			 && nexthop->type < NEXTHOP_TYPE_IPV6)
-			&& prev_src.ipv4.s_addr
-				   != nexthop->rmap_src.ipv4.s_addr)
-		    || ((nexthop->type >= NEXTHOP_TYPE_IPV6
-			 && nexthop->type < NEXTHOP_TYPE_BLACKHOLE)
-			&& !(IPV6_ADDR_SAME(&prev_src.ipv6,
-					    &nexthop->rmap_src.ipv6)))
-		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED))
+		if (prev_active != new_active ||
+		    prev_index != nexthop->ifindex ||
+		    ((nexthop->type >= NEXTHOP_TYPE_IFINDEX &&
+		      nexthop->type < NEXTHOP_TYPE_IPV6) &&
+		     prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr) ||
+		    ((nexthop->type >= NEXTHOP_TYPE_IPV6 &&
+		      nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
+		     !(IPV6_ADDR_SAME(&prev_src.ipv6,
+				      &nexthop->rmap_src.ipv6))) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ||
+		    vni_removed)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	}
 
@@ -3125,9 +3246,14 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 	}
 }
@@ -3324,6 +3450,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
+	lookup.nhg.nhgr = nhg->nhgr;
 	lookup.id = id;
 	lookup.type = type;
 

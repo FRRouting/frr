@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -111,7 +99,7 @@ static bool run_session_logic_common(void)
 }
 
 
-bool run_session_logic()
+bool run_session_logic(void)
 {
 	if (!run_session_logic_common()) {
 		return false;
@@ -234,7 +222,7 @@ bool run_session_logic_with_infra(pceplib_infra_config *infra_config)
 	return true;
 }
 
-bool run_session_logic_wait_for_completion()
+bool run_session_logic_wait_for_completion(void)
 {
 	if (!run_session_logic()) {
 		return false;
@@ -247,7 +235,7 @@ bool run_session_logic_wait_for_completion()
 }
 
 
-bool stop_session_logic()
+bool stop_session_logic(void)
 {
 	if (session_logic_handle_ == NULL) {
 		pcep_log(LOG_WARNING, "%s: Session logic already stopped",

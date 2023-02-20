@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_cspf_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2022 by Orange
 # Author: Olivier Dugeon <olivier.dugeon@orange.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -169,13 +156,19 @@ def compare_cspf_output(tgen, rname, fileref, src, dst, cost, bw=""):
 
     filename = "{}/reference/{}".format(CWD, fileref)
     expected = open(filename).read()
-    command = "show sharp cspf source {} destination {} {} {}".format(src, dst, cost, bw)
+    command = "show sharp cspf source {} destination {} {} {}".format(
+        src, dst, cost, bw
+    )
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_output_cmp, tgen.gears[rname], command, expected)
-    result, diff = topotest.run_and_expect(test_func, "", count=2, wait=2)
-    assert result, "CSPF output mismatches the expected result on {}:\n{}".format(rname, diff)
-    
+    test_func = partial(
+        topotest.router_output_cmp, tgen.gears[rname], command, expected
+    )
+    result, diff = topotest.run_and_expect(test_func, "", count=5, wait=2)
+    assert result, "CSPF output mismatches the expected result on {}:\n{}".format(
+        rname, diff
+    )
+
 
 def setup_testcase(msg):
     "Setup test case"
@@ -207,10 +200,24 @@ def test_step2():
 
     tgen = setup_testcase("Step2: CSPF(r1, r4, IPv4)")
 
-    compare_cspf_output(tgen, "r1", "cspf-ipv4-metric.txt", "10.0.0.1", "10.0.255.4", "metric 50")
-    compare_cspf_output(tgen, "r1", "cspf-ipv4-te-metric.txt", "10.0.255.1", "10.0.4.4", "te-metric 50")
-    compare_cspf_output(tgen, "r1", "cspf-ipv4-delay.txt", "10.0.255.1", "10.0.255.4", "delay 50000")
-    compare_cspf_output(tgen, "r1", "cspf-ipv4-delay.txt", "10.0.255.1", "10.0.255.4", "delay 50000", "rsv 7 100000000")
+    compare_cspf_output(
+        tgen, "r1", "cspf-ipv4-metric.txt", "10.0.0.1", "10.0.255.4", "metric 50"
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-ipv4-te-metric.txt", "10.0.255.1", "10.0.4.4", "te-metric 50"
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-ipv4-delay.txt", "10.0.255.1", "10.0.255.4", "delay 50000"
+    )
+    compare_cspf_output(
+        tgen,
+        "r1",
+        "cspf-ipv4-delay.txt",
+        "10.0.255.1",
+        "10.0.255.4",
+        "delay 50000",
+        "rsv 7 1000000",
+    )
 
 
 def test_step3():
@@ -218,10 +225,34 @@ def test_step3():
 
     tgen = setup_testcase("Step2: CSPF(r1, r4, IPv6)")
 
-    compare_cspf_output(tgen, "r1", "cspf-ipv6-metric.txt", "2001:db8:1::1:1", "2001:db8::4", "metric 50")
-    compare_cspf_output(tgen, "r1", "cspf-ipv6-te-metric.txt", "2001:db8::1", "2001:db8:5::3:4", "te-metric 80")
-    compare_cspf_output(tgen, "r1", "cspf-ipv6-delay.txt", "2001:db8::1", "2001:db8::4", "delay 80000")
-    compare_cspf_output(tgen, "r1", "cspf-ipv6-delay.txt", "2001:db8::1", "2001:db8::4", "delay 80000", "rsv 7 100000000")
+    compare_cspf_output(
+        tgen,
+        "r1",
+        "cspf-ipv6-metric.txt",
+        "2001:db8:1::1:1",
+        "2001:db8::4",
+        "metric 50",
+    )
+    compare_cspf_output(
+        tgen,
+        "r1",
+        "cspf-ipv6-te-metric.txt",
+        "2001:db8::1",
+        "2001:db8:5::3:4",
+        "te-metric 80",
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-ipv6-delay.txt", "2001:db8::1", "2001:db8::4", "delay 80000"
+    )
+    compare_cspf_output(
+        tgen,
+        "r1",
+        "cspf-ipv6-delay.txt",
+        "2001:db8::1",
+        "2001:db8::4",
+        "delay 80000",
+        "rsv 7 1000000",
+    )
 
 
 def test_step4():
@@ -229,13 +260,33 @@ def test_step4():
 
     tgen = setup_testcase("Step2: CSPF(r1, r4, failure)")
 
-    compare_cspf_output(tgen, "r1", "cspf-failed.txt", "10.0.255.1", "10.0.255.4", "metric 10")
-    compare_cspf_output(tgen, "r1", "cspf-failed.txt", "2001:db8::1", "2001:db8::4", "te-metric 50")
-    compare_cspf_output(tgen, "r1", "cspf-failed.txt", "10.0.255.1", "10.0.255.4", "delay 5000")
-    compare_cspf_output(tgen, "r1", "cspf-failed.txt", "2001:db8::1", "2001:db8::4", "delay 80000", "rsv 7 1000000000")
-    compare_cspf_output(tgen, "r1", "cspf-failed-src.txt", "10.0.0.3", "10.0.255.4", "metric 10")
-    compare_cspf_output(tgen, "r1", "cspf-failed-dst.txt", "10.0.0.1", "10.0.4.40", "metric 10")
-    compare_cspf_output(tgen, "r1", "cspf-failed-same.txt", "10.0.0.1", "10.0.0.1", "metric 10")
+    compare_cspf_output(
+        tgen, "r1", "cspf-failed.txt", "10.0.255.1", "10.0.255.4", "metric 10"
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-failed.txt", "2001:db8::1", "2001:db8::4", "te-metric 50"
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-failed.txt", "10.0.255.1", "10.0.255.4", "delay 5000"
+    )
+    compare_cspf_output(
+        tgen,
+        "r1",
+        "cspf-failed.txt",
+        "2001:db8::1",
+        "2001:db8::4",
+        "delay 80000",
+        "rsv 7 10000000",
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-failed-src.txt", "10.0.0.3", "10.0.255.4", "metric 10"
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-failed-dst.txt", "10.0.0.1", "10.0.4.40", "metric 10"
+    )
+    compare_cspf_output(
+        tgen, "r1", "cspf-failed-same.txt", "10.0.0.1", "10.0.0.1", "metric 10"
+    )
 
 
 def test_memory_leak():

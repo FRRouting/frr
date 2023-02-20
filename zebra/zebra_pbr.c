@@ -1,22 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Policy Based Routing (PBR) main handling.
  * Copyright (C) 2018  Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -36,6 +20,7 @@
 
 /* definitions */
 DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list");
+DEFINE_MTYPE(ZEBRA, PBR_OBJ, "PBR");
 
 /* definitions */
 static const struct message ipset_type_msg[] = {
@@ -163,7 +148,7 @@ void zebra_pbr_rules_free(void *arg)
 	rule = (struct zebra_pbr_rule *)arg;
 
 	(void)dplane_pbr_rule_delete(rule);
-	XFREE(MTYPE_TMP, rule);
+	XFREE(MTYPE_PBR_OBJ, rule);
 }
 
 uint32_t zebra_pbr_rules_hash_key(const void *arg)
@@ -275,7 +260,7 @@ void zebra_pbr_ipset_free(void *arg)
 
 	ipset = (struct zebra_pbr_ipset *)arg;
 	hook_call(zebra_pbr_ipset_update, 0, ipset);
-	XFREE(MTYPE_TMP, ipset);
+	XFREE(MTYPE_PBR_OBJ, ipset);
 }
 
 uint32_t zebra_pbr_ipset_hash_key(const void *arg)
@@ -319,7 +304,7 @@ void zebra_pbr_ipset_entry_free(void *arg)
 
 	hook_call(zebra_pbr_ipset_entry_update, 0, ipset);
 
-	XFREE(MTYPE_TMP, ipset);
+	XFREE(MTYPE_PBR_OBJ, ipset);
 }
 
 uint32_t zebra_pbr_ipset_entry_hash_key(const void *arg)
@@ -396,7 +381,7 @@ static void _zebra_pbr_iptable_free_all(void *arg, bool all)
 		}
 		list_delete(&iptable->interface_name_list);
 	}
-	XFREE(MTYPE_TMP, iptable);
+	XFREE(MTYPE_PBR_OBJ, iptable);
 }
 
 void zebra_pbr_iptable_free(void *arg)
@@ -478,7 +463,7 @@ static void *pbr_rule_alloc_intern(void *arg)
 
 	zpr = (struct zebra_pbr_rule *)arg;
 
-	new = XCALLOC(MTYPE_TMP, sizeof(*new));
+	new = XCALLOC(MTYPE_PBR_OBJ, sizeof(*new));
 
 	memcpy(new, zpr, sizeof(*zpr));
 
@@ -492,7 +477,7 @@ static struct zebra_pbr_rule *pbr_rule_free(struct zebra_pbr_rule *hash_data,
 		zebra_neigh_deref(hash_data);
 	hash_release(zrouter.rules_hash, hash_data);
 	if (free_data) {
-		XFREE(MTYPE_TMP, hash_data);
+		XFREE(MTYPE_PBR_OBJ, hash_data);
 		return NULL;
 	}
 
@@ -647,7 +632,8 @@ static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
 			zebra_neigh_ref(action->ifindex, &ip, rule);
 			break;
 
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
+		case NEXTHOP_TYPE_IFINDEX:
 			action->afi = AFI_UNSPEC;
 		}
 	}
@@ -688,7 +674,7 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 		(void)dplane_pbr_rule_update(found, new);
 		/* release the old hash data */
 		if (old)
-			XFREE(MTYPE_TMP, old);
+			XFREE(MTYPE_PBR_OBJ, old);
 	} else {
 		if (IS_ZEBRA_DEBUG_PBR)
 			zlog_debug(
@@ -856,7 +842,7 @@ static void *pbr_ipset_alloc_intern(void *arg)
 
 	zpi = (struct zebra_pbr_ipset *)arg;
 
-	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_ipset));
+	new = XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_ipset));
 
 	memcpy(new, zpi, sizeof(*zpi));
 
@@ -877,7 +863,7 @@ void zebra_pbr_destroy_ipset(struct zebra_pbr_ipset *ipset)
 	(void)dplane_pbr_ipset_delete(ipset);
 	if (lookup) {
 		hash_release(zrouter.ipset_hash, lookup);
-		XFREE(MTYPE_TMP, lookup);
+		XFREE(MTYPE_PBR_OBJ, lookup);
 	} else
 		zlog_debug(
 			"%s: IPSet Entry being deleted we know nothing about",
@@ -930,7 +916,7 @@ static void *pbr_ipset_entry_alloc_intern(void *arg)
 
 	zpi = (struct zebra_pbr_ipset_entry *)arg;
 
-	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_ipset_entry));
+	new = XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_ipset_entry));
 
 	memcpy(new, zpi, sizeof(*zpi));
 
@@ -952,7 +938,7 @@ void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset)
 	(void)dplane_pbr_ipset_entry_delete(ipset);
 	if (lookup) {
 		hash_release(zrouter.ipset_entry_hash, lookup);
-		XFREE(MTYPE_TMP, lookup);
+		XFREE(MTYPE_PBR_OBJ, lookup);
 	} else
 		zlog_debug("%s: IPSet being deleted we know nothing about",
 			   __func__);
@@ -967,7 +953,7 @@ static void *pbr_iptable_alloc_intern(void *arg)
 
 	zpi = (struct zebra_pbr_iptable *)arg;
 
-	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
+	new = XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_iptable));
 
 	/* Deep structure copy */
 	memcpy(new, zpi, sizeof(*zpi));
@@ -1009,7 +995,7 @@ void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
 					 node);
 		}
 		list_delete(&iptable->interface_name_list);
-		XFREE(MTYPE_TMP, lookup);
+		XFREE(MTYPE_PBR_OBJ, lookup);
 	} else
 		zlog_debug("%s: IPTable being deleted we know nothing about",
 			   __func__);

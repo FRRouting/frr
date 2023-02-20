@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_circuit.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #ifdef GNU_LINUX
@@ -596,6 +583,32 @@ static void isis_circuit_update_all_srmflags(struct isis_circuit *circuit,
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit)
 {
 	return ISO_MTU(circuit);
+}
+
+static bool isis_circuit_lfa_enabled(struct isis_circuit *circuit, int level)
+{
+	return (circuit->lfa_protection[level - 1] ||
+		circuit->rlfa_protection[level - 1] ||
+		circuit->tilfa_protection[level - 1]);
+}
+
+void isis_circuit_switchover_routes(struct isis_circuit *circuit, int family,
+				    union g_addr *nexthop_ip, ifindex_t ifindex)
+{
+	char is_type;
+
+	if (!circuit->area)
+		return;
+
+	is_type = circuit->area->is_type;
+	if ((is_type == IS_LEVEL_1 || is_type == IS_LEVEL_1_AND_2) &&
+	    isis_circuit_lfa_enabled(circuit, IS_LEVEL_1))
+		isis_area_switchover_routes(circuit->area, family, nexthop_ip,
+					    ifindex, IS_LEVEL_1);
+	if ((is_type == IS_LEVEL_2 || is_type == IS_LEVEL_1_AND_2) &&
+	    isis_circuit_lfa_enabled(circuit, IS_LEVEL_2))
+		isis_area_switchover_routes(circuit->area, family, nexthop_ip,
+					    ifindex, IS_LEVEL_2);
 }
 
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
@@ -1602,17 +1615,26 @@ static int isis_ifp_up(struct interface *ifp)
 {
 	struct isis_circuit *circuit = ifp->info;
 
-	if (circuit)
+	if (circuit) {
+		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z);
 		isis_csm_state_change(IF_UP_FROM_Z, circuit, ifp);
+	}
 
 	return 0;
 }
 
 static int isis_ifp_down(struct interface *ifp)
 {
+	afi_t afi;
 	struct isis_circuit *circuit = ifp->info;
 
-	if (circuit) {
+	if (circuit &&
+	    !CHECK_FLAG(circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z)) {
+		SET_FLAG(circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z);
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+			isis_circuit_switchover_routes(
+				circuit, afi == AFI_IP ? AF_INET : AF_INET6,
+				NULL, ifp->ifindex);
 		isis_csm_state_change(IF_DOWN_FROM_Z, circuit, ifp);
 
 		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);

@@ -5,16 +5,11 @@
 if PATHD
 noinst_LIBRARIES += pathd/libpath.a
 sbin_PROGRAMS += pathd/pathd
-vtysh_scan += \
-	pathd/path_cli.c \
-	pathd/path_ted.c \
-	#end
 vtysh_daemons += pathd
 # TODO add man page
 #man8 += $(MANBUILD)/pathd.8
 
 if PATHD_PCEP
-vtysh_scan += pathd/path_pcep_cli.c
 module_LTLIBRARIES += pathd/pathd_pcep.la
 endif
 

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Interface function.
  * Copyright (C) 1997, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -33,6 +18,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "lib/northbound_cli.h"
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
@@ -61,6 +47,7 @@ DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
+DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
@@ -227,13 +214,14 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		rtadv_if_fini(zebra_if);
 
+		zebra_l2_bridge_if_cleanup(ifp);
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
 
 		if_nhg_dependents_release(ifp);
 		zebra_if_nhg_dependents_free(zebra_if);
 
-		XFREE(MTYPE_TMP, zebra_if->desc);
+		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
 		THREAD_OFF(zebra_if->speed_update);
 
@@ -805,12 +793,12 @@ void if_delete_update(struct interface **pifp)
 	/* Reset some zebra interface params to default values. */
 	zif = ifp->info;
 	if (zif) {
+		zebra_evpn_if_cleanup(zif);
 		zif->zif_type = ZEBRA_IF_OTHER;
 		zif->zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 		memset(&zif->l2info, 0, sizeof(union zebra_l2if_info));
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
-		zebra_evpn_if_cleanup(zif);
 		zebra_evpn_mac_ifp_del(ifp);
 	}
 
@@ -1435,7 +1423,8 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"%s: if %s(%u) zebra info pointer is NULL",
-					__func__, ifp->name, ifp->ifindex);
+					__func__, ifp ? ifp->name : "(null)",
+					ifp ? ifp->ifindex : ifindex);
 			return;
 		}
 		if (afi == AFI_IP) {
@@ -1573,9 +1562,14 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break; /* should never hit here */
 	}
 }
@@ -1882,6 +1876,63 @@ static inline bool if_is_protodown_applicable(struct interface *ifp)
 	return true;
 }
 
+static void zebra_vxlan_if_vni_dump_vty(struct vty *vty,
+					struct zebra_vxlan_vni *vni)
+{
+	char str[INET6_ADDRSTRLEN];
+
+	vty_out(vty, "  VxLAN Id %u", vni->vni);
+	if (vni->access_vlan)
+		vty_out(vty, " Access VLAN Id %u\n", vni->access_vlan);
+
+	if (vni->mcast_grp.s_addr != INADDR_ANY)
+		vty_out(vty, "  Mcast Group %s",
+			inet_ntop(AF_INET, &vni->mcast_grp, str, sizeof(str)));
+}
+
+static void zebra_vxlan_if_vni_hash_dump_vty(struct hash_bucket *bucket,
+					     void *ctxt)
+{
+	struct vty *vty;
+	struct zebra_vxlan_vni *vni;
+
+	vni = (struct zebra_vxlan_vni *)bucket->data;
+	vty = (struct vty *)ctxt;
+
+	zebra_vxlan_if_vni_dump_vty(vty, vni);
+}
+
+static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
+{
+	struct zebra_l2info_vxlan *vxlan_info;
+	struct zebra_vxlan_vni_info *vni_info;
+
+	vxlan_info = &zebra_if->l2info.vxl;
+	vni_info = &vxlan_info->vni_info;
+
+	if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
+		vty_out(vty, " VTEP IP: %pI4", &vxlan_info->vtep_ip);
+
+	if (vxlan_info->ifindex_link && (vxlan_info->link_nsid != NS_UNKNOWN)) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_index_per_ns(
+			zebra_ns_lookup(vxlan_info->link_nsid),
+			vxlan_info->ifindex_link);
+		vty_out(vty, " Link Interface %s",
+			ifp == NULL ? "Unknown" : ifp->name);
+	}
+
+	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if)) {
+		zebra_vxlan_if_vni_dump_vty(vty, &vni_info->vni);
+	} else {
+		hash_iterate(vni_info->vni_table,
+			     zebra_vxlan_if_vni_hash_dump_vty, vty);
+	}
+
+	vty_out(vty, "\n");
+}
+
 /* Interface's information print out to vty interface. */
 static void if_dump_vty(struct vty *vty, struct interface *ifp)
 {
@@ -1990,42 +2041,15 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		zebra_zifslavetype_2str(zebra_if->zif_slave_type));
 
 	if (IS_ZEBRA_IF_BRIDGE(ifp)) {
-		struct zebra_l2info_bridge *bridge_info;
-
-		bridge_info = &zebra_if->l2info.br;
 		vty_out(vty, "  Bridge VLAN-aware: %s\n",
-			bridge_info->vlan_aware ? "yes" : "no");
+			IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zebra_if) ? "yes" : "no");
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
 		struct zebra_l2info_vlan *vlan_info;
 
 		vlan_info = &zebra_if->l2info.vl;
 		vty_out(vty, "  VLAN Id %u\n", vlan_info->vid);
 	} else if (IS_ZEBRA_IF_VXLAN(ifp)) {
-		struct zebra_l2info_vxlan *vxlan_info;
-
-		vxlan_info = &zebra_if->l2info.vxl;
-		vty_out(vty, "  VxLAN Id %u", vxlan_info->vni);
-		if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-			vty_out(vty, " VTEP IP: %pI4",
-				&vxlan_info->vtep_ip);
-		if (vxlan_info->access_vlan)
-			vty_out(vty, " Access VLAN Id %u\n",
-				vxlan_info->access_vlan);
-		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
-			vty_out(vty, "  Mcast Group %pI4",
-					&vxlan_info->mcast_grp);
-		if (vxlan_info->ifindex_link &&
-		    (vxlan_info->link_nsid != NS_UNKNOWN)) {
-				struct interface *ifp;
-
-				ifp = if_lookup_by_index_per_ns(
-					zebra_ns_lookup(vxlan_info->link_nsid),
-					vxlan_info->ifindex_link);
-				vty_out(vty, " Link Interface %s",
-					ifp == NULL ? "Unknown" :
-					ifp->name);
-		}
-		vty_out(vty, "\n");
+		zebra_vxlan_if_dump_vty(vty, zebra_if);
 	} else if (IS_ZEBRA_IF_GRE(ifp)) {
 		struct zebra_l2info_gre *gre_info;
 
@@ -2218,6 +2242,59 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
+static void zebra_vxlan_if_vni_dump_vty_json(json_object *json_if,
+					     struct zebra_vxlan_vni *vni)
+{
+	json_object_int_add(json_if, "vxlanId", vni->vni);
+	if (vni->access_vlan)
+		json_object_int_add(json_if, "accessVlanId", vni->access_vlan);
+	if (vni->mcast_grp.s_addr != INADDR_ANY)
+		json_object_string_addf(json_if, "mcastGroup", "%pI4",
+					&vni->mcast_grp);
+}
+
+static void zebra_vxlan_if_vni_hash_dump_vty_json(struct hash_bucket *bucket,
+						  void *ctxt)
+{
+	json_object *json_if;
+	struct zebra_vxlan_vni *vni;
+
+	vni = (struct zebra_vxlan_vni *)bucket->data;
+	json_if = (json_object *)ctxt;
+
+	zebra_vxlan_if_vni_dump_vty_json(json_if, vni);
+}
+
+static void zebra_vxlan_if_dump_vty_json(json_object *json_if,
+					 struct zebra_if *zebra_if)
+{
+	struct zebra_l2info_vxlan *vxlan_info;
+	struct zebra_vxlan_vni_info *vni_info;
+
+	vxlan_info = &zebra_if->l2info.vxl;
+	vni_info = &vxlan_info->vni_info;
+
+	if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
+		json_object_string_addf(json_if, "vtepIp", "%pI4",
+					&vxlan_info->vtep_ip);
+
+	if (vxlan_info->ifindex_link && (vxlan_info->link_nsid != NS_UNKNOWN)) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_index_per_ns(
+			zebra_ns_lookup(vxlan_info->link_nsid),
+			vxlan_info->ifindex_link);
+		json_object_string_add(json_if, "linkInterface",
+				       ifp == NULL ? "Unknown" : ifp->name);
+	}
+	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if)) {
+		zebra_vxlan_if_vni_dump_vty_json(json_if, &vni_info->vni);
+	} else {
+		hash_iterate(vni_info->vni_table,
+			     zebra_vxlan_if_vni_hash_dump_vty_json, json_if);
+	}
+}
+
 static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 			     json_object *json)
 {
@@ -2345,37 +2422,15 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 		bridge_info = &zebra_if->l2info.br;
 		json_object_boolean_add(json_if, "bridgeVlanAware",
-					bridge_info->vlan_aware);
+					bridge_info->bridge.vlan_aware);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
 		struct zebra_l2info_vlan *vlan_info;
 
 		vlan_info = &zebra_if->l2info.vl;
 		json_object_int_add(json_if, "vlanId", vlan_info->vid);
 	} else if (IS_ZEBRA_IF_VXLAN(ifp)) {
-		struct zebra_l2info_vxlan *vxlan_info;
+		zebra_vxlan_if_dump_vty_json(json_if, zebra_if);
 
-		vxlan_info = &zebra_if->l2info.vxl;
-		json_object_int_add(json_if, "vxlanId", vxlan_info->vni);
-		if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-			json_object_string_addf(json_if, "vtepIp", "%pI4",
-						&vxlan_info->vtep_ip);
-		if (vxlan_info->access_vlan)
-			json_object_int_add(json_if, "accessVlanId",
-					    vxlan_info->access_vlan);
-		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
-			json_object_string_addf(json_if, "mcastGroup", "%pI4",
-						&vxlan_info->mcast_grp);
-		if (vxlan_info->ifindex_link
-		    && (vxlan_info->link_nsid != NS_UNKNOWN)) {
-			struct interface *ifp;
-
-			ifp = if_lookup_by_index_per_ns(
-				zebra_ns_lookup(vxlan_info->link_nsid),
-				vxlan_info->ifindex_link);
-			json_object_string_add(json_if, "linkInterface",
-					       ifp == NULL ? "Unknown"
-							   : ifp->name);
-		}
 	} else if (IS_ZEBRA_IF_GRE(ifp)) {
 		struct zebra_l2info_gre *gre_info;
 
@@ -2603,9 +2658,7 @@ static void interface_update_stats(void)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/interface_clippy.c"
-#endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
       "show interface vrf NAME$vrf_name [brief$brief] [json$uj]",
@@ -3279,14 +3332,8 @@ DEFUN (link_params_enable,
 			"Link-params: enable TE link parameters on interface %s",
 			ifp->name);
 
-	if (!if_link_params_get(ifp)) {
-		if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"Link-params: failed to init TE link parameters  %s",
-				ifp->name);
-
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (!if_link_params_get(ifp))
+		if_link_params_enable(ifp);
 
 	/* force protocols to update LINK STATE due to parameters change */
 	if (if_is_operative(ifp))
@@ -3301,6 +3348,8 @@ DEFUN (no_link_params_enable,
        NO_STR
        "Disable link parameters on this interface\n")
 {
+	char xpath[XPATH_MAXLEN];
+	int ret;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
@@ -3308,6 +3357,18 @@ DEFUN (no_link_params_enable,
 			   ifp->name);
 
 	if_link_params_free(ifp);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
+		ifp->name);
+	if (yang_dnode_exists(running_config->dnode, xpath))
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	/* force protocols to update LINK STATE due to parameters change */
 	if (if_is_operative(ifp))
@@ -3329,6 +3390,9 @@ DEFUN (link_params_metric,
 	uint32_t metric;
 
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update TE metric if needed */
 	link_param_cmd_set_uint32(ifp, &iflp->te_metric, LP_TE_METRIC, metric);
@@ -3370,16 +3434,19 @@ DEFUN (link_params_maxbw,
 
 	/* Check that Maximum bandwidth is not lower than other bandwidth
 	 * parameters */
-	if ((bw <= iflp->max_rsv_bw) || (bw <= iflp->unrsv_bw[0])
-	    || (bw <= iflp->unrsv_bw[1]) || (bw <= iflp->unrsv_bw[2])
-	    || (bw <= iflp->unrsv_bw[3]) || (bw <= iflp->unrsv_bw[4])
-	    || (bw <= iflp->unrsv_bw[5]) || (bw <= iflp->unrsv_bw[6])
-	    || (bw <= iflp->unrsv_bw[7]) || (bw <= iflp->ava_bw)
-	    || (bw <= iflp->res_bw) || (bw <= iflp->use_bw)) {
+	if (iflp && ((bw <= iflp->max_rsv_bw) || (bw <= iflp->unrsv_bw[0]) ||
+		     (bw <= iflp->unrsv_bw[1]) || (bw <= iflp->unrsv_bw[2]) ||
+		     (bw <= iflp->unrsv_bw[3]) || (bw <= iflp->unrsv_bw[4]) ||
+		     (bw <= iflp->unrsv_bw[5]) || (bw <= iflp->unrsv_bw[6]) ||
+		     (bw <= iflp->unrsv_bw[7]) || (bw <= iflp->ava_bw) ||
+		     (bw <= iflp->res_bw) || (bw <= iflp->use_bw))) {
 		vty_out(vty,
 			"Maximum Bandwidth could not be lower than others bandwidth\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Maximum Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, bw);
@@ -3406,12 +3473,15 @@ DEFUN (link_params_max_rsv_bw,
 
 	/* Check that bandwidth is not greater than maximum bandwidth parameter
 	 */
-	if (bw > iflp->max_bw) {
+	if (iflp && bw > iflp->max_bw) {
 		vty_out(vty,
 			"Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
 			iflp->max_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Maximum Reservable Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, bw);
@@ -3448,12 +3518,15 @@ DEFUN (link_params_unrsv_bw,
 
 	/* Check that bandwidth is not greater than maximum bandwidth parameter
 	 */
-	if (bw > iflp->max_bw) {
+	if (iflp && bw > iflp->max_bw) {
 		vty_out(vty,
 			"UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
 			iflp->max_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Unreserved Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
@@ -3462,16 +3535,27 @@ DEFUN (link_params_unrsv_bw,
 	return CMD_SUCCESS;
 }
 
-DEFUN (link_params_admin_grp,
-       link_params_admin_grp_cmd,
-       "admin-grp BITPATTERN",
-       "Administrative group membership\n"
-       "32-bit Hexadecimal value (e.g. 0xa1)\n")
+DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
+	   "admin-grp BITPATTERN",
+	   "Administrative group membership\n"
+	   "32-bit Hexadecimal value (e.g. 0xa1)\n")
 {
+	char xpath[XPATH_MAXLEN];
 	int idx_bitpattern = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
 	unsigned long value;
+	char value_str[11];
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
+		ifp->name);
+	if (yang_dnode_exists(running_config->dnode, xpath)) {
+		vty_out(vty,
+			"cannot use the admin-grp command when affinity is set\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (sscanf(argv[idx_bitpattern]->arg, "0x%lx", &value) != 1) {
 		vty_out(vty, "link_params_admin_grp: fscanf: %s\n",
@@ -3479,24 +3563,29 @@ DEFUN (link_params_admin_grp,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Update Administrative Group if needed */
-	link_param_cmd_set_uint32(ifp, &iflp->admin_grp, LP_ADM_GRP, value);
+	if (value > 0xFFFFFFFF) {
+		vty_out(vty, "value must be not be superior to 0xFFFFFFFF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	return CMD_SUCCESS;
+	snprintf(value_str, sizeof(value_str), "%ld", value);
+
+	nb_cli_enqueue_change(
+		vty, "./frr-zebra:zebra/link-params/legacy-admin-group",
+		NB_OP_MODIFY, value_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_link_params_admin_grp,
-       no_link_params_admin_grp_cmd,
-       "no admin-grp",
-       NO_STR
-       "Disable Administrative group membership on this interface\n")
+DEFPY_YANG(no_link_params_admin_grp, no_link_params_admin_grp_cmd,
+	   "no admin-grp",
+	   NO_STR "Disable Administrative group membership on this interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(
+		vty, "./frr-zebra:zebra/link-params/legacy-admin-group",
+		NB_OP_DESTROY, NULL);
 
-	/* Unset Admin Group */
-	link_param_cmd_unset(ifp, LP_ADM_GRP);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* RFC5392 & RFC5316: INTER-AS */
@@ -3520,6 +3609,9 @@ DEFUN (link_params_inter_as,
 		vty_out(vty, "Please specify Router-Addr by A.B.C.D\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	as = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -3547,6 +3639,9 @@ DEFUN (no_link_params_inter_as,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
+
+	if (!iflp)
+		return CMD_SUCCESS;
 
 	/* Reset Remote IP and AS neighbor */
 	iflp->rmt_as = 0;
@@ -3595,13 +3690,17 @@ DEFUN (link_params_delay,
 		 * Therefore, it is also allowed that the average
 		 * delay be equal to the min delay or max delay.
 		 */
-		if (IS_PARAM_SET(iflp, LP_MM_DELAY)
-		    && (delay < iflp->min_delay || delay > iflp->max_delay)) {
+		if (iflp && IS_PARAM_SET(iflp, LP_MM_DELAY) &&
+		    (delay < iflp->min_delay || delay > iflp->max_delay)) {
 			vty_out(vty,
 				"Average delay should be in range Min (%d) - Max (%d) delay\n",
 				iflp->min_delay, iflp->max_delay);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		if (!iflp)
+			iflp = if_link_params_enable(ifp);
+
 		/* Update delay if value is not set or change */
 		if (IS_PARAM_UNSET(iflp, LP_DELAY) || iflp->av_delay != delay) {
 			iflp->av_delay = delay;
@@ -3626,6 +3725,10 @@ DEFUN (link_params_delay,
 				low, high);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		if (!iflp)
+			iflp = if_link_params_enable(ifp);
+
 		/* Update Delays if needed */
 		if (IS_PARAM_UNSET(iflp, LP_DELAY)
 		    || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
@@ -3656,6 +3759,9 @@ DEFUN (no_link_params_delay,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
 
+	if (!iflp)
+		return CMD_SUCCESS;
+
 	/* Unset Delays */
 	iflp->av_delay = 0;
 	UNSET_PARAM(iflp, LP_DELAY);
@@ -3682,6 +3788,9 @@ DEFUN (link_params_delay_var,
 	uint32_t value;
 
 	value = strtoul(argv[idx_number]->arg, NULL, 10);
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Delay Variation if needed */
 	link_param_cmd_set_uint32(ifp, &iflp->delay_var, LP_DELAY_VAR, value);
@@ -3723,6 +3832,9 @@ DEFUN (link_params_pkt_loss,
 	if (fval > MAX_PKT_LOSS)
 		fval = MAX_PKT_LOSS;
 
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
+
 	/* Update Packet Loss if needed */
 	link_param_cmd_set_float(ifp, &iflp->pkt_loss, LP_PKT_LOSS, fval);
 
@@ -3762,12 +3874,15 @@ DEFUN (link_params_res_bw,
 
 	/* Check that bandwidth is not greater than maximum bandwidth parameter
 	 */
-	if (bw > iflp->max_bw) {
+	if (iflp && bw > iflp->max_bw) {
 		vty_out(vty,
 			"Residual Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
 			iflp->max_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Residual Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->res_bw, LP_RES_BW, bw);
@@ -3808,12 +3923,15 @@ DEFUN (link_params_ava_bw,
 
 	/* Check that bandwidth is not greater than maximum bandwidth parameter
 	 */
-	if (bw > iflp->max_bw) {
+	if (iflp && bw > iflp->max_bw) {
 		vty_out(vty,
 			"Available Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
 			iflp->max_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Residual Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->ava_bw, LP_AVA_BW, bw);
@@ -3854,12 +3972,15 @@ DEFUN (link_params_use_bw,
 
 	/* Check that bandwidth is not greater than maximum bandwidth parameter
 	 */
-	if (bw > iflp->max_bw) {
+	if (iflp && bw > iflp->max_bw) {
 		vty_out(vty,
 			"Utilised Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
 			iflp->max_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!iflp)
+		iflp = if_link_params_enable(ifp);
 
 	/* Update Utilized Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->use_bw, LP_USE_BW, bw);
@@ -3879,6 +4000,118 @@ DEFUN (no_link_params_use_bw,
 	link_param_cmd_unset(ifp, LP_USE_BW);
 
 	return CMD_SUCCESS;
+}
+
+static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
+		     const char *xpath, bool no, int start_idx)
+{
+	for (int i = start_idx; i < argc; i++)
+		nb_cli_enqueue_change(vty, xpath,
+				      no ? NB_OP_DESTROY : NB_OP_CREATE,
+				      argv[i]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity
+ */
+DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
+	   "[no] affinity NAME...",
+	   NO_STR
+	   "Interface affinities\n"
+	   "Affinity names\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/legacy-admin-group",
+		ifp->name);
+	if (yang_dnode_exists(running_config->dnode, xpath)) {
+		vty_out(vty,
+			"cannot use the affinity command when admin-grp is set\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return ag_change(vty, argc, argv,
+			 "./frr-zebra:zebra/link-params/affinities/affinity",
+			 no, no ? 2 : 1);
+}
+
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity-mode
+ */
+DEFPY_YANG(link_params_affinity_mode, link_params_affinity_mode_cmd,
+	   "affinity-mode <standard|extended|both>$affmode",
+	   "Interface affinity mode\n"
+	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
+	   "Extended Admin-Group only RFC7308\n"
+	   "Standard and extended Admin-Group format\n")
+{
+	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, affmode);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_link_params_affinity_mode, no_link_params_affinity_mode_cmd,
+	   "no affinity-mode [<standard|extended|both>]",
+	   NO_STR
+	   "Interface affinity mode\n"
+	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
+	   "Extended Admin-Group only RFC7308\n"
+	   "Standard and extended Admin-Group format\n")
+{
+	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "standard");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = (struct vty *)arg;
+
+	vty_out(vty, " %s", yang_dnode_get_string(dnode, "."));
+	return YANG_ITER_CONTINUE;
+}
+
+void cli_show_legacy_admin_group(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	if (!yang_dnode_exists(dnode, "./legacy-admin-group"))
+		return;
+
+	vty_out(vty, "  admin-group 0x%x\n",
+		yang_dnode_get_uint32(dnode, "./legacy-admin-group"));
+}
+
+void cli_show_affinity_mode(struct vty *vty, const struct lyd_node *dnode,
+			    bool show_defaults)
+{
+	enum affinity_mode affinity_mode = yang_dnode_get_enum(dnode, ".");
+
+	if (affinity_mode == AFFINITY_MODE_STANDARD)
+		vty_out(vty, "  affinity-mode standard\n");
+	else if (affinity_mode == AFFINITY_MODE_BOTH)
+		vty_out(vty, "  affinity-mode both\n");
+}
+
+void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
+		       bool show_defaults)
+{
+	if (!yang_dnode_exists(dnode, "./affinity"))
+		return;
+
+	vty_out(vty, "  affinity");
+	yang_dnode_iterate(ag_iter_cb, vty, dnode, "./affinity");
+	vty_out(vty, "\n");
 }
 
 int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
@@ -4477,6 +4710,8 @@ DEFUN (no_ipv6_address,
 
 static int link_params_config_write(struct vty *vty, struct interface *ifp)
 {
+	const struct lyd_node *dnode;
+	char xpath[XPATH_MAXLEN];
 	int i;
 
 	if ((ifp == NULL) || !HAS_LINK_PARAMS(ifp))
@@ -4499,8 +4734,15 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 				vty_out(vty, "  unrsv-bw %d %g\n", i,
 					iflp->unrsv_bw[i]);
 	}
-	if (IS_PARAM_SET(iflp, LP_ADM_GRP))
-		vty_out(vty, "  admin-grp 0x%x\n", iflp->admin_grp);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params",
+		ifp->name);
+	dnode = yang_dnode_get(running_config->dnode, xpath);
+	if (dnode)
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+
 	if (IS_PARAM_SET(iflp, LP_DELAY)) {
 		vty_out(vty, "  delay %u", iflp->av_delay);
 		if (IS_PARAM_SET(iflp, LP_MM_DELAY)) {
@@ -4522,6 +4764,7 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	if (IS_PARAM_SET(iflp, LP_RMT_AS))
 		vty_out(vty, "  neighbor %pI4 as %u\n", &iflp->rmt_ip,
 			iflp->rmt_as);
+
 	vty_out(vty, " exit-link-params\n");
 	return 0;
 }
@@ -4602,7 +4845,7 @@ static int if_config_write(struct vty *vty)
 							? ""
 							: "no ");
 				if (if_data->mpls == IF_ZEBRA_DATA_ON)
-					vty_out(vty, " mpls\n");
+					vty_out(vty, " mpls enable\n");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
@@ -4681,6 +4924,9 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &no_link_params_res_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
+	install_element(LINK_PARAMS_NODE, &link_params_affinity_cmd);
+	install_element(LINK_PARAMS_NODE, &link_params_affinity_mode_cmd);
+	install_element(LINK_PARAMS_NODE, &no_link_params_affinity_mode_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 
 	/* setup EVPN MH elements */

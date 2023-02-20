@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -127,10 +114,15 @@ static void yang_mapping_add(struct yang_translator *translator, int dir,
 	}
 }
 
+static void yang_tmodule_delete(struct yang_tmodule *tmodule)
+{
+	XFREE(MTYPE_YANG_TRANSLATOR_MODULE, tmodule);
+}
+
 struct yang_translator *yang_translator_load(const char *path)
 {
 	struct yang_translator *translator;
-	struct yang_tmodule *tmodule;
+	struct yang_tmodule *tmodule = NULL;
 	const char *family;
 	struct lyd_node *dnode;
 	struct ly_set *set;
@@ -160,6 +152,7 @@ struct yang_translator *yang_translator_load(const char *path)
 		flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
 			  "%s: module translator \"%s\" is loaded already",
 			  __func__, family);
+		yang_dnode_free(dnode);
 		return NULL;
 	}
 
@@ -282,13 +275,9 @@ struct yang_translator *yang_translator_load(const char *path)
 error:
 	yang_dnode_free(dnode);
 	yang_translator_unload(translator);
+	yang_tmodule_delete(tmodule);
 
 	return NULL;
-}
-
-static void yang_tmodule_delete(struct yang_tmodule *tmodule)
-{
-	XFREE(MTYPE_YANG_TRANSLATOR_MODULE, tmodule);
 }
 
 void yang_translator_unload(struct yang_translator *translator)
@@ -339,8 +328,12 @@ yang_translate_xpath(const struct yang_translator *translator, int dir,
 	if (!mapping)
 		return YANG_TRANSLATE_NOTFOUND;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* processing format strings from mapping node... */
 	n = sscanf(xpath, mapping->xpath_from_fmt, keys[0], keys[1], keys[2],
 		   keys[3]);
+#pragma GCC diagnostic pop
 	if (n < 0) {
 		flog_warn(EC_LIB_YANG_TRANSLATION_ERROR,
 			  "%s: sscanf() failed: %s", __func__,
@@ -348,8 +341,12 @@ yang_translate_xpath(const struct yang_translator *translator, int dir,
 		return YANG_TRANSLATE_FAILURE;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* processing format strings from mapping node... */
 	snprintf(xpath, xpath_len, mapping->xpath_to_fmt, keys[0], keys[1],
 		 keys[2], keys[3]);
+#pragma GCC diagnostic pop
 
 	return YANG_TRANSLATE_SUCCESS;
 }

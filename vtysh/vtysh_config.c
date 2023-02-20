@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Configuration generator.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -261,6 +246,11 @@ static void config_add_line_uniq_end(struct list *config, const char *line)
 		listnode_move_to_tail(config, node);
 }
 
+static void config_add_line_head(struct list *config, const char *line)
+{
+	listnode_add_head(config, XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line));
+}
+
 void vtysh_config_parse_line(void *arg, const char *line)
 {
 	char c;
@@ -324,21 +314,32 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			} else if (!strncmp(line, " ip mroute",
 					    strlen(" ip mroute"))) {
 				config_add_line_uniq_end(config->line, line);
-			} else if (config->index == RMAP_NODE
-				   || config->index == INTERFACE_NODE
-				   || config->index == VTY_NODE
-				   || config->index == NH_GROUP_NODE)
+			} else if (config->index == RMAP_NODE ||
+				   config->index == INTERFACE_NODE ||
+				   config->index == VTY_NODE)
 				config_add_line_uniq(config->line, line);
-			else
+			else if (config->index == NH_GROUP_NODE) {
+				if (strncmp(line, " resilient",
+					    strlen(" resilient")) == 0)
+					config_add_line_head(config->line,
+							     line);
+				else
+					config_add_line_uniq_end(config->line,
+								 line);
+			} else
 				config_add_line(config->line, line);
 		} else
 			config_add_line(config_top, line);
 		break;
 	default:
 		if (strncmp(line, "exit", strlen("exit")) == 0) {
-			if (config)
+			if (config) {
+				if (config->exit)
+					XFREE(MTYPE_VTYSH_CONFIG_LINE,
+					      config->exit);
 				config->exit =
 					XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
+			}
 		} else if (strncmp(line, "interface", strlen("interface")) == 0)
 			config = config_get(INTERFACE_NODE, line);
 		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
@@ -379,6 +380,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		else if (strncmp(line, "router openfabric", strlen("router openfabric"))
 			 == 0)
 			config = config_get(OPENFABRIC_NODE, line);
+		else if (strncmp(line, "affinity-map",
+				 strlen("affinity-map")) == 0)
+			config = config_get(AFFMAP_NODE, line);
 		else if (strncmp(line, "route-map", strlen("route-map")) == 0)
 			config = config_get(RMAP_NODE, line);
 		else if (strncmp(line, "no route-map", strlen("no route-map"))
@@ -483,13 +487,21 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    0 ||
 			    strncmp(line, "domainname", strlen("domainname")) ==
 				    0 ||
+			    strncmp(line, "allow-reserved-ranges",
+				    strlen("allow-reserved-ranges")) == 0 ||
 			    strncmp(line, "frr", strlen("frr")) == 0 ||
 			    strncmp(line, "agentx", strlen("agentx")) == 0 ||
 			    strncmp(line, "no log", strlen("no log")) == 0 ||
 			    strncmp(line, "no ip prefix-list",
 				    strlen("no ip prefix-list")) == 0 ||
 			    strncmp(line, "no ipv6 prefix-list",
-				    strlen("no ipv6 prefix-list")) == 0)
+				    strlen("no ipv6 prefix-list")) == 0 ||
+			    strncmp(line, "service ", strlen("service ")) ==
+				    0 ||
+			    strncmp(line, "no service cputime-stats",
+				    strlen("no service cputime-stats")) == 0 ||
+			    strncmp(line, "service cputime-warning",
+				    strlen("service cputime-warning")) == 0)
 				config_add_line_uniq(config_top, line);
 			else
 				config_add_line(config_top, line);
@@ -502,14 +514,15 @@ void vtysh_config_parse_line(void *arg, const char *line)
 /* Macro to check delimiter is needed between each configuration line
  * or not. */
 #define NO_DELIMITER(I)                                                        \
-	((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE            \
-	 || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE                  \
-	 || (I) == COMMUNITY_ALIAS_NODE || (I) == ACCESS_IPV6_NODE             \
-	 || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE                  \
-	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
-	 || (I) == VRF_DEBUG_NODE || (I) == NORTHBOUND_DEBUG_NODE              \
-	 || (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE               \
-	 || (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
+	((I) == AFFMAP_NODE || (I) == ACCESS_NODE || (I) == PREFIX_NODE ||     \
+	 (I) == IP_NODE || (I) == AS_LIST_NODE ||                              \
+	 (I) == COMMUNITY_LIST_NODE || (I) == COMMUNITY_ALIAS_NODE ||          \
+	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE ||                  \
+	 (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE ||                  \
+	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE ||      \
+	 (I) == NORTHBOUND_DEBUG_NODE || (I) == RMAP_DEBUG_NODE ||             \
+	 (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE ||                     \
+	 (I) == KEYCHAIN_KEY_NODE)
 
 static void configvec_dump(vector vec, bool nested)
 {
@@ -644,18 +657,21 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
  */
 void vtysh_config_write(void)
 {
+	const char *name;
 	char line[512];
 
-	if (cmd_hostname_get()) {
-		snprintf(line, sizeof(line), "hostname %s", cmd_hostname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0') {
+		snprintf(line, sizeof(line), "hostname %s", name);
 		vtysh_config_parse_line(NULL, line);
 	}
 
-	if (cmd_domainname_get()) {
-		snprintf(line, sizeof(line), "domainname %s",
-			 cmd_domainname_get());
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0') {
+		snprintf(line, sizeof(line), "domainname %s", name);
 		vtysh_config_parse_line(NULL, line);
 	}
+
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
 		vtysh_config_parse_line(NULL,
 					"no service integrated-vtysh-config");

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_spf.h
  *                             IS-IS Shortest Path First algorithm
@@ -5,20 +6,6 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ISIS_SPF_H
@@ -60,6 +47,10 @@ struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
 void isis_spf_invalidate_routes(struct isis_spftree *tree);
 void isis_spf_verify_routes(struct isis_area *area,
 			    struct isis_spftree **trees);
+void isis_spf_switchover_routes(struct isis_area *area,
+				struct isis_spftree **trees, int family,
+				union g_addr *nexthop_ip, ifindex_t ifindex,
+				int level);
 void isis_spftree_del(struct isis_spftree *spftree);
 void spftree_area_init(struct isis_area *area);
 void spftree_area_del(struct isis_area *area);

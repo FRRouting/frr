@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Prefix structure.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_PREFIX_H
@@ -301,22 +286,6 @@ struct prefix_sg {
 	struct in_addr grp;
 };
 
-/* helper to get type safety/avoid casts on calls
- * (w/o this, functions accepting all prefix types need casts on the caller
- * side, which strips type safety since the cast will accept any pointer
- * type.)
- */
-#ifndef __cplusplus
-#define prefixtype(uname, typename, fieldname) \
-	typename *fieldname;
-#define TRANSPARENT_UNION __attribute__((transparent_union))
-#else
-#define prefixtype(uname, typename, fieldname) \
-	typename *fieldname; \
-	uname(typename *x) { this->fieldname = x; }
-#define TRANSPARENT_UNION
-#endif
-
 union prefixptr {
 	prefixtype(prefixptr, struct prefix,      p)
 	prefixtype(prefixptr, struct prefix_ipv4, p4)
@@ -510,6 +479,7 @@ extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 extern bool ipv4_unicast_valid(const struct in_addr *addr);
+extern int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to);
 
 static inline int ipv6_martian(const struct in6_addr *addr)
 {
@@ -674,6 +644,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
+#pragma FRR printfrr_ext "%pRD"  (struct prefix_rd *)
 
 #pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif

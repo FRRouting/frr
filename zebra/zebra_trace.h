@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Tracing for zebra
  *
  * Copyright (C) 2020  NVIDIA Corporation
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #if !defined(__ZEBRA_TRACE_H__) || defined(TRACEPOINT_HEADER_MULTI_READ)
@@ -112,6 +99,49 @@ TRACEPOINT_EVENT(
 TRACEPOINT_EVENT(
 	frr_zebra,
 	netlink_rule_change,
+	TP_ARGS(
+		struct nlmsghdr *, header,
+		ns_id_t, ns_id,
+		int, startup),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer(uint32_t, ns_id, ns_id)
+		ctf_integer(uint32_t, startup, startup)
+		)
+	)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_tc_qdisc_change,
+	TP_ARGS(
+		struct nlmsghdr *, header,
+		ns_id_t, ns_id,
+		int, startup),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer(uint32_t, ns_id, ns_id)
+		ctf_integer(uint32_t, startup, startup)
+		)
+	)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_tc_class_change,
+	TP_ARGS(
+		struct nlmsghdr *, header,
+		ns_id_t, ns_id,
+		int, startup),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, header, header)
+		ctf_integer(uint32_t, ns_id, ns_id)
+		ctf_integer(uint32_t, startup, startup)
+		)
+	)
+
+
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_tc_filter_change,
 	TP_ARGS(
 		struct nlmsghdr *, header,
 		ns_id_t, ns_id,

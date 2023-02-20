@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI backend interface.
  *
@@ -6,22 +7,6 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -48,6 +33,7 @@
 #include "lib_errors.h"
 #include "northbound_cli.h"
 #include "network.h"
+#include "routemap.h"
 
 #include "frrscript.h"
 
@@ -124,6 +110,11 @@ const char *cmd_version_get(void)
 bool cmd_allow_reserved_ranges_get(void)
 {
 	return host.allow_reserved_ranges;
+}
+
+const char *cmd_software_version_get(void)
+{
+	return FRR_FULL_NAME "/" FRR_VERSION;
 }
 
 static int root_on_exit(struct vty *vty);
@@ -264,8 +255,7 @@ void install_node(struct cmd_node *node)
 	node->cmdgraph = graph_new();
 	node->cmd_vector = vector_init(VECTOR_MIN_SIZE);
 	// add start node
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(node->cmdgraph, token,
 		       (void (*)(void *)) & cmd_token_del);
 
@@ -325,7 +315,7 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 	if (cnode->graph_built || !defer_cli_tree) {
 		struct graph *graph = graph_new();
 		struct cmd_token *token =
-			cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+			cmd_token_new(START_TKN, 0, NULL, NULL);
 		graph_new_node(graph, token,
 			       (void (*)(void *)) & cmd_token_del);
 
@@ -348,8 +338,7 @@ static void cmd_finalize_iter(struct hash_bucket *hb, void *arg)
 	struct cmd_node *cnode = arg;
 	const struct cmd_element *cmd = hb->data;
 	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
@@ -404,7 +393,7 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 	if (cnode->graph_built) {
 		struct graph *graph = graph_new();
 		struct cmd_token *token =
-			cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+			cmd_token_new(START_TKN, 0, NULL, NULL);
 		graph_new_node(graph, token,
 			       (void (*)(void *)) & cmd_token_del);
 
@@ -503,7 +492,7 @@ static int config_write_host(struct vty *vty)
 		else if (cputime_threshold != 5000000)
 #endif
 			vty_out(vty, "service cputime-warning %lu\n",
-				cputime_threshold);
+				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
@@ -513,7 +502,7 @@ static int config_write_host(struct vty *vty)
 		else if (walltime_threshold != 5000000)
 #endif
 			vty_out(vty, "service walltime-warning %lu\n",
-				walltime_threshold);
+				walltime_threshold / 1000);
 
 		if (host.advanced)
 			vty_out(vty, "service advanced-vty\n");
@@ -950,7 +939,8 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			return CMD_ERR_INCOMPLETE;
 		case MATCHER_AMBIGUOUS:
 			return CMD_ERR_AMBIGUOUS;
-		default:
+		case MATCHER_NO_MATCH:
+		case MATCHER_OK:
 			return CMD_ERR_NO_MATCH;
 		}
 	}
@@ -990,7 +980,7 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			 * Perform pending commit (if any) before executing
 			 * non-YANG command.
 			 */
-			if (matched_element->attr != CMD_ATTR_YANG)
+			if (!(matched_element->attr & CMD_ATTR_YANG))
 				(void)nb_cli_pending_commit_check(vty);
 		}
 
@@ -1471,8 +1461,7 @@ static void permute(struct graph_node *start, struct vty *vty)
 	for (unsigned int i = 0; i < vector_active(start->to); i++) {
 		struct graph_node *gn = vector_slot(start->to, i);
 		struct cmd_token *tok = gn->data;
-		if (tok->attr == CMD_ATTR_HIDDEN
-		    || tok->attr == CMD_ATTR_DEPRECATED)
+		if (tok->attr & CMD_ATTR_HIDDEN)
 			continue;
 		else if (tok->type == END_TKN || gn == start) {
 			vty_out(vty, " ");
@@ -1561,9 +1550,8 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 		const struct cmd_element *element = NULL;
 		for (unsigned int i = 0; i < vector_active(node->cmd_vector);
 		     i++)
-			if ((element = vector_slot(node->cmd_vector, i))
-			    && element->attr != CMD_ATTR_DEPRECATED
-			    && element->attr != CMD_ATTR_HIDDEN) {
+			if ((element = vector_slot(node->cmd_vector, i)) &&
+			    !(element->attr & CMD_ATTR_HIDDEN)) {
 				vty_out(vty, "    ");
 				print_cmd(vty, element->string);
 			}
@@ -2444,6 +2432,11 @@ void host_config_set(const char *filename)
 const char *host_config_get(void)
 {
 	return host.config;
+}
+
+void cmd_show_lib_debugs(struct vty *vty)
+{
+	route_map_show_debug(vty);
 }
 
 void install_default(enum node_type node)

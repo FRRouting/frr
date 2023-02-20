@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Client side of OSPF API.
  * Copyright (C) 2001, 2002, 2003 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -53,10 +38,6 @@
 #include "ospfd/ospf_errors.h"
 
 #include "ospf_apiclient.h"
-
-/* *sigh* ... can't find a better way to hammer this into automake */
-#include "ospfd/ospf_dump_api.c"
-#include "ospfd/ospf_api.c"
 
 XREF_SETUP();
 
@@ -481,8 +462,9 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 }
 
 int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
-			      struct in_addr area_id, uint8_t lsa_type,
-			      uint8_t opaque_type, uint32_t opaque_id)
+			      struct in_addr addr, uint8_t lsa_type,
+			      uint8_t opaque_type, uint32_t opaque_id,
+			      uint8_t flags)
 {
 	struct msg *msg;
 	int rc;
@@ -496,8 +478,8 @@ int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 
 	/* opaque_id is in host byte order and will be converted
 	 * to network byte order by new_msg_delete_request */
-	msg = new_msg_delete_request(ospf_apiclient_get_seqnr(), area_id,
-				     lsa_type, opaque_type, opaque_id);
+	msg = new_msg_delete_request(ospf_apiclient_get_seqnr(), addr, lsa_type,
+				     opaque_type, opaque_id, flags);
 
 	rc = ospf_apiclient_send_request(oclient, msg);
 	return rc;

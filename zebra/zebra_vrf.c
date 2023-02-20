@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 CumulusNetworks
  *                    Donald Sharp
  *
  * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -44,9 +31,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vrf_clippy.c"
-#endif
 #include "zebra/table_manager.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
@@ -270,6 +255,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	/* Cleanup EVPN states for vrf */
 	zebra_vxlan_vrf_delete(zvrf);
+	zebra_routemap_vrf_delete(zvrf);
 
 	list_delete_all_node(zvrf->rid_all_sorted_list);
 	list_delete_all_node(zvrf->rid_lo_sorted_list);

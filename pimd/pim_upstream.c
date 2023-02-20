@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -46,7 +33,6 @@
 #include "pim_oil.h"
 #include "pim_macro.h"
 #include "pim_rp.h"
-#include "pim_br.h"
 #include "pim_register.h"
 #include "pim_msdp.h"
 #include "pim_jp_agg.h"
@@ -1422,8 +1408,8 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 	}
 
 	if (I_am_RP(pim, up->sg.grp)) {
-		pim_br_clear_pmbr(&up->sg);
 		/*
+		 * Handle Border Router
 		 * We need to do more here :)
 		 * But this is the start.
 		 */
@@ -2154,7 +2140,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 			continue;
 		}
 		pim_addr_to_prefix(&g, up->sg.grp);
-		apply_new = prefix_list_apply(np, &g);
+		apply_new = prefix_list_apply_ext(np, NULL, &g, true);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_GM, __func__);

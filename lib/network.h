@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Network library header.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_NETWORK_H
@@ -80,6 +65,24 @@ extern float ntohf(float);
 #else
 #error nobody expects the endianish inquisition. check OS endian.h headers.
 #endif
+
+/**
+ * Generate a sequence number using monotonic clock with a same second call
+ * protection to help guarantee a unique incremental sequence number that never
+ * goes back (except when wrapping/overflow).
+ *
+ * **NOTE** this function is not thread safe since it uses `static` variable.
+ *
+ * This function and `frr_sequence32_next` should be used to initialize
+ * sequence numbers without directly calling other `time_t` returning
+ * functions because of `time_t` truncation warnings.
+ *
+ * \returns `uint64_t` number based on the monotonic clock.
+ */
+extern uint64_t frr_sequence_next(void);
+
+/** Same as `frr_sequence_next` but returns truncated number. */
+extern uint32_t frr_sequence32_next(void);
 
 /**
  * Helper function that returns a random long value. The main purpose of

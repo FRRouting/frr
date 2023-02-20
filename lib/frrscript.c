@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Scripting foo
  * Copyright (C) 2020  NVIDIA Corporation
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -184,13 +171,14 @@ static void *codec_alloc(void *arg)
 	return e;
 }
 
-#if 0
-static void codec_free(struct codec *c)
+static void codec_free(void *data)
 {
-	XFREE(MTYPE_TMP, c->typename);
-	XFREE(MTYPE_TMP, c);
+	struct frrscript_codec *c = data;
+	char *constworkaroundandihateit = (char *)c->typename;
+
+	XFREE(MTYPE_SCRIPT, constworkaroundandihateit);
+	XFREE(MTYPE_SCRIPT, c);
 }
-#endif
 
 /* Lua function hash utils */
 
@@ -212,17 +200,18 @@ bool lua_function_hash_cmp(const void *d1, const void *d2)
 void *lua_function_alloc(void *arg)
 {
 	struct lua_function_state *tmp = arg;
-
 	struct lua_function_state *lfs =
 		XCALLOC(MTYPE_SCRIPT, sizeof(struct lua_function_state));
+
 	lfs->name = tmp->name;
 	lfs->L = tmp->L;
 	return lfs;
 }
 
-static void lua_function_free(struct hash_bucket *b, void *data)
+static void lua_function_free(void *data)
 {
-	struct lua_function_state *lfs = (struct lua_function_state *)b->data;
+	struct lua_function_state *lfs = data;
+
 	lua_close(lfs->L);
 	XFREE(MTYPE_SCRIPT, lfs);
 }
@@ -409,7 +398,8 @@ fail:
 
 void frrscript_delete(struct frrscript *fs)
 {
-	hash_iterate(fs->lua_function_hash, lua_function_free, NULL);
+	hash_clean(fs->lua_function_hash, lua_function_free);
+	hash_free(fs->lua_function_hash);
 	XFREE(MTYPE_SCRIPT, fs->name);
 	XFREE(MTYPE_SCRIPT, fs);
 }
@@ -425,4 +415,11 @@ void frrscript_init(const char *sd)
 	frrscript_register_type_codecs(frrscript_codecs_lib);
 }
 
+void frrscript_fini(void)
+{
+	hash_clean(codec_hash, codec_free);
+	hash_free(codec_hash);
+
+	frrscript_names_destroy();
+}
 #endif /* HAVE_SCRIPTING */

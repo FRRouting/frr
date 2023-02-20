@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Addpath TX ID selection, and related utilities
  * Copyright (C) 2018  Amazon.com, Inc. or its affiliates
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -111,6 +98,9 @@ void bgp_addpath_free_info_data(struct bgp_addpath_info_data *d,
 uint32_t bgp_addpath_id_for_peer(struct peer *peer, afi_t afi, safi_t safi,
 				struct bgp_addpath_info_data *d)
 {
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+
 	if (peer->addpath_type[afi][safi] < BGP_ADDPATH_MAX)
 		return d->addpath_tx_id[peer->addpath_type[afi][safi]];
 	else
@@ -171,9 +161,11 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 			return true;
 		else
 			return false;
-	default:
+	case BGP_ADDPATH_MAX:
 		return false;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static void bgp_addpath_flush_type_rn(struct bgp *bgp, afi_t afi, safi_t safi,
@@ -181,6 +173,9 @@ static void bgp_addpath_flush_type_rn(struct bgp *bgp, afi_t afi, safi_t safi,
 				      struct bgp_dest *dest)
 {
 	struct bgp_path_info *pi;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	idalloc_drain_pool(
 		bgp->tx_addpath.id_allocators[afi][safi][addpath_type],
@@ -209,6 +204,9 @@ static void bgp_addpath_flush_type(struct bgp *bgp, afi_t afi, safi_t safi,
 				   enum bgp_addpath_strat addpath_type)
 {
 	struct bgp_dest *dest, *ndest;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
 	     dest = bgp_route_next(dest)) {
@@ -251,6 +249,7 @@ static void bgp_addpath_populate_path(struct id_alloc *allocator,
  * and afi/safi combination. Since we won't waste the time computing addpath IDs
  * for unused strategies, the first time a peer is configured to use a strategy,
  * we have to backfill the data.
+ * In labeled-unicast, addpath allocations SHOULD be done in unicast SAFI.
  */
 static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 				    enum bgp_addpath_strat addpath_type)
@@ -258,6 +257,9 @@ static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct bgp_dest *dest, *ndest;
 	char buf[200];
 	struct id_alloc *allocator;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	snprintf(buf, sizeof(buf), "Addpath ID Allocator %s:%d/%d",
 		 bgp_addpath_names(addpath_type)->config_name, (int)afi,
@@ -357,11 +359,15 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 			      enum bgp_addpath_strat addpath_type)
 {
 	struct bgp *bgp = peer->bgp;
-	enum bgp_addpath_strat old_type = peer->addpath_type[afi][safi];
+	enum bgp_addpath_strat old_type;
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
 	struct peer_group *group;
 
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+
+	old_type = peer->addpath_type[afi][safi];
 	if (addpath_type == old_type)
 		return;
 
@@ -389,9 +395,9 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 		}
 	}
 
-	zlog_info("Resetting peer %s%s due to change in addpath config",
+	zlog_info("Resetting peer %s%pBP due to change in addpath config",
 		  CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) ? "group " : "",
-		  peer->host);
+		  peer);
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
@@ -430,6 +436,9 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *bn, afi_t afi,
 	int i;
 	struct bgp_path_info *pi;
 	struct id_alloc_pool **pool_ptr;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	for (i = 0; i < BGP_ADDPATH_MAX; i++) {
 		struct id_alloc *alloc =

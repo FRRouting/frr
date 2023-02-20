@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP packet crafting.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __VRRP_PACKET_H__
 #define __VRRP_PACKET_H__
@@ -131,7 +118,7 @@ struct vrrp_pkt {
 ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 			     uint8_t version, uint8_t vrid, uint8_t prio,
 			     uint16_t max_adver_int, uint8_t numip,
-			     struct ipaddr **ips);
+			     struct ipaddr **ips, bool ipv4_ph);
 
 /* free memory allocated by vrrp_pkt_adver_build's pkt arg */
 void vrrp_pkt_free(struct vrrp_pkt *pkt);
@@ -195,9 +182,9 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
  * Returns:
  *    Size of VRRP packet, or -1 upon error
  */
-ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
-				size_t read, struct ipaddr *src,
-				struct vrrp_pkt **pkt, char *errmsg,
-				size_t errmsg_len);
+ssize_t vrrp_pkt_parse_datagram(int family, int version, bool ipv4_ph,
+				struct msghdr *m, size_t read,
+				struct ipaddr *src, struct vrrp_pkt **pkt,
+				char *errmsg, size_t errmsg_len);
 
 #endif /* __VRRP_PACKET_H__ */

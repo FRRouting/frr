@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Server side of OSPF API.
  * Copyright (C) 2001, 2002 Ralph Keller
  * Copyright (c) 2022, LabN Consulting, L.L.C.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -56,9 +41,13 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_memory.h"
 
 #include "ospfd/ospf_api.h"
 #include "ospfd/ospf_apiserver.h"
+
+DEFINE_MTYPE_STATIC(OSPFD, APISERVER, "API Server");
+DEFINE_MTYPE_STATIC(OSPFD, APISERVER_MSGFILTER, "API Server Message Filter");
 
 /* This is an implementation of an API to the OSPF daemon that allows
  * external applications to access the OSPF daemon through socket
@@ -245,9 +234,9 @@ static int ospf_apiserver_del_lsa_hook(struct ospf_lsa *lsa)
 struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 {
 	struct ospf_apiserver *new =
-		XMALLOC(MTYPE_OSPF_APISERVER, sizeof(struct ospf_apiserver));
+		XMALLOC(MTYPE_APISERVER, sizeof(struct ospf_apiserver));
 
-	new->filter = XMALLOC(MTYPE_OSPF_APISERVER_MSGFILTER,
+	new->filter = XMALLOC(MTYPE_APISERVER_MSGFILTER,
 			      sizeof(struct lsa_filter_type));
 
 	new->fd_sync = fd_sync;
@@ -360,7 +349,7 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 			   (void *)apiserv, apiserver_list->count);
 
 	/* And free instance. */
-	XFREE(MTYPE_OSPF_APISERVER, apiserv);
+	XFREE(MTYPE_APISERVER, apiserv);
 }
 
 void ospf_apiserver_read(struct thread *thread)
@@ -862,8 +851,8 @@ int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserv,
 	   connection shuts down, we can flush all LSAs of this opaque
 	   type. */
 
-	regtype = XCALLOC(MTYPE_OSPF_APISERVER,
-			  sizeof(struct registered_opaque_type));
+	regtype =
+		XCALLOC(MTYPE_APISERVER, sizeof(struct registered_opaque_type));
 	regtype->lsa_type = lsa_type;
 	regtype->opaque_type = opaque_type;
 
@@ -1155,12 +1144,12 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 	seqnum = msg_get_seq(msg);
 
 	/* Free existing filter in apiserv. */
-	XFREE(MTYPE_OSPF_APISERVER_MSGFILTER, apiserv->filter);
+	XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
 	/* Alloc new space for filter. */
 	size = ntohs(msg->hdr.msglen);
 	if (size < OSPF_MAX_LSA_SIZE) {
 
-		apiserv->filter = XMALLOC(MTYPE_OSPF_APISERVER_MSGFILTER, size);
+		apiserv->filter = XMALLOC(MTYPE_APISERVER_MSGFILTER, size);
 
 		/* copy it over. */
 		memcpy(apiserv->filter, &rmsg->filter, size);
@@ -1365,8 +1354,7 @@ int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
 		goto out;
 
 	/* send all adds based on current reachable routers */
-	a = abuf = XCALLOC(MTYPE_OSPF_APISERVER,
-			   sizeof(struct in_addr) * rt->count);
+	a = abuf = XCALLOC(MTYPE_APISERVER, sizeof(struct in_addr) * rt->count);
 	for (struct route_node *rn = route_top(rt); rn; rn = route_next(rn))
 		if (listhead((struct list *)rn->info))
 			*a++ = rn->p.u.prefix4;
@@ -1385,7 +1373,7 @@ int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
 		rc = ospf_apiserver_send_msg(apiserv, amsg);
 		msg_free(amsg);
 	}
-	XFREE(MTYPE_OSPF_APISERVER, abuf);
+	XFREE(MTYPE_APISERVER, abuf);
 
 out:
 	/* Send a reply back to client with return code */
@@ -1924,6 +1912,7 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	struct msg_delete_request *dmsg;
 	struct ospf_lsa *old;
 	struct ospf_area *area = NULL;
+	struct ospf_interface *oi = NULL;
 	struct in_addr id;
 	int lsa_type, opaque_type;
 	int rc = 0;
@@ -1938,11 +1927,20 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	/* Lookup area for link-local and area-local opaque LSAs */
 	switch (dmsg->lsa_type) {
 	case OSPF_OPAQUE_LINK_LSA:
+		oi = ospf_apiserver_if_lookup_by_addr(dmsg->addr);
+		if (!oi) {
+			zlog_warn("%s: unknown interface %pI4", __func__,
+				  &dmsg->addr);
+			rc = OSPF_API_NOSUCHINTERFACE;
+			goto out;
+		}
+		area = oi->area;
+		break;
 	case OSPF_OPAQUE_AREA_LSA:
-		area = ospf_area_lookup_by_area_id(ospf, dmsg->area_id);
+		area = ospf_area_lookup_by_area_id(ospf, dmsg->addr);
 		if (!area) {
 			zlog_warn("%s: unknown area %pI4", __func__,
-				  &dmsg->area_id);
+				  &dmsg->addr);
 			rc = OSPF_API_NOSUCHAREA;
 			goto out;
 		}
@@ -1985,6 +1983,11 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 			  dmsg->lsa_type, &id);
 		rc = OSPF_API_NOSUCHLSA;
 		goto out;
+	}
+
+	if (IS_DEL_ZERO_LEN_LSA(dmsg)) {
+		/* minimize the size of the withdrawal: */
+		old->opaque_zero_len_delete = 1;
 	}
 
 	/* Schedule flushing of LSA from LSDB */
@@ -2601,9 +2604,9 @@ void ospf_apiserver_notify_reachable(struct route_table *ort,
 		return;
 	}
 	if (nrt && nrt->count)
-		a = abuf = XCALLOC(MTYPE_OSPF_APISERVER, insz * nrt->count);
+		a = abuf = XCALLOC(MTYPE_APISERVER, insz * nrt->count);
 	if (ort && ort->count)
-		d = dbuf = XCALLOC(MTYPE_OSPF_APISERVER, insz * ort->count);
+		d = dbuf = XCALLOC(MTYPE_APISERVER, insz * ort->count);
 
 	/* walk both tables */
 	orn = ort ? route_top(ort) : NULL;
@@ -2668,9 +2671,9 @@ void ospf_apiserver_notify_reachable(struct route_table *ort,
 		msg_free(msg);
 	}
 	if (abuf)
-		XFREE(MTYPE_OSPF_APISERVER, abuf);
+		XFREE(MTYPE_APISERVER, abuf);
 	if (dbuf)
-		XFREE(MTYPE_OSPF_APISERVER, dbuf);
+		XFREE(MTYPE_APISERVER, dbuf);
 }
 
 

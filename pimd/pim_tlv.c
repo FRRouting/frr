@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,6 +16,8 @@
 #include "pim_tlv.h"
 #include "pim_str.h"
 #include "pim_msg.h"
+#include "pim_iface.h"
+#include "pim_addr.h"
 
 #if PIM_IPV == 4
 #define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV4
@@ -226,12 +215,15 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 }
 
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
-				       struct list *ifconnected, int family)
+				       struct interface *ifp, int family)
 {
 	struct listnode *node;
 	uint16_t option_len = 0;
 	uint8_t *curr;
 	size_t uel;
+	struct list *ifconnected = ifp->connected;
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_addr addr;
 
 	node = listhead(ifconnected);
 
@@ -252,7 +244,10 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 		struct prefix *p = ifc->address;
 		int l_encode;
 
-		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+		addr = pim_addr_from_prefix(p);
+		if (!pim_addr_cmp(pim_ifp->primary_address, addr))
+			/* don't add the primary address
+			 * into the secondary address list */
 			continue;
 
 		if ((curr + uel) > buf_pastend)

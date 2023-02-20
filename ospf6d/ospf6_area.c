@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,6 +24,8 @@
 #include "ospf6_spf.h"
 #include "ospf6_top.h"
 #include "ospf6_area.h"
+#include "ospf6_message.h"
+#include "ospf6_neighbor.h"
 #include "ospf6_interface.h"
 #include "ospf6_intra.h"
 #include "ospf6_abr.h"
@@ -47,9 +34,7 @@
 #include "ospf6d.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_area_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AREA,      "OSPF6 area");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PLISTNAME, "Prefix list name");
@@ -348,8 +333,16 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	 * deleting an area.
 	 * So just detach the interface from the area and
 	 * keep it around. */
-	for (ALL_LIST_ELEMENTS_RO(oa->if_list, n, oi))
+	for (ALL_LIST_ELEMENTS_RO(oa->if_list, n, oi)) {
 		oi->area = NULL;
+
+		struct listnode *node;
+		struct listnode *nnode;
+		struct ospf6_neighbor *on;
+
+		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+			ospf6_neighbor_delete(on);
+	}
 
 	list_delete(&oa->if_list);
 

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Routing Information Base header
  * Copyright (C) 1997 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RIB_H
@@ -158,6 +143,13 @@ struct route_entry {
  * differs from the rib/normal set of nexthops.
  */
 #define ROUTE_ENTRY_USE_FIB_NHG      0x40
+/*
+ * Route entries that are going to the dplane for a Route Replace
+ * let's note the fact that this is happening.  This will
+ * be useful when zebra is determing if a route can be
+ * used for nexthops
+ */
+#define ROUTE_ENTRY_ROUTE_REPLACING 0x80
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
@@ -585,6 +577,7 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 
 DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	     (rn, reason));
+DECLARE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
 
 /*
  * Access installed/fib nexthops, which may be a subset of the
@@ -616,6 +609,9 @@ extern void zebra_vty_init(void);
 extern pid_t pid;
 
 extern bool v6_rr_semantics;
+
+/* Name of hook calls */
+#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

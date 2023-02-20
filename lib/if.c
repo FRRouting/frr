@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Interface functions.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,11 +20,11 @@
 #include "buffer.h"
 #include "log.h"
 #include "northbound_cli.h"
-#ifndef VTYSH_EXTRACT_PL
+#include "admin_group.h"
 #include "lib/if_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
+DEFINE_MTYPE_STATIC(LIB, IFDESC, "Intf Desc");
 DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
 DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected");
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label");
@@ -290,7 +275,7 @@ void if_delete(struct interface **ifp)
 
 	if_link_params_free(ptr);
 
-	XFREE(MTYPE_TMP, ptr->desc);
+	XFREE(MTYPE_IFDESC, ptr->desc);
 
 	XFREE(MTYPE_IF, ptr);
 	*ifp = NULL;
@@ -565,6 +550,20 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 	return count;
 }
 
+/* Get the VRF loopback interface, i.e. the loopback on the default VRF
+ * or the VRF interface.
+ */
+struct interface *if_get_vrf_loopback(vrf_id_t vrf_id)
+{
+	struct interface *ifp = NULL;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		if (if_is_loopback(ifp))
+			return ifp;
+
+	return NULL;
+}
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
@@ -1093,15 +1092,56 @@ const char *if_link_type_str(enum zebra_link_type llt)
 	return NULL;
 }
 
+bool if_link_params_cmp(struct if_link_params *iflp1,
+			struct if_link_params *iflp2)
+{
+	struct if_link_params iflp1_copy, iflp2_copy;
+
+	/* Extended admin-groups in if_link_params contain pointers.
+	 * They cannot be compared with memcpy.
+	 * Make copies of if_link_params without ext. admin-groups
+	 * and compare separately the ext. admin-groups.
+	 */
+	memcpy(&iflp1_copy, iflp1, sizeof(struct if_link_params));
+	memset(&iflp1_copy.ext_admin_grp, 0, sizeof(struct admin_group));
+
+	memcpy(&iflp2_copy, iflp2, sizeof(struct if_link_params));
+	memset(&iflp2_copy.ext_admin_grp, 0, sizeof(struct admin_group));
+
+	if (memcmp(&iflp1_copy, &iflp2_copy, sizeof(struct if_link_params)))
+		return false;
+
+	if (!admin_group_cmp(&iflp1->ext_admin_grp, &iflp2->ext_admin_grp))
+		return false;
+
+	return true;
+}
+
+void if_link_params_copy(struct if_link_params *dst, struct if_link_params *src)
+{
+	struct admin_group dst_ag;
+
+	/* backup the admin_group structure that contains a pointer */
+	memcpy(&dst_ag, &dst->ext_admin_grp, sizeof(struct admin_group));
+	/* copy the if_link_params structure */
+	memcpy(dst, src, sizeof(struct if_link_params));
+	/* restore the admin_group structure */
+	memcpy(&dst->ext_admin_grp, &dst_ag, sizeof(struct admin_group));
+	/* copy src->ext_admin_grp data to dst->ext_admin_grp data memory */
+	admin_group_copy(&dst->ext_admin_grp, &src->ext_admin_grp);
+}
+
 struct if_link_params *if_link_params_get(struct interface *ifp)
 {
+	return ifp->link_params;
+}
+
+struct if_link_params *if_link_params_enable(struct interface *ifp)
+{
+	struct if_link_params *iflp;
 	int i;
 
-	if (ifp->link_params != NULL)
-		return ifp->link_params;
-
-	struct if_link_params *iflp =
-		XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
+	iflp = if_link_params_init(ifp);
 
 	/* Compute default bandwidth based on interface */
 	iflp->default_bw =
@@ -1129,8 +1169,28 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 	return iflp;
 }
 
+struct if_link_params *if_link_params_init(struct interface *ifp)
+{
+	struct if_link_params *iflp = if_link_params_get(ifp);
+
+	if (iflp)
+		return iflp;
+
+	iflp = XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
+
+	admin_group_init(&iflp->ext_admin_grp);
+
+	ifp->link_params = iflp;
+
+	return iflp;
+}
+
 void if_link_params_free(struct interface *ifp)
 {
+	if (!ifp->link_params)
+		return;
+
+	admin_group_term(&ifp->link_params->ext_admin_grp);
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
 }
 
@@ -1191,7 +1251,7 @@ DEFPY_YANG_NOSH (interface,
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
 
@@ -1250,7 +1310,7 @@ DEFPY_YANG (no_interface,
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, xpath_list);
+	return nb_cli_apply_changes(vty, "%s", xpath_list);
 }
 
 static void netns_ifname_split(const char *xpath, char *ifname, char *vrfname)
@@ -1598,9 +1658,9 @@ static int lib_interface_description_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_IFDESC, ifp->desc);
 	description = yang_dnode_get_string(args->dnode, NULL);
-	ifp->desc = XSTRDUP(MTYPE_TMP, description);
+	ifp->desc = XSTRDUP(MTYPE_IFDESC, description);
 
 	return NB_OK;
 }
@@ -1613,7 +1673,7 @@ static int lib_interface_description_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_IFDESC, ifp->desc);
 
 	return NB_OK;
 }

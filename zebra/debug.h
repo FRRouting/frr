@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra debug related function
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_DEBUG_H
@@ -75,6 +60,8 @@ extern "C" {
 
 #define ZEBRA_DEBUG_NEIGH 0x01
 
+#define ZEBRA_DEBUG_TC 0x01
+
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
 
@@ -109,9 +96,9 @@ extern "C" {
 	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DETAILED)
 
 #define IS_ZEBRA_DEBUG_DPLANE_DPDK                                             \
-	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DPDK)
+	(zebra_debug_dplane_dpdk & ZEBRA_DEBUG_DPLANE_DPDK)
 #define IS_ZEBRA_DEBUG_DPLANE_DPDK_DETAIL                                      \
-	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
+	(zebra_debug_dplane_dpdk & ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
 
 #define IS_ZEBRA_DEBUG_MLAG (zebra_debug_mlag & ZEBRA_DEBUG_MLAG)
 
@@ -133,6 +120,8 @@ extern "C" {
 
 #define IS_ZEBRA_DEBUG_NEIGH (zebra_debug_neigh & ZEBRA_DEBUG_NEIGH)
 
+#define IS_ZEBRA_DEBUG_TC (zebra_debug_tc & ZEBRA_DEBUG_TC)
+
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
 extern unsigned long zebra_debug_kernel;
@@ -149,6 +138,7 @@ extern unsigned long zebra_debug_nexthop;
 extern unsigned long zebra_debug_evpn_mh;
 extern unsigned long zebra_debug_pbr;
 extern unsigned long zebra_debug_neigh;
+extern unsigned long zebra_debug_tc;
 
 extern void zebra_debug_init(void);
 

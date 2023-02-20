@@ -1,19 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018        Vmware
  *                           Vishal Dhingra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef _FRR_STATIC_NB_H_
 #define _FRR_STATIC_NB_H_
@@ -63,6 +51,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_create(struct nb_cb_create_args *args);
+int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_source_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(

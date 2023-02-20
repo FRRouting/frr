@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Router header.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #ifndef __ZEBRA_ROUTER_H__
 #define __ZEBRA_ROUTER_H__
@@ -172,6 +156,10 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
+	struct hash *qdisc_hash;
+	struct hash *class_hash;
+	struct hash *filter_hash;
+
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
 
@@ -219,6 +207,14 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+
+	/*
+	 * If the asic is notifying us about successful nexthop
+	 * allocation/control.  Some developers have made their
+	 * asic take control of how many nexthops/ecmp they can
+	 * have and will report what is successfull or not
+	 */
+	bool asic_notification_nexthop_control;
 
 	bool supports_nhgs;
 

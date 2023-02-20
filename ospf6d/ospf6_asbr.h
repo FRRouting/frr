@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2001 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_ASBR_H
@@ -182,4 +167,6 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr);
 void ospf6_unset_all_aggr_flag(struct ospf6 *ospf6);
 void ospf6_fill_aggr_route_details(struct ospf6 *ospf6,
 				   struct ospf6_external_aggr_rt *aggr);
+void ospf6_asbr_summary_config_delete(struct ospf6 *ospf6,
+				      struct route_node *rn);
 #endif /* OSPF6_ASBR_H */

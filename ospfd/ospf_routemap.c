@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Route map function of ospfd.
  * Copyright (C) 2000 IP Infusion Inc.
  *
  * Written by Toshiaki Takada.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -134,8 +119,13 @@ route_match_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
-	if (alist == NULL)
+	if (alist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (access_list_apply(alist, &p) == FILTER_DENY ? RMAP_NOMATCH
 							    : RMAP_MATCH);
@@ -177,8 +167,13 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (prefix_list_apply(plist, &p) == PREFIX_DENY ? RMAP_NOMATCH
 							    : RMAP_MATCH);
@@ -249,8 +244,13 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 	/* struct prefix_ipv4 match; */
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
-	if (alist == NULL)
+	if (alist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
 		return RMAP_NOMATCH;
+	}
 
 	return (access_list_apply(alist, prefix) == FILTER_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);
@@ -285,8 +285,14 @@ route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 	struct prefix_list *plist;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
-	if (plist == NULL)
+	if (plist == NULL) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
+				__func__, (char *)rule);
+
 		return RMAP_NOMATCH;
+	}
 
 	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);

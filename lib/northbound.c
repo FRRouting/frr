@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -731,7 +718,13 @@ int nb_candidate_edit(struct nb_config *candidate,
 	case NB_OP_MOVE:
 		/* TODO: update configuration. */
 		break;
-	default:
+	case NB_OP_PRE_VALIDATE:
+	case NB_OP_APPLY_FINISH:
+	case NB_OP_GET_ELEM:
+	case NB_OP_GET_NEXT:
+	case NB_OP_GET_KEYS:
+	case NB_OP_LOOKUP_ENTRY:
+	case NB_OP_RPC:
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown operation (%u) [xpath %s]", __func__,
 			  operation, xpath_edit);
@@ -1360,7 +1353,13 @@ static int nb_callback_configuration(struct nb_context *context,
 		ret = nb_callback_move(context, nb_node, event, dnode, errmsg,
 				       errmsg_len);
 		break;
-	default:
+	case NB_OP_PRE_VALIDATE:
+	case NB_OP_APPLY_FINISH:
+	case NB_OP_GET_ELEM:
+	case NB_OP_GET_NEXT:
+	case NB_OP_GET_KEYS:
+	case NB_OP_LOOKUP_ENTRY:
+	case NB_OP_RPC:
 		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown operation (%u) [xpath %s]", __func__,
@@ -1489,7 +1488,7 @@ static int nb_transaction_process(enum nb_event event,
 			 * 'prepare' phase.
 			 */
 			break;
-		default:
+		case NB_EV_VALIDATE:
 			break;
 		}
 	}
@@ -2319,9 +2318,9 @@ const char *nb_event_name(enum nb_event event)
 		return "abort";
 	case NB_EV_APPLY:
 		return "apply";
-	default:
-		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 const char *nb_operation_name(enum nb_operation operation)
@@ -2349,9 +2348,9 @@ const char *nb_operation_name(enum nb_operation operation)
 		return "lookup_entry";
 	case NB_OP_RPC:
 		return "rpc";
-	default:
-		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 const char *nb_err_name(enum nb_error error)
@@ -2373,9 +2372,9 @@ const char *nb_err_name(enum nb_error error)
 		return "failed to allocate resource";
 	case NB_ERR_INCONSISTENCY:
 		return "internal inconsistency";
-	default:
-		return "unknown";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 const char *nb_client_name(enum nb_client client)
@@ -2389,9 +2388,13 @@ const char *nb_client_name(enum nb_client client)
 		return "Sysrepo";
 	case NB_CLIENT_GRPC:
 		return "gRPC";
-	default:
-		return "unknown";
+	case NB_CLIENT_PCEP:
+		return "Pcep";
+	case NB_CLIENT_NONE:
+		return "None";
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static void nb_load_callbacks(const struct frr_yang_module_info *module)

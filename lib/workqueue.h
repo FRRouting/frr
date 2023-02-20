@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Quagga Work Queues.
  *
  * Copyright (C) 2005 Sun Microsystems, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_WORK_QUEUE_H
@@ -41,7 +26,6 @@ DECLARE_MTYPE(WORK_QUEUE);
 /* action value, for use by item processor and item error handlers */
 typedef enum {
 	WQ_SUCCESS = 0,
-	WQ_ERROR,	 /* Error, run error handler if provided */
 	WQ_RETRY_NOW,     /* retry immediately */
 	WQ_RETRY_LATER,   /* retry later, cease processing work queue */
 	WQ_REQUEUE,       /* requeue item, continue processing work queue */
@@ -79,10 +63,6 @@ struct work_queue {
 		 * Second argument is the item data
 		 */
 		wq_item_status (*workfunc)(struct work_queue *, void *);
-
-		/* error handling function, optional */
-		void (*errorfunc)(struct work_queue *,
-				  struct work_queue_item *);
 
 		/* callback to delete user specific item data */
 		void (*del_item_data)(struct work_queue *, void *);

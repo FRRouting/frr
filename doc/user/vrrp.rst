@@ -393,6 +393,11 @@ All interface configuration commands are documented below.
    higher priority to take over Master status from the existing Master. Enabled
    by default.
 
+.. clicmd:: vrrp (1-255) checksum-with-ipv4-pseudoheader
+
+   Specify whether VRRPv3 checksum should involve IPv4 pseudoheader. This
+   command should not affect VRRPv2 and IPv6. Enabled by default.
+
 .. clicmd:: vrrp (1-255) priority (1-254)
 
    Set the router priority. The router with the highest priority is elected as
@@ -448,7 +453,7 @@ Show commands, global defaults and debugging configuration commands.
    zebra
       Logs communications with Zebra.
 
-.. clicmd:: vrrp default <advertisement-interval (1-4096)|preempt|priority (1-254)|shutdown>
+.. clicmd:: vrrp default <advertisement-interval (1-4096)|preempt|priority (1-254)|checksum-with-ipv4-pseudoheader|shutdown>
 
    Configure defaults for new VRRP routers. These values will not affect
    already configured VRRP routers, but will be applied to newly configured
@@ -550,3 +555,19 @@ feature instead, explained `here
 <https://www.virtuallyghetto.com/2018/04/native-mac-learning-in-vsphere-6-7-removes-the-need-for-promiscuous-mode-for-nested-esxi.html>`_.
 
 Issue reference: https://github.com/FRRouting/frr/issues/5386
+
+
+My router cannot interoperate with branded routers / L3 switches
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+FRR includes a pseudoheader when calculating VRRPv3 checksums by default,
+regardless of whether it's IPv4 or IPv6.
+
+Some vendors have different interpretations of `VRRPv3 RFC 5798 #5.2.8
+<https://www.rfc-editor.org/rfc/rfc5798.html#section-5.2.8>`_. In such cases,
+their checksums are calculated with a pseudoheader only when it comes to IPv6.
+
+You need to disable ``checksum-with-ipv4-pseudoheader`` so that FRR computes and
+accepts such checksums.
+
+Issue reference: https://github.com/FRRouting/frr/issues/9951

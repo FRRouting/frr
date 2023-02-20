@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP Multipath
  * Copyright (C) 2010 Google Inc.
  *
  * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -278,8 +265,10 @@ void bgp_mp_list_add(struct list *mp_list, struct bgp_path_info *mpinfo)
 static struct bgp_path_info_mpath *bgp_path_info_mpath_new(void)
 {
 	struct bgp_path_info_mpath *new_mpath;
+
 	new_mpath = XCALLOC(MTYPE_BGP_MPATH_INFO,
 			    sizeof(struct bgp_path_info_mpath));
+
 	return new_mpath;
 }
 
@@ -313,8 +302,6 @@ bgp_path_info_mpath_get(struct bgp_path_info *path)
 
 	if (!path->mpath) {
 		mpath = bgp_path_info_mpath_new();
-		if (!mpath)
-			return NULL;
 		path->mpath = mpath;
 		mpath->mp_info = path;
 	}
@@ -567,7 +554,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (debug)
 		zlog_debug(
-			"%pRN(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw u%" PRIu64,
+			"%pRN(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64,
 			bgp_dest_to_rnode(dest), bgp->name_pretty,
 			new_best ? new_best->peer->host : "NONE",
 			mp_list ? listcount(mp_list) : 0, old_mpath_count,
@@ -750,7 +737,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 		if (debug)
 			zlog_debug(
-				"%pRN(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw u%" PRIu64,
+				"%pRN(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
 				bgp_dest_to_rnode(dest), bgp->name_pretty,
 				mpath_count, mpath_changed ? "YES" : "NO",
 				all_paths_lb, cum_bw);

@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bgp_bfd.c: BGP BFD handling routines
  *
  * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -521,10 +506,8 @@ DEFUN (neighbor_bfd_check_controlplane_failure,
 	else
 		idx_peer = 1;
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-	if (!peer) {
-		vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
+	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		bgp_group_configure_bfd(peer);

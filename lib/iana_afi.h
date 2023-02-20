@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * iana_afi and safi definitions.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __IANA_AFI_H__
 
@@ -61,9 +48,11 @@ static inline afi_t afi_iana2int(iana_afi_t afi)
 		return AFI_IP6;
 	case IANA_AFI_L2VPN:
 		return AFI_L2VPN;
-	default:
+	case IANA_AFI_RESERVED:
 		return AFI_MAX;
 	}
+
+	return AFI_MAX;
 }
 
 static inline iana_afi_t afi_int2iana(afi_t afi)
@@ -75,9 +64,12 @@ static inline iana_afi_t afi_int2iana(afi_t afi)
 		return IANA_AFI_IPV6;
 	case AFI_L2VPN:
 		return IANA_AFI_L2VPN;
-	default:
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		return IANA_AFI_RESERVED;
 	}
+
+	return IANA_AFI_RESERVED;
 }
 
 static inline const char *iana_afi2str(iana_afi_t afi)
@@ -102,9 +94,11 @@ static inline safi_t safi_iana2int(iana_safi_t safi)
 		return SAFI_LABELED_UNICAST;
 	case IANA_SAFI_FLOWSPEC:
 		return SAFI_FLOWSPEC;
-	default:
+	case IANA_SAFI_RESERVED:
 		return SAFI_MAX;
 	}
+
+	return SAFI_MAX;
 }
 
 static inline iana_safi_t safi_int2iana(safi_t safi)
@@ -124,9 +118,12 @@ static inline iana_safi_t safi_int2iana(safi_t safi)
 		return IANA_SAFI_LABELED_UNICAST;
 	case SAFI_FLOWSPEC:
 		return IANA_SAFI_FLOWSPEC;
-	default:
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
 		return IANA_SAFI_RESERVED;
 	}
+
+	return IANA_SAFI_RESERVED;
 }
 
 static inline const char *iana_safi2str(iana_safi_t safi)

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP global definitions and state machine.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -647,6 +634,8 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 	vr->priority = vd.priority;
 	vr->preempt_mode = vd.preempt_mode;
 	vr->accept_mode = vd.accept_mode;
+	vr->checksum_with_ipv4_pseudoheader =
+		vd.checksum_with_ipv4_pseudoheader;
 	vr->shutdown = vd.shutdown;
 
 	vr->v4 = vrrp_router_create(vr, AF_INET);
@@ -669,6 +658,9 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 
 struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 {
+	if (!ifp)
+		return NULL;
+
 	struct vrrp_vrouter vr;
 
 	vr.vrid = vrid;
@@ -789,7 +781,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 
 	pktsz = vrrp_pkt_adver_build(&pkt, &r->src, r->vr->version, r->vr->vrid,
 				     r->priority, r->vr->advertisement_interval,
-				     r->addrs->count, (struct ipaddr **)&addrs);
+				     r->addrs->count, (struct ipaddr **)&addrs,
+				     r->vr->checksum_with_ipv4_pseudoheader);
 
 	if (DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
 		zlog_hexdump(pkt, (size_t)pktsz);
@@ -1027,8 +1020,10 @@ static void vrrp_read(struct thread *thread)
 		zlog_hexdump(r->ibuf, nbytes);
 	}
 
-	pktsize = vrrp_pkt_parse_datagram(r->family, r->vr->version, &m, nbytes,
-					  &src, &pkt, errbuf, sizeof(errbuf));
+	pktsize = vrrp_pkt_parse_datagram(
+		r->family, r->vr->version,
+		r->vr->checksum_with_ipv4_pseudoheader, &m, nbytes, &src, &pkt,
+		errbuf, sizeof(errbuf));
 
 	if (pktsize < 0)
 		DEBUGD(&vrrp_dbg_pkt,
@@ -2347,6 +2342,12 @@ int vrrp_config_write_global(struct vty *vty)
 		vty_out(vty, "%svrrp default accept\n",
 			!vd.accept_mode ? "no " : "");
 
+	if (vd.checksum_with_ipv4_pseudoheader !=
+		    VRRP_DEFAULT_CHECKSUM_WITH_IPV4_PSEUDOHEADER &&
+	    ++writes)
+		vty_out(vty, "%svrrp default checksum-with-ipv4-pseudoheader\n",
+			!vd.checksum_with_ipv4_pseudoheader ? "no " : "");
+
 	if (vd.shutdown != VRRP_DEFAULT_SHUTDOWN && ++writes)
 		vty_out(vty, "%svrrp default shutdown\n",
 			!vd.shutdown ? "no " : "");
@@ -2387,6 +2388,8 @@ void vrrp_init(void)
 	vd.preempt_mode = yang_get_default_bool("%s/preempt", VRRP_XPATH_FULL);
 	vd.accept_mode =
 		yang_get_default_bool("%s/accept-mode", VRRP_XPATH_FULL);
+	vd.checksum_with_ipv4_pseudoheader = yang_get_default_bool(
+		"%s/checksum-with-ipv4-pseudoheader", VRRP_XPATH_FULL);
 	vd.shutdown = VRRP_DEFAULT_SHUTDOWN;
 
 	vrrp_autoconfig_version = 3;

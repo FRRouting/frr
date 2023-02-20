@@ -5,8 +5,6 @@
 if BFDD
 noinst_LIBRARIES += bfdd/libbfd.a
 sbin_PROGRAMS += bfdd/bfdd
-vtysh_scan += bfdd/bfdd_vty.c
-vtysh_scan += bfdd/bfdd_cli.c
 vtysh_daemons += bfdd
 man8 += $(MANBUILD)/frr-bfdd.8
 endif

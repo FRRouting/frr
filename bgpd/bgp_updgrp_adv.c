@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bgp_updgrp_adv.c: BGP update group advertisement and adjacency
  *                   maintenance
@@ -8,22 +9,6 @@
  * @author Avneesh Sachdev <avneesh@sproute.net>
  * @author Rajesh Varadarajan <rajesh@sproute.net>
  * @author Pradosh Mohapatra <pradosh@sproute.net>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -355,6 +340,11 @@ static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
 	struct update_subgroup *subgrp;
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+		/* Avoid supressing duplicate routes later
+		 * when processing in subgroup_announce_table().
+		 */
+		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+
 		subgroup_announce_all(subgrp);
 	}
 
@@ -650,6 +640,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+	safi_t safi_rib;
 	bool addpath_capable;
 	struct bgp *bgp;
 	bool advertise;
@@ -661,10 +652,12 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
+		safi_rib = SAFI_UNICAST;
+	else
+		safi_rib = safi;
 
 	if (!table)
-		table = peer->bgp->rib[afi][safi];
+		table = peer->bgp->rib[afi][safi_rib];
 
 	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN
 	    && CHECK_FLAG(peer->af_flags[afi][safi],
@@ -683,7 +676,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 
 			if (!bgp_check_selected(ri, peer, addpath_capable, afi,
-						safi))
+						safi_rib))
 				continue;
 
 			if (subgroup_announce_check(dest, ri, subgrp, dest_p,
@@ -698,7 +691,8 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 						bgp_adj_out_unset_subgroup(
 							dest, subgrp, 1,
 							bgp_addpath_id_for_peer(
-								peer, afi, safi,
+								peer, afi,
+								safi_rib,
 								&ri->tx_addpath));
 				}
 			} else {
@@ -717,7 +711,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 				bgp_adj_out_unset_subgroup(
 					dest, subgrp, 1,
 					bgp_addpath_id_for_peer(
-						peer, afi, safi,
+						peer, afi, safi_rib,
 						&ri->tx_addpath));
 			}
 		}
@@ -794,6 +788,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	route_map_result_t new_ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
+	safi_t safi_rib;
 	int pref = 65536;
 	int new_pref = 0;
 
@@ -806,6 +801,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 	if (!(afi == AFI_IP || afi == AFI_IP6))
 		return;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi_rib = SAFI_UNICAST;
+	else
+		safi_rib = safi;
 
 	bgp = peer->bgp;
 	from = bgp->peer_self;
@@ -840,7 +840,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		 * the default route. We announce the default
 		 * route only if route-map has a match.
 		 */
-		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+		for (dest = bgp_table_top(bgp->rib[afi][safi_rib]); dest;
 		     dest = bgp_route_next(dest)) {
 			if (!bgp_dest_has_bgp_path_info_data(dest))
 				continue;
@@ -898,7 +898,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p, NULL);
+	dest = bgp_afi_node_lookup(bgp->rib[afi][safi_rib], afi, safi_rib, &p,
+				   NULL);
 
 	if (withdraw) {
 		/* Withdraw the default route advertised using default
@@ -918,10 +919,14 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					if (subgroup_announce_check(
 						    dest, pi, subgrp,
 						    bgp_dest_get_prefix(dest),
-						    &attr, NULL))
+						    &attr, NULL)) {
+						struct attr *default_attr =
+							bgp_attr_intern(&attr);
+
 						bgp_adj_out_set_subgroup(
-							dest, subgrp, &attr,
-							pi);
+							dest, subgrp,
+							default_attr, pi);
+					}
 			}
 			bgp_dest_unlock_node(dest);
 		}

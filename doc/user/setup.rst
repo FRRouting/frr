@@ -111,8 +111,18 @@ reasons touched on in the VTYSH documentation and should generally be enabled.
 This allows the operator to control the number of open file descriptors
 each daemon is allowed to start with.  The current assumed value on
 most operating systems is 1024.  If the operator plans to run bgp with
-several thousands of peers than this is where we would modify FRR to
+several thousands of peers then this is where we would modify FRR to
 allow this to happen.
+
+::
+
+  FRR_NO_ROOT="yes"
+
+This option allows you to run FRR as a non-root user. Use this option
+only when you know what you are doing since most of the daemons
+in FRR will not be able to run under a regular user. This option
+is useful for example when you run FRR in a container with a designated
+user instead of root.
 
 ::
 

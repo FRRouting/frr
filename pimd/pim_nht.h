@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef PIM_NHT_H
 #define PIM_NHT_H
@@ -53,6 +40,11 @@ struct pim_nexthop_cache {
 	uint32_t bsr_count;
 };
 
+struct pnc_hash_walk_data {
+	struct pim_instance *pim;
+	struct interface *ifp;
+};
+
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
 int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
 			      struct pim_upstream *up, struct rp_info *rp,
@@ -77,5 +69,5 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 /* RPF(bsr_addr) == src_ip%src_ifp? */
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip);
-
+void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
 #endif

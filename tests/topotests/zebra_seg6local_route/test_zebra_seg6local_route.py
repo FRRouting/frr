@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_zebra_seg6local_route.py
 #
 # Copyright (c) 2020 by
 # LINE Corporation, Hiroki Shirokura <slank.dev@gmail.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -38,6 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import required_linux_kernel_version
 
 pytestmark = [pytest.mark.sharpd]
 
@@ -92,6 +80,15 @@ def test_zebra_seg6local_routes():
         context = manifest["in"]["context"]
 
         logger.info("CHECK {} {}".format(dest, context))
+
+        if manifest.get("required_kernel") is not None:
+            if required_linux_kernel_version(manifest["required_kernel"]) is not True:
+                logger.info(
+                    "Kernel requirements are not met. Skipping {} {}".format(
+                        dest, context
+                    )
+                )
+                continue
 
         r1.vtysh_cmd(
             "sharp install seg6local-routes {} nexthop-seg6local dum0 {} 1".format(

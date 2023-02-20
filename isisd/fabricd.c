@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - OpenFabric extensions
  *
  * Copyright (C) 2018 Christian Franke
  *
  * This file is part of FRRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include "isisd/fabricd.h"
@@ -254,8 +241,10 @@ static void fabricd_initial_sync_timeout(struct thread *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 
-	zlog_info("OpenFabric: Initial synchronization on %s timed out!",
-		  f->initial_sync_circuit->interface->name);
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug(
+			"OpenFabric: Initial synchronization on %s timed out!",
+			f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_PENDING;
 	f->initial_sync_circuit = NULL;
 }
@@ -282,9 +271,11 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 			 timeout, &f->initial_sync_timeout);
 	f->initial_sync_start = monotime(NULL);
 
-	zlog_info("OpenFabric: Started initial synchronization with %s on %s",
-		  sysid_print(circuit->u.p2p.neighbor->sysid),
-		  circuit->interface->name);
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug(
+			"OpenFabric: Started initial synchronization with %s on %s",
+			sysid_print(circuit->u.p2p.neighbor->sysid),
+			circuit->interface->name);
 }
 
 bool fabricd_initial_sync_is_in_progress(struct isis_area *area)

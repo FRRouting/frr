@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1472,10 +1458,6 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
 		json_pw = json_object_new_object();
 		json_object_string_addf(json_pw, "peerId", "%pI4", &pw->lsr_id);
 		json_object_int_add(json_pw, "vcId", pw->pwid);
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
 		json_object_string_add(json_pw, "vpnName", pw->l2vpn_name);
 		if (pw->status == PW_FORWARDING)
 			json_object_string_add(json_pw, "status", "up");

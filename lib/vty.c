@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Virtual terminal [aka TeletYpe] interface routine.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,11 +9,16 @@
 #include <lib/version.h>
 #include <sys/types.h>
 #include <sys/types.h>
-#ifdef HAVE_LIBPCREPOSIX
+#ifdef HAVE_LIBPCRE2_POSIX
+#ifndef _FRR_PCRE2_POSIX
+#define _FRR_PCRE2_POSIX
+#include <pcre2posix.h>
+#endif /* _FRR_PCRE2_POSIX */
+#elif defined(HAVE_LIBPCREPOSIX)
 #include <pcreposix.h>
 #else
 #include <regex.h>
-#endif /* HAVE_LIBPCREPOSIX */
+#endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
 
 #include "linklist.h"
@@ -53,9 +43,7 @@
 #include <arpa/telnet.h>
 #include <termios.h>
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/vty_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_SERV, "VTY server");
@@ -281,7 +269,8 @@ done:
 	return len;
 }
 
-int vty_json(struct vty *vty, struct json_object *json)
+static int vty_json_helper(struct vty *vty, struct json_object *json,
+			   uint32_t options)
 {
 	const char *text;
 
@@ -289,11 +278,23 @@ int vty_json(struct vty *vty, struct json_object *json)
 		return CMD_SUCCESS;
 
 	text = json_object_to_json_string_ext(
-		json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+		json, options);
 	vty_out(vty, "%s\n", text);
 	json_object_free(json);
 
 	return CMD_SUCCESS;
+}
+
+int vty_json(struct vty *vty, struct json_object *json)
+{
+	return vty_json_helper(vty, json,
+			       JSON_C_TO_STRING_PRETTY |
+				       JSON_C_TO_STRING_NOSLASHESCAPE);
+}
+
+int vty_json_no_pretty(struct vty *vty, struct json_object *json)
+{
+	return vty_json_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
 /* Output current time to the vty. */
@@ -340,6 +341,15 @@ void vty_hello(struct vty *vty)
 		vty_out(vty, "%s", host.motd);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+/* prompt formatting has a %s in the cmd_node prompt string.
+ *
+ * Also for some reason GCC emits the warning on the end of the function
+ * (optimization maybe?) rather than on the vty_out line, so this pragma
+ * wraps the entire function rather than just the vty_out line.
+ */
+
 /* Put out prompt and wait input from user. */
 static void vty_prompt(struct vty *vty)
 {
@@ -347,6 +357,7 @@ static void vty_prompt(struct vty *vty)
 		vty_out(vty, cmd_prompt(vty->node), cmd_hostname_get());
 	}
 }
+#pragma GCC diagnostic pop
 
 /* Send WILL TELOPT_ECHO to remote server. */
 static void vty_will_echo(struct vty *vty)
@@ -444,7 +455,8 @@ static int vty_command(struct vty *vty, char *buf)
 	/*
 	 * Log non empty command lines
 	 */
-	if (do_log_commands)
+	if (do_log_commands &&
+	    strncmp(buf, "echo PING", strlen("echo PING")) != 0)
 		cp = buf;
 	if (cp != NULL) {
 		/* Skip white spaces. */
@@ -460,8 +472,12 @@ static int vty_command(struct vty *vty, char *buf)
 			 vty->address);
 
 		/* format the prompt */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* prompt formatting has a %s in the cmd_node prompt string */
 		snprintf(prompt_str, sizeof(prompt_str), cmd_prompt(vty->node),
 			 vty_str);
+#pragma GCC diagnostic pop
 
 		/* now log the command */
 		zlog_notice("%s%s", prompt_str, buf);
@@ -2696,7 +2712,11 @@ static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 				vty_serv->sock, &vty_serv->t_accept);
 		break;
 #endif /* VTYSH */
-	default:
+	case VTY_READ:
+	case VTY_WRITE:
+	case VTY_TIMEOUT_RESET:
+	case VTYSH_READ:
+	case VTYSH_WRITE:
 		assert(!"vty_event_serv() called incorrectly");
 	}
 }
@@ -2735,7 +2755,8 @@ static void vty_event(enum vty_event event, struct vty *vty)
 			thread_add_timer(vty_master, vty_timeout, vty,
 					 vty->v_timeout, &vty->t_timeout);
 		break;
-	default:
+	case VTY_SERV:
+	case VTYSH_SERV:
 		assert(!"vty_event() called incorrectly");
 	}
 }

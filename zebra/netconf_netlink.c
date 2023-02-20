@@ -1,25 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * netconf_netlink.c - netconf interaction with the kernel using
  * netlink
  * Copyright (C) 2021  Nvidia, Inc.
  *                     Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #include <zebra.h>
 
@@ -106,9 +90,11 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 * to do a good job of not sending data that is mixed/matched
 	 * across families
 	 */
+#ifdef AF_MPLS
 	if (ncm->ncm_family == AF_MPLS)
 		afi = AFI_IP;
 	else
+#endif /* AF_MPLS */
 		afi = family2afi(ncm->ncm_family);
 
 	netlink_parse_rtattr(tb, NETCONFA_MAX, netconf_rta(ncm), len);

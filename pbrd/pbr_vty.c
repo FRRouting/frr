@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PBR - vty code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -36,9 +23,7 @@
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_vty.h"
 #include "pbrd/pbr_debug.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "pbrd/pbr_vty_clippy.c"
-#endif
 
 DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
 	   "Create pbr-map or enter pbr-map command mode\n"
@@ -935,12 +920,12 @@ static void vty_show_pbrms(struct vty *vty,
 
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->nhgrp_name),
 				pbr_nht_get_table(pbrms->nhgrp_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->nhgrp_name) ? "yes"
 									 : "no",
 				pbr_nht_get_table(pbrms->nhgrp_name));
@@ -950,12 +935,12 @@ static void vty_show_pbrms(struct vty *vty,
 		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->internal_nhg_name),
 				pbr_nht_get_table(pbrms->internal_nhg_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->internal_nhg_name)
 					? "yes"
 					: "no",
@@ -1242,6 +1227,8 @@ DEFUN_NOSH(show_debugging_pbr,
 	vty_out(vty, "PBR debugging status:\n");
 
 	pbr_debug_config_write_helper(vty, false);
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }

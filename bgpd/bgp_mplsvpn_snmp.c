@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* MPLS/BGP L3VPN MIB
  * Copyright (C) 2020 Volta Networks Inc
- *
- * This file is part of FRR.
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1264,7 +1249,7 @@ bgp_lookup_route(struct bgp *l3vpn_bgp, struct bgp_dest **dest,
 			    == 0)
 				return pi;
 			break;
-		default:
+		case IPADDR_NONE:
 			return pi;
 		}
 	}
@@ -1529,7 +1514,7 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 	char vrf_name[VRF_NAMSIZ];
 	struct bgp *l3vpn_bgp;
 	struct bgp_dest *dest;
-	struct bgp_path_info *pi;
+	struct bgp_path_info *pi, *bpi_ultimate;
 	const struct prefix *p;
 	uint16_t policy = 0;
 
@@ -1544,6 +1529,8 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 
 	if (!pi)
 		return NULL;
+
+	bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
 
 	p = bgp_dest_get_prefix(dest);
 
@@ -1625,13 +1612,13 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 				case BLACKHOLE_REJECT:
 					return SNMP_INTEGER(
 						MPLSL3VPNVRFRTECIDRTYPEREJECT);
-				default:
+				case BLACKHOLE_UNSPEC:
+				case BLACKHOLE_NULL:
+				case BLACKHOLE_ADMINPROHIB:
 					return SNMP_INTEGER(
 						MPLSL3VPNVRFRTECIDRTYPEBLACKHOLE);
 				}
-			default:
-				return SNMP_INTEGER(
-					MPLSL3VPNVRFRTECIDRTYPEOTHER);
+				break;
 			}
 		} else
 			return SNMP_INTEGER(MPLSL3VPNVRFRTECIDRTYPEOTHER);
@@ -1661,8 +1648,8 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 	case MPLSL3VPNVRFRTEINETCIDRNEXTHOPAS:
 		return SNMP_INTEGER(pi->peer ? pi->peer->as : 0);
 	case MPLSL3VPNVRFRTEINETCIDRMETRIC1:
-		if (pi->extra)
-			return SNMP_INTEGER(pi->extra->igpmetric);
+		if (bpi_ultimate->extra)
+			return SNMP_INTEGER(bpi_ultimate->extra->igpmetric);
 		else
 			return SNMP_INTEGER(0);
 	case MPLSL3VPNVRFRTEINETCIDRMETRIC2:

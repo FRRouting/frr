@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -37,6 +22,7 @@
 #include "ospf6_route.h"
 #include "ospf6_area.h"
 #include "ospf6_abr.h"
+#include "ospf6_nssa.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
@@ -301,6 +287,9 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 	/* disable from area list if possible */
 	ospf6_area_interface_delete(oi);
+
+	if (oi->at_data.auth_key)
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
 
 	/* Free BFD allocated data. */
 	XFREE(MTYPE_TMP, oi->bfd_config.profile);
@@ -1116,14 +1105,21 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				    oi->dead_interval);
 		json_object_int_add(json_obj, "timerIntervalsConfigRetransmit",
 				    oi->rxmt_interval);
+		json_object_boolean_add(
+			json_obj, "timerPassiveIface",
+			!!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE));
 	} else {
 		vty_out(vty, "  State %s, Transmit Delay %d sec, Priority %d\n",
 			ospf6_interface_state_str[oi->state], oi->transdelay,
 			oi->priority);
 		vty_out(vty, "  Timer intervals configured:\n");
-		vty_out(vty, "   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
-			oi->hello_interval, oi->thread_send_hello,
-			oi->dead_interval, oi->rxmt_interval);
+		if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE))
+			vty_out(vty,
+				"   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
+				oi->hello_interval, oi->thread_send_hello,
+				oi->dead_interval, oi->rxmt_interval);
+		else
+			vty_out(vty, "   No Hellos (Passive interface)\n");
 	}
 
 	inet_ntop(AF_INET, &oi->drouter, drouter, sizeof(drouter));
@@ -1234,7 +1230,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		}
 	}
 
-	json_auth = json_object_new_object();
+	if (use_json)
+		json_auth = json_object_new_object();
 	if (oi->at_data.flags != 0) {
 		if (use_json) {
 			if (CHECK_FLAG(oi->at_data.flags,
@@ -1736,8 +1733,10 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_check_and_set_router_abr(ospf6))
+	if (ospf6_check_and_set_router_abr(ospf6)) {
 		ospf6_abr_enable_area(oa);
+		ospf6_schedule_abr_task(ospf6);
+	}
 }
 
 void ospf6_interface_stop(struct ospf6_interface *oi)

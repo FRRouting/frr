@@ -1,25 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra EVPN Neighbor Data structures and definitions
  * These are "internal" to this function.
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
  * Copyright (C) 2020 Volta Networks.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_EVPN_NEIGH_H
@@ -62,6 +46,9 @@ struct zebra_neigh {
 	ifindex_t ifindex;
 
 	struct zebra_evpn *zevpn;
+
+	/* Refcnt - Only used by SVD neighs currently */
+	uint32_t refcnt;
 
 	uint32_t flags;
 #define ZEBRA_NEIGH_LOCAL 0x01
@@ -231,7 +218,7 @@ void zebra_evpn_sync_neigh_del(struct zebra_neigh *n);
 struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 	struct zebra_evpn *zevpn, struct zebra_neigh *n, uint16_t ipa_len,
 	const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-	const esi_t *esi, struct sync_mac_ip_ctx *ctx);
+	const esi_t *esi, struct zebra_mac *mac);
 void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 			      int upd_client, uint32_t flags);
 struct zebra_neigh *zebra_evpn_neigh_lookup(struct zebra_evpn *zevpn,

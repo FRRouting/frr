@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /* Interface function header.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_INTERFACE_H
@@ -28,6 +13,7 @@
 #include "bitfield.h"
 
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_l2_bridge_if.h"
 #include "zebra/zebra_nhg_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
@@ -108,6 +94,9 @@ enum zebra_if_flags {
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
 	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
+
+/* Mem type for zif desc */
+DECLARE_MTYPE(ZIF_DESC);
 
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
@@ -299,6 +288,16 @@ extern void zebra_if_update_all_links(struct zebra_ns *zns);
  */
 extern int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
 					uint32_t new_protodown_rc);
+
+extern void cli_show_legacy_admin_group(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
+extern void cli_show_affinity_mode(struct vty *vty,
+				   const struct lyd_node *dnode,
+				   bool show_defaults);
+extern void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults);
+
 /**
  * Set protodown with single reason.
  */

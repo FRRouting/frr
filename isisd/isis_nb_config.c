@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -336,9 +323,9 @@ int isis_instance_attached_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/overload
+ * XPath: /frr-isisd:isis/instance/overload/enabled
  */
-int isis_instance_overload_modify(struct nb_cb_modify_args *args)
+int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	bool overload;
@@ -348,7 +335,27 @@ int isis_instance_overload_modify(struct nb_cb_modify_args *args)
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	overload = yang_dnode_get_bool(args->dnode, NULL);
+	area->overload_configured = overload;
+
 	isis_area_overload_bit_set(area, overload);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/overload/on-startup
+ */
+int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	uint32_t overload_time;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	overload_time = yang_dnode_get_uint32(args->dnode, NULL);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_area_overload_on_startup_set(area, overload_time);
 
 	return NB_OK;
 }

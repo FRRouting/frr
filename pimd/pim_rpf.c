@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -61,6 +48,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	ifindex_t first_ifindex = 0;
 	int found = 0;
 	int i = 0;
+	struct pim_interface *pim_ifp;
 
 #if PIM_IPV == 4
 	/*
@@ -97,9 +85,10 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		zclient_lookup_nexthop(pim, nexthop_tab, router->multipath,
 				       addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
-		zlog_warn(
-			"%s %s: could not find nexthop ifindex for address %pPAs",
-			__FILE__, __func__, &addr);
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug(
+				"%s %s: could not find nexthop ifindex for address %pPAs",
+				__FILE__, __func__, &addr);
 		return false;
 	}
 
@@ -117,15 +106,16 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			continue;
 		}
 
-		if (!ifp->info) {
+		pim_ifp = ifp->info;
+		if (!pim_ifp || !pim_ifp->pim_enable) {
 			if (PIM_DEBUG_ZEBRA)
 				zlog_debug(
-					"%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %pPAs)",
+					"%s: pim not enabled on input interface %s (ifindex=%d, RPF for source %pPAs)",
 					__func__, ifp->name, first_ifindex,
 					&addr);
 			i++;
-		} else if (neighbor_needed
-			   && !pim_if_connected_to_source(ifp, addr)) {
+		} else if (neighbor_needed &&
+			   !pim_if_connected_to_source(ifp, addr)) {
 			nbr = pim_neighbor_find(ifp,
 						nexthop_tab[i].nexthop_addr);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)

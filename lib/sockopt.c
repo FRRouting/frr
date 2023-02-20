@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* setsockopt functions
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -692,4 +677,53 @@ int sockopt_tcp_mss_get(int sock)
 	}
 
 	return tcp_maxseg;
+}
+
+int setsockopt_tcp_keepalive(int sock, uint16_t keepalive_idle,
+			     uint16_t keepalive_intvl,
+			     uint16_t keepalive_probes)
+{
+	int val = 1;
+
+	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt SO_KEEPALIVE (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+#if defined __OpenBSD__
+	return 0;
+#else
+	/* Send first probe after keepalive_idle seconds */
+	val = keepalive_idle;
+	if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val)) <
+	    0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt TCP_KEEPIDLE (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+	/* Set interval between two probes */
+	val = keepalive_intvl;
+	if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val)) <
+	    0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt TCP_KEEPINTVL (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+	/* Set maximum probes */
+	val = keepalive_probes;
+	if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof(val)) < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt TCP_KEEPCNT (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+	return 0;
+#endif
 }

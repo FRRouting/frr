@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* AS path related definitions.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_ASPATH_H
@@ -104,13 +89,13 @@ extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);
 extern void aspath_unintern(struct aspath **aspath);
 extern const char *aspath_print(struct aspath *aspath);
-extern void aspath_print_vty(struct vty *vty, const char *format,
-			     struct aspath *aspath, const char *suffix);
+extern void aspath_print_vty(struct vty *vty, struct aspath *aspath);
 extern void aspath_print_all_vty(struct vty *vty);
 extern unsigned int aspath_key_make(const void *p);
 extern unsigned int aspath_get_first_as(struct aspath *aspath);
 extern unsigned int aspath_get_last_as(struct aspath *aspath);
 extern int aspath_loop_check(struct aspath *aspath, as_t asno);
+extern int aspath_loop_check_confed(struct aspath *aspath, as_t asno);
 extern bool aspath_private_as_check(struct aspath *aspath);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,

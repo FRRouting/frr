@@ -1,31 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra debug related function
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 #include "command.h"
 #include "debug.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/debug_clippy.c"
-#endif
 
 /* For debug statement. */
 unsigned long zebra_debug_event;
@@ -44,6 +27,7 @@ unsigned long zebra_debug_nexthop;
 unsigned long zebra_debug_evpn_mh;
 unsigned long zebra_debug_pbr;
 unsigned long zebra_debug_neigh;
+unsigned long zebra_debug_tc;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -137,6 +121,9 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra PBR debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
+
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 
@@ -339,7 +326,7 @@ DEFPY(debug_zebra_dplane_dpdk, debug_zebra_dplane_dpdk_cmd,
 		SET_FLAG(zebra_debug_dplane_dpdk, ZEBRA_DEBUG_DPLANE_DPDK);
 
 		if (detail)
-			SET_FLAG(zebra_debug_dplane,
+			SET_FLAG(zebra_debug_dplane_dpdk,
 				 ZEBRA_DEBUG_DPLANE_DPDK_DETAIL);
 	}
 
@@ -370,6 +357,17 @@ DEFPY (debug_zebra_neigh,
 	else
 		SET_FLAG(zebra_debug_neigh, ZEBRA_DEBUG_NEIGH);
 
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_zebra_tc,
+       debug_zebra_tc_cmd,
+       "debug zebra tc",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra tc events\n")
+{
+	SET_FLAG(zebra_debug_tc, ZEBRA_DEBUG_TC);
 	return CMD_SUCCESS;
 }
 
@@ -727,10 +725,12 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
-	if (CHECK_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)) {
+	if (CHECK_FLAG(zebra_debug_dplane_dpdk,
+		       ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)) {
 		vty_out(vty, "debug zebra dplane dpdk detailed\n");
 		write++;
-	} else if (CHECK_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE_DPDK)) {
+	} else if (CHECK_FLAG(zebra_debug_dplane_dpdk,
+			      ZEBRA_DEBUG_DPLANE_DPDK)) {
 		vty_out(vty, "debug zebra dplane dpdk\n");
 		write++;
 	}
@@ -796,6 +796,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_nexthop_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_pbr_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_neigh_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_tc_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_dpdk_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
