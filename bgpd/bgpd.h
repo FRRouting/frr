@@ -1270,7 +1270,7 @@ struct peer {
 	 * so if a flag is unset, the corresponding override flag is unset too.
 	 * However if a flag is set, the corresponding override flag is set.
 	 */
-	uint32_t flags_override;
+	uint64_t flags_override;
 	/*
 	 * Parallel array to flags that indicates whether the default behavior
 	 * of *flags_override* should be inverted. If a flag is unset and the
@@ -1308,11 +1308,13 @@ struct peer {
 	 * inversion state of the flag differs between peer and peer-group, the
 	 * newly set value must equal to the inverted state of the peer-group.
 	 */
-	uint32_t flags_invert;
+	uint64_t flags_invert;
 	/*
 	 * Effective array for storing the peer/peer-group flags. In case of a
 	 * peer-group, the peer-specific overrides (see flags_override and
 	 * flags_invert) must be respected.
+	 * When changing the structure of flags/af_flags, do not forget to
+	 * change flags_invert/flags_override too.
 	 */
 	uint64_t flags;
 #define PEER_FLAG_PASSIVE                   (1ULL << 0) /* passive mode */
