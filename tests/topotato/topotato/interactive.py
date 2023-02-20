@@ -26,7 +26,7 @@ if typing.TYPE_CHECKING:
 
 
 taskbasedir = "/tmp/topotato-%s" % os.uname().nodename
-_interactive_session = pytest.StashKey["Interactive"]()
+# _interactive_session = pytest.StashKey["Interactive"]()
 
 
 class Interactive:
@@ -69,7 +69,8 @@ class Interactive:
     @pytest.hookimpl()
     @classmethod
     def pytest_sessionstart(cls, session):
-        self = session.stash[_interactive_session] = cls()
+        # self = session.stash[_interactive_session] = cls()
+        self = session.interactive_session = cls()
         self.session = session
 
         self.pause_on_fail = bool(session.config.getoption("--pause-on-fail"))
@@ -117,7 +118,8 @@ class Interactive:
     @staticmethod
     @pytest.hookimpl()
     def pytest_topotato_run(item: "TopotatoItem", testfunc: Callable):
-        self = item.session.stash[_interactive_session]
+        # self = item.session.stash[_interactive_session]
+        self = item.session.interactive_session  # type: ignore
         # pylint: disable=protected-access
         self._topotato_run(item, testfunc)
 
@@ -221,7 +223,8 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
     @staticmethod
     @pytest.hookimpl()
     def pytest_topotato_failure(item, excinfo, excrepr, codeloc):
-        self = item.session.stash[_interactive_session]
+        # self = item.session.stash[_interactive_session]
+        self = item.session.interactive_session
         # pylint: disable=protected-access
         self._topotato_failure(item, excinfo, excrepr, codeloc)
 
