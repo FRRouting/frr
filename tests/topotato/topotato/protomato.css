@@ -304,6 +304,14 @@ svg {
 	content:"⋄";
 	color: #00e;
 }
+.logmeta .uid-unknown:after {
+	content:" ⍰";
+	color: #e00;
+}
+.logmeta .uid-ambiguous:after {
+	content:" ⌹";
+	color: #c60;
+}
 
 .logprio {
 	grid-column-start: 5;
@@ -323,8 +331,9 @@ svg {
 	border-bottom:1px solid #f04;
 	font-weight:500;
 }
-.logmsg.prio-crit .logtext {
-	font-family:var(--font-mono-narrower);
+.logmsg.prio-crit .logtext,
+.logmsg.mono .logtext {
+	font-family:var(--font-mono-narrow);
 	white-space:pre-wrap;
 }
 
@@ -349,6 +358,18 @@ svg {
 	font-weight: 300;
 }
 
+.event {
+	display: contents;
+}
+.event .dmnname {
+	grid-column-end: 6;
+}
+.eventtext {
+	grid-column-start: 6;
+	grid-column-end: span 2;
+	font-style: italic;
+}
+
 .clicmd {
 	display: contents;
 }
@@ -356,8 +377,13 @@ svg {
 	grid-column-start: 6;
 	grid-column-end: span 2;
 
+	display: flex;
+	align-items: center;
 	font-family: var(--font-mono);
 	white-space:pre-wrap;
+}
+.clicmdtext > span {
+	flex: auto;
 }
 
 .cliout {
@@ -378,6 +404,52 @@ svg {
 	white-space: pre-wrap;
 	max-width:132ch;
 }
+.clijsonflex {
+	display: flex;
+	flex-direction: row;
+}
+.clijsonitem {
+	flex: none;
+}
+.clijsonnest {
+	overflow-y: hidden;
+}
+.clishorten {
+	flex: auto;
+	font-family: var(--font-plain-narrow);
+	white-space: nowrap;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
+	user-select: none;
+	margin-left: 1em;
+	color: #cc9;
+	font-size: 10pt;
+}
+.clishorten:before {
+	content:"⊞";
+	color:#8f8;
+}
+.cliunshorten {
+	flex: initial;
+	font-family: var(--font-plain-narrow);
+	margin-left: 1em;
+	font-size: 10pt;
+}
+.cliunshorten:before {
+	content:"⊟";
+	color:#f88;
+}
+.clicollapse {
+	flex: initial;
+	font-family: var(--font-plain-narrow);
+	user-select: none;
+	margin-left: 0.2em;
+	font-size: 10pt;
+}
+.clicollapse:before {
+	content:"⊡";
+	color:#fe7;
+}
 
 .pkt {
 	display: contents;
@@ -385,35 +457,63 @@ svg {
 
 .pktcol,
 .logmsg > span,
-.clicmd > span {
+.clicmd > span,
+.event > span {
 	border-bottom: 1px solid #aaa;
 	background-color:#eee;
 	/* border-radius: 3pt; */
 	padding: 2pt 3pt;
 }
 .clicmd > span {
-	color:#080;
-	background-color:#ddd;
+	color:#000;
+	background-color:#f3f3f3;
+	border-top: 1px dashed #888;
 }
+.clicmd .cmd-ret {
+	flex: initial;
+	font-family: var(--font-plain);
+	font-size: 10pt;
+}
+.clicmd.cmd-err .cmd-ret:before {
+	content: "🛑";
+}
+.clicmd.cmd-err > span {
+	color: #fff;
+	font-weight: bold;
+	background-color: #c44;
+}
+.clicmd.cmd-warning .cmd-ret:before {
+	content: "⚠";
+}
+.clicmd.cmd-warning > span {
+	color: #fff;
+	font-weight: bold;
+	background-color: #a50;
+}
+
 .clicmd.cli-same {
 	display:none;
 }
 .clicmd.cli-same > span {
 	background-color:#f9f9f9;
-	color:#8a8;
+	color:#77aa95;
 }
 .clicmd.cli-same > span.clicmdtext::after {
-	content:"⇡";
+	content:" ⇡";
 	color:#444;
 	font-weight:700;
 }
+.clicmdtext:before {
+	content: "⊡ ";
+	color:#05c;
+}
 .clicmd.cli-has-out > span.clicmdtext::before {
-	content: "⏵ ";
-	color:#000;
+	content:"⊞ ";
+	color:#0a0;
 }
 .clicmd.cli-has-out.cli-expanded > span.clicmdtext::before {
-	content: "⏷ ";
-	color:#000;
+	content:"⊟ ";
+	color:#e44;
 }
 
 .tstamp {

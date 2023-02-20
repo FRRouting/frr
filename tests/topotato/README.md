@@ -57,6 +57,7 @@ Setup environments:
 - Installation of packages[^1]:
 
 ```sh
+pip install -U setuptools # exabgp has some issues installing without them
 pip install -r requirements.txt
 ```
 

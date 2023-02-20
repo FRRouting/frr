@@ -15,7 +15,8 @@
       {{ nodesum(item) }}
     </div>
     <div class="itemdetails" id="i{{ item.idx }}d">
-      {{ item.html | safe }}
+      <div class="timetable">
+      </div>
     </div>
     {%- if item.result.failed %}
     {%- set longrepr = item.result.longrepr %}

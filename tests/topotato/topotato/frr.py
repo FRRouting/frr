@@ -11,9 +11,10 @@ import logging
 import os
 import pwd
 import re
-import select
 import shlex
+import signal
 import socket
+import struct
 import subprocess
 import sys
 import time
@@ -24,6 +25,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    Generator,
     List,
     Literal,
     Mapping,
@@ -34,32 +36,18 @@ from typing import (
     cast,
 )
 
+import pytest
 import jinja2
 
-from .utils import deindent, ClassHooks
-from .timeline import Timeline
+from .utils import deindent, get_dir, EnvcheckResult
+from .timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
 from .exceptions import TopotatoDaemonCrash
+from .pcapng import Context
+from .osdep import NetworkInstance
 
 if typing.TYPE_CHECKING:
     from . import toponom
-
-if sys.platform == "linux":
-    from .topolinux import NetworkInstance
-elif sys.platform == "freebsd12":
-    from .topofreebsd import NetworkInstance
-else:
-
-    class NetworkInstance(ClassHooks):
-        class RouterNS:
-            pass
-
-        def __init__(self, *args, **kwargs):
-            raise NotImplementedError("no support for OS %r" % sys.platform)
-
-        @classmethod
-        def _check_env(cls, *, result, **kwargs):
-            raise NotImplementedError("no support for OS %r" % sys.platform)
 
 
 logger = logging.getLogger("topotato")
@@ -103,7 +91,7 @@ class FRRSetupError(EnvironmentError):
     pass
 
 
-class FRRConfigs(dict, ClassHooks):
+class FRRConfigs(dict):
     """
     set of config files for an FRR setup
 
@@ -130,15 +118,33 @@ class FRRConfigs(dict, ClassHooks):
 
     daemons_integrated_only = frozenset("pim6d".split())
 
+    @staticmethod
+    @pytest.hookimpl()
+    def pytest_addoption(parser):
+        parser.addoption(
+            "--frr-builddir",
+            type=str,
+            default=None,
+            help="FRR build directory (overrides frr_builddir pytest.ini option)",
+        )
+
+        parser.addini(
+            "frr_builddir",
+            "FRR build directory (normally same as source, but out-of-tree is supported)",
+            default="../frr",
+        )
+
     # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     @classmethod
-    def _check_env(cls, *, result, **kwargs):
+    @pytest.hookimpl()
+    def pytest_topotato_envcheck(cls, session, result: EnvcheckResult):
         """
         grab some setup information about a FRR build from frrpath
 
         among other things, this figures out which daemons are even available
         """
-        cls.frrpath = frrpath = os.path.abspath(cls.frrpath)
+        frrpath = get_dir(session, "--frr-builddir", "frr_builddir")
+        cls.frrpath = frrpath = os.path.abspath(frrpath)
 
         logger.debug("FRR build directory: %r", frrpath)
         try:
@@ -341,6 +347,144 @@ class FRRConfigs(dict, ClassHooks):
         return cls
 
 
+class TimedVtysh(TimedElement):
+    """
+    Record output from an FRR vtysh invocation.
+
+    This creates the appropriate wrapping for vtysh output to go into the
+    :py:class:`Timeline`.
+
+    One instance of this class represents only one vtysh command, if executing
+    multiple commands in one go they each receive their own object.
+    """
+
+    rtrname: str
+    daemon: str
+
+    cmd: str
+    """vtysh command that was executed.  Whitespace is stripped."""
+
+    retcode: int
+    """
+    vtysh return code.
+
+    .. todo::
+
+       wrap ``CMD_*`` enum values from ``command.h``.
+    """
+
+    text: str
+    """command output.  Whitespace is NOT stripped."""
+
+    last: bool
+    """
+    Set if this command is the last of a multi-command batch.
+
+    This is used to know when to stop running the Timeline event poller.
+    """
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        ts: float,
+        rtrname: str,
+        daemon: str,
+        cmd: str,
+        retcode: int,
+        text: str,
+        last: bool,
+    ):
+        super().__init__()
+        self._ts = ts
+        self.rtrname = rtrname
+        self.daemon = daemon
+        self.cmd = cmd
+        self.retcode = retcode
+        self.text = text
+        self.last = last
+
+    @property
+    def ts(self):
+        return (self._ts, 0)
+
+    def serialize(self, context: Context):
+        jsdata = {
+            "type": "vtysh",
+            "router": self.rtrname,
+            "daemon": self.daemon,
+            "command": self.cmd,
+            "retcode": self.retcode,
+            "text": self.text,
+        }
+        return (jsdata, None)
+
+
+class VtyshPoll(MiniPollee):
+    """
+    vtysh read poll event handler.
+
+    Instances of this class are dynamically added (and removed) from the
+    :py:class:`Timeline` event poll list while commands are executed.
+
+    This also handles sending the next command when the previous one is done.
+    """
+
+    rtrname: str
+    daemon: str
+
+    _cur_cmd: Optional[str]
+    _cur_out: Optional[bytes]
+
+    def __init__(self, rtrname: str, daemon: str, sock: socket.socket, cmds: List[str]):
+        self.rtrname = rtrname
+        self.daemon = daemon
+        self._sock = sock
+        self._cmds = cmds
+        self._cur_cmd = None
+        self._cur_out = None
+
+    def send_cmd(self):
+        assert self._cur_cmd is None
+
+        if not self._cmds:
+            return
+
+        self._cur_cmd = cmd = self._cmds.pop(0)
+        self._cur_out = b""
+
+        self._sock.setblocking(True)
+        self._sock.sendall(cmd.strip().encode("UTF-8") + b"\0")
+        self._sock.setblocking(False)
+
+    def fileno(self) -> Optional[int]:
+        return self._sock.fileno()
+
+    def readable(self) -> Generator[TimedElement, None, None]:
+        # TODO: timeout? socket close?
+        assert self._cur_cmd is not None
+        assert self._cur_out is not None
+
+        self._cur_out += self._sock.recv(4096)
+
+        if len(self._cur_out) >= 4 and self._cur_out[-4:-1] == b"\0\0\0":
+            rc = self._cur_out[-1]
+            raw = self._cur_out[:-4]
+            text = raw.decode("UTF-8").replace("\r\n", "\n")
+
+            # accept a few more non-error return codes?
+            last = rc != 0 or not self._cmds
+
+            yield TimedVtysh(
+                time.time(), self.rtrname, self.daemon, self._cur_cmd, rc, text, last
+            )
+
+            self._cur_cmd = None
+            self._cur_out = None
+
+            if not last:
+                self.send_cmd()
+
+
 class FRRNetworkInstance(NetworkInstance):
     """
     Main network representation & interface, adding the FRR bits to NetworkInstance
@@ -356,6 +500,7 @@ class FRRNetworkInstance(NetworkInstance):
 
         instance: "FRRNetworkInstance"
         logfiles: Dict[str, str]
+        pids: Dict[str, int]
         rundir: Optional[str]
         rtrcfg: Dict[str, str]
         livelogs: Dict[str, LiveLog]
@@ -364,6 +509,7 @@ class FRRNetworkInstance(NetworkInstance):
             super().__init__(instance, name)
             self.logfiles = {}
             self.livelogs = {}
+            self.pids = {}
             self.rundir = None
             self.rtrcfg = {}
 
@@ -372,6 +518,9 @@ class FRRNetworkInstance(NetworkInstance):
                 self.livelogs[daemon] = LiveLog(self, daemon)
                 self.instance.timeline.install(self.livelogs[daemon])
             return self.livelogs[daemon].wrfd
+
+        def xrefs(self):
+            return FRRConfigs.xrefs
 
         def start(self):
             super().start()
@@ -448,11 +597,14 @@ class FRRNetworkInstance(NetworkInstance):
                 ) from e
 
             # want record-priority & timestamp precision...
-            self.vtysh_fast(
+            pid, _, _ = self.vtysh_polled(
+                self.instance.timeline,
                 daemon,
-                "enable\nconfigure\nlog file %s\nend\nclear log cmdline-targets"
+                "enable\nconfigure\nlog file %s\ndebug memstats-at-exit\nend\nclear log cmdline-targets"
                 % self.logfiles[daemon],
             )
+            self.pids[daemon] = pid
+
             if use_integrated:
                 self.vtysh(["-d", daemon, "-f", cfgpath])
 
@@ -470,9 +622,28 @@ class FRRNetworkInstance(NetworkInstance):
 
             self.start_daemon(daemon)
 
-        def stop(self):
+        def end_prep(self):
             for livelog in self.livelogs.values():
-                self.instance.timeline.uninstall(livelog)
+                livelog.close_prep()
+
+            for daemon, pid in list(reversed(self.pids.items())):
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    # stagger SIGTERM signals a tiiiiny bit
+                    self.instance.timeline.sleep(0.01)
+                except ProcessLookupError:
+                    del self.pids[daemon]
+                    # FIXME: log something
+
+            super().end_prep()
+
+        def end(self):
+            livelogs = self.livelogs.values()
+
+            # TODO: move this to instance level
+            self.instance.timeline.sleep(1.0, final=livelogs)
+
+            for livelog in self.livelogs.values():
                 livelog.close()
 
             super().end()
@@ -485,33 +656,37 @@ class FRRNetworkInstance(NetworkInstance):
                 stdout=subprocess.PIPE,
             )
 
-        def vtysh_fast(self, daemon, cmds, timeout=5.0):
+        def vtysh_polled(self, timeline: Timeline, daemon, cmds, timeout=5.0):
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
             fn = self.tempfile("run/%s.vty" % (daemon))
 
             sock.connect(fn)
-            cmds = [
-                c.strip().encode("UTF-8") for c in cmds.splitlines() if c.strip != ""
-            ]
+            peercred = sock.getsockopt(
+                socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3I")
+            )
+            pid, _, _ = struct.unpack("3I", peercred)
 
-            ret = b""
-            for cmd in cmds:
-                sock.setblocking(True)
-                sock.sendall(cmd + b"\0")
-                sock.setblocking(False)
+            cmds = [c.strip() for c in cmds.splitlines() if c.strip() != ""]
 
-                start = time.time()
-                while True:
-                    r = select.select([sock], [], [], start + timeout - time.time())
-                    if len(r[0]) == 0:
-                        raise IOError("vty connection timed out")
-                    ret += sock.recv(4096)
-                    if len(ret) >= 4 and ret[-4:-1] == b"\0\0\0":
-                        rc = ret[-1]
-                        ret = ret[:-4]
+            # TODO: refactor
+            vpoll = VtyshPoll(self.name, daemon, sock, cmds)
+
+            text = []
+            retcode = None
+
+            with timeline.with_pollee(vpoll) as poller:
+                vpoll.send_cmd()
+
+                end = time.time() + timeout
+                for event in poller.run_iter(end):
+                    if not isinstance(event, TimedVtysh):
+                        continue
+                    text.append(event.text)
+                    retcode = event.retcode
+                    if event.last:
                         break
 
-            return (ret.decode("UTF-8").replace("\r\n", "\n"), rc)
+            return (pid, "".join(text), retcode)
 
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)

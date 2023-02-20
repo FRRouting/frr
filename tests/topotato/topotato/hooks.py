@@ -11,8 +11,15 @@ import typing
 
 from pytest import hookspec, hookimpl
 
+from .utils import EnvcheckResult
+
 if typing.TYPE_CHECKING:
     from .base import TopotatoItem
+
+
+@hookspec()
+def pytest_topotato_envcheck(session, result: EnvcheckResult):
+    pass
 
 
 @hookspec()

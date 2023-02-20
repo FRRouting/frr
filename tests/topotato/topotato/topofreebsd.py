@@ -18,7 +18,6 @@ from typing import (
     Optional,
 )
 
-from .utils import ClassHooks
 from .jailwrap import FreeBSDJail
 from .toponom import LAN, Network
 
@@ -35,7 +34,7 @@ def ifname(host, iface):
     return "%s_%s" % (host, iface)
 
 
-class NetworkInstance(ClassHooks):
+class NetworkInstance:
     """
     represent a test setup with all its routers & switches
     """
@@ -57,6 +56,9 @@ class NetworkInstance(ClassHooks):
         def start(self):
             super().start()
             self.check_call(["ifconfig", "lo0", "up"])
+
+        def end_prep(self):
+            pass
 
         def routes(self, af=4, local=False):
             """
@@ -328,6 +330,8 @@ class NetworkInstance(ClassHooks):
         # self.dumpcap = self.switch_ns.popen(['dumpcap', '-B', '1', '-t', '-w', self.pcapfile] + args)
 
     def stop(self):
+        for rtr in self.routers.values():
+            rtr.end_prep()
         for rtr in self.routers.values():
             rtr.end()
         self.switch_ns.end()

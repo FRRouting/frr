@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2022 Nathan Mangar
 
@@ -39,12 +40,12 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r2'
     interface lo
-     ip address {{ routers.r2.lo_ip4[0] }} 
+     ip address {{ routers.r2.lo_ip4[0] }}
     !
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding

@@ -12,7 +12,18 @@ import select
 from dataclasses import dataclass
 
 import typing
-from typing import List, Tuple, Generator, Optional, Dict, Any, Callable
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 from .pcapng import Context, Block, Sink
 
 if typing.TYPE_CHECKING:
@@ -32,6 +43,8 @@ class TimingParams:
         return self
 
     def ticks(self):
+        now = time.time()
+
         # immediate tick
         yield float("-inf")
 
@@ -40,7 +53,8 @@ class TimingParams:
         deadline = start + (self.maxwait or 0.0)
 
         while nexttick < deadline:
-            yield nexttick
+            if nexttick >= now:
+                yield nexttick
             nexttick += self.delay
 
     def evaluate(self):
@@ -104,7 +118,7 @@ class MiniPoller:
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.pollees)
 
-    def sleep(self, duration: float, final=False):
+    def sleep(self, duration: float, final: Union[bool, Iterable[MiniPollee]] = False):
         """
         Delay for some time while processing events.
 
@@ -133,7 +147,7 @@ class MiniPoller:
         pass
 
     def run_iter(
-        self, deadline=float("inf"), final=False
+        self, deadline=float("inf"), final: Union[bool, Iterable[MiniPollee]] = False
     ) -> Generator["TimedElement", None, None]:
         """
         Process events and yield :py:class:`TimedElement` items as they happen.
@@ -142,19 +156,28 @@ class MiniPoller:
         :param final: drain events until all MiniPollees report None as fd.
         """
 
+        if isinstance(final, Iterable):
+            _final = set(final)
+        elif final is True:
+            _final = set(self.pollees)
+        else:
+            _final = set()
+
         # always run at least one iteration
         first = True
 
         while True:
             fdmap: Dict[int, MiniPollee] = {}
+
             for target in self.pollees:
                 fileno = target.fileno()
                 if fileno is None:
                     continue
                 fdmap[fileno] = target
 
-            if final and not fdmap:
+            if final is not False and not set(fdmap.values()) & _final:
                 break
+
             fds = list(fdmap.keys())
 
             timeout = max(deadline - time.time(), 0)
@@ -219,6 +242,22 @@ class TimedElement(ABC):
         return self.ts < other.ts
 
 
+class FrameworkEvent(TimedElement):
+    typ: ClassVar[str]
+
+    def __init__(self):
+        super().__init__()
+        self._ts = time.time()
+        self._data = {"type": self.typ}
+
+    @property
+    def ts(self):
+        return (self._ts, 0)
+
+    def serialize(self, context: Context):
+        return (self._data, None)
+
+
 class _Dummy(TimedElement):
     def __init__(self, ts: float):
         super().__init__()
@@ -240,13 +279,17 @@ class Timeline(MiniPoller, List[TimedElement]):
     def record(self, element: TimedElement):
         bisect.insort(self, element)
 
-    def serialize(self, sink: Sink):
+    def serialize(self, sink: Sink) -> Tuple[List, Dict[str, Any]]:
         ret = []
+        toplevel: Dict[str, Any] = {}
 
         for poller in self.pollees:
-            for _, block in poller.serialize(sink):
+            for jsdata, block in poller.serialize(sink):
                 if block:
                     sink.write(block)
+                if jsdata:
+                    for k, v in jsdata.items():
+                        toplevel.setdefault(k, {}).update(v)
 
         for item in self:
             jsdata, block = item.serialize(sink)
@@ -254,7 +297,7 @@ class Timeline(MiniPoller, List[TimedElement]):
                 ret.append({"ts": item.ts[0], "data": jsdata})
             if block:
                 sink.write(block)
-        return ret
+        return ret, toplevel
 
     def iter_since(
         self, start: float = float("-inf")
@@ -280,3 +323,18 @@ class Timeline(MiniPoller, List[TimedElement]):
 
     def uninstall(self, pollee: MiniPollee):
         self.pollees.remove(pollee)
+
+    class WithPollee:
+        def __init__(self, poller: "Timeline", pollee: MiniPollee):
+            self._poller = poller
+            self._pollee = pollee
+
+        def __enter__(self):
+            self._poller.install(self._pollee)
+            return self._poller
+
+        def __exit__(self, exc_type, exc_value, tb):
+            self._poller.uninstall(self._pollee)
+
+    def with_pollee(self, pollee: MiniPollee):
+        return self.WithPollee(self, pollee)
