@@ -673,9 +673,9 @@ static void ls_edge_connect_to(struct ls_ted *ted, struct ls_edge *edge)
 	}
 }
 
-static uint64_t get_edge_key(struct ls_attributes *attr, bool dst)
+static struct ls_edge_key get_edge_key(struct ls_attributes *attr, bool dst)
 {
-	uint64_t key = 0;
+	struct ls_edge_key key = {.family = AF_UNSPEC};
 	struct ls_standard *std;
 
 	if (!attr)
@@ -684,30 +684,37 @@ static uint64_t get_edge_key(struct ls_attributes *attr, bool dst)
 	std = &attr->standard;
 
 	if (dst) {
-		/* Key is the IPv4 remote address */
-		if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
-			key = ((uint64_t)ntohl(std->remote.s_addr))
-			      & 0xffffffff;
-		/* or the 64 bits LSB of IPv6 remote address */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6))
-			key = ((uint64_t)ntohl(std->remote6.s6_addr32[2]) << 32
-			       | (uint64_t)ntohl(std->remote6.s6_addr32[3]));
-		/* of remote identifier if no IP addresses are defined */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID))
-			key = (((uint64_t)std->remote_id) & 0xffffffff)
-			      | ((uint64_t)std->local_id << 32);
+		if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR)) {
+			/* Key is the IPv4 remote address */
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &std->remote);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6)) {
+			/* or the IPv6 remote address */
+			key.family = AF_INET6;
+			IPV6_ADDR_COPY(&key.k.addr6, &std->remote6);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID)) {
+			/* or Remote identifier if IP addr. are not defined */
+			key.family = AF_LOCAL;
+			key.k.link_id =
+				(((uint64_t)std->remote_id) & 0xffffffff) |
+				((uint64_t)std->local_id << 32);
+		}
 	} else {
-		/* Key is the IPv4 local address */
-		if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
-			key = ((uint64_t)ntohl(std->local.s_addr)) & 0xffffffff;
-		/* or the 64 bits LSB of IPv6 local address */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
-			key = ((uint64_t)ntohl(std->local6.s6_addr32[2]) << 32
-			       | (uint64_t)ntohl(std->local6.s6_addr32[3]));
-		/* of local identifier if no IP addresses are defined */
-		else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
-			key = (((uint64_t)std->local_id) & 0xffffffff)
-			      | ((uint64_t)std->remote_id << 32);
+		if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
+			/* Key is the IPv4 local address */
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &std->local);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)) {
+			/* or the 64 bits LSB of IPv6 local address */
+			key.family = AF_INET6;
+			IPV6_ADDR_COPY(&key.k.addr6, &std->local6);
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID)) {
+			/* or Remote identifier if IP addr. are not defined */
+			key.family = AF_LOCAL;
+			key.k.link_id =
+				(((uint64_t)std->local_id) & 0xffffffff) |
+				((uint64_t)std->remote_id << 32);
+		}
 	}
 
 	return key;
@@ -717,13 +724,13 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 			    struct ls_attributes *attributes)
 {
 	struct ls_edge *new;
-	uint64_t key = 0;
+	struct ls_edge_key key;
 
 	if (attributes == NULL)
 		return NULL;
 
 	key = get_edge_key(attributes, false);
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return NULL;
 
 	/* Create Edge and add it to the TED */
@@ -741,11 +748,12 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 	return new;
 }
 
-struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted, const uint64_t key)
+struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
+				    const struct ls_edge_key key)
 {
 	struct ls_edge edge = {};
 
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return NULL;
 
 	edge.key = key;
@@ -761,7 +769,7 @@ struct ls_edge *ls_find_edge_by_source(struct ls_ted *ted,
 		return NULL;
 
 	edge.key = get_edge_key(attributes, false);
-	if (edge.key == 0)
+	if (edge.key.family == AF_UNSPEC)
 		return NULL;
 
 	return edges_find(&ted->edges, &edge);
@@ -776,7 +784,7 @@ struct ls_edge *ls_find_edge_by_destination(struct ls_ted *ted,
 		return NULL;
 
 	edge.key = get_edge_key(attributes, true);
-	if (edge.key == 0)
+	if (edge.key.family == AF_UNSPEC)
 		return NULL;
 
 	return edges_find(&ted->edges, &edge);
@@ -814,7 +822,7 @@ int ls_edge_same(struct ls_edge *e1, struct ls_edge *e2)
 	if (!e1 && !e2)
 		return 1;
 
-	if (e1->key != e2->key)
+	if (edge_cmp(e1, e2) != 0)
 		return 0;
 
 	if (e1->attributes == e2->attributes)
@@ -2177,6 +2185,34 @@ void ls_show_vertices(struct ls_ted *ted, struct vty *vty,
 	}
 }
 
+static const char *edge_key_to_text(struct ls_edge_key key)
+{
+#define FORMAT_BUF_COUNT 4
+	static char buf_ring[FORMAT_BUF_COUNT][INET6_BUFSIZ];
+	static size_t cur_buf = 0;
+	char *rv;
+
+	rv = buf_ring[cur_buf];
+	cur_buf = (cur_buf + 1) % FORMAT_BUF_COUNT;
+
+	switch (key.family) {
+	case AF_INET:
+		snprintfrr(rv, INET6_BUFSIZ, "%pI4", &key.k.addr);
+		break;
+	case AF_INET6:
+		snprintfrr(rv, INET6_BUFSIZ, "%pI6", &key.k.addr6);
+		break;
+	case AF_LOCAL:
+		snprintfrr(rv, INET6_BUFSIZ, "%" PRIu64, key.k.link_id);
+		break;
+	default:
+		snprintfrr(rv, INET6_BUFSIZ, "(Unknown)");
+		break;
+	}
+
+	return rv;
+}
+
 static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 			     bool verbose)
 {
@@ -2189,7 +2225,7 @@ static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 	attr = edge->attributes;
 	sbuf_init(&sbuf, NULL, 0);
 
-	sbuf_push(&sbuf, 2, "Edge (%" PRIu64 "): ", edge->key);
+	sbuf_push(&sbuf, 2, "Edge (%s): ", edge_key_to_text(edge->key));
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
 		sbuf_push(&sbuf, 0, "%pI4", &attr->standard.local);
 	else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
@@ -2348,7 +2384,7 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 
 	attr = edge->attributes;
 
-	json_object_int_add(json, "edge-id", edge->key);
+	json_object_string_add(json, "edge-id", edge_key_to_text(edge->key));
 	json_object_string_add(json, "status", status2txt[edge->status]);
 	json_object_string_add(json, "origin", origin2txt[attr->adv.origin]);
 	ls_node_id_to_text(attr->adv, buf, INET6_BUFSIZ);
@@ -2726,8 +2762,8 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->incoming_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"        inc edge key:%" PRIu64 " attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
-				vertex_edge->key,
+				"        inc edge key:%s attr key:%pI4 loc:(%pI4) rmt:(%pI4)",
+				edge_key_to_text(vertex_edge->key),
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
 				&vertex_edge->attributes->standard.remote);
@@ -2735,15 +2771,16 @@ void ls_dump_ted(struct ls_ted *ted)
 		for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, lst_node,
 					  vertex_edge)) {
 			zlog_debug(
-				"        out edge key:%" PRIu64 " attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
-				vertex_edge->key,
+				"        out edge key:%s attr key:%pI4  loc:(%pI4) rmt:(%pI4)",
+				edge_key_to_text(vertex_edge->key),
 				&vertex_edge->attributes->adv.id.ip.addr,
 				&vertex_edge->attributes->standard.local,
 				&vertex_edge->attributes->standard.remote);
 		}
 	}
 	frr_each (edges, &ted->edges, edge) {
-		zlog_debug("    Ted edge key:%" PRIu64 "src:%pI4 dst:%pI4", edge->key,
+		zlog_debug("    Ted edge key:%s src:%pI4 dst:%pI4",
+			   edge_key_to_text(edge->key),
 			   edge->source ? &edge->source->node->router_id
 					: &inaddr_any,
 			   edge->destination
