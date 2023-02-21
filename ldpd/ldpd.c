@@ -329,14 +329,18 @@ main(int argc, char *argv[])
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
 	    pipe_parent2ldpe_sync) == -1)
 		fatal("socketpair");
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2lde) == -1)
 		fatal("socketpair");
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
 	    pipe_parent2lde_sync) == -1)
 		fatal("socketpair");
+
 	sock_set_nonblock(pipe_parent2ldpe[0]);
 	sock_set_cloexec(pipe_parent2ldpe[0]);
 	sock_set_nonblock(pipe_parent2ldpe[1]);
@@ -387,6 +391,7 @@ main(int argc, char *argv[])
 	    (iev_lde = calloc(1, sizeof(struct imsgev))) == NULL ||
 	    (iev_lde_sync = calloc(1, sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
+
 	imsg_init(&iev_ldpe->ibuf, pipe_parent2ldpe[0]);
 	iev_ldpe->handler_read = main_dispatch_ldpe;
 	thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
@@ -413,14 +418,15 @@ main(int argc, char *argv[])
 
 	if (main_imsg_send_ipc_sockets(&iev_ldpe->ibuf, &iev_lde->ibuf))
 		fatal("could not establish imsg links");
-	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug,
-	    sizeof(ldp_debug));
+
+	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug, sizeof(ldp_debug));
 	main_imsg_compose_both(IMSG_INIT, &init, sizeof(init));
 	main_imsg_send_config(ldpd_conf);
 
-	if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
+	if (CHECK_FLAG(ldpd_conf->ipv4.flags, F_LDPD_AF_ENABLED))
 		main_imsg_send_net_sockets(AF_INET);
-	if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
+
+	if (CHECK_FLAG(ldpd_conf->ipv6.flags, F_LDPD_AF_ENABLED))
 		main_imsg_send_net_sockets(AF_INET6);
 
 	frr_run(master);
@@ -523,6 +529,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 	if (dup2(fd_async, LDPD_FD_ASYNC) == -1)
 		fatal("cannot setup imsg async fd");
+
 	if (dup2(fd_sync, LDPD_FD_SYNC) == -1)
 		fatal("cannot setup imsg sync fd");
 
@@ -563,6 +570,7 @@ static void main_dispatch_ldpe(struct thread *thread)
 
 	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
+
 	if (n == 0)	/* connection closed */
 		shut = 1;
 
@@ -608,6 +616,7 @@ static void main_dispatch_ldpe(struct thread *thread)
 		THREAD_OFF(iev->ev_read);
 		THREAD_OFF(iev->ev_write);
 		ldpe_pid = 0;
+
 		if (lde_pid == 0)
 			ldpd_shutdown();
 		else
@@ -629,6 +638,7 @@ static void main_dispatch_lde(struct thread *thread)
 
 	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
+
 	if (n == 0)	/* connection closed */
 		shut = 1;
 
@@ -704,8 +714,10 @@ static void main_dispatch_lde(struct thread *thread)
 			    imsg.hdr.type);
 			break;
 		}
+
 		imsg_free(&imsg);
 	}
+
 	if (!shut)
 		imsg_event_add(iev);
 	else {
@@ -746,6 +758,7 @@ main_imsg_compose_ldpe(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	if (iev_ldpe == NULL)
 		return;
+
 	imsg_compose_event(iev_ldpe, type, 0, pid, -1, data, datalen);
 }
 
@@ -760,10 +773,13 @@ main_imsg_compose_both(enum imsg_type type, void *buf, uint16_t len)
 {
 	if (iev_ldpe == NULL || iev_lde == NULL)
 		return (0);
+
 	if (imsg_compose_event(iev_ldpe, type, 0, 0, -1, buf, len) == -1)
 		return (-1);
+
 	if (imsg_compose_event(iev_lde, type, 0, 0, -1, buf, len) == -1)
 		return (-1);
+
 	return (0);
 }
 
@@ -788,6 +804,7 @@ imsg_compose_event(struct imsgev *iev, uint16_t type, uint32_t peerid,
 	if ((ret = imsg_compose(&iev->ibuf, type, peerid,
 	    pid, fd, data, datalen)) != -1)
 		imsg_event_add(iev);
+
 	return (ret);
 }
 
@@ -836,6 +853,7 @@ main_imsg_send_ipc_sockets(struct imsgbuf *ldpe_buf, struct imsgbuf *lde_buf)
 	if (imsg_compose(ldpe_buf, IMSG_SOCKET_IPC, 0, 0, pipe_ldpe2lde[0],
 	    NULL, 0) == -1)
 		return (-1);
+
 	if (imsg_compose(lde_buf, IMSG_SOCKET_IPC, 0, 0, pipe_ldpe2lde[1],
 	    NULL, 0) == -1)
 		return (-1);
@@ -894,8 +912,10 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 	/* receive (blocking) and parse result */
 	if (imsg_read(&iev->ibuf) == -1)
 		fatal("imsg_read error");
+
 	if (imsg_get(&iev->ibuf, &imsg) == -1)
 		fatal("imsg_get");
+
 	if (imsg.hdr.type != IMSG_ACL_CHECK ||
 	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int))
 		fatalx("ldp_acl_request: invalid response");
@@ -962,8 +982,8 @@ ldp_af_global_get(struct ldpd_global *xglobal, int af)
 int
 ldp_is_dual_stack(struct ldpd_conf *xconf)
 {
-	return ((xconf->ipv4.flags & F_LDPD_AF_ENABLED) &&
-	    (xconf->ipv6.flags & F_LDPD_AF_ENABLED));
+	return (CHECK_FLAG(xconf->ipv4.flags, F_LDPD_AF_ENABLED) 
+            && CHECK_FLAG(xconf->ipv6.flags, F_LDPD_AF_ENABLED));
 }
 
 in_addr_t
@@ -1017,11 +1037,13 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 			    sizeof(*lif)) == -1)
 				return (-1);
 		}
+
 		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
 			if (main_imsg_compose_both(IMSG_RECONF_L2VPN_PW, pw,
 			    sizeof(*pw)) == -1)
 				return (-1);
 		}
+
 		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree) {
 			if (main_imsg_compose_both(IMSG_RECONF_L2VPN_IPW, pw,
 			    sizeof(*pw)) == -1)
@@ -1065,12 +1087,12 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw, *ptmp;
 
-	if (!(xconf->flags & F_LDPD_ENABLED))
+	if (!CHECK_FLAG(xconf->flags, F_LDPD_ENABLED))
 		ldp_config_reset_main(xconf);
 	else {
-		if (!(xconf->ipv4.flags & F_LDPD_AF_ENABLED))
+		if (!CHECK_FLAG(xconf->ipv4.flags, F_LDPD_AF_ENABLED))
 			ldp_config_reset_af(xconf, AF_INET);
-		if (!(xconf->ipv6.flags & F_LDPD_AF_ENABLED))
+		if (!CHECK_FLAG(xconf->ipv6.flags, F_LDPD_AF_ENABLED))
 			ldp_config_reset_af(xconf, AF_INET6);
 
 		RB_FOREACH_SAFE(iface, iface_head, &xconf->iface_tree, itmp) {
@@ -1083,7 +1105,7 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 		}
 
 		RB_FOREACH_SAFE(nbrp, nbrp_head, &xconf->nbrp_tree, ntmp) {
-			if (nbrp->flags & (F_NBRP_KEEPALIVE|F_NBRP_GTSM))
+			if (CHECK_FLAG(nbrp->flags, (F_NBRP_KEEPALIVE|F_NBRP_GTSM)))
 				continue;
 			if (nbrp->auth.method != AUTH_NONE)
 				continue;
@@ -1096,7 +1118,7 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 
 	RB_FOREACH(l2vpn, l2vpn_head, &xconf->l2vpn_tree) {
 		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
-			if (!(pw->flags & F_PW_STATIC_NBR_ADDR)) {
+			if (!CHECK_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR)) {
 				pw->af = AF_INET;
 				pw->addr.v4 = pw->lsr_id;
 			}
@@ -1106,9 +1128,10 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		}
+
 		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree,
 		    ptmp) {
-			if (!(pw->flags & F_PW_STATIC_NBR_ADDR)) {
+			if (!CHECK_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR)) {
 				pw->af = AF_INET;
 				pw->addr.v4 = pw->lsr_id;
 			}
@@ -1210,6 +1233,7 @@ ldp_config_reset_l2vpns(struct ldpd_conf *conf)
 			RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 			free(lif);
 		}
+
 		while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
 			pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
 
@@ -1217,6 +1241,7 @@ ldp_config_reset_l2vpns(struct ldpd_conf *conf)
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 			free(pw);
 		}
+
 		while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
 			pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
 
@@ -1224,6 +1249,7 @@ ldp_config_reset_l2vpns(struct ldpd_conf *conf)
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 			free(pw);
 		}
+
 		QOBJ_UNREG(l2vpn);
 		RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
 		free(l2vpn);
@@ -1244,18 +1270,21 @@ ldp_clear_config(struct ldpd_conf *xconf)
 		RB_REMOVE(iface_head, &xconf->iface_tree, iface);
 		free(iface);
 	}
+
 	while (!RB_EMPTY(tnbr_head, &xconf->tnbr_tree)) {
 		tnbr = RB_ROOT(tnbr_head, &xconf->tnbr_tree);
 
 		RB_REMOVE(tnbr_head, &xconf->tnbr_tree, tnbr);
 		free(tnbr);
 	}
+
 	while (!RB_EMPTY(nbrp_head, &xconf->nbrp_tree)) {
 		nbrp = RB_ROOT(nbrp_head, &xconf->nbrp_tree);
 
 		RB_REMOVE(nbrp_head, &xconf->nbrp_tree, nbrp);
 		free(nbrp);
 	}
+
 	while (!RB_EMPTY(l2vpn_head, &xconf->l2vpn_tree)) {
 		l2vpn = RB_ROOT(l2vpn_head, &xconf->l2vpn_tree);
 
@@ -1289,8 +1318,8 @@ static void
 merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
 	/* Removing global LDP config requires resetting LDP IGP Sync FSM */
-	if ((conf->flags & F_LDPD_ENABLED) &&
-	    (!(xconf->flags & F_LDPD_ENABLED)))
+	if (CHECK_FLAG(conf->flags, F_LDPD_ENABLED) 
+        && (!CHECK_FLAG(xconf->flags, F_LDPD_ENABLED)))
 	{
 		if (ldpd_process == PROC_LDP_ENGINE)
 			ldp_sync_fsm_reset_all();
@@ -1313,8 +1342,8 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	 * Configuration of ordered-control or independent-control
 	 * requires resetting all neighborships.
 	 */
-	if ((conf->flags & F_LDPD_ORDERED_CONTROL) !=
-	    (xconf->flags & F_LDPD_ORDERED_CONTROL))
+	if (CHECK_FLAG(conf->flags, F_LDPD_ORDERED_CONTROL) !=
+	    CHECK_FLAG(xconf->flags, F_LDPD_ORDERED_CONTROL))
 		ldpe_reset_nbrs(AF_UNSPEC);
 
 	conf->lhello_holdtime = xconf->lhello_holdtime;
@@ -1329,8 +1358,8 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		conf->trans_pref = xconf->trans_pref;
 	}
 
-	if ((conf->flags & F_LDPD_DS_CISCO_INTEROP) !=
-	    (xconf->flags & F_LDPD_DS_CISCO_INTEROP)) {
+	if (CHECK_FLAG(conf->flags, F_LDPD_DS_CISCO_INTEROP) !=
+	    CHECK_FLAG(xconf->flags, F_LDPD_DS_CISCO_INTEROP)) {
 		if (ldpd_process == PROC_LDP_ENGINE)
 			ldpe_reset_ds_nbrs();
 	}
@@ -1339,8 +1368,8 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	 * Configuration of allow-broken-lsp requires reprograming all
 	 * labeled routes
 	 */
-	if ((conf->flags & F_LDPD_ALLOW_BROKEN_LSP) !=
-	    (xconf->flags & F_LDPD_ALLOW_BROKEN_LSP)) {
+	if (CHECK_FLAG(conf->flags, F_LDPD_ALLOW_BROKEN_LSP) !=
+	    CHECK_FLAG(xconf->flags, F_LDPD_ALLOW_BROKEN_LSP)) {
 		if (ldpd_process == PROC_LDE_ENGINE)
 			lde_allow_broken_lsp_update(xconf->flags);
 	}
@@ -1368,17 +1397,19 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 		af_conf->keepalive = xa->keepalive;
 		stop_init_backoff = 1;
 	}
+
 	af_conf->lhello_holdtime = xa->lhello_holdtime;
 	af_conf->lhello_interval = xa->lhello_interval;
 	af_conf->thello_holdtime = xa->thello_holdtime;
 	af_conf->thello_interval = xa->thello_interval;
 
 	/* update flags */
-	if ((af_conf->flags & F_LDPD_AF_THELLO_ACCEPT) &&
-	    !(xa->flags & F_LDPD_AF_THELLO_ACCEPT))
+	if (CHECK_FLAG(af_conf->flags, F_LDPD_AF_THELLO_ACCEPT) &&
+	    !CHECK_FLAG(xa->flags, F_LDPD_AF_THELLO_ACCEPT))
 		remove_dynamic_tnbrs = 1;
-	if ((af_conf->flags & F_LDPD_AF_NO_GTSM) !=
-	    (xa->flags & F_LDPD_AF_NO_GTSM)) {
+
+	if (CHECK_FLAG(af_conf->flags, F_LDPD_AF_NO_GTSM) !=
+	    CHECK_FLAG(xa->flags, F_LDPD_AF_NO_GTSM)) {
 		if (af == AF_INET6)
 			/* need to set/unset IPV6_MINHOPCOUNT */
 			update_sockets = 1;
@@ -1386,18 +1417,18 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 			/* for LDPv4 just resetting the neighbors is enough */
 			reset_nbrs_ipv4 = 1;
 	}
-	if ((af_conf->flags & F_LDPD_AF_EXPNULL) !=
-	    (xa->flags & F_LDPD_AF_EXPNULL))
+	if (CHECK_FLAG(af_conf->flags, F_LDPD_AF_EXPNULL) !=
+	    CHECK_FLAG(xa->flags, F_LDPD_AF_EXPNULL))
 		change_egress_label = 1;
 
 	/* changing config of host only fec filtering */
-	if ((af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY)
-	    != (xa->flags & F_LDPD_AF_ALLOCHOSTONLY))
+	if (CHECK_FLAG(af_conf->flags, F_LDPD_AF_ALLOCHOSTONLY)
+	    != CHECK_FLAG(xa->flags, F_LDPD_AF_ALLOCHOSTONLY))
 		change_host_label = 1;
 
 	/* disabling LDP for address family */
-	if ((af_conf->flags & F_LDPD_AF_ENABLED) &&
-	    !(xa->flags & F_LDPD_AF_ENABLED))
+	if (CHECK_FLAG(af_conf->flags, F_LDPD_AF_ENABLED) &&
+	    !CHECK_FLAG(xa->flags, F_LDPD_AF_ENABLED))
 		change_ldp_disabled = 1;
 
 	af_conf->flags = xa->flags;
@@ -1412,31 +1443,36 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	if (strcmp(af_conf->acl_label_allocate_for, xa->acl_label_allocate_for))
 		change_host_label = 1;
 
-	if (strcmp(af_conf->acl_label_advertise_to,
-	    xa->acl_label_advertise_to) ||
-	    strcmp(af_conf->acl_label_advertise_for,
-	    xa->acl_label_advertise_for) ||
-	    strcmp(af_conf->acl_label_accept_from,
-	    xa->acl_label_accept_from) ||
-	    strcmp(af_conf->acl_label_accept_for,
-	    xa->acl_label_accept_for))
+	if (strcmp(af_conf->acl_label_advertise_to, xa->acl_label_advertise_to) ||
+	    strcmp(af_conf->acl_label_advertise_for, xa->acl_label_advertise_for) ||
+	    strcmp(af_conf->acl_label_accept_from, xa->acl_label_accept_from) ||
+	    strcmp(af_conf->acl_label_accept_for, xa->acl_label_accept_for))
 		reset_nbrs = 1;
+
 	if (strcmp(af_conf->acl_thello_accept_from, xa->acl_thello_accept_from))
 		remove_dynamic_tnbrs = 1;
+
 	if (strcmp(af_conf->acl_label_expnull_for, xa->acl_label_expnull_for))
 		change_egress_label = 1;
+
 	strlcpy(af_conf->acl_thello_accept_from, xa->acl_thello_accept_from,
 	    sizeof(af_conf->acl_thello_accept_from));
+
 	strlcpy(af_conf->acl_label_allocate_for, xa->acl_label_allocate_for,
 	    sizeof(af_conf->acl_label_allocate_for));
+
 	strlcpy(af_conf->acl_label_advertise_to, xa->acl_label_advertise_to,
 	    sizeof(af_conf->acl_label_advertise_to));
+
 	strlcpy(af_conf->acl_label_advertise_for, xa->acl_label_advertise_for,
 	    sizeof(af_conf->acl_label_advertise_for));
+
 	strlcpy(af_conf->acl_label_accept_from, xa->acl_label_accept_from,
 	    sizeof(af_conf->acl_label_accept_from));
+
 	strlcpy(af_conf->acl_label_accept_for, xa->acl_label_accept_for,
 	    sizeof(af_conf->acl_label_accept_for));
+
 	strlcpy(af_conf->acl_label_expnull_for, xa->acl_label_expnull_for,
 	    sizeof(af_conf->acl_label_expnull_for));
 
@@ -1445,8 +1481,10 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	case PROC_LDE_ENGINE:
 		if (change_egress_label)
 			lde_change_egress_label(af);
+
 		if (change_host_label)
 			lde_change_allocate_filter(af);
+
 		if (change_ldp_disabled)
 			lde_route_update_release_all(af);
 
@@ -1529,6 +1567,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 			 */
 			if (iface->ipv4.enabled && !xi->ipv4.enabled)
 				lde_route_update_release(iface, AF_INET);
+
 			if (iface->ipv6.enabled && !xi->ipv6.enabled)
 				lde_route_update_release(iface, AF_INET6);
 
@@ -1537,6 +1576,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 			 */
 			if (!iface->ipv4.enabled && xi->ipv4.enabled)
 				lde_route_update(iface, AF_INET);
+
 			if (!iface->ipv6.enabled && xi->ipv6.enabled)
 				lde_route_update(iface, AF_INET6);
 		}
@@ -1565,14 +1605,14 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	struct tnbr		*tnbr, *ttmp, *xt;
 
 	RB_FOREACH_SAFE(tnbr, tnbr_head, &conf->tnbr_tree, ttmp) {
-		if (!(tnbr->flags & F_TNBR_CONFIGURED))
+		if (!CHECK_FLAG(tnbr->flags, F_TNBR_CONFIGURED))
 			continue;
 
 		/* find deleted tnbrs */
 		if (tnbr_find(xconf, tnbr->af, &tnbr->addr) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDP_ENGINE:
-				tnbr->flags &= ~F_TNBR_CONFIGURED;
+				UNSET_FLAG(tnbr->flags, F_TNBR_CONFIGURED);
 				tnbr_check(conf, tnbr);
 				break;
 			case PROC_LDE_ENGINE:
@@ -1601,8 +1641,8 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		}
 
 		/* update existing tnbrs */
-		if (!(tnbr->flags & F_TNBR_CONFIGURED))
-			tnbr->flags |= F_TNBR_CONFIGURED;
+		if (!CHECK_FLAG(tnbr->flags, F_TNBR_CONFIGURED))
+			SET_FLAG(tnbr->flags, F_TNBR_CONFIGURED);
 	}
 }
 
@@ -1853,8 +1893,8 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			reinstall_tnbr = 0;
 
 		/* changes that require a session restart */
-		if ((pw->flags & (F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF)) !=
-		    (xp->flags & (F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF)))
+		if (CHECK_FLAG(pw->flags, (F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF)) !=
+		    CHECK_FLAG(xp->flags, (F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF)))
 			reset_nbr = 1;
 		else
 			reset_nbr = 0;
@@ -1883,20 +1923,24 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		pw->pwid = xp->pwid;
 		strlcpy(pw->ifname, xp->ifname, sizeof(pw->ifname));
 		pw->ifindex = xp->ifindex;
-		if (xp->flags & F_PW_CWORD_CONF)
-			pw->flags |= F_PW_CWORD_CONF;
+		if (CHECK_FLAG(xp->flags, F_PW_CWORD_CONF))
+			SET_FLAG(pw->flags, F_PW_CWORD_CONF);
 		else
-			pw->flags &= ~F_PW_CWORD_CONF;
-		if (xp->flags & F_PW_STATUSTLV_CONF)
-			pw->flags |= F_PW_STATUSTLV_CONF;
+			UNSET_FLAG(pw->flags, F_PW_CWORD_CONF);
+
+		if (CHECK_FLAG(xp->flags, F_PW_STATUSTLV_CONF))
+			SET_FLAG(pw->flags, F_PW_STATUSTLV_CONF);
 		else
-			pw->flags &= ~F_PW_STATUSTLV_CONF;
-		if (xp->flags & F_PW_STATIC_NBR_ADDR)
-			pw->flags |= F_PW_STATIC_NBR_ADDR;
+			UNSET_FLAG(pw->flags, F_PW_STATUSTLV_CONF);
+
+		if (CHECK_FLAG(xp->flags, F_PW_STATIC_NBR_ADDR))
+			SET_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR);
 		else
-			pw->flags &= ~F_PW_STATIC_NBR_ADDR;
+			UNSET_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR);
+
 		if (ldpd_process == PROC_LDP_ENGINE && reinstall_tnbr)
 			ldpe_l2vpn_pw_init(pw);
+
 		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec) {
 			l2vpn->pw_type = xl->pw_type;
 			l2vpn->mtu = xl->mtu;
