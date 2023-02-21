@@ -3851,7 +3851,9 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 
 		rmap_name = zebra_get_import_table_route_map(afi, re->table);
 		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
-	} else if (process)
+	}
+
+	if (process)
 		rib_queue_add(rn);
 }
 
@@ -3926,11 +3928,9 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
 				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
 				   rn, re, zebra_route_string(re->type));
-
-		rib_unlink(rn, re);
-	} else {
-		rib_queue_add(rn);
 	}
+
+	rib_queue_add(rn);
 }
 
 /*
