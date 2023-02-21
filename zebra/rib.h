@@ -392,12 +392,9 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     const union g_addr *addr,
 				     struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
-						    struct in_addr addr,
-						    struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv6_multicast(vrf_id_t vrf_id,
-						    struct in6_addr addr,
-						    struct route_node **rn_out);
+extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
+					       union g_addr *gaddr,
+					       struct route_node **rn_out);
 
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);

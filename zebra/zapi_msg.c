@@ -2236,17 +2236,18 @@ static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {
 	struct ipaddr addr;
 	struct route_entry *re = NULL;
+	union g_addr gaddr;
 
 	STREAM_GET_IPADDR(msg, &addr);
 
 	switch (addr.ipa_type) {
 	case IPADDR_V4:
-		re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr.ipaddr_v4,
-					      NULL);
+		gaddr.ipv4 = addr.ipaddr_v4;
+		re = rib_match_multicast(AFI_IP, zvrf_id(zvrf), &gaddr, NULL);
 		break;
 	case IPADDR_V6:
-		re = rib_match_ipv6_multicast(zvrf_id(zvrf), addr.ipaddr_v6,
-					      NULL);
+		gaddr.ipv6 = addr.ipaddr_v6;
+		re = rib_match_multicast(AFI_IP6, zvrf_id(zvrf), &gaddr, NULL);
 		break;
 	case IPADDR_NONE:
 		/* ??? */
