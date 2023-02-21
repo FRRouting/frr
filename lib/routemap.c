@@ -706,6 +706,9 @@ static void route_map_free_map(struct route_map *map)
 	else
 		list->head = map->next;
 
+	route_table_finish(map->ipv4_prefix_table);
+	route_table_finish(map->ipv6_prefix_table);
+
 	hash_release(route_map_master_hash, map);
 	XFREE(MTYPE_ROUTE_MAP_NAME, map->name);
 	XFREE(MTYPE_ROUTE_MAP, map);
@@ -1811,9 +1814,7 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	 * must be AF_INET or AF_INET6 in order for the lookup to succeed. So if
 	 * the AF doesn't line up with the LPM trees, skip the optimization.
 	 */
-	if (map->optimization_disabled ||
-	    (prefix->family == AF_INET && !map->ipv4_prefix_table) ||
-	    (prefix->family == AF_INET6 && !map->ipv6_prefix_table)) {
+	if (map->optimization_disabled) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"Skipping route-map optimization for route-map: %s, pfx: %pFX, family: %d",
@@ -1825,9 +1826,6 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 		table = map->ipv4_prefix_table;
 	else
 		table = map->ipv6_prefix_table;
-
-	if (!table)
-		return NULL;
 
 	do {
 		candidate_rmap_list =
@@ -1914,19 +1912,10 @@ static void route_map_pfx_table_add_default(afi_t afi,
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
 
-	if (p.family == AF_INET) {
+	if (p.family == AF_INET)
 		table = index->map->ipv4_prefix_table;
-		if (!table)
-			index->map->ipv4_prefix_table = route_table_init();
-
-		table = index->map->ipv4_prefix_table;
-	} else {
+	else
 		table = index->map->ipv6_prefix_table;
-		if (!table)
-			index->map->ipv6_prefix_table = route_table_init();
-
-		table = index->map->ipv6_prefix_table;
-	}
 
 	/* Add default route to table */
 	rn = route_node_get(table, &p);
@@ -2317,8 +2306,6 @@ static void route_map_pfx_tbl_update(route_map_event_t event,
 				     struct route_map_index *index, afi_t afi,
 				     const char *plist_name)
 {
-	struct route_map *rmap = NULL;
-
 	if (!index)
 		return;
 
@@ -2332,19 +2319,6 @@ static void route_map_pfx_tbl_update(route_map_event_t event,
 		route_map_pfx_table_del_default(AFI_IP, index);
 		route_map_pfx_table_del_default(AFI_IP6, index);
 
-		if ((index->map->head == NULL) && (index->map->tail == NULL)) {
-			rmap = index->map;
-
-			if (rmap->ipv4_prefix_table) {
-				route_table_finish(rmap->ipv4_prefix_table);
-				rmap->ipv4_prefix_table = NULL;
-			}
-
-			if (rmap->ipv6_prefix_table) {
-				route_table_finish(rmap->ipv6_prefix_table);
-				rmap->ipv6_prefix_table = NULL;
-			}
-		}
 		return;
 	}
 
