@@ -3900,6 +3900,10 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    EVPN prefixes can also be filtered by EVPN route type.
 
+.. clicmd:: show bgp l2vpn evpn route [detail] [type <ead|1|macip|2|multicast|3|es|4|prefix|5>] self-originate [json]
+
+   Display self-originated EVPN prefixes which can also be filtered by EVPN route type.
+
 .. clicmd:: show bgp vni <all|VNI> [vtep VTEP] [type <ead|1|macip|2|multicast|3>] [<detail|json>]
 
    Display per-VNI EVPN routing table in bgp. Filter route-type, vtep, or VNI.
@@ -4050,6 +4054,15 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 .. clicmd:: show [ip] bgp [afi] [safi] [all] <A.B.C.D/M|X:X::X:X/M> longer-prefixes [wide|json]
 
    Displays the specified route and all more specific routes.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] self-originate [wide|json]
+
+   Display self-originated routes.
 
    If ``wide`` option is specified, then the prefix table's width is increased
    to fully display the prefix and the nexthop.
