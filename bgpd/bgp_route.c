@@ -4897,10 +4897,9 @@ filtered:
 }
 
 void bgp_withdraw(struct peer *peer, const struct prefix *p,
-		  uint32_t addpath_id, struct attr *attr, afi_t afi,
-		  safi_t safi, int type, int sub_type, struct prefix_rd *prd,
-		  mpls_label_t *label, uint32_t num_labels,
-		  struct bgp_route_evpn *evpn)
+		  uint32_t addpath_id, afi_t afi, safi_t safi, int type,
+		  int sub_type, struct prefix_rd *prd, mpls_label_t *label,
+		  uint32_t num_labels, struct bgp_route_evpn *evpn)
 {
 	struct bgp *bgp;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
@@ -6046,7 +6045,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
 				   NULL, 0, 0, NULL);
 		else
-			bgp_withdraw(peer, &p, addpath_id, attr, afi, safi,
+			bgp_withdraw(peer, &p, addpath_id, afi, safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
 				     NULL, 0, NULL);
 

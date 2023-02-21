@@ -386,7 +386,6 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct agg_node *rn,
 	 * withdraw the route
 	 */
 	bgp_withdraw(bpi->peer, p, 0, /* addpath_id */
-		     NULL,	      /* attr, ignored */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		     NULL, 0, NULL); /* tag not used for unicast */
@@ -478,7 +477,6 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
 				bgp_withdraw(
 					ri->peer, bgp_dest_get_prefix(dest),
 					0,    /* addpath_id */
-					NULL, /* ignored */
 					AFI_IP, SAFI_UNICAST,
 					ZEBRA_ROUTE_VNC_DIRECT,
 					BGP_ROUTE_REDISTRIBUTE,
@@ -863,7 +861,6 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 
 			bgp_withdraw(irfd->peer, p, /* prefix */
 				     0,		    /* addpath_id */
-				     NULL,	    /* attr, ignored */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
 				     NULL, /* RD not used for unicast */
@@ -893,7 +890,6 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 
 			bgp_withdraw(irfd->peer, p, /* prefix */
 				     0,		    /* addpath_id */
-				     NULL,	    /* attr, ignored */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
 				     NULL, /* RD not used for unicast */
@@ -1130,7 +1126,6 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 					bgp_withdraw(irfd->peer, p, /* prefix */
 						     0,	   /* addpath_id */
-						     NULL, /* attr, ignored */
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
@@ -1362,7 +1357,6 @@ static void vnc_direct_del_rn_group_rd(struct bgp *bgp,
 
 	bgp_withdraw(irfd->peer, agg_node_get_prefix(rn), /* prefix */
 		     0,					  /* addpath_id */
-		     NULL,				  /* attr, ignored */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		     NULL, 0, NULL); /* tag not used for unicast */
@@ -1481,7 +1475,6 @@ static void vnc_direct_bgp_unexport_table(afi_t afi, struct agg_table *rt,
 					bgp_withdraw(irfd->peer,
 						     agg_node_get_prefix(rn),
 						     0,	   /* addpath_id */
-						     NULL, /* attr, ignored */
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
@@ -1720,7 +1713,6 @@ static void vncExportWithdrawTimer(struct thread *t)
 	 * withdraw the route
 	 */
 	bgp_withdraw(eti->peer, p, 0, /* addpath_id */
-		     NULL,	      /* attr, ignored */
 		     family2afi(p->family), SAFI_UNICAST, eti->type,
 		     eti->subtype, NULL, /* RD not used for unicast */
 		     NULL, 0,
@@ -2005,7 +1997,6 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 
 				bgp_withdraw(ri->peer, dest_p, /* prefix */
 					     0,		       /* addpath_id */
-					     NULL,	       /* ignored */
 					     AFI_IP, SAFI_UNICAST,
 					     ZEBRA_ROUTE_VNC_DIRECT_RH,
 					     BGP_ROUTE_REDISTRIBUTE,

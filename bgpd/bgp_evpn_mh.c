@@ -742,9 +742,9 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
 			   0, 0, NULL);
 	} else {
-		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			     NULL, 0, NULL);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
+			     NULL);
 	}
 	return 0;
 }
@@ -1210,9 +1210,9 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
 			   0, 0, NULL);
 	} else {
-		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			     NULL, 0, NULL);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
+			     NULL);
 	}
 	return 0;
 }
