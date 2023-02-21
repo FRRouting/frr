@@ -356,6 +356,90 @@ module frr-bgp-route-map {
     }
   }
 
+  typedef route-distinguisher {
+    type string {
+      pattern
+        '(0:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0))|'
+      + '(1:((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(2:(429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(6(:[a-fA-F0-9]{2}){6})|'
+      + '(([3-57-9a-fA-F]|[1-9a-fA-F][0-9a-fA-F]{1,3}):'
+      +     '[0-9a-fA-F]{1,12})|'
+      +  '((6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0)|'
+      +  '((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '((429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))';
+    }
+
+    description
+      "A Route Distinguisher is an 8-octet value used to
+       distinguish routes from different BGP VPNs (RFC 4364).
+       A Route Distinguisher will have the same format as a
+       Route Target as per RFC 4360 and will consist of
+       two or three fields: a 2-octet Type field, an administrator
+       field, and, optionally, an assigned number field.
+       According to the data formats for types 0, 1, 2, and 6 as
+       defined in RFC 4360, RFC 5668, and RFC 7432, the encoding
+       pattern is defined as:
+       0:2-octet-asn:4-octet-number
+       1:4-octet-ipv4addr:2-octet-number
+       2:4-octet-asn:2-octet-number
+       6:6-octet-mac-address
+       Additionally, a generic pattern is defined for future
+       route discriminator types:
+       2-octet-other-hex-number:6-octet-hex-number
+       Some valid examples are 0:100:100, 1:1.1.1.1:100,
+       2:1234567890:203, and 6:26:00:08:92:78:00.
+       The following route distinguisher with two fields are also
+       accepted : 10000:44 1.2.3.4:44.";
+    reference
+      "RFC 4360: BGP Extended Communities Attribute.
+       RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).
+       RFC 5668: 4-Octet AS Specific BGP Extended Community.
+       RFC 7432: BGP MPLS-Based Ethernet VPN.";
+  }
+
   typedef extcommunity-lb-type {
     type enumeration {
       enum "explicit-bandwidth" {
@@ -598,7 +682,7 @@ module frr-bgp-route-map {
       description
         "Match eVPN route-distinguisher";
       leaf route-distinguisher {
-        type rt-types:route-distinguisher;
+        type route-distinguisher;
       }
     }
 
