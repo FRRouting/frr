@@ -4636,6 +4636,9 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 /* Disable global administrative shutdown of all peers of BGP instance */
 void bgp_shutdown_disable(struct bgp *bgp)
 {
+	const struct listnode *node;
+	struct peer *peer;
+
 	/* do nothing if not shut down. */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 		return;
@@ -4646,6 +4649,9 @@ void bgp_shutdown_disable(struct bgp *bgp)
 
 	/* clear the BGP instances shutdown flag */
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+		bgp_timer_set(peer);
 }
 
 /* Change specified peer flag. */
