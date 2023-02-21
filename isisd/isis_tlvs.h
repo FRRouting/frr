@@ -16,6 +16,8 @@
 #include "affinitymap.h"
 
 
+#include "lib/srv6.h"
+
 DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
@@ -192,6 +194,17 @@ struct isis_router_cap_fad {
 	struct flex_algo fad;
 };
 #endif /* ifndef FABRICD */
+
+/* SRv6 End SID Sub-TLV as per RFC 9352 section #7.2 */
+struct isis_srv6_end_sid_subtlv {
+	struct isis_srv6_end_sid_subtlv *next;
+
+	uint8_t flags;
+	enum srv6_endpoint_behavior_codepoint behavior;
+	struct in6_addr sid;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
 
 /* RFC 9352 section 7.1 */
 struct isis_srv6_locator_tlv {
@@ -374,6 +387,9 @@ struct isis_subtlvs {
 	struct prefix_ipv6 *source_prefix;
 	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
+
+	/* RFC 9352 section #7.2 */
+	struct isis_item_list srv6_end_sids;
 };
 
 enum isis_tlv_type {
