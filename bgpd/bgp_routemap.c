@@ -5902,9 +5902,14 @@ DEFUN_YANG (set_community,
 		else
 			first = 1;
 
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		if (strncmp(argv[i]->arg, "internet", strlen(argv[i]->arg))
 		    == 0) {
 			buffer_putstr(b, "internet");
+			vty_out(vty, "%% `internet` community is deprecated\n");
+			zlog_warn("`internet` community is deprecated");
 			continue;
 		}
 		if (strncmp(argv[i]->arg, "local-AS", strlen(argv[i]->arg))
