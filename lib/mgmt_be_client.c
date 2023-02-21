@@ -210,6 +210,7 @@ static struct mgmt_be_client_ctx mgmt_be_client_ctx = {0};
 const char *mgmt_be_client_names[MGMTD_CLIENT_NAME_MAX_LEN] = {
 	MGMTD_BE_CLIENT_STATICD, /* MGMTD_BE_CLIENT_ID_STATICD */
 	MGMTD_BE_CLIENT_BGPD,    /* MGMTD_BE_CLIENT_ID_BGPDD */
+	MGMTD_BE_CLIENT_ZEBRA,    /* MGMTD_BE_CLIENT_ID_ZEBRA */
 	"Unknown/Invalid",	  /* MGMTD_BE_CLIENT_ID_MAX */
 };
 

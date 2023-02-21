@@ -96,6 +96,7 @@ struct mgmt_be_get_adapter_config_params {
  * handle real-time mapping of YANG xpaths to one or
  * more interested backend client adapters.
  */
+
 static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 	{
 		.xpath_regexp = "/frr-vrf:lib/*",
@@ -121,7 +122,7 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
  	},
 	{
 		.xpath_regexp = "/frr-interface:lib/*",
-		.num_clients = 2,
+		.num_clients = 3,
 		.client_subscrs = {
 			{ 
 				.name = MGMTD_BE_CLIENT_STATICD,
@@ -138,7 +139,15 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 					.validate_config = 0,
 					.own_oper_data = 0,
 				}
-			}
+			},
+			{ 
+				.name = MGMTD_BE_CLIENT_ZEBRA,
+				.subscr_info = {
+					.notify_config = 1,
+					.validate_config = 0,
+					.own_oper_data = 1,
+				}
+			},
 		}
  	},
 	{
@@ -171,6 +180,34 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 			}
 		}
  	},
+	{
+		.xpath_regexp = "/frr-zebra:zebra/*",
+		.num_clients = 1,
+		.client_subscrs = {
+			{
+				.name = MGMTD_BE_CLIENT_ZEBRA,
+				.subscr_info = {
+					.notify_config = 1,
+					.validate_config = 0,
+					.own_oper_data = 1,
+				}
+			}
+		}
+ 	},
+	{
+		.xpath_regexp = "/frr-vrf:lib/vrf[name='*']/frr-zebra:zebra/*",
+		.num_clients = 1,
+		.client_subscrs = {
+			{
+				.name = MGMTD_BE_CLIENT_ZEBRA,
+				.subscr_info = {
+					.notify_config = 1,
+					.validate_config = 0,
+					.own_oper_data = 1,
+				}
+			}
+		}
+	},
 };
 
 #define MGMTD_BE_MAX_NUM_XPATH_MAP 256
@@ -204,6 +241,10 @@ const struct frr_yang_module_info frr_mgmt_interface_info = {
 };
 const struct frr_yang_module_info frr_mgmt_vrf_info = {
 	.name = "frr-vrf",
+	.ignore_cbs = true
+};
+const struct frr_yang_module_info frr_mgmt_zebra_info = {
+	.name = "frr-zebra",
 	.ignore_cbs = true
 };
 

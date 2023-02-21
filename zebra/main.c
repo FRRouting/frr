@@ -397,6 +397,10 @@ int main(int argc, char **argv)
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
+
+	/* Initialize MGMT backend functionalities */
+	zebra_mgmt_init(zrouter.master);
+
 	access_list_init();
 	prefix_list_init();
 	rtadv_cmd_init();

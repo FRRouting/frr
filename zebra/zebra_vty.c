@@ -50,6 +50,7 @@
 #include "zebra/zebra_script.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
+#include "mgmt_be_client.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -4536,6 +4537,71 @@ static struct cmd_node forwarding_node = {
 	.prompt = "",
 	.config_write = config_write_forwarding,
 };
+
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
+/*
+ * The following set of functions will take care of initializing the
+ * MGMT Backend lib within the context of the zebra process.
+ */
+
+uintptr_t mgmt_lib_hndl;
+
+static void zebra_mgmt_be_client_connect(uintptr_t lib_hndl,
+					    uintptr_t usr_data, bool connected)
+{
+	(void)usr_data;
+
+	assert(lib_hndl == mgmt_lib_hndl);
+
+	zlog_debug("Got %s %s MGMTD Backend Client Server",
+		   connected ? "connected" : "disconnected",
+		   connected ? "to" : "from");
+
+	if (connected)
+		(void)mgmt_be_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
+}
+
+static void
+zebra_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
+		       struct mgmt_be_client_txn_ctx *txn_ctxt,
+		       bool destroyed)
+{
+	zlog_debug("Got Trxn %s Notify from MGMTD server",
+		   destroyed ? "DESTROY" : "CREATE");
+
+	if (!destroyed) {
+		/*
+		 * TODO: Allocate and install a private scratchpad for this
+		 * transaction if required
+		 */
+	} else {
+		/*
+		 * TODO: Uninstall and deallocate the private scratchpad for
+		 * this transaction if installed earlier.
+		 */
+	}
+}
+
+static struct mgmt_be_client_params mgmt_params = {
+	.name = MGMTD_BE_CLIENT_ZEBRA,
+	.conn_retry_intvl_sec = 3,
+	.client_connect_notify = zebra_mgmt_be_client_connect,
+	.txn_notify = zebra_mgmt_txn_notify};
+
+void zebra_mgmt_init(struct thread_master *master)
+{
+	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
+	if (!mgmt_lib_hndl) {
+		zlog_err("Failed to initialize MGMTD Backend Client library!");
+		exit(-1);
+	}
+}
+
+void zebra_mgmt_destroy(void)
+{
+	mgmt_be_client_lib_destroy(mgmt_lib_hndl);
+}
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 /* Route VTY.  */
 void zebra_vty_init(void)

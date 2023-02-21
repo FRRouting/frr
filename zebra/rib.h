@@ -603,6 +603,9 @@ static inline struct nexthop_group *rib_get_fib_backup_nhg(
 
 extern void zebra_vty_init(void);
 
+extern void zebra_mgmt_init(struct thread_master *master);
+extern void zebra_mgmt_destroy(void);
+
 extern pid_t pid;
 
 extern bool v6_rr_semantics;

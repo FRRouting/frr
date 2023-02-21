@@ -34,6 +34,7 @@
  * corresponding NB callback modules here.
  */
 #include "staticd/static_nb.h"
+#include "zebra/zebra_nb.h"
 
 
 /* mgmt options, we use GNU getopt library. */
@@ -215,6 +216,7 @@ static void mgmt_vrf_terminate(void)
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_info,  &frr_mgmt_interface_info, &frr_route_map_info,
 	&frr_routing_info, &frr_mgmt_vrf_info,       &frr_mgmt_staticd_info,
+	&frr_mgmt_zebra_info,
 };
 
 FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,

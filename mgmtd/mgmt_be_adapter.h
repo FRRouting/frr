@@ -147,6 +147,7 @@ struct mgmt_be_client_subscr_info {
 extern const struct frr_yang_module_info frr_mgmt_staticd_info;
 extern const struct frr_yang_module_info frr_mgmt_interface_info;
 extern const struct frr_yang_module_info frr_mgmt_vrf_info;
+extern const struct frr_yang_module_info frr_mgmt_zebra_info;
 
 /* Initialise backend adapter module. */
 extern int mgmt_be_adapter_init(struct thread_master *tm);
