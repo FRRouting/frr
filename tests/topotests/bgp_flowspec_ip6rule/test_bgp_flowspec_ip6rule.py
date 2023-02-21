@@ -294,22 +294,31 @@ def test_bgp_flowspec():
             "Check Ping from  R2(1001::2) to R3(2002::2) after FS redirect IP Rule OK"
         )
 
-    logger.info("Dump Routing Flowspec : show bgp ipv6 flowspec")
+    msg = "Check Routing Flowspec : show bgp ipv6 flowspec"
+    logger.info(msg)
     output = router.vtysh_cmd("show bgp ipv6 flowspec", isjson=False, daemon="bgpd")
     logger.info(output)
-    logger.info("Dump Routing Flowspec : show bgp ipv6 flowspec detail")
+    assert "to ::/0/off 0" in output, "{} NOK".format(msg)
+
+    msg = "Check Routing Flowspec : show bgp ipv6 flowspec detail"
+    logger.info(msg)
     output = router.vtysh_cmd(
         "show bgp ipv6 flowspec detail", isjson=False, daemon="bgpd"
     )
     logger.info(output)
+    assert "FS:redirect IP 0x0 FS:rate 55.0" in output, "{} NOK".format(msg)
+    assert "installed in PBR" in output, "{} NOK".format(msg)
 
-    logger.info("Dump Routing information injected on table 256")
+    msg = "Check Routing injected information on table 256"
+    logger.info(msg)
     output = router.vtysh_cmd("show ipv6 route table 256", isjson=False, daemon="zebra")
-    logger.info(output)
+    assert "::/0 [20/0] via 50::2" in output, "{} NOK".format(msg)
 
-    logger.info("Dump Routing information on -ip -6 rule list- from linux")
+    msg = "Check Routing information on -ip -6 rule list- from linux"
+    logger.info(msg)
     output = router.run("ip -6 rule list")
     logger.info(output)
+    assert "from all lookup 256 proto zebra" in output, "{} NOK".format(msg)
 
 
 if __name__ == "__main__":
