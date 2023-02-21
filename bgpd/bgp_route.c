@@ -6078,6 +6078,8 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 	XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	route_map_counter_decrement(bgp_static->rmap.map);
 
+	if (bgp_static->prd_pretty)
+		XFREE(MTYPE_BGP, bgp_static->prd_pretty);
 	XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
 }
@@ -6981,6 +6983,8 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 		bgp_static->label = label;
 		bgp_static->prd = prd;
 
+		if (rd_str)
+			bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP, rd_str);
 		if (rmap_str) {
 			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 			route_map_counter_decrement(bgp_static->rmap.map);
@@ -7243,7 +7247,7 @@ static bool aggr_suppress_map_test(struct bgp *bgp,
 		return false;
 
 	/* Call route map matching and return result. */
-	attr.aspath = aspath_empty();
+	attr.aspath = aspath_empty(bgp->asnotation);
 	rmap_path.peer = bgp->peer_self;
 	rmap_path.attr = &attr;
 
@@ -7337,9 +7341,12 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 				    struct lcommunity *lcomm)
 {
 	static struct aspath *ae = NULL;
+	enum asnotation_mode asnotation;
+
+	asnotation = bgp_get_asnotation(NULL);
 
 	if (!ae)
-		ae = aspath_empty();
+		ae = aspath_empty(asnotation);
 
 	if (!pi)
 		return false;
@@ -10254,10 +10261,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (dest && dest->pdest) {
 			pdest = dest->pdest;
 			if (is_pi_family_evpn(parent_ri)) {
-				vty_out(vty,
-					"  Imported from %pRD:%pFX, VNI %s",
+				vty_out(vty, "  Imported from ");
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
-						pdest),
+						pdest));
+				vty_out(vty, ":%pFX, VNI %s",
 					(struct prefix_evpn *)
 						bgp_dest_get_prefix(dest),
 					tag_buf);
@@ -10270,12 +10278,15 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 							: "inactive");
 				vty_out(vty, "\n");
 
-			} else
-				vty_out(vty, "  Imported from %pRD:%pFX\n",
+			} else {
+				vty_out(vty, "  Imported from ");
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
-						pdest),
+						pdest));
+				vty_out(vty, ":%pFX\n",
 					(struct prefix_evpn *)
 						bgp_dest_get_prefix(dest));
+			}
 		}
 	}
 
@@ -11184,17 +11195,26 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			vty_out(vty, "{\n");
 			*json_header_depth = 2;
 		}
-
 		vty_out(vty,
 			" \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%pI4\",\n \"defaultLocPrf\": %u,\n"
-			" \"localAS\": %u,\n \"routes\": { ",
+			" \"localAS\": ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
 				? VRF_DEFAULT_NAME
 				: bgp->name,
 			table->version, &bgp->router_id,
-			bgp->default_local_pref, bgp->as);
+			bgp->default_local_pref);
+		if ((bgp->asnotation == ASNOTATION_PLAIN) ||
+		    ((bgp->asnotation == ASNOTATION_DOT) &&
+		     (bgp->as < UINT16_MAX)))
+			vty_out(vty, "%u", bgp->as);
+		else {
+			vty_out(vty, "\"");
+			vty_out(vty, ASN_FORMAT(bgp->asnotation), &bgp->as);
+			vty_out(vty, "\"");
+		}
+		vty_out(vty, ",\n \"routes\": { ");
 		if (rd) {
 			vty_out(vty, " \"routeDistinguishers\" : {");
 			++*json_header_depth;
@@ -11468,7 +11488,10 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				vty_out(vty, "\n");
 				vty_out(vty, "Default local pref %u, ",
 					bgp->default_local_pref);
-				vty_out(vty, "local AS %u\n", bgp->as);
+				vty_out(vty, "local AS ");
+				vty_out(vty, ASN_FORMAT(bgp->asnotation),
+					&bgp->as);
+				vty_out(vty, "\n");
 				if (!detail_routes) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_NCODE_HEADER);
@@ -11665,7 +11688,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			char rd[RD_ADDRSTRLEN];
 
 			memcpy(&prd, dest_p, sizeof(struct prefix_rd));
-			prefix_rd2str(&prd, rd, sizeof(rd));
+			prefix_rd2str(&prd, rd, sizeof(rd), bgp->asnotation);
 			bgp_show_table(vty, bgp, safi, itable, type, output_arg,
 				       rd, next == NULL, &output_cum,
 				       &total_cum, &json_header_depth,
@@ -11816,13 +11839,16 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	if (safi == SAFI_EVPN) {
 		if (!json) {
 			vty_out(vty, "BGP routing table entry for %s%s%pFX\n",
-				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
+				prd ? prefix_rd2str(prd, buf1, sizeof(buf1),
+						    bgp->asnotation)
 				    : "",
 				prd ? ":" : "", (struct prefix_evpn *)p);
 		} else {
-			json_object_string_add(json, "rd",
-				prd ? prefix_rd2str(prd, buf1, sizeof(buf1)) :
-				"");
+			json_object_string_add(
+				json, "rd",
+				prd ? prefix_rd2str(prd, buf1, sizeof(buf1),
+						    bgp->asnotation)
+				    : "");
 			bgp_evpn_route2json((struct prefix_evpn *)p, json);
 		}
 	} else {
@@ -11832,7 +11858,8 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				"\n",
 				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 					 ? prefix_rd2str(prd, buf1,
-							 sizeof(buf1))
+							 sizeof(buf1),
+							 bgp->asnotation)
 					 : ""),
 				safi == SAFI_MPLS_VPN ? ":" : "", p,
 				dest->version);
@@ -12055,8 +12082,9 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 		json_object_object_add(json_header, "paths", json_paths);
 
 		if (pfx_rd)
-			json_object_object_addf(json, json_header, "%pRD",
-						pfx_rd);
+			json_object_object_addf(
+				json, json_header,
+				BGP_RD_AS_FORMAT(bgp->asnotation), pfx_rd);
 	}
 }
 
@@ -14465,7 +14493,8 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			prd = (const struct prefix_rd *)bgp_dest_get_prefix(
 				dest);
 
-			prefix_rd2str(prd, rd_str, sizeof(rd_str));
+			prefix_rd2str(prd, rd_str, sizeof(rd_str),
+				      bgp->asnotation);
 
 			show_adj_route(
 				vty, peer, table, afi, safi, type, rmap_name,
@@ -15594,7 +15623,6 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 	const struct prefix *p;
-	const struct prefix_rd *prd;
 	struct bgp_static *bgp_static;
 	mpls_label_t label;
 
@@ -15612,13 +15640,12 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 				continue;
 
 			p = bgp_dest_get_prefix(dest);
-			prd = (const struct prefix_rd *)bgp_dest_get_prefix(
-				pdest);
 
 			/* "network" configuration display.  */
 			label = decode_label(&bgp_static->label);
 
-			vty_out(vty, "  network %pFX rd %pRD", p, prd);
+			vty_out(vty, "  network %pFX rd %s", p,
+				bgp_static->prd_pretty);
 			if (safi == SAFI_MPLS_VPN)
 				vty_out(vty, " label %u", label);
 
@@ -15641,7 +15668,6 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 	const struct prefix *p;
-	const struct prefix_rd *prd;
 	struct bgp_static *bgp_static;
 	char buf[PREFIX_STRLEN * 2];
 	char buf2[SU_ADDRSTRLEN];
@@ -15669,7 +15695,6 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 				esi_to_str(bgp_static->eth_s_id,
 						esi_buf, sizeof(esi_buf));
 			p = bgp_dest_get_prefix(dest);
-			prd = (struct prefix_rd *)bgp_dest_get_prefix(pdest);
 
 			/* "network" configuration display.  */
 			if (p->u.prefix_evpn.route_type == 5) {
@@ -15696,8 +15721,9 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					  &bgp_static->gatewayIp.u.prefix, buf2,
 					  sizeof(buf2));
 			vty_out(vty,
-				"  network %s rd %pRD ethtag %u label %u esi %s gwip %s routermac %s\n",
-				buf, prd, p->u.prefix_evpn.prefix_addr.eth_tag,
+				"  network %s rd %s ethtag %u label %u esi %s gwip %s routermac %s\n",
+				buf, bgp_static->prd_pretty,
+				p->u.prefix_evpn.prefix_addr.eth_tag,
 				decode_label(&bgp_static->label), esi_buf, buf2,
 				macrouter);
 

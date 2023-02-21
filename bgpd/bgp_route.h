@@ -355,6 +355,7 @@ struct bgp_static {
 
 	/* Route Distinguisher */
 	struct prefix_rd prd;
+	char *prd_pretty;
 
 	/* MPLS label.  */
 	mpls_label_t label;

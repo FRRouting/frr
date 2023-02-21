@@ -1589,7 +1589,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	vty_out(vty, " ");
 	rfapiPrintRfapiIpAddr(vty, &rfd->vn_addr);
 	vty_out(vty, " %p %p ", rfd->response_cb, rfd->cookie);
-	vty_out(vty, "%pRD", &rfd->rd);
+	vty_out(vty, "%pRDP", &rfd->rd);
 	vty_out(vty, " %d", rfd->response_lifetime);
 	vty_out(vty, " %s", (rfd->rfg ? rfd->rfg->name : "<orphaned>"));
 	vty_out(vty, "%s", HVTYNL);
@@ -4709,6 +4709,7 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 	if (arg_rd) {
 		opt = &optary[cur_opt++];
 		opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
+		/* TODO: save RD format */
 		if (!str2prefix_rd(arg_rd, &opt->v.internal_rd)) {
 			vty_out(vty, "Malformed RD \"%s\"\n", arg_rd);
 			return CMD_WARNING_CONFIG_FAILED;

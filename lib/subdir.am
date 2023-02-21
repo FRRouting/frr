@@ -13,6 +13,7 @@ lib_libfrr_la_SOURCES = \
 	lib/affinitymap_northbound.c \
 	lib/agg_table.c \
 	lib/atomlist.c \
+	lib/asn.c \
 	lib/base64.c \
 	lib/bfd.c \
 	lib/buffer.c \
@@ -169,6 +170,7 @@ pkginclude_HEADERS += \
 	lib/admin_group.h \
 	lib/affinitymap.h \
 	lib/agg_table.h \
+	lib/asn.h \
 	lib/atomlist.h \
 	lib/base64.h \
 	lib/bfd.h \

@@ -410,6 +410,7 @@ DEFUN (vnc_defaults_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -2874,6 +2875,7 @@ DEFUN (vnc_nve_group_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -3346,6 +3348,7 @@ DEFUN (vnc_vrf_policy_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -3924,7 +3927,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						value);
 
 				} else
-					vty_out(vty, "  rd %pRD\n", &rfg->rd);
+					vty_out(vty, "  rd %pRDP\n", &rfg->rd);
 			}
 
 			if (rfg->rt_import_list && rfg->rt_export_list
@@ -4144,7 +4147,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						value);
 
 				} else
-					vty_out(vty, "  rd %pRD\n",
+					vty_out(vty, "  rd %pRDP\n",
 						&hc->default_rd);
 			}
 			if (hc->default_response_lifetime
@@ -4224,7 +4227,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 							value);
 
 					} else
-						vty_out(vty, "  rd %pRD\n",
+						vty_out(vty, "  rd %pRDP\n",
 							&rfg->rd);
 				}
 				if (rfg->flags & RFAPI_RFG_RESPONSE_LIFETIME) {

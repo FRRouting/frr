@@ -213,7 +213,7 @@ static void *route_aspath_compile(const char *arg)
 {
 	struct aspath *aspath;
 
-	aspath = aspath_str2aspath(arg);
+	aspath = aspath_str2aspath(arg, bgp_get_asnotation(NULL));
 	if (!aspath)
 		return NULL;
 	return aspath;
@@ -5663,15 +5663,16 @@ DEFUN_YANG (no_set_label_index,
 
 DEFUN_YANG (set_aspath_prepend_asn,
 	    set_aspath_prepend_asn_cmd,
-	    "set as-path prepend (1-4294967295)...",
+	    "set as-path prepend ASNUM...",
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    "AS number\n")
+	    AS_STR)
 {
 	int idx_asn = 3;
 	int ret;
 	char *str;
+	struct aspath *aspath;
 
 	str = argv_concat(argv, argc, idx_asn);
 
@@ -5679,6 +5680,12 @@ DEFUN_YANG (set_aspath_prepend_asn,
 		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
 	char xpath_value[XPATH_MAXLEN];
 
+	aspath = route_aspath_compile(str);
+	if (!aspath) {
+		vty_out(vty, "%% Invalid AS path value %s\n", str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	route_aspath_free(aspath);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:prepend-as-path", xpath);
@@ -5713,16 +5720,22 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 
 DEFPY_YANG (set_aspath_replace_asn,
 	    set_aspath_replace_asn_cmd,
-	    "set as-path replace <any|(1-4294967295)>$replace",
+	    "set as-path replace <any|ASNUM>$replace",
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Replace AS number to local AS number\n"
 	    "Replace any AS number to local AS number\n"
-	    "Replace a specific AS number to local AS number\n")
+	    "Replace a specific AS number in plain or dotted format to local AS number\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
 	char xpath_value[XPATH_MAXLEN];
+	as_t as_value;
+
+	if (!strmatch(replace, "any") && !asn_str2asn(replace, &as_value)) {
+		vty_out(vty, "%% Invalid AS value %s\n", replace);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
@@ -5733,13 +5746,13 @@ DEFPY_YANG (set_aspath_replace_asn,
 
 DEFPY_YANG (no_set_aspath_replace_asn,
 	    no_set_aspath_replace_asn_cmd,
-	    "no set as-path replace [<any|(1-4294967295)>]",
+	    "no set as-path replace [<any|ASNUM>]",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Replace AS number to local AS number\n"
 	    "Replace any AS number to local AS number\n"
-	    "Replace a specific AS number to local AS number\n")
+	    "Replace a specific AS number in plain or dotted format to local AS number\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
@@ -5750,12 +5763,12 @@ DEFPY_YANG (no_set_aspath_replace_asn,
 
 DEFUN_YANG (no_set_aspath_prepend,
 	    no_set_aspath_prepend_cmd,
-	    "no set as-path prepend [(1-4294967295)]",
+	    "no set as-path prepend [ASNUM]",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    "AS number\n")
+	    AS_STR)
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
@@ -5783,15 +5796,16 @@ DEFUN_YANG (no_set_aspath_prepend_lastas,
 
 DEFUN_YANG (set_aspath_exclude,
 	    set_aspath_exclude_cmd,
-	    "set as-path exclude (1-4294967295)...",
+	    "set as-path exclude ASNUM...",
 	    SET_STR
 	    "Transform BGP AS-path attribute\n"
 	    "Exclude from the as-path\n"
-	    "AS number\n")
+	    AS_STR)
 {
 	int idx_asn = 3;
 	int ret;
 	char *str;
+	struct aspath *aspath;
 
 	str = argv_concat(argv, argc, idx_asn);
 
@@ -5799,6 +5813,12 @@ DEFUN_YANG (set_aspath_exclude,
 		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
 	char xpath_value[XPATH_MAXLEN];
 
+	aspath = route_aspath_compile(str);
+	if (!aspath) {
+		vty_out(vty, "%% Invalid AS path value %s\n", str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	route_aspath_free(aspath);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
@@ -5810,7 +5830,7 @@ DEFUN_YANG (set_aspath_exclude,
 
 DEFUN_YANG (no_set_aspath_exclude,
 	    no_set_aspath_exclude_cmd,
-	    "no set as-path exclude (1-4294967295)...",
+	    "no set as-path exclude ASNUM...",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
@@ -6496,11 +6516,11 @@ DEFPY_YANG (no_set_aigp_metric,
 
 DEFUN_YANG (set_aggregator_as,
 	    set_aggregator_as_cmd,
-	    "set aggregator as (1-4294967295) A.B.C.D",
+	    "set aggregator as ASNUM A.B.C.D",
 	    SET_STR
 	    "BGP aggregator attribute\n"
 	    "AS number of aggregator\n"
-	    "AS number\n"
+	    AS_STR
 	    "IP address of aggregator\n")
 {
 	int idx_number = 3;
@@ -6509,6 +6529,12 @@ DEFUN_YANG (set_aggregator_as,
 	char xpath_addr[XPATH_MAXLEN];
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:aggregator']";
+	as_t as_value;
+
+	if (!asn_str2asn(argv[idx_number]->arg, &as_value)) {
+		vty_out(vty, "%% Invalid AS value %s\n", argv[idx_number]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
@@ -6531,12 +6557,12 @@ DEFUN_YANG (set_aggregator_as,
 
 DEFUN_YANG (no_set_aggregator_as,
 	    no_set_aggregator_as_cmd,
-	    "no set aggregator as [(1-4294967295) A.B.C.D]",
+	    "no set aggregator as [ASNUM A.B.C.D]",
 	    NO_STR
 	    SET_STR
 	    "BGP aggregator attribute\n"
 	    "AS number of aggregator\n"
-	    "AS number\n"
+	    AS_STR
 	    "IP address of aggregator\n")
 {
 	const char *xpath =
