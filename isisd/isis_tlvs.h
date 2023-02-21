@@ -193,6 +193,23 @@ struct isis_router_cap_fad {
 };
 #endif /* ifndef FABRICD */
 
+/* RFC 9352 section 7.1 */
+struct isis_srv6_locator_tlv {
+	struct isis_srv6_locator_tlv *next;
+
+	uint32_t metric;
+
+	uint8_t flags;
+#define ISIS_TLV_SRV6_LOCATOR_FLAG_D 1 << 7
+
+	uint8_t algorithm;
+	struct prefix_ipv6 prefix;
+
+	struct isis_subtlvs *subtlvs;
+};
+
+#define ISIS_SRV6_LOCATOR_HDR_SIZE 22
+
 /* Maximum SRv6 SID Depths (MSD) as per RFC 9352 section #4 */
 struct isis_srv6_msd {
 	/* RFC 9352 section #4.1 */
@@ -338,6 +355,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
+	struct isis_mt_item_list srv6_locator;
 };
 
 enum isis_tlv_context {
