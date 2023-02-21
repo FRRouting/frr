@@ -2027,9 +2027,9 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 
 		/* If the peer is not part of our confederation, and its not an
 		   iBGP peer then spoof the source AS */
-		if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)
-		    && !bgp_confederation_peers_check(bgp, *as)
-		    && bgp->as != *as)
+		if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION) &&
+		    !bgp_confederation_peers_check(bgp, *as) && *as &&
+		    bgp->as != *as)
 			local_as = bgp->confed_id;
 		else
 			local_as = bgp->as;
