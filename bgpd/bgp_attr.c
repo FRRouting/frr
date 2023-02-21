@@ -3977,21 +3977,19 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		} break;
 		case SAFI_MPLS_VPN: {
 			if (attr->mp_nexthop_len ==
+			    BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+				stream_putc(s, attr->mp_nexthop_len);
+			else
+				stream_putc(s, BGP_ATTR_NHLEN_VPNV6_GLOBAL);
+			stream_putl(s, 0); /* RD = 0, per RFC */
+			stream_putl(s, 0);
+			stream_put(s, &attr->mp_nexthop_global,
+				   IPV6_MAX_BYTELEN);
+			if (attr->mp_nexthop_len ==
 			    BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
-				stream_putc(s, 48);
-				stream_putl(s, 0); /* RD = 0, per RFC */
-				stream_putl(s, 0);
-				stream_put(s, &attr->mp_nexthop_global,
-					   IPV6_MAX_BYTELEN);
 				stream_putl(s, 0); /* RD = 0, per RFC */
 				stream_putl(s, 0);
 				stream_put(s, &attr->mp_nexthop_local,
-					   IPV6_MAX_BYTELEN);
-			} else {
-				stream_putc(s, 24);
-				stream_putl(s, 0); /* RD = 0, per RFC */
-				stream_putl(s, 0);
-				stream_put(s, &attr->mp_nexthop_global,
 					   IPV6_MAX_BYTELEN);
 			}
 		} break;

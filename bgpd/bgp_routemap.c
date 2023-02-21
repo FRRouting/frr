@@ -3631,17 +3631,29 @@ route_set_ipv6_nexthop_local(void *rule, const struct prefix *p, void *object)
 {
 	struct in6_addr *address;
 	struct bgp_path_info *path;
+	struct bgp_dest *dest;
+	struct bgp_table *table = NULL;
 
 	/* Fetch routemap's rule information. */
 	address = rule;
 	path = object;
+	dest = path->net;
+
+	if (!dest)
+		return RMAP_OKAY;
+
+	table = bgp_dest_table(dest);
+	if (!table)
+		return RMAP_OKAY;
 
 	/* Set next hop value. */
 	path->attr->mp_nexthop_local = *address;
 
 	/* Set nexthop length. */
-	if (path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
-	    path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+	if (table->safi == SAFI_MPLS_VPN || table->safi == SAFI_ENCAP ||
+	    table->safi == SAFI_EVPN)
+		path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL;
+	else
 		path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 
 	SET_FLAG(path->attr->rmap_change_flags,
