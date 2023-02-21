@@ -2120,6 +2120,61 @@ static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
 	return 0;
 }
 
+static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len,
+				    struct stream *s, struct sbuf *log,
+				    void *dest, int indent)
+{
+	struct isis_subtlvs *subtlvs = dest;
+	struct isis_srv6_end_sid_subtlv *sid;
+	size_t consume;
+	uint8_t subsubtlv_len;
+
+	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
+
+	consume = 19;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 19 or more bytes, got %hhu)\n",
+			len);
+		return 1;
+	}
+
+	sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid));
+
+	sid->flags = stream_getc(s);
+	sid->behavior = stream_getw(s);
+	stream_get(&sid->sid, s, IPV6_MAX_BYTELEN);
+
+	format_item_srv6_end_sid(mtid, (struct isis_item *)sid, log, NULL,
+				 indent + 2);
+
+	/* Process Sub-Sub-TLVs */
+	consume += 1;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Expected 1 byte of Sub-Sub-TLV len, but no more data persent.\n");
+		goto out;
+	}
+	subsubtlv_len = stream_getc(s);
+
+	consume += subsubtlv_len;
+	if (len < consume) {
+		sbuf_push(log, indent,
+			  "Expected %hhu bytes of Sub-Sub-TLVs, but only %u bytes available.\n",
+			  subsubtlv_len, len - ((uint8_t)consume - subsubtlv_len));
+		goto out;
+	}
+
+	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid);
+	return 0;
+out:
+	if (sid)
+		free_item_srv6_end_sid((struct isis_item *)sid);
+	return 1;
+}
+
 /* Functions related to TLVs 1 Area Addresses */
 
 static struct isis_item *copy_item_area_address(struct isis_item *i)
