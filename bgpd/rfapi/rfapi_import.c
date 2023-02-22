@@ -2337,8 +2337,7 @@ static void rfapiMonitorEncapDelete(struct bgp_path_info *vpn_bpi)
 }
 
 /*
- * quagga lib/thread.h says this must return int even though
- * it doesn't do anything with the return value
+ * Timer callback for withdraw
  */
 static void rfapiWithdrawTimerVPN(struct thread *t)
 {
@@ -2348,19 +2347,27 @@ static void rfapiWithdrawTimerVPN(struct thread *t)
 	const struct prefix *p;
 	struct rfapi_monitor_vpn *moved;
 	afi_t afi;
+	bool early_exit = false;
 
 	if (bgp == NULL) {
 		vnc_zlog_debug_verbose(
                    "%s: NULL BGP pointer, assume shutdown race condition!!!",
                    __func__);
-		return;
+		early_exit = true;
 	}
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
+	if (bgp && CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		vnc_zlog_debug_verbose(
 			"%s: BGP delete in progress, assume shutdown race condition!!!",
 			__func__);
+		early_exit = true;
+	}
+
+	/* This callback is responsible for the withdraw object's memory */
+	if (early_exit) {
+		XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 		return;
 	}
+
 	assert(wcb->node);
 	assert(bpi);
 	assert(wcb->import_table);
