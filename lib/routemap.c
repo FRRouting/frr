@@ -2569,13 +2569,15 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	 */
 	if (prefix->family == AF_EVPN) {
 		if (evpn_prefix2prefix(prefix, &conv) != 0) {
-			zlog_debug(
-				"Unable to convert EVPN prefix %pFX into IPv4/IPv6 prefix. Falling back to non-optimized route-map lookup",
-				prefix);
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"Unable to convert EVPN prefix %pFX into IPv4/IPv6 prefix. Falling back to non-optimized route-map lookup",
+					prefix);
 		} else {
-			zlog_debug(
-				"Converted EVPN prefix %pFX into %pFX for optimized route-map lookup",
-				prefix, &conv);
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+				zlog_debug(
+					"Converted EVPN prefix %pFX into %pFX for optimized route-map lookup",
+					prefix, &conv);
 
 			prefix = &conv;
 		}
