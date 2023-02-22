@@ -1350,22 +1350,17 @@ DEFPY (show_rpki_as_number,
        JSON_STR)
 {
 	struct json_object *json = NULL;
-	as_t as;
 
 	if (!is_synchronized()) {
 		if (!uj)
 			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
-	if (!asn_str2asn(by_asn, &as)) {
-		if (!uj)
-			vty_out(vty, "Invalid AS value: %s.\n", by_asn);
-		return CMD_WARNING;
-	}
+
 	if (uj)
 		json = json_object_new_object();
 
-	print_prefix_table_by_asn(vty, as, json);
+	print_prefix_table_by_asn(vty, by_asn, json);
 	return CMD_SUCCESS;
 }
 
@@ -1382,7 +1377,6 @@ DEFPY (show_rpki_prefix,
 {
 	json_object *json = NULL;
 	json_object *json_records = NULL;
-	as_t as;
 	enum asnotation_mode asnotation;
 
 	if (!is_synchronized()) {
@@ -1404,18 +1398,12 @@ DEFPY (show_rpki_prefix,
 		return CMD_WARNING;
 	}
 
-	if (asn && !asn_str2asn(asn, &as)) {
-		if (!uj)
-			vty_out(vty, "Invalid AS value: %s.\n", asn);
-		return CMD_WARNING;
-	}
-
 	struct pfx_record *matches = NULL;
 	unsigned int match_count = 0;
 	enum pfxv_state result;
 
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
-				 as, &addr, prefix->prefixlen,
+				 asn, &addr, prefix->prefixlen,
 				 &result) != PFX_SUCCESS) {
 		if (!json)
 			vty_out(vty, "Prefix lookup failed\n");
@@ -1438,7 +1426,7 @@ DEFPY (show_rpki_prefix,
 		const struct pfx_record *record = &matches[i];
 
 		if (record->max_len >= prefix->prefixlen &&
-		    ((as != 0 && (uint32_t)as == record->asn) || as == 0)) {
+		    ((asn != 0 && (uint32_t)asn == record->asn) || asn == 0)) {
 			print_record(&matches[i], vty, json_records,
 				     asnotation);
 		}
