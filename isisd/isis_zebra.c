@@ -956,6 +956,62 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 }
 
 /**
+ * Uninstall SRv6 SID from the forwarding plane through Zebra.
+ *
+ * @param area		IS-IS area
+ * @param sid		SRv6 SID
+ */
+void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
+				   struct isis_srv6_sid *sid)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct interface *ifp;
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+
+	if (!area || !sid)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): delete SID %pI6", area->area_tag, &sid->sid);
+
+	switch (sid->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+		prefixlen = IPV6_MAX_BITLEN;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		prefixlen = sid->locator->block_bits_length +
+			    sid->locator->node_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	default:
+		zlog_err(
+			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
+			area->area_tag, sid->behavior);
+		return;
+	}
+
+	/* The SID is attached to the SRv6 interface */
+	ifp = if_lookup_by_name(SRV6_IFNAME, VRF_DEFAULT);
+	if (!ifp) {
+		zlog_warn("%s interface not found: nothing to uninstall",
+			  SRV6_IFNAME);
+		return;
+	}
+
+	/* Send delete request to zebra */
+	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen,
+				 ifp->ifindex, action, NULL);
+}
+
+/**
  * Callback to process an SRv6 locator chunk received from SRv6 Manager (zebra).
  *
  * @result 0 on success, -1 otherwise
