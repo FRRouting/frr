@@ -68,6 +68,151 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 	return true;
 }
 
+/**
+ * Encode SID function in the SRv6 SID.
+ *
+ * @param sid
+ * @param func
+ * @param offset
+ * @param len
+ */
+static void encode_sid_func(struct in6_addr *sid, uint32_t func, uint8_t offset,
+			    uint8_t len)
+{
+	for (uint8_t idx = 0; idx < len; idx++) {
+		uint8_t tidx = offset + idx;
+		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (func >> (len - 1 - idx) & 0x1)
+			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
+}
+
+static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct isis_srv6_sid *s;
+
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, s))
+		if (sid_same(&s->sid, sid))
+			return true;
+	return false;
+}
+
+/**
+ * Request a SID from the SRv6 locator.
+ *
+ * @param area		IS-IS area
+ * @param chunk		SRv6 locator chunk
+ * @param sid_func	The FUNCTION part of the SID to be allocated (a negative
+ * number will allocate the first available SID)
+ *
+ * @return	First available SID on success or in6addr_any if the SRv6
+ * locator chunk is full
+ */
+static struct in6_addr
+srv6_locator_request_sid(struct isis_area *area,
+			 struct srv6_locator_chunk *chunk, int sid_func)
+{
+	struct in6_addr sid;
+	uint8_t offset = 0;
+	uint8_t func_len = 0;
+	uint32_t func_max;
+	bool allocated = false;
+
+	if (!area || !chunk)
+		return in6addr_any;
+
+	sr_debug("ISIS-SRv6 (%s): requested new SID from locator %s",
+		 area->area_tag, chunk->locator_name);
+
+	/* Let's build the SID, step by step. A SID has the following structure
+	(defined in RFC 8986): LOCATOR:FUNCTION:ARGUMENT.*/
+
+	/* First, we encode the LOCATOR in the L most significant bits. */
+	sid = chunk->prefix.prefix;
+
+	/* The next part of the SID is the FUNCTION. Let's compute the length
+	 * and the offset of the FUNCTION in the SID */
+	func_len = chunk->function_bits_length;
+	offset = chunk->block_bits_length + chunk->node_bits_length;
+
+	/* Then, encode the FUNCTION */
+	if (sid_func >= 0) {
+		/* SID FUNCTION has been specified. We need to allocate a SID
+		 * with the requested FUNCTION. */
+		encode_sid_func(&sid, sid_func, offset, func_len);
+		if (sid_exist(area, &sid)) {
+			zlog_warn(
+				"ISIS-SRv6 (%s): the requested SID %pI6 is already used",
+				area->area_tag, &sid);
+			return sid;
+		}
+		allocated = true;
+	} else {
+		/* SID FUNCTION not specified. We need to choose a FUNCTION that
+		 * is not already used. So let's iterate through all possible
+		 * functions and get the first available one. */
+		func_max = (1 << func_len) - 1;
+		for (uint32_t func = 1; func < func_max; func++) {
+			encode_sid_func(&sid, func, offset, func_len);
+			if (sid_exist(area, &sid))
+				continue;
+			allocated = true;
+			break;
+		}
+	}
+
+	if (!allocated) {
+		/* We ran out of available SIDs */
+		zlog_warn("ISIS-SRv6 (%s): no SIDs available in locator %s",
+			  area->area_tag, chunk->locator_name);
+		return in6addr_any;
+	}
+
+	sr_debug("ISIS-SRv6 (%s): allocating new SID %pI6", area->area_tag,
+		 &sid);
+
+	return sid;
+}
+
+/**
+ * Allocate an SRv6 SID from an SRv6 locator.
+ *
+ * @param area		IS-IS area
+ * @param chunk		SRv6 locator chunk
+ * @param behavior	SRv6 Endpoint Behavior bound to the SID
+ *
+ * @result the allocated SID on success, NULL otherwise
+ */
+struct isis_srv6_sid *
+isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
+		    enum srv6_endpoint_behavior_codepoint behavior,
+		    int sid_func)
+{
+	struct isis_srv6_sid *sid = NULL;
+
+	if (!area || !chunk)
+		return NULL;
+
+	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct isis_srv6_sid));
+
+	sid->sid = srv6_locator_request_sid(area, chunk, sid_func);
+	if (IPV6_ADDR_SAME(&sid->sid, &in6addr_any)) {
+		isis_srv6_sid_free(sid);
+		return NULL;
+	}
+
+	sid->behavior = behavior;
+	sid->structure.loc_block_len = chunk->block_bits_length;
+	sid->structure.loc_node_len = chunk->node_bits_length;
+	sid->structure.func_len = chunk->function_bits_length;
+	sid->structure.arg_len = chunk->argument_bits_length;
+	sid->locator = chunk;
+	sid->area = area;
+
+	return sid;
+}
+
 void isis_srv6_sid_free(struct isis_srv6_sid *sid)
 {
 	XFREE(MTYPE_ISIS_SRV6_SID, sid);
