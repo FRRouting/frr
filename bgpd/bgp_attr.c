@@ -1645,6 +1645,14 @@ static enum bgp_attr_parse_ret bgp_attr_aspath_check(struct peer *const peer,
 	 */
 	struct aspath *aspath;
 
+	/* Refresh peer's type. If we set e.g.: AS_EXTERNAL/AS_INTERNAL,
+	 * then peer->sort remains BGP_PEER_EBGP/IBGP, hence we need to
+	 * have an actual type before checking.
+	 * This is especially a case for BGP confederation peers, to avoid
+	 * receiving and treating AS_PATH as malformed.
+	 */
+	(void)peer_sort(peer);
+
 	/* Confederation sanity check. */
 	if ((peer->sort == BGP_PEER_CONFED
 	     && !aspath_left_confed_check(attr->aspath))
@@ -4295,8 +4303,22 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		aspath = aspath_delete_confed_seq(aspath);
 
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
-			/* Stuff our path CONFED_ID on the front */
-			aspath = aspath_add_seq(aspath, bgp->confed_id);
+			/* A confed member, so we need to do the
+			 * AS_CONFED_SEQUENCE thing if it's outside a common
+			 * administration.
+			 * Configured confederation peers MUST be validated
+			 * under BGP_PEER_CONFED, but if we have configured
+			 * remote-as as AS_EXTERNAL, we need to check again
+			 * if the peer belongs to us.
+			 */
+			if (bgp_confederation_peers_check(bgp, peer->as)) {
+				aspath = aspath_dup(attr->aspath);
+				aspath = aspath_add_confed_seq(aspath,
+							       peer->local_as);
+			} else {
+				/* Stuff our path CONFED_ID on the front */
+				aspath = aspath_add_seq(aspath, bgp->confed_id);
+			}
 		} else {
 			if (peer->change_local_as) {
 				/* If replace-as is specified, we only use the
