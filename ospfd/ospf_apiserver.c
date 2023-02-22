@@ -2590,9 +2590,12 @@ static inline int cmp_route_nodes(struct route_node *orn,
 		return 1;
 	else if (!nrn)
 		return -1;
-	else if (orn->p.u.prefix4.s_addr < nrn->p.u.prefix4.s_addr)
+
+	uint32_t opn = ntohl(orn->p.u.prefix4.s_addr);
+	uint32_t npn = ntohl(nrn->p.u.prefix4.s_addr);
+	if (opn < npn)
 		return -1;
-	else if (orn->p.u.prefix4.s_addr > nrn->p.u.prefix4.s_addr)
+	else if (opn > npn)
 		return 1;
 	else
 		return 0;
