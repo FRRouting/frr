@@ -1024,6 +1024,8 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct isis_area *area;
 	struct srv6_locator_chunk *c;
 	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
+	struct isis_srv6_sid *sid;
+	enum srv6_endpoint_behavior_codepoint behavior;
 	bool allocated = false;
 
 	/* Decode the received zebra message */
@@ -1060,7 +1062,25 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		/* Add the SRv6 Locator chunk to the per-area chunks list */
 		listnode_add(area->srv6db.srv6_locator_chunks, chunk);
 
-		/* Regenerate LSPs to advertise the new locator */
+		/* Decide which behavior to use,depending on the locator type
+		 * (i.e. uSID vs classic locator) */
+		behavior = (CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID))
+				   ? SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID
+				   : SRV6_ENDPOINT_BEHAVIOR_END;
+
+		/* Allocate new SRv6 End SID */
+		sid = isis_srv6_sid_alloc(area, chunk, behavior, 0);
+		if (!sid)
+			return -1;
+
+		/* Install the new SRv6 End SID in the forwarding plane through
+		 * Zebra */
+		isis_zebra_srv6_sid_install(area, sid);
+
+		/* Store the SID */
+		listnode_add(area->srv6db.srv6_sids, sid);
+
+		/* Regenerate LSPs to advertise the new locator and the SID */
 		lsp_regenerate_schedule(area, area->is_type, 0);
 
 		allocated = true;
