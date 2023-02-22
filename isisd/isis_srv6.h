@@ -18,6 +18,9 @@
 #define SRV6_MAX_H_ENCAPS 2
 #define SRV6_MAX_END_D 5
 
+/* Name of the interface used for installing SRv6 SIDs into the data plane */
+#define SRV6_IFNAME "sr0"
+
 /* SRv6 SID structure */
 struct isis_srv6_sid_structure {
 	uint8_t loc_block_len;

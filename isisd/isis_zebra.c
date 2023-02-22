@@ -891,6 +891,71 @@ static void isis_zebra_send_localsid(int cmd, const struct in6_addr *sid,
 }
 
 /**
+ * Install SRv6 SID in the forwarding plane through Zebra.
+ *
+ * @param area		IS-IS area
+ * @param sid		SRv6 SID
+ */
+void isis_zebra_srv6_sid_install(struct isis_area *area,
+				 struct isis_srv6_sid *sid)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+	struct seg6local_context ctx = {};
+	struct interface *ifp;
+
+	if (!area || !sid)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): setting SRv6 SID %pI6", area->area_tag,
+		 &sid->sid);
+
+	switch (sid->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		prefixlen = IPV6_MAX_BITLEN;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		prefixlen = sid->locator->block_bits_length +
+			    sid->locator->node_bits_length;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
+				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		ctx.flv.lcblock_len = sid->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	default:
+		zlog_err(
+			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
+			area->area_tag, sid->behavior);
+		return;
+	}
+
+	/* Attach the SID to the SRv6 interface */
+	ifp = if_lookup_by_name(SRV6_IFNAME, VRF_DEFAULT);
+	if (!ifp) {
+		zlog_warn(
+			"Failed to install SRv6 SID %pI6: %s interface not found",
+			&sid->sid, SRV6_IFNAME);
+		return;
+	}
+
+	/* Send the SID to zebra */
+	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->sid, prefixlen,
+				 ifp->ifindex, action, &ctx);
+}
+
+/**
  * Callback to process an SRv6 locator chunk received from SRv6 Manager (zebra).
  *
  * @result 0 on success, -1 otherwise
