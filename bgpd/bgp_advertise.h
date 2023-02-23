@@ -75,6 +75,9 @@ struct bgp_adj_out {
 	/* Advertised attribute.  */
 	struct attr *attr;
 
+	/* VPN label information */
+	struct bgp_labels *labels;
+
 	/* Advertisement information.  */
 	struct bgp_advertise *adv;
 };
