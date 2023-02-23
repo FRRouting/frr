@@ -140,8 +140,6 @@ extern const char *ospf_area_name_string(struct ospf_area *);
 extern const char *ospf_area_desc_string(struct ospf_area *);
 extern const char *ospf_if_name_string(struct ospf_interface *);
 extern int ospf_nbr_ism_state(struct ospf_neighbor *nbr);
-extern void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf,
-				   size_t size);
 extern void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
 				       size_t size);
 extern const char *ospf_timer_dump(struct thread *, char *, size_t);
