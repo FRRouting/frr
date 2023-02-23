@@ -123,6 +123,23 @@ afi_t family2afi(int family)
 	return 0;
 }
 
+const char *afi2str_lower(afi_t afi)
+{
+	switch (afi) {
+	case AFI_IP:
+		return "ipv4";
+	case AFI_IP6:
+		return "ipv6";
+	case AFI_L2VPN:
+		return "l2vpn";
+	case AFI_MAX:
+	case AFI_UNSPEC:
+		return "bad-value";
+	}
+
+	assert(!"Reached end of function we should never reach");
+}
+
 const char *afi2str(afi_t afi)
 {
 	switch (afi) {
