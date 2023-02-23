@@ -640,6 +640,14 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.u.flag = PEER_FLAG_WEIGHT,
 		.handlers[0] = TEST_HANDLER(weight),
 	},
+	{
+		.cmd = "accept-own",
+		.peer_cmd = "accept-own",
+		.group_cmd = "accept-own",
+		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
+		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
+		.u.flag = PEER_FLAG_ACCEPT_OWN,
+	},
 	{NULL}
 };
 /* clang-format on */
