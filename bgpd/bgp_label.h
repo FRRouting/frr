@@ -19,6 +19,8 @@
 struct bgp_dest;
 struct bgp_path_info;
 struct peer;
+struct bgp_nlri;
+struct attr;
 
 extern int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 				    bool allocated);

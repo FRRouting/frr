@@ -7,6 +7,7 @@
 #define _QUAGGA_BGP_ADVERTISE_H
 
 #include "lib/typesafe.h"
+#include "bgpd/bgp_label.h"
 
 PREDECL_DLIST(bgp_adv_fifo);
 
@@ -74,6 +75,10 @@ struct bgp_adj_out {
 
 	/* Advertised attribute.  */
 	struct attr *attr;
+
+	/* VPN label information */
+	mpls_label_t label[BGP_MAX_LABELS];
+	uint32_t num_labels;
 
 	/* Advertisement information.  */
 	struct bgp_advertise *adv;

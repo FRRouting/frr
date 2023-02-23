@@ -509,6 +509,8 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer_af *paf;
 	struct bgp *bgp;
 	uint32_t attr_hash = attrhash_key_make(attr);
+	bool labels_same;
+	uint32_t i, path_num_labels;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -543,9 +545,22 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
 	 */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
-	    && !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
-	    && adj->attr_hash == attr_hash) {
+	path_num_labels = path->extra ? path->extra->num_labels : 0;
+
+	if (adj->num_labels == path_num_labels) {
+		labels_same = true;
+		for (i = 0; i < path_num_labels; i++) {
+			if (adj->label[i] != path->extra->label[i]) {
+				labels_same = false;
+				break;
+			}
+		}
+	} else
+		labels_same = false;
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+	    adj->attr_hash == attr_hash && labels_same) {
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
 			char attr_str[BUFSIZ] = {0};
 
@@ -587,6 +602,11 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
 	adv->adj = adj;
 	adj->attr_hash = attr_hash;
+	if (path->extra && path->extra->num_labels) {
+		for (i = 0; i < path->extra->num_labels; i++)
+			adj->label[i] = path->extra->label[i];
+		adj->num_labels = path->extra->num_labels;
+	}
 
 	/* Add new advertisement to advertisement attribute list. */
 	bgp_advertise_add(adv->baa, adv);
