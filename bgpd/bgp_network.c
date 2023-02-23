@@ -521,10 +521,16 @@ static void bgp_accept(struct thread *thread)
 	 * is shutdown.
 	 */
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
-				peer1->host);
+		if (bgp_debug_neighbor_events(peer1)) {
+			if (peer1->shut_during_cfg)
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to configuration being currently read in",
+					peer1->host);
+			else
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
+					peer1->host);
+		}
 		close(bgp_sock);
 		return;
 	}
