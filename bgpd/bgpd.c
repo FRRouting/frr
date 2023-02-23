@@ -2726,7 +2726,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 static void peer_group2peer_config_copy(struct peer_group *group,
 					struct peer *peer)
 {
-	uint32_t flags_tmp;
+	uint64_t flags_tmp;
 	struct peer *conf;
 	bool config_node = !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
@@ -4518,7 +4518,7 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 	return found;
 }
 
-static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
+static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 {
 	if (flag == PEER_FLAG_SHUTDOWN) {
 		if (CHECK_FLAG(peer->flags, flag)) {
