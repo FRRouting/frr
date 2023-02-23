@@ -5555,7 +5555,7 @@ DEFUN (no_neighbor_capability_enhe,
 }
 
 static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
-				   afi_t afi, safi_t safi, uint32_t flag,
+				   afi_t afi, safi_t safi, uint64_t flag,
 				   int set)
 {
 	int ret;
@@ -5574,13 +5574,13 @@ static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
 }
 
 static int peer_af_flag_set_vty(struct vty *vty, const char *peer_str,
-				afi_t afi, safi_t safi, uint32_t flag)
+				afi_t afi, safi_t safi, uint64_t flag)
 {
 	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 1);
 }
 
 static int peer_af_flag_unset_vty(struct vty *vty, const char *peer_str,
-				  afi_t afi, safi_t safi, uint32_t flag)
+				  afi_t afi, safi_t safi, uint64_t flag)
 {
 	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 0);
 }
