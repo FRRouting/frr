@@ -2247,7 +2247,8 @@ extern int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi,
 			    uint64_t flag);
 extern int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi,
 			      uint64_t flag);
-extern int peer_af_flag_check(struct peer *, afi_t, safi_t, uint32_t);
+extern bool peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
+			       uint64_t flag);
 extern void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 				 uint64_t flag);
 extern void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,

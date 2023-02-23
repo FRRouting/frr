@@ -17154,7 +17154,7 @@ static bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 		if (CHECK_FLAG(peer->af_flags_invert[afi][safi], flag))
 			return !peer_af_flag_check(peer, afi, safi, flag);
 		else
-			return !!peer_af_flag_check(peer, afi, safi, flag);
+			return peer_af_flag_check(peer, afi, safi, flag);
 	}
 
 	return !!CHECK_FLAG(peer->af_flags_override[afi][safi], flag);
