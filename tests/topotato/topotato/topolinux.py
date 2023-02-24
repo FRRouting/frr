@@ -11,7 +11,6 @@ import os
 import sys
 import shlex
 import re
-import subprocess
 import tempfile
 import time
 import logging
@@ -28,6 +27,7 @@ import pytest
 import scapy.all  # type: ignore
 import scapy.config  # type: ignore
 
+from .defer import subprocess
 from .utils import exec_find, EnvcheckResult
 from .nswrap import LinuxNamespace
 from .toponom import LAN, LinkIface, Network

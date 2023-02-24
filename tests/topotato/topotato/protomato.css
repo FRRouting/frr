@@ -558,6 +558,16 @@ svg {
 	grid-column-end: 9;
 }
 
+.p-tcp-syn {
+	color:#080;
+}
+.p-tcp-rst {
+	color:#a06;
+}
+.p-tcp-fin {
+	color:#a20;
+}
+
 .p-ospf,
 .p-pim,
 .p-ldp,

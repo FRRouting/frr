@@ -8,7 +8,6 @@ Assertions (and Modifiers) to use in topotato tests:
 
 import os
 import sys
-import time
 import json
 import logging
 import tempfile
@@ -254,40 +253,41 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
         self._daemon = daemon
         self._command = command
         self._compare = compare
-        self.commands = OrderedDict()
         return self
 
     def __call__(self):
         router = self.instance.routers[self._rtr.name]
 
         for _ in self.timeline.run_tick(self._timing):
-            cmdtime = time.time()
             _, out, rc = router.vtysh_polled(self.timeline, self._daemon, self._command)
             if rc != 0:
-                result = TopotatoCLIUnsuccessfulFail("vtysh return value %d" % rc)
+                msg = f"vtysh return value {rc}"
+                if out and out[-1].text.strip() != "":
+                    line = out[-1].text.strip().rsplit("\n", 1)[-1]
+                    msg = f"{msg}, output: {line}"
+                result = TopotatoCLIUnsuccessfulFail(msg)
             else:
                 result = None
+                text = "".join(event.text for event in out)
+
                 if isinstance(self._compare, type(None)):
                     pass
                 elif isinstance(self._compare, str):
-                    out = deindent(out, trim=True)
+                    text = deindent(text, trim=True)
                     result = text_rich_cmp(
                         self.instance.configs,
                         self._rtr.name,
-                        out,
+                        text,
                         self._compare,
                         "output from %s" % (self._command),
                     )
                 elif isinstance(self._compare, dict):
-                    diff = json_cmp(json.loads(out), self._compare)
+                    diff = json_cmp(json.loads(text), self._compare)
                     if diff is not None:
                         result = TopotatoCLICompareFail(str(diff))
 
-            self.commands.setdefault((self._rtr.name, self._daemon), []).append(
-                (cmdtime, self._command, out, rc, result)
-            )
-
             if result is None:
+                out[-1].match_for.append(self)
                 break
         else:
             raise result

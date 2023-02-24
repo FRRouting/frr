@@ -820,6 +820,24 @@ const protocols = {
 			return true;
 
 		elem = create(row, "span", "pktcol l-4 p-tcp last", `TCP ${pdml_get_attr(proto, "tcp.srcport")} → ${pdml_get_attr(proto, "tcp.dstport")}`);
+
+		let flags = pdml_get(proto, "tcp.flags");
+		let flag_arr = new Array();
+		if (pdml_get_attr(flags, "tcp.flags.syn") == "1")
+			flag_arr.push("SYN");
+		if (pdml_get_attr(flags, "tcp.flags.fin") == "1")
+			flag_arr.push("FIN");
+		if (pdml_get_attr(flags, "tcp.flags.reset") == "1")
+			flag_arr.push("RST");
+
+		if (flag_arr.length) {
+			if (pdml_get_attr(flags, "tcp.flags.ack") == "1")
+				flag_arr.push("ACK");
+
+			elem.textContent += " [" + flag_arr.join(", ") + "]";
+			for (let flag of flag_arr)
+				elem.classList.add("p-tcp-" + flag.toLowerCase());
+		}
 		return false;
 	},
 

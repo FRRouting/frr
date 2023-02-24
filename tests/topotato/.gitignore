@@ -2,7 +2,7 @@
 /network.dot
 /network.png
 /assets/
-/reportato/
+**/reportato/
 /getlockpid
 *.pcapng
 *.pcap

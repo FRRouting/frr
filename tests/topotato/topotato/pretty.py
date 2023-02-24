@@ -7,7 +7,6 @@ HTML test report prettying
 
 import base64
 import re
-import subprocess
 import time
 import os
 import json
@@ -24,6 +23,7 @@ import jinja2
 import markupsafe
 
 from . import base, assertions
+from .defer import subprocess
 from .utils import exec_find, deindent, get_dir
 from .scapy import ScapySend
 from .timeline import TimedElement
@@ -94,11 +94,13 @@ class PrettyExtraFile:
 
 class PrettySession:
     exec_dot: ClassVar[Optional[str]]
+    prettyitems: List["PrettyItem"]
 
     def __init__(self, session, outdir=None, source_url=None):
         self.session = session
         self.outdir = outdir
         self.source_url = source_url
+        self.prettyitems = []
 
         if outdir and not os.path.exists(outdir):
             os.mkdir(outdir)
@@ -110,6 +112,12 @@ class PrettySession:
         if not hasattr(item, "pretty"):
             item.pretty = PrettyItem.make(self, item)
         item.pretty(call, result)
+        self.prettyitems.append(item.pretty)
+
+    # pylint: disable=unused-argument
+    def finish(self, exitstatus):
+        for prettyitem in self.prettyitems:
+            prettyitem.finish()
 
     @staticmethod
     @pytest.hookimpl()
@@ -161,6 +169,14 @@ class PrettySession:
         self = getattr(item.session, "pretty_session", None)
         if self:
             self.push(item, call, report)
+
+    @staticmethod
+    @pytest.hookimpl()
+    def pytest_sessionfinish(session, exitstatus):
+        # self = item.session.stash.get(_pretty_session, None)
+        self = getattr(session, "pretty_session", None)
+        if self:
+            self.finish(exitstatus)
 
 
 class PrettyInstance(list):
@@ -273,6 +289,9 @@ class PrettyItem:
         handler = getattr(self, "when_%s" % result.when, None)
         if handler:
             handler(call, result)
+
+    def finish(self):
+        pass
 
     # pylint: disable=no-self-use
     def files(self):
