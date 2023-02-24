@@ -558,7 +558,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	nb_ctx.user = (void *)client_ctx->client_params.user_data;
 	if (debug_be)
 		gettimeofday(&prep_nb_cfg_start, NULL);
-	err = nb_candidate_commit_prepare(&nb_ctx, client_ctx->candidate_config,
+	err = nb_candidate_commit_prepare(nb_ctx, client_ctx->candidate_config,
 					  "MGMTD Backend Txn", &txn->nb_txn,
 #ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
 					  true, true,
