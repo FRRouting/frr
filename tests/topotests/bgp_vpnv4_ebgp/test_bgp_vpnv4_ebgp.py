@@ -438,6 +438,93 @@ configure terminal
     assert result is None, assertmsg
 
 
+def test_adj_rib_in_label_change():
+    """
+    Check that syncinig with ADJ-RIB-in on r2
+    permits restoring the initial label value
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enable soft-reconfiguration inbound on r2")
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ address-family ipv4 vpn
+  neighbor 192.168.0.1 soft-reconfiguration inbound
+"""
+    )
+
+    logger.info("Applying a deny-all route-map to input on r2")
+    r2.vtysh_cmd(
+        """
+configure terminal
+route-map DENY-ALL deny 1
+!
+router bgp 65501
+ address-family ipv4 vpn
+  neighbor 192.168.0.1 route-map DENY-ALL in
+"""
+    )
+
+    # check that 172.31.0.1 should not be present
+    logger.info("Check that received update 172.31.0.1 is not present")
+
+    expected = {}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+        exact=True,
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "r2, vpnv4 update 172.31.0.1 still present"
+
+
+
+def test_adj_rib_in_label_change_remove_rmap():
+    """
+    Check that syncinig with ADJ-RIB-in on r2
+    permits restoring the initial label value
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Removing the deny-all route-map from input on r2")
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ address-family ipv4 vpn
+  no neighbor 192.168.0.1 route-map DENY-ALL in
+"""
+    )
+    # Check BGP IPv4 route entry for 172.31.0.1 on r1
+    logger.info(
+        "Checking that 172.31.0.1 BGP update is present and has valid label on r2"
+    )
+    json_file = "{}/{}/bgp_ipv4_vpn_route_1723101.json".format(CWD, r2.name)
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(r2.name)
+    assert result is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
