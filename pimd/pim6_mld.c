@@ -2393,7 +2393,7 @@ static void gm_show_if_one_detail(struct vty *vty, struct interface *ifp)
 }
 
 static void gm_show_if_one(struct vty *vty, struct interface *ifp,
-			   json_object *js_if)
+			   json_object *js_if, struct ttable *tt)
 {
 	struct pim_interface *pim_ifp = (struct pim_interface *)ifp->info;
 	struct gm_if *gm_ifp = pim_ifp->mld;
@@ -2431,11 +2431,11 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 		json_object_int_add(js_if, "timerLastMemberQueryIntervalMsec",
 				    gm_ifp->cur_query_intv_trig);
 	} else {
-		vty_out(vty, "%-16s  %-5s  %d  %-25pPA  %-5s %11pTH  %pTVMs\n",
-			ifp->name, "up", gm_ifp->cur_version, &gm_ifp->querier,
-			querier ? "query" : "other",
-			querier ? gm_ifp->t_query : gm_ifp->t_other_querier,
-			&gm_ifp->started);
+		ttable_add_row(tt, "%s|%s|%pPAs|%d|%s|%pPAs|%pTH|%pTVMs",
+			       ifp->name, "up", &pim_ifp->primary_address,
+			       gm_ifp->cur_version, querier ? "local" : "other",
+			       &gm_ifp->querier, gm_ifp->t_query,
+			       &gm_ifp->started);
 	}
 }
 
@@ -2443,12 +2443,25 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 			   bool detail, json_object *js)
 {
 	struct interface *ifp;
-	json_object *js_vrf;
+	json_object *js_vrf = NULL;
 	struct pim_interface *pim_ifp;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	if (js) {
 		js_vrf = json_object_new_object();
 		json_object_object_add(js, vrf->name, js_vrf);
+	}
+
+	if (!js && !detail) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|State|Address|V|Querier|QuerierIp|Query Timer|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2461,7 +2474,7 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 			continue;
 		}
 
-		pim_ifp = ifp ->info;
+		pim_ifp = ifp->info;
 
 		if (!pim_ifp || !pim_ifp->mld)
 			continue;
@@ -2471,17 +2484,21 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 			json_object_object_add(js_vrf, ifp->name, js_if);
 		}
 
-		gm_show_if_one(vty, ifp, js_if);
+		gm_show_if_one(vty, ifp, js_if, tt);
+	}
+
+	/* Dump the generated table. */
+	if (!js && !detail) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
 static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
 		       bool detail, json_object *js)
 {
-	if (!js && !detail)
-		vty_out(vty, "%-16s  %-5s  V  %-25s  %-18s  %s\n", "Interface",
-			"State", "Querier", "Timer", "Uptime");
-
 	if (vrf)
 		gm_show_if_vrf(vty, vrf, ifname, detail, js);
 	else
