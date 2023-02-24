@@ -17,6 +17,7 @@ import sys
 import json
 from functools import partial
 import pytest
+import functools
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -231,6 +232,72 @@ def test_adj_rib_out_label_change():
     # Check BGP IPv4 route entry for 172.31.0.1 on r1
     logger.info("Checking BGP IPv4 routes for convergence on r1")
     router = tgen.gears["r2"]
+    json_file = "{}/{}/bgp_ipv4_vpn_route_1723101.json".format(CWD, router.name)
+    if not os.path.isfile(json_file):
+        assert 0, "bgp_ipv4_vpn_route_1723101.json file not found"
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_adj_rib_in_label_change():
+    """
+    Check that syncinig with ADJ-RIB-in on r2
+    permits restoring the initial label value
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enable soft inbound on r2")
+    tgen.gears["r2"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65501\naddress-family ipv4 vpn\nneighbor 192.168.0.1 soft-reconfiguration inbound\n",
+        isjson=False,
+    )
+    logger.info("Creating a deny route-map on r2")
+    tgen.gears["r2"].vtysh_cmd(
+        "configure terminal\naccess-list 1 permit any\nroute-map rmap deny 1\nmatch ip address 1\n",
+        isjson=False,
+    )
+    logger.info("Attaching the deny route-map at input on r2")
+    tgen.gears["r2"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65501\naddress-family ipv4 vpn\nneighbor 192.168.0.1 route-map rmap in\n",
+        isjson=False,
+    )
+
+    # check that 172.31.0.1 should not be present
+    logger.info("Check that received update 172.31.0.1 is not present")
+
+    def _prefix1_not_found(router):
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 172.31.0.1 json"))
+        expected = {"444:1": {"prefix": "172.31.0.1/32"}}
+        ret = topotest.json_cmp(output, expected)
+        if ret is None:
+            return "not good"
+        return None
+
+    router = tgen.gears["r2"]
+    test_func = functools.partial(_prefix1_not_found, router)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "r2, vpnv4 update 172.31.0.1 still present"
+
+    logger.info("Detaching the deny route-map at input on r2")
+    tgen.gears["r2"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65501\naddress-family ipv4 vpn\nno neighbor 192.168.0.1 route-map rmap in\n",
+        isjson=False,
+    )
+    # Check BGP IPv4 route entry for 172.31.0.1 on r1
+    logger.info(
+        "Checking that 172.31.0.1 BGP update is present and has valid label on r2"
+    )
     json_file = "{}/{}/bgp_ipv4_vpn_route_1723101.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
         assert 0, "bgp_ipv4_vpn_route_1723101.json file not found"
