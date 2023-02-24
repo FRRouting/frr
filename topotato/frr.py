@@ -671,7 +671,7 @@ class FRRNetworkInstance(NetworkInstance):
             # TODO: refactor
             vpoll = VtyshPoll(self.name, daemon, sock, cmds)
 
-            text = []
+            output = []
             retcode = None
 
             with timeline.with_pollee(vpoll) as poller:
@@ -681,12 +681,12 @@ class FRRNetworkInstance(NetworkInstance):
                 for event in poller.run_iter(end):
                     if not isinstance(event, TimedVtysh):
                         continue
-                    text.append(event.text)
+                    output.append(event)
                     retcode = event.retcode
                     if event.last:
                         break
 
-            return (pid, "".join(text), retcode)
+            return (pid, output, retcode)
 
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)

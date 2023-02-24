@@ -785,8 +785,6 @@ class TopotatoClass(_pytest.python.Class):
         netinst.timeline.sleep(0.2)
         # netinst.status()
 
-        startitem.commands = OrderedDict()
-
         failed = []
         for rtr in netinst.network.routers.keys():
             router = netinst.routers[rtr]
@@ -796,14 +794,11 @@ class TopotatoClass(_pytest.python.Class):
                     continue
 
                 try:
-                    _, out, rc = router.vtysh_polled(
+                    _, _, rc = router.vtysh_polled(
                         netinst.timeline, daemon, "show version"
                     )
                 except ConnectionRefusedError:
                     failed.append((rtr, daemon))
-                startitem.commands.setdefault((rtr, daemon), []).append(
-                    ("show version", out, rc, None)
-                )
                 if rc != 0:
                     failed.append((rtr, daemon))
 
