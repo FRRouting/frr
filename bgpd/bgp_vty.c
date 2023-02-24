@@ -135,8 +135,6 @@ FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 	{ .val_bool = true },
 );
 
-extern const char *bgp_global_gr_mode_str[];
-
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -11304,6 +11302,40 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		json_object_string_add(
 			json, "interface",
 			ifindex2ifname(bgp->l3vni_svi_ifindex, bgp->vrf_id));
+
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+			afi_t afi;
+			safi_t safi = SAFI_UNICAST;
+			struct graceful_restart_info *gr_info;
+			json_object *json_gr = NULL;
+			json_gr = json_object_new_object();
+			json_object *json_grs = NULL;
+			json_grs = json_object_new_array();
+
+			for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+				json_object_string_add(json_gr, "addressFamily",
+						       get_afi_safi_str(afi,
+									safi,
+									false));
+				gr_info = &(bgp->gr_info[afi][safi]);
+				json_object_boolean_add(json_gr, "grEnabled",
+							gr_info->af_enabled);
+				json_object_boolean_add(
+					json_gr, "grPathSelectionDeferral",
+					event_is_scheduled(
+						gr_info->t_select_deferral));
+				if (gr_info->t_select_deferral)
+					json_object_int_add(
+						json_gr,
+						"grDeferralRemainingTime",
+						event_timer_remain_second(
+							gr_info->t_select_deferral));
+				json_object_array_add(json_grs, json_gr);
+			}
+			json_object_boolean_add(json, "grRouteSyncPending",
+						bgp->gr_route_sync_pending);
+			json_object_object_add(json, "grs", json_grs);
+		}
 	}
 }
 
@@ -11316,6 +11348,7 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
 
 	if (use_vrf) {
+		enum global_mode gr_mode = bgp_global_gr_mode_get(bgp);
 		if (json) {
 			print_bgp_vrfs(bgp, vty, json, type);
 		} else {
@@ -11327,6 +11360,8 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 			vty_out(vty,
 				"Num Configured Peers %d, Established %d\n",
 				peers_cfg, peers_estb);
+			vty_out(vty, "Global graceful restart mode is %s\n",
+				bgp_global_gr_mode_str[gr_mode]);
 			if (bgp->l3vni) {
 				vty_out(vty,
 					"L3VNI %u, L3VNI-SVI %s, Router MAC %pEA\n",
@@ -11493,16 +11528,16 @@ DEFPY (show_bgp_vrfs,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_bgp_router,
+DEFPY (show_bgp_router,
        show_bgp_router_cmd,
        "show bgp router",
        SHOW_STR
        BGP_STR
        "Overall BGP information\n")
 {
-	char timebuf[BGP_UPTIME_LEN];
+	char timebuf[MONOTIME_STRLEN];
 
-	time_to_string(bm->startup_time, timebuf);
+	time_to_string(bm->start_time, timebuf);
 	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
 		vty_out(vty, "BGP started gracefully at %s", timebuf);
 		if (CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE)) {
@@ -11513,6 +11548,10 @@ DEFUN (show_bgp_router,
 			vty_out(vty, "Graceful restart is in progress\n");
 	} else
 		vty_out(vty, "BGP started at %s", timebuf);
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE))
+		vty_out(vty,
+			"BGP is in Maintenance mode (BGP GSHUT is in effect)\n");
 
 	vty_out(vty, "Number of BGP instances (including default): %d\n",
 		listcount(bm->bgp));
