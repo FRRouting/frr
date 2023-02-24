@@ -214,6 +214,39 @@ def test_protocols_convergence():
     assert result is None, assertmsg
 
 
+def test_adj_rib_out_label_change():
+    """
+    Check that changing the VPN label on r1
+    is propagated on r2
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Changing VPN label value to export")
+    dump = tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nlabel vpn export 102\n",
+        isjson=False,
+    )
+    # Check BGP IPv4 route entry for 172.31.0.1 on r1
+    logger.info("Checking BGP IPv4 routes for convergence on r1")
+    router = tgen.gears["r2"]
+    json_file = "{}/{}/bgp_ipv4_vpn_route_1723101.json".format(CWD, router.name)
+    if not os.path.isfile(json_file):
+        assert 0, "bgp_ipv4_vpn_route_1723101.json file not found"
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
