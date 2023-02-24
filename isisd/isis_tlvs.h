@@ -22,6 +22,7 @@ DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
 struct sr_prefix_cfg;
+struct isis_srv6_locator;
 
 struct isis_area_address {
 	struct isis_area_address *next;
@@ -832,4 +833,7 @@ isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
 void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 				    const uint8_t *generator,
 				    const uint8_t *sender);
+
+void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs, uint16_t mtid,
+				struct isis_srv6_locator *loc);
 #endif

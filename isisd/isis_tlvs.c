@@ -7731,3 +7731,20 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 		       sizeof(tlvs->purge_originator->sender));
 	}
 }
+
+/* Add an SRv6 Locator to the SRv6 Locator TLV */
+void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs, uint16_t mtid,
+				struct isis_srv6_locator *loc)
+{
+	struct isis_srv6_locator_tlv *loc_tlv =
+		XCALLOC(MTYPE_ISIS_TLV, sizeof(*loc_tlv));
+
+	/* Fill in the SRv6 Locator TLV according to the SRv6 Locator
+	 * configuration */
+	isis_srv6_locator2tlv(loc, loc_tlv);
+
+	/* Append the SRv6 Locator TLV to the TLVs list */
+	struct isis_item_list *l;
+	l = isis_get_mt_items(&tlvs->srv6_locator, mtid);
+	append_item(l, (struct isis_item *)loc_tlv);
+}
