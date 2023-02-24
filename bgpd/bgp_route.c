@@ -1082,9 +1082,21 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
+	if (exist->sub_type == BGP_ROUTE_IMPORTED) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(exist);
+		peer_exist = bpi_ultimate->peer;
+	} else
+		peer_exist = exist->peer;
+
+	if (new->sub_type == BGP_ROUTE_IMPORTED) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(new);
+		peer_new = bpi_ultimate->peer;
+	} else
+		peer_new = new->peer;
+
 	/* 7. Peer type check. */
-	new_sort = new->peer->sort;
-	exist_sort = exist->peer->sort;
+	new_sort = peer_new->sort;
+	exist_sort = peer_exist->sort;
 
 	if (new_sort == BGP_PEER_EBGP
 	    && (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED)) {
@@ -1139,8 +1151,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	   pair (newm, existm) with the cluster list length. Prefer the
 	   path with smaller cluster list length.                       */
 	if (newm == existm) {
-		if (peer_sort_lookup(new->peer) == BGP_PEER_IBGP &&
-		    peer_sort_lookup(exist->peer) == BGP_PEER_IBGP &&
+		if (peer_sort_lookup(peer_new) == BGP_PEER_IBGP &&
+		    peer_sort_lookup(peer_exist) == BGP_PEER_IBGP &&
 		    (mpath_cfg == NULL || mpath_cfg->same_clusterlen)) {
 			newm = BGP_CLUSTER_LIST_LENGTH(new->attr);
 			existm = BGP_CLUSTER_LIST_LENGTH(exist->attr);
@@ -1237,7 +1249,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				zlog_debug(
 					"%s: %s and %s are equal via multipath-relax",
 					pfx_buf, new_buf, exist_buf);
-		} else if (new->peer->sort == BGP_PEER_IBGP) {
+		} else if (peer_new->sort == BGP_PEER_IBGP) {
 			if (aspath_cmp(new->attr->aspath,
 				       exist->attr->aspath)) {
 				*paths_eq = 1;
@@ -1247,7 +1259,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 						"%s: %s and %s are equal via matching aspaths",
 						pfx_buf, new_buf, exist_buf);
 			}
-		} else if (new->peer->as == exist->peer->as) {
+		} else if (peer_new->as == peer_exist->as) {
 			*paths_eq = 1;
 
 			if (debug)
@@ -1327,11 +1339,11 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 		new_id.s_addr = newattr->originator_id.s_addr;
 	else
-		new_id.s_addr = new->peer->remote_id.s_addr;
+		new_id.s_addr = peer_new->remote_id.s_addr;
 	if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 		exist_id.s_addr = existattr->originator_id.s_addr;
 	else
-		exist_id.s_addr = exist->peer->remote_id.s_addr;
+		exist_id.s_addr = peer_exist->remote_id.s_addr;
 
 	if (ntohl(new_id.s_addr) < ntohl(exist_id.s_addr)) {
 		*reason = bgp_path_selection_router_id;
@@ -1398,23 +1410,15 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* locally configured routes to advertise do not have su_remote */
-	if (new->sub_type == BGP_ROUTE_IMPORTED) {
-		bpi_ultimate = bgp_get_imported_bpi_ultimate(new);
-		peer_new = bpi_ultimate->peer;
-	} else if (new->peer->su_remote == NULL) {
+	if (peer_new->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 0;
-	} else
-		peer_new = new->peer;
+	}
 
-	if (exist->sub_type == BGP_ROUTE_IMPORTED) {
-		bpi_ultimate = bgp_get_imported_bpi_ultimate(exist);
-		peer_exist = bpi_ultimate->peer;
-	} else if (exist->peer->su_remote == NULL) {
+	if (peer_exist->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 1;
-	} else
-		peer_exist = exist->peer;
+	}
 
 	ret = sockunion_cmp(peer_new->su_remote, peer_exist->su_remote);
 
