@@ -2511,14 +2511,13 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 			vty_out(vty, "  bmp mirror\n");
 
 		FOREACH_AFI_SAFI (afi, safi) {
-			const char *afi_str = (afi == AFI_IP) ? "ipv4" : "ipv6";
-
 			if (bt->afimon[afi][safi] & BMP_MON_PREPOLICY)
 				vty_out(vty, "  bmp monitor %s %s pre-policy\n",
-					afi_str, safi2str(safi));
+					afi2str_lower(afi), safi2str(safi));
 			if (bt->afimon[afi][safi] & BMP_MON_POSTPOLICY)
-				vty_out(vty, "  bmp monitor %s %s post-policy\n",
-					afi_str, safi2str(safi));
+				vty_out(vty,
+					"  bmp monitor %s %s post-policy\n",
+					afi2str_lower(afi), safi2str(safi));
 		}
 		frr_each (bmp_listeners, &bt->listeners, bl)
 			vty_out(vty, " \n  bmp listener %pSU port %d\n",
