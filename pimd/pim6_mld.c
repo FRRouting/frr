@@ -2386,14 +2386,6 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 	struct gm_if *gm_ifp = pim_ifp->mld;
 	bool querier;
 
-	if (!gm_ifp) {
-		if (js_if)
-			json_object_string_add(js_if, "state", "down");
-		else
-			vty_out(vty, "%-16s  %5s\n", ifp->name, "down");
-		return;
-	}
-
 	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
 
 	if (js_if) {
@@ -2437,6 +2429,7 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 {
 	struct interface *ifp;
 	json_object *js_vrf;
+	struct pim_interface *pim_ifp;
 
 	if (js) {
 		js_vrf = json_object_new_object();
@@ -2453,8 +2446,11 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 			continue;
 		}
 
-		if (!ifp->info)
+		pim_ifp = ifp ->info;
+
+		if (!pim_ifp || !pim_ifp->mld)
 			continue;
+
 		if (js) {
 			js_if = json_object_new_object();
 			json_object_object_add(js_vrf, ifp->name, js_if);
