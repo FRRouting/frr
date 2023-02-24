@@ -515,11 +515,19 @@ static uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
 void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf,
 					    size_t buf_len)
 {
-	if (pi->addpath_rx_id)
-		snprintf(buf, buf_len, "path %s (addpath rxid %d)",
-			 pi->peer->host, pi->addpath_rx_id);
+	struct peer *peer;
+
+	if (pi->sub_type == BGP_ROUTE_IMPORTED &&
+	    bgp_get_imported_bpi_ultimate(pi))
+		peer = bgp_get_imported_bpi_ultimate(pi)->peer;
 	else
-		snprintf(buf, buf_len, "path %s", pi->peer->host);
+		peer = pi->peer;
+
+	if (pi->addpath_rx_id)
+		snprintf(buf, buf_len, "path %s (addpath rxid %d)", peer->host,
+			 pi->addpath_rx_id);
+	else
+		snprintf(buf, buf_len, "path %s", peer->host);
 }
 
 
