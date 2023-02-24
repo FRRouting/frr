@@ -49,6 +49,7 @@ class Configs(FRRConfigs):
     pim6d = """
     #% extends "boilerplate.conf"
     #% block main
+    debug mld
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
      ipv6 pim

@@ -45,6 +45,7 @@ class Configs(FRRConfigs):
     pim6d = """
     #% extends "boilerplate.conf"
     #% block main
+    debug mld
     #%   if router.name in ['dut']
     #%     for iface in router.ifaces
     interface {{ iface.ifname }}

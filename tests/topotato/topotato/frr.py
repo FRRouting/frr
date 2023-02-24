@@ -15,7 +15,6 @@ import shlex
 import signal
 import socket
 import struct
-import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -39,6 +38,7 @@ from typing import (
 import pytest
 import jinja2
 
+from .defer import subprocess
 from .utils import deindent, get_dir, EnvcheckResult
 from .timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
@@ -671,7 +671,7 @@ class FRRNetworkInstance(NetworkInstance):
             # TODO: refactor
             vpoll = VtyshPoll(self.name, daemon, sock, cmds)
 
-            text = []
+            output = []
             retcode = None
 
             with timeline.with_pollee(vpoll) as poller:
@@ -681,12 +681,12 @@ class FRRNetworkInstance(NetworkInstance):
                 for event in poller.run_iter(end):
                     if not isinstance(event, TimedVtysh):
                         continue
-                    text.append(event.text)
+                    output.append(event)
                     retcode = event.retcode
                     if event.last:
                         break
 
-            return (pid, "".join(text), retcode)
+            return (pid, output, retcode)
 
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)

@@ -463,7 +463,6 @@ class LinkIface(NOMNode):
             if self.ip4.noauto or len(self.ip4) > 0:
                 return
             for net in self.other.endpoint.ip4:
-
                 self.ip4.append(
                     addr2iface(
                         net.network_address

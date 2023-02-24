@@ -6,7 +6,6 @@ Base wrapper around Linux network namespaces
 
 import sys
 import os
-import subprocess
 import time
 import ctypes
 import ctypes.util
@@ -14,6 +13,7 @@ import errno
 
 from typing import List, ClassVar
 
+from .defer import subprocess
 from .utils import LockedFile
 
 _libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)

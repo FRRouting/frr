@@ -18,6 +18,7 @@ from scapy.config import conf  # type: ignore
 
 SIOCGIFADDR = 0x8915
 
+
 # pylint: disable=too-many-ancestors
 class NetnsL2Socket(conf.L2socket):
     """
