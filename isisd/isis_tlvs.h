@@ -393,6 +393,10 @@ struct isis_subtlvs {
 	struct isis_item_list srv6_end_sids;
 };
 
+struct isis_subsubtlvs {
+	enum isis_tlv_context context;
+};
+
 enum isis_tlv_type {
 	/* TLVs code point */
 	ISIS_TLV_AREA_ADDRESSES = 1,
