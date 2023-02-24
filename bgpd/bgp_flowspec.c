@@ -127,6 +127,13 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 				psize);
 			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
+
+		if (psize == 0) {
+			flog_err(EC_BGP_FLOWSPEC_PACKET,
+				 "Flowspec NLRI length 0 which makes no sense");
+			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
+		}
+
 		if (bgp_fs_nlri_validate(pnt, psize, afi) < 0) {
 			flog_err(
 				EC_BGP_FLOWSPEC_PACKET,
