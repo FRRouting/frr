@@ -317,7 +317,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	const struct update_group *updgrp;
 	const struct peer *peer;
 	const struct bgp_filter *filter;
-	uint32_t flags;
+	uint64_t flags;
 	uint32_t key;
 	afi_t afi;
 	safi_t safi;
@@ -501,8 +501,8 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	const struct update_group *grp2;
 	const struct peer *pe1;
 	const struct peer *pe2;
-	uint32_t flags1;
-	uint32_t flags2;
+	uint64_t flags1;
+	uint64_t flags2;
 	const struct bgp_filter *fl1;
 	const struct bgp_filter *fl2;
 	afi_t afi;
