@@ -2390,6 +2390,8 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 
 	if (js_if) {
 		json_object_string_add(js_if, "name", ifp->name);
+		json_object_string_addf(js_if, "address", "%pPA",
+					&pim_ifp->primary_address);
 		json_object_string_add(js_if, "state", "up");
 		json_object_string_addf(js_if, "version", "%d",
 					gm_ifp->cur_version);
