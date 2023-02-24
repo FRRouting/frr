@@ -11603,6 +11603,7 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
 					    ? -1
 					    : (int64_t)bgp->vrf_id;
+
 		json_object_string_add(json, "type", type);
 		json_object_int_add(json, "vrfId", vrf_id_ui);
 		json_object_string_addf(json, "routerId", "%pI4",
@@ -11614,6 +11615,35 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		json_object_string_add(
 			json, "interface",
 			ifindex2ifname(bgp->l3vni_svi_ifindex, bgp->vrf_id));
+
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+			afi_t afi;
+			safi_t safi = SAFI_UNICAST;
+			struct graceful_restart_info *gr_info;
+			json_object *json_gr = NULL;
+			json_object *json_grs = NULL;
+
+			json_gr = json_object_new_object();
+			json_grs = json_object_new_array();
+
+			for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+				json_object_string_add(json_gr, "addressFamily",
+						       get_afi_safi_str(afi, safi, false));
+				gr_info = &(bgp->gr_info[afi][safi]);
+				json_object_boolean_add(json_gr, "grEnabled", gr_info->af_enabled);
+				json_object_boolean_add(json_gr, "grPathSelectionDeferral",
+							event_is_scheduled(
+								gr_info->t_select_deferral));
+				if (gr_info->t_select_deferral)
+					json_object_int_add(json_gr, "grDeferralRemainingTimeSec",
+							    event_timer_remain_second(
+								    gr_info->t_select_deferral));
+				json_object_array_add(json_grs, json_gr);
+			}
+			json_object_boolean_add(json, "grRouteSyncPending",
+						bgp->gr_route_sync_pending);
+			json_object_object_add(json, "grs", json_grs);
+		}
 	}
 }
 
@@ -11626,6 +11656,8 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 	calc_peers_cfgd_estbd(bgp, &peers_cfg, &peers_estb);
 
 	if (use_vrf) {
+		enum global_mode gr_mode = bgp_global_gr_mode_get(bgp);
+
 		if (json) {
 			print_bgp_vrfs(bgp, vty, json, type);
 		} else {
@@ -11637,6 +11669,8 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 			vty_out(vty,
 				"Num Configured Peers %d, Established %d\n",
 				peers_cfg, peers_estb);
+			vty_out(vty, "Global graceful restart mode is %s\n",
+				bgp_global_gr_mode_str[gr_mode]);
 			if (bgp->l3vni) {
 				vty_out(vty,
 					"L3VNI %u, L3VNI-SVI %s, Router MAC %pEA\n",
@@ -11644,6 +11678,29 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 					ifindex2ifname(bgp->l3vni_svi_ifindex,
 						       bgp->vrf_id),
 					&bgp->rmac);
+			}
+			if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+				afi_t afi;
+				safi_t safi = SAFI_UNICAST;
+				struct graceful_restart_info *gr_info;
+
+				for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+					vty_out(vty, "For address-family %s:\n",
+						get_afi_safi_str(afi, safi, false));
+					gr_info = &(bgp->gr_info[afi][safi]);
+					vty_out(vty, "  GR enabled %s Path Selection Deferral %s\n",
+						gr_info->af_enabled ? "YES" : "NO",
+						event_is_scheduled(gr_info->t_select_deferral)
+							? "DONE"
+							: "IN-PROGRESS");
+					if (gr_info->t_select_deferral)
+						vty_out(vty,
+							"  Path selection deferral timer running, remaining time %lds\n",
+							event_timer_remain_second(
+								gr_info->t_select_deferral));
+				}
+				vty_out(vty, "Route sync with zebra %s\n",
+					bgp->gr_route_sync_pending ? "pending" : "completed");
 			}
 		}
 	} else {
@@ -14413,6 +14470,7 @@ static void bgp_show_peer_gr_capability(struct vty *vty, struct peer *p, bool us
 
 				if (use_json) {
 					json_object *json_sub = NULL;
+
 					json_sub = json_object_new_object();
 					if (f_bit)
 						json_object_boolean_true_add(json_sub, "preserved");

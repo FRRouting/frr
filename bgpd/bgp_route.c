@@ -4002,7 +4002,6 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct bgp_dest *dest;
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
-	bool route_sync_pending = false;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
 		struct event *t = bgp->gr_info[afi][safi].t_route_select;
@@ -4041,21 +4040,25 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	/* Send EOR message when all routes are processed */
 	if (!bgp->gr_info[afi][safi].gr_deferred) {
+		bool route_sync_pending = false;
+
 		bgp_send_delayed_eor(bgp);
 		/* Send route processing complete message to RIB */
 		bgp_zebra_update(bgp, afi, safi,
 				 ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		bgp->gr_info[afi][safi].route_sync = true;
 
-		/* If this instance is all done, check for GR completion overall */
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
+		/*
+		 * If this instance is all done,
+		 * check for GR completion overall
+		 */
+		FOREACH_AFI_SAFI (afi, safi) {
 			if (bgp->gr_info[afi][safi].af_enabled &&
 			    !bgp->gr_info[afi][safi].route_sync) {
 				route_sync_pending = true;
 				break;
 			}
 		}
-
 		if (!route_sync_pending) {
 			bgp->gr_route_sync_pending = false;
 			bgp_update_gr_completion();
