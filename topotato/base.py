@@ -255,7 +255,6 @@ class TopotatoItem(nodes.Item):
     def _make(
         cls: Type["TopotatoItem"], namesuffix, codeloc, *args, **kwargs
     ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], ItemGroup]:
-
         parent, _ = yield None
         self = cls.from_parent(parent, namesuffix, *args, **kwargs)
         self._codeloc = codeloc

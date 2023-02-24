@@ -102,7 +102,6 @@ class ExaBGP:
                 env_dir = os.path.join(tempdir, "exabgp.env")
 
                 if self._cmdobj._env is not None:
-
                     with open(env_dir, "w", encoding="UTF-8") as env_file:
                         env_file.write(self._cmdobj._env)
 
@@ -125,7 +124,6 @@ class ExaBGP:
                     env_file.write(env)
 
             def create_config():
-
                 template = jenv.from_string(self._cmdobj._conf)
 
                 conf = template.render({"routers": self._cmdobj._all_routers})
@@ -191,7 +189,6 @@ class ExaBGP:
 
         # pylint: disable=consider-using-with
         def __call__(self):
-
             self.is_bgp_daemon_running()
 
             router = self.instance.routers[self._rtr.name]
@@ -213,7 +210,6 @@ class ExaBGP:
 
     class Stop(Action):
         def __call__(self):
-
             self.is_bgp_daemon_running()
 
             router = self.instance.routers[self._rtr.name]
