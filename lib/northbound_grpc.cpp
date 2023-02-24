@@ -824,7 +824,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 	case frr::CommitRequest::PREPARE:
 		grpc_debug("`-> Performing PREPARE");
 		ret = nb_candidate_commit_prepare(
-			&context, candidate->config, comment.c_str(),
+			context, candidate->config, comment.c_str(),
 			&candidate->transaction, errmsg, sizeof(errmsg));
 		break;
 	case frr::CommitRequest::ABORT:
@@ -840,7 +840,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 		break;
 	case frr::CommitRequest::ALL:
 		grpc_debug("`-> Performing ALL");
-		ret = nb_candidate_commit(&context, candidate->config, true,
+		ret = nb_candidate_commit(context, candidate->config, true,
 					  comment.c_str(), &transaction_id,
 					  errmsg, sizeof(errmsg));
 		break;

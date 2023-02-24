@@ -2413,7 +2413,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 
 		context.client = NB_CLIENT_CLI;
 		context.user = vty;
-		ret = nb_candidate_commit(&context, vty->candidate_config, true,
+		ret = nb_candidate_commit(context, vty->candidate_config, true,
 					  "Read configuration file", NULL,
 					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)

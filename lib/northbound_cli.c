@@ -46,7 +46,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, vty->candidate_config, true, NULL,
+	ret = nb_candidate_commit(context, vty->candidate_config, true, NULL,
 				  NULL, errmsg, sizeof(errmsg));
 	switch (ret) {
 	case NB_OK:
@@ -313,7 +313,7 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
 	ret = nb_candidate_commit(
-		&context, vty->confirmed_commit_rollback, true,
+		context, vty->confirmed_commit_rollback, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
 		&transaction_id, errmsg, sizeof(errmsg));
 	if (ret == NB_OK) {
@@ -394,9 +394,8 @@ static int nb_cli_commit(struct vty *vty, bool force,
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, vty->candidate_config, true,
-				  comment, &transaction_id, errmsg,
-				  sizeof(errmsg));
+	ret = nb_candidate_commit(context, vty->candidate_config, true, comment,
+				  &transaction_id, errmsg, sizeof(errmsg));
 
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
@@ -1717,7 +1716,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, candidate, true, comment, NULL,
+	ret = nb_candidate_commit(context, candidate, true, comment, NULL,
 				  errmsg, sizeof(errmsg));
 	nb_config_free(candidate);
 	switch (ret) {
