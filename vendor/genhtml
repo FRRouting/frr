@@ -4847,13 +4847,24 @@ sub get_sorted_by_missed($$)
 #          link_name, line_rate, fn_rate, br_rate ]
 #
 
+sub suffix($)
+{
+	my ($filename) = @_;
+
+	return $1 if ($filename =~ /\.([^\.]+)$/);
+	return "";
+}
+
 sub get_sorted_keys($$)
 {
 	my ($hash, $type) = @_;
 
 	if ($type == $SORT_FILE) {
 		# Sort by name
-		return sort(keys(%{$hash}));
+		return sort {
+			suffix($a) cmp suffix($b)
+		||	$a cmp $b
+		} keys(%{$hash});
 	} elsif ($opt_missed) {
 		return get_sorted_by_missed($hash, $type);
 	} else {
