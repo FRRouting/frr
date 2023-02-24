@@ -7,7 +7,6 @@ HTML test report prettying
 
 import base64
 import re
-import subprocess
 import time
 import os
 import json
@@ -24,6 +23,7 @@ import jinja2
 import markupsafe
 
 from . import base, assertions
+from .defer import subprocess
 from .utils import exec_find, deindent, get_dir
 from .scapy import ScapySend
 from .timeline import TimedElement

@@ -12,7 +12,6 @@ import os
 import re
 import logging
 import traceback
-import subprocess
 import atexit
 import shlex
 import fcntl
@@ -21,6 +20,7 @@ import difflib
 
 from typing import List, Union
 
+from .defer import subprocess
 from .exceptions import TopotatoCLICompareFail
 
 logger = logging.getLogger("topotato")

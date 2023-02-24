@@ -15,7 +15,6 @@ import shlex
 import signal
 import socket
 import struct
-import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -39,6 +38,7 @@ from typing import (
 import pytest
 import jinja2
 
+from .defer import subprocess
 from .utils import deindent, get_dir, EnvcheckResult
 from .timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
