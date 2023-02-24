@@ -281,7 +281,7 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 	if (!json) {
 		vty_out(vty, "%-40s   %3u - %3u   ", ip, record->min_len,
 			record->max_len);
-		vty_out(vty, ASN_FORMAT(asnotation), &record->asn);
+		vty_out(vty, ASN_FORMAT(asnotation), (as_t *)&record->asn);
 		vty_out(vty, "\n");
 	} else {
 		json_record = json_object_new_object();
