@@ -124,6 +124,7 @@ struct bgp_master {
 
 	/* BGP start time.  */
 	time_t start_time;
+	time_t gr_completion_time;
 
 	/* Various BGP global configuration.  */
 	uint8_t options;
@@ -2872,6 +2873,30 @@ static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 	    (afi == AFI_IP6 && safi == SAFI_UNICAST))
 		return true;
 	return false;
+}
+
+static inline void bgp_update_gr_completion(void)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	/*
+	 * Check and mark GR complete. This is done when deferred
+	 * path selection has been completed for all instances and
+	 * route-advertisement/EOR and route-sync with zebra has
+	 * been invoked.
+	 */
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+	    CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE))
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->gr_route_sync_pending)
+			return;
+	}
+
+	SET_FLAG(bm->flags, BM_FLAG_GR_COMPLETE);
+	bm->gr_completion_time = monotime(NULL);
 }
 
 /* For benefit of rfapi */
