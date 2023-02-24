@@ -671,22 +671,6 @@ struct nb_context {
 
 	/* Northbound user (can be NULL). */
 	const void *user;
-
-	/* Client-specific data. */
-#if 0
-	union {
-		struct {
-		} cli;
-		struct {
-		} confd;
-		struct {
-		} sysrepo;
-		struct {
-		} grpc;
-		struct {
-		} pcep;
-	} client_data;
-#endif
 };
 
 /* Northbound configuration callback. */
@@ -709,7 +693,7 @@ struct nb_config_change {
 
 /* Northbound configuration transaction. */
 struct nb_transaction {
-	struct nb_context *context;
+	struct nb_context context;
 	char comment[80];
 	struct nb_config *config;
 	struct nb_config_cbs changes;
@@ -1132,7 +1116,7 @@ extern int nb_candidate_validate(struct nb_context *context,
  *      the candidate configuration.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_commit_prepare(struct nb_context *context,
+extern int nb_candidate_commit_prepare(struct nb_context context,
 				       struct nb_config *candidate,
 				       const char *comment,
 				       struct nb_transaction **transaction,
@@ -1221,7 +1205,7 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  *      the candidate configuration.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_commit(struct nb_context *context,
+extern int nb_candidate_commit(struct nb_context context,
 			       struct nb_config *candidate,
 			       bool save_transaction, const char *comment,
 			       uint32_t *transaction_id, char *errmsg,

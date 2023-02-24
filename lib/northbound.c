@@ -61,7 +61,7 @@ static int nb_callback_configuration(struct nb_context *context,
 				     struct nb_config_change *change,
 				     char *errmsg, size_t errmsg_len);
 static struct nb_transaction *
-nb_transaction_new(struct nb_context *context, struct nb_config *config,
+nb_transaction_new(struct nb_context context, struct nb_config *config,
 		   struct nb_config_cbs *changes, const char *comment,
 		   char *errmsg, size_t errmsg_len);
 static void nb_transaction_free(struct nb_transaction *transaction);
@@ -1034,7 +1034,7 @@ int nb_candidate_validate(struct nb_context *context,
 	return ret;
 }
 
-int nb_candidate_commit_prepare(struct nb_context *context,
+int nb_candidate_commit_prepare(struct nb_context context,
 				struct nb_config *candidate,
 				const char *comment,
 				struct nb_transaction **transaction,
@@ -1062,7 +1062,7 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 	}
 
 	if (!skip_validate
-	    && nb_candidate_validate_code(context, candidate, &changes, errmsg,
+	    && nb_candidate_validate_code(&context, candidate, &changes, errmsg,
 					  errmsg_len)
 		       != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
@@ -1119,7 +1119,7 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	nb_transaction_free(transaction);
 }
 
-int nb_candidate_commit(struct nb_context *context, struct nb_config *candidate,
+int nb_candidate_commit(struct nb_context context, struct nb_config *candidate,
 			bool save_transaction, const char *comment,
 			uint32_t *transaction_id, char *errmsg,
 			size_t errmsg_len)
@@ -1650,13 +1650,13 @@ static int nb_callback_configuration(struct nb_context *context,
 }
 
 static struct nb_transaction *
-nb_transaction_new(struct nb_context *context, struct nb_config *config,
+nb_transaction_new(struct nb_context context, struct nb_config *config,
 		   struct nb_config_cbs *changes, const char *comment,
 		   char *errmsg, size_t errmsg_len)
 {
 	struct nb_transaction *transaction;
 
-	if (nb_running_lock_check(context->client, context->user)) {
+	if (nb_running_lock_check(context.client, context.user)) {
 		strlcpy(errmsg,
 			"running configuration is locked by another client",
 			errmsg_len);
@@ -1708,7 +1708,7 @@ static int nb_transaction_process(enum nb_event event,
 			break;
 
 		/* Call the appropriate callback. */
-		ret = nb_callback_configuration(transaction->context, event,
+		ret = nb_callback_configuration(&transaction->context, event,
 						change, errmsg, errmsg_len);
 		switch (event) {
 		case NB_EV_PREPARE:
@@ -1823,7 +1823,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
 	RB_FOREACH (cb, nb_config_cbs, &cbs)
-		nb_callback_apply_finish(transaction->context, cb->nb_node,
+		nb_callback_apply_finish(&transaction->context, cb->nb_node,
 					 cb->dnode, errmsg, errmsg_len);
 
 	/* Release memory. */

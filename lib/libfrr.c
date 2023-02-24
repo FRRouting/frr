@@ -992,7 +992,7 @@ static void frr_config_read_in(struct thread *t)
 		int ret;
 
 		context.client = NB_CLIENT_CLI;
-		ret = nb_candidate_commit(&context, vty_shared_candidate_config,
+		ret = nb_candidate_commit(context, vty_shared_candidate_config,
 					  true, "Read configuration file", NULL,
 					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)

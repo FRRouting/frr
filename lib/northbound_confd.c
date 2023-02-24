@@ -311,7 +311,7 @@ static void frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	 */
 	transaction = NULL;
 	context.client = NB_CLIENT_CONFD;
-	ret = nb_candidate_commit_prepare(&context, candidate, NULL,
+	ret = nb_candidate_commit_prepare(context, candidate, NULL,
 					  &transaction, false, false, errmsg,
 					  sizeof(errmsg));
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
