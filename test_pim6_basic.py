@@ -53,6 +53,7 @@ class Configs(FRRConfigs):
     pim6d = """
     #% extends "boilerplate.conf"
     #% block main
+    debug mld
     #%   if router.name in ['r1', 'r2']
     interface lo
      ipv6 pim
