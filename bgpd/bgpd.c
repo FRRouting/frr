@@ -6313,8 +6313,11 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	    && old_replace_as == replace_as)
 		return 0;
 	peer->change_local_as = as;
-	if (as_str)
+	if (as_str) {
+		if (peer->change_local_as_pretty)
+			XFREE(MTYPE_BGP, peer->change_local_as_pretty);
 		peer->change_local_as_pretty = XSTRDUP(MTYPE_BGP, as_str);
+	}
 
 	(void)peer_sort(peer);
 
