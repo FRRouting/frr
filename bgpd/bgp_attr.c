@@ -4312,7 +4312,6 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			 * if the peer belongs to us.
 			 */
 			if (bgp_confederation_peers_check(bgp, peer->as)) {
-				aspath = aspath_dup(attr->aspath);
 				aspath = aspath_add_confed_seq(aspath,
 							       peer->local_as);
 			} else {
