@@ -1685,6 +1685,13 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->v_keepalive = peer->bgp->default_keepalive;
 	}
 
+	/* If another side disabled sending Software Version capability,
+	 * we MUST drop the previous from showing in the outputs to avoid
+	 * stale information and due to security reasons.
+	 */
+	if (peer->soft_version)
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+
 	/* Open option part parse. */
 	if (optlen != 0) {
 		if (bgp_open_option_parse(peer, optlen, &mp_capability) < 0)

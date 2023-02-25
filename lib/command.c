@@ -127,6 +127,11 @@ bool cmd_allow_reserved_ranges_get(void)
 	return host.allow_reserved_ranges;
 }
 
+const char *cmd_software_version_get(void)
+{
+	return FRR_FULL_NAME "/" FRR_VERSION;
+}
+
 static int root_on_exit(struct vty *vty);
 
 /* Standard command node structures. */

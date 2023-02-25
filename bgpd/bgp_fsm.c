@@ -297,6 +297,15 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		from_peer->domainname = NULL;
 	}
 
+	if (peer->soft_version) {
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+		peer->soft_version = NULL;
+	}
+	if (from_peer->soft_version) {
+		peer->soft_version = from_peer->soft_version;
+		from_peer->soft_version = NULL;
+	}
+
 	FOREACH_AFI_SAFI (afi, safi) {
 		peer->af_sflags[afi][safi] = from_peer->af_sflags[afi][safi];
 		peer->af_cap[afi][safi] = from_peer->af_cap[afi][safi];

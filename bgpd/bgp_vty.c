@@ -5575,6 +5575,30 @@ DEFUN (no_neighbor_capability_enhe,
 				   PEER_FLAG_CAPABILITY_ENHE);
 }
 
+/* neighbor capability software-version */
+DEFPY(neighbor_capability_software_version,
+      neighbor_capability_software_version_cmd,
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability software-version",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Advertise capability to the peer\n"
+      "Advertise Software Version capability to the peer\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (peer && peer->conf_if)
+		return CMD_SUCCESS;
+
+	if (no)
+		return peer_flag_unset_vty(vty, neighbor,
+					   PEER_FLAG_CAPABILITY_SOFT_VERSION);
+	else
+		return peer_flag_set_vty(vty, neighbor,
+					 PEER_FLAG_CAPABILITY_SOFT_VERSION);
+}
+
 static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
 				   afi_t afi, safi_t safi, uint32_t flag,
 				   int set)
@@ -10833,6 +10857,9 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 				       peer_down_str[(int)peer->last_reset]);
 		json_object_int_add(json_peer, "lastResetCode",
 				    peer->last_reset);
+		json_object_string_add(json_peer, "softwareVersion",
+				       peer->soft_version ? peer->soft_version
+							  : "n/a");
 	} else {
 		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND
 		    || peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
@@ -10851,8 +10878,10 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 						  BGP_NOTIFY_CEASE_HARD_RESET)
 					: "");
 		} else {
-			vty_out(vty, " %s\n",
-				peer_down_str[(int)peer->last_reset]);
+			vty_out(vty, "  %s (%s)\n",
+				peer_down_str[(int)peer->last_reset],
+				peer->soft_version ? peer->soft_version
+						   : "n/a");
 		}
 	}
 }
@@ -13852,6 +13881,27 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_object_add(json_cap, "hostName",
 					       json_hname);
 
+			/* Software Version capability */
+			json_object *json_soft_version = NULL;
+
+			json_soft_version = json_object_new_object();
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_SOFT_VERSION_ADV))
+				json_object_string_add(
+					json_soft_version,
+					"advertisedSoftwareVersion",
+					cmd_software_version_get());
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_SOFT_VERSION_RCV))
+				json_object_string_add(
+					json_soft_version,
+					"receivedSoftwareVersion",
+					p->soft_version ? p->soft_version
+							: "n/a");
+
+			json_object_object_add(json_cap, "softwareVersion",
+					       json_soft_version);
+
 			/* Graceful Restart */
 			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
 			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
@@ -14224,6 +14274,25 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			} else {
 				vty_out(vty, " not received");
 			}
+
+			vty_out(vty, "\n");
+
+			/* Software Version capability */
+			vty_out(vty, "    Version Capability:");
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_SOFT_VERSION_ADV)) {
+				vty_out(vty,
+					" advertised software version (%s)",
+					cmd_software_version_get());
+			} else
+				vty_out(vty, " not advertised");
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_SOFT_VERSION_RCV)) {
+				vty_out(vty, " received software version (%s)",
+					p->soft_version ? p->soft_version
+							: "n/a");
+			} else
+				vty_out(vty, " not received");
 
 			vty_out(vty, "\n");
 
@@ -16967,7 +17036,7 @@ static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 
 /* peer-group helpers for config-write */
 
-static bool peergroup_flag_check(struct peer *peer, uint64_t flag)
+bool peergroup_flag_check(struct peer *peer, uint64_t flag)
 {
 	if (!peer_group_active(peer)) {
 		if (CHECK_FLAG(peer->flags_invert, flag))
@@ -17506,6 +17575,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				" neighbor %s capability extended-nexthop\n",
 				addr);
 	}
+
+	/* capability software-version */
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION))
+		vty_out(vty, " neighbor %s capability software-version\n",
+			addr);
 
 	/* dont-capability-negotiation */
 	if (peergroup_flag_check(peer, PEER_FLAG_DONT_CAPABILITY))
@@ -19676,6 +19750,9 @@ void bgp_vty_init(void)
 	/* "neighbor capability extended-nexthop" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_enhe_cmd);
 	install_element(BGP_NODE, &no_neighbor_capability_enhe_cmd);
+
+	/* "neighbor capability software-version" commands.*/
+	install_element(BGP_NODE, &neighbor_capability_software_version_cmd);
 
 	/* "neighbor capability orf prefix-list" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_orf_prefix_hidden_cmd);
