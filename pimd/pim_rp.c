@@ -1066,16 +1066,20 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 	if (rp_info) {
 		pim_addr nht_p;
 
-		/* Register addr with Zebra NHT */
-		nht_p = rp_info->rp.rpf_addr;
-		if (PIM_DEBUG_PIM_NHT_RP)
-			zlog_debug(
-				"%s: NHT Register RP addr %pPA grp %pFX with Zebra",
-				__func__, &nht_p, &rp_info->group);
-		pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
-		pim_rpf_set_refresh_time(pim);
-		(void)pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
-					      nht_p, &rp_info->group, 1);
+		if (!pim_addr_is_any(rp_info->rp.rpf_addr)) {
+			/* Register addr with Zebra NHT */
+			nht_p = rp_info->rp.rpf_addr;
+			if (PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug(
+					"%s: NHT Register RP addr %pPA grp %pFX with Zebra",
+					__func__, &nht_p, &rp_info->group);
+			pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info,
+						  NULL);
+			pim_rpf_set_refresh_time(pim);
+			(void)pim_ecmp_nexthop_lookup(
+				pim, &rp_info->rp.source_nexthop, nht_p,
+				&rp_info->group, 1);
+		}
 		return (&rp_info->rp);
 	}
 
