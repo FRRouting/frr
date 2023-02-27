@@ -2816,7 +2816,7 @@ def get_ospf_database(tgen, topo, dut, input_dict, vrf=None, lsatype=None, rid=N
                                 result = True
                                 break
                             if (
-                                _age is not "get"
+                                _age != "get"
                                 and lsa["lsaAge"]
                                 == show_ospf_json["routerLinkStates"][rtrlsa][
                                     ospf_area
