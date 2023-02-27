@@ -170,10 +170,10 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	 * pim_ifp->pim_neighbor_list.
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
+	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
 
 	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);
-		pim_upstream_nh_if_update(pim_ifp->pim, ifp);
 		pim_if_delete(ifp);
 	}
 
