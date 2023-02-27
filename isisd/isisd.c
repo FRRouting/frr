@@ -3791,7 +3791,8 @@ struct cmd_node router_node = {
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
-#else
+#endif /* ifdef FABRICD */
+#ifndef FABRICD
 /* IS-IS configuration write function */
 static int isis_config_write(struct vty *vty)
 {
@@ -3821,7 +3822,7 @@ struct cmd_node isis_flex_algo_node = {
 	.parent_node = ISIS_NODE,
 	.prompt = "%s(config-router-flex-algo)# ",
 };
-#endif /* ifdef FABRICD */
+#endif /* ifdnef FABRICD */
 
 void isis_init(void)
 {
