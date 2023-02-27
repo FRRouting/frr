@@ -52,6 +52,10 @@ static bool asn_str2asn_internal(const char *asstring, as_t *asn,
 	if  (!isdigit((unsigned char)*p))
 		goto end;
 
+	/* leading zero is forbidden */
+	if (*p == '0' && isdigit((unsigned char)*(p + 1)))
+		goto end;
+
 	temp_val = 0;
 	while (isdigit((unsigned char)*p)) {
 		digit = (*p) - '0';
@@ -65,11 +69,17 @@ static bool asn_str2asn_internal(const char *asstring, as_t *asn,
 	high = (uint32_t)temp_val;
 	if (*p == '.') { /* dot format */
 		p++;
-		temp_val = 0;
+
 		if (*p == '\0' && partial) {
 			*partial = true;
 			goto end;
 		}
+
+		/* leading zero is forbidden */
+		if (*p == '0' && isdigit((unsigned char)*(p + 1)))
+			goto end;
+
+		temp_val = 0;
 		while (isdigit((unsigned char)*p)) {
 			digit = (*p) - '0';
 			temp_val *= 10;
