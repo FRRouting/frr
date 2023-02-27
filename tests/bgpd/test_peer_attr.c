@@ -176,9 +176,9 @@ struct test_peer_attr {
 
 	enum test_peer_attr_type type;
 	union {
-		uint32_t flag;
+		uint64_t flag;
 		struct {
-			uint32_t flag;
+			uint64_t flag;
 			size_t direct;
 		} filter;
 	} u;
@@ -640,6 +640,14 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.u.flag = PEER_FLAG_WEIGHT,
 		.handlers[0] = TEST_HANDLER(weight),
 	},
+	{
+		.cmd = "accept-own",
+		.peer_cmd = "accept-own",
+		.group_cmd = "accept-own",
+		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
+		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
+		.u.flag = PEER_FLAG_ACCEPT_OWN,
+	},
 	{NULL}
 };
 /* clang-format on */
@@ -651,21 +659,14 @@ static const char *str_from_afi(afi_t afi)
 		return "ipv4";
 	case AFI_IP6:
 		return "ipv6";
-	default:
-		return "<unknown AFI>";
+	case AFI_L2VPN:
+		return "l2vpn";
+	case AFI_MAX:
+	case AFI_UNSPEC:
+		return "bad-value";
 	}
-}
 
-static const char *str_from_safi(safi_t safi)
-{
-	switch (safi) {
-	case SAFI_UNICAST:
-		return "unicast";
-	case SAFI_MULTICAST:
-		return "multicast";
-	default:
-		return "<unknown SAFI>";
-	}
+	assert(!"Reached end of function we should never reach");
 }
 
 static const char *str_from_attr_type(enum test_peer_attr_type at)
@@ -1151,7 +1152,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 		test_log(test, "prepare: switch address-family to [%s]",
 			 get_afi_safi_str(pa->afi, pa->safi, false));
 		test_execute(test, "address-family %s %s",
-			     str_from_afi(pa->afi), str_from_safi(pa->safi));
+			     str_from_afi(pa->afi), safi2str(pa->safi));
 		test_execute(test, "neighbor %s activate", g->name);
 		test_execute(test, "neighbor %s activate", p->host);
 	}
@@ -1218,7 +1219,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 		test_log(test, "prepare: switch address-family to [%s]",
 			 get_afi_safi_str(pa->afi, pa->safi, false));
 		test_execute(test, "address-family %s %s",
-			     str_from_afi(pa->afi), str_from_safi(pa->safi));
+			     str_from_afi(pa->afi), safi2str(pa->safi));
 		test_execute(test, "neighbor %s activate", g->name);
 		test_execute(test, "neighbor %s activate", p->host);
 	}
@@ -1266,7 +1267,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 		test_log(test, "prepare: switch address-family to [%s]",
 			 get_afi_safi_str(pa->afi, pa->safi, false));
 		test_execute(test, "address-family %s %s",
-			     str_from_afi(pa->afi), str_from_safi(pa->safi));
+			     str_from_afi(pa->afi), safi2str(pa->safi));
 		test_execute(test, "neighbor %s activate", g->name);
 		test_execute(test, "neighbor %s activate", p->host);
 	}
@@ -1465,7 +1466,7 @@ int main(void)
 		if (pa->afi && pa->safi)
 			desc = asprintfrr(MTYPE_TMP, "peer\\%s-%s\\%s",
 					  str_from_afi(pa->afi),
-					  str_from_safi(pa->safi), pa->cmd);
+					  safi2str(pa->safi), pa->cmd);
 		else
 			desc = asprintfrr(MTYPE_TMP, "peer\\%s", pa->cmd);
 
