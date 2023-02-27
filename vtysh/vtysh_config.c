@@ -682,11 +682,21 @@ int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
 
 		/* parent, wait for children */
 		if (fork_pid != 0) {
+			int keep_status = 0;
+
 			fprintf(stdout,
 				"Waiting for children to finish applying config...\n");
-			while (wait(&status) > 0)
-				;
-			return 0;
+			while (wait(&status) > 0) {
+				if (!keep_status && WEXITSTATUS(status))
+					keep_status = WEXITSTATUS(status);
+			}
+
+			/*
+			 * This will return the first status received
+			 * that failed( if that happens ).  This is
+			 * good enough for the moment
+			 */
+			return keep_status;
 		}
 
 		/*
