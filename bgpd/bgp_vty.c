@@ -8795,7 +8795,7 @@ DEFPY(neighbor_path_attribute_discard,
 {
 	struct peer *peer;
 	int idx = 0;
-	const char *discard_attrs = NULL;
+	char *discard_attrs = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -8806,6 +8806,8 @@ DEFPY(neighbor_path_attribute_discard,
 		discard_attrs = argv_concat(argv, argc, idx);
 
 	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, true);
+
+	XFREE(MTYPE_TMP, discard_attrs);
 
 	return CMD_SUCCESS;
 }
@@ -8822,7 +8824,7 @@ DEFPY(no_neighbor_path_attribute_discard,
 {
 	struct peer *peer;
 	int idx = 0;
-	const char *discard_attrs = NULL;
+	char *discard_attrs = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -8834,9 +8836,71 @@ DEFPY(no_neighbor_path_attribute_discard,
 
 	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, false);
 
+	XFREE(MTYPE_TMP, discard_attrs);
+
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(neighbor_path_attribute_treat_as_withdraw,
+      neighbor_path_attribute_treat_as_withdraw_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	char *withdraw_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		withdraw_attrs = argv_concat(argv, argc, idx);
+
+	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, true);
+
+	XFREE(MTYPE_TMP, withdraw_attrs);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
+      no_neighbor_path_attribute_treat_as_withdraw_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor path-attribute treat-as-withdraw (1-255)...",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Manipulate path attributes from incoming UPDATE messages\n"
+      "Treat-as-withdraw any incoming BGP UPDATE messages that contain the specified attribute\n"
+      "Attribute number\n")
+{
+	struct peer *peer;
+	int idx = 0;
+	char *withdraw_attrs = NULL;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	argv_find(argv, argc, "(1-255)", &idx);
+	if (idx)
+		withdraw_attrs = argv_concat(argv, argc, idx);
+
+	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, false);
+
+	XFREE(MTYPE_TMP, withdraw_attrs);
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 14da03c5c (bgpd: Free temporary memory after using argv_concat())
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6)
 {
