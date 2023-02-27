@@ -282,7 +282,7 @@ int main(int argc, char **argv, char **envp)
 #endif /* FABRICD */
 #ifndef FABRICD
 	isis_cli_init();
-#endif /* ifdef FABRICD */
+#endif /* ifndef FABRICD */
 	isis_spf_init();
 	isis_redist_init();
 	isis_route_map_init();
