@@ -8893,7 +8893,7 @@ DEFPY(neighbor_path_attribute_discard,
 {
 	struct peer *peer;
 	int idx = 0;
-	const char *discard_attrs = NULL;
+	char *discard_attrs = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -8904,6 +8904,8 @@ DEFPY(neighbor_path_attribute_discard,
 		discard_attrs = argv_concat(argv, argc, idx);
 
 	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, true);
+
+	XFREE(MTYPE_TMP, discard_attrs);
 
 	return CMD_SUCCESS;
 }
@@ -8920,7 +8922,7 @@ DEFPY(no_neighbor_path_attribute_discard,
 {
 	struct peer *peer;
 	int idx = 0;
-	const char *discard_attrs = NULL;
+	char *discard_attrs = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -8931,6 +8933,8 @@ DEFPY(no_neighbor_path_attribute_discard,
 		discard_attrs = argv[idx]->arg;
 
 	bgp_path_attribute_discard_vty(vty, peer, discard_attrs, false);
+
+	XFREE(MTYPE_TMP, discard_attrs);
 
 	return CMD_SUCCESS;
 }
@@ -8946,7 +8950,7 @@ DEFPY(neighbor_path_attribute_treat_as_withdraw,
 {
 	struct peer *peer;
 	int idx = 0;
-	const char *withdraw_attrs = NULL;
+	char *withdraw_attrs = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -8957,6 +8961,8 @@ DEFPY(neighbor_path_attribute_treat_as_withdraw,
 		withdraw_attrs = argv_concat(argv, argc, idx);
 
 	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, true);
+
+	XFREE(MTYPE_TMP, withdraw_attrs);
 
 	return CMD_SUCCESS;
 }
@@ -8973,7 +8979,7 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 {
 	struct peer *peer;
 	int idx = 0;
-	const char *withdraw_attrs = NULL;
+	char *withdraw_attrs = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -8984,6 +8990,8 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 		withdraw_attrs = argv_concat(argv, argc, idx);
 
 	bgp_path_attribute_withdraw_vty(vty, peer, withdraw_attrs, false);
+
+	XFREE(MTYPE_TMP, withdraw_attrs);
 
 	return CMD_SUCCESS;
 }
