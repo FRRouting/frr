@@ -17,6 +17,7 @@
  */
 #define LP_TYPE_VRF	0x00000001
 #define LP_TYPE_BGP_LU	0x00000002
+#define LP_TYPE_NEXTHOP 0x00000003
 
 PREDECL_LIST(lp_fifo);
 
