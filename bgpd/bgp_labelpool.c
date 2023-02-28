@@ -23,6 +23,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_zebra.h"
 
 #define BGP_LABELPOOL_ENABLE_TESTS 0
 
@@ -1557,4 +1558,58 @@ void bgp_lp_vty_init(void)
 	install_element(ENABLE_NODE, &release_labelpool_perf_test_cmd);
 	install_element(ENABLE_NODE, &clear_labelpool_perf_test_cmd);
 #endif /* BGP_LABELPOOL_ENABLE_TESTS */
+}
+
+DEFINE_MTYPE_STATIC(BGPD, LABEL_PER_NEXTHOP_CACHE,
+		    "BGP Label Per Nexthop entry");
+
+/* The nexthops values are compared to
+ * find in the tree the appropriate cache entry
+ */
+int bgp_label_per_nexthop_cache_cmp(const struct bgp_label_per_nexthop_cache *a,
+				    const struct bgp_label_per_nexthop_cache *b)
+{
+	return prefix_cmp(&a->nexthop, &b->nexthop);
+}
+
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_new(struct bgp_label_per_nexthop_cache_head *tree,
+			  struct prefix *nexthop)
+{
+	struct bgp_label_per_nexthop_cache *blnc;
+
+	blnc = XCALLOC(MTYPE_LABEL_PER_NEXTHOP_CACHE,
+		       sizeof(struct bgp_label_per_nexthop_cache));
+	blnc->tree = tree;
+	blnc->label = MPLS_INVALID_LABEL;
+	prefix_copy(&blnc->nexthop, nexthop);
+	LIST_INIT(&(blnc->paths));
+	bgp_label_per_nexthop_cache_add(tree, blnc);
+
+	return blnc;
+}
+
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
+			   struct prefix *nexthop)
+{
+	struct bgp_label_per_nexthop_cache blnc = {};
+
+	if (!tree)
+		return NULL;
+
+	memcpy(&blnc.nexthop, nexthop, sizeof(struct prefix));
+	return bgp_label_per_nexthop_cache_find(tree, &blnc);
+}
+
+void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
+{
+	if (blnc->label != MPLS_INVALID_LABEL) {
+		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
+					     blnc->label, ZEBRA_LSP_BGP,
+					     &blnc->nexthop);
+		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
+	}
+	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
+	XFREE(MTYPE_LABEL_PER_NEXTHOP_CACHE, blnc);
 }
