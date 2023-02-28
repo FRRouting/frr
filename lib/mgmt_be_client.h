@@ -25,10 +25,8 @@ extern "C" {
 enum mgmt_be_client_id {
 	MGMTD_BE_CLIENT_ID_MIN = 0,
 	MGMTD_BE_CLIENT_ID_INIT = -1,
-#if 0 /* example */
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
-#endif
 #endif
 	MGMTD_BE_CLIENT_ID_MAX
 };

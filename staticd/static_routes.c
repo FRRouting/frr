@@ -757,30 +757,6 @@ void static_ifindex_update(struct interface *ifp, bool up)
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_MULTICAST);
 }
 
-void static_get_nh_type(enum static_nh_type stype, char *type, size_t size)
-{
-	switch (stype) {
-	case STATIC_IFNAME:
-		strlcpy(type, "ifindex", size);
-		break;
-	case STATIC_IPV4_GATEWAY:
-		strlcpy(type, "ip4", size);
-		break;
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		strlcpy(type, "ip4-ifindex", size);
-		break;
-	case STATIC_BLACKHOLE:
-		strlcpy(type, "blackhole", size);
-		break;
-	case STATIC_IPV6_GATEWAY:
-		strlcpy(type, "ip6", size);
-		break;
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		strlcpy(type, "ip6-ifindex", size);
-		break;
-	};
-}
-
 struct stable_info *static_get_stable_info(struct route_node *rn)
 {
 	struct route_table *table;

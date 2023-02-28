@@ -447,11 +447,9 @@ void mgmt_vty_init(void)
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
-#if 0
 #if HAVE_STATICD
 	extern void static_vty_init(void);
 	static_vty_init();
-#endif
 #endif
 
 	install_node(&debug_node);

@@ -146,10 +146,8 @@ static bool mgmt_debug_be_client;
 static struct mgmt_be_client_ctx mgmt_be_client_ctx = {0};
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
-#if 0
 #ifdef HAVE_STATICD
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
-#endif
 #endif
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
