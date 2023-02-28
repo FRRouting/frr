@@ -95,7 +95,7 @@ March/July/November.  Walking backwards from this date:
    are considered lowest priority (regardless of when they were opened.)
 
  - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and tagged as ```base_X.Y``.
+   ``dev/MAJOR.MINOR`` at this point) and tagged as ``base_X.Y``.
    Master is unfrozen and new features may again proceed.
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
