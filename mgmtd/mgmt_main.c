@@ -16,6 +16,7 @@
 #include "mgmtd/mgmt_ds.h"
 #include "routing_nb.h"
 
+
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},
@@ -195,6 +196,17 @@ static void mgmt_vrf_terminate(void)
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_info,  &frr_interface_info, &frr_route_map_info,
 	&frr_routing_info, &frr_vrf_info,
+/*
+ * YANG module info supported by backend clients get added here.
+ * NOTE: Always set .ignore_cbs true for to avoid validating
+ * backend northbound callbacks during loading.
+ */
+#if 0
+#ifdef HAVE_STATICD
+	&(struct frr_yang_module_info){.name = "frr-staticd",
+				       .ignore_cbs = true},
+#endif
+#endif
 };
 
 FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
