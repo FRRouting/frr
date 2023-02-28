@@ -31,6 +31,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -118,6 +119,8 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 
 		while (!LIST_EMPTY(&(bnc->paths))) {
 			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
+
+			bgp_mplsvpn_path_nh_label_unlink(path);
 
 			path_nh_map(path, bnc, false);
 		}
