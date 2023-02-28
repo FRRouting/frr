@@ -25,7 +25,6 @@
 #include "lib/frr_pthread.h"
 #include "lib/frratomic.h"
 #include "lib/frrstr.h"
-#include "lib/getopt.h"
 #include "lib/graph.h"
 #include "lib/hash.h"
 #include "lib/hook.h"

@@ -6,11 +6,12 @@
  */
 #include <zebra.h>
 
+#include <getopt.h>
+
 #include <lib/version.h>
 
 #include "lib/command.h"
 #include "lib/filter.h"
-#include "lib/getopt.h"
 #include "lib/if.h"
 #include "lib/libfrr.h"
 #include "lib/log.h"
