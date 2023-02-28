@@ -7638,9 +7638,11 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	/* If the bgp instance is being deleted or self peer is deleted
 	 * then do not create aggregate route
 	 */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
-	    || (bgp->peer_self == NULL))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
+	    (bgp->peer_self == NULL)) {
+		bgp_aggregate_free(aggregate);
 		return;
+	}
 
 	/* Initialize and test routes for MED difference. */
 	if (aggregate->match_med)
