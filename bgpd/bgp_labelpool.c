@@ -830,6 +830,16 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 					lcb->label);
 
 			break;
+		case LP_TYPE_NEXTHOP:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "nexthop");
+				json_object_int_add(json_elem, "label",
+						    lcb->label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "nexthop",
+					lcb->label);
+			break;
 		}
 	}
 	if (uj)
@@ -919,6 +929,15 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 				vty_out(vty, "%-18s         %u\n", "VRF",
 					label);
 			break;
+		case LP_TYPE_NEXTHOP:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "nexthop");
+				json_object_int_add(json_elem, "label", label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "nexthop",
+					label);
+			break;
 		}
 	}
 	if (uj)
@@ -990,6 +1009,13 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 						       "VRF");
 			else
 				vty_out(vty, "VRF\n");
+			break;
+		case LP_TYPE_NEXTHOP:
+			if (uj)
+				json_object_string_add(json_elem, "prefix",
+						       "nexthop");
+			else
+				vty_out(vty, "Nexthop\n");
 			break;
 		}
 	}
