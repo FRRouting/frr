@@ -574,6 +574,10 @@ struct bgp {
 	/* Allocate MPLS labels */
 	uint8_t allocate_mpls_labels[AFI_MAX][SAFI_MAX];
 
+	/* Tree for next-hop lookup cache. */
+	struct bgp_label_per_nexthop_cache_head
+		mpls_labels_per_nexthop[AFI_MAX];
+
 	/* Allocate hash entries to store policy routing information
 	 * The hash are used to host pbr rules somewhere.
 	 * Actually, pbr will only be used by flowspec

@@ -42,4 +42,47 @@ extern void bgp_lp_event_zebra_down(void);
 extern void bgp_lp_event_zebra_up(void);
 extern void bgp_lp_vty_init(void);
 
+struct bgp_label_per_nexthop_cache;
+PREDECL_RBTREE_UNIQ(bgp_label_per_nexthop_cache);
+
+extern int
+bgp_label_per_nexthop_cache_cmp(const struct bgp_label_per_nexthop_cache *a,
+				const struct bgp_label_per_nexthop_cache *b);
+
+struct bgp_label_per_nexthop_cache {
+
+	/* RB-tree entry. */
+	struct bgp_label_per_nexthop_cache_item entry;
+
+	/* the nexthop is the key of the list */
+	struct prefix nexthop;
+
+	/* calculated label */
+	mpls_label_t label;
+
+	/* number of path_vrfs */
+	unsigned int path_count;
+
+	/* back pointer to bgp instance */
+	struct bgp *to_bgp;
+
+	/* list of path_vrfs using it */
+	LIST_HEAD(path_lists, bgp_path_info) paths;
+
+	/* Back pointer to the cache tree this entry belongs to. */
+	struct bgp_label_per_nexthop_cache_head *tree;
+};
+
+DECLARE_RBTREE_UNIQ(bgp_label_per_nexthop_cache,
+		    struct bgp_label_per_nexthop_cache, entry,
+		    bgp_label_per_nexthop_cache_cmp);
+
+void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc);
+
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_new(struct bgp_label_per_nexthop_cache_head *tree,
+			  struct prefix *nexthop);
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
+			   struct prefix *nexthop);
 #endif /* _FRR_BGP_LABELPOOL_H */
