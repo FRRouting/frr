@@ -1178,6 +1178,13 @@ module frr-isisd {
           "RFC6232";
       }
 
+      leaf advertise-passive-only {
+        type boolean;
+        default "false";
+        description
+          "Advertise prefixes of passive interfaces only";
+      }
+
       container lsp {
         description
           "Configuration of Link-State Packets (LSP) parameters";

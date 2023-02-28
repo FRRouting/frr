@@ -173,6 +173,8 @@ struct isis_area {
 	bool overload_configured;
 	uint32_t overload_counter;
 	uint32_t overload_on_startup_time;
+	/* advertise prefixes of passive interfaces only? */
+	bool advertise_passive_only;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;

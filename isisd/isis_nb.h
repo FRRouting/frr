@@ -29,6 +29,7 @@ int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
+int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_1_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_2_modify(
@@ -473,6 +474,9 @@ void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_advertise_passive_only(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
 void cli_show_isis_spf_min_interval(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults);

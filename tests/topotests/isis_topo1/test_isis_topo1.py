@@ -520,6 +520,67 @@ def test_isis_overload_on_startup_override_timer():
     check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
 
 
+def test_isis_advertise_passive_only():
+    """Check that we only advertise prefixes of passive interfaces when advertise-passive-only is enabled."""
+    tgen = get_topogen()
+    net = get_topogen().net
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing isis advertise-passive-only behavior")
+    expected_prefixes_no_advertise_passive_only = set(
+        ["10.0.20.0/24", "10.254.0.1/32", "2001:db8:f::1/128", "2001:db8:1:1::/64"]
+    )
+    expected_prefixes_advertise_passive_only = set(
+        ["10.254.0.1/32", "2001:db8:f::1/128"]
+    )
+    lsp_id = "r1.00-00"
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        configure
+        router isis 1
+         no redistribute ipv4 connected level-2
+         no redistribute ipv6 connected level-2
+        interface lo
+         ip router isis 1
+         ipv6 router isis 1
+         isis passive
+        end
+        """
+    )
+
+    result = check_advertised_prefixes(
+        r1, lsp_id, expected_prefixes_no_advertise_passive_only
+    )
+    assert result is True, result
+
+    r1.vtysh_cmd(
+        """
+        configure
+        router isis 1
+         advertise-passive-only
+        end
+        """
+    )
+
+    result = check_advertised_prefixes(
+        r1, lsp_id, expected_prefixes_advertise_passive_only
+    )
+    assert result is True, result
+
+
+@retry(retry_timeout=5)
+def check_advertised_prefixes(router, lsp_id, expected_prefixes):
+    output = router.vtysh_cmd("show isis database detail {}".format(lsp_id))
+    prefixes = set(re.findall(r"IP(?:v6)? Reachability: (.*) \(Metric: 10\)", output))
+    if prefixes == expected_prefixes:
+        return True
+    return str({"expected_prefixes:": expected_prefixes, "prefixes": prefixes})
+
+
 @retry(retry_timeout=200)
 def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
     "Verfiy overload bit in router's LSP"

@@ -103,6 +103,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/advertise-passive-only",
+			.cbs = {
+				.cli_show = cli_show_advertise_passive_only,
+				.modify = isis_instance_advertise_passive_only_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/lsp/timers",
 			.cbs = {
 				.cli_show = cli_show_isis_lsp_timers,

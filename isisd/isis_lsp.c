@@ -1171,6 +1171,13 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			continue;
 		}
 
+		if (area->advertise_passive_only && !circuit->is_passive) {
+			lsp_debug(
+				"ISIS (%s): Circuit is not passive, ignoring.",
+				area->area_tag);
+			continue;
+		}
+
 		uint32_t metric = area->oldmetric
 					  ? circuit->metric[level - 1]
 					  : circuit->te_metric[level - 1];

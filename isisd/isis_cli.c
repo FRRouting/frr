@@ -892,6 +892,29 @@ void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/advertise-passive-only
+ */
+DEFPY_YANG(advertise_passive_only, advertise_passive_only_cmd,
+	   "[no] advertise-passive-only",
+	   NO_STR "Advertise prefixes of passive interfaces only\n")
+{
+	nb_cli_enqueue_change(vty, "./advertise-passive-only", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_advertise_passive_only(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " advertise-passive-only\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/spf/minimum-interval
  */
 DEFPY_YANG(spf_interval, spf_interval_cmd,
@@ -3151,6 +3174,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_lsp_timers_cmd);
 	install_element(ISIS_NODE, &area_lsp_mtu_cmd);
 	install_element(ISIS_NODE, &no_area_lsp_mtu_cmd);
+	install_element(ISIS_NODE, &advertise_passive_only_cmd);
 
 	install_element(ISIS_NODE, &spf_interval_cmd);
 	install_element(ISIS_NODE, &no_spf_interval_cmd);
