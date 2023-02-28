@@ -269,7 +269,8 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	 * required to apply them.
 	 */
 	ret = nb_candidate_commit_prepare(context, candidate, NULL,
-					  &transaction, errmsg, sizeof(errmsg));
+					  &transaction, false, false, errmsg,
+					  sizeof(errmsg));
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
 		flog_warn(
 			EC_LIB_LIBSYSREPO,
