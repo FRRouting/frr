@@ -60,3 +60,9 @@ mgmtd_mgmtd_SOURCES = \
 mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
 mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
 mgmtd_mgmtd_LDADD += mgmtd/libmgmt_be_nb.la
+
+if STATICD
+$(mgmtd_mgmtd_OBJECTS): yang/frr-staticd.yang.c
+CLEANFILES += yang/frr-staticd.yang.c
+nodist_mgmtd_libmgmt_be_nb_la_SOURCES += staticd/static_vty.c
+endif

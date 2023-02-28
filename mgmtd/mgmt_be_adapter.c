@@ -78,19 +78,15 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 	{.xpath_regexp = "/frr-vrf:lib/*",
 	 .be_clients =
 		 (enum mgmt_be_client_id[]){
-#if 0
 #if HAVE_STATICD
 		 MGMTD_BE_CLIENT_ID_STATICD,
-#endif
 #endif
 			 MGMTD_BE_CLIENT_ID_MAX}},
 	{.xpath_regexp = "/frr-interface:lib/*",
 	 .be_clients =
 		 (enum mgmt_be_client_id[]){
-#if 0
 #if HAVE_STATICD
 		 MGMTD_BE_CLIENT_ID_STATICD,
-#endif
 #endif
 			 MGMTD_BE_CLIENT_ID_MAX}},
 	{.xpath_regexp =
@@ -98,10 +94,8 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 
 	 .be_clients =
 		 (enum mgmt_be_client_id[]){
-#if 0
 #if HAVE_STATICD
 		 MGMTD_BE_CLIENT_ID_STATICD,
-#endif
 #endif
 			 MGMTD_BE_CLIENT_ID_MAX}},
 };

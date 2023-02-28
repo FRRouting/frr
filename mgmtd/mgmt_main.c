@@ -201,11 +201,9 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
  * NOTE: Always set .ignore_cbs true for to avoid validating
  * backend northbound callbacks during loading.
  */
-#if 0
 #ifdef HAVE_STATICD
 	&(struct frr_yang_module_info){.name = "frr-staticd",
 				       .ignore_cbs = true},
-#endif
 #endif
 };
 
