@@ -1364,6 +1364,10 @@ int lsp_generate(struct isis_area *area, int level)
 	if ((area == NULL) || (area->is_type & level) != level)
 		return ISIS_ERROR;
 
+	/* Check if config is still being processed */
+	if (thread_is_scheduled(t_isis_cfg))
+		return ISIS_OK;
+
 	memset(&lspid, 0, ISIS_SYS_ID_LEN + 2);
 
 	memcpy(&lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
