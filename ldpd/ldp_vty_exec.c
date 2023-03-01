@@ -422,10 +422,10 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
 		vty_out (vty, "Local:\n");
 		vty_out (vty, "  LSR Id: %pI4:0\n",&rtr_id);
-		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
+		if (CHECK_FLAG(ldpd_conf->ipv4.flags, F_LDPD_AF_ENABLED))
 			vty_out (vty, "  Transport Address (IPv4): %s\n",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
-		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
+		if (CHECK_FLAG(ldpd_conf->ipv6.flags, F_LDPD_AF_ENABLED))
 			vty_out (vty, "  Transport Address (IPv6): %s\n",
 			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr));
 		vty_out (vty, "Discovery Sources:\n");
@@ -538,10 +538,10 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	case IMSG_CTL_SHOW_DISCOVERY:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
 		json_object_string_addf(json, "lsrId", "%pI4", &rtr_id);
-		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
+		if (CHECK_FLAG(ldpd_conf->ipv4.flags, F_LDPD_AF_ENABLED))
 			json_object_string_add(json, "transportAddressIPv4",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
-		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
+		if (CHECK_FLAG(ldpd_conf->ipv6.flags, F_LDPD_AF_ENABLED))
 			json_object_string_add(json, "transportAddressIPv6",
 			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr));
 		json_interfaces = json_object_new_object();
@@ -982,11 +982,11 @@ show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
 	    "   - Typed Wildcard (0x050B)\n"
 	    "   - Unrecognized Notification (0x0603)\n");
 	vty_out (vty, "  Capabilities Received:\n");
-	if (nbr->flags & F_NBR_CAP_DYNAMIC)
+	if (CHECK_FLAG(nbr->flags, F_NBR_CAP_DYNAMIC))
 		vty_out (vty,"   - Dynamic Announcement (0x0506)\n");
-	if (nbr->flags & F_NBR_CAP_TWCARD)
+	if (CHECK_FLAG(nbr->flags, F_NBR_CAP_TWCARD))
 		vty_out (vty, "   - Typed Wildcard (0x050B)\n");
-	if (nbr->flags & F_NBR_CAP_UNOTIF)
+	if (CHECK_FLAG(nbr->flags, F_NBR_CAP_UNOTIF))
 		vty_out (vty,"   - Unrecognized Notification (0x0603)\n");
 }
 
@@ -1051,7 +1051,7 @@ show_nbr_capabilities_json(struct ctl_nbr *nbr, json_object *json_nbr)
 	json_object_object_add(json_nbr, "receivedCapabilities", json_array);
 
 	/* Dynamic Announcement (0x0506) */
-	if (nbr->flags & F_NBR_CAP_DYNAMIC) {
+	if (CHECK_FLAG(nbr->flags, F_NBR_CAP_DYNAMIC)) {
 		json_cap = json_object_new_object();
 		json_object_string_add(json_cap, "description",
 		    "Dynamic Announcement");
@@ -1060,7 +1060,7 @@ show_nbr_capabilities_json(struct ctl_nbr *nbr, json_object *json_nbr)
 	}
 
 	/* Typed Wildcard (0x050B) */
-	if (nbr->flags & F_NBR_CAP_TWCARD) {
+	if (CHECK_FLAG(nbr->flags, F_NBR_CAP_TWCARD)) {
 		json_cap = json_object_new_object();
 		json_object_string_add(json_cap, "description",
 		    "Typed Wildcard");
@@ -1069,7 +1069,7 @@ show_nbr_capabilities_json(struct ctl_nbr *nbr, json_object *json_nbr)
 	}
 
 	/* Unrecognized Notification (0x0603) */
-	if (nbr->flags & F_NBR_CAP_UNOTIF) {
+	if (CHECK_FLAG(nbr->flags, F_NBR_CAP_UNOTIF)) {
 		json_cap = json_object_new_object();
 		json_object_string_add(json_cap, "description",
 		    "Unrecognized Notification");
