@@ -520,6 +520,28 @@ def test_isis_overload_on_startup_override_timer():
     check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
 
 
+def test_config_load_non_integrated():
+    tgen = get_topogen()
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        f"""
+          configure
+            router isis 1
+              set-overload-bit
+        """
+    )
+
+    # Restart r3
+    stop_router(tgen, "r3")
+    start_router(tgen, "r3")
+
+    # Check that the overload bit is set in r3's LSP (without retry)
+    isis_database_output = r3.vtysh_cmd("show isis database r3.00-00 json")
+
+    att_p_ol = json.loads(isis_database_output)["areas"][0]["levels"][1]["att-p-ol"]
+    assert att_p_ol == "0/0/1"
+
+
 def test_isis_advertise_passive_only():
     """Check that we only advertise prefixes of passive interfaces when advertise-passive-only is enabled."""
     tgen = get_topogen()
