@@ -127,6 +127,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 {
 	struct ospf6_area *area;
 	struct listnode *onode, *anode;
+	struct ospf6_route *route;
 
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug("GR: exiting graceful restart: %s", reason);
@@ -161,6 +162,16 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 				OSPF6_NETWORK_LSA_EXECUTE(oi);
 		}
 	}
+
+	/*
+	 * While all self-originated NSSA and AS-external LSAs were already
+	 * learned from the helping neighbors, we need to reoriginate them in
+	 * order to ensure they will be refreshed periodically.
+	 */
+	for (route = ospf6_route_head(ospf6->external_table); route;
+	     route = ospf6_route_next(route))
+		ospf6_handle_external_lsa_origination(ospf6, route,
+						      &route->prefix);
 
 	/*
 	 * 3) The router reruns its OSPF routing calculations, this time
