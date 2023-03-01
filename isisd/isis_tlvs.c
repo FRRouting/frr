@@ -110,6 +110,10 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX];
 static void append_item(struct isis_item_list *dest, struct isis_item *item);
 static void init_item_list(struct isis_item_list *items);
 
+static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent);
+
 /* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
 static const char *isis_mtid2str_fake(uint16_t mtid)
 {
@@ -1994,6 +1998,12 @@ isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 	rv->context = subsubtlvs->context;
 
 	return rv;
+}
+
+static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent)
+{
 }
 
 /* Functions related to subtlvs */
