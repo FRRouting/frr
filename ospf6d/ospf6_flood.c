@@ -1105,9 +1105,12 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					 &new->refresh);
 		}
 
+		/* GR: check for network topology change. */
 		struct ospf6 *ospf6 = from->ospf6_if->area->ospf6;
 		struct ospf6_area *area = from->ospf6_if->area;
-		if (ospf6->gr_info.restart_in_progress)
+		if (ospf6->gr_info.restart_in_progress &&
+		    (new->header->type == ntohs(OSPF6_LSTYPE_ROUTER) ||
+		     new->header->type == ntohs(OSPF6_LSTYPE_NETWORK)))
 			ospf6_gr_check_lsdb_consistency(ospf6, area);
 
 		return;
