@@ -1667,12 +1667,13 @@ static struct ls_vertex *get_vertex(struct ls_ted *ted, struct ospf_lsa *lsa)
 static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 				struct in_addr link_id)
 {
-	uint64_t key;
+	struct ls_edge_key key;
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
 
 	/* Search Edge that corresponds to the Link ID */
-	key = ((uint64_t)ntohl(link_id.s_addr)) & 0xffffffff;
+	key.family = AF_INET;
+	IPV4_ADDR_COPY(&key.k.addr, &link_id);
 	edge = ls_find_edge_by_key(ted, key);
 
 	/* Create new one if not exist */
@@ -2352,7 +2353,7 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_attributes *attr;
 	struct tlv_header *tlvh;
 	struct in_addr addr;
-	uint64_t key = 0;
+	struct ls_edge_key key = {.family = AF_UNSPEC};
 	uint16_t len, sum;
 	uint8_t lsa_id;
 
@@ -2368,12 +2369,13 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	for (tlvh = TLV_DATA(tlvh); sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
 		if (ntohs(tlvh->type) == TE_LINK_SUBTLV_LCLIF_IPADDR) {
 			memcpy(&addr, TLV_DATA(tlvh), TE_LINK_SUBTLV_DEF_SIZE);
-			key = ((uint64_t)ntohl(addr.s_addr)) & 0xffffffff;
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &addr);
 			break;
 		}
 		sum += TLV_SIZE(tlvh);
 	}
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return 0;
 
 	/* Search Edge that corresponds to the Link ID */
@@ -2864,11 +2866,12 @@ static int ospf_te_delete_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_edge *edge;
 	struct ls_attributes *atr;
 	struct ext_tlv_link *ext;
-	uint64_t key;
+	struct ls_edge_key key;
 
 	/* Search for corresponding Edge from Link State Data Base */
 	ext = (struct ext_tlv_link *)TLV_HDR_TOP(lsa->data);
-	key = ((uint64_t)ntohl(ext->link_data.s_addr)) & 0xffffffff;
+	key.family = AF_INET;
+	IPV4_ADDR_COPY(&key.k.addr, &ext->link_data);
 	edge = ls_find_edge_by_key(ted, key);
 
 	/* Check if there is a corresponding Edge */
@@ -4321,6 +4324,7 @@ DEFUN (show_ip_ospf_mpls_te_db,
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	uint64_t key;
+	struct ls_edge_key ekey;
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -4374,8 +4378,9 @@ DEFUN (show_ip_ospf_mpls_te_db,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
-			edge = ls_find_edge_by_key(OspfMplsTE.ted, key);
+			ekey.family = AF_INET;
+			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
+			edge = ls_find_edge_by_key(OspfMplsTE.ted, ekey);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);
