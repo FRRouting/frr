@@ -170,7 +170,7 @@ static void adj_itimer(struct thread *thread)
 	log_debug("%s: lsr-id %pI4", __func__, &adj->lsr_id);
 
 	if (adj->source.type == HELLO_TARGETED) {
-		if (!(adj->source.target->flags & F_TNBR_CONFIGURED) &&
+		if (!CHECK_FLAG(adj->source.target->flags, F_TNBR_CONFIGURED) &&
 		    adj->source.target->pw_count == 0 &&
 		    adj->source.target->rlfa_count == 0) {
 			/* remove dynamic targeted neighbor */
@@ -245,7 +245,7 @@ tnbr_find(struct ldpd_conf *xconf, int af, union ldpd_addr *addr)
 struct tnbr *
 tnbr_check(struct ldpd_conf *xconf, struct tnbr *tnbr)
 {
-	if (!(tnbr->flags & (F_TNBR_CONFIGURED|F_TNBR_DYNAMIC)) &&
+	if (!CHECK_FLAG(tnbr->flags, (F_TNBR_CONFIGURED|F_TNBR_DYNAMIC)) &&
 	    tnbr->pw_count == 0 && tnbr->rlfa_count == 0) {
 		tnbr_del(xconf, tnbr);
 		return (NULL);
