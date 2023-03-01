@@ -154,11 +154,15 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	sg.src = msg->msg_im_src;
 	sg.grp = msg->msg_im_dst;
 
-	if (!pim_ifp) {
+
+	if (!pim_ifp || !pim_ifp->pim_enable) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s: PIM not enabled on interface, dropping packet to %pSG",
-				ifp->name, &sg);
+				"%s: %s on interface, dropping packet to %pSG",
+				ifp->name,
+				!pim_ifp ? "Multicast not enabled"
+					 : "PIM not enabled",
+				&sg);
 		return 0;
 	}
 
