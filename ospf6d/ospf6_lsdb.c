@@ -13,8 +13,10 @@
 #include "vty.h"
 
 #include "ospf6_proto.h"
+#include "ospf6_area.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6_route.h"
 #include "ospf6d.h"
@@ -214,6 +216,31 @@ struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p)
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 				htonl(info->id), ospf6->router_id, ospf6->lsdb);
 	return lsa;
+}
+
+struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
+					      struct ospf6_area *area,
+					      struct prefix *p)
+{
+	struct ospf6_lsa *lsa;
+	uint16_t type = htons(OSPF6_LSTYPE_INTER_PREFIX);
+
+	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, lsa)) {
+		struct ospf6_inter_prefix_lsa *prefix_lsa;
+		struct prefix prefix;
+
+		prefix_lsa =
+			(struct ospf6_inter_prefix_lsa *)OSPF6_LSA_HEADER_END(
+				lsa->header);
+		prefix.family = AF_INET6;
+		prefix.prefixlen = prefix_lsa->prefix.prefix_length;
+		ospf6_prefix_in6_addr(&prefix.u.prefix6, prefix_lsa,
+				      &prefix_lsa->prefix);
+		if (prefix_same(p, &prefix))
+			return lsa;
+	}
+
+	return NULL;
 }
 
 struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
