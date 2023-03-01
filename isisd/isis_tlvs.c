@@ -2009,6 +2009,12 @@ static void format_subsubtlv_srv6_sid_structure(
 	}
 }
 
+static void free_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct)
+{
+	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
