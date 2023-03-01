@@ -1546,8 +1546,10 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
-		pim_if_new(pim->regiface, false, false, true,
-			false /*vxlan_term*/);
+		if (!pim->regiface->info)
+			pim_if_new(pim->regiface, false, false, true,
+				   false /*vxlan_term*/);
+
 		/*
 		 * On vrf moves we delete the interface if there
 		 * is nothing going on with it.  We cannot have
