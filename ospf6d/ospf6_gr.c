@@ -149,7 +149,9 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 		OSPF6_ROUTER_LSA_EXECUTE(area);
 
 		for (ALL_LIST_ELEMENTS_RO(area->if_list, anode, oi)) {
-			OSPF6_LINK_LSA_EXECUTE(oi);
+			/* Reoriginate Link-LSA. */
+			if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
+				OSPF6_LINK_LSA_EXECUTE(oi);
 
 			/*
 			 * 2) The router should reoriginate network-LSAs on all
