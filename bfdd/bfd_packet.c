@@ -140,7 +140,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
  *    sizeof(*pkt)
  *
  * ip
- *    IP address that pkt will be transmitted from and too.
+ *    IP address that pkt will be transmitted from and to.
  *
  * Returns:
  *    Checksum in network byte order.
@@ -481,12 +481,6 @@ ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 
 	*ttl = ip->ttl;
 	if (*ttl != 254) {
-		/* Echo should be looped in peer's forwarding plane, but it also
-		 * comes up to BFD so silently drop it
-		 */
-		if (ip->daddr == ip->saddr)
-			return -1;
-
 		if (bglobal.debug_network)
 			zlog_debug("%s: invalid TTL: %u", __func__, *ttl);
 		return -1;
