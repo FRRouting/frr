@@ -874,33 +874,39 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
 		struct agg_node *rn;
+		struct agg_table *at;
 
-		for (rn = agg_route_top(it->imported_vpn[afi]); rn;
-		     rn = agg_route_next(rn)) {
-			/*
-			 * Each route_node has:
-			 * aggregate: points to rfapi_it_extra with monitor
-			 * chain(s)
-			 * info: points to chain of bgp_path_info
-			 */
-			/* free bgp_path_info and its children */
-			rfapiBgpInfoChainFree(rn->info);
-			rn->info = NULL;
+		at = it->imported_vpn[afi];
+		if (at) {
+			for (rn = agg_route_top(at); rn;
+			     rn = agg_route_next(rn)) {
+				/*
+				 * Each route_node has:
+				 * aggregate: points to rfapi_it_extra with
+				 *     monitor chain(s)
+				 * info: points to chain of bgp_path_info
+				 */
+				/* free bgp_path_info and its children */
+				rfapiBgpInfoChainFree(rn->info);
+				rn->info = NULL;
 
-			rfapiMonitorExtraFlush(SAFI_MPLS_VPN, rn);
+				rfapiMonitorExtraFlush(SAFI_MPLS_VPN, rn);
+			}
+			agg_table_finish(at);
 		}
 
-		for (rn = agg_route_top(it->imported_encap[afi]); rn;
-		     rn = agg_route_next(rn)) {
-			/* free bgp_path_info and its children */
-			rfapiBgpInfoChainFree(rn->info);
-			rn->info = NULL;
+		if (at) {
+			at = it->imported_encap[afi];
+			for (rn = agg_route_top(at); rn;
+			     rn = agg_route_next(rn)) {
+				/* free bgp_path_info and its children */
+				rfapiBgpInfoChainFree(rn->info);
+				rn->info = NULL;
 
-			rfapiMonitorExtraFlush(SAFI_ENCAP, rn);
+				rfapiMonitorExtraFlush(SAFI_ENCAP, rn);
+			}
+			agg_table_finish(at);
 		}
-
-		agg_table_finish(it->imported_vpn[afi]);
-		agg_table_finish(it->imported_encap[afi]);
 	}
 	if (it->monitor_exterior_orphans) {
 		skiplist_free(it->monitor_exterior_orphans);
@@ -4260,10 +4266,7 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		h->resolve_nve_nexthop = NULL;
 	}
 
-	agg_table_finish(h->it_ce->imported_vpn[AFI_IP]);
-	agg_table_finish(h->it_ce->imported_vpn[AFI_IP6]);
-	agg_table_finish(h->it_ce->imported_encap[AFI_IP]);
-	agg_table_finish(h->it_ce->imported_encap[AFI_IP6]);
+	rfapiImportTableFlush(h->it_ce);
 
 	if (h->import_mac) {
 		struct rfapi_import_table *it;
