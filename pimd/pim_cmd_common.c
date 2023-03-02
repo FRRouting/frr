@@ -1398,7 +1398,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 
 			nbr = pim_neighbor_find(
 				up->rpf.source_nexthop.interface,
-				up->rpf.rpf_addr);
+				up->rpf.rpf_addr, false);
 			if (nbr)
 				pim_time_timer_to_hhmmss(join_timer,
 							 sizeof(join_timer),
