@@ -1,7 +1,7 @@
 name: commitlint
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - reopened
@@ -14,6 +14,7 @@ jobs:
     if: github.repository == 'frrouting/frr'
     permissions:
       contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
