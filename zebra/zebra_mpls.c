@@ -1525,6 +1525,10 @@ static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		json_object_string_addf(json_nhlfe, "nexthop", "%pI4",
 					&nexthop->gate.ipv4);
+		if (nexthop->ifindex)
+			json_object_string_add(json_nhlfe, "interface",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
