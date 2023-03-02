@@ -252,7 +252,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	unsigned long ifindex;
-	struct in6_addr *nexthop;
+	const struct in6_addr *nexthop = &in6addr_any;
 	struct ospf6 *ospf6;
 	struct prefix_ipv6 p;
 
@@ -272,7 +272,9 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	ifindex = api.nexthops[0].ifindex;
-	nexthop = &api.nexthops[0].gate.ipv6;
+	if (api.nexthops[0].type == NEXTHOP_TYPE_IPV6
+	    || api.nexthops[0].type == NEXTHOP_TYPE_IPV6_IFINDEX)
+		nexthop = &api.nexthops[0].gate.ipv6;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
