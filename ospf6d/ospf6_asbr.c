@@ -1380,8 +1380,8 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
-				 struct in6_addr *nexthop, route_tag_t tag,
-				 struct ospf6 *ospf6)
+				 const struct in6_addr *nexthop,
+				 route_tag_t tag, struct ospf6 *ospf6)
 {
 	route_map_result_t ret;
 	struct ospf6_route troute;
