@@ -1499,6 +1499,10 @@ ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 		return ferr_cfg_invalid("metric %d too large for narrow metric",
 					metric);
 
+	/* Don't modify metric if advertise high metrics is configured */
+	if (circuit->area && circuit->area->advertise_high_metrics)
+		return ferr_ok();
+
 	/* inform ldp-sync of metric change
          *   if ldp-sync is running need to save metric
          *   and restore new values after ldp-sync completion.

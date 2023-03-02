@@ -1169,6 +1169,13 @@ module frr-isisd {
           "Define the style of TLVs metric supported.";
       }
 
+      leaf advertise-high-metrics {
+        type boolean;
+        default "false";
+        description
+          "Advertise high metric value on all interfaces.";
+      }
+
       leaf purge-originator {
         type boolean;
         default "false";
