@@ -1787,7 +1787,7 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 			    && strcmp(PREFIX_NAME_OUT(area),
 				      prefix_list_name(plist))
 				       == 0) {
-				PREFIX_LIST_IN(area) = prefix_list_lookup(
+				PREFIX_LIST_OUT(area) = prefix_list_lookup(
 					AFI_IP, PREFIX_NAME_OUT(area));
 				abr_inv++;
 			}
