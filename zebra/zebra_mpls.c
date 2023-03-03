@@ -3730,14 +3730,20 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
-	if (!lsp_table)
+	if (!lsp_table) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	/* If entry is not present, exit. */
 	tmp_ile.in_label = label;
 	lsp = hash_lookup(lsp_table, &tmp_ile);
-	if (!lsp)
+	if (!lsp) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	if (use_json) {
 		json = lsp_json(lsp);
