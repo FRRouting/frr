@@ -365,7 +365,6 @@ There is a built-in commit linter. Basic rules:
    `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
    the supported subsystems.
 
-- Commit messages must start with a capital letter
 - Commit messages must not end with a period ``.``
 
 Why was my pull request closed?
