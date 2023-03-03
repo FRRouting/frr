@@ -312,7 +312,7 @@ extern int ospf6_num_nexthops(struct list *nh_list);
 extern void ospf6_copy_nexthops(struct list *dst, struct list *src);
 extern void ospf6_merge_nexthops(struct list *dst, struct list *src);
 extern void ospf6_add_nexthop(struct list *nh_list, int ifindex,
-			      struct in6_addr *addr);
+			      const struct in6_addr *addr);
 extern void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route);
 extern int ospf6_num_nexthops(struct list *nh_list);
 extern bool ospf6_route_cmp_nexthops(struct ospf6_route *a,
