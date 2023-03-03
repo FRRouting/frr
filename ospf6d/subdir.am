@@ -78,6 +78,7 @@ clippy_scan += \
 	ospf6d/ospf6_top.c \
 	ospf6d/ospf6_area.c \
 	ospf6d/ospf6_asbr.c \
+	ospf6d/ospf6_interface.c \
 	ospf6d/ospf6_lsa.c \
 	ospf6d/ospf6_gr_helper.c \
 	ospf6d/ospf6_gr.c \

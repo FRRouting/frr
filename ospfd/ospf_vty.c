@@ -3620,6 +3620,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 	struct ospf_neighbor *nbr;
 	struct route_node *rn;
 	uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
+	struct ospf_if_params *params;
 
 	/* Is interface up? */
 	if (use_json) {
@@ -3938,6 +3939,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				"  Neighbor Count is %d, Adjacent neighbor count is %d\n",
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
+
+
+		params = IF_DEF_PARAMS(ifp);
+		if (params &&
+		    OSPF_IF_PARAM_CONFIGURED(params, v_gr_hello_delay)) {
+			if (use_json) {
+				json_object_int_add(json_interface_sub,
+						    "grHelloDelaySecs",
+						    params->v_gr_hello_delay);
+			} else
+				vty_out(vty,
+					"  Graceful Restart hello delay: %us\n",
+					params->v_gr_hello_delay);
+		}
 
 		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
 
@@ -8642,6 +8657,59 @@ DEFUN_HIDDEN (no_ospf_retransmit_interval,
 	return no_ip_ospf_retransmit_interval(self, vty, argc, argv);
 }
 
+DEFPY (ip_ospf_gr_hdelay,
+       ip_ospf_gr_hdelay_cmd,
+       "ip ospf graceful-restart hello-delay (1-1800)",
+       IP_STR
+       "OSPF interface commands\n"
+       "Graceful Restart parameters\n"
+       "Delay the sending of the first hello packets.\n"
+       "Delay in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	/* Note: new or updated value won't affect ongoing graceful restart. */
+	SET_IF_PARAM(params, v_gr_hello_delay);
+	params->v_gr_hello_delay = hello_delay;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_ip_ospf_gr_hdelay,
+       no_ip_ospf_gr_hdelay_cmd,
+       "no ip ospf graceful-restart hello-delay [(1-1800)]",
+       NO_STR
+       IP_STR
+       "OSPF interface commands\n"
+       "Graceful Restart parameters\n"
+       "Delay the sending of the first hello packets.\n"
+       "Delay in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, v_gr_hello_delay);
+	params->v_gr_hello_delay = OSPF_HELLO_DELAY_DEFAULT;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi;
+
+		oi = rn->info;
+		if (!oi)
+			continue;
+
+		oi->gr.hello_delay.elapsed_seconds = 0;
+		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (ip_ospf_transmit_delay,
        ip_ospf_transmit_delay_addr_cmd,
        "ip ospf transmit-delay (1-65535) [A.B.C.D]",
@@ -11833,6 +11901,15 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 						&rn->p.u.prefix4);
 				vty_out(vty, "\n");
 			}
+
+			/* Hello Graceful-Restart Delay print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params,
+						     v_gr_hello_delay) &&
+			    params->v_gr_hello_delay !=
+				    OSPF_HELLO_DELAY_DEFAULT)
+				vty_out(vty,
+					" ip ospf graceful-restart hello-delay %u\n",
+					params->v_gr_hello_delay);
 
 			/* Router Priority print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, priority)

@@ -237,13 +237,22 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 		 */
 		ospf_router_lsa_update_area(area);
 
-		/*
-		 * 2) The router should reoriginate network-LSAs on all segments
-		 *    where it is the Designated Router.
-		 */
-		for (ALL_LIST_ELEMENTS_RO(area->oiflist, anode, oi))
+		for (ALL_LIST_ELEMENTS_RO(area->oiflist, anode, oi)) {
+			/* Disable hello delay. */
+			if (oi->gr.hello_delay.t_grace_send) {
+				oi->gr.hello_delay.elapsed_seconds = 0;
+				EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+				OSPF_ISM_TIMER_MSEC_ON(oi->t_hello,
+						       ospf_hello_timer, 1);
+			}
+
+			/*
+			 * 2) The router should reoriginate network-LSAs on all
+			 * segments where it is the Designated Router.
+			 */
 			if (oi->state == ISM_DR)
 				ospf_network_lsa_update(oi);
+		}
 	}
 
 	/*
@@ -561,6 +570,21 @@ static char *ospf_gr_nvm_filepath(struct ospf *ospf)
 	return filepath;
 }
 
+/* Send extra Grace-LSA out the interface (unplanned outages only). */
+void ospf_gr_iface_send_grace_lsa(struct event *thread)
+{
+	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct ospf_if_params *params = IF_DEF_PARAMS(oi->ifp);
+
+	ospf_gr_lsa_originate(oi, oi->ospf->gr_info.reason, false);
+
+	if (++oi->gr.hello_delay.elapsed_seconds < params->v_gr_hello_delay)
+		event_add_timer(master, ospf_gr_iface_send_grace_lsa, oi, 1,
+				&oi->gr.hello_delay.t_grace_send);
+	else
+		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
+}
+
 /*
  * Record in non-volatile memory that the given OSPF instance is attempting to
  * perform a graceful restart.
@@ -714,6 +738,11 @@ void ospf_gr_unplanned_start_interface(struct ospf_interface *oi)
 {
 	/* Send Grace-LSA. */
 	ospf_gr_lsa_originate(oi, oi->ospf->gr_info.reason, false);
+
+	/* Start GR hello-delay interval. */
+	oi->gr.hello_delay.elapsed_seconds = 0;
+	event_add_timer(master, ospf_gr_iface_send_grace_lsa, oi, 1,
+			&oi->gr.hello_delay.t_grace_send);
 }
 
 /* Prepare to start a Graceful Restart. */

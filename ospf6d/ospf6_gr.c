@@ -190,6 +190,14 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(area);
 
 		for (ALL_LIST_ELEMENTS_RO(area->if_list, anode, oi)) {
+			/* Disable hello delay. */
+			if (oi->gr.hello_delay.t_grace_send) {
+				oi->gr.hello_delay.elapsed_seconds = 0;
+				EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+				event_add_event(master, ospf6_hello_send, oi, 0,
+						&oi->thread_send_hello);
+			}
+
 			/* Reoriginate Link-LSA. */
 			if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
 				OSPF6_LINK_LSA_EXECUTE(oi);
@@ -520,6 +528,21 @@ static void ospf6_gr_grace_period_expired(struct event *thread)
 	ospf6_gr_restart_exit(ospf6, "grace period has expired");
 }
 
+/* Send extra Grace-LSA out the interface (unplanned outages only). */
+void ospf6_gr_iface_send_grace_lsa(struct event *thread)
+{
+	struct ospf6_interface *oi = EVENT_ARG(thread);
+
+	ospf6_gr_lsa_originate(oi, oi->area->ospf6->gr_info.reason);
+
+	if (++oi->gr.hello_delay.elapsed_seconds < oi->gr.hello_delay.interval)
+		event_add_timer(master, ospf6_gr_iface_send_grace_lsa, oi, 1,
+				&oi->gr.hello_delay.t_grace_send);
+	else
+		event_add_event(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
+}
+
 /*
  * Record in non-volatile memory that the given OSPF instance is attempting to
  * perform a graceful restart.
@@ -677,6 +700,11 @@ void ospf6_gr_unplanned_start_interface(struct ospf6_interface *oi)
 
 	/* Send Grace-LSA. */
 	ospf6_gr_lsa_originate(oi, oi->area->ospf6->gr_info.reason);
+
+	/* Start GR hello-delay interval. */
+	oi->gr.hello_delay.elapsed_seconds = 0;
+	event_add_timer(master, ospf6_gr_iface_send_grace_lsa, oi, 1,
+			&oi->gr.hello_delay.t_grace_send);
 }
 
 /* Prepare to start a Graceful Restart. */

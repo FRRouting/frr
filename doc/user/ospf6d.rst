@@ -287,6 +287,19 @@ OSPF6 interface
 
    Sets interface's Router Dead Interval. Default value is 40.
 
+.. clicmd:: ipv6 ospf6 graceful-restart hello-delay HELLODELAYINTERVAL
+
+   Set the length of time during which Grace-LSAs are sent at 1-second intervals
+   while coming back up after an unplanned outage. During this time, no hello
+   packets are sent.
+
+   A higher hello delay will increase the chance that all neighbors are notified
+   about the ongoing graceful restart before receiving a hello packet (which is
+   crucial for the graceful restart to succeed). The hello delay shouldn't be set
+   too high, however, otherwise the adjacencies might time out. As a best practice,
+   it's recommended to set the hello delay and hello interval with the same values.
+   The default value is 10 seconds.
+
 .. clicmd:: ipv6 ospf6 retransmit-interval RETRANSMITINTERVAL
 
    Sets interface's Rxmt Interval. Default value is 5.
