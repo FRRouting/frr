@@ -232,9 +232,12 @@ DEFUN (no_router_ospf,
 		return CMD_NOT_MY_INSTANCE;
 
 	ospf = ospf_lookup(instance, vrf_name);
-	if (ospf)
+	if (ospf) {
+		if (ospf->gr_info.restart_support)
+			ospf_gr_nvm_delete(ospf);
+
 		ospf_finish(ospf);
-	else
+	} else
 		ret = CMD_WARNING_CONFIG_FAILED;
 
 	return ret;

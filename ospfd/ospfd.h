@@ -148,6 +148,8 @@ struct ospf_gr_info {
 	bool prepare_in_progress;
 	bool finishing_restart;
 	uint32_t grace_period;
+	int reason;
+	char *exit_reason;
 	struct event *t_grace_period;
 };
 

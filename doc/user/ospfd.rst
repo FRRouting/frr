@@ -770,6 +770,10 @@ Graceful Restart
    To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
    EXEC-level command needs to be issued before restarting the ospfd daemon.
 
+   When Graceful Restart is enabled and the ospfd daemon crashes or is killed
+   abruptely (e.g. SIGKILL), it will attempt an unplanned Graceful Restart once
+   it restarts.
+
 .. clicmd:: graceful-restart helper enable [A.B.C.D]
 
 

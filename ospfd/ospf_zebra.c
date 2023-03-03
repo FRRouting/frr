@@ -2120,10 +2120,20 @@ int ospf_zebra_label_manager_connect(void)
 
 static void ospf_zebra_connected(struct zclient *zclient)
 {
+	struct ospf *ospf;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->gr_info.restart_support)
+			continue;
+		(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
+	}
 }
 
 /*
