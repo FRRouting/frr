@@ -396,12 +396,7 @@ def pytest_runtest_setup(item):
 def pytest_runtest_makereport(item, call):
     "Log all assert messages to default logger with error level"
 
-    # Nothing happened
-    if call.when == "call":
-        pause = topotest_extra_config["pause"]
-    else:
-        pause = False
-
+    pause = bool(item.config.getoption("--pause"))
     title = "unset"
 
     if call.excinfo is None:
