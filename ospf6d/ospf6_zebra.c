@@ -735,10 +735,20 @@ uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or,
 
 static void ospf6_zebra_connected(struct zclient *zclient)
 {
+	struct ospf6 *ospf6;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (!ospf6->gr_info.restart_support)
+			continue;
+		(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
+	}
 }
 
 static zclient_handler *const ospf6_handlers[] = {

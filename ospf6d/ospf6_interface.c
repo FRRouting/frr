@@ -772,6 +772,17 @@ void interface_up(struct event *thread)
 		return;
 	}
 
+	/*
+	 * RFC 3623 - Section 5 ("Unplanned Outages"):
+	 * "The grace-LSAs are encapsulated in Link State Update Packets
+	 * and sent out to all interfaces, even though the restarted
+	 * router has no adjacencies and no knowledge of previous
+	 * adjacencies".
+	 */
+	if (oi->area->ospf6->gr_info.restart_in_progress &&
+	    oi->area->ospf6->gr_info.reason == OSPF6_GR_UNKNOWN_RESTART)
+		ospf6_gr_unplanned_start_interface(oi);
+
 #ifdef __FreeBSD__
 	/*
 	 * There's a delay in FreeBSD between issuing a command to leave a
