@@ -26,3 +26,4 @@ jobs:
         uses: wagoid/commitlint-github-action@v5
         with:
           configFile: .github/commitlint.config.js
+          helpURL: 'https://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html#submitting-patches-and-enhancements'
