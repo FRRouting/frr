@@ -239,12 +239,18 @@ static int ospf6_zebra_gr_update(struct ospf6 *ospf6, int command,
 
 int ospf6_zebra_gr_enable(struct ospf6 *ospf6, uint32_t stale_time)
 {
+	if (IS_DEBUG_OSPF6_GR)
+		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_CAPABILITIES,
 				     stale_time);
 }
 
 int ospf6_zebra_gr_disable(struct ospf6 *ospf6)
 {
+	if (IS_DEBUG_OSPF6_GR)
+		zlog_debug("Zebra disable GR");
+
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
