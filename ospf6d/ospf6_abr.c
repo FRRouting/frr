@@ -1136,11 +1136,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		}
 
 		if (CHECK_FLAG(prefix_lsa->prefix.prefix_options,
-			       OSPF6_PREFIX_OPTION_NU)
-		    || CHECK_FLAG(prefix_lsa->prefix.prefix_options,
-				  OSPF6_PREFIX_OPTION_LA)) {
+			       OSPF6_PREFIX_OPTION_NU)) {
 			if (is_debug)
-				zlog_debug("Prefix has NU/LA bit set, ignore");
+				zlog_debug("Prefix has the NU bit set, ignore");
 			if (old)
 				ospf6_route_remove(old, table);
 			return;
@@ -1153,7 +1151,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (!OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_R)
 		    || !OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_V6)) {
 			if (is_debug)
-				zlog_debug("Prefix has NU/LA bit set, ignore");
+				zlog_debug(
+					"Router-LSA has the V6-bit or R-bit unset, ignore");
 			if (old)
 				ospf6_route_remove(old, table);
 
