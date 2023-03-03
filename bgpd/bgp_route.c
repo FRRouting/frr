@@ -2917,10 +2917,14 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 			 * in FIB, then it is advertised
 			 */
 			if (advertise) {
-				if (!bgp_check_withdrawal(bgp, dest))
-					bgp_adj_out_set_subgroup(
-						dest, subgrp, &attr, selected);
-				else
+				if (!bgp_check_withdrawal(bgp, dest)) {
+					struct attr *adv_attr =
+						bgp_attr_intern(&attr);
+
+					bgp_adj_out_set_subgroup(dest, subgrp,
+								 adv_attr,
+								 selected);
+				} else
 					bgp_adj_out_unset_subgroup(
 						dest, subgrp, 1, addpath_tx_id);
 			}
