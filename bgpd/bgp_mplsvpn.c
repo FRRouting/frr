@@ -1116,12 +1116,14 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 
 	/*
 	 * Routes that are redistributed into BGP from zebra do not get
-	 * nexthop tracking. However, if those routes are subsequently
-	 * imported to other RIBs within BGP, the leaked routes do not
-	 * carry the original BGP_ROUTE_REDISTRIBUTE sub_type. Therefore,
-	 * in order to determine if the route we are currently leaking
-	 * should have nexthop tracking, we must find the ultimate
-	 * parent so we can check its sub_type.
+	 * nexthop tracking, unless MPLS allocation per nexthop is
+	 * performed. In the default case nexthop tracking does not apply,
+	 * if those routes are subsequently imported to other RIBs within
+	 * BGP, the leaked routes do not carry the original
+	 * BGP_ROUTE_REDISTRIBUTE sub_type. Therefore, in order to determine
+	 * if the route we are currently leaking should have nexthop
+	 * tracking, we must find the ultimate parent so we can check its
+	 * sub_type.
 	 *
 	 * As of now, source_bpi may at most be a second-generation route
 	 * (only one hop back to ultimate parent for vrf-vpn-vrf scheme).

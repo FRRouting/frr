@@ -1137,10 +1137,21 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
-		if (!(path->type == ZEBRA_ROUTE_BGP
-		      && ((path->sub_type == BGP_ROUTE_NORMAL)
-			  || (path->sub_type == BGP_ROUTE_STATIC)
-			  || (path->sub_type == BGP_ROUTE_IMPORTED))))
+		if (path->type == ZEBRA_ROUTE_BGP &&
+		    (path->sub_type == BGP_ROUTE_NORMAL ||
+		     path->sub_type == BGP_ROUTE_STATIC ||
+		     path->sub_type == BGP_ROUTE_IMPORTED))
+			/* evaluate the path */
+			;
+		else if (path->sub_type == BGP_ROUTE_REDISTRIBUTE) {
+			/* evaluate the path for redistributed routes
+			 * except those from VNC
+			 */
+			if ((path->type == ZEBRA_ROUTE_VNC) ||
+			    (path->type == ZEBRA_ROUTE_VNC_DIRECT))
+				continue;
+		} else
+			/* don't evaluate the path */
 			continue;
 
 		dest = path->net;
@@ -1239,6 +1250,16 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			/* static routes with 'no bgp network import-check' are
 			 * always valid. if nht is called with static routes,
 			 * the vpn exportation needs to be triggered
+			 */
+			vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
+						 path);
+		else if (path->sub_type == BGP_ROUTE_REDISTRIBUTE &&
+			 safi == SAFI_UNICAST &&
+			 (bgp_path->inst_type == BGP_INSTANCE_TYPE_VRF ||
+			  bgp_path->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+			/* redistribute routes are always valid
+			 * if nht is called with redistribute routes, the vpn
+			 * exportation needs to be triggered
 			 */
 			vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
 						 path);
