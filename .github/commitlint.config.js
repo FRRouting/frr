@@ -22,6 +22,7 @@ module.exports = {
 				'nhrpd',
 				'ospf6d',
 				'ospfd',
+				'pathd',
 				'pbrd',
 				'pimd',
 				'pim6d',
