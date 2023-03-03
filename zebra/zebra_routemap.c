@@ -367,7 +367,7 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	route_map_counter_increment(NHT_RM_MAP(zvrf, afi, rtype));
 
 	if (NHT_RM_MAP(zvrf, afi, rtype))
-		zebra_evaluate_rnh(zvrf, AFI_IP, 1, NULL, SAFI_UNICAST);
+		zebra_evaluate_rnh(zvrf, afi, 1, NULL, SAFI_UNICAST);
 
 	return CMD_SUCCESS;
 }
@@ -388,7 +388,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 					zvrf->vrf->vrf_id, rtype);
 			NHT_RM_MAP(zvrf, afi, rtype) = NULL;
 
-			zebra_evaluate_rnh(zvrf, AFI_IP, 1, NULL, SAFI_UNICAST);
+			zebra_evaluate_rnh(zvrf, afi, 1, NULL, SAFI_UNICAST);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
 	}
@@ -1646,6 +1646,8 @@ static void zebra_nht_rm_update(const char *rmap)
 		zvrf = vrf->info;
 		if (!zvrf)
 			continue;
+		afi_ip = 0;
+		afi_ipv6 = 0;
 		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
 			rmap_name = NHT_RM_NAME(zvrf, AFI_IP, i);
 			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
@@ -1703,7 +1705,7 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ipv6 = 1;
 
 						zebra_evaluate_rnh(
-							zvrf, AFI_IP, 1, NULL,
+							zvrf, AFI_IP6, 1, NULL,
 							SAFI_UNICAST);
 					}
 				}
