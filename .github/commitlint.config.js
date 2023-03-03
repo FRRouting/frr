@@ -18,6 +18,7 @@ module.exports = {
 				'isisd',
 				'ldpd',
 				'lib',
+				'mgmtd',
 				'multi',
 				'nhrpd',
 				'ospf6d',
