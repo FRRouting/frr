@@ -4132,6 +4132,11 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 				  "    Got an unsupported sub-TLV: Yes\n");
 	}
 #endif /* ifndef FABRICD */
+
+	/* SRv6 Flags as per RFC 9352 section #2 */
+	if (router_cap->srv6_cap.is_srv6_capable)
+		sbuf_push(buf, indent, "  SRv6: O:%s\n",
+			  SUPPORTS_SRV6_OAM(&router_cap->srv6_cap) ? "1" : "0");
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
