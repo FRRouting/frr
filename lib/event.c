@@ -544,7 +544,7 @@ static void initializer(void)
 	pthread_key_create(&thread_current, NULL);
 }
 
-struct event_master *thread_master_create(const char *name)
+struct event_master *event_master_create(const char *name)
 {
 	struct event_master *rv;
 	struct rlimit limit;
@@ -623,7 +623,7 @@ struct event_master *thread_master_create(const char *name)
 	return rv;
 }
 
-void thread_master_set_name(struct event_master *master, const char *name)
+void event_master_set_name(struct event_master *master, const char *name)
 {
 	frr_with_mutex (&master->mtx) {
 		XFREE(MTYPE_EVENT_MASTER, master->name);
@@ -682,14 +682,14 @@ static void thread_array_free(struct event_master *m,
 }
 
 /*
- * thread_master_free_unused
+ * event_master_free_unused
  *
  * As threads are finished with they are put on the
  * unuse list for later reuse.
  * If we are shutting down, Free up unused threads
  * So we can see if we forget to shut anything off
  */
-void thread_master_free_unused(struct event_master *m)
+void event_master_free_unused(struct event_master *m)
 {
 	frr_with_mutex (&m->mtx) {
 		struct event *t;
@@ -699,7 +699,7 @@ void thread_master_free_unused(struct event_master *m)
 }
 
 /* Stop thread scheduler. */
-void thread_master_free(struct event_master *m)
+void event_master_free(struct event_master *m)
 {
 	struct event *t;
 
@@ -858,7 +858,7 @@ static int fd_poll(struct event_master *m, const struct timeval *timer_wait,
 
 	/*
 	 * If timer_wait is null here, that means poll() should block
-	 * indefinitely, unless the thread_master has overridden it by setting
+	 * indefinitely, unless the event_master has overridden it by setting
 	 * ->selectpoll_timeout.
 	 *
 	 * If the value is positive, it specifies the maximum number of
@@ -1320,7 +1320,7 @@ static void cancel_arg_helper(struct event_master *master,
 /**
  * Process cancellation requests.
  *
- * This may only be run from the pthread which owns the thread_master.
+ * This may only be run from the pthread which owns the event_master.
  *
  * @param master the thread master to process
  * @REQUIRE master->mtx
@@ -1433,7 +1433,7 @@ static void cancel_event_helper(struct event_master *m, void *arg, int flags)
  *
  * MT-Unsafe
  *
- * @param m the thread_master to cancel from
+ * @param m the event_master to cancel from
  * @param arg the argument passed when creating the event
  */
 void event_cancel_event(struct event_master *master, void *arg)
@@ -1446,7 +1446,7 @@ void event_cancel_event(struct event_master *master, void *arg)
  *
  * MT-Unsafe
  *
- * @param m the thread_master to cancel from
+ * @param m the event_master to cancel from
  * @param arg the argument passed when creating the event
  */
 void event_cancel_event_ready(struct event_master *m, void *arg)
@@ -1502,7 +1502,7 @@ void event_cancel(struct event **thread)
  * The last two parameters are mutually exclusive, i.e. if you pass one the
  * other must be NULL.
  *
- * When the cancellation procedure executes on the target thread_master, the
+ * When the cancellation procedure executes on the target event_master, the
  * thread * provided is checked for nullity. If it is null, the thread is
  * assumed to no longer exist and the cancellation request is a no-op. Thus
  * users of this API must pass a back-reference when scheduling the original

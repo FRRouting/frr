@@ -209,10 +209,10 @@ struct cpu_event_history {
 	}) /* end */
 
 /* Prototypes. */
-extern struct event_master *thread_master_create(const char *name);
-void thread_master_set_name(struct event_master *master, const char *name);
-extern void thread_master_free(struct event_master *m);
-extern void thread_master_free_unused(struct event_master *m);
+extern struct event_master *event_master_create(const char *name);
+void event_master_set_name(struct event_master *master, const char *name);
+extern void event_master_free(struct event_master *m);
+extern void event_master_free_unused(struct event_master *m);
 
 extern void _event_add_read_write(const struct xref_eventsched *xref,
 				  struct event_master *master,

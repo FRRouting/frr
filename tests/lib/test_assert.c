@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	assertf(number > 1, "(B) the number was %d", number);
 
 	/* set up SIGABRT handler */
-	master = thread_master_create("test");
+	master = event_master_create("test");
 	signal_init(master, 0, NULL);
 
 	func_for_bt(number);

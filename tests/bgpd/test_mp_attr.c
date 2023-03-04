@@ -1070,7 +1070,7 @@ int main(void)
 	qobj_init();
 	cmd_init(0);
 	bgp_vty_init();
-	master = thread_master_create("test mp attr");
+	master = event_master_create("test mp attr");
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);

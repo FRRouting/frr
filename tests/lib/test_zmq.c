@@ -266,7 +266,7 @@ static void run_server(int syncfd)
 	char dummy = 0;
 	struct event t;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, array_size(sigs), sigs);
 	frrzmq_init();
 
@@ -284,7 +284,7 @@ static void run_server(int syncfd)
 
 	zmq_close(zmqsock);
 	frrzmq_finish();
-	thread_master_free(master);
+	event_master_free(master);
 	log_memstats_stderr("test");
 }
 

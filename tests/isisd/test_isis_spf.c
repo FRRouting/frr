@@ -455,7 +455,7 @@ static void vty_do_exit(int isexit)
 	cmd_terminate();
 	vty_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "test-isis-spf");
 	if (!isexit)
@@ -521,7 +521,7 @@ int main(int argc, char **argv)
 	}
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	isis_master_init(master);
 
 	/* Library inits. */

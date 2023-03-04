@@ -208,7 +208,7 @@ static void vty_do_exit(int isexit)
 
 	cmd_terminate();
 	vty_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	if (!isexit)
 		exit(0);
@@ -273,7 +273,7 @@ int main(int argc, char **argv)
 	}
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	/* Library inits. */
 	cmd_init(1);

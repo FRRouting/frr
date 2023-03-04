@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 {
 	struct event event;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 

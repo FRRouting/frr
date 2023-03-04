@@ -351,7 +351,7 @@ static void vty_do_exit(int isexit)
 	vty_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "test-nb-oper-data");
 	if (!isexit)
@@ -377,7 +377,7 @@ int main(int argc, char **argv)
 	umask(0027);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	zlog_aux_init("NONE: ", ZLOG_DISABLED);
 

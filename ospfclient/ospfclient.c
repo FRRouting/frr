@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	/* Initialization */
 	zprivs_preinit(&ospfd_privs);
 	zprivs_init(&ospfd_privs);
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	/* Open connection to OSPF daemon */
 	oclient = ospf_apiclient_connect(args[1], ASYNCPORT);

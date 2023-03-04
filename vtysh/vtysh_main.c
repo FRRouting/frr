@@ -228,7 +228,7 @@ static void vtysh_rl_run(void)
 {
 	struct event thread;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
 	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
@@ -240,7 +240,7 @@ static void vtysh_rl_run(void)
 	if (!vtysh_loop_exited)
 		rl_callback_handler_remove();
 
-	thread_master_free(master);
+	event_master_free(master);
 }
 
 static void log_it(const char *line)
