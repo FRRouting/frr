@@ -312,6 +312,9 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	uint8_t llen = 0;
 	uint8_t label_depth = 0;
 
+	if (plen < BGP_LABEL_BYTES)
+		return 0;
+
 	for (; data < lim; data += BGP_LABEL_BYTES) {
 		memcpy(label, data, BGP_LABEL_BYTES);
 		llen += BGP_LABEL_BYTES;
@@ -374,6 +377,9 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
 			addpath_id = ntohl(addpath_id);
 			pnt += BGP_ADDPATH_ID_LEN;
+
+			if (pnt >= lim)
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
 
 		/* Fetch prefix length. */
@@ -392,6 +398,15 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		/* Fill in the labels */
 		llen = bgp_nlri_get_labels(peer, pnt, psize, &label);
+		if (llen == 0) {
+			flog_err(
+				EC_BGP_UPDATE_RCV,
+				"%s [Error] Update packet error (wrong label length 0)",
+				peer->host);
+			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
+			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
+		}
 		p.prefixlen = prefixlen - BSIZE(llen);
 
 		/* There needs to be at least one label */
