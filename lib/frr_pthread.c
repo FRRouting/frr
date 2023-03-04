@@ -75,7 +75,7 @@ struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 	/* initialize mutex */
 	pthread_mutex_init(&fpt->mtx, NULL);
 	/* create new thread master */
-	fpt->master = thread_master_create(name);
+	fpt->master = event_master_create(name);
 	/* set attributes */
 	fpt->attr = *attr;
 	name = (name ? name : "Anonymous thread");
@@ -101,7 +101,7 @@ struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 
 static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 {
-	thread_master_free(fpt->master);
+	event_master_free(fpt->master);
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);

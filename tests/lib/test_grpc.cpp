@@ -97,7 +97,7 @@ static void static_startup(void)
 
 	static_debug_init();
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules),
 		false);
 
@@ -139,7 +139,7 @@ static void static_shutdown(void)
 	cmd_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 	master = NULL;
 }
 

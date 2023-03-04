@@ -56,7 +56,7 @@ static void threadfunc(struct event *thread)
 
 int main(void)
 {
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, array_size(sigs), sigs);
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);

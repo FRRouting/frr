@@ -3897,7 +3897,7 @@ int bgp_delete(struct bgp *bgp)
 	if (bgp->process_queue)
 		work_queue_free_and_null(&bgp->process_queue);
 
-	thread_master_free_unused(bm->master);
+	event_master_free_unused(bm->master);
 	bgp_unlock(bgp); /* initial reference */
 
 	return 0;

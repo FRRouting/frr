@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 	cfg->fd = fd;
 
 	cmd_hostname_set("TEST");
-	cfg->master = thread_master_create("TEST");
+	cfg->master = event_master_create("TEST");
 
 	zlog_5424_apply_dst(cfg);
 

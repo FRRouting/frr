@@ -769,7 +769,7 @@ struct event_master *frr_init(void)
 
 	zprivs_init(di->privs);
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
 	hook_call(frr_early_init, master);
 
@@ -1213,7 +1213,7 @@ void frr_fini(void)
 	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
-	thread_master_free(master);
+	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
 	zlog_fini();

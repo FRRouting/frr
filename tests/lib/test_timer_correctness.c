@@ -54,7 +54,7 @@ static void terminate_test(void)
 		exit_code = 0;
 	}
 
-	thread_master_free(master);
+	event_master_free(master);
 	XFREE(MTYPE_TMP, log_buf);
 	XFREE(MTYPE_TMP, expected_buf);
 	prng_free(prng);
@@ -97,7 +97,7 @@ int main(int argc, char **argv)
 	struct event t;
 	struct timeval **alarms;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	log_buf_len = SCHEDULE_TIMERS * (TIMESTR_LEN + 1) + 1;
 	log_buf_pos = 0;

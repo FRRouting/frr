@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	while (1) {
 		int opt;

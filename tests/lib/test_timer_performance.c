@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 	struct timeval tv_start, tv_lap, tv_stop;
 	unsigned long t_schedule, t_remove;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	prng = prng_new(0);
 	timers = calloc(SCHEDULE_TIMERS, sizeof(*timers));
 
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 	fflush(stdout);
 
 	free(timers);
-	thread_master_free(master);
+	event_master_free(master);
 	prng_free(prng);
 	return 0;
 }

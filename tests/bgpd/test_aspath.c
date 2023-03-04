@@ -1405,7 +1405,7 @@ int main(void)
 {
 	int i = 0;
 	qobj_init();
-	bgp_master_init(thread_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE,
+	bgp_master_init(event_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE,
 			list_new());
 	master = bm->master;
 	bgp_option_set(BGP_OPT_NO_LISTEN);
