@@ -439,7 +439,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Hello from %s on %s that does not have all 0's in the unused section of flags, ignoring",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		/*
@@ -451,7 +451,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		DO_NTOHS(seqno, message + 4);
@@ -469,7 +469,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		changed = update_neighbour(neigh, seqno, interval);
