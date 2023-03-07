@@ -5120,6 +5120,75 @@ def verify_pim6_config(tgen, input_dict, expected=True):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
+
+@retry(retry_timeout=62)
+def verify_local_mld_groups(tgen, dut, interface, group_addresses):
+    """
+    Verify local MLD groups are received from an intended interface
+    by running "show ipv6 mld join json" command
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface`: interface, from which IGMP groups are configured
+    * `group_addresses`: MLD group address
+    Usage
+    -----
+    dut = "r1"
+    interface = "r1-r0-eth0"
+    group_address = "ffaa::1"
+    result = verify_local_mld_groups(tgen, dut, interface, group_address)
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+    logger.info("[DUT: %s]: Verifying local MLD groups received:", dut)
+    show_ipv6_local_mld_json = run_frr_cmd(
+        rnode, "show ipv6 mld join json", isjson=True
+    )
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    if interface not in show_ipv6_local_mld_json["default"]:
+
+        errormsg = (
+            "[DUT %s]: Verifying local MLD group received"
+            " from interface %s [FAILED]!! " % (dut, interface)
+        )
+        return errormsg
+
+    for grp_addr in group_addresses:
+        found = False
+        if grp_addr in show_ipv6_local_mld_json["default"][interface]:
+            found = True
+            break
+        if not found:
+            errormsg = (
+                "[DUT %s]: Verifying local MLD group received"
+                " from interface %s [FAILED]!! "
+                " Expected: %s " % (dut, interface, grp_addr)
+            )
+            return errormsg
+
+        logger.info(
+            "[DUT %s]: Verifying local MLD group %s received "
+            "from interface %s [PASSED]!! ",
+            dut,
+            grp_addr,
+            interface,
+        )
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
     # def cleanup(self):
     #     super(McastTesterHelper, self).cleanup()
 
