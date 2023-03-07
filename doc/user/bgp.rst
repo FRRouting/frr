@@ -2290,7 +2290,7 @@ Numbered Community Lists
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 When number is used for BGP community list name, the number has
-special meanings. Community list number in the range from 1 and 99 is
+special meanings. Community list number in the range from 1 to 99 is
 standard community list. Community list number in the range from 100
 to 500 is expanded community list. These community lists are called
 as numbered community lists. On the other hand normal community lists
