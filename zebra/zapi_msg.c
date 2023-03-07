@@ -1738,7 +1738,7 @@ done:
 	return nexthop;
 }
 
-static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
+static bool zapi_read_nexthops(uint8_t proto, struct prefix *p,
 			       struct zapi_nexthop *nhops, uint32_t flags,
 			       uint32_t message, uint16_t nexthop_num,
 			       uint16_t backup_nh_num,
@@ -1852,8 +1852,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (api_nh->label_type)
 				label_type = api_nh->label_type;
 			else
-				label_type =
-					lsp_type_from_re_type(client->proto);
+				label_type = lsp_type_from_re_type(proto);
 
 			nexthop_add_labels(nexthop, label_type,
 					   api_nh->label_num,
@@ -2048,13 +2047,12 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	if ((!zapi_read_nexthops(client, NULL, api_nhg.nexthops, 0, 0,
+	if ((!zapi_read_nexthops(client->proto, NULL, api_nhg.nexthops, 0, 0,
 				 api_nhg.nexthop_num,
-				 api_nhg.backup_nexthop_num, &nhg, NULL))
-	    || (!zapi_read_nexthops(client, NULL, api_nhg.backup_nexthops, 0, 0,
-				    api_nhg.backup_nexthop_num,
-				    api_nhg.backup_nexthop_num, NULL, &bnhg))) {
-
+				 api_nhg.backup_nexthop_num, &nhg, NULL)) ||
+	    (!zapi_read_nexthops(client->proto, NULL, api_nhg.backup_nexthops,
+				 0, 0, api_nhg.backup_nexthop_num,
+				 api_nhg.backup_nexthop_num, NULL, &bnhg))) {
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 			  "%s: Nexthop Group Creation failed", __func__);
 
@@ -2104,10 +2102,9 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		client->nhg_add_cnt++;
 }
 
-static void zread_route_add(ZAPI_HANDLER_ARGS)
+static void _zread_route_add(struct zserv *client, struct zebra_vrf *zvrf,
+			     struct zapi_route *api)
 {
-	struct stream *s;
-	struct zapi_route api;
 	afi_t afi;
 	struct prefix_ipv6 *src_p = NULL;
 	struct route_entry *re;
@@ -2117,75 +2114,66 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	vrf_id_t vrf_id;
 	struct nhg_hash_entry nhe, *n = NULL;
 
-	s = msg;
-	if (zapi_route_decode(s, &api) < 0) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_route sent",
-				   __func__);
-		return;
-	}
-
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
 		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, vrf_id, api.tableid, &api.prefix,
-			   (int)api.message, api.flags);
+			   __func__, vrf_id, api->tableid, &api->prefix,
+			   (int)api->message, api->flags);
 
 	/* Allocate new route. */
-	re = zebra_rib_route_entry_new(
-		vrf_id, api.type, api.instance, api.flags, api.nhgid,
-		api.tableid ? api.tableid : zvrf->table_id, api.metric, api.mtu,
-		api.distance, api.tag);
+	re = zebra_rib_route_entry_new(vrf_id, api->type, api->instance,
+				       api->flags, api->nhgid,
+				       api->tableid ? api->tableid
+						    : zvrf->table_id,
+				       api->metric, api->mtu, api->distance,
+				       api->tag);
 
-	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
-	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
-		|| api.nexthop_num == 0)) {
-		flog_warn(
-			EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
-			"%s: received a route without nexthops for prefix %pFX from client %s",
-			__func__, &api.prefix,
-			zebra_route_string(client->proto));
+	if (!CHECK_FLAG(api->message, ZAPI_MESSAGE_NHG) &&
+	    (!CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP) ||
+	     api->nexthop_num == 0)) {
+		flog_warn(EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
+			  "%s: received a route without nexthops for prefix %pFX from client %s",
+			  __func__, &api->prefix,
+			  zebra_route_string(client->proto));
 
 		XFREE(MTYPE_RE, re);
 		return;
 	}
 
 	/* Report misuse of the backup flag */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)
-	    && api.backup_nexthop_num == 0) {
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS) &&
+	    api->backup_nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug(
-				"%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
-				__func__, zebra_route_string(client->proto),
-				&api.prefix);
+			zlog_debug("%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
+				   __func__, zebra_route_string(client->proto),
+				   &api->prefix);
 	}
 
-	if (!re->nhe_id
-	    && (!zapi_read_nexthops(client, &api.prefix, api.nexthops,
-				    api.flags, api.message, api.nexthop_num,
-				    api.backup_nexthop_num, &ng, NULL)
-		|| !zapi_read_nexthops(client, &api.prefix, api.backup_nexthops,
-				       api.flags, api.message,
-				       api.backup_nexthop_num,
-				       api.backup_nexthop_num, NULL, &bnhg))) {
-
+	if (!re->nhe_id &&
+	    (!zapi_read_nexthops(client->proto, &api->prefix, api->nexthops,
+				 api->flags, api->message, api->nexthop_num,
+				 api->backup_nexthop_num, &ng, NULL) ||
+	     !zapi_read_nexthops(client->proto, &api->prefix,
+				 api->backup_nexthops, api->flags, api->message,
+				 api->backup_nexthop_num,
+				 api->backup_nexthop_num, NULL, &bnhg))) {
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
 
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
 		re->opaque =
 			XMALLOC(MTYPE_RE_OPAQUE,
-				sizeof(struct re_opaque) + api.opaque.length);
-		re->opaque->length = api.opaque.length;
-		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
+				sizeof(struct re_opaque) + api->opaque.length);
+		re->opaque->length = api->opaque.length;
+		memcpy(re->opaque->data, api->opaque.data, re->opaque->length);
 	}
 
-	afi = family2afi(api.prefix.family);
-	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
+	afi = family2afi(api->prefix.family);
+	if (afi != AFI_IP6 && CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __func__);
@@ -2195,13 +2183,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		XFREE(MTYPE_RE, re);
 		return;
 	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		src_p = &api.src_prefix;
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX))
+		src_p = &api->src_prefix;
 
-	if (api.safi != SAFI_UNICAST && api.safi != SAFI_MULTICAST) {
+	if (api->safi != SAFI_UNICAST && api->safi != SAFI_MULTICAST) {
 		flog_warn(EC_LIB_ZAPI_MISSMATCH,
 			  "%s: Received safi: %d but we can only accept UNICAST or MULTICAST",
-			  __func__, api.safi);
+			  __func__, api->safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
 		XFREE(MTYPE_RE_OPAQUE, re->opaque);
@@ -2225,7 +2213,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		nhe.backup_info = bnhg;
 		n = zebra_nhe_copy(&nhe, 0);
 	}
-	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p, re, n,
+	ret = rib_add_multipath_nhe(afi, api->safi, &api->prefix, src_p, re, n,
 				    false);
 
 	/*
@@ -2247,7 +2235,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		zebra_nhg_backup_free(&bnhg);
 
 	/* Stats */
-	switch (api.prefix.family) {
+	switch (api->prefix.family) {
 	case AF_INET:
 		if (ret == 0)
 			client->v4_route_add_cnt++;
@@ -2263,49 +2251,60 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	}
 }
 
+static void zread_route_add(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_route api;
+
+	s = msg;
+	if (zapi_route_decode(s, &api) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_route sent",
+				   __func__);
+		return;
+	}
+
+	_zread_route_add(client, zvrf, &api);
+}
+
 void zapi_re_opaque_free(struct re_opaque *opaque)
 {
 	XFREE(MTYPE_RE_OPAQUE, opaque);
 }
 
-static void zread_route_del(ZAPI_HANDLER_ARGS)
+static void _zread_route_del(struct zserv *client, struct zebra_vrf *zvrf,
+			     struct zapi_route *api)
 {
-	struct stream *s;
-	struct zapi_route api;
 	afi_t afi;
 	struct prefix_ipv6 *src_p = NULL;
 	uint32_t table_id;
 
-	s = msg;
-	if (zapi_route_decode(s, &api) < 0)
-		return;
-
-	afi = family2afi(api.prefix.family);
-	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
+	afi = family2afi(api->prefix.family);
+	if (afi != AFI_IP6 && CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received a src prefix while afi is not v6",
 			  __func__);
 		return;
 	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		src_p = &api.src_prefix;
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX))
+		src_p = &api->src_prefix;
 
-	if (api.tableid)
-		table_id = api.tableid;
+	if (api->tableid)
+		table_id = api->tableid;
 	else
 		table_id = zvrf->table_id;
 
 	if (IS_ZEBRA_DEBUG_RECV)
 		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, zvrf_id(zvrf), table_id, &api.prefix,
-			   (int)api.message, api.flags);
+			   __func__, zvrf_id(zvrf), table_id, &api->prefix,
+			   (int)api->message, api->flags);
 
-	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
-		   api.distance, false);
+	rib_delete(afi, api->safi, zvrf_id(zvrf), api->type, api->instance,
+		   api->flags, &api->prefix, src_p, NULL, 0, table_id,
+		   api->metric, api->distance, false);
 
 	/* Stats */
-	switch (api.prefix.family) {
+	switch (api->prefix.family) {
 	case AF_INET:
 		client->v4_route_del_cnt++;
 		break;
@@ -2313,6 +2312,18 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 		client->v6_route_del_cnt++;
 		break;
 	}
+}
+
+static void zread_route_del(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_route api;
+
+	s = msg;
+	if (zapi_route_decode(s, &api) < 0)
+		return;
+
+	_zread_route_del(client, zvrf, &api);
 }
 
 /* MRIB Nexthop lookup for IPv4. */
