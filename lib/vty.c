@@ -2801,7 +2801,7 @@ int vty_config_node_exit(struct vty *vty)
 }
 
 /* Master of the threads. */
-static struct event_master *vty_master;
+static struct event_loop *vty_master;
 
 static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 {
@@ -3655,7 +3655,7 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 }
 
 /* Install vty's own commands like `who' command. */
-void vty_init(struct event_master *master_thread, bool do_command_logging)
+void vty_init(struct event_loop *master_thread, bool do_command_logging)
 {
 	/* For further configuration read, preserve current directory. */
 	vty_save_cwd();

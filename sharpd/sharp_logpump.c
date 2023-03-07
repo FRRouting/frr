@@ -28,7 +28,7 @@ static size_t lp_ctr, lp_expect;
 static struct rusage lp_rusage;
 static struct vty *lp_vty;
 
-extern struct event_master *master;
+extern struct event_loop *master;
 
 static void logpump_done(struct event *thread)
 {

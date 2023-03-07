@@ -106,7 +106,7 @@
 
 /* Required variables to link in libbgp */
 struct zebra_privs_t bgpd_privs = {0};
-struct event_master *master;
+struct event_loop *master;
 
 enum test_state {
 	TEST_SUCCESS,

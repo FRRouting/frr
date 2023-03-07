@@ -2526,7 +2526,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 	return 0;
 }
 
-static int bgp_bmp_init(struct event_master *tm)
+static int bgp_bmp_init(struct event_loop *tm)
 {
 	install_node(&bmp_node);
 	install_default(BMP_NODE);

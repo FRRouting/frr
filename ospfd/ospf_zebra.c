@@ -49,7 +49,7 @@ struct zclient *zclient = NULL;
 static struct zclient *zclient_sync;
 
 /* For registering threads. */
-extern struct event_master *master;
+extern struct event_loop *master;
 
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
@@ -2138,7 +2138,7 @@ static zclient_handler *const ospf_handlers[] = {
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = ospf_zebra_client_close_notify,
 };
 
-void ospf_zebra_init(struct event_master *master, unsigned short instance)
+void ospf_zebra_init(struct event_loop *master, unsigned short instance)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master, &zclient_options_default, ospf_handlers,

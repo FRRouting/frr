@@ -564,7 +564,7 @@ static void ospf6_disable(struct ospf6 *o)
 	}
 }
 
-void ospf6_master_init(struct event_master *master)
+void ospf6_master_init(struct event_loop *master)
 {
 	memset(&ospf6_master, 0, sizeof(ospf6_master));
 

@@ -316,7 +316,7 @@ static int irdp_finish(void)
 	return 0;
 }
 
-static int irdp_init(struct event_master *master)
+static int irdp_init(struct event_loop *master)
 {
 	irdp_if_init();
 

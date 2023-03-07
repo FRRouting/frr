@@ -12,7 +12,7 @@
 #define MGMTD_FE_MAX_CONN 32
 
 /* Initialise frontend server */
-extern int mgmt_fe_server_init(struct event_master *master);
+extern int mgmt_fe_server_init(struct event_loop *master);
 
 /* Destroy frontend server */
 extern void mgmt_fe_server_destroy(void);

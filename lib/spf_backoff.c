@@ -37,7 +37,7 @@ enum spf_backoff_state {
 };
 
 struct spf_backoff {
-	struct event_master *m;
+	struct event_loop *m;
 
 	/* Timers as per draft */
 	long init_delay;
@@ -70,7 +70,7 @@ static const char *spf_backoff_state2str(enum spf_backoff_state state)
 	return "???";
 }
 
-struct spf_backoff *spf_backoff_new(struct event_master *m, const char *name,
+struct spf_backoff *spf_backoff_new(struct event_loop *m, const char *name,
 				    long init_delay, long short_delay,
 				    long long_delay, long holddown,
 				    long timetolearn)

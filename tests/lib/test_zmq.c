@@ -12,7 +12,7 @@
 DEFINE_MTYPE_STATIC(LIB, TESTBUF, "zmq test buffer");
 DEFINE_MTYPE_STATIC(LIB, ZMQMSG, "zmq message");
 
-static struct event_master *master;
+static struct event_loop *master;
 
 static void msg_buf_free(void *data, void *hint)
 {

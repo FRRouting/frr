@@ -23,7 +23,7 @@ XREF_SETUP();
 
 struct resolver_state {
 	ares_channel channel;
-	struct event_master *master;
+	struct event_loop *master;
 	struct event *timeout;
 };
 
@@ -314,7 +314,7 @@ static int resolver_config_write_debug(struct vty *vty)
 }
 
 
-void resolver_init(struct event_master *tm)
+void resolver_init(struct event_loop *tm)
 {
 	struct ares_options ares_opts;
 

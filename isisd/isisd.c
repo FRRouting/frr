@@ -166,7 +166,7 @@ struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 	return NULL;
 }
 
-void isis_master_init(struct event_master *master)
+void isis_master_init(struct event_loop *master)
 {
 	memset(&isis_master, 0, sizeof(isis_master));
 	im = &isis_master;

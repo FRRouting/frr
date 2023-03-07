@@ -52,7 +52,7 @@
 pid_t pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
-struct event_master *master;
+struct event_loop *master;
 
 /* Route retain mode flag. */
 int retain_mode = 0;

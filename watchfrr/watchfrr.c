@@ -53,7 +53,7 @@ DEFINE_MGROUP(WATCHFRR, "watchfrr");
 DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry");
 
 /* Needs to be global, referenced somewhere inside libfrr. */
-struct event_master *master;
+struct event_loop *master;
 
 static bool watch_only = false;
 const char *pathspace;

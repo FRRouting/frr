@@ -25,7 +25,7 @@
 
 #include <sys/types.h>
 
-#include "ospfd/ospfd.h" /* for "struct event_master" */
+#include "ospfd/ospfd.h" /* for "struct event_loop" */
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_asbr.h"

@@ -62,7 +62,7 @@ DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
 #define FOREACH_SESSION_IN_LIST(adapter, session)                              \
 	frr_each_safe (mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
 
-static struct event_master *mgmt_fe_adapter_tm;
+static struct event_loop *mgmt_fe_adapter_tm;
 static struct mgmt_master *mgmt_fe_adapter_mm;
 
 static struct mgmt_fe_adapters_head mgmt_fe_adapters;
@@ -1549,7 +1549,7 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 	*adapter = NULL;
 }
 
-int mgmt_fe_adapter_init(struct event_master *tm, struct mgmt_master *mm)
+int mgmt_fe_adapter_init(struct event_loop *tm, struct mgmt_master *mm)
 {
 	if (!mgmt_fe_adapter_tm) {
 		mgmt_fe_adapter_tm = tm;

@@ -105,7 +105,7 @@ DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 
 struct mgmt_be_client_ctx {
 	int conn_fd;
-	struct event_master *tm;
+	struct event_loop *tm;
 	struct event *conn_retry_tmr;
 	struct event *conn_read_ev;
 	struct event *conn_write_ev;
@@ -1106,7 +1106,7 @@ extern struct nb_config *running_config;
  * Initialize library and try connecting with MGMTD.
  */
 uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
-				  struct event_master *master_thread)
+				  struct event_loop *master_thread)
 {
 	assert(master_thread && params && strlen(params->name)
 	       && !mgmt_be_client_ctx.tm);

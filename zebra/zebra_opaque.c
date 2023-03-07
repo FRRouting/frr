@@ -77,7 +77,7 @@ static struct zebra_opaque_globals {
 	struct frr_pthread *pthread;
 
 	/* Event-delivery context 'master' for the module */
-	struct event_master *master;
+	struct event_loop *master;
 
 	/* Event/'thread' pointer for queued zapi messages */
 	struct event *t_msgs;

@@ -27,7 +27,7 @@ static struct mgmt_master mgmt_master;
 /* MGMTD process wide configuration pointer to export.  */
 struct mgmt_master *mm;
 
-void mgmt_master_init(struct event_master *master, const int buffer_size)
+void mgmt_master_init(struct event_loop *master, const int buffer_size)
 {
 	memset(&mgmt_master, 0, sizeof(struct mgmt_master));
 

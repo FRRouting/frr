@@ -45,7 +45,7 @@ struct pullwr;
  * and released with pullwr_del().  This can be done from inside the callback,
  * the pullwr code holds no more references on it when calling err().
  */
-extern struct pullwr *_pullwr_new(struct event_master *tm, int fd, void *arg,
+extern struct pullwr *_pullwr_new(struct event_loop *tm, int fd, void *arg,
 				  void (*fill)(void *, struct pullwr *),
 				  void (*err)(void *, struct pullwr *,
 					      bool eof));

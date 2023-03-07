@@ -22,7 +22,7 @@
 
 #include "tests.h"
 
-extern struct event_master *master;
+extern struct event_loop *master;
 
 enum { ITERS_FIRST = 0,
        ITERS_ERR = 100,

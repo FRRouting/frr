@@ -63,7 +63,7 @@ void systemd_send_stopping(void)
 	systemd_send_information("STOPPING=1");
 }
 
-static struct event_master *systemd_master = NULL;
+static struct event_loop *systemd_master = NULL;
 
 static void systemd_send_watchdog(struct event *t)
 {
@@ -74,7 +74,7 @@ static void systemd_send_watchdog(struct event *t)
 			     watchdog_msec, NULL);
 }
 
-void systemd_send_started(struct event_master *m)
+void systemd_send_started(struct event_loop *m)
 {
 	assert(m != NULL);
 

@@ -38,7 +38,7 @@
  */
 static bool nb_dbg_client_grpc = 0;
 
-static struct event_master *main_master;
+static struct event_loop *main_master;
 
 static struct frr_pthread *fpt;
 
@@ -1298,7 +1298,7 @@ error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
 }
 
-static int frr_grpc_module_late_init(struct event_master *tm)
+static int frr_grpc_module_late_init(struct event_loop *tm)
 {
 	main_master = tm;
 	hook_register(frr_fini, frr_grpc_finish);

@@ -51,7 +51,7 @@ socklen_t zclient_addr_len;
 static int zclient_debug;
 
 /* Allocate zclient structure. */
-struct zclient *zclient_new(struct event_master *master,
+struct zclient *zclient_new(struct event_loop *master,
 			    struct zclient_options *opt,
 			    zclient_handler *const *handlers, size_t n_handlers)
 {

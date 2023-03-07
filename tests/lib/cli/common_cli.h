@@ -22,7 +22,7 @@ extern void test_init(int argc, char **argv);
 /* functions provided by common cli
  * (includes main())
  */
-extern struct event_master *master;
+extern struct event_loop *master;
 
 extern int test_log_prio;
 

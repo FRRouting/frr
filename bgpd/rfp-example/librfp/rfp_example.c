@@ -17,7 +17,7 @@
 struct rfp_instance_t {
 	struct rfapi_rfp_cfg rfapi_config;
 	struct rfapi_rfp_cb_methods rfapi_callbacks;
-	struct event_master *master;
+	struct event_loop *master;
 	uint32_t config_var;
 };
 
@@ -271,7 +271,7 @@ static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
  *    rfp_start_val rfp returned value passed on rfp_stop and rfp_cfg_write
  *
 --------------------------------------------*/
-void *rfp_start(struct event_master *master, struct rfapi_rfp_cfg **cfgp,
+void *rfp_start(struct event_loop *master, struct rfapi_rfp_cfg **cfgp,
 		struct rfapi_rfp_cb_methods **cbmp)
 {
 	memset(&global_rfi, 0, sizeof(global_rfi));

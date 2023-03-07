@@ -58,7 +58,7 @@ Basic boilerplate:
     #include "libfrr.h"
     #include "event.h"
 
-    static int module_late_init(struct event_master *master)
+    static int module_late_init(struct event_loop *master)
     {
         /* Do initialization stuff here */
         return 0;

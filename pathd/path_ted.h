@@ -41,7 +41,7 @@ enum igp_import {
 	IMPORT_OSPFv3
 };
 struct ted_state {
-	struct event_master *main;
+	struct event_loop *main;
 	/* Status of TED: enable or disable */
 	bool enabled;
 	/* From which igp is going to receive data */
@@ -84,7 +84,7 @@ struct ted_state {
 
 /* TED management functions */
 bool path_ted_is_initialized(void);
-void path_ted_init(struct event_master *master);
+void path_ted_init(struct event_loop *master);
 uint32_t path_ted_teardown(void);
 void path_ted_timer_sync_cancel(void);
 void path_ted_timer_refresh_cancel(void);

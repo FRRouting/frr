@@ -65,7 +65,7 @@ extern int test_topology_load(const struct isis_topology *topology,
 			      struct lspdb_head lspdb[]);
 
 /* Global variables. */
-extern struct event_master *master;
+extern struct event_loop *master;
 extern struct zebra_privs_t isisd_privs;
 extern struct isis_topology test_topologies[];
 

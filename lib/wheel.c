@@ -60,7 +60,7 @@ static void wheel_timer_thread(struct event *t)
 	event_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
 }
 
-struct timer_wheel *wheel_init(struct event_master *master, int period,
+struct timer_wheel *wheel_init(struct event_loop *master, int period,
 			       size_t slots,
 			       unsigned int (*slot_key)(const void *),
 			       void (*slot_run)(void *), const char *run_name)

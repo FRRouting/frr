@@ -172,7 +172,7 @@ struct pim_msdp_listener {
 
 struct pim_msdp {
 	enum pim_msdp_flags flags;
-	struct event_master *master;
+	struct event_loop *master;
 	struct pim_msdp_listener listener;
 	uint32_t rejected_accepts;
 
@@ -217,7 +217,7 @@ struct pim_msdp {
 #if PIM_IPV != 6
 // struct pim_msdp *msdp;
 struct pim_instance;
-void pim_msdp_init(struct pim_instance *pim, struct event_master *master);
+void pim_msdp_init(struct pim_instance *pim, struct event_loop *master);
 void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
@@ -308,7 +308,7 @@ void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
-				 struct event_master *master)
+				 struct event_loop *master)
 {
 }
 

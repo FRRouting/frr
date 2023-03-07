@@ -201,7 +201,7 @@ void static_next_hop_bfd_profile(struct static_nexthop *sn, const char *name)
 	bfd_sess_install(sn->bsp);
 }
 
-void static_bfd_initialize(struct zclient *zc, struct event_master *tm)
+void static_bfd_initialize(struct zclient *zc, struct event_loop *tm)
 {
 	/* Initialize BFD integration library. */
 	bfd_protocol_integration_init(zc, tm);

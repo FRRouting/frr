@@ -156,7 +156,7 @@ static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
 					    {RTN_XRESOLVE, "resolver"},
 					    {0}};
 
-extern struct event_master *master;
+extern struct event_loop *master;
 
 extern struct zebra_privs_t zserv_privs;
 

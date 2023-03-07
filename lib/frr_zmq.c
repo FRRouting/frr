@@ -150,7 +150,7 @@ out_err:
 }
 
 int _frrzmq_event_add_read(const struct xref_eventsched *xref,
-			   struct event_master *master,
+			   struct event_loop *master,
 			   void (*msgfunc)(void *arg, void *zmqsock),
 			   void (*partfunc)(void *arg, void *zmqsock,
 					    zmq_msg_t *msg, unsigned partnum),
@@ -258,7 +258,7 @@ out_err:
 }
 
 int _frrzmq_event_add_write(const struct xref_eventsched *xref,
-			    struct event_master *master,
+			    struct event_loop *master,
 			    void (*msgfunc)(void *arg, void *zmqsock),
 			    void (*errfunc)(void *arg, void *zmqsock),
 			    void *arg, void *zmqsock, struct frrzmq_cb **cbp)
@@ -342,7 +342,7 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 	if (zmq_getsockopt(cb->zmqsock, ZMQ_EVENTS, &events, &len))
 		return;
 	if ((events & event) && core->thread && !core->cancelled) {
-		struct event_master *tm = core->thread->master;
+		struct event_loop *tm = core->thread->master;
 
 		event_cancel(&core->thread);
 

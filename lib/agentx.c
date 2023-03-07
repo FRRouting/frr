@@ -27,7 +27,7 @@ DEFINE_HOOK(agentx_enabled, (), ());
 
 static bool agentx_enabled = false;
 
-static struct event_master *agentx_tm;
+static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
 
@@ -244,7 +244,7 @@ bool smux_enabled(void)
 	return agentx_enabled;
 }
 
-void smux_init(struct event_master *tm)
+void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 

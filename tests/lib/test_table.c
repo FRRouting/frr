@@ -25,7 +25,7 @@ typedef struct test_node_t_ {
 	char *prefix_str;
 } test_node_t;
 
-struct event_master *master;
+struct event_loop *master;
 
 /*
  * add_node

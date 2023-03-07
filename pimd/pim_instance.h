@@ -64,7 +64,7 @@ enum pim_mlag_flags {
 };
 
 struct pim_router {
-	struct event_master *master;
+	struct event_loop *master;
 
 	uint32_t debugs;
 

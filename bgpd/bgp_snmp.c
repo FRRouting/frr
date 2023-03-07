@@ -30,7 +30,7 @@
 #include "bgpd/bgp_snmp_bgp4v2.h"
 #include "bgpd/bgp_mplsvpn_snmp.h"
 
-static int bgp_snmp_init(struct event_master *tm)
+static int bgp_snmp_init(struct event_loop *tm)
 {
 	smux_init(tm);
 	bgp_snmp_bgp4_init(tm);

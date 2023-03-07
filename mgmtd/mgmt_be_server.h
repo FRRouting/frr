@@ -12,7 +12,7 @@
 #define MGMTD_BE_MAX_CONN 32
 
 /* Initialise backend server */
-extern int mgmt_be_server_init(struct event_master *master);
+extern int mgmt_be_server_init(struct event_loop *master);
 
 /* Destroy backend server */
 extern void mgmt_be_server_destroy(void);

@@ -7,10 +7,10 @@
 #define ISIS_BFD_H
 
 struct isis_circuit;
-struct event_master;
+struct event_loop;
 
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit);
-void isis_bfd_init(struct event_master *tm);
+void isis_bfd_init(struct event_loop *tm);
 
 #endif
 

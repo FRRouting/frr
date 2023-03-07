@@ -14,7 +14,7 @@
 
 extern void test_init(void);
 
-struct event_master *master;
+struct event_loop *master;
 
 struct option longopts[] = {{"daemon", no_argument, NULL, 'd'},
 			    {"config_file", required_argument, NULL, 'f'},

@@ -109,14 +109,14 @@ struct frrzmq_cb;
  */
 extern int
 _frrzmq_event_add_read(const struct xref_eventsched *xref,
-		       struct event_master *master,
+		       struct event_loop *master,
 		       void (*msgfunc)(void *arg, void *zmqsock),
 		       void (*partfunc)(void *arg, void *zmqsock,
 					zmq_msg_t *msg, unsigned partnum),
 		       void (*errfunc)(void *arg, void *zmqsock), void *arg,
 		       void *zmqsock, struct frrzmq_cb **cb);
 extern int _frrzmq_event_add_write(const struct xref_eventsched *xref,
-				   struct event_master *master,
+				   struct event_loop *master,
 				   void (*msgfunc)(void *arg, void *zmqsock),
 				   void (*errfunc)(void *arg, void *zmqsock),
 				   void *arg, void *zmqsock,
