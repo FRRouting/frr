@@ -35,7 +35,7 @@
 
 /* need these to link in libbgp */
 struct zebra_privs_t bgpd_privs = {};
-struct event_master *master = NULL;
+struct event_loop *master = NULL;
 
 static int failed = 0;
 static int tty = 0;

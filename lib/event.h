@@ -66,7 +66,7 @@ struct xref_eventsched {
 };
 
 /* Master of the theads. */
-struct event_master {
+struct event_loop {
 	char *name;
 
 	struct event **read;
@@ -109,7 +109,7 @@ struct event {
 	struct event_list_item eventitem;
 	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
-	struct event_master *master;  /* pointer to the struct event_master */
+	struct event_loop *master;    /* pointer to the struct event_loop */
 	void (*func)(struct event *); /* event function */
 	void *arg;		      /* event argument */
 	union {
@@ -209,48 +209,48 @@ struct cpu_event_history {
 	}) /* end */
 
 /* Prototypes. */
-extern struct event_master *event_master_create(const char *name);
-void event_master_set_name(struct event_master *master, const char *name);
-extern void event_master_free(struct event_master *m);
-extern void event_master_free_unused(struct event_master *m);
+extern struct event_loop *event_master_create(const char *name);
+void event_master_set_name(struct event_loop *master, const char *name);
+extern void event_master_free(struct event_loop *m);
+extern void event_master_free_unused(struct event_loop *m);
 
 extern void _event_add_read_write(const struct xref_eventsched *xref,
-				  struct event_master *master,
+				  struct event_loop *master,
 				  void (*fn)(struct event *), void *arg, int fd,
 				  struct event **tref);
 
 extern void _event_add_timer(const struct xref_eventsched *xref,
-			     struct event_master *master,
+			     struct event_loop *master,
 			     void (*fn)(struct event *), void *arg, long t,
 			     struct event **tref);
 
 extern void _event_add_timer_msec(const struct xref_eventsched *xref,
-				  struct event_master *master,
+				  struct event_loop *master,
 				  void (*fn)(struct event *), void *arg, long t,
 				  struct event **tref);
 
 extern void _event_add_timer_tv(const struct xref_eventsched *xref,
-				struct event_master *master,
+				struct event_loop *master,
 				void (*fn)(struct event *), void *arg,
 				struct timeval *tv, struct event **tref);
 
 extern void _event_add_event(const struct xref_eventsched *xref,
-			     struct event_master *master,
+			     struct event_loop *master,
 			     void (*fn)(struct event *), void *arg, int val,
 			     struct event **tref);
 
 extern void _event_execute(const struct xref_eventsched *xref,
-			   struct event_master *master,
+			   struct event_loop *master,
 			   void (*fn)(struct event *), void *arg, int val);
 
 extern void event_cancel(struct event **event);
-extern void event_cancel_async(struct event_master *m, struct event **eptr,
+extern void event_cancel_async(struct event_loop *m, struct event **eptr,
 			       void *data);
 /* Cancel ready tasks with an arg matching 'arg' */
-extern void event_cancel_event_ready(struct event_master *m, void *arg);
+extern void event_cancel_event_ready(struct event_loop *m, void *arg);
 /* Cancel all tasks with an arg matching 'arg', including timers and io */
-extern void event_cancel_event(struct event_master *m, void *arg);
-extern struct event *event_fetch(struct event_master *m, struct event *event);
+extern void event_cancel_event(struct event_loop *m, void *arg);
+extern struct event *event_fetch(struct event_loop *m, struct event *event);
 extern void event_call(struct event *event);
 extern unsigned long event_timer_remain_second(struct event *event);
 extern struct timeval event_timer_remain(struct event *event);

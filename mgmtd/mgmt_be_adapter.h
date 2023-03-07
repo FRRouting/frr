@@ -92,7 +92,7 @@ struct mgmt_be_client_subscr_info {
 };
 
 /* Initialise backend adapter module. */
-extern int mgmt_be_adapter_init(struct event_master *tm);
+extern int mgmt_be_adapter_init(struct event_loop *tm);
 
 /* Destroy the backend adapter module. */
 extern void mgmt_be_adapter_destroy(void);

@@ -51,7 +51,7 @@ struct zebra_privs_t ospfd_privs = {.user = NULL,
 #define ASYNCPORT 4000
 
 /* Master thread */
-struct event_master *master;
+struct event_loop *master;
 
 /* Global variables */
 struct ospf_apiclient *oclient;

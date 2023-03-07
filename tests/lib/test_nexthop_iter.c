@@ -13,7 +13,7 @@
 #include "zebra/rib.h"
 #include "prng.h"
 
-struct event_master *master;
+struct event_loop *master;
 static int verbose;
 
 static void str_append(char **buf, const char *repr)

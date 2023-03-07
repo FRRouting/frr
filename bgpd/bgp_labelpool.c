@@ -177,7 +177,7 @@ static void lp_chunk_free(void *goner)
 	XFREE(MTYPE_BGP_LABEL_CHUNK, goner);
 }
 
-void bgp_lp_init(struct event_master *master, struct labelpool *pool)
+void bgp_lp_init(struct event_loop *master, struct labelpool *pool)
 {
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: entry", __func__);

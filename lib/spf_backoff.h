@@ -18,10 +18,10 @@ extern "C" {
 #endif
 
 struct spf_backoff;
-struct event_master;
+struct event_loop;
 struct vty;
 
-struct spf_backoff *spf_backoff_new(struct event_master *m, const char *name,
+struct spf_backoff *spf_backoff_new(struct event_loop *m, const char *name,
 				    long init_delay, long short_delay,
 				    long long_delay, long holddown,
 				    long timetolearn);

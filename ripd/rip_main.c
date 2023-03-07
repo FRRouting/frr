@@ -47,7 +47,7 @@ struct zebra_privs_t ripd_privs = {
 	.cap_num_i = 0};
 
 /* Master of threads. */
-struct event_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info ripd_di;
 

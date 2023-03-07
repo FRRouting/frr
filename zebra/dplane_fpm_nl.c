@@ -1585,7 +1585,7 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
-static int fpm_nl_new(struct event_master *tm)
+static int fpm_nl_new(struct event_loop *tm)
 {
 	struct zebra_dplane_provider *prov = NULL;
 	int rv;

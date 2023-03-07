@@ -77,7 +77,7 @@ static pid_t		 lde_pid;
 
 static struct frr_daemon_info ldpd_di;
 
-DEFINE_HOOK(ldp_register_mib, (struct event_master * tm), (tm));
+DEFINE_HOOK(ldp_register_mib, (struct event_loop * tm), (tm));
 
 static void ldp_load_module(const char *name)
 {
@@ -104,7 +104,7 @@ enum ldpd_process ldpd_process;
 #define LDP_VTY_PORT		2612
 
 /* Master of threads. */
-struct event_master *master;
+struct event_loop *master;
 
 /* ldpd privileges */
 static zebra_capabilities_t _caps_p [] =

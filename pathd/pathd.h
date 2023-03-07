@@ -371,7 +371,7 @@ extern struct srte_policy_head srte_policies;
 extern struct zebra_privs_t pathd_privs;
 
 /* master thread, defined in path_main.c */
-extern struct event_master *master;
+extern struct event_loop *master;
 
 /* pathd.c */
 struct srte_segment_list *srte_segment_list_add(const char *name);

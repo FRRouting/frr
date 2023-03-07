@@ -28,7 +28,7 @@ DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 
-struct event_master *master;
+struct event_loop *master;
 struct timeval current_time;
 
 /* nhrpd options. */

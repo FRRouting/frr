@@ -106,7 +106,7 @@ static struct mgmt_be_xpath_regexp_map
 	mgmt_xpath_map[MGMTD_BE_MAX_NUM_XPATH_MAP];
 static int mgmt_num_xpath_maps;
 
-static struct event_master *mgmt_be_adapter_tm;
+static struct event_loop *mgmt_be_adapter_tm;
 
 static struct mgmt_be_adapters_head mgmt_be_adapters;
 
@@ -805,7 +805,7 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 	*adapter = NULL;
 }
 
-int mgmt_be_adapter_init(struct event_master *tm)
+int mgmt_be_adapter_init(struct event_loop *tm)
 {
 	if (!mgmt_be_adapter_tm) {
 		mgmt_be_adapter_tm = tm;

@@ -49,7 +49,7 @@ static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct event_master *master;
+extern struct event_loop *master;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */

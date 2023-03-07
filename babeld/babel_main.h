@@ -9,7 +9,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "vty.h"
 
 extern struct timeval babel_now;         /* current time             */
-extern struct event_master *master;	 /* quagga's threads handler */
+extern struct event_loop *master;	 /* quagga's threads handler */
 extern int debug;
 extern int resend_delay;
 

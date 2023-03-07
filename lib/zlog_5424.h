@@ -14,7 +14,7 @@
 #include "qobj.h"
 
 struct event;
-struct event_master;
+struct event_loop;
 
 enum zlog_5424_dst {
 	/* can be used to disable a target temporarily */
@@ -78,7 +78,7 @@ struct zlog_cfg_5424 {
 	 */
 
 	/* sockets only - read handler to reconnect on errors */
-	struct event_master *master;
+	struct event_loop *master;
 	struct event *t_reconnect;
 	unsigned int reconn_backoff, reconn_backoff_cur, reconn_backoff_max;
 	int sock_type;

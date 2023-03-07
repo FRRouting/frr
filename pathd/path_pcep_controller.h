@@ -33,8 +33,8 @@ enum pcep_pathd_event_type {
 };
 
 struct ctrl_state {
-	struct event_master *main;
-	struct event_master *self;
+	struct event_loop *main;
+	struct event_loop *self;
 	pcep_main_event_handler_t main_event_handler;
 	struct pcc_opts *pcc_opts;
 	int pcc_count;
@@ -97,7 +97,7 @@ struct pcep_pcc_info {
 };
 
 /* Functions called from the main thread */
-int pcep_ctrl_initialize(struct event_master *main_thread,
+int pcep_ctrl_initialize(struct event_loop *main_thread,
 			 struct frr_pthread **fpt,
 			 pcep_main_event_handler_t event_handler);
 int pcep_ctrl_finalize(struct frr_pthread **fpt);

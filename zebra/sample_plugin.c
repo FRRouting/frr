@@ -76,7 +76,7 @@ static int sample_process(struct zebra_dplane_provider *prov)
  * Init entry point called during zebra startup. This is registered during
  * module init.
  */
-static int init_sample_plugin(struct event_master *tm)
+static int init_sample_plugin(struct event_loop *tm)
 {
 	int ret;
 

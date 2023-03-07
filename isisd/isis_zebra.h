@@ -20,7 +20,7 @@ struct label_chunk {
 };
 #define CHUNK_SIZE 64
 
-void isis_zebra_init(struct event_master *master, int instance);
+void isis_zebra_init(struct event_loop *master, int instance);
 void isis_zebra_stop(void);
 
 struct isis_route_info;

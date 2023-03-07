@@ -15,7 +15,7 @@ DEFINE_MTYPE_STATIC(TEST_MEMORY, TEST, "generic test mtype");
  * CVS
  */
 
-struct event_master *master;
+struct event_loop *master;
 
 #if 0 /* set to 1 to use system alloc directly */
 #undef XMALLOC

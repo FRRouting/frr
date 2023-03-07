@@ -26,7 +26,7 @@
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct event_master *master;
+extern struct event_loop *master;
 
 /* Privs info */
 extern struct zebra_privs_t sharp_privs;

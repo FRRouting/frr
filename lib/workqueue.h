@@ -47,7 +47,7 @@ struct work_queue {
 	/* Everything but the specification struct is private
 	 * the following may be read
 	 */
-	struct event_master *master;  /* thread master */
+	struct event_loop *master;    /* thread master */
 	struct event *thread;	      /* thread, if one is active */
 	char *name;		      /* work queue name */
 
@@ -137,7 +137,7 @@ static inline void work_queue_item_dequeue(struct work_queue *wq,
  * user must fill in the spec of the returned work queue before adding
  * anything to it
  */
-extern struct work_queue *work_queue_new(struct event_master *m,
+extern struct work_queue *work_queue_new(struct event_loop *m,
 					 const char *queue_name);
 
 /* destroy work queue */

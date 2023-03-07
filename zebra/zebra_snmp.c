@@ -536,7 +536,7 @@ static uint8_t *ipCidrTable(struct variable *v, oid objid[], size_t *objid_len,
 	return NULL;
 }
 
-static int zebra_snmp_init(struct event_master *tm)
+static int zebra_snmp_init(struct event_loop *tm)
 {
 	smux_init(tm);
 	REGISTER_MIB("mibII/ipforward", zebra_variables, variable, ipfw_oid);

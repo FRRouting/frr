@@ -34,13 +34,13 @@
 #include <grpcpp/security/credentials.h>
 #include "grpc/frr-northbound.grpc.pb.h"
 
-DEFINE_HOOK(frr_late_init, (struct event_master * tm), (tm));
+DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 DEFINE_KOOH(frr_fini, (), ());
 
 struct vty *vty;
 
 bool mpls_enabled;
-struct event_master *master;
+struct event_loop *master;
 struct zebra_privs_t static_privs = {0};
 struct frrmod_runtime *grpc_module;
 char binpath[2 * MAXPATHLEN + 1];

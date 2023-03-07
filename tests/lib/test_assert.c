@@ -28,7 +28,7 @@ static void func_for_bt(int number)
 int main(int argc, char **argv)
 {
 	int number = 10;
-	struct event_master *master;
+	struct event_loop *master;
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 

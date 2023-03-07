@@ -294,7 +294,7 @@ struct path {
 
 struct pcep_glob {
 	struct debug dbg;
-	struct event_master *master;
+	struct event_loop *master;
 	struct frr_pthread *fpt;
 	uint8_t num_pce_opts_cli;
 	struct pce_opts_cli *pce_opts_cli[MAX_PCE];

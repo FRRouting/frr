@@ -48,7 +48,7 @@ struct zebra_privs_t ripngd_privs = {
 
 
 /* Master of threads. */
-struct event_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info ripngd_di;
 

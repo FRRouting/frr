@@ -582,7 +582,7 @@ static struct zebra_dplane_globals {
 	struct frr_pthread *dg_pthread;
 
 	/* Event-delivery context 'master' for the dplane */
-	struct event_master *dg_master;
+	struct event_loop *dg_master;
 
 	/* Event/'thread' pointer for queued updates */
 	struct event *dg_t_update;
@@ -633,7 +633,7 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
  */
 
 /* Obtain thread_master for dataplane thread */
-struct event_master *dplane_get_thread_master(void)
+struct event_loop *dplane_get_thread_master(void)
 {
 	return zdplane_info.dg_master;
 }

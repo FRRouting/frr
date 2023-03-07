@@ -23,7 +23,7 @@ static void vty_do_exit(int isexit)
 		exit(0);
 }
 
-struct event_master *master;
+struct event_loop *master;
 
 int main(int argc, char **argv)
 {
