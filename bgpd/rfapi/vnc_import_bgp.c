@@ -834,6 +834,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 
 	if (ecom)
 		ecommunity_free(&ecom);
+	if (iattr)
+		bgp_attr_unintern(&iattr);
 }
 
 static void vnc_import_bgp_add_route_mode_nvegroup(
@@ -1030,6 +1032,8 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 
 	if (ecom)
 		ecommunity_free(&ecom);
+	if (iattr)
+		bgp_attr_unintern(&iattr);
 }
 
 static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
