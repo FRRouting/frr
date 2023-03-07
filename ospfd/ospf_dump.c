@@ -9,7 +9,7 @@
 #include "lib/bfd.h"
 #include "monotime.h"
 #include "linklist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "command.h"
 #include "stream.h"

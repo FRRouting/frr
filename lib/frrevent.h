@@ -33,7 +33,7 @@ struct rusage_t {
 #endif
 	struct timeval real;
 };
-#define RUSAGE_T        struct rusage_t
+#define RUSAGE_T struct rusage_t
 
 #define GETRUSAGE(X) event_getrusage(X)
 
@@ -118,10 +118,10 @@ struct event {
 		struct timeval sands; /* rest of time sands value. */
 	} u;
 	struct timeval real;
-	struct cpu_event_history *hist;	 /* cache pointer to cpu_history */
-	unsigned long yield;		 /* yield time in microseconds */
+	struct cpu_event_history *hist;	    /* cache pointer to cpu_history */
+	unsigned long yield;		    /* yield time in microseconds */
 	const struct xref_eventsched *xref; /* origin location */
-	pthread_mutex_t mtx;   /* mutex for thread.c functions */
+	pthread_mutex_t mtx;		    /* mutex for thread.c functions */
 	bool ignore_timer_late;
 };
 

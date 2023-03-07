@@ -8,7 +8,7 @@
 #include "linklist.h"
 #include "prefix.h"
 #include "stream.h"
-#include "event.h"
+#include "frrevent.h"
 #include "log.h"
 #include "command.h"
 #include "memory.h"

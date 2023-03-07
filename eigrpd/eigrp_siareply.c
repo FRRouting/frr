@@ -11,7 +11,7 @@
  */
 #include <zebra.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"

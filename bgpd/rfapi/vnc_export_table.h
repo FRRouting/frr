@@ -9,7 +9,7 @@
 #define _QUAGGA_VNC_VNC_EXPORT_TABLE_H_
 
 #include "lib/table.h"
-#include "event.h"
+#include "frrevent.h"
 #include "lib/vty.h"
 
 #include "bgpd/bgpd.h"

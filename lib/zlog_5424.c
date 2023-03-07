@@ -26,7 +26,7 @@
 #include "frr_pthread.h"
 #include "command.h"
 #include "monotime.h"
-#include "event.h"
+#include "frrevent.h"
 
 #include "lib/version.h"
 #include "lib/lib_errors.h"

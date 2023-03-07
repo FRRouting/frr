@@ -11,7 +11,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "prefix.h"
-#include "event.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "vrf.h"

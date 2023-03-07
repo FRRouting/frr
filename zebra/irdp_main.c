@@ -32,7 +32,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
-#include "event.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "libfrr.h"
 #include "lib_errors.h"

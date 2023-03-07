@@ -11,7 +11,7 @@
 #include "log.h"
 #include "libfrr.h"
 #include "stream.h"
-#include "event.h"
+#include "frrevent.h"
 #include "network.h"
 #include "command.h"
 #include "lib/version.h"

@@ -13,7 +13,7 @@
 #include "prefix.h"
 #include "command.h"
 #include "linklist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 
 #include "ripngd/ripngd.h"

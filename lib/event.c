@@ -8,7 +8,7 @@
 #include <zebra.h>
 #include <sys/resource.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "frrcu.h"
 #include "log.h"

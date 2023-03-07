@@ -13,7 +13,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"

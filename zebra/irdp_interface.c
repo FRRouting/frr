@@ -24,7 +24,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
-#include "event.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"

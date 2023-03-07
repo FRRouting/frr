@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "memory.h"
-#include "event.h"
+#include "frrevent.h"
 #include "command.h"
 #include "vrf.h"
 #include "lib/json.h"

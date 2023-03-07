@@ -15,7 +15,7 @@
 #include "lib/memory.h"
 #include "lib/log.h"
 #include "lib/skiplist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "lib/stream.h"
 #include "lib/lib_errors.h"
 

@@ -7,7 +7,7 @@
 #ifndef _FRR_NORTHBOUND_H_
 #define _FRR_NORTHBOUND_H_
 
-#include "event.h"
+#include "frrevent.h"
 #include "hook.h"
 #include "linklist.h"
 #include "openbsd-tree.h"

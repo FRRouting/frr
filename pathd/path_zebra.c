@@ -5,7 +5,7 @@
 
 #include <zebra.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "if.h"

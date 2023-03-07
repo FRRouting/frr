@@ -20,7 +20,7 @@
 #include "prefix.h"
 #include "memory.h"
 #include "command.h"
-#include "event.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "table.h"
 #include "log.h"

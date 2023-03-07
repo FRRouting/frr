@@ -13,7 +13,7 @@
 #include "lib/prefix.h"
 #include "lib/command.h"
 #include "lib/if.h"
-#include "event.h"
+#include "frrevent.h"
 #include "lib/stream.h"
 #include "lib/memory.h"
 #include "lib/table.h"

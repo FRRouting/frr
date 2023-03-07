@@ -13,7 +13,7 @@
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_config.h"
 #include "pathd/path_pcep_debug.h"
-#include "event.h"
+#include "frrevent.h"
 
 #define MAX_XPATH 256
 #define MAX_FLOAT_LEN 22

@@ -11,7 +11,7 @@
 #include <zebra.h>
 
 #include "memory.h"
-#include "event.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "log.h"
 #include "stream.h"

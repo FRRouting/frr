@@ -10,7 +10,7 @@
 #include "nhrpd.h"
 #include "table.h"
 #include "memory.h"
-#include "event.h"
+#include "frrevent.h"
 #include "log.h"
 #include "nhrp_protocol.h"
 

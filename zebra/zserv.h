@@ -19,7 +19,7 @@
 #include "lib/vrf.h"          /* for vrf_bitmap_t */
 #include "lib/zclient.h"      /* for redist_proto */
 #include "lib/stream.h"       /* for stream, stream_fifo */
-#include "event.h"            /* for thread, thread_master */
+#include "frrevent.h"            /* for thread, thread_master */
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */

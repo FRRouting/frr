@@ -9,7 +9,7 @@
 #include "if.h"
 #include "log.h"
 #include "command.h"
-#include "event.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"

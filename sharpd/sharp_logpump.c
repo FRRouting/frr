@@ -11,7 +11,7 @@
 #include "prefix.h"
 #include "nexthop.h"
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "vrf.h"
 #include "zclient.h"
 #include "frr_pthread.h"

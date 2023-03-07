@@ -14,7 +14,7 @@
 #include "vrf_int.h"
 #include "if.h"
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "zclient.h"
 #include "memory.h"
 #include "table.h"

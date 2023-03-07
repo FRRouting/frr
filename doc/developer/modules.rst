@@ -56,7 +56,7 @@ Basic boilerplate:
     #include "hook.h"
     #include "module.h"
     #include "libfrr.h"
-    #include "event.h"
+    #include "frrevent.h"
 
     static int module_late_init(struct event_loop *master)
     {

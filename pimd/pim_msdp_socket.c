@@ -9,7 +9,7 @@
 #include <lib/log.h>
 #include <lib/network.h>
 #include <lib/sockunion.h>
-#include "event.h"
+#include "frrevent.h"
 #include <lib/vty.h>
 #include <lib/if.h>
 #include <lib/vrf.h>

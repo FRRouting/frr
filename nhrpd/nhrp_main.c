@@ -12,7 +12,7 @@
 #include "zebra.h"
 #include "privs.h"
 #include "getopt.h"
-#include "event.h"
+#include "frrevent.h"
 #include "sigevent.h"
 #include "lib/version.h"
 #include "log.h"

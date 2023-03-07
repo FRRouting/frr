@@ -6,7 +6,7 @@
  */
 
 #include <zebra.h>
-#include "event.h"
+#include "frrevent.h"
 #include <log.h>
 #include <network.h>
 #include <sigevent.h>

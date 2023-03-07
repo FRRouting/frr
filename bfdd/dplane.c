@@ -26,7 +26,7 @@
 #include "lib/network.h"
 #include "lib/printfrr.h"
 #include "lib/stream.h"
-#include "lib/event.h"
+#include "lib/frrevent.h"
 
 #include "bfd.h"
 #include "bfddp_packet.h"

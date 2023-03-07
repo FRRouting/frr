@@ -18,7 +18,7 @@
 #include "plist.h"
 #include "routemap.h"
 #include "table.h"
-#include "event.h"
+#include "frrevent.h"
 #include "vty.h"
 
 #include "isis_constants.h"

@@ -8,7 +8,7 @@
 #include <zebra.h>
 #include <sys/time.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "network.h"
 #include "prefix.h"

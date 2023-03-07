@@ -7,7 +7,7 @@
 #define OSPF6D_H
 
 #include "libospf.h"
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 
 DECLARE_MGROUP(OSPF6D);

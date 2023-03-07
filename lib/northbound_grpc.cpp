@@ -12,7 +12,7 @@
 #include "log.h"
 #include "libfrr.h"
 #include "lib/version.h"
-#include "event.h"
+#include "frrevent.h"
 #include "command.h"
 #include "lib_errors.h"
 #include "northbound.h"

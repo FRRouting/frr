@@ -18,7 +18,7 @@
 #include <regex.h>
 #endif /* HAVE_LIBPCRE2_POSIX */
 
-#include "event.h"
+#include "frrevent.h"
 #include "log.h"
 #include "sockunion.h"
 #include "qobj.h"

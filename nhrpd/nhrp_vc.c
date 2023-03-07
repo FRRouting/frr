@@ -7,7 +7,7 @@
 #include "memory.h"
 #include "stream.h"
 #include "hash.h"
-#include "event.h"
+#include "frrevent.h"
 #include "jhash.h"
 
 #include "nhrpd.h"

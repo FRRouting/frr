@@ -8,7 +8,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "getopt.h"
 #include "if.h"
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "sigevent.h"
 #include "lib/version.h"

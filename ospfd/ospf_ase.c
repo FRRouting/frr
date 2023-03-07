@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"

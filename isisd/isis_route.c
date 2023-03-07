@@ -11,7 +11,7 @@
 
 #include <zebra.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "log.h"

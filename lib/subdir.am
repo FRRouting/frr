@@ -288,7 +288,7 @@ pkginclude_HEADERS += \
 	lib/systemd.h \
 	lib/table.h \
 	lib/termtable.h \
-	lib/event.h \
+	lib/frrevent.h \
 	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \

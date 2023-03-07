@@ -19,7 +19,7 @@
 #include "lib/jhash.h"
 #include "lib/prefix.h"
 #include "lib/checksum.h"
-#include "lib/event.h"
+#include "lib/frrevent.h"
 #include "termtable.h"
 
 #include "pimd/pim6_mld.h"

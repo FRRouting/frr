@@ -8,7 +8,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "event.h"
+#include "frrevent.h"
 #include "command.h"
 #include "log.h"
 #include "memory.h"

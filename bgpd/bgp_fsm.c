@@ -9,7 +9,7 @@
 #include "linklist.h"
 #include "prefix.h"
 #include "sockunion.h"
-#include "event.h"
+#include "frrevent.h"
 #include "log.h"
 #include "stream.h"
 #include "ringbuf.h"

@@ -10,7 +10,7 @@
 #include <netinet/if_ether.h>
 #include "nhrpd.h"
 #include "zbuf.h"
-#include "event.h"
+#include "frrevent.h"
 #include "hash.h"
 
 #include "nhrp_protocol.h"

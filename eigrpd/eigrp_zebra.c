@@ -12,7 +12,7 @@
 
 #include <zebra.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"

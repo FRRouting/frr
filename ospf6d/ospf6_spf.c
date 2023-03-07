@@ -13,7 +13,7 @@
 #include "vty.h"
 #include "prefix.h"
 #include "linklist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 
 #include "ospf6_lsa.h"

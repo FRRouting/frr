@@ -11,7 +11,7 @@
 
 #include "zebra.h"
 #include "memory.h"
-#include "event.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "network.h"
 

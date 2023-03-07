@@ -19,7 +19,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "command.h"
-#include "event.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "hash.h"
 #include "prefix.h"

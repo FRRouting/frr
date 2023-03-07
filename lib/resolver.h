@@ -6,7 +6,7 @@
 #ifndef _FRR_RESOLVER_H
 #define _FRR_RESOLVER_H
 
-#include "event.h"
+#include "frrevent.h"
 #include "sockunion.h"
 
 #ifdef __cplusplus
