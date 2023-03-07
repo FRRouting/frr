@@ -13,7 +13,7 @@
 
 #include "log.h"
 #include "hash.h"
-#include "event.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "stream.h"

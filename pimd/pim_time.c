@@ -11,7 +11,7 @@
 #include <time.h>
 
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 
 #include "pim_time.h"

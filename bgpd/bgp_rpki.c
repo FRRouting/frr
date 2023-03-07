@@ -23,7 +23,7 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
-#include "event.h"
+#include "frrevent.h"
 #include "filter.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"

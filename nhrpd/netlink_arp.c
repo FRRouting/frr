@@ -14,7 +14,7 @@
 #include <linux/neighbour.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "prefix.h"
 #include "nhrpd.h"

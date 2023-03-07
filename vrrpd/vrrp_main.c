@@ -18,7 +18,7 @@
 #include "lib/nexthop.h"
 #include "lib/privs.h"
 #include "lib/sigevent.h"
-#include "lib/event.h"
+#include "lib/frrevent.h"
 #include "lib/vrf.h"
 #include "lib/vty.h"
 

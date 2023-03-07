@@ -10,7 +10,7 @@
 #include "memory.h"
 #include "command.h"
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "queue.h"
 #include "filter.h"
 

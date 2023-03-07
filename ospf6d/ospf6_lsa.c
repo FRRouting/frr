@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "event.h"
+#include "frrevent.h"
 #include "checksum.h"
 #include "frrstr.h"
 

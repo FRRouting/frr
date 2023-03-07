@@ -16,7 +16,7 @@
 
 #include "memory.h"
 #include "prng.h"
-#include "event.h"
+#include "frrevent.h"
 
 #define SCHEDULE_TIMERS 800
 #define REMOVE_TIMERS   200

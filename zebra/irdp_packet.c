@@ -34,7 +34,7 @@
 #include "sockunion.h"
 #include "sockunion.h"
 #include "stream.h"
-#include "event.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "zclient.h"
 #include "lib_errors.h"

@@ -10,7 +10,7 @@
 #include <zebra.h>
 
 #include "getopt.h"
-#include "event.h"
+#include "frrevent.h"
 #include "log.h"
 #include <lib/version.h>
 #include "command.h"

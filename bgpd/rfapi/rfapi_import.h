@@ -13,7 +13,7 @@
 #ifndef QUAGGA_HGP_RFAPI_IMPORT_H
 #define QUAGGA_HGP_RFAPI_IMPORT_H
 
-#include "event.h"
+#include "frrevent.h"
 
 /*
  * These are per-rt-import-list

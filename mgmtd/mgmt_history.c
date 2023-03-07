@@ -7,7 +7,7 @@
 
 #include <zebra.h>
 #include "md5.h"
-#include "event.h"
+#include "frrevent.h"
 #include "xref.h"
 
 #include "mgmt_fe_client.h"

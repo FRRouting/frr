@@ -22,7 +22,7 @@
 #include <stdio.h>
 
 #include "linklist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "command.h"
 #include "sockunion.h"

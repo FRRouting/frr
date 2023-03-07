@@ -12,7 +12,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "event.h"
+#include "frrevent.h"
 #include "smux.h"
 #include "filter.h"
 #include "hook.h"

@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "stream.h"
 
 #ifdef __cplusplus

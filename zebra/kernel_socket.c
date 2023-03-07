@@ -1255,7 +1255,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 }
 
 
-#include "event.h"
+#include "frrevent.h"
 #include "zebra/zserv.h"
 
 /* For debug purpose. */

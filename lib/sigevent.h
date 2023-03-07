@@ -8,7 +8,7 @@
 #ifndef _FRR_SIGNAL_H
 #define _FRR_SIGNAL_H
 
-#include <event.h>
+#include <frrevent.h>
 
 #ifdef __cplusplus
 extern "C" {

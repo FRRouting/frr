@@ -12,7 +12,7 @@
 #include <lib/prefix.h>
 #include <lib/sockunion.h>
 #include <lib/stream.h>
-#include <event.h>
+#include <frrevent.h>
 #include <lib/vty.h>
 #include <lib/plist.h>
 #include <lib/lib_errors.h>

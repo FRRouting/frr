@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"

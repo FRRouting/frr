@@ -13,7 +13,7 @@
 #include "sockunion.h"
 #include "zclient.h"
 #include "routemap.h"
-#include "event.h"
+#include "frrevent.h"
 #include "queue.h"
 #include "memory.h"
 #include "lib/json.h"

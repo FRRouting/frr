@@ -33,7 +33,7 @@
 #include "table.h"
 #include "memory.h"
 #include "rib.h"
-#include "event.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"

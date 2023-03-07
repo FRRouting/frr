@@ -17,7 +17,7 @@
 #include "zclient.h"
 #include "command.h"
 #include "agg_table.h"
-#include "event.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "vrf.h"
 #include "lib_errors.h"

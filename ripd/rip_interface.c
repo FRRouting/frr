@@ -14,7 +14,7 @@
 #include "table.h"
 #include "log.h"
 #include "stream.h"
-#include "event.h"
+#include "frrevent.h"
 #include "zclient.h"
 #include "filter.h"
 #include "sockopt.h"

@@ -6,7 +6,7 @@
  */
 #include "zebra.h"
 #include "linklist.h"
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "wheel.h"
 #include "log.h"

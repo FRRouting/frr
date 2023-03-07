@@ -54,7 +54,7 @@
 
 #include <zebra.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"

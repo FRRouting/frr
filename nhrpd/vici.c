@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "event.h"
+#include "frrevent.h"
 #include "zbuf.h"
 #include "log.h"
 #include "lib_errors.h"

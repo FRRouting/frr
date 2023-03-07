@@ -8,7 +8,7 @@
 #include "prefix.h"
 #include "filter.h"
 #include "log.h"
-#include "event.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "if.h"
 #include "stream.h"

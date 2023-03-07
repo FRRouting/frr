@@ -14,7 +14,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "command.h"
-#include "event.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "prefix.h"
 #include "stream.h"

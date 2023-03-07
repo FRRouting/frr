@@ -11,7 +11,7 @@
 #include "frratomic.h"
 #include "memory.h"
 #include "frrcu.h"
-#include "event.h"
+#include "frrevent.h"
 
 #ifdef __cplusplus
 extern "C" {

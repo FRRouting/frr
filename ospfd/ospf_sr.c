@@ -37,7 +37,7 @@
 #include "sockunion.h" /* for inet_aton() */
 #include "stream.h"
 #include "table.h"
-#include "event.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "zclient.h"
 #include "sbuf.h"
