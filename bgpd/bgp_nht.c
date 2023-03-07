@@ -339,7 +339,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * Gather the ifindex for if up/down events to be
 		 * tagged into this fun
 		 */
-		if (afi == AFI_IP6 &&
+		if (afi == AFI_IP6 && peer->conf_if &&
 		    IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr)) {
 			ifindex = peer->su.sin6.sin6_scope_id;
 			if (ifindex == 0) {
