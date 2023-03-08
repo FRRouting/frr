@@ -112,6 +112,10 @@ extern int zsend_zebra_srv6_locator_delete(struct zserv *client,
 extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 		vrf_id_t vrf_id, struct srv6_locator *loc);
 
+extern void zebra_install_6pe_resolved_route(int cmd, struct prefix *p,
+					     struct rnh *rnh,
+					     struct zebra_vrf *zvrf);
+
 #ifdef __cplusplus
 }
 #endif

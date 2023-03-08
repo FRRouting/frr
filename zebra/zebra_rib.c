@@ -895,6 +895,17 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 			rnh->seqno = seq;
 			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0, p,
 					   rnh->safi);
+			/* if an associated ipv6 fake route for 6PE is present
+			 * evaluate this fake route */
+			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_IPV4_MAPPED)) {
+				struct prefix p_6pe;
+				p_6pe.family = AF_INET6;
+				p_6pe.prefixlen = IPV6_MAX_BITLEN;
+				ipv4_to_ipv4_mapped_ipv6(&p_6pe.u.prefix6,
+							 p->u.prefix4);
+				zebra_evaluate_rnh(zvrf, AFI_IP6, 0, &p_6pe,
+						   rnh->safi);
+			}
 		}
 
 		rn = rn->parent;

@@ -2326,6 +2326,46 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	_zread_route_del(client, zvrf, &api);
 }
 
+/* add or remove an IPv6 resolved route for 6PE routes
+ *  that route needs to be added on the FIB before route updates
+ *  that route stands for the route provided by nexthop tracking
+ * cmd: ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
+ * p: the prefix is an ip4 mapped ip address we try to resolve
+ * rnh: the route nexthop contains info avout the nexthop address to use
+ */
+void zebra_install_6pe_resolved_route(int cmd, struct prefix *p,
+				      struct rnh *rnh, struct zebra_vrf *zvrf)
+{
+	struct zapi_route api = { 0 };
+	struct zapi_nexthop *api_nh;
+	struct route_entry *re = rnh->state;
+	struct nexthop nh = { 0 };
+	struct zserv client = {};
+
+	client.proto = ZEBRA_ROUTE_6PE;
+
+	api_nh = &api.nexthops[0];
+
+	/* Make Zebra API structure. */
+	api.type = ZEBRA_ROUTE_6PE;
+	api.safi = SAFI_UNICAST;
+	prefix_copy(&api.prefix, p);
+	if (re) {
+		nexthop_copy(&nh, re->nhe->nhg.nexthop, NULL);
+		zapi_nexthop_from_nexthop(api_nh, &nh);
+		api.nexthop_num = 1;
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	} else
+		api.nexthop_num = 0;
+
+	api.vrf_id = zvrf_id(zvrf);
+	if (cmd == ZEBRA_ROUTE_ADD)
+		_zread_route_add(&client, zvrf, &api);
+	else
+		_zread_route_del(&client, zvrf, &api);
+}
+
+
 /* MRIB Nexthop lookup for IPv4. */
 static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {

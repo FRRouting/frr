@@ -34,6 +34,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zapi_msg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
 
@@ -50,6 +51,11 @@ static bool compare_state(struct route_entry *r1, struct route_entry *r2);
 static void print_rnh(struct route_node *rn, struct vty *vty,
 		      json_object *json);
 static int zebra_client_cleanup_rnh(struct zserv *client);
+
+static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
+					 int force, struct route_node *nrn,
+					 struct rnh *rnh, struct route_node *prn,
+					 struct route_entry *re);
 
 void zebra_rnh_init(void)
 {
@@ -484,7 +490,7 @@ bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh)
  * Determine whether an re's nexthops are valid for tracking.
  */
 static bool rnh_check_re_nexthops(const struct route_entry *re,
-				  const struct rnh *rnh)
+				  const struct rnh *rnh, const struct nexthop **nh)
 {
 	bool ret = false;
 	const struct nexthop *nexthop = NULL;
@@ -537,14 +543,119 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 	}
 
 done:
-	return ret;
+	*nh = nexthop;
+	if (nexthop)
+		return ret;
+
+	return false;
 }
 
+/* return an ipv6 route entry based on an ipv4 mapped address
+ * which is based on the ipv4 route entry.
+ * in:
+ *   zvrf: the vrf instance that owns the routing table
+ *   rn: the ipv4 route node
+ *   re: the ipv4 route entry
+ *   nexthop: the resolved nexthop of the ipv4 route entry
+ *   rnh: the route nexthop ipv6 context
+ * out:
+ *   prn: the ipv6 route node to return
+ */
 static struct route_entry *
-_zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, struct route_node *rn,
-				 const struct rnh *rnh, struct route_node **prn)
+_zebra_rnh_6pe_resolve_re(struct zebra_vrf *zvrf, struct route_node *rn,
+			  struct route_entry *re, const struct nexthop *nexthop,
+			  struct route_node **prn, const struct rnh *rnh)
 {
-	struct route_entry *re;
+	struct prefix p_nh_ipv6 = { 0 };
+	struct route_table *route_table;
+	struct route_node *rn_ipv6, *rn_ipv4;
+	static struct route_entry re_ipv6;
+	struct route_entry *first_re = NULL, *aux_re = NULL;
+	struct nexthop *new_nexthop;
+
+	if (nexthop->type != NEXTHOP_TYPE_IPV4 &&
+	    nexthop->type != NEXTHOP_TYPE_IPV4_IFINDEX &&
+	    rn->p.family != AF_INET6)
+		return NULL;
+
+	/* ipv4 route to nexthop has an ipv4 gateway
+	 * thus create the associated ipv6 gateway
+	 * a ipv4 mapped from the ipv4 gateway and
+	 * get the associated route node*/
+	p_nh_ipv6.family = AF_INET6;
+	p_nh_ipv6.prefixlen = IPV6_MAX_BITLEN;
+	ipv4_to_ipv4_mapped_ipv6(&p_nh_ipv6.u.prefix6, nexthop->gate.ipv4);
+
+	route_table = zvrf->table[AFI_IP6][SAFI_UNICAST];
+	rn_ipv6 = route_node_match(route_table, &p_nh_ipv6);
+
+	/* check re availability of ipv6 route node */
+	if (!rn_ipv6)
+		return NULL;
+
+	/* get a appropriate re */
+	RNODE_FOREACH_RE (rn_ipv6, aux_re) {
+		if (!first_re)
+			first_re = aux_re;
+	}
+	if (first_re == NULL)
+		return NULL;
+
+	/* create the ipv6 nexthop with ipv4 information,
+	 * with label information
+	 */
+	new_nexthop = nexthop_from_ipv6_ifindex(&p_nh_ipv6.u.prefix6,
+						nexthop->ifindex, re->vrf_id);
+	new_nexthop->nh_label_type = nexthop->nh_label_type;
+	new_nexthop->nh_label = nexthop->nh_label;
+
+	/* create the fake ipv6 route_entry from the ipv4 one */
+	memset(&re_ipv6, 0, sizeof(struct route_entry));
+
+	re_ipv6.type = ZEBRA_ROUTE_6PE;
+	re_ipv6.instance = re->instance;
+	re_ipv6.flags = re->flags;
+	re_ipv6.uptime = monotime(NULL);
+	re_ipv6.vrf_id = re->vrf_id;
+	re_ipv6.table = zvrf->table_id;
+
+	re_ipv6.nhe = zebra_nhg_alloc();
+	zebra_nhe_init(re_ipv6.nhe, AFI_IP6, new_nexthop);
+	re_ipv6.nhe->nhg.nexthop = new_nexthop;
+
+	/* flags managment */
+	SET_FLAG(new_nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+	SET_FLAG(re_ipv6.status, ROUTE_ENTRY_INSTALLED);
+
+	/* mark ipv4 rnh to remember its state is linked
+	 * with an ipv4 mapped address
+	 */
+	route_table = get_rnh_table(zvrf->vrf->vrf_id, AFI_IP, rnh->safi);
+
+	/* it's not the same rn than the previous one */
+	rn_ipv4 = route_node_lookup(route_table, &rn->p);
+	if (rn_ipv4 && rn_ipv4->info) {
+		if (IS_ZEBRA_DEBUG_NHT)
+			zlog_debug("%s: %s(%u):IPv4 nexthop %pRN support for 6PE route",
+				   __func__, VRF_LOGNAME(zvrf->vrf),
+				   zvrf->vrf->vrf_id, rn_ipv4);
+		SET_FLAG(((struct rnh *)rn_ipv4->info)->flags,
+			 ZEBRA_NHT_IPV4_MAPPED);
+	}
+
+	*prn = rn_ipv6;
+	return &re_ipv6;
+}
+
+static struct route_entry *_zebra_rnh_resolve_nexthop_entry(
+	struct zebra_vrf *zvrf, struct route_node *rn, const struct rnh *rnh,
+	struct route_node **prn,
+	struct route_entry *(*funcptr)(struct zebra_vrf *, struct route_node *,
+				       struct route_entry *, const struct nexthop *,
+				       struct route_node **, const struct rnh *))
+{
+	struct route_entry *re, *re_modified = NULL;
+	const struct nexthop *nexthop = NULL;
 
 	/* While resolving nexthops, we may need to walk up the tree from the
 	 * most-specific match. Do similar logic as in zebra_rib.c
@@ -599,11 +710,19 @@ _zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			if (rnh_check_re_nexthops(re, rnh))
+			if (!rnh_check_re_nexthops(re, rnh, &nexthop))
+				continue;
+			if (!funcptr)
+				break;
+			re_modified = (*funcptr)(zvrf, rn, re, nexthop, prn,
+						 rnh);
+			if (re_modified)
 				break;
 		}
 
 		/* Route entry found, we're done; else, walk up the tree. */
+		if (re_modified)
+			return re_modified;
 		if (re) {
 			*prn = rn;
 			return re;
@@ -618,6 +737,51 @@ _zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	return NULL;
 }
 
+static struct route_entry *
+rnh_6pe_resolve_nexthop_entry(struct zebra_vrf *zvrf, struct prefix *p,
+			      struct route_node **prn, struct route_node *rn,
+			      const struct rnh *rnh_ipv6)
+{
+	struct prefix p_ipv4 = { 0 };
+	struct route_node *rn_ipv4, *rn_ipv6;
+	struct route_table *route_table;
+	struct route_entry *re;
+
+	/* create the corresponding prefix*/
+	p_ipv4.family = AF_INET;
+	p_ipv4.prefixlen = IPV4_MAX_BITLEN;
+	ipv4_mapped_ipv6_to_ipv4(&p->u.prefix6, &p_ipv4.u.prefix4);
+
+	route_table = zvrf->table[AFI_IP][SAFI_UNICAST];
+	rn_ipv4 = route_node_match(route_table, &p_ipv4);
+	if (!rn_ipv4)
+		return NULL;
+
+	/* Unlock route node - we don't need to lock when walking the tree. */
+	route_unlock_node(rn_ipv4);
+
+	/* get an IPv6 route entry equivalent */
+	re = _zebra_rnh_resolve_nexthop_entry(zvrf, rn_ipv4, rnh_ipv6, prn,
+					      _zebra_rnh_6pe_resolve_re);
+
+	rn_ipv6 = route_node_lookup(zvrf->rnh_table[AFI_IP6], p);
+
+	if (rn_ipv6)
+		route_unlock_node(rn_ipv6);
+
+	/* set flag on the rnh rroute node */
+	if (rn_ipv6 && rn_ipv6->info && re) {
+		if (IS_ZEBRA_DEBUG_NHT)
+			zlog_debug("%s: %s(%u):IPv4 supported 6PE route, nexthop %pRN",
+				   __func__, VRF_LOGNAME(zvrf->vrf),
+				   zvrf->vrf->vrf_id, rn_ipv6);
+		SET_FLAG(((struct rnh *)rn_ipv6->info)->flags,
+			 ZEBRA_NHT_IPV4_MAPPED);
+	}
+
+	return re;
+}
+
 /*
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
@@ -625,9 +789,10 @@ _zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 static struct route_entry *
 zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 				struct route_node *nrn, const struct rnh *rnh,
-				struct route_node **prn)
+				struct route_node **prn, bool is_6pe)
 {
 	struct route_table *route_table;
+	struct route_entry *re_6pe;
 	struct route_node *rn;
 
 	*prn = NULL;
@@ -643,7 +808,19 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	/* Unlock route node - we don't need to lock when walking the tree. */
 	route_unlock_node(rn);
 
-	return _zebra_rnh_resolve_nexthop_entry(zvrf, rn, rnh, prn);
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_IPV4_MAPPED) || is_6pe)
+		return rnh_6pe_resolve_nexthop_entry(zvrf, &nrn->p, prn, rn,
+						     rnh);
+
+	if ((IS_MAPPED_IPV6(&nrn->p.u.prefix6)) &&
+	    (nrn->p.prefixlen == IPV6_MAX_BITLEN)) {
+		re_6pe = rnh_6pe_resolve_nexthop_entry(zvrf, &nrn->p, prn, rn,
+						     rnh);
+		if (re_6pe)
+			return re_6pe;
+	}
+
+	return _zebra_rnh_resolve_nexthop_entry(zvrf, rn, rnh, prn, NULL);
 }
 
 static void zebra_rnh_process_pseudowires(vrf_id_t vrfid, struct rnh *rnh)
@@ -653,6 +830,58 @@ static void zebra_rnh_process_pseudowires(vrf_id_t vrfid, struct rnh *rnh)
 
 	for (ALL_LIST_ELEMENTS_RO(rnh->zebra_pseudowire_list, node, pw))
 		zebra_pw_update(pw);
+}
+
+/* Evaluate one 6pe tracked entry */
+static void zebra_rnh_evaluate_6pe_entry(struct zebra_vrf *zvrf, afi_t afi,
+					 safi_t safi, bool force,
+					 const struct prefix *p)
+{
+	struct rnh *rnh;
+	struct route_entry *re;
+	struct route_node *prn;
+	struct route_table *rnh_table;
+	struct route_node *nrn;
+	struct prefix p_6pe;
+
+	p_6pe.family = AF_INET6;
+	p_6pe.prefixlen = IPV6_MAX_BITLEN;
+	ipv4_to_ipv4_mapped_ipv6(&p_6pe.u.prefix6, p->u.prefix4);
+
+	rnh_table = get_rnh_table(zvrf->vrf->vrf_id, afi, safi);
+	if (!rnh_table)
+		return;
+	if (!p)
+		return;
+
+	nrn = route_node_lookup(rnh_table, &p_6pe);
+
+	if (!nrn)
+		return;
+	if (!nrn->info) {
+		route_unlock_node(nrn);
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_NHT) {
+		zlog_debug("%s(%u):%pRN: Evaluate RNH, %s",
+			   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn,
+			   force ? "(force)" : "");
+	}
+
+	rnh = nrn->info;
+
+	/* Identify route entry (RE) resolving this tracked entry. */
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn, true);
+
+	/* If the entry cannot be resolved and that is also the existing state,
+	 * there is nothing further to do.
+	 */
+	if (!re && rnh->state == NULL && !force)
+		return;
+
+	/* Process based on type of entry. */
+	zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn, re);
 }
 
 /*
@@ -667,6 +896,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					 struct route_entry *re)
 {
 	int state_changed = 0;
+	bool new_path = false;
 
 	/* If we're resolving over a different route, resolution has changed or
 	 * the resolving route has some change (e.g., metric), there is a state
@@ -674,9 +904,14 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 */
 	zebra_rnh_remove_from_routing_table(rnh);
 	if (!prefix_same(&rnh->resolved_route, prn ? &prn->p : NULL)) {
-		if (prn)
+		if (nrn->p.family == AF_INET6 &&
+		    IS_MAPPED_IPV6(&nrn->p.u.prefix6))
+			zebra_install_6pe_resolved_route(ZEBRA_ROUTE_DELETE,
+							 &nrn->p, rnh, zvrf);
+		if (prn) {
 			prefix_copy(&rnh->resolved_route, &prn->p);
-		else {
+			new_path = true;
+		} else {
 			/*
 			 * Just quickly store the family of the resolved
 			 * route so that we can reset it in a second here
@@ -691,11 +926,25 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		state_changed = 1;
 	} else if (compare_state(re, rnh->state)) {
 		copy_state(rnh, re, nrn);
+		/* XXX suppress 6pe resolved route */
 		state_changed = 1;
+		new_path = true;
 	}
+
+	/* no need to create 6pe route
+	 * if an existing connected is available
+	 */
+	if (new_path && rib_get_fib_nhg(re) && rib_get_fib_nhg(re)->nexthop &&
+	    rib_get_fib_nhg(re)->nexthop->type == NEXTHOP_TYPE_IFINDEX)
+		new_path = false;
+
 	zebra_rnh_store_in_routing_table(rnh);
 
 	if (state_changed || force) {
+		if (nrn->p.family == AF_INET6 &&
+		    IS_MAPPED_IPV6(&nrn->p.u.prefix6) && new_path)
+			zebra_install_6pe_resolved_route(ZEBRA_ROUTE_ADD,
+							 &nrn->p, rnh, zvrf);
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
 		 * rnh->state.
 		 */
@@ -705,6 +954,15 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 		/* Process pseudowires attached to this nexthop */
 		zebra_rnh_process_pseudowires(zvrf->vrf->vrf_id, rnh);
+
+		/* The support (ipv4) route for 6pe changed:
+		 * Update supported route (ipv6)
+		 */
+		/* TODO check safi */
+		if (nrn->p.family == AF_INET &&
+		    CHECK_FLAG(rnh->flags, ZEBRA_NHT_IPV4_MAPPED))
+			zebra_rnh_evaluate_6pe_entry(zvrf, AFI_IP6, rnh->safi,
+						     0, &nrn->p);
 	}
 }
 
@@ -725,7 +983,7 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 	rnh = nrn->info;
 
 	/* Identify route entry (RE) resolving this tracked entry. */
-	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn, false);
 
 	/* If the entry cannot be resolved and that is also the existing state,
 	 * there is nothing further to do.
@@ -756,7 +1014,7 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
 	rnh = nrn->info;
 
 	/* Identify route entry (RIB) resolving this tracked entry. */
-	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn, false);
 
 	if (re)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
