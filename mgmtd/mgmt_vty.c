@@ -11,11 +11,24 @@
 #include "command.h"
 #include "json.h"
 #include "mgmtd/mgmt.h"
+#include "mgmtd/mgmt_fe_server.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "mgmtd/mgmt_vty_clippy.c"
-#endif
+
+DEFPY(show_mgmt_fe_adapter, show_mgmt_fe_adapter_cmd,
+      "show mgmt frontend-adapter all [detail$detail]",
+      SHOW_STR
+      MGMTD_STR
+      MGMTD_FE_ADAPTER_STR
+      "Display all Frontend Adapters\n"
+      "Display more details\n")
+{
+	mgmt_fe_adapter_status_write(vty, !!detail);
+
+	return CMD_SUCCESS;
+}
 
 DEFPY(show_mgmt_ds,
       show_mgmt_ds_cmd,
@@ -44,32 +57,124 @@ DEFPY(show_mgmt_ds,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_commit,
+      mgmt_commit_cmd,
+      "mgmt commit <check|apply|abort>$type",
+      MGMTD_STR
+      "Commit action\n"
+      "Validate the set of config commands\n"
+      "Validate and apply the set of config commands\n"
+      "Abort and drop the set of config commands recently added\n")
+{
+	bool validate_only = type[0] == 'c';
+	bool abort = type[1] == 'b';
+
+	if (vty_mgmt_send_commit_config(vty, validate_only, abort) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
+      "mgmt set-config WORD$path VALUE",
+      MGMTD_STR
+      "Set configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "Value of the data to set\n")
+{
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = value;
+	vty->cfg_changes[0].operation = NB_OP_CREATE;
+	vty->num_cfg_changes = 1;
+
+	vty->no_implicit_commit = true;
+	vty_mgmt_send_config_data(vty);
+	vty->no_implicit_commit = false;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
+      "mgmt delete-config WORD$path",
+      MGMTD_STR
+      "Delete configuration data\n"
+      "XPath expression specifying the YANG data path\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = NULL;
+	vty->cfg_changes[0].operation = NB_OP_DESTROY;
+	vty->num_cfg_changes = 1;
+
+	vty->no_implicit_commit = true;
+	vty_mgmt_send_config_data(vty);
+	vty->no_implicit_commit = false;
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
+      "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
+      SHOW_STR MGMTD_STR
+      "Get configuration data from a specific configuration datastore\n"
+      "Candidate datastore (default)\n"
+      "Operational datastore\n"
+      "Running datastore\n"
+      "XPath expression specifying the YANG data path\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	Mgmtd__DatastoreId datastore = MGMTD_DS_CANDIDATE;
+
+	if (dsname)
+		datastore = mgmt_ds_name2id(dsname);
+
+	xpath_list[0] = path;
+	vty_mgmt_send_get_config(vty, datastore, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
+      "show mgmt get-data [candidate|operational|running]$dsname WORD$path",
+      SHOW_STR MGMTD_STR
+      "Get data from a specific datastore\n"
+      "Candidate datastore\n"
+      "Operational datastore (default)\n"
+      "Running datastore\n"
+      "XPath expression specifying the YANG data path\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	Mgmtd__DatastoreId datastore = MGMTD_DS_OPERATIONAL;
+
+	if (dsname)
+		datastore = mgmt_ds_name2id(dsname);
+
+	xpath_list[0] = path;
+	vty_mgmt_send_get_data(vty, datastore, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_mgmt_dump_data,
       show_mgmt_dump_data_cmd,
-      "show mgmt datastore-contents WORD$dsname [xpath WORD$path] [file WORD$filepath] <json|xml>$fmt",
+      "show mgmt datastore-contents [candidate|operational|running]$dsname [xpath WORD$path] [file WORD$filepath] <json|xml>$fmt",
       SHOW_STR
       MGMTD_STR
       "Get Datastore contents from a specific datastore\n"
-      "<candidate | running | operational>\n"
+      "Candidate datastore (default)\n"
+      "Operational datastore\n"
+      "Running datastore\n"
       "XPath expression specifying the YANG data path\n"
       "XPath string\n"
       "Dump the contents to a file\n"
       "Full path of the file\n"
-      "json|xml\n")
+      "json output\n"
+      "xml output\n")
 {
-	enum mgmt_datastore_id datastore = MGMTD_DS_CANDIDATE;
 	struct mgmt_ds_ctx *ds_ctx;
+	Mgmtd__DatastoreId datastore = MGMTD_DS_CANDIDATE;
 	LYD_FORMAT format = fmt[0] == 'j' ? LYD_JSON : LYD_XML;
 	FILE *f = NULL;
 
-	datastore = mgmt_ds_name2id(dsname);
-
-	if (datastore == MGMTD_DS_NONE) {
-		vty_out(vty,
-			"DS Name %s does not matches any existing datastore\n",
-			dsname);
-		return CMD_SUCCESS;
-	}
+	if (datastore)
+		datastore = mgmt_ds_name2id(dsname);
 
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
 	if (!ds_ctx) {
@@ -96,18 +201,16 @@ DEFPY(show_mgmt_dump_data,
 
 DEFPY(mgmt_load_config,
       mgmt_load_config_cmd,
-      "mgmt load-config file WORD$filepath <merge|replace>",
+      "mgmt load-config WORD$filepath <merge|replace>$type",
       MGMTD_STR
       "Load configuration onto Candidate Datastore\n"
-      "Read the configuration from a file\n"
       "Full path of the file\n"
       "Merge configuration with contents of Candidate Datastore\n"
       "Replace the existing contents of Candidate datastore\n")
 {
-	bool merge = false;
-	int idx_merge = 4;
-	int ret;
+	bool merge = type[0] == 'm' ? true : false;
 	struct mgmt_ds_ctx *ds_ctx;
+	int ret;
 
 	if (access(filepath, F_OK) == -1) {
 		vty_out(vty, "ERROR: File %s : %s\n", filepath,
@@ -121,17 +224,6 @@ DEFPY(mgmt_load_config,
 		return CMD_ERR_NO_MATCH;
 	}
 
-	if (strncmp(argv[idx_merge]->arg, "merge", sizeof("merge")) == 0)
-		merge = true;
-	else if (strncmp(argv[idx_merge]->arg, "replace", sizeof("replace"))
-		 == 0)
-		merge = false;
-	else {
-		vty_out(vty, "Chosen option: %s not valid\n",
-			argv[idx_merge]->arg);
-		return CMD_SUCCESS;
-	}
-
 	ret = mgmt_ds_load_config_from_file(ds_ctx, filepath, merge);
 	if (ret != 0)
 		vty_out(vty, "Error with parsing the file with error code %d\n",
@@ -141,32 +233,16 @@ DEFPY(mgmt_load_config,
 
 DEFPY(mgmt_save_config,
       mgmt_save_config_cmd,
-      "mgmt save-config datastore WORD$dsname file WORD$filepath",
+      "mgmt save-config <candidate|running>$dsname WORD$filepath",
       MGMTD_STR
       "Save configuration from datastore\n"
-      "Datastore keyword\n"
-      "<candidate|running>\n"
-      "Write the configuration to a file\n"
+      "Candidate datastore\n"
+      "Running datastore\n"
       "Full path of the file\n")
 {
+	Mgmtd__DatastoreId datastore = mgmt_ds_name2id(dsname);
 	struct mgmt_ds_ctx *ds_ctx;
-	enum mgmt_datastore_id datastore;
 	FILE *f;
-
-	datastore = mgmt_ds_name2id(dsname);
-
-	if (datastore == MGMTD_DS_NONE) {
-		vty_out(vty,
-			"DS Name %s does not matches any existing datastore\n",
-			dsname);
-		return CMD_SUCCESS;
-	}
-
-	if (datastore != MGMTD_DS_CANDIDATE && datastore != MGMTD_DS_RUNNING) {
-		vty_out(vty, "DS Name %s is not a configuration datastore\n",
-			dsname);
-		return CMD_SUCCESS;
-	}
 
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
 	if (!ds_ctx) {
@@ -257,9 +333,15 @@ void mgmt_vty_init(void)
 {
 	install_node(&debug_node);
 
+	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_ds_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 
+	install_element(CONFIG_NODE, &mgmt_commit_cmd);
+	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 

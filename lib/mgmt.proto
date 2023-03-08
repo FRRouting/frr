@@ -1,0 +1,345 @@
+// SPDX-License-Identifier: ISC
+//
+// mgmt.proto
+//
+// @copyright Copyright (C) 2021  Vmware, Inc.
+//
+// @author Pushpasis Sarkar <spushpasis@vmware.com>
+//
+
+syntax = "proto2";
+
+//
+// Protobuf definitions pertaining to the MGMTD component.
+//
+
+package mgmtd;
+
+//
+// Common Sub-Messages
+//
+
+message YangDataXPath {
+  required string xpath = 1;
+}
+
+message YangDataValue {
+  oneof value {
+    //
+    // NOTE: For now let's use stringized value ONLY.
+    // We will enhance it later to pass native-format
+    // if needed.
+    //
+    // bool bool_val = 2;
+    // double double_val = 3;
+    // float float_val = 4;
+    // string string_val = 5;
+    // bytes bytes_val = 6;
+    // int32 int32_val = 7;
+    // int64 int64_val = 8;
+    // uint32 uint32_val = 9;
+    // uint64 uint64_val = 10;
+    // int32 int8_val = 11;
+    // uint32 uint8_val = 12;
+    // int32 int16_val = 13;
+    // uint32 uint16_val = 14;
+    string encoded_str_val = 100;
+  }
+}
+
+message YangData {
+  required string xpath = 1;
+  optional YangDataValue value = 2;
+}
+
+enum CfgDataReqType {
+  REQ_TYPE_NONE = 0;
+  SET_DATA = 1;
+  DELETE_DATA = 2;
+}
+
+message YangCfgDataReq {
+  required YangData data = 1;
+  required CfgDataReqType req_type = 2;
+}
+
+message YangGetDataReq {
+  required YangData data = 1;
+  required int64 next_indx = 2;
+}
+
+//
+// Backend Interface Messages
+//
+message BeSubscribeReq {
+  required string client_name = 1;
+  required bool subscribe_xpaths = 2;
+  repeated string xpath_reg = 3;
+}
+
+message BeSubscribeReply {
+  required bool success = 1;
+}
+
+message BeTxnReq {
+  required uint64 txn_id = 1;
+  required bool create = 2;
+}
+
+message BeTxnReply {
+  required uint64 txn_id = 1;
+  required bool create = 2;
+  required bool success = 3;
+}
+
+message BeCfgDataCreateReq {
+  required uint64 txn_id = 1;
+  required uint64 batch_id = 2;
+  repeated YangCfgDataReq data_req = 3;
+  required bool end_of_data = 4;
+}
+
+message BeCfgDataCreateReply {
+  required uint64 txn_id = 1;
+  required uint64 batch_id = 2;
+  required bool success = 3;
+  optional string error_if_any = 4;
+}
+
+message BeCfgDataValidateReq {
+  required uint64 txn_id = 1;
+  repeated uint64 batch_ids = 2;
+}
+
+message BeCfgDataValidateReply {
+  required uint64 txn_id = 1;
+  repeated uint64 batch_ids = 2;
+  required bool success = 3;
+  optional string error_if_any = 4;
+}
+
+message BeCfgDataApplyReq {
+  required uint64 txn_id = 1;
+}
+
+message BeCfgDataApplyReply {
+  required uint64 txn_id = 1;
+  repeated uint64 batch_ids = 2;
+  required bool success = 3;
+  optional string error_if_any = 4;
+}
+
+message BeOperDataGetReq {
+  required uint64 txn_id = 1;
+  required uint64 batch_id = 2;
+  repeated YangGetDataReq data = 3;
+}
+
+message YangDataReply {
+  repeated YangData data = 1;
+  required int64 next_indx = 2;
+}
+
+message BeOperDataGetReply {
+  required uint64 txn_id = 1;
+  required uint64 batch_id = 2;
+  required bool success = 3;
+  optional string error = 4;
+  optional YangDataReply data = 5;
+}
+
+message BeOperDataNotify {
+  required YangDataReply data = 5;
+}
+
+message BeConfigCmdReq {
+  required string cmd = 1;
+}
+
+message BeConfigCmdReply {
+  required bool success = 1;
+  required string error_if_any = 2;
+}
+
+message BeShowCmdReq {
+  required string cmd = 1;
+}
+
+message BeShowCmdReply {
+  required bool success = 1;
+  required string cmd_ouput = 2;
+}
+
+//
+// Any message on the MGMTD Backend Interface.
+//
+message BeMessage {
+  oneof message {
+    BeSubscribeReq subscr_req = 2;
+    BeSubscribeReply subscr_reply = 3;
+    BeTxnReq txn_req = 4;
+    BeTxnReply txn_reply = 5;
+    BeCfgDataCreateReq cfg_data_req = 6;
+    BeCfgDataCreateReply cfg_data_reply = 7;
+    BeCfgDataValidateReq cfg_validate_req = 8;
+    BeCfgDataValidateReply cfg_validate_reply = 9;
+    BeCfgDataApplyReq cfg_apply_req = 10;
+    BeCfgDataApplyReply cfg_apply_reply = 11;
+    BeOperDataGetReq get_req = 12;
+    BeOperDataGetReply get_reply = 13;
+    BeOperDataNotify notify_data = 14;
+    BeConfigCmdReq cfg_cmd_req = 15;
+    BeConfigCmdReply cfg_cmd_reply = 16;
+    BeShowCmdReq show_cmd_req = 17;
+    BeShowCmdReply show_cmd_reply = 18;
+  }
+}
+
+
+//
+// Frontend Interface Messages
+//
+
+message FeRegisterReq {
+  required string client_name = 1;
+}
+
+message FeSessionReq {
+  required bool create = 1;
+  oneof id {
+    uint64 client_conn_id = 2; // Applicable for create request only
+    uint64 session_id = 3; // Applicable for delete request only
+  }
+}
+
+message FeSessionReply {
+  required bool create = 1;
+  required bool success = 2;
+  optional uint64 client_conn_id = 3; // Applicable for create request only
+  required uint64 session_id = 4;
+}
+
+enum DatastoreId {
+  DS_NONE = 0;
+  RUNNING_DS = 1;
+  CANDIDATE_DS = 2;
+  OPERATIONAL_DS = 3;
+  STARTUP_DS = 4;
+}
+
+message FeLockDsReq {
+  required uint64 session_id = 1;
+  required uint64 req_id = 2;
+  required DatastoreId ds_id = 3;
+  required bool lock = 4;
+}
+
+message FeLockDsReply {
+  required uint64 session_id = 1;
+  required uint64 req_id = 2;
+  required DatastoreId ds_id = 3;
+  required bool lock = 4;
+  required bool success = 5;
+  optional string error_if_any = 6;
+}
+
+message FeSetConfigReq {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required uint64 req_id = 3;
+  repeated YangCfgDataReq data = 4;
+  required bool implicit_commit = 5;
+  required DatastoreId commit_ds_id = 6;
+}
+
+message FeSetConfigReply {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required uint64 req_id = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
+}
+
+message FeCommitConfigReq {
+  required uint64 session_id = 1;
+  required DatastoreId src_ds_id = 2;
+  required DatastoreId dst_ds_id = 3;
+  required uint64 req_id = 4;
+  required bool validate_only = 5;
+  required bool abort = 6;
+}
+
+message FeCommitConfigReply {
+  required uint64 session_id = 1;
+  required DatastoreId src_ds_id = 2;
+  required DatastoreId dst_ds_id = 3;
+  required uint64 req_id = 4;
+  required bool validate_only = 5;
+  required bool success = 6;
+  required bool abort = 7;
+  optional string error_if_any = 8;
+}
+
+message FeGetConfigReq {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required uint64 req_id = 3;
+  repeated YangGetDataReq data = 4;
+}
+
+message FeGetConfigReply {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required uint64 req_id = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
+  optional YangDataReply data = 6;
+}
+
+message FeGetDataReq {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required uint64 req_id = 3;
+  repeated YangGetDataReq data = 4;
+}
+
+message FeGetDataReply {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required uint64 req_id = 3;
+  required bool success = 4;
+  optional string error_if_any = 5;
+  optional YangDataReply data = 6;
+}
+
+message FeNotifyDataReq {
+  repeated YangData data = 1;
+}
+
+message FeRegisterNotifyReq {
+  required uint64 session_id = 1;
+  required DatastoreId ds_id = 2;
+  required bool register_req = 3;
+  required uint64 req_id = 4;
+  repeated YangDataXPath data_xpath = 5;
+}
+
+message FeMessage {
+  oneof message {
+    FeRegisterReq register_req = 2;
+    FeSessionReq session_req = 3;
+    FeSessionReply session_reply = 4;
+    FeLockDsReq lockds_req = 5;
+    FeLockDsReply lockds_reply = 6;
+    FeSetConfigReq setcfg_req = 7;
+    FeSetConfigReply setcfg_reply = 8;
+    FeCommitConfigReq commcfg_req = 9;
+    FeCommitConfigReply commcfg_reply = 10;
+    FeGetConfigReq getcfg_req = 11;
+    FeGetConfigReply getcfg_reply = 12;
+    FeGetDataReq getdata_req = 13;
+    FeGetDataReply getdata_reply = 14;
+    FeNotifyDataReq notify_data_req = 15;
+    FeRegisterNotifyReq regnotify_req = 16;
+  }
+}
