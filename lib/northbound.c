@@ -2389,6 +2389,8 @@ const char *nb_client_name(enum nb_client client)
 		return "gRPC";
 	case NB_CLIENT_PCEP:
 		return "Pcep";
+	case NB_CLIENT_MGMTD_SERVER:
+		return "MGMTD Server";
 	case NB_CLIENT_NONE:
 		return "None";
 	}

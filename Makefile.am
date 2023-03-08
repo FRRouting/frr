@@ -155,6 +155,24 @@ $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
 
+# Include default rules to compile protobuf message sources
+SUFFIXES += .proto .pb-c.c .pb-c.h
+
+# Rules
+
+AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
+am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
+am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
+am__v_PROTOC_C_1 =
+
+.proto.pb-c.c:
+	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
+	$(AM_V_GEN)$(SED) -i -e '1i\
+	#include "config.h"' $@
+
+.pb-c.c.pb-c.h:
+	@echo "  GEN     " $@
+
 include doc/subdir.am
 include doc/user/subdir.am
 include doc/manpages/subdir.am
@@ -168,6 +186,8 @@ include qpb/subdir.am
 include fpm/subdir.am
 include grpc/subdir.am
 include tools/subdir.am
+
+include mgmtd/subdir.am
 
 include bgpd/subdir.am
 include bgpd/rfp-example/librfp/subdir.am
@@ -207,6 +227,7 @@ rc_SCRIPTS = \
 	pkgsrc/ripd.sh \
 	pkgsrc/ripngd.sh \
 	pkgsrc/zebra.sh \
+	pkgsrc/mgmtd.sh \
 	# end
 endif
 
@@ -244,6 +265,7 @@ EXTRA_DIST += \
 	snapcraft/helpers \
 	snapcraft/snap \
 	babeld/Makefile \
+	mgmtd/Makefile \
 	bgpd/Makefile \
 	bgpd/rfp-example/librfp/Makefile \
 	bgpd/rfp-example/rfptest/Makefile \
@@ -321,7 +343,7 @@ redistclean:
 	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"
 
 indent:
-	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
+	tools/indent.py `find sharpd bgpd mgmtd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
 
 if HAVE_GCOV
 

@@ -613,6 +613,7 @@ enum nb_client {
 	NB_CLIENT_SYSREPO,
 	NB_CLIENT_GRPC,
 	NB_CLIENT_PCEP,
+	NB_CLIENT_MGMTD_SERVER,
 };
 
 /* Northbound context. */

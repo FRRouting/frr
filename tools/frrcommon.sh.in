@@ -35,7 +35,7 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # - keep zebra first
 # - watchfrr does NOT belong in this list
 
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
+DAEMONS="zebra mgmtd bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
 #
@@ -99,7 +99,7 @@ daemon_list() {
 	for daemon in $DAEMONS; do
 		eval cfg=\$$daemon
 		eval inst=\$${daemon}_instances
-		[ "$daemon" = zebra -o "$daemon" = staticd ] && cfg=yes
+		[ "$daemon" = zebra -o "$daemon" = staticd -o "$daemon" = mgmtd ] && cfg=yes
 		if [ -n "$cfg" -a "$cfg" != "no" -a "$cfg" != "0" ]; then
 			if ! daemon_prep "$daemon" "$inst"; then
 				continue
