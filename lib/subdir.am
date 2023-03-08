@@ -64,6 +64,7 @@ lib_libfrr_la_SOURCES = \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
+	lib/mgmt_fe_client.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -146,6 +147,23 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-module-translator.yang.c \
 	# end
 
+# Add logic to build mgmt.proto
+lib_libfrr_la_LIBADD += $(PROTOBUF_C_LIBS)
+
+BUILT_SOURCES += \
+	lib/mgmt.pb-c.c \
+	lib/mgmt.pb-c.h \
+	# end
+
+CLEANFILES += \
+	lib/mgmt.pb-c.h \
+	lib/mgmt.pb-c.c \
+	# end
+
+lib_libfrr_la_SOURCES += \
+	lib/mgmt.pb-c.c \
+	#end
+
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
@@ -222,6 +240,9 @@ pkginclude_HEADERS += \
 	lib/log_vty.h \
 	lib/md5.h \
 	lib/memory.h \
+	lib/mgmt.pb-c.h \
+	lib/mgmt_fe_client.h \
+	lib/mgmt_pb.h \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \

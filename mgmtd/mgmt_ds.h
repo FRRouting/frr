@@ -9,6 +9,7 @@
 #ifndef _FRR_MGMTD_DS_H_
 #define _FRR_MGMTD_DS_H_
 
+#include "mgmt_fe_client.h"
 #include "northbound.h"
 
 #include "mgmtd/mgmt_defines.h"
@@ -40,18 +41,6 @@ extern struct nb_config *running_config;
 
 struct mgmt_ds_ctx;
 
-/*
- * Datastore-Id: For now defined here. Eventually will be
- * defined as part of MGMTD Front-End interface.
- */
-enum mgmt_datastore_id {
-	MGMTD_DS_NONE = 0,
-	MGMTD_DS_RUNNING,
-	MGMTD_DS_CANDIDATE,
-	MGMTD_DS_OPERATIONAL,
-	MGMTD_DS_MAX_ID
-};
-
 typedef void (*mgmt_ds_node_iter_fn)(uint64_t ds_hndl, char *xpath,
 				     struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx);
@@ -71,7 +60,7 @@ extern const char *mgmt_ds_names[MGMTD_DS_MAX_ID + 1];
  * Returns:
  *    Datastore name.
  */
-static inline const char *mgmt_ds_id2name(enum mgmt_datastore_id id)
+static inline const char *mgmt_ds_id2name(Mgmtd__DatastoreId id)
 {
 	if (id > MGMTD_DS_MAX_ID)
 		id = MGMTD_DS_MAX_ID;
@@ -87,9 +76,9 @@ static inline const char *mgmt_ds_id2name(enum mgmt_datastore_id id)
  * Returns:
  *    Datastore ID.
  */
-static inline enum mgmt_datastore_id mgmt_ds_name2id(const char *name)
+static inline Mgmtd__DatastoreId mgmt_ds_name2id(const char *name)
 {
-	enum mgmt_datastore_id id;
+	Mgmtd__DatastoreId id;
 
 	FOREACH_MGMTD_DS_ID (id) {
 		if (!strncmp(mgmt_ds_names[id], name, MGMTD_DS_NAME_MAX_LEN))
@@ -104,7 +93,7 @@ static inline enum mgmt_datastore_id mgmt_ds_name2id(const char *name)
  *
  * similar to above funtion.
  */
-static inline enum mgmt_datastore_id mgmt_get_ds_id_by_name(const char *ds_name)
+static inline Mgmtd__DatastoreId mgmt_get_ds_id_by_name(const char *ds_name)
 {
 	if (!strncmp(ds_name, "candidate", sizeof("candidate")))
 		return MGMTD_DS_CANDIDATE;
@@ -191,7 +180,7 @@ extern void mgmt_ds_destroy(void);
  *    Datastore context (Holds info about ID, lock, root node etc).
  */
 extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
-						enum mgmt_datastore_id ds_id);
+						   Mgmtd__DatastoreId ds_id);
 
 /*
  * Check if a given datastore is config ds
