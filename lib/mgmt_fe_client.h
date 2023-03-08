@@ -12,8 +12,9 @@
 extern "C" {
 #endif
 
-#include "mgmtd/mgmt_defines.h"
 #include "mgmt_pb.h"
+#include "thread.h"
+#include "mgmtd/mgmt_defines.h"
 
 /***************************************************************
  * Macros
@@ -54,18 +55,6 @@ extern "C" {
 #define MGMTD_DS_CANDIDATE MGMTD__DATASTORE_ID__CANDIDATE_DS
 #define MGMTD_DS_OPERATIONAL MGMTD__DATASTORE_ID__OPERATIONAL_DS
 #define MGMTD_DS_MAX_ID MGMTD_DS_OPERATIONAL + 1
-
-struct mgmt_fe_msg_hdr {
-	uint16_t marker;
-	uint16_t len; /* Includes header */
-};
-#define MGMTD_FE_MSG_HDR_LEN sizeof(struct mgmt_fe_msg_hdr)
-#define MGMTD_FE_MSG_MARKER 0xdeaf
-
-struct mgmt_fe_msg {
-	struct mgmt_fe_msg_hdr hdr;
-	uint8_t payload[];
-};
 
 /*
  * All the client specific information this library needs to

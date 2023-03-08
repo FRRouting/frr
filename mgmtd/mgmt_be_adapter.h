@@ -9,8 +9,9 @@
 #ifndef _FRR_MGMTD_BE_ADAPTER_H_
 #define _FRR_MGMTD_BE_ADAPTER_H_
 
-#include "mgmtd/mgmt_defines.h"
 #include "mgmt_be_client.h"
+#include "mgmt_msg.h"
+#include "mgmtd/mgmt_defines.h"
 #include "mgmtd/mgmt_ds.h"
 
 #define MGMTD_BE_CONN_INIT_DELAY_MSEC 50
@@ -54,22 +55,9 @@ struct mgmt_be_client_adapter {
 	char xpath_reg[MGMTD_MAX_NUM_XPATH_REG][MGMTD_MAX_XPATH_LEN];
 
 	/* IO streams for read and write */
-	/* pthread_mutex_t ibuf_mtx; */
-	struct stream_fifo *ibuf_fifo;
-	/* pthread_mutex_t obuf_mtx; */
-	struct stream_fifo *obuf_fifo;
-
-	/* Private I/O buffers */
-	struct stream *ibuf_work;
-	struct stream *obuf_work;
-	uint8_t msg_buf[MGMTD_BE_MSG_MAX_LEN];
-
-	/* Buffer of data waiting to be written to client. */
-	/* struct buffer *wb; */
+	struct mgmt_msg_state mstate;
 
 	int refcount;
-	uint32_t num_msg_tx;
-	uint32_t num_msg_rx;
 
 	/*
 	 * List of config items that should be sent to the

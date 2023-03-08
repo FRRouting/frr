@@ -2471,6 +2471,8 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 			return -1;
 		}
 
+		MGMTD_TXN_DBG("Created initial txn %llu for BE connection %s",
+			      txn->txn_id, adapter->name);
 		/*
 		 * Set the changeset for transaction to commit and trigger the
 		 * commit request.
@@ -2608,53 +2610,7 @@ int mgmt_txn_notify_be_cfgdata_reply(
 	return 0;
 }
 
-int mgmt_txn_notify_be_cfg_validate_reply(
-	uint64_t txn_id, bool success, uint64_t batch_ids[],
-	size_t num_batch_ids, char *error_if_any,
-	struct mgmt_be_client_adapter *adapter)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_be_cfg_batch *cfg_btch;
-	struct mgmt_commit_cfg_req *cmtcfg_req = NULL;
-	size_t indx;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG)
-		return -1;
-
-	assert(txn->commit_cfg_req);
-	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-
-	if (!success) {
-		MGMTD_TXN_ERR(
-			"CFGDATA_VALIDATE_REQ sent to '%s' failed for Txn %p, Batches [0x%llx - 0x%llx], Err: %s",
-			adapter->name, txn, (unsigned long long)batch_ids[0],
-			(unsigned long long)batch_ids[num_batch_ids - 1],
-			error_if_any ? error_if_any : "None");
-		mgmt_txn_send_commit_cfg_reply(
-			txn, MGMTD_INTERNAL_ERROR,
-			"Internal error! Failed to validate config data on backend!");
-		return 0;
-	}
-
-	for (indx = 0; indx < num_batch_ids; indx++) {
-		cfg_btch = mgmt_txn_cfgbatch_id2ctx(txn, batch_ids[indx]);
-		if (cfg_btch->txn != txn)
-			return -1;
-		mgmt_move_txn_cfg_batch_to_next(
-			cmtcfg_req, cfg_btch,
-			&cmtcfg_req->curr_batches[adapter->id],
-			&cmtcfg_req->next_batches[adapter->id], true,
-			MGMTD_COMMIT_PHASE_APPLY_CFG);
-	}
-
-	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
-
-	return 0;
-}
-
-extern int
-mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
+int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 				       uint64_t batch_ids[],
 				       size_t num_batch_ids, char *error_if_any,
 				       struct mgmt_be_client_adapter *adapter)
@@ -2851,6 +2807,8 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 			"Failed to create CONFIG Transaction for downloading CONFIGs");
 		return -1;
 	}
+
+	MGMTD_TXN_DBG("Created rollback txn %llu", txn->txn_id);
 
 	/*
 	 * Set the changeset for transaction to commit and trigger the commit
