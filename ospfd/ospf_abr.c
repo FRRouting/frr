@@ -76,7 +76,8 @@ static void ospf_area_range_delete(struct ospf_area *area,
 {
 	struct ospf_area_range *range = rn->info;
 
-	if (ospf_area_range_active(range))
+	if (ospf_area_range_active(range) &&
+	    CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE))
 		ospf_delete_discard_route(area->ospf, area->ospf->new_table,
 					  (struct prefix_ipv4 *)&rn->p);
 
@@ -1933,25 +1934,27 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf)
 	struct listnode *node, *nnode;
 	struct route_node *rn;
 	struct ospf_area *area;
-	struct ospf_area_range *range;
 
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
-		for (rn = route_top(area->ranges); rn; rn = route_next(rn))
-			if ((range = rn->info) != NULL)
-				if (CHECK_FLAG(range->flags,
-					       OSPF_AREA_RANGE_ADVERTISE)) {
-					if (ospf_area_range_active(range))
-						ospf_add_discard_route(
-							ospf, ospf->new_table,
-							area,
-							(struct prefix_ipv4
-								 *)&rn->p);
-					else
-						ospf_delete_discard_route(
-							ospf, ospf->new_table,
-							(struct prefix_ipv4
-								 *)&rn->p);
-				}
+	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		for (rn = route_top(area->ranges); rn; rn = route_next(rn)) {
+			struct ospf_area_range *range;
+
+			range = rn->info;
+			if (!range)
+				continue;
+
+			if (ospf_area_range_active(range)
+			    && CHECK_FLAG(range->flags,
+					  OSPF_AREA_RANGE_ADVERTISE))
+				ospf_add_discard_route(
+					ospf, ospf->new_table, area,
+					(struct prefix_ipv4 *)&rn->p);
+			else
+				ospf_delete_discard_route(
+					ospf, ospf->new_table,
+					(struct prefix_ipv4 *)&rn->p);
+		}
+	}
 }
 
 /* This is the function taking care about ABR NSSA, i.e.  NSSA
