@@ -2165,8 +2165,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct interface *ifp;
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf;
-	struct in_addr local_ipv4;
-	struct in_addr *ipv4;
+	struct in_addr *ipv4 = NULL;
 	afi_t afi = AFI_IP;
 
 	/* Reset some nexthop attributes that we'll recompute if necessary */
@@ -2246,12 +2245,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		return 1;
 	}
 
-	/* Validation for ipv4 mapped ipv6 nexthop. */
-	if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
-		afi = AFI_IP;
-		ipv4 = &local_ipv4;
-		ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, ipv4);
-	} else {
+	/* keep ipv4 mapped address. */
+	if (!IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
 		ipv4 = &nexthop->gate.ipv4;
 	}
 
@@ -2265,7 +2260,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		switch (afi) {
 		case AFI_IP:
 			endpoint.ipa_type = IPADDR_V4;
-			endpoint.ipaddr_v4 = *ipv4;
+			if (ipv4)
+				endpoint.ipaddr_v4 = *ipv4;
 			break;
 		case AFI_IP6:
 			endpoint.ipa_type = IPADDR_V6;
