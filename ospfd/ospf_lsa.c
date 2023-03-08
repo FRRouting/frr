@@ -1654,9 +1654,6 @@ struct in_addr ospf_get_nssa_ip(struct ospf_area *area)
 	if (best_default.s_addr != INADDR_ANY)
 		return best_default;
 
-	if (best_default.s_addr != INADDR_ANY)
-		return best_default;
-
 	return fwd;
 }
 
