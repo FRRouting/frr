@@ -51,16 +51,16 @@ extern struct ospf_area_range *ospf_some_area_range_match(struct prefix_ipv4 *);
 extern struct ospf_area_range *
 ospf_area_range_lookup_next(struct ospf_area *, struct in_addr *, int);
 
-extern int ospf_area_range_set(struct ospf *, struct in_addr,
+extern int ospf_area_range_set(struct ospf *, struct ospf_area *,
 			       struct prefix_ipv4 *, int);
-extern int ospf_area_range_cost_set(struct ospf *, struct in_addr,
+extern int ospf_area_range_cost_set(struct ospf *, struct ospf_area *,
 				    struct prefix_ipv4 *, uint32_t);
-extern int ospf_area_range_unset(struct ospf *, struct in_addr,
+extern int ospf_area_range_unset(struct ospf *, struct ospf_area *,
 				 struct prefix_ipv4 *);
-extern int ospf_area_range_substitute_set(struct ospf *, struct in_addr,
+extern int ospf_area_range_substitute_set(struct ospf *, struct ospf_area *,
 					  struct prefix_ipv4 *,
 					  struct prefix_ipv4 *);
-extern int ospf_area_range_substitute_unset(struct ospf *, struct in_addr,
+extern int ospf_area_range_substitute_unset(struct ospf *, struct ospf_area *,
 					    struct prefix_ipv4 *);
 extern struct ospf_area_range *ospf_area_range_match_any(struct ospf *,
 							 struct prefix_ipv4 *);

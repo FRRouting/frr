@@ -169,15 +169,10 @@ static int ospf_area_actively_attached(struct ospf_area *area)
 	return area->act_ints;
 }
 
-int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_set(struct ospf *ospf, struct ospf_area *area,
 			struct prefix_ipv4 *p, int advertise)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
-
-	area = ospf_area_get(ospf, area_id);
-	if (area == NULL)
-		return 0;
 
 	range = ospf_area_range_lookup(area, p);
 	if (range != NULL) {
@@ -204,15 +199,10 @@ int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_cost_set(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_cost_set(struct ospf *ospf, struct ospf_area *area,
 			     struct prefix_ipv4 *p, uint32_t cost)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
-
-	area = ospf_area_get(ospf, area_id);
-	if (area == NULL)
-		return 0;
 
 	range = ospf_area_range_lookup(area, p);
 	if (range == NULL)
@@ -227,15 +217,10 @@ int ospf_area_range_cost_set(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_unset(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_unset(struct ospf *ospf, struct ospf_area *area,
 			  struct prefix_ipv4 *p)
 {
-	struct ospf_area *area;
 	struct route_node *rn;
-
-	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area == NULL)
-		return 0;
 
 	rn = route_node_lookup(area->ranges, (struct prefix *)p);
 	if (rn == NULL)
@@ -249,13 +234,11 @@ int ospf_area_range_unset(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_substitute_set(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_substitute_set(struct ospf *ospf, struct ospf_area *area,
 				   struct prefix_ipv4 *p, struct prefix_ipv4 *s)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
 
-	area = ospf_area_get(ospf, area_id);
 	range = ospf_area_range_lookup(area, p);
 
 	if (range != NULL) {
@@ -276,15 +259,10 @@ int ospf_area_range_substitute_set(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_substitute_unset(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_substitute_unset(struct ospf *ospf, struct ospf_area *area,
 				     struct prefix_ipv4 *p)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
-
-	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area == NULL)
-		return 0;
 
 	range = ospf_area_range_lookup(area, p);
 	if (range == NULL)

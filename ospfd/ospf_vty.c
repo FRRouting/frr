@@ -611,6 +611,7 @@ DEFUN (ospf_area_range,
        "Advertised metric for this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	int idx_cost = 6;
@@ -622,12 +623,13 @@ DEFUN (ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_set(ospf, area, &p, OSPF_AREA_RANGE_ADVERTISE);
 	if (argc > 5) {
 		cost = strtoul(argv[idx_cost]->arg, NULL, 10);
-		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+		ospf_area_range_cost_set(ospf, area, &p, cost);
 	}
 
 	return CMD_SUCCESS;
@@ -647,6 +649,7 @@ DEFUN (ospf_area_range_cost,
        "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	int idx = 4;
@@ -658,19 +661,19 @@ DEFUN (ospf_area_range_cost,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
 
+	ospf_area_range_set(ospf, area, &p, OSPF_AREA_RANGE_ADVERTISE);
 	if (argv_find(argv, argc, "cost", &idx)) {
 		cost = strtoul(argv[idx + 1]->arg, NULL, 10);
-		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+		ospf_area_range_cost_set(ospf, area, &p, cost);
 	}
 
 	idx = 4;
 	if (argv_find(argv, argc, "substitute", &idx)) {
 		str2prefix_ipv4(argv[idx + 1]->arg, &s);
-		ospf_area_range_substitute_set(ospf, area_id, &p, &s);
+		ospf_area_range_substitute_set(ospf, area, &p, &s);
 	}
 
 	return CMD_SUCCESS;
@@ -687,6 +690,7 @@ DEFUN (ospf_area_range_not_advertise,
        "DoNotAdvertise this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	struct prefix_ipv4 p;
@@ -696,10 +700,11 @@ DEFUN (ospf_area_range_not_advertise,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, 0);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_range_substitute_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_set(ospf, area, &p, 0);
+	ospf_area_range_substitute_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
@@ -721,6 +726,7 @@ DEFUN (no_ospf_area_range,
        "DoNotAdvertise this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 2;
 	int idx_ipv4_prefixlen = 4;
 	struct prefix_ipv4 p;
@@ -730,7 +736,10 @@ DEFUN (no_ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
@@ -748,6 +757,7 @@ DEFUN (no_ospf_area_range_substitute,
        "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 2;
 	int idx_ipv4_prefixlen = 4;
 	int idx_ipv4_prefixlen_2 = 6;
@@ -759,7 +769,10 @@ DEFUN (no_ospf_area_range_substitute,
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
 
-	ospf_area_range_substitute_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_substitute_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
