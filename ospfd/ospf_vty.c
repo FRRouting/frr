@@ -1433,15 +1433,29 @@ DEFUN (no_ospf_area_stub_no_summary,
 	return CMD_SUCCESS;
 }
 
-static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
-				      struct cmd_token **argv, int cfg_nosum,
-				      int nosum)
+DEFPY (ospf_area_nssa,
+       ospf_area_nssa_cmd,
+       "area <A.B.C.D|(0-4294967295)>$area_str nssa\
+         [{\
+	   <translate-candidate|translate-never|translate-always>$translator_role\
+	   |no-summary$no_summary\
+	   |suppress-fa$suppress_fa\
+	 }]",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configure NSSA-ABR for translate election (default)\n"
+       "Configure NSSA-ABR to never translate\n"
+       "Configure NSSA-ABR to always translate\n"
+       "Do not inject inter-area routes into nssa\n"
+       "Suppress forwarding address\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct in_addr area_id;
 	int ret, format;
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, argv[1]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, area_str);
 
 	ret = ospf_area_nssa_set(ospf, area_id);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
@@ -1452,14 +1466,14 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (argc > 3) {
-		if (strncmp(argv[3]->text, "translate-c", 11) == 0)
+	if (translator_role) {
+		if (strncmp(translator_role, "translate-c", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_CANDIDATE);
-		else if (strncmp(argv[3]->text, "translate-n", 11) == 0)
+		else if (strncmp(translator_role, "translate-n", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_NEVER);
-		else if (strncmp(argv[3]->text, "translate-a", 11) == 0)
+		else if (strncmp(translator_role, "translate-a", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_ALWAYS);
 	} else {
@@ -1467,12 +1481,15 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 						   OSPF_NSSA_ROLE_CANDIDATE);
 	}
 
-	if (cfg_nosum) {
-		if (nosum)
-			ospf_area_no_summary_set(ospf, area_id);
-		else
-			ospf_area_no_summary_unset(ospf, area_id);
-	}
+	if (no_summary)
+		ospf_area_nssa_no_summary_set(ospf, area_id);
+	else
+		ospf_area_no_summary_unset(ospf, area_id);
+
+	if (suppress_fa)
+		ospf_area_nssa_suppress_fa_set(ospf, area_id);
+	else
+		ospf_area_nssa_suppress_fa_unset(ospf, area_id);
 
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
@@ -1482,141 +1499,14 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (ospf_area_nssa_translate,
-       ospf_area_nssa_translate_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa <translate-candidate|translate-never|translate-always>",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Configure NSSA-ABR for translate election (default)\n"
-       "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n")
-{
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
-}
-
-DEFUN (ospf_area_nssa,
-       ospf_area_nssa_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n")
-{
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
-}
-
-DEFUN(ospf_area_nssa_suppress_fa, ospf_area_nssa_suppress_fa_cmd,
-      "area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
-      "OSPF area parameters\n"
-      "OSPF area ID in IP address format\n"
-      "OSPF area ID as a decimal value\n"
-      "Configure OSPF area as nssa\n"
-      "Suppress forwarding address\n")
-{
-	int idx_ipv4_number = 1;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_suppress_fa_set(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_ospf_area_nssa_suppress_fa, no_ospf_area_nssa_suppress_fa_cmd,
-      "no area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
-      NO_STR
-      "OSPF area parameters\n"
-      "OSPF area ID in IP address format\n"
-      "OSPF area ID as a decimal value\n"
-      "Configure OSPF area as nssa\n"
-      "Suppress forwarding address\n")
-{
-	int idx_ipv4_number = 2;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ospf_area_nssa_no_summary,
-       ospf_area_nssa_no_summary_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa no-summary",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Do not inject inter-area routes into nssa\n")
-{
-	int idx_ipv4_number = 1;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_no_summary_set(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_area_nssa_no_summary,
-       no_ospf_area_nssa_no_summary_cmd,
-       "no area <A.B.C.D|(0-4294967295)> nssa no-summary",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Do not inject inter-area routes into nssa\n")
-{
-	int idx_ipv4_number = 2;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_no_summary_unset(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_area_nssa,
+DEFPY (no_ospf_area_nssa,
        no_ospf_area_nssa_cmd,
-       "no area <A.B.C.D|(0-4294967295)> nssa [<translate-candidate|translate-never|translate-always>]",
+       "no area <A.B.C.D|(0-4294967295)>$area_str nssa\
+         [{\
+	   <translate-candidate|translate-never|translate-always>\
+	   |no-summary\
+	   |suppress-fa\
+	 }]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1624,25 +1514,26 @@ DEFUN (no_ospf_area_nssa,
        "Configure OSPF area as nssa\n"
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n")
+       "Configure NSSA-ABR to always translate\n"
+       "Do not inject inter-area routes into nssa\n"
+       "Suppress forwarding address\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 2;
 	struct in_addr area_id;
 	int format;
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, area_str);
 
 	/* Flush the NSSA LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_NSSA_LSA);
-	ospf_area_nssa_unset(ospf, area_id, argc);
+	ospf_area_no_summary_unset(ospf, area_id);
+	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
+	ospf_area_nssa_unset(ospf, area_id);
 
 	ospf_schedule_abr_task(ospf);
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
@@ -13029,11 +12920,6 @@ void ospf_vty_init(void)
 
 	/* "area nssa" commands. */
 	install_element(OSPF_NODE, &ospf_area_nssa_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_translate_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
-	install_element(OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_suppress_fa_cmd);
-	install_element(OSPF_NODE, &no_ospf_area_nssa_suppress_fa_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_cmd);
 
 	install_element(OSPF_NODE, &ospf_area_default_cost_cmd);

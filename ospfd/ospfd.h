@@ -697,8 +697,7 @@ extern int ospf_area_no_summary_set(struct ospf *ospf, struct in_addr area_id);
 extern int ospf_area_no_summary_unset(struct ospf *ospf,
 				      struct in_addr area_id);
 extern int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id);
-extern int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id,
-				int argc);
+extern int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id);
 extern int ospf_area_nssa_suppress_fa_set(struct ospf *ospf,
 					  struct in_addr area_id);
 extern int ospf_area_nssa_suppress_fa_unset(struct ospf *ospf,

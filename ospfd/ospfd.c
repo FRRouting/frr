@@ -1701,7 +1701,7 @@ int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id)
 	return 1;
 }
 
-int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
+int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 {
 	struct ospf_area *area;
 
@@ -1709,22 +1709,14 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 	if (area == NULL)
 		return 0;
 
-	/* argc < 5 -> 'no area x nssa' */
-	if (argc < 5 && area->external_routing == OSPF_AREA_NSSA) {
-		ospf->anyNSSA--;
-		/* set NSSA area defaults */
-		area->no_summary = 0;
-		area->suppress_fa = 0;
-		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-		area->NSSATranslatorStabilityInterval =
-			OSPF_NSSA_TRANS_STABLE_DEFAULT;
-		ospf_area_type_set(area, OSPF_AREA_DEFAULT);
-	} else {
-		ospf_area_nssa_translator_role_set(ospf, area_id,
-						   OSPF_NSSA_ROLE_CANDIDATE);
-	}
-
+	ospf->anyNSSA--;
+	/* set NSSA area defaults */
+	area->no_summary = 0;
+	area->suppress_fa = 0;
+	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
+	ospf_area_type_set(area, OSPF_AREA_DEFAULT);
 	ospf_area_check_free(ospf, area_id);
 
 	return 1;
