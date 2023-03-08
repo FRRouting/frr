@@ -9,6 +9,10 @@
 #ifndef _FRR_MGMTD_FE_ADAPTER_H_
 #define _FRR_MGMTD_FE_ADAPTER_H_
 
+#include "mgmt_fe_client.h"
+#include "mgmt_msg.h"
+#include "mgmtd/mgmt_defines.h"
+
 struct mgmt_fe_client_adapter;
 struct mgmt_master;
 
@@ -64,18 +68,9 @@ struct mgmt_fe_client_adapter {
 	struct mgmt_fe_sessions_head fe_sessions;
 
 	/* IO streams for read and write */
-	/* pthread_mutex_t ibuf_mtx; */
-	struct stream_fifo *ibuf_fifo;
-	/* pthread_mutex_t obuf_mtx; */
-	struct stream_fifo *obuf_fifo;
-
-	/* Private I/O buffers */
-	struct stream *ibuf_work;
-	struct stream *obuf_work;
+	struct mgmt_msg_state mstate;
 
 	int refcount;
-	uint32_t num_msg_tx;
-	uint32_t num_msg_rx;
 	struct mgmt_commit_stats cmt_stats;
 	struct mgmt_setcfg_stats setcfg_stats;
 

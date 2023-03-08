@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#include "northbound.h"
+#include "mgmt_pb.h"
 #include "mgmtd/mgmt_defines.h"
 
 /***************************************************************
@@ -79,18 +81,6 @@ enum mgmt_be_client_id {
  ***************************************************************/
 
 #define MGMTD_BE_MAX_CLIENTS_PER_XPATH_REG 32
-
-struct mgmt_be_msg_hdr {
-	uint16_t marker;
-	uint16_t len; /* Includes header */
-};
-#define MGMTD_BE_MSG_HDR_LEN sizeof(struct mgmt_be_msg_hdr)
-#define MGMTD_BE_MSG_MARKER 0xfeed
-
-struct mgmt_be_msg {
-	struct mgmt_be_msg_hdr hdr;
-	uint8_t payload[];
-};
 
 struct mgmt_be_client_txn_ctx {
 	uintptr_t *user_ctx;

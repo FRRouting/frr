@@ -28,7 +28,7 @@
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
-static int mgmt_fe_listen_fd;
+static int mgmt_fe_listen_fd = -1;
 static struct thread_master *mgmt_fe_listen_tm;
 static struct thread *mgmt_fe_listen_ev;
 static void mgmt_fe_server_register_event(enum mgmt_fe_event event);
