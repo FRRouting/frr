@@ -431,6 +431,16 @@ Areas
     configured not to advertise forwarding addresses into the backbone to direct
     forwarded traffic to the NSSA ABR translator.
 
+.. clicmd:: area A.B.C.D nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+.. clicmd:: area (0-4294967295) nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+   NSSA ABRs and ASBRs can be configured with the `default-information-originate`
+   option to originate a Type-7 default route into the NSSA area. In the case
+   of NSSA ASBRs, the origination of the default route is conditioned to the
+   existence of a default route in the RIB that wasn't learned via the OSPF
+   protocol.
+
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
 

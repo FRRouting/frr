@@ -20,6 +20,7 @@
 #include "log.h"
 #include "route_opaque.h"
 #include "lib/bfd.h"
+#include "lib/lib_errors.h"
 #include "nexthop.h"
 
 #include "ospfd/ospfd.h"
@@ -1470,6 +1471,61 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
+{
+	struct prefix prefix = {};
+	int command;
+
+	if (zclient->sock < 0) {
+		if (IS_DEBUG_OSPF(zebra, ZEBRA))
+			zlog_debug("  Not connected to Zebra");
+		return;
+	}
+
+	prefix.family = AF_INET;
+	prefix.prefixlen = 0;
+
+	if (unreg)
+		command = ZEBRA_NEXTHOP_UNREGISTER;
+	else
+		command = ZEBRA_NEXTHOP_REGISTER;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA))
+		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
+			   zserv_command_string(command), &prefix,
+			   ospf->vrf_id);
+
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
+			     true, ospf->vrf_id) == ZCLIENT_SEND_FAILURE)
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_send_rnh() failed",
+			 __func__);
+}
+
+static int ospf_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
+{
+	struct ospf *ospf;
+	struct zapi_route nhr;
+	struct prefix matched;
+
+	ospf = ospf_lookup_by_vrf_id(vrf_id);
+	if (ospf == NULL || !IS_OSPF_ASBR(ospf))
+		return 0;
+
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
+		zlog_err("%s[%u]: Failure to decode route", __func__,
+			 ospf->vrf_id);
+		return -1;
+	}
+
+	if (matched.family != AF_INET || matched.prefixlen != 0 ||
+	    nhr.type == ZEBRA_ROUTE_OSPF)
+		return 0;
+
+	ospf->nssa_default_import_check.status = !!nhr.nexthop_num;
+	ospf_abr_nssa_type7_defaults(ospf);
+
+	return 0;
+}
 
 int ospf_distribute_list_out_set(struct ospf *ospf, int type, const char *name)
 {
@@ -2132,6 +2188,7 @@ static zclient_handler *const ospf_handlers[] = {
 
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
+	[ZEBRA_NEXTHOP_UPDATE] = ospf_zebra_import_check_update,
 
 	[ZEBRA_OPAQUE_MESSAGE] = ospf_opaque_msg_handler,
 

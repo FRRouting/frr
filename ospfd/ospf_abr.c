@@ -1807,6 +1807,82 @@ static void ospf_abr_announce_non_dna_routers(struct event *thread)
 	OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "%s(): Stop", __func__);
 }
 
+static void ospf_abr_nssa_type7_default_create(struct ospf *ospf,
+					       struct ospf_area *area,
+					       struct ospf_lsa *lsa)
+{
+	struct external_info ei;
+
+	if (IS_DEBUG_OSPF_NSSA)
+		zlog_debug(
+			"Announcing Type-7 default route into NSSA area %pI4",
+			&area->area_id);
+
+	/* Prepare the extrenal_info for aggregator */
+	memset(&ei, 0, sizeof(struct external_info));
+	ei.p.family = AF_INET;
+	ei.p.prefixlen = 0;
+	ei.tag = 0;
+	ei.type = 0;
+	ei.instance = ospf->instance;
+
+	/* Compute default route type and metric. */
+	if (area->nssa_default_originate.metric_value != -1)
+		ei.route_map_set.metric =
+			area->nssa_default_originate.metric_value;
+	else
+		ei.route_map_set.metric = DEFAULT_DEFAULT_ALWAYS_METRIC;
+	if (area->nssa_default_originate.metric_type != -1)
+		ei.route_map_set.metric_type =
+			area->nssa_default_originate.metric_type;
+	else
+		ei.route_map_set.metric_type = DEFAULT_METRIC_TYPE;
+
+	if (!lsa)
+		ospf_nssa_lsa_originate(area, &ei);
+	else
+		ospf_nssa_lsa_refresh(area, lsa, &ei);
+}
+
+static void ospf_abr_nssa_type7_default_delete(struct ospf *ospf,
+					       struct ospf_area *area,
+					       struct ospf_lsa *lsa)
+{
+	if (lsa && !CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
+		if (IS_DEBUG_OSPF_NSSA)
+			zlog_debug(
+				"Withdrawing Type-7 default route from area %pI4",
+				&area->area_id);
+
+		ospf_ls_retransmit_delete_nbr_area(area, lsa);
+		ospf_refresher_unregister_lsa(ospf, lsa);
+		ospf_lsa_flush_area(lsa, area);
+	}
+}
+
+/* NSSA Type-7 default route. */
+void ospf_abr_nssa_type7_defaults(struct ospf *ospf)
+{
+	struct ospf_area *area;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+		struct in_addr id = {};
+		struct ospf_lsa *lsa;
+
+		lsa = ospf_lsdb_lookup_by_id(area->lsdb, OSPF_AS_NSSA_LSA, id,
+					     area->ospf->router_id);
+		if (area->external_routing == OSPF_AREA_NSSA
+		    && area->nssa_default_originate.enabled
+		    && (IS_OSPF_ABR(ospf)
+			|| (IS_OSPF_ASBR(ospf)
+			    && ospf->nssa_default_import_check.status)))
+			ospf_abr_nssa_type7_default_create(ospf, area, lsa);
+		else
+			ospf_abr_nssa_type7_default_delete(ospf, area, lsa);
+	}
+}
+
 static int ospf_abr_remove_unapproved_translates_apply(struct ospf *ospf,
 						       struct ospf_lsa *lsa)
 {
@@ -2030,6 +2106,11 @@ void ospf_abr_task(struct ospf *ospf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: announce stub defaults", __func__);
 		ospf_abr_announce_stub_defaults(ospf);
+
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s: announce NSSA Type-7 defaults",
+				   __func__);
+		ospf_abr_nssa_type7_defaults(ospf);
 
 		if (ospf->fr_configured) {
 			OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,

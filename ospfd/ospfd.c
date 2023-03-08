@@ -1774,6 +1774,51 @@ int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 	return 1;
 }
 
+void ospf_area_nssa_default_originate_set(struct ospf *ospf,
+					  struct in_addr area_id, int metric,
+					  int metric_type)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return;
+
+	if (!area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = true;
+		if (++ospf->nssa_default_import_check.refcnt == 1) {
+			ospf->nssa_default_import_check.status = false;
+			ospf_zebra_import_default_route(ospf, false);
+		}
+	}
+
+	area->nssa_default_originate.metric_value = metric;
+	area->nssa_default_originate.metric_type = metric_type;
+}
+
+void ospf_area_nssa_default_originate_unset(struct ospf *ospf,
+					    struct in_addr area_id)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return;
+
+	if (area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = false;
+		if (--ospf->nssa_default_import_check.refcnt == 0) {
+			ospf->nssa_default_import_check.status = false;
+			ospf_zebra_import_default_route(ospf, true);
+		}
+		area->nssa_default_originate.metric_value = -1;
+		area->nssa_default_originate.metric_type = -1;
+
+		if (!IS_OSPF_ABR(ospf))
+			ospf_abr_nssa_type7_defaults(ospf);
+	}
+}
+
 int ospf_area_export_list_set(struct ospf *ospf, struct ospf_area *area,
 			      const char *list_name)
 {

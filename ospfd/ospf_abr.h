@@ -73,6 +73,7 @@ extern void ospf_schedule_abr_task(struct ospf *);
 
 extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, uint32_t,
 					      struct ospf_area *);
+extern void ospf_abr_nssa_type7_defaults(struct ospf *ospf);
 extern void ospf_abr_nssa_check_status(struct ospf *ospf);
 extern void ospf_abr_generate_indication_lsa(struct ospf *ospf,
 					     const struct ospf_area *area);

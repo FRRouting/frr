@@ -1438,6 +1438,7 @@ DEFPY (ospf_area_nssa,
        "area <A.B.C.D|(0-4294967295)>$area_str nssa\
          [{\
 	   <translate-candidate|translate-never|translate-always>$translator_role\
+	   |default-information-originate$dflt_originate [{metric (0-16777214)$mval|metric-type (1-2)$mtype}]\
 	   |no-summary$no_summary\
 	   |suppress-fa$suppress_fa\
 	 }]",
@@ -1448,6 +1449,11 @@ DEFPY (ospf_area_nssa,
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
        "Configure NSSA-ABR to always translate\n"
+       "Originate Type 7 default into NSSA area\n"
+       "OSPF default metric\n"
+       "OSPF metric\n"
+       "OSPF metric type for default routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Do not inject inter-area routes into nssa\n"
        "Suppress forwarding address\n")
 {
@@ -1481,6 +1487,18 @@ DEFPY (ospf_area_nssa,
 						   OSPF_NSSA_ROLE_CANDIDATE);
 	}
 
+	if (dflt_originate) {
+		int metric_type = DEFAULT_METRIC_TYPE;
+
+		if (mval_str == NULL)
+			mval = -1;
+		if (mtype_str)
+			(void)str2metric_type(mtype_str, &metric_type);
+		ospf_area_nssa_default_originate_set(ospf, area_id, mval,
+						     metric_type);
+	} else
+		ospf_area_nssa_default_originate_unset(ospf, area_id);
+
 	if (no_summary)
 		ospf_area_nssa_no_summary_set(ospf, area_id);
 	else
@@ -1504,6 +1522,7 @@ DEFPY (no_ospf_area_nssa,
        "no area <A.B.C.D|(0-4294967295)>$area_str nssa\
          [{\
 	   <translate-candidate|translate-never|translate-always>\
+	   |default-information-originate [{metric (0-16777214)|metric-type (1-2)}]\
 	   |no-summary\
 	   |suppress-fa\
 	 }]",
@@ -1515,6 +1534,11 @@ DEFPY (no_ospf_area_nssa,
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
        "Configure NSSA-ABR to always translate\n"
+       "Originate Type 7 default into NSSA area\n"
+       "OSPF default metric\n"
+       "OSPF metric\n"
+       "OSPF metric type for default routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Do not inject inter-area routes into nssa\n"
        "Suppress forwarding address\n")
 {
@@ -1527,6 +1551,7 @@ DEFPY (no_ospf_area_nssa,
 	/* Flush the NSSA LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_NSSA_LSA);
 	ospf_area_no_summary_unset(ospf, area_id);
+	ospf_area_nssa_default_originate_unset(ospf, area_id);
 	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
 	ospf_area_nssa_unset(ospf, area_id);
 
@@ -11872,29 +11897,39 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 					vty_out(vty, " no-summary\n");
 				vty_out(vty, "\n");
 			} else if (area->external_routing == OSPF_AREA_NSSA) {
+				vty_out(vty, " area %s nssa", buf);
+
 				switch (area->NSSATranslatorRole) {
 				case OSPF_NSSA_ROLE_NEVER:
-					vty_out(vty,
-						" area %s nssa translate-never\n",
-						buf);
+					vty_out(vty, " translate-never");
 					break;
 				case OSPF_NSSA_ROLE_ALWAYS:
-					vty_out(vty,
-						" area %s nssa translate-always\n",
-						buf);
+					vty_out(vty, " translate-always");
 					break;
 				case OSPF_NSSA_ROLE_CANDIDATE:
-					vty_out(vty, " area %s nssa \n", buf);
 					break;
 				}
+
+				if (area->nssa_default_originate.enabled) {
+					vty_out(vty,
+						" default-information-originate");
+					if (area->nssa_default_originate
+						    .metric_value
+					    != -1)
+						vty_out(vty, " metric %d",
+							area->nssa_default_originate
+								.metric_value);
+					if (area->nssa_default_originate
+						    .metric_type
+					    != DEFAULT_METRIC_TYPE)
+						vty_out(vty, " metric-type 1");
+				}
+
 				if (area->no_summary)
-					vty_out(vty,
-						" area %s nssa no-summary\n",
-						buf);
+					vty_out(vty, " no-summary");
 				if (area->suppress_fa)
-					vty_out(vty,
-						" area %s nssa suppress-fa\n",
-						buf);
+					vty_out(vty, " suppress-fa");
+				vty_out(vty, "\n");
 			}
 
 			if (area->default_cost != 1)
