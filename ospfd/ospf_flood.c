@@ -1351,6 +1351,20 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	lsa->tv_orig = lsa->tv_recv;
 	ospf_flood_through_area(area, NULL, lsa);
 	ospf_lsa_maxage(ospf, lsa);
+
+	/* Flush corresponding translated Type-5 LSA as well. */
+	if (lsa->data->type == OSPF_AS_NSSA_LSA) {
+		struct prefix_ipv4 p;
+		struct as_external_lsa *ext7;
+		struct ospf_lsa *type5;
+
+		ext7 = (struct as_external_lsa *)(lsa->data);
+		p.prefix = lsa->data->id;
+		p.prefixlen = ip_masklen(ext7->mask);
+		type5 = ospf_external_info_find_lsa(area->ospf, &p);
+		if (type5 && !CHECK_FLAG(type5->flags, OSPF_LSA_IN_MAXAGE))
+			ospf_lsa_flush_as(ospf, type5);
+	}
 }
 
 void ospf_lsa_flush_as(struct ospf *ospf, struct ospf_lsa *lsa)

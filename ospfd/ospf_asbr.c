@@ -335,6 +335,43 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 	ospf_router_lsa_update(ospf);
 }
 
+static void ospf_nssa_lsa_refresh_type(struct ospf *ospf, uint8_t type, unsigned short instance)
+{
+	struct route_node *rn;
+	struct ospf_external *ext;
+
+	ext = ospf_external_lookup(ospf, type, instance);
+	if (ext && EXTERNAL_INFO(ext)) {
+		/* Refresh each redistributed NSSA-LSAs. */
+		for (rn = route_top(EXTERNAL_INFO(ext)); rn; rn = route_next(rn)) {
+			struct ospf_area *area;
+			struct listnode *node;
+			struct external_info *ei;
+
+			ei = rn->info;
+			if (!ei)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+				struct ospf_lsa *lsa;
+
+				if (area->external_routing != OSPF_AREA_NSSA)
+					continue;
+
+				lsa = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_AS_NSSA_LSA,
+								&ei->p, ospf->router_id);
+				if (lsa)
+					ospf_nssa_lsa_refresh(area, lsa, ei);
+				else {
+					if (!ospf_redistribute_check(ospf, ei, NULL))
+						continue;
+					ospf_nssa_lsa_originate(area, ei, true);
+				}
+			}
+		}
+	}
+}
+
 /* If there's redistribution configured, we need to refresh external
  * LSAs (e.g. when default-metric changes or NSSA settings change).
  */
@@ -358,12 +395,8 @@ static void ospf_asbr_redist_update_timer(struct event *event)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
-			ospf_external_lsa_refresh_type(ospf, type,
-						       red->instance,
-						       LSA_REFRESH_FORCE);
+			ospf_nssa_lsa_refresh_type(ospf, type, red->instance);
 	}
-
-	ospf_external_lsa_refresh_default(ospf);
 }
 
 void ospf_schedule_asbr_redist_update(struct ospf *ospf)

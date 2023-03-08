@@ -688,6 +688,7 @@ static void ospf_abr_translate_nssa_range(struct ospf *ospf,
 	ei.type = ZEBRA_ROUTE_OSPF;
 	ei.route_map_set.metric = cost;
 	ei.route_map_set.metric_type = -1;
+	ei.nssa_range = true;
 
 	lsa = ospf_external_info_find_lsa(ospf, p);
 	if (lsa)
@@ -1844,7 +1845,7 @@ static void ospf_abr_nssa_type7_default_create(struct ospf *ospf,
 		ei.route_map_set.metric_type = DEFAULT_METRIC_TYPE;
 
 	if (!lsa)
-		ospf_nssa_lsa_originate(area, &ei);
+		ospf_nssa_lsa_originate(area, &ei, false);
 	else
 		ospf_nssa_lsa_refresh(area, lsa, &ei);
 }
