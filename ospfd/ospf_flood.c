@@ -1351,6 +1351,53 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	lsa->tv_orig = lsa->tv_recv;
 	ospf_flood_through_area(area, NULL, lsa);
 	ospf_lsa_maxage(ospf, lsa);
+
+	/* Flush corresponding translated Type-5 LSA as well. */
+	if (lsa->data->type == OSPF_AS_NSSA_LSA) {
+		struct prefix_ipv4 p;
+		struct as_external_lsa *ext7;
+		struct ospf_lsa *type5;
+
+		ext7 = (struct as_external_lsa *)(lsa->data);
+		p.prefix = lsa->data->id;
+		p.prefixlen = ip_masklen(ext7->mask);
+		type5 = ospf_external_info_find_lsa(area->ospf, &p);
+
+		/*
+		 * Only flush a Type-5 that is actually our translation of a
+		 * Type-7 (LOCAL_XLT), and only if no other non-maxaged Type-7
+		 * for the same prefix exists that would still justify it.
+		 */
+		if (type5 && CHECK_FLAG(type5->flags, OSPF_LSA_LOCAL_XLT) &&
+		    !CHECK_FLAG(type5->flags, OSPF_LSA_IN_MAXAGE)) {
+			struct route_node *rn;
+			struct ospf_lsa *other;
+			struct ospf_area *search_area;
+			struct listnode *anode;
+			bool other_type7_exists = false;
+
+			for (ALL_LIST_ELEMENTS_RO(area->ospf->areas, anode, search_area)) {
+				if (search_area->external_routing != OSPF_AREA_NSSA)
+					continue;
+				LSDB_LOOP (NSSA_LSDB(search_area), rn, other) {
+					struct as_external_lsa *oext;
+
+					if (other == lsa || IS_LSA_MAXAGE(other))
+						continue;
+					oext = (struct as_external_lsa *)other->data;
+					if (IPV4_ADDR_SAME(&other->data->id, &lsa->data->id) &&
+					    oext->mask.s_addr == ext7->mask.s_addr) {
+						other_type7_exists = true;
+						break;
+					}
+				}
+				if (other_type7_exists)
+					break;
+			}
+			if (!other_type7_exists)
+				ospf_lsa_flush_as(ospf, type5);
+		}
+	}
 }
 
 void ospf_lsa_flush_as(struct ospf *ospf, struct ospf_lsa *lsa)
