@@ -11676,37 +11676,22 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty, "4 ");
 				vty_out(vty, ASN_FORMAT_SPACE(bgp->asnotation),
 					&peer->as);
-				if (show_wide) {
+				if (show_wide)
 					vty_out(vty,
 						ASN_FORMAT_SPACE(
 							bgp->asnotation),
 						peer->change_local_as
 							? &peer->change_local_as
 							: &peer->local_as);
-					vty_out(vty,
-						" %9u %9u %8" PRIu64
-						" %4zu %4zu %8s",
-						PEER_TOTAL_RX(peer),
-						PEER_TOTAL_TX(peer),
-						peer->version[afi][safi],
-						inq_count, outq_count,
-						peer_uptime(peer->uptime,
-							    timebuf,
-							    BGP_UPTIME_LEN, 0,
-							    NULL));
-				} else {
-					vty_out(vty,
-						" %9u %9u %8" PRIu64
-						" %4zu %4zu %8s",
-						PEER_TOTAL_RX(peer),
-						PEER_TOTAL_TX(peer),
-						peer->version[afi][safi],
-						inq_count, outq_count,
-						peer_uptime(peer->uptime,
-							    timebuf,
-							    BGP_UPTIME_LEN, 0,
-							    NULL));
-				}
+				vty_out(vty,
+					" %9u %9u %8" PRIu64 " %4zu %4zu %8s",
+					PEER_TOTAL_RX(peer),
+					PEER_TOTAL_TX(peer),
+					peer->version[afi][safi], inq_count,
+					outq_count,
+					peer_uptime(peer->uptime, timebuf,
+						    BGP_UPTIME_LEN, 0, NULL));
+
 				if (peer_established(peer)) {
 					if (peer->afc_recv[afi][safi]) {
 						if (CHECK_FLAG(
