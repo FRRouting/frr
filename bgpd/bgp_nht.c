@@ -42,7 +42,7 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
 DEFINE_HOOK(bgp_hook_nht_update, (struct bgp_nexthop_cache * bnc, bool created),
 	    (bnc, created));
 
-static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
+static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p);
 static void bgp_nht_ifp_initial(struct event *thread);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
@@ -315,7 +315,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
-		if (make_prefix(afi, pi, &p) < 0)
+		if (make_prefix(afi, safi, pi, &p) < 0)
 			return 1;
 
 		/*
@@ -1009,9 +1009,9 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
+static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p)
 {
-
+	bool is_labeled_unicast, is_imported, has_labels;
 	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
 			     && (pi->sub_type == BGP_ROUTE_STATIC))
 				    ? 1
@@ -1019,6 +1019,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	struct bgp_dest *net = pi->net;
 	const struct prefix *p_orig = bgp_dest_get_prefix(net);
 	struct in_addr ipv4;
+	const struct prefix *pi_prefix;
 
 	if (p_orig->family == AF_FLOWSPEC) {
 		if (!pi->peer)
@@ -1065,7 +1066,24 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			else if (pi->attr->mp_nexthop_len
 				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				if (CHECK_FLAG(pi->attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
-					if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
+					is_labeled_unicast =
+						pi->peer && safi == SAFI_UNICAST &&
+						!pi->peer->afc[AFI_IP6][safi] &&
+						pi->peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
+					is_imported = safi == SAFI_UNICAST &&
+						      pi->sub_type == BGP_ROUTE_IMPORTED;
+					has_labels = bgp_path_info_num_labels(pi) &&
+						     pi->extra->labels->label[0] !=
+							     MPLS_INVALID_LABEL;
+
+					pi_prefix = bgp_dest_get_prefix(pi->net);
+
+					/* if safi is LABELED or L3VPN (6PE/6VPE case), then
+                     * a bnc ipv6 will be created on the IPv4-mapped ipv6 address
+                    */
+					if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global) &&
+					    !(pi_prefix->family == AF_INET6 && has_labels &&
+					      (is_labeled_unicast || is_imported))) {
 						ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
 									 &ipv4);
 						p->u.prefix4 = ipv4;
@@ -1077,7 +1095,22 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 					p->u.prefix6 =
 						pi->attr->mp_nexthop_local;
 			} else {
-				if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
+				is_labeled_unicast = pi->peer && safi == SAFI_UNICAST &&
+						     !pi->peer->afc[AFI_IP6][safi] &&
+						     pi->peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
+				is_imported = safi == SAFI_UNICAST &&
+					      pi->sub_type == BGP_ROUTE_IMPORTED;
+				has_labels = bgp_path_info_num_labels(pi) &&
+					     pi->extra->labels->label[0] != MPLS_INVALID_LABEL;
+
+				pi_prefix = bgp_dest_get_prefix(pi->net);
+
+				/* if safi is LABELED or L3VPN (6PE/6VPE case), then
+				 * a bnc ipv6 will be created on the IPv4-mapped ipv6 address
+				 */
+				if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global) &&
+				    !(pi_prefix->family == AF_INET6 && has_labels &&
+				      (is_labeled_unicast || is_imported))) {
 					ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
 								 &ipv4);
 					p->u.prefix4 = ipv4;
@@ -1301,15 +1334,22 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		bool bnc_is_valid_nexthop = false;
 		bool path_valid = false;
 
-		if (safi == SAFI_UNICAST &&
-		    path->sub_type == BGP_ROUTE_IMPORTED &&
+		if (p->family == AF_INET6 && bnc->prefix.family == AF_INET6 &&
+		    IS_MAPPED_IPV6(&bnc->prefix.u.prefix6) && safi == SAFI_LABELED_UNICAST &&
 		    bgp_path_info_num_labels(path) &&
-		    (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
+		    (bgp_is_dataplane_label(path->extra->labels->label,
+					    path->extra->labels->num_labels)))
+			/* labeled unicast: mpls values different than imp-null
+			 * need to be considered
+			 */
+			bnc_is_valid_nexthop = true;
+		else if (safi == SAFI_UNICAST && path->sub_type == BGP_ROUTE_IMPORTED &&
+			 bgp_path_info_num_labels(path) &&
+			 (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
 				bgp_isvalid_nexthop_for_mpls(bnc, path) ? true
 									: false;
-		} else if (safi == SAFI_MPLS_VPN &&
-			   path->sub_type != BGP_ROUTE_IMPORTED) {
+		} else if (safi == SAFI_MPLS_VPN && path->sub_type != BGP_ROUTE_IMPORTED) {
 			/* avoid not redistributing mpls vpn routes */
 			bnc_is_valid_nexthop = true;
 		} else {

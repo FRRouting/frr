@@ -119,4 +119,14 @@ static inline uint8_t label_bos(mpls_label_t *label)
 	return (t[2] & 0x01);
 };
 
+static inline bool bgp_is_dataplane_label(mpls_label_t *label, uint32_t num_labels)
+{
+	uint32_t _i_;
+
+	for (_i_ = 0; _i_ < num_labels; _i_++) {
+		if (label[_i_] != MPLS_LABEL_IMPLICIT_NULL)
+			return true;
+	}
+	return false;
+};
 #endif /* _BGP_LABEL_H */
