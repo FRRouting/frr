@@ -16,6 +16,7 @@
 
 #define OSPF_AREA_RANGE_ADVERTISE	(1 << 0)
 #define OSPF_AREA_RANGE_SUBSTITUTE	(1 << 1)
+#define OSPF_AREA_RANGE_NSSA		(1 << 2)
 
 /* Area range. */
 struct ospf_area_range {
@@ -44,19 +45,19 @@ struct ospf_area_range {
 
 /* Prototypes. */
 extern struct ospf_area_range *ospf_area_range_lookup(struct ospf_area *,
+						      struct route_table *,
 						      struct prefix_ipv4 *);
-
-extern struct ospf_area_range *ospf_some_area_range_match(struct prefix_ipv4 *);
-
 extern struct ospf_area_range *
 ospf_area_range_lookup_next(struct ospf_area *, struct in_addr *, int);
 
 extern int ospf_area_range_set(struct ospf *, struct ospf_area *,
-			       struct prefix_ipv4 *, int);
+			       struct route_table *, struct prefix_ipv4 *, int,
+			       bool);
 extern int ospf_area_range_cost_set(struct ospf *, struct ospf_area *,
-				    struct prefix_ipv4 *, uint32_t);
+				    struct route_table *, struct prefix_ipv4 *,
+				    uint32_t);
 extern int ospf_area_range_unset(struct ospf *, struct ospf_area *,
-				 struct prefix_ipv4 *);
+				 struct route_table *, struct prefix_ipv4 *);
 extern int ospf_area_range_substitute_set(struct ospf *, struct ospf_area *,
 					  struct prefix_ipv4 *,
 					  struct prefix_ipv4 *);
@@ -69,6 +70,7 @@ extern int ospf_act_bb_connection(struct ospf *);
 
 extern void ospf_check_abr_status(struct ospf *);
 extern void ospf_abr_task(struct ospf *);
+extern void ospf_abr_nssa_task(struct ospf *ospf);
 extern void ospf_schedule_abr_task(struct ospf *);
 
 extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, uint32_t,

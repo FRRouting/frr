@@ -1008,7 +1008,8 @@ void ospf_prune_unreachable_routers(struct route_table *rtrs)
 }
 
 int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
-			   struct ospf_area *area, struct prefix_ipv4 *p)
+			   struct ospf_area *area, struct prefix_ipv4 *p,
+			   bool nssa)
 {
 	struct route_node *rn;
 	struct ospf_route * or, *new_or;
@@ -1027,7 +1028,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 
 		or = rn->info;
 
-		if (or->path_type == OSPF_PATH_INTRA_AREA) {
+		if (!nssa && or->path_type == OSPF_PATH_INTRA_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug("%s: an intra-area route exists",
 					   __func__);
@@ -1054,7 +1055,10 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 	new_or->cost = 0;
 	new_or->u.std.area_id = area->area_id;
 	new_or->u.std.external_routing = area->external_routing;
-	new_or->path_type = OSPF_PATH_INTER_AREA;
+	if (nssa)
+		new_or->path_type = OSPF_PATH_TYPE2_EXTERNAL;
+	else
+		new_or->path_type = OSPF_PATH_INTER_AREA;
 	rn->info = new_or;
 
 	ospf_zebra_add_discard(ospf, p);
@@ -1063,7 +1067,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 }
 
 void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
-			       struct prefix_ipv4 *p)
+			       struct prefix_ipv4 *p, bool nssa)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -1081,7 +1085,7 @@ void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
 
 	or = rn->info;
 
-	if (or->path_type == OSPF_PATH_INTRA_AREA) {
+	if (!nssa && or->path_type == OSPF_PATH_INTRA_AREA) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: an intra-area route exists", __func__);
 		return;

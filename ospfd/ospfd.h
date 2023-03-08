@@ -529,6 +529,7 @@ struct ospf_area {
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
 	struct route_table *ranges; /* Configured Area Ranges. */
+	struct route_table *nssa_ranges; /* Configured NSSA Area Ranges. */
 
 	/* RFC3137 stub router state flags for area */
 	uint8_t stub_router_state;
