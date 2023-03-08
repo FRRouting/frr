@@ -76,7 +76,7 @@ static void ospf_area_range_delete(struct ospf_area *area,
 {
 	struct ospf_area_range *range = rn->info;
 
-	if (range->specifics != 0)
+	if (ospf_area_range_active(range))
 		ospf_delete_discard_route(area->ospf, area->ospf->new_table,
 					  (struct prefix_ipv4 *)&rn->p);
 
@@ -557,7 +557,7 @@ static void ospf_abr_update_aggregate(struct ospf_area_range *range,
 
 		range->cost = range->cost_config;
 	} else {
-		if (range->specifics == 0) {
+		if (!ospf_area_range_active(range)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug("%s: use or->cost %d", __func__,
 					   or->cost);
@@ -1409,7 +1409,7 @@ static void ospf_abr_announce_aggregates(struct ospf *ospf)
 					p.prefixlen = range->subst_masklen;
 				}
 
-				if (range->specifics) {
+				if (ospf_area_range_active(range)) {
 					if (IS_DEBUG_OSPF_EVENT)
 						zlog_debug("%s: active range",
 							   __func__);
@@ -1502,7 +1502,7 @@ ospf_abr_send_nssa_aggregates(struct ospf *ospf) /* temporarily turned off */
 				p.prefixlen = range->subst_masklen;
 			}
 
-			if (range->specifics) {
+			if (ospf_area_range_active(range)) {
 				if (IS_DEBUG_OSPF_NSSA)
 					zlog_debug("%s: active range",
 						   __func__);
@@ -1962,7 +1962,7 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf)
 			if ((range = rn->info) != NULL)
 				if (CHECK_FLAG(range->flags,
 					       OSPF_AREA_RANGE_ADVERTISE)) {
-					if (range->specifics)
+					if (ospf_area_range_active(range))
 						ospf_add_discard_route(
 							ospf, ospf->new_table,
 							area,
