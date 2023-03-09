@@ -474,6 +474,27 @@ module frr-bgp-route-map {
       "ext-community link bandwidth types.";
   }
 
+  typedef asn-type {
+    type union {
+      type uint32 {
+        range "1..4294967295";
+      }
+      type string {
+        pattern '(0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|'
+        +  '6[0-4][0-9]{3}|65[0-4][0-9]{2}|'
+        +  '655[0-2][0-9]|6553[0-5])\.'
+        +  '(0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|'
+        +  '65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])' {
+          error-message "AS dot should be in the form [0..65535].[0..65535].";
+        }
+        pattern '^0\.0$' {
+          modifier "invert-match";
+          error-message "AS dot can't be equal to 0.0.";
+        }
+      }
+    }
+  }
+
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
     case local-preference {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-local-preference')";
@@ -1004,16 +1025,12 @@ module frr-bgp-route-map {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:aggregator')";
       container aggregator {
         leaf aggregator-asn {
-          type uint32 {
-            range "1..4294967295";
-          }
+          type asn-type;
           description
             "ASN of the aggregator";
         }
 
         leaf aggregator-address {
-          when "../aggregator-asn > 0 or "
-             + "../aggregator-asn <= 4294967295";
           type inet:ipv4-address;
           description
             "IPv4 address of the aggregator";
