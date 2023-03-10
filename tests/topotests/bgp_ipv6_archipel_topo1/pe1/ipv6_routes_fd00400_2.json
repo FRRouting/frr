@@ -1,0 +1,39 @@
+{
+  "fd00:400::/64": [
+    {
+      "prefix": "fd00:400::/64",
+      "protocol": "bgp",
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 200,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "::ffff:c633:6405",
+          "afi": "ipv6",
+          "active": true,
+          "recursive": true,
+          "labels": [
+            2
+          ],
+          "weight": 1
+        },
+        {
+          "fib": true,
+          "ip": "::ffff:cb00:7103",
+          "afi": "ipv6",
+          "interfaceName": "eth-p1",
+          "resolver": true,
+          "active": true,
+          "labels": [
+            1066,
+            2
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}
