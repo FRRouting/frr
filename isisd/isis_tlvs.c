@@ -2061,6 +2061,8 @@ static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
 				   struct sbuf *buf, struct json_object *json,
 				   int indent)
 {
+	format_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure, buf,
+					    json, indent);
 }
 
 static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
