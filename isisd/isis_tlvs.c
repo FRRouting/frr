@@ -2163,11 +2163,25 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 				       seg6local_action2str(sid->behavior));
 		json_object_string_addf(sid_json, "sid-value", "%pI6",
 					&sid->sid);
+		if (sid->subsubtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(sid_json, "subsubtlvs",
+					       subtlvs_json);
+			isis_format_subsubtlvs(sid->subsubtlvs, NULL,
+					       subtlvs_json, 0);
+		}
 	} else {
 		sbuf_push(buf, indent, "SRv6 End SID ");
 		sbuf_push(buf, 0, "Endpoint Behavior: %s, ",
 			  seg6local_action2str(sid->behavior));
 		sbuf_push(buf, 0, "SID value: %pI6\n", &sid->sid);
+
+		if (sid->subsubtlvs) {
+			sbuf_push(buf, indent, "  Sub-Sub-TLVs:\n");
+			isis_format_subsubtlvs(sid->subsubtlvs, buf, NULL,
+					       indent + 4);
+		}
 	}
 }
 
