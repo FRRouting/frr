@@ -2275,6 +2275,20 @@ static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len,
 		goto out;
 	}
 
+	sid->subsubtlvs =
+		isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
+
+	bool unpacked_known_tlvs = false;
+	if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID, subsubtlv_len, s,
+			log, sid->subsubtlvs, indent + 4,
+			&unpacked_known_tlvs)) {
+		goto out;
+	}
+	if (!unpacked_known_tlvs) {
+		isis_free_subsubtlvs(sid->subsubtlvs);
+		sid->subsubtlvs = NULL;
+	}
+
 	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid);
 	return 0;
 out:
