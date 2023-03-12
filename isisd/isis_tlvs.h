@@ -195,6 +195,14 @@ struct isis_router_cap_fad {
 };
 #endif /* ifndef FABRICD */
 
+/* SRv6 SID Structure Sub-Sub-TLV as per RFC 9352 section #9 */
+struct isis_srv6_sid_structure_subsubtlv {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* SRv6 End SID Sub-TLV as per RFC 9352 section #7.2 */
 struct isis_srv6_end_sid_subtlv {
 	struct isis_srv6_end_sid_subtlv *next;
@@ -395,6 +403,9 @@ struct isis_subtlvs {
 
 struct isis_subsubtlvs {
 	enum isis_tlv_context context;
+
+	/* RFC 9352 section #9 */
+	struct isis_srv6_sid_structure_subsubtlv *srv6_sid_structure;
 };
 
 enum isis_tlv_type {
