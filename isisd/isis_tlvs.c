@@ -2014,6 +2014,25 @@ static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 	XFREE(MTYPE_ISIS_SUBSUBTLV, subsubtlvs);
 }
 
+static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				struct stream *s)
+{
+	int rv;
+	size_t subsubtlv_len_pos = stream_get_endp(s);
+
+	if (STREAM_WRITEABLE(s) < 1)
+		return 1;
+
+	stream_putc(s, 0); /* Put 0 as Sub-Sub-TLVs length, filled in later */
+
+	size_t subsubtlv_len = stream_get_endp(s) - subsubtlv_len_pos - 1;
+	if (subsubtlv_len > 255)
+		return 1;
+
+	stream_putc_at(s, subsubtlv_len_pos, subsubtlv_len);
+	return 0;
+}
+
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
