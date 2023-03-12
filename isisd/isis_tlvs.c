@@ -2112,6 +2112,11 @@ static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
 
 	stream_putc(s, 0); /* Put 0 as Sub-Sub-TLVs length, filled in later */
 
+	rv = pack_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure,
+					       s);
+	if (rv)
+		return rv;
+
 	size_t subsubtlv_len = stream_get_endp(s) - subsubtlv_len_pos - 1;
 	if (subsubtlv_len > 255)
 		return 1;
