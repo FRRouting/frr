@@ -512,6 +512,23 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			zlog_debug("%s suppress UPDATE w/ attr: %s", peer->host,
 				   attr_str);
 		}
+
+		/*
+		 * If BGP is skipping sending this value to it's peers
+		 * the version number should be updated just like it
+		 * would if it sent the data.  Why?  Because update
+		 * groups will not be coalesced until such time that
+		 * the version numbers are the same.
+		 *
+		 * Imagine a scenario with say 2 peers and they come
+		 * up and are placed in the same update group.  Then
+		 * a new peer comes up a bit later.  Then a prefix is
+		 * flapped that we decide for the first 2 peers are
+		 * mapped to and we decide not to send the data to
+		 * it.  Then unless more network changes happen we
+		 * will never be able to coalesce the 3rd peer down
+		 */
+		subgrp->version = MAX(subgrp->version, dest->version);
 		return;
 	}
 
