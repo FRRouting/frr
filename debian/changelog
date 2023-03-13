@@ -1,8 +1,8 @@
-frr (8.5~dev-1) UNRELEASED; urgency=medium
+frr (8.5-0) unstable; urgency=medium
 
-  * FRR Dev 8.5
+  * New upstream release FRR 8.5
 
- -- Donatas Abraitis <donatas@opensourcerouting.org>  Tue, 04 Oct 2022 16:00:00 +0500
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 10 Mar 2023 02:00:00 -0600
 
 frr (8.4.2-1) unstable; urgency=medium
 
