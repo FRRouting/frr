@@ -1,0 +1,142 @@
+{
+  "fd00:100::/64": [
+    {
+      "prefix": "fd00:100::/64",
+      "protocol": "connected",
+      "vrfName": "vrf1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-h1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "fd00:200::/64": [
+    {
+      "prefix": "fd00:200::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "::ffff:c000:205",
+          "afi": "ipv6",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            102
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "fd00:201::/64": [
+    {
+      "prefix": "fd00:201::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "::ffff:c000:205",
+          "afi": "ipv6",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            102
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "fd00:300::/64": [
+    {
+      "prefix": "fd00:300::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "::ffff:c000:205",
+          "afi": "ipv6",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            102
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "fd00:400::/64": [
+    {
+      "prefix": "fd00:400::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "::ffff:c000:205",
+          "afi": "ipv6",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            102
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "fd01:200::/64": [
+    {
+      "prefix": "fd01:200::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "::ffff:c000:205",
+          "afi": "ipv6",
+          "vrf": "default",
+          "active": true,
+          "labels": [
+            102
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}
