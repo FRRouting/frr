@@ -11,7 +11,7 @@ on:
 
 jobs:
   commitlint:
-    if: github.repository == 'frrouting/frr' && github.base_ref == 'refs/heads/master'
+    if: ${{ github.repository == 'frrouting/frr' }} && ${{ github.base_ref == 'refs/heads/master' }}
     name: Check if the commits meet the requirements of the guidelines
     permissions:
       contents: read
