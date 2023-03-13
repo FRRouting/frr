@@ -1,0 +1,116 @@
+{
+  "vrfName": "vrf1",
+  "routerId": "198.51.100.5",
+  "defaultLocPrf": 100,
+  "localAS": 65501,
+  "routes": {
+    "fd00:100::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "network": "fd00:100::/64",
+        "metric": 0,
+        "weight": 0,
+        "path": "65500",
+        "nexthops": [
+          {
+            "ip": "::ffff:c000:202",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:200::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "network": "fd00:200::/64",
+        "metric": 0,
+        "weight": 32768,
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:201::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "network": "fd00:201::/64",
+        "metric": 0,
+        "weight": 32768,
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:300::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "network": "fd00:300::/64",
+        "metric": 0,
+        "weight": 32768,
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:400::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "network": "fd00:400::/64",
+        "metric": 0,
+        "weight": 32768,
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd01:200::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "network": "fd01:200::/64",
+        "metric": 0,
+        "weight": 32768,
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
