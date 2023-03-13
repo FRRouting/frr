@@ -1213,10 +1213,22 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		/* Add SRv6 Sub-TLVs if SRv6 is enabled */
 		if (area->srv6db.config.enabled) {
+			struct isis_srv6_db *srv6db = &area->srv6db;
+
 			rcap->srv6_cap.is_srv6_capable = true;
 
 			/* SRv6 flags */
 			rcap->srv6_cap.flags = 0;
+
+			/* And finally MSDs */
+			rcap->srv6_msd.max_seg_left_msd =
+				srv6db->config.max_seg_left_msd;
+			rcap->srv6_msd.max_end_pop_msd =
+				srv6db->config.max_end_pop_msd;
+			rcap->srv6_msd.max_h_encaps_msd =
+				srv6db->config.max_h_encaps_msd;
+			rcap->srv6_msd.max_end_d_msd =
+				srv6db->config.max_end_d_msd;
 		}
 	}
 
