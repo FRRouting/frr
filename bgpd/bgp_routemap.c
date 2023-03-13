@@ -4266,8 +4266,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 						inet_ntop(bn_p->family,
 							  &bn_p->u.prefix, buf,
 							  sizeof(buf)));
-				bgp_aggregate_route(bgp, bn_p, afi, safi,
-						    aggregate);
+				if (!bgp_aggregate_route(bgp, bn_p, afi, safi,
+							 aggregate))
+					bgp_aggregate_free(aggregate);
 			}
 		}
 	}
