@@ -7248,7 +7248,7 @@ static struct bgp_aggregate *bgp_aggregate_new(void)
 	return XCALLOC(MTYPE_BGP_AGGREGATE, sizeof(struct bgp_aggregate));
 }
 
-static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
+void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->suppress_map_name);
 	route_map_counter_decrement(aggregate->suppress_map);
@@ -7648,7 +7648,7 @@ static void bgp_aggregate_med_update(struct bgp_aggregate *aggregate,
 }
 
 /* Update an aggregate as routes are added/removed from the BGP table */
-void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
+bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 safi_t safi, struct bgp_aggregate *aggregate)
 {
 	struct bgp_table *table;
@@ -7666,9 +7666,9 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	/* If the bgp instance is being deleted or self peer is deleted
 	 * then do not create aggregate route
 	 */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
-	    || (bgp->peer_self == NULL))
-		return;
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
+	    bgp->peer_self == NULL)
+		return false;
 
 	/* Initialize and test routes for MED difference. */
 	if (aggregate->match_med)
@@ -7860,6 +7860,8 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
 			      ecommunity, lcommunity, atomic_aggregate,
 			      aggregate);
+
+	return true;
 }
 
 void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
@@ -8450,7 +8452,10 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	bgp_dest_set_bgp_aggregate_info(dest, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
-	bgp_aggregate_route(bgp, &p, afi, safi, aggregate);
+	if (!bgp_aggregate_route(bgp, &p, afi, safi, aggregate)) {
+		bgp_aggregate_free(aggregate);
+		bgp_dest_unlock_node(dest);
+	}
 
 	return CMD_SUCCESS;
 }
