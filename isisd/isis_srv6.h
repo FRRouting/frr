@@ -39,6 +39,9 @@ struct isis_srv6_sid {
 	/* Endpoint behavior bound to the SID */
 	enum srv6_endpoint_behavior_codepoint behavior;
 
+	/* SRv6 SID structure */
+	struct isis_srv6_sid_structure structure;
+
 	/* Parent SRv6 locator */
 	struct srv6_locator_chunk *locator;
 
