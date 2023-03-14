@@ -1,0 +1,125 @@
+{
+  "vrfId": 0,
+  "vrfName": "default",
+  "routerId": "198.51.100.2",
+  "defaultLocPrf": 100,
+  "localAS": 65500,
+  "routes": {
+    "fd00:100::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "network": "fd00:100::/64",
+        "metric": 0,
+        "weight": 32768,
+        "peerId": "(unspec)",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:200::/64": [
+      {
+        "pathFrom": "internal",
+        "network": "fd00:200::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "198.51.100.5",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::ffff:c633:6405",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:201::/64": [
+      {
+        "pathFrom": "internal",
+        "network": "fd00:201::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "198.51.100.5",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::ffff:c633:6405",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:300::/64": [
+      {
+        "pathFrom": "internal",
+        "network": "fd00:300::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "198.51.100.5",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::ffff:c633:6405",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd00:400::/64": [
+      {
+        "pathFrom": "internal",
+        "network": "fd00:400::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "198.51.100.5",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::ffff:c633:6405",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "fd01:200::/64": [
+      {
+        "pathFrom": "internal",
+        "network": "fd01:200::/64",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "198.51.100.5",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::ffff:c633:6405",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}

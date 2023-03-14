@@ -1,0 +1,47 @@
+{
+  "::ffff:c000:200/120": [
+    {
+      "prefix": "::ffff:c000:200/120",
+      "protocol": "connected",
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-p1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "fd00:100::/64": [
+    {
+      "prefix": "fd00:100::/64",
+      "protocol": "connected",
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-h1",
+          "active": true
+        }
+      ]
+    }
+  ],
+   "fd00:200::/64": null,
+   "fd00:201::/64": null,
+   "fd00:300::/64": null,
+   "fd00:400::/64": null,
+   "fd01:200::/64": null
+}
