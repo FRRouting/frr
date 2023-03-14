@@ -3133,6 +3133,14 @@ address-family:
    after a `bgp router-id` modification. Values before the semi-column are
    replaced automatically by the new router-id.
 
+.. clicmd:: label vpn export pop-and-forward
+
+   Select how incoming MPLS packets are processed within the router
+   when the `per-nexthop` allocation mode is enabled. By default, the
+   `pop-and-forward` mode is enabled: the packets are popped and forwarded
+   to the nexthop address. If disabled, the packets are popped and
+   transmitted to the nexthop VRF which handles the packet routing.
+
 .. clicmd:: label vpn export (0..1048575)|auto
 
    Enables an MPLS label to be attached to a route exported from the current
