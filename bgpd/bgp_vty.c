@@ -9604,6 +9604,48 @@ ALIAS (af_rd_vpn_export,
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n")
 
+DEFPY(af_label_vpn_export_pop_and_forward_mode,
+      af_label_vpn_export_pop_and_forward_mode_cmd,
+      "[no$no] label vpn export pop-and-forward",
+      NO_STR
+      "label value for VRF\n"
+      "Between current address-family and vpn\n"
+      "For routes leaked from current address-family to vpn\n"
+      "Incoming MPLS packets are popped and directly sent to know next-hop\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi;
+
+	afi = vpn_policy_getafi(vty, bgp, false);
+
+	/* no change */
+	if (!!no
+	    == !CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD))
+		/* silently return */
+		return CMD_SUCCESS;
+
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			   bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD);
+	else
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD);
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			    bgp);
+
+	hook_call(bgp_snmp_update_last_changed, bgp);
+	return CMD_SUCCESS;
+}
+
 DEFPY(af_label_vpn_export_allocation_mode,
       af_label_vpn_export_allocation_mode_cmd,
       "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh>",
@@ -17933,11 +17975,10 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
-	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
-		vty_out(vty,
-			"%*slabel vpn export allocation-mode per-nexthop\n",
-			indent, "");
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD))
+		vty_out(vty, "%*sno label vpn export pop-and-forward\n", indent,
+			"");
 
 	tovpn_sid_index = bgp->vpn_policy[afi].tovpn_sid_index;
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
@@ -21375,6 +21416,10 @@ void bgp_vty_init(void)
 			&af_label_vpn_export_allocation_mode_cmd);
 	install_element(BGP_IPV6_NODE,
 			&af_label_vpn_export_allocation_mode_cmd);
+	install_element(BGP_IPV4_NODE,
+			&af_label_vpn_export_pop_and_forward_mode_cmd);
+	install_element(BGP_IPV6_NODE,
+			&af_label_vpn_export_pop_and_forward_mode_cmd);
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);
