@@ -918,8 +918,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi_rib], afi, safi_rib, &p,
-				   NULL);
+	dest = bgp_safi_node_lookup(bgp->rib[afi][safi_rib], safi_rib, &p,
+				    NULL);
 
 	if (withdraw) {
 		/* Withdraw the default route advertised using default

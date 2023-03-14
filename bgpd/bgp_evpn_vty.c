@@ -2716,8 +2716,8 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 
 	/* See if route exists. Look for both non-sticky and sticky. */
 	build_evpn_type2_prefix(&p, mac, ip);
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi,
-				   (struct prefix *)&p, prd);
+	dest = bgp_safi_node_lookup(bgp->rib[afi][safi], safi,
+				    (struct prefix *)&p, prd);
 	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
@@ -2946,9 +2946,9 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
 		 * then search the l2vpn evpn table for it.
 		 */
 		build_evpn_type2_prefix(&ep, mac, ip);
-		dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi,
-					   (struct prefix *)&ep,
-					   (struct prefix_rd *)rd_destp);
+		dest = bgp_safi_node_lookup(bgp->rib[afi][safi], safi,
+					    (struct prefix *)&ep,
+					    (struct prefix_rd *)rd_destp);
 		if (!dest)
 			continue;
 

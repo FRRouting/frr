@@ -151,9 +151,9 @@ struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 	return dest;
 }
 
-struct bgp_dest *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
-				     safi_t safi, const struct prefix *p,
-				     struct prefix_rd *prd)
+struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table, safi_t safi,
+				      const struct prefix *p,
+				      struct prefix_rd *prd)
 {
 	struct bgp_dest *dest;
 	struct bgp_dest *pdest = NULL;
