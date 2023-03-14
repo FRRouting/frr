@@ -42,6 +42,8 @@ extern int mgmt_history_rollback_by_id(struct vty *vty, const char *cmtid_str);
  */
 extern int mgmt_history_rollback_n(struct vty *vty, int num_cmts);
 
+extern void mgmt_history_rollback_complete(bool success);
+
 /*
  * Show mgmt commit history.
  */

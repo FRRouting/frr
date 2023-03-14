@@ -25,6 +25,7 @@
 #include "compiler.h"
 #include "northbound.h"
 #include "zlog_live.h"
+#include "libfrr.h"
 #include "mgmt_fe_client.h"
 
 #ifdef __cplusplus
@@ -119,6 +120,12 @@ struct vty {
 	/* XPath of the current node */
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];
+
+	/*
+	 * Keep track of how many SET_CFG requests has been sent so far that
+	 * has not been committed yet.
+	 */
+	size_t mgmt_num_pending_setcfg;
 
 	/* In configure mode. */
 	bool config;
@@ -391,6 +398,17 @@ extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 				  const char **xpath_list, int num_req);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 				    bool lock);
+extern void vty_mgmt_resume_response(struct vty *vty, bool success);
+
+static inline bool vty_needs_implicit_commit(struct vty *vty)
+{
+	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
+		? ((vty->pending_allowed
+			|| vty->no_implicit_commit)
+				? false
+				: true)
+		: false);
+}
 
 #ifdef __cplusplus
 }
