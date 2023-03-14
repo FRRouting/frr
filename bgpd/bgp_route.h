@@ -819,9 +819,10 @@ extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
 
 /* for encap/vpn */
-extern struct bgp_dest *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
-					    safi_t safi, const struct prefix *p,
-					    struct prefix_rd *prd);
+extern struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table,
+					     safi_t safi,
+					     const struct prefix *p,
+					     struct prefix_rd *prd);
 extern void bgp_path_info_restore(struct bgp_dest *dest,
 				  struct bgp_path_info *path);
 

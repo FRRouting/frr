@@ -487,8 +487,8 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	/* Next, locate route node in the global EVPN routing table.
 	 * Note that this table is a 2-level tree (RD-level + Prefix-level)
 	 */
-	global_dest = bgp_evpn_global_node_lookup(bgp->rib[afi][safi], afi,
-						  safi, p, prd, NULL);
+	global_dest = bgp_evpn_global_node_lookup(bgp->rib[afi][safi], safi, p,
+						  prd, NULL);
 	if (global_dest) {
 
 		/* Delete route entry in the global EVPN table. */
