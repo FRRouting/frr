@@ -592,6 +592,7 @@ static struct ospf6_neighbor *better_drouter(struct ospf6_neighbor *a,
 
 uint8_t dr_election(struct ospf6_interface *oi)
 {
+	struct ospf6 *ospf6 = oi->area->ospf6;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
 	struct ospf6_neighbor *best_drouter, *best_bdrouter;
@@ -602,13 +603,12 @@ uint8_t dr_election(struct ospf6_interface *oi)
 
 	/* pseudo neighbor myself, including noting current DR/BDR (1) */
 	memset(&myself, 0, sizeof(myself));
-	inet_ntop(AF_INET, &oi->area->ospf6->router_id, myself.name,
-		  sizeof(myself.name));
+	inet_ntop(AF_INET, &ospf6->router_id, myself.name, sizeof(myself.name));
 	myself.state = OSPF6_NEIGHBOR_TWOWAY;
 	myself.drouter = oi->drouter;
 	myself.bdrouter = oi->bdrouter;
 	myself.priority = oi->priority;
-	myself.router_id = oi->area->ospf6->router_id;
+	myself.router_id = ospf6->router_id;
 
 	/* Electing BDR (2) */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
@@ -657,8 +657,10 @@ uint8_t dr_election(struct ospf6_interface *oi)
 	/* If DR or BDR change, invoke AdjOK? for each neighbor (7) */
 	/* RFC 2328 section 12.4. Originating LSAs (3) will be handled
 	   accordingly after AdjOK */
-	if (oi->drouter != (drouter ? drouter->router_id : htonl(0))
-	    || oi->bdrouter != (bdrouter ? bdrouter->router_id : htonl(0))) {
+
+	if (oi->drouter != (drouter ? drouter->router_id : htonl(0)) ||
+	    oi->bdrouter != (bdrouter ? bdrouter->router_id : htonl(0)) ||
+	    ospf6->gr_info.restart_in_progress) {
 		if (IS_OSPF6_DEBUG_INTERFACE)
 			zlog_debug("DR Election on %s: DR: %s BDR: %s",
 				   oi->interface->name,

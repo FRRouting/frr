@@ -515,11 +515,21 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			summary->path.origin.id =
 				ADV_ROUTER_IN_PREFIX(&route->prefix);
 		} else {
+			struct ospf6_lsa *old;
+
 			summary->path.origin.type =
 				htons(OSPF6_LSTYPE_INTER_PREFIX);
-			summary->path.origin.id = ospf6_new_ls_id(
-				summary->path.origin.type,
-				summary->path.origin.adv_router, area->lsdb);
+
+			/* Try to reuse LS-ID from previous running instance. */
+			old = ospf6_find_inter_prefix_lsa(area->ospf6, area,
+							  &route->prefix);
+			if (old)
+				summary->path.origin.id = old->header->id;
+			else
+				summary->path.origin.id = ospf6_new_ls_id(
+					summary->path.origin.type,
+					summary->path.origin.adv_router,
+					area->lsdb);
 		}
 		summary = ospf6_route_add(summary, summary_table);
 	} else {

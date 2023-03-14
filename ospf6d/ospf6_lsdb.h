@@ -29,6 +29,9 @@ extern struct ospf6_lsa *ospf6_lsdb_lookup(uint16_t type, uint32_t id,
 extern struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
 						uint32_t adv_router,
 						struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
+						     struct ospf6_area *area,
+						     struct prefix *p);
 
 extern void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
