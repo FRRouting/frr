@@ -2596,8 +2596,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	}
 
 	/* Find the bgp route node */
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p,
-				   &bgp->vrf_prd);
+	dest = bgp_safi_node_lookup(bgp->rib[afi][safi], safi, &p,
+				    &bgp->vrf_prd);
 	if (!dest)
 		return -1;
 
