@@ -1175,8 +1175,8 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 		      (bqe->safi == SAFI_MPLS_VPN);
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
-	bn = bgp_afi_node_lookup(bmp->targets->bgp->rib[afi][safi], afi, safi,
-				 &bqe->p, prd);
+	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi,
+				  &bqe->p, prd);
 
 
 	if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {

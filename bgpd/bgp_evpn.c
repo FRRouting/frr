@@ -709,7 +709,7 @@ bgp_evpn_global_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
 
 		evp = &global_p;
 	}
-	return bgp_afi_node_lookup(table, afi, safi, (struct prefix *)evp, prd);
+	return bgp_safi_node_lookup(table, safi, (struct prefix *)evp, prd);
 }
 
 /*
