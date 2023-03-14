@@ -1333,8 +1333,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 				fe_msg->setcfg_req->session_id);
 		session->adapter->setcfg_stats.set_cfg_count++;
 		MGMTD_FE_ADAPTER_DBG(
-			"Got Set Config Req Msg (%d Xpaths) on DS:%d for session-id %llu from '%s'",
+			"Got Set Config Req Msg (%d Xpaths, Implicit:%c) on DS:%d for session-id %llu from '%s'",
 			(int)fe_msg->setcfg_req->n_data,
+			fe_msg->setcfg_req->implicit_commit ? 'T':'F',
 			fe_msg->setcfg_req->ds_id,
 			(unsigned long long)fe_msg->setcfg_req->session_id,
 			adapter->name);
@@ -1346,9 +1347,10 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->commcfg_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got Commit Config Req Msg for src-DS:%d dst-DS:%d on session-id %llu from '%s'",
+			"Got Commit Config Req Msg for src-DS:%d dst-DS:%d (Abort:%c) on session-id %llu from '%s'",
 			fe_msg->commcfg_req->src_ds_id,
 			fe_msg->commcfg_req->dst_ds_id,
+			fe_msg->commcfg_req->abort ? 'T':'F',
 			(unsigned long long)fe_msg->commcfg_req->session_id,
 			adapter->name);
 		mgmt_fe_session_handle_commit_config_req_msg(

@@ -29,7 +29,11 @@ DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
 #define FOREACH_CMT_REC(mm, cmt_info)                                          \
 	frr_each_safe (mgmt_cmt_infos, &mm->cmts, cmt_info)
 
-
+/*
+ * The only instance of VTY session that has triggered an ongoing
+ * config rollback operation.
+ */
+static struct vty *rollback_vty = NULL;
 
 static bool mgmt_history_record_exists(char *file_path)
 {
@@ -194,6 +198,11 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 	struct mgmt_ds_ctx *dst_ds_ctx;
 	int ret = 0;
 
+	if (rollback_vty) {
+		vty_out(vty, "ERROR: Rollback already in progress!\n");
+		return -1;
+	}
+
 	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_CANDIDATE);
 	if (!src_ds_ctx) {
 		vty_out(vty, "ERROR: Couldnot access Candidate datastore!\n");
@@ -241,7 +250,21 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 	}
 
 	mgmt_history_dump_cmt_record_index();
+
+	/*
+	 * Block the rollback command from returning till the rollback
+	 * is completed. On rollback completion mgmt_history_rollback_complete()
+	 * shall be called to resume the rollback command return to VTYSH.
+	 */
+	vty->mgmt_req_pending = true;
+	rollback_vty = vty;
 	return 0;
+}
+
+void mgmt_history_rollback_complete(bool success)
+{
+	vty_mgmt_resume_response(rollback_vty, success);
+	rollback_vty = NULL;
 }
 
 int mgmt_history_rollback_by_id(struct vty *vty, const char *cmtid_str)

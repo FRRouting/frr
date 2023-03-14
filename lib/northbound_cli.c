@@ -183,6 +183,8 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
 	char xpath_base[XPATH_MAXLEN] = {};
+	bool implicit_commit;
+	int ret;
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -195,7 +197,12 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 
 	if (vty_mgmt_fe_enabled()) {
 		VTY_CHECK_XPATH;
-		return vty_mgmt_send_config_data(vty);
+
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
 	}
 
 	return nb_cli_apply_changes_internal(vty, xpath_base, false);
@@ -205,6 +212,8 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 				       const char *xpath_base_fmt, ...)
 {
 	char xpath_base[XPATH_MAXLEN] = {};
+	bool implicit_commit;
+	int ret;
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -217,7 +226,12 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 
 	if (vty_mgmt_fe_enabled()) {
 		VTY_CHECK_XPATH;
-		return vty_mgmt_send_config_data(vty);
+
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
 	}
 
 	return nb_cli_apply_changes_internal(vty, xpath_base, true);

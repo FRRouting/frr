@@ -121,7 +121,7 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 static bool do_log_commands;
 static bool do_log_commands_perm;
 
-static void vty_mgmt_resume_response(struct vty *vty, bool success)
+void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
 	int ret = CMD_SUCCESS;
@@ -3496,6 +3496,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	Mgmtd__YangCfgDataReq * cfgreq[VTY_MAXCFGCHANGES] = {0};
 	size_t indx;
 	int cnt;
+	bool implicit_commit = false;
 
 	if (mgmt_lib_hndl && vty->mgmt_session_id) {
 		cnt = 0;
@@ -3545,19 +3546,13 @@ int vty_mgmt_send_config_data(struct vty *vty)
 		}
 
 		vty->mgmt_req_id++;
+		implicit_commit = vty_needs_implicit_commit(vty);
 		if (cnt
 		    && mgmt_fe_set_config_data(
-			       mgmt_lib_hndl, vty->mgmt_session_id,
-			       vty->mgmt_req_id, MGMTD_DS_CANDIDATE, cfgreq,
-			       cnt,
-			       frr_get_cli_mode() == FRR_CLI_CLASSIC
-				       ? ((vty->pending_allowed
-					   || vty->no_implicit_commit)
-						  ? false
-						  : true)
-				       : false,
-			       MGMTD_DS_RUNNING)
-			       != MGMTD_SUCCESS) {
+				mgmt_lib_hndl, vty->mgmt_session_id,
+				vty->mgmt_req_id, MGMTD_DS_CANDIDATE, cfgreq,
+				cnt, implicit_commit, MGMTD_DS_RUNNING)
+		    != MGMTD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to MGMTD!!",
 				 (int)indx);
 			return -1;
@@ -3588,6 +3583,7 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 		}
 
 		vty->mgmt_req_pending = true;
+		vty->mgmt_num_pending_setcfg = 0;
 	}
 
 	return 0;

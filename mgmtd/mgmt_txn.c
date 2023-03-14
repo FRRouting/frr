@@ -832,6 +832,11 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 			MGMTD_TXN_ERR(
 				"Failed to unlock the dst DS during rollback : %s",
 				strerror(ret));
+
+		/*
+		 * Resume processing the rollback command.
+		 */
+		mgmt_history_rollback_complete(success);
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.implicit)
@@ -2592,6 +2597,7 @@ int mgmt_txn_notify_be_cfgdata_reply(
 			error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
+			error_if_any ? error_if_any :
 			"Internal error! Failed to download config data to backend!");
 		return 0;
 	}
@@ -2635,6 +2641,7 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 			error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
+			error_if_any ? error_if_any :
 			"Internal error! Failed to apply config data on backend!");
 		return 0;
 	}
