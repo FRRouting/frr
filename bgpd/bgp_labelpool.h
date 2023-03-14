@@ -79,6 +79,9 @@ struct bgp_label_per_nexthop_cache {
 
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_label_per_nexthop_cache_head *tree;
+
+	/* Back pointer to the corresponding VPN configuration */
+	struct vpn_policy *vpn;
 };
 
 DECLARE_RBTREE_UNIQ(bgp_label_per_nexthop_cache,
@@ -94,4 +97,6 @@ struct bgp_label_per_nexthop_cache *
 bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
 			   struct prefix *nexthop);
 void bgp_label_per_nexthop_init(void);
+void bgp_label_per_nexthop_send_nexthop_label(
+	struct bgp_label_per_nexthop_cache *blnc, int cmd);
 #endif /* _FRR_BGP_LABELPOOL_H */

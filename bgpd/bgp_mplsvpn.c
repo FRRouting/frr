@@ -1306,10 +1306,8 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 
 	/* update paths */
 	if (blnc->label != MPLS_INVALID_LABEL)
-		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_ADD, blnc->label,
-					     blnc->nh->ifindex,
-					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
-					     &blnc->nexthop, 0, NULL);
+		bgp_label_per_nexthop_send_nexthop_label(blnc,
+							 ZEBRA_MPLS_LABELS_ADD);
 
 	LIST_FOREACH (pi, &(blnc->paths), mplsvpn.blnc.label_nh_thread) {
 		if (!pi->net)
@@ -1371,6 +1369,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 	if (!blnc) {
 		blnc = bgp_label_per_nexthop_new(tree, nh_pfx);
 		blnc->to_bgp = to_bgp;
+		blnc->vpn = &from_bgp->vpn_policy[family2afi(nh_pfx->family)];
 		/* request a label to zebra for this nexthop
 		 * the response from zebra will trigger the callback
 		 */
@@ -1400,10 +1399,8 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 		nexthop_free(blnc->nh);
 		blnc->nh = nexthop_dup(bnc->nexthop, NULL);
 		if (blnc->label != MPLS_INVALID_LABEL) {
-			bgp_zebra_send_nexthop_label(
-				ZEBRA_MPLS_LABELS_REPLACE, blnc->label,
-				bnc->nexthop->ifindex, bnc->nexthop->vrf_id,
-				ZEBRA_LSP_BGP, &blnc->nexthop, 0, NULL);
+			bgp_label_per_nexthop_send_nexthop_label(
+				blnc, ZEBRA_MPLS_LABELS_REPLACE);
 		}
 	}
 

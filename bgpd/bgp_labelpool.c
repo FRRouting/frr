@@ -1728,13 +1728,31 @@ bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
 	return bgp_label_per_nexthop_cache_find(tree, &blnc);
 }
 
+void bgp_label_per_nexthop_send_nexthop_label(
+	struct bgp_label_per_nexthop_cache *blnc, int cmd)
+{
+	struct interface *ifp;
+
+	if (CHECK_FLAG(blnc->vpn->flags,
+		       BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD)) {
+		bgp_zebra_send_nexthop_label(
+			cmd, blnc->label, blnc->nh->ifindex, blnc->nh->vrf_id,
+			ZEBRA_LSP_BGP, &blnc->nexthop, 0, NULL);
+	} else {
+		ifp = if_get_vrf_loopback(blnc->vpn->bgp->vrf_id);
+		if (!ifp)
+			/* should not happen */
+			return;
+		bgp_zebra_send_nexthop_label(cmd, blnc->label, ifp->ifindex,
+					     ifp->vrf->vrf_id, ZEBRA_LSP_BGP, NULL, 0, NULL);
+	}
+}
+
 void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 {
 	if (blnc->label != MPLS_INVALID_LABEL) {
-		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
-					     blnc->label, blnc->nh->ifindex,
-					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
-					     &blnc->nexthop, 0, NULL);
+		bgp_label_per_nexthop_send_nexthop_label(
+			blnc, ZEBRA_MPLS_LABELS_DELETE);
 		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
 	}
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
