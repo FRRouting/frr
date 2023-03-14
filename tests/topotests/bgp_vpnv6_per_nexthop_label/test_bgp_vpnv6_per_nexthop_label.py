@@ -242,7 +242,9 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False):
             bgp_vpnv6_table_check(router, group=group, label_list=label_list)
 
 
-def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=None):
+def check_show_mpls_table(
+    router, blacklist=None, label_list=None, whitelist=None, accept_dup=False
+):
     nexthop_list = []
     if blacklist:
         nexthop_list.append(blacklist)
@@ -261,13 +263,13 @@ def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=Non
                     router.name
                 )
             if "nexthop" in nh.keys():
-                if nh["nexthop"] in nexthop_list:
+                if not accept_dup and nh["nexthop"] in nexthop_list:
                     return "{}, show mpls table, duplicated or blacklisted nexthop address".format(
                         router.name
                     )
                 nexthop_list.append(nh["nexthop"])
             elif "interface" in nh.keys():
-                if nh["interface"] in nexthop_list:
+                if not accept_dup and nh["interface"] in nexthop_list:
                     return "{}, show mpls table, duplicated or blacklisted nexthop interface".format(
                         router.name
                     )
@@ -286,19 +288,22 @@ def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=Non
     return None
 
 
-def mpls_table_check(router, blacklist=None, label_list=None, whitelist=None):
+def mpls_table_check(
+    router, blacklist=None, label_list=None, whitelist=None, accept_dup=False
+):
     """
     Dump and check 'show mpls table json' output. An assert is triggered in case test fails
     * 'router': the router to check
     * 'blacklist': the list of nexthops (IP or interface) that should not be on output
     * 'label_list': the list of labels that should be in inLabel value
     * 'whitelist': the list of nexthops (IP or interface) that should be on output
+    * 'accept_dup': if set to True, a label may use a nexthop used by an other label
     """
     logger.info("Checking MPLS labels on {}".format(router.name))
     logger.info("Checking MPLS labels on {}".format(router.name))
     # Check r2 removed 172.31.0.30 vpnv4 update
     test_func = functools.partial(
-        check_show_mpls_table, router, blacklist, label_list, whitelist
+        check_show_mpls_table, router, blacklist, label_list, whitelist, accept_dup
     )
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, MPLS labels check fail: {}".format(router.name, result)
@@ -339,9 +344,13 @@ def check_show_mpls_table_entry_label_found(router, inlabel, interface):
     return topotest.json_cmp(output, expected)
 
 
-def check_show_mpls_table_entry_label_not_found(router, inlabel):
+def check_show_mpls_table_entry_label_not_found(router, inlabel, interface=None):
     output = json.loads(router.vtysh_cmd("show mpls table {} json".format(inlabel)))
-    expected = {"inlabel": inlabel, "installed": True}
+    expected = {
+        "inLabel": inlabel,
+        "installed": True,
+        "nexthops": [{"interface": interface}],
+    }
     ret = topotest.json_cmp(output, expected)
     if ret is None:
         return "not good"
@@ -828,6 +837,90 @@ def test_reconfigure_allocation_mode_nexthop():
     assert len(label_list) != 1, "r1, only 1 label values found for VPNv6 updates"
 
     # Check mpls table with all values
+    logger.info("Checking MPLS values on show mpls table of r1")
+    mpls_table_check(router, label_list=label_list)
+
+
+def test_unconfigure_label_pop_forward():
+    """
+    Test un-configuring pop and forward configuration
+    Check that show mpls table 17 uses the vrf1 interface as outgoing interface
+    Check that the label list length is not 1
+    Check that the nexthop of each label is vrf1 only
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Unconfiguring label pop and forward label behaviour")
+    router = tgen.gears["r1"]
+    dump = router.vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno label vpn export pop-and-forward\n",
+        isjson=False,
+    )
+
+    # Check that show mpls table 18 uses the vrf1 interface as outgoing interface
+    logger.info(
+        "r1, mpls table, check that MPLS entry with (inLabel=18; interface=vrf1) is present"
+    )
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_found, router, 18, "vrf1"
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "r1, mpls entry with label 18 does not use vrf1 interface"
+
+    # Check vpnv6 routes from r1
+    logger.info("Checking vpnv6 routes on r1")
+    label_list = set()
+    bgp_vpnv6_table_check_all(router, label_list=label_list)
+    assert len(label_list) != 1, "r1, only 1 label values found for vpnv6 updates"
+
+    # Check mpls table with all values
+    logger.info("Checking MPLS values on show mpls table of r1")
+    mpls_table_check(
+        router,
+        blacklist=["192:2::11", "192:2::12", "192:2::14"],
+        label_list=label_list,
+        whitelist=["vrf1"],
+        accept_dup=True,
+    )
+
+
+def test_reconfigure_label_pop_forward():
+    """
+    Test re-configuring pop and forward configuration
+    Check that show mpls table 17 does not use anymore the vrf1 interface as outgoing interface
+    Check that the label list length is not 1
+    Check that the nexthop of each label uses distinct values
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Reconfiguring label pop and forward label behaviour")
+    router = tgen.gears["r1"]
+    dump = router.vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nlabel vpn export pop-and-forward\n",
+        isjson=False,
+    )
+
+    # Check that show mpls table 18 does not use anymore the vrf1 interface as outgoing interface
+    logger.info(
+        "r1, mpls table, check that MPLS entry with (inLabel=18; interface=vrf1) is not present"
+    )
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_not_found, router, 18, "vrf1"
+    )
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "r1, mpls entry with label 18 does still use vrf1 interface"
+
+    # Check vpnv6 routes from r1
+    logger.info("Checking vpnv6 routes on r1")
+    label_list = set()
+    bgp_vpnv6_table_check_all(router, label_list=label_list)
+    assert len(label_list) != 1, "r1, only 1 label values found for vpnv6 updates"
+
+    # Check that the nexthop of each label uses distinct values
     logger.info("Checking MPLS values on show mpls table of r1")
     mpls_table_check(router, label_list=label_list)
 
