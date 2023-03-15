@@ -779,7 +779,10 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Wed Jul 13 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Wed Mar 15 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Wed Mar 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.3.2
+- This a convenience release/tag for house keeping
 
 * Tue Aug 30 2022 Donatas Abraitis <donatas@opensourcerouting.org> - 8.3.1
 - bgpd
