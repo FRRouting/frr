@@ -795,6 +795,9 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 * Mon Jan 09 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
+* Wed Mar 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.3
+- This a convenience release/tag for house keeping
+
 * Mon Jan 09 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.2
 - bfdd: fix ipv4 socket source selection
 - bgpd : fix crash for `set ipv4/ipv6 vpn next-hop` command
