@@ -2169,11 +2169,15 @@ static void bgp_aggr_aspath_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct aspath *hb_aspath = hb->data;
 	struct aspath **aggr_aspath = arg;
+	struct aspath *aspath = NULL;
 
-	if (*aggr_aspath)
-		*aggr_aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
-	else
+	if (*aggr_aspath) {
+		aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
+		aspath_free(*aggr_aspath);
+		*aggr_aspath = aspath;
+	} else {
 		*aggr_aspath = aspath_dup(hb_aspath);
+	}
 }
 
 void bgp_aggr_aspath_remove(void *arg)
