@@ -14,6 +14,53 @@
 #include "command_graph.h"
 #include "clippy.h"
 
+#if PY_VERSION_HEX >= 0x03080000
+/* new python init/config API added in Python 3.8 */
+int main(int argc, char **argv)
+{
+	PyStatus status;
+	PyPreConfig preconfig[1];
+	PyConfig config[1];
+
+	PyPreConfig_InitPythonConfig(preconfig);
+	preconfig->configure_locale = 0;
+	preconfig->coerce_c_locale = 1;
+	preconfig->coerce_c_locale_warn = 0;
+	preconfig->isolated = 0;
+	preconfig->utf8_mode = 1;
+	preconfig->parse_argv = 0;
+
+	status = Py_PreInitializeFromBytesArgs(preconfig, argc, argv);
+	if (PyStatus_Exception(status))
+		Py_ExitStatusException(status);
+
+	PyConfig_InitPythonConfig(config);
+#if PY_VERSION_HEX >= 0x030b0000	/* 3.11 */
+	config->safe_path = 0;
+#endif
+
+	status = PyConfig_SetBytesArgv(config, argc, argv);
+	if (PyStatus_Exception(status))
+		Py_ExitStatusException(status);
+
+	PyConfig_SetBytesString(config, &config->program_name,
+				argc > 0 ? argv[0] : "clippy");
+	if (argc > 1)
+		PyConfig_SetBytesString(config, &config->run_filename, argv[1]);
+
+	PyImport_AppendInittab("_clippy", command_py_init);
+
+	status = Py_InitializeFromConfig(config);
+	if (PyStatus_Exception(status))
+		Py_ExitStatusException(status);
+
+	PyConfig_Clear(config);
+
+	return Py_RunMain();
+}
+
+#else /* Python < 3.8 */
+/* old python init/config API, deprecated in Python 3.11 */
 #if PY_MAJOR_VERSION >= 3
 #define pychar wchar_t
 static wchar_t *wconv(const char *s)
@@ -89,6 +136,7 @@ int main(int argc, char **argv)
 	free(wargv);
 	return 0;
 }
+#endif /* Python < 3.8 */
 
 /* and now for the ugly part... provide simplified logging functions so we
  * don't need to link libzebra (which would be a circular build dep) */
