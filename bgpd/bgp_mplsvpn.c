@@ -1647,6 +1647,8 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	 */
 	if (new_info)
 		vpn_leak_to_vrf_update(from_bgp, new_info, NULL);
+	else
+		bgp_dest_unlock_node(bn);
 }
 
 void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
@@ -2075,9 +2077,11 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
 			   path_vpn->net, num_labels);
 
-	leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
-		    num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,
-		    debug);
+	if (!leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
+			 num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,
+			 debug))
+		bgp_dest_unlock_node(bn);
+
 	return true;
 }
 
