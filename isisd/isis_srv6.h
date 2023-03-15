@@ -79,6 +79,8 @@ struct isis_srv6_db {
 
 bool isis_srv6_locator_unset(struct isis_area *area);
 
+extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
+
 extern void isis_srv6_area_init(struct isis_area *area);
 extern void isis_srv6_area_term(struct isis_area *area);
 
