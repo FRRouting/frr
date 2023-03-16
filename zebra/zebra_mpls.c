@@ -616,8 +616,8 @@ static int nhlfe_nexthop_active_ipv4(struct zebra_nhlfe *nhlfe,
 
 		for (match_nh = match->nhe->nhg.nexthop; match_nh;
 		     match_nh = match_nh->next) {
-			if (match->type == ZEBRA_ROUTE_CONNECT
-			    || nexthop->ifindex == match_nh->ifindex) {
+			if (rib_nonrecursive_nh_eligible(match) ||
+			    nexthop->ifindex == match_nh->ifindex) {
 				nexthop->ifindex = match_nh->ifindex;
 				return 1;
 			}
@@ -659,9 +659,9 @@ static int nhlfe_nexthop_active_ipv6(struct zebra_nhlfe *nhlfe,
 
 	/* Locate a valid connected route. */
 	RNODE_FOREACH_RE (rn, match) {
-		if ((match->type == ZEBRA_ROUTE_CONNECT)
-		    && !CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED)
-		    && CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
+		if (rib_nonrecursive_nh_eligible(match) &&
+		    !CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED) &&
+		    CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			break;
 	}
 

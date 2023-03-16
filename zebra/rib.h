@@ -357,6 +357,32 @@ extern void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			       struct route_entry *old);
 extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
 
+
+/* is this route entry valid to use for a non-recursive nexthop?
+ *  :=: does this route entry have a directly connected nexthop
+ *
+ * entries "eligible" in this way can also come from staticd and nhrpd, both
+ * can easily add directly connected routes.  But link state routing protocols
+ * can do so too, for example if an IPv6 GUA prefix is added onto a link only
+ * on one router.  (Which is useful for certain network partition scenarios.)
+ */
+static inline bool rib_nonrecursive_nh_eligible(const struct route_entry *re)
+{
+	const struct nexthop *nexthop = NULL;
+
+	if (re->type == ZEBRA_ROUTE_CONNECT)
+		/* this would return true in the loop below as well, but skip
+		 * the loop for this very common case.
+		 */
+		return true;
+
+	for (nexthop = re->nhe->nhg.nexthop; nexthop; nexthop = nexthop->next)
+		if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
+			return true;
+
+	return false;
+}
+
 /* NOTE:
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */

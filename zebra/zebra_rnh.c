@@ -514,23 +514,9 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 	}
 
 	/* Some special checks if registration asked for them. */
-	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
-		if ((re->type == ZEBRA_ROUTE_CONNECT)
-		    || (re->type == ZEBRA_ROUTE_STATIC))
-			ret = true;
-		if (re->type == ZEBRA_ROUTE_NHRP) {
-
-			for (nexthop = re->nhe->nhg.nexthop;
-			     nexthop;
-			     nexthop = nexthop->next)
-				if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
-					break;
-			if (nexthop)
-				ret = true;
-		}
-	} else {
+	if (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ||
+	    rib_nonrecursive_nh_eligible(re))
 		ret = true;
-	}
 
 done:
 	return ret;
