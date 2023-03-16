@@ -435,12 +435,16 @@ void bgp_timer_set(struct peer *peer)
 		THREAD_OFF(peer->t_start);
 		THREAD_OFF(peer->t_connect);
 
-		/* If the negotiated Hold Time value is zero, then the Hold Time
-		   timer and KeepAlive timers are not started. */
-		if (peer->v_holdtime == 0) {
-			THREAD_OFF(peer->t_holdtime);
+		/*
+		 * If the negotiated Hold Time value is zero, then the Hold Time
+		 * timer and KeepAlive timers are not started.
+		 * Additionally if a different hold timer has been negotiated
+		 * than we must stop then start the timer again
+		 */
+		THREAD_OFF(peer->t_holdtime);
+		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
-		} else {
+		else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 			bgp_keepalives_on(peer);
@@ -456,12 +460,16 @@ void bgp_timer_set(struct peer *peer)
 		THREAD_OFF(peer->t_connect);
 		THREAD_OFF(peer->t_delayopen);
 
-		/* Same as OpenConfirm, if holdtime is zero then both holdtime
-		   and keepalive must be turned off. */
-		if (peer->v_holdtime == 0) {
-			THREAD_OFF(peer->t_holdtime);
+		/*
+		 * Same as OpenConfirm, if holdtime is zero then both holdtime
+		 * and keepalive must be turned off.
+		 * Additionally if a different hold timer has been negotiated
+		 * then we must stop then start the timer again
+		 */
+		THREAD_OFF(peer->t_holdtime);
+		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
-		} else {
+		else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 			bgp_keepalives_on(peer);
