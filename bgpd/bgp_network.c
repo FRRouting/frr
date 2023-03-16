@@ -820,9 +820,12 @@ int bgp_getsockname(struct peer *peer)
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
-		flog_err(EC_BGP_NH_UPD,
-			 "%s: nexthop_set failed, resetting connection - intf %p",
-			 peer->host, peer->nexthop.ifp);
+		flog_err(
+			EC_BGP_NH_UPD,
+			"%s: nexthop_set failed, resetting connection - intf %s",
+			peer->host,
+			peer->nexthop.ifp ? peer->nexthop.ifp->name
+					  : "(Unknown)");
 		return -1;
 	}
 	return 0;
