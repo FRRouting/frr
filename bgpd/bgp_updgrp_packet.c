@@ -1285,6 +1285,10 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		       BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED);
+
+	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_DISTANCE_CHANGED))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
+			 BPKT_ATTRVEC_FLAGS_RMAP_DISTANCE_CHANGED);
 }
 
 /* Reset the Attributes vector array. The vector array is used to override

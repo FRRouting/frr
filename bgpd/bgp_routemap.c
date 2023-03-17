@@ -2127,6 +2127,7 @@ route_set_distance(void *rule, const struct prefix *prefix, void *object)
 	struct rmap_value *rv = rule;
 
 	path->attr->distance = rv->value;
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_DISTANCE_CHANGED);
 
 	return RMAP_OKAY;
 }

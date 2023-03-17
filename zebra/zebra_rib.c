@@ -2781,8 +2781,11 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (re->distance == 0) {
 		if (same && !zebra_router_notify_on_ack())
 			re->distance = same->distance;
-		else
-			re->distance = route_distance(re->type);
+		else {
+			if (!CHECK_FLAG(re->flags,
+					ZEBRA_FLAG_DEFAULT_DISTANCE_OVERRIDE))
+				re->distance = route_distance(re->type);
+		}
 	}
 
 	if (re->metric == ROUTE_INSTALLATION_METRIC &&

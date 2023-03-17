@@ -1613,9 +1613,11 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api.tag = tag;
 	}
 
-	distance = bgp_distance_apply(p, info, afi, safi, bgp);
-	if (distance) {
+	if (bgp_distance_apply(p, info, afi, safi, bgp, &distance)) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+		if (distance == 0)
+			SET_FLAG(api.flags,
+				 ZEBRA_FLAG_DEFAULT_DISTANCE_OVERRIDE);
 		api.distance = distance;
 	}
 
@@ -1630,9 +1632,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		zlog_debug(
 			"Tx route %s VRF %u %pFX metric %u tag %" ROUTE_TAG_PRI
-			" count %d nhg %d",
+			" count %d nhg %d distance %u",
 			is_add ? "add" : "delete", bgp->vrf_id, &api.prefix,
-			api.metric, api.tag, api.nexthop_num, nhg_id);
+			api.metric, api.tag, api.nexthop_num, nhg_id,
+			api.distance);
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 

@@ -776,9 +776,9 @@ extern void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
 
-extern uint8_t bgp_distance_apply(const struct prefix *p,
-				  struct bgp_path_info *path, afi_t afi,
-				  safi_t safi, struct bgp *bgp);
+extern bool bgp_distance_apply(const struct prefix *p,
+			       struct bgp_path_info *path, afi_t afi,
+			       safi_t safi, struct bgp *bgp, uint8_t *distance);
 
 extern afi_t bgp_node_afi(struct vty *);
 extern safi_t bgp_node_safi(struct vty *);

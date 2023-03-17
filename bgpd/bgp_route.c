@@ -15115,8 +15115,9 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 }
 
 /* Apply BGP information to distance method. */
-uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
-			   afi_t afi, safi_t safi, struct bgp *bgp)
+bool bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
+			afi_t afi, safi_t safi, struct bgp *bgp,
+			uint8_t *distance)
 {
 	struct bgp_dest *dest;
 	struct prefix q = {0};
@@ -15127,12 +15128,15 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 	struct bgp_path_info *bpi_ultimate;
 
 	if (!bgp)
-		return 0;
+		return false;
+
+	if (CHECK_FLAG(pinfo->attr->rmap_change_flags,
+		       BATTR_RMAP_DISTANCE_CHANGED)) {
+		*distance = pinfo->attr->distance;
+		return true;
+	}
 
 	peer = pinfo->peer;
-
-	if (pinfo->attr->distance)
-		return pinfo->attr->distance;
 
 	/* get peer origin to calculate appropriate distance */
 	if (pinfo->sub_type == BGP_ROUTE_IMPORTED) {
@@ -15145,7 +15149,7 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 	 */
 	if (pinfo->sub_type != BGP_ROUTE_AGGREGATE
 	    && !sockunion2hostprefix(&peer->su, &q))
-		return 0;
+		return false;
 
 	dest = bgp_node_match(bgp_distance_table[afi][safi], &q);
 	if (dest) {
@@ -15154,11 +15158,15 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 
 		if (bdistance->access_list) {
 			alist = access_list_lookup(afi, bdistance->access_list);
-			if (alist
-			    && access_list_apply(alist, p) == FILTER_PERMIT)
-				return bdistance->distance;
-		} else
-			return bdistance->distance;
+			if (alist &&
+			    access_list_apply(alist, p) == FILTER_PERMIT) {
+				*distance = bdistance->distance;
+				return true;
+			}
+		} else {
+			*distance = bdistance->distance;
+			return true;
+		}
 	}
 
 	/* Backdoor check. */
@@ -15168,26 +15176,31 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 		bgp_dest_unlock_node(dest);
 
 		if (bgp_static->backdoor) {
-			if (bgp->distance_local[afi][safi])
-				return bgp->distance_local[afi][safi];
-			else
-				return ZEBRA_IBGP_DISTANCE_DEFAULT;
+			*distance = (bgp->distance_local[afi][safi])
+					    ? bgp->distance_local[afi][safi]
+					    : ZEBRA_IBGP_DISTANCE_DEFAULT;
+			return true;
 		}
 	}
 
 	if (peer->sort == BGP_PEER_EBGP) {
-		if (bgp->distance_ebgp[afi][safi])
-			return bgp->distance_ebgp[afi][safi];
-		return ZEBRA_EBGP_DISTANCE_DEFAULT;
+		*distance = (bgp->distance_ebgp[afi][safi])
+				    ? bgp->distance_ebgp[afi][safi]
+				    : ZEBRA_EBGP_DISTANCE_DEFAULT;
+		return true;
 	} else if (peer->sort == BGP_PEER_IBGP) {
-		if (bgp->distance_ibgp[afi][safi])
-			return bgp->distance_ibgp[afi][safi];
-		return ZEBRA_IBGP_DISTANCE_DEFAULT;
+		*distance = (bgp->distance_ibgp[afi][safi])
+				    ? bgp->distance_ibgp[afi][safi]
+				    : ZEBRA_IBGP_DISTANCE_DEFAULT;
+		return true;
 	} else {
-		if (bgp->distance_local[afi][safi])
-			return bgp->distance_local[afi][safi];
-		return ZEBRA_IBGP_DISTANCE_DEFAULT;
+		*distance = (bgp->distance_local[afi][safi])
+				    ? bgp->distance_local[afi][safi]
+				    : ZEBRA_IBGP_DISTANCE_DEFAULT;
+		return true;
 	}
+
+	return false;
 }
 
 /* If we enter `distance bgp (1-255) (1-255) (1-255)`,

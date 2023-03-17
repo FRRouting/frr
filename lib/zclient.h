@@ -533,13 +533,18 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
-
 /*
  * This flag lets us know that we think the route entry
  * received has caused us to be out of sync with the
  * kernel (NLM_F_APPEND at the very least )
  */
 #define ZEBRA_FLAG_OUTOFSYNC          0x400
+/*
+ * This flag tells to override a default distance for
+ * the routes that has distance set to 0. For example,
+ * via route-maps `set distance 0`.
+ */
+#define ZEBRA_FLAG_DEFAULT_DISTANCE_OVERRIDE 0x800
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
