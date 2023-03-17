@@ -537,6 +537,8 @@ static void gm_packet_drop(struct gm_packet_state *pkt, bool trace)
 		if (!sg)
 			continue;
 
+		THREAD_OFF(sg->t_sg_expire);
+
 		if (trace && PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "general-dropping from %pPA"),
 				   &pkt->subscriber->addr);
