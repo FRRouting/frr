@@ -88,13 +88,11 @@ static char *ospf6_route_table_name(struct ospf6_route_table *table)
 		switch (table->table_type) {
 		case OSPF6_TABLE_TYPE_CONNECTED_ROUTES:
 			snprintf(name, sizeof(name),
-				 "interface %s connected table",
-				 oi->interface->name);
+				 "interface %pOI connected table", oi);
 			break;
 		default:
 			snprintf(name, sizeof(name),
-				 "interface %s unknown table",
-				 oi->interface->name);
+				 "interface %pOI unknown table", oi);
 			break;
 		}
 	} break;
@@ -539,6 +537,10 @@ int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb)
 
 	if (ra->path.area_id != rb->path.area_id)
 		return (ntohl(ra->path.area_id) - ntohl(rb->path.area_id));
+
+	if ((ra->prefix_options & OSPF6_PREFIX_OPTION_LA)
+	    != (rb->prefix_options & OSPF6_PREFIX_OPTION_LA))
+		return ra->prefix_options & OSPF6_PREFIX_OPTION_LA ? -1 : 1;
 
 	return 0;
 }

@@ -34,6 +34,7 @@
 #include "lib/json.h"
 #include "ospf6_nssa.h"
 #include "ospf6_auth_trailer.h"
+#include "ospf6_vlink.h"
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
 
@@ -85,6 +86,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_nssa(vty);
 	config_write_ospf6_debug_gr_helper(vty);
 	config_write_ospf6_debug_auth(vty);
+	config_write_ospf6_debug_vlink(vty);
 
 	return 0;
 }
@@ -108,7 +110,7 @@ DEFUN_NOSH (show_debugging_ospf6,
 #define AREA_LSDB_TITLE_FORMAT                                                 \
 	"\n        Area Scoped Link State Database (Area %s)\n\n"
 #define IF_LSDB_TITLE_FORMAT                                                   \
-	"\n        I/F Scoped Link State Database (I/F %s in Area %s)\n\n"
+	"\n        I/F Scoped Link State Database (I/F %pOI in Area %s)\n\n"
 #define AS_LSDB_TITLE_FORMAT "\n        AS Scoped Link State Database\n\n"
 
 static int parse_show_level(int idx_level, int argc, struct cmd_token **argv)
@@ -250,15 +252,18 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 		json_array = json_object_new_array();
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+			if (!oi->lsdb)
+				continue;
+
 			if (uj) {
 				json_obj = json_object_new_object();
 				json_object_string_add(json_obj, "areaId",
 						       oa->name);
 				json_object_string_add(json_obj, "interface",
-						       oi->interface->name);
+						       ospf6_ifname(oi));
 			} else
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
+				vty_out(vty, IF_LSDB_TITLE_FORMAT, oi,
+					oa->name);
 			ospf6_lsdb_show(vty, level, type, id, adv_router,
 					oi->lsdb, json_obj, uj);
 			if (uj)
@@ -328,16 +333,19 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 	case OSPF6_SCOPE_LINKLOCAL:
 		for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
 			for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+				if (!oi->lsdb)
+					continue;
+
 				if (uj) {
 					json_obj = json_object_new_object();
 					json_object_string_add(
 						json_obj, "areaId", oa->name);
 					json_object_string_add(
 						json_obj, "interface",
-						oi->interface->name);
+						ospf6_ifname(oi));
 				} else
-					vty_out(vty, IF_LSDB_TITLE_FORMAT,
-						oi->interface->name, oa->name);
+					vty_out(vty, IF_LSDB_TITLE_FORMAT, oi,
+						oa->name);
 
 				ospf6_lsdb_show(vty, level, type, id,
 						adv_router, oi->lsdb, json_obj,
@@ -1390,6 +1398,7 @@ void ospf6_init(struct thread_master *master)
 	ospf6_abr_init();
 	ospf6_gr_init();
 	ospf6_gr_helper_config_init();
+	ospf6_virtual_link_init();
 
 	/* initialize hooks for modifying filter rules */
 	prefix_list_add_hook(ospf6_plist_update);

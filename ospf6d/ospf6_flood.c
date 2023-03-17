@@ -25,6 +25,7 @@
 #include "ospf6_neighbor.h"
 
 #include "ospf6_flood.h"
+#include "ospf6_vlink.h"
 #include "ospf6_nssa.h"
 #include "ospf6_gr.h"
 
@@ -132,6 +133,8 @@ void ospf6_lsa_originate_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
 				   struct ospf6_interface *oi)
 {
+	assert(oi->type != OSPF_IFTYPE_VIRTUALLINK);
+
 	lsa->lsdb = oi->lsdb;
 	ospf6_lsa_originate(oi->area->ospf6, lsa);
 }
@@ -339,8 +342,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (IS_OSPF6_DEBUG_FLOODING
 	    || IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type)) {
 		is_debug++;
-		zlog_debug("Flooding on %s: %s", oi->interface->name,
-			   lsa->name);
+		zlog_debug("Flooding on %pOI: %s", oi, lsa->name);
 	}
 
 	/* (1) For each neighbor */
@@ -475,7 +477,9 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 					       on->retrans_list);
 				thread_add_timer(
 					master, ospf6_lsupdate_send_neighbor,
-					on, on->ospf6_if->rxmt_interval,
+					on, on->vlink
+					? on->vlink->retransmit_interval
+					: on->ospf6_if->rxmt_interval,
 					&on->thread_send_lsupdate);
 				retrans_added++;
 			}
@@ -486,8 +490,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (retrans_added == 0) {
 		if (is_debug)
 			zlog_debug(
-				"No retransmission scheduled, next interface %s",
-				oi->interface->name);
+				"No retransmission scheduled, next interface %pOI",
+				oi);
 		return;
 	}
 
@@ -541,6 +545,9 @@ void ospf6_flood_area(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
 		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
 		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
+			continue;
+		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_AS
+		    && oi->type == OSPF_IFTYPE_VIRTUALLINK)
 			continue;
 
 		ospf6_flood_interface(from, lsa, oi);
@@ -628,6 +635,9 @@ void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
 		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
 		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
+			continue;
+		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_AS
+		    && oi->type == OSPF_IFTYPE_VIRTUALLINK)
 			continue;
 
 		ospf6_flood_clear_interface(lsa, oi);
@@ -777,9 +787,15 @@ static void ospf6_acknowledge_lsa_allother(struct ospf6_lsa *lsa,
 			zlog_debug(
 				"Delayed acknowledgement (AllOther & MoreRecent)");
 		/* Delayed acknowledgement */
-		ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-		thread_add_timer(master, ospf6_lsack_send_interface, oi, 3,
-				 &oi->thread_send_lsack);
+		if (oi->type == OSPF_IFTYPE_VIRTUALLINK) {
+			ospf6_lsdb_add(ospf6_lsa_copy(lsa), from->lsack_list);
+			thread_add_timer(master, ospf6_lsack_send_neighbor,
+					 from, 3, &from->thread_send_lsack);
+		} else {
+			ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
+			thread_add_timer(master, ospf6_lsack_send_interface, oi,
+					 3, &oi->thread_send_lsack);
+		}
 		return;
 	}
 
@@ -937,12 +953,27 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		return;
 	}
 
+	if (from->vlink
+	    && OSPF6_LSA_SCOPE(new->header->type) == OSPF6_SCOPE_AS) {
+		if (is_debug)
+			zlog_debug(
+				"AS-External-LSA (or AS-scope LSA) over virtual link, discard");
+		ospf6_lsa_delete(new);
+		return;
+	}
+
 	/* (3) LSA which have reserved scope is discarded
 	   RFC2470 3.5.1. Receiving Link State Update packets  */
 	/* Flooding scope check. LSAs with unknown scope are discarded here.
 	   Set appropriate LSDB for the LSA */
 	switch (OSPF6_LSA_SCOPE(new->header->type)) {
 	case OSPF6_SCOPE_LINKLOCAL:
+		if (from->ospf6_if->type == OSPF_IFTYPE_VIRTUALLINK) {
+			if (is_debug)
+				zlog_debug("Link-scoped LSA on virtual link!");
+			ospf6_lsa_delete(new);
+			return;
+		}
 		new->lsdb = from->ospf6_if->lsdb;
 		break;
 	case OSPF6_SCOPE_AREA:

@@ -321,9 +321,8 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 	hdr_len = ntohs(oh->length);
 	if (*pkt_len < hdr_len) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
-			zlog_err("RECV[%s] Received incomplete %s packet",
-				 oi->interface->name,
-				 ospf6_message_type(oh->type));
+			zlog_err("RECV[%pOI] Received incomplete %s packet",
+				 oi, ospf6_message_type(oh->type));
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	} else if (*pkt_len == hdr_len) {
 		if (oi->at_data.flags != 0)
@@ -362,8 +361,8 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 		break;
 	default:
 		if (IS_OSPF6_DEBUG_AUTH_RX)
-			zlog_err("RECV[%s] : Wrong packet type %d",
-				 oi->interface->name, oh->type);
+			zlog_err("RECV[%pOI] : Wrong packet type %d",
+				 oi, oh->type);
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
@@ -378,9 +377,8 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 	if ((!auth_present && (oi->at_data.flags != 0))
 	    || (auth_present && (oi->at_data.flags == 0))) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
-			zlog_err("RECV[%s] : Auth option miss-match in %s pkt",
-				 oi->interface->name,
-				 ospf6_message_type(oh->type));
+			zlog_err("RECV[%pOI] : Auth option miss-match in %s pkt",
+				 oi, ospf6_message_type(oh->type));
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
@@ -391,18 +389,16 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 
 	if (*lls_block_len > (*pkt_len - hdr_len)) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
-			zlog_err("RECV[%s] : Wrong lls data in %s packet",
-				 oi->interface->name,
-				 ospf6_message_type(oh->type));
+			zlog_err("RECV[%pOI] : Wrong lls data in %s packet",
+				 oi, ospf6_message_type(oh->type));
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
 	memset(&ospf6_auth_info, 0, sizeof(ospf6_auth_info));
 	if ((*pkt_len - hdr_len - (*lls_block_len)) > sizeof(ospf6_auth_info)) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
-			zlog_err("RECV[%s] : Wrong auth data in %s packet",
-				 oi->interface->name,
-				 ospf6_message_type(oh->type));
+			zlog_err("RECV[%pOI] : Wrong auth data in %s packet",
+				 oi, ospf6_message_type(oh->type));
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
@@ -410,9 +406,8 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 	       (*pkt_len - hdr_len - (*lls_block_len)));
 	if (ntohs(ospf6_auth_info.length) > OSPF6_AUTH_HDR_FULL) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
-			zlog_err("RECV[%s] : Wrong auth header length in %s",
-				 oi->interface->name,
-				 ospf6_message_type(oh->type));
+			zlog_err("RECV[%pOI] : Wrong auth header length in %s",
+				 oi, ospf6_message_type(oh->type));
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
@@ -433,8 +428,8 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 		} else {
 			if (IS_OSPF6_DEBUG_AUTH_RX) {
 				zlog_err(
-					"RECV[%s] : Nbr(%s) Auth Sequence number mismatch in %s ",
-					oi->interface->name, on->name,
+					"RECV[%pOI] : Nbr(%s) Auth Sequence number mismatch in %s ",
+					oi, on->name,
 					ospf6_message_type(oh->type));
 				zlog_err(
 					"nbr_seq_l %u, nbr_seq_h %u, hdr_seq_l %u, hdr_seq_h %u",
@@ -477,18 +472,16 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 		if (!keychain) {
 			if (IS_OSPF6_DEBUG_AUTH_RX)
 				zlog_err(
-					"RECV[%s]: Keychain doesn't exist for %s",
-					oi->interface->name,
-					ospf6_message_type(oh->type));
+					"RECV[%pOI]: Keychain doesn't exist for %s",
+					oi, ospf6_message_type(oh->type));
 			return OSPF6_AUTH_VALIDATE_FAILURE;
 		}
 
 		key = key_lookup_for_accept(keychain, ntohs(ospf6_auth->id));
 		if (!key) {
 			if (IS_OSPF6_DEBUG_AUTH_RX)
-				zlog_err("RECV[%s]: Auth, Invalid SA for %s",
-					 oi->interface->name,
-					 ospf6_message_type(oh->type));
+				zlog_err("RECV[%pOI]: Auth, Invalid SA for %s",
+					 oi, ospf6_message_type(oh->type));
 			return OSPF6_AUTH_VALIDATE_FAILURE;
 		}
 
@@ -499,9 +492,8 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 		} else {
 			if (IS_OSPF6_DEBUG_AUTH_RX)
 				zlog_err(
-					"RECV[%s]: Incomplete keychain config for %s",
-					oi->interface->name,
-					ospf6_message_type(oh->type));
+					"RECV[%pOI]: Incomplete keychain config for %s",
+					oi, ospf6_message_type(oh->type));
 			return OSPF6_AUTH_VALIDATE_FAILURE;
 		}
 	} else if (CHECK_FLAG(oi->at_data.flags,
@@ -584,17 +576,15 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 		key_id = oi->at_data.key_id;
 	} else {
 		if (IS_OSPF6_DEBUG_AUTH_TX)
-			zlog_warn("SEND[%s]: Authentication not configured for %s",
-				  oi->interface->name,
-				  ospf6_message_type(oh->type));
+			zlog_warn("SEND[%pOI]: Authentication not configured for %s",
+				  oi, ospf6_message_type(oh->type));
 		return;
 	}
 
 	if (!auth_str) {
 		if (IS_OSPF6_DEBUG_AUTH_TX)
-			zlog_warn("SEND[%s]: Authentication key is not configured for %s",
-				  oi->interface->name,
-				  ospf6_message_type(oh->type));
+			zlog_warn("SEND[%pOI]: Authentication key is not configured for %s",
+				  oi, ospf6_message_type(oh->type));
 		return;
 	}
 

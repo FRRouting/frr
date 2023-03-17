@@ -536,6 +536,11 @@ extern struct interface *if_get_vrf_loopback(vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
 					const char *vrf_name);
 
+/* create a "virtual" interface - has no name, cannot be configured, cannot
+ * be accessed from CLI or YANG.  Used for OSPFv3 virtual-link support.
+ */
+extern struct interface *if_create_virtual(struct vrf *vrf);
+
 /* Sets the index and adds to index list */
 extern int if_set_index(struct interface *ifp, ifindex_t ifindex);
 
@@ -576,7 +581,6 @@ extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 /* Connected address functions. */
 extern struct connected *connected_new(void);
 extern void connected_free(struct connected **connected);
-extern void connected_add(struct interface *, struct connected *);
 extern struct connected *
 connected_add_by_prefix(struct interface *, struct prefix *, struct prefix *);
 extern struct connected *connected_delete_by_prefix(struct interface *,

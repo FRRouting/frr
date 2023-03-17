@@ -13,6 +13,9 @@
 
 DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
 
+#include "lib/libospf.h"
+#include "ospf6_neighbor.h"
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
 #define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
@@ -65,6 +68,20 @@ struct ospf6_interface {
 	/* Network Type */
 	uint8_t type;
 	bool type_cfg;
+
+	/* P2P/P2MP behavior: */
+
+	/* disable hellos on standard multicast? */
+	bool p2xp_no_multicast_hello;
+	/* only allow explicitly configured neighbors? */
+	bool p2xp_only_cfg_neigh;
+	/* override mode default for advertising connected prefixes.
+	 * both false by default (= do include for PtP, exclude for PtMP)
+	 */
+	bool p2xp_connected_pfx_include;
+	bool p2xp_connected_pfx_exclude;
+
+	struct ospf6_if_p2xp_neighcfgs_head p2xp_neighs;
 
 	/* Router Priority */
 	uint8_t priority;
@@ -162,15 +179,17 @@ struct ospf6_interface {
 DECLARE_QOBJ_TYPE(ospf6_interface);
 
 /* interface state */
-#define OSPF6_INTERFACE_NONE             0
-#define OSPF6_INTERFACE_DOWN             1
-#define OSPF6_INTERFACE_LOOPBACK         2
-#define OSPF6_INTERFACE_WAITING          3
-#define OSPF6_INTERFACE_POINTTOPOINT     4
-#define OSPF6_INTERFACE_DROTHER          5
-#define OSPF6_INTERFACE_BDR              6
-#define OSPF6_INTERFACE_DR               7
-#define OSPF6_INTERFACE_MAX              8
+#define OSPF6_INTERFACE_NONE               0
+#define OSPF6_INTERFACE_DOWN               1
+#define OSPF6_INTERFACE_LOOPBACK           2
+#define OSPF6_INTERFACE_WAITING            3
+#define OSPF6_INTERFACE_POINTTOPOINT       4
+#define OSPF6_INTERFACE_POINTTOMULTIPOINT  5
+#define OSPF6_INTERFACE_VIRTUALLINK        6
+#define OSPF6_INTERFACE_DROTHER            7
+#define OSPF6_INTERFACE_BDR                8
+#define OSPF6_INTERFACE_DR                 9
+#define OSPF6_INTERFACE_MAX                10
 
 extern const char *const ospf6_interface_state_str[];
 
@@ -202,6 +221,10 @@ ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
 extern struct ospf6_interface *ospf6_interface_create(struct interface *ifp);
 extern void ospf6_interface_delete(struct ospf6_interface *oi);
 
+/* "basic" interface = used for virtual links */
+extern struct ospf6_interface *ospf6_interface_basic_create(struct interface *);
+extern void ospf6_interface_basic_delete(struct ospf6_interface *oi);
+
 extern void ospf6_interface_enable(struct ospf6_interface *oi);
 extern void ospf6_interface_disable(struct ospf6_interface *oi);
 
@@ -209,6 +232,8 @@ extern void ospf6_interface_state_update(struct interface *ifp);
 extern void ospf6_interface_connected_route_update(struct interface *ifp);
 extern struct in6_addr *
 ospf6_interface_get_global_address(struct interface *ifp);
+extern bool ospf6_interface_addr_valid(struct ospf6_interface *oi,
+				       struct connected *c, bool debug);
 
 /* interface event */
 extern void interface_up(struct thread *thread);
@@ -230,8 +255,19 @@ extern uint8_t dr_election(struct ospf6_interface *oi);
 extern void ospf6_interface_auth_trailer_cmd_init(void);
 extern void ospf6_auth_write_config(struct vty *vty,
 				    struct ospf6_auth_data *at_data);
+
+static inline const char *ospf6_ifname(const struct ospf6_interface *oi)
+{
+	return oi->type == OSPF_IFTYPE_VIRTUALLINK ? "vlink"
+		: oi->interface->name;
+}
+
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pOI"  (struct ospf6_interface *)
+#endif
 
 #endif /* OSPF6_INTERFACE_H */

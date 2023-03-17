@@ -6,7 +6,10 @@
 #ifndef OSPF6_NEIGHBOR_H
 #define OSPF6_NEIGHBOR_H
 
+#include "typesafe.h"
 #include "hook.h"
+
+#include "ospf6_message.h"
 
 /* Forward declaration(s). */
 struct ospf6_area;
@@ -52,6 +55,9 @@ struct ospf6_helper_info {
 	uint32_t rejected_reason;
 };
 
+struct ospf6_if_p2xp_neighcfg;
+struct ospf6_virtual_link;
+
 /* Neighbor structure */
 struct ospf6_neighbor {
 	/* Neighbor Router ID String */
@@ -59,6 +65,14 @@ struct ospf6_neighbor {
 
 	/* OSPFv3 Interface this neighbor belongs to */
 	struct ospf6_interface *ospf6_if;
+
+	/* set if this is a virtual link neighbor */
+	struct ospf6_virtual_link *vlink;
+
+	/* P2P/P2MP config for this neighbor.
+	 * can be NULL if not explicitly configured!
+	 */
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
 
 	/* Neighbor state */
 	uint8_t state;
@@ -139,6 +153,25 @@ struct ospf6_neighbor {
 	bool lls_present;
 };
 
+PREDECL_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs);
+
+struct ospf6_if_p2xp_neighcfg {
+	struct ospf6_if_p2xp_neighcfgs_item item;
+
+	struct ospf6_interface *ospf6_if;
+	struct in6_addr addr;
+
+	bool cfg_cost : 1;
+
+	uint32_t cost;
+	uint16_t poll_interval;
+
+	/* NULL if down */
+	struct ospf6_neighbor *active;
+
+	struct thread *t_unicast_hello;
+};
+
 /* Neighbor state */
 #define OSPF6_NEIGHBOR_DOWN     1
 #define OSPF6_NEIGHBOR_ATTEMPT  2
@@ -161,7 +194,9 @@ struct ospf6_neighbor {
 #define OSPF6_NEIGHBOR_EVENT_BAD_LSREQ            8
 #define OSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD          9
 #define OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER    10
-#define OSPF6_NEIGHBOR_EVENT_MAX_EVENT           11
+#define OSPF6_NEIGHBOR_EVENT_VLINK_UNREACHABLE   11
+#define OSPF6_NEIGHBOR_EVENT_VLINK_REACHABLE     12
+#define OSPF6_NEIGHBOR_EVENT_MAX_EVENT           13
 
 extern const char *const ospf6_neighbor_event_str[];
 
@@ -189,6 +224,14 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi);
 void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
+void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
+			       const struct in6_addr *addr);
+struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
+						  const struct in6_addr *addr);
+void ospf6_if_p2xp_up(struct ospf6_interface *oi);
+
+uint32_t ospf6_neighbor_cost(struct ospf6_neighbor *on);
+
 /* Neighbor event */
 extern void hello_received(struct thread *thread);
 extern void twoway_received(struct thread *thread);
@@ -201,9 +244,12 @@ extern void bad_lsreq(struct thread *thread);
 extern void oneway_received(struct thread *thread);
 extern void inactivity_timer(struct thread *thread);
 extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
+extern void ospf6_neighbor_vlink_change(struct ospf6_neighbor *nbr, bool up);
 
 extern void ospf6_neighbor_init(void);
 extern int config_write_ospf6_debug_neighbor(struct vty *vty);
+extern int config_write_ospf6_p2xp_neighbor(struct vty *vty,
+					    struct ospf6_interface *oi);
 extern void install_element_ospf6_debug_neighbor(void);
 
 DECLARE_HOOK(ospf6_neighbor_change,

@@ -50,6 +50,8 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
 #define OSPF6_MESSAGE_TYPE_MAX 0x6       /* same as OSPF6_MESSAGE_TYPE_ALL */
 
+struct ospf6_interface;
+
 struct ospf6_packet {
 	struct ospf6_packet *next;
 
@@ -168,6 +170,12 @@ extern void ospf6_lsupdate_send_interface(struct thread *thread);
 extern void ospf6_lsupdate_send_neighbor(struct thread *thread);
 extern void ospf6_lsack_send_interface(struct thread *thread);
 extern void ospf6_lsack_send_neighbor(struct thread *thread);
+
+struct ospf6_virtual_link;
+
+extern void ospf6_hello_send_addr(struct ospf6_interface *oi,
+				  struct ospf6_virtual_link *vlink,
+				  const struct in6_addr *addr);
 
 extern int config_write_ospf6_debug_message(struct vty *);
 extern void install_element_ospf6_debug_message(void);
