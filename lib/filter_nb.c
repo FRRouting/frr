@@ -1644,7 +1644,7 @@ static int lib_prefix_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
 
-	prefix_list_entry_set_empty(ple);
+	ple->any = false;
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
