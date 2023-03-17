@@ -138,7 +138,7 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	if (!pbrms)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (pbrms->dst && pbrms->family && prefix->family != pbrms->family) {
+	if (pbrms->dst && prefix->family != pbrms->dst->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -174,7 +174,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	if (!pbrms)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (pbrms->src && pbrms->family && prefix->family != pbrms->family) {
+	if (pbrms->src && prefix->family != pbrms->src->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
