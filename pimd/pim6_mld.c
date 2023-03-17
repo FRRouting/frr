@@ -438,6 +438,13 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	}
 
 	if (desired == GM_SG_NOINFO) {
+		/* multiple paths can lead to the last state going away;
+		 * t_sg_expire can still be running if we're arriving from
+		 * another path.
+		 */
+		if (has_expired)
+			THREAD_OFF(sg->t_sg_expire);
+
 		assertf((!sg->t_sg_expire &&
 			 !gm_packet_sg_subs_count(sg->subs_positive) &&
 			 !gm_packet_sg_subs_count(sg->subs_negative)),
