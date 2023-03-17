@@ -83,7 +83,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 	/* LSA checksum */
 	ospf6_lsa_checksum(lsa_header);
 
-	if (reason == OSPF6_GR_UNKNOWN_RESTART) {
+	if (reason == OSPF6_GR_UNKNOWN_RESTART || reason == OSPF6_GR_SWITCH_CONTROL_PROCESSOR) {
 		struct ospf6_header *oh;
 		uint32_t *uv32;
 		int n;
