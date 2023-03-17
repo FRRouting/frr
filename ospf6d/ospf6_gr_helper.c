@@ -295,8 +295,9 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug(
-			"%s, Grace LSA received from  %pI4, grace interval:%u, restart reason :%s",
-			__func__, &restarter->router_id, grace_interval,
+			"%s, Grace LSA received from %s(%pI4), grace interval:%u, restart reason:%s",
+			__func__, restarter->name, &restarter->router_id,
+			grace_interval,
 			ospf6_restart_reason_desc[restart_reason]);
 
 	/* Verify Helper enabled globally */

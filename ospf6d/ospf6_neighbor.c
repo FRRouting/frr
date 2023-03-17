@@ -211,10 +211,12 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 
 	/* log */
 	if (IS_OSPF6_DEBUG_NEIGHBOR(STATE)) {
-		zlog_debug("Neighbor state change %s: [%s]->[%s] (%s)",
-			   on->name, ospf6_neighbor_state_str[prev_state],
-			   ospf6_neighbor_state_str[next_state],
-			   ospf6_neighbor_event_string(event));
+		zlog_debug(
+			"Neighbor state change %s (Router-ID: %pI4): [%s]->[%s] (%s)",
+			on->name, &on->router_id,
+			ospf6_neighbor_state_str[prev_state],
+			ospf6_neighbor_state_str[next_state],
+			ospf6_neighbor_event_string(event));
 	}
 
 	/* Optionally notify about adjacency changes */
@@ -224,10 +226,13 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 			   OSPF6_LOG_ADJACENCY_DETAIL)
 		|| (next_state == OSPF6_NEIGHBOR_FULL)
 		|| (next_state < prev_state)))
-		zlog_notice("AdjChg: Nbr %s: %s -> %s (%s)", on->name,
-			    ospf6_neighbor_state_str[prev_state],
-			    ospf6_neighbor_state_str[next_state],
-			    ospf6_neighbor_event_string(event));
+		zlog_notice(
+			"AdjChg: Nbr %pI4(%s) on %s: %s -> %s (%s)",
+			&on->router_id,
+			vrf_id_to_name(on->ospf6_if->interface->vrf->vrf_id),
+			on->name, ospf6_neighbor_state_str[prev_state],
+			ospf6_neighbor_state_str[next_state],
+			ospf6_neighbor_event_string(event));
 
 	if (prev_state == OSPF6_NEIGHBOR_FULL
 	    || next_state == OSPF6_NEIGHBOR_FULL) {
