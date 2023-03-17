@@ -110,6 +110,7 @@ extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
 						       unsigned short,
 						       struct prefix_ipv4 *);
 extern void ospf_asbr_status_update(struct ospf *, uint8_t);
+extern void ospf_asbr_reoriginate(struct ospf *ospf);
 extern void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf);
 
 extern void ospf_redistribute_withdraw(struct ospf *, uint8_t, unsigned short);

@@ -310,6 +310,12 @@ To start OSPF process you have to specify the OSPF router.
    of packets to process before returning. The defult value of this parameter
    is 20.
 
+.. clicmd:: shutdown
+
+   Disables the OSPF instance. This command is useful when it's desired
+   to disable the OSPF instance while retaining its configuration,
+   making it easier to reenable it later.
+
 .. _ospf-area:
 
 Areas

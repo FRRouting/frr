@@ -261,6 +261,35 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 	ospf_router_lsa_update(ospf);
 }
 
+/* Reoriginate AS-External/NSSA LSAs. */
+void ospf_asbr_reoriginate(struct ospf *ospf) {
+	struct route_node *rn;
+	struct external_info *ei;
+	struct ospf_external *ext;
+
+	for (int type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+		if (!ospf_is_type_redistributed(ospf, type, 0))
+			continue;
+
+		ext = ospf_external_lookup(ospf, type, 0);
+		if (ext && EXTERNAL_INFO(ext)) {
+			for (rn = route_top(EXTERNAL_INFO(ext)); rn;
+			     rn = route_next(rn)) {
+				ei = rn->info;
+				if (ei == NULL)
+					continue;
+
+				if (type == ZEBRA_ROUTE_CONNECT
+				    && !ospf_distribute_check_connected(ospf,
+									ei))
+					continue;
+
+				ospf_external_lsa_originate(ospf, ei);
+			}
+		}
+	}
+}
+
 /* If there's redistribution configured, we need to refresh external
  * LSAs in order to install Type-7 and flood to all NSSA Areas
  */
