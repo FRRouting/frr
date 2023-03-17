@@ -162,6 +162,31 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	return c_oil;
 }
 
+
+/*
+ * Clean up mroute and channel oil created for dropping pkts from directly
+ * connected source when the interface was non DR.
+ */
+void pim_clear_nocache_state(struct pim_interface *pim_ifp)
+{
+	struct channel_oil *c_oil;
+
+	frr_each_safe (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+
+		if ((!c_oil->up) ||
+		    !(PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(c_oil->up->flags)))
+			continue;
+
+		if (*oil_parent(c_oil) != pim_ifp->mroute_vif_index)
+			continue;
+
+		THREAD_OFF(c_oil->up->t_ka_timer);
+		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(c_oil->up->flags);
+		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(c_oil->up->flags);
+		pim_upstream_del(pim_ifp->pim, c_oil->up, __func__);
+	}
+}
+
 struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name)
 {
