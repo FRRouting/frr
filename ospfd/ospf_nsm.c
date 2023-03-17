@@ -644,12 +644,13 @@ static void nsm_notice_state_change(struct ospf_neighbor *nbr, int next_state,
 	if (CHECK_FLAG(nbr->oi->ospf->config, OSPF_LOG_ADJACENCY_CHANGES)
 	    && (CHECK_FLAG(nbr->oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL)
 		|| (next_state == NSM_Full) || (next_state < nbr->state)))
-		zlog_notice("AdjChg: Nbr %pI4(%s) on %s: %s -> %s (%s)",
-			    &nbr->router_id,
-			    ospf_get_name(nbr->oi->ospf), IF_NAME(nbr->oi),
-			    lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
-			    lookup_msg(ospf_nsm_state_msg, next_state, NULL),
-			    ospf_nsm_event_str[event]);
+		zlog_notice(
+			"AdjChg: Nbr %pI4, NbrIP %pI4 (%s) on %s: %s -> %s (%s)",
+			&nbr->router_id, &nbr->src,
+			ospf_get_name(nbr->oi->ospf), IF_NAME(nbr->oi),
+			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
+			lookup_msg(ospf_nsm_state_msg, next_state, NULL),
+			ospf_nsm_event_str[event]);
 
 	/* Advance in NSM */
 	if (next_state > nbr->state)
