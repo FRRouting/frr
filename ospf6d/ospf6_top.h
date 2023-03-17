@@ -142,6 +142,7 @@ struct ospf6 {
 	uint8_t flag;
 #define OSPF6_FLAG_ABR          0x04
 #define OSPF6_FLAG_ASBR         0x08
+#define OSPF6_FLAG_SHUTDOWN     0x10
 
 	int redistribute; /* Num of redistributed protocols. */
 

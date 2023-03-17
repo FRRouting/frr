@@ -57,6 +57,7 @@ static struct ospf6_master ospf6_master;
 struct ospf6_master *om6;
 
 static void ospf6_disable(struct ospf6 *o);
+static void ospf6_db_clear(struct ospf6 *o);
 
 static void ospf6_add(struct ospf6 *ospf6)
 {
@@ -653,6 +654,36 @@ bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 
 	ospf6->router_id = new_router_id;
 	return true;
+}
+
+static void ospf6_shutdown(struct ospf6 *o, bool shutdown)
+{
+	struct listnode *node;
+	struct ospf6_area *oa;
+
+	/* If already shutdown, then just quit */
+	if ((shutdown && (o->flag & OSPF6_FLAG_SHUTDOWN))
+	    || (!shutdown && !(o->flag & OSPF6_FLAG_SHUTDOWN)))
+		return;
+
+	if (shutdown) {
+		SET_FLAG(o->flag, OSPF6_FLAG_SHUTDOWN);
+		for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa))
+			ospf6_area_disable(oa);
+		ospf6_db_clear(o);
+	} else {
+		struct ospf6_route *route;
+
+		UNSET_FLAG(o->flag, OSPF6_FLAG_SHUTDOWN);
+		for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa))
+			ospf6_area_enable(oa);
+
+		/* Reoriginate AS-External/NSSA LSAs. */
+		for (route = ospf6_route_head(o->external_table); route;
+		     route = ospf6_route_next(route))
+			ospf6_handle_external_lsa_origination(o, route,
+							      &route->prefix);
+	}
 }
 
 /* start ospf6 */
@@ -1290,6 +1321,18 @@ DEFUN(no_ospf6_max_multipath,
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
 	ospf6_maxpath_set(ospf6, MULTIPATH_NUM);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(ospf6_instance_shutdown, ospf6_instance_shutdown_cmd,
+      "[no] shutdown",
+      NO_STR
+      "Administrative shutdown\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+
+	ospf6_shutdown(ospf6, !no);
 
 	return CMD_SUCCESS;
 }
@@ -2251,6 +2294,9 @@ static int config_write_ospf6(struct vty *vty)
 			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
 			vty_out(vty, " ospf6 send-extra-data zebra\n");
 
+		if (ospf6->flag & OSPF6_FLAG_SHUTDOWN)
+			vty_out(vty, " shutdown\n");
+
 		/* log-adjacency-changes flag print. */
 		if (CHECK_FLAG(ospf6->config_flags,
 			       OSPF6_LOG_ADJACENCY_CHANGES)) {
@@ -2366,4 +2412,7 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_distance_cmd);
 	install_element(OSPF6_NODE, &ospf6_distance_ospf6_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_distance_ospf6_cmd);
+
+	/* shutdown command */
+	install_element(OSPF6_NODE, &ospf6_instance_shutdown_cmd);
 }

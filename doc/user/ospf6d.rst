@@ -90,6 +90,12 @@ OSPF6 router
    This command restarts the interface state machine for all interfaces in the
    VRF or only for the specific interface if ``IFNAME`` is specified.
 
+.. clicmd:: shutdown
+
+   Disables the OSPF instance. This command is useful when it's desired
+   to disable the OSPF instance while retaining its configuration,
+   making it easier to reenable it later.
+
 ASBR Summarisation Support in OSPFv3
 ====================================
 
