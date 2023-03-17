@@ -3070,7 +3070,9 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
  * the IMPLICIT_NULL label. This is pretty specialized: it's only called
  * in a path where we basically _know_ this is a BGP-LU route.
  */
-static bool bgp_lu_need_imp_null(const struct bgp_path_info *new_select)
+static bool bgp_lu_need_null_label(struct bgp *bgp,
+				   const struct bgp_path_info *new_select,
+				   afi_t afi, mpls_label_t *label)
 {
 	/* Certain types get imp null; so do paths where the nexthop is
 	 * not labeled.
@@ -3079,12 +3081,20 @@ static bool bgp_lu_need_imp_null(const struct bgp_path_info *new_select)
 	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
 	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
 		return true;
-	else if (new_select->extra == NULL ||
-		 !bgp_is_valid_label(&new_select->extra->label[0]))
-		/* TODO -- should be configurable? */
-		return true;
-	else
+	else if (new_select->extra &&
+		 bgp_is_valid_label(&new_select->extra->label[0]))
 		return false;
+	if (label == NULL)
+		return true;
+	if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL))
+		/* Disable PHP : explicit-null */
+		*label = afi == AFI_IP ? MPLS_LABEL_IPV4_EXPLICIT_NULL
+				       : MPLS_LABEL_IPV6_EXPLICIT_NULL;
+	else
+		/* Enforced PHP popping: implicit-null */
+		*label = MPLS_LABEL_IMPLICIT_NULL;
+
+	return true;
 }
 
 /*
@@ -3113,6 +3123,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
 	int debug = 0;
+	mpls_label_t mpls_label_null;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		if (dest)
@@ -3167,7 +3178,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 * Right now, since we only deal with per-prefix labels, it is not
 	 * necessary to do this upon changes to best path. Exceptions:
 	 * - label index has changed -> recalculate resulting label
-	 * - path_info sub_type changed -> switch to/from implicit-null
+	 * - path_info sub_type changed -> switch to/from null label value
 	 * - no valid label (due to removed static label binding) -> get new one
 	 */
 	if (bgp->allocate_mpls_labels[afi][safi]) {
@@ -3176,11 +3187,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			    || bgp_label_index_differs(new_select, old_select)
 			    || new_select->sub_type != old_select->sub_type
 			    || !bgp_is_valid_label(&dest->local_label)) {
-				/* Enforced penultimate hop popping:
-				 * implicit-null for local routes, aggregate
-				 * and redistributed routes
+				/* control label imposition for local routes,
+				 * aggregate and redistributed routes
 				 */
-				if (bgp_lu_need_imp_null(new_select)) {
+				mpls_label_null = MPLS_LABEL_IMPLICIT_NULL;
+				if (bgp_lu_need_null_label(bgp, new_select, afi,
+							   &mpls_label_null)) {
 					if (CHECK_FLAG(
 						    dest->flags,
 						    BGP_NODE_REGISTERED_FOR_LABEL)
@@ -3189,8 +3201,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 						    BGP_NODE_LABEL_REQUESTED))
 						bgp_unregister_for_label(dest);
 					dest->local_label = mpls_lse_encode(
-						MPLS_LABEL_IMPLICIT_NULL, 0, 0,
-						1);
+						mpls_label_null, 0, 0, 1);
 					bgp_set_valid_label(&dest->local_label);
 				} else
 					bgp_register_for_label(dest,

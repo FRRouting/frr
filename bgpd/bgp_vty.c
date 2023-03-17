@@ -2820,6 +2820,21 @@ DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
+      "[no] bgp labeled-unicast explicit-null",
+      NO_STR BGP_STR
+      "BGP Labeled-unicast options\n"
+      "Use explicit-null label values for local prefixes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL);
+	return CMD_SUCCESS;
+}
+
 DEFUN(bgp_suppress_duplicates, bgp_suppress_duplicates_cmd,
       "bgp suppress-duplicates",
       BGP_STR
@@ -18235,6 +18250,9 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL))
+			vty_out(vty, " bgp labeled-unicast explicit-null\n");
+
 		/* draft-ietf-idr-deprecate-as-set-confed-set */
 		if (bgp->reject_as_sets)
 			vty_out(vty, " bgp reject-as-sets\n");
@@ -19153,6 +19171,9 @@ void bgp_vty_init(void)
 	/* bgp ebgp-requires-policy */
 	install_element(BGP_NODE, &bgp_ebgp_requires_policy_cmd);
 	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_cmd);
+
+	/* bgp labeled-unicast explicit-null */
+	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_cmd);
 
 	/* bgp suppress-duplicates */
 	install_element(BGP_NODE, &bgp_suppress_duplicates_cmd);
