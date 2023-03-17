@@ -2573,8 +2573,14 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 
 		bgp_evpn_es_vteps_str(vtep_str, es, sizeof(vtep_str));
 
+<<<<<<< HEAD
 		vty_out(vty, "%-30s %-5s %-21pRD %-8d %s\n", es->esi_str,
 			type_str, &es->es_base_frag->prd,
+=======
+		vty_out(vty, "%-30s %-5s %-21pRDP %-8d %s\n", es->esi_str,
+			type_str,
+			es->es_base_frag ? &es->es_base_frag->prd : NULL,
+>>>>>>> 3059f5c99 (bgpd: Prevent Null pointer deref when outputting data)
 			listcount(es->es_evi_list), vtep_str);
 	}
 }
@@ -2650,7 +2656,12 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 
 		vty_out(vty, "ESI: %s\n", es->esi_str);
 		vty_out(vty, " Type: %s\n", type_str);
+<<<<<<< HEAD
 		vty_out(vty, " RD: %pRD\n", &es->es_base_frag->prd);
+=======
+		vty_out(vty, " RD: %pRDP\n",
+			es->es_base_frag ? &es->es_base_frag->prd : NULL);
+>>>>>>> 3059f5c99 (bgpd: Prevent Null pointer deref when outputting data)
 		vty_out(vty, " Originator-IP: %pI4\n", &es->originator_ip);
 		if (es->flags & BGP_EVPNES_LOCAL)
 			vty_out(vty, " Local ES DF preference: %u\n",
