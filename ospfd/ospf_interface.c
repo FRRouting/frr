@@ -856,7 +856,7 @@ void ospf_if_set_multicast(struct ospf_interface *oi)
 
 int ospf_if_up(struct ospf_interface *oi)
 {
-	if (oi == NULL)
+	if (oi == NULL || CHECK_FLAG(oi->ospf->config, OSPF_SHUTDOWN))
 		return 0;
 
 	if (oi->type == OSPF_IFTYPE_LOOPBACK)

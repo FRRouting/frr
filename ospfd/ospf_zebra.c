@@ -1390,7 +1390,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
 		}
-		if (ospf->router_id.s_addr != INADDR_ANY) {
+		if (ospf->router_id.s_addr != INADDR_ANY &&
+		    !CHECK_FLAG(ospf->config, OSPF_SHUTDOWN)) {
 			if (is_default_prefix4(&p)) {
 				if (ei)
 					ei->default_always = false;

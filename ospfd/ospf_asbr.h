@@ -160,4 +160,7 @@ extern int ospf_asbr_external_rt_no_advertise(struct ospf *ospf,
 					      struct prefix_ipv4 *p);
 extern int ospf_asbr_external_rt_advertise(struct ospf *ospf,
 					   struct prefix_ipv4 *p);
+
+extern void ospf_asbr_reoriginate(struct ospf *ospf);
+
 #endif /* _ZEBRA_OSPF_ASBR_H */
