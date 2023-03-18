@@ -181,9 +181,14 @@ void ospf_apiserver_term(void)
 	 * Free all client instances.  ospf_apiserver_free removes the node
 	 * from the list, so we examine the head of the list anew each time.
 	 */
-	while (apiserver_list
-	       && (apiserv = listgetdata(listhead(apiserver_list))) != NULL)
+	if (!apiserver_list)
+		return;
+
+	while (listcount(apiserver_list)) {
+		apiserv = listgetdata(listhead(apiserver_list));
+
 		ospf_apiserver_free(apiserv);
+	}
 
 	/* Free client list itself */
 	if (apiserver_list)
@@ -338,6 +343,7 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 		ospf_apiserver_unregister_opaque_type(
 			apiserv, regtype->lsa_type, regtype->opaque_type);
 	}
+	list_delete(&apiserv->opaque_types);
 
 	/* Close connections to OSPFd. */
 	if (apiserv->fd_sync > 0) {
@@ -358,6 +364,8 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 
 	/* Remove from the list of active clients. */
 	listnode_delete(apiserver_list, apiserv);
+
+	XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("API: Delete apiserv(%p), total#(%d)",
@@ -904,6 +912,7 @@ int ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserv,
 			/* Remove from list of registered opaque types */
 			listnode_delete(apiserv->opaque_types, regtype);
 
+			XFREE(MTYPE_APISERVER, regtype);
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"API: Del LSA-type(%d)/Opaque-type(%d) from apiserv(%p), total#(%d)",
