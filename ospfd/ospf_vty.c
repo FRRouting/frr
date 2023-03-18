@@ -6800,31 +6800,24 @@ static void show_lsa_detail_adv_router_proc(struct vty *vty,
 					    struct in_addr *adv_router,
 					    json_object *json)
 {
-	char buf[PREFIX_STRLEN];
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
+	json_object *json_lsa = NULL;
 
 	for (rn = route_top(rt); rn; rn = route_next(rn))
 		if ((lsa = rn->info)) {
-			json_object *json_lsa = NULL;
-
 			if (IPV4_ADDR_SAME(adv_router,
 					   &lsa->data->adv_router)) {
 				if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT))
 					continue;
-				if (json)
+				if (json) {
 					json_lsa = json_object_new_object();
+					json_object_array_add(json, json_lsa);
+				}
 
 				if (show_function[lsa->data->type] != NULL)
 					show_function[lsa->data->type](
 						vty, lsa, json_lsa);
-				if (json)
-					json_object_object_add(
-						json,
-						inet_ntop(AF_INET,
-							  &lsa->data->id,
-							  buf, sizeof(buf)),
-						json_lsa);
 			}
 		}
 }
@@ -6837,11 +6830,12 @@ static void show_lsa_detail_adv_router(struct vty *vty, struct ospf *ospf,
 	struct listnode *node;
 	struct ospf_area *area;
 	char buf[PREFIX_STRLEN];
-	json_object *json_lstype = NULL;
-	json_object *json_area = NULL;
+	json_object *json_lsa_type = NULL;
+	json_object *json_areas = NULL;
+	json_object *json_lsa_array = NULL;
 
 	if (json)
-		json_lstype = json_object_new_object();
+		json_lsa_type = json_object_new_object();
 
 	switch (type) {
 	case OSPF_AS_EXTERNAL_LSA:
@@ -6849,38 +6843,49 @@ static void show_lsa_detail_adv_router(struct vty *vty, struct ospf *ospf,
 		if (!json)
 			vty_out(vty, "                %s \n\n",
 				show_database_desc[type]);
+		else
+			json_lsa_array = json_object_new_array();
 
 		show_lsa_detail_adv_router_proc(vty, AS_LSDB(ospf, type),
-						adv_router, json_lstype);
+						adv_router, json_lsa_array);
+		if (json)
+			json_object_object_add(json,
+					       show_database_desc_json[type],
+					       json_lsa_array);
 		break;
 	default:
+		if (json)
+			json_areas = json_object_new_object();
 
 		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
-			if (json)
-				json_area = json_object_new_object();
-			else
+			if (!json) {
 				vty_out(vty,
 					"\n                %s (Area %s)\n\n",
 					show_database_desc[type],
 					ospf_area_desc_string(area));
-			show_lsa_detail_adv_router_proc(vty,
-							AREA_LSDB(area, type),
-							adv_router, json_area);
+			} else {
+				json_lsa_array = json_object_new_array();
+				json_object_object_add(
+					json_areas,
+					inet_ntop(AF_INET, &area->area_id, buf,
+						  sizeof(buf)),
+					json_lsa_array);
+			}
 
-			if (json)
-				json_object_object_add(json_lstype,
-						       inet_ntop(AF_INET,
-								 &area->area_id,
-								 buf,
-								 sizeof(buf)),
-						       json_area);
+			show_lsa_detail_adv_router_proc(
+				vty, AREA_LSDB(area, type), adv_router,
+				json_lsa_array);
+		}
+
+		if (json) {
+			json_object_object_add(json_lsa_type, "areas",
+					       json_areas);
+			json_object_object_add(json,
+					       show_database_desc_json[type],
+					       json_lsa_type);
 		}
 		break;
 	}
-
-	if (json)
-		json_object_object_add(json, show_database_desc[type],
-				       json_lstype);
 }
 
 void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
