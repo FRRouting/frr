@@ -7086,7 +7086,7 @@ static void show_ip_ospf_database_maxage(struct vty *vty, struct ospf *ospf,
 
 static int
 show_ip_ospf_database_common(struct vty *vty, struct ospf *ospf, bool maxage,
-			     bool self, const char *type_name,
+			     bool self, bool detail, const char *type_name,
 			     struct in_addr *lsid, struct in_addr *adv_router,
 			     bool use_vrf, json_object *json, bool uj)
 {
@@ -7137,7 +7137,30 @@ show_ip_ospf_database_common(struct vty *vty, struct ospf *ospf, bool maxage,
 
 	/* Show all LSAs. */
 	if (!type_name) {
-		show_ip_ospf_database_summary(vty, ospf, self, json_vrf);
+		if (detail) {
+			for (int i = OSPF_ROUTER_LSA; i <= OSPF_OPAQUE_AS_LSA;
+			     i++) {
+				switch (i) {
+				case OSPF_GROUP_MEMBER_LSA:
+				case OSPF_EXTERNAL_ATTRIBUTES_LSA:
+					/* ignore deprecated LSA types */
+					continue;
+				default:
+					break;
+				}
+
+				if (adv_router && !lsid)
+					show_lsa_detail_adv_router(vty, ospf, i,
+								   adv_router,
+								   json_vrf);
+				else
+					show_lsa_detail(vty, ospf, i, lsid,
+							adv_router, json_vrf);
+			}
+		} else
+			show_ip_ospf_database_summary(vty, ospf, self,
+						      json_vrf);
+
 		if (json) {
 			if (use_vrf) {
 				if (ospf->vrf_id == VRF_DEFAULT)
@@ -7204,7 +7227,10 @@ DEFPY (show_ip_ospf_database,
          [<\
 	   max-age$maxage\
 	   |self-originate$selforig\
-           |<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as>$type_name\
+	   |<\
+	     detail$detail\
+             |<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as>$type_name\
+	    >\
 	    [{\
 	      A.B.C.D$lsid\
 	      |<adv-router A.B.C.D$adv_router|self-originate$adv_router_self>\
@@ -7220,6 +7246,7 @@ DEFPY (show_ip_ospf_database,
        "Database summary\n"
        "LSAs in MaxAge list\n"
        "Self-originated link states\n"
+       "Show detailed information\n"
        OSPF_LSA_TYPES_DESC
        "Link State ID (as an IP address)\n"
        "Advertising Router link states\n"
@@ -7257,8 +7284,9 @@ DEFPY (show_ip_ospf_database,
 
 			ospf_output = true;
 			ret = show_ip_ospf_database_common(
-				vty, ospf, !!maxage, !!selforig, type_name,
-				lsid_p, adv_router_p, use_vrf, json, uj);
+				vty, ospf, !!maxage, !!selforig, !!detail,
+				type_name, lsid_p, adv_router_p, use_vrf, json,
+				uj);
 		}
 
 		if (!ospf_output && !uj)
@@ -7278,8 +7306,8 @@ DEFPY (show_ip_ospf_database,
 			adv_router_p = &ospf->router_id;
 
 		ret = (show_ip_ospf_database_common(
-			vty, ospf, !!maxage, !!selforig, type_name, lsid_p,
-			adv_router_p, use_vrf, json, uj));
+			vty, ospf, !!maxage, !!selforig, !!detail, type_name,
+			lsid_p, adv_router_p, use_vrf, json, uj));
 	}
 
 	if (uj)
