@@ -1,0 +1,34 @@
+{
+  "interfaces":{
+    "eth-rt2":{
+      "ifUp":true,
+      "ospfEnabled":true,
+      "ipAddress":"10.0.2.3",
+      "ipAddressPrefixlen":24,
+      "area":"0.0.0.1 [NSSA]",
+      "routerId":"3.3.3.3",
+      "networkType":"POINTOPOINT",
+      "cost":10,
+      "transmitDelaySecs":1,
+      "state":"Point-To-Point",
+      "priority":1,
+      "nbrCount":1,
+      "nbrAdjacentCount":1
+    },
+    "lo":{
+      "ifUp":true,
+      "ospfEnabled":true,
+      "ipAddress":"3.3.3.3",
+      "ipAddressPrefixlen":32,
+      "area":"0.0.0.1 [NSSA]",
+      "routerId":"3.3.3.3",
+      "networkType":"LOOPBACK",
+      "cost":10,
+      "transmitDelaySecs":1,
+      "state":"Loopback",
+      "priority":1,
+      "nbrCount":0,
+      "nbrAdjacentCount":0
+    }
+  }
+}

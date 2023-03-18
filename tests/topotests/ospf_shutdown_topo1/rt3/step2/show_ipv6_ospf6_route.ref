@@ -1,0 +1,14 @@
+{
+  "routes":{
+    "2001:db8::3/128":{
+      "isBestRoute":true,
+      "destinationType":"N",
+      "pathType":"IA",
+      "nextHops":[
+        {
+          "interfaceName":"lo"
+        }
+      ]
+    }
+  }
+}

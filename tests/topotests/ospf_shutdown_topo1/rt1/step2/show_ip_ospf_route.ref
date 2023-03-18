@@ -1,0 +1,24 @@
+{
+  "1.1.1.1/32":{
+    "routeType":"N",
+    "cost":0,
+    "area":"0.0.0.0",
+    "nexthops":[
+      {
+        "ip":" ",
+        "directlyAttachedTo":"lo"
+      }
+    ]
+  },
+  "10.0.1.0/24":{
+    "routeType":"N",
+    "cost":10,
+    "area":"0.0.0.0",
+    "nexthops":[
+      {
+        "ip":" ",
+        "directlyAttachedTo":"eth-rt2"
+      }
+    ]
+  }
+}

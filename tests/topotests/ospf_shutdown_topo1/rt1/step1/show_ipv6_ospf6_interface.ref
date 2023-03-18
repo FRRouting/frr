@@ -1,0 +1,16 @@
+{
+  "eth-rt2":{
+    "status":"up",
+    "attachedToArea":true,
+    "areaId":"0.0.0.0",
+    "cost":10,
+    "ospf6InterfaceState":"PointToPoint"
+  },
+  "lo":{
+    "status":"up",
+    "attachedToArea":true,
+    "areaId":"0.0.0.0",
+    "cost":10,
+    "ospf6InterfaceState":"Loopback"
+  }
+}

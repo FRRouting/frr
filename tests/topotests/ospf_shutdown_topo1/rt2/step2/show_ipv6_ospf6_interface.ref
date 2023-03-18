@@ -1,0 +1,30 @@
+{
+  "eth-rt1":{
+    "status":"up",
+    "attachedToArea":true,
+    "areaId":"0.0.0.0",
+    "cost":10,
+    "ospf6InterfaceState":"Down"
+  },
+  "eth-rt3":{
+    "status":"up",
+    "attachedToArea":true,
+    "areaId":"0.0.0.1",
+    "cost":10,
+    "ospf6InterfaceState":"Down"
+  },
+  "eth-rt4":{
+    "status":"up",
+    "attachedToArea":true,
+    "areaId":"0.0.0.2",
+    "cost":10,
+    "ospf6InterfaceState":"Down"
+  },
+  "lo":{
+    "status":"up",
+    "attachedToArea":true,
+    "areaId":"0.0.0.0",
+    "cost":10,
+    "ospf6InterfaceState":"Down"
+  }
+}
