@@ -3819,6 +3819,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json_object_int_add(json, "detectionTime", zvrf->dad_time);
 		json_object_int_add(json, "detectionFreezeTime",
 				    zvrf->dad_freeze_time);
+		json_object_boolean_add(json, "isDetectionFreeze",
+					zvrf->dad_freeze);
 		zebra_evpn_mh_json(json);
 	} else {
 		vty_out(vty, "L2 VNIs: %u\n", num_l2vnis);
