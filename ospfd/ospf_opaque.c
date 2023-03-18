@@ -132,6 +132,10 @@ void ospf_opaque_finish(void)
 
 	ospf_ext_finish();
 
+#ifdef SUPPORT_OSPF_API
+	ospf_apiserver_term();
+#endif
+
 	ospf_sr_finish();
 }
 
