@@ -1779,7 +1779,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 		if (v->type != OSPF_VERTEX_ROUTER)
 			ospf_intra_add_transit(new_table, v, area);
 		else {
-			ospf_intra_add_router(new_rtrs, v, area, false);
+			if (new_rtrs)
+				ospf_intra_add_router(new_rtrs, v, area, false);
 			if (all_rtrs)
 				ospf_intra_add_router(all_rtrs, v, area, true);
 		}
