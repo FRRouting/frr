@@ -252,7 +252,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	struct q_space *q_space,
 	struct ospf_ti_lfa_inner_backup_path_info *inner_backup_path_info)
 {
-	struct route_table *new_table, *new_rtrs;
+	struct route_table *new_table;
 	struct vertex *q_node;
 	struct vertex *start_vertex, *end_vertex;
 	struct vertex_parent *vertex_parent;
@@ -315,7 +315,6 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 						    start_vertex, end_vertex);
 
 	new_table = route_table_init();
-	new_rtrs = route_table_init();
 
 	/* Copy the current state ... */
 	spf_orig = area->spf;
@@ -326,7 +325,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 		XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_spaces_head));
 
 	/* dry run true, root node false */
-	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, NULL, new_rtrs,
+	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, NULL, NULL,
 			   true, false);
 
 	q_node = ospf_spf_vertex_find(end_vertex->id, area->spf_vertex_list);
@@ -637,7 +636,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 {
 	struct listnode *node;
 	struct vertex *child;
-	struct route_table *new_table, *new_rtrs;
+	struct route_table *new_table;
 	struct q_space *q_space, q_space_search;
 	char label_buf[MPLS_LABEL_STRLEN];
 	char res_buf[PROTECTED_RESOURCE_STRLEN];
@@ -676,15 +675,13 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 				       sizeof(struct ospf_ti_lfa_node_info));
 
 	new_table = route_table_init();
-	/* XXX do these get  freed?? */
-	new_rtrs = route_table_init();
 
 	/*
 	 * Generate a new (reversed!) SPF tree for this vertex,
 	 * dry run true, root node false
 	 */
 	area->spf_reversed = true;
-	ospf_spf_calculate(area, dest->lsa_p, new_table, NULL, new_rtrs, true,
+	ospf_spf_calculate(area, dest->lsa_p, new_table, NULL, NULL, true,
 			   false);
 
 	/* Reset the flag for reverse SPF */
@@ -707,6 +704,11 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 			"%s: NO backup path found for root %pI4 and destination %pI4 for %s, aborting ...",
 			__func__, &p_space->root->id, &q_space->root->id,
 			res_buf);
+
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space);
+
 		return;
 	}
 
@@ -749,11 +751,9 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 						      struct p_space *p_space)
 {
-	struct route_table *new_table, *new_rtrs;
+	struct route_table *new_table;
 
 	new_table = route_table_init();
-	/* XXX do these get  freed?? */
-	new_rtrs = route_table_init();
 
 	area->spf_protected_resource = p_space->protected_resource;
 
@@ -772,8 +772,8 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	 * endeavour (because LSAs are stored as a 'raw' stream), so we go with
 	 * this rather hacky way for now.
 	 */
-	ospf_spf_calculate(area, area->router_lsa_self, new_table, NULL,
-			   new_rtrs, true, false);
+	ospf_spf_calculate(area, area->router_lsa_self, new_table, NULL, NULL,
+			   true, false);
 
 	p_space->pc_spf = area->spf;
 	p_space->pc_vertex_list = area->spf_vertex_list;
