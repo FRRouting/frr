@@ -1529,11 +1529,10 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	}
 
 	label_val = from_bgp->vpn_policy[afi].tovpn_label;
-	if (label_val == MPLS_LABEL_NONE) {
+	if (label_val == MPLS_LABEL_NONE)
 		encode_label(MPLS_LABEL_IMPLICIT_NULL, &label);
-	} else {
+	else
 		encode_label(label_val, &label);
-	}
 
 	/* Set originator ID to "me" */
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
