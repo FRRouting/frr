@@ -60,8 +60,15 @@ def test_bgp_route_map_prefix_list():
     r2 = tgen.gears["r2"]
 
     def _bgp_prefixes_sent(count):
-        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast summary json"))
-        expected = {"peers": {"192.168.1.1": {"pfxSnt": count, "state": "Established"}}}
+        output = json.loads(r2.vtysh_cmd("show bgp summary json"))
+        expected = {
+            "ipv4Unicast": {
+                "peers": {"192.168.1.1": {"pfxSnt": count, "state": "Established"}}
+            },
+            "ipv6Unicast": {
+                "peers": {"2001:db8:1::1": {"pfxSnt": count, "state": "Established"}}
+            },
+        }
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_prefixes_sent, 4)
@@ -72,6 +79,7 @@ def test_bgp_route_map_prefix_list():
         """
         configure terminal
             ip prefix-list r1-2 seq 5 deny any
+            ipv6 prefix-list r1-2 seq 5 deny any
     """
     )
 
@@ -83,6 +91,7 @@ def test_bgp_route_map_prefix_list():
         """
         configure terminal
             ip prefix-list r1-2 seq 5 permit 10.10.10.10/32
+            ipv6 prefix-list r1-2 seq 5 permit 2001:db8:10::10/128
     """
     )
 
