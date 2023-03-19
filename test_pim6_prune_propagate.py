@@ -32,9 +32,6 @@ class Configs(FRRConfigs):
     #% extends "boilerplate.conf"
     #% block main
     debug zebra events
-    debug zebra packet
-    debug zebra rib detailed
-    debug zebra nht detailed
     #% endblock
     """
 
@@ -50,6 +47,7 @@ class Configs(FRRConfigs):
     #% extends "boilerplate.conf"
     #% block main
     debug mld
+    debug pimv6 trace
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
      ipv6 pim
