@@ -1627,10 +1627,9 @@ struct vty *vty_new(void)
 
 	if (mgmt_lib_hndl) {
 		new->mgmt_client_id = mgmt_client_id_next++;
-		if (mgmt_fe_create_client_session(mgmt_lib_hndl,
-						      new->mgmt_client_id,
-						      (uintptr_t)new)
-		    != MGMTD_SUCCESS)
+		if (mgmt_fe_create_client_session(
+			    mgmt_lib_hndl, new->mgmt_client_id,
+			    (uintptr_t) new) != MGMTD_SUCCESS)
 			zlog_err(
 				"Failed to open a MGMTD Frontend session for VTY session %p!!",
 				new);
@@ -2697,8 +2696,7 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	if (vty_mgmt_fe_enabled()) {
 		if (!mgmt_candidate_ds_wr_locked) {
 			if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE,
-						     true)
-			    != 0) {
+						     true) != 0) {
 				vty_out(vty, "Not able to lock candidate DS\n");
 				return CMD_WARNING;
 			}
@@ -2763,10 +2761,10 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
-	if (vty_mgmt_fe_enabled() && mgmt_candidate_ds_wr_locked
-	    && vty->mgmt_locked_candidate_ds) {
-		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false)
-		    != 0) {
+	if (vty_mgmt_fe_enabled() && mgmt_candidate_ds_wr_locked &&
+	    vty->mgmt_locked_candidate_ds) {
+		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false) !=
+		    0) {
 			vty_out(vty, "Not able to unlock candidate DS\n");
 			return CMD_WARNING;
 		}
@@ -3363,8 +3361,8 @@ static void vty_mgmt_set_config_result_notified(
 static void vty_mgmt_commit_config_result_notified(
 	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
 	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dst_ds_id,
-	bool validate_only, char *errmsg_if_any)
+	bool success, Mgmtd__DatastoreId src_ds_id,
+	Mgmtd__DatastoreId dst_ds_id, bool validate_only, char *errmsg_if_any)
 {
 	struct vty *vty;
 
@@ -3436,18 +3434,15 @@ static struct mgmt_fe_client_params client_params = {
 	.client_connect_notify = vty_mgmt_server_connected,
 	.client_session_notify = vty_mgmt_session_created,
 	.lock_ds_notify = vty_mgmt_ds_lock_notified,
-	.set_config_notify =
-		vty_mgmt_set_config_result_notified,
-	.commit_config_notify =
-		vty_mgmt_commit_config_result_notified,
+	.set_config_notify = vty_mgmt_set_config_result_notified,
+	.commit_config_notify = vty_mgmt_commit_config_result_notified,
 	.get_data_notify = vty_mgmt_get_data_result_notified,
 };
 
 void vty_init_mgmt_fe(void)
 {
 	if (!vty_master) {
-		zlog_err(
-			"Always call vty_mgmt_init_fe() after vty_init()!!");
+		zlog_err("Always call vty_mgmt_init_fe() after vty_init()!!");
 		return;
 	}
 
@@ -3471,7 +3466,7 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 	if (mgmt_lib_hndl && vty->mgmt_session_id) {
 		vty->mgmt_req_id++;
 		ret = mgmt_fe_lock_ds(mgmt_lib_hndl, vty->mgmt_session_id,
-					  vty->mgmt_req_id, ds_id, lock);
+				      vty->mgmt_req_id, ds_id, lock);
 		if (ret != MGMTD_SUCCESS) {
 			zlog_err(
 				"Failed to send %sLOCK-DS-REQ to MGMTD for req-id %llu.",
@@ -3493,7 +3488,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
 	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangCfgDataReq * cfgreq[VTY_MAXCFGCHANGES] = {0};
+	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
 	size_t indx;
 	int cnt;
 	bool implicit_commit = false;
@@ -3508,7 +3503,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 				value[cnt].encoded_str_val =
 					(char *)vty->cfg_changes[indx].value;
 				value[cnt].value_case =
-				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
+					MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
 				cfg_data[cnt].value = &value[cnt];
 			}
 
@@ -3547,12 +3542,11 @@ int vty_mgmt_send_config_data(struct vty *vty)
 
 		vty->mgmt_req_id++;
 		implicit_commit = vty_needs_implicit_commit(vty);
-		if (cnt
-		    && mgmt_fe_set_config_data(
-				mgmt_lib_hndl, vty->mgmt_session_id,
-				vty->mgmt_req_id, MGMTD_DS_CANDIDATE, cfgreq,
-				cnt, implicit_commit, MGMTD_DS_RUNNING)
-		    != MGMTD_SUCCESS) {
+		if (cnt && mgmt_fe_set_config_data(
+				   mgmt_lib_hndl, vty->mgmt_session_id,
+				   vty->mgmt_req_id, MGMTD_DS_CANDIDATE, cfgreq,
+				   cnt, implicit_commit,
+				   MGMTD_DS_RUNNING) != MGMTD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to MGMTD!!",
 				 (int)indx);
 			return -1;
@@ -3595,7 +3589,7 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 	enum mgmt_result ret;
 	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq * getreq[VTY_MAXCFGCHANGES];
+	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
 	int i;
 
 	vty->mgmt_req_id++;
@@ -3610,8 +3604,8 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 		getreq[i] = &get_req[i];
 	}
 	ret = mgmt_fe_get_config_data(mgmt_lib_hndl, vty->mgmt_session_id,
-					  vty->mgmt_req_id, datastore, getreq,
-					  num_req);
+				      vty->mgmt_req_id, datastore, getreq,
+				      num_req);
 
 	if (ret != MGMTD_SUCCESS) {
 		zlog_err("Failed to send GET-CONFIG to MGMTD for req-id %llu.",
@@ -3631,7 +3625,7 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 	enum mgmt_result ret;
 	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq * getreq[VTY_MAXCFGCHANGES];
+	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
 	int i;
 
 	vty->mgmt_req_id++;
@@ -3646,7 +3640,7 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 		getreq[i] = &get_req[i];
 	}
 	ret = mgmt_fe_get_data(mgmt_lib_hndl, vty->mgmt_session_id,
-				   vty->mgmt_req_id, datastore, getreq, num_req);
+			       vty->mgmt_req_id, datastore, getreq, num_req);
 
 	if (ret != MGMTD_SUCCESS) {
 		zlog_err("Failed to send GET-DATA to MGMTD for req-id %llu.",

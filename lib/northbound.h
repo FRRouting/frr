@@ -50,8 +50,8 @@ struct nb_yang_xpath {
 };
 
 #define NB_YANG_XPATH_KEY(__xpath, __indx1, __indx2)                           \
-	((__xpath->num_tags > __indx1)                                         \
-			 && (__xpath->tags[__indx1].num_keys > __indx2)        \
+	((__xpath->num_tags > __indx1) &&                                      \
+			 (__xpath->tags[__indx1].num_keys > __indx2)           \
 		 ? &__xpath->tags[__indx1].keys[__indx2]                       \
 		 : NULL)
 
@@ -1006,8 +1006,9 @@ extern void nb_config_diff(const struct nb_config *reference,
  * Returns:
  *    NB_OK on success, NB_ERR_VALIDATION otherwise
  */
-extern int nb_candidate_validate_yang(struct nb_config *candidate, bool no_state,
-				      char *errmsg, size_t errmsg_len);
+extern int nb_candidate_validate_yang(struct nb_config *candidate,
+				      bool no_state, char *errmsg,
+				      size_t errmsg_len);
 
 /*
  * Perform code-level validation using the northbound callbacks.

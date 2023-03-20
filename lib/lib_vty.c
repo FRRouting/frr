@@ -242,8 +242,8 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	ret = nb_cli_pending_commit_check(vty);
 
 	zlog_info("Configuration Read in Took: %s", readin_time_str);
-	zlog_debug("%s: VTY:%p, pending SET-CFG: %u",
-		   __func__, vty, (uint32_t)vty->mgmt_num_pending_setcfg);
+	zlog_debug("%s: VTY:%p, pending SET-CFG: %u", __func__, vty,
+		   (uint32_t)vty->mgmt_num_pending_setcfg);
 
 	/*
 	 * If (and only if) we have sent any CLI config commands to MGMTd

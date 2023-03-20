@@ -285,9 +285,10 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, "false");
 		}
-		if (type == STATIC_IPV4_GATEWAY || type == STATIC_IPV6_GATEWAY
-		    || type == STATIC_IPV4_GATEWAY_IFNAME
-		    || type == STATIC_IPV6_GATEWAY_IFNAME) {
+		if (type == STATIC_IPV4_GATEWAY ||
+		    type == STATIC_IPV6_GATEWAY ||
+		    type == STATIC_IPV4_GATEWAY_IFNAME ||
+		    type == STATIC_IPV6_GATEWAY_IFNAME) {
 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_COLOR_XPATH,
 				sizeof(ab_xpath));
@@ -369,49 +370,48 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	} else {
 		if (args->source) {
 			if (args->distance)
-				snprintf(
-					ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
-					"frr-staticd:staticd", "staticd", args->vrf,
-					buf_prefix,
-					yang_afi_safi_value2identity(args->afi,
-								     args->safi),
-					buf_src_prefix, table_id, distance,
-					buf_nh_type, args->nexthop_vrf, buf_gate_str,
-					args->interface_name);
+				snprintf(ab_xpath, sizeof(ab_xpath),
+					 FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
+					 "frr-staticd:staticd", "staticd",
+					 args->vrf, buf_prefix,
+					 yang_afi_safi_value2identity(
+						 args->afi, args->safi),
+					 buf_src_prefix, table_id, distance,
+					 buf_nh_type, args->nexthop_vrf,
+					 buf_gate_str, args->interface_name);
 			else
 				snprintf(
 					ab_xpath, sizeof(ab_xpath),
 					FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
-					"frr-staticd:staticd", "staticd", args->vrf,
-					buf_prefix,
-					yang_afi_safi_value2identity(args->afi,
-								     args->safi),
+					"frr-staticd:staticd", "staticd",
+					args->vrf, buf_prefix,
+					yang_afi_safi_value2identity(
+						args->afi, args->safi),
 					buf_src_prefix, table_id, buf_nh_type,
 					args->nexthop_vrf, buf_gate_str,
 					args->interface_name);
 		} else {
 			if (args->distance)
-				snprintf(
-					ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_NH_KEY_XPATH,
-					"frr-staticd:staticd", "staticd",
-					args->vrf, buf_prefix,
-					yang_afi_safi_value2identity(args->afi,
-								     args->safi),
-					table_id, distance, buf_nh_type,
-					args->nexthop_vrf, buf_gate_str,
-					args->interface_name);
+				snprintf(ab_xpath, sizeof(ab_xpath),
+					 FRR_DEL_S_ROUTE_NH_KEY_XPATH,
+					 "frr-staticd:staticd", "staticd",
+					 args->vrf, buf_prefix,
+					 yang_afi_safi_value2identity(
+						 args->afi, args->safi),
+					 table_id, distance, buf_nh_type,
+					 args->nexthop_vrf, buf_gate_str,
+					 args->interface_name);
 			else
 				snprintf(
 					ab_xpath, sizeof(ab_xpath),
 					FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
 					"frr-staticd:staticd", "staticd",
 					args->vrf, buf_prefix,
-					yang_afi_safi_value2identity(args->afi,
-								     args->safi),
-					table_id, buf_nh_type, args->nexthop_vrf,
-					buf_gate_str, args->interface_name);
+					yang_afi_safi_value2identity(
+						args->afi, args->safi),
+					table_id, buf_nh_type,
+					args->nexthop_vrf, buf_gate_str,
+					args->interface_name);
 		}
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
