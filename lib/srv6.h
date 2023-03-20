@@ -69,10 +69,21 @@ struct seg6_segs {
 	struct in6_addr segs[256];
 };
 
+struct seg6local_flavors_info {
+	/* Flavor operations */
+	uint32_t flv_ops;
+
+	/* Locator-Block length, expressed in bits */
+	uint8_t lcblock_len;
+	/* Locator-Node Function length, expressed in bits */
+	uint8_t lcnode_func_len;
+};
+
 struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	struct seg6local_flavors_info flv;
 };
 
 struct srv6_locator {
