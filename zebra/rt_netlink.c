@@ -1547,6 +1547,46 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	return srhlen + 4;
 }
 
+static bool
+_netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexthop,
+					 struct nlmsghdr *nlmsg, size_t buflen)
+{
+	struct rtattr *nest;
+	struct seg6local_flavors_info *flv;
+
+	assert(nexthop);
+
+	if (!nexthop->nh_srv6)
+		return false;
+
+	flv = &nexthop->nh_srv6->seg6local_ctx.flv;
+
+	if (flv->flv_ops == ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC)
+		return true;
+
+	nest = nl_attr_nest(nlmsg, buflen, SEG6_LOCAL_FLAVORS);
+	if (!nest)
+		return false;
+
+	if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_FLV_OPERATION,
+			   flv->flv_ops))
+		return false;
+
+	if (flv->lcblock_len)
+		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCBLOCK_BITS,
+				  flv->lcblock_len))
+			return false;
+
+	if (flv->lcnode_func_len)
+		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+				  flv->lcnode_func_len))
+			return false;
+
+	nl_attr_nest_end(nlmsg, nest);
+
+	return true;
+}
+
 /* This function takes a nexthop as argument and adds
  * the appropriate netlink attributes to an existing
  * netlink message.
@@ -1678,6 +1718,11 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					 nexthop->nh_srv6->seg6local_action);
 				return false;
 			}
+
+			if (!_netlink_nexthop_encode_seg6local_flavor(
+				    nexthop, nlmsg, req_size))
+				return false;
+
 			nl_attr_nest_end(nlmsg, nest);
 		}
 
@@ -2917,6 +2962,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							 __func__, action);
 						return 0;
 					}
+
+					if (!_netlink_nexthop_encode_seg6local_flavor(
+						    nh, &req->n, buflen))
+						return false;
+
 					nl_attr_nest_end(&req->n, nest);
 				}
 
