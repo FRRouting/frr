@@ -50,6 +50,20 @@ enum seg6local_action_t {
 	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
 };
 
+/* Flavor operations for SRv6 End* Behaviors */
+enum seg6local_flavor_op {
+	ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC       = 0,
+	/* PSP Flavor as per RFC 8986 section #4.16.1 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_PSP          = 1,
+	/* USP Flavor as per RFC 8986 section #4.16.2 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_USP          = 2,
+	/* USD Flavor as per RFC 8986 section #4.16.3 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_USD          = 3,
+	/* NEXT-C-SID Flavor as per draft-ietf-spring-srv6-srh-compression-03
+	   section 4.1 */
+	ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID    = 4,
+};
+
 struct seg6_segs {
 	size_t num_segs;
 	struct in6_addr segs[256];
