@@ -1222,9 +1222,10 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 				"Failed to create a Configuration session!");
 			return 0;
 		}
-		MGMTD_FE_ADAPTER_DBG(
-			"Created txn %llu for session %llu for COMMIT-CFG-REQ",
-			session->cfg_txn_id, session->session_id);
+		MGMTD_FE_ADAPTER_DBG("Created txn %" PRIu64
+				     " for session %" PRIu64
+				     " for COMMIT-CFG-REQ",
+				     session->cfg_txn_id, session->session_id);
 	}
 
 
@@ -1273,7 +1274,11 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 {
 	struct mgmt_fe_session_ctx *session;
 
-	switch (fe_msg->message_case) {
+	/*
+	 * protobuf-c adds a max size enum with an internal, and changing by
+	 * version, name; cast to an int to avoid unhandled enum warnings
+	 */
+	switch ((int)fe_msg->message_case) {
 	case MGMTD__FE_MESSAGE__MESSAGE_REGISTER_REQ:
 		MGMTD_FE_ADAPTER_DBG("Got Register Req Msg from '%s'",
 				       fe_msg->register_req->client_name);
@@ -1397,9 +1402,6 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
-#if PROTOBUF_C_VERSION_NUMBER >= 1003000
-	case _MGMTD__FE_MESSAGE__MESSAGE_IS_INT_SIZE:
-#endif
 	default:
 		/*
 		 * A 'default' case is being added contrary to the

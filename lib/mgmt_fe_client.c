@@ -428,7 +428,11 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 {
 	struct mgmt_fe_client_session *session = NULL;
 
-	switch (fe_msg->message_case) {
+	/*
+	 * protobuf-c adds a max size enum with an internal, and changing by
+	 * version, name; cast to an int to avoid unhandled enum warnings
+	 */
+	switch ((int)fe_msg->message_case) {
 	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REPLY:
 		if (fe_msg->session_reply->create
 		    && fe_msg->session_reply->has_client_conn_id) {
@@ -634,9 +638,6 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
-#if PROTOBUF_C_VERSION_NUMBER >= 1003000
-	case _MGMTD__FE_MESSAGE__MESSAGE_IS_INT_SIZE:
-#endif
 	default:
 		/*
 		 * A 'default' case is being added contrary to the
