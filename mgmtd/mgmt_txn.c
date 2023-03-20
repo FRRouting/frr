@@ -2476,7 +2476,8 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 			return -1;
 		}
 
-		MGMTD_TXN_DBG("Created initial txn %llu for BE connection %s",
+		MGMTD_TXN_DBG("Created initial txn %" PRIu64
+			      " for BE connection %s",
 			      txn->txn_id, adapter->name);
 		/*
 		 * Set the changeset for transaction to commit and trigger the
@@ -2815,7 +2816,7 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 		return -1;
 	}
 
-	MGMTD_TXN_DBG("Created rollback txn %llu", txn->txn_id);
+	MGMTD_TXN_DBG("Created rollback txn %" PRIu64, txn->txn_id);
 
 	/*
 	 * Set the changeset for transaction to commit and trigger the commit

@@ -819,7 +819,11 @@ static int
 mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 			     Mgmtd__BeMessage *be_msg)
 {
-	switch (be_msg->message_case) {
+	/*
+	 * protobuf-c adds a max size enum with an internal, and changing by
+	 * version, name; cast to an int to avoid unhandled enum warnings
+	 */
+	switch ((int)be_msg->message_case) {
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
 		MGMTD_BE_CLIENT_DBG("Subscribe Reply Msg from mgmt, status %u",
 				     be_msg->subscr_reply->success);
@@ -861,9 +865,6 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_NOTIFY_DATA:
 	case MGMTD__BE_MESSAGE__MESSAGE__NOT_SET:
-#if PROTOBUF_C_VERSION_NUMBER >= 1003000
-	case _MGMTD__BE_MESSAGE__MESSAGE_IS_INT_SIZE:
-#endif
 	default:
 		/*
 		 * A 'default' case is being added contrary to the

@@ -56,7 +56,7 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	 */
 	while (avail > sizeof(struct mgmt_msg_hdr)) {
 		n = stream_read_try(ms->ins, fd, avail);
-		MGMT_MSG_DBG(dbgtag, "got %ld bytes", n);
+		MGMT_MSG_DBG(dbgtag, "got %zd bytes", n);
 
 		/* -2 is normal nothing read, and to retry */
 		if (n == -2)
@@ -85,7 +85,7 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 			MGMT_MSG_DBG(dbgtag, "recv corrupt buffer, disconnect");
 			return MSR_DISCONNECT;
 		}
-		if (mhdr->len > left)
+		if ((ssize_t)mhdr->len > left)
 			break;
 
 		MGMT_MSG_DBG(dbgtag, "read full message len %u", mhdr->len);
