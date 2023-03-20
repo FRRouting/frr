@@ -392,7 +392,8 @@ extern bool vty_mgmt_fe_enabled(void);
 extern int vty_mgmt_send_config_data(struct vty *vty);
 extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
 				       bool abort);
-extern int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
+extern int vty_mgmt_send_get_config(struct vty *vty,
+				    Mgmtd__DatastoreId datastore,
 				    const char **xpath_list, int num_req);
 extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 				  const char **xpath_list, int num_req);
@@ -403,11 +404,10 @@ extern void vty_mgmt_resume_response(struct vty *vty, bool success);
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {
 	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
-		? ((vty->pending_allowed
-			|| vty->no_implicit_commit)
-				? false
-				: true)
-		: false);
+			? ((vty->pending_allowed || vty->no_implicit_commit)
+				   ? false
+				   : true)
+			: false);
 }
 
 #ifdef __cplusplus

@@ -846,8 +846,8 @@ void nb_candidate_edit_config_changes(
 
 		/* Handle relative XPaths. */
 		memset(xpath, 0, sizeof(xpath));
-		if (xpath_index > 0
-		    && (xpath_base[0] == '.' || change->xpath[0] == '.'))
+		if (xpath_index > 0 &&
+		    (xpath_base[0] == '.' || change->xpath[0] == '.'))
 			strlcpy(xpath, curr_xpath, sizeof(xpath));
 		if (xpath_base[0]) {
 			if (xpath_base[0] == '.')
@@ -947,9 +947,9 @@ int nb_candidate_validate_yang(struct nb_config *candidate, bool no_state,
 			       char *errmsg, size_t errmsg_len)
 {
 	if (lyd_validate_all(&candidate->dnode, ly_native_ctx,
-			     no_state ? LYD_VALIDATE_NO_STATE :
-			     LYD_VALIDATE_PRESENT, NULL)
-	    != 0) {
+			     no_state ? LYD_VALIDATE_NO_STATE
+				      : LYD_VALIDATE_PRESENT,
+			     NULL) != 0) {
 		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 		return NB_ERR_VALIDATION;
 	}
@@ -1005,8 +1005,7 @@ int nb_candidate_diff_and_validate_yang(struct nb_context *context,
 					char *errmsg, size_t errmsg_len)
 {
 	if (nb_candidate_validate_yang(candidate, true, errmsg,
-				       sizeof(errmsg_len))
-	    != NB_OK)
+				       sizeof(errmsg_len)) != NB_OK)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, changes);
@@ -1043,9 +1042,9 @@ int nb_candidate_commit_prepare(struct nb_context context,
 {
 	struct nb_config_cbs changes;
 
-	if (!skip_validate
-	    && nb_candidate_validate_yang(candidate, true, errmsg, errmsg_len)
-		       != NB_OK) {
+	if (!skip_validate &&
+	    nb_candidate_validate_yang(candidate, true, errmsg, errmsg_len) !=
+		    NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
 			  __func__);
@@ -1061,10 +1060,9 @@ int nb_candidate_commit_prepare(struct nb_context context,
 		return NB_ERR_NO_CHANGES;
 	}
 
-	if (!skip_validate
-	    && nb_candidate_validate_code(&context, candidate, &changes, errmsg,
-					  errmsg_len)
-		       != NB_OK) {
+	if (!skip_validate &&
+	    nb_candidate_validate_code(&context, candidate, &changes, errmsg,
+				       errmsg_len) != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
 			  __func__);
