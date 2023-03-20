@@ -27,6 +27,7 @@ endif
 
 ospfclient_ospfclient_LDADD = \
 	ospfclient/libfrrospfapiclient.la \
+	ospfd/libfrrospfclient.a \
 	$(LIBCAP) \
 	# end
 
