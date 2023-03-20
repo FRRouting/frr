@@ -145,6 +145,30 @@ Stage 2 - Staging
 
 #. Kick off the Snapcraft build plan for the release.
 
+#. Build Docker images
+
+   1. Log into the Netdef Docker build VM
+   2. ``sudo -su builduser``
+   3. Suppose we are releasing 8.5.0, then ``X.Y.Z`` is ``8.5.0``. Run this:
+
+      .. code-block:: console
+         
+         cd /home/builduser/frr
+         TAG=X.Y.Z
+         git fetch --all
+         git checkout frr-<version>
+         docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/arm/v7,linux/arm/v6 -f docker/alpine/Dockerfile -t quay.io/frrouting/frr:$TAG --push .
+         git tag docker/$TAG
+         git push origin docker/$TAG
+
+      This will build a multi-arch image and upload it to Quay, as well as
+      create a git tag corresponding to the commit that the image was built
+      from and upload that to Github. It's important that the git tag point to
+      the exact codebase that was used to build the docker image, so if any
+      changes need to be made on top of the ``frr-<version>`` release tag, make
+      sure these changes are committed and pointed at by the ``docker/X.Y.Z``
+      tag.
+
 
 Stage 3 - Publish
 -----------------
