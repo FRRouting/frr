@@ -1281,7 +1281,7 @@ static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
 							struct in_addr old_id)
 {
 	struct ospf_lsa *lsa = NULL;
-	struct ospf_lsa *new = NULL;
+	struct ospf_lsa *summary_lsa = NULL;
 	struct summary_lsa *sl = NULL;
 	struct ospf_area *old_area = NULL;
 	struct prefix_ipv4 old_prefix;
@@ -1318,19 +1318,19 @@ static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
 
 	if (type == OSPF_SUMMARY_LSA) {
 		/*Refresh the LSA with new LSA*/
-		ospf_summary_lsa_refresh(ospf, lsa);
+		summary_lsa = ospf_summary_lsa_refresh(ospf, lsa);
 
-		new = ospf_summary_lsa_prepare_and_flood(
-			&old_prefix, old_metric, old_area, old_id);
+		ospf_summary_lsa_prepare_and_flood(&old_prefix, old_metric,
+						   old_area, old_id);
 	} else {
 		/*Refresh the LSA with new LSA*/
-		ospf_summary_asbr_lsa_refresh(ospf, lsa);
+		summary_lsa = ospf_summary_asbr_lsa_refresh(ospf, lsa);
 
-		new = ospf_asbr_summary_lsa_prepare_and_flood(
-			&old_prefix, old_metric, old_area, old_id);
+		ospf_asbr_summary_lsa_prepare_and_flood(&old_prefix, old_metric,
+							old_area, old_id);
 	}
 
-	return new;
+	return summary_lsa;
 }
 
 /* Originate Summary-LSA. */
