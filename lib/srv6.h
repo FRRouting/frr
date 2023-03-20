@@ -30,6 +30,10 @@ extern "C" {
 #define UNSET_SRV6_FLV_OP(OPS,OP)      (OPS) &= ~(1 << OP)
 #define RESET_SRV6_FLV_OP(OPS)         (OPS) = 0
 
+/* SRv6 Flavors default values */
+#define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN 32
+#define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN 16
+
 enum seg6_mode_t {
 	INLINE,
 	ENCAP,
