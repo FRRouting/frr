@@ -1964,8 +1964,14 @@ int send_hello(struct isis_circuit *circuit, int level)
 		isis_tlvs_add_global_ipv6_addresses(tlvs,
 						    circuit->ipv6_non_link);
 
+	bool should_pad_hello =
+		circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
+		(circuit->pad_hellos ==
+			 ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION &&
+		 circuit->upadjcount[0] + circuit->upadjcount[1] == 0);
+
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,
-			   circuit->pad_hellos, false)) {
+			   should_pad_hello, false)) {
 		isis_free_tlvs(tlvs);
 		return ISIS_WARNING; /* XXX: Maybe Log TLV structure? */
 	}

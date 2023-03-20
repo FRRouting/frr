@@ -116,6 +116,26 @@ module frr-isisd {
        associated with an interface.";
   }
 
+  typedef hello-padding-type {
+    type enumeration {
+      enum "always" {
+        value 0;
+        description
+          "Add padding to all hello packets.";
+      }
+      enum "disabled" {
+        value 1;
+        description
+          "Do not add any padding to hello packets.";
+      } 
+      enum "during-adjacency-formation" {
+        value 2;
+        description
+          "Add padding to hello packets during adjacency formation only.";
+      }
+    }
+  }
+
   typedef network-type {
     type enumeration {
       enum "unknown" {
@@ -605,10 +625,10 @@ module frr-isisd {
       description
         "Parameters related to IS-IS hello PDUs.";
       leaf padding {
-        type boolean;
-        default "true";
+        type hello-padding-type;
+        default "always";
         description
-          "Add padding to IS-IS hello PDUs.";
+          "Type of padding for IS-IS hello packets.";
       }
 
       container interval {
