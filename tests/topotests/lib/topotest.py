@@ -582,6 +582,7 @@ def iproute2_is_vrf_capable():
             pass
     return False
 
+
 def iproute2_is_fdb_get_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
@@ -605,6 +606,7 @@ def iproute2_is_fdb_get_capable():
         except Exception:
             pass
     return False
+
 
 def module_present_linux(module, load):
     """
@@ -1577,8 +1579,8 @@ class Router(Node):
                     self.cmd_raises("touch " + conf_file)
             else:
                 # copy zebra.conf to mgmtd folder, which can be used during startup
-                if daemon == 'zebra':
-                    conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, 'mgmtd')
+                if daemon == "zebra":
+                    conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
                     self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
                 self.cmd_raises("cp {} {}".format(source, conf_file))
 
