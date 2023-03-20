@@ -150,7 +150,6 @@ def test_static_timing():
 
         return tot_delta
 
-
     # Number of static routes
     router = tgen.gears["r1"]
     output = router.run("vtysh -h | grep address-sanitizer")
