@@ -684,6 +684,17 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 				nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
 						   num_labels, labels);
 
+			/* Resolve default values for SRv6 flavors */
+			if (seg6l_ctx.flv.flv_ops !=
+			    ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC) {
+				if (seg6l_ctx.flv.lcblock_len == 0)
+					seg6l_ctx.flv.lcblock_len =
+						ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN;
+				if (seg6l_ctx.flv.lcnode_func_len == 0)
+					seg6l_ctx.flv.lcnode_func_len =
+						ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+			}
+
 			if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 				nexthop_add_srv6_seg6local(nh, seg6l_act,
 							   &seg6l_ctx);
