@@ -407,6 +407,36 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 	return num_labels;
 }
 
+/**
+ * @parse_encap_seg6local_flavors() - Parses encapsulated SRv6 flavors
+ * attributes
+ * @tb:         Pointer to rtattr to look for nested items in.
+ * @flv:        Pointer to store SRv6 flavors info in.
+ *
+ * Return:      0 on success, non-zero on error
+ */
+static int parse_encap_seg6local_flavors(struct rtattr *tb,
+					 struct seg6local_flavors_info *flv)
+{
+	struct rtattr *tb_encap[SEG6_LOCAL_FLV_MAX + 1] = {};
+
+	netlink_parse_rtattr_nested(tb_encap, SEG6_LOCAL_FLV_MAX, tb);
+
+	if (tb_encap[SEG6_LOCAL_FLV_OPERATION])
+		flv->flv_ops = *(uint32_t *)RTA_DATA(
+			tb_encap[SEG6_LOCAL_FLV_OPERATION]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_LCBLOCK_BITS])
+		flv->lcblock_len = *(uint8_t *)RTA_DATA(
+			tb_encap[SEG6_LOCAL_FLV_LCBLOCK_BITS]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_LCNODE_FN_BITS])
+		flv->lcnode_func_len = *(uint8_t *)RTA_DATA(
+			tb_encap[SEG6_LOCAL_FLV_LCNODE_FN_BITS]);
+
+	return 0;
+}
+
 static enum seg6local_action_t
 parse_encap_seg6local(struct rtattr *tb,
 		      struct seg6local_context *ctx)
@@ -433,6 +463,11 @@ parse_encap_seg6local(struct rtattr *tb,
 	if (tb_encap[SEG6_LOCAL_VRFTABLE])
 		ctx->table =
 			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+
+	if (tb_encap[SEG6_LOCAL_FLAVORS]) {
+		parse_encap_seg6local_flavors(tb_encap[SEG6_LOCAL_FLAVORS],
+					      &ctx->flv);
+	}
 
 	return act;
 }
