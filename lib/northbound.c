@@ -2745,8 +2745,7 @@ void nb_terminate(void)
 	nb_nodes_delete();
 
 	/* Delete the running configuration. */
-	hash_clean(running_config_entries, running_config_entry_free);
-	hash_free(running_config_entries);
+	hash_clean_and_free(&running_config_entries, running_config_entry_free);
 	nb_config_free(running_config);
 	pthread_mutex_destroy(&running_config_mgmt_lock.mtx);
 }

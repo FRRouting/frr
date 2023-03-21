@@ -919,9 +919,7 @@ static void community_hash_free(void *data)
 
 void community_finish(void)
 {
-	hash_clean(comhash, community_hash_free);
-	hash_free(comhash);
-	comhash = NULL;
+	hash_clean_and_free(&comhash, community_hash_free);
 }
 
 static struct community *bgp_aggr_community_lookup(

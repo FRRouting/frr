@@ -334,9 +334,7 @@ void lcommunity_init(void)
 
 void lcommunity_finish(void)
 {
-	hash_clean(lcomhash, (void (*)(void *))lcommunity_hash_free);
-	hash_free(lcomhash);
-	lcomhash = NULL;
+	hash_clean_and_free(&lcomhash, (void (*)(void *))lcommunity_hash_free);
 }
 
 /* Get next Large Communities token from the string.

@@ -278,6 +278,17 @@ extern void hash_walk(struct hash *hash,
 extern void hash_clean(struct hash *hash, void (*free_func)(void *));
 
 /*
+ * Remove all elements from a hash table and free the table,
+ * setting the pointer to NULL.
+ *
+ * hash
+ *    hash table to operate on
+ * free_func
+ *    function to call with each removed item, intended to free the data
+ */
+extern void hash_clean_and_free(struct hash **hash, void (*free_func)(void *));
+
+/*
  * Delete a hash table.
  *
  * This function assumes the table is empty. Call hash_clean to delete the

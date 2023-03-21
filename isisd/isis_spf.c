@@ -241,11 +241,7 @@ void isis_vertex_del(struct isis_vertex *vertex)
 {
 	list_delete(&vertex->Adj_N);
 	list_delete(&vertex->parents);
-	if (vertex->firsthops) {
-		hash_clean(vertex->firsthops, NULL);
-		hash_free(vertex->firsthops);
-		vertex->firsthops = NULL;
-	}
+	hash_clean_and_free(&vertex->firsthops, NULL);
 
 	memset(vertex, 0, sizeof(struct isis_vertex));
 	XFREE(MTYPE_ISIS_VERTEX, vertex);
@@ -371,8 +367,7 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 
 void isis_spftree_del(struct isis_spftree *spftree)
 {
-	hash_clean(spftree->prefix_sids, NULL);
-	hash_free(spftree->prefix_sids);
+	hash_clean_and_free(&spftree->prefix_sids, NULL);
 	isis_zebra_rlfa_unregister_all(spftree);
 	isis_rlfa_list_clear(spftree);
 	list_delete(&spftree->lfa.remote.pc_spftrees);

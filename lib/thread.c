@@ -724,9 +724,7 @@ void thread_master_free(struct thread_master *m)
 	list_delete(&m->cancel_req);
 	m->cancel_req = NULL;
 
-	hash_clean(m->cpu_record, cpu_record_hash_free);
-	hash_free(m->cpu_record);
-	m->cpu_record = NULL;
+	hash_clean_and_free(&m->cpu_record, cpu_record_hash_free);
 
 	XFREE(MTYPE_THREAD_MASTER, m->name);
 	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);

@@ -136,12 +136,7 @@ static unsigned int peer_hash_key(const void *arg)
 /* Cleanup handler / deinitializer. */
 static void bgp_keepalives_finish(void *arg)
 {
-	if (peerhash) {
-		hash_clean(peerhash, pkat_del);
-		hash_free(peerhash);
-	}
-
-	peerhash = NULL;
+	hash_clean_and_free(&peerhash, pkat_del);
 
 	pthread_mutex_unlock(peerhash_mtx);
 	pthread_mutex_destroy(peerhash_mtx);

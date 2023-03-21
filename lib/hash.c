@@ -297,6 +297,16 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
 	hash->stats.empty = hash->size;
 }
 
+void hash_clean_and_free(struct hash **hash, void (*free_func)(void *))
+{
+	if (!*hash)
+		return;
+
+	hash_clean(*hash, free_func);
+	hash_free(*hash);
+	*hash = NULL;
+}
+
 static void hash_to_list_iter(struct hash_bucket *hb, void *arg)
 {
 	struct list *list = arg;

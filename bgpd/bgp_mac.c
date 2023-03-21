@@ -64,8 +64,7 @@ static void bgp_mac_hash_free(void *data)
 
 void bgp_mac_finish(void)
 {
-	hash_clean(bm->self_mac_hash, bgp_mac_hash_free);
-	hash_free(bm->self_mac_hash);
+	hash_clean_and_free(&bm->self_mac_hash, bgp_mac_hash_free);
 }
 
 static void bgp_mac_hash_interface_string_del(void *val)
