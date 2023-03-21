@@ -36,6 +36,8 @@
 #include "json.h"
 #include "jhash.h"
 
+#include "lib/routemap_clippy.c"
+
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_INDEX, "Route map index");
@@ -3097,27 +3099,24 @@ static void clear_route_map_helper(struct route_map *map)
 		index->applied_clear = index->applied;
 }
 
-DEFUN (rmap_clear_counters,
+DEFPY (rmap_clear_counters,
        rmap_clear_counters_cmd,
-       "clear route-map counters [WORD]",
+       "clear route-map counters [RMAP_NAME$rmapname]",
        CLEAR_STR
        "route-map information\n"
        "counters associated with the specified route-map\n"
        "route-map name\n")
 {
-	int idx_word = 2;
 	struct route_map *map;
 
-	const char *name = (argc == 3 ) ? argv[idx_word]->arg : NULL;
-
-	if (name) {
-		map = route_map_lookup_by_name(name);
+	if (rmapname) {
+		map = route_map_lookup_by_name(rmapname);
 
 		if (map)
 			clear_route_map_helper(map);
 		else {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
-				frr_protonameinst, name);
+				frr_protonameinst, rmapname);
 			return CMD_SUCCESS;
 		}
 	} else {
