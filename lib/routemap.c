@@ -36,6 +36,8 @@
 #include "json.h"
 #include "jhash.h"
 
+#include "lib/routemap_clippy.c"
+
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_INDEX, "Route map index");
