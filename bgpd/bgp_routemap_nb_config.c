@@ -2628,8 +2628,18 @@ int
 lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify(
 	struct nb_cb_modify_args *args)
 {
+	const char *asn;
+	enum match_type match;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		asn = yang_dnode_get_string(args->dnode, NULL);
+		if (!asn)
+			return NB_ERR_VALIDATION;
+		match = asn_str2asn_match(asn);
+		if (match == exact_match)
+			return NB_OK;
+		return NB_ERR_VALIDATION;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
