@@ -1367,21 +1367,13 @@ void pim_msdp_exit(struct pim_instance *pim)
 	while ((mg = SLIST_FIRST(&pim->msdp.mglist)) != NULL)
 		pim_msdp_mg_free(pim, &mg);
 
-	if (pim->msdp.peer_hash) {
-		hash_clean(pim->msdp.peer_hash, NULL);
-		hash_free(pim->msdp.peer_hash);
-		pim->msdp.peer_hash = NULL;
-	}
+	hash_clean_and_free(&pim->msdp.peer_hash, NULL);
 
 	if (pim->msdp.peer_list) {
 		list_delete(&pim->msdp.peer_list);
 	}
 
-	if (pim->msdp.sa_hash) {
-		hash_clean(pim->msdp.sa_hash, NULL);
-		hash_free(pim->msdp.sa_hash);
-		pim->msdp.sa_hash = NULL;
-	}
+	hash_clean_and_free(&pim->msdp.sa_hash, NULL);
 
 	if (pim->msdp.sa_list) {
 		list_delete(&pim->msdp.sa_list);

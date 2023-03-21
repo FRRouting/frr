@@ -2596,9 +2596,7 @@ void cmd_terminate(void)
 				// well
 				graph_delete_graph(cmd_node->cmdgraph);
 				vector_free(cmd_node->cmd_vector);
-				hash_clean(cmd_node->cmd_hash, NULL);
-				hash_free(cmd_node->cmd_hash);
-				cmd_node->cmd_hash = NULL;
+				hash_clean_and_free(&cmd_node->cmd_hash, NULL);
 			}
 
 		vector_free(cmdvec);

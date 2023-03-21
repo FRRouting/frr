@@ -74,10 +74,8 @@ static void bgp_ca_free(void *ca)
 
 void bgp_community_alias_finish(void)
 {
-	hash_clean(bgp_ca_community_hash, bgp_ca_free);
-	hash_free(bgp_ca_community_hash);
-	hash_clean(bgp_ca_alias_hash, bgp_ca_free);
-	hash_free(bgp_ca_alias_hash);
+	hash_clean_and_free(&bgp_ca_community_hash, bgp_ca_free);
+	hash_clean_and_free(&bgp_ca_alias_hash, bgp_ca_free);
 }
 
 static void bgp_community_alias_show_iterator(struct hash_bucket *hb,

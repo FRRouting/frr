@@ -3133,11 +3133,9 @@ static void ospf6_handle_external_aggr_update(struct ospf6 *ospf6)
 			aggr->action = OSPF6_ROUTE_AGGR_NONE;
 			ospf6_asbr_summary_config_delete(ospf6, rn);
 
-			if (OSPF6_EXTERNAL_RT_COUNT(aggr))
-				hash_clean(aggr->match_extnl_hash,
-				ospf6_aggr_handle_external_info);
+			hash_clean_and_free(&aggr->match_extnl_hash,
+					    ospf6_aggr_handle_external_info);
 
-			hash_free(aggr->match_extnl_hash);
 			XFREE(MTYPE_OSPF6_EXTERNAL_RT_AGGR, aggr);
 
 		} else if (aggr->action == OSPF6_ROUTE_AGGR_MODIFY) {
@@ -3175,17 +3173,13 @@ static void ospf6_aggr_unlink_external_info(void *data)
 
 void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 {
-	if (OSPF6_EXTERNAL_RT_COUNT(aggr))
-		hash_clean(aggr->match_extnl_hash,
-			ospf6_aggr_unlink_external_info);
+	hash_clean_and_free(&aggr->match_extnl_hash,
+			    ospf6_aggr_unlink_external_info);
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Release the aggregator Address(%pFX)",
 						__func__,
 						&aggr->p);
-
-	hash_free(aggr->match_extnl_hash);
-	aggr->match_extnl_hash = NULL;
 
 	XFREE(MTYPE_OSPF6_EXTERNAL_RT_AGGR, aggr);
 }

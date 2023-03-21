@@ -4058,10 +4058,8 @@ static void lsp_table_free(void *p)
 void zebra_mpls_close_tables(struct zebra_vrf *zvrf)
 {
 	hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
-	hash_clean(zvrf->lsp_table, lsp_table_free);
-	hash_free(zvrf->lsp_table);
-	hash_clean(zvrf->slsp_table, lsp_table_free);
-	hash_free(zvrf->slsp_table);
+	hash_clean_and_free(&zvrf->lsp_table, lsp_table_free);
+	hash_clean_and_free(&zvrf->slsp_table, lsp_table_free);
 	route_table_finish(zvrf->fec_table[AFI_IP]);
 	route_table_finish(zvrf->fec_table[AFI_IP6]);
 }

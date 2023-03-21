@@ -8341,54 +8341,25 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	if (aggregate->community)
 		community_free(&aggregate->community);
 
-	if (aggregate->community_hash) {
-		/* Delete all communities in the hash.
-		 */
-		hash_clean(aggregate->community_hash,
-			   bgp_aggr_community_remove);
-		/* Free up the community_hash.
-		 */
-		hash_free(aggregate->community_hash);
-	}
+	hash_clean_and_free(&aggregate->community_hash,
+			    bgp_aggr_community_remove);
 
 	if (aggregate->ecommunity)
 		ecommunity_free(&aggregate->ecommunity);
 
-	if (aggregate->ecommunity_hash) {
-		/* Delete all ecommunities in the hash.
-		 */
-		hash_clean(aggregate->ecommunity_hash,
-			   bgp_aggr_ecommunity_remove);
-		/* Free up the ecommunity_hash.
-		 */
-		hash_free(aggregate->ecommunity_hash);
-	}
+	hash_clean_and_free(&aggregate->ecommunity_hash,
+			    bgp_aggr_ecommunity_remove);
 
 	if (aggregate->lcommunity)
 		lcommunity_free(&aggregate->lcommunity);
 
-	if (aggregate->lcommunity_hash) {
-		/* Delete all lcommunities in the hash.
-		 */
-		hash_clean(aggregate->lcommunity_hash,
-			   bgp_aggr_lcommunity_remove);
-		/* Free up the lcommunity_hash.
-		 */
-		hash_free(aggregate->lcommunity_hash);
-	}
+	hash_clean_and_free(&aggregate->lcommunity_hash,
+			    bgp_aggr_lcommunity_remove);
 
 	if (aggregate->aspath)
 		aspath_free(aggregate->aspath);
 
-	if (aggregate->aspath_hash) {
-		/* Delete all as-paths in the hash.
-		 */
-		hash_clean(aggregate->aspath_hash,
-			   bgp_aggr_aspath_remove);
-		/* Free up the aspath_hash.
-		 */
-		hash_free(aggregate->aspath_hash);
-	}
+	hash_clean_and_free(&aggregate->aspath_hash, bgp_aggr_aspath_remove);
 
 	bgp_aggregate_free(aggregate);
 	bgp_dest_unlock_node(dest);

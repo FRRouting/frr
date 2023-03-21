@@ -2411,6 +2411,5 @@ void vrrp_fini(void)
 
 	list_delete(&vrs);
 
-	hash_clean(vrrp_vrouters_hash, NULL);
-	hash_free(vrrp_vrouters_hash);
+	hash_clean_and_free(&vrrp_vrouters_hash, NULL);
 }

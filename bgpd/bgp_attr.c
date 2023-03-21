@@ -186,9 +186,7 @@ static void cluster_init(void)
 
 static void cluster_finish(void)
 {
-	hash_clean(cluster_hash, (void (*)(void *))cluster_free);
-	hash_free(cluster_hash);
-	cluster_hash = NULL;
+	hash_clean_and_free(&cluster_hash, (void (*)(void *))cluster_free);
 }
 
 static struct hash *encap_hash = NULL;
@@ -372,13 +370,9 @@ static void encap_init(void)
 
 static void encap_finish(void)
 {
-	hash_clean(encap_hash, (void (*)(void *))encap_free);
-	hash_free(encap_hash);
-	encap_hash = NULL;
+	hash_clean_and_free(&encap_hash, (void (*)(void *))encap_free);
 #ifdef ENABLE_BGP_VNC
-	hash_clean(vnc_hash, (void (*)(void *))encap_free);
-	hash_free(vnc_hash);
-	vnc_hash = NULL;
+	hash_clean_and_free(&vnc_hash, (void (*)(void *))encap_free);
 #endif
 }
 
@@ -694,12 +688,9 @@ static void srv6_init(void)
 
 static void srv6_finish(void)
 {
-	hash_clean(srv6_l3vpn_hash, (void (*)(void *))srv6_l3vpn_free);
-	hash_free(srv6_l3vpn_hash);
-	srv6_l3vpn_hash = NULL;
-	hash_clean(srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
-	hash_free(srv6_vpn_hash);
-	srv6_vpn_hash = NULL;
+	hash_clean_and_free(&srv6_l3vpn_hash,
+			    (void (*)(void *))srv6_l3vpn_free);
+	hash_clean_and_free(&srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
 }
 
 static unsigned int transit_hash_key_make(const void *p)
@@ -726,9 +717,7 @@ static void transit_init(void)
 
 static void transit_finish(void)
 {
-	hash_clean(transit_hash, (void (*)(void *))transit_free);
-	hash_free(transit_hash);
-	transit_hash = NULL;
+	hash_clean_and_free(&transit_hash, (void (*)(void *))transit_free);
 }
 
 /* Attribute hash routines. */
@@ -881,9 +870,7 @@ static void attr_vfree(void *attr)
 
 static void attrhash_finish(void)
 {
-	hash_clean(attrhash, attr_vfree);
-	hash_free(attrhash);
-	attrhash = NULL;
+	hash_clean_and_free(&attrhash, attr_vfree);
 }
 
 static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)

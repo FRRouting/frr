@@ -86,8 +86,7 @@ static void tx_queue_element_free(void *element)
 
 void isis_tx_queue_free(struct isis_tx_queue *queue)
 {
-	hash_clean(queue->hash, tx_queue_element_free);
-	hash_free(queue->hash);
+	hash_clean_and_free(&queue->hash, tx_queue_element_free);
 	XFREE(MTYPE_TX_QUEUE, queue);
 }
 

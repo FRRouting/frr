@@ -394,11 +394,7 @@ void vrf_bitmap_free(vrf_bitmap_t bmap)
 {
 	struct hash *vrf_hash = bmap;
 
-	if (vrf_hash == NULL)
-		return;
-
-	hash_clean(vrf_hash, vrf_hash_bitmap_free);
-	hash_free(vrf_hash);
+	hash_clean_and_free(&vrf_hash, vrf_hash_bitmap_free);
 }
 
 void vrf_bitmap_set(vrf_bitmap_t bmap, vrf_id_t vrf_id)
