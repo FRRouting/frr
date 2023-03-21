@@ -316,10 +316,15 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 		return 0;
 
 	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED)) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			table = bgp_dest_table(dest);
+			if (table)
+				bgp = table->bgp;
+
 			zlog_debug(
-				"Route %pBD is in workqueue and being processed, not deferred.",
-				dest);
+				"Route %pBD(%s) is in workqueue and being processed, not deferred.",
+				dest, bgp ? bgp->name_pretty : "(Unknown)");
+		}
 
 		return 0;
 	}
@@ -367,8 +372,8 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 				bgp->gr_info[afi][safi].gr_deferred++;
 			SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
 			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("DEFER route %pBD, dest %p", dest,
-					   dest);
+				zlog_debug("DEFER route %pBD(%s), dest %p",
+					   dest, bgp->name_pretty, dest);
 			return 0;
 		}
 	}
@@ -2755,8 +2760,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_reap(dest, pi);
 
 			if (debug)
-				zlog_debug("%s: pi %p in holddown", __func__,
-					   pi);
+				zlog_debug(
+					"%s: %pBD(%s) pi from %s in holddown",
+					__func__, dest, bgp->name_pretty,
+					pi->peer->host);
 
 			continue;
 		}
@@ -2767,8 +2774,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 				if (debug)
 					zlog_debug(
-						"%s: pi %p non self peer %s not estab state",
-						__func__, pi, pi->peer->host);
+						"%s: %pBD(%s) non self peer %s not estab state",
+						__func__, dest,
+						bgp->name_pretty,
+						pi->peer->host);
 
 				continue;
 			}
@@ -2777,7 +2786,9 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		    && (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 			if (debug)
-				zlog_debug("%s: pi %p dmed", __func__, pi);
+				zlog_debug("%s: %pBD(%s) pi %s dmed", __func__,
+					   dest, bgp->name_pretty,
+					   pi->peer->host);
 			continue;
 		}
 
@@ -2840,8 +2851,9 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (!bgp_path_info_nexthop_cmp(pi, new_select)) {
 				if (debug)
 					zlog_debug(
-						"%pBD: %s has the same nexthop as the bestpath, skip it",
-						dest, path_buf);
+						"%pBD(%s): %s has the same nexthop as the bestpath, skip it",
+						dest, bgp->name_pretty,
+						path_buf);
 				continue;
 			}
 
@@ -2852,8 +2864,9 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (paths_eq) {
 				if (debug)
 					zlog_debug(
-						"%pBD: %s is equivalent to the bestpath, add to the multipath list",
-						dest, path_buf);
+						"%pBD(%s): %s is equivalent to the bestpath, add to the multipath list",
+						dest, bgp->name_pretty,
+						path_buf);
 				bgp_mp_list_add(&mp_list, pi);
 			}
 		}
@@ -3103,8 +3116,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			debug = bgp_debug_bestpath(dest);
 		if (debug)
 			zlog_debug(
-				"%s: bgp delete in progress, ignoring event, p=%pBD",
-				__func__, dest);
+				"%s: bgp delete in progress, ignoring event, p=%pBD(%s)",
+				__func__, dest, bgp->name_pretty);
 		return;
 	}
 	/* Is it end of initial update? (after startup) */
@@ -3127,7 +3140,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
-		zlog_debug("%s: p=%pBDi(%s) afi=%s, safi=%s start", __func__,
+		zlog_debug("%s: p=%pBD(%s) afi=%s, safi=%s start", __func__,
 			   dest, bgp->name_pretty, afi2str(afi),
 			   safi2str(safi));
 
@@ -3136,7 +3149,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("SELECT_DEFER flag set for route %p", dest);
+			zlog_debug("SELECT_DEFER flag set for route %p(%s)",
+				   dest, bgp->name_pretty);
 		return;
 	}
 
