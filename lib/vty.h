@@ -25,6 +25,8 @@
 #include "compiler.h"
 #include "northbound.h"
 #include "zlog_live.h"
+#include "libfrr.h"
+#include "mgmt_fe_client.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,11 +115,17 @@ struct vty {
 
 	/* Changes enqueued to be applied in the candidate configuration. */
 	size_t num_cfg_changes;
-	struct vty_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
+	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
 	/* XPath of the current node */
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];
+
+	/*
+	 * Keep track of how many SET_CFG requests has been sent so far that
+	 * has not been committed yet.
+	 */
+	size_t mgmt_num_pending_setcfg;
 
 	/* In configure mode. */
 	bool config;
@@ -134,6 +142,7 @@ struct vty {
 	/* Dynamic transaction information. */
 	bool pending_allowed;
 	bool pending_commit;
+	bool no_implicit_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
@@ -208,6 +217,12 @@ struct vty {
 	 * without any output. */
 	size_t frame_pos;
 	char frame[1024];
+
+	uintptr_t mgmt_session_id;
+	uint64_t mgmt_client_id;
+	uint64_t mgmt_req_id;
+	bool mgmt_req_pending;
+	bool mgmt_locked_candidate_ds;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -319,6 +334,8 @@ struct vty_arg {
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
 #endif
 
+extern struct nb_config *vty_mgmt_candidate_config;
+
 /* Prototypes. */
 extern void vty_init(struct thread_master *, bool do_command_logging);
 extern void vty_init_vtysh(void);
@@ -369,6 +386,29 @@ extern void vty_hello(struct vty *);
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
+
+extern void vty_init_mgmt_fe(void);
+extern bool vty_mgmt_fe_enabled(void);
+extern int vty_mgmt_send_config_data(struct vty *vty);
+extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
+				       bool abort);
+extern int vty_mgmt_send_get_config(struct vty *vty,
+				    Mgmtd__DatastoreId datastore,
+				    const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
+				  const char **xpath_list, int num_req);
+extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
+				    bool lock);
+extern void vty_mgmt_resume_response(struct vty *vty, bool success);
+
+static inline bool vty_needs_implicit_commit(struct vty *vty)
+{
+	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
+			? ((vty->pending_allowed || vty->no_implicit_commit)
+				   ? false
+				   : true)
+			: false);
+}
 
 #ifdef __cplusplus
 }
