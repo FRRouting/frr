@@ -1309,6 +1309,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 
+	/*
+	 * BGP is installing this route and bgp has been configured
+	 * to suppress announcements until the route has been installed
+	 * let's set the fact that we expect this route to be installed
+	 */
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp))
+		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
+
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
 	 */
@@ -1759,6 +1767,12 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 {
 	struct zapi_route api;
 	struct peer *peer;
+
+	/*
+	 * If we are withdrawing the route, we don't need to have this
+	 * flag set.  So unset it.
+	 */
+	UNSET_FLAG(info->net->flags, BGP_NODE_FIB_INSTALL_PENDING);
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
