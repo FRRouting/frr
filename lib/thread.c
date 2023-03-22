@@ -1391,8 +1391,10 @@ static void do_thread_cancel(struct thread_master *master)
 
 		if (list) {
 			thread_list_del(list, thread);
+			list = NULL;
 		} else if (thread_array) {
 			thread_array[thread->u.fd] = NULL;
+			thread_array = NULL;
 		}
 
 		if (thread->ref)
