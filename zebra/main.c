@@ -175,11 +175,6 @@ static void sigint(void)
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
 
-	vrf_terminate();
-
-	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
-	zebra_ns_notify_close();
-
 	access_list_reset();
 	prefix_list_reset();
 	/*
@@ -206,6 +201,11 @@ static void sigint(void)
 void zebra_finalize(struct thread *dummy)
 {
 	zlog_info("Zebra final shutdown");
+
+	vrf_terminate();
+
+	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
+	zebra_ns_notify_close();
 
 	/* Stop dplane thread and finish any cleanup */
 	zebra_dplane_shutdown();
