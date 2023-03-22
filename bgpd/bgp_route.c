@@ -3225,11 +3225,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)) {
 
-				if (BGP_SUPPRESS_FIB_ENABLED(bgp)
-				    && new_select->sub_type == BGP_ROUTE_NORMAL)
-					SET_FLAG(dest->flags,
-						 BGP_NODE_FIB_INSTALL_PENDING);
-
 				if (new_select->type == ZEBRA_ROUTE_BGP
 				    && (new_select->sub_type == BGP_ROUTE_NORMAL
 					|| new_select->sub_type
@@ -3334,10 +3329,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		    && (new_select->sub_type == BGP_ROUTE_NORMAL
 			|| new_select->sub_type == BGP_ROUTE_AGGREGATE
 			|| new_select->sub_type == BGP_ROUTE_IMPORTED)) {
-
-			if (BGP_SUPPRESS_FIB_ENABLED(bgp))
-				SET_FLAG(dest->flags,
-					 BGP_NODE_FIB_INSTALL_PENDING);
 
 			/* if this is an evpn imported type-5 prefix,
 			 * we need to withdraw the route first to clear
@@ -4268,18 +4259,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
-	/* The flag BGP_NODE_FIB_INSTALL_PENDING is for the following
-	 * condition :
-	 * Suppress fib is enabled
-	 * BGP_OPT_NO_FIB is not enabled
-	 * Route type is BGP_ROUTE_NORMAL (peer learnt routes)
-	 * Route is being installed first time (BGP_NODE_FIB_INSTALLED not set)
-	 */
-	if (bgp_fibupd_safi(safi) && BGP_SUPPRESS_FIB_ENABLED(bgp)
-	    && (sub_type == BGP_ROUTE_NORMAL)
-	    && (!bgp_option_check(BGP_OPT_NO_FIB))
-	    && (!CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)))
-		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 
 	/* If neighbor soo is configured, tag all incoming routes with
 	 * this SoO tag and then filter out advertisements in
