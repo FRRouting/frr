@@ -9604,62 +9604,22 @@ ALIAS (af_rd_vpn_export,
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n")
 
-DEFPY(af_label_vpn_export_pop_and_forward_mode,
-      af_label_vpn_export_pop_and_forward_mode_cmd,
-      "[no$no] label vpn export pop-and-forward",
-      NO_STR
-      "label value for VRF\n"
-      "Between current address-family and vpn\n"
-      "For routes leaked from current address-family to vpn\n"
-      "Incoming MPLS packets are popped and directly sent to know next-hop\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	afi_t afi;
-
-	afi = vpn_policy_getafi(vty, bgp, false);
-
-	/* no change */
-	if (!!no
-	    == !CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD))
-		/* silently return */
-		return CMD_SUCCESS;
-
-	/*
-	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-	 */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
-			   bgp);
-
-	if (no)
-		UNSET_FLAG(bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD);
-	else
-		SET_FLAG(bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD);
-
-	/* post-change: re-export vpn routes */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
-			    bgp);
-
-	hook_call(bgp_snmp_update_last_changed, bgp);
-	return CMD_SUCCESS;
-}
-
 DEFPY(af_label_vpn_export_allocation_mode,
       af_label_vpn_export_allocation_mode_cmd,
-      "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh>",
+      "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh [pop-and-lookup$pop_and_lookup]>",
       NO_STR
       "label value for VRF\n"
       "Between current address-family and vpn\n"
       "For routes leaked from current address-family to vpn\n"
       "Label allocation mode\n"
       "Allocate one label for all BGP updates of the VRF\n"
-      "Allocate a label per connected next-hop in the VRF\n")
+      "Allocate a label per connected next-hop in the VRF\n"
+      "Incoming MPLS packets are popped and transmitted to the local VRF routing table\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi;
 	bool old_per_nexthop, new_per_nexthop;
+	bool old_pop_and_lookup, new_pop_and_lookup;
 
 	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
@@ -9667,21 +9627,42 @@ DEFPY(af_label_vpn_export_allocation_mode,
 
 	old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
 				       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	old_pop_and_lookup =
+		!!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			     BGP_VPN_POLICY_TOVPN_LABEL_POP_LOOKUP);
 	if (no) {
 		if (old_per_nexthop == false && label_per_nh)
 			return CMD_ERR_NO_MATCH;
 		if (old_per_nexthop == true && label_per_vrf)
 			return CMD_ERR_NO_MATCH;
-		new_per_nexthop = false;
+		if (old_per_nexthop == true && old_pop_and_lookup == false
+		    && pop_and_lookup)
+			return CMD_ERR_NO_MATCH;
+		if (pop_and_lookup)
+			new_per_nexthop = true;
+		else
+			new_per_nexthop = false;
+		new_pop_and_lookup = false;
 	} else {
+		/* to disable pop-and-lookup, use the 'no' command: no change
+		 * here */
+		if (old_per_nexthop == true && label_per_nh
+		    && old_pop_and_lookup == true && !pop_and_lookup)
+			return CMD_SUCCESS;
 		if (label_per_nh)
 			new_per_nexthop = true;
 		else
 			new_per_nexthop = false;
+
+		if (label_per_nh && pop_and_lookup)
+			new_pop_and_lookup = true;
+		else
+			new_pop_and_lookup = false;
 	}
 
 	/* no change */
-	if (old_per_nexthop == new_per_nexthop)
+	if (old_per_nexthop == new_per_nexthop
+	    && new_pop_and_lookup == old_pop_and_lookup)
 		return CMD_SUCCESS;
 
 	/*
@@ -9696,6 +9677,13 @@ DEFPY(af_label_vpn_export_allocation_mode,
 	else
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+
+	if (new_pop_and_lookup)
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_POP_LOOKUP);
+	else
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_POP_LOOKUP);
 
 	/* post-change: re-export vpn routes */
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
@@ -17975,10 +17963,15 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
-	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD))
-		vty_out(vty, "%*sno label vpn export pop-and-forward\n", indent,
-			"");
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
+		vty_out(vty,
+			"%*slabel vpn export allocation-mode per-nexthop%s\n",
+			indent, "",
+			CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				   BGP_VPN_POLICY_TOVPN_LABEL_POP_LOOKUP)
+				? " pop-and-lookup"
+				: "");
 
 	tovpn_sid_index = bgp->vpn_policy[afi].tovpn_sid_index;
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
@@ -21416,10 +21409,6 @@ void bgp_vty_init(void)
 			&af_label_vpn_export_allocation_mode_cmd);
 	install_element(BGP_IPV6_NODE,
 			&af_label_vpn_export_allocation_mode_cmd);
-	install_element(BGP_IPV4_NODE,
-			&af_label_vpn_export_pop_and_forward_mode_cmd);
-	install_element(BGP_IPV6_NODE,
-			&af_label_vpn_export_pop_and_forward_mode_cmd);
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);

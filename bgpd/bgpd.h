@@ -230,7 +230,7 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP (1 << 4)
 /* Manual label is registered with zebra label manager */
 #define BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG (1 << 5)
-#define BGP_VPN_POLICY_TOVPN_LABEL_POP_FORWARD (1 << 6)
+#define BGP_VPN_POLICY_TOVPN_LABEL_POP_LOOKUP  (1 << 6)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
