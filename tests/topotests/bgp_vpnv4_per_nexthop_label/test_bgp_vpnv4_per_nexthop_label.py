@@ -843,7 +843,7 @@ def test_reconfigure_allocation_mode_nexthop():
 
 def test_unconfigure_label_pop_forward():
     """
-    Test un-configuring pop and forward configuration
+    Test configuring pop and lookup configuration
     Check that show mpls table 17 uses the vrf1 interface as outgoing interface
     Check that the label list length is not 1
     Check that the nexthop of each label is vrf1 only
@@ -852,10 +852,10 @@ def test_unconfigure_label_pop_forward():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Unconfiguring label pop and forward label behaviour")
+    logger.info("Configuring label pop and lookup label behaviour")
     router = tgen.gears["r1"]
     router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno label vpn export pop-and-forward\n",
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nlabel vpn export allocation-mode per-nexthop pop-and-lookup\n",
         isjson=False,
     )
 
@@ -888,7 +888,7 @@ def test_unconfigure_label_pop_forward():
 
 def test_reconfigure_label_pop_forward():
     """
-    Test re-configuring pop and forward configuration
+    Test un-configuring pop and lookup configuration
     Check that show mpls table 17 does not use anymore the vrf1 interface as outgoing interface
     Check that the label list length is not 1
     Check that the nexthop of each label uses nexthop ip addresses
@@ -897,10 +897,10 @@ def test_reconfigure_label_pop_forward():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Reconfiguring label pop and forward label behaviour")
+    logger.info("Unconfiguring label pop and lookup behaviour")
     router = tgen.gears["r1"]
     router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nlabel vpn export pop-and-forward\n",
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno label vpn export allocation-mode per-nexthop pop-and-lookup\n",
         isjson=False,
     )
 

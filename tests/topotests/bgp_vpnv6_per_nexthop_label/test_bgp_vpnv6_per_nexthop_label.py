@@ -855,7 +855,7 @@ def test_unconfigure_label_pop_forward():
     logger.info("Unconfiguring label pop and forward label behaviour")
     router = tgen.gears["r1"]
     dump = router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno label vpn export pop-and-forward\n",
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nlabel vpn export allocation-mode per-nexthop pop-and-lookup\n",
         isjson=False,
     )
 
@@ -900,7 +900,7 @@ def test_reconfigure_label_pop_forward():
     logger.info("Reconfiguring label pop and forward label behaviour")
     router = tgen.gears["r1"]
     dump = router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nlabel vpn export pop-and-forward\n",
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno label vpn export allocation-mode per-nexthop pop-and-lookup\n",
         isjson=False,
     )
 
