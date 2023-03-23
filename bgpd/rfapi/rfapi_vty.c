@@ -517,6 +517,7 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
 	    && bpi->extra->vnc.import.timer) {
 		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+
 		r = snprintf(p, REMAIN, " [%4lu] ",
 			     event_timer_remain_second(t));
 		INCP;
@@ -1172,6 +1173,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	}
 	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->extra) {
 		uint32_t l = decode_label(&bpi->extra->label[0]);
+
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
 			if (nlines == 1)

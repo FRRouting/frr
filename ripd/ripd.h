@@ -418,7 +418,7 @@ extern void rip_if_init(void);
 extern void rip_route_map_init(void);
 extern void rip_zebra_vrf_register(struct vrf *vrf);
 extern void rip_zebra_vrf_deregister(struct vrf *vrf);
-extern void rip_zclient_init(struct event_loop *);
+extern void rip_zclient_init(struct event_loop *e);
 extern void rip_zclient_stop(void);
 extern int if_check_address(struct rip *rip, struct in_addr addr);
 extern struct rip *rip_lookup_by_vrf_id(vrf_id_t vrf_id);

@@ -64,7 +64,7 @@ DECLARE_HEAP(event_timer_list, struct event, timeritem, event_timer_cmp);
 	do {                                                                   \
 		const unsigned char wakebyte = 0x01;                           \
 		write(m->io_pipe[1], &wakebyte, 1);                            \
-	} while (0);
+	} while (0)
 
 /* control variable for initializer */
 static pthread_once_t init_once = PTHREAD_ONCE_INIT;
@@ -105,6 +105,7 @@ static bool cpu_record_hash_cmp(const struct cpu_event_history *a,
 static void *cpu_record_hash_alloc(struct cpu_event_history *a)
 {
 	struct cpu_event_history *new;
+
 	new = XCALLOC(MTYPE_EVENT_STATS, sizeof(struct cpu_event_history));
 	new->func = a->func;
 	new->funcname = a->funcname;
@@ -203,8 +204,8 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			const char *name = m->name ? m->name : "main";
-
 			char underline[strlen(name) + 1];
+
 			memset(underline, '-', sizeof(underline));
 			underline[sizeof(underline) - 1] = '\0';
 
@@ -270,6 +271,7 @@ static void cpu_record_clear(uint8_t filter)
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			frr_with_mutex (&m->mtx) {
 				void *args[2] = {tmp, m->cpu_record};
+
 				hash_iterate(
 					m->cpu_record,
 					(void (*)(struct hash_bucket *,
@@ -447,9 +449,8 @@ DEFUN_NOSH (show_thread_poll,
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
-		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
+		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
 			show_thread_poll_helper(vty, m);
-		}
 	}
 
 	return CMD_SUCCESS;
@@ -577,6 +578,7 @@ struct event_loop *event_master_create(const char *name)
 			    sizeof(struct event *) * rv->fd_limit);
 
 	char tmhashname[strlen(name) + 32];
+
 	snprintf(tmhashname, sizeof(tmhashname), "%s - threadmaster event hash",
 		 name);
 	rv->cpu_record = hash_create_size(
@@ -691,6 +693,7 @@ void event_master_free_unused(struct event_loop *m)
 {
 	frr_with_mutex (&m->mtx) {
 		struct event *t;
+
 		while ((t = event_list_pop(&m->unuse)))
 			thread_free(m, t);
 	}
@@ -703,9 +706,8 @@ void event_master_free(struct event_loop *m)
 
 	frr_with_mutex (&masters_mtx) {
 		listnode_delete(masters, m);
-		if (masters->count == 0) {
+		if (masters->count == 0)
 			list_delete(&masters);
-		}
 	}
 
 	thread_array_free(m, m->read);
@@ -754,6 +756,7 @@ unsigned long event_timer_remain_second(struct event *thread)
 struct timeval event_timer_remain(struct event *thread)
 {
 	struct timeval remain;
+
 	frr_with_mutex (&thread->mtx) {
 		monotime_until(&thread->u.sands, &remain);
 	}
@@ -780,11 +783,11 @@ static int time_hhmmss(char *buf, int buf_size, long sec)
 
 char *event_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
-	if (t_timer) {
+	if (t_timer)
 		time_hhmmss(buf, buf_size, event_timer_remain_second(t_timer));
-	} else {
+	else
 		snprintf(buf, buf_size, "--:--:--");
-	}
+
 	return buf;
 }
 
@@ -869,15 +872,17 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	/* number of file descriptors with events */
 	int num;
 
-	if (timer_wait != NULL
-	    && m->selectpoll_timeout == 0) // use the default value
+	if (timer_wait != NULL && m->selectpoll_timeout == 0) {
+		/* use the default value */
 		timeout = (timer_wait->tv_sec * 1000)
 			  + (timer_wait->tv_usec / 1000);
-	else if (m->selectpoll_timeout > 0) // use the user's timeout
+	} else if (m->selectpoll_timeout > 0) {
+		/* use the user's timeout */
 		timeout = m->selectpoll_timeout;
-	else if (m->selectpoll_timeout
-		 < 0) // effect a poll (return immediately)
+	} else if (m->selectpoll_timeout < 0) {
+		/* effect a poll (return immediately) */
 		timeout = 0;
+	}
 
 	zlog_tls_buffer_flush();
 	rcu_read_unlock();
@@ -967,8 +972,8 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		assert(!"Number of FD's open is greater than FRR currently configured to handle, aborting");
 
 	frr_with_mutex (&m->mtx) {
+		/* Thread is already scheduled; don't reschedule */
 		if (t_ptr && *t_ptr)
-			// thread is already scheduled; don't reschedule
 			break;
 
 		/* default to a new pollfd */
@@ -979,8 +984,10 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		else
 			thread_array = m->write;
 
-		/* if we already have a pollfd for our file descriptor, find and
-		 * use it */
+		/*
+		 * if we already have a pollfd for our file descriptor, find and
+		 * use it
+		 */
 		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
@@ -1209,8 +1216,10 @@ static void event_cancel_rw(struct event_loop *master, int fd, short state,
 		master->handler.pfds[master->handler.pfdcount].events = 0;
 	}
 
-	/* If we have the same pollfd in the copy, perform the same operations,
-	 * otherwise return. */
+	/*
+	 * If we have the same pollfd in the copy, perform the same operations,
+	 * otherwise return.
+	 */
 	if (i >= master->handler.copycount)
 		return;
 
@@ -1222,7 +1231,7 @@ static void event_cancel_rw(struct event_loop *master, int fd, short state,
 				* sizeof(struct pollfd));
 		master->handler.copycount--;
 		master->handler.copy[master->handler.copycount].fd = 0;
-	        master->handler.copy[master->handler.copycount].events = 0;
+		master->handler.copy[master->handler.copycount].events = 0;
 	}
 }
 
@@ -1381,11 +1390,10 @@ static void do_event_cancel(struct event_loop *master)
 			break;
 		}
 
-		if (list) {
+		if (list)
 			event_list_del(list, thread);
-		} else if (thread_array) {
+		else if (thread_array)
 			thread_array[thread->u.fd] = NULL;
-		}
 
 		if (thread->ref)
 			*thread->ref = NULL;
@@ -1561,6 +1569,7 @@ static struct timeval *thread_timer_wait(struct event_timer_list_head *timers,
 		return NULL;
 
 	struct event *next_timer = event_timer_list_first(timers);
+
 	monotime_until(&next_timer->u.sands, timer_val);
 	return timer_val;
 }
@@ -1654,9 +1663,10 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 			thread_process_io_helper(m, m->write[pfds[i].fd],
 						 POLLOUT, pfds[i].revents, i);
 
-		/* if one of our file descriptors is garbage, remove the same
-		 * from
-		 * both pfds + update sizes and index */
+		/*
+		 * if one of our file descriptors is garbage, remove the same
+		 * from both pfds + update sizes and index
+		 */
 		if (pfds[i].revents & POLLNVAL) {
 			memmove(m->handler.pfds + i, m->handler.pfds + i + 1,
 				(m->handler.pfdcount - i - 1)
@@ -1895,19 +1905,22 @@ unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 	return timeval_elapsed(now->real, start->real);
 }
 
-/* We should aim to yield after yield milliseconds, which defaults
-   to EVENT_YIELD_TIME_SLOT .
-   Note: we are using real (wall clock) time for this calculation.
-   It could be argued that CPU time may make more sense in certain
-   contexts.  The things to consider are whether the thread may have
-   blocked (in which case wall time increases, but CPU time does not),
-   or whether the system is heavily loaded with other processes competing
-   for CPU time.  On balance, wall clock time seems to make sense.
-   Plus it has the added benefit that gettimeofday should be faster
-   than calling getrusage. */
+/*
+ * We should aim to yield after yield milliseconds, which defaults
+ * to EVENT_YIELD_TIME_SLOT .
+ * Note: we are using real (wall clock) time for this calculation.
+ * It could be argued that CPU time may make more sense in certain
+ * contexts.  The things to consider are whether the thread may have
+ * blocked (in which case wall time increases, but CPU time does not),
+ * or whether the system is heavily loaded with other processes competing
+ * for CPU time.  On balance, wall clock time seems to make sense.
+ * Plus it has the added benefit that gettimeofday should be faster
+ * than calling getrusage.
+ */
 int event_should_yield(struct event *thread)
 {
 	int result;
+
 	frr_with_mutex (&thread->mtx) {
 		result = monotime_since(&thread->real, NULL)
 			 > (int64_t)thread->yield;

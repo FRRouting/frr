@@ -110,7 +110,7 @@ struct event {
 	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
 	struct event_loop *master;    /* pointer to the struct event_loop */
-	void (*func)(struct event *); /* event function */
+	void (*func)(struct event *e); /* event function */
 	void *arg;		      /* event argument */
 	union {
 		int val;	      /* second argument of the event. */
@@ -130,7 +130,7 @@ struct event {
 #endif
 
 struct cpu_event_history {
-	void (*func)(struct event *);
+	void (*func)(struct event *e);
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
 	atomic_size_t total_starv_warn;
