@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -936,7 +921,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 	/* (1) LSA Checksum */
 	if (!ospf6_lsa_checksum_valid(new->header)) {
 		if (is_debug)
-			zlog_debug("Wrong LSA Checksum, discard");
+			zlog_debug(
+				"Wrong LSA Checksum %s (Router-ID: %pI4) [Type:%s Checksum:%#06hx), discard",
+				from->name, &from->router_id,
+				ospf6_lstype_name(new->header->type),
+				ntohs(new->header->checksum));
 		ospf6_lsa_delete(new);
 		return;
 	}
@@ -1120,9 +1109,12 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					 &new->refresh);
 		}
 
+		/* GR: check for network topology change. */
 		struct ospf6 *ospf6 = from->ospf6_if->area->ospf6;
 		struct ospf6_area *area = from->ospf6_if->area;
-		if (ospf6->gr_info.restart_in_progress)
+		if (ospf6->gr_info.restart_in_progress &&
+		    (new->header->type == ntohs(OSPF6_LSTYPE_ROUTER) ||
+		     new->header->type == ntohs(OSPF6_LSTYPE_NETWORK)))
 			ospf6_gr_check_lsdb_consistency(ospf6, area);
 
 		return;

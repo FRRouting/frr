@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020        Vmware
  *                           Sarita Patra
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -2641,8 +2628,18 @@ int
 lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify(
 	struct nb_cb_modify_args *args)
 {
+	const char *asn;
+	enum match_type match;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		asn = yang_dnode_get_string(args->dnode, NULL);
+		if (!asn)
+			return NB_ERR_VALIDATION;
+		match = asn_str2asn_match(asn);
+		if (match == exact_match)
+			return NB_OK;
+		return NB_ERR_VALIDATION;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:

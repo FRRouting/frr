@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -4777,14 +4764,11 @@ DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
       "Connection retry period (in seconds)\n")
 {
 	const char *vrfname;
-	char xpath[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
-		 "pim", vrfname, "frr-routing:ipv4");
 	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_MODIFY, holdtime_str);
 	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_MODIFY, keepalive_str);
 	if (connretry_str)
@@ -4794,8 +4778,8 @@ DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
 		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY,
 				      NULL);
 
-	nb_cli_apply_changes(vty, xpath);
-
+	nb_cli_apply_changes(vty, FRR_PIM_MSDP_XPATH, "frr-pim:pimd", "pim",
+			     vrfname, "frr-routing:ipv4");
 	return CMD_SUCCESS;
 }
 
@@ -4810,20 +4794,17 @@ DEFPY(no_ip_msdp_timers, no_ip_msdp_timers_cmd,
       IGNORED_IN_NO_STR)
 {
 	const char *vrfname;
-	char xpath[XPATH_MAXLEN];
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
-		 "pim", vrfname, "frr-routing:ipv4");
-
 	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY, NULL);
 
-	nb_cli_apply_changes(vty, xpath);
+	nb_cli_apply_changes(vty, FRR_PIM_MSDP_XPATH, "frr-pim:pimd", "pim",
+			     vrfname, "frr-routing:ipv4");
 
 	return CMD_SUCCESS;
 }

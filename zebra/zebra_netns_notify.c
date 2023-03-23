@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra NS collector and notifier for Network NameSpaces
  * Copyright (C) 2017 6WIND
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -177,6 +164,17 @@ static int zebra_ns_delete(char *name)
 			UNSET_FLAG(ifp->flags, IFF_RUNNING);
 			if_down(ifp);
 		}
+
+		if (IS_ZEBRA_IF_BOND(ifp))
+			zebra_l2if_update_bond(ifp, false);
+		if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
+			zebra_l2if_update_bond_slave(ifp, IFINDEX_INTERNAL,
+						     false);
+		/* Special handling for bridge or VxLAN interfaces. */
+		if (IS_ZEBRA_IF_BRIDGE(ifp))
+			zebra_l2_bridge_del(ifp);
+		else if (IS_ZEBRA_IF_VXLAN(ifp))
+			zebra_l2_vxlanif_del(ifp);
 
 		UNSET_FLAG(ifp->flags, IFF_UP);
 		if_delete_update(&ifp);

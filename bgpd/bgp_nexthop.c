@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP nexthop scan
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -188,15 +173,30 @@ void bgp_tip_hash_destroy(struct bgp *bgp)
 	bgp->tip_hash = NULL;
 }
 
-void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
+/* Add/Update Tunnel-IP entry of bgp martian next-hop table.
+ *
+ * Returns true only if we add a _new_ TIP so the caller knows that an
+ * actionable change has occurred. If we find an existing TIP then we
+ * only need to update the refcnt, since the collection of known TIPs
+ * has not changed.
+ */
+bool bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 {
 	struct tip_addr tmp;
 	struct tip_addr *addr;
+	bool tip_added = false;
 
 	tmp.addr = *tip;
 
-	addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
+	addr = hash_lookup(bgp->tip_hash, &tmp);
+	if (!addr) {
+		addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
+		tip_added = true;
+	}
+
 	addr->refcnt++;
+
+	return tip_added;
 }
 
 void bgp_tip_del(struct bgp *bgp, struct in_addr *tip)
@@ -802,6 +802,7 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		safi = table->safi;
 		bgp_path = table->bgp;
 
+
 		if (json) {
 			json_path = json_object_new_object();
 			json_object_string_add(json_path, "afi", afi2str(afi));
@@ -811,7 +812,8 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 						dest);
 			if (dest->pdest)
 				json_object_string_addf(
-					json_path, "rd", "%pRD",
+					json_path, "rd",
+					BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest));
 			json_object_string_add(
@@ -821,13 +823,14 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 			json_object_array_add(paths, json_path);
 			continue;
 		}
-		if (dest->pdest)
-			vty_out(vty, "    %d/%d %pBD RD %pRD %s flags 0x%x\n",
-				afi, safi, dest,
+		if (dest->pdest) {
+			vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+			vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 				(struct prefix_rd *)bgp_dest_get_prefix(
-					dest->pdest),
-				bgp_path->name_pretty, path->flags);
-		else
+					dest->pdest));
+			vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+				path->flags);
+		} else
 			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
 				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}

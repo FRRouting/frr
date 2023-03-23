@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_LOG_H
@@ -128,7 +113,23 @@ extern int proto_name2num(const char *s);
 extern int proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string(unsigned int command);
+extern const char *zserv_gr_client_cap_string(unsigned int zcc);
 
+#define OSPF_LOG(level, cond, fmt, ...)                                        \
+	do {                                                                   \
+		if (cond)                                                      \
+			zlog_##level(fmt, ##__VA_ARGS__);                      \
+	} while (0)
+
+#define OSPF_LOG_ERR(fmt, ...) OSPF_LOG(err, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_WARN(fmt, ...) OSPF_LOG(warn, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_INFO(fmt, ...) OSPF_LOG(info, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_DEBUG(cond, fmt, ...) OSPF_LOG(debug, cond, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_NOTICE(fmt, ...) OSPF_LOG(notice, true, fmt, ##__VA_ARGS__)
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {

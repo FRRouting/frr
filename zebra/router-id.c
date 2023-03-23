@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Router ID for zebra daemon.
  *
  * Copyright (C) 2004 James R. Leu
  *
  * This file is part of Quagga routing suite.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -113,9 +100,13 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 		if (addr)
 			memcpy(&p->u.prefix6, addr, sizeof(struct in6_addr));
 		return 0;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		return -1;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
@@ -133,7 +124,9 @@ static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	case AFI_IP6:
 		zvrf->rid6_user_assigned.u.prefix6 = p->u.prefix6;
 		break;
-	default:
+	case AFI_UNSPEC:
+	case AFI_L2VPN:
+	case AFI_MAX:
 		return -1;
 	}
 

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* zebra client
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1310,8 +1295,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	struct bgp_path_info local_info;
 	struct bgp_path_info *mpinfo_cp = &local_info;
 	route_tag_t tag;
-	mpls_label_t label;
 	struct bgp_sid_info *sid_info;
+	mpls_label_t *labels;
+	uint32_t num_labels = 0;
+	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
 	bool do_wt_ecmp;
@@ -1402,8 +1389,11 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		labels = NULL;
+		num_labels = 0;
 		uint32_t nh_weight;
 		bool is_evpn;
+		bool is_parent_evpn;
 
 		if (valid_nh_count >= multipath_num)
 			break;
@@ -1469,13 +1459,13 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
 
-		if (nh_family == AF_INET) {
-			is_evpn = is_route_parent_evpn(mpinfo);
+		is_parent_evpn = is_route_parent_evpn(mpinfo);
 
+		if (nh_family == AF_INET) {
 			nh_updated = update_ipv4nh_for_route_install(
 				nh_othervrf, bgp_orig,
 				&mpinfo_cp->attr->nexthop, mpinfo_cp->attr,
-				is_evpn, api_nh);
+				is_parent_evpn, api_nh);
 		} else {
 			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
@@ -1483,18 +1473,19 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
 								&ifindex);
 
-			is_evpn = is_route_parent_evpn(mpinfo);
-
 			if (!nexthop)
 				nh_updated = update_ipv4nh_for_route_install(
 					nh_othervrf, bgp_orig,
 					&mpinfo_cp->attr->nexthop,
-					mpinfo_cp->attr, is_evpn, api_nh);
+					mpinfo_cp->attr, is_parent_evpn,
+					api_nh);
 			else
 				nh_updated = update_ipv6nh_for_route_install(
 					nh_othervrf, bgp_orig, nexthop, ifindex,
-					mpinfo, info, is_evpn, api_nh);
+					mpinfo, info, is_parent_evpn, api_nh);
 		}
+
+		is_evpn = !!CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
 
 		/* Did we get proper nexthop info to update zebra? */
 		if (!nh_updated)
@@ -1509,16 +1500,28 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			|| mpinfo->peer->sort == BGP_PEER_CONFED))
 			allow_recursion = true;
 
-		if (mpinfo->extra &&
-		    bgp_is_valid_label(&mpinfo->extra->label[0]) &&
-		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
-			mpls_lse_decode(mpinfo->extra->label[0], &label, &ttl,
-					&exp, &bos);
+		if (mpinfo->extra) {
+			labels = mpinfo->extra->label;
+			num_labels = mpinfo->extra->num_labels;
+		}
+
+		if (labels && (num_labels > 0) &&
+		    (is_evpn || bgp_is_valid_label(&labels[0]))) {
+			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
+
+			if (is_evpn) {
+				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
+					labels, num_labels);
+				nh_label_type = ZEBRA_LSP_EVPN;
+			} else {
+				mpls_lse_decode(labels[0], &nh_label, &ttl,
+						&exp, &bos);
+			}
 
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
-
 			api_nh->label_num = 1;
-			api_nh->labels[0] = label;
+			api_nh->label_type = nh_label_type;
+			api_nh->labels[0] = nh_label;
 		}
 
 		if (is_evpn
@@ -1529,27 +1532,26 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		api_nh->weight = nh_weight;
 
-		if (mpinfo->extra &&
-		    bgp_is_valid_label(&mpinfo->extra->label[0]) &&
-		    !sid_zero(&mpinfo->extra->sid[0].sid) &&
-		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+		if (mpinfo->extra && !is_evpn &&
+		    bgp_is_valid_label(&labels[0]) &&
+		    !sid_zero(&mpinfo->extra->sid[0].sid)) {
 			sid_info = &mpinfo->extra->sid[0];
 
 			memcpy(&api_nh->seg6_segs, &sid_info->sid,
 			       sizeof(api_nh->seg6_segs));
 
 			if (sid_info->transposition_len != 0) {
-				mpls_lse_decode(mpinfo->extra->label[0], &label,
-						&ttl, &exp, &bos);
+				mpls_lse_decode(labels[0], &nh_label, &ttl,
+						&exp, &bos);
 
-				if (label < MPLS_LABEL_UNRESERVED_MIN) {
+				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
 					if (bgp_debug_zebra(&api.prefix))
 						zlog_debug(
 							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
 					continue;
 				}
 
-				transpose_sid(&api_nh->seg6_segs, label,
+				transpose_sid(&api_nh->seg6_segs, nh_label,
 					      sid_info->transposition_offset,
 					      sid_info->transposition_len);
 			}
@@ -2594,8 +2596,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	}
 
 	/* Find the bgp route node */
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p,
-				   &bgp->vrf_prd);
+	dest = bgp_safi_node_lookup(bgp->rib[afi][safi], safi, &p,
+				    &bgp->vrf_prd);
 	if (!dest)
 		return -1;
 
@@ -3746,16 +3748,22 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 	struct zapi_cap api;
 	int ret = BGP_GR_SUCCESS;
 
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: Sending %sable for %s", __func__,
+			   disable ? "dis" : "en", bgp->name_pretty);
+
 	if (zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("zclient invalid");
+			zlog_debug("%s: %s zclient invalid", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 
 	/* Check if the client is connected */
 	if ((zclient->sock < 0) || (zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("client not connected");
+			zlog_debug("%s: %s client not connected", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 
@@ -3774,7 +3782,8 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
-		zlog_err("error sending capability");
+		zlog_err("%s: %s error sending capability", __func__,
+			 bgp->name_pretty);
 		ret = BGP_GR_FAILURE;
 	} else {
 		if (disable)
@@ -3783,7 +3792,8 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 			bgp->present_zebra_gr_state = ZEBRA_GR_ENABLE;
 
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("send capabilty success");
+			zlog_debug("%s: %s send capabilty success", __func__,
+				   bgp->name_pretty);
 		ret = BGP_GR_SUCCESS;
 	}
 	return ret;
@@ -3792,32 +3802,41 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 /* Send route update pesding or completed status to RIB for the
  * specific AFI, SAFI
  */
-int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type)
+int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
+		     enum zserv_client_capabilities type)
 {
 	struct zapi_cap api = {0};
 
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: %s afi: %u safi: %u Command %s", __func__,
+			   bgp->name_pretty, afi, safi,
+			   zserv_gr_client_cap_string(type));
+
 	if (zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("zclient == NULL, invalid");
+			zlog_debug("%s: %s zclient == NULL, invalid", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 
 	/* Check if the client is connected */
 	if ((zclient->sock < 0) || (zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("client not connected");
+			zlog_debug("%s: %s client not connected", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 
 	api.afi = afi;
 	api.safi = safi;
-	api.vrf_id = vrf_id;
+	api.vrf_id = bgp->vrf_id;
 	api.cap = type;
 
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("error sending capability");
+			zlog_debug("%s: %s error sending capability", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 	return BGP_GR_SUCCESS;
@@ -3829,6 +3848,10 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 {
 	struct zapi_cap api;
 
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: %s Timer Update to %u", __func__,
+			   bgp->name_pretty, bgp->rib_stale_time);
+
 	if (zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("zclient invalid");
@@ -3838,7 +3861,8 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 	/* Check if the client is connected */
 	if ((zclient->sock < 0) || (zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("client not connected");
+			zlog_debug("%s: %s client not connected", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 
@@ -3849,11 +3873,11 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("error sending capability");
+			zlog_debug("%s: %s error sending capability", __func__,
+				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
-	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("send capabilty success");
+
 	return BGP_GR_SUCCESS;
 }
 

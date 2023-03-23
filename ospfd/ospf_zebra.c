@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra connect library for OSPFd
  * Copyright (C) 1997, 98, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1802,7 +1787,7 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 			    && strcmp(PREFIX_NAME_OUT(area),
 				      prefix_list_name(plist))
 				       == 0) {
-				PREFIX_LIST_IN(area) = prefix_list_lookup(
+				PREFIX_LIST_OUT(area) = prefix_list_lookup(
 					AFI_IP, PREFIX_NAME_OUT(area));
 				abr_inv++;
 			}

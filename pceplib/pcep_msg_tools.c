@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * This file is part of the PCEPlib, a PCEP protocol library.
  *
  * Copyright (C) 2020 Volta Networks https://voltanet.io/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Author : Brady Johnson <brady@voltanet.io>
  *
@@ -313,7 +301,25 @@ void pcep_obj_free_tlv(struct pcep_object_tlv_header *tlv)
 		}
 		break;
 
-	default:
+	case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+	case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+	case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+	case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
+	case PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME:
+	case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+	case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+	case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+	case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+	case PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION:
+	case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
+	case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+	case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+	case PCEP_OBJ_TYPE_CISCO_BSID:
+	case PCEP_OBJ_TLV_TYPE_ARBITRARY:
 		break;
 	}
 
@@ -387,7 +393,25 @@ void pcep_obj_free_object(struct pcep_object_header *obj)
 		}
 		break;
 
-	default:
+	case PCEP_OBJ_CLASS_OPEN:
+	case PCEP_OBJ_CLASS_RP:
+	case PCEP_OBJ_CLASS_NOPATH:
+	case PCEP_OBJ_CLASS_ENDPOINTS:
+	case PCEP_OBJ_CLASS_BANDWIDTH:
+	case PCEP_OBJ_CLASS_METRIC:
+	case PCEP_OBJ_CLASS_LSPA:
+	case PCEP_OBJ_CLASS_NOTF:
+	case PCEP_OBJ_CLASS_ERROR:
+	case PCEP_OBJ_CLASS_CLOSE:
+	case PCEP_OBJ_CLASS_OF:
+	case PCEP_OBJ_CLASS_LSP:
+	case PCEP_OBJ_CLASS_SRP:
+	case PCEP_OBJ_CLASS_VENDOR_INFO:
+	case PCEP_OBJ_CLASS_INTER_LAYER:
+	case PCEP_OBJ_CLASS_REQ_ADAP_CAP:
+	case PCEP_OBJ_CLASS_SERVER_IND:
+	case PCEP_OBJ_CLASS_ASSOCIATION:
+	case PCEP_OBJ_CLASS_MAX:
 		break;
 	}
 

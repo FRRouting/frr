@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -22,7 +9,6 @@
 #include "command.h"
 #include "libfrr.h"
 #include "printfrr.h"
-#include "lib/version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
@@ -603,7 +589,9 @@ void pcep_thread_timer_handler(struct thread *thread)
 		pcep_thread_remove_candidate_path_segments(ctrl_state,
 							   pcc_state);
 		break;
-	default:
+	case TM_PCEPLIB_TIMER:
+	case TM_UNDEFINED:
+	case TM_MAX:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unknown controller timer triggered: %u", timer_type);
 		break;
@@ -823,7 +811,7 @@ void pcep_thread_event_handler(struct thread *thread)
 		pcep_pcc_send_error(ctrl_state, pcc_state, error,
 				    (bool)sub_type);
 		break;
-	default:
+	case EV_PCEPLIB_EVENT:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected event received in controller thread: %u",
 			  type);
@@ -1074,10 +1062,16 @@ const char *timer_type_name(enum pcep_ctrl_timer_type type)
 		return "PCEPLIB_TIMER";
 	case TM_TIMEOUT:
 		return "TIMEOUT";
-	default:
+	case TM_CALCULATE_BEST_PCE:
+		return "BEST_PCE";
+	case TM_SESSION_TIMEOUT_PCC:
+		return "TIMEOUT_PCC";
+	case TM_MAX:
 		return "UNKNOWN";
 	}
-};
+
+	assert(!"Reached end of function where we did not expect to");
+}
 
 const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 {
@@ -1086,7 +1080,9 @@ const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 		return "UNDEFINED";
 	case TO_COMPUTATION_REQUEST:
 		return "COMPUTATION_REQUEST";
-	default:
+	case TO_MAX:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we did not expect to");
 }

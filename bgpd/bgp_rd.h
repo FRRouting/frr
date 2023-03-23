@@ -1,29 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP RD definitions for BGP-based VPNs (IP/EVPN)
  * -- brought over from bgpd/bgp_mplsvpn.h
  * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _QUAGGA_BGP_RD_H
 #define _QUAGGA_BGP_RD_H
 
+#include "asn.h"
+#include "prefix.h"
+
 /* RD types */
+#define RD_TYPE_UNDEFINED (-1)
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
 #define RD_TYPE_AS4     2
@@ -34,6 +22,16 @@
 
 #define RD_ADDRSTRLEN  28
 #define RD_BYTES  8
+
+#define BGP_RD_AS_FORMAT(mode)                                                 \
+	((mode == ASNOTATION_DOT)                                              \
+		 ? "%pRDD"                                                     \
+		 : ((mode == ASNOTATION_DOTPLUS) ? "%pRDE" : "%pRDP"))
+
+#define BGP_RD_AS_FORMAT_SPACE(mode)                                           \
+	((mode == ASNOTATION_DOT)                                              \
+		 ? "%-21pRDD"                                                  \
+		 : ((mode == ASNOTATION_DOTPLUS) ? "%-21pRDE" : "%-21pRDP"))
 
 struct rd_as {
 	uint16_t type;
@@ -67,7 +65,8 @@ extern void decode_rd_vnc_eth(const uint8_t *pnt,
 #endif
 
 extern int str2prefix_rd(const char *, struct prefix_rd *);
-extern char *prefix_rd2str(const struct prefix_rd *, char *, size_t);
+extern char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size,
+			   enum asnotation_mode asnotation);
 extern void form_auto_rd(struct in_addr router_id, uint16_t rd_id,
 			 struct prefix_rd *prd);
 

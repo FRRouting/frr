@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP network related fucntions
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -521,10 +506,16 @@ static void bgp_accept(struct thread *thread)
 	 * is shutdown.
 	 */
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
-				peer1->host);
+		if (bgp_debug_neighbor_events(peer1)) {
+			if (peer1->shut_during_cfg)
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to configuration being currently read in",
+					peer1->host);
+			else
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
+					peer1->host);
+		}
 		close(bgp_sock);
 		return;
 	}
@@ -553,7 +544,7 @@ static void bgp_accept(struct thread *thread)
 				peer1->host);
 
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
-			   peer1->as, peer1->as_type, NULL, false);
+			   peer1->as, peer1->as_type, NULL, false, NULL);
 
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
@@ -814,9 +805,12 @@ int bgp_getsockname(struct peer *peer)
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
-		flog_err(EC_BGP_NH_UPD,
-			 "%s: nexthop_set failed, resetting connection - intf %p",
-			 peer->host, peer->nexthop.ifp);
+		flog_err(
+			EC_BGP_NH_UPD,
+			"%s: nexthop_set failed, resetting connection - intf %s",
+			peer->host,
+			peer->nexthop.ifp ? peer->nexthop.ifp->name
+					  : "(Unknown)");
 		return -1;
 	}
 	return 0;

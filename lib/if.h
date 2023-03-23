@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Interface related header.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_IF_H
@@ -26,6 +11,7 @@
 #include "memory.h"
 #include "qobj.h"
 #include "hook.h"
+#include "admin_group.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,7 +126,7 @@ struct if_stats {
 #endif /* HAVE_PROC_NET_DEV */
 
 /* Here are "non-official" architectural constants. */
-#define TE_EXT_MASK             0x0FFFFFFF
+#define TE_EXT_MASK             0x00FFFFFF
 #define TE_EXT_ANORMAL          0x80000000
 #define LOSS_PRECISION          0.000003
 /* TE_MEGA_BIT and TE_BYTE are utilized to convert TE bandwidth */
@@ -152,6 +138,15 @@ struct if_stats {
 #define DEFAULT_BANDWIDTH 10
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
+
+enum affinity_mode {
+	/* RFC7308 Extended Administrative group */
+	AFFINITY_MODE_EXTENDED = 0,
+	/* RFC3630/RFC5305/RFC5329 Administrative group */
+	AFFINITY_MODE_STANDARD = 1,
+	/* Standard and Extended Administrative group */
+	AFFINITY_MODE_BOTH = 2,
+};
 
 /*
  * Link Parameters Status:
@@ -172,6 +167,7 @@ struct if_stats {
 #define LP_RES_BW               0x0400
 #define LP_AVA_BW               0x0800
 #define LP_USE_BW               0x1000
+#define LP_EXTEND_ADM_GRP 0x2000
 
 #define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
 #define IS_PARAM_SET(lp, st) (lp->lp_status & st)
@@ -181,7 +177,10 @@ struct if_stats {
 #define UNSET_PARAM(lp, st) (lp->lp_status) &= ~(st)
 #define RESET_LINK_PARAM(lp) (lp->lp_status = LP_UNSET)
 
-/* Link Parameters for Traffic Engineering */
+/* Link Parameters for Traffic Engineering
+ * Do not forget to update if_link_params_copy()
+ * and if_link_params_cmp() when updating the structure
+ */
 struct if_link_params {
 	uint32_t lp_status; /* Status of Link Parameters: */
 	uint32_t te_metric; /* Traffic Engineering metric */
@@ -190,7 +189,8 @@ struct if_link_params {
 	float max_rsv_bw;		/* Maximum Reservable Bandwidth */
 	float unrsv_bw[MAX_CLASS_TYPE]; /* Unreserved Bandwidth per Class Type
 					   (8) */
-	uint32_t admin_grp;		/* Administrative group */
+	uint32_t admin_grp; /* RFC5305/RFC5329 Administrative group */
+	struct admin_group ext_admin_grp; /* RFC7308 Extended Admin group */
 	uint32_t rmt_as;		/* Remote AS number */
 	struct in_addr rmt_ip;		/* Remote IP address */
 	uint32_t av_delay;		/* Link Average Delay */
@@ -592,6 +592,10 @@ struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
 struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
+bool if_link_params_cmp(struct if_link_params *iflp1,
+			struct if_link_params *iflp2);
+void if_link_params_copy(struct if_link_params *dst,
+			 struct if_link_params *src);
 struct if_link_params *if_link_params_get(struct interface *);
 struct if_link_params *if_link_params_enable(struct interface *ifp);
 struct if_link_params *if_link_params_init(struct interface *ifp);

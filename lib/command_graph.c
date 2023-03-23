@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI graph handling
  *
@@ -6,20 +7,6 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -267,9 +254,23 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 			return false;
 		return cmd_subgraph_equal(ga, gb, a->forkjoin);
 
-	default:
+	case VARIABLE_TKN:
+	case IPV4_TKN:
+	case IPV4_PREFIX_TKN:
+	case IPV6_PREFIX_TKN:
+	case IPV6_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
+	case JOIN_TKN:
+	case START_TKN:
+	case END_TKN:
+	case NEG_ONLY_TKN:
+	case WORD_TKN:
+	case ASNUM_TKN:
 		return true;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static void cmd_fork_bump_attr(struct graph_node *gn, struct graph_node *join,
@@ -477,7 +478,7 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 
 	char nbuf[512];
 	struct cmd_token *tok = gn->data;
-	const char *color;
+	const char *color = NULL;
 
 	if (wasend) {
 		wasend = false;
@@ -526,10 +527,24 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 	case WORD_TKN:
 		color = "#ffffff";
 		break;
-	default:
+	case RANGE_TKN:
+	case IPV4_TKN:
+	case IPV4_PREFIX_TKN:
+	case IPV6_TKN:
+	case IPV6_PREFIX_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
+	case END_TKN:
+	case VARIABLE_TKN:
+	case ASNUM_TKN:
 		color = "#ffffff";
 		break;
 	}
+
+	/*
+	 * Some compilers have the mistaken belief that we can
+	 * get here without initializing color.
+	 */
 	snprintf(nbuf, sizeof(nbuf),
 		 ">, style = filled, fillcolor = \"%s\" ];\n", color);
 	buffer_putstr(buf, nbuf);

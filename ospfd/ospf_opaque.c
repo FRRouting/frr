@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of rfc2370.
  * Copyright (C) 2001 KDD R&D Laboratories, Inc.
  * http://www.kddlabs.co.jp/
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -34,6 +19,7 @@
 #include "thread.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
+#include "printfrr.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -130,6 +116,10 @@ void ospf_opaque_finish(void)
 	ospf_router_info_finish();
 
 	ospf_ext_finish();
+
+#ifdef SUPPORT_OSPF_API
+	ospf_apiserver_term();
+#endif
 
 	ospf_sr_finish();
 }
@@ -1162,11 +1152,13 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 			     json_object *json)
 {
+	char buf[128], *bp;
 	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
 	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
 	uint32_t opaque_id = GET_OPAQUE_ID(lsid);
 	struct ospf_opaque_functab *functab;
+	int len, lenValid;
 
 	/* Switch output functionality by vty address. */
 	if (vty != NULL) {
@@ -1185,11 +1177,19 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 				json, "opaqueType",
 				ospf_opaque_type_name(opaque_type));
 			json_object_int_add(json, "opaqueId", opaque_id);
-			json_object_int_add(json, "opaqueDataLength",
-					    ntohs(lsah->length)
-						    - OSPF_LSA_HEADER_SIZE);
+			len = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+			json_object_int_add(json, "opaqueDataLength", len);
+			lenValid = VALID_OPAQUE_INFO_LEN(lsah);
 			json_object_boolean_add(json, "opaqueDataLengthValid",
-						VALID_OPAQUE_INFO_LEN(lsah));
+						lenValid);
+			if (lenValid) {
+				bp = asnprintfrr(MTYPE_TMP, buf, sizeof(buf),
+						 "%*pHXn", (int)len,
+						 (lsah + 1));
+				json_object_string_add(json, "opaqueData", buf);
+				if (bp != buf)
+					XFREE(MTYPE_TMP, bp);
+			}
 		}
 	} else {
 		zlog_debug("    Opaque-Type %u (%s)", opaque_type,

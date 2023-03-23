@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Declarations and definitions for kernel interaction over netlink
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_KERNEL_NETLINK_H
@@ -31,7 +16,7 @@ extern "C" {
 	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
 
 
-#define NL_RCV_PKT_BUF_SIZE     32768
+#define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
 #define NL_PKT_BUF_SIZE         8192
 
 /*
@@ -48,6 +33,8 @@ extern bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint16_t data);
 extern bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 			  uint32_t data);
+extern bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+			  uint64_t data);
 
 /*
  * nl_attr_nest - start an attribute nest.

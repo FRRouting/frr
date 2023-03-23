@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Routing Information Base header
  * Copyright (C) 1997 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RIB_H
@@ -407,12 +392,9 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     const union g_addr *addr,
 				     struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
-						    struct in_addr addr,
-						    struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv6_multicast(vrf_id_t vrf_id,
-						    struct in6_addr addr,
-						    struct route_node **rn_out);
+extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
+					       union g_addr *gaddr,
+					       struct route_node **rn_out);
 
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
@@ -624,6 +606,9 @@ extern void zebra_vty_init(void);
 extern pid_t pid;
 
 extern bool v6_rr_semantics;
+
+/* Name of hook calls */
+#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

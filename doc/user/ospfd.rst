@@ -794,37 +794,35 @@ Showing Information
 
 .. clicmd:: show ip ospf neighbor [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE [json]
 
 .. clicmd:: show ip ospf neighbor detail [json]
 
-.. clicmd:: show ip ospf neighbor A.B.C.D [detail] [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor A.B.C.D [detail] [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE detail [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE detail [json]
 
    Display lsa information of LSDB.
    Json o/p of this command covers base route information
    i.e all LSAs except opaque lsa info.
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database [self-originate] [json]
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) self-originate [json]
+   Show the OSPF database summary.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] database max-age [json]
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database self-originate [json]
+   Show all MaxAge LSAs present in the OSPF link-state database.
 
-   Show the OSPF database summary.
+.. clicmd:: show ip ospf [vrf <NAME|all>] database detail [LINK-STATE-ID] [adv-router A.B.C.D] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database detail [LINK-STATE-ID] [self-originate] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) [LINK-STATE-ID] [adv-router A.B.C.D] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) [LINK-STATE-ID] [self-originate] [json]
+
+   Show detailed information about the OSPF link-state database.
 
 .. clicmd:: show ip ospf route [json]
 

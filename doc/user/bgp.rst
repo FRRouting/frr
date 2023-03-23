@@ -254,8 +254,9 @@ ASN and Router ID
 -----------------
 
 First of all you must configure BGP router with the :clicmd:`router bgp ASN`
-command. The AS number is an identifier for the autonomous system. The BGP
-protocol uses the AS number for detecting whether the BGP connection is
+command. The AS number is an identifier for the autonomous system. The AS
+identifier can either be a number or two numbers separated by a period. The
+BGP protocol uses the AS identifier for detecting whether the BGP connection is
 internal or external.
 
 .. clicmd:: router bgp ASN
@@ -1711,6 +1712,11 @@ Configuring Peers
    If you do not want specific attributes, you can drop them using this command, and
    let the BGP proceed by ignoring those attributes.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> path-attribute treat-as-withdraw (1-255)...
+
+   Received BGP UPDATES that contain specified path attributes are treat-as-withdraw. If
+   there is an existing prefix in the BGP routing table, it will be removed.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> graceful-shutdown
 
    Mark all routes from this neighbor as less preferred by setting ``graceful-shutdown``
@@ -1837,10 +1843,20 @@ Configuring Peers
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [json] [wide]
+.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [detail] [json] [wide]
 
    For the given neighbor, WORD, that is specified list the routes selected
    by BGP as having the best path.
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
+
+   If ``json`` option is specified, output is displayed in JSON format.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
 
 .. _bgp-peer-filtering:
 
@@ -2005,9 +2021,16 @@ Capability Negotiation
 
 .. clicmd:: neighbor PEER override-capability
 
-
    Override the result of Capability Negotiation with local configuration.
    Ignore remote peer's capability value.
+
+.. clicmd:: neighbor PEER capability software-version
+
+   Send the software version in the BGP OPEN message to the neighbor. This is
+   very useful in environments with a large amount of peers with different
+   versions of FRR or any other vendor.
+
+   Disabled by default.
 
 .. _bgp-as-path-access-lists:
 
@@ -2090,9 +2113,6 @@ is 4 octet long. The following format is used to define the community value.
    format is useful to define AS oriented policy value. For example,
    ``7675:80`` can be used when AS 7675 wants to pass local policy value 80 to
    neighboring peer.
-
-``internet``
-   ``internet`` represents well-known communities value 0.
 
 ``graceful-shutdown``
    ``graceful-shutdown`` represents well-known communities value
@@ -2270,7 +2290,7 @@ Numbered Community Lists
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 When number is used for BGP community list name, the number has
-special meanings. Community list number in the range from 1 and 99 is
+special meanings. Community list number in the range from 1 to 99 is
 standard community list. Community list number in the range from 100
 to 500 is expanded community list. These community lists are called
 as numbered community lists. On the other hand normal community lists
@@ -2464,17 +2484,6 @@ community-list.
     match community FILTER
 
 
-The communities value keyword ``internet`` has special meanings in standard
-community lists. In the below example ``internet`` matches all BGP routes even
-if the route does not have communities attribute at all. So community list
-``INTERNET`` is the same as ``FILTER`` in the previous example.
-
-.. code-block:: frr
-
-   bgp community-list standard INTERNET deny 1:1
-   bgp community-list standard INTERNET permit internet
-
-
 The following configuration is an example of communities value deletion.  With
 this configuration the community values ``100:1`` and ``100:2`` are removed
 from BGP updates. For communities value deletion, only ``permit``
@@ -2543,9 +2552,6 @@ Extended Community Lists
    it return permit or deny based upon the extcommunity-list definition. When
    there is no matched entry, deny will be returned. When `extcommunity` is
    empty it matches to any routes.
-
-   A special handling for ``internet`` community is applied. It matches
-   any community.
 
 .. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 
@@ -3880,6 +3886,10 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    EVPN prefixes can also be filtered by EVPN route type.
 
+.. clicmd:: show bgp l2vpn evpn route [detail] [type <ead|1|macip|2|multicast|3|es|4|prefix|5>] self-originate [json]
+
+   Display self-originated EVPN prefixes which can also be filtered by EVPN route type.
+
 .. clicmd:: show bgp vni <all|VNI> [vtep VTEP] [type <ead|1|macip|2|multicast|3>] [<detail|json>]
 
    Display per-VNI EVPN routing table in bgp. Filter route-type, vtep, or VNI.
@@ -3919,7 +3929,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    The ``terse`` option can be used in combination with the remote-as, neighbor,
    failed and established filters, and with the ``wide`` option as well.
 
-.. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [detail] [json]
+.. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [<A.B.C.D/M|X:X::X:X/M> | detail] [json]
 
    This command shows information on a specific BGP peer of the relevant
    afi and safi selected.
@@ -3933,6 +3943,9 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    The ``received-routes`` keyword displays all routes belonging to this
    address-family (prior to inbound policy) that were received by this peer.
+
+   If a specific prefix is specified, the detailed version of that prefix will
+   be displayed.
 
    If ``detail`` option is specified, the detailed version of all routes
    will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
@@ -4033,7 +4046,16 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
-.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [detail] [json|wide]
+.. clicmd:: show [ip] bgp [afi] [safi] [all] self-originate [wide|json]
+
+   Display self-originated routes.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [<A.B.C.D/M|X:X::X:X/M> | detail] [json|wide]
 
    Display the routes advertised to a BGP neighbor or received routes
    from neighbor or filtered routes received from neighbor based on the
@@ -4049,6 +4071,9 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    routes displayed for all AFIs and SAFIs.
    if afi is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selcted AFI
+
+   If a specific prefix is specified, the detailed version of that prefix will
+   be displayed.
 
    If ``detail`` option is specified, the detailed version of all routes
    will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
@@ -4276,6 +4301,26 @@ Segment-Routing IPv6
      vpn_policy[AFI_IP].tovpn_sid: none
      vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
 
+AS-notation support
+-------------------
+
+By default, the ASN value output follows how the BGP ASN instance is
+expressed in the configuration. Three as-notation outputs are available:
+
+- plain output: both AS4B and AS2B use a single number.
+  ` router bgp 65536`.
+
+- dot output: AS4B values are using two numbers separated by a period.
+  `router bgp 1.1` means that the AS number is 65536.
+
+- dot+ output: AS2B and AS4B values are using two numbers separated by a
+  period. `router bgp 0.5` means that the AS number is 5.
+
+The below option permits forcing the as-notation output:
+
+.. clicmd:: router bgp ASN as-notation dot|dot+|plain
+
+   The chosen as-notation format will override the BGP ASN output.
 
 .. _bgp-route-reflector:
 

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra next hop tracking header
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_RNH_H
@@ -57,6 +42,12 @@ extern bool rnh_nexthop_valid(const struct route_entry *re,
 /* UI control to avoid notifications if backup nexthop status changes */
 void rnh_set_hide_backups(bool hide_p);
 bool rnh_get_hide_backups(void);
+
+void show_nexthop_json_helper(json_object *json_nexthop,
+			      const struct nexthop *nexthop,
+			      const struct route_entry *re);
+void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
+			       const struct nexthop *nexthop);
 
 #ifdef __cplusplus
 }

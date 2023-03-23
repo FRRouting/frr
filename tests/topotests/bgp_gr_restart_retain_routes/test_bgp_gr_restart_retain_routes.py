@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2022 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -96,18 +83,9 @@ def test_bgp_gr_restart_retain_routes():
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_kernel_retained_routes():
-        output = (
-            r2.cmd("ip route show 172.16.255.1/32 proto bgp dev r2-eth0")
-            .replace("\n", "")
-            .rstrip()
-        )
-        expected = "172.16.255.1 via 192.168.255.1 metric 20"
-        diff = topotest.get_textdiff(
-            output, expected, "Actual IP Routing Table", "Expected IP RoutingTable"
-        )
-        if diff:
-            return False
-        return True
+        output = json.loads(r2.cmd("ip -j route show 172.16.255.1/32 proto bgp dev r2-eth0"))
+        expected = [{"dst":"172.16.255.1","gateway":"192.168.255.1","metric":20}]
+        return topotest.json_cmp(output, expected)
 
     step("Initial BGP converge")
     test_func = functools.partial(_bgp_converge)
@@ -123,7 +101,7 @@ def test_bgp_gr_restart_retain_routes():
     assert result is None, "Failed to see BGP retained routes on R2"
 
     step("Check if routes (Kernel) are retained at R2")
-    assert _bgp_check_kernel_retained_routes() == True
+    assert _bgp_check_kernel_retained_routes() is None, "Failed to retain BGP routes in kernel on R2"
 
 
 if __name__ == "__main__":

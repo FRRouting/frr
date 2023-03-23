@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include "network.h"
@@ -320,12 +307,11 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (if_is_loopback(ifp) && if_is_loopback(src_ifp))
 				return true;
 
-			nbr = pim_neighbor_find(ifp, znh->nexthop_addr);
+			nbr = pim_neighbor_find(ifp, znh->nexthop_addr, true);
 			if (!nbr)
 				continue;
 
-			return znh->ifindex == src_ifp->ifindex &&
-			       (!pim_addr_cmp(znh->nexthop_addr, src_ip));
+			return znh->ifindex == src_ifp->ifindex;
 		}
 		return false;
 	}
@@ -354,6 +340,9 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			nhaddr = nh->gate.ipv4;
 			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			continue;
 #else
 		case NEXTHOP_TYPE_IPV6:
 			if (nh->ifindex == IFINDEX_INTERNAL)
@@ -363,12 +352,15 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			nhaddr = nh->gate.ipv6;
 			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			continue;
 #endif
 		case NEXTHOP_TYPE_IFINDEX:
 			nhaddr = bsr_addr;
 			break;
 
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
 			continue;
 		}
 
@@ -380,12 +372,13 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			return true;
 
 		/* MRIB (IGP) may be pointing at a router where PIM is down */
-		nbr = pim_neighbor_find(ifp, nhaddr);
+
+		nbr = pim_neighbor_find(ifp, nhaddr, true);
+
 		if (!nbr)
 			continue;
 
-		return nh->ifindex == src_ifp->ifindex &&
-		       (!pim_addr_cmp(nhaddr, src_ip));
+		return nh->ifindex == src_ifp->ifindex;
 	}
 	return false;
 }
@@ -568,7 +561,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 							src)) {
 				nbr = pim_neighbor_find(
 					nexthop->interface,
-					nexthop->mrib_nexthop_addr);
+					nexthop->mrib_nexthop_addr, true);
 				if (!nbr
 				    && !if_is_loopback(nexthop->interface)) {
 					if (PIM_DEBUG_PIM_NHT)
@@ -610,7 +603,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 #else
 			pim_addr nhaddr = nh_node->gate.ipv6;
 #endif
-			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
+			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr, true);
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
@@ -961,7 +954,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 					     pim->vrf->vrf_id);
 		if (ifps[i]) {
 			nbrs[i] = pim_neighbor_find(
-				ifps[i], nexthop_tab[i].nexthop_addr);
+				ifps[i], nexthop_tab[i].nexthop_addr, true);
+
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -211,10 +196,12 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 
 	/* log */
 	if (IS_OSPF6_DEBUG_NEIGHBOR(STATE)) {
-		zlog_debug("Neighbor state change %s: [%s]->[%s] (%s)",
-			   on->name, ospf6_neighbor_state_str[prev_state],
-			   ospf6_neighbor_state_str[next_state],
-			   ospf6_neighbor_event_string(event));
+		zlog_debug(
+			"Neighbor state change %s (Router-ID: %pI4): [%s]->[%s] (%s)",
+			on->name, &on->router_id,
+			ospf6_neighbor_state_str[prev_state],
+			ospf6_neighbor_state_str[next_state],
+			ospf6_neighbor_event_string(event));
 	}
 
 	/* Optionally notify about adjacency changes */
@@ -224,10 +211,13 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 			   OSPF6_LOG_ADJACENCY_DETAIL)
 		|| (next_state == OSPF6_NEIGHBOR_FULL)
 		|| (next_state < prev_state)))
-		zlog_notice("AdjChg: Nbr %s: %s -> %s (%s)", on->name,
-			    ospf6_neighbor_state_str[prev_state],
-			    ospf6_neighbor_state_str[next_state],
-			    ospf6_neighbor_event_string(event));
+		zlog_notice(
+			"AdjChg: Nbr %pI4(%s) on %s: %s -> %s (%s)",
+			&on->router_id,
+			vrf_id_to_name(on->ospf6_if->interface->vrf->vrf_id),
+			on->name, ospf6_neighbor_state_str[prev_state],
+			ospf6_neighbor_state_str[next_state],
+			ospf6_neighbor_event_string(event));
 
 	if (prev_state == OSPF6_NEIGHBOR_FULL
 	    || next_state == OSPF6_NEIGHBOR_FULL) {

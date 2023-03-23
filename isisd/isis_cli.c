@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -61,7 +48,7 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 		 vrf_name);
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	ret = nb_cli_apply_changes(vty, base_xpath);
+	ret = nb_cli_apply_changes(vty, "%s", base_xpath);
 	if (ret == CMD_SUCCESS)
 		VTY_PUSH_XPATH(ISIS_NODE, base_xpath);
 
@@ -450,6 +437,29 @@ void cli_show_isis_overload_on_startup(struct vty *vty,
 {
 	vty_out(vty, " set-overload-bit on-startup %s\n",
 		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/advertise-high-metrics
+ */
+DEFPY_YANG(advertise_high_metrics, advertise_high_metrics_cmd,
+	   "[no] advertise-high-metrics",
+	   NO_STR "Advertise high metric value on all interfaces\n")
+{
+	nb_cli_enqueue_change(vty, "./advertise-high-metrics", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_advertise_high_metrics(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " advertise-high-metrics\n");
+	else if (show_defaults)
+		vty_out(vty, " no advertise-high-metrics\n");
 }
 
 /*
@@ -902,6 +912,29 @@ void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, " lsp-mtu %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/advertise-passive-only
+ */
+DEFPY_YANG(advertise_passive_only, advertise_passive_only_cmd,
+	   "[no] advertise-passive-only",
+	   NO_STR "Advertise prefixes of passive interfaces only\n")
+{
+	nb_cli_enqueue_change(vty, "./advertise-passive-only", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_advertise_passive_only(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " advertise-passive-only\n");
 }
 
 /*
@@ -1427,7 +1460,7 @@ DEFPY_YANG(
 				      overload ? "true" : "false");
 	}
 
-	return nb_cli_apply_changes(vty, base_xpath);
+	return nb_cli_apply_changes(vty, "%s", base_xpath);
 }
 
 void cli_show_isis_mt_ipv4_multicast(struct vty *vty,
@@ -2229,15 +2262,22 @@ void cli_show_ip_isis_threeway_shake(struct vty *vty,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
  */
-DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd, "[no] isis hello padding",
-      NO_STR
-      "IS-IS routing protocol\n"
-      "Add padding to IS-IS hello packets\n"
-      "Pad hello packets\n")
+DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd,
+	   "[no] isis hello padding [during-adjacency-formation]$padding_type",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   "Type of padding for IS-IS hello packets\n"
+	   "Pad hello packets\n"
+	   "Add padding to hello packets during adjacency formation only.\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
-			      NB_OP_MODIFY, no ? "false" : "true");
-
+	if (no) {
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+				      NB_OP_MODIFY, "disabled");
+	} else {
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+				      NB_OP_MODIFY,
+				      padding_type ? padding_type : "always");
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2245,10 +2285,13 @@ void cli_show_ip_isis_hello_padding(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	int hello_padding_type = yang_dnode_get_enum(dnode, NULL);
+	if (hello_padding_type == ISIS_HELLO_PADDING_DISABLED)
 		vty_out(vty, " no");
-
-	vty_out(vty, " isis hello padding\n");
+	vty_out(vty, " isis hello padding");
+	if (hello_padding_type == ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION)
+		vty_out(vty, " during-adjacency-formation");
+	vty_out(vty, "\n");
 }
 
 /*
@@ -3150,6 +3193,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &metric_style_cmd);
 	install_element(ISIS_NODE, &no_metric_style_cmd);
 
+	install_element(ISIS_NODE, &advertise_high_metrics_cmd);
+
 	install_element(ISIS_NODE, &area_passwd_cmd);
 	install_element(ISIS_NODE, &domain_passwd_cmd);
 	install_element(ISIS_NODE, &no_area_passwd_cmd);
@@ -3164,6 +3209,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_lsp_timers_cmd);
 	install_element(ISIS_NODE, &area_lsp_mtu_cmd);
 	install_element(ISIS_NODE, &no_area_lsp_mtu_cmd);
+	install_element(ISIS_NODE, &advertise_passive_only_cmd);
 
 	install_element(ISIS_NODE, &spf_interval_cmd);
 	install_element(ISIS_NODE, &no_spf_interval_cmd);

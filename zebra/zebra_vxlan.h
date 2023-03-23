@@ -1,24 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra VxLAN (EVPN) Data structures and definitions
  * These are public definitions referenced by other files.
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_VXLAN_H
@@ -36,6 +20,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/interface.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,6 +47,10 @@ is_vxlan_flooding_head_end(void)
 #define ZEBRA_VXLIF_MCAST_GRP_CHANGE    (1 << 3)
 #define ZEBRA_VXLIF_MASTER_MAC_CHANGE (1 << 4)
 
+#define ZEBRA_VXLIF_VNI_UPDATE(__flags)                                        \
+	((__flags) & (ZEBRA_VXLIF_VLAN_CHANGE | ZEBRA_VXLIF_MCAST_GRP_CHANGE))
+#define ZEBRA_VXLIF_UPDATE(__flags)                                            \
+	((__flags) & (ZEBRA_VXLIF_LOCAL_IP_CHANGE | ZEBRA_VXLIF_MASTER_CHANGE))
 
 #define VNI_STR_LEN 32
 
@@ -84,6 +73,9 @@ extern void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS);
 
 extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
+extern ifindex_t get_l3vni_vxlan_ifindex(vrf_id_t vrf_id);
+extern vni_t get_l3vni_vni(vrf_id_t vrf_id);
+extern bool is_vrf_l3vni_svd_backed(vrf_id_t vrf_id);
 extern int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf);
 extern int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf);
 extern int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf);
@@ -153,6 +145,7 @@ extern void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t vni,
 extern void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json);
 extern void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t vni,
 				       bool use_json);
+extern void zebra_vxlan_print_nh_svd(struct vty *vty, bool use_json);
 extern void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json);
 extern void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, bool use_json);
 extern void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
@@ -177,12 +170,13 @@ extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 extern int zebra_vxlan_local_mac_del(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid);
-extern int zebra_vxlan_check_readd_vtep(struct interface *ifp,
+extern int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni,
 					struct in_addr vtep_ip);
 extern int zebra_vxlan_if_up(struct interface *ifp);
 extern int zebra_vxlan_if_down(struct interface *ifp);
 extern int zebra_vxlan_if_add(struct interface *ifp);
-extern int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags);
+extern int zebra_vxlan_if_update(struct interface *ifp,
+				 struct zebra_vxlan_if_update_ctx *ctx);
 extern int zebra_vxlan_if_del(struct interface *ifp);
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					   char *err, int err_str_sz,
@@ -218,12 +212,12 @@ extern int vni_list_cmp(void *p1, void *p2);
 extern int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 					  struct interface *br_if,
 					  struct ethaddr *macaddr, vlanid_t vid,
-					  uint32_t nhg_id, bool sticky,
-					  bool dp_static);
+					  vni_t vni, uint32_t nhg_id,
+					  bool sticky, bool dp_static);
 extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 					  struct interface *br_if,
-					  struct ethaddr *macaddr,
-					  vlanid_t vid);
+					  struct ethaddr *macaddr, vlanid_t vid,
+					  vni_t vni);
 
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);

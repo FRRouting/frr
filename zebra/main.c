@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* zebra daemon main routine.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -33,6 +18,7 @@
 #include "sigevent.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "affinitymap.h"
 #include "routemap.h"
 #include "routing_nb.h"
 
@@ -259,6 +245,7 @@ struct frr_signal_t zebra_signals[] = {
 	},
 };
 
+/* clang-format off */
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -266,8 +253,10 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_zebra_info,
 	&frr_vrf_info,
 	&frr_routing_info,
+	&frr_affinity_map_info,
 	&frr_zebra_route_map_info,
 };
+/* clang-format on */
 
 FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,

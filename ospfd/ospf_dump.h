@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd dump routine.
  * Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_DUMP_H
@@ -155,8 +140,6 @@ extern const char *ospf_area_name_string(struct ospf_area *);
 extern const char *ospf_area_desc_string(struct ospf_area *);
 extern const char *ospf_if_name_string(struct ospf_interface *);
 extern int ospf_nbr_ism_state(struct ospf_neighbor *nbr);
-extern void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf,
-				   size_t size);
 extern void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
 				       size_t size);
 extern const char *ospf_timer_dump(struct thread *, char *, size_t);

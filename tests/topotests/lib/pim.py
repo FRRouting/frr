@@ -1,20 +1,7 @@
+# SPDX-License-Identifier: ISC
 # Copyright (c) 2019 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
 # ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 
 import datetime
 import os
@@ -1827,12 +1814,12 @@ def verify_pim_state(
         else:
             pim_state_json = show_pim_state_json[grp_addr][src_address]
 
-        if pim_state_json["Installed"] == installed_fl:
+        if pim_state_json["installed"] == installed_fl:
             logger.info(
                 "[DUT %s]: group  %s is installed flag: %s",
                 dut,
                 grp_addr,
-                pim_state_json["Installed"],
+                pim_state_json["installed"],
             )
             for interface, data in pim_state_json[iif].items():
                 if interface != oil:
@@ -4537,12 +4524,11 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
 
     for dut in input_dict.keys():
         rnode = tgen.routers()[dut]
-
-        for interface, data in input_dict[dut]["igmp"]["interfaces"].items():
+        for interface, data in input_dict[dut]["mld"]["interfaces"].items():
 
             statistics = False
             report = False
-            if "statistics" in input_dict[dut]["igmp"]["interfaces"][interface]["igmp"]:
+            if "statistics" in input_dict[dut]["mld"]["interfaces"][interface]["mld"]:
                 statistics = True
                 cmd = "show ipv6 mld statistics"
             else:
@@ -4568,6 +4554,8 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                 show_ipv6_mld_intf_json = run_frr_cmd(
                     rnode, "{} interface {} json".format(cmd, interface), isjson=True
                 )
+
+            show_ipv6_mld_intf_json = show_ipv6_mld_intf_json["default"]
 
             if not report:
                 if interface not in show_ipv6_mld_intf_json:
@@ -4649,7 +4637,7 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                 for query, value in data["mld"]["query"].items():
                     if query == "query-interval":
                         # Verifying IGMP interface query interval timer
-                        if intf_detail_json["timerQueryInterval"] != value:
+                        if intf_detail_json["timerQueryIntervalMsec"] != value * 1000:
                             errormsg = (
                                 "[DUT %s]: MLD interface: %s "
                                 " query-interval verification "
@@ -4659,7 +4647,7 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                                     dut,
                                     interface,
                                     value,
-                                    intf_detail_json["timerQueryInterval"],
+                                    intf_detail_json["timerQueryIntervalMsec"],
                                 )
                             )
                             return errormsg
@@ -4668,13 +4656,13 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                             "[DUT %s]: MLD interface: %s " "query-interval is %s",
                             dut,
                             interface,
-                            value,
+                            value * 1000,
                         )
 
                     if query == "query-max-response-time":
                         # Verifying IGMP interface query max response timer
                         if (
-                            intf_detail_json["timerQueryResponseIntervalMsec"]
+                            intf_detail_json["timerQueryResponseTimerMsec"]
                             != value * 100
                         ):
                             errormsg = (
@@ -4685,8 +4673,8 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                                 % (
                                     dut,
                                     interface,
-                                    value * 1000,
-                                    intf_detail_json["timerQueryResponseIntervalMsec"],
+                                    value * 100,
+                                    intf_detail_json["timerQueryResponseTimerMsec"],
                                 )
                             )
                             return errormsg
@@ -4727,8 +4715,8 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                     if query == "last-member-query-interval":
                         # Verifying IGMP interface last member query interval
                         if (
-                            intf_detail_json["timerLastMemberQueryMsec"]
-                            != value * 100 * intf_detail_json["lastMemberQueryCount"]
+                            intf_detail_json["timerLastMemberQueryIntervalMsec"]
+                            != value * 100
                         ):
                             errormsg = (
                                 "[DUT %s]: MLD interface: %s "
@@ -4738,8 +4726,10 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                                 % (
                                     dut,
                                     interface,
-                                    value * 1000,
-                                    intf_detail_json["timerLastMemberQueryMsec"],
+                                    value * 100,
+                                    intf_detail_json[
+                                        "timerLastMemberQueryIntervalMsec"
+                                    ],
                                 )
                             )
                             return errormsg
@@ -4749,7 +4739,7 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
                             "last-member-query-interval is %s ms",
                             dut,
                             interface,
-                            value * intf_detail_json["lastMemberQueryCount"] * 100,
+                            value * 100,
                         )
 
             if "version" in data["mld"]:
@@ -4774,7 +4764,7 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
 
 
 @retry(retry_timeout=60, diag_pct=0)
-def verify_pim_nexthop(tgen, topo, dut, nexthop, addr_type):
+def verify_pim_nexthop(tgen, topo, dut, nexthop, addr_type="ipv4"):
     """
     Verify all PIM nexthop details using "show ip/ipv6 pim neighbor" cli
 
@@ -4908,6 +4898,7 @@ def verify_mroute_summary(
     return True
 
 
+@retry(retry_timeout=60, diag_pct=0)
 def verify_sg_traffic(tgen, dut, groups, src, addr_type="ipv4"):
     """
     Verify multicast traffic by running
@@ -4920,7 +4911,7 @@ def verify_sg_traffic(tgen, dut, groups, src, addr_type="ipv4"):
 
     Usage
     -----
-    result = verify_sg_traffic(tgen, "r1", igmp_groups, srcaddress)
+    result = verify_sg_traffic(tgen, "r1", igmp_groups/mld_groups, srcaddress)
 
     Returns
     -------
@@ -4986,7 +4977,7 @@ def verify_sg_traffic(tgen, dut, groups, src, addr_type="ipv4"):
         after_traffic[grp] = show_mroute_sg_traffic_json[grp][src]["packets"]
 
     for grp in groups:
-        if after_traffic[grp] < before_traffic[grp]:
+        if after_traffic[grp] <= before_traffic[grp]:
             errormsg = (
                 "[DUT %s]: Verifying igmp group %s source %s not increamenting traffic"
                 " [FAILED]!! " % (dut, grp, src)
@@ -5000,6 +4991,134 @@ def verify_sg_traffic(tgen, dut, groups, src, addr_type="ipv4"):
             result = True
 
     return result
+
+
+@retry(retry_timeout=60, diag_pct=0)
+def verify_pim6_config(tgen, input_dict, expected=True):
+    """
+    Verify pim interface details, verifying following configs:
+    drPriority
+    helloPeriod
+    helloReceived
+    helloSend
+    drAddress
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict` : Input dict data, required to verify
+                     timer
+    * `expected` : expected results from API, by-default True
+
+    Usage
+    -----
+    input_dict ={
+        "l1": {
+            "mld": {
+                "interfaces": {
+                    "l1-i1-eth1": {
+                        "pim6": {
+                                "drPriority" : 10,
+                                "helloPeriod" : 5
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    result = verify_pim6_config(tgen, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    for dut in input_dict.keys():
+        rnode = tgen.routers()[dut]
+
+        for interface, data in input_dict[dut]["pim6"]["interfaces"].items():
+
+            logger.info(
+                "[DUT: %s]: Verifying PIM6 interface %s detail:", dut, interface
+            )
+
+            show_ipv6_pim_intf_json = run_frr_cmd(
+                rnode, "show ipv6 pim interface {} json".format(interface), isjson=True
+            )
+
+            if interface not in show_ipv6_pim_intf_json:
+                errormsg = (
+                    "[DUT %s]: PIM6 interface: %s "
+                    " is not present in CLI output "
+                    "[FAILED]!! " % (dut, interface)
+                )
+                return errormsg
+
+            intf_detail_json = show_ipv6_pim_intf_json[interface]
+
+            for config, value in data.items():
+                if config == "helloPeriod":
+                    # Verifying PIM interface helloPeriod
+                    if intf_detail_json["helloPeriod"] != value:
+                        errormsg = (
+                            "[DUT %s]: PIM6 interface: %s "
+                            " helloPeriod verification "
+                            "[FAILED]!! Expected : %s,"
+                            " Found : %s"
+                            % (dut, interface, value, intf_detail_json["helloPeriod"])
+                        )
+                        return errormsg
+
+                    logger.info(
+                        "[DUT %s]: PIM6 interface: %s " "helloPeriod is %s",
+                        dut,
+                        interface,
+                        value,
+                    )
+
+                if config == "drPriority":
+                    # Verifying PIM interface drPriority
+                    if intf_detail_json["drPriority"] != value:
+                        errormsg = (
+                            "[DUT %s]: PIM6 interface: %s "
+                            " drPriority verification "
+                            "[FAILED]!! Expected : %s,"
+                            " Found : %s"
+                            % (dut, interface, value, intf_detail_json["drPriority"])
+                        )
+                        return errormsg
+
+                    logger.info(
+                        "[DUT %s]: PIM6 interface: %s " "drPriority is %s",
+                        dut,
+                        interface,
+                        value,
+                    )
+
+                if config == "drAddress":
+                    # Verifying PIM interface drAddress
+                    if intf_detail_json["drAddress"] != value:
+                        errormsg = (
+                            "[DUT %s]: PIM6 interface: %s "
+                            " drAddress verification "
+                            "[FAILED]!! Expected : %s,"
+                            " Found : %s"
+                            % (dut, interface, value, intf_detail_json["drAddress"])
+                        )
+                        return errormsg
+
+                    logger.info(
+                        "[DUT %s]: PIM6 interface: %s " "drAddress is %s",
+                        dut,
+                        interface,
+                        value,
+                    )
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
     # def cleanup(self):
     #     super(McastTesterHelper, self).cleanup()

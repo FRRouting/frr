@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 submodule frr-bgp-bmp {
   yang-version 1.1;
 

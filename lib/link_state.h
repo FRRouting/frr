@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Link State Database definition - ted.h
  *
@@ -6,25 +7,12 @@
  * Copyright (C) 2020 Orange http://www.orange.com
  *
  * This file is part of Free Range Routing (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_LINK_STATE_H_
 #define _FRR_LINK_STATE_H_
 
+#include "admin_group.h"
 #include "typesafe.h"
 
 #ifdef __cplusplus
@@ -169,6 +157,7 @@ struct ls_node {
 #define LS_ATTR_ADJ_SID6	0x04000000
 #define LS_ATTR_BCK_ADJ_SID6	0x08000000
 #define LS_ATTR_SRLG		0x10000000
+#define LS_ATTR_EXT_ADM_GRP 0x20000000
 
 /* Link State Attributes */
 struct ls_attributes {
@@ -202,6 +191,7 @@ struct ls_attributes {
 		float rsv_bw;		/* Reserved Bandwidth */
 		float used_bw;		/* Utilized Bandwidth */
 	} extended;
+	struct admin_group ext_admin_group; /* Extended Admin. Group */
 #define ADJ_PRI_IPV4	0
 #define ADJ_BCK_IPV4	1
 #define ADJ_PRI_IPV6	2

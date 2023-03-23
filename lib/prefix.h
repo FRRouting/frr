@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Prefix structure.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_PREFIX_H
@@ -398,6 +383,7 @@ extern afi_t family2afi(int);
 extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
+extern const char *afi2str_lower(afi_t afi);
 
 static inline afi_t prefix_afi(union prefixconstptr pu)
 {
@@ -659,7 +645,10 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
-#pragma FRR printfrr_ext "%pRD"  (struct prefix_rd *)
+#pragma FRR printfrr_ext "%pRDP"  (struct prefix_rd *)
+/* RD with AS4B with dot and dot+ format */
+#pragma FRR printfrr_ext "%pRDD"  (struct prefix_rd *)
+#pragma FRR printfrr_ext "%pRDE"  (struct prefix_rd *)
 
 #pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif

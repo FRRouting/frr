@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Interface looking up by netlink.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -544,7 +529,7 @@ static int netlink_extract_bridge_info(struct rtattr *link_data,
 	memset(bridge_info, 0, sizeof(*bridge_info));
 	netlink_parse_rtattr_nested(attr, IFLA_BR_MAX, link_data);
 	if (attr[IFLA_BR_VLAN_FILTERING])
-		bridge_info->vlan_aware =
+		bridge_info->bridge.vlan_aware =
 			*(uint8_t *)RTA_DATA(attr[IFLA_BR_VLAN_FILTERING]);
 	return 0;
 }
@@ -612,6 +597,7 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 static int netlink_extract_vxlan_info(struct rtattr *link_data,
 				      struct zebra_l2info_vxlan *vxl_info)
 {
+	uint8_t svd = 0;
 	struct rtattr *attr[IFLA_VXLAN_MAX + 1];
 	vni_t vni_in_msg;
 	struct in_addr vtep_ip_in_msg;
@@ -619,15 +605,33 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
 	netlink_parse_rtattr_nested(attr, IFLA_VXLAN_MAX, link_data);
-	if (!attr[IFLA_VXLAN_ID]) {
+	if (attr[IFLA_VXLAN_COLLECT_METADATA]) {
+		svd = *(uint8_t *)RTA_DATA(attr[IFLA_VXLAN_COLLECT_METADATA]);
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"IFLA_VXLAN_ID missing from VXLAN IF message");
-		return -1;
+				"IFLA_VXLAN_COLLECT_METADATA=%u in VXLAN IF message",
+				svd);
 	}
 
-	vni_in_msg = *(vni_t *)RTA_DATA(attr[IFLA_VXLAN_ID]);
-	vxl_info->vni = vni_in_msg;
+	if (!svd) {
+		/*
+		 * In case of svd we will not get vni info directly from the
+		 * device
+		 */
+		if (!attr[IFLA_VXLAN_ID]) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"IFLA_VXLAN_ID missing from VXLAN IF message");
+			return -1;
+		}
+
+		vxl_info->vni_info.iftype = ZEBRA_VXLAN_IF_VNI;
+		vni_in_msg = *(vni_t *)RTA_DATA(attr[IFLA_VXLAN_ID]);
+		vxl_info->vni_info.vni.vni = vni_in_msg;
+	} else {
+		vxl_info->vni_info.iftype = ZEBRA_VXLAN_IF_SVD;
+	}
+
 	if (!attr[IFLA_VXLAN_LOCAL]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -639,8 +643,10 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	}
 
 	if (attr[IFLA_VXLAN_GROUP]) {
-		vxl_info->mcast_grp =
-			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_GROUP]);
+		if (!svd)
+			vxl_info->vni_info.vni.mcast_grp =
+				*(struct in_addr *)RTA_DATA(
+					attr[IFLA_VXLAN_GROUP]);
 	}
 
 	if (!attr[IFLA_VXLAN_LINK]) {
@@ -701,15 +707,112 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 	}
 }
 
+static int netlink_bridge_vxlan_vlan_vni_map_update(struct interface *ifp,
+						    struct rtattr *af_spec)
+{
+	int rem;
+	vni_t vni_id;
+	vlanid_t vid;
+	uint16_t flags;
+	struct rtattr *i;
+	struct zebra_vxlan_vni vni;
+	struct zebra_vxlan_vni *vnip;
+	struct hash *vni_table = NULL;
+	struct zebra_vxlan_vni vni_end;
+	struct zebra_vxlan_vni vni_start;
+	struct rtattr *aftb[IFLA_BRIDGE_VLAN_TUNNEL_MAX + 1];
+
+	memset(&vni_start, 0, sizeof(vni_start));
+	memset(&vni_end, 0, sizeof(vni_end));
+
+	for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec); RTA_OK(i, rem);
+	     i = RTA_NEXT(i, rem)) {
+
+		if (i->rta_type != IFLA_BRIDGE_VLAN_TUNNEL_INFO)
+			continue;
+
+		memset(aftb, 0, sizeof(aftb));
+		netlink_parse_rtattr_nested(aftb, IFLA_BRIDGE_VLAN_TUNNEL_MAX,
+					    i);
+		if (!aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID] ||
+		    !aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
+			/* vlan-vni info missing */
+			return 0;
+
+		flags = 0;
+		memset(&vni, 0, sizeof(vni));
+
+		vni.vni = *(vni_t *)RTA_DATA(aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID]);
+		vni.access_vlan = *(vlanid_t *)RTA_DATA(
+			aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID]);
+
+		if (aftb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS])
+			flags = *(uint16_t *)RTA_DATA(
+				aftb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS]);
+
+		if (flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+			vni_start = vni;
+			continue;
+		}
+
+		if (flags & BRIDGE_VLAN_INFO_RANGE_END)
+			vni_end = vni;
+
+		if (!(flags & BRIDGE_VLAN_INFO_RANGE_END)) {
+			vni_start = vni;
+			vni_end = vni;
+		}
+
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"Vlan-Vni(%d:%d-%d:%d) update for VxLAN IF %s(%u)",
+				vni_start.access_vlan, vni_end.access_vlan,
+				vni_start.vni, vni_end.vni, ifp->name,
+				ifp->ifindex);
+
+		if (!vni_table) {
+			vni_table = zebra_vxlan_vni_table_create();
+			if (!vni_table)
+				return 0;
+		}
+
+		for (vid = vni_start.access_vlan, vni_id = vni_start.vni;
+		     vid <= vni_end.access_vlan; vid++, vni_id++) {
+
+			memset(&vni, 0, sizeof(vni));
+			vni.vni = vni_id;
+			vni.access_vlan = vid;
+			vnip = hash_get(vni_table, &vni, zebra_vxlan_vni_alloc);
+			if (!vnip)
+				return 0;
+		}
+
+		memset(&vni_start, 0, sizeof(vni_start));
+		memset(&vni_end, 0, sizeof(vni_end));
+	}
+
+	if (vni_table)
+		zebra_vxlan_if_vni_table_add_update(ifp, vni_table);
+
+	return 0;
+}
+
 static int netlink_bridge_vxlan_update(struct interface *ifp,
 		struct rtattr *af_spec)
 {
 	struct rtattr *aftb[IFLA_BRIDGE_MAX + 1];
 	struct bridge_vlan_info *vinfo;
+	struct zebra_if *zif;
 	vlanid_t access_vlan;
 
 	if (!af_spec)
 		return 0;
+
+	zif = (struct zebra_if *)ifp->info;
+
+	/* Single vxlan devices has vni-vlan range to update */
+	if (IS_ZEBRA_VXLAN_IF_SVD(zif))
+		return netlink_bridge_vxlan_vlan_vni_map_update(ifp, af_spec);
 
 	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
 	 * only 1 access VLAN is accepted.
@@ -1362,7 +1465,57 @@ static ssize_t netlink_intf_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	case DPLANE_OP_INTF_DELETE:
 		cmd = RTM_DELLINK;
 		break;
-	default:
+	case DPLANE_OP_NONE:
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+	case DPLANE_OP_ROUTE_DELETE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_LSP_INSTALL:
+	case DPLANE_OP_LSP_DELETE:
+	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_LSP_UPDATE:
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		flog_err(
 			EC_ZEBRA_NHG_FIB_UPDATE,
 			"Context received for kernel interface update with incorrect OP code (%u)",
@@ -1996,7 +2149,15 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if (tb[IFLA_PROTO_DOWN])
 				netlink_proc_dplane_if_protodown(ifp->info, tb);
-
+			if (IS_ZEBRA_IF_BRIDGE(ifp)) {
+				zif = ifp->info;
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug(
+						"RTM_NEWLINK ADD for %s(%u), vlan-aware %d",
+						name, ifp->ifindex,
+						IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(
+							zif));
+			}
 		} else if (ifp->vrf->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2132,6 +2293,14 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
 							     !!bypass);
+			if (IS_ZEBRA_IF_BRIDGE(ifp)) {
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug(
+						"RTM_NEWLINK update for %s(%u), vlan-aware %d",
+						name, ifp->ifindex,
+						IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(
+							zif));
+			}
 		}
 
 		zif = ifp->info;
@@ -2354,4 +2523,235 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 
 	return 0;
 }
+
+static const char *port_state2str(uint8_t state)
+{
+	switch (state) {
+	case BR_STATE_DISABLED:
+		return "DISABLED";
+	case BR_STATE_LISTENING:
+		return "LISTENING";
+	case BR_STATE_LEARNING:
+		return "LEARNING";
+	case BR_STATE_FORWARDING:
+		return "FORWARDING";
+	case BR_STATE_BLOCKING:
+		return "BLOCKING";
+	}
+
+	return "UNKNOWN";
+}
+
+static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
+				   uint8_t state)
+{
+	struct zebra_vxlan_vni *vnip;
+
+	vnip = zebra_vxlan_if_vlanid_vni_find(zif, id);
+
+	if (!vnip) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Cannot find VNI for VID (%u) IF %s for vlan state update",
+				id, zif->ifp->name);
+
+		return;
+	}
+
+	switch (state) {
+	case BR_STATE_FORWARDING:
+		zebra_vxlan_if_vni_up(zif->ifp, vnip);
+		break;
+	case BR_STATE_BLOCKING:
+		zebra_vxlan_if_vni_down(zif->ifp, vnip);
+		break;
+	case BR_STATE_DISABLED:
+	case BR_STATE_LISTENING:
+	case BR_STATE_LEARNING:
+	default:
+		/* Not used for anything at the moment */
+		break;
+	}
+}
+
+static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
+				       uint16_t id_end, uint8_t state)
+{
+	struct zebra_if *zif;
+
+	zif = (struct zebra_if *)ifp->info;
+
+	if (!zif)
+		return;
+
+	for (uint16_t i = id_start; i <= id_end; i++)
+		vxlan_vni_state_change(zif, i, state);
+}
+
+/**
+ * netlink_vlan_change() - Read in change about vlans from the kernel
+ *
+ * @h:		Netlink message header
+ * @ns_id:	Namspace id
+ * @startup:	Are we reading under startup conditions?
+ *
+ * Return:	Result status
+ */
+int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+{
+	int len, rem;
+	struct interface *ifp;
+	struct br_vlan_msg *bvm;
+	struct bridge_vlan_info *vinfo;
+	struct rtattr *vtb[BRIDGE_VLANDB_ENTRY_MAX + 1] = {};
+	struct rtattr *attr;
+	uint8_t state;
+	uint32_t vrange;
+	int type;
+
+	/* We only care about state changes for now */
+	if (!(h->nlmsg_type == RTM_NEWVLAN))
+		return 0;
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct br_vlan_msg));
+	if (len < 0) {
+		zlog_warn(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct br_vlan_msg)));
+		return -1;
+	}
+
+	bvm = NLMSG_DATA(h);
+
+	if (bvm->family != AF_BRIDGE)
+		return 0;
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), bvm->ifindex);
+	if (!ifp) {
+		zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update",
+			   bvm->ifindex);
+		return 0;
+	}
+
+	if (!IS_ZEBRA_IF_VXLAN(ifp)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
+				   ifp->name);
+
+		return 0;
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s %s IF %s NS %u",
+			   nl_msg_type_to_str(h->nlmsg_type),
+			   nl_family_to_str(bvm->family), ifp->name, ns_id);
+
+	/* Loop over "ALL" BRIDGE_VLANDB_ENTRY */
+	rem = len;
+	for (attr = BRVLAN_RTA(bvm); RTA_OK(attr, rem);
+	     attr = RTA_NEXT(attr, rem)) {
+		vinfo = NULL;
+		vrange = 0;
+
+		type = attr->rta_type & NLA_TYPE_MASK;
+
+		if (type != BRIDGE_VLANDB_ENTRY)
+			continue;
+
+		/* Parse nested entry data */
+		netlink_parse_rtattr_nested(vtb, BRIDGE_VLANDB_ENTRY_MAX, attr);
+
+		/* It must have info for the ID */
+		if (!vtb[BRIDGE_VLANDB_ENTRY_INFO])
+			continue;
+
+		vinfo = (struct bridge_vlan_info *)RTA_DATA(
+			vtb[BRIDGE_VLANDB_ENTRY_INFO]);
+
+		/*
+		 * We only care about state info, if there is none, just ignore
+		 * it.
+		 */
+		if (!vtb[BRIDGE_VLANDB_ENTRY_STATE])
+			continue;
+
+		state = *(uint8_t *)RTA_DATA(vtb[BRIDGE_VLANDB_ENTRY_STATE]);
+
+		if (vtb[BRIDGE_VLANDB_ENTRY_RANGE])
+			vrange = *(uint32_t *)RTA_DATA(
+				vtb[BRIDGE_VLANDB_ENTRY_RANGE]);
+
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN) {
+			if (vrange)
+				zlog_debug("VLANDB_ENTRY: VID (%u-%u) state=%s",
+					   vinfo->vid, vrange,
+					   port_state2str(state));
+			else
+				zlog_debug("VLANDB_ENTRY: VID (%u) state=%s",
+					   vinfo->vid, port_state2str(state));
+		}
+
+		vlan_id_range_state_change(
+			ifp, vinfo->vid, (vrange ? vrange : vinfo->vid), state);
+	}
+
+	return 0;
+}
+
+/**
+ * netlink_request_vlan() - Request vlan information from the kernel
+ * @zns:	Zebra namespace
+ * @family:	AF_* netlink family
+ * @type:	RTM_* type
+ *
+ * Return:	Result status
+ */
+static int netlink_request_vlan(struct zebra_ns *zns, int family, int type)
+{
+	struct {
+		struct nlmsghdr n;
+		struct br_vlan_msg bvm;
+		char buf[256];
+	} req;
+
+	/* Form the request, specifying filter (rtattr) if needed. */
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct br_vlan_msg));
+	req.bvm.family = family;
+
+	nl_attr_put32(&req.n, sizeof(req), BRIDGE_VLANDB_DUMP_FLAGS,
+		      BRIDGE_VLANDB_DUMPF_STATS);
+
+	return netlink_request(&zns->netlink_cmd, &req);
+}
+
+/**
+ * netlink_vlan_read() - Vlan read function using netlink interface
+ *
+ * @zns:	Zebra name space
+ *
+ * Return:	Result status
+ * Only called at bootstrap time.
+ */
+int netlink_vlan_read(struct zebra_ns *zns)
+{
+	int ret;
+	struct zebra_dplane_info dp_info;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	/* Get bridg vlan info */
+	ret = netlink_request_vlan(zns, PF_BRIDGE, RTM_GETVLAN);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_parse_info(netlink_vlan_change, &zns->netlink_cmd,
+				 &dp_info, 0, 1);
+
+	return ret;
+}
+
 #endif /* GNU_LINUX */

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPF SPF calculation.
  * Copyright (C) 1999, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -539,7 +524,7 @@ void ospf_spf_remove_resource(struct vertex *vertex, struct list *vertex_list,
 					       vertex_list);
 
 		break;
-	default:
+	case OSPF_TI_LFA_UNDEFINED_PROTECTION:
 		/* do nothing */
 		break;
 	}
@@ -1779,7 +1764,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 		if (v->type != OSPF_VERTEX_ROUTER)
 			ospf_intra_add_transit(new_table, v, area);
 		else {
-			ospf_intra_add_router(new_rtrs, v, area, false);
+			if (new_rtrs)
+				ospf_intra_add_router(new_rtrs, v, area, false);
 			if (all_rtrs)
 				ospf_intra_add_router(all_rtrs, v, area, true);
 		}

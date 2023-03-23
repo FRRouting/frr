@@ -1,26 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4, BGP-4+ packet debug routine
  * Copyright (C) 1996, 97, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include <lib/version.h>
 #include "lib/bfd.h"
 #include "lib/printfrr.h"
 #include "prefix.h"
@@ -2651,6 +2635,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	char tag_buf[30];
 	char overlay_index_buf[INET6_ADDRSTRLEN + 14];
 	const struct prefix_evpn *evp;
+	int len = 0;
 
 	/* ' with addpath ID '          17
 	 * max strlen of uint32       + 10
@@ -2704,11 +2689,15 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		}
 	}
 
-	if (prd)
-		snprintfrr(str, size, "RD %pRD %pFX%s%s%s %s %s", prd, pu.p,
+	if (prd) {
+		len += snprintfrr(str + len, size - len, "RD ");
+		len += snprintfrr(str + len, size - len,
+				  BGP_RD_AS_FORMAT(bgp_get_asnotation(NULL)),
+				  prd);
+		snprintfrr(str + len, size - len, " %pFX%s%s%s %s %s", pu.p,
 			   overlay_index_buf, tag_buf, pathid_buf, afi2str(afi),
 			   safi2str(safi));
-	else if (safi == SAFI_FLOWSPEC) {
+	} else if (safi == SAFI_FLOWSPEC) {
 		char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
 		const struct prefix_fs *fs = pu.fs;
 

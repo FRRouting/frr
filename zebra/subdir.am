@@ -62,10 +62,12 @@ zebra_zebra_SOURCES = \
 	zebra/tc_netlink.c \
 	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
+	zebra/zebra_affinitymap.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
+	zebra/zebra_l2_bridge_if.c \
 	zebra/zebra_evpn.c \
 	zebra/zebra_evpn_mac.c \
 	zebra/zebra_evpn_neigh.c \
@@ -105,6 +107,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
+	zebra/zebra_vxlan_if.c \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \
@@ -145,6 +148,7 @@ noinst_HEADERS += \
 	zebra/table_manager.h \
 	zebra/tc_netlink.h \
 	zebra/zapi_msg.h \
+	zebra/zebra_affinitymap.h \
 	zebra/zebra_dplane.h \
 	zebra/zebra_errors.h \
 	zebra/zebra_evpn.h \
@@ -183,6 +187,8 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
 	zebra/zebra_neigh.h \
+	zebra/zebra_l2_bridge_if.h \
+	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \

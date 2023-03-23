@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_circuit.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISIS_CIRCUIT_H
@@ -76,6 +63,15 @@ struct isis_circuit_arg {
 	struct isis_circuit *circuit;
 };
 
+/*
+ * Hello padding types
+ */
+enum isis_hello_padding {
+	ISIS_HELLO_PADDING_ALWAYS,
+	ISIS_HELLO_PADDING_DISABLED,
+	ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION
+};
+
 struct isis_circuit {
 	enum isis_circuit_state state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
@@ -113,7 +109,7 @@ struct isis_circuit {
 		struct isis_p2p_info p2p;
 	} u;
 	uint8_t priority[ISIS_LEVELS]; /* l1/2 IS configured priority */
-	int pad_hellos;     /* add padding to Hello PDUs ? */
+	enum isis_hello_padding pad_hellos; /* type of Hello PDUs padding */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 	uint64_t lsp_error_counter;

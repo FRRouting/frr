@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra API message creation & consumption.
  * Portions:
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -134,8 +121,6 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 		stream_putl(s, nexthop->ifindex);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		stream_put(s, &nexthop->gate.ipv6, 16);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put(s, &nexthop->gate.ipv6, 16);
 		stream_putl(s, nexthop->ifindex);
@@ -143,7 +128,7 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 	case NEXTHOP_TYPE_IFINDEX:
 		stream_putl(s, nexthop->ifindex);
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		/* do nothing */
 		break;
 	}
@@ -576,7 +561,9 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		else
 			client->redist_v6_del_cnt++;
 		break;
-	default:
+	case AFI_L2VPN:
+	case AFI_MAX:
+	case AFI_UNSPEC:
 		break;
 	}
 
@@ -1777,13 +1764,19 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			nexthop->srte_color = api_nh->srte_color;
 		}
 
-		/* MPLS labels for BGP-LU or Segment Routing */
+		/* Labels for MPLS BGP-LU or Segment Routing or EVPN */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
 		    && api_nh->label_num > 0) {
 
-			label_type = lsp_type_from_re_type(client->proto);
+			/* If label type was passed, use it */
+			if (api_nh->label_type)
+				label_type = api_nh->label_type;
+			else
+				label_type =
+					lsp_type_from_re_type(client->proto);
+
 			nexthop_add_labels(nexthop, label_type,
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
@@ -1821,7 +1814,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				mpls_label2str(nexthop->nh_label->num_labels,
 					       nexthop->nh_label->label,
 					       labelbuf, sizeof(labelbuf),
-					       false);
+					       nexthop->nh_label_type, false);
 			}
 
 			zlog_debug("%s: nh=%s, vrf_id=%d %s",
@@ -2241,17 +2234,18 @@ static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {
 	struct ipaddr addr;
 	struct route_entry *re = NULL;
+	union g_addr gaddr;
 
 	STREAM_GET_IPADDR(msg, &addr);
 
 	switch (addr.ipa_type) {
 	case IPADDR_V4:
-		re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr.ipaddr_v4,
-					      NULL);
+		gaddr.ipv4 = addr.ipaddr_v4;
+		re = rib_match_multicast(AFI_IP, zvrf_id(zvrf), &gaddr, NULL);
 		break;
 	case IPADDR_V6:
-		re = rib_match_ipv6_multicast(zvrf_id(zvrf), addr.ipaddr_v6,
-					      NULL);
+		gaddr.ipv6 = addr.ipaddr_v6;
+		re = rib_match_multicast(AFI_IP6, zvrf_id(zvrf), &gaddr, NULL);
 		break;
 	case IPADDR_NONE:
 		/* ??? */
@@ -3424,7 +3418,10 @@ static inline void zread_tc_filter(ZAPI_HANDLER_ARGS)
 			STREAM_GETL(s, filter.filter.u.flower.classid);
 			break;
 		}
-		default:
+		case TC_FILTER_BPF:
+		case TC_FILTER_FLOW:
+		case TC_FILTER_U32:
+		case TC_FILTER_UNSPEC:
 			break;
 		}
 

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP routing information base
  * Copyright (C) 1996, 97, 98, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_ROUTE_H
@@ -61,6 +46,7 @@ enum bgp_show_type {
 	bgp_show_type_detail,
 	bgp_show_type_rpki,
 	bgp_show_type_prefix_version,
+	bgp_show_type_self_originated,
 };
 
 enum bgp_show_adj_route_type {
@@ -81,7 +67,7 @@ enum bgp_show_adj_route_type {
 #define BGP_SHOW_RPKI_HEADER                                                   \
 	"RPKI validation codes: V valid, I invalid, N Not found\n\n"
 #define BGP_SHOW_HEADER "    Network          Next Hop            Metric LocPrf Weight Path\n"
-#define BGP_SHOW_HEADER_WIDE "   Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
+#define BGP_SHOW_HEADER_WIDE "    Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
 
 /* Maximum number of labels we can process or send with a prefix. We
  * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
@@ -370,6 +356,7 @@ struct bgp_static {
 
 	/* Route Distinguisher */
 	struct prefix_rd prd;
+	char *prd_pretty;
 
 	/* MPLS label.  */
 	mpls_label_t label;
@@ -751,17 +738,17 @@ extern int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *,
 				 const char *, const char *, const char *);
 
 /* this is primarily for MPLS-VPN */
-extern int bgp_update(struct peer *peer, const struct prefix *p,
-		      uint32_t addpath_id, struct attr *attr,
-		      afi_t afi, safi_t safi, int type, int sub_type,
-		      struct prefix_rd *prd, mpls_label_t *label,
-		      uint32_t num_labels, int soft_reconfig,
-		      struct bgp_route_evpn *evpn);
-extern int bgp_withdraw(struct peer *peer, const struct prefix *p,
-			uint32_t addpath_id, struct attr *attr, afi_t afi,
-			safi_t safi, int type, int sub_type,
-			struct prefix_rd *prd, mpls_label_t *label,
-			uint32_t num_labels, struct bgp_route_evpn *evpn);
+extern void bgp_update(struct peer *peer, const struct prefix *p,
+		       uint32_t addpath_id, struct attr *attr, afi_t afi,
+		       safi_t safi, int type, int sub_type,
+		       struct prefix_rd *prd, mpls_label_t *label,
+		       uint32_t num_labels, int soft_reconfig,
+		       struct bgp_route_evpn *evpn);
+extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
+			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
+			 int sub_type, struct prefix_rd *prd,
+			 mpls_label_t *label, uint32_t num_labels,
+			 struct bgp_route_evpn *evpn);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process(struct bgp *, struct bgp_dest *, afi_t, safi_t);
@@ -780,7 +767,7 @@ extern void bgp_config_write_distance(struct vty *, struct bgp *, afi_t,
 extern void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p,
 				 afi_t afi, safi_t safi,
 				 struct bgp_aggregate *aggregate);
-extern void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p,
+extern bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p,
 				afi_t afi, safi_t safi,
 				struct bgp_aggregate *aggregate);
 extern void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
@@ -833,9 +820,10 @@ extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
 
 /* for encap/vpn */
-extern struct bgp_dest *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
-					    safi_t safi, const struct prefix *p,
-					    struct prefix_rd *prd);
+extern struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table,
+					     safi_t safi,
+					     const struct prefix *p,
+					     struct prefix_rd *prd);
 extern void bgp_path_info_restore(struct bgp_dest *dest,
 				  struct bgp_path_info *path);
 
@@ -858,7 +846,8 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct bgp_dest *dest,
 					const struct prefix *p,
 					const struct prefix_rd *prd, afi_t afi,
-					safi_t safi, json_object *json);
+					safi_t safi, json_object *json,
+					bool incremental_print);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn, const struct prefix *p,
 				 struct bgp_path_info *path, afi_t afi,
@@ -889,6 +878,7 @@ extern void bgp_path_info_free_with_caller(const char *caller,
 extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
+extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
 #define bgp_path_info_add(A, B)                                                \
 	bgp_path_info_add_with_caller(__func__, (A), (B))
 #define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef RFAPI_VTY_H
@@ -62,7 +49,8 @@ extern int rfapiStr2EthAddr(const char *str, struct ethaddr *ea);
 extern const char *rfapi_ntop(int af, const void *src, char *buf,
 			      socklen_t size);
 
-extern int rfapiDebugPrintf(void *dummy, const char *format, ...);
+extern int rfapiDebugPrintf(void *dummy, const char *format, ...)
+	PRINTFRR(2, 3);
 
 extern int rfapiStream2Vty(void *stream,			  /* input */
 			   int (**fp)(void *, const char *, ...), /* output */

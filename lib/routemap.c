@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Route map function.
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,6 +20,8 @@
 #include "table.h"
 #include "json.h"
 #include "jhash.h"
+
+#include "lib/routemap_clippy.c"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
@@ -613,7 +600,8 @@ static unsigned int route_map_dep_hash_make_key(const void *p);
 static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
-static bool rmap_debug;
+
+uint32_t rmap_debug;
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -681,7 +669,7 @@ static struct route_map *route_map_add(const char *name)
 	if (!map->ipv6_prefix_table)
 		map->ipv6_prefix_table = route_table_init();
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Add route-map %s", name);
 	return map;
 }
@@ -701,7 +689,7 @@ static void route_map_free_map(struct route_map *map)
 	while ((index = map->head) != NULL)
 		route_map_index_delete(index, 0);
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Deleting route-map %s", map->name);
 
 	list = &route_map_master;
@@ -1132,7 +1120,7 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 
 	QOBJ_UNREG(index);
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Deleting route-map %s sequence %d",
 			   index->map->name, index->pref);
 
@@ -1243,7 +1231,7 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 		route_map_notify_dependencies(map->name, RMAP_EVENT_CALL_ADDED);
 	}
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Route-map %s add sequence %d, type: %s",
 			   map->name, pref, route_map_type_str(type));
 
@@ -1754,7 +1742,8 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 					ret = RMAP_MATCH;
 				break;
 
-			default:
+			case RMAP_OKAY:
+			case RMAP_ERROR:
 				break;
 			}
 
@@ -1815,26 +1804,24 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	struct route_map_index *index = NULL, *best_index = NULL;
 	struct route_map_index *head_index = NULL;
 	struct route_table *table = NULL;
-	struct prefix conv;
-	unsigned char family;
 
-	/*
-	 * Handling for matching evpn_routes in the prefix table.
-	 *
-	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
-	 * prefix matching on.
+	/* Route-map optimization relies on LPM lookups of the prefix to reduce
+	 * the amount of route-map clauses a given prefix needs to be processed
+	 * against. These LPM trees are IPv4/IPv6-specific and prefix->family
+	 * must be AF_INET or AF_INET6 in order for the lookup to succeed. So if
+	 * the AF doesn't line up with the LPM trees, skip the optimization.
 	 */
-	if (prefix->family == AF_EVPN) {
-		if (evpn_prefix2prefix(prefix, &conv) != 0)
-			return NULL;
-
-		prefix = &conv;
+	if (map->optimization_disabled ||
+	    (prefix->family == AF_INET && !map->ipv4_prefix_table) ||
+	    (prefix->family == AF_INET6 && !map->ipv6_prefix_table)) {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			zlog_debug(
+				"Skipping route-map optimization for route-map: %s, pfx: %pFX, family: %d",
+				map->name, prefix, prefix->family);
+		return map->head;
 	}
 
-
-	family = prefix->family;
-
-	if (family == AF_INET)
+	if (prefix->family == AF_INET)
 		table = map->ipv4_prefix_table;
 	else
 		table = map->ipv6_prefix_table;
@@ -2556,6 +2543,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
 	bool skip_match_clause = false;
+	struct prefix conv;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		flog_warn(
@@ -2573,37 +2561,53 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	map->applied++;
 
-	if ((!map->optimization_disabled)
-	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
-		index = route_map_get_index(map, prefix, match_object,
-					    &match_ret);
-		if (index) {
-			index->applied++;
-			if (rmap_debug)
+	/*
+	 * Handling for matching evpn_routes in the prefix table.
+	 *
+	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
+	 * prefix matching on.
+	 */
+	if (prefix->family == AF_EVPN) {
+		if (evpn_prefix2prefix(prefix, &conv) != 0) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
 				zlog_debug(
-					"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
-					map->name, index->pref, prefix,
-					route_map_cmd_result_str(match_ret));
+					"Unable to convert EVPN prefix %pFX into IPv4/IPv6 prefix. Falling back to non-optimized route-map lookup",
+					prefix);
 		} else {
-			if (rmap_debug)
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
 				zlog_debug(
-					"No best match sequence for pfx: %pFX in route-map: %s, result: %s",
-					prefix, map->name,
-					route_map_cmd_result_str(match_ret));
-			/*
-			 * No index matches this prefix. Return deny unless,
-			 * match_ret = RMAP_NOOP.
-			 */
-			if (match_ret == RMAP_NOOP)
-				ret = RMAP_PERMITMATCH;
-			else
-				ret = RMAP_DENYMATCH;
-			goto route_map_apply_end;
+					"Converted EVPN prefix %pFX into %pFX for optimized route-map lookup",
+					prefix, &conv);
+
+			prefix = &conv;
 		}
-		skip_match_clause = true;
-	} else {
-		index = map->head;
 	}
+
+	index = route_map_get_index(map, prefix, match_object, &match_ret);
+	if (index) {
+		index->applied++;
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+			zlog_debug(
+				"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
+				map->name, index->pref, prefix,
+				route_map_cmd_result_str(match_ret));
+	} else {
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+			zlog_debug(
+				"No best match sequence for pfx: %pFX in route-map: %s, result: %s",
+				prefix, map->name,
+				route_map_cmd_result_str(match_ret));
+		/*
+		 * No index matches this prefix. Return deny unless,
+		 * match_ret = RMAP_NOOP.
+		 */
+		if (match_ret == RMAP_NOOP)
+			ret = RMAP_PERMITMATCH;
+		else
+			ret = RMAP_DENYMATCH;
+		goto route_map_apply_end;
+	}
+	skip_match_clause = true;
 
 	for (; index; index = index->next) {
 		if (!skip_match_clause) {
@@ -2611,7 +2615,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
 							  prefix, match_object);
-			if (rmap_debug) {
+			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
 					map->name, index->pref, prefix,
@@ -2724,7 +2728,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 route_map_apply_end:
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Route-map: %s, prefix: %pFX, result: %s",
 			   (map ? map->name : "null"), prefix,
 			   route_map_result_str(ret));
@@ -2779,7 +2783,7 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	tmp_dep_data.rname = arg;
 	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
 	if (dep_data) {
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Clearing reference for %s to %s count: %d",
 				   dep->dep_name, tmp_dep_data.rname,
 				   dep_data->refcnt);
@@ -2799,7 +2803,7 @@ static void route_map_clear_all_references(char *rmap_name)
 {
 	int i;
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Clearing references for %s", rmap_name);
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
@@ -2875,7 +2879,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_LLIST_ADDED:
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_FILTER_ADDED:
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Adding dependency for filter %s in route-map %s",
 				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(
@@ -2904,7 +2908,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_LLIST_DELETED:
 	case RMAP_EVENT_CALL_DELETED:
 	case RMAP_EVENT_FILTER_DELETED:
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Deleting dependency for filter %s in route-map %s",
 				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(dephash, dname, NULL);
@@ -2958,7 +2962,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	}
 
 	if (dep) {
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			hash_iterate(dep->dep_rmap_hash,
 				     route_map_print_dependency, dname);
 	}
@@ -3030,7 +3034,7 @@ static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 	dep_data = bucket->data;
 	rmap_name = dep_data->rname;
 
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		zlog_debug("Notifying %s of dependency", rmap_name);
 	if (route_map_master.event_hook)
 		(*route_map_master.event_hook)(rmap_name);
@@ -3078,7 +3082,7 @@ void route_map_notify_dependencies(const char *affected_name,
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
 
-		if (rmap_debug)
+		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 			zlog_debug("Filter %s updated", dep->dep_name);
 		hash_iterate(dep->dep_rmap_hash, route_map_process_dependency,
 			     (void *)event);
@@ -3097,27 +3101,24 @@ static void clear_route_map_helper(struct route_map *map)
 		index->applied_clear = index->applied;
 }
 
-DEFUN (rmap_clear_counters,
+DEFPY (rmap_clear_counters,
        rmap_clear_counters_cmd,
-       "clear route-map counters [WORD]",
+       "clear route-map counters [RMAP_NAME$rmapname]",
        CLEAR_STR
        "route-map information\n"
        "counters associated with the specified route-map\n"
        "route-map name\n")
 {
-	int idx_word = 2;
 	struct route_map *map;
 
-	const char *name = (argc == 3 ) ? argv[idx_word]->arg : NULL;
-
-	if (name) {
-		map = route_map_lookup_by_name(name);
+	if (rmapname) {
+		map = route_map_lookup_by_name(rmapname);
 
 		if (map)
 			clear_route_map_helper(map);
 		else {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
-				frr_protonameinst, name);
+				frr_protonameinst, rmapname);
 			return CMD_SUCCESS;
 		}
 	} else {
@@ -3156,24 +3157,34 @@ DEFUN (rmap_show_unused,
 	return vty_show_unused_route_map(vty);
 }
 
-DEFUN (debug_rmap,
+DEFPY (debug_rmap,
        debug_rmap_cmd,
-       "debug route-map",
+       "debug route-map [detail]$detail",
        DEBUG_STR
-       "Debug option set for route-maps\n")
+       "Debug option set for route-maps\n"
+       "Detailed output\n")
 {
-	rmap_debug = true;
+	if (!detail)
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	else
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP | DEBUG_ROUTEMAP_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_rmap,
+DEFPY (no_debug_rmap,
        no_debug_rmap_cmd,
-       "no debug route-map",
+       "no debug route-map [detail]$detail",
        NO_STR
        DEBUG_STR
-       "Debug option set for route-maps\n")
+       "Debug option set for route-maps\n"
+       "Detailed output\n")
 {
-	rmap_debug = false;
+	if (!detail)
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
+	else
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP | DEBUG_ROUTEMAP_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
@@ -3188,7 +3199,7 @@ static struct cmd_node rmap_debug_node = {
 
 void route_map_show_debug(struct vty *vty)
 {
-	if (rmap_debug)
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		vty_out(vty, "debug route-map\n");
 }
 
@@ -3197,7 +3208,7 @@ static int rmap_config_write_debug(struct vty *vty)
 {
 	int write = 0;
 
-	if (rmap_debug) {
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)) {
 		vty_out(vty, "debug route-map\n");
 		write++;
 	}
@@ -3399,7 +3410,7 @@ void route_map_init(void)
 			8, route_map_dep_hash_make_key, route_map_dep_hash_cmp,
 			"Route Map Dep Hash");
 
-	rmap_debug = false;
+	UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
 
 	route_map_cli_init();
 

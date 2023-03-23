@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP Label Pool - Manage label chunk allocations from zebra asynchronously
  *
  * Copyright (C) 2018 LabN Consulting, L.L.C.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -743,22 +730,12 @@ DEFUN(show_bgp_labelpool_summary, show_bgp_labelpool_summary_cmd,
 
 	if (uj) {
 		json = json_object_new_object();
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-		json_object_int_add(json, "Ledger", skiplist_count(lp->ledger));
 		json_object_int_add(json, "ledger", skiplist_count(lp->ledger));
-		json_object_int_add(json, "InUse", skiplist_count(lp->inuse));
 		json_object_int_add(json, "inUse", skiplist_count(lp->inuse));
-		json_object_int_add(json, "Requests",
-				    lp_fifo_count(&lp->requests));
 		json_object_int_add(json, "requests",
 				    lp_fifo_count(&lp->requests));
-		json_object_int_add(json, "LabelChunks", listcount(lp->chunks));
 		json_object_int_add(json, "labelChunks", listcount(lp->chunks));
-		json_object_int_add(json, "Pending", lp->pending_count);
 		json_object_int_add(json, "pending", lp->pending_count);
-		json_object_int_add(json, "Reconnects", lp->reconnect_count);
 		json_object_int_add(json, "reconnects", lp->reconnect_count);
 		vty_json(vty, json);
 	} else {

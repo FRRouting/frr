@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isisd.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISISD_H
@@ -112,6 +99,8 @@ struct isis {
 
 extern struct isis_master *im;
 
+extern struct thread *t_isis_cfg;
+
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
 	SPFTREE_IPV6,
@@ -184,6 +173,10 @@ struct isis_area {
 	bool overload_configured;
 	uint32_t overload_counter;
 	uint32_t overload_on_startup_time;
+	/* advertise prefixes of passive interfaces only? */
+	bool advertise_passive_only;
+	/* Are we advertising high metrics? */
+	bool advertise_high_metrics;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -298,6 +291,8 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
 void isis_area_overload_on_startup_set(struct isis_area *area,
 				       uint32_t startup_time);
+void isis_area_advertise_high_metrics_set(struct isis_area *area,
+					  bool advertise_high_metrics);
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit);
 void isis_area_attached_bit_receive_set(struct isis_area *area,
 					bool attached_bit);
@@ -327,6 +322,8 @@ char *isis_restart_filepath(void);
 void isis_restart_write_overload_time(struct isis_area *isis_area,
 				      uint32_t overload_time);
 uint32_t isis_restart_read_overload_time(struct isis_area *isis_area);
+void config_end_lsp_generate(struct isis_area *area);
+
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"

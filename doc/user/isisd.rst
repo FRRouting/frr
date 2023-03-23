@@ -79,6 +79,12 @@ writing, *isisd* does not support multiple ISIS processes.
    - wide
      Use new style of TLVs to carry wider metric. FRR uses this as a default value
 
+.. clicmd:: advertise-high-metrics
+
+   Advertise high metric value on all interfaces to gracefully shift traffic off the router. Reference: :rfc:`3277`
+   
+   For narrow metrics, the high metric value is 63; for wide metrics, 16777215; for transition metrics, 62.
+
 .. clicmd:: set-overload-bit
 
    Set overload bit to avoid any transit traffic.
@@ -95,6 +101,9 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Configure the maximum size of generated LSPs, in bytes.
 
+.. clicmd:: advertise-passive-only
+
+   Advertise prefixes of passive interfaces only.
 
 .. _isis-timer:
 
@@ -202,6 +211,10 @@ ISIS interface
 .. clicmd:: isis hello padding
 
    Add padding to IS-IS hello packets.
+
+.. clicmd:: isis hello padding during-adjacency-formation
+
+   Add padding to IS-IS hello packets during adjacency formation only.
 
 .. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
 

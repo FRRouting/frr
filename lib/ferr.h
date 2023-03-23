@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_FERR_H
@@ -178,10 +167,12 @@ ferr_r ferr_clear(void);
 
 /* do NOT call these functions directly.  only for macro use! */
 ferr_r ferr_set_internal(const char *file, int line, const char *func,
-			 enum ferr_kind kind, const char *text, ...);
+			 enum ferr_kind kind, const char *text, ...)
+	PRINTFRR(5, 6);
 ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
 			     enum ferr_kind kind, const char *pathname,
-			     int errno_val, const char *text, ...);
+			     int errno_val, const char *text, ...)
+	PRINTFRR(7, 8);
 
 #define ferr_ok() 0
 
@@ -221,7 +212,8 @@ ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
 
 #include "vty.h"
 /* print error message to vty;  $ERR is replaced by the error's message */
-void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
+void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...)
+	PRINTFRR(3, 4);
 
 #define CMD_FERR_DO(func, action, ...)                                         \
 	do {                                                                   \

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra MPLS Data structures and definitions
  * Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_MPLS_H
@@ -446,6 +431,7 @@ static inline uint8_t lsp_distance(enum lsp_types_t type)
 		return (route_distance(ZEBRA_ROUTE_BGP));
 	case ZEBRA_LSP_NONE:
 	case ZEBRA_LSP_SHARP:
+	case ZEBRA_LSP_EVPN:
 	case ZEBRA_LSP_OSPF_SR:
 	case ZEBRA_LSP_ISIS_SR:
 	case ZEBRA_LSP_SRTE:
@@ -498,6 +484,7 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 	case ZEBRA_LSP_LDP:
 		return ZEBRA_ROUTE_LDP;
 	case ZEBRA_LSP_BGP:
+	case ZEBRA_LSP_EVPN:
 		return ZEBRA_ROUTE_BGP;
 	case ZEBRA_LSP_OSPF_SR:
 		return ZEBRA_ROUTE_OSPF;
@@ -538,6 +525,8 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "SHARP";
 	case ZEBRA_LSP_SRTE:
 		return "SR-TE";
+	case ZEBRA_LSP_EVPN:
+		return "EVPN";
 	case ZEBRA_LSP_NONE:
 		return "Unknown";
 	}

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_isis_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2017 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -531,6 +518,159 @@ def test_isis_overload_on_startup_override_timer():
 
     # Check overload bit is still set
     check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
+
+
+def test_isis_advertise_passive_only():
+    """Check that we only advertise prefixes of passive interfaces when advertise-passive-only is enabled."""
+    tgen = get_topogen()
+    net = get_topogen().net
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing isis advertise-passive-only behavior")
+    expected_prefixes_no_advertise_passive_only = set(
+        ["10.0.20.0/24", "10.254.0.1/32", "2001:db8:f::1/128", "2001:db8:1:1::/64"]
+    )
+    expected_prefixes_advertise_passive_only = set(
+        ["10.254.0.1/32", "2001:db8:f::1/128"]
+    )
+    lsp_id = "r1.00-00"
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        configure
+        router isis 1
+         no redistribute ipv4 connected level-2
+         no redistribute ipv6 connected level-2
+        interface lo
+         ip router isis 1
+         ipv6 router isis 1
+         isis passive
+        end
+        """
+    )
+
+    result = check_advertised_prefixes(
+        r1, lsp_id, expected_prefixes_no_advertise_passive_only
+    )
+    assert result is True, result
+
+    r1.vtysh_cmd(
+        """
+        configure
+        router isis 1
+         advertise-passive-only
+        end
+        """
+    )
+
+    result = check_advertised_prefixes(
+        r1, lsp_id, expected_prefixes_advertise_passive_only
+    )
+    assert result is True, result
+
+
+def test_isis_hello_padding_during_adjacency_formation():
+    """Check that IIH packets is only padded when adjacency is still being formed
+    when isis hello padding during-adjacency-formation is configured
+    """
+    tgen = get_topogen()
+    net = get_topogen().net
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing isis hello padding during-adjacency-formation behavior")
+    r3 = tgen.gears["r3"]
+
+    # Reduce hello-multiplier to make the adjacency go down faster.
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth0
+            isis hello-multiplier 2
+        """
+    )
+
+    r1 = tgen.gears["r1"]
+    cmd_output = r1.vtysh_cmd(
+        """
+        configure
+        interface r1-eth0
+            isis hello padding during-adjacency-formation
+        end
+        debug isis adj-packets
+        """
+    )
+    result = check_last_iih_packet_for_padding(r1, expect_padding=False)
+    assert result is True, result
+
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth0
+            shutdown
+        """
+    )
+    result = check_last_iih_packet_for_padding(r1, expect_padding=True)
+    assert result is True, result
+
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth0
+            no shutdown
+        """
+    )
+    result = check_last_iih_packet_for_padding(r1, expect_padding=False)
+    assert result is True, result
+
+
+@retry(retry_timeout=5)
+def check_last_iih_packet_for_padding(router, expect_padding):
+    logfilename = "{}/{}".format(router.gearlogdir, "isisd.log")
+    last_hello_packet_line = None
+    with open(logfilename, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if re.search("Sending .+? IIH", line):
+                last_hello_packet_line = line
+
+    if last_hello_packet_line is None:
+        return "Expected IIH packet in {}, but no packet found".format(logfilename)
+
+    interface_name, packet_length = re.search(
+        r"Sending .+ IIH on (.+), length (\d+)", last_hello_packet_line
+    ).group(1, 2)
+    packet_length = int(packet_length)
+    interface_output = router.vtysh_cmd("show interface {} json".format(interface_name))
+    interface_json = json.loads(interface_output)
+    padded_packet_length = interface_json[interface_name]["mtu"] - 3
+    if expect_padding:
+        if packet_length == padded_packet_length:
+            return True
+        return (
+            "Expected padded packet with length {}, got packet with length {}".format(
+                padded_packet_length, packet_length
+            )
+        )
+    if packet_length < padded_packet_length:
+        return True
+    return "Expected unpadded packet with length less than {}, got packet with length {}".format(
+        padded_packet_length, packet_length
+    )
+
+
+@retry(retry_timeout=5)
+def check_advertised_prefixes(router, lsp_id, expected_prefixes):
+    output = router.vtysh_cmd("show isis database detail {}".format(lsp_id))
+    prefixes = set(re.findall(r"IP(?:v6)? Reachability: (.*) \(Metric: 10\)", output))
+    if prefixes == expected_prefixes:
+        return True
+    return str({"expected_prefixes:": expected_prefixes, "prefixes": prefixes})
 
 
 @retry(retry_timeout=200)

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra VTY functions
  * Copyright (C) 2002 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -34,6 +19,7 @@
 #include "srcdest_table.h"
 #include "vxlan.h"
 #include "termtable.h"
+#include "affinitymap.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
@@ -41,6 +27,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_affinitymap.h"
 #include "zebra/zebra_routemap.h"
 #include "lib/json.h"
 #include "lib/route_opaque.h"
@@ -144,11 +131,12 @@ DEFUN (no_ip_multicast_mode,
 }
 
 
-DEFUN (show_ip_rpf,
+DEFPY (show_ip_rpf,
        show_ip_rpf_cmd,
-       "show ip rpf [json]",
+       "show [ip$ip|ipv6$ipv6] rpf [json]",
        SHOW_STR
        IP_STR
+       IPV6_STR
        "Display RPF information for multicast source\n"
        JSON_STR)
 {
@@ -157,32 +145,46 @@ DEFUN (show_ip_rpf,
 		.multi = false,
 	};
 
-	return do_show_ip_route(vty, VRF_DEFAULT_NAME, AFI_IP, SAFI_MULTICAST,
-				false, uj, 0, NULL, false, 0, 0, 0, false,
-				&ctx);
+	return do_show_ip_route(vty, VRF_DEFAULT_NAME, ip ? AFI_IP : AFI_IP6,
+				SAFI_MULTICAST, false, uj, 0, NULL, false, 0, 0,
+				0, false, &ctx);
 }
 
-DEFUN (show_ip_rpf_addr,
+DEFPY (show_ip_rpf_addr,
        show_ip_rpf_addr_cmd,
-       "show ip rpf A.B.C.D",
+       "show ip rpf A.B.C.D$address",
        SHOW_STR
        IP_STR
        "Display RPF information for multicast source\n"
        "IP multicast source address (e.g. 10.0.0.0)\n")
 {
-	int idx_ipv4 = 3;
-	struct in_addr addr;
 	struct route_node *rn;
 	struct route_entry *re;
-	int ret;
 
-	ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-	if (ret == 0) {
-		vty_out(vty, "%% Malformed address\n");
-		return CMD_WARNING;
-	}
+	re = rib_match_multicast(AFI_IP, VRF_DEFAULT, (union g_addr *)&address,
+				 &rn);
 
-	re = rib_match_ipv4_multicast(VRF_DEFAULT, addr, &rn);
+	if (re)
+		vty_show_ip_route_detail(vty, rn, 1, false, false);
+	else
+		vty_out(vty, "%% No match for RPF lookup\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_rpf_addr,
+       show_ipv6_rpf_addr_cmd,
+       "show ipv6 rpf X:X::X:X$address",
+       SHOW_STR
+       IPV6_STR
+       "Display RPF information for multicast source\n"
+       "IPv6 multicast source address\n")
+{
+	struct route_node *rn;
+	struct route_entry *re;
+
+	re = rib_match_multicast(AFI_IP6, VRF_DEFAULT, (union g_addr *)&address,
+				 &rn);
 
 	if (re)
 		vty_show_ip_route_detail(vty, rn, 1, false, false);
@@ -405,7 +407,8 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		}
 		break;
 
-	default:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -417,7 +420,8 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		vty_out(vty, ", label %s",
 			mpls_label2str(nexthop->nh_label->num_labels,
 				       nexthop->nh_label->label, buf,
-				       sizeof(buf), 1 /*pretty*/));
+				       sizeof(buf), nexthop->nh_label_type,
+				       1 /*pretty*/));
 	}
 
 	if (nexthop->weight)
@@ -595,340 +599,6 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		zebra_show_ip_route_opaque(vty, re, NULL);
 
 		vty_out(vty, "\n");
-	}
-}
-
-/*
- * Helper for nexthop output, used in the 'show ip route' path
- */
-static void show_route_nexthop_helper(struct vty *vty,
-				      const struct route_entry *re,
-				      const struct nexthop *nexthop)
-{
-	char buf[MPLS_LABEL_STRLEN];
-	int i;
-
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, " via %pI4", &nexthop->gate.ipv4);
-		if (nexthop->ifindex)
-			vty_out(vty, ", %s",
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
-		break;
-	case NEXTHOP_TYPE_IPV6:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		vty_out(vty, " via %s",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-				  sizeof(buf)));
-		if (nexthop->ifindex)
-			vty_out(vty, ", %s",
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
-		break;
-
-	case NEXTHOP_TYPE_IFINDEX:
-		vty_out(vty, " is directly connected, %s",
-			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id));
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		vty_out(vty, " unreachable");
-		switch (nexthop->bh_type) {
-		case BLACKHOLE_REJECT:
-			vty_out(vty, " (ICMP unreachable)");
-			break;
-		case BLACKHOLE_ADMINPROHIB:
-			vty_out(vty, " (ICMP admin-prohibited)");
-			break;
-		case BLACKHOLE_NULL:
-			vty_out(vty, " (blackhole)");
-			break;
-		case BLACKHOLE_UNSPEC:
-			break;
-		}
-		break;
-	}
-
-	if ((re == NULL || (nexthop->vrf_id != re->vrf_id)))
-		vty_out(vty, " (vrf %s)", vrf_id_to_name(nexthop->vrf_id));
-
-	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-		vty_out(vty, " inactive");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
-		vty_out(vty, " onlink");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
-		vty_out(vty, " linkdown");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-		vty_out(vty, " (recursive)");
-
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nexthop->src.ipv4.s_addr) {
-			if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
-				      sizeof(buf)))
-				vty_out(vty, ", src %s", buf);
-			/* SR-TE information */
-			if (nexthop->srte_color)
-				vty_out(vty, ", SR-TE color %u",
-					nexthop->srte_color);
-		}
-		break;
-	case NEXTHOP_TYPE_IPV6:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
-			if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
-				      sizeof(buf)))
-				vty_out(vty, ", src %s", buf);
-		}
-		break;
-	default:
-		break;
-	}
-
-	/* Label information */
-	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
-		vty_out(vty, ", label %s",
-			mpls_label2str(nexthop->nh_label->num_labels,
-				       nexthop->nh_label->label, buf,
-				       sizeof(buf), 1));
-	}
-
-	if (nexthop->nh_srv6) {
-		seg6local_context2str(buf, sizeof(buf),
-				      &nexthop->nh_srv6->seg6local_ctx,
-				      nexthop->nh_srv6->seg6local_action);
-		vty_out(vty, ", seg6local %s %s",
-			seg6local_action2str(
-				nexthop->nh_srv6->seg6local_action),
-			buf);
-
-		inet_ntop(AF_INET6, &nexthop->nh_srv6->seg6_segs, buf,
-			  sizeof(buf));
-		vty_out(vty, ", seg6 %s", buf);
-	}
-
-	if (nexthop->weight)
-		vty_out(vty, ", weight %u", nexthop->weight);
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
-
-		for (i = 1; i < nexthop->backup_num; i++)
-			vty_out(vty, ",%d", nexthop->backup_idx[i]);
-	}
-}
-
-
-/*
- * Render a nexthop into a json object; the caller allocates and owns
- * the json object memory.
- */
-static void show_nexthop_json_helper(json_object *json_nexthop,
-				     const struct nexthop *nexthop,
-				     const struct route_entry *re)
-{
-	char buf[SRCDEST2STR_BUFFER];
-	json_object *json_labels = NULL;
-	json_object *json_backups = NULL;
-	json_object *json_seg6local = NULL;
-	json_object *json_seg6 = NULL;
-	int i;
-
-	json_object_int_add(json_nexthop, "flags",
-			    nexthop->flags);
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
-		json_object_boolean_true_add(json_nexthop,
-					     "duplicate");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-		json_object_boolean_true_add(json_nexthop,
-					     "fib");
-
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_addf(json_nexthop, "ip", "%pI4",
-					&nexthop->gate.ipv4);
-		json_object_string_add(json_nexthop, "afi",
-				       "ipv4");
-
-		if (nexthop->ifindex) {
-			json_object_int_add(json_nexthop,
-					    "interfaceIndex",
-					    nexthop->ifindex);
-			json_object_string_add(
-				json_nexthop, "interfaceName",
-				ifindex2ifname(
-					nexthop->ifindex,
-					nexthop->vrf_id));
-		}
-		break;
-	case NEXTHOP_TYPE_IPV6:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		json_object_string_addf(json_nexthop, "ip", "%pI6",
-					&nexthop->gate.ipv6);
-		json_object_string_add(json_nexthop, "afi",
-				       "ipv6");
-
-		if (nexthop->ifindex) {
-			json_object_int_add(json_nexthop,
-					    "interfaceIndex",
-					    nexthop->ifindex);
-			json_object_string_add(
-				json_nexthop, "interfaceName",
-				ifindex2ifname(
-					nexthop->ifindex,
-					nexthop->vrf_id));
-		}
-		break;
-
-	case NEXTHOP_TYPE_IFINDEX:
-		json_object_boolean_true_add(
-			json_nexthop, "directlyConnected");
-		json_object_int_add(json_nexthop,
-				    "interfaceIndex",
-				    nexthop->ifindex);
-		json_object_string_add(
-			json_nexthop, "interfaceName",
-			ifindex2ifname(nexthop->ifindex,
-				       nexthop->vrf_id));
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		json_object_boolean_true_add(json_nexthop,
-					     "unreachable");
-		switch (nexthop->bh_type) {
-		case BLACKHOLE_REJECT:
-			json_object_boolean_true_add(
-				json_nexthop, "reject");
-			break;
-		case BLACKHOLE_ADMINPROHIB:
-			json_object_boolean_true_add(json_nexthop,
-						     "adminProhibited");
-			break;
-		case BLACKHOLE_NULL:
-			json_object_boolean_true_add(
-				json_nexthop, "blackhole");
-			break;
-		case BLACKHOLE_UNSPEC:
-			break;
-		}
-		break;
-	}
-
-	/* This nexthop is a resolver for the parent nexthop.
-	 * Set resolver flag for better clarity and delimiter
-	 * in flat list of nexthops in json.
-	 */
-	if (nexthop->rparent)
-		json_object_boolean_true_add(json_nexthop, "resolver");
-
-	if ((re == NULL || (nexthop->vrf_id != re->vrf_id)))
-		json_object_string_add(json_nexthop, "vrf",
-				       vrf_id_to_name(nexthop->vrf_id));
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
-		json_object_boolean_true_add(json_nexthop,
-					     "duplicate");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-		json_object_boolean_true_add(json_nexthop,
-					     "active");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
-		json_object_boolean_true_add(json_nexthop, "onLink");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
-		json_object_boolean_true_add(json_nexthop, "linkDown");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-		json_object_boolean_true_add(json_nexthop,
-					     "recursive");
-
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-		json_backups = json_object_new_array();
-		for (i = 0; i < nexthop->backup_num; i++) {
-			json_object_array_add(
-				json_backups,
-				json_object_new_int(nexthop->backup_idx[i]));
-		}
-
-		json_object_object_add(json_nexthop, "backupIndex",
-				       json_backups);
-	}
-
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nexthop->src.ipv4.s_addr) {
-			if (inet_ntop(AF_INET,
-				      &nexthop->src.ipv4, buf,
-				      sizeof(buf)))
-				json_object_string_add(
-					json_nexthop, "source",
-					buf);
-		}
-		break;
-	case NEXTHOP_TYPE_IPV6:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6,
-				    &in6addr_any)) {
-			if (inet_ntop(AF_INET6,
-				      &nexthop->src.ipv6, buf,
-				      sizeof(buf)))
-				json_object_string_add(
-					json_nexthop, "source",
-					buf);
-		}
-		break;
-	default:
-		break;
-	}
-
-	if (nexthop->nh_label
-	    && nexthop->nh_label->num_labels) {
-		json_labels = json_object_new_array();
-
-		for (int label_index = 0;
-		     label_index
-			     < nexthop->nh_label->num_labels;
-		     label_index++)
-			json_object_array_add(
-				json_labels,
-				json_object_new_int(
-					nexthop->nh_label->label
-					[label_index]));
-
-		json_object_object_add(json_nexthop, "labels",
-				       json_labels);
-	}
-
-	if (nexthop->weight)
-		json_object_int_add(json_nexthop, "weight",
-				    nexthop->weight);
-
-	if (nexthop->srte_color)
-		json_object_int_add(json_nexthop, "srteColor",
-				    nexthop->srte_color);
-
-	if (nexthop->nh_srv6) {
-		json_seg6local = json_object_new_object();
-		json_object_string_add(
-			json_seg6local, "action", seg6local_action2str(
-			nexthop->nh_srv6->seg6local_action));
-		json_object_object_add(json_nexthop, "seg6local",
-				       json_seg6local);
-
-		json_seg6 = json_object_new_object();
-		inet_ntop(AF_INET6, &nexthop->nh_srv6->seg6_segs, buf,
-			  sizeof(buf));
-		json_object_string_add(json_seg6, "segs", buf);
-		json_object_object_add(json_nexthop, "seg6", json_seg6);
 	}
 }
 
@@ -1410,7 +1080,9 @@ DEFPY (show_ip_nht,
 							       zvrf_name(zvrf),
 							       json_vrf);
 					json_object_object_add(json_vrf,
-							       "nexthops",
+							       (afi == AFI_IP)
+								       ? "ipv4"
+								       : "ipv6",
 							       json_nexthop);
 				} else {
 					vty_out(vty, "\nVRF %s:\n",
@@ -1447,7 +1119,9 @@ DEFPY (show_ip_nht,
 		else
 			json_object_object_add(json, "default", json_vrf);
 
-		json_object_object_add(json_vrf, "nexthops", json_nexthop);
+		json_object_object_add(json_vrf,
+				       (afi == AFI_IP) ? "ipv4" : "ipv6",
+				       json_nexthop);
 	}
 
 	zebra_print_rnh_table(vrf_id, afi, safi, vty, p, json_nexthop);
@@ -3345,20 +3019,37 @@ DEFPY(show_evpn_es_evi,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_evpn_access_vlan,
-      show_evpn_access_vlan_cmd,
-      "show evpn access-vlan [(1-4094)$vid | detail$detail] [json$json]",
+DEFPY(show_evpn_access_vlan, show_evpn_access_vlan_cmd,
+      "show evpn access-vlan [IFNAME$if_name (1-4094)$vid | detail$detail] [json$json]",
       SHOW_STR
       "EVPN\n"
       "Access VLANs\n"
+      "Interface Name\n"
       "VLAN ID\n"
-      "Detailed information\n"
-      JSON_STR)
+      "Detailed information\n" JSON_STR)
 {
 	bool uj = !!json;
 
-	if (vid) {
-		zebra_evpn_acc_vl_show_vid(vty, uj, vid);
+	if (if_name && vid) {
+		bool found = false;
+		struct vrf *vrf;
+		struct interface *ifp;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			if (if_name) {
+				ifp = if_lookup_by_name(if_name, vrf->vrf_id);
+				if (ifp) {
+					zebra_evpn_acc_vl_show_vid(vty, uj, vid,
+								   ifp);
+					found = true;
+					break;
+				}
+			}
+		}
+		if (!found) {
+			vty_out(vty, "%% Can't find interface %s\n", if_name);
+			return CMD_WARNING;
+		}
 	} else {
 		if (detail)
 			zebra_evpn_acc_vl_show_detail(vty, uj);
@@ -3508,6 +3199,30 @@ DEFUN (show_evpn_nh_vni_ip,
 	return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (show_evpn_nh_svd_ip,
+              show_evpn_nh_svd_ip_cmd,
+              "show evpn next-hops svd ip WORD [json]",
+              SHOW_STR
+              "EVPN\n"
+              "Remote Vteps\n"
+              "Single Vxlan Device\n"
+              "Ip address\n"
+              "Host address (ipv4 or ipv6)\n"
+              JSON_STR)
+{
+	struct ipaddr ip;
+	bool uj = use_json(argc, argv);
+
+	if (str2ipaddr(argv[5]->arg, &ip) != 0) {
+		if (!uj)
+			vty_out(vty, "%% Malformed Neighbor address\n");
+		return CMD_WARNING;
+	}
+	zebra_vxlan_print_specific_nh_l3vni(vty, 0, &ip, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_nh_vni,
        show_evpn_nh_vni_cmd,
        "show evpn next-hops vni " CMD_VNI_RANGE "[json]",
@@ -3523,6 +3238,22 @@ DEFUN (show_evpn_nh_vni,
 
 	l3vni = strtoul(argv[4]->arg, NULL, 10);
 	zebra_vxlan_print_nh_l3vni(vty, l3vni, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (show_evpn_nh_svd,
+              show_evpn_nh_svd_cmd,
+              "show evpn next-hops svd [json]",
+              SHOW_STR
+              "EVPN\n"
+              "Remote VTEPs\n"
+              "Single Vxlan Device\n"
+              JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+
+	zebra_vxlan_print_nh_svd(vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -4825,6 +4556,8 @@ void zebra_vty_init(void)
 	/* Route-map */
 	zebra_route_map_init();
 
+	zebra_affinity_map_init();
+
 	install_node(&ip_node);
 	install_node(&protocol_node);
 
@@ -4858,6 +4591,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_ip_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);
+	install_element(VIEW_NODE, &show_ipv6_rpf_addr_cmd);
 
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
@@ -4882,7 +4616,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_vni_ip_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_svd_ip_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_svd_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_cmd);

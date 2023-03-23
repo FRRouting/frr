@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Kernel communication using routing socket.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1226,7 +1211,8 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	case BLACKHOLE_REJECT:
 		msg.rtm.rtm_flags |= RTF_REJECT;
 		break;
-	default:
+	case BLACKHOLE_NULL:
+	case BLACKHOLE_ADMINPROHIB:
 		msg.rtm.rtm_flags |= RTF_BLACKHOLE;
 		break;
 	}
@@ -1516,13 +1502,13 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 	return 0;
 }
 
-void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q handled_list;
+	struct dplane_ctx_list_head handled_list;
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
-	TAILQ_INIT(&handled_list);
+	dplane_ctx_q_init(&handled_list);
 
 	while (true) {
 		ctx = dplane_ctx_dequeue(ctx_list);
@@ -1642,7 +1628,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 		dplane_ctx_enqueue_tail(&handled_list, ctx);
 	}
 
-	TAILQ_INIT(ctx_list);
+	dplane_ctx_q_init(ctx_list);
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 

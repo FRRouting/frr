@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_lsp.c
  *                             LSP processing
@@ -6,20 +7,6 @@
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2013-2015   Christian Franke <chris@opensourcerouting.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1184,6 +1171,13 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			continue;
 		}
 
+		if (area->advertise_passive_only && !circuit->is_passive) {
+			lsp_debug(
+				"ISIS (%s): Circuit is not passive, ignoring.",
+				area->area_tag);
+			continue;
+		}
+
 		uint32_t metric = area->oldmetric
 					  ? circuit->metric[level - 1]
 					  : circuit->te_metric[level - 1];
@@ -1376,6 +1370,10 @@ int lsp_generate(struct isis_area *area, int level)
 
 	if ((area == NULL) || (area->is_type & level) != level)
 		return ISIS_ERROR;
+
+	/* Check if config is still being processed */
+	if (thread_is_scheduled(t_isis_cfg))
+		return ISIS_OK;
 
 	memset(&lspid, 0, ISIS_SYS_ID_LEN + 2);
 

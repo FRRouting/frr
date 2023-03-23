@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * STATICd - main code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -39,6 +26,8 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 #include "static_nb.h"
+
+#include "mgmt_be_client.h"
 
 char backup_config_file[256];
 
@@ -64,6 +53,8 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct thread_master *master;
 
+uintptr_t mgmt_lib_hndl;
+
 static struct frr_daemon_info staticd_di;
 /* SIGHUP handler. */
 static void sighup(void)
@@ -76,6 +67,11 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+
+	/* Disable BFD events to avoid wasting processing. */
+	bfd_protocol_integration_set_shutdown(true);
+
+	mgmt_be_client_lib_destroy(mgmt_lib_hndl);
 
 	static_vrf_terminate();
 
@@ -108,6 +104,51 @@ struct frr_signal_t static_signals[] = {
 		.signal = SIGTERM,
 		.handler = &sigint,
 	},
+};
+
+static void static_mgmt_be_client_connect(uintptr_t lib_hndl,
+					  uintptr_t usr_data, bool connected)
+{
+	(void)usr_data;
+
+	assert(lib_hndl == mgmt_lib_hndl);
+
+	zlog_debug("Got %s %s MGMTD Backend Client Server",
+		   connected ? "connected" : "disconnected",
+		   connected ? "to" : "from");
+
+	if (connected)
+		(void)mgmt_be_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
+}
+
+#if 0
+static void
+static_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
+			struct mgmt_be_client_txn_ctx *txn_ctx,
+			bool destroyed)
+{
+	zlog_debug("Got Txn %s Notify from MGMTD server",
+		   destroyed ? "DESTROY" : "CREATE");
+
+	if (!destroyed) {
+		/*
+		 * TODO: Allocate and install a private scratchpad for this
+		 * transaction if required
+		 */
+	} else {
+		/*
+		 * TODO: Uninstall and deallocate the private scratchpad for
+		 * this transaction if installed earlier.
+		 */
+	}
+}
+#endif
+
+static struct mgmt_be_client_params mgmt_params = {
+	.name = "staticd",
+	.conn_retry_intvl_sec = 3,
+	.client_connect_notify = static_mgmt_be_client_connect,
+	.txn_notify = NULL, /* static_mgmt_txn_notify */
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
@@ -159,6 +200,10 @@ int main(int argc, char **argv, char **envp)
 
 	static_zebra_init();
 	static_vty_init();
+
+	/* Initialize MGMT backend functionalities */
+	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
+	assert(mgmt_lib_hndl);
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

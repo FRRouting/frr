@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIMv6 MLD querier
  * Copyright (C) 2021-2022  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -451,6 +438,13 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	}
 
 	if (desired == GM_SG_NOINFO) {
+		/* multiple paths can lead to the last state going away;
+		 * t_sg_expire can still be running if we're arriving from
+		 * another path.
+		 */
+		if (has_expired)
+			THREAD_OFF(sg->t_sg_expire);
+
 		assertf((!sg->t_sg_expire &&
 			 !gm_packet_sg_subs_count(sg->subs_positive) &&
 			 !gm_packet_sg_subs_count(sg->subs_negative)),
@@ -2393,24 +2387,18 @@ static void gm_show_if_one_detail(struct vty *vty, struct interface *ifp)
 }
 
 static void gm_show_if_one(struct vty *vty, struct interface *ifp,
-			   json_object *js_if)
+			   json_object *js_if, struct ttable *tt)
 {
 	struct pim_interface *pim_ifp = (struct pim_interface *)ifp->info;
 	struct gm_if *gm_ifp = pim_ifp->mld;
 	bool querier;
 
-	if (!gm_ifp) {
-		if (js_if)
-			json_object_string_add(js_if, "state", "down");
-		else
-			vty_out(vty, "%-16s  %5s\n", ifp->name, "down");
-		return;
-	}
-
 	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
 
 	if (js_if) {
 		json_object_string_add(js_if, "name", ifp->name);
+		json_object_string_addf(js_if, "address", "%pPA",
+					&pim_ifp->primary_address);
 		json_object_string_add(js_if, "state", "up");
 		json_object_string_addf(js_if, "version", "%d",
 					gm_ifp->cur_version);
@@ -2437,11 +2425,11 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 		json_object_int_add(js_if, "timerLastMemberQueryIntervalMsec",
 				    gm_ifp->cur_query_intv_trig);
 	} else {
-		vty_out(vty, "%-16s  %-5s  %d  %-25pPA  %-5s %11pTH  %pTVMs\n",
-			ifp->name, "up", gm_ifp->cur_version, &gm_ifp->querier,
-			querier ? "query" : "other",
-			querier ? gm_ifp->t_query : gm_ifp->t_other_querier,
-			&gm_ifp->started);
+		ttable_add_row(tt, "%s|%s|%pPAs|%d|%s|%pPAs|%pTH|%pTVMs",
+			       ifp->name, "up", &pim_ifp->primary_address,
+			       gm_ifp->cur_version, querier ? "local" : "other",
+			       &gm_ifp->querier, gm_ifp->t_query,
+			       &gm_ifp->started);
 	}
 }
 
@@ -2449,11 +2437,25 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 			   bool detail, json_object *js)
 {
 	struct interface *ifp;
-	json_object *js_vrf;
+	json_object *js_vrf = NULL;
+	struct pim_interface *pim_ifp;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	if (js) {
 		js_vrf = json_object_new_object();
 		json_object_object_add(js, vrf->name, js_vrf);
+	}
+
+	if (!js && !detail) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|State|Address|V|Querier|QuerierIp|Query Timer|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2466,24 +2468,31 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 			continue;
 		}
 
-		if (!ifp->info)
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp || !pim_ifp->mld)
 			continue;
+
 		if (js) {
 			js_if = json_object_new_object();
 			json_object_object_add(js_vrf, ifp->name, js_if);
 		}
 
-		gm_show_if_one(vty, ifp, js_if);
+		gm_show_if_one(vty, ifp, js_if, tt);
+	}
+
+	/* Dump the generated table. */
+	if (!js && !detail) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
 static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
 		       bool detail, json_object *js)
 {
-	if (!js && !detail)
-		vty_out(vty, "%-16s  %-5s  V  %-25s  %-18s  %s\n", "Interface",
-			"State", "Querier", "Timer", "Uptime");
-
 	if (vrf)
 		gm_show_if_vrf(vty, vrf, ifname, detail, js);
 	else
@@ -2737,7 +2746,7 @@ static void gm_show_joins_one(struct vty *vty, struct gm_if *gm_ifp,
 		}
 
 		js_src = json_object_new_object();
-		json_object_object_addf(js_group, js_src, "%pPA",
+		json_object_object_addf(js_group, js_src, "%pPAs",
 					&sg->sgaddr.src);
 
 		json_object_string_add(js_src, "state", gm_states[sg->state]);
@@ -2800,6 +2809,7 @@ static void gm_show_joins_vrf(struct vty *vty, struct vrf *vrf,
 
 	if (js) {
 		js_vrf = json_object_new_object();
+		json_object_string_add(js_vrf, "vrf", vrf->name);
 		json_object_object_add(js, vrf->name, js_vrf);
 	}
 

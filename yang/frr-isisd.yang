@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-isisd {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/isisd";
@@ -113,6 +114,26 @@ module frr-isisd {
     description
       "This type defines the extended circuit ID
        associated with an interface.";
+  }
+
+  typedef hello-padding-type {
+    type enumeration {
+      enum "always" {
+        value 0;
+        description
+          "Add padding to all hello packets.";
+      }
+      enum "disabled" {
+        value 1;
+        description
+          "Do not add any padding to hello packets.";
+      } 
+      enum "during-adjacency-formation" {
+        value 2;
+        description
+          "Add padding to hello packets during adjacency formation only.";
+      }
+    }
   }
 
   typedef network-type {
@@ -604,10 +625,10 @@ module frr-isisd {
       description
         "Parameters related to IS-IS hello PDUs.";
       leaf padding {
-        type boolean;
-        default "true";
+        type hello-padding-type;
+        default "always";
         description
-          "Add padding to IS-IS hello PDUs.";
+          "Type of padding for IS-IS hello packets.";
       }
 
       container interval {
@@ -881,6 +902,9 @@ module frr-isisd {
           description
             "This leaf describes the state of the interface.";
         }
+
+        uses adjacency-sids;
+        uses lan-adjacency-sids;
       }
     }
   }
@@ -1004,6 +1028,76 @@ module frr-isisd {
     }
   }
 
+  grouping adjacency-sids {
+    description
+      "IS-IS segment routing adjacency SID grouping.";
+    container adjacency-sids {
+      description
+        "This container lists the information of adjacency SID.";
+      list adjacency-sid {
+        leaf af {
+          type uint8;
+          description
+            "This leaf describes the protocol-family associated with the
+              adjacency SID.";
+        }
+
+        leaf value {
+          type uint32;
+          description
+            "This leaf describes the value of adjacency SID.";
+        }
+
+        leaf weight {
+          type uint8;
+          description
+            "This leaf describes the weight of the adjacency SID.";
+        }
+
+        leaf protection-requested {
+          type boolean;
+          description
+            "This leaf describes if the adjacency SID must be protected.";
+        }
+      }
+    }
+  }
+
+  grouping lan-adjacency-sids {
+    description
+      "IS-IS segment routing LAN adjacency SID grouping.";
+    container lan-adjacency-sids {
+      description
+        "This container lists the information of LAN adjacency SID.";
+      list lan-adjacency-sid {
+        leaf af {
+          type uint8;
+          description
+            "This leaf describes the protocol-family associated with the
+              LAN adjacency SID.";
+        }
+
+        leaf value {
+          type uint32;
+          description
+            "This leaf describes the value of LAN adjacency SID.";
+        }
+
+        leaf weight {
+          type uint8;
+          description
+            "This leaf describes the weight of the LAN adjacency SID.";
+        }
+
+        leaf protection-requested {
+          type boolean;
+          description
+            "This leaf describes if the LAN adjacency SID must be protected.";
+        }
+      }
+    }
+  }
+
   container isis {
     description
       "Configuration of the IS-IS routing daemon.";
@@ -1095,6 +1189,13 @@ module frr-isisd {
           "Define the style of TLVs metric supported.";
       }
 
+      leaf advertise-high-metrics {
+        type boolean;
+        default "false";
+        description
+          "Advertise high metric value on all interfaces.";
+      }
+
       leaf purge-originator {
         type boolean;
         default "false";
@@ -1102,6 +1203,13 @@ module frr-isisd {
           "Use the RFC 6232 purge-originator.";
         reference
           "RFC6232";
+      }
+
+      leaf advertise-passive-only {
+        type boolean;
+        default "false";
+        description
+          "Advertise prefixes of passive interfaces only";
       }
 
       container lsp {

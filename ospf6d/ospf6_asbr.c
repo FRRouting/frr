@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1395,8 +1380,8 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
-				 struct in6_addr *nexthop, route_tag_t tag,
-				 struct ospf6 *ospf6)
+				 const struct in6_addr *nexthop,
+				 route_tag_t tag, struct ospf6 *ospf6)
 {
 	route_map_result_t ret;
 	struct ospf6_route troute;
@@ -1484,9 +1469,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		info->type = type;
 
-		if (nexthop_num && nexthop)
+		if (nexthop_num && nexthop) {
 			ospf6_route_add_nexthop(match, ifindex, nexthop);
-		else
+			if (!IN6_IS_ADDR_UNSPECIFIED(nexthop)
+			    && !IN6_IS_ADDR_LINKLOCAL(nexthop))
+				memcpy(&info->forwarding, nexthop,
+				       sizeof(struct in6_addr));
+		} else
 			ospf6_route_add_nexthop(match, ifindex, NULL);
 
 		match->path.origin.id = htonl(info->id);
@@ -1530,9 +1519,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	}
 
 	info->type = type;
-	if (nexthop_num && nexthop)
+	if (nexthop_num && nexthop) {
 		ospf6_route_add_nexthop(route, ifindex, nexthop);
-	else
+		if (!IN6_IS_ADDR_UNSPECIFIED(nexthop)
+		    && !IN6_IS_ADDR_LINKLOCAL(nexthop))
+			memcpy(&info->forwarding, nexthop,
+			       sizeof(struct in6_addr));
+	} else
 		ospf6_route_add_nexthop(route, ifindex, NULL);
 
 	route = ospf6_route_add(route, ospf6->external_table);

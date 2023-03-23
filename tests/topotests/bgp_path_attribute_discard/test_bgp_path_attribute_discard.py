@@ -1,22 +1,9 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2022 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -81,24 +68,28 @@ def test_bgp_path_attribute_discard():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
-                "192.168.100.101/32": [
-                    {
-                        "valid": True,
-                        "atomicAggregate": True,
-                        "community": {
-                            "string": "65001:101",
-                        },
-                    }
-                ],
-                "192.168.100.102/32": [
-                    {
-                        "valid": True,
-                        "originatorId": "10.0.0.2",
-                        "community": {
-                            "string": "65001:102",
-                        },
-                    }
-                ],
+                "192.168.100.101/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "atomicAggregate": True,
+                            "community": {
+                                "string": "65001:101",
+                            },
+                        }
+                    ],
+                },
+                "192.168.100.102/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "originatorId": "10.0.0.2",
+                            "community": {
+                                "string": "65001:102",
+                            },
+                        }
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -120,20 +111,24 @@ def test_bgp_path_attribute_discard():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
-                "192.168.100.101/32": [
-                    {
-                        "valid": True,
-                        "atomicAggregate": None,
-                        "community": None,
-                    }
-                ],
-                "192.168.100.102/32": [
-                    {
-                        "valid": True,
-                        "originatorId": None,
-                        "community": None,
-                    }
-                ],
+                "192.168.100.101/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "atomicAggregate": None,
+                            "community": None,
+                        }
+                    ],
+                },
+                "192.168.100.102/32": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "originatorId": None,
+                            "community": None,
+                        }
+                    ],
+                },
             }
         }
         return topotest.json_cmp(output, expected)

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP message definition header.
  * Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGPD_H
@@ -31,6 +16,7 @@
 #include "vty.h"
 #include "srv6.h"
 #include "iana_afi.h"
+#include "asn.h"
 
 /* For union sockunion.  */
 #include "queue.h"
@@ -77,7 +63,6 @@ enum zebra_gr_mode {
 };
 
 /* Typedef BGP specific types.  */
-typedef uint32_t as_t;
 typedef uint16_t as16_t; /* we may still encounter 16 Bit asnums */
 typedef uint16_t bgp_size_t;
 
@@ -218,6 +203,7 @@ struct vpn_policy {
 	/* should be mpls_label_t? */
 	uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
 	uint32_t tovpn_zebra_vrf_label_last_sent;
+	char *tovpn_rd_pretty;
 	struct prefix_rd tovpn_rd;
 	struct prefix tovpn_nexthop; /* unset => set to 0 */
 	uint32_t flags;
@@ -339,10 +325,16 @@ struct bgp_srv6_function {
 	char locator_name[SRV6_LOCNAME_SIZE];
 };
 
+struct as_confed {
+	as_t as;
+	char *as_pretty;
+};
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
 	as_t as;
+	char *as_pretty;
 
 	/* Name of this BGP instance.  */
 	char *name;
@@ -398,6 +390,7 @@ struct bgp {
 	uint16_t config;
 #define BGP_CONFIG_CLUSTER_ID             (1 << 0)
 #define BGP_CONFIG_CONFEDERATION          (1 << 1)
+#define BGP_CONFIG_ASNOTATION             (1 << 2)
 
 	/* BGP router identifier.  */
 	struct in_addr router_id;
@@ -409,7 +402,8 @@ struct bgp {
 
 	/* BGP confederation information.  */
 	as_t confed_id;
-	as_t *confed_peers;
+	char *confed_id_pretty;
+	struct as_confed *confed_peers;
 	int confed_peers_cnt;
 
 	struct thread
@@ -743,6 +737,7 @@ struct bgp {
 
 	/* RD for this VRF */
 	struct prefix_rd vrf_prd;
+	char *vrf_prd_pretty;
 
 	/* import rt list for the vrf instance */
 	struct list *vrf_import_rtl;
@@ -796,6 +791,8 @@ struct bgp {
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
 
 	bool allow_martian;
+
+	enum asnotation_mode asnotation;
 
 	QOBJ_FIELDS;
 };
@@ -1120,6 +1117,8 @@ struct peer {
 	/* Peer's remote AS number. */
 	int as_type;
 	as_t as;
+	/* for vty as format */
+	char *as_pretty;
 
 	/* Peer's local AS number. */
 	as_t local_as;
@@ -1128,6 +1127,8 @@ struct peer {
 
 	/* Peer's Change local AS number. */
 	as_t change_local_as;
+	/* for vty as format */
+	char *change_local_as_pretty;
 
 	/* Remote router ID. */
 	struct in_addr remote_id;
@@ -1250,6 +1251,8 @@ struct peer {
 #define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1U << 24)
 #define PEER_CAP_ROLE_ADV                   (1U << 25) /* role advertised */
 #define PEER_CAP_ROLE_RCV                   (1U << 26) /* role received */
+#define PEER_CAP_SOFT_VERSION_ADV (1U << 27)
+#define PEER_CAP_SOFT_VERSION_RCV (1U << 28)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1283,7 +1286,7 @@ struct peer {
 	 * so if a flag is unset, the corresponding override flag is unset too.
 	 * However if a flag is set, the corresponding override flag is set.
 	 */
-	uint32_t flags_override;
+	uint64_t flags_override;
 	/*
 	 * Parallel array to flags that indicates whether the default behavior
 	 * of *flags_override* should be inverted. If a flag is unset and the
@@ -1321,11 +1324,13 @@ struct peer {
 	 * inversion state of the flag differs between peer and peer-group, the
 	 * newly set value must equal to the inverted state of the peer-group.
 	 */
-	uint32_t flags_invert;
+	uint64_t flags_invert;
 	/*
 	 * Effective array for storing the peer/peer-group flags. In case of a
 	 * peer-group, the peer-specific overrides (see flags_override and
 	 * flags_invert) must be respected.
+	 * When changing the structure of flags/af_flags, do not forget to
+	 * change flags_invert/flags_override too.
 	 */
 	uint64_t flags;
 #define PEER_FLAG_PASSIVE                   (1ULL << 0) /* passive mode */
@@ -1376,6 +1381,7 @@ struct peer {
 #define PEER_FLAG_PORT (1ULL << 33)
 #define PEER_FLAG_AIGP (1ULL << 34)
 #define PEER_FLAG_GRACEFUL_SHUTDOWN (1ULL << 35)
+#define PEER_FLAG_CAPABILITY_SOFT_VERSION (1ULL << 36)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1435,14 +1441,14 @@ struct peer {
 #define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1ULL << 19)
 #define PEER_FLAG_AS_OVERRIDE (1ULL << 20)
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1ULL << 21)
-#define PEER_FLAG_WEIGHT (1ULL << 24)
-#define PEER_FLAG_ALLOWAS_IN_ORIGIN (1ULL << 25)
-#define PEER_FLAG_SEND_LARGE_COMMUNITY (1ULL << 26)
-#define PEER_FLAG_MAX_PREFIX_OUT (1ULL << 27)
-#define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 28)
-#define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 29)
-#define PEER_FLAG_SOO (1ULL << 30)
-#define PEER_FLAG_ACCEPT_OWN (1ULL << 31)
+#define PEER_FLAG_WEIGHT (1ULL << 22)
+#define PEER_FLAG_ALLOWAS_IN_ORIGIN (1ULL << 23)
+#define PEER_FLAG_SEND_LARGE_COMMUNITY (1ULL << 24)
+#define PEER_FLAG_MAX_PREFIX_OUT (1ULL << 25)
+#define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 26)
+#define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 27)
+#define PEER_FLAG_SOO (1ULL << 28)
+#define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -1767,6 +1773,13 @@ struct peer {
 #define BGP_ATTR_MAX 255
 	/* Path attributes discard */
 	bool discard_attrs[BGP_ATTR_MAX];
+
+	/* Path attributes treat-as-withdraw */
+	bool withdraw_attrs[BGP_ATTR_MAX];
+
+	/* BGP Software Version Capability */
+#define BGP_MAX_SOFT_VERSION 64
+	char *soft_version;
 
 	QOBJ_FIELDS;
 };
@@ -2134,7 +2147,7 @@ extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *su, const char *conf_if,
 				struct bgp *bgp, as_t local_as, as_t remote_as,
 				int as_type, struct peer_group *group,
-				bool config_node);
+				bool config_node, const char *as_str);
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -2161,7 +2174,9 @@ extern void bgp_option_norib_set_runtime(void);
 /* unset the bgp no-rib option during runtime and reset all peers */
 extern void bgp_option_norib_unset_runtime(void);
 
-extern int bgp_get(struct bgp **, as_t *, const char *, enum bgp_instance_type);
+extern int bgp_get(struct bgp **bgp, as_t *as, const char *name,
+		   enum bgp_instance_type kind, const char *as_pretty,
+		   enum asnotation_mode asnotation);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);
@@ -2177,11 +2192,13 @@ extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
 extern void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id);
 extern void bgp_cluster_id_unset(struct bgp *bgp);
 
-extern void bgp_confederation_id_set(struct bgp *bgp, as_t as);
+extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
+				     const char *as_str);
 extern void bgp_confederation_id_unset(struct bgp *bgp);
 extern bool bgp_confederation_peers_check(struct bgp *, as_t);
 
-extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as);
+extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as,
+					const char *as_str);
 extern void bgp_confederation_peers_remove(struct bgp *bgp, as_t as);
 
 extern void bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
@@ -2202,10 +2219,13 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
-extern void peer_as_change(struct peer *, as_t, int);
-extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
-			  int);
-extern int peer_group_remote_as(struct bgp *, const char *, as_t *, int);
+extern void peer_as_change(struct peer *peer, as_t as, int as_type,
+			   const char *as_str);
+extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
+			  const char *conf_if, as_t *as, int as_type,
+			  const char *as_str);
+extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
+				int as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
 extern void peer_notify_unconfig(struct peer *peer);
 extern int peer_group_delete(struct peer_group *);
@@ -2227,7 +2247,8 @@ extern int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi,
 			    uint64_t flag);
 extern int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi,
 			      uint64_t flag);
-extern int peer_af_flag_check(struct peer *, afi_t, safi_t, uint32_t);
+extern bool peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
+			       uint64_t flag);
 extern void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 				 uint64_t flag);
 extern void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
@@ -2284,8 +2305,8 @@ extern int peer_distribute_unset(struct peer *, afi_t, safi_t, int);
 extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
-extern int peer_local_as_set(struct peer *, as_t, bool no_prepend,
-			     bool replace_as);
+extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+			     bool replace_as, const char *as_str);
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,
@@ -2344,6 +2365,7 @@ extern void peer_tx_shutdown_message_unset(struct peer *);
 
 extern void bgp_route_map_update_timer(struct thread *thread);
 extern const char *bgp_get_name_by_role(uint8_t role);
+extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 
 extern void bgp_route_map_terminate(void);
 
@@ -2421,7 +2443,9 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
-		default:
+		case SAFI_EVPN:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
 		break;
@@ -2439,7 +2463,9 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
-		default:
+		case SAFI_EVPN:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
 		break;
@@ -2447,12 +2473,23 @@ static inline int afindex(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_EVPN:
 			return BGP_AF_L2VPN_EVPN;
-		default:
+		case SAFI_UNICAST:
+		case SAFI_MULTICAST:
+		case SAFI_LABELED_UNICAST:
+		case SAFI_MPLS_VPN:
+		case SAFI_ENCAP:
+		case SAFI_FLOWSPEC:
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
-	default:
+		break;
+	case AFI_UNSPEC:
+	case AFI_MAX:
 		return BGP_AF_MAX;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /* If the peer is not a peer-group but is bound to a peer-group return 1 */
@@ -2620,6 +2657,8 @@ extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 				  int outbound);
 extern bool bgp_path_attribute_discard(struct peer *peer, char *buf,
 				       size_t size);
+extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
+						 size_t size);
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)

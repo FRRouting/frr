@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IP address structure (for generic IPv4 or IPv6 address)
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef __IPADDR_H__
@@ -70,9 +54,11 @@ static inline int ipaddr_family(const struct ipaddr *ip)
 		return AF_INET;
 	case IPADDR_V6:
 		return AF_INET6;
-	default:
+	case IPADDR_NONE:
 		return AF_UNSPEC;
 	}
+
+	assert(!"Reached end of function where we should never hit");
 }
 
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
@@ -158,9 +144,11 @@ static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
 	case IPADDR_V6:
 		return memcmp((void *)&a->ipaddr_v6, (void *)&b->ipaddr_v6,
 			      sizeof(a->ipaddr_v6));
-	default:
+	case IPADDR_NONE:
 		return 0;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 static inline bool ipaddr_is_zero(const struct ipaddr *ip)

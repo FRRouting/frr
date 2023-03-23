@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* AS path management routines.
  * Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2005 Sun Microsystems, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -302,9 +287,13 @@ static struct assegment *assegment_normalise(struct assegment *head)
 	return head;
 }
 
-static struct aspath *aspath_new(void)
+static struct aspath *aspath_new(enum asnotation_mode asnotation)
 {
-	return XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
+	struct aspath *as;
+
+	as = XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
+	as->asnotation = asnotation;
+	return as;
 }
 
 /* Free AS path structure. */
@@ -552,8 +541,10 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
  *
  * This was changed to 10 after the well-known BGP assertion, which
  * had hit some parts of the Internet in May of 2009.
+ * plain format : '4294967295 ' : 10 + 1
+ * astod format : '65535.65535 ': 11 + 1
  */
-#define ASN_STR_LEN (10 + 1)
+#define ASN_STR_LEN (11 + 1)
 	str_size = MAX(assegment_count_asns(seg, 0) * ASN_STR_LEN + 2 + 1,
 		       ASPATH_STR_DEFAULT_LEN);
 	str_buf = XMALLOC(MTYPE_AS_STR, str_size);
@@ -584,7 +575,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 /* We might need to increase str_buf, particularly if path has
  * differing segments types, our initial guesstimate above will
- * have been wrong. Need 10 chars for ASN, a separator each and
+ * have been wrong. Need 11 chars for ASN, a separator each and
  * potentially two segment delimiters, plus a space between each
  * segment and trailing zero.
  *
@@ -610,12 +601,11 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 		/* write out the ASNs, with their separators, bar the last one*/
 		for (i = 0; i < seg->length; i++) {
 			if (make_json)
-				json_object_array_add(
-					jseg_list,
-					json_object_new_int64(seg->as[i]));
-
-			len += snprintf(str_buf + len, str_size - len, "%u",
-					seg->as[i]);
+				asn_asn2json_array(jseg_list, seg->as[i],
+						   as->asnotation);
+			len += snprintfrr(str_buf + len, str_size - len,
+					  ASN_FORMAT(as->asnotation),
+					  &seg->as[i]);
 
 			if (i < (seg->length - 1))
 				len += snprintf(str_buf + len, str_size - len,
@@ -706,6 +696,7 @@ struct aspath *aspath_dup(struct aspath *aspath)
 
 	new->str = XMALLOC(MTYPE_AS_STR, buflen);
 	new->str_len = aspath->str_len;
+	new->asnotation = aspath->asnotation;
 
 	/* copy the string data */
 	if (aspath->str_len > 0)
@@ -733,6 +724,7 @@ static void *aspath_hash_alloc(void *arg)
 	new->str = aspath->str;
 	new->str_len = aspath->str_len;
 	new->json = aspath->json;
+	new->asnotation = aspath->asnotation;
 
 	return new;
 }
@@ -840,7 +832,8 @@ static int assegments_parse(struct stream *s, size_t length,
 
    On error NULL is returned.
  */
-struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit)
+struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit,
+			    enum asnotation_mode asnotation)
 {
 	struct aspath as;
 	struct aspath *find;
@@ -855,6 +848,7 @@ struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit)
 		return NULL;
 
 	memset(&as, 0, sizeof(as));
+	as.asnotation = asnotation;
 	if (assegments_parse(s, length, &as.segments, use32bit) < 0)
 		return NULL;
 
@@ -1072,7 +1066,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 			seg = assegment_append_asns(seg, seg1->as, match);
 
 			if (!aspath) {
-				aspath = aspath_new();
+				aspath = aspath_new(as1->asnotation);
 				aspath->segments = seg;
 			} else
 				prevseg->next = seg;
@@ -1092,7 +1086,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 	}
 
 	if (!aspath)
-		aspath = aspath_new();
+		aspath = aspath_new(as1->asnotation);
 
 	/* Make as-set using rest of all information. */
 	from = match;
@@ -1536,7 +1530,7 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 	struct assegment *srcseg, *exclseg, *lastseg;
 	struct aspath *newpath;
 
-	newpath = aspath_new();
+	newpath = aspath_new(source->asnotation);
 	lastseg = NULL;
 
 	for (srcseg = source->segments; srcseg; srcseg = srcseg->next) {
@@ -1766,7 +1760,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 		newseg = assegment_append_asns(newseg, seg->as, cpasns);
 
 		if (!newpath) {
-			newpath = aspath_new();
+			newpath = aspath_new(aspath->asnotation);
 			newpath->segments = newseg;
 		} else
 			prevseg->next = newseg;
@@ -1895,16 +1889,16 @@ static void aspath_segment_add(struct aspath *as, int type)
 		as->segments = new;
 }
 
-struct aspath *aspath_empty(void)
+struct aspath *aspath_empty(enum asnotation_mode asnotation)
 {
-	return aspath_parse(NULL, 0, 1); /* 32Bit ;-) */
+	return aspath_parse(NULL, 0, 1, asnotation); /* 32Bit ;-) */
 }
 
 struct aspath *aspath_empty_get(void)
 {
 	struct aspath *aspath;
 
-	aspath = aspath_new();
+	aspath = aspath_new(bgp_get_asnotation(NULL));
 	aspath_make_str_count(aspath, false);
 	return aspath;
 }
@@ -1940,6 +1934,8 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 				   unsigned long *asno)
 {
 	const char *p = buf;
+	as_t asval;
+	bool found = false;
 
 	/* Skip separators (space for sequences, ',' for sets). */
 	while (isspace((unsigned char)*p) || *p == ',')
@@ -1976,30 +1972,18 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 		return p;
 	}
 
-	/* Check actual AS value. */
-	if (isdigit((unsigned char)*p)) {
-		as_t asval;
-
-		*token = as_token_asval;
-		asval = (*p - '0');
-		p++;
-
-		while (isdigit((unsigned char)*p)) {
-			asval *= 10;
-			asval += (*p - '0');
-			p++;
-		}
+	asval = 0;
+	p = asn_str2asn_parse(p, &asval, &found);
+	if (found) {
 		*asno = asval;
-		return p;
-	}
-
-	/* There is no match then return unknown token. */
-	*token = as_token_unknown;
-	p++;
+		*token = as_token_asval;
+	} else
+		*token = as_token_unknown;
 	return p;
 }
 
-struct aspath *aspath_str2aspath(const char *str)
+struct aspath *aspath_str2aspath(const char *str,
+				 enum asnotation_mode asnotation)
 {
 	enum as_token token = as_token_unknown;
 	unsigned short as_type;
@@ -2007,7 +1991,7 @@ struct aspath *aspath_str2aspath(const char *str)
 	struct aspath *aspath;
 	int needtype;
 
-	aspath = aspath_new();
+	aspath = aspath_new(asnotation);
 
 	/* We start default type as AS_SEQUENCE. */
 	as_type = AS_SEQUENCE;
@@ -2081,6 +2065,10 @@ bool aspath_cmp(const void *arg1, const void *arg2)
 	const struct assegment *seg1 = ((const struct aspath *)arg1)->segments;
 	const struct assegment *seg2 = ((const struct aspath *)arg2)->segments;
 
+	if (((const struct aspath *)arg1)->asnotation !=
+	    ((const struct aspath *)arg2)->asnotation)
+		return false;
+
 	while (seg1 || seg2) {
 		int i;
 		if ((!seg1 && seg2) || (seg1 && !seg2))
@@ -2122,16 +2110,12 @@ const char *aspath_print(struct aspath *as)
 }
 
 /* Printing functions */
-/* Feed the AS_PATH to the vty; the suffix string follows it only in case
+/* Feed the AS_PATH to the vty; the space suffix follows it only in case
  * AS_PATH wasn't empty.
  */
-void aspath_print_vty(struct vty *vty, const char *format, struct aspath *as,
-		      const char *suffix)
+void aspath_print_vty(struct vty *vty, struct aspath *as)
 {
-	assert(format);
-	vty_out(vty, format, as->str);
-	if (as->str_len && strlen(suffix))
-		vty_out(vty, "%s", suffix);
+	vty_out(vty, "%s%s", as->str, as->str_len ? " " : "");
 }
 
 static void aspath_show_all_iterator(struct hash_bucket *bucket,
@@ -2173,11 +2157,15 @@ static void bgp_aggr_aspath_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct aspath *hb_aspath = hb->data;
 	struct aspath **aggr_aspath = arg;
+	struct aspath *aspath = NULL;
 
-	if (*aggr_aspath)
-		*aggr_aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
-	else
+	if (*aggr_aspath) {
+		aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
+		aspath_free(*aggr_aspath);
+		*aggr_aspath = aspath;
+	} else {
 		*aggr_aspath = aspath_dup(hb_aspath);
+	}
 }
 
 void bgp_aggr_aspath_remove(void *arg)

@@ -222,8 +222,6 @@ Link Parameters Commands
 
 .. clicmd:: unrsv-bw (0-7) BANDWIDTH
 
-.. clicmd:: admin-grp BANDWIDTH
-
    These commands specifies the Traffic Engineering parameters of the interface
    in conformity to RFC3630 (OSPF) or RFC5305 (ISIS).  There are respectively
    the TE Metric (different from the OSPF or ISIS metric), Maximum Bandwidth
@@ -233,6 +231,36 @@ Link Parameters Commands
 
    Note that BANDWIDTH is specified in IEEE floating point format and express
    in Bytes/second.
+
+.. clicmd:: admin-grp 0x(0-FFFFFFFF)
+
+   This commands configures the Traffic Engineering Admin-Group of the interface
+   as specified in RFC3630 (OSPF) or RFC5305 (ISIS). Admin-group is also known
+   as Resource Class/Color in the OSPF protocol.
+
+.. clicmd:: [no] affinity AFFINITY-MAP-NAME
+
+   This commands configures the Traffic Engineering Admin-Group of the
+   interface using the affinity-map definitions (:ref:`affinity-map`).
+   Multiple AFFINITY-MAP-NAME can be specified at the same time. Affinity-map
+   names are added or removed if ``no`` is present. It means that specifying one
+   value does not override the full list.
+
+   ``admin-grp`` and ``affinity`` commands provide two ways of setting
+   admin-groups. They cannot be both set on the same interface.
+
+.. clicmd:: [no] affinity-mode [extended|standard|both]
+
+   This commands configures which admin-group format is set by the affinity
+   command. ``extended`` Admin-Group is the default and uses the RFC7308 format.
+   ``standard`` mode uses the standard admin-group format that is defined by
+   RFC3630, RFC5305 and RFC5329. When the ``standard`` mode is set,
+   affinity-maps with bit-positions higher than 31 cannot be applied to the
+   interface. The ``both`` mode allows setting standard and extended admin-group
+   on the link at the same time. In   this case, the bit-positions 0 to 31 are
+   the same on standard and extended admin-groups.
+
+   Note that extended admin-groups are only supported by IS-IS for the moment.
 
 .. clicmd:: delay (0-16777215) [min (0-16777215) | max (0-16777215)]
 
@@ -590,6 +618,48 @@ nexthops are chosen to forward packets on.  Currently the Linux kernel
 has a ``fib_multipath_hash_policy`` sysctl which dictates how the hashing
 algorithm is used to forward packets.
 
+.. _zebra-svd:
+
+Single Vxlan Device Support
+===========================
+
+FRR supports configuring VLAN-to-VNI mappings for EVPN-VXLAN,
+when working with the Linux kernel. In this new way, the mapping of a VLAN
+to a VNI is configured against a container VXLAN interface which is referred
+to as a ‘Single VXLAN device (SVD)’. Multiple VLAN to VNI mappings can be
+configured against the same SVD. This allows for a significant scaling of
+the number of VNIs since a separate VXLAN interface is no longer required
+for each VNI. Sample configuration of SVD with VLAN to VNI mappings is shown
+below.
+
+If you are using the Linux kernel as a Data Plane, this can be configured
+via `ip link`, `bridge link` and `bridge vlan` commands:
+
+.. code-block:: shell
+
+   # linux shell
+   ip link add dev bridge type bridge
+   ip link set dev bridge type bridge vlan_filtering 1
+   ip link add dev vxlan0 type vxlan external
+   ip link set dev vxlan0 master bridge
+   bridge link set dev vxlan0 vlan_tunnel on
+   bridge vlan add dev vxlan0 vid 100
+   bridge vlan add dev vxlan0 vid 100 tunnel_info id 100
+   bridge vlan tunnelshow
+    port    vlan ids        tunnel id
+    bridge  None
+    vxlan0   100     100
+
+.. clicmd:: show evpn access-vlan [IFNAME VLAN-ID | detail] [json]
+
+   Show information for EVPN Access VLANs.
+
+   ::
+
+      VLAN         SVI             L2-VNI   VXLAN-IF        # Members
+      bridge.20    vlan20          20       vxlan0          0
+      bridge.10    vlan10          0        vxlan0          0
+
 .. _zebra-mpls:
 
 MPLS Commands
@@ -904,7 +974,7 @@ unicast topology!
    Unreachable routes do not receive special treatment and do not cause
    fallback to a second lookup.
 
-.. clicmd:: show ip rpf ADDR
+.. clicmd:: show [ip|ipv6] rpf ADDR
 
    Performs a Multicast RPF lookup, as configured with ``ip multicast
    rpf-lookup-mode MODE``. ADDR specifies the multicast source address to look
@@ -914,7 +984,6 @@ unicast topology!
 
       > show ip rpf 192.0.2.1
       Routing entry for 192.0.2.0/24 using Unicast RIB
-
       Known via "kernel", distance 0, metric 0, best
       * 198.51.100.1, via eth0
 
@@ -922,7 +991,7 @@ unicast topology!
    Indicates that a multicast source lookup for 192.0.2.1 would use an
    Unicast RIB entry for 192.0.2.0/24 with a gateway of 198.51.100.1.
 
-.. clicmd:: show ip rpf
+.. clicmd:: show [ip|ipv6] rpf
 
    Prints the entire Multicast RIB. Note that this is independent of the
    configured RPF lookup mode, the Multicast RIB may be printed yet not

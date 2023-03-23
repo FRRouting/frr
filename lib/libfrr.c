@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * libfrr overall management functions
  *
  * Copyright (C) 2016  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -789,7 +776,7 @@ struct thread_master *frr_init(void)
 #ifdef HAVE_SQLITE3
 	if (!di->db_file)
 		di->db_file = dbfile_default;
-	db_init(di->db_file);
+	db_init("%s", di->db_file);
 #endif
 
 	if (di->flags & FRR_LIMITED_CLI)
@@ -1005,7 +992,7 @@ static void frr_config_read_in(struct thread *t)
 		int ret;
 
 		context.client = NB_CLIENT_CLI;
-		ret = nb_candidate_commit(&context, vty_shared_candidate_config,
+		ret = nb_candidate_commit(context, vty_shared_candidate_config,
 					  true, "Read configuration file", NULL,
 					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)

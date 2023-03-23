@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4 Finite State Machine
  * From RFC1771 [A Border Gateway Protocol 4 (BGP-4)]
  * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -279,24 +264,31 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		}
 	}
 
+	if (peer->hostname) {
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		peer->hostname = NULL;
+	}
 	if (from_peer->hostname != NULL) {
-		if (peer->hostname) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-			peer->hostname = NULL;
-		}
-
 		peer->hostname = from_peer->hostname;
 		from_peer->hostname = NULL;
 	}
 
+	if (peer->domainname) {
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		peer->domainname = NULL;
+	}
 	if (from_peer->domainname != NULL) {
-		if (peer->domainname) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-			peer->domainname = NULL;
-		}
-
 		peer->domainname = from_peer->domainname;
 		from_peer->domainname = NULL;
+	}
+
+	if (peer->soft_version) {
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+		peer->soft_version = NULL;
+	}
+	if (from_peer->soft_version) {
+		peer->soft_version = from_peer->soft_version;
+		from_peer->soft_version = NULL;
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -443,12 +435,16 @@ void bgp_timer_set(struct peer *peer)
 		THREAD_OFF(peer->t_start);
 		THREAD_OFF(peer->t_connect);
 
-		/* If the negotiated Hold Time value is zero, then the Hold Time
-		   timer and KeepAlive timers are not started. */
-		if (peer->v_holdtime == 0) {
-			THREAD_OFF(peer->t_holdtime);
+		/*
+		 * If the negotiated Hold Time value is zero, then the Hold Time
+		 * timer and KeepAlive timers are not started.
+		 * Additionally if a different hold timer has been negotiated
+		 * than we must stop then start the timer again
+		 */
+		THREAD_OFF(peer->t_holdtime);
+		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
-		} else {
+		else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 			bgp_keepalives_on(peer);
@@ -464,12 +460,16 @@ void bgp_timer_set(struct peer *peer)
 		THREAD_OFF(peer->t_connect);
 		THREAD_OFF(peer->t_delayopen);
 
-		/* Same as OpenConfirm, if holdtime is zero then both holdtime
-		   and keepalive must be turned off. */
-		if (peer->v_holdtime == 0) {
-			THREAD_OFF(peer->t_holdtime);
+		/*
+		 * Same as OpenConfirm, if holdtime is zero then both holdtime
+		 * and keepalive must be turned off.
+		 * Additionally if a different hold timer has been negotiated
+		 * then we must stop then start the timer again
+		 */
+		THREAD_OFF(peer->t_holdtime);
+		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
-		} else {
+		else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 			bgp_keepalives_on(peer);
@@ -2055,7 +2055,7 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	if (gr_info->af_enabled[afi][safi] == false) {
 		gr_info->af_enabled[afi][safi] = true;
 		/* Send message to RIB */
-		bgp_zebra_update(afi, safi, bgp->vrf_id,
+		bgp_zebra_update(bgp, afi, safi,
 				 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 	}
 	if (BGP_DEBUG(update, UPDATE_OUT))
@@ -2202,7 +2202,7 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 				/* Send route processing complete
 				   message to RIB */
 				bgp_zebra_update(
-					afi, safi, peer->bgp->vrf_id,
+					peer->bgp, afi, safi,
 					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		}
 	} else {
@@ -2214,7 +2214,7 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 				/* Send route processing complete
 				   message to RIB */
 				bgp_zebra_update(
-					afi, safi, peer->bgp->vrf_id,
+					peer->bgp, afi, safi,
 					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		}
 	}
@@ -2399,7 +2399,7 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 	case Clearing:
 	case Deleted:
-	default:
+	case BGP_STATUS_MAX:
 		break;
 	}
 }
@@ -2825,7 +2825,7 @@ const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
 
 const char *print_global_gr_mode(enum global_mode gl_mode)
 {
-	const char *global_gr_mode = NULL;
+	const char *global_gr_mode = "???";
 
 	switch (gl_mode) {
 	case GLOBAL_HELPER:

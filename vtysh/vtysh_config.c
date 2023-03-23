@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Configuration generator.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -395,6 +380,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		else if (strncmp(line, "router openfabric", strlen("router openfabric"))
 			 == 0)
 			config = config_get(OPENFABRIC_NODE, line);
+		else if (strncmp(line, "affinity-map",
+				 strlen("affinity-map")) == 0)
+			config = config_get(AFFMAP_NODE, line);
 		else if (strncmp(line, "route-map", strlen("route-map")) == 0)
 			config = config_get(RMAP_NODE, line);
 		else if (strncmp(line, "no route-map", strlen("no route-map"))
@@ -526,14 +514,15 @@ void vtysh_config_parse_line(void *arg, const char *line)
 /* Macro to check delimiter is needed between each configuration line
  * or not. */
 #define NO_DELIMITER(I)                                                        \
-	((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE            \
-	 || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE                  \
-	 || (I) == COMMUNITY_ALIAS_NODE || (I) == ACCESS_IPV6_NODE             \
-	 || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE                  \
-	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
-	 || (I) == VRF_DEBUG_NODE || (I) == NORTHBOUND_DEBUG_NODE              \
-	 || (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE               \
-	 || (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
+	((I) == AFFMAP_NODE || (I) == ACCESS_NODE || (I) == PREFIX_NODE ||     \
+	 (I) == IP_NODE || (I) == AS_LIST_NODE ||                              \
+	 (I) == COMMUNITY_LIST_NODE || (I) == COMMUNITY_ALIAS_NODE ||          \
+	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE ||                  \
+	 (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE ||                  \
+	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE ||      \
+	 (I) == NORTHBOUND_DEBUG_NODE || (I) == RMAP_DEBUG_NODE ||             \
+	 (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE ||                     \
+	 (I) == KEYCHAIN_KEY_NODE)
 
 static void configvec_dump(vector vec, bool nested)
 {

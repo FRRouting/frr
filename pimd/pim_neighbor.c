@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -419,7 +406,7 @@ struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 }
 
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
-				       pim_addr source_addr)
+				       pim_addr source_addr, bool secondary)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
@@ -436,6 +423,13 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 		if (!pim_addr_cmp(source_addr, neigh->source_addr)) {
 			return neigh;
 		}
+	}
+
+	if (secondary) {
+		struct prefix p;
+
+		pim_addr_to_prefix(&p, source_addr);
+		return pim_neighbor_find_by_secondary(ifp, &p);
 	}
 
 	return NULL;

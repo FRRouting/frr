@@ -22,13 +22,9 @@ ripngd Configuration
 
 Currently ripngd supports the following commands:
 
-.. clicmd:: router ripng
+.. clicmd:: router ripng [vrf NAME]
 
    Enable RIPng.
-
-.. clicmd:: flush_timer TIME
-
-   Set flush timer.
 
 .. clicmd:: network NETWORK
 
@@ -48,7 +44,7 @@ Currently ripngd supports the following commands:
 ripngd Terminal Mode Commands
 =============================
 
-.. clicmd:: show ip ripng
+.. clicmd:: show ipv6 ripng [vrf NAME] status
 
 .. clicmd:: show debugging ripng
 

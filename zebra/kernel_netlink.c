@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Kernel communication using netlink interface.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -124,6 +109,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWTFILTER, "RTM_NEWTFILTER"},
 					   {RTM_DELTFILTER, "RTM_DELTFILTER"},
 					   {RTM_GETTFILTER, "RTM_GETTFILTER"},
+					   {RTM_NEWVLAN, "RTM_NEWVLAN"},
+					   {RTM_DELVLAN, "RTM_DELVLAN"},
+					   {RTM_GETVLAN, "RTM_GETVLAN"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -202,13 +190,13 @@ struct nl_batch {
 
 	const struct zebra_dplane_info *zns;
 
-	struct dplane_ctx_q ctx_list;
+	struct dplane_ctx_list_head ctx_list;
 
 	/*
 	 * Pointer to the queue of completed contexts outbound back
 	 * towards the dataplane module.
 	 */
-	struct dplane_ctx_q *ctx_out_q;
+	struct dplane_ctx_list_head *ctx_out_q;
 };
 
 int netlink_config_write_helper(struct vty *vty)
@@ -432,6 +420,10 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
 		return netlink_tfilter_change(h, ns_id, startup);
+	case RTM_NEWVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
+	case RTM_DELVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
 
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:
@@ -703,6 +695,12 @@ bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
 		   uint32_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint32_t));
+}
+
+bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
+		   uint64_t data)
+{
+	return nl_attr_put(n, maxlen, type, &data, sizeof(uint64_t));
 }
 
 struct rtattr *nl_attr_nest(struct nlmsghdr *n, unsigned int maxlen, int type)
@@ -1080,7 +1078,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 				   nl_msg_type_to_str(msg_type), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	} else {
-		if ((msg_type != RTM_GETNEXTHOP) || !startup)
+		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
+		    !startup)
 			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
 				 "%s error: %s, type=%s(%u), seq=%u, pid=%u",
 				 nl->name, safe_strerror(-errnum),
@@ -1446,10 +1445,11 @@ static void nl_batch_reset(struct nl_batch *bth)
 	bth->msgcnt = 0;
 	bth->zns = NULL;
 
-	TAILQ_INIT(&(bth->ctx_list));
+	dplane_ctx_q_init(&(bth->ctx_list));
 }
 
-static void nl_batch_init(struct nl_batch *bth, struct dplane_ctx_q *ctx_out_q)
+static void nl_batch_init(struct nl_batch *bth,
+			  struct dplane_ctx_list_head *ctx_out_q)
 {
 	/*
 	 * If the size of the buffer has changed, free and then allocate a new
@@ -1665,14 +1665,14 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	return FRR_NETLINK_ERROR;
 }
 
-void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct nl_batch batch;
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q handled_list;
+	struct dplane_ctx_list_head handled_list;
 	enum netlink_msg_status res;
 
-	TAILQ_INIT(&handled_list);
+	dplane_ctx_q_init(&handled_list);
 	nl_batch_init(&batch, &handled_list);
 
 	while (true) {
@@ -1703,7 +1703,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 
 	nl_batch_send(&batch);
 
-	TAILQ_INIT(ctx_list);
+	dplane_ctx_q_init(ctx_list);
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
@@ -1760,7 +1760,7 @@ void kernel_init(struct zebra_ns *zns)
 {
 	uint32_t groups, dplane_groups, ext_groups;
 #if defined SOL_NETLINK
-	int one, ret;
+	int one, ret, grp;
 #endif
 
 	/*
@@ -1771,6 +1771,11 @@ void kernel_init(struct zebra_ns *zns)
 	 * keeping track of all the different values would
 	 * lead to confusion, so we need to convert the
 	 * RTNLGRP_XXX to a bit position for ourself
+	 *
+	 *
+	 * NOTE: If the bit is >= 32, you must use setsockopt(). Those
+	 * groups are added further below after SOL_NETLINK is verified to
+	 * exist.
 	 */
 	groups = RTMGRP_LINK                   |
 			RTMGRP_IPV4_ROUTE              |
@@ -1850,6 +1855,18 @@ void kernel_init(struct zebra_ns *zns)
 	 * sure that we want to pull into our build system.
 	 */
 #if defined SOL_NETLINK
+
+	/*
+	 * setsockopt multicast group subscriptions that don't fit in nl_groups
+	 */
+	grp = RTNLGRP_BRVLAN;
+	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
+			 &grp, sizeof(grp));
+
+	if (ret < 0)
+		zlog_notice(
+			"Registration for RTNLGRP_BRVLAN Membership failed : %d %s",
+			errno, safe_strerror(errno));
 	/*
 	 * Let's tell the kernel that we want to receive extended
 	 * ACKS over our command socket(s)

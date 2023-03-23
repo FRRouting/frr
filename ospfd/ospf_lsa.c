@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Link State Advertisement
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -53,7 +38,7 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_errors.h"
 
-static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
+static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf_area *area,
 							struct prefix_ipv4 *p,
 							uint8_t type,
 							uint32_t metric,
@@ -85,6 +70,16 @@ uint32_t get_metric(uint8_t *metric)
 	return m;
 }
 
+/** @brief The Function checks self generated DoNotAge.
+ *  @param lsa pointer.
+ *  @return true or false.
+ */
+bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
+{
+	return ((IS_LSA_SELF(lsa) && CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			? true
+			: false);
+}
 
 struct timeval int2tv(int a)
 {
@@ -135,6 +130,16 @@ int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
 int get_age(struct ospf_lsa *lsa)
 {
 	struct timeval rel;
+
+	/* As per rfc4136, the self-originated LSAs in their
+	 * own database keep aging, however rfc doesn't tell
+	 * till how long the LSA should be aged, as of now
+	 * we are capping it for OSPF_LSA_MAXAGE.
+	 */
+
+	/* If LSA is marked as donotage */
+	if (CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE) && !IS_LSA_SELF(lsa))
+		return ntohs(lsa->data->ls_age);
 
 	monotime_since(&lsa->tv_recv, &rel);
 	return ntohs(lsa->data->ls_age) + rel.tv_sec;
@@ -1134,6 +1139,10 @@ static struct ospf_lsa *ospf_network_lsa_refresh(struct ospf_lsa *lsa)
 		}
 		return NULL;
 	}
+
+	if (oi->state != ISM_DR)
+		return NULL;
+
 	/* Delete LSA from neighbor retransmit-list. */
 	ospf_ls_retransmit_delete_nbr_area(area, lsa);
 
@@ -1274,7 +1283,7 @@ ospf_summary_lsa_prepare_and_flood(struct prefix_ipv4 *p, uint32_t metric,
 	return new;
 }
 
-static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
+static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf_area *area,
 							struct prefix_ipv4 *p,
 							uint8_t type,
 							uint32_t metric,
@@ -1284,13 +1293,14 @@ static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
 	struct ospf_lsa *new = NULL;
 	struct summary_lsa *sl = NULL;
 	struct ospf_area *old_area = NULL;
+	struct ospf *ospf = area->ospf;
 	struct prefix_ipv4 old_prefix;
 	uint32_t old_metric;
 	struct in_addr mask;
 	uint32_t metric_val;
 	char *metric_buf;
 
-	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, type, p->prefix,
+	lsa = ospf_lsdb_lookup_by_id(area->lsdb, type, p->prefix,
 				     ospf->router_id);
 
 	if (!lsa) {
@@ -1349,8 +1359,8 @@ struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p,
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 			zlog_debug("Link ID has to be changed.");
 
-		new = ospf_handle_summarylsa_lsId_chg(
-			area->ospf, p, OSPF_SUMMARY_LSA, metric, id);
+		new = ospf_handle_summarylsa_lsId_chg(area, p, OSPF_SUMMARY_LSA,
+						      metric, id);
 		return new;
 	} else if (status == LSID_NOT_AVAILABLE) {
 		/* Link State ID not available. */
@@ -1512,7 +1522,7 @@ struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p,
 			zlog_debug("Link ID has to be changed.");
 
 		new = ospf_handle_summarylsa_lsId_chg(
-			area->ospf, p, OSPF_ASBR_SUMMARY_LSA, metric, id);
+			area, p, OSPF_ASBR_SUMMARY_LSA, metric, id);
 		return new;
 	} else if (status == LSID_NOT_AVAILABLE) {
 		/* Link State ID not available. */
@@ -1533,9 +1543,14 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
 	struct ospf_lsa *new;
 	struct summary_lsa *sl;
 	struct prefix p;
+	bool ind_lsa = false;
 
 	/* Sanity check. */
 	assert(lsa->data);
+
+	if (lsa->area->fr_info.indication_lsa_self &&
+	    (lsa->area->fr_info.indication_lsa_self == lsa))
+		ind_lsa = true;
 
 	sl = (struct summary_lsa *)lsa->data;
 	p.prefixlen = ip_masklen(sl->mask);
@@ -1550,6 +1565,9 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
 
 	/* Flood LSA through area. */
 	ospf_flood_through_area(new->area, NULL, new);
+
+	if (ind_lsa)
+		new->area->fr_info.indication_lsa_self = new;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug("LSA[Type%d:%pI4]: summary-ASBR-LSA refresh",
@@ -3641,6 +3659,49 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	return;
 }
 
+/** @brief Function to refresh all the self originated
+ *	   LSAs for area, when FR state change happens.
+ *  @param area pointer.
+ *  @return Void.
+ */
+void ospf_refresh_area_self_lsas(struct ospf_area *area)
+{
+	struct listnode *node2;
+	struct listnode *nnode2;
+	struct ospf_interface *oi;
+	struct route_node *rn;
+	struct ospf_lsa *lsa;
+
+	if (!area)
+		return;
+
+	if (area->router_lsa_self)
+		ospf_lsa_refresh(area->ospf, area->router_lsa_self);
+
+	for (ALL_LIST_ELEMENTS(area->oiflist, node2, nnode2, oi))
+		if (oi->network_lsa_self)
+			ospf_lsa_refresh(oi->ospf, oi->network_lsa_self);
+
+	LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (EXTERNAL_LSDB(area->ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (OPAQUE_AS_LSDB(area->ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+}
+
 /* If there is self-originated LSA, then return 1, otherwise return 0. */
 /* An interface-independent version of ospf_lsa_is_self_originated */
 int ospf_lsa_is_self_originated(struct ospf *ospf, struct ospf_lsa *lsa)
@@ -3976,6 +4037,7 @@ void ospf_lsa_refresh_walker(struct thread *t)
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();
+	bool dna_lsa;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 		zlog_debug("LSA[Refresh]: %s: start", __func__);
@@ -4034,10 +4096,14 @@ void ospf_lsa_refresh_walker(struct thread *t)
 	ospf->lsa_refresher_started = monotime(NULL);
 
 	for (ALL_LIST_ELEMENTS(lsa_to_refresh, node, nnode, lsa)) {
-		ospf_lsa_refresh(ospf, lsa);
-		assert(lsa->lock > 0);
-		ospf_lsa_unlock(
-			&lsa); /* lsa_refresh_queue & temp for lsa_to_refresh*/
+		dna_lsa = ospf_check_dna_lsa(lsa);
+		if (!dna_lsa) { /* refresh only non-DNA LSAs */
+			ospf_lsa_refresh(ospf, lsa);
+			assert(lsa->lock > 0);
+			ospf_lsa_unlock(&lsa); /* lsa_refresh_queue & temp for
+						* lsa_to_refresh.
+						*/
+		}
 	}
 
 	list_delete(&lsa_to_refresh);

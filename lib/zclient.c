@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra's client library.
  * Copyright (C) 1999 Kunihiro Ishiguro
  * Copyright (C) 2005 Andrew J. Schorr
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1035,6 +1020,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 	 */
 	if (api_nh->label_num > 0) {
 		stream_putc(s, api_nh->label_num);
+		stream_putc(s, api_nh->label_type);
 		stream_put(s, &api_nh->labels[0],
 			   api_nh->label_num * sizeof(mpls_label_t));
 	}
@@ -1397,6 +1383,7 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 	/* MPLS labels for BGP-LU or Segment Routing */
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)) {
 		STREAM_GETC(s, api_nh->label_num);
+		STREAM_GETC(s, api_nh->label_type);
 		if (api_nh->label_num > MPLS_MAX_LABELS) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
@@ -1682,7 +1669,8 @@ int zapi_tc_class_encode(uint8_t cmd, struct stream *s, struct tc_class *class)
 		stream_putq(s, class->u.htb.rate);
 		stream_putq(s, class->u.htb.ceil);
 		break;
-	default:
+	case TC_QDISC_UNSPEC:
+	case TC_QDISC_NOQUEUE:
 		/* not implemented */
 		break;
 	}
@@ -1730,7 +1718,10 @@ int zapi_tc_filter_encode(uint8_t cmd, struct stream *s,
 		}
 		stream_putl(s, filter->u.flower.classid);
 		break;
-	default:
+	case TC_FILTER_UNSPEC:
+	case TC_FILTER_BPF:
+	case TC_FILTER_FLOW:
+	case TC_FILTER_U32:
 		/* not implemented */
 		break;
 	}
@@ -1944,6 +1935,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			znh->labels[i] = nh->nh_label->label[i];
 
 		znh->label_num = i;
+		znh->label_type = nh->nh_label_type;
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
 	}
 
@@ -2398,9 +2390,9 @@ static int zclient_handle_error(ZAPI_CALLBACK_ARGS)
 
 static int link_params_set_value(struct stream *s, struct interface *ifp)
 {
-	uint8_t link_params_enabled;
+	uint8_t link_params_enabled, nb_ext_adm_grp;
 	struct if_link_params *iflp;
-	uint32_t bwclassnum;
+	uint32_t bwclassnum, bitmap_data;
 
 	iflp = if_link_params_get(ifp);
 
@@ -2429,6 +2421,15 @@ static int link_params_set_value(struct stream *s, struct interface *ifp)
 				__func__, bwclassnum, MAX_CLASS_TYPE);
 	}
 	STREAM_GETL(s, iflp->admin_grp);
+
+	/* Extended Administrative Group */
+	admin_group_clear(&iflp->ext_admin_grp);
+	STREAM_GETC(s, nb_ext_adm_grp);
+	for (size_t i = 0; i < nb_ext_adm_grp; i++) {
+		STREAM_GETL(s, bitmap_data);
+		admin_group_bulk_set(&iflp->ext_admin_grp, bitmap_data, i);
+	}
+
 	STREAM_GETL(s, iflp->rmt_as);
 	iflp->rmt_ip.s_addr = stream_get_ipv4(s);
 
@@ -2452,9 +2453,9 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 						   bool *changed)
 {
 	struct if_link_params *iflp;
-	struct if_link_params iflp_prev;
+	struct if_link_params iflp_prev = {0};
 	ifindex_t ifindex;
-	bool iflp_prev_set;
+	bool iflp_prev_set = false;
 
 	STREAM_GETL(s, ifindex);
 
@@ -2467,11 +2468,13 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 		return NULL;
 	}
 
-	if (if_link_params_get(ifp)) {
+	iflp = if_link_params_get(ifp);
+
+	if (iflp) {
 		iflp_prev_set = true;
-		memcpy(&iflp_prev, ifp->link_params, sizeof(iflp_prev));
-	} else
-		iflp_prev_set = false;
+		admin_group_init(&iflp_prev.ext_admin_grp);
+		if_link_params_copy(&iflp_prev, iflp);
+	}
 
 	/* read the link_params from stream
 	 * Free ifp->link_params if the stream has no params
@@ -2480,24 +2483,28 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	if (link_params_set_value(s, ifp) != 0)
 		goto stream_failure;
 
-	if (changed == NULL)
-		return ifp;
+	if (changed != NULL) {
+		iflp = if_link_params_get(ifp);
 
-	iflp = if_link_params_get(ifp);
-
-	if (iflp_prev_set && iflp) {
-		if (memcmp(&iflp_prev, iflp, sizeof(iflp_prev)))
-			*changed = true;
-		else
+		if (iflp_prev_set && iflp) {
+			if (if_link_params_cmp(&iflp_prev, iflp))
+				*changed = false;
+			else
+				*changed = true;
+		} else if (!iflp_prev_set && !iflp)
 			*changed = false;
-	} else if (!iflp_prev_set && !iflp)
-		*changed = false;
-	else
-		*changed = true;
+		else
+			*changed = true;
+	}
+
+	if (iflp_prev_set)
+		admin_group_term(&iflp_prev.ext_admin_grp);
 
 	return ifp;
 
 stream_failure:
+	if (iflp_prev_set)
+		admin_group_term(&iflp_prev.ext_admin_grp);
 	return NULL;
 }
 
@@ -2546,9 +2553,10 @@ stream_failure:
 size_t zebra_interface_link_params_write(struct stream *s,
 					 struct interface *ifp)
 {
-	size_t w;
+	size_t w, nb_ext_adm_grp;
 	struct if_link_params *iflp;
 	int i;
+
 
 	if (s == NULL || ifp == NULL)
 		return 0;
@@ -2575,6 +2583,13 @@ size_t zebra_interface_link_params_write(struct stream *s,
 		w += stream_putf(s, iflp->unrsv_bw[i]);
 
 	w += stream_putl(s, iflp->admin_grp);
+
+	/* Extended Administrative Group */
+	nb_ext_adm_grp = admin_group_nb_words(&iflp->ext_admin_grp);
+	w += stream_putc(s, nb_ext_adm_grp);
+	for (size_t i = 0; i < nb_ext_adm_grp; i++)
+		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, i));
+
 	w += stream_putl(s, iflp->rmt_as);
 	w += stream_put_in_addr(s, &iflp->rmt_ip);
 

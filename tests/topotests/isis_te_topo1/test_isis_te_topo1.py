@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_isis_te_topo1.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2021 by Orange
 # Author: Olivier Dugeon <olivier.dugeon@orange.com>
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -248,6 +235,60 @@ def test_step6():
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step6.json")
+
+
+def test_step7():
+    "Step7: Set extended admin-group on r1-eth0"
+
+    tgen = setup_testcase("Step7: Modify link parameters on r1")
+
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "affinity-map WHITE bit-position 0"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "affinity-map RED bit-position 31"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "affinity-map GREEN bit-position 32"')
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "affinity-map BLACK bit-position 128"')
+
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "affinity RED WHITE BLACK GREEN"'
+    )
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        compare_ted_json_output(tgen, rname, "ted_step7.json")
+
+
+def test_step8():
+    "Step8: Change value of affinity-map GREEN"
+
+    tgen = setup_testcase("Step8: Change value of affinity-map GREEN")
+
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "affinity-map GREEN bit-position 33"')
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        compare_ted_json_output(tgen, rname, "ted_step8.json")
+
+
+def test_step9():
+    "Step9: Trying to remove affinity-map GREEN. \
+    Must not succeed because in use"
+
+    tgen = setup_testcase("Step9: Trying to remove affinity-map GREEN")
+
+    tgen.net["r1"].cmd('vtysh -c "conf t" -c "no affinity-map GREEN"')
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        compare_ted_json_output(tgen, rname, "ted_step9.json")
+
+
+def test_step10():
+    "Step10: Removing r1-eth0 affinity GREEN"
+
+    tgen = setup_testcase("Step10: Removing r1-eth0 affinity GREEN")
+
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "link-params" -c "no affinity GREEN"'
+    )
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        compare_ted_json_output(tgen, rname, "ted_step10.json")
 
 
 def test_memory_leak():

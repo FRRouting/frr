@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Virtual terminal [aka TeletYpe] interface routine
  * Copyright (C) 1997 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_VTY_H
@@ -40,6 +25,8 @@
 #include "compiler.h"
 #include "northbound.h"
 #include "zlog_live.h"
+#include "libfrr.h"
+#include "mgmt_fe_client.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,11 +115,17 @@ struct vty {
 
 	/* Changes enqueued to be applied in the candidate configuration. */
 	size_t num_cfg_changes;
-	struct vty_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
+	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
 	/* XPath of the current node */
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];
+
+	/*
+	 * Keep track of how many SET_CFG requests has been sent so far that
+	 * has not been committed yet.
+	 */
+	size_t mgmt_num_pending_setcfg;
 
 	/* In configure mode. */
 	bool config;
@@ -149,6 +142,7 @@ struct vty {
 	/* Dynamic transaction information. */
 	bool pending_allowed;
 	bool pending_commit;
+	bool no_implicit_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
@@ -223,6 +217,12 @@ struct vty {
 	 * without any output. */
 	size_t frame_pos;
 	char frame[1024];
+
+	uintptr_t mgmt_session_id;
+	uint64_t mgmt_client_id;
+	uint64_t mgmt_req_id;
+	bool mgmt_req_pending;
+	bool mgmt_locked_candidate_ds;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -334,6 +334,8 @@ struct vty_arg {
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
 #endif
 
+extern struct nb_config *vty_mgmt_candidate_config;
+
 /* Prototypes. */
 extern void vty_init(struct thread_master *, bool do_command_logging);
 extern void vty_init_vtysh(void);
@@ -353,9 +355,13 @@ extern void vty_endframe(struct vty *, const char *);
 extern bool vty_set_include(struct vty *vty, const char *regexp);
 /* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
  * NULL check and json_object_free() is included.
+ *
+ * _no_pretty means do not add a bunch of newlines and dump the output
+ * as densely as possible.
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
-
+extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
+extern void vty_json_empty(struct vty *vty);
 /* post fd to be passed to the vtysh client
  * fd is owned by the VTY code after this and will be closed when done
  */
@@ -380,6 +386,29 @@ extern void vty_hello(struct vty *);
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
+
+extern void vty_init_mgmt_fe(void);
+extern bool vty_mgmt_fe_enabled(void);
+extern int vty_mgmt_send_config_data(struct vty *vty);
+extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
+				       bool abort);
+extern int vty_mgmt_send_get_config(struct vty *vty,
+				    Mgmtd__DatastoreId datastore,
+				    const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
+				  const char **xpath_list, int num_req);
+extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
+				    bool lock);
+extern void vty_mgmt_resume_response(struct vty *vty, bool success);
+
+static inline bool vty_needs_implicit_commit(struct vty *vty)
+{
+	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
+			? ((vty->pending_allowed || vty->no_implicit_commit)
+				   ? false
+				   : true)
+			: false);
+}
 
 #ifdef __cplusplus
 }

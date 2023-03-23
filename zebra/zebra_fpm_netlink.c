@@ -1,25 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Code for encoding/decoding FPM messages that are in netlink format.
  *
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -253,14 +238,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
  */
 static uint8_t netlink_proto_from_route_type(int type)
 {
-	switch (type) {
-	case ZEBRA_ROUTE_KERNEL:
-	case ZEBRA_ROUTE_CONNECT:
-		return RTPROT_KERNEL;
-
-	default:
-		return RTPROT_ZEBRA;
-	}
+	return zebra2proto(type);
 }
 
 /*
@@ -322,7 +300,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				ri->rtm_type = RTN_UNREACHABLE;
 				break;
 			case BLACKHOLE_NULL:
-			default:
+			case BLACKHOLE_UNSPEC:
 				ri->rtm_type = RTN_BLACKHOLE;
 				break;
 			}

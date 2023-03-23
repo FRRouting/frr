@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP RPKI
  * Copyright (C) 2013 Michael Mester (m.mester@fu-berlin.de), for FU Berlin
@@ -7,22 +8,6 @@
  * Hamburg
  * Copyright (C) 2017-2018 Marcel Röthke (marcel.roethke@haw-hamburg.de),
  * for HAW Hamburg
- *
- * This file is part of FRRouting.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* If rtrlib compiled with ssh support, don`t fail build */
@@ -96,6 +81,7 @@ struct rpki_for_each_record_arg {
 	unsigned int *prefix_amount;
 	as_t as;
 	json_object *json;
+	enum asnotation_mode asnotation;
 };
 
 static int start(void);
@@ -120,7 +106,7 @@ static void rpki_delete_all_cache_nodes(void);
 static int add_tcp_cache(const char *host, const char *port,
 			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty,
-			 json_object *json);
+			 json_object *json, enum asnotation_mode asnotation);
 static bool is_synchronized(void);
 static bool is_running(void);
 static bool is_stopping(void);
@@ -285,7 +271,7 @@ static void rpki_delete_all_cache_nodes(void)
 }
 
 static void print_record(const struct pfx_record *record, struct vty *vty,
-			 json_object *json)
+			 json_object *json, enum asnotation_mode asnotation)
 {
 	char ip[INET6_ADDRSTRLEN];
 	json_object *json_record = NULL;
@@ -293,8 +279,10 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 
 	if (!json) {
-		vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
-			record->max_len, record->asn);
+		vty_out(vty, "%-40s   %3u - %3u   ", ip, record->min_len,
+			record->max_len);
+		vty_out(vty, ASN_FORMAT(asnotation), (as_t *)&record->asn);
+		vty_out(vty, "\n");
 	} else {
 		json_record = json_object_new_object();
 		json_object_string_add(json_record, "prefix", ip);
@@ -302,7 +290,7 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 				    record->min_len);
 		json_object_int_add(json_record, "prefixLenMax",
 				    record->max_len);
-		json_object_int_add(json_record, "asn", record->asn);
+		asn_asn2json(json_record, "asn", record->asn, asnotation);
 		json_object_array_add(json, json_record);
 	}
 }
@@ -314,7 +302,7 @@ static void print_record_by_asn(const struct pfx_record *record, void *data)
 
 	if (record->asn == arg->as) {
 		(*arg->prefix_amount)++;
-		print_record(record, vty, arg->json);
+		print_record(record, vty, arg->json, arg->asnotation);
 	}
 }
 
@@ -325,7 +313,7 @@ static void print_record_cb(const struct pfx_record *record, void *data)
 
 	(*arg->prefix_amount)++;
 
-	print_record(record, vty, arg->json);
+	print_record(record, vty, arg->json, arg->asnotation);
 }
 
 static struct rtr_mgr_group *get_groups(void)
@@ -743,6 +731,7 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 	arg.vty = vty;
 	arg.as = as;
 	arg.json = NULL;
+	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
 		if (!json)
@@ -795,6 +784,7 @@ static void print_prefix_table(struct vty *vty, json_object *json)
 
 	arg.vty = vty;
 	arg.json = NULL;
+	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
 		if (!json)
@@ -1352,7 +1342,7 @@ DEFPY (show_rpki_prefix_table,
 
 DEFPY (show_rpki_as_number,
        show_rpki_as_number_cmd,
-       "show rpki as-number (1-4294967295)$by_asn [json$uj]",
+       "show rpki as-number ASNUM$by_asn [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup by ASN in prefix table\n"
@@ -1376,7 +1366,7 @@ DEFPY (show_rpki_as_number,
 
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
-       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn] [json$uj]",
+       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASNUM$asn] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup IP prefix and optionally ASN in prefix table\n"
@@ -1387,6 +1377,7 @@ DEFPY (show_rpki_prefix,
 {
 	json_object *json = NULL;
 	json_object *json_records = NULL;
+	enum asnotation_mode asnotation;
 
 	if (!is_synchronized()) {
 		if (!uj)
@@ -1412,8 +1403,8 @@ DEFPY (show_rpki_prefix,
 	enum pfxv_state result;
 
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
-				 asn, &addr, prefix->prefixlen, &result)
-	    != PFX_SUCCESS) {
+				 asn, &addr, prefix->prefixlen,
+				 &result) != PFX_SUCCESS) {
 		if (!json)
 			vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
@@ -1430,13 +1421,14 @@ DEFPY (show_rpki_prefix,
 		json_object_object_add(json, "prefixes", json_records);
 	}
 
+	asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 	for (size_t i = 0; i < match_count; ++i) {
 		const struct pfx_record *record = &matches[i];
 
-		if (record->max_len >= prefix->prefixlen
-		    && ((asn != 0 && (uint32_t)asn == record->asn)
-			|| asn == 0)) {
-			print_record(&matches[i], vty, json_records);
+		if (record->max_len >= prefix->prefixlen &&
+		    ((asn != 0 && (uint32_t)asn == record->asn) || asn == 0)) {
+			print_record(&matches[i], vty, json_records,
+				     asnotation);
 		}
 	}
 

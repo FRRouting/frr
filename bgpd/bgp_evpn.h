@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* E-VPN header for packet handling
  * Copyright (C) 2016 6WIND
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_EVPN_H
@@ -34,27 +19,6 @@ static inline int is_evpn_enabled(void)
 
 	bgp = bgp_get_evpn();
 	return bgp ? EVPN_ENABLED(bgp) : 0;
-}
-
-static inline void vni2label(vni_t vni, mpls_label_t *label)
-{
-	uint8_t *tag = (uint8_t *)label;
-
-	tag[0] = (vni >> 16) & 0xFF;
-	tag[1] = (vni >> 8) & 0xFF;
-	tag[2] = vni & 0xFF;
-}
-
-static inline vni_t label2vni(mpls_label_t *label)
-{
-	uint8_t *tag = (uint8_t *)label;
-	vni_t vni;
-
-	vni = ((uint32_t)*tag++ << 16);
-	vni |= (uint32_t)*tag++ << 8;
-	vni |= (uint32_t)(*tag & 0xFF);
-
-	return vni;
 }
 
 static inline int advertise_type5_routes(struct bgp *bgp_vrf,
@@ -229,5 +193,10 @@ bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
 extern void
 bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 					    void *arg);
+extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
+							 uint32_t num_labels);
+extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
+extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
+				    struct bgp_path_info *mpinfo);
 
 #endif /* _QUAGGA_BGP_EVPN_H */
