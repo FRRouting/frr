@@ -294,9 +294,9 @@ Route Map Set Command
 
    Subtract the BGP local preference from an existing `local_pref`.
 
-.. clicmd:: set distance DISTANCE
+.. clicmd:: set distance (1-255)
 
-   Set the Administrative distance to DISTANCE to use for the route.
+   Set the Administrative distance to use for the route.
    This is only locally significant and will not be dispersed to peers.
 
 .. clicmd:: set weight WEIGHT
