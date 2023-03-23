@@ -52,6 +52,18 @@ static bool nb_db_enabled;
  */
 static bool transaction_in_progress;
 
+static struct list *nb_node_list;
+static struct thread_master *master;
+
+struct mgmt_be_getdata_proc_metadata {
+	const char *xpath;
+	struct yang_translator *translator;
+	uint32_t flags;
+	nb_oper_data_cb cb;
+	void *arg;
+	struct thread *mgmt_proc_getdata;
+};
+
 static int nb_callback_pre_validate(struct nb_context *context,
 				    const struct nb_node *nb_node,
 				    const struct lyd_node *dnode, char *errmsg,
@@ -2267,6 +2279,69 @@ nb_oper_data_walk_elem_done:
 	return ret;
 }
 
+static void nb_oper_data_proc_nodes(struct thread *thread)
+{
+	struct mgmt_be_getdata_proc_metadata *nb_metadata;
+	struct listnode *lnode, *nnode;
+	struct nb_node *nb_node;
+	static int nb_nodes_processd = 0;
+	const void *list_entry = NULL;
+	struct yang_list_keys list_keys;
+	struct lyd_node *dnode = NULL;
+	int ret;
+
+	nb_metadata = (struct mgmt_be_getdata_proc_metadata *)THREAD_ARG(thread);
+	assert(nb_metadata);
+
+	for (ALL_LIST_ELEMENTS(nb_node_list, lnode, nnode, nb_node)) {
+
+		list_entry =
+			nb_oper_get_list_entry(nb_metadata->xpath, nb_node, &dnode, &list_keys);
+		if (!dnode) {
+			zlog_debug("%s: Did not get dnode for nb_node '%s'",
+					__func__, nb_node->snode->name);
+			ret = NB_ERR_NOT_FOUND;
+			continue;
+		} else  {
+			zlog_debug("%s: Parent list %p found for nb_node %p ('%s')",
+					__func__, list_entry, nb_node, nb_node->snode->name);
+		}
+
+		/* If a list entry was given, iterate over that list entry only. */
+		if (dnode->schema->nodetype == LYS_LIST &&
+				lyd_child(dnode))
+			ret = nb_oper_data_iter_children(
+					nb_node->snode, nb_metadata->xpath,
+					list_entry, &list_keys,
+					nb_metadata->translator, true, nb_metadata->flags,
+					nb_metadata->cb, nb_metadata->arg);
+		else
+			ret = nb_oper_data_iter_node(nb_node->snode, nb_metadata->xpath,
+					list_entry, &list_keys,
+					nb_metadata->translator, true, nb_metadata->flags,
+					nb_metadata->cb, nb_metadata->arg);
+
+		if (ret != NB_OK) {
+			zlog_debug("%s: Error in iterating nb_node for %s",
+					__func__, nb_metadata->xpath);
+			continue;
+		} else {
+			nb_nodes_processd++;
+			if (dnode)
+				yang_dnode_free(dnode);
+		}
+
+		if (nb_nodes_processd >= 1000 && !list_isempty(nb_node_list)) {
+			if (thread_should_yield(thread)) {
+				nb_nodes_processd = 0;
+				thread_add_timer(master, nb_oper_data_proc_nodes,
+						nb_metadata, 10,
+						&nb_metadata->mgmt_proc_getdata);
+			}
+		}
+	}
+}
+
 int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 			 uint32_t flags, nb_oper_data_cb cb, void *arg)
 {
@@ -2843,6 +2918,8 @@ void nb_init(struct thread_master *tm,
 
 	/* Initialize the northbound CLI. */
 	nb_cli_init(tm);
+
+	master = tm;
 }
 
 void nb_terminate(void)
