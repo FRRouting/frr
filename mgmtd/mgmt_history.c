@@ -143,6 +143,7 @@ static bool mgmt_history_read_cmt_record_index(void)
 		} else {
 			zlog_err("More records found in index file %s",
 				 MGMTD_COMMIT_INDEX_FILE_NAME);
+			fclose(fp);
 			return false;
 		}
 
