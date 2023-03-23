@@ -3133,13 +3133,14 @@ address-family:
    after a `bgp router-id` modification. Values before the semi-column are
    replaced automatically by the new router-id.
 
-.. clicmd:: label vpn export pop-and-forward
+.. clicmd:: label vpn export allocation-mode per-nexthop [pop-and-lookup]
 
    Select how incoming MPLS packets are processed within the router
    when the `per-nexthop` allocation mode is enabled. By default, the
-   `pop-and-forward` mode is enabled: the packets are popped and forwarded
-   to the nexthop address. If disabled, the packets are popped and
-   transmitted to the nexthop VRF which handles the packet routing.
+   packets are popped and forwarded to the nexthop. If the `pop-and-lookup`
+   keyword is used, the packets are popped and transmitted to the nexthop
+   VRF which handles the packet routing. The `pop-and-lookup` term is defined
+   in :rfc:`8960`.
 
 .. clicmd:: label vpn export (0..1048575)|auto
 
