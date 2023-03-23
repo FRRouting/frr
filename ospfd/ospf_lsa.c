@@ -4034,10 +4034,21 @@ void ospf_lsa_refresh_walker(struct thread *t)
 	ospf->lsa_refresher_started = monotime(NULL);
 
 	for (ALL_LIST_ELEMENTS(lsa_to_refresh, node, nnode, lsa)) {
+<<<<<<< HEAD
 		ospf_lsa_refresh(ospf, lsa);
 		assert(lsa->lock > 0);
 		ospf_lsa_unlock(
 			&lsa); /* lsa_refresh_queue & temp for lsa_to_refresh*/
+=======
+		dna_lsa = ospf_check_dna_lsa(lsa);
+		if (!dna_lsa) { /* refresh only non-DNA LSAs */
+			ospf_lsa_refresh(ospf, lsa);
+		}
+		assert(lsa->lock > 0);
+		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue & temp for
+					* lsa_to_refresh.
+					*/
+>>>>>>> 1746f71bc (ospfd: Fix for memory leak issue in ospf related to flood_reduction tests.)
 	}
 
 	list_delete(&lsa_to_refresh);
