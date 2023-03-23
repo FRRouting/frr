@@ -4099,11 +4099,11 @@ void ospf_lsa_refresh_walker(struct thread *t)
 		dna_lsa = ospf_check_dna_lsa(lsa);
 		if (!dna_lsa) { /* refresh only non-DNA LSAs */
 			ospf_lsa_refresh(ospf, lsa);
-			assert(lsa->lock > 0);
-			ospf_lsa_unlock(&lsa); /* lsa_refresh_queue & temp for
-						* lsa_to_refresh.
-						*/
 		}
+		assert(lsa->lock > 0);
+		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue & temp for
+					* lsa_to_refresh.
+					*/
 	}
 
 	list_delete(&lsa_to_refresh);
