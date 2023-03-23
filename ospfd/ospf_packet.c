@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Sending and Receiving OSPF Packets.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -43,6 +28,7 @@
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
+#include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_lsdb.h"
@@ -322,8 +308,10 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 	ck = ospf_crypt_key_lookup(OSPF_IF_PARAM(oi, auth_crypt),
 				   ospfh->u.crypt.key_id);
 	if (ck == NULL) {
-		flog_warn(EC_OSPF_MD5, "interface %s: ospf_check_md5 no key %d",
-			  IF_NAME(oi), ospfh->u.crypt.key_id);
+		flog_warn(
+			EC_OSPF_MD5,
+			"interface %s: ospf_check_md5 no key %d, Router-ID: %pI4",
+			IF_NAME(oi), ospfh->u.crypt.key_id, &ospfh->router_id);
 		return 0;
 	}
 
@@ -334,9 +322,9 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 	    && ntohl(nbr->crypt_seqnum) > ntohl(ospfh->u.crypt.crypt_seqnum)) {
 		flog_warn(
 			EC_OSPF_MD5,
-			"interface %s: ospf_check_md5 bad sequence %d (expect %d)",
+			"interface %s: ospf_check_md5 bad sequence %d (expect %d), Router-ID: %pI4",
 			IF_NAME(oi), ntohl(ospfh->u.crypt.crypt_seqnum),
-			ntohl(nbr->crypt_seqnum));
+			ntohl(nbr->crypt_seqnum), &ospfh->router_id);
 		return 0;
 	}
 
@@ -359,9 +347,10 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 
 	/* compare the two */
 	if (memcmp((caddr_t)ospfh + length, digest, OSPF_AUTH_MD5_SIZE)) {
-		flog_warn(EC_OSPF_MD5,
-			  "interface %s: ospf_check_md5 checksum mismatch",
-			  IF_NAME(oi));
+		flog_warn(
+			EC_OSPF_MD5,
+			"interface %s: ospf_check_md5 checksum mismatch, Router-ID: %pI4",
+			IF_NAME(oi), &ospfh->router_id);
 		return 0;
 	}
 
@@ -440,10 +429,11 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 
 	if (stream_get_endp(op->s) != op->length)
 		/* XXX size_t */
-		flog_warn(EC_OSPF_MD5,
-			  "%s: length mismatch stream %lu ospf_packet %u",
-			  __func__, (unsigned long)stream_get_endp(op->s),
-			  op->length);
+		flog_warn(
+			EC_OSPF_MD5,
+			"%s: length mismatch stream %lu ospf_packet %u, Router-ID %pI4",
+			__func__, (unsigned long)stream_get_endp(op->s),
+			op->length, &ospfh->router_id);
 
 	return OSPF_AUTH_MD5_SIZE;
 }
@@ -910,11 +900,11 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 
 	/* Compare Router Dead Interval. */
 	if (OSPF_IF_PARAM(oi, v_wait) != ntohl(hello->dead_interval)) {
-		flog_warn(EC_OSPF_PACKET,
-			  "Packet %pI4 [Hello:RECV]: RouterDeadInterval mismatch (expected %u, but received %u).",
-			  &ospfh->router_id,
-			  OSPF_IF_PARAM(oi, v_wait),
-			  ntohl(hello->dead_interval));
+		flog_warn(
+			EC_OSPF_PACKET,
+			"Packet %pI4 [Hello:RECV]: RouterDeadInterval mismatch on %s (expected %u, but received %u).",
+			&ospfh->router_id, IF_NAME(oi),
+			OSPF_IF_PARAM(oi, v_wait), ntohl(hello->dead_interval));
 		return;
 	}
 
@@ -924,8 +914,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		    != ntohs(hello->hello_interval)) {
 			flog_warn(
 				EC_OSPF_PACKET,
-				"Packet %pI4 [Hello:RECV]: HelloInterval mismatch (expected %u, but received %u).",
-				&ospfh->router_id,
+				"Packet %pI4 [Hello:RECV]: HelloInterval mismatch on %s (expected %u, but received %u).",
+				&ospfh->router_id, IF_NAME(oi),
 				OSPF_IF_PARAM(oi, v_hello),
 				ntohs(hello->hello_interval));
 			return;
@@ -933,8 +923,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Packet %pI4 [Hello:RECV]: Options %s vrf %s",
-			   &ospfh->router_id,
+		zlog_debug("Packet %pI4 [Hello:RECV]: Options on %s %s vrf %s",
+			   &ospfh->router_id, IF_NAME(oi),
 			   ospf_options_dump(hello->options),
 			   ospf_vrf_id_to_name(oi->ospf->vrf_id));
 
@@ -948,8 +938,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		 * relationship.
 		 */
 		flog_warn(EC_OSPF_PACKET,
-			  "Packet %pI4 [Hello:RECV]: T-bit on, drop it.",
-			  &ospfh->router_id);
+			  "Packet %pI4 [Hello:RECV]: T-bit ON on %s, drop it.",
+			  &ospfh->router_id, IF_NAME(oi));
 		return;
 	}
 #endif /* REJECT_IF_TBIT_ON */
@@ -961,8 +951,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		 * the bit should be set in DD packet only.
 		 */
 		flog_warn(EC_OSPF_PACKET,
-			  "Packet %pI4 [Hello:RECV]: O-bit abuse?",
-			  &ospfh->router_id);
+			  "Packet %pI4 [Hello:RECV]: O-bit abuse? on %s",
+			  &ospfh->router_id, IF_NAME(oi));
 #ifdef STRICT_OBIT_USAGE_CHECK
 		return; /* Reject this packet. */
 #else			/* STRICT_OBIT_USAGE_CHECK */
@@ -1169,8 +1159,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 		if (IS_OPAQUE_LSA(lsah->type)
 		    && !CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
 			flog_warn(EC_OSPF_PACKET,
-				  "LSA[Type%d:%pI4]: Opaque capability mismatch?",
-				  lsah->type, &lsah->id);
+				  "LSA[Type%d:%pI4] from %pI4: Opaque capability mismatch?",
+				  lsah->type, &lsah->id, &lsah->adv_router);
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			return;
 		}
@@ -1787,9 +1777,10 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 				continue;
 			}
 		} else if (IS_OPAQUE_LSA(lsah->type)) {
-			flog_warn(EC_OSPF_PACKET,
-				  "LSA[Type%d:%pI4]: Opaque capability mismatch?",
-				  lsah->type, &lsah->id);
+			flog_warn(
+				EC_OSPF_PACKET,
+				"LSA[Type%d:%pI4] from %pI4: Opaque capability mismatch?",
+				lsah->type, &lsah->id, &lsah->adv_router);
 			continue;
 		}
 
@@ -2115,6 +2106,14 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (ospf_flood(oi->ospf, nbr, current, lsa)
 			    < 0) /* Trap NSSA later. */
 				DISCARD_LSA(lsa, 5);
+
+			/* GR: check for network topology change. */
+			if (ospf->gr_info.restart_in_progress &&
+			    ((lsa->data->type == OSPF_ROUTER_LSA ||
+			      lsa->data->type == OSPF_NETWORK_LSA)))
+				ospf_gr_check_lsdb_consistency(oi->ospf,
+							       oi->area);
+
 			continue;
 		}
 
@@ -2227,9 +2226,6 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 	assert(listcount(lsas) == 0);
 	list_delete(&lsas);
-
-	if (ospf->gr_info.restart_in_progress)
-		ospf_gr_check_lsdb_consistency(oi->ospf, oi->area);
 }
 
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */
@@ -2483,10 +2479,11 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 				flog_warn(
 					EC_OSPF_PACKET,
-					"interface %s: auth-type mismatch, local %s, rcvd Null",
+					"interface %s: auth-type mismatch, local %s, rcvd Null, Router-ID %pI4",
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
-						   iface_auth_type, NULL));
+						   iface_auth_type, NULL),
+					&ospfh->router_id);
 			return 0;
 		}
 		if (!ospf_check_sum(ospfh)) {
@@ -2505,18 +2502,20 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 				flog_warn(
 					EC_OSPF_PACKET,
-					"interface %s: auth-type mismatch, local %s, rcvd Simple",
+					"interface %s: auth-type mismatch, local %s, rcvd Simple, Router-ID %pI4",
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
-						   iface_auth_type, NULL));
+						   iface_auth_type, NULL),
+					&ospfh->router_id);
 			return 0;
 		}
 		if (memcmp(OSPF_IF_PARAM(oi, auth_simple), ospfh->u.auth_data,
 			   OSPF_AUTH_SIMPLE_SIZE)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(EC_OSPF_PACKET,
-					  "interface %s: Simple auth failed",
-					  IF_NAME(oi));
+				flog_warn(
+					EC_OSPF_PACKET,
+					"interface %s: Simple auth failed, Router-ID %pI4",
+					IF_NAME(oi), &ospfh->router_id);
 			return 0;
 		}
 		if (!ospf_check_sum(ospfh)) {
@@ -2535,18 +2534,19 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 				flog_warn(
 					EC_OSPF_PACKET,
-					"interface %s: auth-type mismatch, local %s, rcvd Cryptographic",
+					"interface %s: auth-type mismatch, local %s, rcvd Cryptographic, Router-ID %pI4",
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
-						   iface_auth_type, NULL));
+						   iface_auth_type, NULL),
+					&ospfh->router_id);
 			return 0;
 		}
 		if (ospfh->checksum) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 				flog_warn(
 					EC_OSPF_PACKET,
-					"interface %s: OSPF header checksum is not 0",
-					IF_NAME(oi));
+					"interface %s: OSPF header checksum is not 0, Router-ID %pI4",
+					IF_NAME(oi), &ospfh->router_id);
 			return 0;
 		}
 		/* only MD5 crypto method can pass ospf_packet_examin() */
@@ -2559,9 +2559,10 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		       bug? */
 		    !ospf_check_md5_digest(oi, ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				flog_warn(EC_OSPF_MD5,
-					  "interface %s: MD5 auth failed",
-					  IF_NAME(oi));
+				flog_warn(
+					EC_OSPF_MD5,
+					"interface %s: MD5 auth failed, Router-ID %pI4",
+					IF_NAME(oi), &ospfh->router_id);
 			return 0;
 		}
 		return 1;
@@ -2569,8 +2570,8 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 			flog_warn(
 				EC_OSPF_PACKET,
-				"interface %s: invalid packet auth-type (%02x)",
-				IF_NAME(oi), pkt_auth_type);
+				"interface %s: invalid packet auth-type (%02x), Router-ID %pI4",
+				IF_NAME(oi), pkt_auth_type, &ospfh->router_id);
 		return 0;
 	}
 }
@@ -3331,6 +3332,14 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 	else
 		stream_putw(s, 0); /* hello-interval of 0 for fast-hellos */
 
+	/* Check if flood-reduction is enabled,
+	 * if yes set the DC bit in the options.
+	 */
+	if (OSPF_FR_CONFIG(oi->ospf, oi->area))
+		SET_FLAG(OPTIONS(oi), OSPF_OPTION_DC);
+	else if (CHECK_FLAG(OPTIONS(oi), OSPF_OPTION_DC))
+		UNSET_FLAG(OPTIONS(oi), OSPF_OPTION_DC);
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: options: %x, int: %s", __func__, OPTIONS(oi),
 			   IF_NAME(oi));
@@ -3419,6 +3428,8 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 	options = OPTIONS(oi);
 	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE))
 		SET_FLAG(options, OSPF_OPTION_O);
+	if (OSPF_FR_CONFIG(oi->ospf, oi->area))
+		SET_FLAG(options, OSPF_OPTION_DC);
 	stream_putc(s, options);
 
 	/* DD flags */

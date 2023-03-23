@@ -1,30 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Input matching routines for CLI backend.
  *
  * --
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "command_match.h"
 #include "memory.h"
+#include "asn.h"
 
 DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack");
 
@@ -437,7 +423,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 					add_nexthops(next, gstack[0], gstack,
 						     idx + 1, neg);
 				break;
-			default:
+			case no_match:
 				trace_matcher("no_match\n");
 				break;
 			}
@@ -544,9 +530,23 @@ static enum match_type min_match_level(enum cmd_token_type type)
 	// allowing words to partly match enables command abbreviation
 	case WORD_TKN:
 		return partly_match;
-	default:
+	case RANGE_TKN:
+	case IPV4_TKN:
+	case IPV4_PREFIX_TKN:
+	case IPV6_TKN:
+	case IPV6_PREFIX_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
+	case FORK_TKN:
+	case JOIN_TKN:
+	case END_TKN:
+	case NEG_ONLY_TKN:
+	case VARIABLE_TKN:
+	case ASNUM_TKN:
 		return exact_match;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /**
@@ -566,15 +566,22 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
+	case ASNUM_TKN:
 	case RANGE_TKN:
 		return 2;
 	case WORD_TKN:
 		return 3;
 	case VARIABLE_TKN:
 		return 4;
-	default:
+	case JOIN_TKN:
+	case START_TKN:
+	case END_TKN:
+	case NEG_ONLY_TKN:
+	case SPECIAL_TKN:
 		return 10;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /**
@@ -694,10 +701,17 @@ static enum match_type match_token(struct cmd_token *token, char *input_token)
 		return match_mac(input_token, false);
 	case MAC_PREFIX_TKN:
 		return match_mac(input_token, true);
+	case ASNUM_TKN:
+		return asn_str2asn_match(input_token);
 	case END_TKN:
-	default:
+	case FORK_TKN:
+	case JOIN_TKN:
+	case START_TKN:
+	case NEG_ONLY_TKN:
 		return no_match;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 #define IPV4_ADDR_STR   "0123456789."
@@ -830,7 +844,6 @@ static enum match_type match_ipv4_prefix(const char *str)
 
 	return exact_match;
 }
-
 
 #define IPV6_ADDR_STR   "0123456789abcdefABCDEF:."
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"

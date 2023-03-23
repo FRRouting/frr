@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SRv6 definitions
  * Copyright (C) 2020  Hiroki Shirokura, LINE Corporation
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -121,6 +108,13 @@ const char *seg6local_context2str(char *str, size_t size,
 	}
 }
 
+static void srv6_locator_chunk_list_free(void *data)
+{
+	struct srv6_locator_chunk *chunk = data;
+
+	srv6_locator_chunk_free(&chunk);
+}
+
 struct srv6_locator *srv6_locator_alloc(const char *name)
 {
 	struct srv6_locator *locator = NULL;
@@ -128,7 +122,7 @@ struct srv6_locator *srv6_locator_alloc(const char *name)
 	locator = XCALLOC(MTYPE_SRV6_LOCATOR, sizeof(struct srv6_locator));
 	strlcpy(locator->name, name, sizeof(locator->name));
 	locator->chunks = list_new();
-	locator->chunks->del = (void (*)(void *))srv6_locator_chunk_free;
+	locator->chunks->del = srv6_locator_chunk_list_free;
 
 	QOBJ_REG(locator, srv6_locator);
 	return locator;

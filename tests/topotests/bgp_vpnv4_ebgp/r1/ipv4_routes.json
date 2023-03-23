@@ -1,8 +1,8 @@
 {
-    "10.200.0.0/24": [
+    "172.31.0.10/32": [
         {
-            "prefix": "10.200.0.0/24",
-            "prefixLen": 24,
+            "prefix": "172.31.0.10/32",
+            "prefixLen": 32,
             "protocol": "bgp",
             "vrfName": "vrf1",
             "selected": true,
@@ -13,7 +13,19 @@
                 {
                     "flags": 3,
                     "fib": true,
-                    "ip": "10.125.0.2",
+                    "ip": "192.168.0.2",
+                    "afi": "ipv4",
+                    "interfaceName": "r1-eth0",
+                    "vrf": "default",
+                    "active": true,
+		    "labels":[
+			102
+		    ]
+                },
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "ip": "192.168.0.3",
                     "afi": "ipv4",
                     "interfaceName": "r1-eth0",
                     "vrf": "default",
@@ -25,10 +37,10 @@
             ]
         }
     ],
-    "10.201.0.0/24": [
+    "172.31.0.1/32": [
         {
-            "prefix": "10.201.0.0/24",
-            "prefixLen": 24,
+            "prefix": "172.31.0.1/32",
+            "prefixLen": 32,
             "protocol": "connected",
             "vrfName": "vrf1",
             "selected": true,

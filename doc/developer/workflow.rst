@@ -95,7 +95,7 @@ March/July/November.  Walking backwards from this date:
    are considered lowest priority (regardless of when they were opened.)
 
  - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and tagged as ```base_X.Y``.
+   ``dev/MAJOR.MINOR`` at this point) and tagged as ``base_X.Y``.
    Master is unfrozen and new features may again proceed.
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
@@ -341,6 +341,45 @@ The title of the pull request should provide a high level technical
 summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
 of the included patches.
+
+Squash commits
+--------------
+
+Before merging make sure a PR has squashed the following kinds of commits:
+
+- Fixes/review feedback
+- Typos
+- Merges and rebases
+- Work in progress
+
+This helps to automatically generate human-readable changelog messages.
+
+Commit Guidelines
+-----------------
+
+There is a built-in commit linter. Basic rules:
+
+- Commit messages must be prefixed with the name of the changed subsystem, followed
+  by a colon and a space and start with an imperative verb.
+
+   `Check <https://github.com/FRRouting/frr/tree/master/.github/commitlint.config.js>`_ all
+   the supported subsystems.
+
+- Commit messages must not end with a period ``.``
+
+Why was my pull request closed?
+-------------------------------
+
+Pull requests older than 180 days will be closed. Exceptions can be made for
+pull requests that have active review comments, or that are awaiting other
+dependent pull requests. Closed pull requests are easy to recreate, and little
+work is lost by closing a pull request that subsequently needs to be reopened.
+
+We want to limit the total number of pull requests in flight to:
+
+- Maintain a clean project
+- Remove old pull requests that would be difficult to rebase as the underlying code has changed over time
+- Encourage code velocity
 
 .. _license-for-contributions:
 
@@ -631,33 +670,36 @@ above) added to the file. The header should be:
 
 .. code-block:: c
 
+    // SPDX-License-Identifier: GPL-2.0-or-later
     /*
      * Title/Function of file
      * Copyright (C) YEAR  Author’s Name
-     *
-     * This program is free software; you can redistribute it and/or modify it
-     * under the terms of the GNU General Public License as published by the Free
-     * Software Foundation; either version 2 of the License, or (at your option)
-     * any later version.
-     *
-     * This program is distributed in the hope that it will be useful, but WITHOUT
-     * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-     * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-     * more details.
-     *
-     * You should have received a copy of the GNU General Public License along
-     * with this program; see the file COPYING; if not, write to the Free Software
-     * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
      */
 
     #include <zebra.h>
 
-Please copy-paste this header verbatim. In particular:
+A ``SPDX-License-Identifier`` header is required in all source files, i.e.
+``.c``, ``.h``, ``.cpp`` and ``.py`` files.  The license boilerplate should be
+removed in these files.  Some existing files are missing this header, this is
+slowly being fixed.
 
-- Do not replace "This program" with "FRR"
-- Do not change the address of the FSF
-- keep ``#include <zebra.h>``.  The absolute first header included in any C
-  file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H guard)
+A ``SPDX-License-Identifier`` header *and* the full license boilerplate is
+required in schema definition files, i.e. ``.yang`` and ``.proto``.  The
+rationale for this is that these files are likely to be individually copied to
+places outside FRR, and having only the SPDX header would become a "dangling
+pointer".
+
+.. warning::
+
+   **DO NOT REMOVE A "Copyright" LINE OR AUTHOR NAME, EVER.**
+
+   **DO NOT APPLY AN SPDX HEADER WHEN THE LICENSE IS UNCLEAR, UNLESS YOU HAVE
+   CHECKED WITH *ALL* SIGNIFICANT AUTHORS.**
+
+Please to keep ``#include <zebra.h>``.  The absolute first header included in
+any C file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H
+guard.)
+
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------
@@ -1308,6 +1350,8 @@ is to correctly set up `LD_LIBRARY_PATH` so that libraries from the build tree
 are used.  (On some systems, `libtool` is also available from PATH, but this is
 not always the case.)
 
+.. _cli-workflow:
+
 CLI changes
 -----------
 
@@ -1374,9 +1418,23 @@ the development mailing list / public Slack instance.
 JSON Output
 ^^^^^^^^^^^
 
-* All JSON keys are to be camelCased, with no spaces
+New JSON output in FRR needs to be backed by schema, in particular a YANG model.
+When adding new JSON, first search for an existing YANG model, either in FRR or
+a standard model (e.g., IETF) and use that model as the basis for any JSON
+structure and *especially* for key names and canonical values formats.
+
+If no YANG model exists to support the JSON then an FRR YANG model needs to be
+added to or created to support the JSON format.
+
+* All JSON keys are to be ``camelCased``, with no spaces. YANG modules almost
+  always use ``kebab-case`` (i.e., all lower case with hyphens to separate
+  words), so these identifiers need to be mapped to ``camelCase`` by removing
+  the hyphen (or symbol) and capitalizing the following letter, for
+  example "router-id" becomes "routerId"
 * Commands which output JSON should produce ``{}`` if they have nothing to
   display
+* In general JSON commands include a ``json`` keyword typically at the end of
+  the CLI command (e.g., ``show ip ospf json``)
 
 Use of const
 ^^^^^^^^^^^^

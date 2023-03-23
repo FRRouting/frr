@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_circuit.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #ifdef GNU_LINUX
@@ -120,7 +107,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		"/frr-interface:lib/interface/frr-isisd:isis/circuit-type");
 	circuit->flags = 0;
 
-	circuit->pad_hellos = yang_get_default_bool(
+	circuit->pad_hellos = yang_get_default_enum(
 		"/frr-interface:lib/interface/frr-isisd:isis/hello/padding");
 	circuit->hello_interval[0] = yang_get_default_uint32(
 		"/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-1");
@@ -158,7 +145,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 #else
 	circuit->is_type_config = IS_LEVEL_1_AND_2;
 	circuit->flags = 0;
-	circuit->pad_hellos = 1;
+	circuit->pad_hellos = ISIS_HELLO_PADDING_ALWAYS;
 	for (i = 0; i < 2; i++) {
 		circuit->hello_interval[i] = DEFAULT_HELLO_INTERVAL;
 		circuit->hello_multiplier[i] = DEFAULT_HELLO_MULTIPLIER;
@@ -1042,7 +1029,8 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 					circuit->hello_multiplier[0]);
 				json_object_string_add(
 					hold_json, "pad",
-					(circuit->pad_hellos ? "yes" : "no"));
+					isis_hello_padding2string(
+						circuit->pad_hellos));
 				json_object_int_add(level_json, "cnsp-interval",
 						    circuit->csnp_interval[0]);
 				json_object_int_add(level_json, "psnp-interval",
@@ -1150,11 +1138,11 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, ", Active neighbors: %u\n",
 					circuit->upadjcount[0]);
 				vty_out(vty,
-					"      Hello interval: %u, Holddown count: %u %s\n",
+					"      Hello interval: %u, Holddown count: %u, Padding: %s\n",
 					circuit->hello_interval[0],
 					circuit->hello_multiplier[0],
-					(circuit->pad_hellos ? "(pad)"
-							     : "(no-pad)"));
+					isis_hello_padding2string(
+						circuit->pad_hellos));
 				vty_out(vty,
 					"      CNSP interval: %u, PSNP interval: %u\n",
 					circuit->csnp_interval[0],
@@ -1182,11 +1170,11 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, ", Active neighbors: %u\n",
 					circuit->upadjcount[1]);
 				vty_out(vty,
-					"      Hello interval: %u, Holddown count: %u %s\n",
+					"      Hello interval: %u, Holddown count: %u, Padding: %s\n",
 					circuit->hello_interval[1],
 					circuit->hello_multiplier[1],
-					(circuit->pad_hellos ? "(pad)"
-							     : "(no-pad)"));
+					isis_hello_padding2string(
+						circuit->pad_hellos));
 				vty_out(vty,
 					"      CNSP interval: %u, PSNP interval: %u\n",
 					circuit->csnp_interval[1],
@@ -1332,11 +1320,20 @@ static int isis_interface_config_write(struct vty *vty)
 				}
 			}
 
-			/* ISIS - Hello padding - Defaults to true so only
-			 * display if false */
-			if (circuit->pad_hellos == 0) {
+			/* ISIS - Hello padding - Defaults to always so only
+			 * display if not always */
+			switch (circuit->pad_hellos) {
+			case ISIS_HELLO_PADDING_DISABLED:
 				vty_out(vty, " no " PROTO_NAME " hello padding\n");
 				write++;
+				break;
+			case ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION:
+				vty_out(vty, PROTO_NAME
+					" hello padding during-adjacency-formation\n");
+				write++;
+				break;
+			case ISIS_HELLO_PADDING_ALWAYS:
+				break;
 			}
 
 			if (circuit->disable_threeway_adj) {
@@ -1511,6 +1508,10 @@ ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 	    && metric > MAX_NARROW_LINK_METRIC)
 		return ferr_cfg_invalid("metric %d too large for narrow metric",
 					metric);
+
+	/* Don't modify metric if advertise high metrics is configured */
+	if (circuit->area && circuit->area->advertise_high_metrics)
+		return ferr_ok();
 
 	/* inform ldp-sync of metric change
          *   if ldp-sync is running need to save metric

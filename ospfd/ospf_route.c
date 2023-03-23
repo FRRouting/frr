@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF routing table.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -151,8 +136,8 @@ void ospf_route_table_free(struct route_table *rt)
    otherwise return 0. Since the ZEBRA-RIB does an implicit
    withdraw, it is not necessary to send a delete, an add later
    will act like an implicit delete. */
-int ospf_route_exist_new_table(struct route_table *rt,
-			       struct prefix_ipv4 *prefix)
+static int ospf_route_exist_new_table(struct route_table *rt,
+				      struct prefix_ipv4 *prefix)
 {
 	struct route_node *rn;
 
@@ -363,44 +348,49 @@ void ospf_route_install(struct ospf *ospf, struct route_table *rt)
 
 /* RFC2328 16.1. (4). For "router". */
 void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
-			   struct ospf_area *area, bool add_all)
+			   struct ospf_area *area, bool add_only)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
 	struct prefix_ipv4 p;
 	struct router_lsa *lsa;
 
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Start", __func__);
-
+	if (IS_DEBUG_OSPF_EVENT) {
+		if (!add_only)
+			zlog_debug("%s: Start", __func__);
+		else
+			zlog_debug("%s: REACHRUN: Start", __func__);
+	}
 	lsa = (struct router_lsa *)v->lsa;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: LS ID: %pI4", __func__, &lsa->header.id);
 
-	if (!OSPF_IS_AREA_BACKBONE(area))
-		ospf_vl_up_check(area, lsa->header.id, v);
+	if (!add_only) {
+		if (!OSPF_IS_AREA_BACKBONE(area))
+			ospf_vl_up_check(area, lsa->header.id, v);
 
-	if (!CHECK_FLAG(lsa->flags, ROUTER_LSA_SHORTCUT))
-		area->shortcut_capability = 0;
+		if (!CHECK_FLAG(lsa->flags, ROUTER_LSA_SHORTCUT))
+			area->shortcut_capability = 0;
 
-	/* If the newly added vertex is an area border router or AS boundary
-	   router, a routing table entry is added whose destination type is
-	   "router". */
-	if (!add_all && !IS_ROUTER_LSA_BORDER(lsa) &&
-	    !IS_ROUTER_LSA_EXTERNAL(lsa)) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"%s: this router is neither ASBR nor ABR, skipping it",
-				__func__);
-		return;
+		/* If the newly added vertex is an area border router or AS
+		   boundary router, a routing table entry is added whose
+		   destination type is "router". */
+		if (!IS_ROUTER_LSA_BORDER(lsa) &&
+		    !IS_ROUTER_LSA_EXTERNAL(lsa)) {
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug(
+					"%s: this router is neither ASBR nor ABR, skipping it",
+					__func__);
+			return;
+		}
+
+		/* Update ABR and ASBR count in this area. */
+		if (IS_ROUTER_LSA_BORDER(lsa))
+			area->abr_count++;
+		if (IS_ROUTER_LSA_EXTERNAL(lsa))
+			area->asbr_count++;
 	}
-
-	/* Update ABR and ASBR count in this area. */
-	if (IS_ROUTER_LSA_BORDER(lsa))
-		area->abr_count++;
-	if (IS_ROUTER_LSA_EXTERNAL(lsa))
-		area->asbr_count++;
 
 	/* The Options field found in the associated router-LSA is copied
 	   into the routing table entry's Optional capabilities field. Call
@@ -448,8 +438,12 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 
 	listnode_add(rn->info, or);
 
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Stop", __func__);
+	if (IS_DEBUG_OSPF_EVENT) {
+		if (!add_only)
+			zlog_debug("%s: Stop", __func__);
+		else
+			zlog_debug("%s: REACHRUN: Stop", __func__);
+	}
 }
 
 /* RFC2328 16.1. (4).  For transit network. */
@@ -985,6 +979,16 @@ void ospf_prune_unreachable_routers(struct route_table *rtrs)
 						"               via area %pI4",
 						&or->u.std.area_id);
 				}
+
+				/* Unset the DNA flag on lsa, if the router
+				 * which generated this lsa is no longer
+				 * reachabele.
+				 */
+				(CHECK_FLAG(or->u.std.origin->ls_age,
+					    DO_NOT_AGE))
+					? UNSET_FLAG(or->u.std.origin->ls_age,
+						     DO_NOT_AGE)
+					: 0;
 
 				listnode_delete(paths, or);
 				ospf_route_free(or);

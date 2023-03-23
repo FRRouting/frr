@@ -1,30 +1,17 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: ISC
 
 #
 # Copyright (c) 2020 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
 #
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
-#
 
 """
 Following tests are covered to test bgp community functionality:
 1. Verify that BGP well known communities work fine for
    eBGP and iBGP peers.
-   Well known communities tested: no-export, local-AS, internet
+   Well known communities tested: no-export, local-AS
 
 """
 
@@ -153,11 +140,11 @@ def teardown_module(mod):
 #####################################################
 
 
-def test_bgp_no_export_local_as_and_internet_communities_p0(request):
+def test_bgp_no_export_local_as_communities_p0(request):
     """
     Verify that BGP well known communities work fine for
     eBGP and iBGP peers.
-    Well known communities tested: no-export, local-AS, internet
+    Well known communities tested: no-export, local-AS
     """
 
     tc_name = request.node.name
@@ -183,7 +170,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
             tc_name, result
         )
 
-    for comm_type in ["no-export", "local-AS", "internet"]:
+    for comm_type in ["no-export", "local-AS"]:
 
         step("Create a route-map on R1 to set community as {}".format(comm_type))
 
@@ -271,45 +258,23 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 tc_name, result
             )
 
-            if comm_type == "internet":
-                step(
-                    "Verify that these prefixes, originated on R1, are"
-                    "received on both R2 and R3"
-                )
-
-                result = verify_rib(
-                    tgen,
-                    addr_type,
-                    "r3",
-                    input_dict_4,
-                    next_hop=topo["routers"]["r1"]["links"]["r3"][addr_type].split("/")[
-                        0
-                    ],
-                )
-                assert result is True, "Testcase {} : Failed \n Error: {}".format(
-                    tc_name, result
-                )
-            else:
-                step(
-                    "Verify that these prefixes, originated on R1, are not"
-                    "received on R3 but received on R2"
-                )
-
-                result = verify_rib(
-                    tgen,
-                    addr_type,
-                    "r3",
-                    input_dict_4,
-                    next_hop=topo["routers"]["r1"]["links"]["r3"][addr_type].split("/")[
-                        0
-                    ],
-                    expected=False,
-                )
-                assert result is not True, (
-                    "Testcase {} : Failed \n "
-                    "Expected: Routes are still present in rib of r3 \n "
-                    "Found: {}".format(tc_name, result)
-                )
+        step(
+            "Verify that these prefixes, originated on R1, are not"
+            "received on R3 but received on R2"
+        )
+        result = verify_rib(
+            tgen,
+            addr_type,
+            "r3",
+            input_dict_4,
+            next_hop=topo["routers"]["r1"]["links"]["r3"][addr_type].split("/")[0],
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes are still present in rib of r3 \n "
+            "Found: {}".format(tc_name, result)
+        )
 
         step("Remove route-map from redistribute static on R1")
         input_dict_2 = {

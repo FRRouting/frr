@@ -667,6 +667,7 @@ fi
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
+%{_sbindir}/mgmtd
 %exclude %{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
@@ -716,6 +717,9 @@ fi
 %{_libdir}/frr/modules/dplane_fpm_nl.so
 %{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
+%{_libdir}/libfrr_pb.so*
+%{_libdir}/libfrrfpm_pb.so*
+%{_libdir}/libmgmt_be_nb.so*
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
@@ -775,6 +779,8 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/lib*.so
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
+%dir %{_includedir}/%{name}/mgmtd
+%{_includedir}/%{name}/mgmtd/*.h
 %dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%{name}/ospfd/*.h
 %if %{with_bfdd}
@@ -793,9 +799,20 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Jul 20 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Feb 07 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
-* Tue Oct 04 2022 Donatas Abraitis <donatas@opensourcerouting.org> - 8.4
+* Tue Feb 07 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5
+
+* Tue Nov 01 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4
+- New BGP command (neighbor PEER soo) to configure SoO to prevent routing loops and suboptimal routing on dual-homed sites.
+- Command debug bgp allow-martian replaced to bgp allow-martian-nexthop because previously we allowed using martian next-hops when debug is turned on.
+- Implement BGP Prefix Origin Validation State Extended Community rfc8097
+- Implement Route Leak Prevention and Detection Using Roles in UPDATE and OPEN Messages rfc9234
+- BMP L3VPN support
+- PIMv6 support
+- MLD support
+- New command to enable using reserved IPv4 ranges as normal addresses for BGP next-hops, interface addresses, etc.
+- For a full list of bug fixes, please refer to https://frrouting.org/release/
 
 * Wed Jul 13 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.3
 - General:

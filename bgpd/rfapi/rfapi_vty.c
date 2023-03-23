@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "lib/zebra.h"
@@ -322,6 +309,7 @@ int rfapiDebugPrintf(void *dummy, const char *format, ...)
 	return 0;
 }
 
+PRINTFRR(2, 3)
 static int rfapiStdioPrintf(void *stream, const char *format, ...)
 {
 	FILE *file = NULL;
@@ -1601,7 +1589,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	vty_out(vty, " ");
 	rfapiPrintRfapiIpAddr(vty, &rfd->vn_addr);
 	vty_out(vty, " %p %p ", rfd->response_cb, rfd->cookie);
-	vty_out(vty, "%pRD", &rfd->rd);
+	vty_out(vty, "%pRDP", &rfd->rd);
 	vty_out(vty, " %d", rfd->response_lifetime);
 	vty_out(vty, " %s", (rfd->rfg ? rfd->rfg->name : "<orphaned>"));
 	vty_out(vty, "%s", HVTYNL);
@@ -1862,7 +1850,7 @@ void rfapiPrintNhl(void *stream, struct rfapi_next_hop_entry *next_hops)
 					   vo->v.local_nexthop.cost, HVTYNL);
 					break;
 
-				default:
+				case RFAPI_VN_OPTION_TYPE_INTERNAL_RD:
 					fp(out,
 					   "%svn option type %d (unknown)%s",
 					   offset, vo->type, HVTYNL);
@@ -1880,7 +1868,7 @@ void rfapiPrintNhl(void *stream, struct rfapi_next_hop_entry *next_hops)
 					rfapi_print_tunneltype_option(
 						stream, 8, &uo->v.tunnel);
 					break;
-				default:
+				case RFAPI_UN_OPTION_TYPE_PROVISIONAL:
 					fp(out, "%sUN Option type %d%s", offset,
 					   uo->type, vty_newline);
 					break;
@@ -4174,7 +4162,8 @@ static int rfapi_vty_show_nve_summary(struct vty *vty,
 		case SHOW_NVE_SUMMARY_RESPONSES:
 			rfapiRibShowResponsesSummary(vty);
 
-		default:
+		case SHOW_NVE_SUMMARY_UNKNOWN_NVES:
+		case SHOW_NVE_SUMMARY_MAX:
 			break;
 		}
 		vty_out(vty, "\n");
@@ -4720,6 +4709,7 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 	if (arg_rd) {
 		opt = &optary[cur_opt++];
 		opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
+		/* TODO: save RD format */
 		if (!str2prefix_rd(arg_rd, &opt->v.internal_rd)) {
 			vty_out(vty, "Malformed RD \"%s\"\n", arg_rd);
 			return CMD_WARNING_CONFIG_FAILED;

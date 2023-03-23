@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ospf_ldp_sync.c: OSPF LDP-IGP Sync  handling routines
  * Copyright (C) 2020 Volta Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -507,15 +494,8 @@ void ospf_ldp_sync_show_info(struct vty *vty, struct ospf *ospf,
 
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (use_json) {
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-			json_object_boolean_true_add(json_vrf,
-						     "MplsLdpIgpSyncEnabled");
 			json_object_boolean_true_add(json_vrf,
 						     "mplsLdpIgpSyncEnabled");
-			json_object_int_add(json_vrf, "MplsLdpIgpSyncHolddown",
-					    ospf->ldp_sync_cmd.holddown);
 			json_object_int_add(json_vrf, "mplsLdpIgpSyncHolddown",
 					    ospf->ldp_sync_cmd.holddown);
 		} else {

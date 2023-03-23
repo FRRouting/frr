@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020 Cumulus Networks, Inc.
  *                    Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ZEBRA_ZEBRA_NB_H_
@@ -109,6 +96,13 @@ int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_legacy_admin_group_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_legacy_admin_group_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args);
+int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args);
 struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *

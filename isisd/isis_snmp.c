@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ISIS SNMP support
  * Copyright (C) 2020 Volta Networks, Inc.
  *                    Aleksey Romanov
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -2174,7 +2161,10 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 		/*
 		 * return false if lan hellos must be padded
 		 */
-		if (circuit->pad_hellos)
+		if (circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
+		    (circuit->pad_hellos ==
+			     ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION &&
+		     circuit->upadjcount[0] + circuit->upadjcount[1] == 0))
 			return SNMP_INTEGER(ISIS_SNMP_TRUTH_VALUE_FALSE);
 
 		return SNMP_INTEGER(ISIS_SNMP_TRUTH_VALUE_TRUE);

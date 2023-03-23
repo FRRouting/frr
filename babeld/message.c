@@ -1,23 +1,6 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright (c) 2007, 2008 by Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #include <zebra.h>
@@ -439,7 +422,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Hello from %s on %s that does not have all 0's in the unused section of flags, ignoring",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		/*
@@ -451,7 +434,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		DO_NTOHS(seqno, message + 4);
@@ -469,7 +452,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		changed = update_neighbour(neigh, seqno, interval);

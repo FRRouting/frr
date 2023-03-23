@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd main header.
  * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPFD_H
@@ -34,8 +19,6 @@
 
 #include "ospf_memory.h"
 #include "ospf_dump_api.h"
-
-#include "orr_msg.h"
 
 #define OSPF_VERSION            2
 
@@ -118,7 +101,25 @@ struct ospf_redist {
 		struct route_map *map;
 	} route_map; /* +1 is for default-information */
 #define ROUTEMAP_NAME(R)   (R->route_map.name)
-#define ROUTEMAP(R)        (R->route_map.map)
+#define ROUTEMAP(R) (R->route_map.map)
+};
+
+/* OSPF area flood reduction info */
+struct ospf_area_fr_info {
+	bool enabled;       /* Area support for Flood Reduction */
+	bool configured;    /* Flood Reduction configured per area knob */
+	bool state_changed; /* flood reduction state change info */
+	int router_lsas_recv_dc_bit; /* Number of unique router lsas
+				      * received with DC bit set.
+				      * (excluding self)
+				      */
+	bool area_ind_lsa_recvd;     /* Indication lsa received in this area */
+	bool area_dc_clear;	  /* Area has atleast one lsa with dc bit 0(
+				      * excluding indication lsa)
+				      */
+	struct ospf_lsa *indication_lsa_self; /* Indication LSA generated
+					       * in the area.
+					       */
 };
 
 /* ospf->config */
@@ -257,13 +258,13 @@ struct ospf {
 
 	/* Threads. */
 	struct thread *t_abr_task;	  /* ABR task timer. */
+	struct thread *t_abr_fr;	  /* ABR FR timer. */
 	struct thread *t_asbr_check;	/* ASBR check timer. */
 	struct thread *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
 						     update timer. */
 	struct thread *t_distribute_update; /* Distirbute list update timer. */
 	struct thread *t_spf_calc;	  /* SPF calculation timer. */
 	struct thread *t_ase_calc;	  /* ASE calculation timer. */
-	struct thread *t_orr_calc;	/* ORR calculation timer. */
 	struct thread
 		*t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
 	struct thread *t_sr_update; /* Segment Routing update timer */
@@ -409,9 +410,8 @@ struct ospf {
 	bool ti_lfa_enabled;
 	enum protection_type ti_lfa_protection_type;
 
-	/* BGP ORR Root node list */
-	uint32_t orr_spf_request;
-	struct list *orr_root[AFI_MAX][SAFI_MAX];
+	/* Flood Reduction configuration state */
+	bool fr_configured;
 
 	QOBJ_FIELDS;
 };
@@ -599,8 +599,7 @@ struct ospf_area {
 	uint32_t full_nbrs; /* Fully adjacent neighbors. */
 	uint32_t full_vls;  /* Fully adjacent virtual neighbors. */
 
-	/* BGP-ORR Received LSAs */
-	struct ospf_lsa *router_lsa_rcvd;
+	struct ospf_area_fr_info fr_info; /* Flood reduction info. */
 };
 
 /* OSPF config network structure. */

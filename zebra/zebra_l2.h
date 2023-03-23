@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra Layer-2 interface Data structures and definitions
  * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_L2_H
@@ -49,9 +33,30 @@ struct zebra_l2info_bond {
 	struct list *mbr_zifs; /* slaves using this bond as a master */
 };
 
+struct zebra_l2_bridge_vlan {
+	vlanid_t vid;
+	struct zebra_evpn_access_bd *access_bd;
+};
+
+struct zebra_l2_bridge_if_ctx {
+	/* input */
+	struct zebra_if *zif;
+	int (*func)(struct zebra_if *zif, struct zebra_l2_bridge_vlan *vlan,
+		    void *arg);
+
+	/* input-output */
+	void *arg;
+};
+
+struct zebra_l2_bridge_if {
+	uint8_t vlan_aware;
+	struct zebra_if *br_zif;
+	struct hash *vlan_table;
+};
+
 /* zebra L2 interface information - bridge interface */
 struct zebra_l2info_bridge {
-	uint8_t vlan_aware; /* VLAN-aware bridge? */
+	struct zebra_l2_bridge_if bridge;
 };
 
 /* zebra L2 interface information - VLAN interface */
@@ -71,12 +76,52 @@ struct zebra_l2info_gre {
 	ns_id_t link_nsid;
 };
 
+struct zebra_vxlan_vni {
+	vni_t vni;	      /* VNI */
+	vlanid_t access_vlan; /* Access VLAN - for VLAN-aware bridge. */
+	struct in_addr mcast_grp;
+};
+
+enum {
+	ZEBRA_VXLAN_IF_VNI = 0, /* per vni vxlan if */
+	ZEBRA_VXLAN_IF_SVD	/* single vxlan device */
+};
+
+struct zebra_vxlan_if_vlan_ctx {
+	vlanid_t vid;
+	struct zebra_vxlan_vni *vni;
+};
+
+struct zebra_vxlan_if_update_ctx {
+	uint16_t chgflags;
+	struct in_addr old_vtep_ip;
+	struct zebra_vxlan_vni old_vni;
+	struct hash *old_vni_table;
+};
+
+struct zebra_vxlan_if_ctx {
+	/* input */
+	struct zebra_if *zif;
+	int (*func)(struct zebra_if *zif, struct zebra_vxlan_vni *vni,
+		    void *arg);
+
+	/* input-output */
+	void *arg;
+};
+
+struct zebra_vxlan_vni_info {
+	int iftype;
+	union {
+		struct zebra_vxlan_vni vni; /* per vni vxlan device vni info */
+		struct hash
+			*vni_table; /* table of vni's assocated with this if */
+	};
+};
+
 /* zebra L2 interface information - VXLAN interface */
 struct zebra_l2info_vxlan {
-	vni_t vni;		/* VNI */
+	struct zebra_vxlan_vni_info vni_info;
 	struct in_addr vtep_ip; /* Local tunnel IP */
-	vlanid_t access_vlan;   /* Access VLAN - for VLAN-aware bridge. */
-	struct in_addr mcast_grp;
 	ifindex_t ifindex_link; /* Interface index of interface
 				 * linked with VXLAN
 				 */
@@ -99,10 +144,16 @@ union zebra_l2if_info {
  * IOW, the macro VNI_FROM_ZEBRA_IF() will assume the interface is
  * of type ZEBRA_IF_VXLAN.
  */
-#define VNI_FROM_ZEBRA_IF(zif) (zif)->l2info.vxl.vni
+#define VNI_INFO_FROM_ZEBRA_IF(zif) (&((zif)->l2info.vxl.vni_info))
+#define IS_ZEBRA_VXLAN_IF_SVD(zif)                                             \
+	((zif)->l2info.vxl.vni_info.iftype == ZEBRA_VXLAN_IF_SVD)
+#define IS_ZEBRA_VXLAN_IF_VNI(zif)                                             \
+	((zif)->l2info.vxl.vni_info.iftype == ZEBRA_VXLAN_IF_VNI)
 #define VLAN_ID_FROM_ZEBRA_IF(zif) (zif)->l2info.vl.vid
 
-#define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) ((zif)->l2info.br.vlan_aware == 1)
+#define BRIDGE_FROM_ZEBRA_IF(zif) (&((zif)->l2info.br.bridge))
+#define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif)                                     \
+	((zif)->l2info.br.bridge.vlan_aware == 1)
 
 extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 					 struct zebra_ns *zns);

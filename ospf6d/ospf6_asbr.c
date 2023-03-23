@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1395,8 +1380,8 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
-				 struct in6_addr *nexthop, route_tag_t tag,
-				 struct ospf6 *ospf6)
+				 const struct in6_addr *nexthop,
+				 route_tag_t tag, struct ospf6 *ospf6)
 {
 	route_map_result_t ret;
 	struct ospf6_route troute;
@@ -1484,9 +1469,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		info->type = type;
 
-		if (nexthop_num && nexthop)
+		if (nexthop_num && nexthop) {
 			ospf6_route_add_nexthop(match, ifindex, nexthop);
-		else
+			if (!IN6_IS_ADDR_UNSPECIFIED(nexthop)
+			    && !IN6_IS_ADDR_LINKLOCAL(nexthop))
+				memcpy(&info->forwarding, nexthop,
+				       sizeof(struct in6_addr));
+		} else
 			ospf6_route_add_nexthop(match, ifindex, NULL);
 
 		match->path.origin.id = htonl(info->id);
@@ -1530,9 +1519,13 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	}
 
 	info->type = type;
-	if (nexthop_num && nexthop)
+	if (nexthop_num && nexthop) {
 		ospf6_route_add_nexthop(route, ifindex, nexthop);
-	else
+		if (!IN6_IS_ADDR_UNSPECIFIED(nexthop)
+		    && !IN6_IS_ADDR_LINKLOCAL(nexthop))
+			memcpy(&info->forwarding, nexthop,
+			       sizeof(struct in6_addr));
+	} else
 		ospf6_route_add_nexthop(route, ifindex, NULL);
 
 	route = ospf6_route_add(route, ospf6->external_table);
@@ -1585,7 +1578,11 @@ ospf6_asbr_summary_remove_lsa_and_route(struct ospf6 *ospf6,
 			zlog_debug(
 				"%s: Remove the blackhole route",
 				__func__);
+
 		ospf6_zebra_route_update_remove(aggr->route, ospf6);
+		if (aggr->route->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
+			      aggr->route->route_option);
 		ospf6_route_delete(aggr->route);
 		aggr->route = NULL;
 	}
@@ -2736,7 +2733,12 @@ ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
 					   struct ospf6_external_aggr_rt *aggr)
 {
 	struct ospf6_route *rt_aggr;
+	struct ospf6_route *old_rt = NULL;
 	struct ospf6_external_info *info;
+
+	/* Check if a route is already present. */
+	if (aggr->route)
+		old_rt = aggr->route;
 
 	/* Create summary route and save it. */
 	rt_aggr = ospf6_route_create(ospf6);
@@ -2755,6 +2757,16 @@ ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
 
 	/* Add next-hop to Null interface. */
 	ospf6_add_route_nexthop_blackhole(rt_aggr);
+
+	/* Free the old route, if any. */
+	if (old_rt) {
+		ospf6_zebra_route_update_remove(old_rt, ospf6);
+
+		if (old_rt->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO, old_rt->route_option);
+
+		ospf6_route_delete(old_rt);
+	}
 
 	ospf6_zebra_route_update_add(rt_aggr, ospf6);
 }
@@ -3024,8 +3036,8 @@ static void ospf6_aggr_handle_external_info(void *data)
 	(void)ospf6_originate_type5_type7_lsas(rt, ospf6);
 }
 
-static void
-ospf6_asbr_summary_config_delete(struct ospf6 *ospf6, struct route_node *rn)
+void ospf6_asbr_summary_config_delete(struct ospf6 *ospf6,
+				      struct route_node *rn)
 {
 	struct ospf6_external_aggr_rt *aggr = rn->info;
 
@@ -3166,14 +3178,6 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 	if (OSPF6_EXTERNAL_RT_COUNT(aggr))
 		hash_clean(aggr->match_extnl_hash,
 			ospf6_aggr_unlink_external_info);
-
-	if (aggr->route) {
-		if (aggr->route->route_option)
-			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
-			      aggr->route->route_option);
-
-		ospf6_route_delete(aggr->route);
-	}
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Release the aggregator Address(%pFX)",

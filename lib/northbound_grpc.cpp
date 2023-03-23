@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 //
 // Copyright (c) 2021-2022, LabN Consulting, L.L.C
 // Copyright (C) 2019  NetDEF, Inc.
 //                     Renato Westphal
-//
-// This program is free software; you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation; either version 2 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program; see the file COPYING; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 //
 
 #include <zebra.h>
@@ -837,8 +824,9 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 	case frr::CommitRequest::PREPARE:
 		grpc_debug("`-> Performing PREPARE");
 		ret = nb_candidate_commit_prepare(
-			&context, candidate->config, comment.c_str(),
-			&candidate->transaction, errmsg, sizeof(errmsg));
+			context, candidate->config, comment.c_str(),
+			&candidate->transaction, false, false, errmsg,
+			sizeof(errmsg));
 		break;
 	case frr::CommitRequest::ABORT:
 		grpc_debug("`-> Performing ABORT");
@@ -853,7 +841,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 		break;
 	case frr::CommitRequest::ALL:
 		grpc_debug("`-> Performing ALL");
-		ret = nb_candidate_commit(&context, candidate->config, true,
+		ret = nb_candidate_commit(context, candidate->config, true,
 					  comment.c_str(), &transaction_id,
 					  errmsg, sizeof(errmsg));
 		break;

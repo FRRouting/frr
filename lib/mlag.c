@@ -1,23 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* mlag generic code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #include <zebra.h>
 
@@ -73,7 +57,10 @@ char *mlag_lib_msgid_to_str(enum mlag_msg_type msg_type, char *buf, size_t size)
 	case MLAG_PEER_FRR_STATUS:
 		snprintf(buf, size, "Mlag Peer FRR Status");
 		break;
-	default:
+	case MLAG_PIM_CFG_DUMP:
+		snprintf(buf, size, "Mlag Pim Configuration Dump");
+		break;
+	case MLAG_MSG_NONE:
 		snprintf(buf, size, "Unknown %d", msg_type);
 		break;
 	}

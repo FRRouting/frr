@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #define FRR_DEFINE_DESC_TABLE
@@ -519,6 +504,26 @@ const char *zserv_command_string(unsigned int command)
 		return unknown.string;
 	}
 	return command_types[command].string;
+}
+
+#define DESC_ENTRY(T) [(T)] = {(T), (#T), '\0'}
+static const struct zebra_desc_table gr_client_cap_types[] = {
+	DESC_ENTRY(ZEBRA_CLIENT_GR_CAPABILITIES),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_PENDING),
+	DESC_ENTRY(ZEBRA_CLIENT_GR_DISABLE),
+	DESC_ENTRY(ZEBRA_CLIENT_RIB_STALE_TIME),
+};
+#undef DESC_ENTRY
+
+const char *zserv_gr_client_cap_string(uint32_t zcc)
+{
+	if (zcc >= array_size(gr_client_cap_types)) {
+		flog_err(EC_LIB_DEVELOPMENT, "unknown zserv command type: %u",
+			 zcc);
+		return unknown.string;
+	}
+	return gr_client_cap_types[zcc].string;
 }
 
 int proto_name2num(const char *s)

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * STATICd - route code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -209,7 +196,8 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
 					vrf->vrf_id))
 			return false;
 		break;
-	default:
+	case STATIC_IFNAME:
+	case STATIC_BLACKHOLE:
 		break;
 	}
 
@@ -276,6 +264,8 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
+	/* Copy back pointers. */
+	nh->rn = rn;
 	nh->pn = pn;
 
 	nh->type = type;
@@ -300,7 +290,8 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		nh->addr.ipv6 = ipaddr->ipaddr_v6;
 		break;
-	default:
+	case STATIC_IFNAME:
+	case STATIC_BLACKHOLE:
 		break;
 	}
 	/*
@@ -393,6 +384,8 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	struct route_node *rn = pn->rn;
 
 	static_nexthop_list_del(&(pn->nexthop_list), nh);
+	/* Remove BFD session/configuration if any. */
+	bfd_sess_free(&nh->bsp);
 
 	if (nh->nh_vrf_id == VRF_UNKNOWN)
 		goto EXIT;
@@ -432,6 +425,8 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up,
 		nh->ifindex = IFINDEX_INTERNAL;
 	}
 
+	/* Remove previously configured route if any. */
+	static_uninstall_path(pn);
 	static_install_path(pn);
 }
 
@@ -760,30 +755,6 @@ void static_ifindex_update(struct interface *ifp, bool up)
 	static_ifindex_update_af(ifp, up, AFI_IP, SAFI_MULTICAST);
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_UNICAST);
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_MULTICAST);
-}
-
-void static_get_nh_type(enum static_nh_type stype, char *type, size_t size)
-{
-	switch (stype) {
-	case STATIC_IFNAME:
-		strlcpy(type, "ifindex", size);
-		break;
-	case STATIC_IPV4_GATEWAY:
-		strlcpy(type, "ip4", size);
-		break;
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		strlcpy(type, "ip4-ifindex", size);
-		break;
-	case STATIC_BLACKHOLE:
-		strlcpy(type, "blackhole", size);
-		break;
-	case STATIC_IPV6_GATEWAY:
-		strlcpy(type, "ip6", size);
-		break;
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		strlcpy(type, "ip6-ifindex", size);
-		break;
-	};
 }
 
 struct stable_info *static_get_stable_info(struct route_node *rn)

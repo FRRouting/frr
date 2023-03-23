@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2017-20  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRR_XREF_H
@@ -208,8 +197,19 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  * some build issue with it just add -DFRR_XREF_NO_NOTE to your build flags
  * to disable it.
  */
-#ifdef FRR_XREF_NO_NOTE
+#if defined(FRR_XREF_NO_NOTE) || defined(__mips64)
 #define XREF_NOTE ""
+
+/* mips64 note:  MIPS64 (regardless of endianness, both mips64 & mips64el)
+ * does not have a 64-bit PC-relative relocation type.  Unfortunately, a
+ * 64-bit PC-relative relocation is exactly what the below asm magic emits.
+ * Therefore, the xref ELF note is permanently disabled on MIPS64.
+ *
+ * For some context, refer to https://reviews.llvm.org/D80390
+ *
+ * As noted above, xref extraction still works through the section header
+ * path, so no functionality is lost.
+ */
 #else
 
 #if __SIZEOF_POINTER__ == 4

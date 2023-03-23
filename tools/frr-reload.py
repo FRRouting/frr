@@ -1,23 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Frr Reloader
 # Copyright (C) 2014 Cumulus Networks, Inc.
-#
-# This file is part of Frr.
-#
-# Frr is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2, or (at your option) any
-# later version.
-#
-# Frr is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Frr; see the file COPYING.  If not, write to the Free
-# Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-#  02111-1307, USA.
 #
 """
 This program
@@ -1490,10 +1474,12 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
 
     for (ctx_keys, line) in lines_to_del_to_del:
-        lines_to_del.remove((ctx_keys, line))
+        if line is not None:
+            lines_to_del.remove((ctx_keys, line))
 
     for (ctx_keys, line) in lines_to_add_to_del:
-        lines_to_add.remove((ctx_keys, line))
+        if line is not None:
+            lines_to_add.remove((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
 
@@ -1514,6 +1500,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
             [
                 ctx_keys[0].startswith(x)
                 for x in [
+                    "agentx",
                     "frr version",
                     "frr defaults",
                     "username",
@@ -1913,6 +1900,7 @@ if __name__ == "__main__":
         "bgpd",
         "fabricd",
         "isisd",
+        "babeld",
         "ospf6d",
         "ospfd",
         "pbrd",
@@ -1924,6 +1912,7 @@ if __name__ == "__main__":
         "staticd",
         "vrrpd",
         "ldpd",
+        "nhrpd",
         "pathd",
         "bfdd",
         "eigrpd",

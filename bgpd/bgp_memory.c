@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* bgpd memory type definitions
  *
  * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -134,12 +119,10 @@ DEFINE_MTYPE(BGPD, BGP_EVPN_VRF_IMPORT_RT, "BGP EVPN VRF Import RT");
 
 DEFINE_MTYPE(BGPD, BGP_SRV6_L3VPN, "BGP prefix-sid srv6 l3vpn servcie");
 DEFINE_MTYPE(BGPD, BGP_SRV6_VPN, "BGP prefix-sid srv6 vpn service");
-
 DEFINE_MTYPE(BGPD, BGP_SRV6_SID, "BGP srv6 segment-id");
 DEFINE_MTYPE(BGPD, BGP_SRV6_FUNCTION, "BGP srv6 function");
 DEFINE_MTYPE(BGPD, EVPN_REMOTE_IP, "BGP EVPN Remote IP hash entry");
 
 DEFINE_MTYPE(BGPD, BGP_NOTIFICATION, "BGP Notification Message");
-DEFINE_MTYPE(BGPD, BGP_ORR_GROUP, "BGP Optimal Route Reflection Group");
-DEFINE_MTYPE(BGPD, BGP_ORR_GROUP_NAME,
-	     "BGP Optimal Route Reflection Group Name");
+
+DEFINE_MTYPE(BGPD, BGP_SOFT_VERSION, "Software Version");

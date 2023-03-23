@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * printfrr() unit test
  * Copyright (C) 2019  David Lamparter
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "zebra.h"
@@ -25,6 +12,7 @@
 #include "lib/memory.h"
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
+#include "lib/asn.h"
 
 static int errors;
 
@@ -158,6 +146,7 @@ int main(int argc, char **argv)
 	struct in_addr ip;
 	char *p;
 	char buf[256];
+	as_t asn;
 
 	printcmp("%d %u %d %u", 123, 123, -456, -456);
 	printcmp("%lld %llu %lld %llu", 123LL, 123LL, -456LL, -456LL);
@@ -405,6 +394,13 @@ int main(int argc, char **argv)
 	printchk("-00:09", "%pTSIm", &ts);
 	printchk("--:--", "%pTVImx", &tv);
 	printchk("--:--", "%pTTImx", &tt);
+	/* ASN checks */
+	asn = 65536;
+	printchk("1.0", "%pASD", &asn);
+	asn = 65400;
+	printchk("65400", "%pASP", &asn);
+	printchk("0.65400", "%pASE", &asn);
+	printchk("65400", "%pASD", &asn);
 
 	return !!errors;
 }

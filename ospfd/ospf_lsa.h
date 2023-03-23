@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Link State Advertisement
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_LSA_H
@@ -60,6 +45,7 @@
 /* OSPF LSA header. */
 struct lsa_header {
 	uint16_t ls_age;
+#define DO_NOT_AGE 0x8000
 	uint8_t options;
 	uint8_t type;
 	struct in_addr id;
@@ -74,16 +60,15 @@ struct vertex;
 /* OSPF LSA. */
 struct ospf_lsa {
 	/* LSA origination flag. */
-	uint16_t flags;
-#define OSPF_LSA_SELF		0x0001
-#define OSPF_LSA_SELF_CHECKED	0x0002
-#define OSPF_LSA_RECEIVED	0x0004
-#define OSPF_LSA_APPROVED	0x0008
-#define OSPF_LSA_DISCARD	0x0010
-#define OSPF_LSA_LOCAL_XLT	0x0020
-#define OSPF_LSA_PREMATURE_AGE	0x0040
-#define OSPF_LSA_IN_MAXAGE	0x0080
-#define OSPF_LSA_ORR		0x0100
+	uint8_t flags;
+#define OSPF_LSA_SELF		  0x01
+#define OSPF_LSA_SELF_CHECKED	  0x02
+#define OSPF_LSA_RECEIVED	  0x04
+#define OSPF_LSA_APPROVED	  0x08
+#define OSPF_LSA_DISCARD	  0x10
+#define OSPF_LSA_LOCAL_XLT	  0x20
+#define OSPF_LSA_PREMATURE_AGE	  0x40
+#define OSPF_LSA_IN_MAXAGE	  0x80
 
 	/* LSA data. and size */
 	struct lsa_header *data;
@@ -226,7 +211,6 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 #define IS_LSA_MAXAGE(L)        (LS_AGE ((L)) == OSPF_LSA_MAXAGE)
 #define IS_LSA_MAX_SEQ(L)                                                      \
 	((L)->data->ls_seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER))
-#define IS_LSA_ORR(L)           (CHECK_FLAG ((L)->flags, OSPF_LSA_ORR))
 
 #define OSPF_LSA_UPDATE_DELAY		2
 
@@ -234,6 +218,9 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 	((type == OSPF_ROUTER_LSA) || (type == OSPF_NETWORK_LSA)               \
 	 || (type == OSPF_SUMMARY_LSA) || (type == OSPF_ASBR_SUMMARY_LSA)      \
 	 || (type == OSPF_AS_EXTERNAL_LSA) || (type == OSPF_AS_NSSA_LSA))
+
+#define OSPF_FR_CONFIG(o, a)                                                   \
+	(o->fr_configured || ((a != NULL) ? a->fr_info.configured : 0))
 
 /* Prototypes. */
 /* XXX: Eek, time functions, similar are in lib/thread.c */
@@ -297,12 +284,6 @@ extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
 					struct in_addr);
 extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
 					      struct in_addr);
-extern struct ospf_lsa *ospf_lsa_lookup_by_adv_rid(struct ospf_area *area,
-						   uint32_t type,
-						   struct in_addr id);
-extern struct ospf_lsa *ospf_lsa_lookup_by_mpls_te_rid(struct ospf_area *area,
-						       uint32_t type,
-						       struct in_addr id);
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
 						  struct lsa_header *);
 extern int ospf_lsa_more_recent(struct ospf_lsa *, struct ospf_lsa *);
@@ -366,4 +347,24 @@ extern void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
 extern void ospf_maxage_lsa_remover(struct thread *thread);
+extern bool ospf_check_dna_lsa(const struct ospf_lsa *lsa);
+extern void ospf_refresh_area_self_lsas(struct ospf_area *area);
+
+/** @brief Check if the LSA is an indication LSA.
+ *  @param lsa pointer.
+ *  @return true or false based on lsa info.
+ */
+static inline bool ospf_check_indication_lsa(struct ospf_lsa *lsa)
+{
+	struct summary_lsa *sl = NULL;
+
+	if (lsa->data->type == OSPF_ASBR_SUMMARY_LSA) {
+		sl = (struct summary_lsa *)lsa->data;
+		if ((GET_METRIC(sl->metric) == OSPF_LS_INFINITY) &&
+		    !CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC))
+			return true;
+	}
+
+	return false;
+}
 #endif /* _ZEBRA_OSPF_LSA_H */

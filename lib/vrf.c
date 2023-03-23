@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRF functions.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -610,7 +595,7 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	case VRF_BACKEND_NETNS:
 	case VRF_BACKEND_VRF_LITE:
 		break;
-	default:
+	case VRF_BACKEND_MAX:
 		return -1;
 	}
 
@@ -652,7 +637,7 @@ DEFUN_YANG_NOSH (vrf,
 	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
 
 	nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(VRF_NODE, xpath_list);
 		vrf = vrf_lookup_by_name(vrfname);
@@ -1000,8 +985,7 @@ lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
 	if (vrfp->status == VRF_ACTIVE)
-		return yang_data_new_bool(
-			args->xpath, vrfp->status == VRF_ACTIVE ? true : false);
+		return yang_data_new_bool(args->xpath, true);
 
 	return NULL;
 }

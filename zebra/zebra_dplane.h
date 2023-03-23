@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra dataplane layer api interfaces.
  * Copyright (c) 2018 Volta Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_DPLANE_H
@@ -24,7 +11,6 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
-#include "lib/queue.h"
 #include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
@@ -265,14 +251,15 @@ void dplane_enable_sys_route_notifs(void);
  * they cannot share existing global data structures safely.
  */
 
-/* Define a tailq list type for context blocks. The list is exposed/public,
+/* Define a list type for context blocks. The list is exposed/public,
  * but the internal linkage in the context struct is private, so there
  * are accessor apis that support enqueue and dequeue.
  */
-TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
+
+PREDECL_DLIST(dplane_ctx_list);
 
 /* Declare a type for (optional) extended interface info objects. */
-TAILQ_HEAD(dplane_intf_extra_q, dplane_intf_extra);
+PREDECL_DLIST(dplane_intf_extra_list);
 
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
@@ -300,18 +287,21 @@ void dplane_ctx_fini(struct zebra_dplane_ctx **pctx);
 /* Enqueue a context block to caller's tailq. This exists so that the
  * context struct can remain opaque.
  */
-void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,
+void dplane_ctx_enqueue_tail(struct dplane_ctx_list_head *q,
 			     const struct zebra_dplane_ctx *ctx);
 
 /* Append a list of context blocks to another list - again, just keeping
  * the context struct opaque.
  */
-void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
-			    struct dplane_ctx_q *from_list);
+void dplane_ctx_list_append(struct dplane_ctx_list_head *to_list,
+			    struct dplane_ctx_list_head *from_list);
 
 /* Dequeue a context block from the head of caller's tailq */
-struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q);
-struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q);
+struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q);
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
+
+/* Init a list of contexts */
+void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
 
 /*
  * Accessors for information from the context object
@@ -565,6 +555,7 @@ uint32_t dplane_ctx_mac_get_update_flags(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_mac_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_mac_get_addr(
 	const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_mac_get_vni(const struct zebra_dplane_ctx *ctx);
 const struct in_addr *dplane_ctx_mac_get_vtep_ip(
 	const struct zebra_dplane_ctx *ctx);
 ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx);
@@ -574,6 +565,7 @@ const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_neigh_get_vni(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *
 dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
@@ -789,14 +781,11 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 /*
  * Enqueue evpn mac operations for the dataplane.
  */
-enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
-					const struct interface *bridge_ifp,
-					vlanid_t vid,
-					const struct ethaddr *mac,
-					struct in_addr vtep_ip,
-					bool sticky,
-					uint32_t nhg_id,
-					bool was_static);
+enum zebra_dplane_result
+dplane_rem_mac_add(const struct interface *ifp,
+		   const struct interface *bridge_ifp, vlanid_t vid,
+		   const struct ethaddr *mac, vni_t vni, struct in_addr vtep_ip,
+		   bool sticky, uint32_t nhg_id, bool was_static);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -812,20 +801,17 @@ dplane_local_mac_del(const struct interface *ifp,
 		     const struct ethaddr *mac);
 
 enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
-					const struct interface *bridge_ifp,
-					vlanid_t vid,
-					const struct ethaddr *mac,
-					struct in_addr vtep_ip);
+					    const struct interface *bridge_ifp,
+					    vlanid_t vid,
+					    const struct ethaddr *mac,
+					    vni_t vni, struct in_addr vtep_ip);
 
 /* Helper api to init an empty or new context for a MAC update */
-void dplane_mac_init(struct zebra_dplane_ctx *ctx,
-		     const struct interface *ifp,
-		     const struct interface *br_ifp,
-		     vlanid_t vid,
-		     const struct ethaddr *mac,
-		     struct in_addr vtep_ip,
-		     bool sticky,
-		     uint32_t nhg_id, uint32_t update_flags);
+void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+		     const struct interface *br_ifp, vlanid_t vid,
+		     const struct ethaddr *mac, vni_t vni,
+		     struct in_addr vtep_ip, bool sticky, uint32_t nhg_id,
+		     uint32_t update_flags);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.
@@ -1036,7 +1022,7 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 
 /* Dequeue work to a list, maintain counter and locking, return count */
 int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
-				    struct dplane_ctx_q *listp);
+				    struct dplane_ctx_list_head *listp);
 
 /* Current completed work queue length */
 uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov);
@@ -1061,7 +1047,7 @@ void dplane_enable_intf_extra_info(void);
  * so the expectation is that the contexts are queued for the zebra
  * main pthread.
  */
-void zebra_dplane_init(int (*) (struct dplane_ctx_q *));
+void zebra_dplane_init(int (*)(struct dplane_ctx_list_head *));
 
 /*
  * Start the dataplane pthread. This step needs to be run later than the

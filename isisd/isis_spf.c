@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol                  - isis_spf.c
  *                                              The SPT algorithm
@@ -6,20 +7,6 @@
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2017        Christian Franke <chris@opensourcerouting.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1587,8 +1574,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 		vertex->N.ip.priority = priority;
 		if (vertex->depth == 1 || listcount(vertex->Adj_N) > 0) {
 			struct isis_spftree *pre_spftree;
-			struct route_table *route_table;
-			bool allow_ecmp;
+			struct route_table *route_table = NULL;
+			bool allow_ecmp = false;
 
 			switch (spftree->type) {
 			case SPF_TYPE_RLFA:
@@ -1606,7 +1593,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 					return;
 				}
 				break;
-			default:
+			case SPF_TYPE_FORWARD:
+			case SPF_TYPE_REVERSE:
 				break;
 			}
 
@@ -1624,7 +1612,8 @@ static void spf_path_process(struct isis_spftree *spftree,
 				pre_spftree->lfa.protection_counters
 					.tilfa[vertex->N.ip.priority] += 1;
 				break;
-			default:
+			case SPF_TYPE_FORWARD:
+			case SPF_TYPE_REVERSE:
 				route_table = spftree->route_table;
 				allow_ecmp = true;
 
@@ -1699,7 +1688,14 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 					     VTYPE_IPREACH_TE))
 				continue;
 			break;
-		default:
+		case VTYPE_PSEUDO_IS:
+		case VTYPE_PSEUDO_TE_IS:
+		case VTYPE_NONPSEUDO_IS:
+		case VTYPE_NONPSEUDO_TE_IS:
+		case VTYPE_ES:
+		case VTYPE_IPREACH_TE:
+		case VTYPE_IP6REACH_INTERNAL:
+		case VTYPE_IP6REACH_EXTERNAL:
 			break;
 		}
 
@@ -2276,7 +2272,8 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 
 					label2str(
 						nexthop->label_stack->label[i],
-						buf_label, sizeof(buf_label));
+						0, buf_label,
+						sizeof(buf_label));
 					if (i != 0)
 						strlcat(buf_labels, "/",
 							sizeof(buf_labels));
@@ -2284,7 +2281,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 						sizeof(buf_labels));
 				}
 			} else if (nexthop->sr.present)
-				label2str(nexthop->sr.label, buf_labels,
+				label2str(nexthop->sr.label, 0, buf_labels,
 					  sizeof(buf_labels));
 			else
 				strlcpy(buf_labels, "-", sizeof(buf_labels));
@@ -2714,12 +2711,14 @@ void isis_spf_init(void)
 
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 {
+	uint64_t last_run_duration = spftree->last_run_duration;
+
 	vty_out(vty, "      last run elapsed  : ");
 	vty_out_timestr(vty, spftree->last_run_timestamp);
 	vty_out(vty, "\n");
 
-	vty_out(vty, "      last run duration : %u usec\n",
-		(uint32_t)spftree->last_run_duration);
+	vty_out(vty, "      last run duration : %" PRIu64 " usec\n",
+		last_run_duration);
 
 	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }

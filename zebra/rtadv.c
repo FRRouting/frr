@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Router advertisement
  * Copyright (C) 2016 Cumulus Networks
  * Copyright (C) 2005 6WIND <jean-mickael.guerin@6wind.com>
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -585,6 +570,28 @@ static void rtadv_process_solicit(struct interface *ifp)
 		zif->rtadv.AdvIntervalTimer = MIN_DELAY_BETWEEN_RAS;
 }
 
+static const char *rtadv_optionalhdr2str(uint8_t opt_type)
+{
+	switch (opt_type) {
+	case ND_OPT_SOURCE_LINKADDR:
+		return "Optional Source Link Address";
+	case ND_OPT_TARGET_LINKADDR:
+		return "Optional Target Link Address";
+	case ND_OPT_PREFIX_INFORMATION:
+		return "Optional Prefix Information";
+	case ND_OPT_REDIRECTED_HEADER:
+		return "Optional Redirected Header";
+	case ND_OPT_MTU:
+		return "Optional MTU";
+	case ND_OPT_RTR_ADV_INTERVAL:
+		return "Optional Advertisement Interval";
+	case ND_OPT_HOME_AGENT_INFO:
+		return "Optional Home Agent Information";
+	}
+
+	return "Unknown Optional Type";
+}
+
 /*
  * This function processes optional attributes off of
  * end of a RA packet received.  At this point in
@@ -609,6 +616,13 @@ static void rtadv_process_optional(uint8_t *optional, unsigned int len,
 							  &addr->sin6_addr, 1);
 			break;
 		default:
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug(
+					"%s:Received Packet with optional Header type %s(%u) that is being ignored",
+					__func__,
+					rtadv_optionalhdr2str(
+						opt_hdr->nd_opt_type),
+					opt_hdr->nd_opt_type);
 			break;
 		}
 

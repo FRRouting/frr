@@ -8,6 +8,7 @@ usr/bin/vtysh
 usr/lib/*/frr/libfrr.*
 usr/lib/*/frr/libfrrcares.*
 usr/lib/*/frr/libfrrospfapiclient.*
+usr/lib/*/frr/libmgmt_be_nb.*
 usr/lib/*/frr/modules/bgpd_bmp.so
 usr/lib/*/frr/modules/dplane_fpm_nl.so
 usr/lib/*/frr/modules/zebra_cumulus_mlag.so

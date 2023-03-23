@@ -1,23 +1,10 @@
+# SPDX-License-Identifier: ISC
 #
 # topogen.py
 # Library of helper functions for NetDEF Topology Tests
 #
 # Copyright (c) 2020 by Volta Networks
 #
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -36,11 +23,12 @@ from lib.topolog import logger
 class SnmpTester(object):
     "A helper class for testing SNMP"
 
-    def __init__(self, router, iface, community, version):
+    def __init__(self, router, iface, community, version, options=""):
         self.community = community
         self.version = version
         self.router = router
         self.iface = iface
+        self.options = options
         logger.info(
             "created SNMP tester: SNMPv{0} community:{1}".format(
                 self.version, self.community
@@ -52,7 +40,9 @@ class SnmpTester(object):
         Helper function to build a string with SNMP
         configuration for commands.
         """
-        return "-v {0} -c {1} {2}".format(self.version, self.community, self.iface)
+        return "-v {0} -c {1} {2} {3}".format(
+            self.version, self.community, self.options, self.iface
+        )
 
     @staticmethod
     def _get_snmp_value(snmp_output):

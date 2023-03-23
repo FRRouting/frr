@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4 Finite State Machine
  * From RFC1771 [A Border Gateway Protocol 4 (BGP-4)]
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_FSM_H
@@ -125,7 +110,8 @@ extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
 extern int bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
 extern void bgp_routeadv_timer(struct thread *);
-extern void bgp_fsm_change_status(struct peer *peer, int status);
+extern void bgp_fsm_change_status(struct peer *peer,
+				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);
 extern void bgp_maxmed_update(struct bgp *);
@@ -175,6 +161,4 @@ const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);
 const char *print_global_gr_mode(enum global_mode gl_mode);
 const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd);
 int bgp_peer_reg_with_nht(struct peer *peer);
-
-extern void bgp_peer_update_orr_active_roots(struct peer *peer);
 #endif /* _QUAGGA_BGP_FSM_H */

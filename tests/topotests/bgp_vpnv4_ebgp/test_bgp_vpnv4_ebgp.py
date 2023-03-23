@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bgp_vpnv4_ebgp.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2022 by 6WIND
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -53,10 +40,12 @@ def build_topo(tgen):
     # Create 2 routers.
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
@@ -64,27 +53,38 @@ def build_topo(tgen):
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r2"])
 
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
+
+
 def _populate_iface():
     tgen = get_topogen()
     cmds_list = [
-        'ip link add vrf1 type vrf table 10',
-        'echo 100000 > /proc/sys/net/mpls/platform_labels',
-        'ip link set dev vrf1 up',
-        'ip link set dev {0}-eth1 master vrf1',
-        'echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input',
+        "ip link add vrf1 type vrf table 10",
+        "echo 100000 > /proc/sys/net/mpls/platform_labels",
+        "ip link set dev vrf1 up",
+        "ip link set dev {0}-eth1 master vrf1",
+        "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
     ]
 
     for cmd in cmds_list:
-        input = cmd.format('r1', '1', '2')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r1'].cmd(cmd.format('r1', '1', '2'))
-        logger.info('output: ' + output)
+        input = cmd.format("r1")
+        logger.info("input: " + cmd)
+        output = tgen.net["r1"].cmd(cmd.format("r1"))
+        logger.info("output: " + output)
 
     for cmd in cmds_list:
-        input = cmd.format('r2', '2', '1')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r2'].cmd(cmd.format('r2', '2', '1'))
-        logger.info('output: ' + output)
+        input = cmd.format("r2")
+        logger.info("input: " + cmd)
+        output = tgen.net["r2"].cmd(cmd.format("r2"))
+        logger.info("output: " + output)
+
+    for cmd in cmds_list:
+        input = cmd.format("r3")
+        logger.info("input: " + cmd)
+        output = tgen.net["r3"].cmd(cmd.format("r3"))
+        logger.info("output: " + output)
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -122,13 +122,13 @@ def test_protocols_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
     logger.info("Dump some context for r1")
     router.vtysh_cmd("show bgp ipv4 vpn")
     router.vtysh_cmd("show bgp summary")
     router.vtysh_cmd("show bgp vrf vrf1 ipv4")
     router.vtysh_cmd("show running-config")
-    router = tgen.gears['r2']
+    router = tgen.gears["r2"]
     logger.info("Dump some context for r2")
     router.vtysh_cmd("show bgp ipv4 vpn")
     router.vtysh_cmd("show bgp summary")
@@ -137,11 +137,11 @@ def test_protocols_convergence():
 
     # Check IPv4 routing tables on r1
     logger.info("Checking IPv4 routes for convergence on r1")
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
     json_file = "{}/{}/ipv4_routes.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
         logger.info("skipping file {}".format(json_file))
-        assert 0, 'ipv4_routes.json file not found'
+        assert 0, "ipv4_routes.json file not found"
         return
 
     expected = json.loads(open(json_file).read())
@@ -155,12 +155,12 @@ def test_protocols_convergence():
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
-    # Check BGP IPv4 routing tables on r2 not installed
-    logger.info("Checking BGP IPv4 routes for convergence on r2")
-    router = tgen.gears['r2']
+    # Check BGP IPv4 routing tables on r1
+    logger.info("Checking BGP IPv4 routes for convergence on r1")
+    router = tgen.gears["r1"]
     json_file = "{}/{}/bgp_ipv4_routes.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
-        assert 0, 'bgp_ipv4_routes.json file not found'
+        assert 0, "bgp_ipv4_routes.json file not found"
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
@@ -172,7 +172,48 @@ def test_protocols_convergence():
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
-    
+
+    # Check BGP IPv4 imported entry is not detected as local
+    # "selectionReason": "Locally configured route"
+    donna = tgen.gears["r1"].vtysh_cmd(
+        "show bgp vrf vrf1 ipv4 172.31.0.10/32 json", isjson=True
+    )
+    routes = donna["paths"]
+    selectionReasonFound = False
+    for route in routes:
+        if "bestpath" not in route.keys():
+            continue
+        if "selectionReason" not in route["bestpath"].keys():
+            continue
+
+        if "Locally configured route" == route["bestpath"]["selectionReason"]:
+            assert 0, "imported prefix has wrong reason detected"
+
+        selectionReasonFound = True
+
+    if not selectionReasonFound:
+        assertmsg = '"{}" imported prefix has wrong reason detected'.format(router.name)
+        assert False, assertmsg
+
+    # Check BGP IPv4 routing tables on r2 not installed
+    logger.info("Checking BGP IPv4 routes for convergence on r2")
+    router = tgen.gears["r2"]
+    json_file = "{}/{}/bgp_ipv4_routes.json".format(CWD, router.name)
+    if not os.path.isfile(json_file):
+        assert 0, "bgp_ipv4_routes.json file not found"
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp vrf vrf1 ipv4 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

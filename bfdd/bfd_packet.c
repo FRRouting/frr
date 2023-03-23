@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2017 Cumulus Networks, Inc.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * bfd_packet.c: implements the BFD protocol packet handling.
  *
@@ -153,7 +140,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
  *    sizeof(*pkt)
  *
  * ip
- *    IP address that pkt will be transmitted from and too.
+ *    IP address that pkt will be transmitted from and to.
  *
  * Returns:
  *    Checksum in network byte order.
@@ -494,12 +481,6 @@ ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 
 	*ttl = ip->ttl;
 	if (*ttl != 254) {
-		/* Echo should be looped in peer's forwarding plane, but it also
-		 * comes up to BFD so silently drop it
-		 */
-		if (ip->daddr == ip->saddr)
-			return -1;
-
 		if (bglobal.debug_network)
 			zlog_debug("%s: invalid TTL: %u", __func__, *ttl);
 		return -1;
@@ -746,6 +727,7 @@ static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 	}
 }
 
+PRINTFRR(6, 7)
 static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		     struct sockaddr_any *local, ifindex_t ifindex,
 		     vrf_id_t vrfid, const char *fmt, ...)
@@ -844,7 +826,7 @@ void bfd_recv_cb(struct thread *t)
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "too small (%ld bytes)", mlen);
+			 "too small (%zd bytes)", mlen);
 		return;
 	}
 

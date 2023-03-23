@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -90,9 +77,9 @@ const char *pcc_status_name(enum pcc_status status)
 		return "SYNCHRONIZING";
 	case PCEP_PCC_OPERATING:
 		return "OPERATING";
-	default:
-		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we do not expect to");
 }
 
 const char *pcep_event_type_name(pcep_event_type event_type)
@@ -118,9 +105,13 @@ const char *pcep_event_type_name(pcep_event_type event_type)
 		return "PCC_RCVD_MAX_INVALID_MSGS";
 	case PCC_RCVD_MAX_UNKOWN_MSGS:
 		return "PCC_RCVD_MAX_UNKOWN_MSGS";
-	default:
-		return "UNKNOWN";
+	case PCC_CONNECTION_FAILURE:
+		return "PCC_CONNECTION_FAILURE";
+	case PCC_SENT_INVALID_OPEN:
+		return "PCC_SENT_INVALID_OPEN";
 	}
+
+	assert(!"Reached end of function where we do not expect to");
 }
 
 const char *pcep_error_type_name(enum pcep_error_type error_type)
@@ -640,9 +631,11 @@ const char *pcep_message_type_name(enum pcep_message_types pcep_message_type)
 		return "INITIATE";
 	case PCEP_TYPE_START_TLS:
 		return "START_TLS";
-	default:
+	case PCEP_TYPE_MAX:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 const char *pcep_object_class_name(enum pcep_object_classes obj_class)
@@ -694,9 +687,11 @@ const char *pcep_object_class_name(enum pcep_object_classes obj_class)
 		return "SERVER_IND";
 	case PCEP_OBJ_CLASS_ASSOCIATION:
 		return "ASSOCIATION";
-	default:
+	case PCEP_OBJ_CLASS_MAX:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 const char *pcep_object_type_name(enum pcep_object_classes obj_class,
@@ -769,9 +764,9 @@ const char *pcep_lsp_status_name(enum pcep_lsp_operational_status status)
 		return "GOING_DOWN";
 	case PCEP_LSP_OPERATIONAL_GOING_UP:
 		return "GOING_UP";
-	default:
-		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we do not expect to");
 }
 
 
@@ -818,9 +813,11 @@ const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type)
 		return "UNKNOWN";
 	case PCEP_OBJ_TLV_TYPE_ARBITRARY:
 		return "ARBITRARY";
-	default:
-		return "UNKNOWN";
+	case PCEP_OBJ_TYPE_CISCO_BSID:
+		return "CISCO_BSID";
 	}
+
+	assert(!"Reached end of function where we do not expect to");
 }
 
 const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type)
@@ -839,9 +836,11 @@ const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type)
 		return "ASN";
 	case RO_SUBOBJ_TYPE_SR:
 		return "SR";
-	default:
+	case RO_SUBOBJ_UNKNOWN:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we do not expect to");
 }
 
 const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type)
@@ -861,9 +860,11 @@ const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type)
 		return "UNNUMBERED_IPV4_ADJACENCY";
 	case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
 		return "LINK_LOCAL_IPV6_ADJACENCY";
-	default:
+	case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 		return "UNKNOWN";
 	}
+
+	assert(!"Reached end of function where we do not expect to");
 }
 
 const char *pcep_metric_type_name(enum pcep_metric_types type)
@@ -1115,7 +1116,7 @@ void _format_path(int ps, struct path *path)
 			PATHD_FORMAT("%*sendpoint: %pI6\n", ps3, "",
 				     &path->nbkey.endpoint.ipaddr_v6);
 			break;
-		default:
+		case IPADDR_NONE:
 			PATHD_FORMAT("%*sendpoint: NONE\n", ps3, "");
 			break;
 		}
@@ -1300,7 +1301,9 @@ void _format_path_hop(int ps, struct path_hop *hop)
 				     &hop->nai.remote_addr.ipaddr_v6,
 				     hop->nai.remote_iface);
 			break;
-		default:
+		case PCEP_SR_SUBOBJ_NAI_ABSENT:
+		case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
+		case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 			PATHD_FORMAT("%*sNAI: UNSUPPORTED\n", ps, "");
 			break;
 		}
@@ -1580,7 +1583,11 @@ void _format_pcep_object_ro_details(int ps, struct pcep_object_ro_subobj *ro)
 	case RO_SUBOBJ_TYPE_SR:
 		_format_pcep_object_ro_sr(ps, (struct pcep_ro_subobj_sr *)ro);
 		break;
-	default:
+	case RO_SUBOBJ_TYPE_IPV6:
+	case RO_SUBOBJ_TYPE_LABEL:
+	case RO_SUBOBJ_TYPE_UNNUM:
+	case RO_SUBOBJ_TYPE_ASN:
+	case RO_SUBOBJ_UNKNOWN:
 		PATHD_FORMAT("%*s...\n", ps, "");
 		break;
 	}
@@ -1668,7 +1675,9 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 			PATHD_FORMAT("%*sNAI: %pI4(%u)/%pI4(%u)\n", ps, "",
 				     laddr4, *liface, raddr4, *riface);
 			break;
-		default:
+		case PCEP_SR_SUBOBJ_NAI_ABSENT:
+		case PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY:
+		case PCEP_SR_SUBOBJ_NAI_UNKNOWN:
 			PATHD_FORMAT("%*sNAI: UNSUPPORTED\n", ps, "");
 			break;
 		}
@@ -1731,7 +1740,23 @@ void _format_pcep_object_tlv_details(int ps,
 			ps,
 			(struct pcep_object_tlv_path_setup_type *)tlv_header);
 		break;
-	default:
+	case PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR:
+	case PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST:
+	case PCEP_OBJ_TLV_TYPE_VENDOR_INFO:
+	case PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS:
+	case PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS:
+	case PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE:
+	case PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC:
+	case PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION:
+	case PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID:
+	case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID:
+	case PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE:
+	case PCEP_OBJ_TLV_TYPE_UNKNOWN:
+	case PCEP_OBJ_TYPE_CISCO_BSID:
+	case PCEP_OBJ_TLV_TYPE_ARBITRARY:
 		PATHD_FORMAT("%*s...\n", ps, "");
 		break;
 	}

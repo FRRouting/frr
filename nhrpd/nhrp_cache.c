@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP cache
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #include "zebra.h"
@@ -74,6 +70,8 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
+	nhrp_peer_unref(c->cur.peer);
+	nhrp_peer_unref(c->new.peer);
 	THREAD_OFF(c->t_timeout);
 	THREAD_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
@@ -330,7 +328,14 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 			thread_add_timer_msec(master, nhrp_cache_do_free, c, 10,
 					      &c->t_timeout);
 		break;
-	default:
+	case NHRP_CACHE_INCOMPLETE:
+	case NHRP_CACHE_NEGATIVE:
+	case NHRP_CACHE_CACHED:
+	case NHRP_CACHE_DYNAMIC:
+	case NHRP_CACHE_NHS:
+	case NHRP_CACHE_STATIC:
+	case NHRP_CACHE_LOCAL:
+	case NHRP_CACHE_NUM_TYPES:
 		if (c->cur.expires)
 			thread_add_timer(master, nhrp_cache_do_timeout, c,
 					 c->cur.expires - monotime(NULL),

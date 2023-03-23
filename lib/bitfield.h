@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Bitfields
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 /**
  * A simple bit array implementation to allocate and free IDs. An example
@@ -72,7 +57,8 @@ DECLARE_MTYPE(BITFIELD);
 	do {                                                                   \
 		(v).n = 0;                                                     \
 		(v).m = ((N) / WORD_SIZE + 1);                                 \
-		(v).data = XCALLOC(MTYPE_BITFIELD, ((v).m * sizeof(word_t)));  \
+		(v).data = (word_t *)XCALLOC(MTYPE_BITFIELD,                   \
+					     ((v).m * sizeof(word_t)));        \
 	} while (0)
 
 /**
@@ -267,6 +253,19 @@ static inline unsigned int bf_find_next_set_bit(bitfield_t v,
 		XFREE(MTYPE_BITFIELD, (v).data);                               \
 		(v).data = NULL;                                               \
 	} while (0)
+
+static inline bitfield_t bf_copy(bitfield_t src)
+{
+	bitfield_t dst;
+
+	assert(bf_is_inited(src));
+	bf_init(dst, WORD_SIZE * (src.m - 1));
+	for (size_t i = 0; i < src.m; i++)
+		dst.data[i] = src.data[i];
+	dst.n = src.n;
+	return dst;
+}
+
 
 #ifdef __cplusplus
 }

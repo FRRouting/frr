@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPF version 2 daemon program.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -467,6 +452,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	 */
 	ospf_gr_nvm_read(new);
 
+	new->fr_configured = false;
+
 	return new;
 }
 
@@ -814,10 +801,10 @@ static void ospf_finish_final(struct ospf *ospf)
 	THREAD_OFF(ospf->t_write);
 	THREAD_OFF(ospf->t_spf_calc);
 	THREAD_OFF(ospf->t_ase_calc);
-	THREAD_OFF(ospf->t_orr_calc);
 	THREAD_OFF(ospf->t_maxage);
 	THREAD_OFF(ospf->t_maxage_walker);
 	THREAD_OFF(ospf->t_abr_task);
+	THREAD_OFF(ospf->t_abr_fr);
 	THREAD_OFF(ospf->t_asbr_check);
 	THREAD_OFF(ospf->t_asbr_nssa_redist_update);
 	THREAD_OFF(ospf->t_distribute_update);
@@ -852,6 +839,10 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_route_delete(ospf, ospf->new_table);
 		ospf_route_table_free(ospf->new_table);
 	}
+	if (ospf->oall_rtrs)
+		ospf_rtrs_free(ospf->oall_rtrs);
+	if (ospf->all_rtrs)
+		ospf_rtrs_free(ospf->all_rtrs);
 	if (ospf->old_rtrs)
 		ospf_rtrs_free(ospf->old_rtrs);
 	if (ospf->new_rtrs)
@@ -958,6 +949,15 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 
 	/* Self-originated LSAs initialize. */
 	new->router_lsa_self = NULL;
+
+	/* Initialize FR field */
+	new->fr_info.enabled = false;
+	new->fr_info.configured = false;
+	new->fr_info.state_changed = false;
+	new->fr_info.router_lsas_recv_dc_bit = 0;
+	new->fr_info.indication_lsa_self = NULL;
+	new->fr_info.area_ind_lsa_recvd = false;
+	new->fr_info.area_dc_clear = false;
 
 	ospf_opaque_type10_lsa_init(new);
 

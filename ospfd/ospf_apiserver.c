@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Server side of OSPF API.
  * Copyright (C) 2001, 2002 Ralph Keller
  * Copyright (c) 2022, LabN Consulting, L.L.C.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -181,9 +166,14 @@ void ospf_apiserver_term(void)
 	 * Free all client instances.  ospf_apiserver_free removes the node
 	 * from the list, so we examine the head of the list anew each time.
 	 */
-	while (apiserver_list
-	       && (apiserv = listgetdata(listhead(apiserver_list))) != NULL)
+	if (!apiserver_list)
+		return;
+
+	while (listcount(apiserver_list)) {
+		apiserv = listgetdata(listhead(apiserver_list));
+
 		ospf_apiserver_free(apiserv);
+	}
 
 	/* Free client list itself */
 	if (apiserver_list)
@@ -338,6 +328,7 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 		ospf_apiserver_unregister_opaque_type(
 			apiserv, regtype->lsa_type, regtype->opaque_type);
 	}
+	list_delete(&apiserv->opaque_types);
 
 	/* Close connections to OSPFd. */
 	if (apiserv->fd_sync > 0) {
@@ -358,6 +349,8 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 
 	/* Remove from the list of active clients. */
 	listnode_delete(apiserver_list, apiserv);
+
+	XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("API: Delete apiserv(%p), total#(%d)",
@@ -904,6 +897,7 @@ int ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserv,
 			/* Remove from list of registered opaque types */
 			listnode_delete(apiserv->opaque_types, regtype);
 
+			XFREE(MTYPE_APISERVER, regtype);
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"API: Del LSA-type(%d)/Opaque-type(%d) from apiserv(%p), total#(%d)",
@@ -2593,9 +2587,12 @@ static inline int cmp_route_nodes(struct route_node *orn,
 		return 1;
 	else if (!nrn)
 		return -1;
-	else if (orn->p.u.prefix4.s_addr < nrn->p.u.prefix4.s_addr)
+
+	uint32_t opn = ntohl(orn->p.u.prefix4.s_addr);
+	uint32_t npn = ntohl(nrn->p.u.prefix4.s_addr);
+	if (opn < npn)
 		return -1;
-	else if (orn->p.u.prefix4.s_addr > nrn->p.u.prefix4.s_addr)
+	else if (opn > npn)
 		return 1;
 	else
 		return 0;

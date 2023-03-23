@@ -1,26 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS TLV Serializer/Deserializer
  *
  * Copyright (C) 2015,2017 Christian Franke
 
  * Copyright (C) 2019 Olivier Dugeon - Orange Labs (for TE and SR)
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 #ifndef ISIS_TLVS_H
 #define ISIS_TLVS_H
@@ -441,6 +425,9 @@ enum ext_subtlv_size {
 	ISIS_SUBTLV_HDR_SIZE = 2,
 	ISIS_SUBTLV_DEF_SIZE = 4,
 
+	/* RFC 7308 */
+	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
+
 	ISIS_SUBTLV_MAX_SIZE = 180
 };
 
@@ -471,6 +458,7 @@ enum ext_subtlv_size {
 #define EXT_RES_BW		0x040000
 #define EXT_AVA_BW		0x080000
 #define EXT_USE_BW		0x100000
+#define EXT_EXTEND_ADM_GRP 0x200000
 
 /*
  * This structure groups all Extended IS Reachability subTLVs.
@@ -484,13 +472,14 @@ enum ext_subtlv_size {
  * For Delay and packet Loss, upper bit (A) indicates if the value is
  * normal (0) or anomalous (1).
  */
-#define IS_ANORMAL(v) (v & 0x80000000)
+#define IS_ANORMAL(v) (v & TE_EXT_ANORMAL)
 
 struct isis_ext_subtlvs {
 
 	uint32_t status;
 
 	uint32_t adm_group; /* Resource Class/Color - RFC 5305 */
+	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
 	/* Link Local/Remote Identifiers - RFC 5307 */
 	uint32_t local_llri;
 	uint32_t remote_llri;

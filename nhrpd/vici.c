@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* strongSwan VICI protocol implementation for NHRP
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -135,11 +131,6 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 		case VICI_LIST_END:
 			debugf(NHRP_DEBUG_VICI, "VICI: List end");
 			break;
-		default:
-			debugf(NHRP_DEBUG_VICI,
-			       "VICI: Unsupported message component type %d",
-			       *type);
-			return;
 		}
 	}
 }
@@ -207,7 +198,12 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 			}
 		}
 		break;
-	default:
+	case VICI_START:
+	case VICI_KEY_VALUE:
+	case VICI_LIST_START:
+	case VICI_LIST_ITEM:
+	case VICI_LIST_END:
+	case VICI_END:
 		if (!key || !key->ptr)
 			break;
 
@@ -286,7 +282,13 @@ static void parse_cmd_response(struct vici_message_ctx *ctx,
 		    && blob2buf(val, buf, sizeof(buf)))
 			flog_err(EC_NHRP_SWAN, "VICI: strongSwan: %s", buf);
 		break;
-	default:
+	case VICI_START:
+	case VICI_SECTION_START:
+	case VICI_SECTION_END:
+	case VICI_LIST_START:
+	case VICI_LIST_ITEM:
+	case VICI_LIST_END:
+	case VICI_END:
 		break;
 	}
 }

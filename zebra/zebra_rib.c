@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Routing Information Base.
  * Copyright (C) 1997, 98, 99, 2001 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -72,7 +57,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
  */
 static pthread_mutex_t dplane_mutex;
 static struct thread *t_dplane;
-static struct dplane_ctx_q rib_dplane_q;
+static struct dplane_ctx_list_head rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
@@ -99,42 +84,79 @@ static const struct {
 	uint8_t distance;
 	enum meta_queue_indexes meta_q_map;
 } route_info[ZEBRA_ROUTE_MAX] = {
-	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Unneeded for nhg's */,
-			     META_QUEUE_NHG},
-	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, META_QUEUE_KERNEL},
-	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, META_QUEUE_KERNEL},
-	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, META_QUEUE_CONNECTED},
-	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, META_QUEUE_STATIC},
-	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */,
+	[ZEBRA_ROUTE_NHG] =
+		{ZEBRA_ROUTE_NHG,
+		 ZEBRA_MAX_DISTANCE_DEFAULT /* Unneeded for nhg's */,
+		 META_QUEUE_NHG},
+	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM,
+				ZEBRA_KERNEL_DISTANCE_DEFAULT,
+				META_QUEUE_KERNEL},
+	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL,
+				ZEBRA_KERNEL_DISTANCE_DEFAULT,
+				META_QUEUE_KERNEL},
+	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT,
+				 ZEBRA_CONNECT_DISTANCE_DEFAULT,
+				 META_QUEUE_CONNECTED},
+	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC,
+				ZEBRA_STATIC_DISTANCE_DEFAULT,
+				META_QUEUE_STATIC},
+	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, ZEBRA_RIP_DISTANCE_DEFAULT,
+			     META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, ZEBRA_RIP_DISTANCE_DEFAULT,
+			       META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, ZEBRA_OSPF_DISTANCE_DEFAULT,
+			      META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, ZEBRA_OSPF6_DISTANCE_DEFAULT,
+			       META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, ZEBRA_ISIS_DISTANCE_DEFAULT,
+			      META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP,
+			     ZEBRA_EBGP_DISTANCE_DEFAULT /* IBGP is 200. */,
 			     META_QUEUE_BGP},
-	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, META_QUEUE_STATIC},
-	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, META_QUEUE_BGP},
-	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, META_QUEUE_BGP},
-	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20,
+	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, ZEBRA_MAX_DISTANCE_DEFAULT,
+			     META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, ZEBRA_EIGRP_DISTANCE_DEFAULT,
+			       META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, ZEBRA_NHRP_DISTANCE_DEFAULT,
+			      META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, ZEBRA_MAX_DISTANCE_DEFAULT,
+			      META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, ZEBRA_MAX_DISTANCE_DEFAULT,
+			      META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, ZEBRA_TABLE_DISTANCE_DEFAULT, META_QUEUE_STATIC},
+	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, ZEBRA_LDP_DISTANCE_DEFAULT,
+			     META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, ZEBRA_EBGP_DISTANCE_DEFAULT,
+			     META_QUEUE_BGP},
+	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT,
+				    ZEBRA_EBGP_DISTANCE_DEFAULT,
+				    META_QUEUE_BGP},
+	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH,
+				       ZEBRA_EBGP_DISTANCE_DEFAULT,
 				       META_QUEUE_BGP},
-	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, META_QUEUE_BGP},
-	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20,
+	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT,
+				    ZEBRA_EBGP_DISTANCE_DEFAULT,
+				    META_QUEUE_BGP},
+	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT,
+					ZEBRA_EBGP_DISTANCE_DEFAULT,
 					META_QUEUE_BGP},
-	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115,
+	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, ZEBRA_BABEL_DISTANCE_DEFAULT,
+			       META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, ZEBRA_SHARP_DISTANCE_DEFAULT,
+			       META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, ZEBRA_PBR_DISTANCE_DEFAULT,
+			     META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, ZEBRA_MAX_DISTANCE_DEFAULT,
+			     META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC,
+				    ZEBRA_OPENFABRIC_DISTANCE_DEFAULT,
 				    META_QUEUE_NOTBGP},
-	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, META_QUEUE_OTHER},
-	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, ZEBRA_MAX_DISTANCE_DEFAULT,
+			      META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, ZEBRA_MAX_DISTANCE_DEFAULT,
+			      META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, ZEBRA_MAX_DISTANCE_DEFAULT,
+			     META_QUEUE_OTHER},
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
@@ -487,31 +509,28 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	return NULL;
 }
 
-struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
-					     struct in_addr addr,
-					     struct route_node **rn_out)
+struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
+					union g_addr *gaddr,
+					struct route_node **rn_out)
 {
 	struct route_entry *re = NULL, *mre = NULL, *ure = NULL;
 	struct route_node *m_rn = NULL, *u_rn = NULL;
-	union g_addr gaddr = {.ipv4 = addr};
 
 	switch (zrouter.ipv4_multicast_mode) {
 	case MCAST_MRIB_ONLY:
-		return rib_match(AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr,
-				 rn_out);
+		return rib_match(afi, SAFI_MULTICAST, vrf_id, gaddr, rn_out);
 	case MCAST_URIB_ONLY:
-		return rib_match(AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, rn_out);
+		return rib_match(afi, SAFI_UNICAST, vrf_id, gaddr, rn_out);
 	case MCAST_NO_CONFIG:
 	case MCAST_MIX_MRIB_FIRST:
-		re = mre = rib_match(AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr,
-				     &m_rn);
+		re = mre = rib_match(afi, SAFI_MULTICAST, vrf_id, gaddr, &m_rn);
 		if (!mre)
-			re = ure = rib_match(AFI_IP, SAFI_UNICAST, vrf_id,
-					     &gaddr, &u_rn);
+			re = ure = rib_match(afi, SAFI_UNICAST, vrf_id, gaddr,
+					     &u_rn);
 		break;
 	case MCAST_MIX_DISTANCE:
-		mre = rib_match(AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-		ure = rib_match(AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+		mre = rib_match(afi, SAFI_MULTICAST, vrf_id, gaddr, &m_rn);
+		ure = rib_match(afi, SAFI_UNICAST, vrf_id, gaddr, &u_rn);
 		if (mre && ure)
 			re = ure->distance < mre->distance ? ure : mre;
 		else if (mre)
@@ -520,8 +539,8 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 			re = ure;
 		break;
 	case MCAST_MIX_PFXLEN:
-		mre = rib_match(AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-		ure = rib_match(AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+		mre = rib_match(afi, SAFI_MULTICAST, vrf_id, gaddr, &m_rn);
+		ure = rib_match(afi, SAFI_UNICAST, vrf_id, gaddr, &u_rn);
 		if (mre && ure)
 			re = u_rn->p.prefixlen > m_rn->p.prefixlen ? ure : mre;
 		else if (mre)
@@ -536,70 +555,16 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[BUFSIZ];
-		inet_ntop(AF_INET, &addr, buf, BUFSIZ);
+		inet_ntop(afi == AFI_IP ? AF_INET : AF_INET6, gaddr, buf,
+			  BUFSIZ);
 
-		zlog_debug("%s: %s: vrf: %s(%u) found %s, using %s", __func__,
-			   buf, vrf_id_to_name(vrf_id), vrf_id,
+		zlog_debug("%s: %s: %pRN vrf: %s(%u) found %s, using %s",
+			   __func__, buf, (re == mre) ? m_rn : u_rn,
+			   vrf_id_to_name(vrf_id), vrf_id,
 			   mre ? (ure ? "MRIB+URIB" : "MRIB")
 			       : ure ? "URIB" : "nothing",
 			   re == ure ? "URIB" : re == mre ? "MRIB" : "none");
 	}
-	return re;
-}
-
-struct route_entry *rib_match_ipv6_multicast(vrf_id_t vrf_id,
-					     struct in6_addr addr,
-					     struct route_node **rn_out)
-{
-	struct route_entry *re = NULL, *mre = NULL, *ure = NULL;
-	struct route_node *m_rn = NULL, *u_rn = NULL;
-	union g_addr gaddr = {.ipv6 = addr};
-
-	switch (zrouter.ipv4_multicast_mode) {
-	case MCAST_MRIB_ONLY:
-		return rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr,
-				 rn_out);
-	case MCAST_URIB_ONLY:
-		return rib_match(AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, rn_out);
-	case MCAST_NO_CONFIG:
-	case MCAST_MIX_MRIB_FIRST:
-		re = mre = rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr,
-				     &m_rn);
-		if (!mre)
-			re = ure = rib_match(AFI_IP6, SAFI_UNICAST, vrf_id,
-					     &gaddr, &u_rn);
-		break;
-	case MCAST_MIX_DISTANCE:
-		mre = rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-		ure = rib_match(AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
-		if (mre && ure)
-			re = ure->distance < mre->distance ? ure : mre;
-		else if (mre)
-			re = mre;
-		else if (ure)
-			re = ure;
-		break;
-	case MCAST_MIX_PFXLEN:
-		mre = rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-		ure = rib_match(AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
-		if (mre && ure)
-			re = u_rn->p.prefixlen > m_rn->p.prefixlen ? ure : mre;
-		else if (mre)
-			re = mre;
-		else if (ure)
-			re = ure;
-		break;
-	}
-
-	if (rn_out)
-		*rn_out = (re == mre) ? m_rn : u_rn;
-
-	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug("%s: %pI6: vrf: %s(%u) found %s, using %s", __func__,
-			   &addr, vrf_id_to_name(vrf_id), vrf_id,
-			   mre ? (ure ? "MRIB+URIB" : "MRIB")
-			       : ure ? "URIB" : "nothing",
-			   re == ure ? "URIB" : re == mre ? "MRIB" : "none");
 	return re;
 }
 
@@ -1306,6 +1271,7 @@ static void rib_process(struct route_node *rn)
 									vrf),
 								vrf_id, rn);
 						rib_unlink(rn, re);
+						continue;
 					} else
 						SET_FLAG(re->status,
 							 ROUTE_ENTRY_REMOVED);
@@ -1787,9 +1753,12 @@ no_nexthops:
 			ctxnhg->nexthop != NULL ? "" : " (empty)");
 
 	/* Set the flag about the dedicated fib list */
-	SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
-	if (ctxnhg->nexthop)
-		copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop, NULL);
+	if (zrouter.asic_notification_nexthop_control) {
+		SET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
+		if (ctxnhg->nexthop)
+			copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop,
+				      NULL);
+	}
 
 check_backups:
 
@@ -2154,7 +2123,58 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		    (old_re && RIB_SYSTEM_ROUTE(old_re)))
 			zebra_rib_fixup_system(rn);
 		break;
-	default:
+
+	case DPLANE_OP_NONE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_LSP_INSTALL:
+	case DPLANE_OP_LSP_UPDATE:
+	case DPLANE_OP_LSP_DELETE:
+	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 	}
 
@@ -2711,10 +2731,6 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (ere->src_p_provided)
 		apply_mask_ipv6(&ere->src_p);
 
-	/* Set default distance by route type. */
-	if (re->distance == 0)
-		re->distance = route_distance(re->type);
-
 	/* Lookup route node.*/
 	rn = srcdest_rnode_get(table, &ere->p,
 			       ere->src_p_provided ? &ere->src_p : NULL);
@@ -2759,6 +2775,22 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
+	}
+
+	/* Set default distance by route type. */
+	if (re->distance == 0) {
+		if (same && !zebra_router_notify_on_ack())
+			re->distance = same->distance;
+		else
+			re->distance = route_distance(re->type);
+	}
+
+	if (re->metric == ROUTE_INSTALLATION_METRIC &&
+	    CHECK_FLAG(re->flags, ZEBRA_FLAG_SELFROUTE)) {
+		if (same && !zebra_router_notify_on_ack())
+			re->metric = same->metric;
+		else
+			re->metric = 0;
 	}
 
 	/* If this route is kernel/connected route, notify the dataplane. */
@@ -3681,14 +3713,14 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 					struct zebra_vrf *zvrf)
 {
-	struct zebra_early_route *zer;
+	struct zebra_early_route *ere;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(l, node, nnode, zer)) {
-		if (zvrf && zer->re->vrf_id != zvrf->vrf->vrf_id)
+	for (ALL_LIST_ELEMENTS(l, node, nnode, ere)) {
+		if (zvrf && ere->re->vrf_id != zvrf->vrf->vrf_id)
 			continue;
 
-		XFREE(MTYPE_RE, zer);
+		early_route_memory_free(ere);
 		node->data = NULL;
 		list_delete_node(l, node);
 		mq->size--;
@@ -3743,7 +3775,6 @@ static void rib_queue_init(void)
 
 	/* fill in the work queue spec */
 	zrouter.ribq->spec.workfunc = &meta_queue_process;
-	zrouter.ribq->spec.errorfunc = NULL;
 	zrouter.ribq->spec.completion_func = NULL;
 	/* XXX: TODO: These should be runtime configurable via vty */
 	zrouter.ribq->spec.max_retries = 3;
@@ -3836,7 +3867,9 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 
 		rmap_name = zebra_get_import_table_route_map(afi, re->table);
 		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
-	} else if (process)
+	}
+
+	if (process)
 		rib_queue_add(rn);
 }
 
@@ -3911,11 +3944,9 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
 				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
 				   rn, re, zebra_route_string(re->type));
-
-		rib_unlink(rn, re);
-	} else {
-		rib_queue_add(rn);
 	}
+
+	rib_queue_add(rn);
 }
 
 /*
@@ -3959,7 +3990,8 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->nh_label && nexthop->nh_label->num_labels > 0) {
 		mpls_label2str(nexthop->nh_label->num_labels,
 			       nexthop->nh_label->label, label_str,
-			       sizeof(label_str), 0 /*pretty*/);
+			       sizeof(label_str), nexthop->nh_label_type,
+			       0 /*pretty*/);
 		strlcat(label_str, ", ", sizeof(label_str));
 	}
 
@@ -4319,29 +4351,10 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		case RIB_UPDATE_OTHER:
 			rib_update_route_node(rn, rtype);
 			break;
-		default:
+		case RIB_UPDATE_MAX:
 			break;
 		}
 	}
-}
-
-static void rib_update_handle_vrf(vrf_id_t vrf_id, enum rib_update_event event,
-				  int rtype)
-{
-	struct route_table *table;
-
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%s: Handling VRF %s event %s", __func__,
-			   vrf_id_to_name(vrf_id), rib_update_event2str(event));
-
-	/* Process routes of interested address-families. */
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (table)
-		rib_update_table(table, event, rtype);
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (table)
-		rib_update_table(table, event, rtype);
 }
 
 static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
@@ -4359,7 +4372,6 @@ static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 
 struct rib_update_ctx {
 	enum rib_update_event event;
-	bool vrf_all;
 	vrf_id_t vrf_id;
 };
 
@@ -4387,10 +4399,7 @@ static void rib_update_handler(struct thread *thread)
 
 	ctx = THREAD_ARG(thread);
 
-	if (ctx->vrf_all)
-		rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
-	else
-		rib_update_handle_vrf(ctx->vrf_id, ctx->event, ZEBRA_ROUTE_ALL);
+	rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
 
 	rib_update_ctx_fini(&ctx);
 }
@@ -4410,7 +4419,6 @@ void rib_update(enum rib_update_event event)
 		return;
 
 	ctx = rib_update_ctx_init(0, event);
-	ctx->vrf_all = true;
 
 	thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
 			 &t_rib_update_threads[event]);
@@ -4601,13 +4609,13 @@ static void handle_pw_result(struct zebra_dplane_ctx *ctx)
 static void rib_process_dplane_results(struct thread *thread)
 {
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q ctxlist;
+	struct dplane_ctx_list_head ctxlist;
 	bool shut_p = false;
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
 	do {
-		TAILQ_INIT(&ctxlist);
+		dplane_ctx_q_init(&ctxlist);
 
 		/* Take lock controlling queue of results */
 		frr_with_mutex (&dplane_mutex) {
@@ -4776,7 +4784,7 @@ static void rib_process_dplane_results(struct thread *thread)
  * the dataplane pthread. We enqueue the results here for processing by
  * the main thread later.
  */
-static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
+static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 {
 	/* Take lock controlling queue of results */
 	frr_with_mutex (&dplane_mutex) {
@@ -4821,7 +4829,7 @@ void rib_init(void)
 
 	/* Init dataplane, and register for results */
 	pthread_mutex_init(&dplane_mutex, NULL);
-	TAILQ_INIT(&rib_dplane_q);
+	dplane_ctx_q_init(&rib_dplane_q);
 	zebra_dplane_init(rib_dplane_results);
 }
 

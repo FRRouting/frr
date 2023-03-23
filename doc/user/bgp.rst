@@ -254,8 +254,9 @@ ASN and Router ID
 -----------------
 
 First of all you must configure BGP router with the :clicmd:`router bgp ASN`
-command. The AS number is an identifier for the autonomous system. The BGP
-protocol uses the AS number for detecting whether the BGP connection is
+command. The AS number is an identifier for the autonomous system. The AS
+identifier can either be a number or two numbers separated by a period. The
+BGP protocol uses the AS identifier for detecting whether the BGP connection is
 internal or external.
 
 .. clicmd:: router bgp ASN
@@ -1704,6 +1705,18 @@ Configuring Peers
 
    Default: disabled.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> path-attribute discard (1-255)...
+
+   Drops specified path attributes from BGP UPDATE messages from the specified neighbor.
+
+   If you do not want specific attributes, you can drop them using this command, and
+   let the BGP proceed by ignoring those attributes.
+
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> path-attribute treat-as-withdraw (1-255)...
+
+   Received BGP UPDATES that contain specified path attributes are treat-as-withdraw. If
+   there is an existing prefix in the BGP routing table, it will be removed.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> graceful-shutdown
 
    Mark all routes from this neighbor as less preferred by setting ``graceful-shutdown``
@@ -1830,10 +1843,20 @@ Configuring Peers
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [json] [wide]
+.. clicmd:: show bgp <afi> <safi> neighbors WORD bestpath-routes [detail] [json] [wide]
 
    For the given neighbor, WORD, that is specified list the routes selected
    by BGP as having the best path.
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
+
+   If ``json`` option is specified, output is displayed in JSON format.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
 
 .. _bgp-peer-filtering:
 
@@ -1998,9 +2021,16 @@ Capability Negotiation
 
 .. clicmd:: neighbor PEER override-capability
 
-
    Override the result of Capability Negotiation with local configuration.
    Ignore remote peer's capability value.
+
+.. clicmd:: neighbor PEER capability software-version
+
+   Send the software version in the BGP OPEN message to the neighbor. This is
+   very useful in environments with a large amount of peers with different
+   versions of FRR or any other vendor.
+
+   Disabled by default.
 
 .. _bgp-as-path-access-lists:
 
@@ -2083,9 +2113,6 @@ is 4 octet long. The following format is used to define the community value.
    format is useful to define AS oriented policy value. For example,
    ``7675:80`` can be used when AS 7675 wants to pass local policy value 80 to
    neighboring peer.
-
-``internet``
-   ``internet`` represents well-known communities value 0.
 
 ``graceful-shutdown``
    ``graceful-shutdown`` represents well-known communities value
@@ -2263,7 +2290,7 @@ Numbered Community Lists
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 When number is used for BGP community list name, the number has
-special meanings. Community list number in the range from 1 and 99 is
+special meanings. Community list number in the range from 1 to 99 is
 standard community list. Community list number in the range from 100
 to 500 is expanded community list. These community lists are called
 as numbered community lists. On the other hand normal community lists
@@ -2457,17 +2484,6 @@ community-list.
     match community FILTER
 
 
-The communities value keyword ``internet`` has special meanings in standard
-community lists. In the below example ``internet`` matches all BGP routes even
-if the route does not have communities attribute at all. So community list
-``INTERNET`` is the same as ``FILTER`` in the previous example.
-
-.. code-block:: frr
-
-   bgp community-list standard INTERNET deny 1:1
-   bgp community-list standard INTERNET permit internet
-
-
 The following configuration is an example of communities value deletion.  With
 this configuration the community values ``100:1`` and ``100:2`` are removed
 from BGP updates. For communities value deletion, only ``permit``
@@ -2536,9 +2552,6 @@ Extended Community Lists
    it return permit or deny based upon the extcommunity-list definition. When
    there is no matched entry, deny will be returned. When `extcommunity` is
    empty it matches to any routes.
-
-   A special handling for ``internet`` community is applied. It matches
-   any community.
 
 .. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 
@@ -3559,319 +3572,6 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    Total number of prefixes 3
    Router2#
 
-.. _bgp-optimal-route-reflection:
-
-BGP Optimal Route Reflection
-----------------------------
-BGP Route Reflectors (RRs) are used to improve network scalability by reducing
-or eliminating the need for a full-mesh of IBGP sessions.
-
-When a BGP RR receives multiple paths for the same IP prefix, it typically
-selects a single best path to send for all its clients.
-If the RR has multiple nearly-equal best paths and the tie-break is determined
-by the next-hop cost, the RR advertises the path based on its view of next-hop
-costs, which leads to a non-optimal routing.
-The advertised route may differ from the path that a client would select
-if it had the visibility of the same set of candidate paths and used
-its own view of next-hop costs.
-
-Non-optimal advertisements by the RR can be a problem in hot-potato routing.
-Hot-potato routing aims to hand off traffic to the next AS using the closest
-possible exit point from the local AS.
-In this context, the closest exit point implies minimum IGP cost to
-reach the BGP next-hop.
-
-The BGP Optimal Route Reflection allows the RR to choose and send a different
-best path to a different or a set of RR clients.
-
-A link-state protocol is required. It can be OSPF or IS-IS.
-Current implementation of BGP ORR is based on the IGP cost to the BGP next hop,
-and not based on some configured policy.
-
-RR runs Shortest Path First (SPF) calculation with the selected
-router as the root of the tree and calculates the cost to every other router.
-
-This special SPF calculation with another router as the root, is referred to as
-a Reverse SPF (rSPF). This can only be done if the RR learns all the BGP paths
-from all the BGP border routers.
-
-There could be as many rSPFs run as there are RR clients.
-This will increase the CPU load somewhat on the RR.
-
-Current implementation allows up to three root nodes for the rSPF calculation.
-There is no need to configure each RR client as a root and run rSPF.
-Current implementation allows to configure three, the primary, the secondary,
-and the tertiary root, per set of RR clients, for redundancy purposes.
-For the BGP ORR feature to apply to any RR client, that RR client must be
-configured to be part of an ORR policy group.
-
-The BGP ORR feature is enabled per address family.
-
-The minimal configuration needed:
-
-1. ORR needs to be enabled for specific groups of BGP neighbors.
-2. For each group of BGP neighbors, at least one root needs to be configured.
-   Optionally, a secondary and tertiary root can be configured.
-3. For OSPF, the root routers(RR clients) need additional configuration
-   to make BGP ORR work.
-   i.e. The MPLS TE configuration on the root router needs to have the minimal
-   configuration for MPLS TE enabled so that OSPF advertises the MPLS TE
-   router ID in an opaque-area LSA (type 10).
-   Once the RR has an opaque-area LSA with the MPLS TE router-ID matching the
-   configured root router address, rSPF can run and BGP on the RR can
-   advertise the optimal route.
-
-.. clicmd:: neighbor A.B.C.D optimal-route-reflection NAME
-
-   This command allows the neighbor to be part of the ORR group.
-
-.. clicmd:: optimal-route-reflection orr-1 A.B.C.D [A.B.C.D] [A.B.C.D]
-
-   This command creates an ORR group with a mandatory primary root
-   and optional secondary and/or tertiary roots.
-   When primary is reachable it will be the active root.
-   when primary goes down, secondary followed by tertiary takes over
-   the active root's role.
-   Always rSPF calculation runs active root as the root.
-   Which means the RR advertises the path based on active root's
-   view of next-hop costs.
-
-Sample Configuration
-^^^^^^^^^^^^^^^^^^^^
-
-Sample configuration on Route Reflector
-
-.. code-block:: frr
-
-   !
-   debug ospf 8 orr
-   debug bgp optimal-route-reflection
-   !
-   interface enp0s8
-    ip address 10.10.68.8/24
-    ip ospf 8 area 0
-   exit
-   !
-   interface lo
-    ip address 10.100.1.8/32
-    ip ospf 8 area 0
-   exit
-   !
-   router bgp 1
-    neighbor 10.100.1.1 remote-as 1
-    neighbor 10.100.1.1 update-source lo
-    neighbor 10.100.1.2 remote-as 1
-    neighbor 10.100.1.2 update-source lo
-    neighbor 10.100.1.3 remote-as 1
-    neighbor 10.100.1.3 update-source lo
-    neighbor 10.100.1.4 remote-as 1
-    neighbor 10.100.1.4 update-source lo
-    !
-    address-family ipv4 unicast
-     neighbor 10.100.1.1 route-reflector-client
-     neighbor 10.100.1.1 optimal-route-reflection orr-1
-     neighbor 10.100.1.2 route-reflector-client
-     neighbor 10.100.1.2 optimal-route-reflection orr-1
-     neighbor 10.100.1.3 route-reflector-client
-     neighbor 10.100.1.3 optimal-route-reflection orr-1
-     neighbor 10.100.1.4 route-reflector-client
-     neighbor 10.100.1.4 optimal-route-reflection orr-1
-     optimal-route-reflection orr-1 10.100.1.4 10.100.1.3 10.100.1.1
-     exit-address-family
-    exit
-   !
-   router ospf 8
-    ospf router-id 8.8.8.8
-    area 0 authentication
-    capability opaque
-   exit
-   !
-   end
-
-Sample configuration on RR clients
-
-.. code-block:: frr
-
-   interface enp0s8
-    ip address 10.10.34.4/24
-    ip ospf 4 area 0
-    link-params
-     enable
-    exit-link-params
-   exit
-   !
-   interface enp0s9
-    ip address 10.10.74.4/24
-    ip ospf 4 area 0
-    link-params
-     enable
-    exit-link-params
-   exit
-   !
-   interface lo
-    ip address 10.100.1.4/32
-    ip ospf 4 area 0
-   exit
-   !
-   router bgp 1
-    neighbor 10.100.1.8 remote-as 1
-    neighbor 10.100.1.8 update-source lo
-    !
-    address-family ipv4 unicast
-     neighbor 10.100.1.8 soft-reconfiguration inbound
-     exit-address-family
-    exit
-   !
-   router ospf 4
-    ospf router-id 4.4.4.4
-    area 0 authentication
-    capability opaque
-    mpls-te on
-    mpls-te router-address 10.100.1.4
-    mpls-te inter-as area 0.0.0.0
-    mpls-te export
-   exit
-   !
-   end
-
-Sample Output
-^^^^^^^^^^^^^
-
-When Optimal Route Reflection is not enabled on RR, it sends 10.100.1.1 as the best path to its clients.
-
-.. code-block:: frr
-
-   Router-RR# show ip bgp neighbors 10.100.1.4
-
-   !--- Output suppressed.
-
-   For address family: IPv4 Unicast
-    Update group 2, subgroup 2
-    Packet Queue length 0
-    Route-Reflector Client
-    Community attribute sent to this neighbor(all)
-    0 accepted prefixes
-
-   !--- Output suppressed.
-
-   Router-RR#
-   Router-RR# show ip bgp
-   BGP table version is 3, local router ID is 10.100.1.8, vrf id 0
-   Default local pref 100, local AS 1
-   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
-   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
-   Origin codes:  i - IGP, e - EGP, ? - incomplete
-   RPKI validation codes: V valid, I invalid, N Not found
-
-      Network          Next Hop            Metric LocPrf Weight Path
-   * i203.0.113.0/24   10.100.1.2               0    100      0 i
-   *>i                 10.100.1.1               0    100      0 i
-   *=i                 10.100.1.3               0    100      0 i
-
-   Displayed  1 routes and 3 total paths
-   Router-RR#
-
-   Router-PE4# show ip bgp
-   BGP table version is 5, local router ID is 10.100.1.4, vrf id 0
-   Default local pref 100, local AS 1
-   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
-   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
-   Origin codes:  i - IGP, e - EGP, ? - incomplete
-   RPKI validation codes: V valid, I invalid, N Not found
-
-      Network          Next Hop            Metric LocPrf Weight Path
-   *>i203.0.113.0/24   10.100.1.1               0    100      0 i
-
-   Displayed  1 routes and 1 total paths
-   Router-PE4#
-
-When Optimal Route Reflection is enabled on RR, it sends 10.100.1.3 as the best path to its clients.
-
-.. code-block:: frr
-
-   Router-RR# show ip bgp neighbors 10.100.1.4
-
-   !--- Output suppressed.
-
-   For address family: IPv4 Unicast
-    Update group 1, subgroup 1
-    Packet Queue length 0
-    Route-Reflector Client
-    ORR group (configured) : orr-1
-    Community attribute sent to this neighbor(all)
-    0 accepted prefixes
-
-   !--- Output suppressed.
-
-   Router-RR#
-   Router-RR# show ip bgp
-   BGP table version is 1, local router ID is 10.100.1.8, vrf id 0
-   Default local pref 100, local AS 1
-   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
-   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
-   Origin codes:  i - IGP, e - EGP, ? - incomplete
-   RPKI validation codes: V valid, I invalid, N Not found
-
-      Network          Next Hop            Metric LocPrf Weight Path
-   * i203.0.113.0/24   10.100.1.2               0    100      0 i
-   *>i                 10.100.1.3               0    100      0 i
-   * i                 10.100.1.1               0    100      0 i
-
-   Displayed  1 routes and 3 total paths
-   Router-RR#
-
-   Router-RR# show ip bgp optimal-route-reflection
-
-   ORR group: orr-1, IPv4 Unicast
-   Configured root: primary: 10.100.1.4(Router-PE4), secondary: 10.100.1.3(Router-PE3), tertiary: 10.100.1.1(Router-PE1)
-   Active Root: 10.100.1.4(Router-PE4)
-
-   RR Clients mapped:
-   10.100.1.1
-   10.100.1.2
-   10.100.1.3
-   10.100.1.4
-
-   Number of mapping entries: 4
-
-   Prefix						Cost
-   10.10.34.0/24						100
-   10.10.61.0/24						300
-   10.10.63.0/24						200
-   10.10.67.0/24						200
-   10.10.68.0/24						300
-   10.10.72.0/24						200
-   10.10.74.0/24						100
-   10.100.1.1/32						300
-   10.100.1.2/32						200
-   10.100.1.3/32						100
-   10.100.1.4/32						0
-   10.100.1.6/32						200
-   10.100.1.7/32						100
-   10.100.1.8/32						300
-
-   Number of mapping entries: 14
-
-   Router-RR#
-
-   Router-PE4# show ip bgp
-   BGP table version is 3, local router ID is 10.100.1.4, vrf id 0
-   Default local pref 100, local AS 1
-   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
-   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
-   Origin codes:  i - IGP, e - EGP, ? - incomplete
-   RPKI validation codes: V valid, I invalid, N Not found
-
-      Network          Next Hop            Metric LocPrf Weight Path
-   *>i203.0.113.0/24   10.100.1.3               0    100      0 i
-
-   Displayed  1 routes and 1 total paths
-   Router-PE4#
-
 .. _bgp-debugging:
 
 Debugging
@@ -3936,10 +3636,6 @@ Debugging
 .. clicmd:: debug bgp zebra
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
-
-.. clicmd:: debug bgp optimal-route-reflection
-
-   Enable or disable debugging of BGP Optimal Route Reflection.
 
 Dumping Messages and Routing Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -4065,6 +3761,11 @@ The following command is available in ``config`` mode as well as in the
    Set the BGP Input Queue limit for all peers when messaging parsing. Increase
    this only if you have the memory to handle large queues of messages at once.
 
+.. clicmd:: bgp output-queue-limit (1-4294967295)
+
+   Set the BGP Output Queue limit for all peers when messaging parsing. Increase
+   this only if you have the memory to handle large queues of messages at once.
+
 .. _bgp-displaying-bgp-information:
 
 Displaying BGP Information
@@ -4150,6 +3851,28 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
 .. clicmd:: show bgp [afi] [safi] [all] [wide|json]
 
+.. clicmd:: show bgp vrfs [<VRFNAME$vrf_name>] [json]
+
+   The command displays all bgp vrf instances basic info like router-id,
+   configured and established neighbors,
+   evpn related basic info like l3vni, router-mac, vxlan-interface.
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
+
+   .. code-block:: frr
+
+      torc-11# show bgp vrfs
+      Type  Id     routerId          #PeersCfg  #PeersEstb  Name
+                   L3-VNI            RouterMAC              Interface
+      DFLT  0      17.0.0.6          3          3           default
+                   0                 00:00:00:00:00:00      unknown
+       VRF  21     17.0.0.6          0          0           sym_1
+                   8888              34:11:12:22:22:01      vlan4034_l3
+       VRF  32     17.0.0.6          0          0           sym_2
+                   8889              34:11:12:22:22:01      vlan4035_l3
+
+      Total number of VRFs (including default): 3
+
 .. clicmd:: show bgp [<ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast|flowspec> | l2vpn evpn]
 
    These commands display BGP routes for the specific routing table indicated by
@@ -4159,6 +3882,10 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 .. clicmd:: show bgp l2vpn evpn route [type <macip|2|multicast|3|es|4|prefix|5>]
 
    EVPN prefixes can also be filtered by EVPN route type.
+
+.. clicmd:: show bgp l2vpn evpn route [detail] [type <ead|1|macip|2|multicast|3|es|4|prefix|5>] self-originate [json]
+
+   Display self-originated EVPN prefixes which can also be filtered by EVPN route type.
 
 .. clicmd:: show bgp vni <all|VNI> [vtep VTEP] [type <ead|1|macip|2|multicast|3>] [<detail|json>]
 
@@ -4199,7 +3926,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    The ``terse`` option can be used in combination with the remote-as, neighbor,
    failed and established filters, and with the ``wide`` option as well.
 
-.. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [json]
+.. clicmd:: show bgp [afi] [safi] [neighbor [PEER] [routes|advertised-routes|received-routes] [<A.B.C.D/M|X:X::X:X/M> | detail] [json]
 
    This command shows information on a specific BGP peer of the relevant
    afi and safi selected.
@@ -4213,6 +3940,16 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    The ``received-routes`` keyword displays all routes belonging to this
    address-family (prior to inbound policy) that were received by this peer.
+
+   If a specific prefix is specified, the detailed version of that prefix will
+   be displayed.
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
+
+   If ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] neighbors PEER received prefix-filter [json]
 
@@ -4306,7 +4043,16 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
-.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [json|wide]
+.. clicmd:: show [ip] bgp [afi] [safi] [all] self-originate [wide|json]
+
+   Display self-originated routes.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [<A.B.C.D/M|X:X::X:X/M> | detail] [json|wide]
 
    Display the routes advertised to a BGP neighbor or received routes
    from neighbor or filtered routes received from neighbor based on the
@@ -4323,7 +4069,26 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    if afi is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selcted AFI
 
+   If a specific prefix is specified, the detailed version of that prefix will
+   be displayed.
+
+   If ``detail`` option is specified, the detailed version of all routes
+   will be displayed. The same format as ``show [ip] bgp [afi] [safi] PREFIX``
+   will be used, but for the whole table of received, advertised or filtered
+   prefixes.
+
    If ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes
+
+   Display the detailed version of all routes. The same format as using
+   ``show [ip] bgp [afi] [safi] PREFIX``, but for the whole BGP table.
+
+   If ``all`` option is specified, ``ip`` keyword is ignored and,
+   routes displayed for all AFIs and SAFIs.
+
+   If ``afi`` is specified, with ``all`` option, routes will be displayed for
+   each SAFI in the selected AFI.
 
 .. _bgp-display-routes-by-community:
 
@@ -4481,6 +4246,25 @@ Displaying Update Group Information
 
    Display Information about update-group events in FRR.
 
+Displaying Nexthop Information
+------------------------------
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop ipv4 [A.B.C.D] [detail] [json]
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop ipv6 [X:X::X:X] [detail] [json]
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [<A.B.C.D|X:X::X:X>] [detail] [json]
+
+.. clicmd:: show [ip] bgp <view|vrf> all nexthop [json]
+
+   Display information about nexthops to bgp neighbors. If a certain nexthop is
+   specified, also provides information about paths associated with the nexthop.
+   With detail option provides information about gates of each nexthop.
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] import-check-table [detail] [json]
+
+   Display information about nexthops from table that is used to check network's
+   existence in the rib for network statements.
+
 Segment-Routing IPv6
 --------------------
 
@@ -4514,6 +4298,26 @@ Segment-Routing IPv6
      vpn_policy[AFI_IP].tovpn_sid: none
      vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
 
+AS-notation support
+-------------------
+
+By default, the ASN value output follows how the BGP ASN instance is
+expressed in the configuration. Three as-notation outputs are available:
+
+- plain output: both AS4B and AS2B use a single number.
+  ` router bgp 65536`.
+
+- dot output: AS4B values are using two numbers separated by a period.
+  `router bgp 1.1` means that the AS number is 65536.
+
+- dot+ output: AS2B and AS4B values are using two numbers separated by a
+  period. `router bgp 0.5` means that the AS number is 5.
+
+The below option permits forcing the as-notation output:
+
+.. clicmd:: router bgp ASN as-notation dot|dot+|plain
+
+   The chosen as-notation format will override the BGP ASN output.
 
 .. _bgp-route-reflector:
 

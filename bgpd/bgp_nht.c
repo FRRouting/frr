@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP Nexthop tracking
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -294,6 +279,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc;
+	struct bgp_path_info *bpi_ultimate;
 	struct prefix p;
 	uint32_t srte_color = 0;
 	int is_bgp_static_route = 0;
@@ -338,7 +324,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * Gather the ifindex for if up/down events to be
 		 * tagged into this fun
 		 */
-		if (afi == AFI_IP6 &&
+		if (afi == AFI_IP6 && peer->conf_if &&
 		    IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr)) {
 			ifindex = peer->su.sin6.sin6_scope_id;
 			if (ifindex == 0) {
@@ -450,10 +436,12 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		/* updates NHT pi list reference */
 		path_nh_map(pi, bnc, true);
 
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
-			(bgp_path_info_extra_get(pi))->igpmetric = bnc->metric;
-		else if (pi->extra)
-			pi->extra->igpmetric = 0;
+			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
+				bnc->metric;
+		else if (bpi_ultimate->extra)
+			bpi_ultimate->extra->igpmetric = 0;
 	} else if (peer) {
 		/*
 		 * Let's not accidentally save the peer data for a peer
@@ -1123,6 +1111,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *path;
+	struct bgp_path_info *bpi_ultimate;
 	int afi;
 	struct peer *peer = (struct peer *)bnc->nht_info;
 	struct bgp_table *table;
@@ -1201,14 +1190,20 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {
-			if (dest->pdest)
-				zlog_debug(
-					"... eval path %d/%d %pBD RD %pRD %s flags 0x%x",
-					afi, safi, dest,
+
+			if (dest->pdest) {
+				char rd_buf[RD_ADDRSTRLEN];
+
+				prefix_rd2str(
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest),
+					rd_buf, sizeof(rd_buf),
+					bgp_get_asnotation(bnc->bgp));
+				zlog_debug(
+					"... eval path %d/%d %pBD RD %s %s flags 0x%x",
+					afi, safi, dest, rd_buf,
 					bgp_path->name_pretty, path->flags);
-			else
+			} else
 				zlog_debug(
 					"... eval path %d/%d %pBD %s flags 0x%x",
 					afi, safi, dest, bgp_path->name_pretty,
@@ -1222,11 +1217,12 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(path);
 		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
-			(bgp_path_info_extra_get(path))->igpmetric =
+			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
 				bnc->metric;
-		else if (path->extra)
-			path->extra->igpmetric = 0;
+		else if (bpi_ultimate->extra)
+			bpi_ultimate->extra->igpmetric = 0;
 
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* SNMP support
  * Copyright (C) 2012 Vincent Bernat <bernat@luffy.cx>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -32,13 +17,15 @@
 #include "linklist.h"
 #include "lib/version.h"
 #include "lib_errors.h"
+#include "hook.h"
+#include "libfrr.h"
 #include "xref.h"
 
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
 
-static int agentx_enabled = 0;
+static bool agentx_enabled = false;
 
 static struct thread_master *agentx_tm;
 static struct thread *timeout_thr = NULL;
@@ -226,7 +213,7 @@ DEFUN (agentx_enable,
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
-		agentx_enabled = 1;
+		agentx_enabled = true;
 		hook_call(agentx_enabled);
 	}
 
@@ -245,7 +232,14 @@ DEFUN (no_agentx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-int smux_enabled(void)
+static int smux_disable(void)
+{
+	agentx_enabled = false;
+
+	return 0;
+}
+
+bool smux_enabled(void)
 {
 	return agentx_enabled;
 }
@@ -264,6 +258,8 @@ void smux_init(struct thread_master *tm)
 	install_node(&agentx_node);
 	install_element(CONFIG_NODE, &agentx_enable_cmd);
 	install_element(CONFIG_NODE, &no_agentx_cmd);
+
+	hook_register(frr_early_fini, smux_disable);
 }
 
 void smux_agentx_enable(void)
@@ -272,7 +268,7 @@ void smux_agentx_enable(void)
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
-		agentx_enabled = 1;
+		agentx_enabled = true;
 	}
 }
 

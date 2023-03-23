@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra's client header.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_ZCLIENT_H
@@ -101,8 +86,6 @@ enum zserv_client_capabilities {
 
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
-
-#define ZAPI_ORR_FLAG_UNICAST 0x01
 
 /* Zebra message types. */
 typedef enum {
@@ -429,6 +412,7 @@ struct zapi_nexthop {
 
 	/* MPLS labels for BGP-LU or Segment Routing */
 	uint8_t label_num;
+	enum lsp_types_t label_type;
 	mpls_label_t labels[MPLS_MAX_LABELS];
 
 	struct ethaddr rmac;
@@ -1248,10 +1232,6 @@ enum zapi_opaque_registry {
 	LDP_RLFA_UNREGISTER_ALL = 8,
 	/* Announce LDP labels associated to a previously registered RLFA */
 	LDP_RLFA_LABELS = 9,
-	/* Register for IGP METRIC with OSPF/ISIS */
-	ORR_IGP_METRIC_REGISTER = 10,
-	/* Send SPF data to BGP */
-	ORR_IGP_METRIC_UPDATE = 11
 };
 
 /* Send the hello message.

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -498,6 +483,7 @@ void ospf6_delete(struct ospf6 *o)
 	struct route_node *rn = NULL;
 	struct ospf6_area *oa;
 	struct vrf *vrf;
+	struct ospf6_external_aggr_rt *aggr;
 
 	QOBJ_UNREG(o);
 
@@ -536,8 +522,11 @@ void ospf6_delete(struct ospf6 *o)
 	}
 
 	for (rn = route_top(o->rt_aggr_tbl); rn; rn = route_next(rn))
-		if (rn->info)
-			ospf6_external_aggregator_free(rn->info);
+		if (rn->info) {
+			aggr = rn->info;
+			ospf6_asbr_summary_config_delete(o, rn);
+			ospf6_external_aggregator_free(aggr);
+		}
 	route_table_finish(o->rt_aggr_tbl);
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
@@ -2011,9 +2000,6 @@ ospf6_show_vrf_name(struct vty *vty, struct ospf6 *ospf6,
 	}
 }
 
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
-#endif
 static int
 ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object *json,
@@ -2033,8 +2019,6 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 
 		ospf6_show_vrf_name(vty, ospf6, json_vrf);
 
-		json_object_int_add(json_vrf, "aggregation delay interval",
-				    ospf6->aggr_delay_interval);
 		json_object_int_add(json_vrf, "aggregationDelayInterval",
 				    ospf6->aggr_delay_interval);
 	}
@@ -2058,17 +2042,9 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 						buf,
 						json_aggr);
 
-			json_object_string_add(json_aggr,
-					"Summary address",
-					buf);
 			json_object_string_add(json_aggr, "summaryAddress",
 					       buf);
 
-			json_object_string_add(
-				json_aggr, "Metric-type",
-				(aggr->mtype == DEFAULT_METRIC_TYPE)
-					? "E2"
-					: "E1");
 			json_object_string_add(
 				json_aggr, "metricType",
 				(aggr->mtype == DEFAULT_METRIC_TYPE) ? "E2"
@@ -2082,9 +2058,6 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object_int_add(json_aggr, "Tag",
 					    aggr->tag);
 
-			json_object_int_add(json_aggr,
-					"External route count",
-					OSPF6_EXTERNAL_RT_COUNT(aggr));
 			json_object_int_add(json_aggr, "externalRouteCount",
 					    OSPF6_EXTERNAL_RT_COUNT(aggr));
 

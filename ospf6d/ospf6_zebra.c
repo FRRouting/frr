@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -267,7 +252,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	unsigned long ifindex;
-	struct in6_addr *nexthop;
+	const struct in6_addr *nexthop = &in6addr_any;
 	struct ospf6 *ospf6;
 	struct prefix_ipv6 p;
 
@@ -287,7 +272,9 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	ifindex = api.nexthops[0].ifindex;
-	nexthop = &api.nexthops[0].gate.ipv6;
+	if (api.nexthops[0].type == NEXTHOP_TYPE_IPV6
+	    || api.nexthops[0].type == NEXTHOP_TYPE_IPV6_IFINDEX)
+		nexthop = &api.nexthops[0].gate.ipv6;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(

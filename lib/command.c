@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI backend interface.
  *
@@ -6,22 +7,6 @@
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -71,6 +56,7 @@ const struct message tokennames[] = {
 	item(IPV6_PREFIX_TKN),
 	item(MAC_TKN),
 	item(MAC_PREFIX_TKN),
+	item(ASNUM_TKN),
 	item(FORK_TKN),
 	item(JOIN_TKN),
 	item(START_TKN),
@@ -125,6 +111,11 @@ const char *cmd_version_get(void)
 bool cmd_allow_reserved_ranges_get(void)
 {
 	return host.allow_reserved_ranges;
+}
+
+const char *cmd_software_version_get(void)
+{
+	return FRR_FULL_NAME "/" FRR_VERSION;
 }
 
 static int root_on_exit(struct vty *vty);
@@ -502,7 +493,7 @@ static int config_write_host(struct vty *vty)
 		else if (cputime_threshold != 5000000)
 #endif
 			vty_out(vty, "service cputime-warning %lu\n",
-				cputime_threshold);
+				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
@@ -512,7 +503,7 @@ static int config_write_host(struct vty *vty)
 		else if (walltime_threshold != 5000000)
 #endif
 			vty_out(vty, "service walltime-warning %lu\n",
-				walltime_threshold);
+				walltime_threshold / 1000);
 
 		if (host.advanced)
 			vty_out(vty, "service advanced-vty\n");
@@ -949,7 +940,8 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			return CMD_ERR_INCOMPLETE;
 		case MATCHER_AMBIGUOUS:
 			return CMD_ERR_AMBIGUOUS;
-		default:
+		case MATCHER_NO_MATCH:
+		case MATCHER_OK:
 			return CMD_ERR_NO_MATCH;
 		}
 	}

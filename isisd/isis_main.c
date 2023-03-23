@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_main.c
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -40,6 +27,7 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "affinitymap.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -167,6 +155,7 @@ struct frr_signal_t isisd_signals[] = {
 };
 
 
+/* clang-format off */
 static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -174,8 +163,44 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_isisd_info,
 #endif /* ifndef FABRICD */
 	&frr_route_map_info,
+	&frr_affinity_map_info,
 	&frr_vrf_info,
 };
+/* clang-format on */
+
+
+static void isis_config_finish(struct thread *t)
+{
+	struct listnode *node, *inode;
+	struct isis *isis;
+	struct isis_area *area;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+			config_end_lsp_generate(area);
+	}
+}
+
+static void isis_config_start(void)
+{
+	/* Max wait time for config to load before generating lsp */
+#define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
+	THREAD_OFF(t_isis_cfg);
+	thread_add_timer(im->master, isis_config_finish, NULL,
+			 ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
+}
+
+static void isis_config_end(void)
+{
+	/* If ISIS config processing thread isn't running, then
+	 * we can return and rely it's properly handled.
+	 */
+	if (!thread_is_scheduled(t_isis_cfg))
+		return;
+
+	THREAD_OFF(t_isis_cfg);
+	isis_config_finish(t_isis_cfg);
+}
 
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
@@ -240,6 +265,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 *  initializations
 	 */
+	cmd_init_config_callbacks(isis_config_start, isis_config_end);
 	isis_error_init();
 	access_list_init();
 	access_list_add_hook(isis_filter_update);
@@ -263,6 +289,8 @@ int main(int argc, char **argv, char **envp)
 	isis_sr_init();
 	lsp_init();
 	mt_init();
+
+	affinity_map_init();
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init(master);

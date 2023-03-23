@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Virtual terminal interface shell.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -135,6 +120,7 @@ static void vtysh_pager_envdef(bool fallback)
 /* --- */
 
 struct vtysh_client vtysh_client[] = {
+	{.name = "mgmtd", .flag = VTYSH_MGMTD},
 	{.name = "zebra", .flag = VTYSH_ZEBRA},
 	{.name = "ripd", .flag = VTYSH_RIPD},
 	{.name = "ripngd", .flag = VTYSH_RIPNGD},
@@ -1688,10 +1674,14 @@ DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
+	"router bgp [ASNUM [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
-	"View/VRF name\n")
+	"View/VRF name\n"
+	"Force the AS notation output\n"
+	"use 'AA.BB' format for AS 4 byte values\n"
+	"use 'AA.BB' format for all AS values\n"
+	"use plain format for all AS values\n")
 {
 	vty->node = BGP_NODE;
 	return CMD_SUCCESS;
@@ -2215,6 +2205,29 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
 }
 
 #endif /* HAVE_PATHD */
+
+/* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
+DEFUNSH(VTYSH_AFFMAP, affinity_map, vtysh_affinity_map_cmd,
+	"affinity-map NAME bit-position (0-1023)",
+	"Affinity map configuration\n"
+	"Affinity attribute name\n"
+	"Bit position for affinity attribute value\n"
+	"Bit position\n")
+{
+	return CMD_SUCCESS;
+}
+
+/* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
+DEFUNSH(VTYSH_AFFMAP, no_affinity_map, vtysh_no_affinity_map_cmd,
+	"no affinity-map NAME$name [bit-position (0-1023)$position]",
+	NO_STR
+	"Affinity map configuration\n"
+	"Affinity attribute name\n"
+	"Bit position for affinity attribute value\n"
+	"Bit position\n")
+{
+	return CMD_SUCCESS;
+}
 
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
 	"route-map RMAP_NAME <deny|permit> (1-65535)",
@@ -2759,6 +2772,15 @@ static char *do_prepend(struct vty *vty, struct cmd_token **argv, int argc)
 	return frrstr_join(argstr, argc + off, " ");
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+/* 'headline' is a format string with a %s for the daemon name
+ *
+ * Also for some reason GCC emits the warning on the end of the function
+ * (optimization maybe?) rather than on the vty_out line, so this pragma
+ * wraps the entire function rather than just the vty_out line.
+ */
+
 static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *headline)
 {
@@ -2777,6 +2799,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 
 	return ret;
 }
+#pragma GCC diagnostic pop
 
 static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
@@ -4004,6 +4027,9 @@ DEFUN (vtysh_traceroute6,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20240201
+CPP_NOTICE("Remove HAVE_SHELL_ACCESS and it's documentation");
+#endif
 #if defined(HAVE_SHELL_ACCESS)
 DEFUN (vtysh_telnet,
        vtysh_telnet_cmd,
@@ -4353,7 +4379,11 @@ char *vtysh_prompt(void)
 {
 	static char buf[512];
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* prompt formatting has a %s in the cmd_node prompt string. */
 	snprintf(buf, sizeof(buf), cmd_prompt(vty->node), cmd_hostname_get());
+#pragma GCC diagnostic pop
 	return buf;
 }
 
@@ -4834,6 +4864,9 @@ void vtysh_init_vty(void)
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
 	install_element(VRF_NODE, &vtysh_quit_vrf_cmd);
+
+	install_element(CONFIG_NODE, &vtysh_affinity_map_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_affinity_map_cmd);
 
 	install_node(&rmap_node);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);

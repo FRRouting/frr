@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP packet management routine.
  * Contains utility functions for constructing and consuming BGP messages.
  * Copyright (C) 2017 Cumulus Networks
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -487,6 +472,16 @@ void bgp_generate_updgrp_packets(struct thread *thread)
 	if (peer->t_routeadv)
 		return;
 
+	/*
+	 * Since the following is a do while loop
+	 * let's stop adding to the outq if we are
+	 * already at the limit.
+	 */
+	if (peer->obuf->count >= bm->outq_limit) {
+		bgp_write_proceed_actions(peer);
+		return;
+	}
+
 	do {
 		enum bgp_af_index index;
 
@@ -609,7 +604,8 @@ void bgp_generate_updgrp_packets(struct thread *thread)
 			bgp_packet_add(peer, s);
 			bpacket_queue_advance_peer(paf);
 		}
-	} while (s && (++generated < wpq));
+	} while (s && (++generated < wpq) &&
+		 (peer->obuf->count <= bm->outq_limit));
 
 	if (generated)
 		bgp_writes_on(peer);
@@ -1674,6 +1670,13 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->v_keepalive = peer->bgp->default_keepalive;
 	}
 
+	/* If another side disabled sending Software Version capability,
+	 * we MUST drop the previous from showing in the outputs to avoid
+	 * stale information and due to security reasons.
+	 */
+	if (peer->soft_version)
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+
 	/* Open option part parse. */
 	if (optlen != 0) {
 		if (bgp_open_option_parse(peer, optlen, &mp_capability) < 0)
@@ -2022,7 +2025,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlris[i], 1);
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
+						  &nlris[i], 1);
 			break;
 		default:
 			nlri_ret = BGP_NLRI_PARSE_ERROR;

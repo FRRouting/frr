@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -340,7 +327,7 @@ static void join_timer_stop(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
@@ -354,7 +341,7 @@ void join_timer_start(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface) {
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
@@ -446,7 +433,8 @@ void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 	else {
 		/* Remove it from jp agg from the nbr for suppression */
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
+
 		if (nbr) {
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -498,7 +486,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		struct pim_neighbor *nbr;
 
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
+
 		if (nbr)
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);

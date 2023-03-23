@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "zebra.h"
@@ -257,6 +246,7 @@ bool zlog_file_set_filename(struct zlog_cfg_file *zcf, const char *filename)
 		return zlog_file_cycle(zcf);
 	}
 	assert(0);
+	return false;
 }
 
 bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
@@ -271,6 +261,7 @@ bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
 		return zlog_file_cycle(zcf);
 	}
 	assert(0);
+	return false;
 }
 
 struct rcu_close_rotate {
@@ -544,6 +535,7 @@ int zlog_syslog_get_facility(void)
 		return syslog_facility;
 	}
 	assert(0);
+	return 0;
 }
 
 void zlog_syslog_set_prio_min(int prio_min)
@@ -581,4 +573,5 @@ int zlog_syslog_get_prio_min(void)
 		return syslog_prio_min;
 	}
 	assert(0);
+	return 0;
 }

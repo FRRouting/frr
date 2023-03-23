@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2017-2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * control.c: implements the BFD daemon control socket. It will be used
  * to talk with clients daemon/scripts/consumers.
@@ -430,6 +417,15 @@ static void control_read(struct thread *t)
 	plen = ntohl(bcm.bcm_length);
 	if (plen < 2) {
 		zlog_debug("%s: client closed due small message length: %d",
+			   __func__, bcm.bcm_length);
+		control_free(bcs);
+		return;
+	}
+
+#define FRR_BFD_MAXLEN 10 * 1024
+
+	if (plen > FRR_BFD_MAXLEN) {
+		zlog_debug("%s: client closed, invalid message length: %d",
 			   __func__, bcm.bcm_length);
 		control_free(bcs);
 		return;

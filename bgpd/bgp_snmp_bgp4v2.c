@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP4V2-MIB SNMP support
  *
  * Copyright (C) 2022 Donatas Abraitis <donatas@opensourcerouting.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -33,7 +18,6 @@
 #include "filter.h"
 #include "hook.h"
 #include "libfrr.h"
-#include "lib/version.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -145,10 +129,24 @@ static struct peer *bgpv2PeerTable_lookup(struct variable *v, oid name[],
 	size_t namelen = v ? v->namelen : BGP4V2_PEER_ENTRY_OFFSET;
 	oid *offset = name + namelen;
 	sa_family_t family = name[namelen - 1] == 4 ? AF_INET : AF_INET6;
+	int afi_len = IN_ADDR_SIZE;
+	size_t offsetlen = *length - namelen;
+
+	if (family == AF_INET6)
+		afi_len = IN6_ADDR_SIZE;
+
+	/* Somehow with net-snmp 5.7.3, every OID item in an array
+	 * is uninitialized and has a max random value, let's zero it.
+	 * With 5.8, 5.9, it works fine even without this hack.
+	 */
+	if (!offsetlen) {
+		for (int i = 0; i < afi_len; i++)
+			*(offset + i) = 0;
+	}
 
 	if (exact) {
 		if (family == AF_INET) {
-			oid2in_addr(offset, IN_ADDR_SIZE, &addr->ip._v4_addr);
+			oid2in_addr(offset, afi_len, &addr->ip._v4_addr);
 			peer = peer_lookup_all_vrf(addr);
 			return peer;
 		} else if (family == AF_INET6) {
@@ -163,11 +161,11 @@ static struct peer *bgpv2PeerTable_lookup(struct variable *v, oid name[],
 		switch (sockunion_family(&peer->su)) {
 		case AF_INET:
 			oid_copy_in_addr(offset, &peer->su.sin.sin_addr);
-			*length = IN_ADDR_SIZE + namelen;
+			*length = afi_len + namelen;
 			return peer;
 		case AF_INET6:
 			oid_copy_in6_addr(offset, &peer->su.sin6.sin6_addr);
-			*length = IN6_ADDR_SIZE + namelen;
+			*length = afi_len + namelen;
 			return peer;
 		default:
 			break;
@@ -367,9 +365,10 @@ static uint8_t *bgpv2PeerErrorsTable(struct variable *v, oid name[],
 		}
 		return SNMP_STRING("");
 	case BGP4V2_PEER_LAST_ERROR_SENT_DATA:
-		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND ||
-		    peer->last_reset == PEER_DOWN_RTT_SHUTDOWN ||
-		    peer->last_reset == PEER_DOWN_USER_SHUTDOWN)
+		if ((peer->last_reset == PEER_DOWN_NOTIFY_SEND ||
+		     peer->last_reset == PEER_DOWN_RTT_SHUTDOWN ||
+		     peer->last_reset == PEER_DOWN_USER_SHUTDOWN) &&
+		    peer->notify.data)
 			return SNMP_STRING(peer->notify.data);
 		else
 			return SNMP_STRING("");
@@ -420,7 +419,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 {
 	oid *offset;
 	int offsetlen;
-	struct bgp_path_info *path;
+	struct bgp_path_info *path, *min;
 	struct bgp_dest *dest;
 	union sockunion su;
 	unsigned int len;
@@ -500,6 +499,8 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		else
 			addr->prefixlen = len * 8;
 
+		addr->family = family;
+
 		dest = bgp_node_get(bgp->rib[afi][SAFI_UNICAST], addr);
 
 		offset++;
@@ -525,8 +526,8 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	if (!dest)
 		return NULL;
 
-	while ((dest = bgp_route_next(dest))) {
-		struct bgp_path_info *min = NULL;
+	do {
+		min = NULL;
 
 		for (path = bgp_dest_get_bgp_path_info(dest); path;
 		     path = path->next) {
@@ -564,6 +565,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 
 			offset = name + namelen;
 
+			/* Encode prefix into OID */
 			if (family == AF_INET)
 				oid_copy_in_addr(offset, &rn_p->u.prefix4);
 			else
@@ -573,6 +575,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			*offset = rn_p->prefixlen;
 			offset++;
 
+			/* Encode peer's IP into OID */
 			if (family == AF_INET) {
 				oid_copy_in_addr(offset,
 						 &min->peer->su.sin.sin_addr);
@@ -584,6 +587,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			}
 
 			addr->prefixlen = rn_p->prefixlen;
+			addr->family = rn_p->family;
 
 			bgp_dest_unlock_node(dest);
 
@@ -594,7 +598,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			memset(&paddr.ip._v4_addr, 0, afi_len);
 		else
 			memset(&paddr.ip._v6_addr, 0, afi_len);
-	}
+	} while ((dest = bgp_route_next(dest)));
 
 	return NULL;
 }
@@ -733,7 +737,7 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 	case BGP4V2_NLRI_MED:
 		if (CHECK_FLAG(path->attr->flag,
 			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
-			return SNMP_INTEGER(path->attr->local_pref);
+			return SNMP_INTEGER(path->attr->med);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_ATOMIC_AGGREGATE:

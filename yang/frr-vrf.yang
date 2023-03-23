@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-vrf {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/vrf";

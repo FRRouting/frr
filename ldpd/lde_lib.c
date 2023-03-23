@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -178,7 +167,7 @@ rt_dump(pid_t pid)
 			rtctl.prefix.v6 = fn->fec.u.ipv6.prefix;
 			rtctl.prefixlen = fn->fec.u.ipv6.prefixlen;
 			break;
-		default:
+		case FEC_TYPE_PWID:
 			continue;
 		}
 
@@ -505,7 +494,7 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 		    fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
-	default:
+	case FEC_TYPE_PWID:
 		break;
 	}
 
@@ -665,7 +654,7 @@ lde_check_request(struct map *map, struct lde_nbr *ln)
 			lde_send_notification(ln, S_LOOP_DETECTED, map->msg_id,
 			    htons(MSG_TYPE_LABELREQUEST));
 			return;
-		default:
+		case FEC_TYPE_PWID:
 			break;
 		}
 	}

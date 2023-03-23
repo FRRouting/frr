@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for IPv6 FRR
  * Copyright (C) 2022  Vmware, Inc.
  *		       Mobashshera Rasool <mrasool@vmware.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -299,7 +286,7 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		sizeof(rs_timer_xpath));
 
 	/* RFC4601 */
-	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
+	v = yang_dnode_get_uint16(vty->candidate_config->dnode, "%s",
 				  rs_timer_xpath);
 	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
 	if (v > UINT16_MAX)
@@ -688,7 +675,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 		return NB_OK;
 	}
 
-	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
+	plist = yang_dnode_get_string(plist_dnode, "%s", plist_xpath);
 	if (strcmp(prefix_list, plist)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;
@@ -1140,41 +1127,23 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 				json_ifp_in = json_object_new_object();
 				json_object_object_add(json_source, in_ifname,
 						       json_ifp_in);
-				json_object_int_add(json_source, "Installed",
-						    c_oil->installed);
 				json_object_int_add(json_source, "installed",
 						    c_oil->installed);
 				json_object_boolean_add(json_source, "isRpt",
 							isRpt);
-				json_object_int_add(json_source, "RefCount",
-						    c_oil->oil_ref_count);
 				json_object_int_add(json_source, "refCount",
 						    c_oil->oil_ref_count);
-				json_object_int_add(json_source, "OilListSize",
-						    c_oil->oil_size);
 				json_object_int_add(json_source, "oilListSize",
 						    c_oil->oil_size);
 				json_object_int_add(
-					json_source, "OilRescan",
-					c_oil->oil_inherited_rescan);
-				json_object_int_add(
 					json_source, "oilRescan",
 					c_oil->oil_inherited_rescan);
-				json_object_int_add(json_source, "LastUsed",
-						    c_oil->cc.lastused);
 				json_object_int_add(json_source, "lastUsed",
 						    c_oil->cc.lastused);
-				json_object_int_add(json_source, "PacketCount",
-						    c_oil->cc.pktcnt);
 				json_object_int_add(json_source, "packetCount",
 						    c_oil->cc.pktcnt);
-				json_object_int_add(json_source, "ByteCount",
-						    c_oil->cc.bytecnt);
 				json_object_int_add(json_source, "byteCount",
 						    c_oil->cc.bytecnt);
-				json_object_int_add(json_source,
-						    "WrongInterface",
-						    c_oil->cc.wrong_if);
 				json_object_int_add(json_source,
 						    "wrongInterface",
 						    c_oil->cc.wrong_if);
@@ -1416,7 +1385,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 
 			nbr = pim_neighbor_find(
 				up->rpf.source_nexthop.interface,
-				up->rpf.rpf_addr);
+				up->rpf.rpf_addr, false);
 			if (nbr)
 				pim_time_timer_to_hhmmss(join_timer,
 							 sizeof(join_timer),
@@ -1728,14 +1697,8 @@ static void pim_show_join_helper(struct pim_interface *pim_ifp,
 		json_object_string_add(
 			json_row, "channelJoinName",
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)) {
-#if CONFDATE > 20230131
-			CPP_NOTICE(
-				"Remove JSON object commands with keys starting with capital")
-#endif
-			json_object_int_add(json_row, "SGRpt", 1);
+		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
 			json_object_int_add(json_row, "sgRpt", 1);
-		}
 		if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 			json_object_int_add(json_row, "protocolPim", 1);
 		if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
@@ -3786,8 +3749,6 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 					    c_oil->oil_ref_count);
 			json_object_int_add(json_source, "oilSize",
 					    c_oil->oil_size);
-			json_object_int_add(json_source, "OilInheritedRescan",
-					    c_oil->oil_inherited_rescan);
 			json_object_int_add(json_source, "oilInheritedRescan",
 					    c_oil->oil_inherited_rescan);
 			json_object_string_add(json_source, "iif", in_ifname);

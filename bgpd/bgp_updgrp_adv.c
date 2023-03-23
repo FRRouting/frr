@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * bgp_updgrp_adv.c: BGP update group advertisement and adjacency
  *                   maintenance
@@ -8,22 +9,6 @@
  * @author Avneesh Sachdev <avneesh@sproute.net>
  * @author Rajesh Varadarajan <rajesh@sproute.net>
  * @author Pradosh Mohapatra <pradosh@sproute.net>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -512,6 +497,23 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			zlog_debug("%s suppress UPDATE w/ attr: %s", peer->host,
 				   attr_str);
 		}
+
+		/*
+		 * If BGP is skipping sending this value to it's peers
+		 * the version number should be updated just like it
+		 * would if it sent the data.  Why?  Because update
+		 * groups will not be coalesced until such time that
+		 * the version numbers are the same.
+		 *
+		 * Imagine a scenario with say 2 peers and they come
+		 * up and are placed in the same update group.  Then
+		 * a new peer comes up a bit later.  Then a prefix is
+		 * flapped that we decide for the first 2 peers are
+		 * mapped to and we decide not to send the data to
+		 * it.  Then unless more network changes happen we
+		 * will never be able to coalesce the 3rd peer down
+		 */
+		subgrp->version = MAX(subgrp->version, dest->version);
 		return;
 	}
 
@@ -698,11 +700,14 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 						    &attr, NULL)) {
 				/* Check if route can be advertised */
 				if (advertise) {
-					if (!bgp_check_withdrawal(bgp, dest))
+					if (!bgp_check_withdrawal(bgp, dest)) {
+						struct attr *adv_attr =
+							bgp_attr_intern(&attr);
+
 						bgp_adj_out_set_subgroup(
-							dest, subgrp, &attr,
+							dest, subgrp, adv_attr,
 							ri);
-					else
+					} else
 						bgp_adj_out_unset_subgroup(
 							dest, subgrp, 1,
 							bgp_addpath_id_for_peer(
@@ -913,8 +918,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi_rib], afi, safi_rib, &p,
-				   NULL);
+	dest = bgp_safi_node_lookup(bgp->rib[afi][safi_rib], safi_rib, &p,
+				    NULL);
 
 	if (withdraw) {
 		/* Withdraw the default route advertised using default
@@ -934,10 +939,14 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					if (subgroup_announce_check(
 						    dest, pi, subgrp,
 						    bgp_dest_get_prefix(dest),
-						    &attr, NULL))
+						    &attr, NULL)) {
+						struct attr *default_attr =
+							bgp_attr_intern(&attr);
+
 						bgp_adj_out_set_subgroup(
-							dest, subgrp, &attr,
-							pi);
+							dest, subgrp,
+							default_attr, pi);
+					}
 			}
 			bgp_dest_unlock_node(dest);
 		}

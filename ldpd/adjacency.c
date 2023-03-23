@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -181,7 +170,7 @@ static void adj_itimer(struct thread *thread)
 	log_debug("%s: lsr-id %pI4", __func__, &adj->lsr_id);
 
 	if (adj->source.type == HELLO_TARGETED) {
-		if (!(adj->source.target->flags & F_TNBR_CONFIGURED) &&
+		if (!CHECK_FLAG(adj->source.target->flags, F_TNBR_CONFIGURED) &&
 		    adj->source.target->pw_count == 0 &&
 		    adj->source.target->rlfa_count == 0) {
 			/* remove dynamic targeted neighbor */
@@ -256,7 +245,7 @@ tnbr_find(struct ldpd_conf *xconf, int af, union ldpd_addr *addr)
 struct tnbr *
 tnbr_check(struct ldpd_conf *xconf, struct tnbr *tnbr)
 {
-	if (!(tnbr->flags & (F_TNBR_CONFIGURED|F_TNBR_DYNAMIC)) &&
+	if (!CHECK_FLAG(tnbr->flags, (F_TNBR_CONFIGURED|F_TNBR_DYNAMIC)) &&
 	    tnbr->pw_count == 0 && tnbr->rlfa_count == 0) {
 		tnbr_del(xconf, tnbr);
 		return (NULL);

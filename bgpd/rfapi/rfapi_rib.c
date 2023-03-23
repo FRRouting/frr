@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -1127,7 +1114,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				skiplist_insert(slRibPt, &ori->rk, ori);
 
 				vnc_zlog_debug_verbose(
-					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%pRD)",
+					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%pRDP)",
 					__func__, ri, &ori->rk.rd);
 			}
 
@@ -1369,7 +1356,7 @@ callback:
 					ri->last_sent_time = monotime(NULL);
 #if DEBUG_RIB_SL_RD
 					vnc_zlog_debug_verbose(
-						"%s: move route to recently deleted list, rd=%pRD",
+						"%s: move route to recently deleted list, rd=%pRDP",
 						__func__, &ri->rk.rd);
 #endif
 
@@ -2265,7 +2252,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		}
 #endif
 
-		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %pRD\n",
+		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %pRDP\n",
 		   deleted ? 'r' : ' ', *printedprefix ? "" : str_pfx, str_vn,
 		   str_un, ri->cost, str_lifetime, str_age, &ri->rk.rd);
 

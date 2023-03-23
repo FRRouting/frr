@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra MPLS code
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -492,7 +477,7 @@ static void fec_print(struct zebra_fec *fec, struct vty *vty)
 
 	rn = fec->rn;
 	vty_out(vty, "%pRN\n", rn);
-	vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
+	vty_out(vty, "  Label: %s", label2str(fec->label, 0, buf, BUFSIZ));
 	if (fec->label_index != MPLS_INVALID_LABEL_INDEX)
 		vty_out(vty, ", Label Index: %u", fec->label_index);
 	vty_out(vty, "\n");
@@ -1597,8 +1582,8 @@ static void nhlfe_print(struct zebra_nhlfe *nhlfe, struct vty *vty,
 	vty_out(vty, " type: %s remote label: %s distance: %d\n",
 		nhlfe_type2str(nhlfe->type),
 		mpls_label2str(nexthop->nh_label->num_labels,
-			       nexthop->nh_label->label,
-			       buf, sizeof(buf), 0),
+			       nexthop->nh_label->label, buf, sizeof(buf),
+			       nexthop->nh_label_type, 0),
 		nhlfe->distance);
 
 	if (indent)
@@ -1754,7 +1739,6 @@ static void mpls_processq_init(void)
 
 	zrouter.lsp_process_q->spec.workfunc = &lsp_process;
 	zrouter.lsp_process_q->spec.del_item_data = &lsp_processq_del;
-	zrouter.lsp_process_q->spec.errorfunc = NULL;
 	zrouter.lsp_process_q->spec.completion_func = &lsp_processq_complete;
 	zrouter.lsp_process_q->spec.max_retries = 0;
 	zrouter.lsp_process_q->spec.hold = 10;
@@ -1849,7 +1833,57 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 					     ZEBRA_SR_POLICY_LABEL_REMOVED);
 		break;
 
-	default:
+	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_NONE:
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+	case DPLANE_OP_ROUTE_DELETE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 
 	} /* Switch */
@@ -2670,7 +2704,7 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 
 			write = 1;
 			vty_out(vty, "mpls label bind %pFX %s\n", &rn->p,
-				label2str(fec->label, lstr, BUFSIZ));
+				label2str(fec->label, 0, lstr, BUFSIZ));
 		}
 	}
 
@@ -3115,10 +3149,10 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 
 			nhlfe2str(nhlfe, buf, sizeof(buf));
 			mpls_label2str(num_out_labels, out_labels, buf2,
-				       sizeof(buf2), 0);
+				       sizeof(buf2), 0, 0);
 			mpls_label2str(nh->nh_label->num_labels,
 				       nh->nh_label->label, buf3, sizeof(buf3),
-				       0);
+				       nh->nh_label_type, 0);
 
 			zlog_debug("LSP in-label %u type %d %snexthop %s out-label(s) changed to %s (old %s)",
 				   lsp->ile.in_label, type, backup_str, buf,
@@ -3146,7 +3180,7 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 
 			nhlfe2str(nhlfe, buf, sizeof(buf));
 			mpls_label2str(num_out_labels, out_labels, buf2,
-				       sizeof(buf2), 0);
+				       sizeof(buf2), 0, 0);
 
 			zlog_debug("Add LSP in-label %u type %d %snexthop %s out-label(s) %s",
 				   lsp->ile.in_label, type, backup_str, buf,
@@ -3696,14 +3730,20 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
-	if (!lsp_table)
+	if (!lsp_table) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	/* If entry is not present, exit. */
 	tmp_ile.in_label = label;
 	lsp = hash_lookup(lsp_table, &tmp_ile);
-	if (!lsp)
+	if (!lsp) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	if (use_json) {
 		json = lsp_json(lsp);
@@ -3729,10 +3769,10 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
-			json_object_object_add(
-				json, label2str(lsp->ile.in_label, buf,
-						sizeof(buf)),
-				lsp_json(lsp));
+			json_object_object_add(json,
+					       label2str(lsp->ile.in_label, 0,
+							 buf, sizeof(buf)),
+					       lsp_json(lsp));
 
 		vty_json(vty, json);
 	} else {
@@ -3784,7 +3824,8 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					out_label_str = mpls_label2str(
 						nexthop->nh_label->num_labels,
 						&nexthop->nh_label->label[0],
-						buf, sizeof(buf), 1);
+						buf, sizeof(buf),
+						nexthop->nh_label_type, 1);
 				else
 					out_label_str = "-";
 

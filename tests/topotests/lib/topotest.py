@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # topotest.py
@@ -6,20 +7,6 @@
 #
 # Copyright (c) 2016 by
 # Network Device Education Foundation, Inc. ("NetDEF")
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 import difflib
@@ -590,6 +577,31 @@ def iproute2_is_vrf_capable():
             iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
 
             if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def iproute2_is_fdb_get_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling `bridge fdb get` commands to query neigh table resolution.
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["bridge", "fdb", "get", "help"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_out = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if "Usage" in str(iproute2_out):
                 return True
         except Exception:
             pass
@@ -1361,6 +1373,7 @@ class Router(Node):
             "pbrd": 0,
             "pathd": 0,
             "snmpd": 0,
+            "mgmtd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1388,6 +1401,10 @@ class Router(Node):
         if not os.path.isfile(zebra_path):
             raise Exception("FRR zebra binary doesn't exist at {}".format(zebra_path))
 
+        mgmtd_path = os.path.join(self.daemondir, "mgmtd")
+        if not os.path.isfile(mgmtd_path):
+            raise Exception("FRR MGMTD binary doesn't exist at {}".format(mgmtd_path))
+
     # pylint: disable=W0221
     # Some params are only meaningful for the parent class.
     def config(self, **params):
@@ -1405,6 +1422,10 @@ class Router(Node):
             zpath = os.path.join(self.daemondir, "zebra")
             if not os.path.isfile(zpath):
                 raise Exception("No zebra binary found in {}".format(zpath))
+
+            cpath = os.path.join(self.daemondir, "mgmtd")
+            if not os.path.isfile(zpath):
+                raise Exception("No MGMTD binary found in {}".format(cpath))
             # Allow user to specify routertype when the path was specified.
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
@@ -1557,6 +1578,10 @@ class Router(Node):
                     self.cmd_raises("rm -f " + conf_file)
                     self.cmd_raises("touch " + conf_file)
             else:
+                # copy zebra.conf to mgmtd folder, which can be used during startup
+                if daemon == "zebra":
+                    conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
+                    self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
                 self.cmd_raises("cp {} {}".format(source, conf_file))
 
             if not self.unified_config or daemon == "frr":
@@ -1567,6 +1592,17 @@ class Router(Node):
                 # /etc/snmp is private mount now
                 self.cmd('echo "agentXSocket /etc/frr/agentx" >> /etc/snmp/frr.conf')
                 self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
+
+            if (daemon == "zebra") and (self.daemons["mgmtd"] == 0):
+                # Add mgmtd with zebra - if it exists
+                try:
+                    mgmtd_path = os.path.join(self.daemondir, "mgmtd")
+                except:
+                    pdb.set_trace()
+                if os.path.isfile(mgmtd_path):
+                    self.daemons["mgmtd"] = 1
+                    self.daemons_options["mgmtd"] = ""
+                    # Auto-Started mgmtd has no config, so it will read from zebra config
 
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
@@ -1579,6 +1615,7 @@ class Router(Node):
                     self.daemons["staticd"] = 1
                     self.daemons_options["staticd"] = ""
                     # Auto-Started staticd has no config, so it will read from zebra config
+
         else:
             logger.info("No daemon {} known".format(daemon))
         # print "Daemons after:", self.daemons
@@ -1824,7 +1861,13 @@ class Router(Node):
                 else:
                     logger.info("%s: %s %s started", self, self.routertype, daemon)
 
-        # Start Zebra first
+        # Start mgmtd first
+        if "mgmtd" in daemons_list:
+            start_daemon("mgmtd")
+            while "mgmtd" in daemons_list:
+                daemons_list.remove("mgmtd")
+
+        # Start Zebra after mgmtd
         if "zebra" in daemons_list:
             start_daemon("zebra", "-s 90000000")
             while "zebra" in daemons_list:
@@ -1888,15 +1931,16 @@ class Router(Node):
                 # Exclude empty string at end of list
                 for d in dmns[:-1]:
                     if re.search(r"%s" % daemon, d):
-                        daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                        daemonpidfile = d.rstrip()
+                        daemonpid = self.cmd("cat %s" % daemonpidfile).rstrip()
                         if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                             logger.info(
                                 "{}: killing {}".format(
                                     self.name,
-                                    os.path.basename(d.rstrip().rsplit(".", 1)[0]),
+                                    os.path.basename(daemonpidfile.rsplit(".", 1)[0]),
                                 )
                             )
-                            self.cmd("kill -9 %s" % daemonpid)
+                            os.kill(int(daemonpid), signal.SIGKILL)
                             if pid_exists(int(daemonpid)):
                                 numRunning += 1
                         while wait and numRunning > 0:
@@ -1922,12 +1966,12 @@ class Router(Node):
                                                 ),
                                             )
                                         )
-                                        self.cmd("kill -9 %s" % daemonpid)
+                                        os.kill(int(daemonpid), signal.SIGKILL)
                                     if daemonpid.isdigit() and not pid_exists(
                                         int(daemonpid)
                                     ):
                                         numRunning -= 1
-                        self.cmd("rm -- {}".format(d.rstrip()))
+                        self.cmd("rm -- {}".format(daemonpidfile))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
                         if self.checkRouterVersion("<", minErrorVersion):

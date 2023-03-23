@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isisd.c
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -99,6 +86,9 @@ static struct isis_master isis_master;
 
 /* ISIS process wide configuration pointer to export. */
 struct isis_master *im;
+
+/* ISIS config processing thread */
+struct thread *t_isis_cfg;
 
 #ifndef FABRICD
 DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
@@ -2340,9 +2330,11 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 		return "l1-psnp";
 	case L2_PARTIAL_SEQ_NUM_INDEX:
 		return "l2-psnp";
-	default:
+	case PDU_COUNTER_SIZE:
 		return "???????";
 	}
+
+	assert(!"Reached end of function where we are not expecting to");
 }
 
 static void common_isis_summary_json(struct json_object *json,
@@ -2510,6 +2502,9 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 			area->lsp_rxmt_count);
 		vty_out(vty, "  RX counters per PDU type:\n");
 		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
+
+		vty_out(vty, "  Advertise high metrics: %s\n",
+			area->advertise_high_metrics ? "Enabled" : "Disabled");
 
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((area->is_type & level) == 0)
@@ -3242,6 +3237,68 @@ void isis_area_overload_on_startup_set(struct isis_area *area,
 	if (area->overload_on_startup_time != startup_time) {
 		area->overload_on_startup_time = startup_time;
 		isis_restart_write_overload_time(area, startup_time);
+	}
+}
+
+void config_end_lsp_generate(struct isis_area *area)
+{
+	if (listcount(area->area_addrs) > 0) {
+		if (CHECK_FLAG(area->is_type, IS_LEVEL_1))
+			lsp_generate(area, IS_LEVEL_1);
+		if (CHECK_FLAG(area->is_type, IS_LEVEL_2))
+			lsp_generate(area, IS_LEVEL_2);
+	}
+}
+
+void isis_area_advertise_high_metrics_set(struct isis_area *area,
+					  bool advertise_high_metrics)
+{
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	int max_metric;
+	char xpath[XPATH_MAXLEN];
+	struct lyd_node *dnode;
+	int configured_metric_l1;
+	int configured_metric_l2;
+
+	if (area->advertise_high_metrics == advertise_high_metrics)
+		return;
+
+	if (advertise_high_metrics) {
+		if (area->oldmetric && area->newmetric)
+			max_metric = ISIS_NARROW_METRIC_INFINITY;
+		else if (area->newmetric)
+			max_metric = MAX_WIDE_LINK_METRIC;
+		else
+			max_metric = MAX_NARROW_LINK_METRIC;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						max_metric);
+			isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						max_metric);
+		}
+
+		area->advertise_high_metrics = true;
+	} else {
+		area->advertise_high_metrics = false;
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			/* Get configured metric */
+			snprintf(xpath, XPATH_MAXLEN,
+				 "/frr-interface:lib/interface[name='%s']",
+				 circuit->interface->name);
+			dnode = yang_dnode_get(running_config->dnode, xpath);
+
+			configured_metric_l1 = yang_dnode_get_uint32(
+				dnode, "./frr-isisd:isis/metric/level-1");
+			configured_metric_l2 = yang_dnode_get_uint32(
+				dnode, "./frr-isisd:isis/metric/level-2");
+
+			isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						configured_metric_l1);
+			isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						configured_metric_l2);
+		}
 	}
 }
 

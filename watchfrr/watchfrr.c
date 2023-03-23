@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Monitor status of frr daemons and restart if necessary.
  *
  * Copyright (C) 2004  Andrew J. Schorr
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -512,7 +499,11 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 	restart->kills = 0;
 	{
 		char cmd[strlen(command) + strlen(restart->name) + 1];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* user supplied command string has a %s for the daemon name */
 		snprintf(cmd, sizeof(cmd), command, restart->name);
+#pragma GCC diagnostic pop
 		if ((restart->pid = run_background(cmd)) > 0) {
 			thread_add_timer(master, restart_kill, restart,
 					 gs.restart_timeout, &restart->t_kill);
@@ -941,13 +932,10 @@ static void phase_check(void)
 		if (!IS_UP(gs.special))
 			break;
 		zlog_info("Phased restart: %s is now up.", gs.special->name);
-		{
-			struct daemon *dmn;
-			for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-				if (dmn != gs.special)
-					run_job(&dmn->restart, "start",
-						gs.start_command, 1, 0);
-			}
+		for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+			if (dmn != gs.special)
+				run_job(&dmn->restart, "start",
+					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
 		THREAD_OFF(gs.t_phase_hanging);

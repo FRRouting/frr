@@ -1,24 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 #
 # test_zebra_rib.py
 #
 # Copyright (c) 2019 by
 # Cumulus Networks, Inc
 # Donald Sharp
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -203,7 +190,16 @@ def test_route_map_usage():
     r1.vtysh_cmd("conf\nip route 10.100.100.100/32 192.168.216.3")
     r1.vtysh_cmd("conf\nip route 10.100.100.101/32 10.0.0.44")
     r1.vtysh_cmd("sharp install route 10.0.0.0 nexthop 192.168.216.3 500")
-    sleep(4)
+
+    def check_initial_routes_installed(router):
+        output = json.loads(router.vtysh_cmd("show ip route summ json"))
+        expected = {
+            "routes": [{"type": "static", "rib": 2}, {"type": "sharp", "rib": 500}]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = partial(check_initial_routes_installed, r1)
+    success, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
 
     static_rmapfile = "%s/r1/static_rmap.ref" % (thisDir)
     expected = open(static_rmapfile).read().rstrip()

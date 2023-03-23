@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF routing table.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_ROUTE_H
@@ -172,6 +157,5 @@ extern void ospf_delete_discard_route(struct ospf *, struct route_table *,
 				      struct prefix_ipv4 *);
 extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
 				 struct ospf_route *);
-extern int ospf_route_exist_new_table(struct route_table *rt,
-				      struct prefix_ipv4 *prefix);
+
 #endif /* _ZEBRA_OSPF_ROUTE_H */

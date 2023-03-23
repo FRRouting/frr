@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra common header.
  * Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_H
@@ -74,15 +59,6 @@
 #ifdef HAVE_ENDIAN_H
 #include <endian.h>
 #endif
-
-/* machine dependent includes */
-#ifdef HAVE_LINUX_VERSION_H
-#include <linux/version.h>
-#endif /* HAVE_LINUX_VERSION_H */
-
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
 
 /* misc include group */
 #include <stdarg.h>
@@ -338,6 +314,14 @@ struct in_pktinfo {
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define htonll(x) (((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x) (((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#else
+#define htonll(x) (x)
+#define ntohll(x) (x)
+#endif
+
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif
@@ -375,17 +359,25 @@ typedef enum {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 
 /* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT      1
-#define ZEBRA_RIP_DISTANCE_DEFAULT       120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT     120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT      110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT     110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT      115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT      200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT       20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT      15
+#define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
+#define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
+#define ZEBRA_STATIC_DISTANCE_DEFAULT       1
+#define ZEBRA_RIP_DISTANCE_DEFAULT        120
+#define ZEBRA_RIPNG_DISTANCE_DEFAULT      120
+#define ZEBRA_OSPF_DISTANCE_DEFAULT       110
+#define ZEBRA_OSPF6_DISTANCE_DEFAULT      110
+#define ZEBRA_ISIS_DISTANCE_DEFAULT       115
+#define ZEBRA_IBGP_DISTANCE_DEFAULT       200
+#define ZEBRA_EBGP_DISTANCE_DEFAULT        20
+#define ZEBRA_TABLE_DISTANCE_DEFAULT       15
+#define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
+#define ZEBRA_NHRP_DISTANCE_DEFAULT        10
+#define ZEBRA_LDP_DISTANCE_DEFAULT        150
+#define ZEBRA_BABEL_DISTANCE_DEFAULT      100
+#define ZEBRA_SHARP_DISTANCE_DEFAULT      150
+#define ZEBRA_PBR_DISTANCE_DEFAULT        200
+#define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
+#define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
@@ -410,9 +402,6 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
-
-/* Name of hook calls */
-#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd dump routine.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -61,7 +46,6 @@ unsigned long conf_debug_ospf_ldp_sync;
 unsigned long conf_debug_ospf_gr;
 unsigned long conf_debug_ospf_bfd;
 unsigned long conf_debug_ospf_client_api;
-unsigned long conf_debug_ospf_orr;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -80,7 +64,6 @@ unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr;
 unsigned long term_debug_ospf_bfd;
 unsigned long term_debug_ospf_client_api;
-unsigned long term_debug_ospf_orr;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -148,13 +131,6 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
 		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
 	return buf;
-}
-
-/* Display only the nbr state.*/
-void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
-{
-	snprintf(buf, size, "%s",
-		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
 }
 
 int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
@@ -1601,33 +1577,6 @@ DEFPY (debug_ospf_client_api,
 	return CMD_SUCCESS;
 }
 
-DEFPY (debug_ospf_orr,
-       debug_ospf_orr_cmd,
-       "[no$no] debug ospf [(1-65535)$instance] orr",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF ORR information\n")
-{
-	if (instance && instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	if (vty->node == CONFIG_NODE) {
-		if (no)
-			DEBUG_OFF(orr, ORR);
-		else
-			DEBUG_ON(orr, ORR);
-	} else {
-		if (no)
-			TERM_DEBUG_OFF(orr, ORR);
-		else
-			TERM_DEBUG_ON(orr, ORR);
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1670,8 +1619,6 @@ DEFUN (no_debug_ospf,
 
 		for (i = 0; i < 5; i++)
 			DEBUG_PACKET_OFF(i, flag);
-
-		DEBUG_OFF(orr, ORR);
 	}
 
 	for (i = 0; i < 5; i++)
@@ -1702,7 +1649,6 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(client_api, CLIENT_API);
-	TERM_DEBUG_OFF(orr, ORR);
 
 	return CMD_SUCCESS;
 }
@@ -1831,12 +1777,6 @@ static int show_debugging_ospf_common(struct vty *vty)
 	/* Show debug status for LDP-SYNC. */
 	if (IS_DEBUG_OSPF(client_api, CLIENT_API) == OSPF_DEBUG_CLIENT_API)
 		vty_out(vty, "  OSPF client-api debugging is on\n");
-
-	/* Show debug status for ORR. */
-	if (IS_DEBUG_OSPF(orr, ORR) == OSPF_DEBUG_ORR)
-		vty_out(vty, "  OSPF ORR debugging is on\n");
-
-	vty_out(vty, "\n");
 
 	return CMD_SUCCESS;
 }
@@ -2050,12 +1990,6 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
-	/* debug ospf orr */
-	if (IS_CONF_DEBUG_OSPF(orr, ORR) == OSPF_DEBUG_ORR) {
-		vty_out(vty, "debug ospf%s orr\n", str);
-		write = 1;
-	}
-
 	return write;
 }
 
@@ -2077,7 +2011,6 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_client_api_cmd);
-	install_element(ENABLE_NODE, &debug_ospf_orr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -2117,7 +2050,6 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_client_api_cmd);
-	install_element(CONFIG_NODE, &debug_ospf_orr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);

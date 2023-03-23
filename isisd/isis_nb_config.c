@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -374,6 +361,24 @@ int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/advertise-high-metrics
+ */
+int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	bool advertise_high_metrics;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	advertise_high_metrics = yang_dnode_get_bool(args->dnode, NULL);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_area_advertise_high_metrics_set(area, advertise_high_metrics);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/metric-style
  */
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args)
@@ -428,6 +433,26 @@ int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 		isis_area_lsp_mtu_set(area, lsp_mtu);
 		break;
 	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/advertise-passive-only
+ */
+int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	bool advertise_passive_only;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	advertise_passive_only = yang_dnode_get_bool(args->dnode, NULL);
+	area->advertise_passive_only = advertise_passive_only;
+
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 
 	return NB_OK;
 }
@@ -2758,7 +2783,7 @@ int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->pad_hellos = yang_dnode_get_bool(args->dnode, NULL);
+	circuit->pad_hellos = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
 }

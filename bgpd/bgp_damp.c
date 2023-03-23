@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP flap dampening
  * Copyright (C) 2001 IP Infusion Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -327,7 +312,8 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw, afi_t afi,
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
 
-static void bgp_damp_parameter_set(int hlife, int reuse, int sup, int maxsup,
+static void bgp_damp_parameter_set(time_t hlife, unsigned int reuse,
+				   unsigned int sup, time_t maxsup,
 				   struct bgp_damp_config *bdc)
 {
 	double reuse_max_ratio;

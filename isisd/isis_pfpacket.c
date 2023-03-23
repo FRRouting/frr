@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_pfpacket.c
  *
  * Copyright (C) 2001,2002    Sampo Saaristo
  *                            Tampere University of Technology
  *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -48,14 +35,25 @@
 /* tcpdump -i eth0 'isis' -dd */
 static const struct sock_filter isisfilter[] = {
 	/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped
-	 * off!
-	 * (OTOH it's a bit more lower-layer agnostic and might work
-	 * over GRE?) */
-	/*	{ 0x28, 0, 0, 0x0000000c - 14 }, */
-	/*	{ 0x25, 5, 0, 0x000005dc }, */
-	{0x28, 0, 0, 0x0000000e - 14}, {0x15, 0, 3, 0x0000fefe},
-	{0x30, 0, 0, 0x00000011 - 14}, {0x15, 0, 1, 0x00000083},
-	{0x6, 0, 0, 0x00040000},       {0x6, 0, 0, 0x00000000},
+	 * off! */
+	/* The following BPF filter accepts IS-IS over LLC and IS-IS over
+	 * ethertype 0x00fe.
+	 * BPF assembly:
+	 * l0: ldh [0]
+	 * l1: jeq #0xfefe, l2, l4
+	 * l2: ldb [3]
+	 * l3: jmp l7
+	 * l4: ldh proto
+	 * l5: jeq #0x00fe, l6, l9
+	 * l6: ldb [0]
+	 * l7: jeq #0x83, l8, l9
+	 * l8: ret #0x40000
+	 * l9: ret #0 */
+	{0x28, 0, 0, 0000000000}, {0x15, 0, 2, 0x0000fefe},
+	{0x30, 0, 0, 0x00000003}, {0x05, 0, 0, 0x00000003},
+	{0x28, 0, 0, 0xfffff000}, {0x15, 0, 3, 0x000000fe},
+	{0x30, 0, 0, 0000000000}, {0x15, 0, 1, 0x00000083},
+	{0x06, 0, 0, 0x00040000}, {0x06, 0, 0, 0000000000},
 };
 
 static const struct sock_fprog bpf = {

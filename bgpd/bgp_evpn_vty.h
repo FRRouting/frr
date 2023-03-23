@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* EVPN VTY functions to EVPN
  * Copyright (C) 2017 6WIND
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_BGP_EVPN_VTY_H
@@ -41,5 +26,8 @@ extern int argv_find_and_parse_oly_idx(struct cmd_token **argv, int argc,
 /* Parse type from "type <ead|1|...>", return -1 on failure */
 extern int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv,
 				   int argc);
+
+extern int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
+				    bool use_json, int detail);
 
 #endif /* _QUAGGA_BGP_EVPN_VTY_H */

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Interface functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -30,6 +15,7 @@
 #include "command.h"
 #include "stream.h"
 #include "log.h"
+#include "network.h"
 #include "zclient.h"
 #include "bfd.h"
 #include "ldp_sync.h"
@@ -274,7 +260,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	oi->t_ls_upd_event = NULL;
 	oi->t_ls_ack_direct = NULL;
 
-	oi->crypt_seqnum = time(NULL);
+	oi->crypt_seqnum = frr_sequence32_next();
 
 	ospf_opaque_type9_lsa_init(oi);
 

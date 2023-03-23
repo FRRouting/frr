@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_te.c
  *
@@ -6,22 +7,6 @@
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  *
  * Copyright (C) 2014 - 2019 Orange Labs http://www.orange.com
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -217,6 +202,13 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			SET_SUBTLV(ext, EXT_ADM_GRP);
 		} else
 			UNSET_SUBTLV(ext, EXT_ADM_GRP);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
+			admin_group_copy(&ext->ext_admin_group,
+					 &ifp->link_params->ext_admin_grp);
+			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+		} else
+			UNSET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
 
 		/* If known, register local IPv4 addr from ip_addr list */
 		if (listcount(circuit->ip_addrs) != 0) {
@@ -757,6 +749,11 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 	if (CHECK_FLAG(tlvs->status, EXT_ADM_GRP)) {
 		attr->standard.admin_group = tlvs->adm_group;
 		SET_FLAG(attr->flags, LS_ATTR_ADM_GRP);
+	}
+	if (CHECK_FLAG(tlvs->status, EXT_EXTEND_ADM_GRP)) {
+		admin_group_copy(&attr->ext_admin_group,
+				 &tlvs->ext_admin_group);
+		SET_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP);
 	}
 	if (CHECK_FLAG(tlvs->status, EXT_LLRI)) {
 		attr->standard.local_id = tlvs->local_llri;
@@ -1344,7 +1341,8 @@ void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event)
 	case LSP_DEL:
 		isis_te_delete_lsp(area->mta, lsp0);
 		break;
-	default:
+	case LSP_UNKNOWN:
+	case LSP_TICK:
 		break;
 	}
 }
@@ -1540,7 +1538,7 @@ static void show_ext_sub(struct vty *vty, char *name,
 		sbuf_push(&buf, 4,
 			  "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(ext->delay) ? "Anomalous" : "Normal",
-			  ext->delay);
+			  ext->delay & TE_EXT_MASK);
 	if (IS_SUBTLV(ext, EXT_MM_DELAY)) {
 		sbuf_push(&buf, 4, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(ext->min_delay) ? "Anomalous" : "Normal",

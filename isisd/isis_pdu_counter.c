@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Routing protocol - isis_pdu_counter.c
  * Copyright (C) 2018 Christian Franke, for NetDEF Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -77,9 +64,11 @@ static const char *pdu_counter_index_to_name(enum pdu_counter_index index)
 		return "L1 PSNP";
 	case L2_PARTIAL_SEQ_NUM_INDEX:
 		return "L2 PSNP";
-	default:
+	case PDU_COUNTER_SIZE:
 		return "???????";
 	}
+
+	assert(!"Reached end of function where we were not expecting to");
 }
 
 void pdu_counter_count(pdu_counter_t counter, uint8_t pdu_type)

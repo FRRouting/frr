@@ -1,23 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2020  Cumulus Networks, Inc.
  * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
+#include "interface.h"
 #include "northbound.h"
 #include "libfrr.h"
 #include "zebra_nb.h"
@@ -349,6 +337,41 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.modify = lib_interface_zebra_bandwidth_modify,
 				.destroy = lib_interface_zebra_bandwidth_destroy,
 			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_bandwidth_modify,
+				.destroy = lib_interface_zebra_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group",
+			.cbs = {
+				.modify = lib_interface_zebra_legacy_admin_group_modify,
+				.destroy = lib_interface_zebra_legacy_admin_group_destroy,
+				.cli_show = cli_show_legacy_admin_group,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities",
+			.cbs = {
+				.cli_show = cli_show_affinity,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity",
+			.cbs = {
+				.create = lib_interface_zebra_affinity_create,
+				.destroy = lib_interface_zebra_affinity_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinity-mode",
+			.cbs = {
+				.modify = lib_interface_zebra_affinity_mode_modify,
+				.cli_show = cli_show_affinity_mode,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",

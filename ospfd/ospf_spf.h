@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF calculation.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_OSPF_SPF_H
@@ -70,10 +55,8 @@ typedef enum {
 	SPF_FLAG_ASBR_STATUS_CHANGE,
 	SPF_FLAG_CONFIG_CHANGE,
 	SPF_FLAG_GR_FINISH,
-	SPF_FLAG_ORR_ROOT_CHANGE,
 } ospf_spf_reason_t;
 
-extern unsigned int ospf_get_spf_reason_flags(void);
 extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
 extern void ospf_spf_calculate(struct ospf_area *area,
 			       struct ospf_lsa *root_lsa,
@@ -105,6 +88,5 @@ extern int vertex_parent_cmp(void *aa, void *bb);
 
 extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
 extern void ospf_restart_spf(struct ospf *ospf);
-extern void ospf_orr_spf_calculate_schedule_worker(struct thread *thread);
 /* void ospf_spf_calculate_timer_add (); */
 #endif /* _QUAGGA_OSPF_SPF_H */

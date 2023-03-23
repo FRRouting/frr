@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PBR - vty code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -138,7 +125,7 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	if (!pbrms)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (pbrms->dst && pbrms->family && prefix->family != pbrms->family) {
+	if (pbrms->dst && prefix->family != pbrms->dst->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -174,7 +161,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	if (!pbrms)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (pbrms->src && pbrms->family && prefix->family != pbrms->family) {
+	if (pbrms->src && prefix->family != pbrms->src->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -933,12 +920,12 @@ static void vty_show_pbrms(struct vty *vty,
 
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->nhgrp_name),
 				pbr_nht_get_table(pbrms->nhgrp_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->nhgrp_name) ? "yes"
 									 : "no",
 				pbr_nht_get_table(pbrms->nhgrp_name));
@@ -948,12 +935,12 @@ static void vty_show_pbrms(struct vty *vty,
 		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->internal_nhg_name),
 				pbr_nht_get_table(pbrms->internal_nhg_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->internal_nhg_name)
 					? "yes"
 					: "no",
