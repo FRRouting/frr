@@ -24,6 +24,7 @@ PATH=/bin:/usr/bin:/sbin:/usr/sbin
 D_PATH="@CFG_SBIN@" # /usr/lib/frr
 C_PATH="@CFG_SYSCONF@${suffix}" # /etc/frr
 V_PATH="@CFG_STATE@${suffix}" # /var/run/frr
+B_PATH="@CFG_BIN@"
 VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
