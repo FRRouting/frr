@@ -205,6 +205,7 @@ void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 		backoff->holddown);
 	if (backoff->t_holddown) {
 		struct timeval remain = event_timer_remain(backoff->t_holddown);
+
 		vty_out(vty, "%s                   Still runs for %lld msec\n",
 			prefix,
 			(long long)remain.tv_sec * 1000
