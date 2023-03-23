@@ -99,9 +99,7 @@ static void ospf_enable_rtr_hash_destroy(struct ospf *ospf)
 	if (ospf->enable_rtr_list == NULL)
 		return;
 
-	hash_clean(ospf->enable_rtr_list, ospf_disable_rtr_hash_free);
-	hash_free(ospf->enable_rtr_list);
-	ospf->enable_rtr_list = NULL;
+	hash_clean_and_free(&ospf->enable_rtr_list, ospf_disable_rtr_hash_free);
 }
 
 /*

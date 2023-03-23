@@ -110,10 +110,8 @@ static void ospf6_enable_rtr_hash_destroy(struct ospf6 *ospf6)
 	if (ospf6->ospf6_helper_cfg.enable_rtr_list == NULL)
 		return;
 
-	hash_clean(ospf6->ospf6_helper_cfg.enable_rtr_list,
-		   ospf6_disable_rtr_hash_free);
-	hash_free(ospf6->ospf6_helper_cfg.enable_rtr_list);
-	ospf6->ospf6_helper_cfg.enable_rtr_list = NULL;
+	hash_clean_and_free(&ospf6->ospf6_helper_cfg.enable_rtr_list,
+			    ospf6_disable_rtr_hash_free);
 }
 
 /*

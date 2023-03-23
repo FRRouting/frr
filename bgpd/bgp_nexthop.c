@@ -166,11 +166,7 @@ void bgp_tip_hash_init(struct bgp *bgp)
 
 void bgp_tip_hash_destroy(struct bgp *bgp)
 {
-	if (bgp->tip_hash == NULL)
-		return;
-	hash_clean(bgp->tip_hash, bgp_tip_hash_free);
-	hash_free(bgp->tip_hash);
-	bgp->tip_hash = NULL;
+	hash_clean_and_free(&bgp->tip_hash, bgp_tip_hash_free);
 }
 
 /* Add/Update Tunnel-IP entry of bgp martian next-hop table.
@@ -305,11 +301,7 @@ void bgp_address_init(struct bgp *bgp)
 
 void bgp_address_destroy(struct bgp *bgp)
 {
-	if (bgp->address_hash == NULL)
-		return;
-	hash_clean(bgp->address_hash, bgp_address_hash_free);
-	hash_free(bgp->address_hash);
-	bgp->address_hash = NULL;
+	hash_clean_and_free(&bgp->address_hash, bgp_address_hash_free);
 }
 
 static void bgp_address_add(struct bgp *bgp, struct connected *ifc,

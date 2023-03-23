@@ -201,12 +201,7 @@ void nhrp_peer_interface_del(struct interface *ifp)
 	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted peer entries (%lu)",
 	       nifp->peer_hash ? nifp->peer_hash->count : 0);
 
-	if (nifp->peer_hash) {
-		hash_clean(nifp->peer_hash, do_peer_hash_free);
-		assert(nifp->peer_hash->count == 0);
-		hash_free(nifp->peer_hash);
-		nifp->peer_hash = NULL;
-	}
+	hash_clean_and_free(&nifp->peer_hash, do_peer_hash_free);
 }
 
 struct nhrp_peer *nhrp_peer_get(struct interface *ifp,

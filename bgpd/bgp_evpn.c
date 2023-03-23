@@ -6650,20 +6650,20 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		     (void (*)(struct hash_bucket *, void *))free_vni_entry,
 		     bgp);
 
-	hash_clean(bgp->import_rt_hash, (void (*)(void *))hash_import_rt_free);
-	hash_free(bgp->import_rt_hash);
-	bgp->import_rt_hash = NULL;
+	hash_clean_and_free(&bgp->import_rt_hash,
+			    (void (*)(void *))hash_import_rt_free);
 
-	hash_clean(bgp->vrf_import_rt_hash,
-		   (void (*)(void *))hash_vrf_import_rt_free);
-	hash_free(bgp->vrf_import_rt_hash);
-	bgp->vrf_import_rt_hash = NULL;
+	hash_clean_and_free(&bgp->vrf_import_rt_hash,
+			    (void (*)(void *))hash_vrf_import_rt_free);
 
-	hash_clean(bgp->vni_svi_hash, (void (*)(void *))hash_evpn_free);
-	hash_free(bgp->vni_svi_hash);
-	bgp->vni_svi_hash = NULL;
-	hash_free(bgp->vnihash);
-	bgp->vnihash = NULL;
+	hash_clean_and_free(&bgp->vni_svi_hash,
+			    (void (*)(void *))hash_evpn_free);
+
+	/*
+	 * Why is the vnihash freed at the top of this function and
+	 * then deleted here?
+	 */
+	hash_clean_and_free(&bgp->vnihash, NULL);
 
 	list_delete(&bgp->vrf_import_rtl);
 	list_delete(&bgp->vrf_export_rtl);

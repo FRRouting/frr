@@ -639,10 +639,7 @@ void ospf_sr_term(void)
 	/* Stop Segment Routing */
 	ospf_sr_stop();
 
-	/* Clear SR Node Table */
-	if (OspfSR.neighbors)
-		hash_free(OspfSR.neighbors);
-
+	hash_clean_and_free(&OspfSR.neighbors, (void *)sr_node_del);
 }
 
 /*

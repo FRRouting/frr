@@ -45,11 +45,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_bsm_proc_free(pim);
 
 	/* Traverse and cleanup rpf_hash */
-	if (pim->rpf_hash) {
-		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
-		hash_free(pim->rpf_hash);
-		pim->rpf_hash = NULL;
-	}
+	hash_clean_and_free(&pim->rpf_hash, (void *)pim_rp_list_hash_clean);
 
 	pim_if_terminate(pim);
 

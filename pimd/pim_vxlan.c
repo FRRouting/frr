@@ -1172,12 +1172,8 @@ void pim_vxlan_init(struct pim_instance *pim)
 
 void pim_vxlan_exit(struct pim_instance *pim)
 {
-	if (pim->vxlan.sg_hash) {
-		hash_clean(pim->vxlan.sg_hash,
-			   (void (*)(void *))pim_vxlan_sg_del_item);
-		hash_free(pim->vxlan.sg_hash);
-		pim->vxlan.sg_hash = NULL;
-	}
+	hash_clean_and_free(&pim->vxlan.sg_hash,
+			    (void (*)(void *))pim_vxlan_sg_del_item);
 }
 
 void pim_vxlan_terminate(void)

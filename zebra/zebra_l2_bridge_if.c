@@ -142,10 +142,7 @@ static void *zebra_l2_bridge_vlan_alloc(void *p)
 
 static void zebra_l2_bridge_vlan_table_destroy(struct hash *vlan_table)
 {
-	if (vlan_table) {
-		hash_clean(vlan_table, zebra_l2_bridge_vlan_free);
-		hash_free(vlan_table);
-	}
+	hash_clean_and_free(&vlan_table, zebra_l2_bridge_vlan_free);
 }
 
 static struct hash *zebra_l2_bridge_vlan_table_create(void)

@@ -450,15 +450,12 @@ static void ospf_aggr_unlink_external_info(void *data)
 
 void ospf_external_aggregator_free(struct ospf_external_aggr_rt *aggr)
 {
-	if (OSPF_EXTERNAL_RT_COUNT(aggr))
-		hash_clean(aggr->match_extnl_hash,
-			   (void *)ospf_aggr_unlink_external_info);
+	hash_clean_and_free(&aggr->match_extnl_hash,
+			    (void *)ospf_aggr_unlink_external_info);
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug("%s: Release the aggregator Address(%pI4/%d)",
 			   __func__, &aggr->p.prefix, aggr->p.prefixlen);
-	hash_free(aggr->match_extnl_hash);
-	aggr->match_extnl_hash = NULL;
 
 	XFREE(MTYPE_OSPF_EXTERNAL_RT_AGGR, aggr);
 }
@@ -983,13 +980,9 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 			aggr->action = OSPF_ROUTE_AGGR_NONE;
 			ospf_external_aggr_delete(ospf, rn);
 
-			if (OSPF_EXTERNAL_RT_COUNT(aggr))
-				hash_clean(
-					aggr->match_extnl_hash,
-					(void *)ospf_aggr_handle_external_info);
-
-			hash_free(aggr->match_extnl_hash);
-			XFREE(MTYPE_OSPF_EXTERNAL_RT_AGGR, aggr);
+			hash_clean_and_free(
+				&aggr->match_extnl_hash,
+				(void *)ospf_aggr_handle_external_info);
 
 		} else if (aggr->action == OSPF_ROUTE_AGGR_MODIFY) {
 
