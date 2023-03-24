@@ -556,55 +556,55 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	for (afi = curr_afi; afi < AFI_MAX; afi++) {
 		table = zvrf->table[afi][SAFI_UNICAST];
 
-		if (table) {
-			/*
-			 * If the current prefix is NULL then get the first
-			 * route entry in the table
-			 */
-			if (info->current_prefix == NULL) {
-				rn = route_top(table);
-				if (rn == NULL)
+		if (!table)
+			continue;
+
+		/*
+		 * If the current prefix is NULL then get the first
+		 * route entry in the table
+		 */
+		if (info->current_prefix == NULL) {
+			rn = route_top(table);
+			if (rn == NULL)
+				continue;
+			curr = rn;
+		} else
+			/* Get the next route entry */
+			curr = route_table_get_next(table,
+						    info->current_prefix);
+
+		for (rn = curr; rn; rn = srcdest_route_next(rn)) {
+			RNODE_FOREACH_RE_SAFE (rn, re, next) {
+				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 					continue;
-				curr = rn;
-			} else
-				/* Get the next route entry */
-				curr = route_table_get_next(
-					table, info->current_prefix);
+				/* If the route refresh is received
+				 * after restart then do not delete
+				 * the route
+				 */
+				if (re->type == proto &&
+				    re->instance == instance) {
+					zebra_gr_process_route_entry(s_client,
+								     rn, re);
+					n++;
+				}
 
-			for (rn = curr; rn; rn = srcdest_route_next(rn)) {
-				RNODE_FOREACH_RE_SAFE (rn, re, next) {
-					if (CHECK_FLAG(re->status,
-						       ROUTE_ENTRY_REMOVED))
-						continue;
-					/* If the route refresh is received
-					 * after restart then do not delete
-					 * the route
-					 */
-					if (re->type == proto
-					    && re->instance == instance) {
-						zebra_gr_process_route_entry(
-							s_client, rn, re);
-						n++;
-					}
-
-					/* If the max route count is reached
-					 * then timer thread will be restarted
-					 * Store the current prefix and afi
-					 */
-					if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT)
-					    && (info->do_delete == false)) {
-						info->current_afi = afi;
-						info->current_prefix = XCALLOC(
-							MTYPE_ZEBRA_GR,
+				/* If the max route count is reached
+				 * then timer thread will be restarted
+				 * Store the current prefix and afi
+				 */
+				if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT) &&
+				    (info->do_delete == false)) {
+					info->current_afi = afi;
+					info->current_prefix =
+						XCALLOC(MTYPE_ZEBRA_GR,
 							sizeof(struct prefix));
-						prefix_copy(
-							info->current_prefix,
-							&rn->p);
-						return n;
-					}
+					prefix_copy(info->current_prefix,
+						    &rn->p);
+					return n;
 				}
 			}
 		}
+
 		/*
 		 * Reset the current prefix to indicate processing completion
 		 * of the current AFI
