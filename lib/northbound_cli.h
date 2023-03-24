@@ -137,7 +137,7 @@ extern void nb_cli_show_config_prepare(struct nb_config *config,
 extern void nb_cli_confirmed_commit_clean(struct vty *vty);
 extern int nb_cli_confirmed_commit_rollback(struct vty *vty);
 extern void nb_cli_install_default(int node);
-extern void nb_cli_init(struct thread_master *tm);
+extern void nb_cli_init(struct event_loop *tm);
 extern void nb_cli_terminate(void);
 
 #ifdef __cplusplus

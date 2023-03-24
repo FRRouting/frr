@@ -43,7 +43,7 @@ struct zebra_privs_t ospfd_privs = {.user = NULL,
    free to use any thread library (like pthreads). */
 
 #include "ospfd/ospf_dump.h" /* for ospf_lsa_header_dump */
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 
 /* Local portnumber for async channel. Note that OSPF API library will also
@@ -51,7 +51,7 @@ struct zebra_privs_t ospfd_privs = {.user = NULL,
 #define ASYNCPORT 4000
 
 /* Master thread */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Global variables */
 struct ospf_apiclient *oclient;
@@ -69,13 +69,13 @@ struct my_opaque_lsa {
  * ---------------------------------------------------------
  */
 
-static void lsa_delete(struct thread *t)
+static void lsa_delete(struct event *t)
 {
 	struct ospf_apiclient *oclient;
 	struct in_addr area_id;
 	int rc;
 
-	oclient = THREAD_ARG(t);
+	oclient = EVENT_ARG(t);
 
 	rc = inet_aton(args[6], &area_id);
 	if (rc <= 0) {
@@ -92,7 +92,7 @@ static void lsa_delete(struct thread *t)
 	printf("done, return code is = %d\n", rc);
 }
 
-static void lsa_inject(struct thread *t)
+static void lsa_inject(struct event *t)
 {
 	struct ospf_apiclient *cl;
 	struct in_addr ifaddr;
@@ -106,7 +106,7 @@ static void lsa_inject(struct thread *t)
 	static uint32_t counter = 1; /* Incremented each time invoked */
 	int rc;
 
-	cl = THREAD_ARG(t);
+	cl = EVENT_ARG(t);
 
 	rc = inet_aton(args[5], &ifaddr);
 	if (rc <= 0) {
@@ -138,7 +138,7 @@ static void lsa_inject(struct thread *t)
 
 /* This thread handles asynchronous messages coming in from the OSPF
    API server */
-static void lsa_read(struct thread *thread)
+static void lsa_read(struct event *thread)
 {
 	struct ospf_apiclient *oclient;
 	int fd;
@@ -146,8 +146,8 @@ static void lsa_read(struct thread *thread)
 
 	printf("lsa_read called\n");
 
-	oclient = THREAD_ARG(thread);
-	fd = THREAD_FD(thread);
+	oclient = EVENT_ARG(thread);
+	fd = EVENT_FD(thread);
 
 	/* Handle asynchronous message */
 	ret = ospf_apiclient_handle_async(oclient);
@@ -157,7 +157,7 @@ static void lsa_read(struct thread *thread)
 	}
 
 	/* Reschedule read thread */
-	thread_add_read(master, lsa_read, oclient, fd, NULL);
+	event_add_read(master, lsa_read, oclient, fd, NULL);
 }
 
 /* ---------------------------------------------------------
@@ -209,13 +209,13 @@ static void ready_callback(uint8_t lsa_type, uint8_t opaque_type,
 		 lsa_type, opaque_type, &addr);
 
 	/* Schedule opaque LSA originate in 5 secs */
-	thread_add_timer(master, lsa_inject, oclient, 5, NULL);
+	event_add_timer(master, lsa_inject, oclient, 5, NULL);
 
 	/* Schedule opaque LSA update with new value */
-	thread_add_timer(master, lsa_inject, oclient, 10, NULL);
+	event_add_timer(master, lsa_inject, oclient, 10, NULL);
 
 	/* Schedule delete */
-	thread_add_timer(master, lsa_delete, oclient, 30, NULL);
+	event_add_timer(master, lsa_delete, oclient, 30, NULL);
 }
 
 static void new_if_callback(struct in_addr ifaddr, struct in_addr area_id)
@@ -269,7 +269,7 @@ static int usage(void)
 
 int main(int argc, char *argv[])
 {
-	struct thread thread;
+	struct event thread;
 
 	args = argv;
 
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	/* Initialization */
 	zprivs_preinit(&ospfd_privs);
 	zprivs_init(&ospfd_privs);
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	/* Open connection to OSPF daemon */
 	oclient = ospf_apiclient_connect(args[1], ASYNCPORT);
@@ -316,12 +316,12 @@ int main(int argc, char *argv[])
 	ospf_apiclient_sync_lsdb(oclient);
 
 	/* Schedule thread that handles asynchronous messages */
-	thread_add_read(master, lsa_read, oclient, oclient->fd_async, NULL);
+	event_add_read(master, lsa_read, oclient, oclient->fd_async, NULL);
 
 	/* Now connection is established, run loop */
 	while (1) {
-		thread_fetch(master, &thread);
-		thread_call(&thread);
+		event_fetch(master, &thread);
+		event_call(&thread);
 	}
 
 	/* Never reached */

@@ -8,7 +8,7 @@
 #include <zebra.h>
 #include <sys/resource.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "frrcu.h"
 #include "log.h"
@@ -24,23 +24,23 @@
 #include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread");
-DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master");
-DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info");
-DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats");
+DEFINE_MTYPE_STATIC(LIB, EVENT_MASTER, "Thread master");
+DEFINE_MTYPE_STATIC(LIB, EVENT_POLL, "Thread Poll Info");
+DEFINE_MTYPE_STATIC(LIB, EVENT_STATS, "Thread stats");
 
-DECLARE_LIST(thread_list, struct thread, threaditem);
+DECLARE_LIST(event_list, struct event, eventitem);
 
 struct cancel_req {
 	int flags;
-	struct thread *thread;
+	struct event *thread;
 	void *eventobj;
-	struct thread **threadref;
+	struct event **threadref;
 };
 
 /* Flags for task cancellation */
-#define THREAD_CANCEL_FLAG_READY     0x01
+#define EVENT_CANCEL_FLAG_READY 0x01
 
-static int thread_timer_cmp(const struct thread *a, const struct thread *b)
+static int event_timer_cmp(const struct event *a, const struct event *b)
 {
 	if (a->u.sands.tv_sec < b->u.sands.tv_sec)
 		return -1;
@@ -53,7 +53,7 @@ static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 	return 0;
 }
 
-DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp);
+DECLARE_HEAP(event_timer_list, struct event, timeritem, event_timer_cmp);
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
@@ -64,7 +64,7 @@ DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp);
 	do {                                                                   \
 		const unsigned char wakebyte = 0x01;                           \
 		write(m->io_pipe[1], &wakebyte, 1);                            \
-	} while (0);
+	} while (0)
 
 /* control variable for initializer */
 static pthread_once_t init_once = PTHREAD_ONCE_INIT;
@@ -73,7 +73,7 @@ pthread_key_t thread_current;
 static pthread_mutex_t masters_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *masters;
 
-static void thread_free(struct thread_master *master, struct thread *thread);
+static void thread_free(struct event_loop *master, struct event *thread);
 
 #ifndef EXCLUDE_CPU_TIME
 #define EXCLUDE_CPU_TIME 0
@@ -87,25 +87,26 @@ unsigned long cputime_threshold = CONSUMED_TIME_CHECK;
 unsigned long walltime_threshold = CONSUMED_TIME_CHECK;
 
 /* CLI start ---------------------------------------------------------------- */
-#include "lib/thread_clippy.c"
+#include "lib/event_clippy.c"
 
-static unsigned int cpu_record_hash_key(const struct cpu_thread_history *a)
+static unsigned int cpu_record_hash_key(const struct cpu_event_history *a)
 {
 	int size = sizeof(a->func);
 
 	return jhash(&a->func, size, 0);
 }
 
-static bool cpu_record_hash_cmp(const struct cpu_thread_history *a,
-			       const struct cpu_thread_history *b)
+static bool cpu_record_hash_cmp(const struct cpu_event_history *a,
+				const struct cpu_event_history *b)
 {
 	return a->func == b->func;
 }
 
-static void *cpu_record_hash_alloc(struct cpu_thread_history *a)
+static void *cpu_record_hash_alloc(struct cpu_event_history *a)
 {
-	struct cpu_thread_history *new;
-	new = XCALLOC(MTYPE_THREAD_STATS, sizeof(struct cpu_thread_history));
+	struct cpu_event_history *new;
+
+	new = XCALLOC(MTYPE_EVENT_STATS, sizeof(struct cpu_event_history));
 	new->func = a->func;
 	new->funcname = a->funcname;
 	return new;
@@ -113,13 +114,13 @@ static void *cpu_record_hash_alloc(struct cpu_thread_history *a)
 
 static void cpu_record_hash_free(void *a)
 {
-	struct cpu_thread_history *hist = a;
+	struct cpu_event_history *hist = a;
 
-	XFREE(MTYPE_THREAD_STATS, hist);
+	XFREE(MTYPE_EVENT_STATS, hist);
 }
 
-static void vty_out_cpu_thread_history(struct vty *vty,
-				       struct cpu_thread_history *a)
+static void vty_out_cpu_event_history(struct vty *vty,
+				      struct cpu_event_history *a)
 {
 	vty_out(vty,
 		"%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu %9zu %9zu %10zu",
@@ -128,21 +129,21 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 		(a->real.total / a->total_calls), a->real.max,
 		a->total_cpu_warn, a->total_wall_warn, a->total_starv_warn);
 	vty_out(vty, "  %c%c%c%c%c  %s\n",
-		a->types & (1 << THREAD_READ) ? 'R' : ' ',
-		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
-		a->types & (1 << THREAD_TIMER) ? 'T' : ' ',
-		a->types & (1 << THREAD_EVENT) ? 'E' : ' ',
-		a->types & (1 << THREAD_EXECUTE) ? 'X' : ' ', a->funcname);
+		a->types & (1 << EVENT_READ) ? 'R' : ' ',
+		a->types & (1 << EVENT_WRITE) ? 'W' : ' ',
+		a->types & (1 << EVENT_TIMER) ? 'T' : ' ',
+		a->types & (1 << EVENT_EVENT) ? 'E' : ' ',
+		a->types & (1 << EVENT_EXECUTE) ? 'X' : ' ', a->funcname);
 }
 
 static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 {
-	struct cpu_thread_history *totals = args[0];
-	struct cpu_thread_history copy;
+	struct cpu_event_history *totals = args[0];
+	struct cpu_event_history copy;
 	struct vty *vty = args[1];
 	uint8_t *filter = args[2];
 
-	struct cpu_thread_history *a = bucket->data;
+	struct cpu_event_history *a = bucket->data;
 
 	copy.total_active =
 		atomic_load_explicit(&a->total_active, memory_order_seq_cst);
@@ -167,7 +168,7 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 	if (!(copy.types & *filter))
 		return;
 
-	vty_out_cpu_thread_history(vty, &copy);
+	vty_out_cpu_event_history(vty, &copy);
 	totals->total_active += copy.total_active;
 	totals->total_calls += copy.total_calls;
 	totals->total_cpu_warn += copy.total_cpu_warn;
@@ -183,9 +184,9 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 
 static void cpu_record_print(struct vty *vty, uint8_t filter)
 {
-	struct cpu_thread_history tmp;
+	struct cpu_event_history tmp;
 	void *args[3] = {&tmp, vty, &filter};
-	struct thread_master *m;
+	struct event_loop *m;
 	struct listnode *ln;
 
 	if (!cputime_enabled)
@@ -203,8 +204,8 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			const char *name = m->name ? m->name : "main";
-
 			char underline[strlen(name) + 1];
+
 			memset(underline, '-', sizeof(underline));
 			underline[sizeof(underline) - 1] = '\0';
 
@@ -244,7 +245,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	vty_out(vty, "  Type  Thread\n");
 
 	if (tmp.total_calls > 0)
-		vty_out_cpu_thread_history(vty, &tmp);
+		vty_out_cpu_event_history(vty, &tmp);
 }
 
 static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
@@ -252,7 +253,7 @@ static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 	uint8_t *filter = args[0];
 	struct hash *cpu_record = args[1];
 
-	struct cpu_thread_history *a = bucket->data;
+	struct cpu_event_history *a = bucket->data;
 
 	if (!(a->types & *filter))
 		return;
@@ -263,13 +264,14 @@ static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 static void cpu_record_clear(uint8_t filter)
 {
 	uint8_t *tmp = &filter;
-	struct thread_master *m;
+	struct event_loop *m;
 	struct listnode *ln;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			frr_with_mutex (&m->mtx) {
 				void *args[2] = {tmp, m->cpu_record};
+
 				hash_iterate(
 					m->cpu_record,
 					(void (*)(struct hash_bucket *,
@@ -289,23 +291,23 @@ static uint8_t parse_filter(const char *filterstr)
 		switch (filterstr[i]) {
 		case 'r':
 		case 'R':
-			filter |= (1 << THREAD_READ);
+			filter |= (1 << EVENT_READ);
 			break;
 		case 'w':
 		case 'W':
-			filter |= (1 << THREAD_WRITE);
+			filter |= (1 << EVENT_WRITE);
 			break;
 		case 't':
 		case 'T':
-			filter |= (1 << THREAD_TIMER);
+			filter |= (1 << EVENT_TIMER);
 			break;
 		case 'e':
 		case 'E':
-			filter |= (1 << THREAD_EVENT);
+			filter |= (1 << EVENT_EVENT);
 			break;
 		case 'x':
 		case 'X':
-			filter |= (1 << THREAD_EXECUTE);
+			filter |= (1 << EVENT_EXECUTE);
 			break;
 		default:
 			break;
@@ -395,11 +397,11 @@ ALIAS (service_walltime_warning,
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding total wallclock threshold\n")
 
-static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
+static void show_thread_poll_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
-	struct thread *thread;
+	struct event *thread;
 	uint32_t i;
 
 	memset(underline, '-', sizeof(underline));
@@ -444,12 +446,11 @@ DEFUN_NOSH (show_thread_poll,
 	    "Show poll FD's and information\n")
 {
 	struct listnode *node;
-	struct thread_master *m;
+	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
-		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
+		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
 			show_thread_poll_helper(vty, m);
-		}
 	}
 
 	return CMD_SUCCESS;
@@ -481,11 +482,11 @@ DEFUN (clear_thread_cpu,
 	return CMD_SUCCESS;
 }
 
-static void show_thread_timers_helper(struct vty *vty, struct thread_master *m)
+static void show_thread_timers_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
-	struct thread *thread;
+	struct event *thread;
 
 	memset(underline, '-', sizeof(underline));
 	underline[sizeof(underline) - 1] = '\0';
@@ -493,7 +494,7 @@ static void show_thread_timers_helper(struct vty *vty, struct thread_master *m)
 	vty_out(vty, "\nShowing timers for %s\n", name);
 	vty_out(vty, "-------------------%s\n", underline);
 
-	frr_each (thread_timer_list, &m->timer, thread) {
+	frr_each (event_timer_list, &m->timer, thread) {
 		vty_out(vty, "  %-50s%pTH\n", thread->hist->funcname, thread);
 	}
 }
@@ -506,7 +507,7 @@ DEFPY_NOSH (show_thread_timers,
 	    "Show all timers and how long they have in the system\n")
 {
 	struct listnode *node;
-	struct thread_master *m;
+	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
@@ -516,7 +517,7 @@ DEFPY_NOSH (show_thread_timers,
 	return CMD_SUCCESS;
 }
 
-void thread_cmd_init(void)
+void event_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
 	install_element(VIEW_NODE, &show_thread_poll_cmd);
@@ -544,14 +545,14 @@ static void initializer(void)
 	pthread_key_create(&thread_current, NULL);
 }
 
-struct thread_master *thread_master_create(const char *name)
+struct event_loop *event_master_create(const char *name)
 {
-	struct thread_master *rv;
+	struct event_loop *rv;
 	struct rlimit limit;
 
 	pthread_once(&init_once, &initializer);
 
-	rv = XCALLOC(MTYPE_THREAD_MASTER, sizeof(struct thread_master));
+	rv = XCALLOC(MTYPE_EVENT_MASTER, sizeof(struct event_loop));
 
 	/* Initialize master mutex */
 	pthread_mutex_init(&rv->mtx, NULL);
@@ -559,7 +560,7 @@ struct thread_master *thread_master_create(const char *name)
 
 	/* Set name */
 	name = name ? name : "default";
-	rv->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
+	rv->name = XSTRDUP(MTYPE_EVENT_MASTER, name);
 
 	/* Initialize I/O task data structures */
 
@@ -570,13 +571,14 @@ struct thread_master *thread_master_create(const char *name)
 		rv->fd_limit = (int)limit.rlim_cur;
 	}
 
-	rv->read = XCALLOC(MTYPE_THREAD_POLL,
-			   sizeof(struct thread *) * rv->fd_limit);
+	rv->read = XCALLOC(MTYPE_EVENT_POLL,
+			   sizeof(struct event *) * rv->fd_limit);
 
-	rv->write = XCALLOC(MTYPE_THREAD_POLL,
-			    sizeof(struct thread *) * rv->fd_limit);
+	rv->write = XCALLOC(MTYPE_EVENT_POLL,
+			    sizeof(struct event *) * rv->fd_limit);
 
 	char tmhashname[strlen(name) + 32];
+
 	snprintf(tmhashname, sizeof(tmhashname), "%s - threadmaster event hash",
 		 name);
 	rv->cpu_record = hash_create_size(
@@ -584,12 +586,12 @@ struct thread_master *thread_master_create(const char *name)
 		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
 		tmhashname);
 
-	thread_list_init(&rv->event);
-	thread_list_init(&rv->ready);
-	thread_list_init(&rv->unuse);
-	thread_timer_list_init(&rv->timer);
+	event_list_init(&rv->event);
+	event_list_init(&rv->ready);
+	event_list_init(&rv->unuse);
+	event_timer_list_init(&rv->timer);
 
-	/* Initialize thread_fetch() settings */
+	/* Initialize event_fetch() settings */
 	rv->spin = true;
 	rv->handle_signals = true;
 
@@ -607,9 +609,9 @@ struct thread_master *thread_master_create(const char *name)
 	/* Initialize data structures for poll() */
 	rv->handler.pfdsize = rv->fd_limit;
 	rv->handler.pfdcount = 0;
-	rv->handler.pfds = XCALLOC(MTYPE_THREAD_MASTER,
+	rv->handler.pfds = XCALLOC(MTYPE_EVENT_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
-	rv->handler.copy = XCALLOC(MTYPE_THREAD_MASTER,
+	rv->handler.copy = XCALLOC(MTYPE_EVENT_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
 
 	/* add to list of threadmasters */
@@ -623,32 +625,32 @@ struct thread_master *thread_master_create(const char *name)
 	return rv;
 }
 
-void thread_master_set_name(struct thread_master *master, const char *name)
+void event_master_set_name(struct event_loop *master, const char *name)
 {
 	frr_with_mutex (&master->mtx) {
-		XFREE(MTYPE_THREAD_MASTER, master->name);
-		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
+		XFREE(MTYPE_EVENT_MASTER, master->name);
+		master->name = XSTRDUP(MTYPE_EVENT_MASTER, name);
 	}
 }
 
-#define THREAD_UNUSED_DEPTH 10
+#define EVENT_UNUSED_DEPTH 10
 
 /* Move thread to unuse list. */
-static void thread_add_unuse(struct thread_master *m, struct thread *thread)
+static void thread_add_unuse(struct event_loop *m, struct event *thread)
 {
 	pthread_mutex_t mtxc = thread->mtx;
 
 	assert(m != NULL && thread != NULL);
 
 	thread->hist->total_active--;
-	memset(thread, 0, sizeof(struct thread));
-	thread->type = THREAD_UNUSED;
+	memset(thread, 0, sizeof(struct event));
+	thread->type = EVENT_UNUSED;
 
 	/* Restore the thread mutex context. */
 	thread->mtx = mtxc;
 
-	if (thread_list_count(&m->unuse) < THREAD_UNUSED_DEPTH) {
-		thread_list_add_tail(&m->unuse, thread);
+	if (event_list_count(&m->unuse) < EVENT_UNUSED_DEPTH) {
+		event_list_add_tail(&m->unuse, thread);
 		return;
 	}
 
@@ -656,19 +658,17 @@ static void thread_add_unuse(struct thread_master *m, struct thread *thread)
 }
 
 /* Free all unused thread. */
-static void thread_list_free(struct thread_master *m,
-		struct thread_list_head *list)
+static void thread_list_free(struct event_loop *m, struct event_list_head *list)
 {
-	struct thread *t;
+	struct event *t;
 
-	while ((t = thread_list_pop(list)))
+	while ((t = event_list_pop(list)))
 		thread_free(m, t);
 }
 
-static void thread_array_free(struct thread_master *m,
-			      struct thread **thread_array)
+static void thread_array_free(struct event_loop *m, struct event **thread_array)
 {
-	struct thread *t;
+	struct event *t;
 	int index;
 
 	for (index = 0; index < m->fd_limit; ++index) {
@@ -678,41 +678,41 @@ static void thread_array_free(struct thread_master *m,
 			thread_free(m, t);
 		}
 	}
-	XFREE(MTYPE_THREAD_POLL, thread_array);
+	XFREE(MTYPE_EVENT_POLL, thread_array);
 }
 
 /*
- * thread_master_free_unused
+ * event_master_free_unused
  *
  * As threads are finished with they are put on the
  * unuse list for later reuse.
  * If we are shutting down, Free up unused threads
  * So we can see if we forget to shut anything off
  */
-void thread_master_free_unused(struct thread_master *m)
+void event_master_free_unused(struct event_loop *m)
 {
 	frr_with_mutex (&m->mtx) {
-		struct thread *t;
-		while ((t = thread_list_pop(&m->unuse)))
+		struct event *t;
+
+		while ((t = event_list_pop(&m->unuse)))
 			thread_free(m, t);
 	}
 }
 
 /* Stop thread scheduler. */
-void thread_master_free(struct thread_master *m)
+void event_master_free(struct event_loop *m)
 {
-	struct thread *t;
+	struct event *t;
 
 	frr_with_mutex (&masters_mtx) {
 		listnode_delete(masters, m);
-		if (masters->count == 0) {
+		if (masters->count == 0)
 			list_delete(&masters);
-		}
 	}
 
 	thread_array_free(m, m->read);
 	thread_array_free(m, m->write);
-	while ((t = thread_timer_list_pop(&m->timer)))
+	while ((t = event_timer_list_pop(&m->timer)))
 		thread_free(m, t);
 	thread_list_free(m, &m->event);
 	thread_list_free(m, &m->ready);
@@ -726,18 +726,18 @@ void thread_master_free(struct thread_master *m)
 
 	hash_clean_and_free(&m->cpu_record, cpu_record_hash_free);
 
-	XFREE(MTYPE_THREAD_MASTER, m->name);
-	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);
-	XFREE(MTYPE_THREAD_MASTER, m->handler.copy);
-	XFREE(MTYPE_THREAD_MASTER, m);
+	XFREE(MTYPE_EVENT_MASTER, m->name);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.pfds);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.copy);
+	XFREE(MTYPE_EVENT_MASTER, m);
 }
 
 /* Return remain time in milliseconds. */
-unsigned long thread_timer_remain_msec(struct thread *thread)
+unsigned long event_timer_remain_msec(struct event *thread)
 {
 	int64_t remain;
 
-	if (!thread_is_scheduled(thread))
+	if (!event_is_scheduled(thread))
 		return 0;
 
 	frr_with_mutex (&thread->mtx) {
@@ -748,14 +748,15 @@ unsigned long thread_timer_remain_msec(struct thread *thread)
 }
 
 /* Return remain time in seconds. */
-unsigned long thread_timer_remain_second(struct thread *thread)
+unsigned long event_timer_remain_second(struct event *thread)
 {
-	return thread_timer_remain_msec(thread) / 1000LL;
+	return event_timer_remain_msec(thread) / 1000LL;
 }
 
-struct timeval thread_timer_remain(struct thread *thread)
+struct timeval event_timer_remain(struct event *thread)
 {
 	struct timeval remain;
+
 	frr_with_mutex (&thread->mtx) {
 		monotime_until(&thread->u.sands, &remain);
 	}
@@ -780,28 +781,26 @@ static int time_hhmmss(char *buf, int buf_size, long sec)
 	return wr != 8;
 }
 
-char *thread_timer_to_hhmmss(char *buf, int buf_size,
-		struct thread *t_timer)
+char *event_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
-	if (t_timer) {
-		time_hhmmss(buf, buf_size,
-				thread_timer_remain_second(t_timer));
-	} else {
+	if (t_timer)
+		time_hhmmss(buf, buf_size, event_timer_remain_second(t_timer));
+	else
 		snprintf(buf, buf_size, "--:--:--");
-	}
+
 	return buf;
 }
 
 /* Get new thread.  */
-static struct thread *thread_get(struct thread_master *m, uint8_t type,
-				 void (*func)(struct thread *), void *arg,
-				 const struct xref_threadsched *xref)
+static struct event *thread_get(struct event_loop *m, uint8_t type,
+				void (*func)(struct event *), void *arg,
+				const struct xref_eventsched *xref)
 {
-	struct thread *thread = thread_list_pop(&m->unuse);
-	struct cpu_thread_history tmp;
+	struct event *thread = event_list_pop(&m->unuse);
+	struct cpu_event_history tmp;
 
 	if (!thread) {
-		thread = XCALLOC(MTYPE_THREAD, sizeof(struct thread));
+		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
 		/* mutex only needs to be initialized at struct creation. */
 		pthread_mutex_init(&thread->mtx, NULL);
 		m->alloc++;
@@ -811,7 +810,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	thread->add_type = type;
 	thread->master = m;
 	thread->arg = arg;
-	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
+	thread->yield = EVENT_YIELD_TIME_SLOT; /* default */
 	thread->ref = NULL;
 	thread->ignore_timer_late = false;
 
@@ -840,7 +839,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	return thread;
 }
 
-static void thread_free(struct thread_master *master, struct thread *thread)
+static void thread_free(struct event_loop *master, struct event *thread)
 {
 	/* Update statistics. */
 	assert(master->alloc > 0);
@@ -851,7 +850,7 @@ static void thread_free(struct thread_master *master, struct thread *thread)
 	XFREE(MTYPE_THREAD, thread);
 }
 
-static int fd_poll(struct thread_master *m, const struct timeval *timer_wait,
+static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 		   bool *eintr_p)
 {
 	sigset_t origsigs;
@@ -860,7 +859,7 @@ static int fd_poll(struct thread_master *m, const struct timeval *timer_wait,
 
 	/*
 	 * If timer_wait is null here, that means poll() should block
-	 * indefinitely, unless the thread_master has overridden it by setting
+	 * indefinitely, unless the event_master has overridden it by setting
 	 * ->selectpoll_timeout.
 	 *
 	 * If the value is positive, it specifies the maximum number of
@@ -873,15 +872,17 @@ static int fd_poll(struct thread_master *m, const struct timeval *timer_wait,
 	/* number of file descriptors with events */
 	int num;
 
-	if (timer_wait != NULL
-	    && m->selectpoll_timeout == 0) // use the default value
+	if (timer_wait != NULL && m->selectpoll_timeout == 0) {
+		/* use the default value */
 		timeout = (timer_wait->tv_sec * 1000)
 			  + (timer_wait->tv_usec / 1000);
-	else if (m->selectpoll_timeout > 0) // use the user's timeout
+	} else if (m->selectpoll_timeout > 0) {
+		/* use the user's timeout */
 		timeout = m->selectpoll_timeout;
-	else if (m->selectpoll_timeout
-		 < 0) // effect a poll (return immediately)
+	} else if (m->selectpoll_timeout < 0) {
+		/* effect a poll (return immediately) */
 		timeout = 0;
+	}
 
 	zlog_tls_buffer_flush();
 	rcu_read_unlock();
@@ -949,16 +950,15 @@ done:
 }
 
 /* Add new read thread. */
-void _thread_add_read_write(const struct xref_threadsched *xref,
-			    struct thread_master *m,
-			    void (*func)(struct thread *), void *arg, int fd,
-			    struct thread **t_ptr)
+void _event_add_read_write(const struct xref_eventsched *xref,
+			   struct event_loop *m, void (*func)(struct event *),
+			   void *arg, int fd, struct event **t_ptr)
 {
-	int dir = xref->thread_type;
-	struct thread *thread = NULL;
-	struct thread **thread_array;
+	int dir = xref->event_type;
+	struct event *thread = NULL;
+	struct event **thread_array;
 
-	if (dir == THREAD_READ)
+	if (dir == EVENT_READ)
 		frrtrace(9, frr_libfrr, schedule_read, m,
 			 xref->funcname, xref->xref.file, xref->xref.line,
 			 t_ptr, fd, 0, arg, 0);
@@ -972,20 +972,22 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 		assert(!"Number of FD's open is greater than FRR currently configured to handle, aborting");
 
 	frr_with_mutex (&m->mtx) {
+		/* Thread is already scheduled; don't reschedule */
 		if (t_ptr && *t_ptr)
-			// thread is already scheduled; don't reschedule
 			break;
 
 		/* default to a new pollfd */
 		nfds_t queuepos = m->handler.pfdcount;
 
-		if (dir == THREAD_READ)
+		if (dir == EVENT_READ)
 			thread_array = m->read;
 		else
 			thread_array = m->write;
 
-		/* if we already have a pollfd for our file descriptor, find and
-		 * use it */
+		/*
+		 * if we already have a pollfd for our file descriptor, find and
+		 * use it
+		 */
 		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
@@ -1008,7 +1010,7 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 
 		m->handler.pfds[queuepos].fd = fd;
 		m->handler.pfds[queuepos].events |=
-			(dir == THREAD_READ ? POLLIN : POLLOUT);
+			(dir == EVENT_READ ? POLLIN : POLLOUT);
 
 		if (queuepos == m->handler.pfdcount)
 			m->handler.pfdcount++;
@@ -1029,13 +1031,13 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 	}
 }
 
-static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
-				      struct thread_master *m,
-				      void (*func)(struct thread *), void *arg,
-				      struct timeval *time_relative,
-				      struct thread **t_ptr)
+static void _event_add_timer_timeval(const struct xref_eventsched *xref,
+				     struct event_loop *m,
+				     void (*func)(struct event *), void *arg,
+				     struct timeval *time_relative,
+				     struct event **t_ptr)
 {
-	struct thread *thread;
+	struct event *thread;
 	struct timeval t;
 
 	assert(m != NULL);
@@ -1055,11 +1057,11 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 			/* thread is already scheduled; don't reschedule */
 			return;
 
-		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
+		thread = thread_get(m, EVENT_TIMER, func, arg, xref);
 
 		frr_with_mutex (&thread->mtx) {
 			thread->u.sands = t;
-			thread_timer_list_add(&m->timer, thread);
+			event_timer_list_add(&m->timer, thread);
 			if (t_ptr) {
 				*t_ptr = thread;
 				thread->ref = t_ptr;
@@ -1070,7 +1072,7 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 		 * might change the time we'll wait for, give the pthread
 		 * a chance to re-compute.
 		 */
-		if (thread_timer_list_first(&m->timer) == thread)
+		if (event_timer_list_first(&m->timer) == thread)
 			AWAKEN(m);
 	}
 #define ONEYEAR2SEC (60 * 60 * 24 * 365)
@@ -1083,9 +1085,9 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 
 
 /* Add timer event thread. */
-void _thread_add_timer(const struct xref_threadsched *xref,
-		       struct thread_master *m, void (*func)(struct thread *),
-		       void *arg, long timer, struct thread **t_ptr)
+void _event_add_timer(const struct xref_eventsched *xref, struct event_loop *m,
+		      void (*func)(struct event *), void *arg, long timer,
+		      struct event **t_ptr)
 {
 	struct timeval trel;
 
@@ -1094,14 +1096,13 @@ void _thread_add_timer(const struct xref_threadsched *xref,
 	trel.tv_sec = timer;
 	trel.tv_usec = 0;
 
-	_thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
+	_event_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
 /* Add timer event thread with "millisecond" resolution */
-void _thread_add_timer_msec(const struct xref_threadsched *xref,
-			    struct thread_master *m,
-			    void (*func)(struct thread *), void *arg,
-			    long timer, struct thread **t_ptr)
+void _event_add_timer_msec(const struct xref_eventsched *xref,
+			   struct event_loop *m, void (*func)(struct event *),
+			   void *arg, long timer, struct event **t_ptr)
 {
 	struct timeval trel;
 
@@ -1110,24 +1111,23 @@ void _thread_add_timer_msec(const struct xref_threadsched *xref,
 	trel.tv_sec = timer / 1000;
 	trel.tv_usec = 1000 * (timer % 1000);
 
-	_thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
+	_event_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
 /* Add timer event thread with "timeval" resolution */
-void _thread_add_timer_tv(const struct xref_threadsched *xref,
-			  struct thread_master *m,
-			  void (*func)(struct thread *), void *arg,
-			  struct timeval *tv, struct thread **t_ptr)
+void _event_add_timer_tv(const struct xref_eventsched *xref,
+			 struct event_loop *m, void (*func)(struct event *),
+			 void *arg, struct timeval *tv, struct event **t_ptr)
 {
-	_thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
+	_event_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
 }
 
 /* Add simple event thread. */
-void _thread_add_event(const struct xref_threadsched *xref,
-		       struct thread_master *m, void (*func)(struct thread *),
-		       void *arg, int val, struct thread **t_ptr)
+void _event_add_event(const struct xref_eventsched *xref, struct event_loop *m,
+		      void (*func)(struct event *), void *arg, int val,
+		      struct event **t_ptr)
 {
-	struct thread *thread = NULL;
+	struct event *thread = NULL;
 
 	frrtrace(9, frr_libfrr, schedule_event, m,
 		 xref->funcname, xref->xref.file, xref->xref.line,
@@ -1140,10 +1140,10 @@ void _thread_add_event(const struct xref_threadsched *xref,
 			/* thread is already scheduled; don't reschedule */
 			break;
 
-		thread = thread_get(m, THREAD_EVENT, func, arg, xref);
+		thread = thread_get(m, EVENT_EVENT, func, arg, xref);
 		frr_with_mutex (&thread->mtx) {
 			thread->u.val = val;
-			thread_list_add_tail(&m->event, thread);
+			event_list_add_tail(&m->event, thread);
 		}
 
 		if (t_ptr) {
@@ -1161,7 +1161,7 @@ void _thread_add_event(const struct xref_threadsched *xref,
  * NOT's out the .events field of pollfd corresponding to the given file
  * descriptor. The event to be NOT'd is passed in the 'state' parameter.
  *
- * This needs to happen for both copies of pollfd's. See 'thread_fetch'
+ * This needs to happen for both copies of pollfd's. See 'event_fetch'
  * implementation for details.
  *
  * @param master
@@ -1171,8 +1171,8 @@ void _thread_add_event(const struct xref_threadsched *xref,
  *   - POLLIN
  *   - POLLOUT
  */
-static void thread_cancel_rw(struct thread_master *master, int fd, short state,
-			     int idx_hint)
+static void event_cancel_rw(struct event_loop *master, int fd, short state,
+			    int idx_hint)
 {
 	bool found = false;
 
@@ -1216,8 +1216,10 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state,
 		master->handler.pfds[master->handler.pfdcount].events = 0;
 	}
 
-	/* If we have the same pollfd in the copy, perform the same operations,
-	 * otherwise return. */
+	/*
+	 * If we have the same pollfd in the copy, perform the same operations,
+	 * otherwise return.
+	 */
 	if (i >= master->handler.copycount)
 		return;
 
@@ -1229,7 +1231,7 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state,
 				* sizeof(struct pollfd));
 		master->handler.copycount--;
 		master->handler.copy[master->handler.copycount].fd = 0;
-	        master->handler.copy[master->handler.copycount].events = 0;
+		master->handler.copy[master->handler.copycount].events = 0;
 	}
 }
 
@@ -1237,10 +1239,10 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state,
  * Process task cancellation given a task argument: iterate through the
  * various lists of tasks, looking for any that match the argument.
  */
-static void cancel_arg_helper(struct thread_master *master,
+static void cancel_arg_helper(struct event_loop *master,
 			      const struct cancel_req *cr)
 {
-	struct thread *t;
+	struct event *t;
 	nfds_t i;
 	int fd;
 	struct pollfd *pfd;
@@ -1250,26 +1252,26 @@ static void cancel_arg_helper(struct thread_master *master,
 		return;
 
 	/* First process the ready lists. */
-	frr_each_safe(thread_list, &master->event, t) {
+	frr_each_safe (event_list, &master->event, t) {
 		if (t->arg != cr->eventobj)
 			continue;
-		thread_list_del(&master->event, t);
+		event_list_del(&master->event, t);
 		if (t->ref)
 			*t->ref = NULL;
 		thread_add_unuse(master, t);
 	}
 
-	frr_each_safe(thread_list, &master->ready, t) {
+	frr_each_safe (event_list, &master->ready, t) {
 		if (t->arg != cr->eventobj)
 			continue;
-		thread_list_del(&master->ready, t);
+		event_list_del(&master->ready, t);
 		if (t->ref)
 			*t->ref = NULL;
 		thread_add_unuse(master, t);
 	}
 
 	/* If requested, stop here and ignore io and timers */
-	if (CHECK_FLAG(cr->flags, THREAD_CANCEL_FLAG_READY))
+	if (CHECK_FLAG(cr->flags, EVENT_CANCEL_FLAG_READY))
 		return;
 
 	/* Check the io tasks */
@@ -1285,7 +1287,7 @@ static void cancel_arg_helper(struct thread_master *master,
 			fd = pfd->fd;
 
 			/* Found a match to cancel: clean up fd arrays */
-			thread_cancel_rw(master, pfd->fd, pfd->events, i);
+			event_cancel_rw(master, pfd->fd, pfd->events, i);
 
 			/* Clean up thread arrays */
 			master->read[fd] = NULL;
@@ -1305,14 +1307,14 @@ static void cancel_arg_helper(struct thread_master *master,
 	}
 
 	/* Check the timer tasks */
-	t = thread_timer_list_first(&master->timer);
+	t = event_timer_list_first(&master->timer);
 	while (t) {
-		struct thread *t_next;
+		struct event *t_next;
 
-		t_next = thread_timer_list_next(&master->timer, t);
+		t_next = event_timer_list_next(&master->timer, t);
 
 		if (t->arg == cr->eventobj) {
-			thread_timer_list_del(&master->timer, t);
+			event_timer_list_del(&master->timer, t);
 			if (t->ref)
 				*t->ref = NULL;
 			thread_add_unuse(master, t);
@@ -1325,16 +1327,16 @@ static void cancel_arg_helper(struct thread_master *master,
 /**
  * Process cancellation requests.
  *
- * This may only be run from the pthread which owns the thread_master.
+ * This may only be run from the pthread which owns the event_master.
  *
  * @param master the thread master to process
  * @REQUIRE master->mtx
  */
-static void do_thread_cancel(struct thread_master *master)
+static void do_event_cancel(struct event_loop *master)
 {
-	struct thread_list_head *list = NULL;
-	struct thread **thread_array = NULL;
-	struct thread *thread;
+	struct event_list_head *list = NULL;
+	struct event **thread_array = NULL;
+	struct event *thread;
 	struct cancel_req *cr;
 	struct listnode *ln;
 
@@ -1365,33 +1367,33 @@ static void do_thread_cancel(struct thread_master *master)
 
 		/* Determine the appropriate queue to cancel the thread from */
 		switch (thread->type) {
-		case THREAD_READ:
-			thread_cancel_rw(master, thread->u.fd, POLLIN, -1);
+		case EVENT_READ:
+			event_cancel_rw(master, thread->u.fd, POLLIN, -1);
 			thread_array = master->read;
 			break;
-		case THREAD_WRITE:
-			thread_cancel_rw(master, thread->u.fd, POLLOUT, -1);
+		case EVENT_WRITE:
+			event_cancel_rw(master, thread->u.fd, POLLOUT, -1);
 			thread_array = master->write;
 			break;
-		case THREAD_TIMER:
-			thread_timer_list_del(&master->timer, thread);
+		case EVENT_TIMER:
+			event_timer_list_del(&master->timer, thread);
 			break;
-		case THREAD_EVENT:
+		case EVENT_EVENT:
 			list = &master->event;
 			break;
-		case THREAD_READY:
+		case EVENT_READY:
 			list = &master->ready;
 			break;
-		default:
+		case EVENT_UNUSED:
+		case EVENT_EXECUTE:
 			continue;
 			break;
 		}
 
-		if (list) {
-			thread_list_del(list, thread);
-		} else if (thread_array) {
+		if (list)
+			event_list_del(list, thread);
+		else if (thread_array)
 			thread_array[thread->u.fd] = NULL;
-		}
 
 		if (thread->ref)
 			*thread->ref = NULL;
@@ -1403,7 +1405,7 @@ static void do_thread_cancel(struct thread_master *master)
 	if (master->cancel_req)
 		list_delete_all_node(master->cancel_req);
 
-	/* Wake up any threads which may be blocked in thread_cancel_async() */
+	/* Wake up any threads which may be blocked in event_cancel_async() */
 	master->canceled = true;
 	pthread_cond_broadcast(&master->cancel_cond);
 }
@@ -1411,7 +1413,7 @@ static void do_thread_cancel(struct thread_master *master)
 /*
  * Helper function used for multiple flavors of arg-based cancellation.
  */
-static void cancel_event_helper(struct thread_master *m, void *arg, int flags)
+static void cancel_event_helper(struct event_loop *m, void *arg, int flags)
 {
 	struct cancel_req *cr;
 
@@ -1428,7 +1430,7 @@ static void cancel_event_helper(struct thread_master *m, void *arg, int flags)
 	frr_with_mutex (&m->mtx) {
 		cr->eventobj = arg;
 		listnode_add(m->cancel_req, cr);
-		do_thread_cancel(m);
+		do_event_cancel(m);
 	}
 }
 
@@ -1437,10 +1439,10 @@ static void cancel_event_helper(struct thread_master *m, void *arg, int flags)
  *
  * MT-Unsafe
  *
- * @param m the thread_master to cancel from
+ * @param m the event_master to cancel from
  * @param arg the argument passed when creating the event
  */
-void thread_cancel_event(struct thread_master *master, void *arg)
+void event_cancel_event(struct event_loop *master, void *arg)
 {
 	cancel_event_helper(master, arg, 0);
 }
@@ -1450,14 +1452,14 @@ void thread_cancel_event(struct thread_master *master, void *arg)
  *
  * MT-Unsafe
  *
- * @param m the thread_master to cancel from
+ * @param m the event_master to cancel from
  * @param arg the argument passed when creating the event
  */
-void thread_cancel_event_ready(struct thread_master *m, void *arg)
+void event_cancel_event_ready(struct event_loop *m, void *arg)
 {
 
 	/* Only cancel ready/event tasks */
-	cancel_event_helper(m, arg, THREAD_CANCEL_FLAG_READY);
+	cancel_event_helper(m, arg, EVENT_CANCEL_FLAG_READY);
 }
 
 /**
@@ -1467,19 +1469,19 @@ void thread_cancel_event_ready(struct thread_master *m, void *arg)
  *
  * @param thread task to cancel
  */
-void thread_cancel(struct thread **thread)
+void event_cancel(struct event **thread)
 {
-	struct thread_master *master;
+	struct event_loop *master;
 
 	if (thread == NULL || *thread == NULL)
 		return;
 
 	master = (*thread)->master;
 
-	frrtrace(9, frr_libfrr, thread_cancel, master,
-		 (*thread)->xref->funcname, (*thread)->xref->xref.file,
-		 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
-		 (*thread)->u.val, (*thread)->arg, (*thread)->u.sands.tv_sec);
+	frrtrace(9, frr_libfrr, event_cancel, master, (*thread)->xref->funcname,
+		 (*thread)->xref->xref.file, (*thread)->xref->xref.line, NULL,
+		 (*thread)->u.fd, (*thread)->u.val, (*thread)->arg,
+		 (*thread)->u.sands.tv_sec);
 
 	assert(master->owner == pthread_self());
 
@@ -1488,7 +1490,7 @@ void thread_cancel(struct thread **thread)
 			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
 		cr->thread = *thread;
 		listnode_add(master->cancel_req, cr);
-		do_thread_cancel(master);
+		do_event_cancel(master);
 	}
 
 	*thread = NULL;
@@ -1497,7 +1499,7 @@ void thread_cancel(struct thread **thread)
 /**
  * Asynchronous cancellation.
  *
- * Called with either a struct thread ** or void * to an event argument,
+ * Called with either a struct event ** or void * to an event argument,
  * this function posts the correct cancellation request and blocks until it is
  * serviced.
  *
@@ -1506,7 +1508,7 @@ void thread_cancel(struct thread **thread)
  * The last two parameters are mutually exclusive, i.e. if you pass one the
  * other must be NULL.
  *
- * When the cancellation procedure executes on the target thread_master, the
+ * When the cancellation procedure executes on the target event_master, the
  * thread * provided is checked for nullity. If it is null, the thread is
  * assumed to no longer exist and the cancellation request is a no-op. Thus
  * users of this API must pass a back-reference when scheduling the original
@@ -1518,19 +1520,19 @@ void thread_cancel(struct thread **thread)
  * @param thread pointer to thread to cancel
  * @param eventobj the event
  */
-void thread_cancel_async(struct thread_master *master, struct thread **thread,
-			 void *eventobj)
+void event_cancel_async(struct event_loop *master, struct event **thread,
+			void *eventobj)
 {
 	assert(!(thread && eventobj) && (thread || eventobj));
 
 	if (thread && *thread)
-		frrtrace(9, frr_libfrr, thread_cancel_async, master,
+		frrtrace(9, frr_libfrr, event_cancel_async, master,
 			 (*thread)->xref->funcname, (*thread)->xref->xref.file,
 			 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
 			 (*thread)->u.val, (*thread)->arg,
 			 (*thread)->u.sands.tv_sec);
 	else
-		frrtrace(9, frr_libfrr, thread_cancel_async, master, NULL, NULL,
+		frrtrace(9, frr_libfrr, event_cancel_async, master, NULL, NULL,
 			 0, NULL, 0, 0, eventobj, 0);
 
 	assert(master->owner != pthread_self());
@@ -1560,30 +1562,30 @@ void thread_cancel_async(struct thread_master *master, struct thread **thread,
 }
 /* ------------------------------------------------------------------------- */
 
-static struct timeval *thread_timer_wait(struct thread_timer_list_head *timers,
+static struct timeval *thread_timer_wait(struct event_timer_list_head *timers,
 					 struct timeval *timer_val)
 {
-	if (!thread_timer_list_count(timers))
+	if (!event_timer_list_count(timers))
 		return NULL;
 
-	struct thread *next_timer = thread_timer_list_first(timers);
+	struct event *next_timer = event_timer_list_first(timers);
+
 	monotime_until(&next_timer->u.sands, timer_val);
 	return timer_val;
 }
 
-static struct thread *thread_run(struct thread_master *m, struct thread *thread,
-				 struct thread *fetch)
+static struct event *thread_run(struct event_loop *m, struct event *thread,
+				struct event *fetch)
 {
 	*fetch = *thread;
 	thread_add_unuse(m, thread);
 	return fetch;
 }
 
-static int thread_process_io_helper(struct thread_master *m,
-				    struct thread *thread, short state,
-				    short actual_state, int pos)
+static int thread_process_io_helper(struct event_loop *m, struct event *thread,
+				    short state, short actual_state, int pos)
 {
-	struct thread **thread_array;
+	struct event **thread_array;
 
 	/*
 	 * poll() clears the .events field, but the pollfd array we
@@ -1606,14 +1608,14 @@ static int thread_process_io_helper(struct thread_master *m,
 		return 0;
 	}
 
-	if (thread->type == THREAD_READ)
+	if (thread->type == EVENT_READ)
 		thread_array = m->read;
 	else
 		thread_array = m->write;
 
 	thread_array[thread->u.fd] = NULL;
-	thread_list_add_tail(&m->ready, thread);
-	thread->type = THREAD_READY;
+	event_list_add_tail(&m->ready, thread);
+	thread->type = EVENT_READY;
 
 	return 1;
 }
@@ -1627,7 +1629,7 @@ static int thread_process_io_helper(struct thread_master *m,
  * @param m the thread master
  * @param num the number of active file descriptors (return value of poll())
  */
-static void thread_process_io(struct thread_master *m, unsigned int num)
+static void thread_process_io(struct event_loop *m, unsigned int num)
 {
 	unsigned int ready = 0;
 	struct pollfd *pfds = m->handler.copy;
@@ -1640,10 +1642,10 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 		ready++;
 
 		/*
-		 * Unless someone has called thread_cancel from another
+		 * Unless someone has called event_cancel from another
 		 * pthread, the only thing that could have changed in
 		 * m->handler.pfds while we were asleep is the .events
-		 * field in a given pollfd. Barring thread_cancel() that
+		 * field in a given pollfd. Barring event_cancel() that
 		 * value should be a superset of the values we have in our
 		 * copy, so there's no need to update it. Similarily,
 		 * barring deletion, the fd should still be a valid index
@@ -1661,9 +1663,10 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 			thread_process_io_helper(m, m->write[pfds[i].fd],
 						 POLLOUT, pfds[i].revents, i);
 
-		/* if one of our file descriptors is garbage, remove the same
-		 * from
-		 * both pfds + update sizes and index */
+		/*
+		 * if one of our file descriptors is garbage, remove the same
+		 * from both pfds + update sizes and index
+		 */
 		if (pfds[i].revents & POLLNVAL) {
 			memmove(m->handler.pfds + i, m->handler.pfds + i + 1,
 				(m->handler.pfdcount - i - 1)
@@ -1685,15 +1688,15 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 }
 
 /* Add all timers that have popped to the ready list. */
-static unsigned int thread_process_timers(struct thread_master *m,
+static unsigned int thread_process_timers(struct event_loop *m,
 					  struct timeval *timenow)
 {
 	struct timeval prev = *timenow;
 	bool displayed = false;
-	struct thread *thread;
+	struct event *thread;
 	unsigned int ready = 0;
 
-	while ((thread = thread_timer_list_first(&m->timer))) {
+	while ((thread = event_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			break;
 		prev = thread->u.sands;
@@ -1717,9 +1720,9 @@ static unsigned int thread_process_timers(struct thread_master *m,
 			}
 		}
 
-		thread_timer_list_pop(&m->timer);
-		thread->type = THREAD_READY;
-		thread_list_add_tail(&m->ready, thread);
+		event_timer_list_pop(&m->timer);
+		thread->type = EVENT_READY;
+		event_list_add_tail(&m->ready, thread);
 		ready++;
 	}
 
@@ -1727,14 +1730,14 @@ static unsigned int thread_process_timers(struct thread_master *m,
 }
 
 /* process a list en masse, e.g. for event thread lists */
-static unsigned int thread_process(struct thread_list_head *list)
+static unsigned int thread_process(struct event_list_head *list)
 {
-	struct thread *thread;
+	struct event *thread;
 	unsigned int ready = 0;
 
-	while ((thread = thread_list_pop(list))) {
-		thread->type = THREAD_READY;
-		thread_list_add_tail(&thread->master->ready, thread);
+	while ((thread = event_list_pop(list))) {
+		thread->type = EVENT_READY;
+		event_list_add_tail(&thread->master->ready, thread);
 		ready++;
 	}
 	return ready;
@@ -1742,9 +1745,9 @@ static unsigned int thread_process(struct thread_list_head *list)
 
 
 /* Fetch next ready thread. */
-struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
+struct event *event_fetch(struct event_loop *m, struct event *fetch)
 {
-	struct thread *thread = NULL;
+	struct event *thread = NULL;
 	struct timeval now;
 	struct timeval zerotime = {0, 0};
 	struct timeval tv;
@@ -1760,13 +1763,13 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		pthread_mutex_lock(&m->mtx);
 
 		/* Process any pending cancellation requests */
-		do_thread_cancel(m);
+		do_event_cancel(m);
 
 		/*
 		 * Attempt to flush ready queue before going into poll().
 		 * This is performance-critical. Think twice before modifying.
 		 */
-		if ((thread = thread_list_pop(&m->ready))) {
+		if ((thread = event_list_pop(&m->ready))) {
 			fetch = thread_run(m, thread, fetch);
 			if (fetch->ref)
 				*fetch->ref = NULL;
@@ -1802,11 +1805,11 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		 * In every case except the last, we need to hit poll() at least
 		 * once per loop to avoid starvation by events
 		 */
-		if (!thread_list_count(&m->ready))
+		if (!event_list_count(&m->ready))
 			tw = thread_timer_wait(&m->timer, &tv);
 
-		if (thread_list_count(&m->ready) ||
-				(tw && !timercmp(tw, &zerotime, >)))
+		if (event_list_count(&m->ready) ||
+		    (tw && !timercmp(tw, &zerotime, >)))
 			tw = &zerotime;
 
 		if (!tw && m->handler.pfdcount == 0) { /* die */
@@ -1867,8 +1870,8 @@ static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 		+ (a.tv_usec - b.tv_usec));
 }
 
-unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
-				   unsigned long *cputime)
+unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
+				  unsigned long *cputime)
 {
 #ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
 
@@ -1902,19 +1905,22 @@ unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 	return timeval_elapsed(now->real, start->real);
 }
 
-/* We should aim to yield after yield milliseconds, which defaults
-   to THREAD_YIELD_TIME_SLOT .
-   Note: we are using real (wall clock) time for this calculation.
-   It could be argued that CPU time may make more sense in certain
-   contexts.  The things to consider are whether the thread may have
-   blocked (in which case wall time increases, but CPU time does not),
-   or whether the system is heavily loaded with other processes competing
-   for CPU time.  On balance, wall clock time seems to make sense.
-   Plus it has the added benefit that gettimeofday should be faster
-   than calling getrusage. */
-int thread_should_yield(struct thread *thread)
+/*
+ * We should aim to yield after yield milliseconds, which defaults
+ * to EVENT_YIELD_TIME_SLOT .
+ * Note: we are using real (wall clock) time for this calculation.
+ * It could be argued that CPU time may make more sense in certain
+ * contexts.  The things to consider are whether the thread may have
+ * blocked (in which case wall time increases, but CPU time does not),
+ * or whether the system is heavily loaded with other processes competing
+ * for CPU time.  On balance, wall clock time seems to make sense.
+ * Plus it has the added benefit that gettimeofday should be faster
+ * than calling getrusage.
+ */
+int event_should_yield(struct event *thread)
 {
 	int result;
+
 	frr_with_mutex (&thread->mtx) {
 		result = monotime_since(&thread->real, NULL)
 			 > (int64_t)thread->yield;
@@ -1922,14 +1928,14 @@ int thread_should_yield(struct thread *thread)
 	return result;
 }
 
-void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
+void event_set_yield_time(struct event *thread, unsigned long yield_time)
 {
 	frr_with_mutex (&thread->mtx) {
 		thread->yield = yield_time;
 	}
 }
 
-void thread_getrusage(RUSAGE_T *r)
+void event_getrusage(RUSAGE_T *r)
 {
 	monotime(&r->real);
 	if (!cputime_enabled) {
@@ -1963,7 +1969,7 @@ void thread_getrusage(RUSAGE_T *r)
  * particular, the maximum real and cpu times must be monotonically increasing
  * or this code is not correct.
  */
-void thread_call(struct thread *thread)
+void event_call(struct event *thread)
 {
 	RUSAGE_T before, after;
 
@@ -1980,10 +1986,10 @@ void thread_call(struct thread *thread)
 
 	thread->real = before.real;
 
-	frrtrace(9, frr_libfrr, thread_call, thread->master,
+	frrtrace(9, frr_libfrr, event_call, thread->master,
 		 thread->xref->funcname, thread->xref->xref.file,
-		 thread->xref->xref.line, NULL, thread->u.fd,
-		 thread->u.val, thread->arg, thread->u.sands.tv_sec);
+		 thread->xref->xref.line, NULL, thread->u.fd, thread->u.val,
+		 thread->arg, thread->u.sands.tv_sec);
 
 	pthread_setspecific(thread_current, thread);
 	(*thread->func)(thread);
@@ -1995,7 +2001,7 @@ void thread_call(struct thread *thread)
 	unsigned long walltime, cputime;
 	unsigned long exp;
 
-	walltime = thread_consumed_time(&after, &before, &cputime);
+	walltime = event_consumed_time(&after, &before, &cputime);
 
 	/* update walltime */
 	atomic_fetch_add_explicit(&thread->hist->real.total, walltime,
@@ -2059,26 +2065,25 @@ void thread_call(struct thread *thread)
 }
 
 /* Execute thread */
-void _thread_execute(const struct xref_threadsched *xref,
-		     struct thread_master *m, void (*func)(struct thread *),
-		     void *arg, int val)
+void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
+		    void (*func)(struct event *), void *arg, int val)
 {
-	struct thread *thread;
+	struct event *thread;
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {
-		thread = thread_get(m, THREAD_EVENT, func, arg, xref);
+		thread = thread_get(m, EVENT_EVENT, func, arg, xref);
 
 		/* Set its event value. */
 		frr_with_mutex (&thread->mtx) {
-			thread->add_type = THREAD_EXECUTE;
+			thread->add_type = EVENT_EXECUTE;
 			thread->u.val = val;
 			thread->ref = &thread;
 		}
 	}
 
 	/* Execute thread doing all accounting. */
-	thread_call(thread);
+	event_call(thread);
 
 	/* Give back or free thread. */
 	thread_add_unuse(m, thread);
@@ -2131,16 +2136,13 @@ void debug_signals(const sigset_t *sigs)
 }
 
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
-				   const struct thread *thread)
+				   const struct event *thread)
 {
-	static const char * const types[] = {
-		[THREAD_READ] = "read",
-		[THREAD_WRITE] = "write",
-		[THREAD_TIMER] = "timer",
-		[THREAD_EVENT] = "event",
-		[THREAD_READY] = "ready",
-		[THREAD_UNUSED] = "unused",
-		[THREAD_EXECUTE] = "exec",
+	static const char *const types[] = {
+		[EVENT_READ] = "read",	  [EVENT_WRITE] = "write",
+		[EVENT_TIMER] = "timer",  [EVENT_EVENT] = "event",
+		[EVENT_READY] = "ready",  [EVENT_UNUSED] = "unused",
+		[EVENT_EXECUTE] = "exec",
 	};
 	ssize_t rv = 0;
 	char info[16] = "";
@@ -2156,13 +2158,18 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 		rv += bprintfrr(buf, " INVALID(%u)", thread->type);
 
 	switch (thread->type) {
-	case THREAD_READ:
-	case THREAD_WRITE:
+	case EVENT_READ:
+	case EVENT_WRITE:
 		snprintfrr(info, sizeof(info), "fd=%d", thread->u.fd);
 		break;
 
-	case THREAD_TIMER:
+	case EVENT_TIMER:
 		snprintfrr(info, sizeof(info), "r=%pTVMud", &thread->u.sands);
+		break;
+	case EVENT_READY:
+	case EVENT_EVENT:
+	case EVENT_UNUSED:
+	case EVENT_EXECUTE:
 		break;
 	}
 
@@ -2176,7 +2183,7 @@ printfrr_ext_autoreg_p("TH", printfrr_thread);
 static ssize_t printfrr_thread(struct fbuf *buf, struct printfrr_eargs *ea,
 			       const void *ptr)
 {
-	const struct thread *thread = ptr;
+	const struct event *thread = ptr;
 	struct timespec remain = {};
 
 	if (ea->fmt[0] == 'D') {

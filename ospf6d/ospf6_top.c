@@ -11,7 +11,7 @@
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "defaults.h"
 #include "lib/json.h"
@@ -176,7 +176,7 @@ static int ospf6_vrf_disable(struct vrf *vrf)
 		 * from VRF and make it "down".
 		 */
 		ospf6_vrf_unlink(ospf6, vrf);
-		thread_cancel(&ospf6->t_ospf6_receive);
+		event_cancel(&ospf6->t_ospf6_receive);
 		close(ospf6->fd);
 		ospf6->fd = -1;
 	}
@@ -207,8 +207,8 @@ static int ospf6_vrf_enable(struct vrf *vrf)
 			ret = ospf6_serv_sock(ospf6);
 			if (ret < 0 || ospf6->fd <= 0)
 				return 0;
-			thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
-					&ospf6->t_ospf6_receive);
+			event_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+				       &ospf6->t_ospf6_receive);
 
 			ospf6_router_id_update(ospf6, true);
 		}
@@ -471,8 +471,8 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	 */
 	ospf6_gr_nvm_read(ospf6);
 
-	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
-			&ospf6->t_ospf6_receive);
+	event_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+		       &ospf6->t_ospf6_receive);
 
 	return ospf6;
 }
@@ -552,19 +552,19 @@ static void ospf6_disable(struct ospf6 *o)
 		ospf6_route_remove_all(o->route_table);
 		ospf6_route_remove_all(o->brouter_table);
 
-		THREAD_OFF(o->maxage_remover);
-		THREAD_OFF(o->t_spf_calc);
-		THREAD_OFF(o->t_ase_calc);
-		THREAD_OFF(o->t_distribute_update);
-		THREAD_OFF(o->t_ospf6_receive);
-		THREAD_OFF(o->t_external_aggr);
-		THREAD_OFF(o->gr_info.t_grace_period);
-		THREAD_OFF(o->t_write);
-		THREAD_OFF(o->t_abr_task);
+		EVENT_OFF(o->maxage_remover);
+		EVENT_OFF(o->t_spf_calc);
+		EVENT_OFF(o->t_ase_calc);
+		EVENT_OFF(o->t_distribute_update);
+		EVENT_OFF(o->t_ospf6_receive);
+		EVENT_OFF(o->t_external_aggr);
+		EVENT_OFF(o->gr_info.t_grace_period);
+		EVENT_OFF(o->t_write);
+		EVENT_OFF(o->t_abr_task);
 	}
 }
 
-void ospf6_master_init(struct thread_master *master)
+void ospf6_master_init(struct event_loop *master)
 {
 	memset(&ospf6_master, 0, sizeof(ospf6_master));
 
@@ -573,9 +573,9 @@ void ospf6_master_init(struct thread_master *master)
 	om6->master = master;
 }
 
-static void ospf6_maxage_remover(struct thread *thread)
+static void ospf6_maxage_remover(struct event *thread)
 {
-	struct ospf6 *o = (struct ospf6 *)THREAD_ARG(thread);
+	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(thread);
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;
@@ -619,9 +619,9 @@ static void ospf6_maxage_remover(struct thread *thread)
 void ospf6_maxage_remove(struct ospf6 *o)
 {
 	if (o)
-		thread_add_timer(master, ospf6_maxage_remover, o,
-				 OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
-				 &o->maxage_remover);
+		event_add_timer(master, ospf6_maxage_remover, o,
+				OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
+				&o->maxage_remover);
 }
 
 bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
@@ -1359,7 +1359,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		} else
 			json_object_boolean_false_add(json, "spfHasRun");
 
-		if (thread_is_scheduled(o->t_spf_calc)) {
+		if (event_is_scheduled(o->t_spf_calc)) {
 			long time_store;
 
 			json_object_boolean_true_add(json, "spfTimerActive");
@@ -1452,8 +1452,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 
 		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
 		vty_out(vty, " SPF timer %s%s\n",
-			(thread_is_scheduled(o->t_spf_calc) ? "due in "
-							    : "is "),
+			(event_is_scheduled(o->t_spf_calc) ? "due in " : "is "),
 			buf);
 
 		if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER))

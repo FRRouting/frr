@@ -8,7 +8,7 @@
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "filter.h"
 #include "memory.h"
 #include "prefix.h"
@@ -52,7 +52,7 @@
 pid_t pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Route retain mode flag. */
 int retain_mode = 0;
@@ -203,7 +203,7 @@ static void sigint(void)
  * Final shutdown step for the zebra main thread. This is run after all
  * async update processing has completed.
  */
-void zebra_finalize(struct thread *dummy)
+void zebra_finalize(struct event *dummy)
 {
 	zlog_info("Zebra final shutdown");
 
@@ -435,8 +435,8 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	thread_add_timer(zrouter.master, rib_sweep_route, NULL,
-			 graceful_restart, &zrouter.sweeper);
+	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
+			&zrouter.sweeper);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();

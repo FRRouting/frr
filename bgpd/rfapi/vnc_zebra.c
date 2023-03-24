@@ -890,7 +890,7 @@ static zclient_handler *const vnc_handlers[] = {
  * Modeled after bgp_zebra.c'bgp_zebra_init()
  * Charriere asks, "Is it possible to carry two?"
  */
-void vnc_zebra_init(struct thread_master *master)
+void vnc_zebra_init(struct event_loop *master)
 {
 	/* Set default values. */
 	zclient_vnc = zclient_new(master, &zclient_options_default,

@@ -51,8 +51,8 @@ struct mgmt_fe_session_ctx {
 	uint8_t ds_write_locked[MGMTD_DS_MAX_ID];
 	uint8_t ds_read_locked[MGMTD_DS_MAX_ID];
 	uint8_t ds_locked_implict[MGMTD_DS_MAX_ID];
-	struct thread *proc_cfg_txn_clnp;
-	struct thread *proc_show_txn_clnp;
+	struct event *proc_cfg_txn_clnp;
+	struct event *proc_show_txn_clnp;
 
 	struct mgmt_fe_sessions_item list_linkage;
 };
@@ -62,7 +62,7 @@ DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
 #define FOREACH_SESSION_IN_LIST(adapter, session)                              \
 	frr_each_safe (mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
 
-static struct thread_master *mgmt_fe_adapter_tm;
+static struct event_loop *mgmt_fe_adapter_tm;
 static struct mgmt_master *mgmt_fe_adapter_mm;
 
 static struct mgmt_fe_adapters_head mgmt_fe_adapters;
@@ -629,20 +629,20 @@ static int mgmt_fe_send_getdata_reply(struct mgmt_fe_session_ctx *session,
 	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
 }
 
-static void mgmt_fe_session_cfg_txn_clnup(struct thread *thread)
+static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = (struct mgmt_fe_session_ctx *)THREAD_ARG(thread);
+	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(thread);
 
 	mgmt_fe_session_cfg_txn_cleanup(session);
 }
 
-static void mgmt_fe_session_show_txn_clnup(struct thread *thread)
+static void mgmt_fe_session_show_txn_clnup(struct event *thread)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = (struct mgmt_fe_session_ctx *)THREAD_ARG(thread);
+	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(thread);
 
 	mgmt_fe_session_show_txn_cleanup(session);
 }
@@ -656,13 +656,13 @@ mgmt_fe_session_register_event(struct mgmt_fe_session_ctx *session,
 
 	switch (event) {
 	case MGMTD_FE_SESSION_CFG_TXN_CLNUP:
-		thread_add_timer_tv(mgmt_fe_adapter_tm,
+		event_add_timer_tv(mgmt_fe_adapter_tm,
 				    mgmt_fe_session_cfg_txn_clnup, session,
 				    &tv, &session->proc_cfg_txn_clnp);
 		assert(session->proc_cfg_txn_clnp);
 		break;
 	case MGMTD_FE_SESSION_SHOW_TXN_CLNUP:
-		thread_add_timer_tv(mgmt_fe_adapter_tm,
+		event_add_timer_tv(mgmt_fe_adapter_tm,
 				    mgmt_fe_session_show_txn_clnup, session,
 				    &tv, &session->proc_show_txn_clnp);
 		assert(session->proc_show_txn_clnp);
@@ -1435,18 +1435,18 @@ static void mgmt_fe_adapter_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
 }
 
-static void mgmt_fe_adapter_proc_msgbufs(struct thread *thread)
+static void mgmt_fe_adapter_proc_msgbufs(struct event *thread)
 {
-	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_fe_adapter_process_msg,
 			      adapter, mgmt_debug_fe))
 		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_PROC_MSG);
 }
 
-static void mgmt_fe_adapter_read(struct thread *thread)
+static void mgmt_fe_adapter_read(struct event *thread)
 {
-	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_rsched rv;
 
 	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd, mgmt_debug_fe);
@@ -1459,9 +1459,9 @@ static void mgmt_fe_adapter_read(struct thread *thread)
 	mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_READ);
 }
 
-static void mgmt_fe_adapter_write(struct thread *thread)
+static void mgmt_fe_adapter_write(struct event *thread)
 {
-	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd, mgmt_debug_fe);
@@ -1477,11 +1477,11 @@ static void mgmt_fe_adapter_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_fe_adapter_resume_writes(struct thread *thread)
+static void mgmt_fe_adapter_resume_writes(struct event *thread)
 {
 	struct mgmt_fe_client_adapter *adapter;
 
-	adapter = (struct mgmt_fe_client_adapter *)THREAD_ARG(thread);
+	adapter = (struct mgmt_fe_client_adapter *)EVENT_ARG(thread);
 	assert(adapter && adapter->conn_fd != -1);
 
 	mgmt_fe_adapter_writes_on(adapter);
@@ -1495,25 +1495,25 @@ mgmt_fe_adapter_register_event(struct mgmt_fe_client_adapter *adapter,
 
 	switch (event) {
 	case MGMTD_FE_CONN_READ:
-		thread_add_read(mgmt_fe_adapter_tm, mgmt_fe_adapter_read,
+		event_add_read(mgmt_fe_adapter_tm, mgmt_fe_adapter_read,
 				adapter, adapter->conn_fd, &adapter->conn_read_ev);
 		assert(adapter->conn_read_ev);
 		break;
 	case MGMTD_FE_CONN_WRITE:
-		thread_add_write(mgmt_fe_adapter_tm,
+		event_add_write(mgmt_fe_adapter_tm,
 				 mgmt_fe_adapter_write, adapter,
 				 adapter->conn_fd, &adapter->conn_write_ev);
 		assert(adapter->conn_write_ev);
 		break;
 	case MGMTD_FE_PROC_MSG:
 		tv.tv_usec = MGMTD_FE_MSG_PROC_DELAY_USEC;
-		thread_add_timer_tv(mgmt_fe_adapter_tm,
+		event_add_timer_tv(mgmt_fe_adapter_tm,
 				    mgmt_fe_adapter_proc_msgbufs, adapter,
 				    &tv, &adapter->proc_msg_ev);
 		assert(adapter->proc_msg_ev);
 		break;
 	case MGMTD_FE_CONN_WRITES_ON:
-		thread_add_timer_msec(mgmt_fe_adapter_tm,
+		event_add_timer_msec(mgmt_fe_adapter_tm,
 				      mgmt_fe_adapter_resume_writes, adapter,
 				      MGMTD_FE_MSG_WRITE_DELAY_MSEC,
 				      &adapter->conn_writes_on);
@@ -1538,10 +1538,10 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 	(*adapter)->refcount--;
 	if (!(*adapter)->refcount) {
 		mgmt_fe_adapters_del(&mgmt_fe_adapters, *adapter);
-		THREAD_OFF((*adapter)->conn_read_ev);
-		THREAD_OFF((*adapter)->conn_write_ev);
-		THREAD_OFF((*adapter)->proc_msg_ev);
-		THREAD_OFF((*adapter)->conn_writes_on);
+		EVENT_OFF((*adapter)->conn_read_ev);
+		EVENT_OFF((*adapter)->conn_write_ev);
+		EVENT_OFF((*adapter)->proc_msg_ev);
+		EVENT_OFF((*adapter)->conn_writes_on);
 		mgmt_msg_destroy(&(*adapter)->mstate);
 		XFREE(MTYPE_MGMTD_FE_ADPATER, *adapter);
 	}
@@ -1549,7 +1549,7 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 	*adapter = NULL;
 }
 
-int mgmt_fe_adapter_init(struct thread_master *tm, struct mgmt_master *mm)
+int mgmt_fe_adapter_init(struct event_loop *tm, struct mgmt_master *mm)
 {
 	if (!mgmt_fe_adapter_tm) {
 		mgmt_fe_adapter_tm = tm;

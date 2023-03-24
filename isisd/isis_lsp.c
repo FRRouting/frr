@@ -12,7 +12,7 @@
 #include <zebra.h>
 
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "stream.h"
 #include "memory.h"
@@ -49,9 +49,9 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
-static void lsp_refresh(struct thread *thread);
-static void lsp_l1_refresh_pseudo(struct thread *thread);
-static void lsp_l2_refresh_pseudo(struct thread *thread);
+static void lsp_refresh(struct event *thread);
+static void lsp_l1_refresh_pseudo(struct event *thread);
+static void lsp_l2_refresh_pseudo(struct event *thread);
 
 static void lsp_destroy(struct isis_lsp *lsp);
 
@@ -429,9 +429,9 @@ bool isis_level2_adj_up(struct isis_area *area)
 /*
  * Unset the overload bit after the timer expires
  */
-void set_overload_on_start_timer(struct thread *thread)
+void set_overload_on_start_timer(struct event *thread)
 {
-	struct isis_area *area = THREAD_ARG(thread);
+	struct isis_area *area = EVENT_ARG(thread);
 	assert(area);
 
 	area->t_overload_on_startup_timer = NULL;
@@ -1372,7 +1372,7 @@ int lsp_generate(struct isis_area *area, int level)
 		return ISIS_ERROR;
 
 	/* Check if config is still being processed */
-	if (thread_is_scheduled(t_isis_cfg))
+	if (event_is_scheduled(t_isis_cfg))
 		return ISIS_OK;
 
 	memset(&lspid, 0, ISIS_SYS_ID_LEN + 2);
@@ -1384,9 +1384,9 @@ int lsp_generate(struct isis_area *area, int level)
 		overload_time = isis_restart_read_overload_time(area);
 		if (overload_time > 0) {
 			isis_area_overload_bit_set(area, true);
-			thread_add_timer(master, set_overload_on_start_timer,
-					 area, overload_time,
-					 &area->t_overload_on_startup_timer);
+			event_add_timer(master, set_overload_on_start_timer,
+					area, overload_time,
+					&area->t_overload_on_startup_timer);
 		}
 		device_startup = false;
 	}
@@ -1418,11 +1418,10 @@ int lsp_generate(struct isis_area *area, int level)
 
 	refresh_time = lsp_refresh_time(newlsp, rem_lifetime);
 
-	THREAD_OFF(area->t_lsp_refresh[level - 1]);
+	EVENT_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
-	thread_add_timer(master, lsp_refresh,
-			 &area->lsp_refresh_arg[level - 1], refresh_time,
-			 &area->t_lsp_refresh[level - 1]);
+	event_add_timer(master, lsp_refresh, &area->lsp_refresh_arg[level - 1],
+			refresh_time, &area->t_lsp_refresh[level - 1]);
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Building L%d LSP %s, len %hu, seq 0x%08x, cksum 0x%04hx, lifetime %hus refresh %hus",
@@ -1501,9 +1500,8 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp_seqno_update(lsp);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
-	thread_add_timer(master, lsp_refresh,
-			 &area->lsp_refresh_arg[level - 1], refresh_time,
-			 &area->t_lsp_refresh[level - 1]);
+	event_add_timer(master, lsp_refresh, &area->lsp_refresh_arg[level - 1],
+			refresh_time, &area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
@@ -1523,9 +1521,9 @@ static int lsp_regenerate(struct isis_area *area, int level)
 /*
  * Something has changed or periodic refresh -> regenerate LSP
  */
-static void lsp_refresh(struct thread *thread)
+static void lsp_refresh(struct event *thread)
 {
-	struct lsp_refresh_arg *arg = THREAD_ARG(thread);
+	struct lsp_refresh_arg *arg = EVENT_ARG(thread);
 
 	assert(arg);
 
@@ -1605,7 +1603,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			 * Note: in case of a BFD 'down' message the refresh is
 			 * scheduled once again just to be sure
 			 */
-			struct timeval remain = thread_timer_remain(
+			struct timeval remain = event_timer_remain(
 				area->t_lsp_refresh[lvl - 1]);
 			sched_debug(
 				"ISIS (%s): Regeneration is already pending, nothing todo. (Due in %lld.%03lld seconds)",
@@ -1629,7 +1627,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			"ISIS (%s): Will schedule regen timer. Last run was: %lld, Now is: %lld",
 			area->area_tag, (long long)lsp->last_generated,
 			(long long)now);
-		THREAD_OFF(area->t_lsp_refresh[lvl - 1]);
+		EVENT_OFF(area->t_lsp_refresh[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < area->lsp_gen_interval[lvl - 1]
 		    && !(area->bfd_signalled_down)) {
@@ -1668,10 +1666,9 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 		}
 
 		area->lsp_regenerate_pending[lvl - 1] = 1;
-		thread_add_timer_msec(master, lsp_refresh,
-				      &area->lsp_refresh_arg[lvl - 1],
-				      timeout,
-				      &area->t_lsp_refresh[lvl - 1]);
+		event_add_timer_msec(master, lsp_refresh,
+				     &area->lsp_refresh_arg[lvl - 1], timeout,
+				     &area->t_lsp_refresh[lvl - 1]);
 	}
 
 	if (all_pseudo) {
@@ -1822,16 +1819,16 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	lsp_flood(lsp, NULL);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
-	THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+	EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	circuit->lsp_regenerate_pending[level - 1] = 0;
 	if (level == IS_LEVEL_1)
-		thread_add_timer(
-			master, lsp_l1_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l1_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	else if (level == IS_LEVEL_2)
-		thread_add_timer(
-			master, lsp_l2_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l2_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
@@ -1880,13 +1877,13 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
 	if (level == IS_LEVEL_1)
-		thread_add_timer(
-			master, lsp_l1_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l1_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	else if (level == IS_LEVEL_2)
-		thread_add_timer(
-			master, lsp_l2_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l2_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
@@ -1903,12 +1900,12 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 /*
  * Something has changed or periodic refresh -> regenerate pseudo LSP
  */
-static void lsp_l1_refresh_pseudo(struct thread *thread)
+static void lsp_l1_refresh_pseudo(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 
 	circuit->u.bc.t_refresh_pseudo_lsp[0] = NULL;
 	circuit->lsp_regenerate_pending[0] = 0;
@@ -1925,12 +1922,12 @@ static void lsp_l1_refresh_pseudo(struct thread *thread)
 	lsp_regenerate_pseudo(circuit, IS_LEVEL_1);
 }
 
-static void lsp_l2_refresh_pseudo(struct thread *thread)
+static void lsp_l2_refresh_pseudo(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 
 	circuit->u.bc.t_refresh_pseudo_lsp[1] = NULL;
 	circuit->lsp_regenerate_pending[1] = 0;
@@ -1989,7 +1986,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		}
 
 		if (circuit->lsp_regenerate_pending[lvl - 1]) {
-			struct timeval remain = thread_timer_remain(
+			struct timeval remain = event_timer_remain(
 				circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 			sched_debug(
 				"ISIS (%s): Regenerate is already pending, nothing todo. (Due in %lld.%03lld seconds)",
@@ -2013,7 +2010,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 			"ISIS (%s): Will schedule PSN regen timer. Last run was: %lld, Now is: %lld",
 			area->area_tag, (long long)lsp->last_generated,
 			(long long)now);
-		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
+		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < circuit->area->lsp_gen_interval[lvl - 1]) {
 			timeout =
@@ -2032,11 +2029,11 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		circuit->lsp_regenerate_pending[lvl - 1] = 1;
 
 		if (lvl == IS_LEVEL_1) {
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				master, lsp_l1_refresh_pseudo, circuit, timeout,
 				&circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		} else if (lvl == IS_LEVEL_2) {
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				master, lsp_l2_refresh_pseudo, circuit, timeout,
 				&circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		}
@@ -2049,7 +2046,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
  * Walk through LSPs for an area
  *  - set remaining lifetime
  */
-void lsp_tick(struct thread *thread)
+void lsp_tick(struct event *thread)
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
@@ -2057,10 +2054,10 @@ void lsp_tick(struct thread *thread)
 	uint16_t rem_lifetime;
 	bool fabricd_sync_incomplete = false;
 
-	area = THREAD_ARG(thread);
+	area = EVENT_ARG(thread);
 	assert(area);
 	area->t_tick = NULL;
-	thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
+	event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 
 	struct isis_circuit *fabricd_init_c = fabricd_initial_sync_circuit(area);
 

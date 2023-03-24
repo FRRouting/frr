@@ -378,7 +378,7 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 	return buf;
 }
 
-static void zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_mac *mac = NULL;
@@ -386,7 +386,7 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 	struct listnode *node = NULL;
 	struct zebra_neigh *nbr = NULL;
 
-	mac = THREAD_ARG(t);
+	mac = EVENT_ARG(t);
 
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(mac->zevpn->vrf_id);
@@ -575,7 +575,7 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		}
 
 		/* Start auto recovery timer for this MAC */
-		THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+		EVENT_OFF(mac->dad_mac_auto_recovery_timer);
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN) {
 				char mac_buf[MAC_BUF_SIZE];
@@ -588,10 +588,10 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 					zvrf->dad_freeze_time);
 			}
 
-			thread_add_timer(zrouter.master,
-					 zebra_evpn_dad_mac_auto_recovery_exp,
-					 mac, zvrf->dad_freeze_time,
-					 &mac->dad_mac_auto_recovery_timer);
+			event_add_timer(zrouter.master,
+					zebra_evpn_dad_mac_auto_recovery_exp,
+					mac, zvrf->dad_freeze_time,
+					&mac->dad_mac_auto_recovery_timer);
 		}
 
 		/* In case of local update, do not inform to client (BGPd),
@@ -615,7 +615,7 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	struct zebra_vrf *zvrf;
 	struct timeval detect_start_time = {0, 0};
 	char timebuf[MONOTIME_STRLEN];
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 	time_t uptime;
 	char up_str[MONOTIME_STRLEN];
 
@@ -692,9 +692,9 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 		if (mac->hold_timer)
 			json_object_string_add(
 				json_mac, "peerActiveHold",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       mac->hold_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      mac->hold_timer));
 		if (mac->es)
 			json_object_string_add(json_mac, "esi",
 					mac->es->esi_str);
@@ -784,9 +784,9 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 			vty_out(vty, " peer-active");
 		if (mac->hold_timer)
 			vty_out(vty, " (ht: %s)",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       mac->hold_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      mac->hold_timer));
 		vty_out(vty, "\n");
 		vty_out(vty, " Local Seq: %u Remote Seq: %u\n", mac->loc_seq,
 			mac->rem_seq);
@@ -1152,7 +1152,7 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	zebra_evpn_mac_stop_hold_timer(mac);
 
 	/* Cancel auto recovery */
-	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+	EVENT_OFF(mac->dad_mac_auto_recovery_timer);
 
 	/* If the MAC is freed before the neigh we will end up
 	 * with a stale pointer against the neigh.
@@ -1500,7 +1500,7 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static void zebra_evpn_mac_hold_exp_cb(struct thread *t)
+static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 {
 	struct zebra_mac *mac;
 	bool old_bgp_ready;
@@ -1508,7 +1508,7 @@ static void zebra_evpn_mac_hold_exp_cb(struct thread *t)
 	bool old_static;
 	bool new_static;
 
-	mac = THREAD_ARG(t);
+	mac = EVENT_ARG(t);
 	/* the purpose of the hold timer is to age out the peer-active
 	 * flag
 	 */
@@ -1561,8 +1561,8 @@ static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)));
 	}
-	thread_add_timer(zrouter.master, zebra_evpn_mac_hold_exp_cb, mac,
-			 zmh_info->mac_hold_time, &mac->hold_timer);
+	event_add_timer(zrouter.master, zebra_evpn_mac_hold_exp_cb, mac,
+			zmh_info->mac_hold_time, &mac->hold_timer);
 }
 
 void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)
@@ -1581,7 +1581,7 @@ void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)
 						       sizeof(mac_buf)));
 	}
 
-	THREAD_OFF(mac->hold_timer);
+	EVENT_OFF(mac->hold_timer);
 }
 
 void zebra_evpn_sync_mac_del(struct zebra_mac *mac)

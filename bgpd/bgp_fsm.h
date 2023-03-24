@@ -11,33 +11,34 @@
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
 		if ((peer->status != Deleted))                                 \
-			thread_add_timer(bm->master, (F), peer, (V), &(T));    \
+			event_add_timer(bm->master, (F), peer, (V), &(T));     \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                    \
 	do {                                                                   \
 		if ((P)->status != Deleted)                                    \
-			thread_add_event(bm->master, bgp_event, (P), (E),      \
-					 NULL);                                \
+			event_add_event(bm->master, bgp_event, (P), (E),       \
+					NULL);                                 \
 	} while (0)
 
 #define BGP_EVENT_FLUSH(P)                                                     \
 	do {                                                                   \
 		assert(peer);                                                  \
-		thread_cancel_event_ready(bm->master, (P));                    \
+		event_cancel_event_ready(bm->master, (P));                     \
 	} while (0)
 
-#define BGP_UPDATE_GROUP_TIMER_ON(T, F)					       \
-	do {								       \
-		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&		       \
-		    PEER_ROUTE_ADV_DELAY(peer))				       \
-			thread_add_timer_msec(bm->master, (F), peer,	       \
-				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME * 1000),\
-				(T));					       \
-		else							       \
-			thread_add_timer_msec(bm->master, (F), peer,	       \
-					      0, (T));			       \
-	} while (0)							       \
+#define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                        \
+	do {                                                                   \
+		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                     \
+		    PEER_ROUTE_ADV_DELAY(peer))                                \
+			event_add_timer_msec(                                  \
+				bm->master, (F), peer,                         \
+				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME *       \
+				 1000),                                        \
+				(T));                                          \
+		else                                                           \
+			event_add_timer_msec(bm->master, (F), peer, 0, (T));   \
+	} while (0)
 
 #define BGP_MSEC_JITTER 10
 
@@ -105,11 +106,11 @@
  * Update FSM for peer based on whether we have valid nexthops or not.
  */
 extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
-extern void bgp_event(struct thread *);
+extern void bgp_event(struct event *event);
 extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
 extern int bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
-extern void bgp_routeadv_timer(struct thread *);
+extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer *peer,
 				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];

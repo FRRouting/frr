@@ -30,8 +30,8 @@
 #include "libfrr.h"
 
 static void		 lde_shutdown(void);
-static void lde_dispatch_imsg(struct thread *thread);
-static void lde_dispatch_parent(struct thread *thread);
+static void lde_dispatch_imsg(struct event *thread);
+static void lde_dispatch_parent(struct event *thread);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -134,8 +134,8 @@ lde(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
-	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
-		        &iev_main->ev_read);
+	event_add_read(master, iev_main->handler_read, iev_main,
+		       iev_main->ibuf.fd, &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
 
 	memset(&iev_main_sync_data, 0, sizeof(iev_main_sync_data));
@@ -145,9 +145,9 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	struct event thread;
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* NOTREACHED */
 	return;
@@ -232,9 +232,9 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void lde_dispatch_imsg(struct thread *thread)
+static void lde_dispatch_imsg(struct event *thread)
 {
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
@@ -395,14 +395,14 @@ static void lde_dispatch_imsg(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_shutdown();
 	}
 }
 
 /* ARGSUSED */
-static void lde_dispatch_parent(struct thread *thread)
+static void lde_dispatch_parent(struct event *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -415,7 +415,7 @@ static void lde_dispatch_parent(struct thread *thread)
 	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd;
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;
 	int			 shut = 0;
@@ -523,8 +523,8 @@ static void lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_ldpe->ibuf, fd);
 			iev_ldpe->handler_read = lde_dispatch_imsg;
-			thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
-					&iev_ldpe->ev_read);
+			event_add_read(master, iev_ldpe->handler_read, iev_ldpe,
+				       iev_ldpe->ibuf.fd, &iev_ldpe->ev_read);
 			iev_ldpe->handler_write = ldp_write_handler;
 			iev_ldpe->ev_write = NULL;
 			break;
@@ -673,8 +673,8 @@ static void lde_dispatch_parent(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_shutdown();
 	}
 }
@@ -2123,7 +2123,7 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static void zclient_sync_retry(struct thread *thread)
+static void zclient_sync_retry(struct event *thread)
 {
 	zclient_sync_init();
 }
@@ -2178,7 +2178,7 @@ retry:
 	zclient_sync = NULL;
 
 	/* Retry using a timer */
-	thread_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
+	event_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
 }
 
 static void

@@ -105,12 +105,12 @@ DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 
 struct mgmt_be_client_ctx {
 	int conn_fd;
-	struct thread_master *tm;
-	struct thread *conn_retry_tmr;
-	struct thread *conn_read_ev;
-	struct thread *conn_write_ev;
-	struct thread *conn_writes_on;
-	struct thread *msg_proc_ev;
+	struct event_loop *tm;
+	struct event *conn_retry_tmr;
+	struct event *conn_read_ev;
+	struct event *conn_write_ev;
+	struct event *conn_writes_on;
+	struct event *msg_proc_ev;
 	uint32_t flags;
 
 	struct mgmt_msg_state mstate;
@@ -897,18 +897,18 @@ static void mgmt_be_client_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_client_proc_msgbufs(struct thread *thread)
+static void mgmt_be_client_proc_msgbufs(struct event *thread)
 {
-	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
+	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_be_client_process_msg,
 			      client_ctx, mgmt_debug_be_client))
 		mgmt_be_client_register_event(client_ctx, MGMTD_BE_PROC_MSG);
 }
 
-static void mgmt_be_client_read(struct thread *thread)
+static void mgmt_be_client_read(struct event *thread)
 {
-	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
+	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 	enum mgmt_msg_rsched rv;
 
 	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
@@ -962,9 +962,9 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
 	return rv;
 }
 
-static void mgmt_be_client_write(struct thread *thread)
+static void mgmt_be_client_write(struct event *thread)
 {
-	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
+	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
@@ -981,11 +981,11 @@ static void mgmt_be_client_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_be_client_resume_writes(struct thread *thread)
+static void mgmt_be_client_resume_writes(struct event *thread)
 {
 	struct mgmt_be_client_ctx *client_ctx;
 
-	client_ctx = (struct mgmt_be_client_ctx *)THREAD_ARG(thread);
+	client_ctx = (struct mgmt_be_client_ctx *)EVENT_ARG(thread);
 	assert(client_ctx && client_ctx->conn_fd != -1);
 
 	mgmt_be_client_writes_on(client_ctx);
@@ -1040,9 +1040,9 @@ static void mgmt_be_server_connect(struct mgmt_be_client_ctx *client_ctx)
 			client_ctx->client_params.user_data, true);
 }
 
-static void mgmt_be_client_conn_timeout(struct thread *thread)
+static void mgmt_be_client_conn_timeout(struct event *thread)
 {
-	mgmt_be_server_connect(THREAD_ARG(thread));
+	mgmt_be_server_connect(EVENT_ARG(thread));
 }
 
 static void
@@ -1053,25 +1053,25 @@ mgmt_be_client_register_event(struct mgmt_be_client_ctx *client_ctx,
 
 	switch (event) {
 	case MGMTD_BE_CONN_READ:
-		thread_add_read(client_ctx->tm, mgmt_be_client_read,
+		event_add_read(client_ctx->tm, mgmt_be_client_read,
 				client_ctx, client_ctx->conn_fd,
 				&client_ctx->conn_read_ev);
 		assert(client_ctx->conn_read_ev);
 		break;
 	case MGMTD_BE_CONN_WRITE:
-		thread_add_write(client_ctx->tm, mgmt_be_client_write,
+		event_add_write(client_ctx->tm, mgmt_be_client_write,
 				 client_ctx, client_ctx->conn_fd,
 				 &client_ctx->conn_write_ev);
 		assert(client_ctx->conn_write_ev);
 		break;
 	case MGMTD_BE_PROC_MSG:
 		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
-		thread_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
+		event_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
 				    client_ctx, &tv, &client_ctx->msg_proc_ev);
 		assert(client_ctx->msg_proc_ev);
 		break;
 	case MGMTD_BE_CONN_WRITES_ON:
-		thread_add_timer_msec(client_ctx->tm,
+		event_add_timer_msec(client_ctx->tm,
 				      mgmt_be_client_resume_writes, client_ctx,
 				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
 				      &client_ctx->conn_writes_on);
@@ -1095,7 +1095,7 @@ mgmt_be_client_schedule_conn_retry(struct mgmt_be_client_ctx *client_ctx,
 	MGMTD_BE_CLIENT_DBG(
 		"Scheduling MGMTD Backend server connection retry after %lu seconds",
 		intvl_secs);
-	thread_add_timer(client_ctx->tm, mgmt_be_client_conn_timeout,
+	event_add_timer(client_ctx->tm, mgmt_be_client_conn_timeout,
 			 (void *)client_ctx, intvl_secs,
 			 &client_ctx->conn_retry_tmr);
 }
@@ -1106,7 +1106,7 @@ extern struct nb_config *running_config;
  * Initialize library and try connecting with MGMTD.
  */
 uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
-				    struct thread_master *master_thread)
+				  struct event_loop *master_thread)
 {
 	assert(master_thread && params && strlen(params->name)
 	       && !mgmt_be_client_ctx.tm);
@@ -1213,11 +1213,11 @@ void mgmt_be_client_lib_destroy(uintptr_t lib_hndl)
 
 	mgmt_msg_destroy(&client_ctx->mstate);
 
-	THREAD_OFF(client_ctx->conn_retry_tmr);
-	THREAD_OFF(client_ctx->conn_read_ev);
-	THREAD_OFF(client_ctx->conn_write_ev);
-	THREAD_OFF(client_ctx->conn_writes_on);
-	THREAD_OFF(client_ctx->msg_proc_ev);
+	EVENT_OFF(client_ctx->conn_retry_tmr);
+	EVENT_OFF(client_ctx->conn_read_ev);
+	EVENT_OFF(client_ctx->conn_write_ev);
+	EVENT_OFF(client_ctx->conn_writes_on);
+	EVENT_OFF(client_ctx->msg_proc_ev);
 	mgmt_be_cleanup_all_txns(client_ctx);
 	mgmt_be_txns_fini(&client_ctx->txn_head);
 }

@@ -690,8 +690,7 @@ static zclient_handler *const ldp_handlers[] = {
 	[ZEBRA_OPAQUE_MESSAGE] = ldp_zebra_opaque_msg_handler,
 };
 
-void
-ldp_zebra_init(struct thread_master *master)
+void ldp_zebra_init(struct event_loop *master)
 {
 	if_zapi_callbacks(ldp_ifp_create, ldp_ifp_up,
 			  ldp_ifp_down, ldp_ifp_destroy);

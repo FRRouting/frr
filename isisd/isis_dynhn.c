@@ -16,7 +16,7 @@
 #include "stream.h"
 #include "command.h"
 #include "if.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -29,14 +29,14 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_DYNHN, "ISIS dyn hostname");
 
-static void dyn_cache_cleanup(struct thread *);
+static void dyn_cache_cleanup(struct event *);
 
 void dyn_cache_init(struct isis *isis)
 {
 	isis->dyn_cache = list_new();
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
-		thread_add_timer(master, dyn_cache_cleanup, isis, 120,
-				 &isis->t_dync_clean);
+		event_add_timer(master, dyn_cache_cleanup, isis, 120,
+				&isis->t_dync_clean);
 }
 
 void dyn_cache_finish(struct isis *isis)
@@ -44,7 +44,7 @@ void dyn_cache_finish(struct isis *isis)
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;
 
-	THREAD_OFF(isis->t_dync_clean);
+	EVENT_OFF(isis->t_dync_clean);
 
 	for (ALL_LIST_ELEMENTS(isis->dyn_cache, node, nnode, dyn)) {
 		list_delete_node(isis->dyn_cache, node);
@@ -54,14 +54,14 @@ void dyn_cache_finish(struct isis *isis)
 	list_delete(&isis->dyn_cache);
 }
 
-static void dyn_cache_cleanup(struct thread *thread)
+static void dyn_cache_cleanup(struct event *thread)
 {
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;
 	time_t now = time(NULL);
 	struct isis *isis = NULL;
 
-	isis = THREAD_ARG(thread);
+	isis = EVENT_ARG(thread);
 
 	isis->t_dync_clean = NULL;
 
@@ -72,7 +72,7 @@ static void dyn_cache_cleanup(struct thread *thread)
 		XFREE(MTYPE_ISIS_DYNHN, dyn);
 	}
 
-	thread_add_timer(master, dyn_cache_cleanup, isis, 120,
+	event_add_timer(master, dyn_cache_cleanup, isis, 120,
 			&isis->t_dync_clean);
 }
 

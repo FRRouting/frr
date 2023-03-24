@@ -11,7 +11,7 @@
 #include "zclient.h"
 #include "stream.h"
 #include "network.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "vty.h"
 #include "lib_errors.h"
@@ -27,17 +27,17 @@
 #include "pim_addr.h"
 
 static struct zclient *zlookup = NULL;
-struct thread *zlookup_read;
+struct event *zlookup_read;
 
 static void zclient_lookup_sched(struct zclient *zlookup, int delay);
-static void zclient_lookup_read_pipe(struct thread *thread);
+static void zclient_lookup_read_pipe(struct event *thread);
 
 /* Connect to zebra for nexthop lookup. */
-static void zclient_lookup_connect(struct thread *t)
+static void zclient_lookup_connect(struct event *t)
 {
 	struct zclient *zlookup;
 
-	zlookup = THREAD_ARG(t);
+	zlookup = EVENT_ARG(t);
 
 	if (zlookup->sock >= 0) {
 		return;
@@ -65,15 +65,15 @@ static void zclient_lookup_connect(struct thread *t)
 		return;
 	}
 
-	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
-			 &zlookup_read);
+	event_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
+			&zlookup_read);
 }
 
 /* Schedule connection with delay. */
 static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 {
-	thread_add_timer(router->master, zclient_lookup_connect, zlookup, delay,
-			 &zlookup->t_connect);
+	event_add_timer(router->master, zclient_lookup_connect, zlookup, delay,
+			&zlookup->t_connect);
 
 	zlog_notice("%s: zclient lookup connection scheduled for %d seconds",
 		    __func__, delay);
@@ -82,8 +82,8 @@ static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 /* Schedule connection for now. */
 static void zclient_lookup_sched_now(struct zclient *zlookup)
 {
-	thread_add_event(router->master, zclient_lookup_connect, zlookup, 0,
-			 &zlookup->t_connect);
+	event_add_event(router->master, zclient_lookup_connect, zlookup, 0,
+			&zlookup->t_connect);
 
 	zlog_notice("%s: zclient lookup immediate connection scheduled",
 		    __func__);
@@ -114,7 +114,7 @@ static void zclient_lookup_failed(struct zclient *zlookup)
 
 void zclient_lookup_free(void)
 {
-	THREAD_OFF(zlookup_read);
+	EVENT_OFF(zlookup_read);
 	zclient_stop(zlookup);
 	zclient_free(zlookup);
 	zlookup = NULL;
@@ -364,9 +364,9 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	return zclient_read_nexthop(pim, zlookup, nexthop_tab, tab_size, addr);
 }
 
-void zclient_lookup_read_pipe(struct thread *thread)
+void zclient_lookup_read_pipe(struct event *thread)
 {
-	struct zclient *zlookup = THREAD_ARG(thread);
+	struct zclient *zlookup = EVENT_ARG(thread);
 	struct pim_instance *pim = pim_get_pim_instance(VRF_DEFAULT);
 	struct pim_zlookup_nexthop nexthop_tab[10];
 	pim_addr l = PIMADDR_ANY;
@@ -378,8 +378,8 @@ void zclient_lookup_read_pipe(struct thread *thread)
 	}
 
 	zclient_lookup_nexthop_once(pim, nexthop_tab, 10, l);
-	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
-			 &zlookup_read);
+	event_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
+			&zlookup_read);
 }
 
 int zclient_lookup_nexthop(struct pim_instance *pim,

@@ -16,7 +16,7 @@
 #include "buffer.h"
 #include "linklist.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "memory.h"
 #include "lib_vty.h"
@@ -2194,7 +2194,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 
 	/* Cancel max-med onstartup if its on */
 	if (bgp->t_maxmed_onstartup) {
-		THREAD_OFF(bgp->t_maxmed_onstartup);
+		EVENT_OFF(bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
 
@@ -7518,9 +7518,9 @@ DEFUN (bgp_set_route_map_delay_timer,
 		 * fired.
 		 */
 		if (!rmap_delay_timer && bm->t_rmap_update) {
-			THREAD_OFF(bm->t_rmap_update);
-			thread_execute(bm->master, bgp_route_map_update_timer,
-				       NULL, 0);
+			EVENT_OFF(bm->t_rmap_update);
+			event_execute(bm->master, bgp_route_map_update_timer,
+				      NULL, 0);
 		}
 		return CMD_SUCCESS;
 	} else {
@@ -12330,7 +12330,7 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 			if (peer->t_gr_stale != NULL) {
 				json_object_int_add(json_timer,
 						    "stalePathTimerRemaining",
-						    thread_timer_remain_second(
+						    event_timer_remain_second(
 							    peer->t_gr_stale));
 			}
 
@@ -12351,7 +12351,7 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 				json_object_int_add(
 					json_timer,
 					"selectionDeferralTimerRemaining",
-					thread_timer_remain_second(
+					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 			}
@@ -12364,7 +12364,7 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 			if (peer->t_gr_stale != NULL)
 				vty_out(vty,
 					"      Stale Path Remaining(sec): %ld\n",
-					thread_timer_remain_second(
+					event_timer_remain_second(
 						peer->t_gr_stale));
 			/* Display Configured Selection
 			 * Deferral only when when
@@ -12379,7 +12379,7 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 			    NULL)
 				vty_out(vty,
 					"        Selection Deferral Time Remaining(sec): %ld\n",
-					thread_timer_remain_second(
+					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 		}
@@ -12413,7 +12413,7 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 		if (p->t_gr_restart != NULL)
 			json_object_int_add(
 				json_timer, "restartTimerRemaining",
-				thread_timer_remain_second(p->t_gr_restart));
+				event_timer_remain_second(p->t_gr_restart));
 
 		json_object_object_add(json, "timers", json_timer);
 	} else {
@@ -12426,10 +12426,10 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 			p->v_gr_restart);
 		if (p->t_gr_restart != NULL)
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
-				thread_timer_remain_second(p->t_gr_restart));
+				event_timer_remain_second(p->t_gr_restart));
 		if (p->t_gr_restart != NULL) {
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
-				thread_timer_remain_second(p->t_gr_restart));
+				event_timer_remain_second(p->t_gr_restart));
 		}
 	}
 }
@@ -13460,11 +13460,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_neigh,
 			"bgpTimerConfiguredConditionalAdvertisementsSec",
 			bgp->condition_check_period);
-		if (thread_is_scheduled(bgp->t_condition_check))
+		if (event_is_scheduled(bgp->t_condition_check))
 			json_object_int_add(
 				json_neigh,
 				"bgpTimerUntilConditionalAdvertisementsSec",
-				thread_timer_remain_second(
+				event_timer_remain_second(
 					bgp->t_condition_check));
 	} else {
 		/* Administrative shutdown. */
@@ -13541,10 +13541,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty,
 			"  Configured conditional advertisements interval is %d seconds\n",
 			bgp->condition_check_period);
-		if (thread_is_scheduled(bgp->t_condition_check))
+		if (event_is_scheduled(bgp->t_condition_check))
 			vty_out(vty,
 				"  Time until conditional advertisements begin is %lu seconds\n",
-				thread_timer_remain_second(
+				event_timer_remain_second(
 					bgp->t_condition_check));
 	}
 	/* Capability. */
@@ -14481,13 +14481,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (p->t_gr_restart)
 			json_object_int_add(
 				json_grace, "gracefulRestartTimerMsecs",
-				thread_timer_remain_second(p->t_gr_restart) *
+				event_timer_remain_second(p->t_gr_restart) *
 					1000);
 
 		if (p->t_gr_stale)
 			json_object_int_add(
 				json_grace, "gracefulStalepathTimerMsecs",
-				thread_timer_remain_second(p->t_gr_stale) *
+				event_timer_remain_second(p->t_gr_stale) *
 					1000);
 		/* more gr info in new format */
 		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json_grace);
@@ -14528,12 +14528,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (p->t_gr_restart)
 			vty_out(vty,
 				"    The remaining time of restart timer is %ld\n",
-				thread_timer_remain_second(p->t_gr_restart));
+				event_timer_remain_second(p->t_gr_restart));
 
 		if (p->t_gr_stale)
 			vty_out(vty,
 				"    The remaining time of stalepath timer is %ld\n",
-				thread_timer_remain_second(p->t_gr_stale));
+				event_timer_remain_second(p->t_gr_stale));
 
 		/* more gr info in new format */
 		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, NULL);
@@ -14767,14 +14767,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					json_neigh, "reducePrefixNumFrom");
 				json_object_int_add(json_neigh,
 						    "restartInTimerMsec",
-						    thread_timer_remain_second(
-							    p->t_pmax_restart)
-							    * 1000);
+						    event_timer_remain_second(
+							    p->t_pmax_restart) *
+							    1000);
 			} else
 				vty_out(vty,
 					"  Reduce the no. of prefix from %s, will restart in %ld seconds\n",
-					p->host, thread_timer_remain_second(
-							 p->t_pmax_restart));
+					p->host,
+					event_timer_remain_second(
+						p->t_pmax_restart));
 		} else {
 			if (use_json)
 				json_object_boolean_true_add(
@@ -14926,19 +14927,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (p->t_start)
 			json_object_int_add(
 				json_neigh, "nextStartTimerDueInMsecs",
-				thread_timer_remain_second(p->t_start) * 1000);
+				event_timer_remain_second(p->t_start) * 1000);
 		if (p->t_connect)
 			json_object_int_add(
 				json_neigh, "nextConnectTimerDueInMsecs",
-				thread_timer_remain_second(p->t_connect)
-					* 1000);
+				event_timer_remain_second(p->t_connect) * 1000);
 		if (p->t_routeadv) {
 			json_object_int_add(json_neigh, "mraiInterval",
 					    p->v_routeadv);
 			json_object_int_add(
 				json_neigh, "mraiTimerExpireInMsecs",
-				thread_timer_remain_second(p->t_routeadv)
-					* 1000);
+				event_timer_remain_second(p->t_routeadv) *
+					1000);
 		}
 		if (p->password)
 			json_object_int_add(json_neigh, "authenticationEnabled",
@@ -14967,15 +14967,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		}
 		if (p->t_start)
 			vty_out(vty, "Next start timer due in %ld seconds\n",
-				thread_timer_remain_second(p->t_start));
+				event_timer_remain_second(p->t_start));
 		if (p->t_connect)
 			vty_out(vty, "Next connect timer due in %ld seconds\n",
-				thread_timer_remain_second(p->t_connect));
+				event_timer_remain_second(p->t_connect));
 		if (p->t_routeadv)
 			vty_out(vty,
 				"MRAI (interval %u) timer expires in %ld seconds\n",
 				p->v_routeadv,
-				thread_timer_remain_second(p->t_routeadv));
+				event_timer_remain_second(p->t_routeadv));
 		if (p->password)
 			vty_out(vty, "Peer Authentication Enabled\n");
 
@@ -18764,14 +18764,14 @@ static const struct cmd_variable_handler bgp_var_peergroup[] = {
 
 DEFINE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 
-static struct thread *t_bgp_cfg;
+static struct event *t_bgp_cfg;
 
 bool bgp_config_inprocess(void)
 {
-	return thread_is_scheduled(t_bgp_cfg);
+	return event_is_scheduled(t_bgp_cfg);
 }
 
-static void bgp_config_finish(struct thread *t)
+static void bgp_config_finish(struct event *t)
 {
 	struct listnode *node;
 	struct bgp *bgp;
@@ -18783,9 +18783,9 @@ static void bgp_config_finish(struct thread *t)
 static void bgp_config_start(void)
 {
 #define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
-	THREAD_OFF(t_bgp_cfg);
-	thread_add_timer(bm->master, bgp_config_finish, NULL,
-			 BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
+	EVENT_OFF(t_bgp_cfg);
+	event_add_timer(bm->master, bgp_config_finish, NULL,
+			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
 
 /* When we receive a hook the configuration is read,
@@ -18797,8 +18797,8 @@ static void bgp_config_end(void)
 {
 #define BGP_POST_CONFIG_DELAY_SECONDS 1
 	uint32_t bgp_post_config_delay =
-		thread_is_scheduled(bm->t_rmap_update)
-			? thread_timer_remain_second(bm->t_rmap_update)
+		event_is_scheduled(bm->t_rmap_update)
+			? event_timer_remain_second(bm->t_rmap_update)
 			: BGP_POST_CONFIG_DELAY_SECONDS;
 
 	/* If BGP config processing thread isn't running, then
@@ -18807,13 +18807,13 @@ static void bgp_config_end(void)
 	if (!bgp_config_inprocess())
 		return;
 
-	THREAD_OFF(t_bgp_cfg);
+	EVENT_OFF(t_bgp_cfg);
 
 	/* Start a new timer to make sure we don't send EoR
 	 * before route-maps are processed.
 	 */
-	thread_add_timer(bm->master, bgp_config_finish, NULL,
-			 bgp_post_config_delay, &t_bgp_cfg);
+	event_add_timer(bm->master, bgp_config_finish, NULL,
+			bgp_post_config_delay, &t_bgp_cfg);
 }
 
 static int config_write_interface_one(struct vty *vty, struct vrf *vrf)

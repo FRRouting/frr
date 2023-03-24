@@ -16,7 +16,7 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"

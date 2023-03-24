@@ -28,7 +28,7 @@
 #include "zebra/zebra_routemap_clippy.c"
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
-static struct thread *zebra_t_rmap_update = NULL;
+static struct event *zebra_t_rmap_update = NULL;
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct nh_rmap_obj {
@@ -1722,7 +1722,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_nht_rm_update(rmap_name);
 }
 
-static void zebra_route_map_update_timer(struct thread *thread)
+static void zebra_route_map_update_timer(struct event *thread)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event driven route-map update triggered");
@@ -1747,7 +1747,7 @@ static void zebra_route_map_set_delay_timer(uint32_t value)
 	if (!value && zebra_t_rmap_update) {
 		/* Event driven route map updates is being disabled */
 		/* But there's a pending timer. Fire it off now */
-		THREAD_OFF(zebra_t_rmap_update);
+		EVENT_OFF(zebra_t_rmap_update);
 		zebra_route_map_update_timer(NULL);
 	}
 }
@@ -1757,7 +1757,7 @@ void zebra_routemap_finish(void)
 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
 	zebra_rmap_update_timer = 0;
 	/* Thread off if any scheduled already */
-	THREAD_OFF(zebra_t_rmap_update);
+	EVENT_OFF(zebra_t_rmap_update);
 	route_map_finish();
 }
 
@@ -1874,10 +1874,10 @@ static void zebra_route_map_mark_update(const char *rmap_name)
 {
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (zebra_rmap_update_timer)
-		THREAD_OFF(zebra_t_rmap_update);
+		EVENT_OFF(zebra_t_rmap_update);
 
-	thread_add_timer(zrouter.master, zebra_route_map_update_timer,
-			 NULL, zebra_rmap_update_timer, &zebra_t_rmap_update);
+	event_add_timer(zrouter.master, zebra_route_map_update_timer, NULL,
+			zebra_rmap_update_timer, &zebra_t_rmap_update);
 }
 
 static void zebra_route_map_add(const char *rmap_name)

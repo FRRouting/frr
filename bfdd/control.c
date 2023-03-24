@@ -39,8 +39,8 @@ struct bfd_notify_peer *control_notifypeer_find(struct bfd_control_socket *bcs,
 struct bfd_control_socket *control_new(int sd);
 static void control_free(struct bfd_control_socket *bcs);
 static void control_reset_buf(struct bfd_control_buffer *bcb);
-static void control_read(struct thread *t);
-static void control_write(struct thread *t);
+static void control_read(struct event *t);
+static void control_write(struct event *t);
 
 static void control_handle_request_add(struct bfd_control_socket *bcs,
 				       struct bfd_control_msg *bcm);
@@ -132,7 +132,7 @@ void control_shutdown(void)
 {
 	struct bfd_control_socket *bcs;
 
-	thread_cancel(&bglobal.bg_csockev);
+	event_cancel(&bglobal.bg_csockev);
 
 	socket_close(&bglobal.bg_csock);
 
@@ -142,9 +142,9 @@ void control_shutdown(void)
 	}
 }
 
-void control_accept(struct thread *t)
+void control_accept(struct event *t)
 {
-	int csock, sd = THREAD_FD(t);
+	int csock, sd = EVENT_FD(t);
 
 	csock = accept(sd, NULL, 0);
 	if (csock == -1) {
@@ -154,7 +154,7 @@ void control_accept(struct thread *t)
 
 	control_new(csock);
 
-	thread_add_read(master, control_accept, NULL, sd, &bglobal.bg_csockev);
+	event_add_read(master, control_accept, NULL, sd, &bglobal.bg_csockev);
 }
 
 
@@ -171,7 +171,7 @@ struct bfd_control_socket *control_new(int sd)
 	bcs->bcs_notify = 0;
 
 	bcs->bcs_sd = sd;
-	thread_add_read(master, control_read, bcs, sd, &bcs->bcs_ev);
+	event_add_read(master, control_read, bcs, sd, &bcs->bcs_ev);
 
 	TAILQ_INIT(&bcs->bcs_bcqueue);
 	TAILQ_INIT(&bcs->bcs_bnplist);
@@ -185,8 +185,8 @@ static void control_free(struct bfd_control_socket *bcs)
 	struct bfd_control_queue *bcq;
 	struct bfd_notify_peer *bnp;
 
-	thread_cancel(&(bcs->bcs_ev));
-	thread_cancel(&(bcs->bcs_outev));
+	event_cancel(&(bcs->bcs_ev));
+	event_cancel(&(bcs->bcs_outev));
 
 	close(bcs->bcs_sd);
 
@@ -286,13 +286,13 @@ static int control_queue_dequeue(struct bfd_control_socket *bcs)
 	bcs->bcs_bout = &bcq->bcq_bcb;
 
 	bcs->bcs_outev = NULL;
-	thread_add_write(master, control_write, bcs, bcs->bcs_sd,
-			 &bcs->bcs_outev);
+	event_add_write(master, control_write, bcs, bcs->bcs_sd,
+			&bcs->bcs_outev);
 
 	return 1;
 
 empty_list:
-	thread_cancel(&(bcs->bcs_outev));
+	event_cancel(&(bcs->bcs_outev));
 	bcs->bcs_bout = NULL;
 	return 0;
 }
@@ -315,8 +315,8 @@ static int control_queue_enqueue(struct bfd_control_socket *bcs,
 		bcs->bcs_bout = bcb;
 
 		/* New messages, active write events. */
-		thread_add_write(master, control_write, bcs, bcs->bcs_sd,
-				 &bcs->bcs_outev);
+		event_add_write(master, control_write, bcs, bcs->bcs_sd,
+				&bcs->bcs_outev);
 	}
 
 	return 0;
@@ -379,9 +379,9 @@ static void control_reset_buf(struct bfd_control_buffer *bcb)
 	bcb->bcb_left = 0;
 }
 
-static void control_read(struct thread *t)
+static void control_read(struct event *t)
 {
-	struct bfd_control_socket *bcs = THREAD_ARG(t);
+	struct bfd_control_socket *bcs = EVENT_ARG(t);
 	struct bfd_control_buffer *bcb = &bcs->bcs_bin;
 	int sd = bcs->bcs_sd;
 	struct bfd_control_msg bcm;
@@ -511,12 +511,12 @@ skip_header:
 
 schedule_next_read:
 	bcs->bcs_ev = NULL;
-	thread_add_read(master, control_read, bcs, sd, &bcs->bcs_ev);
+	event_add_read(master, control_read, bcs, sd, &bcs->bcs_ev);
 }
 
-static void control_write(struct thread *t)
+static void control_write(struct event *t)
 {
-	struct bfd_control_socket *bcs = THREAD_ARG(t);
+	struct bfd_control_socket *bcs = EVENT_ARG(t);
 	struct bfd_control_buffer *bcb = bcs->bcs_bout;
 	int sd = bcs->bcs_sd;
 	ssize_t bwrite;
@@ -529,8 +529,8 @@ static void control_write(struct thread *t)
 	if (bwrite < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
 			bcs->bcs_outev = NULL;
-			thread_add_write(master, control_write, bcs,
-					 bcs->bcs_sd, &bcs->bcs_outev);
+			event_add_write(master, control_write, bcs, bcs->bcs_sd,
+					&bcs->bcs_outev);
 			return;
 		}
 
@@ -543,8 +543,8 @@ static void control_write(struct thread *t)
 	bcb->bcb_left -= bwrite;
 	if (bcb->bcb_left > 0) {
 		bcs->bcs_outev = NULL;
-		thread_add_write(master, control_write, bcs, bcs->bcs_sd,
-				 &bcs->bcs_outev);
+		event_add_write(master, control_write, bcs, bcs->bcs_sd,
+				&bcs->bcs_outev);
 		return;
 	}
 

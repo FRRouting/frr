@@ -195,9 +195,9 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static void ospf6_handle_grace_timer_expiry(struct thread *thread)
+static void ospf6_handle_grace_timer_expiry(struct event *thread)
 {
-	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
+	struct ospf6_neighbor *nbr = EVENT_ARG(thread);
 
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
 }
@@ -382,7 +382,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+		EVENT_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;
@@ -415,9 +415,9 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 			   actual_grace_interval);
 
 	/* Start the grace timer */
-	thread_add_timer(master, ospf6_handle_grace_timer_expiry, restarter,
-			 actual_grace_interval,
-			 &restarter->gr_helper_info.t_grace_timer);
+	event_add_timer(master, ospf6_handle_grace_timer_expiry, restarter,
+			actual_grace_interval,
+			&restarter->gr_helper_info.t_grace_timer);
 
 	return OSPF6_GR_ACTIVE_HELPER;
 }
@@ -470,7 +470,7 @@ void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
 	 * expiry, stop the grace timer.
 	 */
 	if (reason != OSPF6_GR_HELPER_GRACE_TIMEOUT)
-		THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+		EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	if (ospf6->ospf6_helper_cfg.active_restarter_cnt <= 0) {
 		zlog_err(
@@ -833,7 +833,7 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 		vty_out(vty, "   Actual Grace period : %d(in seconds)\n",
 			nbr->gr_helper_info.actual_grace_period);
 		vty_out(vty, "   Remaining GraceTime:%ld(in seconds).\n",
-			thread_timer_remain_second(
+			event_timer_remain_second(
 				nbr->gr_helper_info.t_grace_timer));
 		vty_out(vty, "   Graceful Restart reason: %s.\n\n",
 			ospf6_restart_reason_desc[nbr->gr_helper_info
@@ -850,8 +850,8 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 		json_object_int_add(json_neigh, "actualGraceInterval",
 			nbr->gr_helper_info.actual_grace_period);
 		json_object_int_add(json_neigh, "remainGracetime",
-			thread_timer_remain_second(
-				nbr->gr_helper_info.t_grace_timer));
+				    event_timer_remain_second(
+					    nbr->gr_helper_info.t_grace_timer));
 		json_object_string_add(json_neigh, "restartReason",
 			ospf6_restart_reason_desc[
 				nbr->gr_helper_info.gr_restart_reason]);

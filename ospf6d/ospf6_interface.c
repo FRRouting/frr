@@ -9,7 +9,7 @@
 #include "if.h"
 #include "log.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"
@@ -260,11 +260,11 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 	list_delete(&oi->neighbor_list);
 
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_send_lsupdate);
-	THREAD_OFF(oi->thread_send_lsack);
-	THREAD_OFF(oi->thread_sso);
-	THREAD_OFF(oi->thread_wait_timer);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_lsupdate);
+	EVENT_OFF(oi->thread_send_lsack);
+	EVENT_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_wait_timer);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -307,23 +307,23 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 {
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE);
 
-	thread_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_down, oi, 0);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsdb_self);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
 	ospf6_lsdb_remove_all(oi->lsack_list);
 
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_send_lsupdate);
-	THREAD_OFF(oi->thread_send_lsack);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_lsupdate);
+	EVENT_OFF(oi->thread_send_lsack);
+	EVENT_OFF(oi->thread_sso);
 
-	THREAD_OFF(oi->thread_network_lsa);
-	THREAD_OFF(oi->thread_link_lsa);
-	THREAD_OFF(oi->thread_intra_prefix_lsa);
-	THREAD_OFF(oi->thread_as_extern_lsa);
-	THREAD_OFF(oi->thread_wait_timer);
+	EVENT_OFF(oi->thread_network_lsa);
+	EVENT_OFF(oi->thread_link_lsa);
+	EVENT_OFF(oi->thread_intra_prefix_lsa);
+	EVENT_OFF(oi->thread_as_extern_lsa);
+	EVENT_OFF(oi->thread_wait_timer);
 }
 
 static struct in6_addr *
@@ -382,9 +382,9 @@ void ospf6_interface_state_update(struct interface *ifp)
 	if (if_is_operative(ifp)
 	    && (ospf6_interface_get_linklocal_address(oi->interface)
 		|| if_is_loopback(oi->interface)))
-		thread_execute(master, interface_up, oi, 0);
+		event_execute(master, interface_up, oi, 0);
 	else
-		thread_execute(master, interface_down, oi, 0);
+		event_execute(master, interface_down, oi, 0);
 
 	return;
 }
@@ -671,8 +671,8 @@ uint8_t dr_election(struct ospf6_interface *oi)
 			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
 				continue;
 			/* Schedule AdjOK. */
-			thread_add_event(master, adj_ok, on, 0,
-					 &on->thread_adj_ok);
+			event_add_event(master, adj_ok, on, 0,
+					&on->thread_adj_ok);
 		}
 	}
 
@@ -720,18 +720,18 @@ static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
 #endif /* __FreeBSD__ */
 
 /* Interface State Machine */
-void interface_up(struct thread *thread)
+void interface_up(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6 *ospf6;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (!oi->type_cfg)
 		oi->type = ospf6_default_iftype(oi->interface);
 
-	thread_cancel(&oi->thread_sso);
+	event_cancel(&oi->thread_sso);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
 		zlog_debug("Interface Event %s: [InterfaceUp]",
@@ -785,9 +785,8 @@ void interface_up(struct thread *thread)
 		zlog_info(
 			"Interface %s is still in all routers group, rescheduling for SSO",
 			oi->interface->name);
-		thread_add_timer(master, interface_up, oi,
-				 OSPF6_INTERFACE_SSO_RETRY_INT,
-				 &oi->thread_sso);
+		event_add_timer(master, interface_up, oi,
+				OSPF6_INTERFACE_SSO_RETRY_INT, &oi->thread_sso);
 		return;
 	}
 #endif /* __FreeBSD__ */
@@ -802,9 +801,9 @@ void interface_up(struct thread *thread)
 			zlog_info(
 				"Scheduling %s for sso retry, trial count: %d",
 				oi->interface->name, oi->sso_try_cnt);
-			thread_add_timer(master, interface_up, oi,
-					 OSPF6_INTERFACE_SSO_RETRY_INT,
-					 &oi->thread_sso);
+			event_add_timer(master, interface_up, oi,
+					OSPF6_INTERFACE_SSO_RETRY_INT,
+					&oi->thread_sso);
 		}
 		return;
 	}
@@ -816,8 +815,8 @@ void interface_up(struct thread *thread)
 	/* Schedule Hello */
 	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
 	    && !if_is_loopback(oi->interface)) {
-		thread_add_timer(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 	}
 
 	/* decide next interface state */
@@ -829,16 +828,16 @@ void interface_up(struct thread *thread)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
 	else {
 		ospf6_interface_state_change(OSPF6_INTERFACE_WAITING, oi);
-		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
-				 &oi->thread_wait_timer);
+		event_add_timer(master, wait_timer, oi, oi->dead_interval,
+				&oi->thread_wait_timer);
 	}
 }
 
-void wait_timer(struct thread *thread)
+void wait_timer(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -849,11 +848,11 @@ void wait_timer(struct thread *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void backup_seen(struct thread *thread)
+void backup_seen(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -864,11 +863,11 @@ void backup_seen(struct thread *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void neighbor_change(struct thread *thread)
+void neighbor_change(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -881,14 +880,14 @@ void neighbor_change(struct thread *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void interface_down(struct thread *thread)
+void interface_down(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
 	struct ospf6 *ospf6;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -896,10 +895,10 @@ void interface_down(struct thread *thread)
 			   oi->interface->name);
 
 	/* Stop Hellos */
-	THREAD_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_hello);
 
 	/* Stop trying to set socket options. */
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_sso);
 
 	/* Cease the HELPER role for all the neighbours
 	 * of this interface.
@@ -936,7 +935,7 @@ void interface_down(struct thread *thread)
 	if (oi->on_write_q) {
 		listnode_delete(ospf6->oi_write_q, oi);
 		if (list_isempty(ospf6->oi_write_q))
-			thread_cancel(&ospf6->t_write);
+			event_cancel(&ospf6->t_write);
 		oi->on_write_q = 0;
 	}
 
@@ -1141,7 +1140,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	if (use_json) {
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsupdate))
+		if (event_is_scheduled(oi->thread_send_lsupdate))
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
@@ -1151,9 +1150,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       duration);
 		json_object_string_add(
 			json_obj, "lsUpdateSendThread",
-			(thread_is_scheduled(oi->thread_send_lsupdate)
-				 ? "on"
-				 : "off"));
+			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
+								      : "off"));
 
 		json_arr = json_object_new_array();
 		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
@@ -1163,7 +1161,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       json_arr);
 
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsack))
+		if (event_is_scheduled(oi->thread_send_lsack))
 			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 
@@ -1173,8 +1171,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       duration);
 		json_object_string_add(
 			json_obj, "lsAckSendThread",
-			(thread_is_scheduled(oi->thread_send_lsack) ? "on"
-								    : "off"));
+			(event_is_scheduled(oi->thread_send_lsack) ? "on"
+								   : "off"));
 
 		json_arr = json_object_new_array();
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
@@ -1184,28 +1182,27 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	} else {
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsupdate))
+		if (event_is_scheduled(oi->thread_send_lsupdate))
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
 			oi->lsupdate_list->count, duration,
-			(thread_is_scheduled(oi->thread_send_lsupdate)
-				 ? "on"
-				 : "off"));
+			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
+								      : "off"));
 		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsack))
+		if (event_is_scheduled(oi->thread_send_lsack))
 			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
 			oi->lsack_list->count, duration,
-			(thread_is_scheduled(oi->thread_send_lsack) ? "on"
-								    : "off"));
+			(event_is_scheduled(oi->thread_send_lsack) ? "on"
+								   : "off"));
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 	}
@@ -1879,8 +1876,8 @@ DEFUN (ipv6_ospf6_ifmtu,
 
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -1925,8 +1922,8 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -2108,11 +2105,11 @@ DEFUN (ipv6_ospf6_hellointerval,
 	/*
 	 * If the thread is scheduled, send the new hello now.
 	 */
-	if (thread_is_scheduled(oi->thread_send_hello)) {
-		THREAD_OFF(oi->thread_send_hello);
+	if (event_is_scheduled(oi->thread_send_hello)) {
+		EVENT_OFF(oi->thread_send_hello);
 
-		thread_add_timer(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 	}
 	return CMD_SUCCESS;
 }
@@ -2325,12 +2322,12 @@ DEFUN (ipv6_ospf6_passive,
 	assert(oi);
 
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_sso);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -2355,13 +2352,13 @@ DEFUN (no_ipv6_ospf6_passive,
 	assert(oi);
 
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_sso);
 
 	/* don't send hellos over loopback interface */
 	if (!if_is_loopback(oi->interface))
-		thread_add_timer(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 
 	return CMD_SUCCESS;
 }
@@ -2521,8 +2518,8 @@ DEFUN (ipv6_ospf6_network,
 	}
 
 	/* Reset the interface */
-	thread_execute(master, interface_down, oi, 0);
-	thread_execute(master, interface_up, oi, 0);
+	event_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2557,8 +2554,8 @@ DEFUN (no_ipv6_ospf6_network,
 	oi->type = type;
 
 	/* Reset the interface */
-	thread_execute(master, interface_down, oi, 0);
-	thread_execute(master, interface_up, oi, 0);
+	event_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2774,8 +2771,8 @@ void ospf6_interface_clear(struct interface *ifp)
 		zlog_debug("Interface %s: clear by reset", ifp->name);
 
 	/* Reset the interface */
-	thread_execute(master, interface_down, oi, 0);
-	thread_execute(master, interface_up, oi, 0);
+	event_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_up, oi, 0);
 }
 
 /* Clear interface */

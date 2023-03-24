@@ -18,7 +18,7 @@
 #include <regex.h>
 #endif /* HAVE_LIBPCRE2_POSIX */
 
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "sockunion.h"
 #include "qobj.h"
@@ -148,7 +148,7 @@ struct vty {
 	size_t pending_cmds_bufpos;
 
 	/* Confirmed-commit timeout and rollback configuration. */
-	struct thread *t_confirmed_commit_timeout;
+	struct event *t_confirmed_commit_timeout;
 	struct nb_config *confirmed_commit_rollback;
 
 	/* qobj object ID (replacement for "index") */
@@ -202,12 +202,12 @@ struct vty {
 	int lines;
 
 	/* Read and write thread. */
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* Timeout seconds and thread. */
 	unsigned long v_timeout;
-	struct thread *t_timeout;
+	struct event *t_timeout;
 
 	/* What address is this vty comming from. */
 	char address[SU_ADDRSTRLEN];
@@ -337,7 +337,7 @@ struct vty_arg {
 extern struct nb_config *vty_mgmt_candidate_config;
 
 /* Prototypes. */
-extern void vty_init(struct thread_master *, bool do_command_logging);
+extern void vty_init(struct event_loop *m, bool do_command_logging);
 extern void vty_init_vtysh(void);
 extern void vty_terminate(void);
 extern void vty_reset(void);

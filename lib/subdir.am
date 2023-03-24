@@ -108,7 +108,7 @@ lib_libfrr_la_SOURCES = \
 	lib/systemd.c \
 	lib/table.c \
 	lib/termtable.c \
-	lib/thread.c \
+	lib/event.c \
 	lib/typerb.c \
 	lib/typesafe.c \
 	lib/vector.c \
@@ -181,7 +181,7 @@ clippy_scan += \
 	lib/plist.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
-	lib/thread.c \
+	lib/event.c \
 	lib/vty.c \
 	lib/zlog_5424_cli.c \
 	# end
@@ -288,7 +288,7 @@ pkginclude_HEADERS += \
 	lib/systemd.h \
 	lib/table.h \
 	lib/termtable.h \
-	lib/thread.h \
+	lib/frrevent.h \
 	lib/trace.h \
 	lib/typerb.h \
 	lib/typesafe.h \

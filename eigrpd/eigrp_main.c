@@ -17,7 +17,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -76,7 +76,7 @@ struct zebra_privs_t eigrpd_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Forward declaration of daemon info structure. */
 static struct frr_daemon_info eigrpd_di;

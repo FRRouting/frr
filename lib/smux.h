@@ -9,7 +9,7 @@
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "hook.h"
 
 #ifdef __cplusplus
@@ -99,7 +99,7 @@ struct index_oid {
  */
 extern bool smux_enabled(void);
 
-extern void smux_init(struct thread_master *tm);
+extern void smux_init(struct event_loop *tm);
 extern void smux_agentx_enable(void);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
 			      oid[], size_t);

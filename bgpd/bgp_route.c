@@ -20,7 +20,7 @@
 #include "buffer.h"
 #include "sockunion.h"
 #include "plist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "queue.h"
 #include "memory.h"
@@ -2618,14 +2618,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	return true;
 }
 
-static void bgp_route_select_timer_expire(struct thread *thread)
+static void bgp_route_select_timer_expire(struct event *thread)
 {
 	struct afi_safi_info *info;
 	afi_t afi;
 	safi_t safi;
 	struct bgp *bgp;
 
-	info = THREAD_ARG(thread);
+	info = EVENT_ARG(thread);
 	afi = info->afi;
 	safi = info->safi;
 	bgp = info->bgp;
@@ -3281,7 +3281,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 		if (!bgp->t_rmap_def_originate_eval) {
 			bgp_lock(bgp);
-			thread_add_timer(
+			event_add_timer(
 				bm->master,
 				update_group_refresh_default_originate_route_map,
 				bgp, RMAP_DEFAULT_ORIGINATE_EVAL_TIMER,
@@ -3381,11 +3381,11 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	struct afi_safi_info *thread_info;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
-		struct thread *t = bgp->gr_info[afi][safi].t_route_select;
+		struct event *t = bgp->gr_info[afi][safi].t_route_select;
 
-		thread_info = THREAD_ARG(t);
+		thread_info = EVENT_ARG(t);
 		XFREE(MTYPE_TMP, thread_info);
-		THREAD_OFF(bgp->gr_info[afi][safi].t_route_select);
+		EVENT_OFF(bgp->gr_info[afi][safi].t_route_select);
 	}
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
@@ -3433,7 +3433,7 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	/* If there are more routes to be processed, start the
 	 * selection timer
 	 */
-	thread_add_timer(bm->master, bgp_route_select_timer_expire, thread_info,
+	event_add_timer(bm->master, bgp_route_select_timer_expire, thread_info,
 			BGP_ROUTE_SELECT_DELAY,
 			&bgp->gr_info[afi][safi].t_route_select);
 }
@@ -3585,11 +3585,11 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 	work_queue_add(bgp->process_queue, pqnode);
 }
 
-static void bgp_maximum_prefix_restart_timer(struct thread *thread)
+static void bgp_maximum_prefix_restart_timer(struct event *thread)
 {
 	struct peer *peer;
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 	peer->t_pmax_restart = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
@@ -5046,7 +5046,7 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
 	if (!paf->t_announce_route)
 		return;
 
-	THREAD_OFF(paf->t_announce_route);
+	EVENT_OFF(paf->t_announce_route);
 }
 
 /*
@@ -5055,12 +5055,12 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
  * Callback that is invoked when the route announcement timer for a
  * peer_af expires.
  */
-static void bgp_announce_route_timer_expired(struct thread *t)
+static void bgp_announce_route_timer_expired(struct event *t)
 {
 	struct peer_af *paf;
 	struct peer *peer;
 
-	paf = THREAD_ARG(t);
+	paf = EVENT_ARG(t);
 	peer = paf->peer;
 
 	if (!peer_established(peer))
@@ -5109,11 +5109,11 @@ void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi, bool force)
 	 * multiple peers and the announcement doesn't happen in the
 	 * vty context.
 	 */
-	thread_add_timer_msec(bm->master, bgp_announce_route_timer_expired, paf,
-			      (subgrp->peer_count == 1)
-				      ? BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS
-				      : BGP_ANNOUNCE_ROUTE_DELAY_MS,
-			      &paf->t_announce_route);
+	event_add_timer_msec(bm->master, bgp_announce_route_timer_expired, paf,
+			     (subgrp->peer_count == 1)
+				     ? BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS
+				     : BGP_ANNOUNCE_ROUTE_DELAY_MS,
+			     &paf->t_announce_route);
 }
 
 /*
@@ -5215,7 +5215,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
  * Without splitting the full job into several part,
  * vtysh waits for the job to finish before responding to a BGP command
  */
-static void bgp_soft_reconfig_table_task(struct thread *thread)
+static void bgp_soft_reconfig_table_task(struct event *thread)
 {
 	uint32_t iter, max_iter;
 	struct bgp_dest *dest;
@@ -5225,7 +5225,7 @@ static void bgp_soft_reconfig_table_task(struct thread *thread)
 	struct prefix_rd *prd;
 	struct listnode *node, *nnode;
 
-	table = THREAD_ARG(thread);
+	table = EVENT_ARG(thread);
 	prd = NULL;
 
 	max_iter = SOFT_RECONFIG_TASK_MAX_PREFIX;
@@ -5263,8 +5263,8 @@ static void bgp_soft_reconfig_table_task(struct thread *thread)
 	 */
 	if (dest || table->soft_reconfig_init) {
 		table->soft_reconfig_init = false;
-		thread_add_event(bm->master, bgp_soft_reconfig_table_task,
-				 table, 0, &table->soft_reconfig_thread);
+		event_add_event(bm->master, bgp_soft_reconfig_table_task, table,
+				0, &table->soft_reconfig_thread);
 		return;
 	}
 	/* we're done, clean up the background iteration context info and
@@ -5319,7 +5319,7 @@ void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 
 		list_delete(&ntable->soft_reconfig_peers);
 		bgp_soft_reconfig_table_flag(ntable, false);
-		THREAD_OFF(ntable->soft_reconfig_thread);
+		EVENT_OFF(ntable->soft_reconfig_thread);
 	}
 }
 
@@ -5365,9 +5365,9 @@ bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 		bgp_soft_reconfig_table_flag(table, true);
 
 		if (!table->soft_reconfig_thread)
-			thread_add_event(bm->master,
-					 bgp_soft_reconfig_table_task, table, 0,
-					 &table->soft_reconfig_thread);
+			event_add_event(bm->master,
+					bgp_soft_reconfig_table_task, table, 0,
+					&table->soft_reconfig_thread);
 		/* Cancel bgp_announce_route_timer_expired threads.
 		 * bgp_announce_route_timer_expired threads have been scheduled
 		 * to announce routes as soon as the soft_reconfigure process
@@ -11105,7 +11105,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	if (path->peer->t_gr_restart &&
 	    CHECK_FLAG(path->flags, BGP_PATH_STALE)) {
 		unsigned long gr_remaining =
-			thread_timer_remain_second(path->peer->t_gr_restart);
+			event_timer_remain_second(path->peer->t_gr_restart);
 
 		if (json_paths) {
 			json_object_int_add(json_path,
@@ -11121,7 +11121,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	    bgp_attr_get_community(attr) &&
 	    community_include(bgp_attr_get_community(attr),
 			      COMMUNITY_LLGR_STALE)) {
-		unsigned long llgr_remaining = thread_timer_remain_second(
+		unsigned long llgr_remaining = event_timer_remain_second(
 			path->peer->t_llgr_stale[afi][safi]);
 
 		if (json_paths) {
@@ -13342,11 +13342,11 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	}
 }
 
-static void bgp_table_stats_walker(struct thread *t)
+static void bgp_table_stats_walker(struct event *t)
 {
 	struct bgp_dest *dest, *ndest;
 	struct bgp_dest *top;
-	struct bgp_table_stats *ts = THREAD_ARG(t);
+	struct bgp_table_stats *ts = EVENT_ARG(t);
 	unsigned int space = 0;
 
 	if (!(top = bgp_table_top(ts->table)))
@@ -13441,7 +13441,7 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	memset(&ts, 0, sizeof(ts));
 	ts.table = bgp->rib[afi][safi];
-	thread_execute(bm->master, bgp_table_stats_walker, &ts, 0);
+	event_execute(bm->master, bgp_table_stats_walker, &ts, 0);
 
 	for (i = 0; i < BGP_STATS_MAX; i++) {
 		if ((!json && !table_stats_strs[i][TABLE_STATS_IDX_VTY])
@@ -13739,11 +13739,11 @@ static void bgp_peer_count_proc(struct bgp_dest *rn, struct peer_pcounts *pc)
 	}
 }
 
-static void bgp_peer_count_walker(struct thread *t)
+static void bgp_peer_count_walker(struct event *t)
 {
 	struct bgp_dest *rn, *rm;
 	const struct bgp_table *table;
-	struct peer_pcounts *pc = THREAD_ARG(t);
+	struct peer_pcounts *pc = EVENT_ARG(t);
 
 	if (pc->safi == SAFI_MPLS_VPN || pc->safi == SAFI_ENCAP
 	    || pc->safi == SAFI_EVPN) {
@@ -13798,7 +13798,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 	 * stats for the thread-walk (i.e. ensure this can't be blamed on
 	 * on just vty_read()).
 	 */
-	thread_execute(bm->master, bgp_peer_count_walker, &pcounts, 0);
+	event_execute(bm->master, bgp_peer_count_walker, &pcounts, 0);
 
 	if (use_json) {
 		json_object_string_add(json, "prefixCountsFor", peer->host);

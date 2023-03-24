@@ -64,7 +64,7 @@ int execute_flag = 0;
 int user_mode;
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Command logging */
 FILE *logfile;
@@ -214,33 +214,33 @@ struct option longopts[] = {
 
 bool vtysh_loop_exited;
 
-static struct thread *vtysh_rl_read_thread;
+static struct event *vtysh_rl_read_thread;
 
-static void vtysh_rl_read(struct thread *thread)
+static void vtysh_rl_read(struct event *thread)
 {
-	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
-			&vtysh_rl_read_thread);
+	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
 }
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
 static void vtysh_rl_run(void)
 {
-	struct thread thread;
+	struct event thread;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
-	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
-			&vtysh_rl_read_thread);
+	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+		       &vtysh_rl_read_thread);
 
-	while (!vtysh_loop_exited && thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (!vtysh_loop_exited && event_fetch(master, &thread))
+		event_call(&thread);
 
 	if (!vtysh_loop_exited)
 		rl_callback_handler_remove();
 
-	thread_master_free(master);
+	event_master_free(master);
 }
 
 static void log_it(const char *line)

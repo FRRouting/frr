@@ -13,7 +13,7 @@
 #include "sockunion.h"
 #include "zclient.h"
 #include "routemap.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "queue.h"
 #include "memory.h"
 #include "lib/json.h"
@@ -1046,19 +1046,19 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 	return false;
 }
 
-static struct thread *bgp_tm_thread_connect;
+static struct event *bgp_tm_thread_connect;
 static bool bgp_tm_status_connected;
 static bool bgp_tm_chunk_obtained;
 #define BGP_FLOWSPEC_TABLE_CHUNK 100000
 static uint32_t bgp_tm_min, bgp_tm_max, bgp_tm_chunk_size;
 struct bgp *bgp_tm_bgp;
 
-static void bgp_zebra_tm_connect(struct thread *t)
+static void bgp_zebra_tm_connect(struct event *t)
 {
 	struct zclient *zclient;
 	int delay = 10, ret = 0;
 
-	zclient = THREAD_ARG(t);
+	zclient = EVENT_ARG(t);
 	if (bgp_tm_status_connected && zclient->sock > 0)
 		delay = 60;
 	else {
@@ -1082,8 +1082,8 @@ static void bgp_zebra_tm_connect(struct thread *t)
 			}
 		}
 	}
-	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
-			 &bgp_tm_thread_connect);
+	event_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
+			&bgp_tm_thread_connect);
 }
 
 bool bgp_zebra_tm_chunk_obtained(void)
@@ -1113,8 +1113,8 @@ void bgp_zebra_init_tm_connect(struct bgp *bgp)
 	bgp_tm_min = bgp_tm_max = 0;
 	bgp_tm_chunk_size = BGP_FLOWSPEC_TABLE_CHUNK;
 	bgp_tm_bgp = bgp;
-	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
-			 &bgp_tm_thread_connect);
+	event_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
+			&bgp_tm_thread_connect);
 }
 
 int bgp_zebra_get_table_range(uint32_t chunk_size,
@@ -3443,7 +3443,7 @@ void bgp_if_init(void)
 	hook_register_prio(if_del, 0, bgp_if_delete_hook);
 }
 
-void bgp_zebra_init(struct thread_master *master, unsigned short instance)
+void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
 

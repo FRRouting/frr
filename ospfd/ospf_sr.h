@@ -243,7 +243,7 @@ struct ospf_sr_db {
 	uint8_t msd;
 
 	/* Thread timer to start Label Manager */
-	struct thread *t_start_lm;
+	struct event *t_start_lm;
 };
 
 /* Structure aggregating all received SR info from LSAs by node */

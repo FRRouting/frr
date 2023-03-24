@@ -9,7 +9,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "log.h"
@@ -88,7 +88,7 @@ static struct isis_master isis_master;
 struct isis_master *im;
 
 /* ISIS config processing thread */
-struct thread *t_isis_cfg;
+struct event *t_isis_cfg;
 
 #ifndef FABRICD
 DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
@@ -166,7 +166,7 @@ struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 	return NULL;
 }
 
-void isis_master_init(struct thread_master *master)
+void isis_master_init(struct event_loop *master)
 {
 	memset(&isis_master, 0, sizeof(isis_master));
 	im = &isis_master;
@@ -325,7 +325,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->area_addrs->del = delete_area_addr;
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
-		thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
+		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
@@ -519,11 +519,11 @@ void isis_area_destroy(struct isis_area *area)
 	spftree_area_del(area);
 
 	if (area->spf_timer[0])
-		isis_spf_timer_free(THREAD_ARG(area->spf_timer[0]));
-	THREAD_OFF(area->spf_timer[0]);
+		isis_spf_timer_free(EVENT_ARG(area->spf_timer[0]));
+	EVENT_OFF(area->spf_timer[0]);
 	if (area->spf_timer[1])
-		isis_spf_timer_free(THREAD_ARG(area->spf_timer[1]));
-	THREAD_OFF(area->spf_timer[1]);
+		isis_spf_timer_free(EVENT_ARG(area->spf_timer[1]));
+	EVENT_OFF(area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
@@ -543,12 +543,12 @@ void isis_area_destroy(struct isis_area *area)
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL1);
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL2);
 
-	THREAD_OFF(area->t_tick);
-	THREAD_OFF(area->t_lsp_refresh[0]);
-	THREAD_OFF(area->t_lsp_refresh[1]);
-	THREAD_OFF(area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_tick);
+	EVENT_OFF(area->t_lsp_refresh[0]);
+	EVENT_OFF(area->t_lsp_refresh[1]);
+	EVENT_OFF(area->t_rlfa_rib_update);
 
-	thread_cancel_event(master, area);
+	event_cancel_event(master, area);
 
 	listnode_delete(area->isis->area_list, area);
 
@@ -2250,7 +2250,7 @@ static void isis_spf_ietf_common(struct vty *vty, struct isis *isis)
 			vty_out(vty, "  Level-%d:\n", level);
 			vty_out(vty, "    SPF delay status: ");
 			if (area->spf_timer[level - 1]) {
-				struct timeval remain = thread_timer_remain(
+				struct timeval remain = event_timer_remain(
 					area->spf_timer[level - 1]);
 				vty_out(vty, "Pending, due in %lld msec\n",
 					(long long)remain.tv_sec * 1000
@@ -3119,14 +3119,14 @@ static void area_resign_level(struct isis_area *area, int level)
 	}
 
 	if (area->spf_timer[level - 1])
-		isis_spf_timer_free(THREAD_ARG(area->spf_timer[level - 1]));
+		isis_spf_timer_free(EVENT_ARG(area->spf_timer[level - 1]));
 
-	THREAD_OFF(area->spf_timer[level - 1]);
+	EVENT_OFF(area->spf_timer[level - 1]);
 
 	sched_debug(
 		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
 		area->area_tag, level);
-	THREAD_OFF(area->t_lsp_refresh[level - 1]);
+	EVENT_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
 
@@ -3215,7 +3215,7 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 		} else {
 			/* Cancel overload on startup timer if it's running */
 			if (area->t_overload_on_startup_timer) {
-				THREAD_OFF(area->t_overload_on_startup_timer);
+				EVENT_OFF(area->t_overload_on_startup_timer);
 				area->t_overload_on_startup_timer = NULL;
 			}
 		}

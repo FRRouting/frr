@@ -767,7 +767,7 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 	return 0;
 }
 
-static void mroute_read(struct thread *t)
+static void mroute_read(struct event *t)
 {
 	struct pim_instance *pim;
 	static long long count;
@@ -775,7 +775,7 @@ static void mroute_read(struct thread *t)
 	int cont = 1;
 	int rd;
 	ifindex_t ifindex;
-	pim = THREAD_ARG(t);
+	pim = EVENT_ARG(t);
 
 	while (cont) {
 		rd = pim_socket_recvfromto(pim->mroute_socket, (uint8_t *)buf,
@@ -809,13 +809,13 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	thread_add_read(router->master, mroute_read, pim, pim->mroute_socket,
-			&pim->thread);
+	event_add_read(router->master, mroute_read, pim, pim->mroute_socket,
+		       &pim->thread);
 }
 
 static void mroute_read_off(struct pim_instance *pim)
 {
-	THREAD_OFF(pim->thread);
+	EVENT_OFF(pim->thread);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)

@@ -120,7 +120,7 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
    The ``thread_master`` code currently always holds RCU everywhere, except
    while doing the actual ``poll()`` syscall.  This is both an optimization as
    well as an "easement" into getting RCU going.  The current implementation
-   contract is that any ``struct thread *`` callback is called with a RCU
+   contract is that any ``struct event *`` callback is called with a RCU
    holding depth of 1, and that this is owned by the thread so it may (should)
    drop and reacquire it when doing some longer-running work.
 

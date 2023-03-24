@@ -4344,7 +4344,7 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	vpn_policy_routemap_event(rmap_name);
 }
 
-void bgp_route_map_update_timer(struct thread *thread)
+void bgp_route_map_update_timer(struct event *thread)
 {
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 }
@@ -4357,13 +4357,12 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 	/* If new update is received before the current timer timed out,
 	 * turn it off and start a new timer.
 	 */
-	THREAD_OFF(bm->t_rmap_update);
+	EVENT_OFF(bm->t_rmap_update);
 
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (bm->rmap_update_timer) {
-		thread_add_timer(bm->master, bgp_route_map_update_timer,
-				 NULL, bm->rmap_update_timer,
-				 &bm->t_rmap_update);
+		event_add_timer(bm->master, bgp_route_map_update_timer, NULL,
+				bm->rmap_update_timer, &bm->t_rmap_update);
 
 		/* Signal the groups that a route-map update event has
 		 * started */

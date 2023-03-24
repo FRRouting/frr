@@ -12,7 +12,7 @@
 	((((peer)->sort == BGP_PEER_IBGP) && !(peer)->shared_network)          \
 	 || is_ebgp_multihop_configured((peer)))
 
-extern void bgp_bfd_init(struct thread_master *tm);
+extern void bgp_bfd_init(struct event_loop *tm);
 
 extern void bgp_bfd_peer_config_write(struct vty *vty, const struct peer *peer,
 				      const char *addr);

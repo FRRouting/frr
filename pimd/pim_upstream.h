@@ -237,19 +237,19 @@ struct pim_upstream {
 
 	struct pim_up_mlag mlag;
 
-	struct thread *t_join_timer;
+	struct event *t_join_timer;
 
 	/*
 	 * RST(S,G)
 	 */
-	struct thread *t_rs_timer;
+	struct event *t_rs_timer;
 #define PIM_REGISTER_SUPPRESSION_PERIOD (60)
 #define PIM_REGISTER_PROBE_PERIOD        (5)
 
 	/*
 	 * KAT(S,G)
 	 */
-	struct thread *t_ka_timer;
+	struct event *t_ka_timer;
 #define PIM_KEEPALIVE_PERIOD  (210)
 #define PIM_RP_KEEPALIVE_PERIOD                                                \
 	(3 * router->register_suppress_time + router->register_probe_time)
@@ -257,7 +257,7 @@ struct pim_upstream {
 	/* on the RP we restart a timer to indicate if registers are being rxed
 	 * for
 	 * SG. This is needed by MSDP to determine its local SA cache */
-	struct thread *t_msdp_reg_timer;
+	struct event *t_msdp_reg_timer;
 #define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */

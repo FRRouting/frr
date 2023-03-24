@@ -201,7 +201,7 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 		zlog_debug("GR: exiting graceful restart: %s", reason);
 
 	ospf->gr_info.restart_in_progress = false;
-	THREAD_OFF(ospf->gr_info.t_grace_period);
+	EVENT_OFF(ospf->gr_info.t_grace_period);
 
 	/* Record in non-volatile memory that the restart is complete. */
 	ospf_gr_nvm_delete(ospf);
@@ -495,9 +495,9 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 }
 
 /* Handling of grace period expiry. */
-static void ospf_gr_grace_period_expired(struct thread *thread)
+static void ospf_gr_grace_period_expired(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
 	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
@@ -648,9 +648,9 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 				zlog_debug(
 					"GR: remaining time until grace period expires: %lu(s)",
 					remaining_time);
-			thread_add_timer(master, ospf_gr_grace_period_expired,
-					 ospf, remaining_time,
-					 &ospf->gr_info.t_grace_period);
+			event_add_timer(master, ospf_gr_grace_period_expired,
+					ospf, remaining_time,
+					&ospf->gr_info.t_grace_period);
 		}
 	}
 

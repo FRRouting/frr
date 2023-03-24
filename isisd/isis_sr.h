@@ -155,7 +155,7 @@ struct isis_sr_db {
 	bool enabled;
 
 	/* Thread timer to start Label Manager */
-	struct thread *t_start_lm;
+	struct event *t_start_lm;
 
 	/* List of local Adjacency-SIDs. */
 	struct list *adj_sids;

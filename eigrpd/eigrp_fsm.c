@@ -53,8 +53,8 @@
  */
 
 #include <zebra.h>
-#include <thread.h>
 
+#include "frrevent.h"
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"

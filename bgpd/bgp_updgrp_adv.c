@@ -17,7 +17,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "queue.h"
 #include "routemap.h"
 #include "filter.h"
@@ -298,12 +298,12 @@ static void updgrp_show_adj(struct bgp *bgp, afi_t afi, safi_t safi,
 	update_group_af_walk(bgp, afi, safi, updgrp_show_adj_walkcb, &ctx);
 }
 
-static void subgroup_coalesce_timer(struct thread *thread)
+static void subgroup_coalesce_timer(struct event *thread)
 {
 	struct update_subgroup *subgrp;
 	struct bgp *bgp;
 
-	subgrp = THREAD_ARG(thread);
+	subgrp = EVENT_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes upon coalesce timer expiry(%u ms)",
 			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
@@ -329,7 +329,7 @@ static void subgroup_coalesce_timer(struct thread *thread)
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			peer = PAF_PEER(paf);
-			THREAD_OFF(peer->t_routeadv);
+			EVENT_OFF(peer->t_routeadv);
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 		}
 	}
@@ -1021,9 +1021,9 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
 	 * We should wait for the coalesce timer. Arm the timer if not done.
 	 */
 	if (!subgrp->t_coalesce) {
-		thread_add_timer_msec(bm->master, subgroup_coalesce_timer,
-				      subgrp, subgrp->v_coalesce,
-				      &subgrp->t_coalesce);
+		event_add_timer_msec(bm->master, subgroup_coalesce_timer,
+				     subgrp, subgrp->v_coalesce,
+				     &subgrp->t_coalesce);
 	}
 }
 

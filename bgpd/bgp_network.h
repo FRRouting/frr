@@ -11,7 +11,7 @@
 struct bgp_listener {
 	int fd;
 	union sockunion su;
-	struct thread *thread;
+	struct event *thread;
 	struct bgp *bgp;
 	char *name;
 };

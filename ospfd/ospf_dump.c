@@ -9,7 +9,7 @@
 #include "lib/bfd.h"
 #include "monotime.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "command.h"
 #include "stream.h"
@@ -235,7 +235,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 	return buf;
 }
 
-const char *ospf_timer_dump(struct thread *t, char *buf, size_t size)
+const char *ospf_timer_dump(struct event *t, char *buf, size_t size)
 {
 	struct timeval result;
 	if (!t)

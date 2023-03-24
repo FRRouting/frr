@@ -132,7 +132,7 @@ struct label_chunk {
 extern struct ldpd_conf	*ldeconf;
 extern struct fec_tree	 ft;
 extern struct nbr_tree	 lde_nbrs;
-extern struct thread	*gc_timer;
+extern struct event *gc_timer;
 
 /* lde.c */
 void		 lde(void);
@@ -216,7 +216,7 @@ void		 lde_check_withdraw(struct map *, struct lde_nbr *);
 void		 lde_check_withdraw_wcard(struct map *, struct lde_nbr *);
 int		 lde_wildcard_apply(struct map *, struct fec *,
 		    struct lde_map *);
-void lde_gc_timer(struct thread *thread);
+void lde_gc_timer(struct event *thread);
 void		 lde_gc_start_timer(void);
 void		 lde_gc_stop_timer(void);
 

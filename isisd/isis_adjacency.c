@@ -15,7 +15,7 @@
 #include "hash.h"
 #include "vty.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "if.h"
 #include "stream.h"
 #include "bfd.h"
@@ -148,7 +148,7 @@ void isis_delete_adj(void *arg)
 	/* Remove self from snmp list without walking the list*/
 	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
-	THREAD_OFF(adj->t_expire);
+	EVENT_OFF(adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
 
@@ -396,13 +396,13 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				adj->flaps++;
 
 				if (level == IS_LEVEL_1) {
-					thread_add_timer(master, send_l1_csnp,
-							 circuit, 0,
-							 &circuit->t_send_csnp[0]);
+					event_add_timer(
+						master, send_l1_csnp, circuit,
+						0, &circuit->t_send_csnp[0]);
 				} else {
-					thread_add_timer(master, send_l2_csnp,
-							 circuit, 0,
-							 &circuit->t_send_csnp[1]);
+					event_add_timer(
+						master, send_l2_csnp, circuit,
+						0, &circuit->t_send_csnp[1]);
 				}
 			} else if (old_state == ISIS_ADJ_UP) {
 				circuit->upadjcount[level - 1]--;
@@ -478,14 +478,14 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	assert(!"Reached end of function where we are not expecting to");
 }
 
-void isis_adj_expire(struct thread *thread)
+void isis_adj_expire(struct event *thread)
 {
 	struct isis_adjacency *adj;
 
 	/*
 	 * Get the adjacency
 	 */
-	adj = THREAD_ARG(thread);
+	adj = EVENT_ARG(thread);
 	assert(adj);
 	adj->t_expire = NULL;
 

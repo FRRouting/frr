@@ -10,7 +10,7 @@
 #include "memory.h"
 #include "command.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "queue.h"
 #include "filter.h"
 
@@ -98,17 +98,17 @@ int bgp_damp_decay(time_t tdiff, int penalty, struct bgp_damp_config *bdc)
 
 /* Handler of reuse timer event.  Each route in the current reuse-list
    is evaluated.  RFC2439 Section 4.8.7.  */
-static void bgp_reuse_timer(struct thread *t)
+static void bgp_reuse_timer(struct event *t)
 {
 	struct bgp_damp_info *bdi;
 	struct bgp_damp_info *next;
 	time_t t_now, t_diff;
 
-	struct bgp_damp_config *bdc = THREAD_ARG(t);
+	struct bgp_damp_config *bdc = EVENT_ARG(t);
 
 	bdc->t_reuse = NULL;
-	thread_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
-			 &bdc->t_reuse);
+	event_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
+			&bdc->t_reuse);
 
 	t_now = monotime(NULL);
 
@@ -395,8 +395,8 @@ int bgp_damp_enable(struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
 	bgp_damp_parameter_set(half, reuse, suppress, max, bdc);
 
 	/* Register reuse timer.  */
-	thread_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
-			 &bdc->t_reuse);
+	event_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
+			&bdc->t_reuse);
 
 	return 0;
 }
@@ -451,7 +451,7 @@ int bgp_damp_disable(struct bgp *bgp, afi_t afi, safi_t safi)
 		return 0;
 
 	/* Cancel reuse event. */
-	THREAD_OFF(bdc->t_reuse);
+	EVENT_OFF(bdc->t_reuse);
 
 	/* Clean BGP dampening information.  */
 	bgp_damp_info_clean(afi, safi);

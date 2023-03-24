@@ -10,7 +10,7 @@
 #include "printfrr.h"
 #include "monotime.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "table.h"
 #include "vty.h"
@@ -9639,7 +9639,7 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
 		SET_FLAG(area->stub_router_state,
 			 OSPF_AREA_WAS_START_STUB_ROUTED);
-		THREAD_OFF(area->t_stub_router);
+		EVENT_OFF(area->t_stub_router);
 
 		/* Don't trample on admin stub routed */
 		if (!CHECK_FLAG(area->stub_router_state,
@@ -10136,9 +10136,9 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 							.actual_grace_period);
 					vty_out(vty,
 						"   Remaining GraceTime:%ld(in seconds).\n",
-						thread_timer_remain_second(
+						event_timer_remain_second(
 							nbr->gr_helper_info
-							.t_grace_timer));
+								.t_grace_timer));
 					vty_out(vty,
 						"   Graceful Restart reason: %s.\n\n",
 						ospf_restart_reason2str(
@@ -10169,9 +10169,9 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 							.actual_grace_period);
 					json_object_int_add(
 						json_neigh, "remainGracetime",
-						thread_timer_remain_second(
+						event_timer_remain_second(
 							nbr->gr_helper_info
-							.t_grace_timer));
+								.t_grace_timer));
 					json_object_string_add(
 						json_neigh, "restartReason",
 						ospf_restart_reason2str(
@@ -12802,7 +12802,7 @@ DEFPY_HIDDEN(ospf_maxage_delay_timer, ospf_maxage_delay_timer_cmd,
 	else
 		ospf->maxage_delay = value;
 
-	THREAD_OFF(ospf->t_maxage);
+	EVENT_OFF(ospf->t_maxage);
 	OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
 		      ospf->maxage_delay);
 

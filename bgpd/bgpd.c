@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "ringbuf.h"
@@ -1126,9 +1126,9 @@ static void peer_free(struct peer *peer)
 	bgp_timer_set(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
-	thread_cancel_event_ready(bm->master, peer);
+	event_cancel_event_ready(bm->master, peer);
 	FOREACH_AFI_SAFI (afi, safi)
-		THREAD_OFF(peer->t_revalidate_all[afi][safi]);
+		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->t_write);
 	assert(!peer->t_read);
 	BGP_EVENT_FLUSH(peer);
@@ -2467,16 +2467,16 @@ void peer_nsf_stop(struct peer *peer)
 
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		peer->nsf[afi][safi] = 0;
-		THREAD_OFF(peer->t_llgr_stale[afi][safi]);
+		EVENT_OFF(peer->t_llgr_stale[afi][safi]);
 	}
 
 	if (peer->t_gr_restart) {
-		THREAD_OFF(peer->t_gr_restart);
+		EVENT_OFF(peer->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 	if (peer->t_gr_stale) {
-		THREAD_OFF(peer->t_gr_stale);
+		EVENT_OFF(peer->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP graceful restart stalepath timer stopped",
@@ -2516,9 +2516,9 @@ int peer_delete(struct peer *peer)
 	bgp_keepalives_off(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
-	thread_cancel_event_ready(bm->master, peer);
+	event_cancel_event_ready(bm->master, peer);
 	FOREACH_AFI_SAFI (afi, safi)
-		THREAD_OFF(peer->t_revalidate_all[afi][safi]);
+		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON));
@@ -3197,11 +3197,11 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static void bgp_startup_timer_expire(struct thread *thread)
+static void bgp_startup_timer_expire(struct event *thread)
 {
 	struct bgp *bgp;
 
-	bgp = THREAD_ARG(thread);
+	bgp = EVENT_ARG(thread);
 	bgp->t_startup = NULL;
 }
 
@@ -3355,8 +3355,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
 
-	thread_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-			 bgp->restart_time, &bgp->t_startup);
+	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
+			bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
@@ -3696,7 +3696,7 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
-		THREAD_OFF(bgp->t_rmap_def_originate_eval);
+		EVENT_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
@@ -3748,39 +3748,39 @@ int bgp_delete(struct bgp *bgp)
 	hook_call(bgp_inst_delete, bgp);
 
 	FOREACH_AFI_SAFI (afi, safi)
-		THREAD_OFF(bgp->t_revalidate[afi][safi]);
+		EVENT_OFF(bgp->t_revalidate[afi][safi]);
 
-	THREAD_OFF(bgp->t_condition_check);
-	THREAD_OFF(bgp->t_startup);
-	THREAD_OFF(bgp->t_maxmed_onstartup);
-	THREAD_OFF(bgp->t_update_delay);
-	THREAD_OFF(bgp->t_establish_wait);
+	EVENT_OFF(bgp->t_condition_check);
+	EVENT_OFF(bgp->t_startup);
+	EVENT_OFF(bgp->t_maxmed_onstartup);
+	EVENT_OFF(bgp->t_update_delay);
+	EVENT_OFF(bgp->t_establish_wait);
 
 	/* Set flag indicating bgp instance delete in progress */
 	SET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
 
 	/* Delete the graceful restart info */
 	FOREACH_AFI_SAFI (afi, safi) {
-		struct thread *t;
+		struct event *t;
 
 		gr_info = &bgp->gr_info[afi][safi];
 		if (!gr_info)
 			continue;
 		t = gr_info->t_select_deferral;
 		if (t) {
-			void *info = THREAD_ARG(t);
+			void *info = EVENT_ARG(t);
 
 			XFREE(MTYPE_TMP, info);
 		}
-		THREAD_OFF(gr_info->t_select_deferral);
+		EVENT_OFF(gr_info->t_select_deferral);
 
 		t = gr_info->t_route_select;
 		if (t) {
-			void *info = THREAD_ARG(t);
+			void *info = EVENT_ARG(t);
 
 			XFREE(MTYPE_TMP, info);
 		}
-		THREAD_OFF(gr_info->t_route_select);
+		EVENT_OFF(gr_info->t_route_select);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
@@ -3803,7 +3803,7 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
-		THREAD_OFF(bgp->t_rmap_def_originate_eval);
+		EVENT_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
@@ -3897,7 +3897,7 @@ int bgp_delete(struct bgp *bgp)
 	if (bgp->process_queue)
 		work_queue_free_and_null(&bgp->process_queue);
 
-	thread_master_free_unused(bm->master);
+	event_master_free_unused(bm->master);
 	bgp_unlock(bgp); /* initial reference */
 
 	return 0;
@@ -4528,7 +4528,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 
 			if (peer->t_pmax_restart) {
-				THREAD_OFF(peer->t_pmax_restart);
+				EVENT_OFF(peer->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Maximum-prefix restart timer canceled",
@@ -7398,7 +7398,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	if (peer->t_pmax_restart) {
-		THREAD_OFF(peer->t_pmax_restart);
+		EVENT_OFF(peer->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP Maximum-prefix restart timer cancelled",
@@ -8010,7 +8010,7 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 	return buf;
 }
 
-void bgp_master_init(struct thread_master *master, const int buffer_size,
+void bgp_master_init(struct event_loop *master, const int buffer_size,
 		     struct list *addresses)
 {
 	qobj_init();
@@ -8276,7 +8276,7 @@ void bgp_terminate(void)
 	if (bm->listen_sockets)
 		list_delete(&bm->listen_sockets);
 
-	THREAD_OFF(bm->t_rmap_update);
+	EVENT_OFF(bm->t_rmap_update);
 
 	bgp_mac_finish();
 }

@@ -22,7 +22,7 @@
 #include <stdio.h>
 
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "command.h"
 #include "sockunion.h"
@@ -81,7 +81,7 @@ struct vty_serv {
 	int sock;
 	bool vtysh;
 
-	struct thread *t_accept;
+	struct event *t_accept;
 };
 
 DECLARE_DLIST(vtyservs, struct vty_serv, itm);
@@ -545,7 +545,7 @@ static int vty_command(struct vty *vty, char *buf)
 
 	GETRUSAGE(&after);
 
-	walltime = thread_consumed_time(&after, &before, &cputime);
+	walltime = event_consumed_time(&after, &before, &cputime);
 
 	if (cputime_enabled_here && cputime_enabled && cputime_threshold
 	    && cputime > cputime_threshold)
@@ -1360,13 +1360,13 @@ static void vty_buffer_reset(struct vty *vty)
 }
 
 /* Read data via vty socket. */
-static void vty_read(struct thread *thread)
+static void vty_read(struct event *thread)
 {
 	int i;
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
 
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	/* Read raw data from socket */
 	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
@@ -1563,15 +1563,15 @@ static void vty_read(struct thread *thread)
 }
 
 /* Flush buffer to the vty. */
-static void vty_flush(struct thread *thread)
+static void vty_flush(struct event *thread)
 {
 	int erase;
 	buffer_status_t flushrc;
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	/* Tempolary disable read thread. */
 	if (vty->lines == 0)
-		THREAD_OFF(vty->t_read);
+		EVENT_OFF(vty->t_read);
 
 	/* Function execution continue. */
 	erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
@@ -1757,9 +1757,9 @@ void vty_stdio_suspend(void)
 	if (!stdio_vty)
 		return;
 
-	THREAD_OFF(stdio_vty->t_write);
-	THREAD_OFF(stdio_vty->t_read);
-	THREAD_OFF(stdio_vty->t_timeout);
+	EVENT_OFF(stdio_vty->t_write);
+	EVENT_OFF(stdio_vty->t_read);
+	EVENT_OFF(stdio_vty->t_timeout);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -1823,9 +1823,9 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 }
 
 /* Accept connection from the network. */
-static void vty_accept(struct thread *thread)
+static void vty_accept(struct event *thread)
 {
-	struct vty_serv *vtyserv = THREAD_ARG(thread);
+	struct vty_serv *vtyserv = EVENT_ARG(thread);
 	int vty_sock;
 	union sockunion su;
 	int ret;
@@ -2036,9 +2036,9 @@ static void vty_serv_un(const char *path)
 
 /* #define VTYSH_DEBUG 1 */
 
-static void vtysh_accept(struct thread *thread)
+static void vtysh_accept(struct event *thread)
 {
-	struct vty_serv *vtyserv = THREAD_ARG(thread);
+	struct vty_serv *vtyserv = EVENT_ARG(thread);
 	int accept_sock = vtyserv->sock;
 	int sock;
 	int client_len;
@@ -2166,7 +2166,7 @@ void vty_pass_fd(struct vty *vty, int fd)
 	vty->pass_fd = fd;
 }
 
-static void vtysh_read(struct thread *thread)
+static void vtysh_read(struct event *thread)
 {
 	int ret;
 	int sock;
@@ -2176,8 +2176,8 @@ static void vtysh_read(struct thread *thread)
 	unsigned char *p;
 	uint8_t header[4] = {0, 0, 0, 0};
 
-	sock = THREAD_FD(thread);
-	vty = THREAD_ARG(thread);
+	sock = EVENT_FD(thread);
+	vty = EVENT_ARG(thread);
 
 	if ((nbytes = read(sock, buf, VTY_READ_BUFSIZ)) <= 0) {
 		if (nbytes < 0) {
@@ -2275,9 +2275,9 @@ static void vtysh_read(struct thread *thread)
 		vty_event(VTYSH_READ, vty);
 }
 
-static void vtysh_write(struct thread *thread)
+static void vtysh_write(struct event *thread)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	vtysh_flush(vty);
 }
@@ -2322,9 +2322,9 @@ void vty_close(struct vty *vty)
 	vty_config_exit(vty);
 
 	/* Cancel threads.*/
-	THREAD_OFF(vty->t_read);
-	THREAD_OFF(vty->t_write);
-	THREAD_OFF(vty->t_timeout);
+	EVENT_OFF(vty->t_read);
+	EVENT_OFF(vty->t_write);
+	EVENT_OFF(vty->t_timeout);
 
 	if (vty->pass_fd != -1) {
 		close(vty->pass_fd);
@@ -2382,11 +2382,11 @@ void vty_close(struct vty *vty)
 }
 
 /* When time out occur output message then close connection. */
-static void vty_timeout(struct thread *thread)
+static void vty_timeout(struct event *thread)
 {
 	struct vty *vty;
 
-	vty = THREAD_ARG(thread);
+	vty = EVENT_ARG(thread);
 	vty->v_timeout = 0;
 
 	/* Clear buffer*/
@@ -2801,19 +2801,19 @@ int vty_config_node_exit(struct vty *vty)
 }
 
 /* Master of the threads. */
-static struct thread_master *vty_master;
+static struct event_loop *vty_master;
 
 static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 {
 	switch (event) {
 	case VTY_SERV:
-		thread_add_read(vty_master, vty_accept, vty_serv,
-				vty_serv->sock, &vty_serv->t_accept);
+		event_add_read(vty_master, vty_accept, vty_serv, vty_serv->sock,
+			       &vty_serv->t_accept);
 		break;
 #ifdef VTYSH
 	case VTYSH_SERV:
-		thread_add_read(vty_master, vtysh_accept, vty_serv,
-				vty_serv->sock, &vty_serv->t_accept);
+		event_add_read(vty_master, vtysh_accept, vty_serv,
+			       vty_serv->sock, &vty_serv->t_accept);
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
@@ -2830,34 +2830,34 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	switch (event) {
 #ifdef VTYSH
 	case VTYSH_READ:
-		thread_add_read(vty_master, vtysh_read, vty, vty->fd,
-				&vty->t_read);
+		event_add_read(vty_master, vtysh_read, vty, vty->fd,
+			       &vty->t_read);
 		break;
 	case VTYSH_WRITE:
-		thread_add_write(vty_master, vtysh_write, vty, vty->wfd,
-				 &vty->t_write);
+		event_add_write(vty_master, vtysh_write, vty, vty->wfd,
+				&vty->t_write);
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
-		thread_add_read(vty_master, vty_read, vty, vty->fd,
-				&vty->t_read);
+		event_add_read(vty_master, vty_read, vty, vty->fd,
+			       &vty->t_read);
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
-			THREAD_OFF(vty->t_timeout);
-			thread_add_timer(vty_master, vty_timeout, vty,
-					 vty->v_timeout, &vty->t_timeout);
+			EVENT_OFF(vty->t_timeout);
+			event_add_timer(vty_master, vty_timeout, vty,
+					vty->v_timeout, &vty->t_timeout);
 		}
 		break;
 	case VTY_WRITE:
-		thread_add_write(vty_master, vty_flush, vty, vty->wfd,
-				 &vty->t_write);
+		event_add_write(vty_master, vty_flush, vty, vty->wfd,
+				&vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
-		THREAD_OFF(vty->t_timeout);
+		EVENT_OFF(vty->t_timeout);
 		if (vty->v_timeout)
-			thread_add_timer(vty_master, vty_timeout, vty,
-					 vty->v_timeout, &vty->t_timeout);
+			event_add_timer(vty_master, vty_timeout, vty,
+					vty->v_timeout, &vty->t_timeout);
 		break;
 	case VTY_SERV:
 	case VTYSH_SERV:
@@ -3655,7 +3655,7 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 }
 
 /* Install vty's own commands like `who' command. */
-void vty_init(struct thread_master *master_thread, bool do_command_logging)
+void vty_init(struct event_loop *master_thread, bool do_command_logging)
 {
 	/* For further configuration read, preserve current directory. */
 	vty_save_cwd();
@@ -3726,7 +3726,7 @@ void vty_terminate(void)
 	vtys_init(vtysh_sessions);
 
 	while ((vtyserv = vtyservs_pop(vty_servs))) {
-		THREAD_OFF(vtyserv->t_accept);
+		EVENT_OFF(vtyserv->t_accept);
 		close(vtyserv->sock);
 		XFREE(MTYPE_VTY_SERV, vtyserv);
 	}

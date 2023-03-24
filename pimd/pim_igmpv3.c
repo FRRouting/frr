@@ -107,12 +107,12 @@ void igmp_group_reset_gmi(struct gm_group *group)
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
 
-static void igmp_source_timer(struct thread *t)
+static void igmp_source_timer(struct event *t)
 {
 	struct gm_source *source;
 	struct gm_group *group;
 
-	source = THREAD_ARG(t);
+	source = EVENT_ARG(t);
 
 	group = source->source_group;
 
@@ -187,7 +187,7 @@ static void source_timer_off(struct gm_group *group, struct gm_source *source)
 			group_str, source_str, group->interface->name);
 	}
 
-	THREAD_OFF(source->t_source_timer);
+	EVENT_OFF(source->t_source_timer);
 }
 
 static void igmp_source_timer_on(struct gm_group *group,
@@ -209,8 +209,8 @@ static void igmp_source_timer_on(struct gm_group *group,
 			source_str, group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_source_timer, source,
-			      interval_msec, &source->t_source_timer);
+	event_add_timer_msec(router->master, igmp_source_timer, source,
+			     interval_msec, &source->t_source_timer);
 
 	/*
 	  RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
@@ -1200,13 +1200,13 @@ static int group_retransmit_sources(struct gm_group *group,
 	return num_retransmit_sources_left;
 }
 
-static void igmp_group_retransmit(struct thread *t)
+static void igmp_group_retransmit(struct event *t)
 {
 	struct gm_group *group;
 	int num_retransmit_sources_left;
 	int send_with_sflag_set; /* boolean */
 
-	group = THREAD_ARG(t);
+	group = EVENT_ARG(t);
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1281,9 +1281,8 @@ static void group_retransmit_timer_on(struct gm_group *group)
 			group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_group_retransmit, group,
-			      lmqi_msec,
-			      &group->t_group_query_retransmit_timer);
+	event_add_timer_msec(router->master, igmp_group_retransmit, group,
+			     lmqi_msec, &group->t_group_query_retransmit_timer);
 }
 
 static long igmp_group_timer_remain_msec(struct gm_group *group)

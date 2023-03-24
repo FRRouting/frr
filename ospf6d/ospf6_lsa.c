@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "checksum.h"
 #include "frrstr.h"
 
@@ -302,8 +302,8 @@ void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type))
 		zlog_debug("LSA: Premature aging: %s", lsa->name);
 
-	THREAD_OFF(lsa->expire);
-	THREAD_OFF(lsa->refresh);
+	EVENT_OFF(lsa->expire);
+	EVENT_OFF(lsa->refresh);
 
 	/*
 	 * We clear the LSA from the neighbor retx lists now because it
@@ -333,7 +333,7 @@ void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa)
 	ospf6_flood_clear(lsa);
 
 	lsa->header->age = htons(OSPF_LSA_MAXAGE);
-	thread_execute(master, ospf6_lsa_expire, lsa, 0);
+	event_execute(master, ospf6_lsa_expire, lsa, 0);
 }
 
 /* check which is more recent. if a is more recent, return -1;
@@ -760,8 +760,8 @@ void ospf6_lsa_delete(struct ospf6_lsa *lsa)
 	assert(lsa->lock == 0);
 
 	/* cancel threads */
-	THREAD_OFF(lsa->expire);
-	THREAD_OFF(lsa->refresh);
+	EVENT_OFF(lsa->expire);
+	EVENT_OFF(lsa->refresh);
 
 	/* do free */
 	XFREE(MTYPE_OSPF6_LSA_HEADER, lsa->header);
@@ -812,18 +812,18 @@ struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
 
 
 /* ospf6 lsa expiry */
-void ospf6_lsa_expire(struct thread *thread)
+void ospf6_lsa_expire(struct event *thread)
 {
 	struct ospf6_lsa *lsa;
 	struct ospf6 *ospf6;
 
-	lsa = (struct ospf6_lsa *)THREAD_ARG(thread);
+	lsa = (struct ospf6_lsa *)EVENT_ARG(thread);
 
 	assert(lsa && lsa->header);
 	assert(OSPF6_LSA_IS_MAXAGE(lsa));
 	assert(!lsa->refresh);
 
-	lsa->expire = (struct thread *)NULL;
+	lsa->expire = (struct event *)NULL;
 
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)) {
 		zlog_debug("LSA Expire:");
@@ -845,15 +845,15 @@ void ospf6_lsa_expire(struct thread *thread)
 	ospf6_maxage_remove(ospf6);
 }
 
-void ospf6_lsa_refresh(struct thread *thread)
+void ospf6_lsa_refresh(struct event *thread)
 {
 	struct ospf6_lsa *old, *self, *new;
 	struct ospf6_lsdb *lsdb_self;
 
-	old = (struct ospf6_lsa *)THREAD_ARG(thread);
+	old = (struct ospf6_lsa *)EVENT_ARG(thread);
 	assert(old && old->header);
 
-	old->refresh = (struct thread *)NULL;
+	old->refresh = (struct event *)NULL;
 
 	lsdb_self = ospf6_get_scoped_lsdb_self(old);
 	self = ospf6_lsdb_lookup(old->header->type, old->header->id,
@@ -875,8 +875,8 @@ void ospf6_lsa_refresh(struct thread *thread)
 
 	new = ospf6_lsa_create(self->header);
 	new->lsdb = old->lsdb;
-	thread_add_timer(master, ospf6_lsa_refresh, new, OSPF_LS_REFRESH_TIME,
-			 &new->refresh);
+	event_add_timer(master, ospf6_lsa_refresh, new, OSPF_LS_REFRESH_TIME,
+			&new->refresh);
 
 	/* store it in the LSDB for self-originated LSAs */
 	ospf6_lsdb_add(ospf6_lsa_copy(new), lsdb_self);

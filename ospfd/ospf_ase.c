@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -549,7 +549,7 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
-static void ospf_ase_calculate_timer(struct thread *t)
+static void ospf_ase_calculate_timer(struct event *t)
 {
 	struct ospf *ospf;
 	struct ospf_lsa *lsa;
@@ -558,7 +558,7 @@ static void ospf_ase_calculate_timer(struct thread *t)
 	struct ospf_area *area;
 	struct timeval start_time, stop_time;
 
-	ospf = THREAD_ARG(t);
+	ospf = EVENT_ARG(t);
 	ospf->t_ase_calc = NULL;
 
 	if (ospf->ase_calc) {
@@ -630,8 +630,8 @@ void ospf_ase_calculate_timer_add(struct ospf *ospf)
 	if (ospf == NULL)
 		return;
 
-	thread_add_timer(master, ospf_ase_calculate_timer, ospf,
-			 OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
+	event_add_timer(master, ospf_ase_calculate_timer, ospf,
+			OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
 }
 
 void ospf_ase_register_external_lsa(struct ospf_lsa *lsa, struct ospf *top)

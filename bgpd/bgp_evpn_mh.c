@@ -65,7 +65,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 						bool is_local);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
-static void bgp_evpn_run_consistency_checks(struct thread *t);
+static void bgp_evpn_run_consistency_checks(struct event *t);
 static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
 
@@ -4174,9 +4174,9 @@ static void bgp_evpn_es_cons_checks_timer_start(void)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("periodic consistency checking started");
 
-	thread_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
-			 BGP_EVPN_CONS_CHECK_INTERVAL,
-			 &bgp_mh_info->t_cons_check);
+	event_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
+			BGP_EVPN_CONS_CHECK_INTERVAL,
+			&bgp_mh_info->t_cons_check);
 }
 
 /* queue up the es for background consistency checks */
@@ -4360,7 +4360,7 @@ static uint32_t bgp_evpn_es_run_consistency_checks(struct bgp_evpn_es *es)
 	return proc_cnt;
 }
 
-static void bgp_evpn_run_consistency_checks(struct thread *t)
+static void bgp_evpn_run_consistency_checks(struct event *t)
 {
 	int proc_cnt = 0;
 	struct listnode *node;
@@ -4380,7 +4380,7 @@ static void bgp_evpn_run_consistency_checks(struct thread *t)
 	}
 
 	/* restart the timer */
-	thread_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
+	event_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
 			BGP_EVPN_CONS_CHECK_INTERVAL,
 			&bgp_mh_info->t_cons_check);
 }
@@ -4936,7 +4936,7 @@ void bgp_evpn_mh_finish(void)
 		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
-		THREAD_OFF(bgp_mh_info->t_cons_check);
+		EVENT_OFF(bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);

@@ -29,7 +29,7 @@ Copyright 2011, 2012 by Matthieu Boutier and Juliusz Chroboczek
 #include "command.h"
 #include "vty.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "nexthop.h"
 
 #include "util.h"

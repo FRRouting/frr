@@ -476,10 +476,10 @@ struct dplane_zns_info {
 	struct zebra_dplane_info info;
 
 	/* Request data from the OS */
-	struct thread *t_request;
+	struct event *t_request;
 
 	/* Read event */
-	struct thread *t_read;
+	struct event *t_read;
 
 	/* List linkage */
 	struct zns_info_list_item link;
@@ -582,13 +582,13 @@ static struct zebra_dplane_globals {
 	struct frr_pthread *dg_pthread;
 
 	/* Event-delivery context 'master' for the dplane */
-	struct thread_master *dg_master;
+	struct event_loop *dg_master;
 
 	/* Event/'thread' pointer for queued updates */
-	struct thread *dg_t_update;
+	struct event *dg_t_update;
 
 	/* Event pointer for pending shutdown check loop */
-	struct thread *dg_t_shutdown_check;
+	struct event *dg_t_shutdown_check;
 
 } zdplane_info;
 
@@ -609,7 +609,7 @@ DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
 #define DPLANE_PROV_UNLOCK(p) pthread_mutex_unlock(&((p)->dp_mutex))
 
 /* Prototypes */
-static void dplane_thread_loop(struct thread *event);
+static void dplane_thread_loop(struct event *event);
 static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
@@ -633,7 +633,7 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
  */
 
 /* Obtain thread_master for dataplane thread */
-struct thread_master *dplane_get_thread_master(void)
+struct event_loop *dplane_get_thread_master(void)
 {
 	return zdplane_info.dg_master;
 }
@@ -5773,28 +5773,28 @@ bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
  * Callback when an OS (netlink) incoming event read is ready. This runs
  * in the dplane pthread.
  */
-static void dplane_incoming_read(struct thread *event)
+static void dplane_incoming_read(struct event *event)
 {
-	struct dplane_zns_info *zi = THREAD_ARG(event);
+	struct dplane_zns_info *zi = EVENT_ARG(event);
 
 	kernel_dplane_read(&zi->info);
 
 	/* Re-start read task */
-	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
-			zi->info.sock, &zi->t_read);
+	event_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
+		       zi->info.sock, &zi->t_read);
 }
 
 /*
  * Callback in the dataplane pthread that requests info from the OS and
  * initiates netlink reads.
  */
-static void dplane_incoming_request(struct thread *event)
+static void dplane_incoming_request(struct event *event)
 {
-	struct dplane_zns_info *zi = THREAD_ARG(event);
+	struct dplane_zns_info *zi = EVENT_ARG(event);
 
 	/* Start read task */
-	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
-			zi->info.sock, &zi->t_read);
+	event_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
+		       zi->info.sock, &zi->t_read);
 
 	/* Send requests */
 	netlink_request_netconf(zi->info.sock);
@@ -5812,9 +5812,8 @@ static void dplane_kernel_info_request(struct dplane_zns_info *zi)
 	 * pthread is running, we'll initiate this later on.
 	 */
 	if (zdplane_info.dg_master)
-		thread_add_event(zdplane_info.dg_master,
-				 dplane_incoming_request, zi, 0,
-				 &zi->t_request);
+		event_add_event(zdplane_info.dg_master, dplane_incoming_request,
+				zi, 0, &zi->t_request);
 }
 
 #endif /* HAVE_NETLINK */
@@ -5875,11 +5874,11 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 
 		/* Stop any outstanding tasks */
 		if (zdplane_info.dg_master) {
-			thread_cancel_async(zdplane_info.dg_master,
-					    &zi->t_request, NULL);
+			event_cancel_async(zdplane_info.dg_master,
+					   &zi->t_request, NULL);
 
-			thread_cancel_async(zdplane_info.dg_master, &zi->t_read,
-					    NULL);
+			event_cancel_async(zdplane_info.dg_master, &zi->t_read,
+					   NULL);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);
@@ -5898,9 +5897,8 @@ int dplane_provider_work_ready(void)
 	 * available.
 	 */
 	if (zdplane_info.dg_run) {
-		thread_add_event(zdplane_info.dg_master,
-				 dplane_thread_loop, NULL, 0,
-				 &zdplane_info.dg_t_update);
+		event_add_event(zdplane_info.dg_master, dplane_thread_loop,
+				NULL, 0, &zdplane_info.dg_t_update);
 	}
 
 	return AOK;
@@ -6597,7 +6595,7 @@ static bool dplane_work_pending(void)
  * final zebra shutdown.
  * This runs in the dplane pthread context.
  */
-static void dplane_check_shutdown_status(struct thread *event)
+static void dplane_check_shutdown_status(struct event *event)
 {
 	struct dplane_zns_info *zi;
 
@@ -6609,8 +6607,8 @@ static void dplane_check_shutdown_status(struct thread *event)
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
 		if (zdplane_info.dg_master) {
-			THREAD_OFF(zi->t_read);
-			THREAD_OFF(zi->t_request);
+			EVENT_OFF(zi->t_read);
+			EVENT_OFF(zi->t_request);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);
@@ -6618,10 +6616,9 @@ static void dplane_check_shutdown_status(struct thread *event)
 
 	if (dplane_work_pending()) {
 		/* Reschedule dplane check on a short timer */
-		thread_add_timer_msec(zdplane_info.dg_master,
-				      dplane_check_shutdown_status,
-				      NULL, 100,
-				      &zdplane_info.dg_t_shutdown_check);
+		event_add_timer_msec(zdplane_info.dg_master,
+				     dplane_check_shutdown_status, NULL, 100,
+				     &zdplane_info.dg_t_shutdown_check);
 
 		/* TODO - give up and stop waiting after a short time? */
 
@@ -6629,7 +6626,7 @@ static void dplane_check_shutdown_status(struct thread *event)
 		/* We appear to be done - schedule a final callback event
 		 * for the zebra main pthread.
 		 */
-		thread_add_event(zrouter.master, zebra_finalize, NULL, 0, NULL);
+		event_add_event(zrouter.master, zebra_finalize, NULL, 0, NULL);
 	}
 }
 
@@ -6648,9 +6645,8 @@ void zebra_dplane_finish(void)
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane fini called");
 
-	thread_add_event(zdplane_info.dg_master,
-			 dplane_check_shutdown_status, NULL, 0,
-			 &zdplane_info.dg_t_shutdown_check);
+	event_add_event(zdplane_info.dg_master, dplane_check_shutdown_status,
+			NULL, 0, &zdplane_info.dg_t_shutdown_check);
 }
 
 /*
@@ -6664,7 +6660,7 @@ void zebra_dplane_finish(void)
  * pthread can look for other pending work - such as i/o work on behalf of
  * providers.
  */
-static void dplane_thread_loop(struct thread *event)
+static void dplane_thread_loop(struct event *event)
 {
 	struct dplane_ctx_list_head work_list;
 	struct dplane_ctx_list_head error_list;
@@ -6858,8 +6854,8 @@ void zebra_dplane_shutdown(void)
 	zdplane_info.dg_run = false;
 
 	if (zdplane_info.dg_t_update)
-		thread_cancel_async(zdplane_info.dg_t_update->master,
-				    &zdplane_info.dg_t_update, NULL);
+		event_cancel_async(zdplane_info.dg_t_update->master,
+				   &zdplane_info.dg_t_update, NULL);
 
 	frr_pthread_stop(zdplane_info.dg_pthread, NULL);
 
@@ -6929,14 +6925,14 @@ void zebra_dplane_start(void)
 	zdplane_info.dg_run = true;
 
 	/* Enqueue an initial event for the dataplane pthread */
-	thread_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,
-			 &zdplane_info.dg_t_update);
+	event_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,
+			&zdplane_info.dg_t_update);
 
 	/* Enqueue requests and reads if necessary */
 	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
 #if defined(HAVE_NETLINK)
-		thread_add_read(zdplane_info.dg_master, dplane_incoming_read,
-				zi, zi->info.sock, &zi->t_read);
+		event_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
+			       zi->info.sock, &zi->t_read);
 		dplane_kernel_info_request(zi);
 #endif
 	}

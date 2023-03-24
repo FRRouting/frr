@@ -34,7 +34,7 @@ struct mgmt_txn_ctx;
  * MGMTD master for system wide configurations and variables.
  */
 struct mgmt_master {
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
@@ -95,8 +95,7 @@ extern time_t mgmt_clock(void);
 
 extern int mgmt_config_write(struct vty *vty);
 
-extern void mgmt_master_init(struct thread_master *master,
-			     const int buffer_size);
+extern void mgmt_master_init(struct event_loop *master, const int buffer_size);
 
 extern void mgmt_init(void);
 extern void mgmt_vty_init(void);

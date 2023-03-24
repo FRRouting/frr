@@ -13,7 +13,7 @@
 #include "vty.h"
 #include "prefix.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 
 #include "ospf6_lsa.h"
@@ -590,7 +590,7 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	zlog_debug("%s", buffer);
 }
 
-static void ospf6_spf_calculation_thread(struct thread *t)
+static void ospf6_spf_calculation_thread(struct event *t)
 {
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6;
@@ -599,7 +599,7 @@ static void ospf6_spf_calculation_thread(struct thread *t)
 	int areas_processed = 0;
 	char rbuf[32];
 
-	ospf6 = (struct ospf6 *)THREAD_ARG(t);
+	ospf6 = (struct ospf6 *)EVENT_ARG(t);
 
 	/* execute SPF calculation */
 	monotime(&start);
@@ -687,7 +687,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	/* SPF calculation timer is already scheduled. */
-	if (thread_is_scheduled(ospf6->t_spf_calc)) {
+	if (event_is_scheduled(ospf6->t_spf_calc)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 			zlog_debug(
 				"SPF: calculation timer is already scheduled: %p",
@@ -724,9 +724,9 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	THREAD_OFF(ospf6->t_spf_calc);
-	thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6,
-			      delay, &ospf6->t_spf_calc);
+	EVENT_OFF(ospf6->t_spf_calc);
+	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
+			     &ospf6->t_spf_calc);
 }
 
 void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
@@ -1228,7 +1228,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-static void ospf6_ase_calculate_timer(struct thread *t)
+static void ospf6_ase_calculate_timer(struct event *t)
 {
 	struct ospf6 *ospf6;
 	struct ospf6_lsa *lsa;
@@ -1236,7 +1236,7 @@ static void ospf6_ase_calculate_timer(struct thread *t)
 	struct ospf6_area *area;
 	uint16_t type;
 
-	ospf6 = THREAD_ARG(t);
+	ospf6 = EVENT_ARG(t);
 
 	/* Calculate external route for each AS-external-LSA */
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
@@ -1272,6 +1272,6 @@ void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6)
 	if (ospf6 == NULL)
 		return;
 
-	thread_add_timer(master, ospf6_ase_calculate_timer, ospf6,
-			 OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
+	event_add_timer(master, ospf6_ase_calculate_timer, ospf6,
+			OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
 }

@@ -15,7 +15,7 @@
 #include "memory.h"		// for MTYPE_TMP, XFREE, XCALLOC, XMALLOC
 #include "monotime.h"		// for monotime, monotime_since
 
-#include "bgpd/bgpd.h"          // for peer, PEER_THREAD_KEEPALIVES_ON, peer...
+#include "bgpd/bgpd.h"          // for peer, PEER_EVENT_KEEPALIVES_ON, peer...
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events
 #include "bgpd/bgp_packet.h"	// for bgp_keepalive_send
 #include "bgpd/bgp_keepalives.h"
@@ -162,7 +162,7 @@ void *bgp_keepalives_start(void *arg)
 	/*
 	 * The RCU mechanism for each pthread is initialized in a "locked"
 	 * state. That's ok for pthreads using the frr_pthread,
-	 * thread_fetch event loop, because that event loop unlocks regularly.
+	 * event_fetch event loop, because that event loop unlocks regularly.
 	 * For foreign pthreads, the lock needs to be unlocked so that the
 	 * background rcu pthread can run.
 	 */

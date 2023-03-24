@@ -1081,11 +1081,11 @@ DEFUN(show_sr_node, show_sr_node_cmd,
  *
  * @return		1 on success
  */
-static void sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct event *start)
 {
 	struct isis_area *area;
 
-	area = THREAD_ARG(start);
+	area = EVENT_ARG(start);
 
 	/* re-attempt to start SR & Label Manager connection */
 	isis_sr_start(area);
@@ -1108,8 +1108,8 @@ int isis_sr_start(struct isis_area *area)
 	if (!isis_zebra_label_manager_ready())
 		if (isis_zebra_label_manager_connect() < 0) {
 			/* Re-attempt to connect to Label Manager in 1 sec. */
-			thread_add_timer(master, sr_start_label_manager, area,
-					 1, &srdb->t_start_lm);
+			event_add_timer(master, sr_start_label_manager, area, 1,
+					&srdb->t_start_lm);
 			return -1;
 		}
 
@@ -1168,7 +1168,7 @@ void isis_sr_stop(struct isis_area *area)
 		 area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	THREAD_OFF(srdb->t_start_lm);
+	EVENT_OFF(srdb->t_start_lm);
 
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))

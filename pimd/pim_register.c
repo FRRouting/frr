@@ -9,7 +9,7 @@
 
 #include "log.h"
 #include "if.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
@@ -32,7 +32,7 @@
 #include "pim_vxlan.h"
 #include "pim_addr.h"
 
-struct thread *send_test_packet_timer = NULL;
+struct event *send_test_packet_timer = NULL;
 
 void pim_register_join(struct pim_upstream *up)
 {
@@ -743,7 +743,7 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 		    && (up->reg_state != PIM_REG_NOINFO)) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
-			THREAD_OFF(up->t_rs_timer);
+			EVENT_OFF(up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
 		}
 	}

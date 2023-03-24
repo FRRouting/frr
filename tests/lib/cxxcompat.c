@@ -78,7 +78,7 @@
 #include "lib/stream.h"
 #include "lib/table.h"
 #include "lib/termtable.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "lib/typesafe.h"
 #include "lib/typerb.h"
 #include "lib/vector.h"

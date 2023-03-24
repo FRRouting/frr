@@ -16,7 +16,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"
@@ -66,11 +66,11 @@ static const struct message eigrp_general_tlv_type_str[] = {
  * Sends hello packet via multicast for all interfaces eigrp
  * is configured for
  */
-void eigrp_hello_timer(struct thread *thread)
+void eigrp_hello_timer(struct event *thread)
 {
 	struct eigrp_interface *ei;
 
-	ei = THREAD_ARG(thread);
+	ei = EVENT_ARG(thread);
 
 	if (IS_DEBUG_EIGRP(0, TIMERS))
 		zlog_debug("Start Hello Timer (%s) Expire [%u]", IF_NAME(ei),
@@ -80,8 +80,8 @@ void eigrp_hello_timer(struct thread *thread)
 	eigrp_hello_send(ei, EIGRP_HELLO_NORMAL, NULL);
 
 	/* Hello timer set. */
-	thread_add_timer(master, eigrp_hello_timer, ei, ei->params.v_hello,
-			 &ei->t_hello);
+	event_add_timer(master, eigrp_hello_timer, ei, ei->params.v_hello,
+			&ei->t_hello);
 }
 
 /**
@@ -726,8 +726,8 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
 		}
-		thread_add_write(master, eigrp_write, nbr->ei->eigrp,
-				 nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
+		event_add_write(master, eigrp_write, nbr->ei->eigrp,
+				nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
 	}
 }
 
@@ -771,12 +771,12 @@ void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 
 		if (ei->eigrp->t_write == NULL) {
 			if (flags & EIGRP_HELLO_GRACEFUL_SHUTDOWN) {
-				thread_execute(master, eigrp_write, ei->eigrp,
-					       ei->eigrp->fd);
+				event_execute(master, eigrp_write, ei->eigrp,
+					      ei->eigrp->fd);
 			} else {
-				thread_add_write(master, eigrp_write, ei->eigrp,
-						 ei->eigrp->fd,
-						 &ei->eigrp->t_write);
+				event_add_write(master, eigrp_write, ei->eigrp,
+						ei->eigrp->fd,
+						&ei->eigrp->t_write);
 			}
 		}
 	}

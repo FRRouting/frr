@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -49,7 +49,7 @@ struct zclient *zclient = NULL;
 static struct zclient *zclient_sync;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
@@ -509,10 +509,10 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
  * Function to originate or flush default after applying
  * route-map on all ei.
  */
-static void ospf_external_lsa_default_routemap_timer(struct thread *thread)
+static void ospf_external_lsa_default_routemap_timer(struct event *thread)
 {
 	struct list *ext_list;
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct prefix_ipv4 p;
 	int type;
 	int ret = 0;
@@ -579,8 +579,8 @@ void ospf_external_del(struct ospf *ospf, uint8_t type, unsigned short instance)
 	/*
 	 * Check if default needs to be flushed too.
 	 */
-	thread_add_event(master, ospf_external_lsa_default_routemap_timer, ospf,
-			 0, &ospf->t_default_routemap_timer);
+	event_add_event(master, ospf_external_lsa_default_routemap_timer, ospf,
+			0, &ospf->t_default_routemap_timer);
 }
 
 /* Update NHLFE for Prefix SID */
@@ -1124,9 +1124,9 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 		 * there are any other external info which can still trigger
 		 * default route origination else flush it.
 		 */
-		thread_add_event(master,
-				 ospf_external_lsa_default_routemap_timer, ospf,
-				 0, &ospf->t_default_routemap_timer);
+		event_add_event(master,
+				ospf_external_lsa_default_routemap_timer, ospf,
+				0, &ospf->t_default_routemap_timer);
 	}
 
 	return true;
@@ -1510,14 +1510,14 @@ int ospf_distribute_list_out_unset(struct ospf *ospf, int type,
 }
 
 /* distribute-list update timer. */
-static void ospf_distribute_list_update_timer(struct thread *thread)
+static void ospf_distribute_list_update_timer(struct event *thread)
 {
 	struct route_node *rn;
 	struct external_info *ei;
 	struct route_table *rt;
 	struct ospf_lsa *lsa;
 	int type, default_refresh = 0;
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
 	if (ospf == NULL)
 		return;
@@ -1641,9 +1641,8 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 		return;
 
 	/* Set timer. If timer is already started, this call does nothing. */
-	thread_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
-			      ospf->min_ls_interval,
-			      &ospf->t_distribute_update);
+	event_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
+			     ospf->min_ls_interval, &ospf->t_distribute_update);
 }
 
 /* If access-list is updated, apply some check. */
@@ -2139,7 +2138,7 @@ static zclient_handler *const ospf_handlers[] = {
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = ospf_zebra_client_close_notify,
 };
 
-void ospf_zebra_init(struct thread_master *master, unsigned short instance)
+void ospf_zebra_init(struct event_loop *master, unsigned short instance)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master, &zclient_options_default, ospf_handlers,

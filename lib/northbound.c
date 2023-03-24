@@ -2685,7 +2685,7 @@ void nb_validate_callbacks(void)
 }
 
 
-void nb_init(struct thread_master *tm,
+void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled)
 {

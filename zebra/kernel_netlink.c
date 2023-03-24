@@ -15,7 +15,7 @@
 #include "table.h"
 #include "memory.h"
 #include "rib.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
@@ -156,7 +156,7 @@ static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
 					    {RTN_XRESOLVE, "resolver"},
 					    {0}};
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -482,9 +482,9 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	return 0;
 }
 
-static void kernel_read(struct thread *thread)
+static void kernel_read(struct event *thread)
 {
-	struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG(thread);
+	struct zebra_ns *zns = (struct zebra_ns *)EVENT_ARG(thread);
 	struct zebra_dplane_info dp_info;
 
 	/* Capture key info from ns struct */
@@ -493,8 +493,8 @@ static void kernel_read(struct thread *thread)
 	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
 			   5, false);
 
-	thread_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
-			&zns->t_netlink);
+	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
+		       &zns->t_netlink);
 }
 
 /*
@@ -1939,8 +1939,8 @@ void kernel_init(struct zebra_ns *zns)
 
 	zns->t_netlink = NULL;
 
-	thread_add_read(zrouter.master, kernel_read, zns,
-			zns->netlink.sock, &zns->t_netlink);
+	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
+		       &zns->t_netlink);
 
 	rt_netlink_init();
 }
@@ -1959,7 +1959,7 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
-	THREAD_OFF(zns->t_netlink);
+	EVENT_OFF(zns->t_netlink);
 
 	kernel_nlsock_fini(&zns->netlink);
 

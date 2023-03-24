@@ -71,9 +71,9 @@ struct eigrp {
 	struct list *oi_write_q;
 
 	/*Threads*/
-	struct thread *t_write;
-	struct thread *t_read;
-	struct thread *t_distribute; /* timer for distribute list */
+	struct event *t_write;
+	struct event *t_read;
+	struct event *t_distribute; /* timer for distribute list */
 
 	struct route_table *networks; /* EIGRP config networks. */
 
@@ -165,8 +165,8 @@ struct eigrp_interface {
 	struct list *nbrs; /* EIGRP Neighbor List */
 
 	/* Threads. */
-	struct thread *t_hello;      /* timer */
-	struct thread *t_distribute; /* timer for distribute list */
+	struct event *t_hello;	    /* timer */
+	struct event *t_distribute; /* timer for distribute list */
 
 	int on_write_q;
 
@@ -240,8 +240,8 @@ struct eigrp_neighbor {
 	uint16_t v_holddown;
 
 	/* Threads. */
-	struct thread *t_holddown;
-	struct thread *t_nbr_send_gr; /* thread for sending multiple GR packet
+	struct event *t_holddown;
+	struct event *t_nbr_send_gr; /* thread for sending multiple GR packet
 					 chunks */
 
 	struct eigrp_fifo *retrans_queue;
@@ -271,7 +271,7 @@ struct eigrp_packet {
 	struct in_addr dst;
 
 	/*Packet retransmission thread*/
-	struct thread *t_retrans_timer;
+	struct event *t_retrans_timer;
 
 	/*Packet retransmission counter*/
 	uint8_t retrans_counter;

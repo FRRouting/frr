@@ -177,7 +177,7 @@ static void lp_chunk_free(void *goner)
 	XFREE(MTYPE_BGP_LABEL_CHUNK, goner);
 }
 
-void bgp_lp_init(struct thread_master *master, struct labelpool *pool)
+void bgp_lp_init(struct event_loop *master, struct labelpool *pool)
 {
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: entry", __func__);
@@ -1091,7 +1091,7 @@ struct lp_test {
 	struct timeval starttime;
 	struct skiplist *timestamps_alloc;
 	struct skiplist *timestamps_dealloc;
-	struct thread *event_thread;
+	struct event *event_thread;
 	unsigned int counter[LPT_STAT_MAX];
 };
 
@@ -1150,7 +1150,7 @@ static int test_cb(mpls_label_t label, void *labelid, bool allocated)
 	return 0;
 }
 
-static void labelpool_test_event_handler(struct thread *thread)
+static void labelpool_test_event_handler(struct event *thread)
 {
 	struct lp_test *tcb;
 
@@ -1202,7 +1202,7 @@ static void lptest_stop(void)
 	}
 
 	if (tcb->event_thread)
-		thread_cancel(&tcb->event_thread);
+		event_cancel(&tcb->event_thread);
 
 	lpt_inprogress = false;
 }
@@ -1491,7 +1491,7 @@ static void lptest_delete(void *val)
 	}
 
 	if (tcb->event_thread)
-		thread_cancel(&tcb->event_thread);
+		event_cancel(&tcb->event_thread);
 
 	memset(tcb, 0, sizeof(*tcb));
 

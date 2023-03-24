@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "vrf.h"
 #include "lib/json.h"
@@ -33,7 +33,7 @@ DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 static int zebra_pw_enabled(struct zebra_pw *);
 static void zebra_pw_install(struct zebra_pw *);
 static void zebra_pw_uninstall(struct zebra_pw *);
-static void zebra_pw_install_retry(struct thread *thread);
+static void zebra_pw_install_retry(struct event *thread);
 static int zebra_pw_check_reachability(const struct zebra_pw *);
 static void zebra_pw_update_status(struct zebra_pw *, int);
 
@@ -89,7 +89,7 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 		dplane_pw_uninstall(pw);
 	}
 
-	THREAD_OFF(pw->install_retry_timer);
+	EVENT_OFF(pw->install_retry_timer);
 
 	/* unlink and release memory */
 	RB_REMOVE(zebra_pw_head, &zvrf->pseudowires, pw);
@@ -207,16 +207,16 @@ void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
-	THREAD_OFF(pw->install_retry_timer);
-	thread_add_timer(zrouter.master, zebra_pw_install_retry, pw,
-			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
+	EVENT_OFF(pw->install_retry_timer);
+	event_add_timer(zrouter.master, zebra_pw_install_retry, pw,
+			PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 
 	zebra_pw_update_status(pw, pwstatus);
 }
 
-static void zebra_pw_install_retry(struct thread *thread)
+static void zebra_pw_install_retry(struct event *thread)
 {
-	struct zebra_pw *pw = THREAD_ARG(thread);
+	struct zebra_pw *pw = EVENT_ARG(thread);
 
 	zebra_pw_install(pw);
 }

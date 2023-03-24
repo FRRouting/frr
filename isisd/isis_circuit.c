@@ -19,7 +19,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "hash.h"
 #include "prefix.h"
@@ -627,12 +627,12 @@ void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
 void isis_circuit_prepare(struct isis_circuit *circuit)
 {
 #if ISIS_METHOD != ISIS_METHOD_DLPI
-	thread_add_read(master, isis_receive, circuit, circuit->fd,
-			&circuit->t_read);
+	event_add_read(master, isis_receive, circuit, circuit->fd,
+		       &circuit->t_read);
 #else
-	thread_add_timer_msec(master, isis_receive, circuit,
-			      listcount(circuit->area->circuit_list) * 100,
-			      &circuit->t_read);
+	event_add_timer_msec(master, isis_receive, circuit,
+			     listcount(circuit->area->circuit_list) * 100,
+			     &circuit->t_read);
 #endif
 }
 
@@ -722,10 +722,10 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 			circuit->u.bc.lan_neighs[level - 1] = list_new();
 
-			thread_add_timer(master, isis_run_dr,
-					 &circuit->level_arg[level - 1],
-					 2 * circuit->hello_interval[level - 1],
-					 &circuit->u.bc.t_run_dr[level - 1]);
+			event_add_timer(master, isis_run_dr,
+					&circuit->level_arg[level - 1],
+					2 * circuit->hello_interval[level - 1],
+					&circuit->u.bc.t_run_dr[level - 1]);
 		}
 
 		/* 8.4.1 b) FIXME: solicit ES - 8.4.6 */
@@ -740,13 +740,13 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	/* initializing PSNP timers */
 	if (circuit->is_type & IS_LEVEL_1)
-		thread_add_timer(
+		event_add_timer(
 			master, send_l1_psnp, circuit,
 			isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
 			&circuit->t_send_psnp[0]);
 
 	if (circuit->is_type & IS_LEVEL_2)
-		thread_add_timer(
+		event_add_timer(
 			master, send_l2_psnp, circuit,
 			isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
 			&circuit->t_send_psnp[1]);
@@ -863,12 +863,12 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
-		THREAD_OFF(circuit->u.bc.t_send_lan_hello[0]);
-		THREAD_OFF(circuit->u.bc.t_send_lan_hello[1]);
-		THREAD_OFF(circuit->u.bc.t_run_dr[0]);
-		THREAD_OFF(circuit->u.bc.t_run_dr[1]);
-		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[0]);
-		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
+		EVENT_OFF(circuit->u.bc.t_send_lan_hello[0]);
+		EVENT_OFF(circuit->u.bc.t_send_lan_hello[1]);
+		EVENT_OFF(circuit->u.bc.t_run_dr[0]);
+		EVENT_OFF(circuit->u.bc.t_run_dr[1]);
+		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[0]);
+		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
@@ -878,7 +878,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
 		circuit->u.p2p.neighbor = NULL;
-		THREAD_OFF(circuit->u.p2p.t_send_p2p_hello);
+		EVENT_OFF(circuit->u.p2p.t_send_p2p_hello);
 	}
 
 	/*
@@ -891,11 +891,11 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	circuit->snmp_adj_idx_gen = 0;
 
 	/* Cancel all active threads */
-	THREAD_OFF(circuit->t_send_csnp[0]);
-	THREAD_OFF(circuit->t_send_csnp[1]);
-	THREAD_OFF(circuit->t_send_psnp[0]);
-	THREAD_OFF(circuit->t_send_psnp[1]);
-	THREAD_OFF(circuit->t_read);
+	EVENT_OFF(circuit->t_send_csnp[0]);
+	EVENT_OFF(circuit->t_send_csnp[1]);
+	EVENT_OFF(circuit->t_send_psnp[0]);
+	EVENT_OFF(circuit->t_send_psnp[1]);
+	EVENT_OFF(circuit->t_read);
 
 	if (circuit->tx_queue) {
 		isis_tx_queue_free(circuit->tx_queue);
@@ -929,7 +929,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->snd_stream = NULL;
 	}
 
-	thread_cancel_event(master, circuit);
+	event_cancel_event(master, circuit);
 
 	return;
 }

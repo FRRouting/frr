@@ -12,7 +12,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "linklist.h"
@@ -157,7 +157,7 @@ static struct eigrp *eigrp_new(uint16_t as, vrf_id_t vrf_id)
 
 	eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1);
 
-	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
+	event_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
 	eigrp->oi_write_q = list_new();
 
 	eigrp->topology_table = route_table_init();
@@ -260,8 +260,8 @@ void eigrp_finish_final(struct eigrp *eigrp)
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_FINAL);
 	}
 
-	THREAD_OFF(eigrp->t_write);
-	THREAD_OFF(eigrp->t_read);
+	EVENT_OFF(eigrp->t_write);
+	EVENT_OFF(eigrp->t_read);
 	close(eigrp->fd);
 
 	list_delete(&eigrp->eiflist);

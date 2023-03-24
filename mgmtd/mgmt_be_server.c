@@ -29,11 +29,11 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 static int mgmt_be_listen_fd = -1;
-static struct thread_master *mgmt_be_listen_tm;
-static struct thread *mgmt_be_listen_ev;
+static struct event_loop *mgmt_be_listen_tm;
+static struct event *mgmt_be_listen_ev;
 static void mgmt_be_server_register_event(enum mgmt_be_event event);
 
-static void mgmt_be_conn_accept(struct thread *thread)
+static void mgmt_be_conn_accept(struct event *thread)
 {
 	int client_conn_fd;
 	union sockunion su;
@@ -65,7 +65,7 @@ static void mgmt_be_conn_accept(struct thread *thread)
 static void mgmt_be_server_register_event(enum mgmt_be_event event)
 {
 	if (event == MGMTD_BE_SERVER) {
-		thread_add_read(mgmt_be_listen_tm, mgmt_be_conn_accept,
+		event_add_read(mgmt_be_listen_tm, mgmt_be_conn_accept,
 				NULL, mgmt_be_listen_fd,
 				&mgmt_be_listen_ev);
 		assert(mgmt_be_listen_ev);
@@ -126,7 +126,7 @@ mgmt_be_server_start_failed:
 	exit(-1);
 }
 
-int mgmt_be_server_init(struct thread_master *master)
+int mgmt_be_server_init(struct event_loop *master)
 {
 	if (mgmt_be_listen_tm) {
 		MGMTD_BE_SRVR_DBG("MGMTD Backend Server already running!");
@@ -146,7 +146,7 @@ void mgmt_be_server_destroy(void)
 		MGMTD_BE_SRVR_DBG("Closing MGMTD Backend Server!");
 
 		if (mgmt_be_listen_ev) {
-			THREAD_OFF(mgmt_be_listen_ev);
+			EVENT_OFF(mgmt_be_listen_ev);
 			mgmt_be_listen_ev = NULL;
 		}
 

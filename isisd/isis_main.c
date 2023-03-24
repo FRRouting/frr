@@ -10,7 +10,7 @@
 #include <zebra.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include <lib/version.h>
 #include "command.h"
@@ -77,7 +77,7 @@ static const struct option longopts[] = {
 	{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /*
  * Prototypes.
@@ -169,7 +169,7 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 /* clang-format on */
 
 
-static void isis_config_finish(struct thread *t)
+static void isis_config_finish(struct event *t)
 {
 	struct listnode *node, *inode;
 	struct isis *isis;
@@ -185,9 +185,9 @@ static void isis_config_start(void)
 {
 	/* Max wait time for config to load before generating lsp */
 #define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
-	THREAD_OFF(t_isis_cfg);
-	thread_add_timer(im->master, isis_config_finish, NULL,
-			 ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
+	EVENT_OFF(t_isis_cfg);
+	event_add_timer(im->master, isis_config_finish, NULL,
+			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
 
 static void isis_config_end(void)
@@ -195,10 +195,10 @@ static void isis_config_end(void)
 	/* If ISIS config processing thread isn't running, then
 	 * we can return and rely it's properly handled.
 	 */
-	if (!thread_is_scheduled(t_isis_cfg))
+	if (!event_is_scheduled(t_isis_cfg))
 		return;
 
-	THREAD_OFF(t_isis_cfg);
+	EVENT_OFF(t_isis_cfg);
 	isis_config_finish(t_isis_cfg);
 }
 

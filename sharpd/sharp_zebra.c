@@ -6,7 +6,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -26,7 +26,7 @@
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Privs info */
 extern struct zebra_privs_t sharp_privs;

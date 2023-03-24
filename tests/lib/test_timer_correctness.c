@@ -16,14 +16,14 @@
 
 #include "memory.h"
 #include "prng.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #define SCHEDULE_TIMERS 800
 #define REMOVE_TIMERS   200
 
 #define TIMESTR_LEN strlen("4294967296.999999")
 
-struct thread_master *master;
+struct event_loop *master;
 
 static size_t log_buf_len;
 static size_t log_buf_pos;
@@ -35,7 +35,7 @@ static char *expected_buf;
 
 static struct prng *prng;
 
-static struct thread **timers;
+static struct event **timers;
 
 static int timers_pending;
 
@@ -54,7 +54,7 @@ static void terminate_test(void)
 		exit_code = 0;
 	}
 
-	thread_master_free(master);
+	event_master_free(master);
 	XFREE(MTYPE_TMP, log_buf);
 	XFREE(MTYPE_TMP, expected_buf);
 	prng_free(prng);
@@ -63,7 +63,7 @@ static void terminate_test(void)
 	exit(exit_code);
 }
 
-static void timer_func(struct thread *thread)
+static void timer_func(struct event *thread)
 {
 	int rv;
 
@@ -94,10 +94,10 @@ static int cmp_timeval(const void *a, const void *b)
 int main(int argc, char **argv)
 {
 	int i, j;
-	struct thread t;
+	struct event t;
 	struct timeval **alarms;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	log_buf_len = SCHEDULE_TIMERS * (TIMESTR_LEN + 1) + 1;
 	log_buf_pos = 0;
@@ -119,8 +119,8 @@ int main(int argc, char **argv)
 		/* Schedule timers to expire in 0..5 seconds */
 		interval_msec = prng_rand(prng) % 5000;
 		arg = XMALLOC(MTYPE_TMP, TIMESTR_LEN + 1);
-		thread_add_timer_msec(master, timer_func, arg, interval_msec,
-				      &timers[i]);
+		event_add_timer_msec(master, timer_func, arg, interval_msec,
+				     &timers[i]);
 		ret = snprintf(arg, TIMESTR_LEN + 1, "%lld.%06lld",
 			       (long long)timers[i]->u.sands.tv_sec,
 			       (long long)timers[i]->u.sands.tv_usec);
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 			continue;
 
 		XFREE(MTYPE_TMP, timers[index]->arg);
-		thread_cancel(&timers[index]);
+		event_cancel(&timers[index]);
 		timers_pending--;
 	}
 
@@ -166,8 +166,8 @@ int main(int argc, char **argv)
 	}
 	XFREE(MTYPE_TMP, alarms);
 
-	while (thread_fetch(master, &t))
-		thread_call(&t);
+	while (event_fetch(master, &t))
+		event_call(&t);
 
 	return 0;
 }

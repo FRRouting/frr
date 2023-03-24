@@ -29,7 +29,7 @@ struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
-static struct thread_master *master;
+static struct event_loop *master;
 
 static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
@@ -265,7 +265,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
 
 void nb_cli_confirmed_commit_clean(struct vty *vty)
 {
-	thread_cancel(&vty->t_confirmed_commit_timeout);
+	event_cancel(&vty->t_confirmed_commit_timeout);
 	nb_config_free(vty->confirmed_commit_rollback);
 	vty->confirmed_commit_rollback = NULL;
 }
@@ -300,9 +300,9 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static void nb_cli_confirmed_commit_timeout(struct thread *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *thread)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	/* XXX: broadcast this message to all logged-in users? */
 	vty_out(vty,
@@ -328,11 +328,10 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
 				confirmed_timeout);
 
-			thread_cancel(&vty->t_confirmed_commit_timeout);
-			thread_add_timer(master,
-					 nb_cli_confirmed_commit_timeout, vty,
-					 confirmed_timeout * 60,
-					 &vty->t_confirmed_commit_timeout);
+			event_cancel(&vty->t_confirmed_commit_timeout);
+			event_add_timer(master, nb_cli_confirmed_commit_timeout,
+					vty, confirmed_timeout * 60,
+					&vty->t_confirmed_commit_timeout);
 		} else {
 			/* Accept commit confirmation. */
 			vty_out(vty, "%% Commit complete.\n\n");
@@ -355,9 +354,9 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
 		vty->t_confirmed_commit_timeout = NULL;
-		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
-				 confirmed_timeout * 60,
-				 &vty->t_confirmed_commit_timeout);
+		event_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
+				confirmed_timeout * 60,
+				&vty->t_confirmed_commit_timeout);
 	}
 
 	context.client = NB_CLIENT_CLI;
@@ -1877,7 +1876,7 @@ static const struct cmd_variable_handler yang_var_handlers[] = {
 	 .completions = yang_translator_autocomplete},
 	{.completions = NULL}};
 
-void nb_cli_init(struct thread_master *tm)
+void nb_cli_init(struct event_loop *tm)
 {
 	master = tm;
 

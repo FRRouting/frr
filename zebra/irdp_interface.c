@@ -24,7 +24,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "lib_errors.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -272,8 +272,8 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 			   timer);
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 static void irdp_if_stop(struct interface *ifp)

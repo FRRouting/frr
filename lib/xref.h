@@ -20,7 +20,7 @@ extern "C" {
 enum xref_type {
 	XREFT_NONE = 0,
 
-	XREFT_THREADSCHED = 0x100,
+	XREFT_EVENTSCHED = 0x100,
 
 	XREFT_LOGMSG = 0x200,
 	XREFT_ASSERT = 0x280,

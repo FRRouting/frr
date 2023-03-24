@@ -12,7 +12,7 @@
 #include <zebra.h>
 
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "command.h"
@@ -1099,8 +1099,8 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 	if (subgrp->update_group)
 		UPDGRP_INCR_STAT(subgrp->update_group, subgrps_deleted);
 
-	THREAD_OFF(subgrp->t_merge_check);
-	THREAD_OFF(subgrp->t_coalesce);
+	EVENT_OFF(subgrp->t_merge_check);
+	EVENT_OFF(subgrp->t_coalesce);
 
 	bpacket_queue_cleanup(SUBGRP_PKTQ(subgrp));
 	subgroup_clear_table(subgrp);
@@ -1418,11 +1418,11 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static void update_subgroup_merge_check_thread_cb(struct thread *thread)
+static void update_subgroup_merge_check_thread_cb(struct event *thread)
 {
 	struct update_subgroup *subgrp;
 
-	subgrp = THREAD_ARG(thread);
+	subgrp = EVENT_ARG(thread);
 
 	subgrp->t_merge_check = NULL;
 
@@ -1449,8 +1449,8 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 		return false;
 
 	subgrp->t_merge_check = NULL;
-	thread_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
-			      subgrp, 0, &subgrp->t_merge_check);
+	event_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
+			     subgrp, 0, &subgrp->t_merge_check);
 
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
@@ -2107,15 +2107,15 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-void update_group_refresh_default_originate_route_map(struct thread *thread)
+void update_group_refresh_default_originate_route_map(struct event *thread)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
 
-	bgp = THREAD_ARG(thread);
+	bgp = EVENT_ARG(thread);
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
-	THREAD_OFF(bgp->t_rmap_def_originate_eval);
+	EVENT_OFF(bgp->t_rmap_def_originate_eval);
 	bgp_unlock(bgp);
 }
 
@@ -2215,7 +2215,7 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 */
 	SUBGRP_FOREACH_PEER (subgrp, paf)
 		if (peer_established(paf->peer))
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				bm->master, bgp_generate_updgrp_packets,
 				paf->peer, 0,
 				&paf->peer->t_generate_updgrp_packets);

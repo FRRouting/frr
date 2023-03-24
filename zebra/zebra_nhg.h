@@ -89,7 +89,7 @@ struct nhg_hash_entry {
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
-	struct thread *timer;
+	struct event *timer;
 
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.

@@ -44,11 +44,11 @@ struct mgmt_be_client_adapter {
 	enum mgmt_be_client_id id;
 	int conn_fd;
 	union sockunion conn_su;
-	struct thread *conn_init_ev;
-	struct thread *conn_read_ev;
-	struct thread *conn_write_ev;
-	struct thread *conn_writes_on;
-	struct thread *proc_msg_ev;
+	struct event *conn_init_ev;
+	struct event *conn_read_ev;
+	struct event *conn_write_ev;
+	struct event *conn_writes_on;
+	struct event *proc_msg_ev;
 	uint32_t flags;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 	uint8_t num_xpath_reg;
@@ -92,7 +92,7 @@ struct mgmt_be_client_subscr_info {
 };
 
 /* Initialise backend adapter module. */
-extern int mgmt_be_adapter_init(struct thread_master *tm);
+extern int mgmt_be_adapter_init(struct event_loop *tm);
 
 /* Destroy the backend adapter module. */
 extern void mgmt_be_adapter_destroy(void);

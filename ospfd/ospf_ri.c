@@ -20,7 +20,7 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "mpls.h"

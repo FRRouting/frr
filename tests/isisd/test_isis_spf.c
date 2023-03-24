@@ -8,7 +8,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "log.h"
@@ -455,7 +455,7 @@ static void vty_do_exit(int isexit)
 	cmd_terminate();
 	vty_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "test-isis-spf");
 	if (!isexit)
@@ -488,7 +488,7 @@ int main(int argc, char **argv)
 {
 	char *p;
 	char *progname;
-	struct thread thread;
+	struct event thread;
 	bool debug = false;
 
 	/* Set umask before anything for security */
@@ -521,7 +521,7 @@ int main(int argc, char **argv)
 	}
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	isis_master_init(master);
 
 	/* Library inits. */
@@ -549,8 +549,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

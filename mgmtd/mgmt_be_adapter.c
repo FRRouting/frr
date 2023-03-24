@@ -7,7 +7,7 @@
  */
 
 #include <zebra.h>
-#include "thread.h"
+#include "frrevent.h"
 #include "sockopt.h"
 #include "network.h"
 #include "libfrr.h"
@@ -106,7 +106,7 @@ static struct mgmt_be_xpath_regexp_map
 	mgmt_xpath_map[MGMTD_BE_MAX_NUM_XPATH_MAP];
 static int mgmt_num_xpath_maps;
 
-static struct thread_master *mgmt_be_adapter_tm;
+static struct event_loop *mgmt_be_adapter_tm;
 
 static struct mgmt_be_adapters_head mgmt_be_adapters;
 
@@ -614,21 +614,21 @@ static void mgmt_be_adapter_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_adapter_proc_msgbufs(struct thread *thread)
+static void mgmt_be_adapter_proc_msgbufs(struct event *thread)
 {
-	struct mgmt_be_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_be_client_adapter *adapter = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_be_adapter_process_msg,
 			      adapter, mgmt_debug_be))
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_PROC_MSG);
 }
 
-static void mgmt_be_adapter_read(struct thread *thread)
+static void mgmt_be_adapter_read(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 	enum mgmt_msg_rsched rv;
 
-	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
+	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
 
 	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd, mgmt_debug_be);
 	if (rv == MSR_DISCONNECT) {
@@ -640,9 +640,9 @@ static void mgmt_be_adapter_read(struct thread *thread)
 	mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_READ);
 }
 
-static void mgmt_be_adapter_write(struct thread *thread)
+static void mgmt_be_adapter_write(struct event *thread)
 {
-	struct mgmt_be_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_be_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd, mgmt_debug_be);
@@ -658,11 +658,11 @@ static void mgmt_be_adapter_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_be_adapter_resume_writes(struct thread *thread)
+static void mgmt_be_adapter_resume_writes(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 
-	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
+	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
 	assert(adapter && adapter->conn_fd >= 0);
 
 	mgmt_be_adapter_writes_on(adapter);
@@ -695,11 +695,11 @@ static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
 	nb_config_diff_created(node, seq, root);
 }
 
-static void mgmt_be_adapter_conn_init(struct thread *thread)
+static void mgmt_be_adapter_conn_init(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 
-	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
+	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
 	assert(adapter && adapter->conn_fd >= 0);
 
 	/*
@@ -733,14 +733,14 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 
 	switch (event) {
 	case MGMTD_BE_CONN_INIT:
-		thread_add_timer_msec(mgmt_be_adapter_tm,
+		event_add_timer_msec(mgmt_be_adapter_tm,
 				      mgmt_be_adapter_conn_init, adapter,
 				      MGMTD_BE_CONN_INIT_DELAY_MSEC,
 				      &adapter->conn_init_ev);
 		assert(adapter->conn_init_ev);
 		break;
 	case MGMTD_BE_CONN_READ:
-		thread_add_read(mgmt_be_adapter_tm, mgmt_be_adapter_read,
+		event_add_read(mgmt_be_adapter_tm, mgmt_be_adapter_read,
 				adapter, adapter->conn_fd, &adapter->conn_read_ev);
 		assert(adapter->conn_read_ev);
 		break;
@@ -753,19 +753,19 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 			MGMTD_BE_ADAPTER_DBG(
 				"scheduling write ready notify for client %s",
 				adapter->name);
-		thread_add_write(mgmt_be_adapter_tm, mgmt_be_adapter_write,
+		event_add_write(mgmt_be_adapter_tm, mgmt_be_adapter_write,
 				 adapter, adapter->conn_fd, &adapter->conn_write_ev);
 		assert(adapter->conn_write_ev);
 		break;
 	case MGMTD_BE_PROC_MSG:
 		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
-		thread_add_timer_tv(mgmt_be_adapter_tm,
+		event_add_timer_tv(mgmt_be_adapter_tm,
 				    mgmt_be_adapter_proc_msgbufs, adapter, &tv,
 				    &adapter->proc_msg_ev);
 		assert(adapter->proc_msg_ev);
 		break;
 	case MGMTD_BE_CONN_WRITES_ON:
-		thread_add_timer_msec(mgmt_be_adapter_tm,
+		event_add_timer_msec(mgmt_be_adapter_tm,
 				      mgmt_be_adapter_resume_writes, adapter,
 				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
 				      &adapter->conn_writes_on);
@@ -793,11 +793,11 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 	(*adapter)->refcount--;
 	if (!(*adapter)->refcount) {
 		mgmt_be_adapters_del(&mgmt_be_adapters, *adapter);
-		THREAD_OFF((*adapter)->conn_init_ev);
-		THREAD_OFF((*adapter)->conn_read_ev);
-		THREAD_OFF((*adapter)->conn_write_ev);
-		THREAD_OFF((*adapter)->conn_writes_on);
-		THREAD_OFF((*adapter)->proc_msg_ev);
+		EVENT_OFF((*adapter)->conn_init_ev);
+		EVENT_OFF((*adapter)->conn_read_ev);
+		EVENT_OFF((*adapter)->conn_write_ev);
+		EVENT_OFF((*adapter)->conn_writes_on);
+		EVENT_OFF((*adapter)->proc_msg_ev);
 		mgmt_msg_destroy(&(*adapter)->mstate);
 		XFREE(MTYPE_MGMTD_BE_ADPATER, *adapter);
 	}
@@ -805,7 +805,7 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 	*adapter = NULL;
 }
 
-int mgmt_be_adapter_init(struct thread_master *tm)
+int mgmt_be_adapter_init(struct event_loop *tm)
 {
 	if (!mgmt_be_adapter_tm) {
 		mgmt_be_adapter_tm = tm;

@@ -98,7 +98,7 @@ struct bgp_master {
 	struct list *bgp;
 
 	/* BGP thread master.  */
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* Listening sockets */
 	struct list *listen_sockets;
@@ -126,7 +126,7 @@ struct bgp_master {
 	uint64_t subgrp_idspace;
 
 	/* timer to dampen route map changes */
-	struct thread *t_rmap_update; /* Handle route map updates */
+	struct event *t_rmap_update; /* Handle route map updates */
 	uint32_t rmap_update_timer;   /* Route map update timer */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
@@ -266,11 +266,11 @@ struct graceful_restart_info {
 	/* Count of EOR received */
 	uint32_t eor_received;
 	/* Deferral Timer */
-	struct thread *t_select_deferral;
+	struct event *t_select_deferral;
 	/* Routes Deferred */
 	uint32_t gr_deferred;
 	/* Best route select */
-	struct thread *t_route_select;
+	struct event *t_route_select;
 	/* AFI, SAFI enabled */
 	bool af_enabled[AFI_MAX][SAFI_MAX];
 	/* Route update completed */
@@ -406,15 +406,16 @@ struct bgp {
 	struct as_confed *confed_peers;
 	int confed_peers_cnt;
 
-	struct thread
-		*t_startup; /* start-up timer on only once at the beginning */
+	/* start-up timer on only once at the beginning */
+	struct event *t_startup;
 
 	uint32_t v_maxmed_onstartup; /* Duration of max-med on start-up */
 #define BGP_MAXMED_ONSTARTUP_UNCONFIGURED  0 /* 0 means off, its the default */
 	uint32_t maxmed_onstartup_value;     /* Max-med value when active on
 						 start-up */
-	struct thread
-		*t_maxmed_onstartup; /* non-null when max-med onstartup is on */
+
+	/* non-null when max-med onstartup is on */
+	struct event *t_maxmed_onstartup;
 	uint8_t maxmed_onstartup_over; /* Flag to make it effective only once */
 
 	bool v_maxmed_admin; /* true/false if max-med administrative is on/off
@@ -428,9 +429,9 @@ struct bgp {
 	uint32_t maxmed_value; /* Max-med value when its active */
 
 	/* BGP update delay on startup */
-	struct thread *t_update_delay;
-	struct thread *t_establish_wait;
-	struct thread *t_revalidate[AFI_MAX][SAFI_MAX];
+	struct event *t_update_delay;
+	struct event *t_establish_wait;
+	struct event *t_revalidate[AFI_MAX][SAFI_MAX];
 
 	uint8_t update_delay_over;
 	uint8_t main_zebra_update_hold;
@@ -590,7 +591,7 @@ struct bgp {
 	struct hash *pbr_action_hash;
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
-	struct thread *t_rmap_def_originate_eval;
+	struct event *t_rmap_def_originate_eval;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
 
 	/* BGP distance configuration.  */
@@ -769,7 +770,7 @@ struct bgp {
 	/* BGP Conditional advertisement */
 	uint32_t condition_check_period;
 	uint32_t condition_filter_count;
-	struct thread *t_condition_check;
+	struct event *t_condition_check;
 
 	/* BGP VPN SRv6 backend */
 	bool srv6_enabled;
@@ -978,7 +979,7 @@ struct peer_af {
 	/*
 	 * Trigger timer for bgp_announce_route().
 	 */
-	struct thread *t_announce_route;
+	struct event *t_announce_route;
 
 	afi_t afi;
 	safi_t safi;
@@ -1509,24 +1510,24 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct thread *t_read;
-	struct thread *t_write;
-	struct thread *t_start;
-	struct thread *t_connect_check_r;
-	struct thread *t_connect_check_w;
-	struct thread *t_connect;
-	struct thread *t_holdtime;
-	struct thread *t_routeadv;
-	struct thread *t_delayopen;
-	struct thread *t_pmax_restart;
-	struct thread *t_gr_restart;
-	struct thread *t_gr_stale;
-	struct thread *t_llgr_stale[AFI_MAX][SAFI_MAX];
-	struct thread *t_revalidate_all[AFI_MAX][SAFI_MAX];
-	struct thread *t_generate_updgrp_packets;
-	struct thread *t_process_packet;
-	struct thread *t_process_packet_error;
-	struct thread *t_refresh_stalepath;
+	struct event *t_read;
+	struct event *t_write;
+	struct event *t_start;
+	struct event *t_connect_check_r;
+	struct event *t_connect_check_w;
+	struct event *t_connect;
+	struct event *t_holdtime;
+	struct event *t_routeadv;
+	struct event *t_delayopen;
+	struct event *t_pmax_restart;
+	struct event *t_gr_restart;
+	struct event *t_gr_stale;
+	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
+	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
+	struct event *t_generate_updgrp_packets;
+	struct event *t_process_packet;
+	struct event *t_process_packet_error;
+	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
@@ -2155,7 +2156,7 @@ extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 
 extern int bgp_config_write(struct vty *);
 
-extern void bgp_master_init(struct thread_master *master, const int buffer_size,
+extern void bgp_master_init(struct event_loop *master, const int buffer_size,
 			    struct list *addresses);
 
 extern void bgp_init(unsigned short instance);
@@ -2363,7 +2364,7 @@ extern int peer_ttl_security_hops_unset(struct peer *);
 extern void peer_tx_shutdown_message_set(struct peer *, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *);
 
-extern void bgp_route_map_update_timer(struct thread *thread);
+extern void bgp_route_map_update_timer(struct event *thread);
 extern const char *bgp_get_name_by_role(uint8_t role);
 extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 

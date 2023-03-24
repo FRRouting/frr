@@ -71,7 +71,7 @@ struct isis_master {
 	/* ISIS instance. */
 	struct list *isis;
 	/* ISIS thread master. */
-	struct thread_master *master;
+	struct event_loop *master;
 	uint8_t options;
 };
 #define F_ISIS_UNIT_TEST 0x01
@@ -89,7 +89,7 @@ struct isis {
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
-	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
+	struct event *t_dync_clean; /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 	int snmp_notifications;
 	struct list *dyn_cache;
@@ -99,7 +99,7 @@ struct isis {
 
 extern struct isis_master *im;
 
-extern struct thread *t_isis_cfg;
+extern struct event *t_isis_cfg;
 
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
@@ -129,11 +129,11 @@ struct isis_area {
 	struct list *circuit_list; /* IS-IS circuits */
 	struct list *adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
-	struct thread *t_tick; /* LSP walker */
-	struct thread *t_lsp_refresh[ISIS_LEVELS];
-	struct thread *t_overload_on_startup_timer;
+	struct event *t_tick; /* LSP walker */
+	struct event *t_lsp_refresh[ISIS_LEVELS];
+	struct event *t_overload_on_startup_timer;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
-	struct thread *t_rlfa_rib_update;
+	struct event *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
 	 * a) regular refresh of LSPs
 	 * b) (possibly throttled) updates to LSPs
@@ -226,7 +226,7 @@ struct isis_area {
 	struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF
 							    SPF algo
 							    parameters*/
-	struct thread *spf_timer[ISIS_LEVELS];
+	struct event *spf_timer[ISIS_LEVELS];
 
 	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
 
@@ -252,7 +252,7 @@ DECLARE_MTYPE(ISIS_PLIST_NAME);
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
-void isis_master_init(struct thread_master *master);
+void isis_master_init(struct event_loop *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
@@ -329,7 +329,7 @@ void config_end_lsp_generate(struct isis_area *area);
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
 
 /* Master of threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 extern unsigned long debug_adj_pkt;
 extern unsigned long debug_snp_pkt;

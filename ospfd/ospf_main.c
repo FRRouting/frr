@@ -9,7 +9,7 @@
 #include <lib/version.h>
 #include "bfd.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -70,7 +70,7 @@ const struct option longopts[] = {
 /* OSPFd program name */
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;

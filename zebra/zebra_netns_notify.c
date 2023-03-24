@@ -17,7 +17,7 @@
 #include <sys/inotify.h>
 #include <sys/stat.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "ns.h"
 #include "command.h"
 #include "memory.h"
@@ -41,18 +41,18 @@
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
 
 DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
-static struct thread *zebra_netns_notify_current;
+static struct event *zebra_netns_notify_current;
 
 struct zebra_netns_info {
 	const char *netnspath;
 	unsigned int retries;
 };
 
-static void zebra_ns_ready_read(struct thread *t);
+static void zebra_ns_ready_read(struct event *t);
 static void zebra_ns_notify_create_context_from_entry_name(const char *name);
 static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 				  int stop_retry);
-static void zebra_ns_notify_read(struct thread *t);
+static void zebra_ns_notify_read(struct event *t);
 
 static struct vrf *vrf_handler_create(struct vty *vty, const char *vrfname)
 {
@@ -133,9 +133,9 @@ static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 		XFREE(MTYPE_NETNS_MISC, zns_info);
 		return 0;
 	}
-	thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
-			      (void *)zns_info, ZEBRA_NS_POLLING_INTERVAL_MSEC,
-			      NULL);
+	event_add_timer_msec(zrouter.master, zebra_ns_ready_read,
+			     (void *)zns_info, ZEBRA_NS_POLLING_INTERVAL_MSEC,
+			     NULL);
 	return 0;
 }
 
@@ -229,9 +229,9 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 	return false;
 }
 
-static void zebra_ns_ready_read(struct thread *t)
+static void zebra_ns_ready_read(struct event *t)
 {
-	struct zebra_netns_info *zns_info = THREAD_ARG(t);
+	struct zebra_netns_info *zns_info = EVENT_ARG(t);
 	const char *netnspath;
 	int err, stop_retry = 0;
 
@@ -280,16 +280,16 @@ static void zebra_ns_ready_read(struct thread *t)
 	zebra_ns_continue_read(zns_info, 1);
 }
 
-static void zebra_ns_notify_read(struct thread *t)
+static void zebra_ns_notify_read(struct event *t)
 {
-	int fd_monitor = THREAD_FD(t);
+	int fd_monitor = EVENT_FD(t);
 	struct inotify_event *event;
 	char buf[BUFSIZ];
 	ssize_t len;
 	char event_name[NAME_MAX + 1];
 
-	thread_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
-			&zebra_netns_notify_current);
+	event_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
+		       &zebra_netns_notify_current);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
 		flog_err_sys(EC_ZEBRA_NS_NOTIFY_READ,
@@ -361,8 +361,8 @@ static void zebra_ns_notify_read(struct thread *t)
 				    sizeof(struct zebra_netns_info));
 		netnsinfo->retries = ZEBRA_NS_POLLING_MAX_RETRIES;
 		netnsinfo->netnspath = netnspath;
-		thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
-				      (void *)netnsinfo, 0, NULL);
+		event_add_timer_msec(zrouter.master, zebra_ns_ready_read,
+				     (void *)netnsinfo, 0, NULL);
 	}
 }
 
@@ -427,8 +427,8 @@ void zebra_ns_notify_init(void)
 			     "NS notify watch: failed to add watch (%s)",
 			     safe_strerror(errno));
 	}
-	thread_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
-			&zebra_netns_notify_current);
+	event_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
+		       &zebra_netns_notify_current);
 }
 
 void zebra_ns_notify_close(void)
@@ -442,7 +442,7 @@ void zebra_ns_notify_close(void)
 		fd = zebra_netns_notify_current->u.fd;
 
 	if (zebra_netns_notify_current->master != NULL)
-		THREAD_OFF(zebra_netns_notify_current);
+		EVENT_OFF(zebra_netns_notify_current);
 
 	/* auto-removal of notify items */
 	if (fd > 0)

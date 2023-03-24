@@ -65,7 +65,7 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 }
 
 /* Initialise transaction module. */
-extern int mgmt_txn_init(struct mgmt_master *cm, struct thread_master *tm);
+extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 
 /* Destroy the transaction module. */
 extern void mgmt_txn_destroy(void);

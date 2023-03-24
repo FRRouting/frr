@@ -32,7 +32,7 @@ DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
 DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
@@ -375,8 +375,8 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
 
-	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
-			&bglobal.bg_csockev);
+	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
+		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();

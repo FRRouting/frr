@@ -14,7 +14,7 @@
 #include <linux/neighbour.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "prefix.h"
 #include "nhrpd.h"
@@ -23,7 +23,7 @@
 
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
-static struct thread *netlink_log_thread;
+static struct event *netlink_log_thread;
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
@@ -96,10 +96,10 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
 }
 
-static void netlink_log_recv(struct thread *t)
+static void netlink_log_recv(struct event *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
-	int fd = THREAD_FD(t);
+	int fd = EVENT_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
@@ -118,14 +118,14 @@ static void netlink_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-			&netlink_log_thread);
+	event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+		       &netlink_log_thread);
 }
 
 void netlink_set_nflog_group(int nlgroup)
 {
 	if (netlink_log_fd >= 0) {
-		thread_cancel(&netlink_log_thread);
+		event_cancel(&netlink_log_thread);
 		close(netlink_log_fd);
 		netlink_log_fd = -1;
 	}
@@ -136,8 +136,8 @@ void netlink_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_log_register(netlink_log_fd, nlgroup);
-		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-				&netlink_log_thread);
+		event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+			       &netlink_log_thread);
 	}
 }
 

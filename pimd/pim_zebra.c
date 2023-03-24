@@ -397,9 +397,9 @@ void pim_scan_oil(struct pim_instance *pim)
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 }
 
-static void on_rpf_cache_refresh(struct thread *t)
+static void on_rpf_cache_refresh(struct event *t)
 {
-	struct pim_instance *pim = THREAD_ARG(t);
+	struct pim_instance *pim = EVENT_ARG(t);
 
 	/* update kernel multicast forwarding cache (MFC) */
 	pim_scan_oil(pim);
@@ -429,9 +429,9 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 			   router->rpf_cache_refresh_delay_msec);
 	}
 
-	thread_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
-			      router->rpf_cache_refresh_delay_msec,
-			      &pim->rpf_cache_refresher);
+	event_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
+			     router->rpf_cache_refresh_delay_msec,
+			     &pim->rpf_cache_refresher);
 }
 
 static void pim_zebra_connected(struct zclient *zclient)

@@ -228,7 +228,7 @@ static zclient_handler *const ripng_handlers[] = {
 };
 
 /* Initialize zebra structure and it's commands. */
-void zebra_init(struct thread_master *master)
+void zebra_init(struct event_loop *master)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master, &zclient_options_default, ripng_handlers,

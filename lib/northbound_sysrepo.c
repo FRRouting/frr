@@ -23,12 +23,12 @@ DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 
-static struct thread_master *master;
+static struct event_loop *master;
 static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
 
-static void frr_sr_read_cb(struct thread *thread);
+static void frr_sr_read_cb(struct event *thread);
 static int frr_sr_finish(void);
 
 /* Convert FRR YANG data value to sysrepo YANG data value. */
@@ -514,10 +514,10 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 	return NB_OK;
 }
 
-static void frr_sr_read_cb(struct thread *thread)
+static void frr_sr_read_cb(struct event *thread)
 {
-	struct yang_module *module = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
+	struct yang_module *module = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
 	int ret;
 
 	ret = sr_subscription_process_events(module->sr_subscription, session,
@@ -528,7 +528,7 @@ static void frr_sr_read_cb(struct thread *thread)
 		return;
 	}
 
-	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
+	event_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
 }
 
 static void frr_sr_subscribe_config(struct yang_module *module)
@@ -688,8 +688,8 @@ static int frr_sr_init(void)
 				 sr_strerror(ret));
 			goto cleanup;
 		}
-		thread_add_read(master, frr_sr_read_cb, module,
-				event_pipe, &module->sr_thread);
+		event_add_read(master, frr_sr_read_cb, module, event_pipe,
+			       &module->sr_thread);
 	}
 
 	hook_register(nb_notification_send, frr_sr_notification_send);
@@ -710,7 +710,7 @@ static int frr_sr_finish(void)
 		if (!module->sr_subscription)
 			continue;
 		sr_unsubscribe(module->sr_subscription);
-		THREAD_OFF(module->sr_thread);
+		EVENT_OFF(module->sr_thread);
 	}
 
 	if (session)
@@ -721,7 +721,7 @@ static int frr_sr_finish(void)
 	return 0;
 }
 
-static int frr_sr_module_config_loaded(struct thread_master *tm)
+static int frr_sr_module_config_loaded(struct event_loop *tm)
 {
 	master = tm;
 
@@ -736,7 +736,7 @@ static int frr_sr_module_config_loaded(struct thread_master *tm)
 	return 0;
 }
 
-static int frr_sr_module_late_init(struct thread_master *tm)
+static int frr_sr_module_late_init(struct event_loop *tm)
 {
 	frr_sr_cli_init();
 

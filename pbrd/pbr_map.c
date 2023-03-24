@@ -6,7 +6,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"

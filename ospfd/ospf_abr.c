@@ -7,7 +7,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"
@@ -1727,13 +1727,13 @@ bool ospf_check_fr_enabled_all(struct ospf *ospf)
  *  @param thread
  *  @return 0.
  */
-static void ospf_abr_announce_non_dna_routers(struct thread *thread)
+static void ospf_abr_announce_non_dna_routers(struct event *thread)
 {
 	struct ospf_area *area;
 	struct listnode *node;
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
-	THREAD_OFF(ospf->t_abr_fr);
+	EVENT_OFF(ospf->t_abr_fr);
 
 	if (!IS_OSPF_ABR(ospf))
 		return;
@@ -2040,9 +2040,9 @@ void ospf_abr_task(struct ospf *ospf)
 			 * giving time for route synchronization in
 			 * all the routers.
 			 */
-			thread_add_timer(
-				master, ospf_abr_announce_non_dna_routers, ospf,
-				OSPF_ABR_DNA_TIMER, &ospf->t_abr_fr);
+			event_add_timer(master,
+					ospf_abr_announce_non_dna_routers, ospf,
+					OSPF_ABR_DNA_TIMER, &ospf->t_abr_fr);
 		}
 	}
 
@@ -2056,9 +2056,9 @@ void ospf_abr_task(struct ospf *ospf)
 		zlog_debug("%s: Stop", __func__);
 }
 
-static void ospf_abr_task_timer(struct thread *thread)
+static void ospf_abr_task_timer(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
 	ospf->t_abr_task = 0;
 
@@ -2077,6 +2077,6 @@ void ospf_schedule_abr_task(struct ospf *ospf)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Scheduling ABR task");
 
-	thread_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
-			 &ospf->t_abr_task);
+	event_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
+			&ospf->t_abr_task);
 }

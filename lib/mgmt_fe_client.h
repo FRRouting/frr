@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 #include "mgmt_pb.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "mgmtd/mgmt_defines.h"
 
 /***************************************************************
@@ -130,9 +130,8 @@ struct mgmt_fe_client_params {
  * Returns:
  *    Frontend client lib handler (nothing but address of mgmt_fe_client_ctx)
  */
-extern uintptr_t
-mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
-			    struct thread_master *master_thread);
+extern uintptr_t mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
+					 struct event_loop *master_thread);
 
 /*
  * Create a new Session for a Frontend Client connection.

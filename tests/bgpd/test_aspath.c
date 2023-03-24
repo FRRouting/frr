@@ -26,7 +26,7 @@
 
 /* need these to link in libbgp */
 struct zebra_privs_t bgpd_privs = {};
-struct thread_master *master = NULL;
+struct event_loop *master = NULL;
 
 static int failed = 0;
 
@@ -1405,7 +1405,7 @@ int main(void)
 {
 	int i = 0;
 	qobj_init();
-	bgp_master_init(thread_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE,
+	bgp_master_init(event_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE,
 			list_new());
 	master = bm->master;
 	bgp_option_set(BGP_OPT_NO_LISTEN);

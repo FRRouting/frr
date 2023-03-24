@@ -32,7 +32,7 @@ struct isis_tx_queue_entry {
 	struct isis_lsp *lsp;
 	enum isis_tx_type type;
 	bool is_retry;
-	struct thread *retry;
+	struct event *retry;
 	struct isis_tx_queue *queue;
 };
 
@@ -79,7 +79,7 @@ static void tx_queue_element_free(void *element)
 {
 	struct isis_tx_queue_entry *e = element;
 
-	THREAD_OFF(e->retry);
+	EVENT_OFF(e->retry);
 
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
 }
@@ -100,12 +100,12 @@ static struct isis_tx_queue_entry *tx_queue_find(struct isis_tx_queue *queue,
 	return hash_lookup(queue->hash, &e);
 }
 
-static void tx_queue_send_event(struct thread *thread)
+static void tx_queue_send_event(struct event *thread)
 {
-	struct isis_tx_queue_entry *e = THREAD_ARG(thread);
+	struct isis_tx_queue_entry *e = EVENT_ARG(thread);
 	struct isis_tx_queue *queue = e->queue;
 
-	thread_add_timer(master, tx_queue_send_event, e, 5, &e->retry);
+	event_add_timer(master, tx_queue_send_event, e, 5, &e->retry);
 
 	if (e->is_retry)
 		queue->circuit->area->lsp_rxmt_count++;
@@ -147,8 +147,8 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 
 	e->type = type;
 
-	THREAD_OFF(e->retry);
-	thread_add_event(master, tx_queue_send_event, e, 0, &e->retry);
+	EVENT_OFF(e->retry);
+	event_add_event(master, tx_queue_send_event, e, 0, &e->retry);
 
 	e->is_retry = false;
 }
@@ -170,7 +170,7 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			   func, file, line);
 	}
 
-	THREAD_OFF(e->retry);
+	EVENT_OFF(e->retry);
 
 	hash_release(queue->hash, e);
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);

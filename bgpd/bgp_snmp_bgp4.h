@@ -71,6 +71,6 @@
 
 extern int bgpTrapEstablished(struct peer *peer);
 extern int bgpTrapBackwardTransition(struct peer *peer);
-extern int bgp_snmp_bgp4_init(struct thread_master *tm);
+extern int bgp_snmp_bgp4_init(struct event_loop *tm);
 
 #endif /* _FRR_BGP_SNMP_BGP4_H_ */

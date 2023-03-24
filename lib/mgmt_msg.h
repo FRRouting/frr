@@ -8,7 +8,7 @@
 #define _MGMT_MSG_H
 
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #define MGMT_MSG_MARKER (0x4D724B21u) /* ASCII - "MrK!"*/
 

@@ -11,7 +11,7 @@
 #include "ospfd/ospf_interface.h"
 #include "json.h"
 
-extern void ospf_bfd_init(struct thread_master *tm);
+extern void ospf_bfd_init(struct event_loop *tm);
 
 extern void ospf_bfd_write_config(struct vty *vty,
 				  const struct ospf_if_params *params);

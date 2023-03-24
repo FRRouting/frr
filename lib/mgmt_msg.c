@@ -10,7 +10,7 @@
 #include "network.h"
 #include "sockopt.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "mgmt_msg.h"
 
 

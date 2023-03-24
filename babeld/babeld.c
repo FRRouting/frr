@@ -37,11 +37,11 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
-static void babel_init_routing_process(struct thread *thread);
+static void babel_init_routing_process(struct event *thread);
 static void babel_get_myid(void);
 static void babel_initial_noise(void);
-static void babel_read_protocol(struct thread *thread);
-static void babel_main_loop(struct thread *thread);
+static void babel_read_protocol(struct event *thread);
+static void babel_main_loop(struct event *thread);
 static void babel_set_timer(struct timeval *timeout);
 static void babel_fill_with_next_timeout(struct timeval *tv);
 static void
@@ -148,9 +148,11 @@ babel_create_routing_process (void)
     }
 
     /* Threads. */
-    thread_add_read(master, babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    event_add_read(master, babel_read_protocol, NULL, protocol_socket,
+		   &babel_routing_process->t_read);
     /* wait a little: zebra will announce interfaces, addresses, routes... */
-    thread_add_timer_msec(master, babel_init_routing_process, NULL, 200L, &babel_routing_process->t_update);
+    event_add_timer_msec(master, babel_init_routing_process, NULL, 200L,
+			 &babel_routing_process->t_update);
 
     /* Distribute list install. */
     babel_routing_process->distribute_ctx = distribute_list_ctx_create (vrf_lookup_by_id(VRF_DEFAULT));
@@ -163,7 +165,7 @@ fail:
 }
 
 /* thread reading entries form others babel daemons */
-static void babel_read_protocol(struct thread *thread)
+static void babel_read_protocol(struct event *thread)
 {
     int rc;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -193,13 +195,14 @@ static void babel_read_protocol(struct thread *thread)
     }
 
     /* re-add thread */
-    thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    event_add_read(master, &babel_read_protocol, NULL, protocol_socket,
+		   &babel_routing_process->t_read);
 }
 
 /* Zebra will give some information, especially about interfaces. This function
  must be call with a litte timeout wich may give zebra the time to do his job,
  making these inits have sense. */
-static void babel_init_routing_process(struct thread *thread)
+static void babel_init_routing_process(struct event *thread)
 {
     myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
@@ -303,15 +306,15 @@ babel_clean_routing_process(void)
     babel_interface_close_all();
 
     /* cancel events */
-    thread_cancel(&babel_routing_process->t_read);
-    thread_cancel(&babel_routing_process->t_update);
+    event_cancel(&babel_routing_process->t_read);
+    event_cancel(&babel_routing_process->t_update);
 
     distribute_list_delete(&babel_routing_process->distribute_ctx);
     XFREE(MTYPE_BABEL, babel_routing_process);
 }
 
 /* Function used with timeout. */
-static void babel_main_loop(struct thread *thread)
+static void babel_main_loop(struct event *thread)
 {
     struct timeval tv;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -482,8 +485,9 @@ static void
 babel_set_timer(struct timeval *timeout)
 {
     long msecs = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
-    thread_cancel(&(babel_routing_process->t_update));
-    thread_add_timer_msec(master, babel_main_loop, NULL, msecs, &babel_routing_process->t_update);
+    event_cancel(&(babel_routing_process->t_update));
+    event_add_timer_msec(master, babel_main_loop, NULL, msecs,
+			 &babel_routing_process->t_update);
 }
 
 void

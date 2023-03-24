@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "lib/json.h"
 #include "zclient.h"
