@@ -535,9 +535,6 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	uint16_t instance;
 	struct zserv *s_client;
 
-	if ((info == NULL) || (zvrf == NULL))
-		return -1;
-
 	s_client = info->stale_client_ptr;
 	if (s_client == NULL) {
 		LOG_GR("%s: Stale client %s(%u) not present", __func__,
