@@ -118,8 +118,6 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 
 	EVENT_OFF(info->t_stale_removal);
 
-	XFREE(MTYPE_ZEBRA_GR, info->current_prefix);
-
 	LOG_GR("%s: Instance info is being deleted for client %s vrf %s(%u)",
 	       __func__, zebra_route_string(client->proto), VRF_LOGNAME(vrf),
 	       info->vrf_id);
@@ -489,7 +487,6 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 		       __func__, zebra_route_string(client->proto),
 		       VRF_LOGNAME(vrf), info->vrf_id);
 
-		XFREE(MTYPE_ZEBRA_GR, info->current_prefix);
 		info->current_afi = 0;
 		zebra_gr_delete_stale_client(info);
 	}
@@ -499,14 +496,13 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 /*
  * Function to process to check if route entry is stale
  * or has been updated.
+ *
+ * Returns true when a node is deleted else false
  */
-static void zebra_gr_process_route_entry(struct zserv *client,
+static bool zebra_gr_process_route_entry(struct zserv *client,
 					 struct route_node *rn,
 					 struct route_entry *re)
 {
-	if ((client == NULL) || (rn == NULL) || (re == NULL))
-		return;
-
 	/* If the route is not refreshed after restart, delete the entry */
 	if (re->uptime < client->restart_time) {
 		if (IS_ZEBRA_DEBUG_RIB)
@@ -514,7 +510,11 @@ static void zebra_gr_process_route_entry(struct zserv *client,
 				   __func__, zebra_route_string(client->proto),
 				   &rn->p);
 		rib_delnode(rn, re);
+
+		return true;
 	}
+
+	return false;
 }
 
 /*
@@ -525,7 +525,7 @@ static void zebra_gr_process_route_entry(struct zserv *client,
 static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 					   struct zebra_vrf *zvrf)
 {
-	struct route_node *rn, *curr;
+	struct route_node *rn;
 	struct route_entry *re;
 	struct route_entry *next;
 	struct route_table *table;
@@ -559,21 +559,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		if (!table)
 			continue;
 
-		/*
-		 * If the current prefix is NULL then get the first
-		 * route entry in the table
-		 */
-		if (info->current_prefix == NULL) {
-			rn = route_top(table);
-			if (rn == NULL)
-				continue;
-			curr = rn;
-		} else
-			/* Get the next route entry */
-			curr = route_table_get_next(table,
-						    info->current_prefix);
-
-		for (rn = curr; rn; rn = srcdest_route_next(rn)) {
+		for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 					continue;
@@ -582,11 +568,10 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 				 * the route
 				 */
 				if (re->type == proto &&
-				    re->instance == instance) {
-					zebra_gr_process_route_entry(s_client,
-								     rn, re);
+				    re->instance == instance &&
+				    zebra_gr_process_route_entry(s_client, rn,
+								 re))
 					n++;
-				}
 
 				/* If the max route count is reached
 				 * then timer thread will be restarted
@@ -595,21 +580,10 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 				if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT) &&
 				    (info->do_delete == false)) {
 					info->current_afi = afi;
-					info->current_prefix =
-						XCALLOC(MTYPE_ZEBRA_GR,
-							sizeof(struct prefix));
-					prefix_copy(info->current_prefix,
-						    &rn->p);
 					return n;
 				}
 			}
 		}
-
-		/*
-		 * Reset the current prefix to indicate processing completion
-		 * of the current AFI
-		 */
-		XFREE(MTYPE_ZEBRA_GR, info->current_prefix);
 	}
 	return 0;
 }
