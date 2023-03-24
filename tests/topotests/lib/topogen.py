@@ -214,6 +214,9 @@ class Topogen(object):
 
         self.net = Mininet()
 
+        # Adjust the parent namespace
+        topotest.fix_netns_limits(self.net)
+
         # New direct way: Either a dictionary defines the topology or a build function
         # is supplied, or a json filename all of which build the topology by calling
         # Topogen methods which call Mininet(Micronet) methods to create the actual
