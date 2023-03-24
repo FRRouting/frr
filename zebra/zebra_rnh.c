@@ -540,31 +540,11 @@ done:
 	return ret;
 }
 
-/*
- * Determine appropriate route (route entry) resolving a tracked
- * nexthop.
- */
 static struct route_entry *
-zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
-				struct route_node *nrn, const struct rnh *rnh,
-				struct route_node **prn)
+_zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, struct route_node *rn,
+				 const struct rnh *rnh, struct route_node **prn)
 {
-	struct route_table *route_table;
-	struct route_node *rn;
 	struct route_entry *re;
-
-	*prn = NULL;
-
-	route_table = zvrf->table[afi][rnh->safi];
-	if (!route_table)
-		return NULL;
-
-	rn = route_node_match(route_table, &nrn->p);
-	if (!rn)
-		return NULL;
-
-	/* Unlock route node - we don't need to lock when walking the tree. */
-	route_unlock_node(rn);
 
 	/* While resolving nexthops, we may need to walk up the tree from the
 	 * most-specific match. Do similar logic as in zebra_rib.c
@@ -636,6 +616,34 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	}
 
 	return NULL;
+}
+
+/*
+ * Determine appropriate route (route entry) resolving a tracked
+ * nexthop.
+ */
+static struct route_entry *
+zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
+				struct route_node *nrn, const struct rnh *rnh,
+				struct route_node **prn)
+{
+	struct route_table *route_table;
+	struct route_node *rn;
+
+	*prn = NULL;
+
+	route_table = zvrf->table[afi][rnh->safi];
+	if (!route_table)
+		return NULL;
+
+	rn = route_node_match(route_table, &nrn->p);
+	if (!rn)
+		return NULL;
+
+	/* Unlock route node - we don't need to lock when walking the tree. */
+	route_unlock_node(rn);
+
+	return _zebra_rnh_resolve_nexthop_entry(zvrf, rn, rnh, prn);
 }
 
 static void zebra_rnh_process_pseudowires(vrf_id_t vrfid, struct rnh *rnh)
