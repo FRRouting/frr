@@ -212,7 +212,7 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet()
+        self.net = Mininet(rundir=self.logdir)
 
         # Adjust the parent namespace
         topotest.fix_netns_limits(self.net)
@@ -752,8 +752,8 @@ class TopoRouter(TopoGear):
         """
         super(TopoRouter, self).__init__(tgen, name, **params)
         self.routertype = params.get("routertype", "frr")
-        if "privateDirs" not in params:
-            params["privateDirs"] = self.PRIVATE_DIRS
+        if "private_mounts" not in params:
+            params["private_mounts"] = self.PRIVATE_DIRS
 
         # Propagate the router log directory
         logfile = self._setup_tmpdir()
@@ -1100,7 +1100,7 @@ class TopoHost(TopoGear):
         * `ip`: the IP address (string) for the host interface
         * `defaultRoute`: the default route that will be installed
           (e.g. 'via 10.0.0.1')
-        * `privateDirs`: directories that will be mounted on a different domain
+        * `private_mounts`: directories that will be mounted on a different domain
           (e.g. '/etc/important_dir').
         """
         super(TopoHost, self).__init__(tgen, name, **params)
@@ -1120,10 +1120,10 @@ class TopoHost(TopoGear):
 
     def __str__(self):
         gear = super(TopoHost, self).__str__()
-        gear += ' TopoHost<ip="{}",defaultRoute="{}",privateDirs="{}">'.format(
+        gear += ' TopoHost<ip="{}",defaultRoute="{}",private_mounts="{}">'.format(
             self.params["ip"],
             self.params["defaultRoute"],
-            str(self.params["privateDirs"]),
+            str(self.params["private_mounts"]),
         )
         return gear
 
@@ -1146,10 +1146,10 @@ class TopoExaBGP(TopoHost):
           (e.g. 'via 10.0.0.1')
 
         Note: the different between a host and a ExaBGP peer is that this class
-        has a privateDirs already defined and contains functions to handle ExaBGP
-        things.
+        has a private_mounts already defined and contains functions to handle
+        ExaBGP things.
         """
-        params["privateDirs"] = self.PRIVATE_DIRS
+        params["private_mounts"] = self.PRIVATE_DIRS
         super(TopoExaBGP, self).__init__(tgen, name, **params)
 
     def __str__(self):
