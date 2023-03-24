@@ -171,6 +171,7 @@ enum node_type {
 	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
+	MGMT_NODE,		/* Management Daemon Config */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */

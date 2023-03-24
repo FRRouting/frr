@@ -87,6 +87,7 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 					   struct mgmt_ds_ctx *dst)
 {
 	struct lyd_node *dst_dnode, *src_dnode;
+	struct ly_out *out;
 
 	if (!src || !dst)
 		return -1;
@@ -116,6 +117,14 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
+	if (dst->ds_id == MGMTD_DS_RUNNING &&
+	    mgmt_ds_mm->auto_save_config_to_startup) {
+		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out) ==
+		    LY_SUCCESS)
+			mgmt_ds_dump_in_memory(dst, "", LYD_JSON, out);
+		ly_out_free(out, NULL, 0);
+	}
+
 	/* TODO: Update the versions if nb_config present */
 
 	return 0;
@@ -126,6 +135,7 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 {
 	int ret;
 	struct lyd_node **dst_dnode, *src_dnode;
+	struct ly_out *out;
 
 	if (!src || !dst)
 		return -1;
@@ -148,6 +158,14 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 		 */
 		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
+	if (dst->ds_id == MGMTD_DS_RUNNING &&
+	    mgmt_ds_mm->auto_save_config_to_startup) {
+		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out) ==
+		    LY_SUCCESS)
+			mgmt_ds_dump_in_memory(dst, "", LYD_JSON, out);
+		ly_out_free(out, NULL, 0);
 	}
 
 	return 0;

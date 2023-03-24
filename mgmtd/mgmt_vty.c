@@ -22,6 +22,8 @@
 
 #include "mgmtd/mgmt_vty_clippy.c"
 
+static struct mgmt_master *mgmt_vty_mm;
+
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
       "show mgmt backend-adapter all",
@@ -351,6 +353,57 @@ DEFPY(mgmt_save_config,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_copy_config, mgmt_copy_config_cmd,
+      "mgmt copy-config running startup",
+      MGMTD_STR
+      "Copy configuration from datastore\n"
+      "From Running datastore\n"
+      "To Startup Database\n")
+{
+	struct mgmt_ds_ctx *ds_ctx;
+	FILE *f;
+
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_RUNNING);
+	if (!ds_ctx) {
+		vty_out(vty, "ERROR: Could not access the '%s' datastore!\n",
+			MGMTD_DS_NAME_RUNNING);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	f = fopen(MGMTD_STARTUP_DS_FILE_PATH, "w");
+	if (!f) {
+		vty_out(vty, "Could not open startup file %s\n",
+			MGMTD_STARTUP_DS_FILE_PATH);
+		return CMD_SUCCESS;
+	}
+
+	mgmt_ds_dump_tree(vty, ds_ctx, "/", f, LYD_JSON);
+	fclose(f);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_auto_copy_config, mgmt_auto_copy_config_cmd,
+      "[no$no] mgmt auto-copy-config running startup",
+      NO_STR MGMTD_STR
+      "Automatically copy configuration from datastore\n"
+      "From Running datastore\n"
+      "To Startup Database\n")
+{
+	struct mgmt_ds_ctx *ds_ctx;
+
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_RUNNING);
+	if (!ds_ctx) {
+		vty_out(vty, "ERROR: Could not access the '%s' datastore!\n",
+			MGMTD_DS_NAME_RUNNING);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	mgmt_vty_mm->auto_save_config_to_startup = !no;
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_mgmt_cmt_hist,
       show_mgmt_cmt_hist_cmd,
       "show mgmt commit-history",
@@ -379,6 +432,22 @@ DEFPY(mgmt_rollback,
 
 	return CMD_SUCCESS;
 }
+
+static int config_write_mgmt(struct vty *vty)
+{
+	if (mgmt_vty_mm->auto_save_config_to_startup)
+		vty_out(vty, "mgmt auto-copy-config running startup\n");
+
+	return 0;
+}
+
+static struct cmd_node mgmt_node = {
+	.name = "mgmt",
+	.node = MGMT_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "",
+	.config_write = config_write_mgmt,
+};
 
 static int config_write_mgmt_debug(struct vty *vty);
 static struct cmd_node debug_node = {
@@ -484,8 +553,10 @@ static int mgmt_config_pre_hook(struct event_loop *loop)
 	return 0;
 }
 
-void mgmt_vty_init(void)
+void mgmt_vty_init(struct mgmt_master *mm)
 {
+	mgmt_vty_mm = mm;
+
 	/*
 	 * Initialize command handling from VTYSH connection.
 	 * Call command initialization routines defined by
@@ -499,7 +570,10 @@ void mgmt_vty_init(void)
 
 	hook_register(frr_config_pre, mgmt_config_pre_hook);
 
+	install_node(&mgmt_node);
 	install_node(&debug_node);
+
+	install_default(MGMT_NODE);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_be_xpath_reg_cmd);
@@ -511,12 +585,14 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
 	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);
+	install_element(VIEW_NODE, &mgmt_copy_config_cmd);
 
 	install_element(CONFIG_NODE, &mgmt_commit_cmd);
 	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
+	install_element(CONFIG_NODE, &mgmt_auto_copy_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);
 
 	install_element(VIEW_NODE, &debug_mgmt_cmd);

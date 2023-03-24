@@ -31,6 +31,8 @@
 #define MGMTD_MD5_HASH_LEN 16
 #define MGMTD_MD5_HASH_STR_HEX_LEN 33
 
+#define MGMTD_STARTUP_DS_FILE_PATH DAEMON_DB_DIR "/frr_startup.json"
+
 #define MGMTD_COMMIT_FILE_PATH DAEMON_DB_DIR "/commit-%s.json"
 #define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
 #define MGMTD_COMMIT_TIME_STR_LEN 100

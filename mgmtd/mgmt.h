@@ -53,6 +53,7 @@ struct mgmt_master {
 	struct mgmt_ds_ctx *running_ds;
 	struct mgmt_ds_ctx *candidate_ds;
 	struct mgmt_ds_ctx *oper_ds;
+	bool auto_save_config_to_startup;
 
 	bool terminating;   /* global flag that sigint terminate seen */
 	bool perf_stats_en; /* to enable performance stats measurement */
@@ -100,7 +101,7 @@ extern int mgmt_config_write(struct vty *vty);
 extern void mgmt_master_init(struct event_loop *master, const int buffer_size);
 
 extern void mgmt_init(void);
-extern void mgmt_vty_init(void);
+extern void mgmt_vty_init(struct mgmt_master *mm);
 
 static inline char *mgmt_realtime_to_string(struct timeval *tv, char *buf,
 					    size_t sz)

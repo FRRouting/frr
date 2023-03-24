@@ -36,6 +36,7 @@ void mgmt_master_init(struct event_loop *master, const int buffer_size)
 	mm->terminating = false;
 	mm->socket_buffer = buffer_size;
 	mm->perf_stats_en = true;
+	mm->auto_save_config_to_startup = false;
 }
 
 void mgmt_init(void)
@@ -69,7 +70,7 @@ void mgmt_init(void)
 	mgmt_fe_server_init(mm->master);
 
 	/* MGMTD VTY commands installation. */
-	mgmt_vty_init();
+	mgmt_vty_init(mm);
 }
 
 void mgmt_terminate(void)

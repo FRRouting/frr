@@ -305,6 +305,20 @@ MGMT Configuration commands
     This command dumps the DB specified in the db-name into the file in JSON
     format. This command in not supported for the Operational DB.
 
+.. clicmd:: mgmt copy-config running startup
+
+    This command saves a copy of the running datastore to the startup datastore
+    such that on restart of MGMT daemon (or the entire FRR) the same can be
+    restored and loaded back onto the running datastore.
+
+.. clicmd:: [no] mgmt auto-copy-config running startup
+
+    With this configuration command the contents of the running dtatstore
+    shall be automatically saved onto the startup datastore everytime any
+    configuration change is committed to it. To disable the automatic saving
+    of contents of running datastore to startup datastore the command
+    'no mgmt auto-copy-config running startup' can be used.
+
 .. clicmd:: mgmt commit abort
 
     This command will abort any configuration present on the Candidate but not

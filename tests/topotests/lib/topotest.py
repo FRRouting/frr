@@ -1564,6 +1564,9 @@ class Router(Node):
                         "using router relative configuration: {}".format(source)
                     )
 
+        logger.info("loadConf: daemon:{}, source:{}".format(daemon, source))
+        if source is not None and not os.path.exists(source):
+            self.logger.info("loadConf: {} does not exists".format(source))
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys() or daemon == "frr":
             if daemon == "frr":
@@ -1581,8 +1584,12 @@ class Router(Node):
                 # copy zebra.conf to mgmtd folder, which can be used during startup
                 if daemon == "zebra":
                     conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
-                    self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
-                self.cmd_raises("cp {} {}".format(source, conf_file))
+                    cmd = "cp {} {}".format(source, conf_file_mgmt)
+                    self.logger.info("Daemon: {}, {}".format(daemon, cmd))
+                    self.cmd_raises(cmd)
+                cmd = "cp {} {}".format(source, conf_file)
+                self.logger.info("Daemon: {}, {}".format(daemon, cmd))
+                self.cmd_raises(cmd)
 
             if not self.unified_config or daemon == "frr":
                 self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))

@@ -440,9 +440,54 @@ def test_mgmt_chaos_stop_start_frr(request):
         result is True
     ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
-    step("Restart frr")
+    step("Restart frr without copying 'running' datastore to 'startup'")
+    stop_router(tgen, "r1", save_config=False)
+    start_router(tgen, "r1")
+
+    step("Verify recently added route is no more in zebra.")
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_4, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
+
+    step("Configure autosave of running config to startup")
+
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "mgmt auto-copy-config running startup",
+            ]
+        }
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Configure Static route again with next hop null 0 again")
+
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.1.11.200/32'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/bh-type unspec",
+                "mgmt commit apply",
+            ]
+        }
+    }
+
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("verify that the route is configured and present in the zebra")
+    result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+
+    step("Restart frr with auto-saving of 'running' datastore to 'startup'")
     stop_router(tgen, "r1")
     start_router(tgen, "r1")
+
     step("Verify routes are intact in zebra.")
     result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
     assert (
@@ -492,6 +537,19 @@ def test_mgmt_chaos_kill_daemon(request):
     reset_config_on_routers(tgen)
     next_hop_ip = populate_nh()
 
+    step("Configure autosave of running config to startup")
+
+    raw_config = {
+        "r1": {
+            "raw_config": [
+                "mgmt auto-copy-config running startup",
+            ]
+        }
+    }
+
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
     step("Configure Static route with next hop null 0")
 
     raw_config = {
@@ -510,16 +568,16 @@ def test_mgmt_chaos_kill_daemon(request):
 
     dut = "r1"
     protocol = "static"
-    input_dict_4 = {"r2": {"static_routes": [{"network": "192.1.11.200/32"}]}}
+    input_dict_4 = {"r1": {"static_routes": [{"network": "192.1.11.200/32"}]}}
     result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
     assert (
         result is True
     ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
-    step("Kill static daemon on R2.")
+    step("Kill static daemon on R1.")
     kill_router_daemons(tgen, "r1", ["staticd"])
 
-    step("Bring up staticd daemon on R2.")
+    step("Bring up staticd daemon on R1.")
     start_router_daemons(tgen, "r1", ["staticd"])
 
     step("Verify routes are intact in zebra.")
@@ -528,10 +586,10 @@ def test_mgmt_chaos_kill_daemon(request):
         result is True
     ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
-    step("Kill mgmt daemon on R2.")
+    step("Kill mgmt daemon on R1.")
     kill_router_daemons(tgen, "r1", ["mgmtd"])
 
-    step("Bring up zebra daemon on R2.")
+    step("Bring up mgmtd daemon on R1.")
     start_router_daemons(tgen, "r1", ["mgmtd"])
 
     step("Verify routes are intact in zebra.")

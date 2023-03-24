@@ -1095,7 +1095,7 @@ def start_topology(tgen):
     tgen.start_router()
 
 
-def stop_router(tgen, router):
+def stop_router(tgen, router, save_config=True):
     """
     Router"s current config would be saved to /tmp/topotest/<suite>/<router> for each daemon
     and router and its daemons would be stopped.
@@ -1108,7 +1108,8 @@ def stop_router(tgen, router):
 
     # Saving router config to /etc/frr, which will be loaded to router
     # when it starts
-    router_list[router].vtysh_cmd("write memory")
+    if save_config:
+        router_list[router].vtysh_cmd("write memory")
 
     # Stop router
     router_list[router].stop()
@@ -1127,6 +1128,9 @@ def start_router(tgen, router):
 
     try:
         router_list = tgen.routers()
+
+        # Ensure that configs from staticd are always loaded onto mgmtd
+        tgen.net[router].loadConf("mgmtd", "/etc/frr/staticd.conf")
 
         # Router and its daemons would be started and config would
         #  be loaded to router for each daemon from /etc/frr
