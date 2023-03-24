@@ -9632,12 +9632,12 @@ DEFPY(af_label_vpn_export_allocation_mode,
 			     BGP_VPN_POLICY_TOVPN_LABEL_POP_LOOKUP);
 	if (no) {
 		if (old_per_nexthop == false && label_per_nh)
-			return CMD_ERR_NO_MATCH;
+			return CMD_SUCCESS;
 		if (old_per_nexthop == true && label_per_vrf)
-			return CMD_ERR_NO_MATCH;
+			return CMD_SUCCESS;
 		if (old_per_nexthop == true && old_pop_and_lookup == false
 		    && pop_and_lookup)
-			return CMD_ERR_NO_MATCH;
+			return CMD_SUCCESS;
 		if (pop_and_lookup)
 			new_per_nexthop = true;
 		else
