@@ -68,6 +68,8 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	vrf_id_t new_vrf_id;
+	struct pim_instance *pim;
+	struct pim_interface *pim_ifp;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
 					      &new_vrf_id);
@@ -78,7 +80,17 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		zlog_debug("%s: %s updating from %u to %u", __func__, ifp->name,
 			   vrf_id, new_vrf_id);
 
+	pim = pim_get_pim_instance(new_vrf_id);
+
 	if_update_to_new_vrf(ifp, new_vrf_id);
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp)
+		return 0;
+
+	pim_ifp->pim->mcast_if_count--;
+	pim_ifp->pim = pim;
+	pim_ifp->pim->mcast_if_count++;
 
 	return 0;
 }
