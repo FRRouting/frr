@@ -499,12 +499,12 @@ int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx, const char *xpath)
 		 */
 		return NB_ERR_NOT_FOUND;
 	/* destroy dependant */
-	if (nb_node->dep_cbs.get_dependant_xpath) {
+	if (nb_node && nb_node->dep_cbs.get_dependant_xpath) {
 		nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
 
 		dep_dnode = yang_dnode_get(
 			ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-					   : ds_ctx->root.dnode_root,
+					  : ds_ctx->root.dnode_root,
 			dep_xpath);
 		if (dep_dnode)
 			lyd_free_tree(dep_dnode);

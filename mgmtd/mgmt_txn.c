@@ -1787,26 +1787,9 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 			       struct mgmt_txn_req *txn_req,
 			       struct mgmt_ds_ctx *ds_ctx)
 {
-	struct mgmt_txn_reqs_head *req_list = NULL;
-	struct mgmt_txn_reqs_head *pending_list = NULL;
 	int indx;
 	struct mgmt_get_data_req *get_data;
 	struct mgmt_get_data_reply *get_reply;
-
-	switch (txn_req->req_event) {
-	case MGMTD_TXN_PROC_GETCFG:
-		req_list = &txn->get_cfg_reqs;
-		break;
-	case MGMTD_TXN_PROC_GETDATA:
-		req_list = &txn->get_data_reqs;
-		break;
-	case MGMTD_TXN_PROC_SETCFG:
-	case MGMTD_TXN_PROC_COMMITCFG:
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-	case MGMTD_TXN_CLEANUP:
-		assert(!"Wrong txn request type!");
-		break;
-	}
 
 	get_data = txn_req->req.get_data;
 
@@ -1852,24 +1835,11 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 
 mgmt_txn_get_config_failed:
 
-	if (pending_list) {
-		/*
-		 * Move the transaction to corresponding pending list.
-		 */
-		if (req_list)
-			mgmt_txn_reqs_del(req_list, txn_req);
-		txn_req->pending_be_proc = true;
-		mgmt_txn_reqs_add_tail(pending_list, txn_req);
-		MGMTD_TXN_DBG(
-			"Moved Req: %p for Txn: %p from Req-List to Pending-List",
-			txn_req, txn_req->txn);
-	} else {
-		/*
-		 * Delete the txn request. It will also remove it from request
-		 * list.
-		 */
-		mgmt_txn_req_free(&txn_req);
-	}
+	/*
+	 * Delete the txn request. It will also remove it from request
+	 * list.
+	 */
+	mgmt_txn_req_free(&txn_req);
 
 	return 0;
 }

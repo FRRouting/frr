@@ -82,7 +82,7 @@ static struct mgmt_cmt_info_t *mgmt_history_create_cmt_rec(void)
 	mgmt_realtime_to_string(&cmt_recd_tv, new->time_str,
 				sizeof(new->time_str));
 	mgmt_history_hash(new->time_str, new->cmtid_str);
-	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file),
+	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file) - 1,
 		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
 
 	if (mgmt_cmt_infos_count(&mm->cmts) == MGMTD_MAX_COMMIT_LIST) {
