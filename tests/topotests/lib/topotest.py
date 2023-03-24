@@ -1526,7 +1526,10 @@ class Router(Node):
     def removeIPs(self):
         for interface in self.intfNames():
             try:
-                self.intf_ip_cmd(interface, "ip address flush " + interface)
+                self.intf_ip_cmd(interface, "ip -4 address flush " + interface)
+                self.intf_ip_cmd(
+                    interface, "ip -6 address flush " + interface + " scope global"
+                )
             except Exception as ex:
                 logger.error("%s can't remove IPs %s", self, str(ex))
                 # pdb.set_trace()
@@ -1887,15 +1890,6 @@ class Router(Node):
             start_daemon("snmpd")
             while "snmpd" in daemons_list:
                 daemons_list.remove("snmpd")
-
-        if daemons is None:
-            # Fix Link-Local Addresses on initial startup
-            # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
-            _, output, _ = self.cmd_status(
-                "for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; echo $i: $mac; [ -z \"$mac\" ] && continue; IFS=':'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done",
-                stderr=subprocess.STDOUT,
-            )
-            logger.debug("Set MACs:\n%s", output)
 
         # Now start all the other daemons
         for daemon in daemons_list:
