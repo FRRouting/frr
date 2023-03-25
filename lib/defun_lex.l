@@ -207,6 +207,10 @@ static PyObject *get_args(const char *filename, int lineno)
 			if (tval[0] == ')')
 				depth--;
 		}
+		if (!tval)
+			return PyErr_Format(PyExc_ValueError,
+					"%s:%d: invalid token in DEFPY parameters",
+					filename, lineno);
 		if (!pyArg)
 			pyArg = PyList_New(0);
 		PyList_Append(pyArg, PyUnicode_FromString(tval));
