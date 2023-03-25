@@ -129,6 +129,13 @@ class IPPrefixNetworkList(IPPrefixListBase):
 
 
 num_re = re.compile(r"[0-9]+")
+name_order = {
+    "dut": -3,
+    "r": -2,
+    "rt": -1,
+    # not listed: 0
+    "h": 1,
+}
 
 
 def name_to_tuple(name: str) -> Sequence[Union[str, int]]:
@@ -139,9 +146,12 @@ def name_to_tuple(name: str) -> Sequence[Union[str, int]]:
     """
     strs = num_re.split(name)
     nums = [int(i) for i in num_re.findall(name)] + [0]
-    return tuple(
+    key: List[Union[str, int]] = []
+    key.append(name_order.get(strs[0], 0))
+    key.extend(
         cast(List[Union[str, int]], list(chain.from_iterable(zip(strs, nums)))[:-1])
     )
+    return tuple(key)
 
 
 class NOMNode:
