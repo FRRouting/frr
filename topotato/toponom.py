@@ -49,13 +49,20 @@ def addr2iface(addr: AnyAddress, plen: int) -> AnyInterface:
 
 lo4_net = ipaddress.IPv4Interface("10.255.0.0/24")
 lo6_net = ipaddress.IPv6Interface("fd00::/64")
-lan4_net = lambda n: addr2net(
-    ipaddress.IPv4Address("10.0.0.0") + (100 + n) * 2**16, 16
-)
-lan6_net = lambda n: addr2net(ipaddress.IPv6Address("fdbc::") + n * 2**96, 64)
-p2p_ip4 = lambda g, a, b: addr2iface(
-    ipaddress.IPv4Address("10.0.0.0") + g * 2**16 + a * 2**8 + b, 16
-)
+
+
+def lan4_net(n):
+    return addr2net(ipaddress.IPv4Address("10.0.0.0") + (100 + n) * 2**16, 16)
+
+
+def lan6_net(n):
+    return addr2net(ipaddress.IPv6Address("fdbc::") + n * 2**96, 64)
+
+
+def p2p_ip4(g, a, b):
+    return addr2iface(
+        ipaddress.IPv4Address("10.0.0.0") + g * 2**16 + a * 2**8 + b, 16
+    )
 
 
 class IPPrefixListBase(list):
@@ -486,7 +493,7 @@ class LinkIface(NOMNode):
             macparts = [int(p, 16) for p in self.macaddr.split(":")]
             macparts[0] ^= 0x02
             macparts[3:3] = [0xFF, 0xFE]
-            eui_int = sum([j << (8 * i) for i, j in enumerate(reversed(macparts))])
+            eui_int = sum(j << (8 * i) for i, j in enumerate(reversed(macparts)))
 
             for net in self.other.endpoint.ip6:
                 addr = net[eui_int]
