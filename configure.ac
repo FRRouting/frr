@@ -2693,6 +2693,7 @@ AC_SUBST([vtysh_bin])
 
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
+CFG_BIN="$bindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
 CFG_YANGMODELS="$yangmodelsdir"
@@ -2700,6 +2701,7 @@ CFG_SCRIPT="$scriptdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
+	eval CFG_BIN="\"$CFG_BIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
@@ -2707,6 +2709,7 @@ for I in 1 2 3 4 5 6 7 8 9 10; do
 done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
+AC_SUBST([CFG_BIN])
 AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
 AC_SUBST([CFG_SCRIPT])
