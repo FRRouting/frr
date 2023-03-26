@@ -71,7 +71,7 @@ All tests begin with a header similar to this::
    """
    Check that the top of the potato has been baked properly.
    """
-   
+
    from topotato import *
 
 The elements here should be pretty self-explanatory, but a few notes
@@ -127,7 +127,7 @@ test file::
        # by default, all systems listed in the topology are assumed to run
        # FRR.
        routers = ["r1"]
-   
+
        zebra = """
        #% extends "boilerplate.conf"
        #% block main
@@ -159,7 +159,7 @@ test file::
    Rework for integrated configuration/vtysh load.
 
 .. todo::
-   
+
    Full documentation section for :py:class:`FRRConfigs`.
 
 
@@ -167,5 +167,5 @@ Test class(es)
 ^^^^^^^^^^^^^^
 
 .. todo::
-   
+
    Write me.
