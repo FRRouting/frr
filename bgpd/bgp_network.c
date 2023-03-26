@@ -759,6 +759,9 @@ int bgp_connect(struct peer *peer)
 					     ? IPV4_MAX_BITLEN
 					     : IPV6_MAX_BITLEN;
 
+		if (!BGP_PEER_SU_UNSPEC(peer))
+			bgp_md5_set(peer);
+
 		bgp_md5_set_connect(peer->fd, &peer->su, prefixlen,
 				    peer->password);
 	}
