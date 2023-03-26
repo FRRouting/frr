@@ -148,11 +148,6 @@ test file::
        #% endblock
        """
 
-   # bind config + topology together
-   @config_fixture(Configs)
-   def configs(config, topo1):
-       return config
-
 .. note::
 
    While IP addresses, interface names and MAC addresses are deterministic,
@@ -166,21 +161,6 @@ test file::
 .. todo::
    
    Full documentation section for :py:class:`FRRConfigs`.
-
-
-Network instance
-^^^^^^^^^^^^^^^^
-
-There is a small stub block to set up the actual virtual network instance for
-tests::
-
-   @instance_fixture()
-   def testenv(configs):
-       return FRRNetworkInstance(configs.topology, configs).prepare()
-
-There isn't currently anything to adjust here, but it is left in place to meet
-future needs to change some aspect of the network that isn't part of the
-topology definition or FRR configuration (e.g. sysctls).
 
 
 Test class(es)
