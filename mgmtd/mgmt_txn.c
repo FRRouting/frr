@@ -2228,35 +2228,29 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 	case MGMTD_TXN_PROC_SETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_set_cfg,
 				    txn, &tv, &txn->proc_set_cfg);
-		assert(txn->proc_set_cfg);
 		break;
 	case MGMTD_TXN_PROC_COMMITCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_commit_cfg,
 				    txn, &tv, &txn->proc_comm_cfg);
-		assert(txn->proc_comm_cfg);
 		break;
 	case MGMTD_TXN_PROC_GETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg,
 				    txn, &tv, &txn->proc_get_cfg);
-		assert(txn->proc_get_cfg);
 		break;
 	case MGMTD_TXN_PROC_GETDATA:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_data,
 				    txn, &tv, &txn->proc_get_data);
-		assert(txn->proc_get_data);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 		event_add_timer_msec(mgmt_txn_tm,
 				      mgmt_txn_cfg_commit_timedout, txn,
 				      MGMTD_TXN_CFG_COMMIT_MAX_DELAY_MSEC,
 				      &txn->comm_cfg_timeout);
-		assert(txn->comm_cfg_timeout);
 		break;
 	case MGMTD_TXN_CLEANUP:
 		tv.tv_usec = MGMTD_TXN_CLEANUP_DELAY_USEC;
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_cleanup, txn, &tv,
 				    &txn->clnup);
-		assert(txn->clnup);
 	}
 }
 
