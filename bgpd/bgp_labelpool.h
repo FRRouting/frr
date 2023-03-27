@@ -82,6 +82,8 @@ struct bgp_label_per_nexthop_cache {
 
 	/* Back pointer to the corresponding VPN configuration */
 	struct vpn_policy *vpn;
+
+	bool allocation_in_progress;
 };
 
 DECLARE_RBTREE_UNIQ(bgp_label_per_nexthop_cache,

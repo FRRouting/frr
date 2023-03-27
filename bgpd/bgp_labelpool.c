@@ -1749,6 +1749,12 @@ void bgp_label_per_nexthop_send_nexthop_label(
 
 void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 {
+	if (blnc->allocation_in_progress) {
+		blnc->allocation_in_progress = false;
+		bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
+		return;
+	}
+
 	if (blnc->label != MPLS_INVALID_LABEL) {
 		bgp_label_per_nexthop_send_nexthop_label(
 			blnc, ZEBRA_MPLS_LABELS_DELETE);
