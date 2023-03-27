@@ -165,13 +165,10 @@ am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
 am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
 am__v_PROTOC_C_1 =
 
-.proto.pb-c.c:
+%.pb-c.c %.pb-c.h : %.proto
 	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
 	$(AM_V_GEN)$(SED) -i -e '1i\
 	#include "config.h"' $@
-
-.pb-c.c.pb-c.h:
-	@echo "  GEN     " $@
 
 include doc/subdir.am
 include doc/user/subdir.am
