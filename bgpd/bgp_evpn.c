@@ -2775,7 +2775,8 @@ static void handle_tunnel_ip_change(struct bgp *bgp_vrf, struct bgp *bgp_evpn,
 		 * need to go back and filter routes matching the new
 		 * martian next-hop.
 		 */
-		bgp_filter_evpn_routes_upon_martian_nh_change(bgp_evpn);
+		bgp_filter_evpn_routes_upon_martian_change(bgp_evpn,
+							   BGP_MARTIAN_TUN_IP);
 
 	if (!bgp_vrf) {
 		/* Need to withdraw type-3 route as the originator IP is part
@@ -6204,8 +6205,29 @@ int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	return install_uninstall_evpn_route(bgp, afi, safi, p, pi, 0);
 }
 
-/* filter routes which have martian next hops */
-int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
+/* Filter learned (!local) EVPN routes carrying attributes pointing to "self".
+ * Walk the Global EVPN loc-rib unimporting martian routes from the appropriate
+ * L2VNIs (MAC-VRFs) / L3VNIs (IP-VRFs), and deleting them from the Global
+ * loc-rib when applicable (based on martian_type).
+ * This function is the handler for new martian entries, which is triggered by
+ * events occurring on the local system,
+ * e.g.
+ * - New VTEP-IP
+ *   + bgp_zebra_process_local_vni
+ *   + bgp_zebra_process_local_l3vni
+ * - New MAC-VRF Site-of-Origin
+ *   + bgp_evpn_handle_global_macvrf_soo_change
+ * This will likely be extended in the future to cover these events too:
+ * - New Interface IP
+ *   + bgp_interface_address_add
+ * - New Interface MAC
+ *   + bgp_ifp_up
+ *   + bgp_ifp_create
+ * - New RMAC
+ *   + bgp_zebra_process_local_l3vni
+ */
+void bgp_filter_evpn_routes_upon_martian_change(
+	struct bgp *bgp, enum bgp_martian_type martian_type)
 {
 	afi_t afi;
 	safi_t safi;
@@ -6216,12 +6238,9 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
 
-	/* Walk entire global routing table and evaluate routes which could be
-	 * imported into this VPN. Note that we cannot just look at the routes
-	 * for the VNI's RD -
-	 * remote routes applicable for this VNI could have any RD.
+	/* EVPN routes are a 2-level table: outer=prefix_rd, inner=prefix_evpn.
+	 * A remote route could have any RD, so we need to walk them all.
 	 */
-	/* EVPN routes are a 2-level table. */
 	for (rd_dest = bgp_table_top(bgp->rib[afi][safi]); rd_dest;
 	     rd_dest = bgp_route_next(rd_dest)) {
 		table = bgp_dest_get_bgp_table_info(rd_dest);
@@ -6233,18 +6252,33 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
+				bool affected = false;
+				const struct prefix *p;
 
-				/* Consider "valid" remote routes applicable for
-				 * this VNI. */
+				/* Only consider routes learned from peers */
 				if (!(pi->type == ZEBRA_ROUTE_BGP
 				      && pi->sub_type == BGP_ROUTE_NORMAL))
 					continue;
-				if (bgp_nexthop_self(bgp, afi, pi->type,
-						     pi->sub_type, pi->attr,
-						     dest)) {
-					const struct prefix *p =
-						bgp_dest_get_prefix(dest);
 
+				p = bgp_dest_get_prefix(dest);
+
+				switch (martian_type) {
+				case BGP_MARTIAN_TUN_IP:
+					affected = bgp_nexthop_self(
+						bgp, afi, pi->type,
+						pi->sub_type, pi->attr, dest);
+					break;
+				case BGP_MARTIAN_SOO:
+					affected = route_matches_macvrf_soo(
+						pi, (struct prefix_evpn *)p);
+					break;
+				case BGP_MARTIAN_IF_IP:
+				case BGP_MARTIAN_IF_MAC:
+				case BGP_MARTIAN_RMAC:
+					break;
+				}
+
+				if (affected) {
 					if (bgp_debug_update(pi->peer, p, NULL,
 							     1)) {
 						char attr_str[BUFSIZ] = {0};
@@ -6254,21 +6288,34 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 							      sizeof(attr_str));
 
 						zlog_debug(
-							"%u: prefix %pBD with attr %s - DENIED due to martian or self nexthop",
+							"%u: prefix %pBD with attr %s - DISCARDED due to Martian/%s",
 							bgp->vrf_id, dest,
-							attr_str);
+							attr_str,
+							bgp_martian_type2str(
+								martian_type));
 					}
+
+
 					bgp_evpn_unimport_route(bgp, afi, safi,
 								p, pi);
 
-					bgp_rib_remove(dest, pi, pi->peer, afi,
-						       safi);
+					/* For now, retain existing handling of
+					 * tip_hash updates: (Self SoO routes
+					 * are unimported from L2VNI/VRF but
+					 *  retained in global loc-rib, but Self
+					 * IP/MAC routes are also deleted from
+					 * global loc-rib).
+					 * TODO: use consistent handling for all
+					 * martian types
+					 */
+					if (martian_type == BGP_MARTIAN_TUN_IP)
+						bgp_rib_remove(dest, pi,
+							       pi->peer, afi,
+							       safi);
 				}
 			}
 		}
 	}
-
-	return 0;
 }
 
 /*
@@ -6643,6 +6690,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
+	struct bgp *bgp_evpn = bgp_get_evpn();
 
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -6744,7 +6792,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		 * need to go back and filter routes matching the new
 		 * martian next-hop.
 		 */
-		bgp_filter_evpn_routes_upon_martian_nh_change(bgp);
+		bgp_filter_evpn_routes_upon_martian_change(bgp_evpn,
+							   BGP_MARTIAN_TUN_IP);
 
 	/*
 	 * Create EVPN type-3 route and schedule for processing.
