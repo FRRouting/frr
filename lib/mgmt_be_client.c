@@ -1056,26 +1056,22 @@ mgmt_be_client_register_event(struct mgmt_be_client_ctx *client_ctx,
 		event_add_read(client_ctx->tm, mgmt_be_client_read,
 				client_ctx, client_ctx->conn_fd,
 				&client_ctx->conn_read_ev);
-		assert(client_ctx->conn_read_ev);
 		break;
 	case MGMTD_BE_CONN_WRITE:
 		event_add_write(client_ctx->tm, mgmt_be_client_write,
 				 client_ctx, client_ctx->conn_fd,
 				 &client_ctx->conn_write_ev);
-		assert(client_ctx->conn_write_ev);
 		break;
 	case MGMTD_BE_PROC_MSG:
 		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
 		event_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
 				    client_ctx, &tv, &client_ctx->msg_proc_ev);
-		assert(client_ctx->msg_proc_ev);
 		break;
 	case MGMTD_BE_CONN_WRITES_ON:
 		event_add_timer_msec(client_ctx->tm,
 				      mgmt_be_client_resume_writes, client_ctx,
 				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
 				      &client_ctx->conn_writes_on);
-		assert(client_ctx->conn_writes_on);
 		break;
 	case MGMTD_BE_SERVER:
 	case MGMTD_BE_CONN_INIT:
