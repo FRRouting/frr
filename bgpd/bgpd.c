@@ -1496,9 +1496,11 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->v_delayopen = peer_src->v_delayopen;
 
 	/* password apply */
-	if (peer_src->password && !peer_dst->password)
+	if (peer_src->password) {
+		XFREE(MTYPE_PEER_PASSWORD, peer_dst->password);
 		peer_dst->password =
 			XSTRDUP(MTYPE_PEER_PASSWORD, peer_src->password);
+	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
