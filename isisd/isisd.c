@@ -2503,6 +2503,9 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 		vty_out(vty, "  RX counters per PDU type:\n");
 		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
 
+		vty_out(vty, "  Drop counters per PDU type:\n");
+		pdu_counter_print(vty, "    ", area->pdu_drop_counters);
+
 		vty_out(vty, "  Advertise high metrics: %s\n",
 			area->advertise_high_metrics ? "Enabled" : "Disabled");
 
