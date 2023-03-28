@@ -232,6 +232,7 @@ struct isis_area {
 
 	pdu_counter_t pdu_tx_counters;
 	pdu_counter_t pdu_rx_counters;
+	pdu_counter_t pdu_drop_counters;
 	uint64_t lsp_rxmt_count;
 
 	/* Area counters */
