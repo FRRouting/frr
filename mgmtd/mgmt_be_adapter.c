@@ -737,12 +737,10 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 				      mgmt_be_adapter_conn_init, adapter,
 				      MGMTD_BE_CONN_INIT_DELAY_MSEC,
 				      &adapter->conn_init_ev);
-		assert(adapter->conn_init_ev);
 		break;
 	case MGMTD_BE_CONN_READ:
 		event_add_read(mgmt_be_adapter_tm, mgmt_be_adapter_read,
 				adapter, adapter->conn_fd, &adapter->conn_read_ev);
-		assert(adapter->conn_read_ev);
 		break;
 	case MGMTD_BE_CONN_WRITE:
 		if (adapter->conn_write_ev)
@@ -762,14 +760,12 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 		event_add_timer_tv(mgmt_be_adapter_tm,
 				    mgmt_be_adapter_proc_msgbufs, adapter, &tv,
 				    &adapter->proc_msg_ev);
-		assert(adapter->proc_msg_ev);
 		break;
 	case MGMTD_BE_CONN_WRITES_ON:
 		event_add_timer_msec(mgmt_be_adapter_tm,
 				      mgmt_be_adapter_resume_writes, adapter,
 				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
 				      &adapter->conn_writes_on);
-		assert(adapter->conn_writes_on);
 		break;
 	case MGMTD_BE_SERVER:
 	case MGMTD_BE_SCHED_CFG_PREPARE:
