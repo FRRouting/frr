@@ -284,7 +284,7 @@ DEFUN (ip_router_id,
 	argv_find(argv, argc, "NAME", &idx);
 	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -321,7 +321,7 @@ DEFUN (ipv6_router_id,
 	argv_find(argv, argc, "NAME", &idx);
 	VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP6, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -403,7 +403,7 @@ DEFUN (no_ip_router_id,
 	if (argv_find(argv, argc, "NAME", &idx))
 		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -437,7 +437,7 @@ DEFUN (no_ipv6_router_id,
 	if (argv_find(argv, argc, "NAME", &idx))
 		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	router_id_set(AFI_IP6, &rid, zvrf);
 
 	return CMD_SUCCESS;
@@ -514,7 +514,7 @@ DEFUN (show_ip_router_id,
 		vrf_name = argv[idx]->arg;
 	}
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
 	if (zvrf != NULL) {
 		if (is_ipv6) {

@@ -389,7 +389,7 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 	mac = EVENT_ARG(t);
 
 	/* since this is asynchronous we need sanity checks*/
-	zvrf = vrf_info_lookup(mac->zevpn->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(mac->zevpn->vrf_id);
 	if (!zvrf)
 		return;
 

@@ -1023,7 +1023,7 @@ static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 static void fpm_lsp_send(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	struct fpm_lsp_arg fla;
 
 	fla.fnc = fnc;
@@ -1263,7 +1263,7 @@ static void fpm_lsp_reset_cb(struct hash_bucket *bucket, void *arg)
 static void fpm_lsp_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	hash_iterate(zvrf->lsp_table, fpm_lsp_reset_cb, NULL);
 
