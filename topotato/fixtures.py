@@ -19,8 +19,6 @@ __all__ = [
     "mkfixture",
     "mkfixture_pytest",
     "topology_fixture",
-    "config_fixture",
-    "instance_fixture",
     "AutoFixture",
 ]
 
@@ -79,72 +77,6 @@ def topology_fixture():
         return fixture
 
     return getwrap
-
-
-def config_fixture(cfgclass):
-    """
-    Fixture to generate configs for a test topology
-
-    The decorator takes 1 argument, which is the FRRConfigs subclass.  This
-    class has .prepare() called on it immediately so any template errors are
-    apparent before jumping into tests.
-
-    The decorated function has 2 arguments, the first is an instance of the
-    Config class (which the function may modify), the second is the topology
-    fixture that is used (and handled by pytest).  The function should return
-    either "None" or a config instance.
-    """
-
-    cfgclass = cfgclass.prepare()
-
-    def getwrap(fn):
-        if getattr(fn, "__doc__", None) is None:
-            fn.__doc__ = """configuration fixture"""
-
-        params = list(inspect.signature(fn).parameters.keys())
-        fnmod = sys.modules[fn.__module__]
-        net = getattr(fnmod, params[1]).net
-
-        # we don't really wrap fnwrap... we wrap fn, but with the first arg
-        # filled in.  The partial() is just to get the signature right.
-        fnwrap = functools.partial(fn, None)
-
-        @functools.wraps(fnwrap)
-        def wrap(**kwargs):
-            topo_arg = params[1]
-            config = cfgclass(kwargs[topo_arg])
-            config = fn(config, **kwargs) or config
-            config.generate()
-            return config
-
-        wrap.__module__ = fn.__module__
-        wrap.__doc__ = fn.__doc__
-
-        fixture = mkfixture(scope="module")(wrap)
-        fixture.net = net
-        fixture.cfgclass = cfgclass
-        return fixture
-
-    return getwrap
-
-
-def instance_fixture():
-    def wrap(fn):
-        if getattr(fn, "__doc__", None) is None:
-            fn.__doc__ = """test environment fixture"""
-
-        params = list(inspect.signature(fn).parameters.keys())
-        fnmod = sys.modules[fn.__module__]
-        cfgs = getattr(fnmod, params[0])
-        net = cfgs.net
-
-        fn.testenv = True
-        fn.net = net
-        fn.configs = cfgs
-
-        return mkfixture(scope="module")(fn)
-
-    return wrap
 
 
 class AutoFixture:

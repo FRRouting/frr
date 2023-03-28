@@ -10,8 +10,6 @@ TODOs / Known issues
   modifier means the testbed is in an indeterminate state.
 - some style requirements should be automatically enforced, e.g. missing
   docstrings should cause a failure.
-- `config_fixture` and `env_fixture` are slated to be removed to cut off some
-  unnecessary boilerplaten.
 - ExaBGP support is work in progress.
 - terminal-on-failure (potatool) is work in progress.
 - integrated-config mode for FRR needs to be supported.

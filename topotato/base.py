@@ -490,20 +490,7 @@ class TestBase:
 
     instancefn: ClassVar[Callable[..., "FRRNetworkInstance"]]
     """
-    Network instance/topology fixture (required.)
-
-    This must be set to the :py:func:`topotato.fixtures.instance_fixture`
-    decorated network instance setup function for this test.  This normally
-    looks something like this::
-
-       @instance_fixture()
-       def testenv(configs):
-           return FRRNetworkInstance(configs.topology, configs).prepare()
-
-       class MyTest(TestBase):
-           instancefn = testenv
-
-    With ``configs`` again referring to a configuration fixture and so on.
+    TBD (rework in progress)
     """
 
     @classmethod
