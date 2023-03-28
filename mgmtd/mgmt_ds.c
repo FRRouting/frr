@@ -87,7 +87,6 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 					   struct mgmt_ds_ctx *dst)
 {
 	struct lyd_node *dst_dnode, *src_dnode;
-	struct ly_out *out;
 
 	if (!src || !dst)
 		return -1;
@@ -117,13 +116,6 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
-	if (dst->ds_id == MGMTD_DS_RUNNING) {
-		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out)
-		    == LY_SUCCESS)
-			mgmt_ds_dump_in_memory(dst, "", LYD_JSON, out);
-		ly_out_free(out, NULL, 0);
-	}
-
 	/* TODO: Update the versions if nb_config present */
 
 	return 0;
@@ -134,7 +126,6 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 {
 	int ret;
 	struct lyd_node **dst_dnode, *src_dnode;
-	struct ly_out *out;
 
 	if (!src || !dst)
 		return -1;
@@ -157,13 +148,6 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 		 */
 		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
-	}
-
-	if (dst->ds_id == MGMTD_DS_RUNNING) {
-		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out)
-		    == LY_SUCCESS)
-			mgmt_ds_dump_in_memory(dst, "", LYD_JSON, out);
-		ly_out_free(out, NULL, 0);
 	}
 
 	return 0;
@@ -200,20 +184,12 @@ void mgmt_ds_reset_candidate(void)
 
 int mgmt_ds_init(struct mgmt_master *mm)
 {
-	struct lyd_node *root;
-
 	if (mgmt_ds_mm || mm->running_ds || mm->candidate_ds || mm->oper_ds)
 		assert(!"MGMTD: Call ds_init only once!");
 
 	/* Use Running DS from NB module??? */
 	if (!running_config)
 		assert(!"MGMTD: Call ds_init after frr_init only!");
-
-	if (mgmt_ds_load_cfg_from_file(MGMTD_STARTUP_DS_FILE_PATH, &root)
-	    == 0) {
-		nb_config_free(running_config);
-		running_config = nb_config_new(root);
-	}
 
 	running.root.cfg_root = running_config;
 	running.config_ds = true;
