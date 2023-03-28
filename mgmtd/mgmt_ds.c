@@ -174,6 +174,7 @@ static int mgmt_ds_load_cfg_from_file(const char *filepath,
 void mgmt_ds_reset_candidate(void)
 {
 	struct lyd_node *dnode = mm->candidate_ds->root.cfg_root->dnode;
+
 	if (dnode)
 		yang_dnode_free(dnode);
 

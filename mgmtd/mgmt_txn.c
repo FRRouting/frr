@@ -1258,6 +1258,7 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 	char err_buf[1024] = {0};
 	nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
 	nb_ctx.user = (void *)txn;
+
 	ret = nb_candidate_validate_yang(nb_config, false, err_buf,
 					 sizeof(err_buf) - 1);
 	if (ret != NB_OK) {

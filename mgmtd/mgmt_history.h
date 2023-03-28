@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
-  * Copyright (C) 2021  Vmware, Inc.
-  *		       Pushpasis Sarkar <spushpasis@vmware.com>
-  * Copyright (c) 2023, LabN Consulting, L.L.C.
-  *
-  */
+ * Copyright (C) 2021  Vmware, Inc.
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
+ *
+ */
 #ifndef _FRR_MGMTD_HISTORY_H_
 #define _FRR_MGMTD_HISTORY_H_
 
