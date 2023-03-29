@@ -385,8 +385,8 @@ def test_ip_pe1_learn():
     host1 = tgen.gears["host1"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    pe2.vtysh_cmd("debug zebra vxlan")
-    pe2.vtysh_cmd("debug zebra kernel")
+    #pe2.vtysh_cmd("debug zebra vxlan")
+    #pe2.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host1.run("ping -c1 10.10.1.1")
     ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
@@ -404,8 +404,8 @@ def test_ip_pe2_learn():
     host2 = tgen.gears["host2"]
     pe1 = tgen.gears["PE1"]
     pe2 = tgen.gears["PE2"]
-    pe1.vtysh_cmd("debug zebra vxlan")
-    pe1.vtysh_cmd("debug zebra kernel")
+    #pe1.vtysh_cmd("debug zebra vxlan")
+    #pe1.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
     host2.run("ping -c1 10.10.1.3")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")

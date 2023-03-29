@@ -1079,53 +1079,6 @@ def test_ospfv3_show_p1(request):
 
     result = create_debug_log_config(tgen, input_dict)
 
-    # Code coverage steps #Do Not upstream
-    input_dict_config = {
-        "r1": {
-            "raw_config": [
-                "end",
-                "debug ospf6 event",
-                "debug ospf6 gr helper",
-                "debug ospf6 ism events",
-                "debug ospf6 ism status",
-                "debug ospf6 ism timers",
-                "debug ospf6 nsm events",
-                "debug ospf6 nsm status",
-                "debug ospf6 nsm timers ",
-                "debug ospf6 nssa",
-                "debug ospf6 lsa aggregate",
-                "debug ospf6 lsa flooding ",
-                "debug ospf6 lsa generate",
-                "debug ospf6 lsa install ",
-                "debug ospf6 lsa refresh",
-                "debug ospf6 packet all detail",
-                "debug ospf6 packet all recv",
-                "debug ospf6 packet all send",
-                "debug ospf6 packet dd detail",
-                "debug ospf6 packet dd recv",
-                "debug ospf6 packet dd send ",
-                "debug ospf6 packet hello detail",
-                "debug ospf6 packet hello recv",
-                "debug ospf6 packet hello send",
-                "debug ospf6 packet ls-ack detail",
-                "debug ospf6 packet ls-ack recv",
-                "debug ospf6 packet ls-ack send",
-                "debug ospf6 packet ls-request detail",
-                "debug ospf6 packet ls-request recv",
-                "debug ospf6 packet ls-request send",
-                "debug ospf6 packet ls-update detail",
-                "debug ospf6 packet ls-update recv",
-                "debug ospf6 packet ls-update send",
-                "debug ospf6 sr",
-                "debug ospf6 te ",
-                "debug ospf6 zebra interface",
-                "debug ospf6 zebra redistribute",
-            ]
-        }
-    }
-
-    apply_raw_config(tgen, input_dict_config)
-
     for rtr in topo["routers"]:
         clear_ospf(tgen, rtr, ospf="ospf6")
 
