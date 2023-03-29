@@ -400,26 +400,18 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 			       __func__, zebra_route_string(client->proto),
 			       api.afi, api.safi);
 			return;
-		} else {
-			struct zebra_gr_afi_clean *gac;
-
-			LOG_GR("%s: Client %s vrf %s(%u) route update complete for AFI %d, SAFI %d",
-			       __func__, zebra_route_string(client->proto),
-			       VRF_LOGNAME(vrf), info->vrf_id, api.afi,
-			       api.safi);
-			info->route_sync[api.afi] = true;
-
-			gac = XCALLOC(MTYPE_ZEBRA_GR, sizeof(*gac));
-
-			gac->info = info;
-			gac->afi = api.afi;
-			gac->proto = client->proto;
-			gac->instance = client->instance;
-
-			event_add_event(zrouter.master,
-					zebra_gr_delete_stale_route_table_afi,
-					gac, 0, &gac->t_gac);
 		}
+
+		LOG_GR("%s: Client %s vrf %s(%u) route update complete for AFI %d, SAFI %d",
+		       __func__, zebra_route_string(client->proto),
+		       VRF_LOGNAME(vrf), info->vrf_id, api.afi, api.safi);
+		info->route_sync[api.afi] = true;
+
+		/*
+		 * Schedule for after anything already in the meta Q
+		 */
+		rib_add_gr_run(api.afi, api.vrf_id, client->proto,
+			       client->instance);
 		zebra_gr_process_client_stale_routes(client, info);
 		break;
 	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
@@ -552,7 +544,6 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 
 done:
 	XFREE(MTYPE_ZEBRA_GR, gac);
-	return;
 }
 
 /*
@@ -583,22 +574,12 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 
 	/* Process routes for all AFI */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		struct zebra_gr_afi_clean *gac =
-			XCALLOC(MTYPE_ZEBRA_GR, sizeof(*gac));
 
-		gac->info = info;
-		gac->afi = afi;
-		gac->proto = proto;
-		gac->instance = instance;
-
-		if (info->do_delete)
-			event_execute(zrouter.master,
-				      zebra_gr_delete_stale_route_table_afi,
-				      gac, 0);
-		else
-			event_add_event(zrouter.master,
-					zebra_gr_delete_stale_route_table_afi,
-					gac, 0, &gac->t_gac);
+		/*
+		 * Schedule for immediately after anything in the
+		 * meta-Q
+		 */
+		rib_add_gr_run(afi, info->vrf_id, proto, instance);
 	}
 	return 0;
 }
@@ -661,4 +642,29 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 		       VRF_LOGNAME(vrf), info->vrf_id);
 		EVENT_OFF(info->t_stale_removal);
 	}
+}
+
+void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+			     uint8_t instance)
+{
+	struct zserv *client = zserv_find_client(proto, instance);
+	struct client_gr_info *info = NULL;
+	struct zebra_gr_afi_clean *gac;
+
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		if (info->vrf_id == vrf_id)
+			break;
+	}
+
+	if (info == NULL)
+		return;
+
+	gac = XCALLOC(MTYPE_ZEBRA_GR, sizeof(*gac));
+	gac->info = info;
+	gac->afi = afi;
+	gac->proto = proto;
+	gac->instance = instance;
+
+	event_add_event(zrouter.master, zebra_gr_delete_stale_route_table_afi,
+			gac, 0, &gac->t_gac);
 }
