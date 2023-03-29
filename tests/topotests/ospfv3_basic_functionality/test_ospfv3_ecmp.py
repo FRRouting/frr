@@ -115,7 +115,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     ospf_covergence = verify_ospf6_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -257,7 +257,7 @@ def test_ospfv3_ecmp_tc16_p0(request):
     step("Verify that OSPF is up with 8 neighborship sessions.")
     dut = "r1"
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -352,7 +352,7 @@ def test_ospfv3_ecmp_tc16_p0(request):
     step("Verify that OSPF is up with 8 neighborship sessions.")
     dut = "r1"
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -390,7 +390,7 @@ def test_ospfv3_ecmp_tc17_p0(request):
     step("Verify that OSPF is up with 2 neighborship sessions.")
     dut = "r1"
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error:  {}".format(
         ospf_covergence
     )
 
