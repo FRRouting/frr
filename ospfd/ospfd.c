@@ -419,6 +419,7 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
+	new->intf_socket_enabled = true;
 
 	new->recv_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
 	new->send_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
