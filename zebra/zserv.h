@@ -51,9 +51,6 @@ struct client_gr_info {
 	/* VRF for which GR enabled */
 	vrf_id_t vrf_id;
 
-	/* AFI */
-	afi_t current_afi;
-
 	/* Stale time and GR cap */
 	uint32_t stale_removal_time;
 	enum zserv_client_capabilities capabilities;

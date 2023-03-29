@@ -1152,7 +1152,6 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 							info->t_stale_removal));
 				}
 			}
-			vty_out(vty, "Current AFI : %d\n", info->current_afi);
 		}
 	}
 	vty_out(vty, "\n");
