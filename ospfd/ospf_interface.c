@@ -992,7 +992,6 @@ static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
 	if_delete(&ifp);
 	if (!vrf_is_enabled(vrf))
 		vrf_delete(vrf);
-	vlink_count--;
 }
 
 /* for a defined area, count the number of configured vl
