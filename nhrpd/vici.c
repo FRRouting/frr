@@ -575,7 +575,7 @@ void vici_terminate_vc_by_profile_name(char *profile_name)
 	struct vici_conn *vici = &vici_connection;
 
 	debugf(NHRP_DEBUG_VICI, "Terminate profile = %s", profile_name);
-	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike",
+	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "child",
 		    strlen(profile_name), profile_name, VICI_END);
 }
 
