@@ -5602,11 +5602,8 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 		if (bgp_soft_reconfig_in(peer, afi, safi))
 			return;
 
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG))
-			bgp_soft_reconfig_in(peer, afi, safi);
-		else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
-			 CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
+		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
+		    CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
 			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
 					       BGP_ROUTE_REFRESH_NORMAL);
 	}
