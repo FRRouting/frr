@@ -566,7 +566,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (re->mtu)
 			vty_out(vty, ", mtu %u", re->mtu);
 		if (re->vrf_id != VRF_DEFAULT) {
-			zvrf = vrf_info_lookup(re->vrf_id);
+			zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 			vty_out(vty, ", vrf %s", zvrf_name(zvrf));
 		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
@@ -2706,7 +2706,7 @@ DEFUN (default_vrf_vni_mapping,
 	struct zebra_vrf *zvrf = NULL;
 	int filter = 0;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (!zvrf)
 		return CMD_WARNING;
 
@@ -2745,7 +2745,7 @@ DEFUN (no_default_vrf_vni_mapping,
 	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 	struct zebra_vrf *zvrf = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (!zvrf)
 		return CMD_WARNING;
 

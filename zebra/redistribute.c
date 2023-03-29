@@ -145,7 +145,7 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 		return false;
 
 	afi = family2afi(rn->p.family);
-	zvrf = vrf_info_lookup(re->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	if (re->vrf_id == VRF_DEFAULT && zvrf->table_id != re->table)
 		return false;
 

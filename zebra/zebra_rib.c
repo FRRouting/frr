@@ -632,7 +632,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 {
 	struct nexthop *nexthop;
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
-	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	const struct prefix *p, *src_p;
 	enum zebra_dplane_result ret;
 
@@ -715,7 +715,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
-	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
 	if (info->safi != SAFI_UNICAST) {
 		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
@@ -1410,7 +1410,7 @@ static void rib_process(struct route_node *rn)
 static void zebra_rib_evaluate_mpls(struct route_node *rn)
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!dest)
 		return;
@@ -1898,7 +1898,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	struct rib_table_info *info;
 	bool rt_delete = false;
 
-	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
+	zvrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 
 	/* Locate rn and re(s) from ctx */
@@ -2566,7 +2566,7 @@ static void process_subq_early_label(struct listnode *lnode)
 	if (!w)
 		return;
 
-	zvrf = vrf_info_lookup(w->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(w->vrf_id);
 	if (!zvrf) {
 		XFREE(MTYPE_WQ_WRAPPER, w);
 		return;

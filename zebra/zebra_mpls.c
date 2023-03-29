@@ -887,7 +887,7 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 	struct zebra_lsp *lsp;
 	struct zebra_nhlfe *oldbest, *newbest;
 	char buf[BUFSIZ], buf2[BUFSIZ];
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	enum zebra_dplane_result res;
 
 	lsp = (struct zebra_lsp *)data;
@@ -1028,7 +1028,7 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 	if (zebra_router_in_shutdown())
 		return;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	assert(zvrf);
 
 	lsp_table = zvrf->lsp_table;
@@ -1776,7 +1776,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 		/* Look for zebra LSP object */
-		zvrf = vrf_info_lookup(VRF_DEFAULT);
+		zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 		if (zvrf == NULL)
 			break;
 
@@ -2092,7 +2092,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_in_label(ctx));
 
 	/* Look for zebra LSP object */
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (zvrf == NULL)
 		return;
 
@@ -2467,7 +2467,7 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
  */
 static int zebra_mpls_cleanup_fecs_for_client(struct zserv *client)
 {
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	struct route_node *rn;
 	struct zebra_fec *fec;
 	struct listnode *node;
