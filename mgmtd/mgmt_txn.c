@@ -20,10 +20,10 @@
 #define MGMTD_TXN_ERR(fmt, ...)                                               \
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_TXN_DBG(fmt, ...)                                               \
+#define MGMTD_TXN_DBG(fmt, ...)                                                \
 	do {                                                                   \
-		if (mgmt_debug_txn)                                           \
-			zlog_err("%s: " fmt, __func__, ##__VA_ARGS__);         \
+		if (mgmt_debug_txn)                                            \
+			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
 	} while (0)
 #define MGMTD_TXN_ERR(fmt, ...)                                               \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)

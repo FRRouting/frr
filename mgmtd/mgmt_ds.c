@@ -24,7 +24,7 @@
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
 	do {                                                                   \
 		if (mgmt_debug_ds)                                             \
-			zlog_err("%s: " fmt, __func__, ##__VA_ARGS__);         \
+			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
 	} while (0)
 #define MGMTD_DS_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
