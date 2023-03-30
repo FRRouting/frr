@@ -674,6 +674,7 @@ extern void bgp_process_queue_init(struct bgp *bgp);
 extern void bgp_route_init(void);
 extern void bgp_route_finish(void);
 extern void bgp_cleanup_routes(struct bgp *);
+extern void bgp_free_aggregate_info(struct bgp_aggregate *aggregate);
 extern void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi,
 			       bool force);
 extern void bgp_stop_announce_route_timer(struct peer_af *paf);
