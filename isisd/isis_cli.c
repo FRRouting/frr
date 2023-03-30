@@ -3026,6 +3026,26 @@ void cli_show_isis_log_adjacency(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/log-pdu-drops
+ */
+DEFPY_YANG(log_pdu_drops, log_pdu_drops_cmd, "[no] log-pdu-drops",
+	   NO_STR "Log any dropped PDUs\n")
+{
+	nb_cli_enqueue_change(vty, "./log-pdu-drops", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_log_pdu_drops(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " log-pdu-drops\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 DEFPY(isis_mpls_ldp_sync, isis_mpls_ldp_sync_cmd, "mpls ldp-sync",
@@ -3290,6 +3310,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_ti_lfa_cmd);
 
 	install_element(ISIS_NODE, &log_adj_changes_cmd);
+	install_element(ISIS_NODE, &log_pdu_drops_cmd);
 
 	install_element(ISIS_NODE, &isis_mpls_ldp_sync_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_ldp_sync_cmd);

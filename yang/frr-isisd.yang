@@ -1594,6 +1594,13 @@ module frr-isisd {
           "Log changes to the IS-IS adjacencies in this area.";
       }
 
+      leaf log-pdu-drops {
+        type boolean;
+        default "false";
+        description
+          "Log any dropped PDUs in this area.";
+      }
+
       container mpls-te {
         presence "Present if MPLS-TE is enabled.";
         description

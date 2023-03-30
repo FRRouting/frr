@@ -559,6 +559,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/log-pdu-drops",
+			.cbs = {
+				.cli_show = cli_show_isis_log_pdu_drops,
+				.modify = isis_instance_log_pdu_drops_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/mpls-te",
 			.cbs = {
 				.cli_show = cli_show_isis_mpls_te,
