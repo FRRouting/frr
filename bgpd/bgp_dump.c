@@ -860,8 +860,7 @@ void bgp_dump_init(void)
 	memset(&bgp_dump_routes, 0, sizeof(bgp_dump_routes));
 
 	bgp_dump_obuf =
-		stream_new((BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE * 2)
-			   + BGP_DUMP_MSG_HEADER + BGP_DUMP_HEADER_SIZE);
+		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
 
 	install_node(&bgp_dump_node);
 
