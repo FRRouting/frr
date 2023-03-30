@@ -333,7 +333,7 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 /**
  *  Link State prefix management functions
  */
-struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p)
+struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix *p)
 {
 	struct ls_prefix *new;
 
@@ -342,7 +342,7 @@ struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p)
 
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_prefix));
 	new->adv = adv;
-	new->pref = p;
+	new->pref = *p;
 
 	return new;
 }
@@ -889,7 +889,7 @@ struct ls_subnet *ls_subnet_update(struct ls_ted *ted, struct ls_prefix *pref)
 	if (pref == NULL)
 		return NULL;
 
-	old = ls_find_subnet(ted, pref->pref);
+	old = ls_find_subnet(ted, &pref->pref);
 	if (old) {
 		if (!ls_prefix_same(old->ls_pref, pref)) {
 			ls_prefix_del(old->ls_pref);
@@ -942,11 +942,12 @@ void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet)
 	ls_subnet_del(ted, subnet);
 }
 
-struct ls_subnet *ls_find_subnet(struct ls_ted *ted, const struct prefix prefix)
+struct ls_subnet *ls_find_subnet(struct ls_ted *ted,
+				 const struct prefix *prefix)
 {
 	struct ls_subnet subnet = {};
 
-	subnet.key = prefix;
+	subnet.key = *prefix;
 	return subnets_find(&ted->subnets, &subnet);
 }
 
@@ -1846,7 +1847,7 @@ struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 			subnet->status = UPDATE;
 		break;
 	case LS_MSG_EVENT_DELETE:
-		subnet = ls_find_subnet(ted, pref->pref);
+		subnet = ls_find_subnet(ted, &pref->pref);
 		if (subnet) {
 			if (delete)
 				ls_subnet_del_all(ted, subnet);

@@ -268,7 +268,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	switch (prefix->family) {
 	case AF_INET:
 	case AF_INET6:
-		subnet = ls_find_subnet(ted_state_g.ted, *prefix);
+		subnet = ls_find_subnet(ted_state_g.ted, prefix);
 		if (subnet) {
 			if ((CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SR))
 			    && (subnet->ls_pref->sr.algo == algo))
@@ -298,7 +298,7 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	switch (prefix->family) {
 	case AF_INET:
 	case AF_INET6:
-		subnet = ls_find_subnet(ted_state_g.ted, *prefix);
+		subnet = ls_find_subnet(ted_state_g.ted, prefix);
 		if (subnet && subnet->vertex
 		    && subnet->vertex->outgoing_edges) {
 			/* from the vertex linked in subnet */

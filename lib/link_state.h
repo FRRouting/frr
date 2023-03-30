@@ -314,7 +314,7 @@ extern int ls_attributes_same(struct ls_attributes *a1,
  *
  * @return	New Link State Prefix
  */
-extern struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p);
+extern struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix *p);
 
 /**
  * Remove Link State Prefix. Data Structure is freed.
@@ -709,7 +709,7 @@ extern void ls_subnet_del_all(struct ls_ted *ted, struct ls_subnet *subnet);
  * @return		Subnet if found, NULL otherwise
  */
 extern struct ls_subnet *ls_find_subnet(struct ls_ted *ted,
-					const struct prefix prefix);
+					const struct prefix *prefix);
 
 /**
  * Create a new Link State Data Base.

@@ -1077,7 +1077,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 		prefix_copy(&p, prefix);
 	else {
 		/* Remove old subnet if any before prefix adjustment */
-		subnet = ls_find_subnet(args->ted, *prefix);
+		subnet = ls_find_subnet(args->ted, prefix);
 		if (subnet) {
 			if (args->export) {
 				subnet->status = DELETE;
@@ -1092,10 +1092,10 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	}
 
 	/* Search existing Subnet in TED ... */
-	subnet = ls_find_subnet(args->ted, p);
+	subnet = ls_find_subnet(args->ted, &p);
 	/* ... and create a new Subnet if not found */
 	if (!subnet) {
-		ls_pref = ls_prefix_new(vertex->node->adv, p);
+		ls_pref = ls_prefix_new(vertex->node->adv, &p);
 		subnet = ls_subnet_add(args->ted, ls_pref);
 		/* Stop processing if we are unable to create a new subnet */
 		if (!subnet)
@@ -1835,7 +1835,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(ted, pref);
+			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);
@@ -1848,7 +1848,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(ted, pref);
+			subnet = ls_find_subnet(ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);
