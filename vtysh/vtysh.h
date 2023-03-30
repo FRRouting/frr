@@ -98,7 +98,7 @@ void config_add_line(struct list *, const char *);
 
 int vtysh_mark_file(const char *filename);
 
-int vtysh_read_config(const char *filename, bool dry_run);
+int vtysh_apply_config(const char *config_file_path, bool dry_run, bool fork);
 int vtysh_write_config_integrated(void);
 
 void vtysh_config_parse_line(void *, const char *);
@@ -118,5 +118,19 @@ extern struct vty *vty;
 extern int user_mode;
 
 extern bool vtysh_add_timestamp;
+
+struct vtysh_client {
+	int fd;
+	const char *name;
+	int flag;
+	char path[MAXPATHLEN];
+	struct vtysh_client *next;
+
+	struct event *log_reader;
+	int log_fd;
+	uint32_t lost_msgs;
+};
+
+extern struct vtysh_client vtysh_client[22];
 
 #endif /* VTYSH_H */

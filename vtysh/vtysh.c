@@ -49,19 +49,6 @@ char *vtysh_pager_name = NULL;
 /* VTY should add timestamp */
 bool vtysh_add_timestamp;
 
-/* VTY shell client structure */
-struct vtysh_client {
-	int fd;
-	const char *name;
-	int flag;
-	char path[MAXPATHLEN];
-	struct vtysh_client *next;
-
-	struct event *log_reader;
-	int log_fd;
-	uint32_t lost_msgs;
-};
-
 static bool stderr_tty;
 static bool stderr_stdout_same;
 
@@ -119,6 +106,10 @@ static void vtysh_pager_envdef(bool fallback)
 
 /* --- */
 
+/*
+ * When updating this array, remember to change the array size here and in
+ * vtysh.h
+ */
 struct vtysh_client vtysh_client[] = {
 	{.name = "mgmtd", .flag = VTYSH_MGMTD},
 	{.name = "zebra", .flag = VTYSH_ZEBRA},
@@ -3545,7 +3536,7 @@ DEFUN (vtysh_copy_to_running,
 	int ret;
 	const char *fname = argv[1]->arg;
 
-	ret = vtysh_read_config(fname, true);
+	ret = vtysh_apply_config(fname, true, false);
 
 	/* Return to enable mode - the 'read_config' api leaves us up a level */
 	vtysh_execute_no_pager("enable");

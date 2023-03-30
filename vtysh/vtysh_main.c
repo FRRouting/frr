@@ -7,7 +7,6 @@
 
 #include <sys/un.h>
 #include <setjmp.h>
-#include <sys/wait.h>
 #include <pwd.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -178,6 +177,8 @@ static void usage(int status)
 		       "-u  --user               Run as an unprivileged user\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-H, --histfile           Override history file\n"
+		       "-t, --timestamp          Print a timestamp before going to shell or reading the configuration\n"
+		       "    --no-fork            Don't fork clients to handle daemons (slower for large configs)\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -191,6 +192,7 @@ static void usage(int status)
 /* VTY shell options, we use GNU getopt library. */
 #define OPTION_VTYSOCK 1000
 #define OPTION_CONFDIR 1001
+#define OPTION_NOFORK 1002
 struct option longopts[] = {
 	{"boot", no_argument, NULL, 'b'},
 	/* For compatibility with older zebra/quagga versions */
@@ -210,6 +212,7 @@ struct option longopts[] = {
 	{"pathspace", required_argument, NULL, 'N'},
 	{"user", no_argument, NULL, 'u'},
 	{"timestamp", no_argument, NULL, 't'},
+	{"no-fork", no_argument, NULL, OPTION_NOFORK},
 	{0}};
 
 bool vtysh_loop_exited;
@@ -321,6 +324,7 @@ int main(int argc, char **argv, char **env)
 	int dryrun = 0;
 	int boot_flag = 0;
 	bool ts_flag = false;
+	bool no_fork = false;
 	const char *daemon_name = NULL;
 	const char *inputfile = NULL;
 	struct cmd_rec {
@@ -392,6 +396,9 @@ int main(int argc, char **argv, char **env)
 			ditch_suid = 1; /* option disables SUID */
 			snprintf(sysconfdir, sizeof(sysconfdir), "%s/", optarg);
 			break;
+		case OPTION_NOFORK:
+			no_fork = true;
+			break;
 		case 'N':
 			if (strchr(optarg, '/') || strchr(optarg, '.')) {
 				fprintf(stderr,
@@ -440,6 +447,10 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+	/* No need for forks if we're talking to 1 daemon */
+	if (daemon_name)
+		no_fork = true;
+
 	if (ditch_suid) {
 		elevuid = realuid;
 		elevgid = realgid;
@@ -483,7 +494,7 @@ int main(int argc, char **argv, char **env)
 		/* Read vtysh configuration file before connecting to daemons.
 		 * (file may not be readable to calling user in SUID mode) */
 		suid_on();
-		vtysh_read_config(vtysh_config, dryrun);
+		vtysh_apply_config(vtysh_config, dryrun, false);
 		suid_off();
 	}
 	/* Error code library system */
@@ -502,9 +513,9 @@ int main(int argc, char **argv, char **env)
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
 		if (inputfile) {
-			ret = vtysh_read_config(inputfile, dryrun);
+			ret = vtysh_apply_config(inputfile, dryrun, false);
 		} else {
-			ret = vtysh_read_config(frr_config, dryrun);
+			ret = vtysh_apply_config(frr_config, dryrun, false);
 		}
 
 		exit(ret);
@@ -583,10 +594,17 @@ int main(int argc, char **argv, char **env)
 		return vtysh_write_config_integrated();
 	}
 
-	if (inputfile) {
+	if (boot_flag)
+		inputfile = frr_config;
+
+	if (inputfile || boot_flag) {
 		vtysh_flock_config(inputfile);
-		ret = vtysh_read_config(inputfile, dryrun);
+		ret = vtysh_apply_config(inputfile, dryrun, !no_fork);
 		vtysh_unflock_config();
+
+		if (no_error)
+			ret = 0;
+
 		exit(ret);
 	}
 
@@ -701,23 +719,6 @@ int main(int argc, char **argv, char **env)
 
 		history_truncate_file(history_file, 1000);
 		exit(0);
-	}
-
-	/* Boot startup configuration file. */
-	if (boot_flag) {
-		vtysh_flock_config(frr_config);
-		ret = vtysh_read_config(frr_config, dryrun);
-		vtysh_unflock_config();
-		if (ret) {
-			fprintf(stderr,
-				"Configuration file[%s] processing failure: %d\n",
-				frr_config, ret);
-			if (no_error)
-				exit(0);
-			else
-				exit(ret);
-		} else
-			exit(0);
 	}
 
 	vtysh_readline_init();
