@@ -5502,23 +5502,12 @@ static void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			return;
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG)) {
+			       PEER_FLAG_SOFT_RECONFIG))
 			bgp_soft_reconfig_in(peer, afi, safi);
-		} else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
-			   CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
-			if (CHECK_FLAG(peer->af_cap[afi][safi],
-				       PEER_CAP_ORF_PREFIX_SM_ADV) &&
-			    (CHECK_FLAG(peer->af_cap[afi][safi],
-					PEER_CAP_ORF_PREFIX_RM_RCV) ||
-			     CHECK_FLAG(peer->af_cap[afi][safi],
-					PEER_CAP_ORF_PREFIX_RM_OLD_RCV)))
-				peer_clear_soft(peer, afi, safi,
-						BGP_CLEAR_SOFT_IN_ORF_PREFIX);
-			else
-				bgp_route_refresh_send(
-					peer, afi, safi, 0, 0, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
-		}
+		else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
+			 CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+					       BGP_ROUTE_REFRESH_NORMAL);
 	}
 }
 
@@ -6772,11 +6761,18 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 
 				/* If we touch prefix-list, we need to process
 				 * new updates. This is important for ORF to
-				 * work correctly as well.
+				 * work correctly.
 				 */
-				if (peer->afc_nego[afi][safi])
-					peer_on_policy_change(peer, afi, safi,
-							      0);
+				if (CHECK_FLAG(peer->af_cap[afi][safi],
+					       PEER_CAP_ORF_PREFIX_SM_ADV) &&
+				    (CHECK_FLAG(peer->af_cap[afi][safi],
+						PEER_CAP_ORF_PREFIX_RM_RCV) ||
+				     CHECK_FLAG(
+					     peer->af_cap[afi][safi],
+					     PEER_CAP_ORF_PREFIX_RM_OLD_RCV)))
+					peer_clear_soft(
+						peer, afi, safi,
+						BGP_CLEAR_SOFT_IN_ORF_PREFIX);
 			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
