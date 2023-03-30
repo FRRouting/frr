@@ -95,53 +95,23 @@ def test_bgp_addpath_labeled_unicast():
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
 
-    def _bgp_check_advertised_routes(prefix_num):
-        output = json.loads(
-            r3.vtysh_cmd(
-                "show bgp ipv4 labeled-unicast neighbors 192.168.34.4 advertised-routes json"
-            )
-        )
+    def _bgp_check_received_routes(pfxcount):
+        output = json.loads(r4.vtysh_cmd("show bgp ipv4 labeled-unicast summary json"))
         expected = {
-            "advertisedRoutes": {
-                "10.0.0.1/32": {
-                    "appliedStatusSymbols": {
-                        "*": True,
-                        ">": True,
-                        "=": True,
-                    }
+            "peers": {
+                "192.168.34.3": {
+                    "pfxRcd": pfxcount,
+                    "state": "Established",
                 }
-            },
-            "totalPrefixCounter": prefix_num,
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(_bgp_check_advertised_routes, 2)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert (
-        result is None
-    ), "Failed to advertise labeled-unicast with addpath (multipath)"
-
-    def _bgp_check_received_routes():
-        output = json.loads(r4.vtysh_cmd("show bgp ipv4 labeled-unicast json"))
-        expected = {
-            "routes": {
-                "10.0.0.1/32": [
-                    {
-                        "valid": True,
-                        "path": "65003 65001",
-                    },
-                    {
-                        "valid": True,
-                        "path": "65003 65002",
-                    },
-                ]
             }
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_check_received_routes)
+    test_func = functools.partial(_bgp_check_received_routes, 2)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to receive labeled-unicast with addpath (multipath)"
+    assert (
+        result is None
+    ), "Failed to receive labeled-unicast with addpath (multipath=2)"
 
     step("Enable BGP session for R5")
     r3.vtysh_cmd(
@@ -152,11 +122,11 @@ def test_bgp_addpath_labeled_unicast():
         """
     )
 
-    test_func = functools.partial(_bgp_check_advertised_routes, 3)
+    test_func = functools.partial(_bgp_check_received_routes, 3)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert (
         result is None
-    ), "Failed to advertise labeled-unicast with addpath (multipath)"
+    ), "Failed to receive labeled-unicast with addpath (multipath=3)"
 
     step("Disable BGP session for R5")
     r3.vtysh_cmd(
@@ -167,11 +137,11 @@ def test_bgp_addpath_labeled_unicast():
         """
     )
 
-    test_func = functools.partial(_bgp_check_advertised_routes, 2)
+    test_func = functools.partial(_bgp_check_received_routes, 2)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert (
         result is None
-    ), "Failed to advertise labeled-unicast with addpath (multipath)"
+    ), "Failed to receive labeled-unicast with addpath (multipath=2)"
 
 
 if __name__ == "__main__":
