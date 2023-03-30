@@ -116,7 +116,6 @@ void rfapiRibCheckCounts(
 	struct bgp *bgp = bgp_get_default();
 
 	uint32_t t_pfx_active = 0;
-	uint32_t t_pfx_deleted = 0;
 
 	uint32_t t_ri_active = 0;
 	uint32_t t_ri_deleted = 0;
@@ -131,7 +130,6 @@ void rfapiRibCheckCounts(
 
 		afi_t afi;
 		uint32_t pfx_active = 0;
-		uint32_t pfx_deleted = 0;
 
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
@@ -156,8 +154,6 @@ void rfapiRibCheckCounts(
 				if (dsl) {
 					ri_deleted = skiplist_count(dsl);
 					t_ri_deleted += ri_deleted;
-					++pfx_deleted;
-					++t_pfx_deleted;
 				}
 			}
 			for (rn = agg_route_top(rfd->rib_pending[afi]); rn;
@@ -2303,10 +2299,6 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 	int printedheader = 0;
 	int routes_total = 0;
 	int nhs_total = 0;
-	int prefixes_total = 0;
-	int prefixes_displayed = 0;
-	int nves_total = 0;
-	int nves_with_routes = 0;
 	int nves_displayed = 0;
 	int routes_displayed = 0;
 	int nhs_displayed = 0;
@@ -2325,10 +2317,6 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 
 		int printednve = 0;
 		afi_t afi;
-
-		++nves_total;
-		if (rfd->rib_prefix_count)
-			++nves_with_routes;
 
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
@@ -2355,13 +2343,10 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 
 				routes_total++;
 				nhs_total += skiplist_count(sl);
-				++prefixes_total;
 
 				if (pfx_match && !prefix_match(pfx_match, p)
 				    && !prefix_match(p, pfx_match))
 					continue;
-
-				++prefixes_displayed;
 
 				if (!printedheader) {
 					++printedheader;

@@ -38,8 +38,6 @@ lib_libfrr_la_SOURCES = \
 	lib/frrscript.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
-	lib/getopt.c \
-	lib/getopt1.c \
 	lib/grammar_sandbox.c \
 	lib/graph.c \
 	lib/hash.c \
@@ -217,7 +215,6 @@ pkginclude_HEADERS += \
 	lib/frratomic.h \
 	lib/frrcu.h \
 	lib/frrstr.h \
-	lib/getopt.h \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
