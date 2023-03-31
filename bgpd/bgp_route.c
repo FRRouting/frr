@@ -11603,9 +11603,28 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					vty_out(vty, ",\"%pFX\": ", dest_p);
 			}
 
+			/* This is used for 'json detail' vty keywords.
+			 *
+			 * In plain 'json' the per-prefix header is encoded
+			 * as a standalone dictionary in the first json_paths
+			 * array element:
+			 * "<prefix>": [{header}, {path-1}, {path-N}]
+			 * (which is confusing and borderline broken)
+			 *
+			 * For 'json detail' this changes the value
+			 * of each prefix-key to be a dictionary where each
+			 * header item has its own key, and json_paths is
+			 * tucked under the "paths" key:
+			 * "<prefix>": {
+			 *   "<header-key-1>": <header-val-1>,
+			 *   "<header-key-N>": <header-val-N>,
+			 *   "paths": [{path-1}, {path-N}]
+			 * }
+			 */
 			if (json_detail_header && json_paths != NULL) {
 				const struct prefix_rd *prd;
 
+				/* Start per-prefix dictionary */
 				vty_out(vty, "{\n");
 
 				prd = bgp_rd_from_dest(dest, safi);
@@ -11630,6 +11649,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			 */
 			vty_json_no_pretty(vty, json_paths);
 
+			/* End per-prefix dictionary */
 			if (json_detail_header_used)
 				vty_out(vty, "} ");
 
