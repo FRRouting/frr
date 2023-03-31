@@ -64,7 +64,7 @@ struct mgmt_fe_client_ctx {
 #define FOREACH_SESSION_IN_LIST(client_ctx, session)                           \
 	frr_each_safe (mgmt_sessions, &(client_ctx)->client_sessions, (session))
 
-struct debug mgmt_dbg_fe_client = {0, "Management frontend client operations"};
+struct debug mgmt_dbg_fe_client = {0xFFFF, "Management frontend client operations"};
 
 static struct mgmt_fe_client_ctx mgmt_fe_client_ctx = {
 	.conn_fd = -1,

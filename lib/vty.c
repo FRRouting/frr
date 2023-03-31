@@ -1633,13 +1633,15 @@ struct vty *vty_new(void)
 	new->pass_fd = -1;
 
 	if (mgmt_lib_hndl) {
+		zlog_err("%s: Mgmtd session id:%u", __func__, (uint32_t)new->mgmt_session_id);
 		new->mgmt_client_id = mgmt_client_id_next++;
+		new->mgmt_session_id = 0;
 		if (mgmt_fe_create_client_session(
 			    mgmt_lib_hndl, new->mgmt_client_id,
 			    (uintptr_t) new) != MGMTD_SUCCESS)
 			zlog_err(
-				"Failed to open a MGMTD Frontend session for VTY session %p!!",
-				new);
+				"%s: Failed to open a MGMTD Frontend session for VTY session %p!!",
+				__func__, new);
 	}
 
 	return new;
@@ -2712,9 +2714,6 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 				"Candidate DS already locked by different session\n");
 			return CMD_WARNING;
 		}
-
-		vty->mgmt_locked_candidate_ds = true;
-		mgmt_candidate_ds_wr_locked = true;
 	}
 
 	vty->node = CONFIG_NODE;
@@ -3280,16 +3279,29 @@ void vty_init_vtysh(void)
 static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
 				      bool connected)
 {
-	VTY_DBG("%sGot %sconnected %s MGMTD Frontend Server",
+	struct vty *vty;
+
+	zlog_err("%sGot %sconnected %s MGMTD Frontend Server",
 		!connected ? "ERROR: " : "", !connected ? "dis: " : "",
 		!connected ? "from" : "to");
 
 	mgmt_fe_connected = connected;
 
 	/*
-	 * TODO: Setup or teardown front-end sessions for existing
-	 * VTY connections.
+	 * Try Setup front-end sessions for existing VTY connections.
 	 */
+	frr_each_safe (vtys, vty_sessions, vty) {
+		if (!vty->mgmt_session_id &&
+		    mgmt_fe_create_client_session(
+			    mgmt_lib_hndl, vty->mgmt_client_id,
+			    (uintptr_t)vty) != MGMTD_SUCCESS) {
+			zlog_err(
+				"%s: Failed to open a MGMTD Frontend session for VTY session %p!!",
+				__func__, vty);
+			vty_out(vty,
+				"Failed to open a MGMTD Frontend session for VTY session!\n");
+		}
+	}
 }
 
 static void vty_mgmt_session_created(uintptr_t lib_hndl, uintptr_t usr_data,
@@ -3307,10 +3319,20 @@ static void vty_mgmt_session_created(uintptr_t lib_hndl, uintptr_t usr_data,
 		return;
 	}
 
-	VTY_DBG("%s session for client %" PRIu64 " successfully",
+	zlog_err("%s session for client %" PRIu64 " successfully",
 		create ? "Created" : "Destroyed", client_id);
 	if (create)
 		vty->mgmt_session_id = session_id;
+
+	/*
+	 * Typically if a connection with MGMTd could not be established
+	 * until now, VTYSH shall be blocked in DS_UN/LOCK_REQ. Let's get
+	 * them going now.
+	 */
+	if (vty->mgmt_candidate_ds_lock_pending)
+		vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, true);
+	else if (vty->mgmt_candidate_ds_unlock_pending)
+		vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false);
 }
 
 static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
@@ -3332,8 +3354,21 @@ static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
 	} else {
 		VTY_DBG("%socked DS %u successfully", lock_ds ? "L" : "Unl",
 			ds_id);
+
+		vty->mgmt_locked_candidate_ds = lock_ds;
+		mgmt_candidate_ds_wr_locked = lock_ds;
 	}
 
+	/*
+	 * If there are pending SET-CFG requests that could NOT be sent till
+	 * now, it is time to send them all to MGMTd.
+	 */
+	if (lock_ds && vty->num_cfg_changes)
+		vty_mgmt_send_config_data(vty);
+
+	/*
+	 * Resume VTYSH processing.
+	 */
 	vty_mgmt_resume_response(vty, success);
 }
 
@@ -3476,6 +3511,11 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 		}
 
 		vty->mgmt_req_pending = true;
+	} else {
+		if (lock)
+			vty->mgmt_candidate_ds_lock_pending = true;
+		else
+			vty->mgmt_candidate_ds_unlock_pending = true;
 	}
 
 	return 0;
@@ -3491,7 +3531,13 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	int cnt;
 	bool implicit_commit = false;
 
-	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+	if (mgmt_lib_hndl) {
+		if (!vty->mgmt_session_id) {
+			zlog_err("%s: Mgmt session is not created. Blocking vty session:%p", __func__, vty);
+			vty->mgmt_req_pending = true;
+			return 0;
+		}
+
 		cnt = 0;
 		for (indx = 0; indx < vty->num_cfg_changes; indx++) {
 			mgmt_yang_data_init(&cfg_data[cnt]);

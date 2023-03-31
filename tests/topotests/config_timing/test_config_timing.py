@@ -165,14 +165,6 @@ def test_static_timing():
         [u"2100:1111:2220::/44", u"2100:3333:4440::/44"],
     ]
 
-    # This apparently needed to allow for various mgmtd/staticd/zebra connections to form
-    # which then SLOWS execution down. If we don't include this value then the
-    # initial, baseline establishing, time is 2 time faster (e.g., 5s instead of 10s),
-    # but all later runs are slower and fail.
-    #
-    # This should be done differently based on actual facts.
-    topotest.sleep(5)
-
     bad_indices = []
     for ipv6 in [False, True]:
         base_delta = do_config(
