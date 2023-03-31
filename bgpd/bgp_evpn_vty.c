@@ -4009,7 +4009,7 @@ DEFPY(macvrf_soo_global, macvrf_soo_global_cmd,
 	ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
 	if (!ecomm_soo) {
 		vty_out(vty, "%% Malformed SoO extended community\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 	ecommunity_str(ecomm_soo);
 
