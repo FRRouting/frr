@@ -168,8 +168,13 @@ static void nhrp_reg_send_req(struct event *t)
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 
+	if (!nifp->enabled) {
+		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting local link for %pSU",
+		       &nifp->nbma);
+		return;
+	}
 	if (!nhrp_peer_check(r->peer, 2)) {
-		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
+		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting remote link for %pSU",
 		       &r->peer->vc->remote.nbma);
 		event_add_timer(master, nhrp_reg_send_req, r, 120,
 				&r->t_register);

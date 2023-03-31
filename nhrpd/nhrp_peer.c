@@ -127,8 +127,14 @@ static void nhrp_peer_ifp_notify(struct notifier_block *n, unsigned long cmd)
 
 	nhrp_peer_ref(p);
 	switch (cmd) {
-	case NOTIFY_INTERFACE_UP:
 	case NOTIFY_INTERFACE_DOWN:
+		if (p->vc) {
+			debugf(NHRP_DEBUG_IF, "Deleting IKE SAs for Peer ref=%d local=%pSU remote=%pSU",
+			       p->ref, &p->vc->local.nbma, &p->vc->remote.nbma);
+			nhrp_vc_force_ipsec_down(p->vc);
+		}
+		fallthrough;
+	case NOTIFY_INTERFACE_UP:
 		__nhrp_peer_check(p);
 		break;
 	case NOTIFY_INTERFACE_NBMA_CHANGED:
