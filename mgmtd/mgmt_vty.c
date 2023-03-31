@@ -386,12 +386,14 @@ static struct cmd_node debug_node = {
 	.config_write = config_write_mgmt_debug,
 };
 
-static int config_write_mgmt_debug(struct vty *vty)
+static int config_write_mgmt_debug_helper(struct vty *vty, bool config)
 {
 	int n = mgmt_debug_be + mgmt_debug_fe + mgmt_debug_ds + mgmt_debug_txn;
 	if (!n)
 		return 0;
-	if (n == 4) {
+
+	if (config && mgmt_debug_be && mgmt_debug_fe && mgmt_debug_ds &&
+	    mgmt_debug_txn) {
 		vty_out(vty, "debug mgmt all\n");
 		return 0;
 	}
@@ -411,12 +413,26 @@ static int config_write_mgmt_debug(struct vty *vty)
 	return 0;
 }
 
-DEFPY(debug_mgmt,
-      debug_mgmt_cmd,
+static int config_write_mgmt_debug(struct vty *vty)
+{
+	return config_write_mgmt_debug_helper(vty, true);
+}
+
+DEFUN_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
+	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
+{
+	vty_out(vty, "MGMT debugging status:\n");
+
+	config_write_mgmt_debug_helper(vty, false);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_mgmt, debug_mgmt_cmd,
       "[no$no] debug mgmt <all$all|{backend$be|datastore$ds|frontend$fe|transaction$txn}>",
-      NO_STR
-      DEBUG_STR
-      MGMTD_STR
+      NO_STR DEBUG_STR MGMTD_STR
       "All debug\n"
       "Back-end debug\n"
       "Datastore debug\n"
@@ -478,6 +494,8 @@ void mgmt_vty_init(void)
 	/* Enable view */
 	install_element(ENABLE_NODE, &mgmt_performance_measurement_cmd);
 	install_element(ENABLE_NODE, &mgmt_reset_performance_stats_cmd);
+
+	install_element(ENABLE_NODE, &show_debugging_mgmt_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.
