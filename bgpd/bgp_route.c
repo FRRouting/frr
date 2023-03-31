@@ -8344,30 +8344,7 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	/* Unlock aggregate address configuration. */
 	bgp_dest_set_bgp_aggregate_info(dest, NULL);
 
-	if (aggregate->community)
-		community_free(&aggregate->community);
-
-	hash_clean_and_free(&aggregate->community_hash,
-			    bgp_aggr_community_remove);
-
-	if (aggregate->ecommunity)
-		ecommunity_free(&aggregate->ecommunity);
-
-	hash_clean_and_free(&aggregate->ecommunity_hash,
-			    bgp_aggr_ecommunity_remove);
-
-	if (aggregate->lcommunity)
-		lcommunity_free(&aggregate->lcommunity);
-
-	hash_clean_and_free(&aggregate->lcommunity_hash,
-			    bgp_aggr_lcommunity_remove);
-
-	if (aggregate->aspath)
-		aspath_free(aggregate->aspath);
-
-	hash_clean_and_free(&aggregate->aspath_hash, bgp_aggr_aspath_remove);
-
-	bgp_aggregate_free(aggregate);
+	bgp_free_aggregate_info(aggregate);
 	bgp_dest_unlock_node(dest);
 	bgp_dest_unlock_node(dest);
 
@@ -8549,6 +8526,34 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
 	return bgp_aggregate_set(vty, prefix_s, AFI_IP, safi, rmap_name,
 				 summary_only != NULL, as_set, origin,
 				 match_med != NULL, suppress_map);
+}
+
+void bgp_free_aggregate_info(struct bgp_aggregate *aggregate)
+{
+	if (aggregate->community)
+		community_free(&aggregate->community);
+
+	hash_clean_and_free(&aggregate->community_hash,
+			    bgp_aggr_community_remove);
+
+	if (aggregate->ecommunity)
+		ecommunity_free(&aggregate->ecommunity);
+
+	hash_clean_and_free(&aggregate->ecommunity_hash,
+			    bgp_aggr_ecommunity_remove);
+
+	if (aggregate->lcommunity)
+		lcommunity_free(&aggregate->lcommunity);
+
+	hash_clean_and_free(&aggregate->lcommunity_hash,
+			    bgp_aggr_lcommunity_remove);
+
+	if (aggregate->aspath)
+		aspath_free(aggregate->aspath);
+
+	hash_clean_and_free(&aggregate->aspath_hash, bgp_aggr_aspath_remove);
+
+	bgp_aggregate_free(aggregate);
 }
 
 DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
