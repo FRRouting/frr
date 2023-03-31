@@ -1130,7 +1130,11 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv4_tos(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
 
 		/* Turn off multicast loop on Tx */
-		setsockopt_ipv4_multicast_loop(r->sock_tx, 0);
+		if (setsockopt_ipv4_multicast_loop(r->sock_tx, 0) < 0) {
+                       zlog_warn("Failed to turn off multicast");
+                       failed = true;
+                       goto done;
+               }
 
 		/* Bind Rx socket to exact interface */
 		frr_with_privs(&vrrp_privs) {
