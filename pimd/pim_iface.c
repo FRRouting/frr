@@ -982,6 +982,12 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		zlog_warn("%s: ifindex=%d < 1 on interface %s", __func__,
 			  ifp->ifindex, ifp->name);
 		return -2;
+	} else if ((ifp->ifindex == 0) &&
+		   ((strncmp(ifp->name, "pimreg", 6)) &&
+		    (strncmp(ifp->name, "pim6reg", 7)))) {
+		zlog_warn("%s: ifindex=%d == 0 on interface %s", __func__,
+			  ifp->ifindex, ifp->name);
+		return -2;
 	}
 
 	ifaddr = pim_ifp->primary_address;
