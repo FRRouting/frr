@@ -10,6 +10,8 @@
 
 #include "command.h"
 #include "json.h"
+#include "northbound_cli.h"
+
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -439,6 +441,33 @@ DEFPY(debug_mgmt,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Analog of `frr_config_read_in()`, instead of our config file though we loop
+ * over all daemons that have transitioned to mgmtd, loading their configs
+ */
+static int mgmt_config_pre_hook(struct event_loop *loop)
+{
+	FILE *confp;
+	char *p;
+
+	for (uint i = 0; i < mgmt_daemons_count; i++) {
+		p = asprintfrr(MTYPE_TMP, "%s/%s.conf", frr_sysconfdir,
+			       mgmt_daemons[i]);
+		confp = fopen(p, "r");
+		if (confp == NULL) {
+			if (errno != ENOENT)
+				zlog_err("%s: couldn't read config file %s: %s",
+					 __func__, p, safe_strerror(errno));
+		} else {
+			zlog_info("mgmtd: reading daemon config from %s", p);
+			vty_read_file(vty_shared_candidate_config, confp);
+			fclose(confp);
+		}
+		XFREE(MTYPE_TMP, p);
+	}
+	return 0;
+}
+
 void mgmt_vty_init(void)
 {
 	/*
@@ -451,6 +480,8 @@ void mgmt_vty_init(void)
 	extern void static_vty_init(void);
 	static_vty_init();
 #endif
+
+	hook_register(frr_config_pre, mgmt_config_pre_hook);
 
 	install_node(&debug_node);
 

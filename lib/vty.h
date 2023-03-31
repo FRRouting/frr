@@ -369,6 +369,7 @@ extern void vty_pass_fd(struct vty *vty, int fd);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
+extern void vty_read_file(struct nb_config *config, FILE *confp);
 extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);

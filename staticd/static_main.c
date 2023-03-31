@@ -161,6 +161,10 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 
 #define STATIC_VTY_PORT 2616
 
+/*
+ * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
+ * do this for us now
+ */
 FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.proghelp = "Implementation of STATIC.",
@@ -170,7 +174,8 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.privs = &static_privs, .yang_modules = staticd_yang_modules,
 		.n_yang_modules = array_size(staticd_yang_modules),
-);
+
+		.flags = FRR_NO_SPLIT_CONFIG);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -210,9 +215,12 @@ int main(int argc, char **argv, char **envp)
 
 	routing_control_plane_protocols_register_vrf_dependency();
 
-	snprintf(backup_config_file, sizeof(backup_config_file),
-		 "%s/zebra.conf", frr_sysconfdir);
-	staticd_di.backup_config_file = backup_config_file;
+	/*
+	 * We set FRR_NO_SPLIT_CONFIG flag to avoid reading our config, but we
+	 * still need to write one if vtysh tells us to. Setting the host
+	 * config filename does this.
+	 */
+	host_config_set(config_default);
 
 	frr_config_fork();
 	frr_run(master);
