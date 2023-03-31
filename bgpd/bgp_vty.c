@@ -11036,10 +11036,10 @@ static char *bgp_peer_description_stripped(char *desc, uint32_t size)
 {
 	static char stripped[BUFSIZ];
 	uint32_t i = 0;
-	uint32_t last_space = 0;
+	uint32_t last_space = size;
 
 	while (i < size) {
-		if (*(desc + i) == 0) {
+		if (*(desc + i) == '\0') {
 			stripped[i] = '\0';
 			return stripped;
 		}
@@ -11049,10 +11049,7 @@ static char *bgp_peer_description_stripped(char *desc, uint32_t size)
 		i++;
 	}
 
-	if (last_space > size)
-		stripped[size + 1] = '\0';
-	else
-		stripped[last_space] = '\0';
+	stripped[last_space] = '\0';
 
 	return stripped;
 }
