@@ -1,10 +1,10 @@
 hostname r5
 log file ldpd.log
 !
-debug mpls ldp zebra
-debug mpls ldp event
-debug mpls ldp errors
-debug mpls ldp sync
+!debug mpls ldp zebra
+!debug mpls ldp event
+!debug mpls ldp errors
+!debug mpls ldp sync
 !
 mpls ldp
  router-id 3.3.3.3
