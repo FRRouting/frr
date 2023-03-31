@@ -1399,7 +1399,7 @@ bool ipv4_unicast_valid(const struct in_addr *addr)
 	if (IPV4_CLASS_D(ip))
 		return false;
 
-	if (IPV4_CLASS_E(ip)) {
+	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_E(ip)) {
 		if (cmd_allow_reserved_ranges_get())
 			return true;
 		else

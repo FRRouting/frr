@@ -499,11 +499,8 @@ extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 /* NOTE: This routine expects the address argument in network byte order. */
 static inline bool ipv4_martian(const struct in_addr *addr)
 {
-	in_addr_t ip = ntohl(addr->s_addr);
-
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || !ipv4_unicast_valid(addr)) {
+	if (!ipv4_unicast_valid(addr))
 		return true;
-	}
 	return false;
 }
 

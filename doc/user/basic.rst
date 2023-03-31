@@ -349,6 +349,10 @@ Basic Config Commands
    Allow using IPv4 reserved (Class E) IP ranges for daemons. E.g.: setting
    IPv4 addresses for interfaces or allowing reserved ranges in BGP next-hops.
 
+   If you need multiple FRR instances (or FRR + any other daemon) running in a
+   single router and peering via 127.0.0.0/8, it's also possible to use this
+   knob if turned on.
+
    Default: off.
 
 .. _sample-config-file:

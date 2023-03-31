@@ -3838,6 +3838,12 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		(type == ZEBRA_ROUTE_BGP && stype == BGP_ROUTE_STATIC) ? true
 								       : false;
 
+	/* If `bgp allow-martian-nexthop` is turned on, return next-hop
+	 * as good.
+	 */
+	if (bgp->allow_martian)
+		return false;
+
 	/*
 	 * Only validated for unicast and multicast currently.
 	 * Also valid for EVPN where the nexthop is an IP address.
