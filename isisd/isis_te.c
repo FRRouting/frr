@@ -1075,9 +1075,21 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	}
 	if (!std)
 		prefix_copy(&p, prefix);
-	else
+	else {
+		/* Remove old subnet if any before prefix adjustment */
+		subnet = ls_find_subnet(args->ted, *prefix);
+		if (subnet) {
+			if (args->export) {
+				subnet->status = DELETE;
+				isis_te_export(LS_MSG_TYPE_PREFIX, subnet);
+			}
+			te_debug("   |- Remove subnet with prefix %pFX",
+				 &subnet->key);
+			ls_subnet_del_all(args->ted, subnet);
+		}
 		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
 			 prefix, &p);
+	}
 
 	/* Search existing Subnet in TED ... */
 	subnet = ls_find_subnet(args->ted, p);
@@ -1085,6 +1097,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	if (!subnet) {
 		ls_pref = ls_prefix_new(vertex->node->adv, p);
 		subnet = ls_subnet_add(args->ted, ls_pref);
+		/* Stop processing if we are unable to create a new subnet */
 		if (!subnet)
 			return LSP_ITER_CONTINUE;
 	}
