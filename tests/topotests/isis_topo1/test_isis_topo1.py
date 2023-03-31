@@ -520,6 +520,25 @@ def test_isis_overload_on_startup_override_timer():
     check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
 
 
+def test_config_load_non_integrated():
+    tgen = get_topogen()
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        f"""
+          configure
+            router isis 1
+              set-overload-bit
+        """
+    )
+
+    # Restart r3
+    stop_router(tgen, "r3")
+    start_router(tgen, "r3")
+
+    # Check that the overload bit is set in r3's first LSP
+    check_overload_bit_first_lsp("r3", "r3.00-00", "0/0/1")
+
+
 def test_isis_advertise_passive_only():
     """Check that we only advertise prefixes of passive interfaces when advertise-passive-only is enabled."""
     tgen = get_topogen()
@@ -697,6 +716,35 @@ def check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
     "Verfiy overload bit in router's LSP"
 
     assertmsg = _check_lsp_overload_bit(
+        router, overloaded_router_lsp, att_p_ol_expected
+    )
+    assert assertmsg is True, assertmsg
+
+
+@retry(retry_timeout=3)
+def _check_overload_bit_first_lsp(router, overloaded_router_lsp, att_p_ol_expected):
+    "Verfiy overload bit in router's first LSP"
+
+    tgen = get_topogen()
+    router = tgen.gears[router]
+    logger.info(f"check_overload_bit {router}")
+    isis_database_output = router.vtysh_cmd(
+        "show isis database {} json".format(overloaded_router_lsp)
+    )
+
+    database_json = json.loads(isis_database_output)
+    att_p_ol = database_json["areas"][0]["levels"][1]["att-p-ol"]
+    if att_p_ol == att_p_ol_expected:
+        return True
+    return "{} peer with expected att_p_ol {} got {} ".format(
+        router.name, att_p_ol_expected, att_p_ol
+    )
+
+
+def check_overload_bit_first_lsp(router, overloaded_router_lsp, att_p_ol_expected):
+    "Verfiy overload bit in router's first LSP"
+
+    assertmsg = _check_overload_bit_first_lsp(
         router, overloaded_router_lsp, att_p_ol_expected
     )
     assert assertmsg is True, assertmsg
