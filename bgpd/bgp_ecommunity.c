@@ -520,6 +520,8 @@ static const char *ecommunity_gettoken(const char *str,
 	uint8_t ecomm_type;
 	char buf[INET_ADDRSTRLEN + 1];
 	struct ecommunity_val *eval = (struct ecommunity_val *)eval_ptr;
+	uint64_t tmp_as = 0;
+
 	/* Skip white space. */
 	while (isspace((unsigned char)*p)) {
 		p++;
@@ -598,9 +600,18 @@ static const char *ecommunity_gettoken(const char *str,
 			goto error;
 
 		endptr++;
-		as = strtoul(endptr, &endptr, 10);
-		if (*endptr != '\0' || as == BGP_AS4_MAX)
+		errno = 0;
+		tmp_as = strtoul(endptr, &endptr, 10);
+		/* 'unsigned long' is a uint64 on 64-bit
+		 * systems, and uint32 on 32-bit systems. So for
+		 * 64-bit we can just directly check the value
+		 * against BGP_AS4_MAX/UINT32_MAX, and for
+		 * 32-bit we can check for errno (set to ERANGE
+		 * upon overflow).
+		 */
+		if (*endptr != '\0' || tmp_as == BGP_AS4_MAX || errno)
 			goto error;
+		as = (as_t)tmp_as;
 
 		memcpy(buf, p, (limit - p));
 		buf[limit - p] = '\0';
@@ -642,9 +653,19 @@ static const char *ecommunity_gettoken(const char *str,
 					goto error;
 			} else {
 				/* ASN */
-				as = strtoul(buf, &endptr, 10);
-				if (*endptr != '\0' || as == BGP_AS4_MAX)
+				errno = 0;
+				tmp_as = strtoul(buf, &endptr, 10);
+				/* 'unsigned long' is a uint64 on 64-bit
+				 * systems, and uint32 on 32-bit systems. So for
+				 * 64-bit we can just directly check the value
+				 * against BGP_AS4_MAX/UINT32_MAX, and for
+				 * 32-bit we can check for errno (set to ERANGE
+				 * upon overflow).
+				 */
+				if (*endptr != '\0' || tmp_as > BGP_AS4_MAX ||
+				    errno)
 					goto error;
+				as = (as_t)tmp_as;
 			}
 		} else if (*p == '.') {
 			if (separator)
