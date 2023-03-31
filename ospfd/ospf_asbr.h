@@ -36,6 +36,8 @@ struct external_info {
 	/* Actual tag received from zebra*/
 	route_tag_t orig_tag;
 
+	uint32_t metric;
+
 	struct route_map_set_values route_map_set;
 #define ROUTEMAP_METRIC(E) (E)->route_map_set.metric
 #define ROUTEMAP_METRIC_TYPE(E) (E)->route_map_set.metric_type
@@ -99,11 +101,10 @@ extern struct external_info *ospf_external_info_new(struct ospf *, uint8_t,
 extern void ospf_reset_route_map_set_values(struct route_map_set_values *);
 extern int ospf_route_map_set_compare(struct route_map_set_values *,
 				      struct route_map_set_values *);
-extern struct external_info *ospf_external_info_add(struct ospf *, uint8_t,
-						    unsigned short,
-						    struct prefix_ipv4,
-						    ifindex_t, struct in_addr,
-						    route_tag_t);
+extern struct external_info *
+ospf_external_info_add(struct ospf *, uint8_t, unsigned short,
+		       struct prefix_ipv4, ifindex_t, struct in_addr,
+		       route_tag_t, uint32_t metric);
 extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
 extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,

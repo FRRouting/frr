@@ -956,8 +956,8 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		type_str = "always";
 		ospf->redistribute++;
 		ospf_external_add(ospf, DEFAULT_ROUTE, 0);
-		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
-				       0);
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop, 0,
+				       DEFAULT_DEFAULT_METRIC);
 		break;
 	}
 
@@ -1303,9 +1303,11 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %pFX",
-			   __func__, zserv_command_string(cmd),
-			   zebra_route_string(api.type), vrf_id, &api.prefix);
+		zlog_debug(
+			"%s: cmd %s from client %s: vrf_id %d, p %pFX, metric %d",
+			__func__, zserv_command_string(cmd),
+			zebra_route_string(api.type), vrf_id, &api.prefix,
+			api.metric);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
@@ -1332,7 +1334,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							  p);
 
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
-					    ifindex, nexthop, api.tag);
+					    ifindex, nexthop, api.tag,
+					    api.metric);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
