@@ -217,7 +217,9 @@ def test_mgmt_commit_check(request):
             ]
         }
     }
-    result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_4, protocol=protocol, expected=False
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
@@ -319,7 +321,9 @@ def test_mgmt_commit_abort(request):
             ]
         }
     }
-    result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_4, protocol=protocol, expected=False
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
@@ -372,7 +376,7 @@ def test_mgmt_delete_config(request):
     assert (
         result is True
     ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
-    
+
     step("Mgmt delete config")
     raw_config = {
         "r1": {
@@ -387,7 +391,9 @@ def test_mgmt_delete_config(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Verify that the route is deleted from RIB")
-    result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_4, protocol=protocol, expected=False
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed" "Error: Routes is still present in RIB".format(tc_name)
@@ -461,7 +467,9 @@ def test_mgmt_chaos_stop_start_frr(request):
     dut = "r1"
     protocol = "static"
     input_dict_4 = {"r1": {"static_routes": [{"network": "192.1.11.200/32"}]}}
-    result = verify_rib(tgen, "ipv4", dut, input_dict_4, protocol=protocol)
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_4, protocol=protocol, expected=False
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
