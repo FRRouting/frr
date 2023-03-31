@@ -206,4 +206,6 @@ void send_lsp(struct isis_circuit *circuit,
 void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);
 int send_hello(struct isis_circuit *circuit, int level);
 int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa);
+void isis_log_pdu_drops(struct isis_area *area, const char *pdu_type);
+
 #endif /* _ZEBRA_ISIS_PDU_H */

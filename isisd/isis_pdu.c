@@ -1654,14 +1654,14 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	if (idrp == ISO9542_ESIS) {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "No support for ES-IS packet IDRP=%hhx", idrp);
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
 	if (idrp != ISO10589_ISIS) {
 		flog_err(EC_ISIS_PACKET, "Not an IS-IS packet IDRP=%hhx",
 			 idrp);
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
@@ -1672,7 +1672,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		isis_notif_version_skew(circuit, version1, raw_pdu,
 					sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_WARNING;
 	}
 
@@ -1696,14 +1696,14 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		isis_notif_id_len_mismatch(circuit, id_len, raw_pdu,
 					   sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
 	uint8_t expected_length;
 	if (pdu_size(pdu_type, &expected_length)) {
 		zlog_warn("Unsupported ISIS PDU %hhu", pdu_type);
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_WARNING;
 	}
 
@@ -1711,7 +1711,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		flog_err(EC_ISIS_PACKET,
 			 "Expected fixed header length = %hhu but got %hhu",
 			 expected_length, length);
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
@@ -1719,7 +1719,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		flog_err(
 			EC_ISIS_PACKET,
 			"PDU is too short to contain fixed header of given PDU type.");
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
@@ -1730,14 +1730,14 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		isis_notif_version_skew(circuit, version2, raw_pdu,
 					sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_WARNING;
 	}
 
 	if (circuit->is_passive) {
 		zlog_warn("Received ISIS PDU on passive circuit %s",
 			  circuit->interface->name);
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_WARNING;
 	}
 
@@ -1756,7 +1756,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		isis_notif_max_area_addr_mismatch(circuit, max_area_addrs,
 						  raw_pdu, sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
@@ -1765,8 +1765,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	case L2_LAN_HELLO:
 	case P2P_HELLO:
 		if (fabricd && pdu_type != P2P_HELLO) {
-			pdu_counter_count(circuit->area->pdu_drop_counters,
-					  pdu_type);
+			pdu_counter_count_drop(circuit->area, pdu_type);
 			return ISIS_ERROR;
 		}
 
@@ -1777,8 +1776,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	case FS_LINK_STATE:
 		if (fabricd && pdu_type != L2_LINK_STATE &&
 		    pdu_type != FS_LINK_STATE) {
-			pdu_counter_count(circuit->area->pdu_drop_counters,
-					  pdu_type);
+			pdu_counter_count_drop(circuit->area, pdu_type);
 			return ISIS_ERROR;
 		}
 
@@ -1791,12 +1789,12 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		retval = process_snp(pdu_type, circuit, ssnpa);
 		break;
 	default:
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 		return ISIS_ERROR;
 	}
 
 	if (retval != ISIS_OK)
-		pdu_counter_count(circuit->area->pdu_drop_counters, pdu_type);
+		pdu_counter_count_drop(circuit->area, pdu_type);
 
 	return retval;
 }
@@ -2553,4 +2551,38 @@ out:
 		 */
 		isis_tx_queue_del(circuit->tx_queue, lsp);
 	}
+}
+
+void isis_log_pdu_drops(struct isis_area *area, const char *pdu_type)
+{
+	uint64_t total_drops = 0;
+
+	for (int i = 0; i < PDU_COUNTER_SIZE; i++) {
+		if (!area->pdu_drop_counters[i])
+			continue;
+		total_drops += area->pdu_drop_counters[i];
+	}
+
+	zlog_info("PDU drop detected of type: %s. %" PRIu64
+		  " Total Drops; %" PRIu64 " L1 IIH drops;  %" PRIu64
+		  " L2 IIH drops; %" PRIu64 " P2P IIH drops; %" PRIu64
+		  " L1 LSP drops; %" PRIu64 " L2 LSP drops; %" PRIu64
+		  " FS LSP drops; %" PRIu64 " L1 CSNP drops; %" PRIu64
+		  " L2 CSNP drops; %" PRIu64 " L1 PSNP drops; %" PRIu64
+		  " L2 PSNP drops.",
+		  pdu_type, total_drops,
+		  pdu_counter_get_count(area->pdu_drop_counters, L1_LAN_HELLO),
+		  pdu_counter_get_count(area->pdu_drop_counters, L2_LAN_HELLO),
+		  pdu_counter_get_count(area->pdu_drop_counters, P2P_HELLO),
+		  pdu_counter_get_count(area->pdu_drop_counters, L1_LINK_STATE),
+		  pdu_counter_get_count(area->pdu_drop_counters, L2_LINK_STATE),
+		  pdu_counter_get_count(area->pdu_drop_counters, FS_LINK_STATE),
+		  pdu_counter_get_count(area->pdu_drop_counters,
+					L1_COMPLETE_SEQ_NUM),
+		  pdu_counter_get_count(area->pdu_drop_counters,
+					L2_COMPLETE_SEQ_NUM),
+		  pdu_counter_get_count(area->pdu_drop_counters,
+					L1_PARTIAL_SEQ_NUM),
+		  pdu_counter_get_count(area->pdu_drop_counters,
+					L2_PARTIAL_SEQ_NUM));
 }
