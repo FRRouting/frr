@@ -202,6 +202,18 @@ static void isis_config_end(void)
 	isis_config_finish(t_isis_cfg);
 }
 
+static int isis_config_fork_start(struct event_loop *tm)
+{
+	isis_config_start();
+	return 0;
+}
+
+static int isis_config_fork_end(struct event_loop *tm)
+{
+	isis_config_end();
+	return 0;
+}
+
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
 
@@ -266,6 +278,8 @@ int main(int argc, char **argv, char **envp)
 	 *  initializations
 	 */
 	cmd_init_config_callbacks(isis_config_start, isis_config_end);
+	hook_register(frr_config_pre, isis_config_fork_start);
+	hook_register(frr_config_post, isis_config_fork_end);
 	isis_error_init();
 	access_list_init();
 	access_list_add_hook(isis_filter_update);
