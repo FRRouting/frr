@@ -4410,12 +4410,31 @@ static void rib_update_handler(struct event *thread)
  */
 static struct event *t_rib_update_threads[RIB_UPDATE_MAX];
 
+void rib_update_finish(void)
+{
+	int i;
+
+	for (i = RIB_UPDATE_KERNEL; i < RIB_UPDATE_MAX; i++) {
+		if (event_is_scheduled(t_rib_update_threads[i])) {
+			struct rib_update_ctx *ctx;
+
+			ctx = EVENT_ARG(t_rib_update_threads[i]);
+
+			rib_update_ctx_fini(&ctx);
+			EVENT_OFF(t_rib_update_threads[i]);
+		}
+	}
+}
+
 /* Schedule a RIB update event for all vrfs */
 void rib_update(enum rib_update_event event)
 {
 	struct rib_update_ctx *ctx;
 
 	if (event_is_scheduled(t_rib_update_threads[event]))
+		return;
+
+	if (zebra_router_in_shutdown())
 		return;
 
 	ctx = rib_update_ctx_init(0, event);
