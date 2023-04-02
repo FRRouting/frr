@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "if.h"
 #include "if_rmap.h"
+#include "ripd/ripd.h"
 
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX, "Interface route map container");
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX_NAME,
@@ -201,8 +202,13 @@ DEFUN (if_rmap,
 	int idx_in_out = 2;
 	int idx_ifname = 3;
 	enum if_rmap_type type;
-	struct if_rmap_ctx *ctx =
-		(struct if_rmap_ctx *)listnode_head(if_rmap_ctx_list);
+	struct if_rmap_ctx *ctx;
+	const struct lyd_node *dnode;
+	struct rip *rip;
+
+	dnode = yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
+	rip = nb_running_get_entry(dnode, NULL, true);
+	ctx = rip->if_rmap_ctx;
 
 	if (strncmp(argv[idx_in_out]->text, "in", 1) == 0)
 		type = IF_RMAP_IN;
@@ -304,8 +310,7 @@ struct if_rmap_ctx *if_rmap_ctx_create(const char *name)
 
 	ctx = XCALLOC(MTYPE_IF_RMAP_CTX, sizeof(struct if_rmap_ctx));
 
-	if (ctx->name)
-		ctx->name = XSTRDUP(MTYPE_IF_RMAP_CTX_NAME, name);
+	ctx->name = XSTRDUP(MTYPE_IF_RMAP_CTX_NAME, name);
 	ctx->ifrmaphash = hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
 					   "Interface Route-Map Hash");
 	if (!if_rmap_ctx_list)
