@@ -402,13 +402,13 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		/* Local Port, Remote Port */
 		if (peer->su_local->sa.sa_family == AF_INET6)
-			stream_putw(s, peer->su_local->sin6.sin6_port);
+			stream_putw(s, htons(peer->su_local->sin6.sin6_port));
 		else if (peer->su_local->sa.sa_family == AF_INET)
-			stream_putw(s, peer->su_local->sin.sin_port);
+			stream_putw(s, htons(peer->su_local->sin.sin_port));
 		if (peer->su_remote->sa.sa_family == AF_INET6)
-			stream_putw(s, peer->su_remote->sin6.sin6_port);
+			stream_putw(s, htons(peer->su_remote->sin6.sin6_port));
 		else if (peer->su_remote->sa.sa_family == AF_INET)
-			stream_putw(s, peer->su_remote->sin.sin_port);
+			stream_putw(s, htons(peer->su_remote->sin.sin_port));
 
 		static const uint8_t dummy_open[] = {
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
