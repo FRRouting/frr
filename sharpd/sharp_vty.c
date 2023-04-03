@@ -1245,6 +1245,7 @@ DEFPY (show_sharp_cspf,
 	}
 	if (path->status != SUCCESS) {
 		vty_out(vty, "Path computation failed: %d\n", path->status);
+		cpath_del(path);
 		return CMD_SUCCESS;
 	}
 
@@ -1260,7 +1261,7 @@ DEFPY (show_sharp_cspf,
 				&edge->attributes->standard.remote6);
 	}
 	vty_out(vty, "\n");
-
+	cpath_del(path);
 	return CMD_SUCCESS;
 }
 
