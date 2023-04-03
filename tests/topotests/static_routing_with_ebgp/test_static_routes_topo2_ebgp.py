@@ -1392,6 +1392,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             result is True
         ), "Testcase {} : Failed \n Error: Routes are missing in RIB".format(tc_name)
 
+    router = tgen.gears["r2"]
     step("Remove random static route with all the nexthop")
     for addr_type in ADDR_TYPES:
         # delete static routes
@@ -1468,6 +1469,8 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
 
             start_router(tgen, "r2")
 
+            router.vtysh_cmd("show running-config")
+            router.vtysh_cmd("show mgmt get-config running /")
             step("After reloading, verify that routes are still present in R2.")
             result = verify_rib(
                 tgen,

@@ -1129,7 +1129,8 @@ def start_router(tgen, router):
     try:
         router_list = tgen.routers()
 
-        # Ensure that configs from staticd are always loaded onto mgmtd
+        # Ensure that configs from zebra and staticd are always loaded onto mgmtd
+        # tgen.net[router].loadConf("mgmtd", "/etc/frr/zebra.conf")
         tgen.net[router].loadConf("mgmtd", "/etc/frr/staticd.conf")
 
         # Router and its daemons would be started and config would
