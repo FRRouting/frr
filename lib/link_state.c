@@ -1888,6 +1888,20 @@ void ls_delete_msg(struct ls_message *msg)
 	if (msg == NULL)
 		return;
 
+	if (msg->event == LS_MSG_EVENT_DELETE) {
+		switch (msg->type) {
+		case LS_MSG_TYPE_NODE:
+			ls_node_del(msg->data.node);
+			break;
+		case LS_MSG_TYPE_ATTRIBUTES:
+			ls_attributes_del(msg->data.attr);
+			break;
+		case LS_MSG_TYPE_PREFIX:
+			ls_prefix_del(msg->data.prefix);
+			break;
+		}
+	}
+
 	XFREE(MTYPE_LS_DB, msg);
 }
 
