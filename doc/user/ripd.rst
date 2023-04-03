@@ -475,7 +475,7 @@ Show RIP Information
 
 To display RIP routes.
 
-.. clicmd:: show ip rip [vrf NAME]
+.. clicmd:: show ip rip [vrf NAME] [json]
 
    Show RIP routes.
 
@@ -483,6 +483,8 @@ The command displays all RIP routes. For routes that are received
 through RIP, this command will display the time the packet was sent and
 the tag information. This command will also display this information
 for routes redistributed into RIP.
+
+If ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show ip rip [vrf NAME] status
 
