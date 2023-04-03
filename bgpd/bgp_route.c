@@ -4857,7 +4857,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_unlink_nexthop(new);
 		bgp_path_info_delete(dest, new);
 	}
-
+        bgp_dest_unlock_node(dest);
 	return;
 
 /* This BGP update is filtered.  Log the reason then update BGP
