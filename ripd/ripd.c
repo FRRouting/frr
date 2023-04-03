@@ -2917,7 +2917,8 @@ void rip_ecmp_disable(struct rip *rip)
 }
 
 /* Print out routes update time. */
-static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
+static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo,
+			       json_object *json)
 {
 	time_t clock;
 	struct tm tm;
@@ -2929,12 +2930,20 @@ static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
 		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
-		vty_out(vty, "%5s", timebuf);
+		if (json)
+			json_object_int_add(json, "timeRemainingSeconds",
+					    clock);
+		else
+			vty_out(vty, "%5s", timebuf);
 	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
 		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
-		vty_out(vty, "%5s", timebuf);
+		if (json)
+			json_object_int_add(json, "timeRemainingSeconds",
+					    clock);
+		else
+			vty_out(vty, "%5s", timebuf);
 	}
 }
 
@@ -2956,36 +2965,12 @@ static const char *rip_route_type_print(int sub_type)
 	}
 }
 
-DEFUN (show_ip_rip,
-       show_ip_rip_cmd,
-       "show ip rip [vrf NAME]",
-       SHOW_STR
-       IP_STR
-       "Show RIP routes\n"
-       VRF_CMD_HELP_STR)
+static void rip_show_vty(struct vty *vty, struct rip *rip)
 {
-	struct rip *rip;
 	struct route_node *np;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
-	const char *vrf_name;
-	int idx = 0;
-
-	if (argv_find(argv, argc, "vrf", &idx))
-		vrf_name = argv[idx + 1]->arg;
-	else
-		vrf_name = VRF_DEFAULT_NAME;
-
-	rip = rip_lookup_by_vrf_name(vrf_name);
-	if (!rip) {
-		vty_out(vty, "%% RIP instance not found\n");
-		return CMD_SUCCESS;
-	}
-	if (!rip->enabled) {
-		vty_out(vty, "%% RIP instance is disabled\n");
-		return CMD_SUCCESS;
-	}
 
 	vty_out(vty,
 		"Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
@@ -3041,12 +3026,12 @@ DEFUN (show_ip_rip,
 				vty_out(vty, "%-15pI4 ", &rinfo->from);
 				vty_out(vty, "%3" ROUTE_TAG_PRI " ",
 					(route_tag_t)rinfo->tag);
-				rip_vty_out_uptime(vty, rinfo);
+				rip_vty_out_uptime(vty, rinfo, NULL);
 			} else if (rinfo->metric == RIP_METRIC_INFINITY) {
 				vty_out(vty, "self            ");
 				vty_out(vty, "%3" ROUTE_TAG_PRI " ",
 					(route_tag_t)rinfo->tag);
-				rip_vty_out_uptime(vty, rinfo);
+				rip_vty_out_uptime(vty, rinfo, NULL);
 			} else {
 				if (rinfo->external_metric) {
 					len = vty_out(
@@ -3056,8 +3041,10 @@ DEFUN (show_ip_rip,
 					len = 16 - len;
 					if (len > 0)
 						vty_out(vty, "%*s", len, " ");
-				} else
+				} else {
 					vty_out(vty, "self            ");
+				}
+
 				vty_out(vty, "%3" ROUTE_TAG_PRI,
 					(route_tag_t)rinfo->tag);
 			}
@@ -3065,6 +3052,148 @@ DEFUN (show_ip_rip,
 			vty_out(vty, "\n");
 		}
 	}
+}
+
+static void rip_show_vty_json(struct vty *vty, struct rip *rip,
+			      json_object *json)
+{
+	struct route_node *np;
+	struct rip_info *rinfo = NULL;
+	struct list *list = NULL;
+	struct listnode *listnode = NULL;
+	json_object *json_routes = NULL;
+
+	json_object_int_add(json, "vrfId", rip->vrf->vrf_id);
+	json_object_string_add(json, "vrfName", rip->vrf->name);
+
+	if (!json_routes) {
+		json_routes = json_object_new_object();
+		json_object_object_add(json, "routes", json_routes);
+	}
+
+	for (np = route_top(rip->table); np; np = route_next(np)) {
+		list = np->info;
+
+		if (!list)
+			continue;
+
+		json_object *json_route = NULL;
+		json_object *json_path = NULL;
+
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			if (!json_route) {
+				json_route = json_object_new_array();
+				json_object_object_addf(json_routes, json_route,
+							"%pFX", &np->p);
+			}
+
+			json_path = json_object_new_object();
+			json_object_array_add(json_route, json_path);
+
+			switch (rinfo->nh.type) {
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				json_object_string_addf(json_path, "nexthop",
+							"%pI4",
+							&rinfo->nh.gate.ipv4);
+				json_object_int_add(json_path, "metric",
+						    rinfo->metric);
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				json_object_string_add(json_path, "nexthop",
+						       "0.0.0.0");
+				json_object_int_add(json_path, "metric",
+						    rinfo->metric);
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				json_object_string_add(json_path, "nexthop",
+						       "blackhole");
+				json_object_int_add(json_path, "metric",
+						    rinfo->metric);
+				break;
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				json_object_string_add(json_path, "nexthop",
+						       "V6 Address Hidden");
+				json_object_int_add(json_path, "metric",
+						    rinfo->metric);
+				break;
+			}
+
+			/* Route which exist in kernel routing table. */
+			if ((rinfo->type == ZEBRA_ROUTE_RIP) &&
+			    (rinfo->sub_type == RIP_ROUTE_RTE)) {
+				json_object_string_addf(json_path, "from",
+							"%pI4", &rinfo->from);
+				json_object_int_add(json_path, "tag",
+						    rinfo->tag);
+				rip_vty_out_uptime(vty, rinfo, json_path);
+			} else if (rinfo->metric == RIP_METRIC_INFINITY) {
+				json_object_string_add(json_path, "from",
+						       "self");
+				json_object_int_add(json_path, "tag",
+						    rinfo->tag);
+				rip_vty_out_uptime(vty, rinfo, json_path);
+			} else {
+				if (rinfo->external_metric)
+					json_object_string_add(json_path,
+							       "from", "self");
+				else
+					json_object_string_add(json_path,
+							       "from", "self");
+
+				json_object_int_add(json_path, "tag",
+						    rinfo->tag);
+			}
+		}
+	}
+}
+
+DEFUN (show_ip_rip,
+       show_ip_rip_cmd,
+       "show ip rip [vrf NAME] [json]",
+       SHOW_STR
+       IP_STR
+       "Show RIP routes\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct rip *rip;
+	const char *vrf_name;
+	int idx = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (argv_find(argv, argc, "vrf", &idx))
+		vrf_name = argv[idx + 1]->arg;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	rip = rip_lookup_by_vrf_name(vrf_name);
+	if (!rip) {
+		if (!uj)
+			vty_out(vty, "%% RIP instance not found\n");
+		else
+			vty_json_empty(vty);
+		return CMD_SUCCESS;
+	}
+	if (!rip->enabled) {
+		if (!uj)
+			vty_out(vty, "%% RIP instance is disabled\n");
+		else
+			vty_json_empty(vty);
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		json = json_object_new_object();
+		rip_show_vty_json(vty, rip, json);
+		vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
+
+	rip_show_vty(vty, rip);
+
 	return CMD_SUCCESS;
 }
 
