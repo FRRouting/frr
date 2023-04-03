@@ -887,8 +887,8 @@ Showing Information
 .. clicmd:: show ip ospf route [detail] [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
-   calculation. If detail is specified, each routing item's
-   advertiser will be show up.
+   calculation. When detail option is used, it shows more information
+   to the CLI like advertising router ID for each route, etc.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
 

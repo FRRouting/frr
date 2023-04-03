@@ -48,6 +48,7 @@ struct ospf_route *ospf_route_new(void)
 
 	new->paths = list_new();
 	new->paths->del = (void (*)(void *))ospf_path_free;
+	new->u.std.transit = false;
 
 	return new;
 }
@@ -500,6 +501,7 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	or->cost = v->distance;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
+	or->u.std.transit = true;
 
 	ospf_route_copy_nexthops_from_vertex(area, or, v);
 

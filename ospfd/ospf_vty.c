@@ -10792,15 +10792,17 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 			if (json) {
 				json_object_string_add(json_route, "routeType",
 						       "N");
+				json_object_boolean_add(json_route, "transit",
+							or->u.std.transit);
 				json_object_int_add(json_route, "cost",
 						    or->cost);
 				json_object_string_addf(json_route, "area",
 							"%pI4",
 							&or->u.std.area_id);
 			} else {
-				vty_out(vty, "N    %-18s    [%d] area: %pI4\n",
-					buf1, or->cost,
-					&or->u.std.area_id);
+				vty_out(vty, "N %s  %-18s    [%d] area: %pI4\n",
+					or->u.std.transit && detail ? "T" : " ",
+					buf1, or->cost, &or->u.std.area_id);
 			}
 			break;
 		default:
@@ -10859,7 +10861,8 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 									ospf->vrf_id));
 							json_object_string_addf(
 								json_nexthop,
-								"adv", "%pI4",
+								"advertisedRouter",
+								"%pI4",
 								&path->adv_router);
 						} else {
 							vty_out(vty,
@@ -11134,7 +11137,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 								path->ifindex,
 								ospf->vrf_id));
 						json_object_string_addf(
-							json_nexthop, "adv",
+							json_nexthop,
+							"advertisedRouter",
 							"%pI4",
 							&path->adv_router);
 					} else {
@@ -11462,6 +11466,12 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 			vty_out(vty, "No OSPF routing information exist\n");
 		}
 		return CMD_SUCCESS;
+	}
+
+	if (detail && json == NULL) {
+		vty_out(vty, "Codes: N  - network     T - transitive\n");
+		vty_out(vty, "       IA - inter-area  E - external route\n");
+		vty_out(vty, "       D  - destination R - router\n\n");
 	}
 
 	/* Show Network routes. */
