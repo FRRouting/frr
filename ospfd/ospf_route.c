@@ -851,7 +851,7 @@ void ospf_route_copy_nexthops_from_vertex(struct ospf_area *area,
 		    || area->spf_dry_run) {
 			path = ospf_path_new();
 			path->nexthop = nexthop->router;
-			path->adv_router = v->id;
+			path->adv_router = v->lsa->adv_router;
 
 			if (oi) {
 				path->ifindex = oi->ifp->ifindex;
