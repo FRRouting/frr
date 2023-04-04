@@ -242,7 +242,11 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 		return 0;
 	}
 
-	acc_bd = zebra_evpn_acc_vl_find(vlan ? vlan : zif->pvid, zif->ifp);
+	/* zif is ZEBRA_IF_SLAVE_BRIDGE - can be vxlan or local port
+	 * TODO: Does br_if exists?
+	 */
+	acc_bd = zebra_evpn_acc_vl_find(vlan ? vlan : zif->pvid,
+					zif->brslave_info.br_if);
 	if (!acc_bd || !acc_bd->zevpn) {
 		++zevpn_arp_nd_info.stat.vni_missing;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
