@@ -1654,9 +1654,6 @@ struct in_addr ospf_get_nssa_ip(struct ospf_area *area)
 	if (best_default.s_addr != INADDR_ANY)
 		return best_default;
 
-	if (best_default.s_addr != INADDR_ANY)
-		return best_default;
-
 	return fwd;
 }
 
@@ -1868,8 +1865,7 @@ static struct ospf_lsa *ospf_external_lsa_new(struct ospf *ospf,
 }
 
 /* As Type-7 */
-static void ospf_install_flood_nssa(struct ospf *ospf, struct ospf_lsa *lsa,
-				    struct external_info *ei)
+static void ospf_install_flood_nssa(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct ospf_lsa *new;
 	struct as_external_lsa *extlsa;
@@ -2253,13 +2249,107 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 	    /* stay away from translated LSAs! */
 	    !(CHECK_FLAG(new->flags, OSPF_LSA_LOCAL_XLT)))
 		ospf_install_flood_nssa(
-			ospf, new, ei); /* Install/Flood Type-7 to all NSSAs */
+			ospf, new); /* Install/Flood Type-7 to all NSSAs */
 
 	/* Debug logging. */
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug("LSA[Type%d:%pI4]: Originate AS-external-LSA %p",
 			   new->data->type, &new->data->id,
 			   (void *)new);
+		ospf_lsa_header_dump(new->data);
+	}
+
+	return new;
+}
+
+/* Originate an NSSA-LSA, install and flood. */
+struct ospf_lsa *ospf_nssa_lsa_originate(struct ospf_area *area,
+					 struct external_info *ei)
+{
+	struct ospf *ospf = area->ospf;
+	struct ospf_lsa *new;
+
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type7]: Graceful Restart in progress, don't originate");
+		return NULL;
+	}
+
+	if (ospf->router_id.s_addr == INADDR_ANY) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"LSA[Type7:%pI4]: deferring NSSA-LSA origination, router ID is zero",
+				&ei->p.prefix);
+		return NULL;
+	}
+
+	/* Create new NSSA-LSA instance. */
+	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"LSA[Type7:%pI4]: Could not originate NSSA-LSA",
+				&ei->p.prefix);
+		return NULL;
+	}
+	new->data->type = OSPF_AS_NSSA_LSA;
+	new->area = area;
+
+	/* Install newly created LSA into Type-7 LSDB. */
+	ospf_lsa_install(ospf, NULL, new);
+
+	/* Update LSA origination count. */
+	ospf->lsa_originate_count++;
+
+	/* Flooding new LSA */
+	ospf_flood_through_area(area, NULL, new);
+
+	/* Debug logging. */
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+		zlog_debug("LSA[Type%d:%pI4]: Originate NSSA-LSA %p",
+			   new->data->type, &new->data->id, (void *)new);
+		ospf_lsa_header_dump(new->data);
+	}
+
+	return new;
+}
+
+/* Refresh NSSA-LSA. */
+struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
+				       struct ospf_lsa *lsa,
+				       struct external_info *ei)
+{
+	struct ospf *ospf = area->ospf;
+	struct ospf_lsa *new;
+
+	/* Delete LSA from neighbor retransmit-list. */
+	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
+
+	/* Unregister AS-external-LSA from refresh-list. */
+	ospf_refresher_unregister_lsa(ospf, lsa);
+
+	/* Create new NSSA-LSA instance. */
+	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"LSA[Type7:%pI4]: Could not originate NSSA-LSA",
+				&ei->p.prefix);
+		return NULL;
+	}
+	new->data->type = OSPF_AS_NSSA_LSA;
+	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
+	new->area = area;
+
+	/* Install newly created LSA into Type-7 LSDB. */
+	ospf_lsa_install(ospf, NULL, new);
+
+	/* Flooding new LSA */
+	ospf_flood_through_area(area, NULL, new);
+
+	/* Debug logging. */
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+		zlog_debug("LSA[Type%d:%pI4]: NSSA-LSA refresh",
+			   new->data->type, &new->data->id);
 		ospf_lsa_header_dump(new->data);
 	}
 
@@ -2611,8 +2701,8 @@ struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 
 	/* If any attached NSSA, install as Type-7, flood to all NSSA Areas */
 	if (ospf->anyNSSA && !(CHECK_FLAG(new->flags, OSPF_LSA_LOCAL_XLT)))
-		ospf_install_flood_nssa(ospf, new,
-					ei); /* Install/Flood per new rules */
+		ospf_install_flood_nssa(ospf,
+					new); /* Install/Flood per new rules */
 
 	/* Register self-originated LSA to refresh queue.
 	 * Translated LSAs should not be registered, but refreshed upon

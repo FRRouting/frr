@@ -302,6 +302,18 @@ struct ospf {
 
 	int default_metric; /* Default metric for redistribute. */
 
+	/* NSSA default-information-originate */
+	struct {
+		/* # of NSSA areas requesting default information */
+		uint16_t refcnt;
+
+		/*
+		 * Whether a default route known through non-OSPF protocol is
+		 * present in the RIB.
+		 */
+		bool status;
+	} nssa_default_import_check;
+
 #define OSPF_LSA_REFRESHER_GRANULARITY 10
 #define OSPF_LSA_REFRESHER_SLOTS                                               \
 	((OSPF_LS_REFRESH_TIME + OSPF_LS_REFRESH_SHIFT)                        \
@@ -517,6 +529,7 @@ struct ospf_area {
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
 	struct route_table *ranges; /* Configured Area Ranges. */
+	struct route_table *nssa_ranges; /* Configured NSSA Area Ranges. */
 
 	/* RFC3137 stub router state flags for area */
 	uint8_t stub_router_state;
@@ -560,6 +573,13 @@ struct ospf_area {
 	} plist_out;
 #define PREFIX_LIST_OUT(A)  (A)->plist_out.list
 #define PREFIX_NAME_OUT(A)  (A)->plist_out.name
+
+	/* NSSA default-information-originate */
+	struct {
+		bool enabled;
+		int metric_type;
+		int metric_value;
+	} nssa_default_originate;
 
 	/* Shortest Path Tree. */
 	struct vertex *spf;
@@ -697,14 +717,18 @@ extern int ospf_area_no_summary_set(struct ospf *ospf, struct in_addr area_id);
 extern int ospf_area_no_summary_unset(struct ospf *ospf,
 				      struct in_addr area_id);
 extern int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id);
-extern int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id,
-				int argc);
+extern int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id);
 extern int ospf_area_nssa_suppress_fa_set(struct ospf *ospf,
 					  struct in_addr area_id);
 extern int ospf_area_nssa_suppress_fa_unset(struct ospf *ospf,
 					    struct in_addr area_id);
 extern int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 					      struct in_addr area_id, int role);
+extern void ospf_area_nssa_default_originate_set(struct ospf *ospf,
+						 struct in_addr area_id,
+						 int metric, int metric_type);
+extern void ospf_area_nssa_default_originate_unset(struct ospf *ospf,
+						   struct in_addr area_id);
 extern int ospf_area_export_list_set(struct ospf *ospf,
 				     struct ospf_area *area_id,
 				     const char *list_name);

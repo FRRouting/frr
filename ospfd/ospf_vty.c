@@ -611,6 +611,7 @@ DEFUN (ospf_area_range,
        "Advertised metric for this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	int idx_cost = 6;
@@ -622,12 +623,14 @@ DEFUN (ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_set(ospf, area, area->ranges, &p,
+			    OSPF_AREA_RANGE_ADVERTISE, false);
 	if (argc > 5) {
 		cost = strtoul(argv[idx_cost]->arg, NULL, 10);
-		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+		ospf_area_range_cost_set(ospf, area, area->ranges, &p, cost);
 	}
 
 	return CMD_SUCCESS;
@@ -647,6 +650,7 @@ DEFUN (ospf_area_range_cost,
        "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	int idx = 4;
@@ -658,19 +662,20 @@ DEFUN (ospf_area_range_cost,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
 
+	ospf_area_range_set(ospf, area, area->ranges, &p,
+			    OSPF_AREA_RANGE_ADVERTISE, false);
 	if (argv_find(argv, argc, "cost", &idx)) {
 		cost = strtoul(argv[idx + 1]->arg, NULL, 10);
-		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+		ospf_area_range_cost_set(ospf, area, area->ranges, &p, cost);
 	}
 
 	idx = 4;
 	if (argv_find(argv, argc, "substitute", &idx)) {
 		str2prefix_ipv4(argv[idx + 1]->arg, &s);
-		ospf_area_range_substitute_set(ospf, area_id, &p, &s);
+		ospf_area_range_substitute_set(ospf, area, &p, &s);
 	}
 
 	return CMD_SUCCESS;
@@ -687,6 +692,7 @@ DEFUN (ospf_area_range_not_advertise,
        "DoNotAdvertise this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	struct prefix_ipv4 p;
@@ -696,10 +702,11 @@ DEFUN (ospf_area_range_not_advertise,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, 0);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_range_substitute_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_set(ospf, area, area->ranges, &p, 0, false);
+	ospf_area_range_substitute_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
@@ -721,6 +728,7 @@ DEFUN (no_ospf_area_range,
        "DoNotAdvertise this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 2;
 	int idx_ipv4_prefixlen = 4;
 	struct prefix_ipv4 p;
@@ -730,7 +738,10 @@ DEFUN (no_ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_unset(ospf, area, area->ranges, &p);
 
 	return CMD_SUCCESS;
 }
@@ -748,6 +759,7 @@ DEFUN (no_ospf_area_range_substitute,
        "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 2;
 	int idx_ipv4_prefixlen = 4;
 	int idx_ipv4_prefixlen_2 = 6;
@@ -759,7 +771,10 @@ DEFUN (no_ospf_area_range_substitute,
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
 
-	ospf_area_range_substitute_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_substitute_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
@@ -1433,15 +1448,35 @@ DEFUN (no_ospf_area_stub_no_summary,
 	return CMD_SUCCESS;
 }
 
-static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
-				      struct cmd_token **argv, int cfg_nosum,
-				      int nosum)
+DEFPY (ospf_area_nssa,
+       ospf_area_nssa_cmd,
+       "area <A.B.C.D|(0-4294967295)>$area_str nssa\
+         [{\
+	   <translate-candidate|translate-never|translate-always>$translator_role\
+	   |default-information-originate$dflt_originate [{metric (0-16777214)$mval|metric-type (1-2)$mtype}]\
+	   |no-summary$no_summary\
+	   |suppress-fa$suppress_fa\
+	 }]",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configure NSSA-ABR for translate election (default)\n"
+       "Configure NSSA-ABR to never translate\n"
+       "Configure NSSA-ABR to always translate\n"
+       "Originate Type 7 default into NSSA area\n"
+       "OSPF default metric\n"
+       "OSPF metric\n"
+       "OSPF metric type for default routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
+       "Do not inject inter-area routes into nssa\n"
+       "Suppress forwarding address\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct in_addr area_id;
 	int ret, format;
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, argv[1]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, area_str);
 
 	ret = ospf_area_nssa_set(ospf, area_id);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
@@ -1452,14 +1487,14 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (argc > 3) {
-		if (strncmp(argv[3]->text, "translate-c", 11) == 0)
+	if (translator_role) {
+		if (strncmp(translator_role, "translate-c", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_CANDIDATE);
-		else if (strncmp(argv[3]->text, "translate-n", 11) == 0)
+		else if (strncmp(translator_role, "translate-n", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_NEVER);
-		else if (strncmp(argv[3]->text, "translate-a", 11) == 0)
+		else if (strncmp(translator_role, "translate-a", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_ALWAYS);
 	} else {
@@ -1467,12 +1502,27 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 						   OSPF_NSSA_ROLE_CANDIDATE);
 	}
 
-	if (cfg_nosum) {
-		if (nosum)
-			ospf_area_no_summary_set(ospf, area_id);
-		else
-			ospf_area_no_summary_unset(ospf, area_id);
-	}
+	if (dflt_originate) {
+		int metric_type = DEFAULT_METRIC_TYPE;
+
+		if (mval_str == NULL)
+			mval = -1;
+		if (mtype_str)
+			(void)str2metric_type(mtype_str, &metric_type);
+		ospf_area_nssa_default_originate_set(ospf, area_id, mval,
+						     metric_type);
+	} else
+		ospf_area_nssa_default_originate_unset(ospf, area_id);
+
+	if (no_summary)
+		ospf_area_nssa_no_summary_set(ospf, area_id);
+	else
+		ospf_area_no_summary_unset(ospf, area_id);
+
+	if (suppress_fa)
+		ospf_area_nssa_suppress_fa_set(ospf, area_id);
+	else
+		ospf_area_nssa_suppress_fa_unset(ospf, area_id);
 
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
@@ -1482,141 +1532,15 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (ospf_area_nssa_translate,
-       ospf_area_nssa_translate_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa <translate-candidate|translate-never|translate-always>",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Configure NSSA-ABR for translate election (default)\n"
-       "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n")
-{
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
-}
-
-DEFUN (ospf_area_nssa,
-       ospf_area_nssa_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n")
-{
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
-}
-
-DEFUN(ospf_area_nssa_suppress_fa, ospf_area_nssa_suppress_fa_cmd,
-      "area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
-      "OSPF area parameters\n"
-      "OSPF area ID in IP address format\n"
-      "OSPF area ID as a decimal value\n"
-      "Configure OSPF area as nssa\n"
-      "Suppress forwarding address\n")
-{
-	int idx_ipv4_number = 1;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_suppress_fa_set(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_ospf_area_nssa_suppress_fa, no_ospf_area_nssa_suppress_fa_cmd,
-      "no area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
-      NO_STR
-      "OSPF area parameters\n"
-      "OSPF area ID in IP address format\n"
-      "OSPF area ID as a decimal value\n"
-      "Configure OSPF area as nssa\n"
-      "Suppress forwarding address\n")
-{
-	int idx_ipv4_number = 2;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ospf_area_nssa_no_summary,
-       ospf_area_nssa_no_summary_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa no-summary",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Do not inject inter-area routes into nssa\n")
-{
-	int idx_ipv4_number = 1;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_no_summary_set(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_area_nssa_no_summary,
-       no_ospf_area_nssa_no_summary_cmd,
-       "no area <A.B.C.D|(0-4294967295)> nssa no-summary",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Do not inject inter-area routes into nssa\n")
-{
-	int idx_ipv4_number = 2;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_no_summary_unset(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_area_nssa,
+DEFPY (no_ospf_area_nssa,
        no_ospf_area_nssa_cmd,
-       "no area <A.B.C.D|(0-4294967295)> nssa [<translate-candidate|translate-never|translate-always>]",
+       "no area <A.B.C.D|(0-4294967295)>$area_str nssa\
+         [{\
+	   <translate-candidate|translate-never|translate-always>\
+	   |default-information-originate [{metric (0-16777214)|metric-type (1-2)}]\
+	   |no-summary\
+	   |suppress-fa\
+	 }]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1624,25 +1548,108 @@ DEFUN (no_ospf_area_nssa,
        "Configure OSPF area as nssa\n"
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n")
+       "Configure NSSA-ABR to always translate\n"
+       "Originate Type 7 default into NSSA area\n"
+       "OSPF default metric\n"
+       "OSPF metric\n"
+       "OSPF metric type for default routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
+       "Do not inject inter-area routes into nssa\n"
+       "Suppress forwarding address\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 2;
 	struct in_addr area_id;
 	int format;
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, area_str);
 
 	/* Flush the NSSA LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_NSSA_LSA);
-	ospf_area_nssa_unset(ospf, area_id, argc);
+	ospf_area_no_summary_unset(ospf, area_id);
+	ospf_area_nssa_default_originate_unset(ospf, area_id);
+	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
+	ospf_area_nssa_unset(ospf, area_id);
 
 	ospf_schedule_abr_task(ospf);
 
 	return CMD_SUCCESS;
 }
 
+DEFPY (ospf_area_nssa_range,
+       ospf_area_nssa_range_cmd,
+       "area <A.B.C.D|(0-4294967295)>$area_str nssa range A.B.C.D/M$prefix [<not-advertise$not_adv|cost (0-16777215)$cost>]",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configured address range\n"
+       "Specify IPv4 prefix\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
+	struct in_addr area_id;
+	int format;
+	int advertise = 0;
+
+	VTY_GET_OSPF_AREA_ID(area_id, format, area_str);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	if (area->external_routing != OSPF_AREA_NSSA) {
+		vty_out(vty, "%% First configure %s as an NSSA area\n",
+			area_str);
+		return CMD_WARNING;
+	}
+
+	if (!not_adv)
+		advertise = OSPF_AREA_RANGE_ADVERTISE;
+
+	ospf_area_range_set(ospf, area, area->nssa_ranges,
+			    (struct prefix_ipv4 *)prefix, advertise, true);
+	if (cost_str)
+		ospf_area_range_cost_set(ospf, area, area->nssa_ranges,
+					 (struct prefix_ipv4 *)prefix, cost);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_ospf_area_nssa_range,
+       no_ospf_area_nssa_range_cmd,
+       "no area <A.B.C.D|(0-4294967295)>$area_str nssa range A.B.C.D/M$prefix [<not-advertise|cost (0-16777215)>]",
+       NO_STR
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configured address range\n"
+       "Specify IPv4 prefix\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
+	struct in_addr area_id;
+	int format;
+
+	VTY_GET_OSPF_AREA_ID(area_id, format, area_str);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	if (area->external_routing != OSPF_AREA_NSSA) {
+		vty_out(vty, "%% First configure %s as an NSSA area\n",
+			area_str);
+		return CMD_WARNING;
+	}
+
+	ospf_area_range_unset(ospf, area, area->nssa_ranges,
+			      (struct prefix_ipv4 *)prefix);
+
+	return CMD_SUCCESS;
+}
 
 DEFUN (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
@@ -11981,29 +11988,62 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 					vty_out(vty, " no-summary\n");
 				vty_out(vty, "\n");
 			} else if (area->external_routing == OSPF_AREA_NSSA) {
+				vty_out(vty, " area %s nssa", buf);
+
 				switch (area->NSSATranslatorRole) {
 				case OSPF_NSSA_ROLE_NEVER:
-					vty_out(vty,
-						" area %s nssa translate-never\n",
-						buf);
+					vty_out(vty, " translate-never");
 					break;
 				case OSPF_NSSA_ROLE_ALWAYS:
-					vty_out(vty,
-						" area %s nssa translate-always\n",
-						buf);
+					vty_out(vty, " translate-always");
 					break;
 				case OSPF_NSSA_ROLE_CANDIDATE:
-					vty_out(vty, " area %s nssa \n", buf);
 					break;
 				}
+
+				if (area->nssa_default_originate.enabled) {
+					vty_out(vty,
+						" default-information-originate");
+					if (area->nssa_default_originate
+						    .metric_value != -1)
+						vty_out(vty, " metric %d",
+							area->nssa_default_originate
+								.metric_value);
+					if (area->nssa_default_originate
+						    .metric_type !=
+					    DEFAULT_METRIC_TYPE)
+						vty_out(vty, " metric-type 1");
+				}
+
 				if (area->no_summary)
-					vty_out(vty,
-						" area %s nssa no-summary\n",
-						buf);
+					vty_out(vty, " no-summary");
 				if (area->suppress_fa)
-					vty_out(vty,
-						" area %s nssa suppress-fa\n",
-						buf);
+					vty_out(vty, " suppress-fa");
+				vty_out(vty, "\n");
+
+				for (rn1 = route_top(area->nssa_ranges); rn1;
+				     rn1 = route_next(rn1)) {
+					struct ospf_area_range *range;
+
+					range = rn1->info;
+					if (!range)
+						continue;
+
+					vty_out(vty, " area %s nssa range %pFX",
+						buf, &rn1->p);
+
+					if (range->cost_config !=
+					    OSPF_AREA_RANGE_COST_UNSPEC)
+						vty_out(vty, " cost %u",
+							range->cost_config);
+
+					if (!CHECK_FLAG(
+						    range->flags,
+						    OSPF_AREA_RANGE_ADVERTISE))
+						vty_out(vty, " not-advertise");
+
+					vty_out(vty, "\n");
+				}
 			}
 
 			if (area->default_cost != 1)
@@ -13029,12 +13069,9 @@ void ospf_vty_init(void)
 
 	/* "area nssa" commands. */
 	install_element(OSPF_NODE, &ospf_area_nssa_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_translate_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
-	install_element(OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_suppress_fa_cmd);
-	install_element(OSPF_NODE, &no_ospf_area_nssa_suppress_fa_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_cmd);
+	install_element(OSPF_NODE, &ospf_area_nssa_range_cmd);
+	install_element(OSPF_NODE, &no_ospf_area_nssa_range_cmd);
 
 	install_element(OSPF_NODE, &ospf_area_default_cost_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_default_cost_cmd);
