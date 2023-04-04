@@ -308,7 +308,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn) {
 		if (json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, json);
 		return;
 	}
 	num_neigh = hashcount(zevpn->neigh_table);
@@ -515,7 +515,7 @@ static void zevpn_print_mac_hash_all_evpn_detail(struct hash_bucket *bucket,
 	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn) {
 		if (json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, json);
 		return;
 	}
 	wctx->zevpn = zevpn;
@@ -2586,14 +2586,15 @@ void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zl3vni = zl3vni_lookup(l3vni);
 	if (!zl3vni) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% L3-VNI %u doesn't exist\n", l3vni);
 		return;
@@ -2627,14 +2628,15 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zl3vni = zl3vni_lookup(l3vni);
 	if (!zl3vni) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
 		return;
@@ -2668,7 +2670,8 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -2694,7 +2697,8 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -2705,7 +2709,7 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 		zl3vni = zl3vni_lookup(l3vni);
 		if (!zl3vni) {
 			if (use_json)
-				vty_out(vty, "{}\n");
+				vty_json(vty, json);
 			else
 				vty_out(vty, "%% L3-VNI %u does not exist\n",
 					l3vni);
@@ -2717,7 +2721,7 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 
 	if (!n) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty,
 				"%% Requested next-hop not present for L3-VNI %u\n",
@@ -2738,12 +2742,15 @@ static void l3vni_print_nh_table(struct hash *nh_table, struct vty *vty,
 	struct nh_walk_ctx wctx;
 	json_object *json = NULL;
 
-	num_nh = hashcount(nh_table);
-	if (!num_nh)
-		return;
-
 	if (use_json)
 		json = json_object_new_object();
+
+	num_nh = hashcount(nh_table);
+	if (!num_nh) {
+		if (use_json)
+			vty_json_empty(vty, json);
+		return;
+	}
 
 	wctx.vty = vty;
 	wctx.json = json;
@@ -2766,14 +2773,14 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 
 	if (!is_evpn_enabled()) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		return;
 	}
 
 	zl3vni = zl3vni_lookup(l3vni);
 	if (!zl3vni) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		else
 			vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
 		return;
@@ -2786,7 +2793,7 @@ void zebra_vxlan_print_nh_svd(struct vty *vty, bool use_json)
 {
 	if (!is_evpn_enabled()) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		return;
 	}
 
@@ -2802,7 +2809,8 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -2830,14 +2838,15 @@ void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, bool use_json)
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zl3vni = zl3vni_lookup(vni);
 	if (!zl3vni) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
@@ -2901,14 +2910,15 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
@@ -2955,7 +2965,8 @@ void zebra_vxlan_print_neigh_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -2985,7 +2996,8 @@ void zebra_vxlan_print_neigh_all_vni_detail(struct vty *vty,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3016,14 +3028,15 @@ void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
@@ -3060,14 +3073,15 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
@@ -3109,14 +3123,15 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
 		if (use_json)
-			vty_json(vty, json);
+			vty_json_empty(vty, json);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
@@ -3173,21 +3188,24 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (!is_evpn_enabled()) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		return;
 	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
 	num_macs = num_valid_macs(zevpn);
-	if (!num_macs)
+	if (!num_macs) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
 		return;
+	}
 
 	if (use_json) {
 		json = json_object_new_object();
@@ -3242,7 +3260,8 @@ void zebra_vxlan_print_macs_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3270,7 +3289,8 @@ void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3299,7 +3319,8 @@ void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3329,7 +3350,8 @@ void zebra_vxlan_print_specific_mac_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3369,22 +3391,34 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 	json_object *json = NULL;
 	json_object *json_mac = NULL;
 
-	if (!is_evpn_enabled())
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
 		return;
+	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
-		vty_out(vty, "%% VNI %u does not exist\n", vni);
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
 
 	num_macs = num_valid_macs(zevpn);
-	if (!num_macs)
+	if (!num_macs) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
 		return;
+	}
 
 	num_macs = num_dup_detected_macs(zevpn);
-	if (!num_macs)
+	if (!num_macs) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
 		return;
+	}
 
 	if (use_json) {
 		json = json_object_new_object();
@@ -3719,21 +3753,25 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 	json_object *json_mac = NULL;
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, NULL);
 		return;
 	}
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		else
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
 	num_macs = num_valid_macs(zevpn);
-	if (!num_macs)
+	if (!num_macs) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
 		return;
+	}
 
 	if (use_json) {
 		json = json_object_new_object();
@@ -3777,7 +3815,8 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3821,7 +3860,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (uj)
+			vty_json(vty, json);
 		return;
 	}
 
@@ -3898,7 +3938,8 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	if (!is_evpn_enabled()) {
-		vty_json(vty, json);
+		if (use_json)
+			vty_json_empty(vty, json);
 		return;
 	}
 
@@ -3982,7 +4023,7 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (!is_evpn_enabled()) {
 		if (use_json)
-			vty_out(vty, "{}\n");
+			vty_json_empty(vty, NULL);
 		return;
 	}
 
