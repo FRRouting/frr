@@ -504,7 +504,7 @@ class Topogen(object):
 
     def set_error(self, message, code=None):
         "Sets an error message and signal other tests to skip."
-        logger.info(message)
+        logger.info("setting error msg: %s", message)
 
         # If no code is defined use a sequential number
         if code is None:
@@ -822,7 +822,7 @@ class TopoRouter(TopoGear):
         all routers.
         """
         daemonstr = self.RD.get(daemon)
-        self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))
+        self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
         self.net.loadConf(daemonstr, source, param)
 
     def check_router_running(self):
@@ -945,16 +945,16 @@ class TopoRouter(TopoGear):
 
         vtysh_command = 'vtysh {} -c "{}" 2>/dev/null'.format(dparam, command)
 
-        self.logger.info('vtysh command => "{}"'.format(command))
+        self.logger.debug('vtysh command => "{}"'.format(command))
         output = self.run(vtysh_command)
 
         dbgout = output.strip()
         if dbgout:
             if "\n" in dbgout:
                 dbgout = dbgout.replace("\n", "\n\t")
-                self.logger.info("vtysh result:\n\t{}".format(dbgout))
+                self.logger.debug("vtysh result:\n\t{}".format(dbgout))
             else:
-                self.logger.info('vtysh result: "{}"'.format(dbgout))
+                self.logger.debug('vtysh result: "{}"'.format(dbgout))
 
         if isjson is False:
             return output
@@ -994,7 +994,7 @@ class TopoRouter(TopoGear):
 
         dbgcmds = commands if is_string(commands) else "\n".join(commands)
         dbgcmds = "\t" + dbgcmds.replace("\n", "\n\t")
-        self.logger.info("vtysh command => FILE:\n{}".format(dbgcmds))
+        self.logger.debug("vtysh command => FILE:\n{}".format(dbgcmds))
 
         res = self.run(vtysh_command)
         os.unlink(fname)
@@ -1003,9 +1003,9 @@ class TopoRouter(TopoGear):
         if dbgres:
             if "\n" in dbgres:
                 dbgres = dbgres.replace("\n", "\n\t")
-                self.logger.info("vtysh result:\n\t{}".format(dbgres))
+                self.logger.debug("vtysh result:\n\t{}".format(dbgres))
             else:
-                self.logger.info('vtysh result: "{}"'.format(dbgres))
+                self.logger.debug('vtysh result: "{}"'.format(dbgres))
         return res
 
     def report_memory_leaks(self, testname):
