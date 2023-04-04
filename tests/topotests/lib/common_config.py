@@ -3361,7 +3361,19 @@ def socat_send_mld_join(
 
         # Run socat command to send IGMP join
         logger.info("[DUT: {}]: Running command: [{}]".format(server, socat_cmd))
-        output = rnode.run("set +m; {} sleep 0.5".format(socat_cmd))
+        output = rnode.run("set +m; {} echo $!".format(socat_cmd))
+
+        # Check if socat join process is running
+        if output:
+            pid = output.split()[0]
+            rnode.run("touch /var/run/frr/socat_join.pid")
+            rnode.run("echo %s >> /var/run/frr/socat_join.pid" % pid)
+        else:
+            errormsg = "Socat join is not sent for {}. Error {}".format(
+                mld_group, output
+            )
+            logger.error(output)
+            return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
@@ -3419,7 +3431,7 @@ def socat_send_pim6_traffic(
         if multicast_hops:
             socat_cmd += "multicast-hops=255'"
 
-        socat_cmd += " &>{}/socat.logs &".format(tgen.logdir)
+        socat_cmd += " >{}/socat.logs &".format(tgen.logdir)
 
         # Run socat command to send pim6 traffic
         logger.info(
@@ -3439,7 +3451,20 @@ def socat_send_pim6_traffic(
             )
 
         rnode.run("chmod 755 {}".format(traffic_shell_script))
-        output = rnode.run("{} &> /dev/null".format(traffic_shell_script))
+        output = rnode.run("{} &>/dev/null & echo $!".format(traffic_shell_script))
+
+        # Check if socat traffic process is running
+        if output:
+            pid = output.split()[0]
+            rnode.run("touch /var/run/frr/socat_traffic.pid")
+            rnode.run("echo %s >> /var/run/frr/socat_traffic.pid" % pid)
+
+        else:
+            errormsg = "Socat traffic is not sent for {}. Error {}".format(
+                mld_group, output
+            )
+            logger.error(output)
+            return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
@@ -3469,18 +3494,30 @@ def kill_socat(tgen, dut=None, action=None):
         if dut is not None and router != dut:
             continue
 
+        traffic_shell_script = "{}/{}/traffic.sh".format(tgen.logdir, router)
+        pid_socat_join = rnode.run("cat /var/run/frr/socat_join.pid")
+        pid_socat_traffic = rnode.run("cat /var/run/frr/socat_traffic.pid")
         if action == "remove_mld_join":
-            cmd = "ps -ef | grep socat | grep UDP6-RECV | grep {}".format(router)
+            pids = pid_socat_join
         elif action == "remove_mld_traffic":
-            cmd = "ps -ef | grep socat | grep UDP6-SEND | grep {}".format(router)
+            pids = pid_socat_traffic
         else:
-            cmd = "ps -ef | grep socat".format(router)
+            pids = "\n".join([pid_socat_join, pid_socat_traffic])
 
-        awk_cmd = "awk -F' ' '{print $2}' | xargs kill -9 &>/dev/null &"
-        cmd = "{} | {}".format(cmd, awk_cmd)
+        if os.path.exists(traffic_shell_script):
+            cmd = (
+                "ps -ef | grep %s | awk -F' ' '{print $2}' | xargs kill -9"
+                % traffic_shell_script
+            )
+            logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+            rnode.run(cmd)
 
-        logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
-        rnode.run(cmd)
+        for pid in pids.split("\n"):
+            pid = pid.strip()
+            if pid.isdigit():
+                cmd = "set +m; kill -9 %s &> /dev/null" % pid
+                logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+                rnode.run(cmd)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
