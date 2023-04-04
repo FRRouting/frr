@@ -2400,7 +2400,7 @@ static void vty_timeout(struct event *thread)
 }
 
 /* Read up configuration file from file_name. */
-static void vty_read_file(struct nb_config *config, FILE *confp)
+void vty_read_file(struct nb_config *config, FILE *confp)
 {
 	int ret;
 	struct vty *vty;

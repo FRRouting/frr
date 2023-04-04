@@ -24,8 +24,6 @@
 #define MGMTD_DS_NAME_CANDIDATE "candidate"
 #define MGMTD_DS_NAME_OPERATIONAL "operational"
 
-#define MGMTD_STARTUP_DS_FILE_PATH DAEMON_DB_DIR "/frr_startup.json"
-
 #define FOREACH_MGMTD_DS_ID(id)                                                \
 	for ((id) = MGMTD_DS_NONE; (id) < MGMTD_DS_MAX_ID; (id)++)
 
