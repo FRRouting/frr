@@ -286,8 +286,7 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 	if (connected->address->family == AF_INET) {
 		uint32_t addr = connected->address->u.prefix4.s_addr;
 		addr = ntohl(addr);
-		if (IPV4_NET0(addr) || IPV4_NET127(addr) || IN_CLASSD(addr)
-		    || IPV4_LINKLOCAL(addr))
+		if (IPV4_NET0(addr) || IPV4_NET127(addr) || IN_CLASSD(addr))
 			return;
 
 		for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ipv4))
