@@ -234,6 +234,7 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	}
 
 
+	/* UDP Tx sock (VXLAN) not setup */
 	if (zevpn_arp_nd_info.udp_fd < 0) {
 		++zevpn_arp_nd_info.stat.not_ready;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
@@ -250,11 +251,12 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 	if (!acc_bd || !acc_bd->zevpn) {
 		++zevpn_arp_nd_info.stat.vni_missing;
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
-			zlog_debug("evpn arp_nd on %s vlan %d; vni mapping missing",
-				   zif->ifp->name, vlan);
+			zlog_debug("evpn arp_nd on %s (bridge %s) vlan %d; access-vlan:vni mapping missing",
+				   zif->ifp->name, zif->brslave_info.br_if->name, vlan);
 		return 0;
 	}
 
+	/* MAC lookup in EVPN table, not local-mac cache */
 	zmac = zebra_evpn_mac_lookup(acc_bd->zevpn,
 				     (struct ethaddr *)ethh->h_dest);
 	if (!zmac) {
