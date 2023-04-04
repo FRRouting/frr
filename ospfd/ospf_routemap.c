@@ -120,7 +120,7 @@ route_match_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
 	if (alist == NULL) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
@@ -168,7 +168,7 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
 	if (plist == NULL) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
@@ -245,7 +245,7 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 
 	alist = access_list_lookup(AFI_IP, (char *)rule);
 	if (alist == NULL) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
@@ -286,7 +286,7 @@ route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
 	if (plist == NULL) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);

@@ -26,12 +26,8 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 
 #if defined(__GNUC__) && (__GNUC__ >= 3)
 #define ATTRIBUTE(x) __attribute__ (x)
-#define LIKELY(_x) __builtin_expect(!!(_x), 1)
-#define UNLIKELY(_x) __builtin_expect(!!(_x), 0)
 #else
 #define ATTRIBUTE(x) /**/
-#define LIKELY(_x) !!(_x)
-#define UNLIKELY(_x) !!(_x)
 #endif
 
 #if defined(__GNUC__) && (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 3)
