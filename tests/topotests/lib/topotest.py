@@ -352,7 +352,7 @@ def run_and_expect(func, what, count=20, wait=3):
             count, wait
         )
 
-    logger.info(
+    logger.debug(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
             func_name, wait, count
         )
@@ -366,7 +366,7 @@ def run_and_expect(func, what, count=20, wait=3):
             continue
 
         end_time = time.time()
-        logger.info(
+        logger.debug(
             "'{}' succeeded after {:.2f} seconds".format(
                 func_name, end_time - start_time
             )
@@ -409,7 +409,7 @@ def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
             count, wait
         )
 
-    logger.info(
+    logger.debug(
         "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
             func_name, wait, int(wait * count)
         )
@@ -432,7 +432,7 @@ def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
             continue
 
         end_time = time.time()
-        logger.info(
+        logger.debug(
             "'{}' succeeded after {:.2f} seconds".format(
                 func_name, end_time - start_time
             )
@@ -1130,7 +1130,7 @@ def _sysctl_atleast(commander, variable, min_value):
             valstr = " ".join([str(x) for x in min_value])
         else:
             valstr = str(min_value)
-        logger.info("Increasing sysctl %s from %s to %s", variable, cur_val, valstr)
+        logger.debug("Increasing sysctl %s from %s to %s", variable, cur_val, valstr)
         commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
 
 
@@ -1161,7 +1161,7 @@ def _sysctl_assure(commander, variable, value):
             valstr = " ".join([str(x) for x in value])
         else:
             valstr = str(value)
-        logger.info("Changing sysctl %s from %s to %s", variable, cur_val, valstr)
+        logger.debug("Changing sysctl %s from %s to %s", variable, cur_val, valstr)
         commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
 
 
@@ -1204,7 +1204,7 @@ def rlimit_atleast(rname, min_value, raises=False):
         soft, hard = cval
         if soft < min_value:
             nval = (min_value, hard if min_value < hard else min_value)
-            logger.info("Increasing rlimit %s from %s to %s", rname, cval, nval)
+            logger.debug("Increasing rlimit %s from %s to %s", rname, cval, nval)
             resource.setrlimit(rname, nval)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1478,11 +1478,11 @@ class Router(Node):
 
         logger.info("%s: stopping %s", self.name, ", ".join([x[0] for x in running]))
         for name, pid in running:
-            logger.info("{}: sending SIGTERM to {}".format(self.name, name))
+            logger.debug("{}: sending SIGTERM to {}".format(self.name, name))
             try:
                 os.kill(pid, signal.SIGTERM)
             except OSError as err:
-                logger.info(
+                logger.debug(
                     "%s: could not kill %s (%s): %s", self.name, name, pid, str(err)
                 )
 
@@ -1560,7 +1560,7 @@ class Router(Node):
                 router_relative = os.path.join(script_dir, self.name, tail)
                 if self.path_exists(router_relative):
                     source = router_relative
-                    self.logger.info(
+                    self.logger.debug(
                         "using router relative configuration: {}".format(source)
                     )
 
@@ -1617,7 +1617,7 @@ class Router(Node):
                     # Auto-Started staticd has no config, so it will read from zebra config
 
         else:
-            logger.info("No daemon {} known".format(daemon))
+            logger.warning("No daemon {} known".format(daemon))
         # print "Daemons after:", self.daemons
 
     def runInWindow(self, cmd, title=None):
@@ -1859,7 +1859,7 @@ class Router(Node):
                         else "",
                     )
                 else:
-                    logger.info("%s: %s %s started", self, self.routertype, daemon)
+                    logger.debug("%s: %s %s started", self, self.routertype, daemon)
 
         # Start mgmtd first
         if "mgmtd" in daemons_list:
@@ -1934,7 +1934,7 @@ class Router(Node):
                         daemonpidfile = d.rstrip()
                         daemonpid = self.cmd("cat %s" % daemonpidfile).rstrip()
                         if daemonpid.isdigit() and pid_exists(int(daemonpid)):
-                            logger.info(
+                            logger.debug(
                                 "{}: killing {}".format(
                                     self.name,
                                     os.path.basename(daemonpidfile.rsplit(".", 1)[0]),
@@ -2198,7 +2198,7 @@ class Router(Node):
                 log = self.getStdErr(daemon)
                 if "memstats" in log:
                     # Found memory leak
-                    logger.info(
+                    logger.warning(
                         "\nRouter {} {} StdErr Log:\n{}".format(self.name, daemon, log)
                     )
                     if not leakfound:
