@@ -310,37 +310,50 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                 config_data.append(cmd)
                 protocol = "igmp"
                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
-                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 cmd = "ip igmp"
                 if del_action:
                     cmd = "no {}".format(cmd)
-                if not del_attr:
+                config_data.append(cmd)
+
+                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
+                join = intf_data[intf_name]["igmp"].setdefault("join", None)
+                source = intf_data[intf_name]["igmp"].setdefault("source", None)
+                version = intf_data[intf_name]["igmp"].setdefault("version", False)
+                query = intf_data[intf_name]["igmp"].setdefault("query", {})
+
+                # for attribute, data in intf_data[intf_name]['igmp'].items():
+                if version:
+                    cmd = "ip {} version {}".format(protocol, version)
+                    if del_action:
+                        cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
-                for attribute, data in intf_data[intf_name]["igmp"].items():
-                    if attribute == "version":
-                        cmd = "ip {} {} {}".format(protocol, attribute, data)
-                        if del_action:
+                if source and join:
+                    for group in join:
+                        cmd = "ip {} join {} {}".format(protocol, group, source)
+
+                        if del_attr:
                             cmd = "no {}".format(cmd)
-                        if not del_attr:
-                            config_data.append(cmd)
+                        config_data.append(cmd)
 
-                    if attribute == "join":
-                        for group in data:
-                            cmd = "ip {} {} {}".format(protocol, attribute, group)
-                            if del_attr:
+                elif join:
+                    for group in join:
+                        cmd = "ip {} join {}".format(protocol, group)
+
+                        if del_attr:
+                            cmd = "no {}".format(cmd)
+                        config_data.append(cmd)
+
+                if query:
+                    for _query, value in query.items():
+                        if _query != "delete":
+                            cmd = "ip {} {} {}".format(protocol, _query, value)
+
+                            if "delete" in intf_data[intf_name][protocol]["query"]:
                                 cmd = "no {}".format(cmd)
-                            config_data.append(cmd)
 
-                    if attribute == "query":
-                        for query, value in data.items():
-                            if query != "delete":
-                                cmd = "ip {} {} {}".format(protocol, query, value)
+                        config_data.append(cmd)
 
-                                if "delete" in intf_data[intf_name][protocol]["query"]:
-                                    cmd = "no {}".format(cmd)
-
-                            config_data.append(cmd)
         if config_data:
             config_data_dict[router] = config_data
 
@@ -593,7 +606,6 @@ def find_rp_details(tgen, topo):
     topo_data = topo["routers"]
 
     for router in router_list.keys():
-
         if "pim" not in topo_data[router]:
             continue
 
@@ -940,7 +952,9 @@ def verify_pim6_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expecte
 
 
 @retry(retry_timeout=40, diag_pct=0)
-def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
+def verify_igmp_groups(
+    tgen, dut, interface, group_addresses, vrf=None, version=None, expected=True
+):
     """
     Verify IGMP groups are received from an intended interface
     by running "show ip igmp groups" command
@@ -951,14 +965,14 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     * `dut`: device under test
     * `interface`: interface, from which IGMP groups would be received
     * `group_addresses`: IGMP group address
-    * `expected` : expected results from API, by-default True
+    * [optional]`vrf`: specify vrf name
 
     Usage
     -----
     dut = "r1"
     interface = "r1-r0-eth0"
     group_address = "225.1.1.1"
-    result = verify_igmp_groups(tgen, dut, interface, group_address)
+    result = verify_igmp_groups(tgen, dut, interface, group_address, vrf)
 
     Returns
     -------
@@ -973,7 +987,18 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     rnode = tgen.routers()[dut]
 
     logger.info("[DUT: %s]: Verifying IGMP groups received:", dut)
-    show_ip_igmp_json = run_frr_cmd(rnode, "show ip igmp groups json", isjson=True)
+
+    if vrf is not None:
+        cmd = "show ip igmp vrf {} groups json".format(vrf)
+        if vrf == "all":
+            vrf = "default"
+    else:
+        cmd = "show ip igmp groups json"
+
+    show_ip_igmp_json = run_frr_cmd(rnode, cmd, isjson=True)
+
+    if vrf is not None:
+        show_ip_igmp_json = show_ip_igmp_json[vrf]
 
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
@@ -991,13 +1016,15 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     for grp_addr in group_addresses:
         for index in show_ip_igmp_json:
             if index["group"] == grp_addr:
+                if version:
+                    index["version"] == version
                 found = True
                 break
         if found is not True:
             errormsg = (
                 "[DUT %s]: Verifying IGMP group received"
                 " from interface %s [FAILED]!! "
-                " Expected not found: %s" % (dut, interface, grp_addr)
+                " Expected: %s, Found: %s" % (dut, interface, grp_addr, index["group"])
             )
             return errormsg
 
@@ -1013,7 +1040,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     return True
 
 
-@retry(retry_timeout=60, diag_pct=2)
+@retry(retry_timeout=90, diag_pct=2)
 def verify_upstream_iif(
     tgen,
     dut,
@@ -1022,6 +1049,7 @@ def verify_upstream_iif(
     group_addresses,
     joinState=None,
     regState=None,
+    kat_timer=None,
     refCount=1,
     addr_type="ipv4",
     expected=True,
@@ -1038,6 +1066,7 @@ def verify_upstream_iif(
     * `src_address`: source address
     * `group_addresses`: IGMP group address
     * `joinState`: upstream join state
+    * `kat_tmer`: to check if KAT timer is up and running
     * `refCount`: refCount value
     * `expected` : expected results from API, by-default True
 
@@ -1178,6 +1207,14 @@ def verify_upstream_iif(
                             )
                             return errormsg
 
+                    if kat_timer:
+                        if "--" in group_addr_json[src_address]["keepaliveTimer"]:
+                            errormsg = "[DUT %s]: KAT timer not increamenting " % (dut)
+                            return errormsg
+                        logger.info(
+                            "[DUT %s]: Verifying KAT timer is increamenting" % (dut)
+                        )
+
                     logger.info(
                         "[DUT %s]: Verifying iif(Inbound Interface)"
                         " for (%s,%s) and joinState is %s regstate is %s [PASSED]!! "
@@ -1189,6 +1226,7 @@ def verify_upstream_iif(
                         group_addr_json[src_address]["regState"],
                         group_addr_json[src_address]["inboundInterface"],
                     )
+
         if not found:
             errormsg = (
                 "[DUT %s]: Verifying iif "
@@ -1199,7 +1237,7 @@ def verify_upstream_iif(
                     dut,
                     src_address,
                     grp_addr,
-                    in_interface,
+                    iif,
                     group_addr_json[src_address]["inboundInterface"],
                 )
             )
@@ -1495,7 +1533,6 @@ def verify_mroutes(
                             and data["outboundInterface"] in oil
                         ):
                             if return_uptime:
-
                                 uptime_dict[grp_addr][src_address] = data["upTime"]
 
                             logger.info(
@@ -1917,7 +1954,6 @@ def get_pim_interface_traffic(tgen, input_dict):
             for intf, data in input_dict[dut].items():
                 interface_json = show_pim_intf_traffic_json[intf]
                 for state in data:
-
                     # Verify Tx/Rx
                     if state in interface_json:
                         output_dict[dut][state] = interface_json[state]
@@ -1990,7 +2026,6 @@ def get_pim6_interface_traffic(tgen, input_dict):
             for intf, data in input_dict[dut].items():
                 interface_json = show_pim_intf_traffic_json[intf]
                 for state in data:
-
                     # Verify Tx/Rx
                     if state in interface_json:
                         output_dict[dut][state] = interface_json[state]
@@ -3007,7 +3042,6 @@ def verify_pim_upstream_rpf(
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     if "pim" in topo["routers"][dut]:
-
         logger.info("[DUT: %s]: Verifying ip pim upstream rpf:", dut)
 
         rnode = tgen.routers()[dut]
@@ -3245,7 +3279,6 @@ def verify_pim_join(
 
         grp_addr = grp_addr.split("/")[0]
         for source, data in interface_json[grp_addr].items():
-
             # Verify pim join
             if pim_join:
                 if data["group"] == grp_addr and data["channelJoinName"] == "JOIN":
@@ -3338,7 +3371,6 @@ def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
         rnode = tgen.routers()[dut]
 
         for interface, data in input_dict[dut]["igmp"]["interfaces"].items():
-
             statistics = False
             report = False
             if "statistics" in input_dict[dut]["igmp"]["interfaces"][interface]["igmp"]:
@@ -3623,7 +3655,6 @@ def verify_pim_config(tgen, input_dict, expected=True):
         rnode = tgen.routers()[dut]
 
         for interface, data in input_dict[dut]["pim"]["interfaces"].items():
-
             logger.info("[DUT: %s]: Verifying PIM interface %s detail:", dut, interface)
 
             show_ip_igmp_intf_json = run_frr_cmd(
@@ -3772,7 +3803,6 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=Tr
                     elif (
                         interface_json["pktsIn"] != 0 and interface_json["bytesIn"] != 0
                     ):
-
                         traffic_dict[traffic_type][interface][
                             "pktsIn"
                         ] = interface_json["pktsIn"]
@@ -3836,7 +3866,6 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=Tr
                         interface_json["pktsOut"] != 0
                         and interface_json["bytesOut"] != 0
                     ):
-
                         traffic_dict[traffic_type][interface][
                             "pktsOut"
                         ] = interface_json["pktsOut"]
@@ -4232,7 +4261,6 @@ def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
         group_addresses = [group_addresses]
 
     if interface not in show_ip_local_igmp_json:
-
         errormsg = (
             "[DUT %s]: Verifying local IGMP group received"
             " from interface %s [FAILED]!! " % (dut, interface)
@@ -4319,7 +4347,6 @@ def verify_pim_interface_traffic(tgen, input_dict, return_stats=True, addr_type=
         for intf, data in input_dict[dut].items():
             interface_json = show_pim_intf_traffic_json[intf]
             for state in data:
-
                 # Verify Tx/Rx
                 if state in interface_json:
                     output_dict[dut][state] = interface_json[state]
@@ -4525,7 +4552,6 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
     for dut in input_dict.keys():
         rnode = tgen.routers()[dut]
         for interface, data in input_dict[dut]["mld"]["interfaces"].items():
-
             statistics = False
             report = False
             if "statistics" in input_dict[dut]["mld"]["interfaces"][interface]["mld"]:
@@ -5040,7 +5066,6 @@ def verify_pim6_config(tgen, input_dict, expected=True):
         rnode = tgen.routers()[dut]
 
         for interface, data in input_dict[dut]["pim6"]["interfaces"].items():
-
             logger.info(
                 "[DUT: %s]: Verifying PIM6 interface %s detail:", dut, interface
             )
@@ -5158,7 +5183,6 @@ def verify_local_mld_groups(tgen, dut, interface, group_addresses):
         group_addresses = [group_addresses]
 
     if interface not in show_ipv6_local_mld_json["default"]:
-
         errormsg = (
             "[DUT %s]: Verifying local MLD group received"
             " from interface %s [FAILED]!! " % (dut, interface)
@@ -5188,6 +5212,188 @@ def verify_local_mld_groups(tgen, dut, interface, group_addresses):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+@retry(retry_timeout=60, diag_pct=0)
+def verify_ssm_traffic(tgen, dut, groups, src):
+    """
+    Verify multicast traffic by running
+    "show ip mroute count json" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `groups`: groups where traffic needs to be verified
+
+    Usage
+    -----
+    result = verify_ssm_traffic(tgen, igmp_groups)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    result = False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying multicast " "SSM traffic", dut)
+
+    cmd = "show ip mroute count json"
+
+    show_mroute_ssm_traffic_json = run_frr_cmd(rnode, cmd, isjson=True)
+
+    logger.info("Waiting for 10sec traffic to increament")
+    sleep(10)
+
+    for grp in groups:
+        if grp not in show_mroute_ssm_traffic_json:
+            errormsg = "[DUT %s]: Verifying (%s, %s) mroute," "[FAILED]!! " % (
+                dut,
+                src,
+                grp,
+            )
+
+        count_before = show_mroute_ssm_traffic_json[grp][src]["packets"]
+        show_mroute_ssm_traffic_json = run_frr_cmd(rnode, cmd, isjson=True)
+
+        count_after = show_mroute_ssm_traffic_json[grp][src]["packets"]
+        if count_before > count_after:
+            errormsg = (
+                "[DUT %s]: Verifying igmp group %s source %s not increamenting traffic"
+                " [FAILED]!! " % (dut, grp, src)
+            )
+            return errormsg
+        else:
+            logger.info(
+                "[DUT %s]:igmp group %s source %s receiving traffic"
+                " [PASSED]!! " % (dut, grp, src)
+            )
+            result = True
+
+    return result
+
+
+@retry(retry_timeout=60, diag_pct=0)
+def verify_igmp_source(tgen, dut, interface_name, groups, sources):
+    """
+    Verify IGMP groups and source by running "show ip igmp source" command
+
+    Parameters
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface_name`: Name of interface where grps received
+    * `groups`:  IGMP group list
+    * `sources`: IGMP source list
+
+    Usage
+    -----
+    dut = "r1"
+    result = verify_igmp_source(tgen, dut, ens224,[225.1.1.1,225.1.1.2], [10.1.1.1, 10.1.1.2])
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    result = False
+    if dut not in tgen.routers():
+        return False
+    rnode = tgen.routers()[dut]
+
+    if not isinstance(groups, list):
+        groups = [groups]
+
+    if not isinstance(sources, list):
+        sources = [sources]
+
+    logger.info("[DUT: %s]: Verifying IGMP groups and source:", dut)
+    show_ip_igmp_source_json = run_frr_cmd(
+        rnode, "show ip igmp source json", isjson=True
+    )
+    if interface_name not in show_ip_igmp_source_json:
+        errormsg = "[DUT %s]: Verifying interface not present" " on  [FAILED]!! " % (
+            dut
+        )
+        return errormsg
+
+    igmp_intf_json = show_ip_igmp_source_json[interface_name]
+
+    for grp in groups:
+        for keys, values in igmp_intf_json.items():
+            if keys == "name":
+                continue
+
+            if igmp_intf_json[grp]["group"] == grp:
+                for src in sources:
+                    if igmp_intf_json[grp]["sources"][0]["source"] == src:
+                        d1 = datetime.datetime.strptime(
+                            igmp_intf_json[grp]["sources"][0]["timer"], "%M:%S"
+                        )
+                        d2 = datetime.datetime.strptime("00:00", "%M:%S")
+                        if d1 > d2:
+                            logger.info(
+                                "[DUT %s]: Verifying group %s and source %s is found "
+                                "from interface %s [PASSED]!! ",
+                                dut,
+                                grp,
+                                src,
+                                interface_name,
+                            )
+            else:
+                errormsg = (
+                    "[DUT %s]: Verifying grp %s not present"
+                    " on  [FAILED]!! " % (dut, grp)
+                )
+                return errormsg
+
+    result = True
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return result
+
+
+@retry(retry_timeout=60, diag_pct=0)
+def verify_ssm_group_type(tgen, dut, grp_list):
+    """
+    Verify SSM prefix list using "show ip pim group-type json" command
+
+    Parameters
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `grp_list`: grp list name
+
+    Usage
+    -----
+    dut = "r1"
+    result = verify_ssm_group_type(tgen, dut, pf1)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying SSM prefix list is applied :", dut)
+    show_ssm_json = run_frr_cmd(rnode, "do show ip pim group-type json", isjson=True)
+    if show_ssm_json["ssmGroups"] != grp_list:
+        errormsg = ("[DUT %s]: Verifying SSM list is not found", dut)
+        return errormsg
+    else:
+        logger.info("[DUT %s]: Verifying SSM list is found", dut)
+        return True
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return False
 
     # def cleanup(self):
     #     super(McastTesterHelper, self).cleanup()
