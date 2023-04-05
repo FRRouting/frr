@@ -338,6 +338,7 @@ enum rib_update_event {
 	RIB_UPDATE_OTHER,
 	RIB_UPDATE_MAX
 };
+void rib_update_finish(void);
 
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
