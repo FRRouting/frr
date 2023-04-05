@@ -4294,6 +4294,8 @@ int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
 
 	memset(api, 0, sizeof(*api));
 
+	api->safi = SAFI_UNICAST;
+
 	STREAM_GETL(s, api->cap);
 	switch (api->cap) {
 	case ZEBRA_CLIENT_GR_CAPABILITIES:
