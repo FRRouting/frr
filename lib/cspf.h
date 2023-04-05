@@ -191,6 +191,8 @@ extern void cspf_del(struct cspf *algo);
  */
 extern struct c_path *compute_p2p_path(struct cspf *algo, struct ls_ted *ted);
 
+extern void cpath_del(struct c_path *path);
+
 #ifdef __cplusplus
 }
 #endif
