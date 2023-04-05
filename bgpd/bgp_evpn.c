@@ -4982,7 +4982,7 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 }
 
 int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
-			struct bgp_nlri *packet, int withdraw)
+			struct bgp_nlri *packet, bool withdraw)
 {
 	uint8_t *pnt;
 	uint8_t *lim;
