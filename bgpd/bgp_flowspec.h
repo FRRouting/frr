@@ -28,7 +28,7 @@
 #define BGP_FLOWSPEC_NLRI_STRING_MAX 512
 
 extern int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
-				   struct bgp_nlri *packet, int withdraw);
+				   struct bgp_nlri *packet, bool withdraw);
 
 extern void bgp_flowspec_vty_init(void);
 
