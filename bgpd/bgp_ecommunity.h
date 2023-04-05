@@ -101,6 +101,10 @@ enum ecommunity_origin_validation_states {
 /* Extended Community readable string length */
 #define ECOMMUNITY_STRLEN 64
 
+/* Node Target Extended Communities */
+#define ECOMMUNITY_NODE_TARGET 0x09
+#define ECOMMUNITY_NODE_TARGET_RESERVED 0
+
 /* Extended Communities attribute.  */
 struct ecommunity {
 	/* Reference counter.  */
@@ -257,6 +261,26 @@ static inline void encode_origin_validation_state(enum rpki_states state,
 	eval->val[7] = ovs_state;
 }
 
+static inline void encode_node_target(struct in_addr *node_id,
+				      struct ecommunity_val *eval, bool trans)
+{
+	/*
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | 0x01 or 0x41 | Sub-Type(0x09) |    Target BGP Identifier      |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | Target BGP Identifier (cont.) |           Reserved            |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_IP;
+	if (!trans)
+		eval->val[0] |= ECOMMUNITY_ENCODE_IP_NON_TRANS;
+	eval->val[1] = ECOMMUNITY_NODE_TARGET;
+	memcpy(&eval->val[2], node_id, sizeof(*node_id));
+	eval->val[6] = ECOMMUNITY_NODE_TARGET_RESERVED;
+	eval->val[7] = ECOMMUNITY_NODE_TARGET_RESERVED;
+}
+
 extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
 extern void ecommunity_free(struct ecommunity **);
@@ -338,4 +362,9 @@ static inline void ecommunity_strip_rts(struct ecommunity *ecom)
 extern struct ecommunity *
 ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
 				       struct ecommunity *ecom);
+extern struct ecommunity *ecommunity_add_node_target(struct in_addr *node_id,
+						     struct ecommunity *old,
+						     bool non_trans);
+extern bool ecommunity_node_target_match(struct ecommunity *ecomm,
+					 struct in_addr *local_id);
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */
