@@ -1305,6 +1305,7 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 		bgp_label_per_nexthop_free(blnc);
 		return 0;
 	}
+	blnc->allocation_in_progress = false;
 
 	if (old_label == blnc->label)
 		return 0; /* no change */
