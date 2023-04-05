@@ -112,6 +112,13 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	afi = packet->afi;
 	safi = packet->safi;
 
+	/*
+	 * All other AFI/SAFI's treat no attribute as a implicit
+	 * withdraw.  Flowspec should as well.
+	 */
+	if (!attr)
+		withdraw = 1;
+
 	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT_EXTENDED) {
 		flog_err(EC_BGP_FLOWSPEC_PACKET,
 			 "BGP flowspec nlri length maximum reached (%u)",
