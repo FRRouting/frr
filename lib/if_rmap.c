@@ -299,7 +299,7 @@ void if_rmap_ctx_delete(struct if_rmap_ctx *ctx)
 	listnode_delete(if_rmap_ctx_list, ctx);
 	hash_clean(ctx->ifrmaphash, (void (*)(void *))if_rmap_free);
 	if (ctx->name)
-		XFREE(MTYPE_IF_RMAP_CTX_NAME, ctx);
+		XFREE(MTYPE_IF_RMAP_CTX_NAME, ctx->name);
 	XFREE(MTYPE_IF_RMAP_CTX, ctx);
 }
 
