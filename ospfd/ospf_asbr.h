@@ -37,6 +37,8 @@ struct external_info {
 	route_tag_t orig_tag;
 
 	uint32_t metric;
+	uint32_t min_metric;
+	uint32_t max_metric;
 
 	struct route_map_set_values route_map_set;
 #define ROUTEMAP_METRIC(E) (E)->route_map_set.metric

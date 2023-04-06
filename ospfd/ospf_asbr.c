@@ -132,6 +132,8 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	new->orig_tag = tag;
 	new->aggr_route = NULL;
 	new->metric = metric;
+	new->min_metric = 0;
+	new->max_metric = OSPF_LS_INFINITY;
 
 	/* we don't unlock rn from the get() because we're attaching the info */
 	if (rn)
