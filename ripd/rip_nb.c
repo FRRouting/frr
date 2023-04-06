@@ -338,6 +338,66 @@ const struct frr_yang_module_info frr_ripd_info = {
 			},
 		},
 		{
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop",
+                        .cbs = {
+                                .get_next = ripd_instance_state_routes_route_nexthops_nexthop_get_next,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/nh-type",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_nh_type_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/protocol",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_protocol_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/rip-type",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_rip_type_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/gateway",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_gateway_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/interface",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_interface_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/from",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_from_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/tag",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_tag_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/external-metric",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_external_metric_get_elem,
+                        }
+                },
+                {
+                        .xpath = "/frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/expire-time",
+                        .cbs = {
+                                .get_elem = ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem,
+                        }
+                },
+		{
 			.xpath = "/frr-ripd:ripd/instance/state/routes/route/metric",
 			.cbs = {
 				.get_elem = ripd_instance_state_routes_route_metric_get_elem,

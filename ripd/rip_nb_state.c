@@ -211,6 +211,117 @@ struct yang_data *ripd_instance_state_routes_route_prefix_get_elem(
 }
 
 /*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop
+ */
+const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
+	struct nb_cb_get_next_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/nh-type
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_nh_type_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/protocol
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_protocol_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/rip-type
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_rip_type_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/gateway
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_gateway_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/interface
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_interface_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/from
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_from_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/tag
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_tag_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/external-metric
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_external_metric_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-ripd:ripd/instance/state/routes/route/nexthops/nexthop/expire-time
+ */
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
  * XPath: /frr-ripd:ripd/instance/state/routes/route/next-hop
  */
 struct yang_data *ripd_instance_state_routes_route_next_hop_get_elem(

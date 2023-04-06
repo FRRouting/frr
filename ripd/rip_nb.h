@@ -89,6 +89,37 @@ struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args);
+const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
+	struct nb_cb_get_next_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_nh_type_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_protocol_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_rip_type_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_gateway_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_interface_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_from_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_tag_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_external_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
 int clear_rip_route_rpc(struct nb_cb_rpc_args *args);
 int lib_interface_rip_split_horizon_modify(struct nb_cb_modify_args *args);
 int lib_interface_rip_v2_broadcast_modify(struct nb_cb_modify_args *args);
