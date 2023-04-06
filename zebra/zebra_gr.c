@@ -651,6 +651,9 @@ void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
 	struct client_gr_info *info = NULL;
 	struct zebra_gr_afi_clean *gac;
 
+	if (client == NULL)
+		return;
+
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		if (info->vrf_id == vrf_id)
 			break;
