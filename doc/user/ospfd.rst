@@ -310,6 +310,11 @@ To start OSPF process you have to specify the OSPF router.
    of packets to process before returning. The defult value of this parameter
    is 20.
 
+.. clicmd:: socket buffer <send | recv | all> (1-4000000000)
+
+   This command controls the ospf instance's socket buffer sizes. The
+   'no' form resets one or both values to the default.
+   
 .. _ospf-area:
 
 Areas

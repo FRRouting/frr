@@ -3403,6 +3403,23 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	/* show LDP-Sync status */
 	ospf_ldp_sync_show_info(vty, ospf, json_vrf, json ? 1 : 0);
 
+	/* Socket buffer sizes */
+	if (json) {
+		if (ospf->recv_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			json_object_int_add(json_vrf, "recvSockBufsize",
+					    ospf->recv_sock_bufsize);
+		if (ospf->send_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			json_object_int_add(json_vrf, "sendSockBufsize",
+					    ospf->send_sock_bufsize);
+	} else {
+		if (ospf->recv_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			vty_out(vty, " Receive socket bufsize: %u\n",
+				ospf->recv_sock_bufsize);
+		if (ospf->send_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			vty_out(vty, " Send socket bufsize: %u\n",
+				ospf->send_sock_bufsize);
+	}
+
 	/* Show each area status. */
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		show_ip_ospf_area(vty, area, json_areas, json ? 1 : 0);
@@ -12550,6 +12567,22 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* LDP-Sync print */
 	ospf_ldp_sync_write_config(vty, ospf);
 
+	/* Socket buffer sizes */
+	if (ospf->recv_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE) {
+		if (ospf->send_sock_bufsize == ospf->recv_sock_bufsize)
+			vty_out(vty, " socket buffer all %u\n",
+				ospf->recv_sock_bufsize);
+		else
+			vty_out(vty, " socket buffer recv %u\n",
+				ospf->recv_sock_bufsize);
+	}
+
+	if (ospf->send_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE &&
+	    ospf->send_sock_bufsize != ospf->recv_sock_bufsize)
+		vty_out(vty, " socket buffer send %u\n",
+			ospf->send_sock_bufsize);
+
+
 	vty_out(vty, "exit\n");
 
 	write++;
@@ -13006,6 +13039,42 @@ DEFPY(no_flood_reduction_area, no_flood_reduction_area_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(ospf_socket_bufsizes,
+      ospf_socket_bufsizes_cmd,
+      "[no] socket buffer <send$send_val | recv$recv_val | all$all_val> \
+	  ![(1-4000000000)$bufsize]",
+      NO_STR
+      "Socket parameters\n"
+      "Buffer size configuration\n"
+      "Send buffer size\n"
+      "Receive buffer size\n"
+      "Both send and receive buffer sizes\n"
+      "Buffer size, in bytes\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	uint32_t recvsz, sendsz;
+
+	if (no)
+		bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
+
+	if (all_val) {
+		recvsz = bufsize;
+		sendsz = bufsize;
+	} else if (send_val) {
+		sendsz = bufsize;
+		recvsz = ospf->recv_sock_bufsize;
+	} else if (recv_val) {
+		recvsz = bufsize;
+		sendsz = ospf->send_sock_bufsize;
+	} else
+		return CMD_SUCCESS;
+
+	/* React to a change by modifying existing sockets */
+	ospf_update_bufsize(ospf, recvsz, sendsz);
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13168,6 +13237,8 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_flood_reduction_cmd);
 	install_element(OSPF_NODE, &flood_reduction_area_cmd);
 	install_element(OSPF_NODE, &no_flood_reduction_area_cmd);
+
+	install_element(OSPF_NODE, &ospf_socket_bufsizes_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();
