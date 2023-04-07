@@ -1057,9 +1057,9 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 
 	if (!parse_ret) {
 		if (type == BGP_ATTR_MP_REACH_NLRI)
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, 0);
+			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, false);
 		else if (type == BGP_ATTR_MP_UNREACH_NLRI)
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, 1);
+			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, true);
 	}
 	handle_result(peer, t, parse_ret, nlri_ret);
 }
