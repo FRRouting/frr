@@ -802,7 +802,7 @@ class TopoRouter(TopoGear):
                     grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
                 else:
                     grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
-                result = self.run(grep_cmd).strip()
+                result = self.run(grep_cmd, warn=False).strip()
                 if result:
                     self.load_config(daemon)
         else:
