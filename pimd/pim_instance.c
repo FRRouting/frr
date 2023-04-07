@@ -54,7 +54,9 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_msdp_exit(pim);
 #endif /* PIM_IPV == 4 */
 
-	close(pim->reg_sock);
+	if (pim->reg_sock > 0)
+		close(pim->reg_sock);
+	pim->reg_sock = -1;
 
 	pim_mroute_socket_disable(pim);
 
