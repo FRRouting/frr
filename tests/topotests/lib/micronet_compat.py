@@ -161,12 +161,10 @@ class Mininet(Micronet):
 
     g_mnet_inst = None
 
-    def __init__(self, controller=None):
+    def __init__(self):
         """
         Create a Micronet.
         """
-        assert not controller
-
         if Mininet.g_mnet_inst is not None:
             Mininet.g_mnet_inst.stop()
         Mininet.g_mnet_inst = self

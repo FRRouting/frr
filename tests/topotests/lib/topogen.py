@@ -212,7 +212,10 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet(controller=None)
+        self.net = Mininet()
+
+        # Adjust the parent namespace
+        topotest.fix_netns_limits(self.net)
 
         # New direct way: Either a dictionary defines the topology or a build function
         # is supplied, or a json filename all of which build the topology by calling
@@ -799,7 +802,7 @@ class TopoRouter(TopoGear):
                     grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
                 else:
                     grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
-                result = self.run(grep_cmd).strip()
+                result = self.run(grep_cmd, warn=False).strip()
                 if result:
                     self.load_config(daemon)
         else:
