@@ -346,7 +346,7 @@ static void bgp_update_explicit_eors(struct peer *peer)
  * calling safi function and for evpn, passed as parameter
  */
 int bgp_nlri_parse(struct peer *peer, struct attr *attr,
-		   struct bgp_nlri *packet, int mp_withdraw)
+		   struct bgp_nlri *packet, bool mp_withdraw)
 {
 	switch (packet->safi) {
 	case SAFI_UNICAST:
