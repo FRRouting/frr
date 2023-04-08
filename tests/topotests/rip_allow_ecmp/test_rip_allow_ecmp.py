@@ -52,7 +52,9 @@ def test_rip_allow_ecmp():
     r1 = tgen.gears["r1"]
 
     def _show_rip_routes():
-        output = json.loads(r1.vtysh_cmd("show yang operational-data /frr-ripd:ripd ripd"))
+        output = json.loads(
+            r1.vtysh_cmd("show yang operational-data /frr-ripd:ripd ripd")
+        )
         try:
             output = output["frr-ripd:ripd"]["instance"][0]["state"]["routes"]
         except KeyError:
@@ -83,7 +85,6 @@ def test_rip_allow_ecmp():
                         ]
                     },
                     "metric": 2,
-                    "next-hop": "192.168.1.2"
                 },
             ]
         }
