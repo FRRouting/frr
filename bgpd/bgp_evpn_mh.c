@@ -1071,7 +1071,8 @@ void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn)
 			continue;
 
 		/* Update EAD-ES */
-		bgp_evpn_ead_es_route_update(bgp, es);
+		if (bgp_evpn_local_es_is_active(es))
+			bgp_evpn_ead_es_route_update(bgp, es);
 
 		/* Update EAD-EVI */
 		if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI)) {
