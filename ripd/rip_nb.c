@@ -166,6 +166,27 @@ const struct frr_yang_module_info frr_ripd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-ripd:ripd/instance/if-route-maps/if-route-map",
+			.cbs = {
+				.create = ripd_instance_if_route_maps_if_route_map_create,
+				.destroy = ripd_instance_if_route_maps_if_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/if-route-maps/if-route-map/in-route-map",
+			.cbs = {
+				.modify = ripd_instance_if_route_maps_if_route_map_in_route_map_modify,
+				.destroy = ripd_instance_if_route_maps_if_route_map_in_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/if-route-maps/if-route-map/out-route-map",
+			.cbs = {
+				.modify = ripd_instance_if_route_maps_if_route_map_out_route_map_modify,
+				.destroy = ripd_instance_if_route_maps_if_route_map_out_route_map_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-ripd:ripd/instance/static-route",
 			.cbs = {
 				.cli_show = cli_show_rip_route,

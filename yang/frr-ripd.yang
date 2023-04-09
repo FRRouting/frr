@@ -10,6 +10,9 @@ module frr-ripd {
   import ietf-yang-types {
     prefix yang;
   }
+  import frr-if-rmap {
+    prefix frr-if-rmap;
+  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -282,6 +285,9 @@ module frr-ripd {
              is 0.";
         }
       }
+
+      uses frr-if-rmap:if-route-maps-group;
+
       leaf-list static-route {
         type inet:ipv4-prefix;
         description
