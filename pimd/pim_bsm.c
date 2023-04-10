@@ -170,7 +170,6 @@ static void pim_on_bs_timer(struct thread *t)
 
 	pim_nht_bsr_del(scope->pim, scope->current_bsr);
 	/* Reset scope zone data */
-	scope->accept_nofwd_bsm = false;
 	scope->state = ACCEPT_ANY;
 	scope->current_bsr = PIMADDR_ANY;
 	scope->current_bsr_prio = 0;
@@ -1377,6 +1376,10 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 			return -1;
 		}
 	}
+
+	/* BSM packet is seen, so resetting accept_nofwd_bsm to false */
+	if (pim->global_scope.accept_nofwd_bsm)
+		pim->global_scope.accept_nofwd_bsm = false;
 
 	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr)) {
 		/* Multicast BSMs are only accepted if source interface & IP
