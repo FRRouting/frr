@@ -3745,6 +3745,11 @@ dplane_route_update_internal(struct route_node *rn,
 						 NEXTHOP_FLAG_FIB);
 			}
 
+			if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && re &&
+			    (old_re != re) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
 			dplane_ctx_free(&ctx);
 			return ZEBRA_DPLANE_REQUEST_SUCCESS;
 		}
