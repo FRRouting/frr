@@ -1118,7 +1118,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra *extra;
 	uint32_t num_sids = 0;
-	void *parent = source_bpi;
+	struct bgp_path_info *parent = source_bpi;
 
 	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
 		num_sids = 1;
@@ -1326,7 +1326,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 
 	new->extra->parent = bgp_path_info_lock(parent);
 	bgp_dest_lock_node(
-		(struct bgp_dest *)((struct bgp_path_info *)parent)->net);
+		(struct bgp_dest *)parent->net);
 	if (bgp_orig)
 		new->extra->bgp_orig = bgp_lock(bgp_orig);
 	if (nexthop_orig)
