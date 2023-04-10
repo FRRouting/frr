@@ -1500,7 +1500,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	ret = sendmsg(rip->sock, &msg, 0);
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("SEND to  %pI4%d", &sin.sin_addr,
+		zlog_debug("SEND to %pI4 port %d", &sin.sin_addr,
 			   ntohs(sin.sin_port));
 
 	if (ret < 0)
