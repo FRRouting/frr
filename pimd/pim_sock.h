@@ -42,5 +42,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen);
 
 int pim_reg_sock(void);
+int pim_reg_sock_bind(struct pim_instance *pim);
 
 #endif /* PIM_SOCK_H */

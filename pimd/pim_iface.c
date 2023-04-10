@@ -1701,6 +1701,12 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 			snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
 				 pim->vrf->data.l.table_id);
 
+		if (pim_reg_sock_bind(pim)) {
+			zlog_warn(
+				"Could not bind reg_sock to pimreg interface fd=%d; vrf_name=%s vrf_id=%d",
+				pim->reg_sock, pim->vrf->name,
+				pim->vrf->vrf_id);
+		}
 		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
 					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
