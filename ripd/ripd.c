@@ -2836,16 +2836,11 @@ uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo)
 			if (access_list_apply(alist, &rinfo->rp->p)
 			    == FILTER_DENY)
 				return 0;
-
-			return rdistance->distance;
-		} else
-			return rdistance->distance;
+		}
+		return rdistance->distance;
 	}
 
-	if (rip->distance)
-		return rip->distance;
-
-	return 0;
+	return rip->distance;
 }
 
 static void rip_distance_show(struct vty *vty, struct rip *rip)
