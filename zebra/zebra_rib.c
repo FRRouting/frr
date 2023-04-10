@@ -3711,6 +3711,26 @@ static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void rib_meta_queue_gr_run_free(struct meta_queue *mq, struct list *l,
+				       struct zebra_vrf *zvrf)
+{
+	struct meta_q_gr_run *gr_run;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(l, node, nnode, gr_run)) {
+		if (zvrf && zvrf->vrf->vrf_id != gr_run->vrf_id)
+			continue;
+
+		XFREE(MTYPE_WQ_WRAPPER, gr_run);
+		node->data = NULL;
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
+>>>>>>> 1b192d88e (zebra: Actually free up memory associated with the mq list)
 void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 {
 	enum meta_queue_indexes i;
