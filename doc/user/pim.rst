@@ -387,9 +387,14 @@ cause great confusion.
 .. clicmd:: show ip igmp [vrf NAME] join [json]
 
    Display IGMP static join information for a specific vrf.
-   If "vrf all" is provided, it displays information for all the vrfs present.
+   
+.. index:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
+.. clicmd:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
 
-.. clicmd:: show ip igmp groups
+   Display IGMP static join information for all the vrfs present.
+
+.. index:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
+.. clicmd:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
 
    Display IGMP groups information.
 
