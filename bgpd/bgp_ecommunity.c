@@ -494,32 +494,19 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
 	eval->val[1] = sub_type;
 	if (type == ECOMMUNITY_ENCODE_AS) {
-		eval->val[2] = (as >> 8) & 0xff;
-		eval->val[3] = as & 0xff;
-		eval->val[4] = (val >> 24) & 0xff;
-		eval->val[5] = (val >> 16) & 0xff;
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
+		encode_route_target_as(as, val, eval, trans);
 	} else if (type == ECOMMUNITY_ENCODE_IP) {
-		if (sub_type == ECOMMUNITY_NODE_TARGET) {
+		if (sub_type == ECOMMUNITY_NODE_TARGET)
 			encode_node_target(ip, eval, trans);
-		} else {
-			memcpy(&eval->val[2], ip, sizeof(struct in_addr));
-			eval->val[6] = (val >> 8) & 0xff;
-			eval->val[7] = val & 0xff;
-		}
+		else
+			encode_route_target_ip(ip, val, eval, trans);
 	} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP &&
 		   sub_type == ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 		memcpy(&eval6->val[2], ip6, sizeof(struct in6_addr));
 		eval6->val[18] = (val >> 8) & 0xff;
 		eval6->val[19] = val & 0xff;
 	} else {
-		eval->val[2] = (as >> 24) & 0xff;
-		eval->val[3] = (as >> 16) & 0xff;
-		eval->val[4] = (as >> 8) & 0xff;
-		eval->val[5] = as & 0xff;
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
+		encode_route_target_as4(as, val, eval, trans);
 	}
 
 	return 0;

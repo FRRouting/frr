@@ -159,9 +159,12 @@ struct ecommunity_val_ipv6 {
  * Encode BGP Route Target AS:nn.
  */
 static inline void encode_route_target_as(as_t as, uint32_t val,
-					  struct ecommunity_val *eval)
+					  struct ecommunity_val *eval,
+					  bool trans)
 {
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
+	if (!trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
 	eval->val[1] = ECOMMUNITY_ROUTE_TARGET;
 	eval->val[2] = (as >> 8) & 0xff;
 	eval->val[3] = as & 0xff;
@@ -174,12 +177,15 @@ static inline void encode_route_target_as(as_t as, uint32_t val,
 /*
  * Encode BGP Route Target IP:nn.
  */
-static inline void encode_route_target_ip(struct in_addr ip, uint16_t val,
-					  struct ecommunity_val *eval)
+static inline void encode_route_target_ip(struct in_addr *ip, uint16_t val,
+					  struct ecommunity_val *eval,
+					  bool trans)
 {
 	eval->val[0] = ECOMMUNITY_ENCODE_IP;
+	if (!trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
 	eval->val[1] = ECOMMUNITY_ROUTE_TARGET;
-	memcpy(&eval->val[2], &ip, sizeof(struct in_addr));
+	memcpy(&eval->val[2], ip, sizeof(struct in_addr));
 	eval->val[6] = (val >> 8) & 0xff;
 	eval->val[7] = val & 0xff;
 }
@@ -188,9 +194,12 @@ static inline void encode_route_target_ip(struct in_addr ip, uint16_t val,
  * Encode BGP Route Target AS4:nn.
  */
 static inline void encode_route_target_as4(as_t as, uint16_t val,
-					   struct ecommunity_val *eval)
+					   struct ecommunity_val *eval,
+					   bool trans)
 {
 	eval->val[0] = ECOMMUNITY_ENCODE_AS4;
+	if (!trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
 	eval->val[1] = ECOMMUNITY_ROUTE_TARGET;
 	eval->val[2] = (as >> 24) & 0xff;
 	eval->val[3] = (as >> 16) & 0xff;
