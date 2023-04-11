@@ -40,6 +40,7 @@
 #define DEBUG_PENDING_DELETE_ROUTE	0
 #define DEBUG_NHL			0
 #define DEBUG_RIB_SL_RD                 0
+#define DEBUG_CLEANUP 0
 
 /* forward decl */
 #if DEBUG_NHL
@@ -327,6 +328,11 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
 			      sizeof(struct rfapi_rib_tcb));
 	}
+#if DEBUG_CLEANUP
+	zlog_debug("%s: rfd %p, rn %p, ri %p, tcb %p", __func__, rfd, rn, ri,
+		   tcb);
+#endif
+
 	tcb->rfd = rfd;
 	tcb->ri = ri;
 	tcb->rn = rn;
@@ -506,6 +512,16 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 							    NULL,
 							    (void **)&ri)) {
 
+						if (ri->timer) {
+							struct rfapi_rib_tcb
+								*tcb;
+
+							tcb = EVENT_ARG(
+								ri->timer);
+							EVENT_OFF(ri->timer);
+							XFREE(MTYPE_RFAPI_RECENT_DELETE,
+							      tcb);
+						}
 						rfapi_info_free(ri);
 						skiplist_delete_first(
 							(struct skiplist *)
@@ -555,6 +571,9 @@ void rfapiRibFree(struct rfapi_descriptor *rfd)
 {
 	afi_t afi;
 
+#if DEBUG_CLEANUP
+	zlog_debug("%s: rfd %p", __func__, rfd);
+#endif
 
 	/*
 	 * NB rfd is typically detached from master list, so is not included
