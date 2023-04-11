@@ -449,25 +449,22 @@ int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen)
 
 	return PIM_SOCK_ERR_NONE;
 }
-int pim_reg_sock_bind(struct pim_instance *pim)
+void pim_reg_sock_bind(struct pim_instance *pim)
 {
 	if (!pim)
-		return 0;
+		return;
 	if (pim->vrf->vrf_id != VRF_DEFAULT) {
 		struct interface *ifp =
 			if_lookup_by_name(pim->vrf->name, pim->vrf->vrf_id);
 		if (ifp) {
 			if (pim_socket_bind(pim->reg_sock, ifp)) {
 				zlog_warn(
-					"Could not set reg_sock fd: %d for interface: %s to device",
-					pim->reg_sock, ifp->name);
-				return PIM_SOCK_ERR_BIND;
+					"%s: Could not set reg_sock fd: %d for interface: %s to device",
+					__func__, pim->reg_sock, ifp->name);
 			}
 		} else {
 			zlog_warn("%s: vrf interface lookup failed %s id %d",
 				  __func__, pim->vrf->name, pim->vrf->vrf_id);
-			return PIM_SOCK_ERR_SOCKET;
 		}
 	}
-	return PIM_SOCK_ERR_NONE;
 }
