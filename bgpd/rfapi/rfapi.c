@@ -64,6 +64,8 @@
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
 
+#define DEBUG_CLEANUP 0
+
 struct ethaddr rfapi_ethaddr0 = {{0}};
 
 #define DEBUG_RFAPI_STR "RF API debugging/testing command\n"
@@ -3690,11 +3692,36 @@ void rfapi_delete(struct bgp *bgp)
 {
 	extern void rfp_clear_vnc_nve_all(void); /* can't fix correctly yet */
 
+#if DEBUG_CLEANUP
+	zlog_debug("%s: bgp %p", __func__, bgp);
+#endif
+
 	/*
 	 * This clears queries and registered routes, and closes nves
 	 */
 	if (bgp->rfapi)
 		rfp_clear_vnc_nve_all();
+
+	/*
+	 * close any remaining descriptors
+	 */
+	struct rfapi *h = bgp->rfapi;
+
+	if (h && h->descriptors.count) {
+		struct listnode *node, *nnode;
+		struct rfapi_descriptor *rfd;
+#if DEBUG_CLEANUP
+		zlog_debug("%s: descriptor count %u", __func__,
+			   h->descriptors.count);
+#endif
+		for (ALL_LIST_ELEMENTS(&h->descriptors, node, nnode, rfd)) {
+#if DEBUG_CLEANUP
+			zlog_debug("%s: closing rfd %p", __func__, rfd);
+#endif
+			(void)rfapi_close(rfd);
+		}
+	}
+
 	bgp_rfapi_cfg_destroy(bgp, bgp->rfapi_cfg);
 	bgp->rfapi_cfg = NULL;
 	bgp_rfapi_destroy(bgp, bgp->rfapi);
