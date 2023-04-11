@@ -272,7 +272,7 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 
 static void delete_area_addr(void *arg)
 {
-	struct area_addr *addr = (struct area_addr *)arg;
+	struct iso_address *addr = (struct iso_address *)arg;
 
 	XFREE(MTYPE_ISIS_AREA_ADDR, addr);
 }
@@ -809,8 +809,8 @@ static void area_set_mt_overload(struct isis_area *area, uint16_t mtid,
 int area_net_title(struct vty *vty, const char *net_title)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	struct area_addr *addr;
-	struct area_addr *addrp;
+	struct iso_address *addr;
+	struct iso_address *addrp;
 	struct listnode *node;
 
 	uint8_t buff[255];
@@ -823,14 +823,14 @@ int area_net_title(struct vty *vty, const char *net_title)
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct area_addr));
+	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
 	addr->addr_len = dotformat2buff(buff, net_title);
 	memcpy(addr->area_addr, buff, addr->addr_len);
 #ifdef EXTREME_DEBUG
 	zlog_debug("added area address %s for area %s (address length %d)",
 		   net_title, area->area_tag, addr->addr_len);
 #endif /* EXTREME_DEBUG */
-	if (addr->addr_len < 8 || addr->addr_len > 20) {
+	if (addr->addr_len < ISO_ADDR_MIN || addr->addr_len > ISO_ADDR_SIZE) {
 		vty_out(vty,
 			"area address must be at least 8..20 octets long (%d)\n",
 			addr->addr_len);
@@ -852,8 +852,8 @@ int area_net_title(struct vty *vty, const char *net_title)
 		memcpy(area->isis->sysid, GETSYSID(addr), ISIS_SYS_ID_LEN);
 		area->isis->sysid_set = 1;
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("Router has SystemID %s",
-				   sysid_print(area->isis->sysid));
+			zlog_debug("Router has SystemID %pSY",
+				   area->isis->sysid);
 	} else {
 		/*
 		 * Check that the SystemID portions match
@@ -899,12 +899,12 @@ int area_net_title(struct vty *vty, const char *net_title)
 int area_clear_net_title(struct vty *vty, const char *net_title)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	struct area_addr addr, *addrp = NULL;
+	struct iso_address addr, *addrp = NULL;
 	struct listnode *node;
 	uint8_t buff[255];
 
 	addr.addr_len = dotformat2buff(buff, net_title);
-	if (addr.addr_len < 8 || addr.addr_len > 20) {
+	if (addr.addr_len < ISO_ADDR_MIN || addr.addr_len > ISO_ADDR_SIZE) {
 		vty_out(vty,
 			"Unsupported area address length %d, should be 8...20 \n",
 			addr.addr_len);
@@ -2348,11 +2348,11 @@ static void common_isis_summary_json(struct json_object *json,
 	time_t cur;
 	char uptime[MONOTIME_STRLEN];
 	char stier[5];
+
 	json_object_string_add(json, "vrf", isis->name);
 	json_object_int_add(json, "process-id", isis->process_id);
 	if (isis->sysid_set)
-		json_object_string_add(json, "system-id",
-				       sysid_print(isis->sysid));
+		json_object_string_addf(json, "system-id", "%pSY", isis->sysid);
 
 	cur = time(NULL);
 	cur -= isis->uptime;
@@ -2380,16 +2380,11 @@ static void common_isis_summary_json(struct json_object *json,
 		}
 
 		if (listcount(area->area_addrs) > 0) {
-			struct area_addr *area_addr;
+			struct iso_address *area_addr;
 			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-						  area_addr)) {
-				json_object_string_add(
-					area_json, "net",
-					isonet_print(area_addr->area_addr,
-						     area_addr->addr_len +
-							     ISIS_SYS_ID_LEN +
-							     1));
-			}
+						  area_addr))
+				json_object_string_addf(area_json, "net",
+							"%pISl", area_addr);
 		}
 
 		tx_pdu_json = json_object_new_object();
@@ -2462,8 +2457,7 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 	vty_out(vty, "vrf             : %s\n", isis->name);
 	vty_out(vty, "Process Id      : %ld\n", isis->process_id);
 	if (isis->sysid_set)
-		vty_out(vty, "System Id       : %s\n",
-			sysid_print(isis->sysid));
+		vty_out(vty, "System Id       : %pSY\n", isis->sysid);
 
 	vty_out(vty, "Up time         : ");
 	vty_out_timestr(vty, isis->uptime);
@@ -2485,15 +2479,10 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 		}
 
 		if (listcount(area->area_addrs) > 0) {
-			struct area_addr *area_addr;
+			struct iso_address *area_addr;
 			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
-						  area_addr)) {
-				vty_out(vty, "  Net: %s\n",
-					isonet_print(area_addr->area_addr,
-						     area_addr->addr_len
-							     + ISIS_SYS_ID_LEN
-							     + 1));
-			}
+						  area_addr))
+				vty_out(vty, "  Net: %pISl\n", area_addr);
 		}
 
 		vty_out(vty, "  TX counters per PDU type:\n");
@@ -3497,15 +3486,10 @@ static int isis_config_write(struct vty *vty)
 			write++;
 			/* ISIS - Net */
 			if (listcount(area->area_addrs) > 0) {
-				struct area_addr *area_addr;
+				struct iso_address *area_addr;
 				for (ALL_LIST_ELEMENTS_RO(area->area_addrs,
 							  node2, area_addr)) {
-					vty_out(vty, " net %s\n",
-						isonet_print(
-							area_addr->area_addr,
-							area_addr->addr_len
-								+ ISIS_SYS_ID_LEN
-								+ 1));
+					vty_out(vty, " net %pISl\n", area_addr);
 					write++;
 				}
 			}

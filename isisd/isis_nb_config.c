@@ -103,14 +103,14 @@ int isis_instance_is_type_modify(struct nb_cb_modify_args *args)
 }
 
 struct sysid_iter {
-	struct area_addr *addr;
+	struct iso_address *addr;
 	bool same;
 };
 
 static int sysid_iter_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct sysid_iter *iter = arg;
-	struct area_addr addr;
+	struct iso_address addr;
 	const char *net;
 
 	net = yang_dnode_get_string(dnode, NULL);
@@ -130,7 +130,7 @@ static int sysid_iter_cb(const struct lyd_node *dnode, void *arg)
 int isis_instance_area_address_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
-	struct area_addr addr, *addrr = NULL, *addrp = NULL;
+	struct iso_address addr, *addrr = NULL, *addrp = NULL;
 	struct listnode *node;
 	struct sysid_iter iter;
 	uint8_t buff[255];
@@ -161,7 +161,8 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		}
 		break;
 	case NB_EV_PREPARE:
-		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct area_addr));
+		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR,
+				sizeof(struct iso_address));
 		addrr->addr_len = dotformat2buff(buff, net_title);
 		memcpy(addrr->area_addr, buff, addrr->addr_len);
 		args->resource->ptr = addrr;
@@ -217,7 +218,7 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 
 int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 {
-	struct area_addr addr, *addrp = NULL;
+	struct iso_address addr, *addrp = NULL;
 	struct listnode *node;
 	uint8_t buff[255];
 	struct isis_area *area;

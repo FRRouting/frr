@@ -661,7 +661,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				sbuf_push(
 					buf, indent,
 					"Lan-Adjacency-SID: %u, Weight: %hhu, Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n"
-					"  Neighbor-ID: %s\n",
+					"  Neighbor-ID: %pSY\n",
 					lan->sid, lan->weight,
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
 						? '1'
@@ -681,7 +681,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
 						? '1'
 						: '0',
-					isis_format_id(lan->neighbor_id, 6));
+					lan->neighbor_id);
 			}
 	}
 }
@@ -1590,14 +1590,14 @@ static void format_item_area_address(uint16_t mtid, struct isis_item *i,
 				     int indent)
 {
 	struct isis_area_address *addr = (struct isis_area_address *)i;
+	struct iso_address iso_addr;
 
-	if (json) {
-		json_object_string_add(json, "area-addr",
-				       isonet_print(addr->addr, addr->len));
-	} else {
-		sbuf_push(buf, indent, "Area Address: %s\n",
-			  isonet_print(addr->addr, addr->len));
-	}
+	memcpy(iso_addr.area_addr, addr->addr, ISO_ADDR_SIZE);
+	iso_addr.addr_len = addr->len;
+	if (json)
+		json_object_string_addf(json, "area-addr", "%pIS", &iso_addr);
+	else
+		sbuf_push(buf, indent, "Area Address: %pIS\n", &iso_addr);
 }
 
 static void free_item_area_address(struct isis_item *i)
@@ -1678,17 +1678,18 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 				       struct json_object *json, int indent)
 {
 	struct isis_oldstyle_reach *r = (struct isis_oldstyle_reach *)i;
+	char sys_id[ISO_SYSID_STRLEN];
 
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", r->id);
 	if (json) {
 		struct json_object *old_json;
 		old_json = json_object_new_object();
 		json_object_object_add(json, "old-reach-style", old_json);
-		json_object_string_add(old_json, "is-reach",
-				       isis_format_id(r->id, 7));
+		json_object_string_add(old_json, "is-reach", sys_id);
 		json_object_int_add(old_json, "metric", r->metric);
 	} else
 		sbuf_push(buf, indent, "IS Reachability: %s (Metric: %hhu)\n",
-			  isis_format_id(r->id, 7), r->metric);
+			  sys_id, r->metric);
 }
 
 static void free_item_oldstyle_reach(struct isis_item *i)
@@ -1760,13 +1761,13 @@ static void format_item_lan_neighbor(uint16_t mtid, struct isis_item *i,
 				     int indent)
 {
 	struct isis_lan_neighbor *n = (struct isis_lan_neighbor *)i;
+	char sys_id[ISO_SYSID_STRLEN];
 
-	if (json) {
-		json_object_string_add(json, "lan-neighbor",
-				       isis_format_id(n->mac, 6));
-	} else
-		sbuf_push(buf, indent, "LAN Neighbor: %s\n",
-			  isis_format_id(n->mac, 6));
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pSY", n->mac);
+	if (json)
+		json_object_string_add(json, "lan-neighbor", sys_id);
+	else
+		sbuf_push(buf, indent, "LAN Neighbor: %s\n", sys_id);
 }
 
 static void free_item_lan_neighbor(struct isis_item *i)
@@ -1831,23 +1832,25 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 				  int indent)
 {
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
+	char sys_id[ISO_SYSID_STRLEN];
 
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pLS", e->id);
 	if (json) {
 		char buf[255];
 		struct json_object *lsp_json;
 		lsp_json = json_object_new_object();
 		json_object_object_add(json, "lsp-entry", lsp_json);
-		json_object_string_add(lsp_json, "id", isis_format_id(e->id, 8));
+		json_object_string_add(lsp_json, "id", sys_id);
 		snprintfrr(buf,sizeof(buf),"0x%08x",e->seqno);
 		json_object_string_add(lsp_json, "seq", buf);
 		snprintfrr(buf,sizeof(buf),"0x%04hx",e->checksum);
 		json_object_string_add(lsp_json, "chksum", buf);
 		json_object_int_add(lsp_json, "lifetime", e->checksum);
 	} else
-	sbuf_push(buf, indent,
-		  "LSP Entry: %s, seq 0x%08x, cksum 0x%04hx, lifetime %hus\n",
-		  isis_format_id(e->id, 8), e->seqno, e->checksum,
-		  e->rem_lifetime);
+		sbuf_push(
+			buf, indent,
+			"LSP Entry: %s, seq 0x%08x, cksum 0x%04hx, lifetime %hus\n",
+			sys_id, e->seqno, e->checksum, e->rem_lifetime);
 }
 
 static void free_item_lsp_entry(struct isis_item *i)
@@ -1919,7 +1922,9 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 				       struct json_object *json, int indent)
 {
 	struct isis_extended_reach *r = (struct isis_extended_reach *)i;
+	char sys_id[ISO_SYSID_STRLEN];
 
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", r->id);
 	if (json) {
 		struct json_object *reach_json;
 		reach_json = json_object_new_object();
@@ -1927,8 +1932,7 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(
 			reach_json, "mt-id",
 			(mtid == ISIS_MT_IPV4_UNICAST) ? "Extended" : "MT");
-		json_object_string_add(reach_json, "id",
-				       isis_format_id(r->id, 7));
+		json_object_string_add(reach_json, "id", sys_id);
 		json_object_int_add(reach_json, "metric", r->metric);
 		if (mtid != ISIS_MT_IPV4_UNICAST)
 			json_object_string_add(reach_json, "mt-name",
@@ -1940,7 +1944,7 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 	} else {
 		sbuf_push(buf, indent, "%s Reachability: %s (Metric: %u)",
 			  (mtid == ISIS_MT_IPV4_UNICAST) ? "Extended" : "MT",
-			  isis_format_id(r->id, 7), r->metric);
+			  sys_id, r->metric);
 		if (mtid != ISIS_MT_IPV4_UNICAST)
 			sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
 		sbuf_push(buf, 0, "\n");
@@ -3125,9 +3129,12 @@ static void
 format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 			struct sbuf *buf, struct json_object *json, int indent)
 {
+	char sys_id[ISO_SYSID_STRLEN];
+
 	if (!threeway_adj)
 		return;
 
+	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pSY", threeway_adj->neighbor_id);
 	if (json) {
 		struct json_object *three_json;
 		three_json = json_object_new_object();
@@ -3140,9 +3147,7 @@ format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 				    threeway_adj->local_circuit_id);
 		if (!threeway_adj->neighbor_set)
 			return;
-		json_object_string_add(
-			three_json, "neigh-system-id",
-			isis_format_id(threeway_adj->neighbor_id, 6));
+		json_object_string_add(three_json, "neigh-system-id", sys_id);
 		json_object_int_add(three_json, "neigh-ext-circuit-id",
 				    threeway_adj->neighbor_circuit_id);
 	} else {
@@ -3155,8 +3160,7 @@ format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 		if (!threeway_adj->neighbor_set)
 			return;
 
-		sbuf_push(buf, indent, "  Neighbor System ID: %s\n",
-			  isis_format_id(threeway_adj->neighbor_id, 6));
+		sbuf_push(buf, indent, "  Neighbor System ID: %s\n", sys_id);
 		sbuf_push(buf, indent, "  Neighbor Extended Circuit ID: %u\n",
 			  threeway_adj->neighbor_circuit_id);
 	}
@@ -3988,33 +3992,29 @@ static void format_tlv_purge_originator(struct isis_purge_originator *poi,
 					struct sbuf *buf,
 					struct json_object *json, int indent)
 {
+	char sen_id[ISO_SYSID_STRLEN];
+	char gen_id[ISO_SYSID_STRLEN];
+
 	if (!poi)
 		return;
+
+	snprintfrr(gen_id, ISO_SYSID_STRLEN, "%pSY", poi->generator);
+	if (poi->sender_set)
+		snprintfrr(sen_id, ISO_SYSID_STRLEN, "%pSY", poi->sender);
 
 	if (json) {
 		struct json_object *purge_json;
 		purge_json = json_object_new_object();
 		json_object_object_add(json, "purge_originator", purge_json);
 
-		json_object_string_add(
-			purge_json, "id",
-			isis_format_id(poi->generator, sizeof(poi->generator)));
-		if (poi->sender_set) {
-			json_object_string_add(
-				purge_json, "rec-from",
-				isis_format_id(poi->sender,
-					       sizeof(poi->sender)));
-		}
+		json_object_string_add(purge_json, "id", gen_id);
+		if (poi->sender_set)
+			json_object_string_add(purge_json, "rec-from", sen_id);
 	} else {
 		sbuf_push(buf, indent, "Purge Originator Identification:\n");
-		sbuf_push(
-			buf, indent, "  Generator: %s\n",
-			isis_format_id(poi->generator, sizeof(poi->generator)));
-		if (poi->sender_set) {
-			sbuf_push(buf, indent, "  Received-From: %s\n",
-				  isis_format_id(poi->sender,
-						 sizeof(poi->sender)));
-		}
+		sbuf_push(buf, indent, "  Generator: %s\n", gen_id);
+		if (poi->sender_set)
+			sbuf_push(buf, indent, "  Received-From: %s\n", sen_id);
 	}
 }
 
@@ -5271,14 +5271,14 @@ void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
 				  struct list *addresses)
 {
 	struct listnode *node;
-	struct area_addr *area_addr;
+	struct iso_address *area_addr;
 
 	for (ALL_LIST_ELEMENTS_RO(addresses, node, area_addr)) {
 		struct isis_area_address *a =
 			XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 
 		a->len = area_addr->addr_len;
-		memcpy(a->addr, area_addr->area_addr, 20);
+		memcpy(a->addr, area_addr->area_addr, ISO_ADDR_SIZE);
 		append_item(&tlvs->area_addresses, (struct isis_item *)a);
 	}
 }
@@ -5475,7 +5475,7 @@ bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
 	for (struct isis_area_address *addr = addr_head; addr;
 	     addr = addr->next) {
 		struct listnode *node;
-		struct area_addr *a;
+		struct iso_address *a;
 
 		for (ALL_LIST_ELEMENTS_RO(addresses, node, a)) {
 			if (a->addr_len == addr->len

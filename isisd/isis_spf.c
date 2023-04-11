@@ -1067,8 +1067,8 @@ end:
 	    && !isis_level2_adj_up(spftree->area)) {
 		struct prefix_pair ip_info = { {0} };
 		if (IS_DEBUG_RTE_EVENTS)
-			zlog_debug("ISIS-Spf (%s): add default %s route",
-				   rawlspid_print(lsp->hdr.lsp_id),
+			zlog_debug("ISIS-Spf (%pLS): add default %s route",
+				   lsp->hdr.lsp_id,
 				   spftree->family == AF_INET ? "ipv4"
 							      : "ipv6");
 
@@ -1207,9 +1207,8 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 
 		if (isis_lfa_excise_adj_check(spftree, adj_id)) {
 			if (IS_DEBUG_LFA)
-				zlog_debug("ISIS-SPF: excising adjacency %s",
-					   isis_format_id(sadj->id,
-							  ISIS_SYS_ID_LEN + 1));
+				zlog_debug("ISIS-SPF: excising adjacency %pPN",
+					   sadj->id);
 			continue;
 		}
 
@@ -1324,8 +1323,8 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 	LSP_FRAGMENT(lspid) = 0;
 	lsp = lsp_search(spftree->lspdb, lspid);
 	if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
-		zlog_warn("ISIS-SPF: No LSP found from root to L%d %s",
-			  spftree->level, rawlspid_print(lspid));
+		zlog_warn("ISIS-SPF: No LSP found from root to L%d %pLS",
+			  spftree->level, lspid);
 		return;
 	}
 
@@ -1663,9 +1662,8 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 
 		lsp = lsp_for_vertex(spftree, vertex);
 		if (!lsp) {
-			zlog_warn("ISIS-SPF: No LSP found for %s",
-				  isis_format_id(vertex->N.id,
-						 sizeof(vertex->N.id)));
+			zlog_warn("ISIS-SPF: No LSP found for %pPN",
+				  vertex->N.id);
 			continue;
 		}
 

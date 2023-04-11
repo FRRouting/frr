@@ -283,6 +283,8 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 }
 const char *isis_adj_name(const struct isis_adjacency *adj)
 {
+	static char buf[ISO_SYSID_STRLEN];
+
 	if (!adj)
 		return "NONE";
 
@@ -291,8 +293,9 @@ const char *isis_adj_name(const struct isis_adjacency *adj)
 	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
 	if (dyn)
 		return dyn->hostname;
-	else
-		return sysid_print(adj->sysid);
+
+	snprintfrr(buf, sizeof(buf), "%pSY", adj->sysid);
+	return buf;
 }
 void isis_log_adj_change(struct isis_adjacency *adj,
 			 enum isis_adj_state old_state,
@@ -439,9 +442,8 @@ void isis_adj_print(struct isis_adjacency *adj)
 	if (dyn)
 		zlog_debug("%s", dyn->hostname);
 
-	zlog_debug("SystemId %20s SNPA %s, level %d; Holding Time %d",
-		   sysid_print(adj->sysid), snpa_print(adj->snpa), adj->level,
-		   adj->hold_time);
+	zlog_debug("SystemId %20pSY SNPA %pSY, level %d; Holding Time %d",
+		   adj->sysid, adj->snpa, adj->level, adj->hold_time);
 	if (adj->ipv4_address_count) {
 		zlog_debug("IPv4 Address(es):");
 		for (unsigned int i = 0; i < adj->ipv4_address_count; i++)
@@ -530,7 +532,7 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 					time2string(adj->last_upd +
 						    adj->hold_time - now));
 		}
-		json_object_string_add(json, "snpa", snpa_print(adj->snpa));
+		json_object_string_addf(json, "snpa", "%pSY", adj->snpa);
 	}
 
 	if (detail == ISIS_UI_LEVEL_DETAIL) {
@@ -581,8 +583,7 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 					isis_mtid2str(adj->mt_set[i]));
 			}
 		}
-		json_object_string_add(iface_json, "snpa",
-				       snpa_print(adj->snpa));
+		json_object_string_addf(iface_json, "snpa", "%pSY", adj->snpa);
 		if (adj->circuit &&
 		    (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)) {
 			dyn = dynhn_find_by_id(adj->circuit->isis, adj->lanid);
@@ -593,11 +594,8 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 				json_object_string_add(iface_json, "lan-id",
 						       buf);
 			} else {
-				snprintfrr(buf, sizeof(buf), "%s-%02x",
-					   sysid_print(adj->lanid),
-					   adj->lanid[ISIS_SYS_ID_LEN]);
-				json_object_string_add(iface_json, "lan-id",
-						       buf);
+				json_object_string_addf(iface_json, "lan-id",
+							"%pSY", adj->lanid);
 			}
 
 			json_object_int_add(iface_json, "lan-prio",
@@ -626,12 +624,9 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 					       area_addr_json);
 			for (unsigned int i = 0; i < adj->area_address_count;
 			     i++) {
-				json_object_string_add(
-					area_addr_json, "isonet",
-					isonet_print(adj->area_addresses[i]
-							     .area_addr,
-						     adj->area_addresses[i]
-							     .addr_len));
+				json_object_string_addf(
+					area_addr_json, "isonet", "%pIS",
+					&adj->area_addresses[i]);
 			}
 		}
 		if (adj->ipv4_address_count) {
@@ -736,7 +731,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 						+ adj->hold_time - now);
 		} else
 			vty_out(vty, "-        ");
-		vty_out(vty, "%-10s", snpa_print(adj->snpa));
+		vty_out(vty, "%-10pSY", adj->snpa);
 		vty_out(vty, "\n");
 	}
 
@@ -780,7 +775,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 				vty_out(vty, "      %s\n",
 					isis_mtid2str(adj->mt_set[i]));
 		}
-		vty_out(vty, "    SNPA: %s", snpa_print(adj->snpa));
+		vty_out(vty, "    SNPA: %pSY", adj->snpa);
 		if (adj->circuit
 		    && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)) {
 			dyn = dynhn_find_by_id(adj->circuit->isis, adj->lanid);
@@ -788,9 +783,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 				vty_out(vty, ", LAN id: %s.%02x", dyn->hostname,
 					adj->lanid[ISIS_SYS_ID_LEN]);
 			else
-				vty_out(vty, ", LAN id: %s.%02x",
-					sysid_print(adj->lanid),
-					adj->lanid[ISIS_SYS_ID_LEN]);
+				vty_out(vty, ", LAN id: %pPN", adj->lanid);
 
 			vty_out(vty, "\n");
 			vty_out(vty, "    LAN Priority: %u",
@@ -811,11 +804,8 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			vty_out(vty, "    Area Address(es):\n");
 			for (unsigned int i = 0; i < adj->area_address_count;
 			     i++) {
-				vty_out(vty, "      %s\n",
-					isonet_print(adj->area_addresses[i]
-							     .area_addr,
-						     adj->area_addresses[i]
-							     .addr_len));
+				vty_out(vty, "      %pIS\n",
+					&adj->area_addresses[i]);
 			}
 		}
 		if (adj->ipv4_address_count) {

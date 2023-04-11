@@ -24,6 +24,7 @@
 #include "isis_lfa.h"
 #include "qobj.h"
 #include "ldp_sync.h"
+#include "iso.h"
 
 DECLARE_MGROUP(ISISD);
 
@@ -87,7 +88,7 @@ struct isis {
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
-	struct area_addr *man_area_addrs; /* manualAreaAddresses */
+	struct iso_address *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
 	struct event *t_dync_clean; /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
