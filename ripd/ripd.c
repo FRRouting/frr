@@ -1500,7 +1500,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	ret = sendmsg(rip->sock, &msg, 0);
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("SEND to  %pI4%d", &sin.sin_addr,
+		zlog_debug("SEND to %pI4 port %d", &sin.sin_addr,
 			   ntohs(sin.sin_port));
 
 	if (ret < 0)
@@ -2836,16 +2836,11 @@ uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo)
 			if (access_list_apply(alist, &rinfo->rp->p)
 			    == FILTER_DENY)
 				return 0;
-
-			return rdistance->distance;
-		} else
-			return rdistance->distance;
+		}
+		return rdistance->distance;
 	}
 
-	if (rip->distance)
-		return rip->distance;
-
-	return 0;
+	return rip->distance;
 }
 
 static void rip_distance_show(struct vty *vty, struct rip *rip)
