@@ -67,6 +67,9 @@
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
+/* Default socket buffer size */
+#define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
+
 struct ospf_external {
 	unsigned short instance;
 	struct route_table *external_info;
@@ -423,6 +426,10 @@ struct ospf {
 
 	/* Flood Reduction configuration state */
 	bool fr_configured;
+
+	/* Socket buffer sizes */
+	uint32_t recv_sock_bufsize;
+	uint32_t send_sock_bufsize;
 
 	QOBJ_FIELDS;
 };
@@ -793,6 +800,9 @@ int ospf_area_nssa_no_summary_set(struct ospf *ospf, struct in_addr area_id);
 const char *ospf_get_name(const struct ospf *ospf);
 extern struct ospf_interface *add_ospf_interface(struct connected *co,
 						 struct ospf_area *area);
+/* Update socket bufsize(s), after config change */
+void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
+			 uint32_t sendsize);
 
 extern int p_spaces_compare_func(const struct p_space *a,
 				 const struct p_space *b);

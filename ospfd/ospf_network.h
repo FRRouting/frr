@@ -16,4 +16,14 @@ extern int ospf_if_drop_alldrouters(struct ospf *, struct prefix *, ifindex_t);
 extern int ospf_if_ipmulticast(struct ospf *, struct prefix *, ifindex_t);
 extern int ospf_sock_init(struct ospf *ospf);
 
+enum ospf_sock_type_e {
+	OSPF_SOCK_NONE = 0,
+	OSPF_SOCK_RECV,
+	OSPF_SOCK_SEND,
+	OSPF_SOCK_BOTH
+};
+
+void ospf_sock_bufsize_update(const struct ospf *ospf, int sock,
+			      enum ospf_sock_type_e type);
+
 #endif /* _ZEBRA_OSPF_NETWORK_H */

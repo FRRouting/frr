@@ -420,6 +420,9 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	new->fd = -1;
 
+	new->recv_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
+	new->send_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
+
 	return new;
 }
 
@@ -2178,6 +2181,32 @@ int ospf_nbr_nbma_poll_interval_unset(struct ospf *ospf, struct in_addr addr)
 		nbr_nbma->v_poll = OSPF_POLL_INTERVAL_DEFAULT;
 
 	return 1;
+}
+
+/*
+ * Update socket bufsize(s), usually after config change
+ */
+void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
+			 uint32_t sendsize)
+{
+	enum ospf_sock_type_e type = OSPF_SOCK_NONE;
+
+	/* Figure out whether there's been a change */
+	if (recvsize != ospf->recv_sock_bufsize) {
+		type = OSPF_SOCK_RECV;
+		ospf->recv_sock_bufsize = recvsize;
+
+		if (sendsize != ospf->send_sock_bufsize) {
+			type = OSPF_SOCK_BOTH;
+			ospf->send_sock_bufsize = sendsize;
+		}
+	} else if (sendsize != ospf->send_sock_bufsize) {
+		type = OSPF_SOCK_SEND;
+		ospf->send_sock_bufsize = sendsize;
+	}
+
+	if (type != OSPF_SOCK_NONE)
+		ospf_sock_bufsize_update(ospf, ospf->fd, type);
 }
 
 void ospf_master_init(struct event_loop *master)

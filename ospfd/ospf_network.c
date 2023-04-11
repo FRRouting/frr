@@ -111,7 +111,7 @@ int ospf_if_drop_alldrouters(struct ospf *top, struct prefix *p,
 			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllDRouters): %s",
 			 top->fd, &p->u.prefix4, ifindex,
 			 safe_strerror(errno));
-	else
+	else if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
 			"interface %pI4 [%u] leave AllDRouters Multicast group.",
 			&p->u.prefix4, ifindex);
@@ -159,7 +159,6 @@ int ospf_sock_init(struct ospf *ospf)
 {
 	int ospf_sock;
 	int ret, hincl = 1;
-	int bufsize = (8 * 1024 * 1024);
 
 	/* silently ignore. already done */
 	if (ospf->fd > 0)
@@ -213,9 +212,28 @@ int ospf_sock_init(struct ospf *ospf)
 				 ospf_sock);
 	}
 
-	setsockopt_so_sendbuf(ospf_sock, bufsize);
-	setsockopt_so_recvbuf(ospf_sock, bufsize);
+	/* Update socket buffer sizes */
+	ospf_sock_bufsize_update(ospf, ospf_sock, OSPF_SOCK_BOTH);
 
 	ospf->fd = ospf_sock;
 	return ret;
+}
+
+/*
+ * Update a socket bufsize(s), based on its ospf instance
+ */
+void ospf_sock_bufsize_update(const struct ospf *ospf, int sock,
+			      enum ospf_sock_type_e type)
+{
+	int bufsize;
+
+	if (type == OSPF_SOCK_BOTH || type == OSPF_SOCK_RECV) {
+		bufsize = ospf->recv_sock_bufsize;
+		setsockopt_so_recvbuf(sock, bufsize);
+	}
+
+	if (type == OSPF_SOCK_BOTH || type == OSPF_SOCK_SEND) {
+		bufsize = ospf->send_sock_bufsize;
+		setsockopt_so_sendbuf(sock, bufsize);
+	}
 }
