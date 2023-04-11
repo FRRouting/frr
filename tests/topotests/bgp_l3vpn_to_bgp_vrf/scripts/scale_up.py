@@ -62,6 +62,25 @@ else:
         "pass",
         "Adding {} routes".format(num),
     )
+    luCommand(
+        "ce1",
+        'vtysh -c "show ip route summ" | grep "sharp" | cut -d " " -f 33',
+        str(num),
+        "wait",
+        "See all sharp routes in rib on ce1",
+        wait,
+        wait_time=10,
+        )
+    luCommand(
+        "ce2",
+        'vtysh -c "show ip route summ" | grep "sharp" | cut -d " " -f 33',
+        str(num),
+        "wait",
+        "See all sharp routes in rib on ce2",
+        wait,
+        wait_time=10,
+        )
+
     rtrs = ["ce1", "ce2", "ce3"]
     for rtr in rtrs:
         luCommand(
