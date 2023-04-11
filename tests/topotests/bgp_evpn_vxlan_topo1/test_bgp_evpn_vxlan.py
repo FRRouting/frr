@@ -164,6 +164,15 @@ def test_pe1_converge_evpn():
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
 
+    # Let's ensure that the hosts have actually tried talking to
+    # each other.  Otherwise under certain startup conditions
+    # they may not actually do any l2 arp'ing and as such
+    # the bridges won't know about the hosts on their networks
+    host1 = tgen.gears["host1"]
+    host1.run("ping -c 1 10.10.1.56")
+    host2 = tgen.gears["host2"]
+    host2.run("ping -c 1 10.10.1.55")
+
     test_func = partial(
         check_vni_macs_present,
         tgen,
@@ -171,6 +180,7 @@ def test_pe1_converge_evpn():
         101,
         (("host1", "host1-eth0"), ("host2", "host2-eth0")),
     )
+
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     if result:
         logger.warning("%s", result)
