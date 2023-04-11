@@ -70,14 +70,6 @@ Frontend Interface and MGMTd:
     database.
   - Data can be retrieved anytime using GET_CONFIG/GET_DATA API.
 
- - Startup Database:
-
-  - Consists of configuration data items only.
-  - This is a copy of Running database that is stored in persistent
-    storage and is used to load configurations on Running database during
-    MGMT daemon startup.
-  - Data cannot be edited/retrieved directly via Frontend interface.
-
  - Operational Database:
 
   - Consists of non-configurational data items.
@@ -313,8 +305,7 @@ MGMT Configuration commands
 .. clicmd:: mgmt commit apply
 
     This command commits any uncommited changes in the Candidate DB to the
-    Running DB. It also dumps a copy of the tree in JSON format into
-    frr_startup.json.
+    Running DB.
 
 .. clicmd:: mgmt commit check
 
