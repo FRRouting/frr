@@ -55,8 +55,7 @@ struct if_rmap *if_rmap_lookup(struct if_rmap_ctx *ctx, const char *ifname)
 }
 
 void if_rmap_hook_add(struct if_rmap_ctx *ctx,
-		      void (*func)(struct if_rmap_ctx *ctx,
-				   struct if_rmap *))
+		      void (*func)(struct if_rmap_ctx *ctx, struct if_rmap *))
 {
 	ctx->if_rmap_add_hook = func;
 }
@@ -165,8 +164,8 @@ static int if_rmap_unset(struct if_rmap_ctx *ctx,
 	if (ctx->if_rmap_delete_hook)
 		ctx->if_rmap_delete_hook(ctx, if_rmap);
 
-	if (if_rmap->routemap[IF_RMAP_IN] == NULL
-	    && if_rmap->routemap[IF_RMAP_OUT] == NULL) {
+	if (if_rmap->routemap[IF_RMAP_IN] == NULL &&
+	    if_rmap->routemap[IF_RMAP_OUT] == NULL) {
 		hash_release(ctx->ifrmaphash, if_rmap);
 		if_rmap_free(if_rmap);
 	}
@@ -248,8 +247,7 @@ DEFUN (no_if_rmap,
 
 
 /* Configuration write function. */
-int config_write_if_rmap(struct vty *vty,
-			 struct if_rmap_ctx *ctx)
+int config_write_if_rmap(struct vty *vty, struct if_rmap_ctx *ctx)
 {
 	unsigned int i;
 	struct hash_bucket *mp;
@@ -296,8 +294,9 @@ struct if_rmap_ctx *if_rmap_ctx_create(const char *name)
 	ctx = XCALLOC(MTYPE_IF_RMAP_CTX, sizeof(struct if_rmap_ctx));
 
 	ctx->name = XSTRDUP(MTYPE_IF_RMAP_CTX_NAME, name);
-	ctx->ifrmaphash = hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
-					   "Interface Route-Map Hash");
+	ctx->ifrmaphash =
+		hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
+				 "Interface Route-Map Hash");
 	if (!if_rmap_ctx_list)
 		if_rmap_ctx_list = list_new();
 	listnode_add(if_rmap_ctx_list, ctx);
