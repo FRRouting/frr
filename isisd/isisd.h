@@ -196,6 +196,8 @@ struct isis_area {
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;
+	/* logging pdu drops? */
+	uint8_t log_pdu_drops;
 	/* multi topology settings */
 	struct list *mt_settings;
 	/* MPLS-TE settings */

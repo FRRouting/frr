@@ -1831,6 +1831,23 @@ int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/log-pdu-drops
+ */
+int isis_instance_log_pdu_drops_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	bool log = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->log_pdu_drops = log ? 1 : 0;
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls-te
  */
 int isis_instance_mpls_te_create(struct nb_cb_create_args *args)

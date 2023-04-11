@@ -196,6 +196,7 @@ int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
 int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
 int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args);
+int isis_instance_log_pdu_drops_modify(struct nb_cb_modify_args *args);
 int isis_instance_mpls_te_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args);
@@ -608,6 +609,8 @@ void cli_show_ip_isis_network_type(struct vty *vty,
 void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
 void cli_show_isis_log_adjacency(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
+void cli_show_isis_log_pdu_drops(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
 void cli_show_isis_mpls_ldp_sync(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);

@@ -68,6 +68,10 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Log changes in adjacency state.
 
+.. clicmd:: log-pdu-drops
+
+   Log any dropped PDUs.
+
 .. clicmd:: metric-style [narrow | transition | wide]
 
    Set old-style (ISO 10589) or new-style packet formats:

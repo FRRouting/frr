@@ -8,10 +8,10 @@
 
 #include "vty.h"
 
-#include "isisd/isis_pdu_counter.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_pdu.h"
+#include "isisd/isis_pdu_counter.h"
 
 static int pdu_type_to_counter_index(uint8_t pdu_type)
 {
@@ -90,4 +90,24 @@ void pdu_counter_print(struct vty *vty, const char *prefix,
 		vty_out(vty, "%s%s: %" PRIu64 "\n", prefix,
 			pdu_counter_index_to_name(i), counter[i]);
 	}
+}
+
+void pdu_counter_count_drop(struct isis_area *area, uint8_t pdu_type)
+{
+	pdu_counter_count(area->pdu_drop_counters, pdu_type);
+
+	if (area->log_pdu_drops) {
+		isis_log_pdu_drops(
+			area, pdu_counter_index_to_name(
+				      pdu_type_to_counter_index(pdu_type)));
+	}
+}
+
+uint64_t pdu_counter_get_count(pdu_counter_t counter, uint8_t pdu_type)
+{
+	int index = pdu_type_to_counter_index(pdu_type);
+
+	if (index < 0)
+		return -1;
+	return counter[index];
 }
