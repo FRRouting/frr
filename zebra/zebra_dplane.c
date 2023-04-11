@@ -6866,10 +6866,6 @@ void zebra_dplane_shutdown(void)
 
 	zdplane_info.dg_run = false;
 
-	if (zdplane_info.dg_t_update)
-		thread_cancel_async(zdplane_info.dg_t_update->master,
-				    &zdplane_info.dg_t_update, NULL);
-
 	frr_pthread_stop(zdplane_info.dg_pthread, NULL);
 
 	/* Destroy pthread */
