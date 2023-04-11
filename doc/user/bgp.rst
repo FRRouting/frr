@@ -2767,6 +2767,17 @@ happened automatically if local-role is set.
    value of his role (by setting local-role on his side). Otherwise, a Role
    Mismatch Notification will be sent.
 
+Labeled unicast
+---------------
+
+*bgpd* supports labeled information, as per :rfc:`3107`.
+
+.. clicmd:: bgp labeled-unicast explicit-null
+
+By default, locally advertised prefixes use the `implicit-null` label to
+encode in the outgoing NLRI. The following command uses the `explicit-null`
+label value for all the BGP instances.
+
 .. _bgp-l3vpn-vrfs:
 
 L3VPN VRFs
