@@ -1538,7 +1538,9 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 				seg6local_action2str(
 					nexthop->nh_srv6->seg6local_action),
 				buf);
-		vty_out(vty, ", seg6 %pI6", &nexthop->nh_srv6->seg6_segs);
+		if (IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs, &in6addr_any))
+			vty_out(vty, ", seg6 %pI6",
+				&nexthop->nh_srv6->seg6_segs);
 	}
 
 	if (nexthop->weight)
