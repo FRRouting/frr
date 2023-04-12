@@ -115,11 +115,13 @@ def check_show_ip_label_prefix_found(router, ipversion, prefix, label):
     output = json.loads(
         router.vtysh_cmd("show {} route {} json".format(ipversion, prefix))
     )
-    expected = {prefix: [{"prefix": prefix, "nexthops": [{"fib": True, "labels": [label]}]}]}
-    ret = topotest.json_cmp(output, expected)
-    if ret is None:
-        return "not good"
-    return None
+    expected = {
+        prefix: [
+            {"prefix": prefix, "nexthops": [{"fib": True, "labels": [int(label)]}]}
+        ]
+    }
+    return topotest.json_cmp(output, expected)
+
 
 def test_converge_bgplu():
     "Wait for protocol convergence"
@@ -141,9 +143,7 @@ def test_converge_bgplu():
         "0",
     )
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assert (
-        success
-    ), "r1, prefix 192.168.2.2/32 from r2 not present"
+    assert success, "r1, prefix 192.168.2.2/32 from r2 not present"
 
     # Check r2 gets prefix 192.168.2.1/32
     test_func = functools.partial(
@@ -154,9 +154,8 @@ def test_converge_bgplu():
         "0",
     )
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assert (
-        success
-    ), "r2, prefix 192.168.2.1/32 from r1 not present"
+    assert success, "r2, prefix 192.168.2.1/32 from r1 not present"
+
 
 def test_traffic_connectivity():
     "Wait for protocol convergence"
@@ -168,7 +167,9 @@ def test_traffic_connectivity():
 
     def _check_ping(name, dest_addr, src_addr):
         tgen = get_topogen()
-        output = tgen.gears[name].run("ping {} -c 1 -w 1 -I {}".format(dest_addr, src_addr))
+        output = tgen.gears[name].run(
+            "ping {} -c 1 -w 1 -I {}".format(dest_addr, src_addr)
+        )
         logger.info(output)
         if " 0% packet loss" not in output:
             return True
@@ -179,6 +180,7 @@ def test_traffic_connectivity():
     # tgen.mininet_cli()
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
     assert result is None, "r1, ping to 192.168.2.2 from 192.168.2.1 fails"
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."
