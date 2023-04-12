@@ -3,6 +3,7 @@
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
+ * Copyright (C) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -13,6 +14,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "command.h"
+#include "if_rmap.h"
 #include "routemap.h"
 #include "northbound.h"
 #include "libfrr.h"
@@ -676,6 +678,94 @@ int ripd_instance_redistribute_metric_destroy(struct nb_cb_destroy_args *args)
 
 	rip->redist[type].metric_config = false;
 	rip->redist[type].metric = 0;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/if-route-maps/if-route-map
+ */
+int ripd_instance_if_route_maps_if_route_map_create(
+	struct nb_cb_create_args *args)
+{
+	/* if_rmap is created when first routemap is added */
+	return NB_OK;
+}
+
+int ripd_instance_if_route_maps_if_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * YANG will prune edit deletes up to the most general deleted node so
+	 * we need to handle deleting any existing state underneath and not
+	 * count on those more specific callbacks being called individually.
+	 */
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	if_rmap_yang_destroy_cb(rip->if_rmap_ctx, args->dnode);
+
+	return NB_OK;
+}
+
+static void if_route_map_modify(const struct lyd_node *dnode,
+				enum if_rmap_type type, bool delete)
+{
+	struct rip *rip = nb_running_get_entry(dnode, NULL, true);
+
+	if_rmap_yang_modify_cb(rip->if_rmap_ctx, dnode, type, delete);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/if-route-maps/if-route-map/in-route-map
+ */
+int ripd_instance_if_route_maps_if_route_map_in_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_IN, false);
+
+	return NB_OK;
+}
+
+int ripd_instance_if_route_maps_if_route_map_in_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_IN, true);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/if-route-maps/if-route-map/out-route-map
+ */
+int ripd_instance_if_route_maps_if_route_map_out_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_OUT, false);
+
+	return NB_OK;
+}
+
+int ripd_instance_if_route_maps_if_route_map_out_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_OUT, true);
 
 	return NB_OK;
 }

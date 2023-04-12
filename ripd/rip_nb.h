@@ -52,6 +52,18 @@ int ripd_instance_redistribute_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int ripd_instance_redistribute_metric_modify(struct nb_cb_modify_args *args);
 int ripd_instance_redistribute_metric_destroy(struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_create(
+	struct nb_cb_create_args *args);
+int ripd_instance_if_route_maps_if_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_in_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripd_instance_if_route_maps_if_route_map_in_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_out_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripd_instance_if_route_maps_if_route_map_out_route_map_destroy(
+	struct nb_cb_destroy_args *args);
 int ripd_instance_static_route_create(struct nb_cb_create_args *args);
 int ripd_instance_static_route_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_timers_flush_interval_modify(struct nb_cb_modify_args *args);

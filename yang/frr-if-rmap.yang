@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-if-rmap {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-if-rmap";
+  prefix frr-if-map;
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines route map settings
+
+     Copyright 2023 LabN Consulting L.L.C
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2023-04-09 {
+    description
+      "Initial revision";
+    reference "FRRouting";
+  }
+
+  grouping if-route-maps-group {
+    description "Grouping for interface route maps";
+
+    container if-route-maps {
+      description "Collection of interface route-maps";
+
+      list if-route-map {
+        must "in-route-map or out-route-map";
+        key "interface";
+        description "Collection of route-maps for an interface";
+
+        leaf "interface" {
+          type frr-interface:interface-ref;
+          description "The interface the route maps are associated with";
+        }
+        leaf "in-route-map" {
+          type frr-route-map:route-map-name;
+          description "Name of the ingress route map";
+        }
+        leaf "out-route-map" {
+          type frr-route-map:route-map-name;
+          description "Name of the egress route map";
+        }
+      }
+    }
+  }
+}
