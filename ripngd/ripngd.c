@@ -2231,7 +2231,6 @@ static int ripng_config_write(struct vty *vty)
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		config_write_distribute(vty, ripng->distribute_ctx);
-		config_write_if_rmap(vty, ripng->if_rmap_ctx);
 
 		vty_out(vty, "exit\n");
 

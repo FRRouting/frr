@@ -10,6 +10,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripng_nb.h"
+#include "lib/if_rmap.h"
 
 /* clang-format off */
 const struct frr_yang_module_info frr_ripngd_info = {
@@ -119,6 +120,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_if_route_maps_if_route_map_create,
 				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
+				.cli_show = cli_show_if_route_map,
 			}
 		},
 		{

@@ -3204,9 +3204,6 @@ static int config_write_rip(struct vty *vty)
 		/* Distribute configuration. */
 		config_write_distribute(vty, rip->distribute_ctx);
 
-		/* Interface routemap configuration */
-		config_write_if_rmap(vty, rip->if_rmap_ctx);
-
 		vty_out(vty, "exit\n");
 
 		write = 1;

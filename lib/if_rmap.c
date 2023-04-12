@@ -240,6 +240,18 @@ DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
 				    route_map);
 }
 
+void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	if (yang_dnode_exists(dnode, "./in-route-map"))
+		vty_out(vty, " route-map %s in %s\n",
+			yang_dnode_get_string(dnode, "./in-route-map"),
+			yang_dnode_get_string(dnode, "./interface"));
+	if (yang_dnode_exists(dnode, "./out-route-map"))
+		vty_out(vty, " route-map %s out %s\n",
+			yang_dnode_get_string(dnode, "./out-route-map"),
+			yang_dnode_get_string(dnode, "./interface"));
+}
 
 void if_rmap_yang_modify_cb(struct if_rmap_ctx *ctx,
 			    const struct lyd_node *dnode,
@@ -261,38 +273,6 @@ void if_rmap_yang_destroy_cb(struct if_rmap_ctx *ctx,
 	const char *ifname = yang_dnode_get_string(dnode, "interface");
 	if_rmap_unset(ctx, ifname, IF_RMAP_IN);
 	if_rmap_unset(ctx, ifname, IF_RMAP_OUT);
-}
-
-
-/* Configuration write function. */
-int config_write_if_rmap(struct vty *vty, struct if_rmap_ctx *ctx)
-{
-	unsigned int i;
-	struct hash_bucket *mp;
-	int write = 0;
-	struct hash *ifrmaphash = ctx->ifrmaphash;
-
-	for (i = 0; i < ifrmaphash->size; i++)
-		for (mp = ifrmaphash->index[i]; mp; mp = mp->next) {
-			struct if_rmap *if_rmap;
-
-			if_rmap = mp->data;
-
-			if (if_rmap->routemap[IF_RMAP_IN]) {
-				vty_out(vty, " route-map %s in %s\n",
-					if_rmap->routemap[IF_RMAP_IN],
-					if_rmap->ifname);
-				write++;
-			}
-
-			if (if_rmap->routemap[IF_RMAP_OUT]) {
-				vty_out(vty, " route-map %s out %s\n",
-					if_rmap->routemap[IF_RMAP_OUT],
-					if_rmap->ifname);
-				write++;
-			}
-		}
-	return write;
 }
 
 void if_rmap_ctx_delete(struct if_rmap_ctx *ctx)
