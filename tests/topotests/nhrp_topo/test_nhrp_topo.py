@@ -441,6 +441,50 @@ def test_nhrp_connection_2():
     check_nhrp_ping()
 
 
+def test_interface_gre_down_2():
+    "Turn off the GRE interface."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Turning a second time r1-gre0 interface to down on r1")
+    router = tgen.gears["r1"]
+    router.run("ip link set dev r1-gre0 down")
+    logger.info("Turning a second time r2-gre0 interface to down on r2")
+    router = tgen.gears["r2"]
+    router.run("ip link set dev r2-gre0 down")
+
+    check_nhrp_cache_not_found()
+
+    check_nhrp_route_not_found()
+
+
+def test_interface_gre_up_2():
+    "Turn on the GRE interface."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Turning a second time r1-gre0 interface to up on r1")
+    router = tgen.gears["r1"]
+    router.run("ip link set dev r1-gre0 up")
+    logger.info("Turning a second time r2-gre0 interface to up on r2")
+    router = tgen.gears["r2"]
+    router.run("ip link set dev r2-gre0 up")
+    check_nhrp_cache()
+
+    check_nhrp_route()
+
+
+def test_nhrp_connection_3():
+    "Assert that the NHRP peers can find themselves."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_nhrp_ping()
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
