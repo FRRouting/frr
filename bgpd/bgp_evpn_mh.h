@@ -315,10 +315,10 @@ struct bgp_evpn_mh_info {
 	 * can be turned off to activate a remote ES-PE when the EAD-per-ES
 	 * route is rxed i.e. not wait on the EAD-per-EVI route
 	 */
-	bool ead_evi_rx;
+	bool enable_ead_evi_rx;
 #define BGP_EVPN_MH_EAD_EVI_RX_DEF true
 	/* Skip EAD-EVI advertisements by turning off this knob */
-	bool ead_evi_tx;
+	bool enable_ead_evi_tx;
 #define BGP_EVPN_MH_EAD_EVI_TX_DEF true
 	/* If the Local ES is inactive we advertise the MAC-IP without the
 	 * L3 ecomm
@@ -459,7 +459,16 @@ extern void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
 					     struct ecommunity *ecom, bool del);
+<<<<<<< HEAD
 extern void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
 								struct bgp_evpn_es_evi *es_evi);
+=======
+extern void bgp_evpn_local_es_evi_uninstall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+								 struct bgp_evpn_es_evi *es_evi);
+
+void bgp_evpn_vtep_ip_to_attr_nh(const struct ipaddr *vtep_ip, struct attr *attr);
+extern void bgp_evpn_switch_ead_evi_rx(void);
+extern void bgp_evpn_switch_ead_evi_tx(void);
+>>>>>>> 2ead57f5c (bgpd: Reevaluate ead-evi routes for all VNI on disable-ead-evi-tx knob flap)
 
 #endif /* _FRR_BGP_EVPN_MH_H */
