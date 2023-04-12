@@ -35,12 +35,11 @@
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
-/*#include "ospfd/ospf_routemap.h" */
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_ldp_sync.h"
-
+#include "ospfd/ospf_network.h"
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
@@ -12511,6 +12510,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->fr_configured)
 		vty_out(vty, " flood-reduction\n");
 
+	if (!ospf->intf_socket_enabled)
+		vty_out(vty, " no socket-per-interface\n");
+
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
 
@@ -13075,6 +13077,35 @@ DEFPY(ospf_socket_bufsizes,
 	return CMD_SUCCESS;
 }
 
+DEFPY (per_intf_socket,
+       per_intf_socket_cmd,
+       "[no] socket-per-interface",
+       NO_STR
+       "Use write socket per interface\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct listnode *node;
+	struct ospf_interface *oi;
+
+	if (no) {
+		if (ospf->intf_socket_enabled) {
+			ospf->intf_socket_enabled = false;
+
+			/* Iterate and close any sockets */
+			for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+				ospf_ifp_sock_close(oi->ifp);
+		}
+	} else if (!ospf->intf_socket_enabled) {
+		ospf->intf_socket_enabled = true;
+
+		/* Iterate and open sockets */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+			ospf_ifp_sock_init(oi->ifp);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13239,6 +13270,7 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_flood_reduction_area_cmd);
 
 	install_element(OSPF_NODE, &ospf_socket_bufsizes_cmd);
+	install_element(OSPF_NODE, &per_intf_socket_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

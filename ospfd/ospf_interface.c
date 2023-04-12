@@ -651,6 +651,8 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	ifp->info = XCALLOC(MTYPE_OSPF_IF_INFO, sizeof(struct ospf_if_info));
 
+	IF_OSPF_IF_INFO(ifp)->oii_fd = -1;
+
 	IF_OIFS(ifp) = route_table_init();
 	IF_OIFS_PARAMS(ifp) = route_table_init();
 
@@ -691,6 +693,8 @@ static int ospf_if_delete_hook(struct interface *ifp)
 {
 	int rc = 0;
 	struct route_node *rn;
+	struct ospf_if_info *oii;
+
 	rc = ospf_opaque_del_if(ifp);
 
 	/*
@@ -706,6 +710,13 @@ static int ospf_if_delete_hook(struct interface *ifp)
 
 	route_table_finish(IF_OIFS(ifp));
 	route_table_finish(IF_OIFS_PARAMS(ifp));
+
+	/* Close per-interface socket */
+	oii = ifp->info;
+	if (oii && oii->oii_fd > 0) {
+		close(oii->oii_fd);
+		oii->oii_fd = -1;
+	}
 
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
 
@@ -1367,6 +1378,16 @@ static int ospf_ifp_up(struct interface *ifp)
 	struct ospf_interface *oi;
 	struct route_node *rn;
 	struct ospf_if_info *oii = ifp->info;
+	struct ospf *ospf;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: Interface[%s] state change to up.",
+			   ifp->name);
+
+	/* Open per-intf write socket if configured */
+	ospf = ifp->vrf->info;
+	if (ospf && ospf->intf_socket_enabled)
+		ospf_ifp_sock_init(ifp);
 
 	ospf_if_recalculate_output_cost(ifp);
 
@@ -1383,10 +1404,6 @@ static int ospf_ifp_up(struct interface *ifp)
 
 		return 0;
 	}
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to up.",
-			   ifp->name);
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		if ((oi = rn->info) == NULL)
@@ -1415,6 +1432,9 @@ static int ospf_ifp_down(struct interface *ifp)
 			continue;
 		ospf_if_down(oi);
 	}
+
+	/* Close per-interface write socket if configured */
+	ospf_ifp_sock_close(ifp);
 
 	return 0;
 }

@@ -431,6 +431,9 @@ struct ospf {
 	uint32_t recv_sock_bufsize;
 	uint32_t send_sock_bufsize;
 
+	/* Per-interface write socket */
+	bool intf_socket_enabled;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf);

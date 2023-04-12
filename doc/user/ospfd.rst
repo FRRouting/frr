@@ -315,6 +315,13 @@ To start OSPF process you have to specify the OSPF router.
    This command controls the ospf instance's socket buffer sizes. The
    'no' form resets one or both values to the default.
    
+.. clicmd:: no socket-per-interface
+
+   Ordinarily, ospfd uses a socket per interface for sending
+   packets. This command disables those per-interface sockets, and
+   causes ospfd to use a single socket per ospf instance for sending
+   and receiving packets.
+
 .. _ospf-area:
 
 Areas
