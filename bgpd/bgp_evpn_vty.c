@@ -4413,12 +4413,13 @@ DEFPY (bgp_evpn_ead_evi_rx_disable,
        NO_STR
        "Activate PE on EAD-ES even if EAD-EVI is not received\n")
 {
-	bool ead_evi_rx = no? true :false;
+	bool old_ead_evi_rx = no ? true : false;
 
-	if (ead_evi_rx != bgp_mh_info->ead_evi_rx) {
-		bgp_mh_info->ead_evi_rx = ead_evi_rx;
+	if (old_ead_evi_rx != bgp_mh_info->enable_ead_evi_rx) {
+		bgp_mh_info->enable_ead_evi_rx = old_ead_evi_rx;
 		bgp_evpn_switch_ead_evi_rx();
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -4428,7 +4429,13 @@ DEFPY (bgp_evpn_ead_evi_tx_disable,
        NO_STR
        "Don't advertise EAD-EVI for local ESs\n")
 {
-	bgp_mh_info->ead_evi_tx = no? true :false;
+	bool old_ead_evi_tx = no ? true : false;
+
+	if (old_ead_evi_tx != bgp_mh_info->enable_ead_evi_tx) {
+		bgp_mh_info->enable_ead_evi_tx = old_ead_evi_tx;
+		bgp_evpn_switch_ead_evi_tx();
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -7387,15 +7394,15 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_out(vty, "  no use-es-l3nhg\n");
 	}
 
-	if (bgp_mh_info->ead_evi_rx != BGP_EVPN_MH_EAD_EVI_RX_DEF) {
-		if (bgp_mh_info->ead_evi_rx)
+	if (bgp_mh_info->enable_ead_evi_rx != BGP_EVPN_MH_EAD_EVI_RX_DEF) {
+		if (bgp_mh_info->enable_ead_evi_rx)
 			vty_out(vty, "  no disable-ead-evi-rx\n");
 		else
 			vty_out(vty, "  disable-ead-evi-rx\n");
 	}
 
-	if (bgp_mh_info->ead_evi_tx != BGP_EVPN_MH_EAD_EVI_TX_DEF) {
-		if (bgp_mh_info->ead_evi_tx)
+	if (bgp_mh_info->enable_ead_evi_tx != BGP_EVPN_MH_EAD_EVI_TX_DEF) {
+		if (bgp_mh_info->enable_ead_evi_tx)
 			vty_out(vty, "  no disable-ead-evi-tx\n");
 		else
 			vty_out(vty, "  disable-ead-evi-tx\n");
