@@ -80,23 +80,23 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 	 .be_clients =
 		 (enum mgmt_be_client_id[]){
 #if HAVE_STATICD
-		 MGMTD_BE_CLIENT_ID_STATICD,
+			 MGMTD_BE_CLIENT_ID_STATICD,
 #endif
 			 MGMTD_BE_CLIENT_ID_MAX}},
 	{.xpath_regexp = "/frr-interface:lib/*",
 	 .be_clients =
 		 (enum mgmt_be_client_id[]){
 #if HAVE_STATICD
-		 MGMTD_BE_CLIENT_ID_STATICD,
+			 MGMTD_BE_CLIENT_ID_STATICD,
 #endif
 			 MGMTD_BE_CLIENT_ID_MAX}},
 	{.xpath_regexp =
-		 "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/*",
+		"/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/*",
 
 	 .be_clients =
 		 (enum mgmt_be_client_id[]){
 #if HAVE_STATICD
-		 MGMTD_BE_CLIENT_ID_STATICD,
+			 MGMTD_BE_CLIENT_ID_STATICD,
 #endif
 			 MGMTD_BE_CLIENT_ID_MAX}},
 };
@@ -347,8 +347,8 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 	struct mgmt_be_client_adapter *old;
 
 	FOREACH_ADAPTER_IN_LIST (old) {
-		if (old != adapter
-		    && !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
+		if (old != adapter &&
+		    !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
 			/*
 			 * We have a Zombie lingering around
 			 */

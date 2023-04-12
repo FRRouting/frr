@@ -109,8 +109,8 @@ mgmt_fe_find_session_by_session_id(struct mgmt_fe_client_ctx *client_ctx,
 	FOREACH_SESSION_IN_LIST (client_ctx, session) {
 		if (session->session_id == session_id) {
 			MGMTD_FE_CLIENT_DBG(
-				"Found session %p for session-id %llu.", session,
-				(unsigned long long)session_id);
+				"Found session %p for session-id %llu.",
+				session, (unsigned long long)session_id);
 			return session;
 		}
 	}
@@ -274,7 +274,8 @@ mgmt_fe_send_lockds_req(struct mgmt_fe_client_ctx *client_ctx,
 
 	MGMTD_FE_CLIENT_DBG(
 		"Sending %sLOCK_REQ message for Ds:%d session %llu to MGMTD Frontend server",
-		lock ? "" : "UN", ds_id, (unsigned long long)session->client_id);
+		lock ? "" : "UN", ds_id,
+		(unsigned long long)session->client_id);
 
 	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
 }
@@ -310,12 +311,12 @@ mgmt_fe_send_setcfg_req(struct mgmt_fe_client_ctx *client_ctx,
 	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
 }
 
-static int
-mgmt_fe_send_commitcfg_req(struct mgmt_fe_client_ctx *client_ctx,
-			       struct mgmt_fe_client_session *session,
-			       uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-			       Mgmtd__DatastoreId dest_ds_id, bool validate_only,
-			       bool abort)
+static int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client_ctx *client_ctx,
+				      struct mgmt_fe_client_session *session,
+				      uint64_t req_id,
+				      Mgmtd__DatastoreId src_ds_id,
+				      Mgmtd__DatastoreId dest_ds_id,
+				      bool validate_only, bool abort)
 {
 	(void)req_id;
 	Mgmtd__FeMessage fe_msg;
@@ -450,15 +451,17 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 			if (session && fe_msg->session_reply->success) {
 				MGMTD_FE_CLIENT_DBG(
 					"Session Create for client-id %llu successful.",
-					(unsigned long long)fe_msg
-						->session_reply->client_conn_id);
+					(unsigned long long)
+						fe_msg->session_reply
+							->client_conn_id);
 				session->session_id =
 					fe_msg->session_reply->session_id;
 			} else {
 				MGMTD_FE_CLIENT_ERR(
 					"Session Create for client-id %llu failed.",
-					(unsigned long long)fe_msg
-						->session_reply->client_conn_id);
+					(unsigned long long)
+						fe_msg->session_reply
+							->client_conn_id);
 			}
 		} else if (!fe_msg->session_reply->create) {
 			MGMTD_FE_CLIENT_DBG(

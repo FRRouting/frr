@@ -33,7 +33,7 @@ DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
  * The only instance of VTY session that has triggered an ongoing
  * config rollback operation.
  */
-static struct vty *rollback_vty = NULL;
+static struct vty *rollback_vty;
 
 static bool mgmt_history_record_exists(char *file_path)
 {
@@ -82,7 +82,7 @@ static struct mgmt_cmt_info_t *mgmt_history_create_cmt_rec(void)
 	mgmt_realtime_to_string(&cmt_recd_tv, new->time_str,
 				sizeof(new->time_str));
 	mgmt_history_hash(new->time_str, new->cmtid_str);
-	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file),
+	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file) - 1,
 		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
 
 	if (mgmt_cmt_infos_count(&mm->cmts) == MGMTD_MAX_COMMIT_LIST) {
@@ -100,7 +100,8 @@ static struct mgmt_cmt_info_t *mgmt_history_create_cmt_rec(void)
 	return new;
 }
 
-static struct mgmt_cmt_info_t *mgmt_history_find_cmt_record(const char *cmtid_str)
+static struct mgmt_cmt_info_t *
+mgmt_history_find_cmt_record(const char *cmtid_str)
 {
 	struct mgmt_cmt_info_t *cmt_info;
 
@@ -129,7 +130,8 @@ static bool mgmt_history_read_cmt_record_index(void)
 
 	while ((fread(&cmt_info, sizeof(cmt_info), 1, fp)) > 0) {
 		if (cnt < MGMTD_MAX_COMMIT_LIST) {
-			if (!mgmt_history_record_exists(cmt_info.cmt_json_file)) {
+			if (!mgmt_history_record_exists(
+				    cmt_info.cmt_json_file)) {
 				zlog_err(
 					"Commit record present in index_file, but commit file %s missing",
 					cmt_info.cmt_json_file);
@@ -282,7 +284,8 @@ int mgmt_history_rollback_by_id(struct vty *vty, const char *cmtid_str)
 	FOREACH_CMT_REC (mm, cmt_info) {
 		if (strncmp(cmt_info->cmtid_str, cmtid_str,
 			    MGMTD_MD5_HASH_STR_HEX_LEN) == 0) {
-			ret = mgmt_history_rollback_to_cmt(vty, cmt_info, false);
+			ret = mgmt_history_rollback_to_cmt(vty, cmt_info,
+							   false);
 			return ret;
 		}
 
@@ -321,7 +324,8 @@ int mgmt_history_rollback_n(struct vty *vty, int num_cmts)
 
 	FOREACH_CMT_REC (mm, cmt_info) {
 		if (cnt == num_cmts) {
-			ret = mgmt_history_rollback_to_cmt(vty, cmt_info, false);
+			ret = mgmt_history_rollback_to_cmt(vty, cmt_info,
+							   false);
 			return ret;
 		}
 
@@ -356,6 +360,7 @@ void show_mgmt_cmt_history(struct vty *vty)
 void mgmt_history_new_record(struct mgmt_ds_ctx *ds_ctx)
 {
 	struct mgmt_cmt_info_t *cmt_info = mgmt_history_create_cmt_rec();
+
 	mgmt_ds_dump_ds_to_file(cmt_info->cmt_json_file, ds_ctx);
 	mgmt_history_dump_cmt_record_index();
 }

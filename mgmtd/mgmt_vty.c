@@ -391,6 +391,7 @@ static struct cmd_node debug_node = {
 static int config_write_mgmt_debug_helper(struct vty *vty, bool config)
 {
 	int n = mgmt_debug_be + mgmt_debug_fe + mgmt_debug_ds + mgmt_debug_txn;
+
 	if (!n)
 		return 0;
 
@@ -442,6 +443,7 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
       "Transaction debug\n")
 {
 	bool set = !no;
+
 	if (all)
 		be = fe = ds = txn = set ? all : NULL;
 

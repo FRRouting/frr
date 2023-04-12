@@ -495,7 +495,8 @@ static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
 
 	if (implicit_commit) {
 		if (mm->perf_stats_en)
-			gettimeofday(&session->adapter->cmt_stats.last_end, NULL);
+			gettimeofday(&session->adapter->cmt_stats.last_end,
+				     NULL);
 		mgmt_fe_session_compute_commit_timers(
 			&session->adapter->cmt_stats);
 	}
@@ -715,8 +716,8 @@ mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 	struct mgmt_fe_client_adapter *old;
 
 	FOREACH_ADAPTER_IN_LIST (old) {
-		if (old != adapter
-		    && !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
+		if (old != adapter &&
+		    !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
 			/*
 			 * We have a Zombie lingering around
 			 */
@@ -1109,8 +1110,8 @@ mgmt_fe_session_handle_getdata_req_msg(struct mgmt_fe_session_ctx *session,
 						  MGMTD_TXN_TYPE_SHOW);
 		if (session->txn_id == MGMTD_SESSION_ID_NONE) {
 			mgmt_fe_send_getdata_reply(
-				session, getdata_req->ds_id, getdata_req->req_id,
-				false, NULL,
+				session, getdata_req->ds_id,
+				getdata_req->req_id, false, NULL,
 				"Failed to create a Show transaction!");
 			goto mgmt_fe_sess_handle_getdata_req_failed;
 		}
@@ -1780,8 +1781,8 @@ mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
 					sizeof(buf)));
 			vty_out(vty, "        Apply-Config Start: \t\t%s\n",
 				mgmt_realtime_to_string(
-					&adapter->cmt_stats.apply_cfg_start, buf,
-					sizeof(buf)));
+					&adapter->cmt_stats.apply_cfg_start,
+					buf, sizeof(buf)));
 			vty_out(vty, "        Apply-Config End: \t\t%s\n",
 				mgmt_realtime_to_string(
 					&adapter->cmt_stats.apply_cfg_end, buf,
@@ -1818,8 +1819,9 @@ mgmt_fe_adapter_setcfg_stats_write(struct vty *vty,
 			adapter->setcfg_stats.avg_tm);
 		vty_out(vty, "    Last-Set-Cfg-Details:\n");
 		vty_out(vty, "      Set-Cfg Start: \t\t\t%s\n",
-			mgmt_realtime_to_string(&adapter->setcfg_stats.last_start,
-						buf, sizeof(buf)));
+			mgmt_realtime_to_string(
+				&adapter->setcfg_stats.last_start, buf,
+				sizeof(buf)));
 		vty_out(vty, "      Set-Cfg End: \t\t\t%s\n",
 			mgmt_realtime_to_string(&adapter->setcfg_stats.last_end,
 						buf, sizeof(buf)));
@@ -1894,9 +1896,11 @@ void mgmt_fe_adapter_reset_perf_stats(struct vty *vty)
 	struct mgmt_fe_session_ctx *session;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		memset(&adapter->setcfg_stats, 0, sizeof(adapter->setcfg_stats));
+		memset(&adapter->setcfg_stats, 0,
+		       sizeof(adapter->setcfg_stats));
 		FOREACH_SESSION_IN_LIST (adapter, session) {
-			memset(&adapter->cmt_stats, 0, sizeof(adapter->cmt_stats));
+			memset(&adapter->cmt_stats, 0,
+			       sizeof(adapter->cmt_stats));
 		}
 	}
 }

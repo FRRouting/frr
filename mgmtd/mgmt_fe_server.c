@@ -119,7 +119,7 @@ static void mgmt_fe_server_start(const char *hostname)
 	return;
 
 mgmt_fe_server_start_failed:
-	if (sock)
+	if (sock > 0)
 		close(sock);
 
 	mgmt_fe_listen_fd = -1;

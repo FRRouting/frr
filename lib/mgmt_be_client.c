@@ -16,17 +16,17 @@
 #include "sockopt.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                         \
+#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
 	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                         \
+#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                         \
+#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
 	do {                                                                   \
-		if (mgmt_debug_be_client)                                     \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);         \
+		if (mgmt_debug_be_client)                                      \
+			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
 	} while (0)
-#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                         \
+#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
@@ -597,7 +597,8 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 		MGMTD_BE_CLIENT_DBG(
 			"Avg-nb-edit-duration %lu uSec, nb-prep-duration %lu (avg: %lu) uSec, batch size %u",
 			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
-			client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
+			client_ctx->avg_prep_nb_cfg_tm,
+			(uint32_t)num_processed);
 
 	if (error)
 		mgmt_be_txn_cfg_abort(txn);
