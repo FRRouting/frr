@@ -2477,7 +2477,7 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
     input_dict = {
                     "helperSupport":"Disabled",
                     "strictLsaCheck":"Enabled",
-                    "restartSupoort":"Planned and Unplanned Restarts",
+                    "restartSupport":"Planned and Unplanned Restarts",
                     "supportedGracePeriod":1800
                 }
     result = verify_ospf_gr_helper(tgen, topo, dut, input_dict)

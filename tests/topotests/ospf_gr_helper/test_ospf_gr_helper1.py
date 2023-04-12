@@ -188,7 +188,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     input_dict = {
         "helperSupport": "Disabled",
         "strictLsaCheck": "Enabled",
-        "restartSupoort": "Planned and Unplanned Restarts",
+        "restartSupport": "Planned and Unplanned Restarts",
         "supportedGracePeriod": 1800,
     }
     dut = "r0"
@@ -220,7 +220,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     input_dict = {
         "helperSupport": "Enabled",
         "strictLsaCheck": "Enabled",
-        "restartSupoort": "Planned and Unplanned Restarts",
+        "restartSupport": "Planned and Unplanned Restarts",
         "supportedGracePeriod": 1800,
     }
     dut = "r0"
