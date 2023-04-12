@@ -1999,7 +1999,7 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 						struct ospf_lsa *type7,
 						struct ospf_lsa *type5)
 {
-	struct ospf_lsa *new;
+	struct ospf_lsa *new, *translated_lsa;
 	struct as_external_lsa *extnew;
 
 	if (ospf->gr_info.restart_in_progress) {
@@ -2013,7 +2013,8 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	 * the OSPF_LSA_LOCAL_XLT flag, must originate by hand
 	 */
 
-	if ((new = ospf_lsa_translated_nssa_new(ospf, type7)) == NULL) {
+	if ((translated_lsa = ospf_lsa_translated_nssa_new(ospf, type7)) ==
+	    NULL) {
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
 				"%s: Could not translate Type-7, Id %pI4, to Type-5",
@@ -2021,16 +2022,17 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 		return NULL;
 	}
 
-	extnew = (struct as_external_lsa *)new->data;
+	extnew = (struct as_external_lsa *)translated_lsa->data;
 
 	/* Update LSA sequence number from translated Type-5 LSA */
 	if (type5)
-		new->data->ls_seqnum = lsa_seqnum_increment(type5);
+		translated_lsa->data->ls_seqnum = lsa_seqnum_increment(type5);
 
-	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
+	if ((new = ospf_lsa_install(ospf, NULL, translated_lsa)) == NULL) {
 		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "%s: Could not install LSA id %pI4", __func__,
 			  &type7->data->id);
+		ospf_lsa_free(translated_lsa);
 		return NULL;
 	}
 
@@ -2053,7 +2055,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 					      struct ospf_lsa *type7,
 					      struct ospf_lsa *type5)
 {
-	struct ospf_lsa *new = NULL;
+	struct ospf_lsa *new = NULL, *translated_lsa = NULL;
 	struct as_external_lsa *extold = NULL;
 	uint32_t ls_seqnum = 0;
 
@@ -2129,7 +2131,8 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 	ospf_ls_retransmit_delete_nbr_as(ospf, type5);
 
 	/* create new translated LSA */
-	if ((new = ospf_lsa_translated_nssa_new(ospf, type7)) == NULL) {
+	if ((translated_lsa = ospf_lsa_translated_nssa_new(ospf, type7)) ==
+	    NULL) {
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
 				"%s: Could not translate Type-7 for %pI4 to Type-5",
@@ -2139,13 +2142,14 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 
 	if (type7->area->suppress_fa == 1) {
 		if (extold->e[0].fwd_addr.s_addr == 0)
-			new->data->ls_seqnum = htonl(ls_seqnum + 1);
+			translated_lsa->data->ls_seqnum = htonl(ls_seqnum + 1);
 	}
 
-	if (!(new = ospf_lsa_install(ospf, NULL, new))) {
+	if (!(new = ospf_lsa_install(ospf, NULL, translated_lsa))) {
 		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "%s: Could not install translated LSA, Id %pI4",
 			  __func__, &type7->data->id);
+		ospf_lsa_free(translated_lsa);
 		return NULL;
 	}
 
