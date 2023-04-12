@@ -1532,10 +1532,12 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		seg6local_context2str(buf, sizeof(buf),
 				      &nexthop->nh_srv6->seg6local_ctx,
 				      nexthop->nh_srv6->seg6local_action);
-		vty_out(vty, ", seg6local %s %s",
-			seg6local_action2str(
-				nexthop->nh_srv6->seg6local_action),
-			buf);
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			vty_out(vty, ", seg6local %s %s",
+				seg6local_action2str(
+					nexthop->nh_srv6->seg6local_action),
+				buf);
 		vty_out(vty, ", seg6 %pI6", &nexthop->nh_srv6->seg6_segs);
 	}
 
