@@ -3054,10 +3054,19 @@ static bool bgp_lu_need_imp_null(const struct bgp_path_info *new_select)
 	if (new_select->sub_type == BGP_ROUTE_STATIC
 	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
 	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
+<<<<<<< HEAD
 		return true;
 	else if (new_select->extra == NULL ||
 		 !bgp_is_valid_label(&new_select->extra->label[0]))
 		/* TODO -- should be configurable? */
+=======
+		goto need_null_label;
+	else if (new_select->extra &&
+		 bgp_is_valid_label(&new_select->extra->label[0]))
+		return false;
+need_null_label:
+	if (label == NULL)
+>>>>>>> f8141f4a6 (bgpd: fix bgp label value when static route used)
 		return true;
 	else
 		return false;
