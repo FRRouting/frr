@@ -127,23 +127,76 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def test_protocols_convergence():
+def check_nhrp_cache_not_found():
     """
-    Assert that all protocols have converged before checking for the NHRP
-    statuses as they depend on it.
+    Check that nhrp cache contexts are not present on the NHRP daemon
+    Generate an assert if it is not the case
     """
     tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    router_list = tgen.routers()
 
-    # Check IPv4 routing tables.
-    logger.info("Checking NHRP cache and IPv4 routes for convergence")
+    def _nhrp_entry_not_found(router, interface, protocol, nbma, claimed_nbma, type):
+        output = json.loads(router.vtysh_cmd("show ip nhrp cache json"))
+        expected = {
+            "default": {
+                "table": [
+                    {
+                        "interface": interface,
+                        "type": type,
+                        "protocol": protocol,
+                        "nbma": nbma,
+                        "claimed_nbma": claimed_nbma,
+                        "used": False,
+                        "timeout": True,
+                        "auth": False,
+                        "identity": "",
+                    },
+                ]
+            }
+        }
+        ret = topotest.json_cmp(output, expected)
+        if ret is None:
+            return "not good"
+        return None
+
+    for rname, router in router_list.items():
+        if rname == "r1":
+            test_func = partial(
+                _nhrp_entry_not_found,
+                router,
+                "r1-gre0",
+                "10.255.255.2",
+                "10.2.1.2",
+                "10.2.1.2",
+                "nhs",
+            )
+        elif rname == "r2":
+            test_func = partial(
+                _nhrp_entry_not_found,
+                router,
+                "r2-gre0",
+                "10.255.255.1",
+                "10.1.1.1",
+                "10.1.1.1",
+                "dynamic",
+            )
+        else:
+            continue
+        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, nhrp cache not expected".format(rname)
+
+
+def check_nhrp_cache():
+    """
+    Check that nhrp cache contexts are present on the NHRP daemon
+    Generate an assert if it is not the case
+    """
+    tgen = get_topogen()
     router_list = tgen.routers()
 
     for rname, router in router_list.items():
         if rname == "r3":
             continue
-
         json_file = "{}/{}/nhrp4_cache.json".format(CWD, router.name)
         if not os.path.isfile(json_file):
             logger.info("skipping file {}".format(json_file))
@@ -161,6 +214,62 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
+
+def check_nhrp_route_not_found():
+    """
+    Check that nhrp route contexts are not present on the NHRP daemon
+    Generate an assert if it is not the case
+    """
+    tgen = get_topogen()
+    router_list = tgen.routers()
+
+    def _nhrp_route_not_found(router, prefix, interface):
+        output = json.loads(router.vtysh_cmd("show ip nhrp cache json"))
+        expected = {
+            prefix: [
+                {
+                    "prefix": prefix,
+                    "protocol": "nhrp",
+                    "installed": True,
+                    "nexthops": [
+                        {
+                            "fib": True,
+                            "directlyConnected": True,
+                            "interfaceName": interface,
+                            "active": True,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        ret = topotest.json_cmp(output, expected)
+        if ret is None:
+            return "not good"
+        return None
+
+    for rname, router in router_list.items():
+        if rname == "r1":
+            test_func = partial(
+                _nhrp_route_not_found, router, "10.255.255.2\/32", "r1-gre0"
+            )
+        elif rname == "r2":
+            test_func = partial(
+                _nhrp_route_not_found, router, "10.255.255.1\/32", "r2-gre0"
+            )
+        else:
+            continue
+        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, nhrp route not expected".format(rname)
+
+
+def check_nhrp_route():
+    """
+    Check that nhrp routes are present or not on the zebra RIB
+    Generate an assert if it is not the case
+    """
+    tgen = get_topogen()
+    router_list = tgen.routers()
     for rname, router in router_list.items():
         if rname == "r3":
             continue
@@ -203,6 +312,42 @@ def test_protocols_convergence():
         assertmsg = '"{}-gre0 interface flags incorrect'.format(router.name)
         assert result is None, assertmsg
 
+
+def check_nhrp_ping():
+    """
+    Perform a ping from r1 to r2 in GRE.
+    Ping must be successfull.
+    Generate an assert if it is not the case
+    """
+    tgen = get_topogen()
+    pingrouter = tgen.gears["r1"]
+    logger.info("Check Ping IPv4 from  R1 to R2 = 10.255.255.2)")
+    output = pingrouter.run("ping 10.255.255.2 -f -c 1000")
+    logger.info(output)
+    if "1000 packets transmitted, 1000 received" not in output:
+        assertmsg = "expected ping IPv4 from R1 to R2 should be ok"
+        assert 0, assertmsg
+    else:
+        logger.info("Check Ping IPv4 from R1 to R2 OK")
+
+
+def test_protocols_convergence():
+    """
+    Assert that all protocols have converged before checking for the NHRP
+    statuses as they depend on it.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check IPv4 routing tables.
+    logger.info("Checking NHRP cache and IPv4 routes for convergence")
+    router_list = tgen.routers()
+
+    check_nhrp_cache()
+
+    check_nhrp_route()
+
     for rname, router in router_list.items():
         if rname == "r3":
             continue
@@ -217,15 +362,7 @@ def test_nhrp_connection():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    pingrouter = tgen.gears["r1"]
-    logger.info("Check Ping IPv4 from  R1 to R2 = 10.255.255.2)")
-    output = pingrouter.run("ping 10.255.255.2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R1 to R2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1 to R2 OK")
+    check_nhrp_ping()
 
 
 def test_route_install():
@@ -258,6 +395,50 @@ def test_route_install():
 
     assertmsg = '"{}" JSON route output mismatches'.format(r1.name)
     assert result is None, assertmsg
+
+
+def test_interface_gre_down():
+    "Turn off the GRE interface."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Turning r1-gre0 interface to down on r1")
+    router = tgen.gears["r1"]
+    router.run("ip link set dev r1-gre0 down")
+    logger.info("Turning r2-gre0 interface to down on r2")
+    router = tgen.gears["r2"]
+    router.run("ip link set dev r2-gre0 down")
+    check_nhrp_cache_not_found()
+
+    check_nhrp_route_not_found()
+
+
+def test_interface_gre_up():
+    "Turn on the GRE interface."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Turning r1-gre0 interface to up on r1")
+    router = tgen.gears["r1"]
+    router.run("ip link set dev r1-gre0 up")
+    logger.info("Turning r2-gre0 interface to up on r2")
+    router = tgen.gears["r2"]
+    router.run("ip link set dev r2-gre0 up")
+
+    check_nhrp_cache()
+
+    check_nhrp_route()
+
+
+def test_nhrp_connection_2():
+    "Assert that the NHRP peers can find themselves."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_nhrp_ping()
 
 
 def test_memory_leak():
