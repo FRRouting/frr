@@ -121,14 +121,14 @@ def _check_interface_metrics(router, expected_metrics):
     tgen = get_topogen()
     router = tgen.gears[router]
     logger.info(f"check_interface_metrics {router}")
-    isis_interface_output = router.vtysh_cmd(
-        "show isis interface detail json"
-    )
+    isis_interface_output = router.vtysh_cmd("show isis interface detail json")
 
     intf_json = json.loads(isis_interface_output)
     for i in range(len(expected_metrics)):
-        metric = intf_json["areas"][0]["circuits"][i]["interface"]["levels"][0]["metric"]
-        if (metric != expected_metrics[i]):
+        metric = intf_json["areas"][0]["circuits"][i]["interface"]["levels"][0][
+            "metric"
+        ]
+        if metric != expected_metrics[i]:
             intf_name = intf_json["areas"][0]["circuits"][i]["interface"]["name"]
             return "{} with expected metric {} on {} got {}".format(
                 router.name, expected_metrics[i], intf_name, metric
@@ -139,9 +139,7 @@ def _check_interface_metrics(router, expected_metrics):
 def check_interface_metrics(router, expected_metrics):
     "Verfiy metrics on router's isis interfaces"
 
-    assertmsg = _check_interface_metrics(
-        router, expected_metrics
-    )
+    assertmsg = _check_interface_metrics(router, expected_metrics)
     assert assertmsg is True, assertmsg
 
 
@@ -151,9 +149,7 @@ def _check_lsp_metrics(router, lsp, expected_metrics):
     tgen = get_topogen()
     router = tgen.gears[router]
     logger.info(f"check_lsp_metrics {router}")
-    isis_lsp_output = router.vtysh_cmd(
-        "show isis database detail {}".format(lsp)
-    )
+    isis_lsp_output = router.vtysh_cmd("show isis database detail {}".format(lsp))
 
     metrics_list = [int(i) for i in re.findall(r"Metric: (\d+)", isis_lsp_output)]
     if len(metrics_list) == 0:
@@ -170,9 +166,7 @@ def _check_lsp_metrics(router, lsp, expected_metrics):
 def check_lsp_metrics(router, lsp, expected_metrics):
     "Verfiy metrics on router's lsp"
 
-    assertmsg = _check_lsp_metrics(
-        router, lsp, expected_metrics
-    )
+    assertmsg = _check_lsp_metrics(router, lsp, expected_metrics)
     assert assertmsg is True, assertmsg
 
 
@@ -183,14 +177,12 @@ def _check_ip_route(router, destination, expected_interface):
     tgen = get_topogen()
     router = tgen.gears[router]
     logger.info(f"check_ip_route {router}")
-    route_output = router.vtysh_cmd(
-        "show ip route {} json".format(destination)
-    )
+    route_output = router.vtysh_cmd("show ip route {} json".format(destination))
     route_json = json.loads(route_output)
 
     interface = route_json[destination][0]["nexthops"][0]["interfaceName"]
 
-    if (interface != expected_interface):
+    if interface != expected_interface:
         return "{} with expected route to {} got {} expected {}".format(
             router.name, destination, interface, expected_interface
         )
@@ -201,9 +193,7 @@ def _check_ip_route(router, destination, expected_interface):
 def check_ip_route(router, destination, expected_interface):
     "Verfiy IS-IS route"
 
-    assertmsg = _check_ip_route(
-        router, destination, expected_interface
-    )
+    assertmsg = _check_ip_route(router, destination, expected_interface)
     assert assertmsg is True, assertmsg
 
 
@@ -216,9 +206,7 @@ def test_isis_daemon_up():
 
     for router in ["r1", "r2", "r3", "r4"]:
         r = tgen.gears[router]
-        daemons = r.vtysh_cmd(
-            "show daemons"
-        )
+        daemons = r.vtysh_cmd("show daemons")
         assert "isisd" in daemons
 
     # Verify initial metric values.
