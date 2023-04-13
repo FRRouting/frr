@@ -1513,14 +1513,9 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 	struct bgp_path_info *tmp_pi = NULL;
 
 	*route_changed = 0;
-	/* locate the local route entry if any */
-	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp_evpn->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			local_pi = tmp_pi;
-	}
+
+	/* See if this is an update of an existing route, or a new add. */
+	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest);
 
 	/*
 	 * create a new route entry if one doesn't exist.
