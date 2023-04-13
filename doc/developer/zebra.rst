@@ -218,8 +218,6 @@ Zebra Protocol Commands
 +------------------------------------+-------+
 | ZEBRA_IMPORT_ROUTE_UNREGISTER      | 27    |
 +------------------------------------+-------+
-| ZEBRA_IMPORT_CHECK_UPDATE          | 28    |
-+------------------------------------+-------+
 | ZEBRA_BFD_DEST_REGISTER            | 29    |
 +------------------------------------+-------+
 | ZEBRA_BFD_DEST_DEREGISTER          | 30    |
