@@ -73,6 +73,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_linkstate_tlv.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -8910,8 +8911,12 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 	} else if (p->family == AF_LINKSTATE) {
 		if (!json)
 			len = vty_out(vty, "%pFX", p);
-		else
+		else {
 			json_object_int_add(json, "version", dest->version);
+			bgp_linkstate_nlri_prefix_json(
+				json, p->u.prefix_linkstate.nlri_type,
+				(void *)p->u.prefix_linkstate.ptr);
+		}
 	} else {
 		if (!json)
 			len = vty_out(vty, "%pFX", p);
@@ -11143,6 +11148,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				"      Time until Long-lived stale route deleted: %lu\n",
 				llgr_remaining);
 	}
+	if (safi == SAFI_LINKSTATE && json_paths)
+		bgp_linkstate_nlri_prefix_json(
+			json_path, bn->p.u.prefix_linkstate.nlri_type,
+			(void *)bn->p.u.prefix_linkstate.ptr);
 
 	/* Output some debug about internal state of the dest flags */
 	if (json_paths) {

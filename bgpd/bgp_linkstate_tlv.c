@@ -323,6 +323,61 @@ static size_t bgp_linkstate_nlri_node_descriptor_display(
 	return size;
 }
 
+static void bgp_linkstate_nlri_node_descriptor_json(
+	struct bgp_ls_nlri_node_descr_tlv *node_descr, json_object *json)
+{
+	json_object *json_node = NULL;
+
+	if (CHECK_FLAG(node_descr->flags, BGP_NLRI_TLV_NODE_DESCR_LOCAL_NODE)) {
+		json_node = json_object_new_object();
+		json_object_object_add(json, "local", json_node);
+	} else if (CHECK_FLAG(node_descr->flags,
+			      BGP_NLRI_TLV_NODE_DESCR_REMOTE_NODE)) {
+		json_node = json_object_new_object();
+		json_object_object_add(json, "remote", json_node);
+	} else
+		return;
+
+	if (CHECK_FLAG(node_descr->flags,
+		       BGP_NLRI_TLV_NODE_DESCR_AUTONOMOUS_SYSTEM))
+		json_object_int_add(json_node, "as",
+				    node_descr->autonomous_system);
+
+	if (CHECK_FLAG(node_descr->flags, BGP_NLRI_TLV_NODE_DESCR_BGP_LS_ID))
+		json_object_int_add(json_node, "identifier",
+				    node_descr->bgp_ls_id);
+
+	if (CHECK_FLAG(node_descr->flags, BGP_NLRI_TLV_NODE_DESCR_AREA_ID))
+		json_object_int_add(json_node, "area", node_descr->area_id);
+
+	if (CHECK_FLAG(node_descr->flags,
+		       BGP_NLRI_TLV_NODE_DESCR_IGP_ROUTER_ID)) {
+		switch (node_descr->igp_router_id_size) {
+		case BGP_LS_TLV_IGP_ROUTER_ID_ISIS_NON_PSEUDOWIRE_SIZE:
+			json_object_string_addf(
+				json_node, "routerID", "%pSY",
+				(uint8_t *)&node_descr->igp_router_id);
+			break;
+		case BGP_LS_TLV_IGP_ROUTER_ID_ISIS_PSEUDOWIRE_SIZE:
+			json_object_string_addf(
+				json_node, "routerId", "%pPN",
+				(uint8_t *)&node_descr->igp_router_id);
+			break;
+		case BGP_LS_TLV_IGP_ROUTER_ID_OSPF_NON_PSEUDOWIRE_SIZE:
+			json_object_string_addf(
+				json_node, "routerID", "%pI4",
+				(in_addr_t *)&node_descr->igp_router_id);
+			break;
+		case BGP_LS_TLV_IGP_ROUTER_ID_OSPF_PSEUDOWIRE_SIZE:
+			json_object_string_addf(
+				json_node, "routerID", "%pI4:%pI4",
+				(in_addr_t *)&node_descr->igp_router_id,
+				((in_addr_t *)&node_descr->igp_router_id + 1));
+			break;
+		}
+	}
+}
+
 static uint16_t
 bgp_linkstate_nlri_node_prefixlen(struct bgp_linkstate_type_node *p_node)
 {
@@ -389,6 +444,19 @@ bgp_linkstate_nlri_node_display(char *buf, size_t size,
 	bgp_linkstate_nlri_node_descriptor_display(&p_node->local_node_descr,
 						   buf, size, multiline);
 }
+
+static void bgp_linkstate_nlri_node_json(struct bgp_linkstate_type_node *p_node,
+					 json_object *json)
+{
+	json_object_string_add(json, "protocol",
+			       bgp_ls_print_nlri_proto(p_node->proto));
+	json_object_string_addf(json, "identifier", "0x%" PRIx64,
+				p_node->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_json(&p_node->local_node_descr,
+						json);
+}
+
 
 static int bgp_linkstate_nlri_link_descriptor_decode(
 	struct bgp_ls_nlri_link_descr_tlv *link_descr, uint8_t *pnt,
@@ -571,6 +639,47 @@ static size_t bgp_linkstate_nlri_link_descriptor_display(
 	return size;
 }
 
+static void bgp_linkstate_nlri_link_descriptor_json(
+	struct bgp_ls_nlri_link_descr_tlv *link_descr, json_object *json)
+{
+	json_object *json_link = NULL;
+	char buf[512];
+
+	if (link_descr->flags == 0)
+		return;
+
+	json_link = json_object_new_object();
+
+	json_object_object_add(json, "link", json_link);
+
+	if (CHECK_FLAG(link_descr->flags,
+		       BGP_NLRI_TLV_LINK_DESCR_LOCAL_REMOTE_ID))
+		json_object_int_add(json_link, "localRemoteID",
+				    link_descr->local_remote_id);
+
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_INTERFACE4))
+		json_object_string_addf(json_link, "interfaceIPv4", "%pI4",
+					&link_descr->interface4);
+
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_NEIGHBOR4))
+		json_object_string_addf(json_link, "neighborIPv4", "%pI4",
+					&link_descr->neighbor4);
+
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_INTERFACE6))
+		json_object_string_addf(json_link, "interfaceIPv6", "%pI6",
+					&link_descr->interface6);
+
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_NEIGHBOR6))
+		json_object_string_addf(json_link, "neighborIPv6", "%pI6",
+					&link_descr->neighbor6);
+
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_MT_ID)) {
+		bgp_linkstate_nlri_mtid_display(&link_descr->mtid, buf,
+						sizeof(buf), false);
+		json_object_string_add(json_link, "mtID", buf);
+	}
+}
+
 static uint16_t
 bgp_linkstate_nlri_link_prefixlen(struct bgp_linkstate_type_link *p_link)
 {
@@ -696,6 +805,21 @@ bgp_linkstate_nlri_link_display(char *buf, size_t size,
 						   size, multiline);
 }
 
+static void bgp_linkstate_nlri_link_json(struct bgp_linkstate_type_link *p_link,
+					 json_object *json)
+{
+	json_object_string_add(json, "protocol",
+			       bgp_ls_print_nlri_proto(p_link->proto));
+	json_object_string_addf(json, "identifier", "0x%" PRIx64,
+				p_link->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_json(&p_link->local_node_descr,
+						json);
+	bgp_linkstate_nlri_node_descriptor_json(&p_link->remote_node_descr,
+						json);
+	bgp_linkstate_nlri_link_descriptor_json(&p_link->link_descr, json);
+}
+
 static int bgp_linkstate_nlri_prefix4_descriptor_decode(
 	struct bgp_ls_nlri_prefix4_descr_tlv *prefix4_descr, uint8_t *pnt,
 	uint16_t type, uint16_t length)
@@ -816,6 +940,37 @@ static size_t bgp_linkstate_nlri_prefix4_descriptor_display(
 	return size;
 }
 
+static void bgp_linkstate_nlri_prefix4_descriptor_json(
+	struct bgp_ls_nlri_prefix4_descr_tlv *prefix4_descr, json_object *json)
+{
+	json_object *json_prefix4 = NULL;
+	char buf[512];
+
+	if (prefix4_descr->flags == 0)
+		return;
+
+	json_prefix4 = json_object_new_object();
+	json_object_object_add(json, "ipv4Prefix", json_prefix4);
+
+	if (CHECK_FLAG(prefix4_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_OSPF_ROUTE_TYPE))
+		json_object_int_add(json_prefix4, "ospfRouteType",
+				    prefix4_descr->ospf_route_type);
+
+	if (CHECK_FLAG(prefix4_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_IP_REACHABILITY))
+		json_object_string_addf(
+			json_prefix4, "ipReachability", "%pI4/%u",
+			&prefix4_descr->ip_reachability_prefix,
+			prefix4_descr->ip_reachability_prefixlen);
+
+	if (CHECK_FLAG(prefix4_descr->flags, BGP_NLRI_TLV_PREFIX_DESCR_MT_ID)) {
+		bgp_linkstate_nlri_mtid_display(&prefix4_descr->mtid, buf,
+						sizeof(buf), false);
+		json_object_string_add(json_prefix4, "mtID", buf);
+	}
+}
+
 static uint16_t bgp_linkstate_nlri_prefix4_prefixlen(
 	struct bgp_linkstate_type_prefix4 *p_prefix4)
 {
@@ -927,6 +1082,22 @@ bgp_linkstate_nlri_prefix4_display(char *buf, size_t size,
 
 	bgp_linkstate_nlri_prefix4_descriptor_display(&p_prefix4->prefix_descr,
 						      buf, size, multiline);
+}
+
+static void
+bgp_linkstate_nlri_prefix4_json(struct bgp_linkstate_type_prefix4 *p_prefix4,
+				json_object *json)
+{
+	json_object_string_add(json, "protocol",
+			       bgp_ls_print_nlri_proto(p_prefix4->proto));
+	json_object_string_addf(json, "identifier", "0x%" PRIx64,
+				p_prefix4->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_json(&p_prefix4->local_node_descr,
+						json);
+
+	bgp_linkstate_nlri_prefix4_descriptor_json(&p_prefix4->prefix_descr,
+						   json);
 }
 
 static int bgp_linkstate_nlri_prefix6_descriptor_decode(
@@ -1049,6 +1220,38 @@ static size_t bgp_linkstate_nlri_prefix6_descriptor_display(
 	return size;
 }
 
+
+static void bgp_linkstate_nlri_prefix6_descriptor_json(
+	struct bgp_ls_nlri_prefix6_descr_tlv *prefix6_descr, json_object *json)
+{
+	json_object *json_prefix6 = NULL;
+	char buf[512];
+
+	if (prefix6_descr->flags == 0)
+		return;
+
+	json_prefix6 = json_object_new_object();
+	json_object_object_add(json, "ipv6Prefix", json_prefix6);
+
+	if (CHECK_FLAG(prefix6_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_OSPF_ROUTE_TYPE))
+		json_object_int_add(json_prefix6, "ospfRouteType",
+				    prefix6_descr->ospf_route_type);
+
+	if (CHECK_FLAG(prefix6_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_IP_REACHABILITY))
+		json_object_string_addf(
+			json_prefix6, "ipReachability", "%pI6/%u",
+			&prefix6_descr->ip_reachability_prefix,
+			prefix6_descr->ip_reachability_prefixlen);
+
+	if (CHECK_FLAG(prefix6_descr->flags, BGP_NLRI_TLV_PREFIX_DESCR_MT_ID)) {
+		bgp_linkstate_nlri_mtid_display(&prefix6_descr->mtid, buf,
+						sizeof(buf), false);
+		json_object_string_add(json_prefix6, "mtID", buf);
+	}
+}
+
 static uint16_t bgp_linkstate_nlri_prefix6_prefixlen(
 	struct bgp_linkstate_type_prefix6 *p_prefix6)
 {
@@ -1157,6 +1360,22 @@ bgp_linkstate_nlri_prefix6_display(char *buf, size_t size,
 
 	bgp_linkstate_nlri_prefix6_descriptor_display(&p_prefix6->prefix_descr,
 						      buf, size, multiline);
+}
+
+static void
+bgp_linkstate_nlri_prefix6_json(struct bgp_linkstate_type_prefix6 *p_prefix6,
+				json_object *json)
+{
+	json_object_string_add(json, "protocol",
+			       bgp_ls_print_nlri_proto(p_prefix6->proto));
+	json_object_string_addf(json, "identifier", "0x%" PRIx64,
+				p_prefix6->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_json(&p_prefix6->local_node_descr,
+						json);
+
+	bgp_linkstate_nlri_prefix6_descriptor_json(&p_prefix6->prefix_descr,
+						   json);
 }
 
 int bgp_nlri_parse_linkstate(struct peer *peer, struct attr *attr,
@@ -1315,6 +1534,35 @@ char *bgp_linkstate_nlri_prefix_display(char *buf, size_t size,
 	}
 
 	return cbuf;
+}
+
+void bgp_linkstate_nlri_prefix_json(json_object *json, uint16_t nlri_type,
+				    void *prefix)
+{
+	json_object *json_type = json_object_new_object();
+
+	json_object_object_add(json, "linkStateNLRI", json_type);
+
+	switch (nlri_type) {
+	case BGP_LINKSTATE_NODE:
+		json_object_string_add(json_type, "nlriType", "node");
+		bgp_linkstate_nlri_node_json(prefix, json_type);
+		break;
+	case BGP_LINKSTATE_LINK:
+		json_object_string_add(json_type, "nlriType", "link");
+		bgp_linkstate_nlri_link_json(prefix, json_type);
+		break;
+	case BGP_LINKSTATE_PREFIX4:
+		json_object_string_add(json_type, "nlriType", "IPv4 prefix");
+		bgp_linkstate_nlri_prefix4_json(prefix, json_type);
+		break;
+	case BGP_LINKSTATE_PREFIX6:
+		json_object_string_add(json_type, "nlriType", "IPv6 prefix");
+		bgp_linkstate_nlri_prefix6_json(prefix, json_type);
+		break;
+	default:
+		assert(!"Unsupported Link-State NLRI type");
+	}
 }
 
 /*

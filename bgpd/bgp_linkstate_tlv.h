@@ -339,6 +339,8 @@ extern int bgp_nlri_parse_linkstate(struct peer *peer, struct attr *attr,
 extern char *bgp_linkstate_nlri_prefix_display(char *buf, size_t size,
 					       uint16_t nlri_type,
 					       void *prefix);
+extern void bgp_linkstate_nlri_prefix_json(json_object *json,
+					   uint16_t nlri_type, void *prefix);
 extern void bgp_nlri_encode_linkstate(struct stream *s, const struct prefix *p);
 
 #endif /* BGP_LINKSTATE_TLV_H */
