@@ -84,12 +84,19 @@ static void pim_if_membership_clear(struct interface *ifp)
 static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
+#if PIM_IPV == 4
 	struct listnode *grpnode;
 	struct gm_group *grp;
-
+#else
+	struct gm_if *gm_ifp;
+	struct gm_sg *sg, *sg_start;
+#endif
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
+#if PIM_IPV == 6
+	gm_ifp = pim_ifp->mld;
+#endif
 
 	if (!pim_ifp->pim_enable)
 		return;
@@ -103,6 +110,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 	pim_ifchannel_membership_clear(ifp);
 
+#if PIM_IPV == 4
 	/*
 	 * Then restore PIM (S,G) membership from all IGMPv3 (S,G) entries on
 	 * the interface
@@ -129,6 +137,16 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 		} /* scan group sources */
 	}	 /* scan igmp groups */
+#else
+	sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		if (!in6_multicast_nofwd(&sg->sgaddr.grp)) {
+			pim_ifchannel_local_membership_add(
+				ifp, &sg->sgaddr, false /*is_vxlan*/);
+		}
+	}
+#endif
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info

@@ -112,7 +112,7 @@ static inline uint8_t in6_multicast_scope(const pim_addr *addr)
 	return addr->s6_addr[1] & 0xf;
 }
 
-static inline bool in6_multicast_nofwd(const pim_addr *addr)
+bool in6_multicast_nofwd(const pim_addr *addr)
 {
 	return in6_multicast_scope(addr) <= IPV6_MULTICAST_SCOPE_LINK;
 }
@@ -195,12 +195,10 @@ DECLARE_HASH(gm_gsq_pends, struct gm_gsq_pending, itm, gm_gsq_pending_cmp,
  * interface -> (S,G)
  */
 
-static int gm_sg_cmp(const struct gm_sg *a, const struct gm_sg *b)
+int gm_sg_cmp(const struct gm_sg *a, const struct gm_sg *b)
 {
 	return pim_sgaddr_cmp(a->sgaddr, b->sgaddr);
 }
-
-DECLARE_RBTREE_UNIQ(gm_sgs, struct gm_sg, itm, gm_sg_cmp);
 
 static struct gm_sg *gm_sg_find(struct gm_if *gm_ifp, pim_addr grp,
 				pim_addr src)
