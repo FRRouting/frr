@@ -3080,10 +3080,11 @@ static bool bgp_lu_need_null_label(struct bgp *bgp,
 	if (new_select->sub_type == BGP_ROUTE_STATIC
 	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
 	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
-		return true;
+		goto need_null_label;
 	else if (new_select->extra &&
 		 bgp_is_valid_label(&new_select->extra->label[0]))
 		return false;
+need_null_label:
 	if (label == NULL)
 		return true;
 	if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL))
