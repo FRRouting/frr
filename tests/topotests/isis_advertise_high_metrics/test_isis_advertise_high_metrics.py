@@ -420,9 +420,9 @@ def test_isis_advertise_high_metrics_route():
     Topology:
     
          r2
-        /  \
+       //  \\
       r1   r4
-        \  /
+       \\  //
          r3
     
     Devices are configured with preferred route between r1 and r4:
