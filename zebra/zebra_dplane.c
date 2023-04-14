@@ -4602,18 +4602,6 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp)
 }
 
 /*
- * Enqueue a interface delete for the dataplane.
- */
-enum zebra_dplane_result dplane_intf_delete(const struct interface *ifp)
-{
-	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
-
-	if (ifp)
-		ret = dplane_intf_update_internal(ifp, DPLANE_OP_INTF_DELETE);
-	return ret;
-}
-
-/*
  * Enqueue vxlan/evpn mac add (or update).
  */
 enum zebra_dplane_result
