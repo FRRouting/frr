@@ -3990,8 +3990,9 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  *     router bgp NNN
  *       ...
  *
- * This function gets called when the default instance ("router bgp NNN")
- * is created.
+ * This function gets called :
+ * - when the default instance ("router bgp NNN")
+ * - when an SRv6 locator is updated.
  */
 void vpn_leak_postchange_all(void)
 {
