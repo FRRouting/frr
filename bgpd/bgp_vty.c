@@ -297,8 +297,8 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 	struct srv6_sid_ctx ctx = {};
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
-			/* TODO: accept SRv6 entries on default VRF */
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
@@ -334,8 +334,8 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
 			continue;
 
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
-			/* TODO: accept SRv6 entries on default VRF */
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT &&
+		    bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && bgp != bgp_vrf &&
