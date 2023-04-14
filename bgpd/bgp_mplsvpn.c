@@ -3746,7 +3746,8 @@ void vpn_leak_postchange_all(void)
 	/* First, do any exporting from VRFs to the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		vpn_leak_postchange(
@@ -3765,7 +3766,8 @@ void vpn_leak_postchange_all(void)
 	/* Now, do any importing to VRFs from the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		vpn_leak_postchange(
