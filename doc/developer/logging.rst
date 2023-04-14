@@ -518,7 +518,7 @@ General utility formats
    that could be used in conjunction to snprintfrr. Use like::
 
      char buf[ISO_ADDR_STRLEN];
-     struct iso_net addr = {.len = 4, .addr = {1, 2, 3, 4}};
+     struct iso_address addr = {.addr_len = 4, .area_addr = {1, 2, 3, 4}};
      snprintfrr(buf, ISO_ADDR_STRLEN, "%pIS", &addr);
 
 .. frrfmt:: %pSY (uint8_t *)
