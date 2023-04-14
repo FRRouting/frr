@@ -328,7 +328,8 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 
 	/* refresh tovpn_sid */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT &&
+		    bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid */
@@ -348,7 +349,8 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT &&
+		    bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
