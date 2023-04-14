@@ -866,7 +866,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                 for pg in pg_dict[ctx_keys[0]]:
                     if pg_dict[ctx_keys[0]][pg]["remoteas"] == True:
                         for nbr in pg_dict[ctx_keys[0]][pg]["nbr"]:
-                            if re_nbr_rmtas.group(1) in nbr:
+                            if re_nbr_rmtas.group(1) == nbr:
                                 lines_to_del_from_add.append((ctx_keys, line))
 
     for ctx_keys, line in lines_to_del_from_add:
