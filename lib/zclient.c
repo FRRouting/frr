@@ -427,13 +427,18 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 }
 
 enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
-		const struct in6_addr *sid, ifindex_t oif,
+		const struct in6_addr *sid, vrf_id_t vrf_id,
 		enum seg6local_action_t action,
 		const struct seg6local_context *context)
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
 	struct zapi_nexthop *znh;
+	struct interface *ifp;
+
+	ifp = if_get_vrf_loopback(vrf_id);
+	if (ifp == NULL)
+		return ZCLIENT_SEND_FAILURE;
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
@@ -456,7 +461,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	memset(znh, 0, sizeof(*znh));
 
 	znh->type = NEXTHOP_TYPE_IFINDEX;
-	znh->ifindex = oif;
+	znh->ifindex = ifp->ifindex;
 	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 	znh->seg6local_action = action;
 	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
