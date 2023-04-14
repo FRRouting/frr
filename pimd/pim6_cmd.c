@@ -244,7 +244,7 @@ DEFPY (interface_no_ipv6_pim,
 
 DEFPY (interface_ipv6_pim_drprio,
        interface_ipv6_pim_drprio_cmd,
-       "ipv6 pim drpriority (1-4294967295)",
+       "ipv6 pim drpriority (0-4294967295)",
        IPV6_STR
        PIM_STR
        "Set the Designated Router Election Priority\n"
@@ -255,7 +255,7 @@ DEFPY (interface_ipv6_pim_drprio,
 
 DEFPY (interface_no_ipv6_pim_drprio,
        interface_no_ipv6_pim_drprio_cmd,
-       "no ipv6 pim drpriority [(1-4294967295)]",
+       "no ipv6 pim drpriority [(0-4294967295)]",
        NO_STR
        IPV6_STR
        PIM_STR
