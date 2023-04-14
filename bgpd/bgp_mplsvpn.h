@@ -98,7 +98,7 @@ static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 {
 	afi_t afi;
 
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF || bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 		for (afi = 0; afi < AFI_MAX; ++afi) {
 			if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 				       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
