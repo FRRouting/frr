@@ -674,7 +674,7 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 		struct zebra_l2info_bridge bridge_info;
 
 		netlink_extract_bridge_info(link_data, &bridge_info);
-		zebra_l2_bridge_add_update(ifp, &bridge_info, add);
+		zebra_l2_bridge_add_update(ifp, &bridge_info);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
 		struct zebra_l2info_vlan vlan_info;
 
