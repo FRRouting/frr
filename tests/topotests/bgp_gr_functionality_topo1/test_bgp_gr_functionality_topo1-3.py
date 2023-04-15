@@ -2142,6 +2142,9 @@ def test_BGP_GR_TC_43_p1(request):
             tc_name, result
         )
 
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
     write_test_footer(tc_name)
 
 
@@ -2431,6 +2434,9 @@ def test_BGP_GR_TC_44_p1(request):
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
         result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r2", ["bgpd"])
 
     write_test_footer(tc_name)
 
@@ -2726,6 +2732,9 @@ def test_BGP_GR_TC_45_p1(request):
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
         result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
 
     write_test_footer(tc_name)
 
