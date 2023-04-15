@@ -244,8 +244,7 @@ void zebra_l2if_update_bond(struct interface *ifp, bool add)
  * map slaves (if any) to the bridge.
  */
 void zebra_l2_bridge_add_update(struct interface *ifp,
-				struct zebra_l2info_bridge *bridge_info,
-				int add)
+				struct zebra_l2info_bridge *bridge_info)
 {
 	struct zebra_if *zif;
 	struct zebra_l2_bridge_if *br;
