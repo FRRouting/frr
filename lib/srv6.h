@@ -24,6 +24,12 @@ extern "C" {
 #define sid2str(sid, str, size) \
 	inet_ntop(AF_INET6, sid, str, size)
 
+/* SRv6 flavors manipulation macros */
+#define CHECK_SRV6_FLV_OP(OPS,OP)      ((OPS) & (1 << OP))
+#define SET_SRV6_FLV_OP(OPS,OP)        (OPS) |= (1 << OP)
+#define UNSET_SRV6_FLV_OP(OPS,OP)      (OPS) &= ~(1 << OP)
+#define RESET_SRV6_FLV_OP(OPS)         (OPS) = 0
+
 enum seg6_mode_t {
 	INLINE,
 	ENCAP,
