@@ -1685,6 +1685,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 	struct zebra_mac *mac;
 	bool inform_bgp = false;
 	bool inform_dataplane = false;
+	bool mac_inactive = false;
 	bool seq_change = false;
 	bool es_change = false;
 	uint32_t tmp_seq;
@@ -1701,6 +1702,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		 */
 		inform_bgp = true;
 		inform_dataplane = true;
+		mac_inactive = true;
 
 		/* create the MAC and associate it with the dest ES */
 		mac = zebra_evpn_mac_add(zevpn, macaddr);
@@ -1812,6 +1814,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		if (es_change) {
 			inform_bgp = true;
 			inform_dataplane = true;
+			mac_inactive = true;
 		}
 
 		/* if peer-flag is being set notify dataplane that the
@@ -1867,9 +1870,9 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		 * the activity as we are yet to establish activity
 		 * locally
 		 */
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
+		zebra_evpn_sync_mac_dp_install(
+			mac, mac_inactive /* set_inactive */,
+			false /* force_clear_static */, __func__);
 	}
 
 	return mac;
