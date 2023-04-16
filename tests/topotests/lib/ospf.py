@@ -577,15 +577,15 @@ def verify_ospf_neighbor(
             "ospf": {
                 "neighbors": {
                     "r1": {
-                        "state": "Full",
+                        "nbrState": "Full",
                         "role": "DR"
                     },
                     "r2": {
-                        "state": "Full",
+                        "nbrState": "Full",
                         "role": "DROther"
                     },
                     "r3": {
-                        "state": "Full",
+                        "nbrState": "Full",
                         "role": "DROther"
                     }
                 }
@@ -642,13 +642,13 @@ def verify_ospf_neighbor(
                 neighbor_ip = neighbor_ip.lower()
                 nbr_rid = data_rid
                 try:
-                    nh_state = show_ospf_json[nbr_rid][0]["state"].split("/")[0]
-                    intf_state = show_ospf_json[nbr_rid][0]["state"].split("/")[1]
+                    nh_state = show_ospf_json[nbr_rid][0]["nbrState"].split("/")[0]
+                    intf_state = show_ospf_json[nbr_rid][0]["nbrState"].split("/")[1]
                 except KeyError:
                     errormsg = "[DUT: {}] OSPF peer {} missing".format(router, nbr_rid)
                     return errormsg
 
-                nbr_state = nbr_data.setdefault("state", None)
+                nbr_state = nbr_data.setdefault("nbrState", None)
                 nbr_role = nbr_data.setdefault("role", None)
 
                 if nbr_state:
@@ -724,8 +724,9 @@ def verify_ospf_neighbor(
                 nh_state = None
                 neighbor_ip = neighbor_ip.lower()
                 nbr_rid = data_rid
+
                 try:
-                    nh_state = show_ospf_json[nbr_rid][0]["state"].split("/")[0]
+                    nh_state = show_ospf_json[nbr_rid][0]["nbrState"].split("/")[0]
                 except KeyError:
                     errormsg = "[DUT: {}] OSPF peer {} missing,from " "{} ".format(
                         router, nbr_rid, ospf_nbr

@@ -189,7 +189,9 @@ def test_ospf_gr_helper_tc3_p1(request):
     assert (
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
-    step("Configure DR pririty 100 on R0 and clear ospf neighbors  on all the routers.")
+
+    step("Configure DR priority 100 on R0 and clear ospf neighbors "
+         "on all the routers.")
 
     input_dict = {
         "r0": {
@@ -214,9 +216,9 @@ def test_ospf_gr_helper_tc3_p1(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -281,7 +283,7 @@ def test_ospf_gr_helper_tc4_p1(request):
     assert (
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
-    step("Configure DR pririty 100 on R0 and clear ospf neighbors  on all the routers.")
+    step("Configure DR priority 0 on R0 and clear ospf neighbors  on all the routers.")
 
     input_dict = {
         "r0": {
@@ -306,9 +308,9 @@ def test_ospf_gr_helper_tc4_p1(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "DR"},
-                    "r2": {"state": "2-Way", "role": "DROther"},
-                    "r3": {"state": "2-Way", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "DR"},
+                    "r2": {"nbrState": "2-Way", "role": "DROther"},
+                    "r3": {"nbrState": "2-Way", "role": "DROther"},
                 }
             }
         }

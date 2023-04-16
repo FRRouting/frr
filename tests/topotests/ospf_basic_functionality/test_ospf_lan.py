@@ -165,9 +165,9 @@ def test_ospf_lan_tc1_p0(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "DR"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "DR"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -185,9 +185,9 @@ def test_ospf_lan_tc1_p0(request):
         "r1": {
             "ospf": {
                 "neighbors": {
-                    "r0": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r0": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -196,7 +196,8 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, input_dict, lan=True)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Configure DR pririty 100 on R0 and clear ospf neighbors  on all the routers.")
+    step("Configure DR priority 100 on R0 and clear ospf neighbors "
+         "on all the routers.")
 
     input_dict = {
         "r0": {
@@ -221,9 +222,9 @@ def test_ospf_lan_tc1_p0(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -232,7 +233,8 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, input_dict, lan=True)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Configure DR pririty 150 on R0 and clear ospf neighbors  on all the routers.")
+    step("Configure DR priority 150 on R0 and clear ospf neighbors "
+         "on all the routers.")
 
     input_dict = {
         "r0": {
@@ -257,9 +259,9 @@ def test_ospf_lan_tc1_p0(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -293,9 +295,9 @@ def test_ospf_lan_tc1_p0(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "DR"},
-                    "r2": {"state": "2-Way", "role": "DROther"},
-                    "r3": {"state": "2-Way", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "DR"},
+                    "r2": {"nbrState": "2-Way", "role": "DROther"},
+                    "r3": {"nbrState": "2-Way", "role": "DROther"},
                 }
             }
         }
@@ -332,9 +334,9 @@ def test_ospf_lan_tc1_p0(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -364,9 +366,9 @@ def test_ospf_lan_tc1_p0(request):
         "r0": {
             "ospf": {
                 "neighbors": {
-                    "r1": {"state": "Full", "role": "DR"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r1": {"nbrState": "Full", "role": "DR"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -419,9 +421,9 @@ def test_ospf_lan_tc1_p0(request):
         "r1": {
             "ospf": {
                 "neighbors": {
-                    "r0": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r0": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
@@ -445,9 +447,9 @@ def test_ospf_lan_tc1_p0(request):
         "r1": {
             "ospf": {
                 "neighbors": {
-                    "r0": {"state": "Full", "role": "Backup"},
-                    "r2": {"state": "Full", "role": "DROther"},
-                    "r3": {"state": "Full", "role": "DROther"},
+                    "r0": {"nbrState": "Full", "role": "Backup"},
+                    "r2": {"nbrState": "Full", "role": "DROther"},
+                    "r3": {"nbrState": "Full", "role": "DROther"},
                 }
             }
         }
