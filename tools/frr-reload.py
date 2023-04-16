@@ -804,6 +804,8 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
     # remote-as config.
 
     pg_dict = dict()
+    found_pg_cmd = False
+
     # Find all peer-group commands; create dict of each peer-group
     # to store assoicated neighbor as value
     for ctx_keys, line in lines_to_add:
@@ -824,6 +826,10 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                     "remoteas": False,
                 }
                 found_pg_cmd = True
+
+    # Do nothing if there is no any "peer-group"
+    if found_pg_cmd is False:
+        return
 
     # Find peer-group with remote-as command, also search neighbor
     # associated to peer-group and store into peer-group dict
@@ -866,7 +872,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                 for pg in pg_dict[ctx_keys[0]]:
                     if pg_dict[ctx_keys[0]][pg]["remoteas"] == True:
                         for nbr in pg_dict[ctx_keys[0]][pg]["nbr"]:
-                            if re_nbr_rmtas.group(1) in nbr:
+                            if re_nbr_rmtas.group(1) == nbr:
                                 lines_to_del_from_add.append((ctx_keys, line))
 
     for ctx_keys, line in lines_to_del_from_add:
