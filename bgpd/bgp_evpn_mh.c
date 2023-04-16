@@ -2458,6 +2458,7 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 {
 	json_object *json_vtep_entry;
 	json_object *json_flags;
+	char alg_buf[EVPN_DF_ALG_STR_LEN];
 
 	json_vtep_entry = json_object_new_object();
 
@@ -2474,8 +2475,10 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR) {
 			json_object_int_add(json_vtep_entry, "dfPreference",
 					    es_vtep->df_pref);
-			json_object_int_add(json_vtep_entry, "dfAlgorithm",
-					    es_vtep->df_pref);
+			json_object_string_add(
+				json_vtep_entry, "dfAlgorithm",
+				evpn_es_df_alg2str(es_vtep->df_alg, alg_buf,
+						   sizeof(alg_buf)));
 		}
 	}
 
