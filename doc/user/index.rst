@@ -27,6 +27,7 @@ Basics
    grpc
    filter
    routemap
+   affinitymap
    ipv6
    kernel
    snmp
