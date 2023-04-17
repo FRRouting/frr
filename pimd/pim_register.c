@@ -109,12 +109,12 @@ static void pim_reg_stop_upstream(struct pim_instance *pim,
 		up->reg_state = PIM_REG_PRUNE;
 		pim_channel_del_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM, __func__);
-		pim_upstream_start_register_stop_timer(up, 0);
+		pim_upstream_start_register_probe_timer(up);
 		pim_vxlan_update_sg_reg_state(pim, up, false);
 		break;
 	case PIM_REG_JOIN_PENDING:
 		up->reg_state = PIM_REG_PRUNE;
-		pim_upstream_start_register_stop_timer(up, 0);
+		pim_upstream_start_register_probe_timer(up);
 		return;
 	}
 }
