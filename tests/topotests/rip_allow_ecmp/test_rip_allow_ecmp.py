@@ -52,9 +52,17 @@ def test_rip_allow_ecmp():
     r1 = tgen.gears["r1"]
 
     def _show_rip_routes():
-        output = json.loads(
-            r1.vtysh_cmd("show yang operational-data /frr-ripd:ripd ripd")
+        xpath = (
+            "/frr-ripd:ripd/instance[vrf='default']"
+            "/state/routes/route[prefix='10.10.10.1/32']"
         )
+        try:
+            output = json.loads(
+                r1.vtysh_cmd(f"show yang operational-data {xpath} ripd")
+            )
+        except Exception:
+            return False
+
         try:
             output = output["frr-ripd:ripd"]["instance"][0]["state"]["routes"]
         except KeyError:

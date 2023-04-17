@@ -167,7 +167,7 @@ struct nb_node *nb_node_find(const char *path)
 	 * Use libyang to find the schema node associated to the path and get
 	 * the northbound node from there (snode private pointer).
 	 */
-	snode = lys_find_path(ly_native_ctx, NULL, path, 0);
+	snode = yang_find_snode(ly_native_ctx, path, 0);
 	if (!snode)
 		return NULL;
 
@@ -2129,8 +2129,8 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 	 * all YANG lists (if any).
 	 */
 
-	LY_ERR err = lyd_new_path(NULL, ly_native_ctx, xpath, NULL,
-				  LYD_NEW_PATH_UPDATE, &dnode);
+	LY_ERR err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0,
+				   LYD_NEW_PATH_UPDATE, NULL, &dnode);
 	if (err || !dnode) {
 		const char *errmsg =
 			err ? ly_errmsg(ly_native_ctx) : "node not found";

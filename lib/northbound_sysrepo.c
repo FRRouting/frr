@@ -357,7 +357,7 @@ static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 	ly_errno = 0;
 	ly_errno = lyd_new_path(NULL, ly_native_ctx, data->xpath, data->value,
 				0, &dnode);
-	if (!dnode && ly_errno) {
+	if (ly_errno) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
 			  __func__);
 		yang_data_free(data);
