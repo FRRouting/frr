@@ -1840,6 +1840,8 @@ class Router(Node):
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
                 )
+                # Need better check for daemons running.
+                time.sleep(5)
             else:
                 if daemon != "snmpd":
                     cmdopt += " -d "
