@@ -217,10 +217,10 @@ int pim_if_t_override_msec(struct interface *ifp);
 
 pim_addr pim_find_primary_addr(struct interface *ifp);
 
-ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
-			    struct in_addr source_addr);
-int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
-			 struct in_addr source_addr);
+ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
+			  pim_addr source_addr);
+int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
+		       pim_addr source_addr);
 
 void pim_if_update_could_assert(struct interface *ifp);
 

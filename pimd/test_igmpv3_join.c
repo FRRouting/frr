@@ -54,8 +54,8 @@ static int iface_solve_index(const char *ifname)
 
 int main(int argc, const char *argv[])
 {
-	struct in_addr group_addr;
-	struct in_addr source_addr;
+	pim_addr group_addr;
+	pim_addr source_addr;
 	const char *ifname;
 	const char *group;
 	const char *source;
@@ -106,7 +106,7 @@ int main(int argc, const char *argv[])
 		exit(1);
 	}
 
-	result = pim_igmp_join_source(fd, ifindex, group_addr, source_addr);
+	result = pim_gm_join_source(fd, ifindex, group_addr, source_addr);
 	if (result) {
 		fprintf(stderr,
 			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s\n",

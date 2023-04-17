@@ -28,6 +28,7 @@ typedef struct in_addr pim_addr;
 #define PIM_MROUTE_DBG  "mroute"
 #define PIMREG          "pimreg"
 #define GM              "IGMP"
+#define IPPROTO_GM      IPPROTO_IGMP
 
 #define PIM_ADDR_FUNCNAME(name) ipv4_##name
 
@@ -57,6 +58,7 @@ typedef struct in6_addr pim_addr;
 #define PIM_MROUTE_DBG  "mroute6"
 #define PIMREG          "pim6reg"
 #define GM              "MLD"
+#define IPPROTO_GM      IPPROTO_ICMPV6
 
 #define PIM_ADDR_FUNCNAME(name) ipv6_##name
 

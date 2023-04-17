@@ -598,6 +598,14 @@ static inline bool ipv6_mcast_ssm(const struct in6_addr *addr)
 	return (bits & 0xfff0ffff) == 0xff300000;
 }
 
+static inline bool ipv6_mcast_reserved(const struct in6_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s6_addr32[0]);
+
+	/* ffx2::/16 */
+	return (bits & 0xff0fffff) == 0xff020000;
+}
+
 static inline uint8_t ipv4_mcast_scope(const struct in_addr *addr)
 {
 	uint32_t bits = ntohl(addr->s_addr);
