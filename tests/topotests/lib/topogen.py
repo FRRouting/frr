@@ -33,6 +33,7 @@ import os
 import platform
 import pwd
 import re
+import shlex
 import subprocess
 import sys
 from collections import OrderedDict
@@ -946,9 +947,11 @@ class TopoRouter(TopoGear):
         if daemon is not None:
             dparam += "-d {}".format(daemon)
 
-        vtysh_command = 'vtysh {} -c "{}" 2>/dev/null'.format(dparam, command)
+        vtysh_command = "vtysh {} -c {} 2>/dev/null".format(
+            dparam, shlex.quote(command)
+        )
 
-        self.logger.debug('vtysh command => "{}"'.format(command))
+        self.logger.debug("vtysh command => {}".format(shlex.quote(command)))
         output = self.run(vtysh_command)
 
         dbgout = output.strip()
