@@ -167,7 +167,7 @@ struct nb_node *nb_node_find(const char *path)
 	 * Use libyang to find the schema node associated to the path and get
 	 * the northbound node from there (snode private pointer).
 	 */
-	snode = lys_find_path(ly_native_ctx, NULL, path, 0);
+	snode = yang_find_snode(ly_native_ctx, path, 0);
 	if (!snode)
 		return NULL;
 

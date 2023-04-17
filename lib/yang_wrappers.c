@@ -89,7 +89,7 @@ static const char *yang_get_default_value(const char *xpath)
 	const struct lysc_node *snode;
 	const char *value;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -206,7 +206,7 @@ int yang_str2enum(const char *xpath, const char *value)
 	const struct lysc_type_enum *type;
 	const struct lysc_type_bitenum_item *enums;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
@@ -241,7 +241,7 @@ struct yang_data *yang_data_new_enum(const char *xpath, int value)
 	const struct lysc_type_enum *type;
 	const struct lysc_type_bitenum_item *enums;
 
-	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_native_ctx, xpath, 0);
 	if (snode == NULL) {
 		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			 "%s: unknown data path: %s", __func__, xpath);
