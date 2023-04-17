@@ -7,21 +7,23 @@ import glob
 import os
 import pdb
 import re
+import resource
 import subprocess
 import sys
 import time
-import resource
 
 import pytest
+
 import lib.fixtures
 from lib import topolog
-from lib.micronet import Commander, proc_error
-from lib.micronet_cli import cli
-from lib.micronet_compat import Mininet, cleanup_current, cleanup_previous
+from lib.micronet_compat import Mininet
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import logger
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topotest import json_cmp_result
+from munet.base import Commander, proc_error
+from munet.cleanup import cleanup_current, cleanup_previous
+from munet import cli
 
 
 def pytest_addoption(parser):
@@ -501,7 +503,7 @@ def pytest_runtest_makereport(item, call):
         # Really would like something better than using this global here.
         # Not all tests use topogen though so get_topogen() won't work.
         if Mininet.g_mnet_inst:
-            cli(Mininet.g_mnet_inst, title=title, background=False)
+            cli.cli(Mininet.g_mnet_inst, title=title, background=False)
         else:
             logger.error("Could not launch CLI b/c no mininet exists yet")
 
@@ -515,7 +517,7 @@ def pytest_runtest_makereport(item, call):
         user = user.strip()
 
         if user == "cli":
-            cli(Mininet.g_mnet_inst)
+            cli.cli(Mininet.g_mnet_inst)
         elif user == "pdb":
             pdb.set_trace()  # pylint: disable=forgotten-debug-statement
         elif user:

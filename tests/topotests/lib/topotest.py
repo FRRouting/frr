@@ -1318,7 +1318,7 @@ def setup_node_tmpdir(logdir, name):
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
-    def __init__(self, name, **params):
+    def __init__(self, name, *posargs, **params):
 
         # Backward compatibility:
         #   Load configuration defaults like topogen.
@@ -1347,7 +1347,7 @@ class Router(Node):
             l = topolog.get_logger(name, log_level="debug", target=logfile)
             params["logger"] = l
 
-        super(Router, self).__init__(name, **params)
+        super(Router, self).__init__(name, *posargs, **params)
 
         self.daemondir = None
         self.hasmpls = False
@@ -1407,8 +1407,8 @@ class Router(Node):
 
     # pylint: disable=W0221
     # Some params are only meaningful for the parent class.
-    def config(self, **params):
-        super(Router, self).config(**params)
+    def config_host(self, **params):
+        super(Router, self).config_host(**params)
 
         # User did not specify the daemons directory, try to autodetect it.
         self.daemondir = params.get("daemondir")
