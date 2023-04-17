@@ -104,4 +104,43 @@ The BGP-LS table can be displayed.
 	 *> Link ISIS-L1 ID:0x20 Local{AS:65001 ID:0 Rtr:0000.0000.1001} Remote{AS:65001 ID:0 Rtr:0000.0000.1000} Link{IPv4:10.1.0.1 Neigh-IPv4:10.1.0.2 IPv6:2001::1 Neigh-IPv6:2001::2 MT:0,2}/132
 	                                           0 65002 65001 i
 
+The "detail-routes" allows displaying the BGP-LS attributes as well.
+
+.. code-block:: frr
+
+	frr# show bgp link-state link-state detail-routes
+	(...)
+	BGP routing table entry for Link ISIS-L1 ID:0x20 Local{AS:65001 ID:0 Rtr:0000.0000.1001} Remote{AS:65001 ID:0 Rtr:0000.0000.1000} Link{IPv4:10.1.0.1 Neigh-IPv4:10.1.0.2 IPv6:2001::1 Neigh-IPv6:2001::2 MT:0,2}/116, version 1
+	Paths: (1 available, best #1)
+	  Advertised to non peer-group peers:
+	  192.0.2.1 192.0.2.3
+	  65001
+	    :: from 192.0.2.1 (192.0.2.1)
+	      Origin IGP, valid, external, best (First path received)
+	      Last update: Mon Apr 17 15:45:42 2023
+	  BGP-LS attributes:
+	    IPv4 Router-ID of Local Node: 1.1.1.1
+	    IPv4 Router-ID of Remote Node: 10.10.10.10
+	    Maximum link bandwidth: 1410.07 Mbps
+	    Max. reservable link bandwidth: 1410.07 Mbps
+	    Unreserved bandwidth:
+	      [0]: 1410.07 Mbps  [1]: 1410.07 Mbps
+	      [2]: 1410.07 Mbps  [3]: 1410.07 Mbps
+	      [4]: 1410.07 Mbps  [5]: 1410.07 Mbps
+	      [6]: 1410.07 Mbps  [7]: 1410.07 Mbps
+	    TE Default Metric: 100
+	    IGP Metric: 10
+	    Adjacency SID:
+	      Flags: 0b00110000
+	      Weight: 0
+	      SID: 15000
+	    Unidirectional Link Delay: 8500 microseconds
+	    Min/Max Unidirectional Link Delay: 8000/9000 microseconds
+	    Application-Specific Link Attributes:
+	      SABM Flags : 0b00010000 00000000 00000000 00000000
+	      UDABM Flags: 0b00000000 00000000 00000000 00000000
+	      Administrative group: 0x00000001
+	      TE Default Metric: 100
+	      Min/Max Unidirectional Link Delay: 8000/9000 microseconds
+	      Extended Administrative Group: 0x00000001
 
