@@ -20,6 +20,9 @@ extern "C" {
 #define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
+#define frr_each_const(prefix, head, item)                                     \
+	for (item = prefix##_const_first(head); item;                          \
+	     item = prefix##_const_next(head, item))
 #define frr_each_safe(prefix, head, item)                                      \
 	for (typeof(prefix##_next_safe(head, NULL)) prefix##_safe =            \
 			prefix##_next_safe(head,                               \

@@ -27,6 +27,7 @@
 #include "zclient.h"
 #include "vrf.h"
 #include "spf_backoff.h"
+#include "flex_algo.h"
 #include "lib/northbound_cli.h"
 #include "bfd.h"
 
@@ -49,6 +50,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
@@ -316,6 +318,12 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 		lsp_db_init(&area->lspdb[0]);
 	if (area->is_type & IS_LEVEL_2)
 		lsp_db_init(&area->lspdb[1]);
+
+#ifndef FABRICD
+	/* Flex-Algo */
+	area->flex_algos = flex_algos_alloc(isis_flex_algo_data_alloc,
+					    isis_flex_algo_data_free);
+#endif /* ifndef FABRICD */
 
 	spftree_area_init(area);
 
@@ -3061,12 +3069,27 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
 {
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+#endif /* ifndef FABRICD */
+
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 		if (!(level & levels))
 			continue;
 		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 			isis_spf_invalidate_routes(
 					area->spftree[tree][level - 1]);
+
+#ifndef FABRICD
+			for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos,
+						  node, fa)) {
+				data = fa->data;
+				isis_spf_invalidate_routes(
+					data->spftree[tree][level - 1]);
+			}
+#endif /* ifndef FABRICD */
 		}
 	}
 }
@@ -3074,7 +3097,7 @@ void isis_area_invalidate_routes(struct isis_area *area, int levels)
 void isis_area_verify_routes(struct isis_area *area)
 {
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++)
-		isis_spf_verify_routes(area, area->spftree[tree]);
+		isis_spf_verify_routes(area, area->spftree[tree], tree);
 }
 
 void isis_area_switchover_routes(struct isis_area *area, int family,
@@ -3098,6 +3121,12 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 
 static void area_resign_level(struct isis_area *area, int level)
 {
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+#endif /* ifndef FABRICD */
+
 	isis_area_invalidate_routes(area, level);
 	isis_area_verify_routes(area);
 
@@ -3109,6 +3138,20 @@ static void area_resign_level(struct isis_area *area, int level)
 			area->spftree[tree][level - 1] = NULL;
 		}
 	}
+
+#ifndef FABRICD
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			data = fa->data;
+			if (data->spftree[level - 1]) {
+				isis_spftree_del(
+					data->spftree[tree][level - 1]);
+				data->spftree[tree][level - 1] = NULL;
+			}
+		}
+	}
+#endif /* ifndef FABRICD */
 
 	if (area->spf_timer[level - 1])
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[level - 1]));
@@ -3748,7 +3791,8 @@ struct cmd_node router_node = {
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
-#else
+#endif /* ifdef FABRICD */
+#ifndef FABRICD
 /* IS-IS configuration write function */
 static int isis_config_write(struct vty *vty)
 {
@@ -3771,7 +3815,14 @@ struct cmd_node router_node = {
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
-#endif /* ifdef FABRICD */
+
+struct cmd_node isis_flex_algo_node = {
+	.name = "isis-flex-algo",
+	.node = ISIS_FLEX_ALGO_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-flex-algo)# ",
+};
+#endif /* ifdnef FABRICD */
 
 void isis_init(void)
 {
@@ -3880,6 +3931,10 @@ void isis_init(void)
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 #endif /* ifdef FABRICD */
+#ifndef FABRICD
+	install_node(&isis_flex_algo_node);
+	install_default(ISIS_FLEX_ALGO_NODE);
+#endif /* ifdnef FABRICD */
 
 	spf_backoff_cmd_init();
 }

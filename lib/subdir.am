@@ -33,6 +33,7 @@ lib_libfrr_la_SOURCES = \
 	lib/filter.c \
 	lib/filter_cli.c \
 	lib/filter_nb.c \
+	lib/flex_algo.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frrscript.c \
@@ -99,6 +100,7 @@ lib_libfrr_la_SOURCES = \
 	lib/sockopt.c \
 	lib/sockunion.c \
 	lib/spf_backoff.c \
+	lib/segment_routing.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
 	lib/strformat.c \
@@ -210,6 +212,7 @@ pkginclude_HEADERS += \
 	lib/distribute.h \
 	lib/ferr.h \
 	lib/filter.h \
+	lib/flex_algo.h \
 	lib/freebsd-queue.h \
 	lib/frrlua.h \
 	lib/frrscript.h \
@@ -282,6 +285,7 @@ pkginclude_HEADERS += \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
+	lib/segment_routing.h \
 	lib/srcdest_table.h \
 	lib/srte.h \
 	lib/stream.h \
