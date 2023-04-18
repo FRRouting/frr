@@ -87,6 +87,7 @@
 {arch}
 build
 .cache
+.dir-locals.el
 .msg
 .rebase-*
 *~
