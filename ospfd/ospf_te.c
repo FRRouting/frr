@@ -1207,10 +1207,9 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 	/* Now, create an OSPF LSA instance. */
 	new = ospf_lsa_new_and_data(length);
 
-	new->vrf_id = ospf->vrf_id;
-	if (area && area->ospf)
-		new->vrf_id = area->ospf->vrf_id;
 	new->area = area;
+	new->vrf_id = VRF_DEFAULT;
+
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
@@ -1329,7 +1328,6 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 			  __func__);
 		return rc;
 	}
-	new->vrf_id = top->vrf_id;
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
@@ -1482,7 +1480,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		ospf_opaque_lsa_flush_schedule(lsa);
 		return NULL;
 	}
-	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	/* Create new Opaque-LSA/MPLS-TE instance. */
 	new = ospf_mpls_te_lsa_new(top, area, lp);
 	if (new == NULL) {
@@ -3847,6 +3845,12 @@ DEFUN (ospf_mpls_te_on,
 	if (OspfMplsTE.enabled)
 		return CMD_SUCCESS;
 
+	/* Check that the OSPF is using default VRF */
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "MPLS TE is only supported in default VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	ote_debug("MPLS-TE: OFF -> ON");
 
 	OspfMplsTE.enabled = true;
@@ -4229,12 +4233,10 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 
 DEFUN (show_ip_ospf_mpls_te_link,
        show_ip_ospf_mpls_te_link_cmd,
-       "show ip ospf [vrf <NAME|all>] mpls-te interface [INTERFACE]",
+       "show ip ospf mpls-te interface [INTERFACE]",
        SHOW_STR
        IP_STR
        OSPF_STR
-       VRF_CMD_HELP_STR
-       "All VRFs\n"
        "MPLS-TE information\n"
        "Interface information\n"
        "Interface name\n")
@@ -4242,43 +4244,18 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	struct vrf *vrf;
 	int idx_interface = 0;
 	struct interface *ifp = NULL;
-	struct listnode *node;
-	char *vrf_name = NULL;
-	bool all_vrf = false;
-	int inst = 0;
-	int idx_vrf = 0;
 	struct ospf *ospf = NULL;
 
-	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		vrf_name = argv[idx_vrf + 1]->arg;
-		all_vrf = strmatch(vrf_name, "all");
-	}
 	argv_find(argv, argc, "INTERFACE", &idx_interface);
-	/* vrf input is provided could be all or specific vrf*/
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-				if (!ospf->oi_running)
-					continue;
-				vrf = vrf_lookup_by_id(ospf->vrf_id);
-				FOR_ALL_INTERFACES (vrf, ifp)
-					show_mpls_te_link_sub(vty, ifp);
-			}
-			return CMD_SUCCESS;
-		}
-		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-	} else
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (!vrf)
 		return CMD_SUCCESS;
 	if (idx_interface) {
-		ifp = if_lookup_by_name(
-					argv[idx_interface]->arg,
-					ospf->vrf_id);
+		ifp = if_lookup_by_name(argv[idx_interface]->arg, VRF_DEFAULT);
 		if (ifp == NULL) {
 			vty_out(vty, "No such interface name in vrf %s\n",
 				vrf->name);

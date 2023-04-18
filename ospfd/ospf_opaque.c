@@ -544,7 +544,7 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 		listnode_add(new->area->opaque_lsa_self, oipt);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		top = ospf_lookup_by_vrf_id(new->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (new->area != NULL && (top = new->area->ospf) == NULL) {
 			free_opaque_info_per_type(oipt, true);
 			oipt = NULL;
@@ -652,7 +652,7 @@ lookup_opaque_info_by_type(struct ospf_lsa *lsa)
 				"Type-10 Opaque-LSA: Reference to AREA is missing?");
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if ((area = lsa->area) != NULL && (top = area->ospf) == NULL) {
 			flog_warn(
 				EC_OSPF_LSA,
@@ -757,6 +757,13 @@ DEFUN (capability_opaque,
        "Opaque LSA\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	/* Check that OSPF is using default VRF */
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"OSPF Opaque LSA is only supported in default VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Turn on the "master switch" of opaque-lsa capability. */
 	if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
@@ -1588,7 +1595,7 @@ struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *lsa, int rt_recalc)
 		}
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (lsa->area != NULL && (top = lsa->area->ospf) == NULL) {
 			/* Above conditions must have passed. */
 			flog_warn(EC_OSPF_LSA, "%s: Something wrong?",
@@ -1615,7 +1622,7 @@ struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa)
 	struct ospf_opaque_functab *functab;
 	struct ospf_lsa *new = NULL;
 
-	ospf = ospf_lookup_by_vrf_id(lsa->vrf_id);
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if ((functab = ospf_opaque_functab_lookup(lsa)) == NULL
 	    || functab->lsa_refresher == NULL) {
@@ -1752,7 +1759,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 
 	/* Generate a dummy lsa to be passed for a lookup function. */
 	lsa = pseudo_lsa(oi, area, lsa_type, opaque_type);
-	lsa->vrf_id = top->vrf_id;
+	lsa->vrf_id = VRF_DEFAULT;
 
 	if ((oipt = lookup_opaque_info_by_type(lsa)) == NULL) {
 		struct ospf_opaque_functab *functab;
@@ -1987,7 +1994,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		ospf_ls_retransmit_delete_nbr_area(lsa->area, lsa);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		top = ospf_lookup_by_vrf_id(lsa0->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
 			top = lsa0->area->ospf;
 		ospf_ls_retransmit_delete_nbr_as(top, lsa);
@@ -2037,7 +2044,7 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 	struct ospf_lsa *lsa;
 	struct ospf *top;
 
-	top = ospf_lookup_by_vrf_id(lsa0->vrf_id);
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if ((oipt = lookup_opaque_info_by_type(lsa0)) == NULL
 	    || (oipi = lookup_opaque_info_by_id(oipt, lsa0)) == NULL) {
