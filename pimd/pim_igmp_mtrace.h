@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Multicast traceroute for FRRouting
  * Copyright (C) 2017  Mladen Sablic
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM_IGMP_MTRACE_H
@@ -94,11 +81,11 @@ struct igmp_mtrace {
 #define MTRACE_HDR_SIZE (sizeof(struct igmp_mtrace))
 #define MTRACE_RSP_SIZE (sizeof(struct igmp_mtrace_rsp))
 
-int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 			     struct in_addr from, const char *from_str,
 			     char *igmp_msg, int igmp_msg_len);
 
-int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 			      struct in_addr from, const char *from_str,
 			      char *igmp_msg, int igmp_msg_len);
 

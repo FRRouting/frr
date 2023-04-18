@@ -1,0 +1,18 @@
+{
+  "neighbors":{
+    "1.1.1.1":[
+      {
+        "converged":"Full",
+        "ifaceAddress":"10.0.1.1",
+        "ifaceName":"eth-rt1:10.0.1.2"
+      }
+    ],
+    "3.3.3.3":[
+      {
+        "converged":"Full",
+        "ifaceAddress":"10.0.2.3",
+        "ifaceName":"eth-rt3:10.0.2.2"
+      }
+    ]
+  }
+}

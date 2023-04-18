@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * RIPng debug output routines
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -55,6 +40,8 @@ DEFUN_NOSH (show_debugging_ripng,
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		vty_out(vty, "  RIPng zebra debugging is on\n");
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
@@ -174,10 +161,13 @@ DEFUN (no_debug_ripng_zebra,
 	return CMD_SUCCESS;
 }
 
+static int config_write_debug(struct vty *vty);
 /* Debug node. */
 static struct cmd_node debug_node = {
-	DEBUG_NODE, "", /* Debug node has no interface. */
-	1		/* VTYSH */
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_debug,
 };
 
 static int config_write_debug(struct vty *vty)
@@ -213,9 +203,9 @@ void ripng_debug_init(void)
 	ripng_debug_packet = 0;
 	ripng_debug_zebra = 0;
 
-	install_node(&debug_node, config_write_debug);
+	install_node(&debug_node);
 
-	install_element(VIEW_NODE, &show_debugging_ripng_cmd);
+	install_element(ENABLE_NODE, &show_debugging_ripng_cmd);
 
 	install_element(ENABLE_NODE, &debug_ripng_events_cmd);
 	install_element(ENABLE_NODE, &debug_ripng_packet_cmd);

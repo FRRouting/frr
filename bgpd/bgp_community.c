@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Community attribute related functions.
  * Copyright (C) 1998, 2001 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,9 +9,11 @@
 #include "hash.h"
 #include "memory.h"
 #include "jhash.h"
+#include "frrstr.h"
 
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_community_alias.h"
 
 /* Hash of community attribute. */
 static struct hash *comhash;
@@ -40,6 +27,9 @@ static struct community *community_new(void)
 /* Free communities value.  */
 void community_free(struct community **com)
 {
+	if (!(*com))
+		return;
+
 	XFREE(MTYPE_COMMUNITY_VAL, (*com)->val);
 	XFREE(MTYPE_COMMUNITY_STR, (*com)->str);
 
@@ -52,14 +42,10 @@ void community_free(struct community **com)
 }
 
 /* Add one community value to the community. */
-static void community_add_val(struct community *com, uint32_t val)
+void community_add_val(struct community *com, uint32_t val)
 {
 	com->size++;
-	if (com->val)
-		com->val = XREALLOC(MTYPE_COMMUNITY_VAL, com->val,
-				    com_length(com));
-	else
-		com->val = XMALLOC(MTYPE_COMMUNITY_VAL, com_length(com));
+	com->val = XREALLOC(MTYPE_COMMUNITY_VAL, com->val, com_length(com));
 
 	val = htonl(val);
 	memcpy(com_lastval(com), &val, sizeof(uint32_t));
@@ -89,7 +75,6 @@ void community_del_val(struct community *com, uint32_t *val)
 						    com->val, com_length(com));
 			else {
 				XFREE(MTYPE_COMMUNITY_VAL, com->val);
-				com->val = NULL;
 			}
 			return;
 		}
@@ -129,7 +114,7 @@ static int community_compare(const void *a1, const void *a2)
 	return 0;
 }
 
-int community_include(struct community *com, uint32_t val)
+bool community_include(struct community *com, uint32_t val)
 {
 	int i;
 
@@ -137,9 +122,8 @@ int community_include(struct community *com, uint32_t val)
 
 	for (i = 0; i < com->size; i++)
 		if (memcmp(&val, com_nthval(com, i), sizeof(uint32_t)) == 0)
-			return 1;
-
-	return 0;
+			return true;
+	return false;
 }
 
 uint32_t community_val_get(struct community *com, int i)
@@ -148,7 +132,7 @@ uint32_t community_val_get(struct community *com, int i)
 	uint32_t val;
 
 	p = (uint8_t *)com->val;
-	p += (i * 4);
+	p += (i * COMMUNITY_SIZE);
 
 	memcpy(&val, p, sizeof(uint32_t));
 
@@ -184,7 +168,6 @@ struct community *community_uniq_sort(struct community *com)
 
    For Well-known communities value, below keyword is used.
 
-   0x0             "internet"
    0xFFFF0000      "graceful-shutdown"
    0xFFFF0001      "accept-own"
    0xFFFF0002      "route-filter-translated-v4"
@@ -201,7 +184,8 @@ struct community *community_uniq_sort(struct community *com)
    0xFFFFFF04      "no-peer"
 
    For other values, "AS:VAL" format is used.  */
-static void set_community_string(struct community *com, bool make_json)
+static void set_community_string(struct community *com, bool make_json,
+				 bool translate_alias)
 {
 	int i;
 	char *str;
@@ -244,8 +228,12 @@ static void set_community_string(struct community *com, bool make_json)
 		comval = ntohl(comval);
 
 		switch (comval) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		case COMMUNITY_INTERNET:
 			len += strlen(" internet");
+			zlog_warn("`internet` community is deprecated");
 			break;
 		case COMMUNITY_GSHUT:
 			len += strlen(" graceful-shutdown");
@@ -290,7 +278,7 @@ static void set_community_string(struct community *com, bool make_json)
 			len += strlen(" no-peer");
 			break;
 		default:
-			len += strlen(" 65536:65535");
+			len = BUFSIZ;
 			break;
 		}
 	}
@@ -310,6 +298,9 @@ static void set_community_string(struct community *com, bool make_json)
 			strlcat(str, " ", len);
 
 		switch (comval) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		case COMMUNITY_INTERNET:
 			strlcat(str, "internet", len);
 			if (make_json) {
@@ -318,6 +309,7 @@ static void set_community_string(struct community *com, bool make_json)
 				json_object_array_add(json_community_list,
 						      json_string);
 			}
+			zlog_warn("`internet` community is deprecated");
 			break;
 		case COMMUNITY_GSHUT:
 			strlcat(str, "graceful-shutdown", len);
@@ -448,9 +440,13 @@ static void set_community_string(struct community *com, bool make_json)
 			val = comval & 0xFFFF;
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			strlcat(str, buf, len);
+			const char *com2alias =
+				translate_alias ? bgp_community2alias(buf)
+						: buf;
+
+			strlcat(str, com2alias, len);
 			if (make_json) {
-				json_string = json_object_new_string(buf);
+				json_string = json_object_new_string(com2alias);
 				json_object_array_add(json_community_list,
 						      json_string);
 			}
@@ -486,7 +482,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find, false);
+		set_community_string(find, false, true);
 
 	return find;
 }
@@ -495,6 +491,9 @@ struct community *community_intern(struct community *com)
 void community_unintern(struct community **com)
 {
 	struct community *ret;
+
+	if (!*com)
+		return;
 
 	if ((*com)->refcnt)
 		(*com)->refcnt--;
@@ -516,11 +515,11 @@ struct community *community_parse(uint32_t *pnt, unsigned short length)
 	struct community *new;
 
 	/* If length is malformed return NULL. */
-	if (length % 4)
+	if (length % COMMUNITY_SIZE)
 		return NULL;
 
 	/* Make temporary community for hash look up. */
-	tmp.size = length / 4;
+	tmp.size = length / COMMUNITY_SIZE;
 	tmp.val = pnt;
 
 	new = community_uniq_sort(&tmp);
@@ -535,15 +534,16 @@ struct community *community_dup(struct community *com)
 	new = XCALLOC(MTYPE_COMMUNITY, sizeof(struct community));
 	new->size = com->size;
 	if (new->size) {
-		new->val = XMALLOC(MTYPE_COMMUNITY_VAL, com->size * 4);
-		memcpy(new->val, com->val, com->size * 4);
+		new->val = XMALLOC(MTYPE_COMMUNITY_VAL,
+				   com->size * COMMUNITY_SIZE);
+		memcpy(new->val, com->val, com->size * COMMUNITY_SIZE);
 	} else
 		new->val = NULL;
 	return new;
 }
 
-/* Retrun string representation of communities attribute. */
-char *community_str(struct community *com, bool make_json)
+/* Return string representation of communities attribute. */
+char *community_str(struct community *com, bool make_json, bool translate_alias)
 {
 	if (!com)
 		return NULL;
@@ -552,7 +552,7 @@ char *community_str(struct community *com, bool make_json)
 		XFREE(MTYPE_COMMUNITY_STR, com->str);
 
 	if (!com->str)
-		set_community_string(com, make_json);
+		set_community_string(com, make_json, translate_alias);
 	return com->str;
 }
 
@@ -560,24 +560,24 @@ char *community_str(struct community *com, bool make_json)
    hash package.*/
 unsigned int community_hash_make(const struct community *com)
 {
-	uint32_t *pnt = (uint32_t *)com->val;
+	uint32_t *pnt = com->val;
 
 	return jhash2(pnt, com->size, 0x43ea96c1);
 }
 
-int community_match(const struct community *com1, const struct community *com2)
+bool community_match(const struct community *com1, const struct community *com2)
 {
 	int i = 0;
 	int j = 0;
 
 	if (com1 == NULL && com2 == NULL)
-		return 1;
+		return true;
 
 	if (com1 == NULL || com2 == NULL)
-		return 0;
+		return false;
 
 	if (com1->size < com2->size)
-		return 0;
+		return false;
 
 	/* Every community on com2 needs to be on com1 for this to match */
 	while (i < com1->size && j < com2->size) {
@@ -587,13 +587,11 @@ int community_match(const struct community *com1, const struct community *com2)
 	}
 
 	if (j == com2->size)
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
-/* If two aspath have same value then return 1 else return 0. This
-   function is used by hash package. */
 bool community_cmp(const struct community *com1, const struct community *com2)
 {
 	if (com1 == NULL && com2 == NULL)
@@ -602,7 +600,8 @@ bool community_cmp(const struct community *com1, const struct community *com2)
 		return false;
 
 	if (com1->size == com2->size)
-		if (memcmp(com1->val, com2->val, com1->size * 4) == 0)
+		if (memcmp(com1->val, com2->val, com1->size * COMMUNITY_SIZE)
+		    == 0)
 			return true;
 	return false;
 }
@@ -611,14 +610,10 @@ bool community_cmp(const struct community *com1, const struct community *com2)
 struct community *community_merge(struct community *com1,
 				  struct community *com2)
 {
-	if (com1->val)
-		com1->val = XREALLOC(MTYPE_COMMUNITY_VAL, com1->val,
-				     (com1->size + com2->size) * 4);
-	else
-		com1->val = XMALLOC(MTYPE_COMMUNITY_VAL,
-				    (com1->size + com2->size) * 4);
+	com1->val = XREALLOC(MTYPE_COMMUNITY_VAL, com1->val,
+			     (com1->size + com2->size) * COMMUNITY_SIZE);
 
-	memcpy(com1->val + com1->size, com2->val, com2->size * 4);
+	memcpy(com1->val + com1->size, com2->val, com2->size * COMMUNITY_SIZE);
 	com1->size += com2->size;
 
 	return com1;
@@ -644,6 +639,31 @@ enum community_token {
 	community_token_unknown
 };
 
+/* Helper to check if a given community is valid */
+static bool community_valid(const char *community)
+{
+	int octets = 0;
+	char **splits;
+	int num;
+	int invalid = 0;
+
+	frrstr_split(community, ":", &splits, &num);
+
+	for (int i = 0; i < num; i++) {
+		if (strtoul(splits[i], NULL, 10) > UINT16_MAX)
+			invalid++;
+
+		if (strlen(splits[i]) == 0)
+			invalid++;
+
+		octets++;
+		XFREE(MTYPE_TMP, splits[i]);
+	}
+	XFREE(MTYPE_TMP, splits);
+
+	return (octets < 2 || invalid) ? false : true;
+}
+
 /* Get next community token from string. */
 static const char *
 community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
@@ -660,10 +680,14 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 
 	/* Well known community string check. */
 	if (isalpha((unsigned char)*p)) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		if (strncmp(p, "internet", strlen("internet")) == 0) {
 			*val = COMMUNITY_INTERNET;
 			*token = community_token_no_export;
 			p += strlen("internet");
+			zlog_warn("`internet` community is deprecated");
 			return p;
 		}
 		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown"))
@@ -671,6 +695,14 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			*val = COMMUNITY_GSHUT;
 			*token = community_token_gshut;
 			p += strlen("graceful-shutdown");
+			return p;
+		}
+		if (strncmp(p, "accept-own-nexthop",
+			    strlen("accept-own-nexthop"))
+		    == 0) {
+			*val = COMMUNITY_ACCEPT_OWN_NEXTHOP;
+			*token = community_token_accept_own_nexthop;
+			p += strlen("accept-own-nexthop");
 			return p;
 		}
 		if (strncmp(p, "accept-own", strlen("accept-own"))
@@ -724,14 +756,6 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			p += strlen("no-llgr");
 			return p;
 		}
-		if (strncmp(p, "accept-own-nexthop",
-			strlen("accept-own-nexthop"))
-		    == 0) {
-			*val = COMMUNITY_ACCEPT_OWN_NEXTHOP;
-			*token = community_token_accept_own_nexthop;
-			p += strlen("accept-own-nexthop");
-			return p;
-		}
 		if (strncmp(p, "blackhole", strlen("blackhole"))
 		    == 0) {
 			*val = COMMUNITY_BLACKHOLE;
@@ -776,6 +800,11 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 		uint32_t community_low = 0;
 		uint32_t community_high = 0;
 
+		if (!community_valid(p)) {
+			*token = community_token_unknown;
+			return NULL;
+		}
+
 		while (isdigit((unsigned char)*p) || *p == ':') {
 			if (*p == ':') {
 				if (separator) {
@@ -802,11 +831,6 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			p++;
 		}
 		if (!digit) {
-			*token = community_token_unknown;
-			return NULL;
-		}
-
-		if (community_low > UINT16_MAX) {
 			*token = community_token_unknown;
 			return NULL;
 		}
@@ -886,10 +910,16 @@ void community_init(void)
 			    "BGP Community Hash");
 }
 
+static void community_hash_free(void *data)
+{
+	struct community *com = data;
+
+	community_free(&com);
+}
+
 void community_finish(void)
 {
-	hash_free(comhash);
-	comhash = NULL;
+	hash_clean_and_free(&comhash, community_hash_free);
 }
 
 static struct community *bgp_aggr_community_lookup(
@@ -899,7 +929,7 @@ static struct community *bgp_aggr_community_lookup(
 	return hash_lookup(aggregate->community_hash, community);
 }
 
-static void *bgp_aggr_communty_hash_alloc(void *p)
+static void *bgp_aggr_community_hash_alloc(void *p)
 {
 	struct community *ref = (struct community *)p;
 	struct community *community = NULL;
@@ -908,7 +938,7 @@ static void *bgp_aggr_communty_hash_alloc(void *p)
 	return community;
 }
 
-static void bgp_aggr_community_prepare(struct hash_backet *hb, void *arg)
+static void bgp_aggr_community_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct community *hb_community = hb->data;
 	struct community **aggr_community = arg;
@@ -956,7 +986,7 @@ void bgp_compute_aggregate_community_hash(struct bgp_aggregate *aggregate,
 		/* Insert community into hash.
 		 */
 		aggr_community = hash_get(aggregate->community_hash, community,
-					  bgp_aggr_communty_hash_alloc);
+					  bgp_aggr_community_hash_alloc);
 	}
 
 	/* Increment reference counter.

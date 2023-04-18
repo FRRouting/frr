@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4 Finite State Machine
  * From RFC1771 [A Border Gateway Protocol 4 (BGP-4)]
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_FSM_H
@@ -26,26 +11,33 @@
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
 		if ((peer->status != Deleted))                                 \
-			thread_add_timer(bm->master, (F), peer, (V), &(T));    \
-	} while (0)
-
-#define BGP_TIMER_OFF(T)                                                       \
-	do {                                                                   \
-		if (T)                                                         \
-			THREAD_TIMER_OFF(T);                                   \
+			event_add_timer(bm->master, (F), peer, (V), &(T));     \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                    \
 	do {                                                                   \
 		if ((P)->status != Deleted)                                    \
-			thread_add_event(bm->master, bgp_event, (P), (E),      \
-					 NULL);                                \
+			event_add_event(bm->master, bgp_event, (P), (E),       \
+					NULL);                                 \
 	} while (0)
 
 #define BGP_EVENT_FLUSH(P)                                                     \
 	do {                                                                   \
 		assert(peer);                                                  \
-		thread_cancel_event(bm->master, (P));                          \
+		event_cancel_event_ready(bm->master, (P));                     \
+	} while (0)
+
+#define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                        \
+	do {                                                                   \
+		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                     \
+		    PEER_ROUTE_ADV_DELAY(peer))                                \
+			event_add_timer_msec(                                  \
+				bm->master, (F), peer,                         \
+				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME *       \
+				 1000),                                        \
+				(T));                                          \
+		else                                                           \
+			event_add_timer_msec(bm->master, (F), peer, 0, (T));   \
 	} while (0)
 
 #define BGP_MSEC_JITTER 10
@@ -56,19 +48,77 @@
 #define FSM_PEER_TRANSFERRED    2
 #define FSM_PEER_TRANSITIONED   3
 
+#define BGP_PEER_GR_HELPER_ENABLE(peer)	\
+	do {		\
+		UNSET_FLAG( \
+			peer->peer_gr_new_status_flag,		\
+			PEER_GRACEFUL_RESTART_NEW_STATE_RESTART);	\
+		SET_FLAG( \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
+	} while (0)
+
+#define BGP_PEER_GR_ENABLE(peer)\
+	do {				\
+		SET_FLAG(   \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_RESTART); \
+		UNSET_FLAG( \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
+	} while (0)
+
+#define BGP_PEER_GR_DISABLE(peer)\
+	do {				\
+		UNSET_FLAG( \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_RESTART);\
+		UNSET_FLAG(\
+			peer->peer_gr_new_status_flag, \
+			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
+	} while (0)
+
+#define BGP_PEER_GR_GLOBAL_INHERIT_SET(peer) \
+			SET_FLAG(peer->peer_gr_new_status_flag,	\
+				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
+
+#define BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer)	\
+			UNSET_FLAG(peer->peer_gr_new_status_flag, \
+				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
+
+#define BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)                                \
+	(CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)                           \
+	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
+
+#define BGP_PEER_RESTARTING_MODE(peer)                                         \
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&                \
+	 CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV) &&         \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
+
+#define BGP_PEER_HELPER_MODE(peer)                                             \
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER) &&         \
+	 CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV) &&         \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV))
+
 /* Prototypes. */
-extern void bgp_fsm_event_update(struct peer *peer, int valid);
-extern int bgp_event(struct thread *);
-extern int bgp_event_update(struct peer *, int event);
+
+/*
+ * Update FSM for peer based on whether we have valid nexthops or not.
+ */
+extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
+extern void bgp_event(struct event *event);
+extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
 extern int bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
-extern int bgp_routeadv_timer(struct thread *);
-extern void bgp_fsm_change_status(struct peer *peer, int status);
-extern const char *peer_down_str[];
+extern void bgp_routeadv_timer(struct event *event);
+extern void bgp_fsm_change_status(struct peer *peer,
+				  enum bgp_fsm_status status);
+extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);
 extern void bgp_maxmed_update(struct bgp *);
-extern int bgp_maxmed_onstartup_configured(struct bgp *);
-extern int bgp_maxmed_onstartup_active(struct bgp *);
+extern bool bgp_maxmed_onstartup_configured(struct bgp *);
+extern bool bgp_maxmed_onstartup_active(struct bgp *);
+extern int bgp_fsm_error_subcode(int status);
 
 /**
  * Start the route advertisement timer (that honors MRAI) for all the
@@ -87,6 +137,29 @@ extern void bgp_start_routeadv(struct bgp *);
 extern void bgp_adjust_routeadv(struct peer *);
 
 #include "hook.h"
-DECLARE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
+DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer));
+DECLARE_HOOK(peer_established, (struct peer *peer), (peer));
 
+int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd);
+int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd);
+unsigned int bgp_peer_gr_action(struct peer *peer,
+		int old_peer_state, int new_peer_state);
+void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);
+unsigned int bgp_peer_gr_helper_enable(struct peer *peer);
+unsigned int bgp_peer_gr_enable(struct peer *peer);
+unsigned int bgp_peer_gr_global_inherit(struct peer *peer);
+unsigned int bgp_peer_gr_disable(struct peer *peer);
+enum peer_mode bgp_peer_gr_mode_get(struct peer *peer);
+enum global_mode bgp_global_gr_mode_get(struct bgp *bgp);
+enum peer_mode bgp_get_peer_gr_mode_from_flags(struct peer *peer);
+unsigned int bgp_peer_gr_global_inherit_unset(struct peer *peer);
+int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
+		enum global_mode global_new_state,
+		enum global_mode global_old_state);
+void bgp_peer_gr_flags_update(struct peer *peer);
+const char *print_peer_gr_mode(enum peer_mode pr_mode);
+const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);
+const char *print_global_gr_mode(enum global_mode gl_mode);
+const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd);
+int bgp_peer_reg_with_nht(struct peer *peer);
 #endif /* _QUAGGA_BGP_FSM_H */

@@ -1,0 +1,7 @@
+*.so
+*.o
+debian/.debhelper
+debian/files
+debian/*.substvars
+debian/gcc-9-frr-plugin
+!gcc-retain-typeinfo.patch

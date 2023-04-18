@@ -1,0 +1,1172 @@
+submodule frr-bgp-common {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  import ietf-bgp-types {
+    prefix bt;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  import frr-route-types {
+    prefix frr-rt-type;
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  import ietf-routing-types {
+    prefix rt-types;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This submodule contains general data definitions for use in BGP.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  grouping rmap-policy-import {
+    leaf rmap-import {
+      type frr-route-map:route-map-ref;
+    }
+  }
+
+  grouping rmap-policy-export {
+    leaf rmap-export {
+      type frr-route-map:route-map-ref;
+    }
+  }
+
+  grouping unsuppress-map-policy-import {
+    leaf unsuppress-map-import {
+      type frr-route-map:route-map-ref;
+    }
+  }
+
+  grouping unsuppress-map-policy-export {
+    leaf unsuppress-map-export {
+      type frr-route-map:route-map-ref;
+    }
+  }
+
+  grouping plist-policy-import {
+    leaf plist-import {
+      type frr-bt:plist-ref;
+    }
+  }
+
+  grouping plist-policy-export {
+    leaf plist-export {
+      type frr-bt:plist-ref;
+    }
+  }
+
+  grouping access-list-policy-import {
+    leaf access-list-import {
+      type frr-bt:access-list-ref;
+    }
+  }
+
+  grouping access-list-policy-export {
+    leaf access-list-export {
+      type frr-bt:access-list-ref;
+    }
+  }
+
+  grouping as-path-filter-list-policy-import {
+    leaf as-path-filter-list-import {
+      type frr-bt:as-path-filter-ref;
+    }
+  }
+
+  grouping as-path-filter-list-policy-export {
+    leaf as-path-filter-list-export {
+      type frr-bt:as-path-filter-ref;
+    }
+  }
+
+  grouping route-selection-options {
+    description
+      "Configuration relating to route selection options.";
+    container route-selection-options {
+      description
+        "Parameters relating to options for route selection.";
+      leaf always-compare-med {
+        type boolean;
+        default "false";
+        description
+          "Compare multi-exit discriminator (MED) value from
+           different ASes when selecting the best route.  The
+           default behaviour is to only compare MEDs for paths
+           received from the same AS.";
+      }
+
+      leaf deterministic-med {
+        type boolean;
+        default "false";
+        description
+          "Compare multi-exit discriminator (MED) value from
+           Same ASes when selecting the best route.";
+      }
+
+      leaf confed-med {
+        type boolean;
+        default "false";
+        description
+          "Compare multi-exit discriminator (MED) value from
+           different Sub ASes when selecting the best route.";
+      }
+
+      leaf missing-as-worst-med {
+        type boolean;
+        default "false";
+        description
+          "Missing multi-exit discriminator (MED) value is
+           considered as value of infinity, making the path
+           least desirable when selecting the best route.";
+      }
+
+      leaf aspath-confed {
+        type boolean;
+        default "false";
+        description
+          "Compare path lengths including confederation sets
+           and sequences in selecting a route.";
+      }
+
+      leaf ignore-as-path-length {
+        type boolean;
+        default "false";
+        description
+          "Ignore the AS path length when selecting the best path.
+           The default is to use the AS path length and prefer paths
+           with shorter length.";
+      }
+
+      leaf external-compare-router-id {
+        type boolean;
+        default "false";
+        description
+          "When comparing similar routes received from external BGP
+           peers, use the router-id as a criterion to select the
+           active path.";
+      }
+
+      leaf allow-multiple-as {
+        type boolean;
+        default "false";
+        description
+          "Allow multi-path to use paths from different neighbouring
+           ASes.  The default is to only consider multiple paths
+           from the same neighbouring AS.";
+      }
+
+      leaf multi-path-as-set {
+        when "../allow-multiple-as = 'true'";
+        type boolean;
+        default "false";
+        description
+          "Multi-path with AS-SET, When set to 'true' it adds AS set
+           information for aggregate routes, When set to 'false' it
+           prevents AS set generation.";
+      }
+    }
+  }
+
+  grouping med-config {
+    description
+      "Configuration relating to MED.";
+    container med-config {
+      leaf enable-med-admin {
+        type boolean;
+        default "false";
+        description
+          "Flag to enable receiving of MED metric attribute
+           in routing updates.";
+      }
+      leaf max-med-admin {
+        type uint32 {
+          range "0..4294967295";
+        }
+        default "4294967294";
+        description
+          "Tells the router to announce routes with this MED value
+           This MED value is applicable for indefinite time.";
+      }
+
+      leaf max-med-onstart-up-time {
+        type uint32 {
+          range "5..86400";
+        }
+        units "seconds";
+        description
+          "Tells the router to announce routes with MED value,
+           This MED value is applicable for this duration during
+           start-up.";
+      }
+
+      leaf max-med-onstart-up-value {
+        type uint32 {
+          range "0..4294967295";
+        }
+        default "4294967294";
+        description
+          "Tells the router to announce routes with this MED value
+           This MED value is applicable for start-up time.";
+      }
+    }
+  }
+
+  grouping route-reflector-config {
+    description
+      "Grouping used to include route reflector
+       configuration for BGP global.";
+    container route-reflector {
+      description
+        "Route reflector parameters for the BGP global.";
+      leaf route-reflector-cluster-id {
+        type bt:rr-cluster-id-type;
+        description
+          "Route Reflector cluster ID to use when local router is
+           configured as a route reflector.  Commonly set at the
+           group level, but allows a different cluster ID to be set
+           for each neighbor.";
+        reference
+          "RFC 4456: BGP Route Reflection: An Alternative to
+           Full Mesh.";
+      }
+
+      leaf no-client-reflect {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', this disables route redistribution
+           by the Route Reflector. It is set 'true' when the client is
+           fully meshed to prevent sending of redundant route
+           advertisements.";
+        reference
+          "TODO: Add reference when IETF writes a draft describing
+           this.";
+      }
+
+      leaf allow-outbound-policy {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', this allow RR to modify the attributes of the
+           reflected IBGP routes as per the out route-map. It is set 'false'
+           RR will not modify the attributes of the reflected IBGP routes as
+           per the out route-map rules.";
+      }
+    }
+  }
+
+  grouping global-bgp-config {
+    leaf instance-type-view {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' BGP instance type is view.
+         When set to 'false' BGP instance type is regular.";
+    }
+
+    leaf ebgp-multihop-connected-route-check {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' it will disable checking if nexthop is connected
+         on EBGP sessions. When set to 'false' it will enable checking if
+         nexthop is connected on EBGP sessions.";
+    }
+
+    leaf fast-external-failover {
+      type boolean;
+      default "true";
+      description
+        "It's an interface tracking mechanism. When set to 'true' don't
+         immediately reset session if a link to a directly connected
+         external peer goes down. When set to 'false' it will immediately
+         reset session if a link to a directly connected external peer goes down.";
+    }
+
+    leaf local-pref {
+      type uint32;
+      default "100";
+      description
+        "BGP local preference attribute sent to internal peers to
+         indicate the degree of preference for externally learned
+         routes.  The route with the highest local preference
+         value is preferred.";
+      reference
+        "RFC 4271.";
+    }
+
+    leaf default-shutdown {
+      type boolean;
+      default "false";
+      description
+        "Apply administrative shutdown to newly configured peers.";
+    }
+
+    leaf suppress-duplicates {
+      type boolean;
+      default "true";
+      description
+        "Suppress duplicate updates if the route actually not changed.";
+    }
+
+    leaf ebgp-requires-policy {
+      type boolean;
+      default "true";
+      description
+        "When set to 'true' BGP speaker requires in and out policy
+         for EBGP peers (RFC8212).";
+    }
+
+    leaf show-hostname {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' BGP show hostname in certain command outputs.";
+    }
+
+    leaf show-nexthop-hostname {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' BGP show hostname for nexthop in certain
+         command outputs.";
+    }
+  }
+
+  grouping global-neighbor-config {
+    container global-neighbor-config {
+      leaf dynamic-neighbors-limit {
+        type uint32 {
+          range "1..65535";
+        }
+        description
+          "Maximum number of BGP Dynamic Neighbors that can be created.";
+      }
+
+      leaf log-neighbor-changes {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' BGP will start logging neighbor up/down and reset reason.
+           When set to 'false' BGP will stop logging neighbor up/down and reset reason.";
+      }
+
+      container packet-quanta-config {
+        leaf wpkt-quanta {
+          type uint32 {
+            range "1..64";
+          }
+          default "64";
+          description
+            "How many packets to write to peer socket per run.";
+        }
+
+        leaf rpkt-quanta {
+          type uint32 {
+            range "1..10";
+          }
+          default "10";
+          description
+            "How many packets to read from peer socket per I/O cycle.";
+        }
+      }
+    }
+  }
+
+  grouping global-update-group-config {
+    container global-update-group-config {
+      leaf subgroup-pkt-queue-size {
+        type uint32 {
+          range "20..100";
+        }
+        default "40";
+        description
+          "Subgroup packet queue size.";
+      }
+
+      leaf coalesce-time {
+        type uint32 {
+          range "0..4294967295";
+        }
+        units "milliseconds";
+        default "1000";
+        description
+          "Configures the Subgroup coalesce timer.";
+      }
+    }
+  }
+
+  grouping global-network-config {
+    leaf import-check {
+      type boolean;
+      default "true";
+      description
+        "When set to 'true' bgp creates entries for network statements
+         if a matching prefix exists in the rib. When set to 'false' bgp
+         creates entries for networks that the router cannot reach.
+
+         In FRR versions < 7.4 this used to default to 'false' this is an
+         incompatible backward change";
+    }
+  }
+
+  grouping neighbor-timers {
+    leaf hold-time {
+      type uint16 {
+        range "0 | 3..65535";
+      }
+      units "seconds";
+      default "180";
+      description
+        "Time interval (in seconds) for the HoldTimer established
+         with the peer.  When read as operational data (ro), the
+         value of this object is calculated by this BGP speaker,
+         using the smaller of the values in hold-time that was
+         configured (rw) in the running datastore and the Hold Time
+         received in the OPEN message.
+
+         This value must be at least three seconds
+         if it is not zero (0).
+
+         If the Hold Timer has not been established
+         with the peer this object MUST have a value
+         of zero (0).
+
+         If the configured value of hold-time object was
+         a value of (0), then when read this object MUST have a
+         value of (0) also.";
+      reference
+        "RFC 4271";
+    }
+
+    leaf keepalive {
+      type uint16 {
+        range "0..65535";
+      }
+      units "seconds";
+      default "60";
+      description
+        "When used as a configuration (rw) value, this Time interval
+         (in seconds) for the KeepAlive timer configured for this BGP
+         speaker with this peer. The value of this object will only
+         determine the KEEPALIVE messages' frequency relative to
+         the value specified in configured value for hold-time.
+
+         If the value of this object is zero (0), no periodical
+         KEEPALIVE messages are sent to the peer after the BGP
+         connection has been established.  The suggested value for
+         this timer is 30 seconds.;
+
+         The actual time interval for the KEEPALIVE messages is
+         indicated by operational value of keepalive. That value
+         of this object is calculated by this BGP speaker such that,
+         when compared with hold-time, it has the same proportion
+         that keepalive has, compared with hold-time. A
+         reasonable maximum value for this timer would be one third
+         of that of hold-time.";
+      reference
+        "RFC 4271";
+    }
+  }
+
+  grouping global-config-timers {
+    container global-config-timers {
+      leaf rmap-delay-time {
+        type uint16 {
+          range "0..600";
+        }
+        units "seconds";
+        default "5";
+        description
+          "Time to wait before processing route-map changes.";
+      }
+
+      leaf update-delay-time {
+        type uint16 {
+          range "0..3600";
+        }
+        units "seconds";
+        description
+          "Time to force initial delay for best-path and updates.";
+      }
+
+      leaf establish-wait-time {
+        type uint16 {
+          range "1..3600";
+        }
+        units "seconds";
+        description
+          "Time to force initial delay for updates.";
+      }
+
+      leaf connect-retry-interval {
+        type uint16 {
+          range "1..max";
+        }
+        units "seconds";
+        default "120";
+        description
+          "Time interval (in seconds) for the ConnectRetryTimer. The
+           suggested value for this timer is 120 seconds.";
+        reference
+          "RFC 4271, This is the value used
+           to initialize the 'ConnectRetryTimer'.";
+      }
+
+      uses neighbor-timers;
+    }
+  }
+
+  grouping graceful-restart-config {
+    description
+      "Configuration parameters relating to BGP graceful restart.";
+    choice mode {
+      case graceful-restart-mode {
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enable or disable the graceful-restart capability. When set to 'true'
+             it will enable graceful restart and helper both globally. When set
+             to 'false' it will enable the default behaviour global helper mode.";
+        }
+      }
+
+      case graceful-restart-disable-mode {
+        leaf graceful-restart-disable {
+          type boolean;
+          default "false";
+          description
+            "When set to 'true' it will disable graceful restart and helper both
+             globally. when set to 'false' it will enable the default behaviour
+             global helper mode.";
+        }
+      }
+    }
+
+    leaf preserve-fw-entry {
+      type boolean;
+      default "false";
+      description
+        "Sets F-bit indication that fib is preserved while doing Graceful Restart.
+         When set to 'true' Zebra would preserve the FIB entry on the restarting
+         node.";
+    }
+
+    leaf restart-time {
+      type uint16 {
+        range "1..3600";
+      }
+      units "seconds";
+      default "120";
+      description
+        "Estimated time (in seconds) for the local BGP speaker to
+         restart a session. This value is advertise in the graceful
+         restart BGP capability.  This is a 12-bit value, referred to
+         as Restart Time in RFC4724.  Per RFC4724, the suggested
+         default value is <= the hold-time value. This timer is
+         applicable for helper node.";
+      reference
+        "RFC 4724: Graceful Restart Mechanism for BGP.";
+    }
+
+    leaf stale-routes-time {
+      type uint16 {
+        range "1..3600";
+      }
+      units "seconds";
+      default "360";
+      description
+        "An upper-bound on the time that stale routes will be
+         retained by a router after a session is restarted. If an
+         End-of-RIB (EOR) marker is received prior to this timer
+         expiring stale-routes will be flushed upon its receipt - if
+         no EOR is received, then when this timer expires stale paths
+         will be purged. This timer is applicable for restarting node.";
+      reference
+        "RFC 4724: Graceful Restart Mechanism for BGP.";
+    }
+
+    leaf selection-deferral-time {
+      type uint16 {
+        range "0..3600";
+      }
+      units "seconds";
+      default "360";
+      description
+        "An upper-bound on the time that restarting router defers
+         the route selection process after restart.";
+      reference
+        "RFC 4724: Graceful Restart Mechanism for BGP.";
+    }
+
+    leaf rib-stale-time {
+      type uint16 {
+        range "1..3600";
+      }
+      units "seconds";
+      default "500";
+      description
+        "An upper-bound on the time that helper router holds the
+         stale routes in Zebra, When this timer gets expired Zebra
+         removes the stale routes.";
+    }
+  }
+
+  grouping global-group-use-multiple-paths {
+    description
+      "Common grouping used for both global and groups which provides
+       configuration parameters relating to use of multiple paths.";
+    container use-multiple-paths {
+      description
+        "Parameters related to the use of multiple paths for the
+         same NLRI.";
+      container ebgp {
+        description
+          "Multi-Path parameters for EBGP.";
+        leaf maximum-paths {
+          type uint16;
+          default "64";
+          description
+            "Maximum number of parallel paths to consider when using
+             BGP multi-path. The default is use a single path.";
+        }
+      }
+
+      container ibgp {
+        description
+          "Multi-Path parameters for IBGP.";
+        leaf maximum-paths {
+          type uint16;
+          default "64";
+          description
+            "Maximum number of parallel paths to consider when using
+             IBGP multi-path. The default is to use a single path.";
+        }
+
+        leaf cluster-length-list {
+          when "../maximum-paths != 0";
+          type boolean;
+          default "false";
+          description
+            "When set to 'true' route with the shortest cluster-list
+             length is used. The cluster-list reflects the IBGP
+             reflection path the route has taken. It's the part
+             of route selection algo.";
+        }
+      }
+    }
+  }
+
+  grouping global-redistribute {
+    description
+      "List of route redistribution per AFI.";
+    list redistribution-list {
+      key "route-type route-instance";
+      leaf route-type {
+        type frr-rt-type:frr-route-types;
+        description
+          "Protocol route type.";
+      }
+
+      leaf route-instance {
+        type uint16 {
+          range "0..65535";
+        }
+        description
+          "Protocol Instance.";
+      }
+
+      leaf metric {
+        type uint32 {
+          range "0..4294967295";
+        }
+        description
+          "Metric for redistributed routes.";
+      }
+
+      leaf rmap-policy-import {
+        type frr-route-map:route-map-ref;
+        description
+          "Route-map to be applied for redistributed routes into the bgp.";
+      }
+    }
+  }
+
+  grouping mp-afi-safi-network-config {
+    leaf label-index {
+      type rt-types:mpls-label;
+      description
+        "Label index to associate with the prefix.";
+    }
+
+    leaf rmap-policy-export {
+      type frr-route-map:route-map-ref;
+      description
+        "Route-map to modify the attributes for Routes going out
+         via BGP updates.";
+    }
+  }
+
+  grouping mp-afi-safi-agg-route-config {
+    leaf as-set {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' AS set path information is generated
+         for aggregate address. When set to 'false' AS set path
+         information is not generated.";
+    }
+
+    leaf summary-only {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' it advertise only the aggregate route
+         and suppress the advertisement of all the component routes.
+         When set to 'false' all more-specific routes summarized
+         by the aggregate route are advertised.";
+    }
+
+    leaf rmap-policy-export {
+      type frr-route-map:route-map-ref;
+      description
+        "Apply route map to aggregate network.";
+    }
+
+    leaf origin {
+      type enumeration {
+        enum "igp" {
+          value 0;
+          description
+            "Local IGP.";
+        }
+        enum "egp" {
+          value 1;
+          description
+            "Remote EGP.";
+        }
+        enum "incomplete" {
+          value 2;
+          description
+            "Unknown heritage.";
+        }
+        enum "unspecified" {
+          value 255;
+          description
+            "Unspecified.";
+        }
+      }
+      default "unspecified";
+      description
+        "BGP origin type.";
+    }
+
+    leaf match-med {
+      type boolean;
+      default "false";
+      description
+        "When set to 'true' aggregate-route matches only
+         med.";
+    }
+
+    leaf suppress-map {
+      type string;
+      description
+        "Suppress more specific routes specified in route-map.";
+    }
+  }
+
+  grouping admin-distance {
+    container admin-distance {
+      description
+        "Administrative distance (or preference) assigned to
+         routes received from different sources
+         (external, internal, and local).";
+      leaf external {
+        type uint8 {
+          range "1..255";
+        }
+        default "20";
+        description
+          "Administrative distance for routes learned from
+           external BGP (EBGP).";
+      }
+
+      leaf internal {
+        type uint8 {
+          range "1..255";
+        }
+        default "200";
+        description
+          "Administrative distance for routes learned from
+           internal BGP (IBGP).";
+      }
+
+      leaf local {
+        type uint8 {
+          range "1..255";
+        }
+        default "200";
+        description
+          "Administrative distance for routes learned from
+           local.";
+      }
+    }
+  }
+
+  grouping distance-per-route-config {
+    leaf distance {
+      type uint8 {
+        range "1..255";
+      }
+      mandatory true;
+      description
+        "Administrative distance for route.";
+    }
+
+    leaf access-list-policy-export {
+      type frr-bt:access-list-ref;
+      description
+        "Access-list policy applied on routes going from BGP to Zebra.";
+    }
+  }
+
+  grouping route-flap-dampening {
+    container route-flap-dampening {
+      description
+        "Dampening feature";
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable route flap dampening.";
+      }
+
+      leaf reach-decay {
+        when "../enable = 'true'";
+        type uint8 {
+          range "1..45";
+        }
+        units "seconds";
+        default "15";
+        description
+          "This value specifies the time desired for the instability
+           metric value to reach one-half of its current value when
+           the route is reachable. This half-life value determines
+           the rate at which the metric value is decayed. A smaller
+           half-life value makes a suppressed route reusable sooner
+           than a larger value. The accumulated penalty will be reduced
+           to half after this duration.";
+      }
+
+      leaf reuse-above {
+        when "../enable = 'true'";
+        type uint16 {
+          range "1..20000";
+        }
+        default "750";
+        description
+          "This is the value of the instability metric at which a
+           suppressed route becomes unsuppressed if it is reachable
+           but currently suppressed. The value assigned to
+           reuse-below must be less than suppress-above.";
+      }
+
+      leaf suppress-above {
+        when "../enable = 'true'";
+        type uint16 {
+          range "1..20000";
+        }
+        default "2000";
+        description
+          "This is the value of the instability metric at which
+           route suppression takes place. A route is not installed
+           in the forwarding information base (FIB), or announced
+           even if it is reachable during the period that it is
+           suppressed.";
+      }
+
+      leaf unreach-decay {
+        when "../enable = 'true'";
+        type uint8 {
+          range "1..255";
+        }
+        units "seconds";
+        default "60";
+        description
+          "This value acts the same as reach-decay except that it
+           specifies the rate at which the instability metric is
+           decayed when a route is unreachable. It should have a
+           value greater than or equal to reach-decay.";
+      }
+    }
+  }
+
+  grouping flow-spec-config {
+    container flow-spec-config {
+      description
+        "Flow spec feature.";
+      leaf interface {
+        type frr-interface:interface-ref {
+          require-instance false;
+        }
+        description
+          "The local interface.";
+      }
+    }
+  }
+
+  grouping global-graceful-shutdown {
+    description
+      "Structural grouping used to include graceful-shutdown
+       configuration for both BGP neighbors and peer groups.";
+    container graceful-shutdown {
+      description
+        "BGP Graceful shutdown feature.";
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable graceful-shutdown feature.";
+      }
+    }
+  }
+
+  grouping global-filter-config {
+    description
+      "Structural grouping used to include filter
+       configuration for BGP RIB table.";
+    container filter-config {
+      description
+        "BGP table to RIB route download filter.";
+      uses rmap-policy-export;
+    }
+  }
+
+  grouping route-distinguisher-params {
+    description
+      "Route distinguisher value as per RFC4364.";
+    leaf rd {
+      type rt-types:route-distinguisher;
+      description
+        "Route distinguisher value as per RFC4364.";
+    }
+  }
+
+  grouping vpn-label-params {
+    description
+      "Label value for VRF.";
+    choice label-allocation-mode {
+      case manual {
+        leaf label {
+          type rt-types:mpls-label;
+          description
+            "Label index to associate with the prefix.";
+        }
+      }
+
+      case auto {
+        leaf label-auto {
+          type boolean;
+          default "false";
+          description
+            "Automatically assign a label.";
+        }
+      }
+    }
+  }
+
+  grouping vpn-nexthop-params {
+    description
+      "Specify next hop to use for VRF advertised prefixes.";
+    leaf nexthop {
+      type inet:ip-address;
+      description
+        "Nexthop IP address.";
+    }
+  }
+
+  grouping rt-list {
+    description
+      "Route Target list";
+    leaf-list import-rt-list {
+      type rt-types:route-target;
+      description
+        "For routes leaked from vpn to current address-family: match any.";
+    }
+
+    leaf-list export-rt-list {
+      type rt-types:route-target;
+      description
+        "For routes leaked from current address-family to vpn: set.";
+    }
+  }
+
+  grouping vpn-route-target-params {
+    description
+      "Route Target value.";
+    leaf redirect-rt {
+      type rt-types:route-target;
+      description
+        "Flow-spec redirect type route target.";
+    }
+
+    choice rt-direction {
+      case import-export {
+        uses rt-list;
+      }
+
+      case both {
+        leaf-list rt-list {
+          type rt-types:route-target;
+          description
+            "Both import: match any and export: set.";
+        }
+      }
+    }
+  }
+
+  grouping vpn-import-params {
+    description
+      "VPN route leaking parameters.";
+    leaf import-vpn {
+      type boolean;
+      default "false";
+      description
+        "Import routes from default instance VPN RIB.";
+    }
+
+    leaf export-vpn {
+      type boolean;
+      default "false";
+      description
+        "Export routes to default instance VPN RIB.";
+    }
+
+    list import-vrf-list {
+      key "vrf";
+      description
+        "List of VRFs to import routes from.";
+      leaf vrf {
+        type frr-vrf:vrf-ref {
+          require-instance false;
+        }
+        description
+          "Routing instance.";
+      }
+    }
+
+    uses rmap-policy-import;
+
+    uses rmap-policy-export;
+  }
+
+  grouping global-afi-safi-vpn-config {
+    container vpn-config {
+      leaf rd {
+        type string;
+        description
+          "Route distinguisher value as per RFC4364.";
+      }
+
+      uses vpn-label-params;
+
+      uses vpn-nexthop-params;
+
+      uses vpn-import-params;
+
+      uses vpn-route-target-params;
+    }
+  }
+
+  grouping global-afi-safi-vpn-network-config {
+    list network-config {
+      key "rd";
+      description
+        "A list of rd.";
+      uses route-distinguisher-params;
+
+      list prefix-list {
+        key "prefix";
+        description
+          "A list of prefix.";
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "IP destination prefix.";
+        }
+
+        leaf label-index {
+          type uint32;
+          mandatory true;
+          description
+            "Label index to associate with the prefix.";
+        }
+
+        leaf rmap-policy-export {
+          type frr-route-map:route-map-ref;
+          description
+            "Route-map to modify the attributes for Routes going out
+             via BGP updates.";
+        }
+      }
+    }
+  }
+}

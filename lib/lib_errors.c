@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Library-specific error messages.
  * Copyright (C) 2018  Cumulus Networks, Inc.
  *                     Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -41,19 +28,37 @@ static struct log_ref ferr_lib_warn[] = {
 	{
 		.code = EC_LIB_LINUX_NS,
 		.title = "The Linux namespace subsystem has encountered a parsing error",
-		.description = "During system startup an invalid parameter for the namesapce was give to FRR",
+		.description = "During system startup an invalid parameter for the namespace was give to FRR",
 		.suggestion = "Gather log data and open an Issue. restart FRR",
 	},
 	{
-		.code = EC_LIB_SLOW_THREAD,
-		.title = "The Event subsystem has detected a slow process",
-		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug, or some combination therof.",
+		.code = EC_LIB_SLOW_THREAD_CPU,
+		.title = "The Event subsystem has detected a slow cpu time process",
+		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug, or some combination thereof.  In this case total CPU time was over 5 seconds.  Which indicates that FRR is very busy doing some work and should be addressed",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_SLOW_THREAD_WALL,
+		.title = "The Event subsystem has detected a slow wall time process",
+		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug or some combination thereof.  In this case total WALL time was over 5 seconds.  Which indicates that FRR might be having trouble being scheduled or some system call is delaying",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_STARVE_THREAD,
+		.title = "The Event subsystem has detected a thread starvation issue",
+		.description = "The event subsystem has detected a thread starvation issue.  This typically indicates that the system FRR is running on is heavily loaded and this load might be impacting FRR's ability to handle events in a timely fashion",
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
 		.code = EC_LIB_NO_THREAD,
 		.title = "The Event subsystem has detected an internal FD problem",
 		.description = "The Event subsystem has detected a file descriptor read/write event without an associated handling function.  This is a bug, please collect log data and open an issue.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_TIMER_TOO_LONG,
+		.title = "The Event subsystem has detected an internal timer that is scheduled to pop in greater than one year",
+		.description = "The Event subsystem has detected a timer being started that will pop in a timer that is greater than one year.  This is a bug, please collect log data and open an issue.",
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
@@ -280,7 +285,7 @@ static struct log_ref ferr_lib_err[] = {
 	},
 	{
 		.code = EC_LIB_NB_CB_INVALID_PRIO,
-		.title = "Norhtbound callback has an invalid priority",
+		.title = "Northbound callback has an invalid priority",
 		.description = "The northbound subsystem, during initialization, has detected a callback whose priority is invalid",
 		.suggestion = "This is a bug; please report it"
 	},

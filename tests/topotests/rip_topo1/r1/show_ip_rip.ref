@@ -1,0 +1,12 @@
+Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+Sub-codes:
+      (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+      (i) - interface
+
+     Network            Next Hop         Metric From            Tag Time
+R(n) 192.168.2.0/24     193.1.1.2             3 193.1.1.2         0 XX:XX
+R(n) 192.168.3.0/24     193.1.1.2             3 193.1.1.2         0 XX:XX
+C(i) 192.168.98.0/24    0.0.0.0               1 self              0
+C(i) 192.168.99.0/24    0.0.0.0               1 self              0
+C(i) 193.1.1.0/26       0.0.0.0               1 self              0
+R(n) 193.1.2.0/24       193.1.1.2             2 193.1.1.2         0 XX:XX

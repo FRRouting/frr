@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * NS related header.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_NS_H
@@ -53,6 +38,11 @@ struct ns {
 	/* Identifier, mapped on the NSID value */
 	ns_id_t internal_ns_id;
 
+	/* Identifier, value of NSID of default netns,
+	 * relative value in that local netns
+	 */
+	ns_id_t relative_default_ns;
+
 	/* Name */
 	char *name;
 
@@ -70,8 +60,6 @@ struct ns {
 };
 RB_HEAD(ns_head, ns);
 RB_PROTOTYPE(ns_head, ns, entry, ns_compare)
-
-extern struct ns_head ns_tree;
 
 /*
  * API for managing NETNS. eg from zebra daemon
@@ -122,7 +110,14 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id);
 extern char *ns_netns_pathname(struct vty *vty, const char *name);
 
 /* Parse and execute a function on all the NETNS */
-extern void ns_walk_func(int (*func)(struct ns *));
+#define NS_WALK_CONTINUE 0
+#define NS_WALK_STOP 1
+
+extern void ns_walk_func(int (*func)(struct ns *,
+				     void *,
+				     void **),
+			 void *param_in,
+			 void **param_out);
 
 /* API to get the NETNS name, from the ns pointer */
 extern const char *ns_get_name(struct ns *ns);
@@ -151,10 +146,7 @@ extern ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool map);
  */
 extern void ns_init(void);
 
-/* API to retrieve default NS */
-extern ns_id_t ns_get_default_id(void);
-
-#define NS_DEFAULT ns_get_default_id()
+#define NS_DEFAULT 0
 
 /* API that can be used to change from NS */
 extern int ns_switchback_to_initial(void);
@@ -176,7 +168,9 @@ extern struct ns *ns_lookup_name(const char *name);
  */
 extern int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *));
 extern struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id);
+extern ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid);
 extern void ns_disable(struct ns *ns);
+extern struct ns *ns_get_default(void);
 
 #ifdef __cplusplus
 }

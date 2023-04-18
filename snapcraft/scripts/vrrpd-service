@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/vrrpd.conf ]; then
+    cp $SNAP/etc/frr/vrrpd.conf.default $SNAP_DATA/vrrpd.conf
+fi
+exec $SNAP/sbin/vrrpd \
+    -f $SNAP_DATA/vrrpd.conf \
+    --pid_file $SNAP_DATA/vrrpd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+

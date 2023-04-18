@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2012 Claudio Jeker <claudio@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -24,21 +13,21 @@
 
 struct accept_ev {
 	LIST_ENTRY(accept_ev)	 entry;
-	struct thread		*ev;
-	int			(*accept_cb)(struct thread *);
+	struct event *ev;
+	void (*accept_cb)(struct event *);
 	void			*arg;
 	int			 fd;
 };
 
 struct {
 	LIST_HEAD(, accept_ev)	 queue;
-	struct thread		*evt;
+	struct event *evt;
 } accept_queue;
 
 static void	accept_arm(void);
 static void	accept_unarm(void);
-static int	accept_cb(struct thread *);
-static int	accept_timeout(struct thread *);
+static void accept_cb(struct event *);
+static void accept_timeout(struct event *);
 
 void
 accept_init(void)
@@ -46,8 +35,7 @@ accept_init(void)
 	LIST_INIT(&accept_queue.queue);
 }
 
-int
-accept_add(int fd, int (*cb)(struct thread *), void *arg)
+int accept_add(int fd, void (*cb)(struct event *), void *arg)
 {
 	struct accept_ev	*av;
 
@@ -58,8 +46,7 @@ accept_add(int fd, int (*cb)(struct thread *), void *arg)
 	av->arg = arg;
 	LIST_INSERT_HEAD(&accept_queue.queue, av, entry);
 
-	av->ev = NULL;
-	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
+	event_add_read(master, accept_cb, av, av->fd, &av->ev);
 
 	log_debug("%s: accepting on fd %d", __func__, fd);
 
@@ -74,7 +61,7 @@ accept_del(int fd)
 	LIST_FOREACH(av, &accept_queue.queue, entry)
 		if (av->fd == fd) {
 			log_debug("%s: %d removed from queue", __func__, fd);
-			THREAD_READ_OFF(av->ev);
+			EVENT_OFF(av->ev);
 			LIST_REMOVE(av, entry);
 			free(av);
 			return;
@@ -86,8 +73,7 @@ accept_pause(void)
 {
 	log_debug(__func__);
 	accept_unarm();
-	accept_queue.evt = NULL;
-	thread_add_timer(master, accept_timeout, NULL, 1, &accept_queue.evt);
+	event_add_timer(master, accept_timeout, NULL, 1, &accept_queue.evt);
 }
 
 void
@@ -95,7 +81,7 @@ accept_unpause(void)
 {
 	if (accept_queue.evt != NULL) {
 		log_debug(__func__);
-		THREAD_TIMER_OFF(accept_queue.evt);
+		EVENT_OFF(accept_queue.evt);
 		accept_arm();
 	}
 }
@@ -105,8 +91,7 @@ accept_arm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry) {
-		av->ev = NULL;
-		thread_add_read(master, accept_cb, av, av->fd, &av->ev);
+		event_add_read(master, accept_cb, av, av->fd, &av->ev);
 	}
 }
 
@@ -115,27 +100,20 @@ accept_unarm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry)
-		THREAD_READ_OFF(av->ev);
+		EVENT_OFF(av->ev);
 }
 
-static int
-accept_cb(struct thread *thread)
+static void accept_cb(struct event *thread)
 {
-	struct accept_ev	*av = THREAD_ARG(thread);
-	av->ev = NULL;
-	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
+	struct accept_ev *av = EVENT_ARG(thread);
+	event_add_read(master, accept_cb, av, av->fd, &av->ev);
 	av->accept_cb(thread);
-
-	return (0);
 }
 
-static int
-accept_timeout(struct thread *thread)
+static void accept_timeout(struct event *thread)
 {
 	accept_queue.evt = NULL;
 
 	log_debug(__func__);
 	accept_arm();
-
-	return (0);
 }

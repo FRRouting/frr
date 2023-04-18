@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for FRR - J/P Aggregation
  * Copyright (C) 2017 Cumulus Networks, Inc.
  * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
@@ -25,6 +12,7 @@
 #include "if.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_msg.h"
 #include "pim_jp_agg.h"
 #include "pim_join.h"
@@ -60,13 +48,7 @@ int pim_jp_agg_group_list_cmp(void *arg1, void *arg2)
 	const struct pim_jp_agg_group *jag2 =
 		(const struct pim_jp_agg_group *)arg2;
 
-	if (jag1->group.s_addr < jag2->group.s_addr)
-		return -1;
-
-	if (jag1->group.s_addr > jag2->group.s_addr)
-		return 1;
-
-	return 0;
+	return pim_addr_cmp(jag1->group, jag2->group);
 }
 
 static int pim_jp_agg_src_cmp(void *arg1, void *arg2)
@@ -80,13 +62,7 @@ static int pim_jp_agg_src_cmp(void *arg1, void *arg2)
 	if (!js1->is_join && js2->is_join)
 		return 1;
 
-	if ((uint32_t)js1->up->sg.src.s_addr < (uint32_t)js2->up->sg.src.s_addr)
-		return -1;
-
-	if ((uint32_t)js1->up->sg.src.s_addr > (uint32_t)js2->up->sg.src.s_addr)
-		return 1;
-
-	return 0;
+	return pim_addr_cmp(js1->up->sg.src, js2->up->sg.src);
 }
 
 /*
@@ -117,9 +93,15 @@ void pim_jp_agg_clear_group(struct list *group)
 static struct pim_iface_upstream_switch *
 pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 {
-	struct pim_interface *pim_ifp = rpf->source_nexthop.interface->info;
+	struct interface *ifp = rpf->source_nexthop.interface;
+	struct pim_interface *pim_ifp;
 	struct pim_iface_upstream_switch *pius;
 	struct listnode *node, *nnode;
+
+	if (!ifp)
+		return NULL;
+
+	pim_ifp = ifp->info;
 
 	/* Old interface is pim disabled */
 	if (!pim_ifp)
@@ -127,14 +109,14 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode,
 			       pius)) {
-		if (pius->address.s_addr == rpf->rpf_addr.u.prefix4.s_addr)
+		if (!pim_addr_cmp(pius->address, rpf->rpf_addr))
 			break;
 	}
 
 	if (!pius) {
 		pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			       sizeof(struct pim_iface_upstream_switch));
-		pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
+		pius->address = rpf->rpf_addr;
 		pius->us = list_new();
 		listnode_add_sort(pim_ifp->upstream_switch_list, pius);
 	}
@@ -142,14 +124,15 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	return pius;
 }
 
-void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up)
+void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
+		struct pim_neighbor *nbr)
 {
 	struct listnode *node, *nnode;
 	struct pim_jp_agg_group *jag = NULL;
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
@@ -159,6 +142,13 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up)
 	for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js)) {
 		if (js->up == up)
 			break;
+	}
+
+	if (nbr) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("up %s remove from nbr %s/%pPAs jp-agg-list",
+				   up->sg_str, nbr->interface->name,
+				   &nbr->source_addr);
 	}
 
 	if (js) {
@@ -181,7 +171,7 @@ int pim_jp_agg_is_in_list(struct list *group, struct pim_upstream *up)
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
@@ -217,9 +207,9 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 	struct pim_instance *pim;
 
 	if (!up->rpf.source_nexthop.interface) {
-		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: up %s RPF is not present",
-				__PRETTY_FUNCTION__, up->sg_str);
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__,
+				   up->sg_str);
 		return;
 	}
 
@@ -248,21 +238,21 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 }
 
 void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
-			  bool is_join)
+			  bool is_join, struct pim_neighbor *nbr)
 {
 	struct listnode *node, *nnode;
 	struct pim_jp_agg_group *jag = NULL;
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
 	if (!jag) {
 		jag = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			      sizeof(struct pim_jp_agg_group));
-		jag->group.s_addr = up->sg.grp.s_addr;
+		jag->group = up->sg.grp;
 		jag->sources = list_new();
 		jag->sources->cmp = pim_jp_agg_src_cmp;
 		jag->sources->del = (void (*)(void *))pim_jp_agg_src_free;
@@ -272,6 +262,14 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 	for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js)) {
 		if (js->up == up)
 			break;
+	}
+
+	if (nbr) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("up %s add to nbr %s/%pPAs jp-agg-list",
+				   up->sg_str,
+				   up->rpf.source_nexthop.interface->name,
+				   &nbr->source_addr);
 	}
 
 	if (!js) {
@@ -314,42 +312,41 @@ void pim_jp_agg_switch_interface(struct pim_rpf *orpf, struct pim_rpf *nrpf,
 
 	/* send Prune(S,G) to the old upstream neighbor */
 	if (opius)
-		pim_jp_agg_add_group(opius->us, up, false);
+		pim_jp_agg_add_group(opius->us, up, false, NULL);
 
 	/* send Join(S,G) to the current upstream neighbor */
-	pim_jp_agg_add_group(npius->us, up, true);
+	if (npius)
+		pim_jp_agg_add_group(npius->us, up, true, NULL);
 }
 
 
 void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 				     struct pim_upstream *up, bool is_join)
 {
-	static struct list *groups = NULL;
-	static struct pim_jp_agg_group jag;
-	static struct pim_jp_sources js;
-
-	static bool first = true;
+	struct list groups, sources;
+	struct pim_jp_agg_group jag;
+	struct pim_jp_sources js;
 
 	/* skip JP upstream messages if source is directly connected */
-	if (!up || !rpf->source_nexthop.interface || pim_if_connected_to_source(
-							     rpf->source_nexthop
-								     .interface,
-							     up->sg.src))
+	if (!up || !rpf->source_nexthop.interface ||
+		pim_if_connected_to_source(rpf->source_nexthop.interface,
+			up->sg.src) ||
+		if_is_loopback(rpf->source_nexthop.interface))
 		return;
 
-	if (first) {
-		groups = list_new();
-		jag.sources = list_new();
+	memset(&groups, 0, sizeof(groups));
+	memset(&sources, 0, sizeof(sources));
+	jag.sources = &sources;
 
-		listnode_add(groups, &jag);
-		listnode_add(jag.sources, &js);
+	listnode_add(&groups, &jag);
+	listnode_add(jag.sources, &js);
 
-		first = false;
-	}
-
-	jag.group.s_addr = up->sg.grp.s_addr;
+	jag.group = up->sg.grp;
 	js.up = up;
 	js.is_join = is_join;
 
-	pim_joinprune_send(rpf, groups);
+	pim_joinprune_send(rpf, &groups);
+
+	list_delete_all_node(jag.sources);
+	list_delete_all_node(&groups);
 }

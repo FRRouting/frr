@@ -1,31 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
  *
  * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "log.h"
 #include "qobj.h"
 #include "jhash.h"
+#include "network.h"
 
 static uint32_t qobj_hash(const struct qobj_node *node)
 {
@@ -42,19 +30,19 @@ static int qobj_cmp(const struct qobj_node *na, const struct qobj_node *nb)
 }
 
 DECLARE_HASH(qobj_nodes, struct qobj_node, nodehash,
-			qobj_cmp, qobj_hash)
+			qobj_cmp, qobj_hash);
 
 static pthread_rwlock_t nodes_lock;
 static struct qobj_nodes_head nodes = { };
 
 
-void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type)
+void qobj_reg(struct qobj_node *node, const struct qobj_nodetype *type)
 {
 	node->type = type;
 	pthread_rwlock_wrlock(&nodes_lock);
 	do {
-		node->nid = (uint64_t)random();
-		node->nid ^= (uint64_t)random() << 32;
+		node->nid = (uint64_t)frr_weak_random();
+		node->nid ^= (uint64_t)frr_weak_random() << 32;
 	} while (!node->nid || qobj_nodes_find(&nodes, node));
 	qobj_nodes_add(&nodes, node);
 	pthread_rwlock_unlock(&nodes_lock);
@@ -76,7 +64,7 @@ struct qobj_node *qobj_get(uint64_t id)
 	return rv;
 }
 
-void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type)
+void *qobj_get_typed(uint64_t id, const struct qobj_nodetype *type)
 {
 	struct qobj_node dummy = {.nid = id};
 	struct qobj_node *node;

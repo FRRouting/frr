@@ -1,27 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_RFAPI_H
 #define _QUAGGA_BGP_RFAPI_H
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 
 #include <stdint.h>
 #include <netinet/in.h>
@@ -33,11 +20,7 @@
 
 /* probably ought to have a field-specific define in config.h */
 #ifndef s6_addr32 /* for solaris/bsd */
-#ifdef SOLARIS_IPV6
-#   define	s6_addr32	_S6_un._S6_u32
-#else
 #   define	s6_addr32	__u6_addr.__u6_addr32
-#endif
 #endif
 
 #define RFAPI_V4_ADDR 0x04
@@ -352,8 +335,7 @@ struct rfapi_rfp_cfg {
  * return value:
  *    rfp_start_val rfp returned value passed on rfp_stop and other rfapi calls
 --------------------------------------------*/
-extern void *rfp_start(struct thread_master *master,
-		       struct rfapi_rfp_cfg **cfgp,
+extern void *rfp_start(struct event_loop *master, struct rfapi_rfp_cfg **cfgp,
 		       struct rfapi_rfp_cb_methods **cbmp);
 
 /*------------------------------------------

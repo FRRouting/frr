@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2017-2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * bfdctl.h: all BFDd control socket protocol definitions.
  *
@@ -47,7 +34,8 @@ struct sockaddr_any {
 #define BPC_DEF_DETECTMULTIPLIER 3
 #define BPC_DEF_RECEIVEINTERVAL 300  /* milliseconds */
 #define BPC_DEF_TRANSMITINTERVAL 300 /* milliseconds */
-#define BPC_DEF_ECHOINTERVAL 50      /* milliseconds */
+#define BPC_DEF_ECHORECEIVEINTERVAL 50 /* milliseconds */
+#define BPC_DEF_ECHOTRANSMITINTERVAL 50 /* milliseconds */
 
 /* Peer status */
 enum bfd_peer_status {
@@ -81,14 +69,24 @@ struct bfd_peer_cfg {
 	bool bpc_has_txinterval;
 	uint64_t bpc_txinterval;
 
-	bool bpc_has_echointerval;
-	uint64_t bpc_echointerval;
+	bool bpc_has_echorecvinterval;
+	uint64_t bpc_echorecvinterval;
+
+	bool bpc_has_echotxinterval;
+	uint64_t bpc_echotxinterval;
+
+	bool bpc_has_minimum_ttl;
+	uint8_t bpc_minimum_ttl;
 
 	bool bpc_echo;
 	bool bpc_createonly;
 	bool bpc_shutdown;
 
 	bool bpc_cbit;
+	bool bpc_passive;
+
+	bool bpc_has_profile;
+	char bpc_profile[64];
 
 	/* Status information */
 	enum bfd_peer_status bpc_bps;

@@ -1,19 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -28,6 +16,7 @@
 #include "plist.h"
 #include "hash.h"
 #include "ferr.h"
+#include "network.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -49,10 +38,14 @@
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
 
+#include "pim6_mld.h"
+
+#if PIM_IPV == 4
 static void pim_if_igmp_join_del_all(struct interface *ifp);
-static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
-			  struct in_addr group_addr,
-			  struct in_addr source_addr);
+#endif
+static int gm_join_sock(const char *ifname, ifindex_t ifindex,
+			pim_addr group_addr, pim_addr source_addr,
+			struct pim_interface *pim_ifp);
 
 void pim_if_init(struct pim_instance *pim)
 {
@@ -82,6 +75,7 @@ static void pim_sec_addr_free(struct pim_secondary_addr *sec_addr)
 	XFREE(MTYPE_PIM_SEC_ADDR, sec_addr);
 }
 
+__attribute__((unused))
 static int pim_sec_addr_comp(const void *p1, const void *p2)
 {
 	const struct pim_secondary_addr *sec1 = p1;
@@ -109,59 +103,54 @@ static int pim_sec_addr_comp(const void *p1, const void *p2)
 	return 0;
 }
 
-struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
+struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 				 bool ispimreg, bool is_vxlan_term)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
-	zassert(!ifp->info);
+	assert(ifp);
+	assert(!ifp->info);
 
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
-	pim_ifp->options = 0;
-	pim_ifp->pim = pim_get_pim_instance(ifp->vrf_id);
+	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
-	pim_ifp->igmp_default_robustness_variable =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
-	pim_ifp->igmp_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
-	pim_ifp->igmp_query_max_response_time_dsec =
-		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->igmp_specific_query_max_response_time_dsec =
-		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->igmp_last_member_query_count =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->mld_version = MLD_DEFAULT_VERSION;
+	pim_ifp->gm_default_robustness_variable =
+		GM_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->gm_default_query_interval = GM_GENERAL_QUERY_INTERVAL;
+	pim_ifp->gm_query_max_response_time_dsec =
+		GM_QUERY_MAX_RESPONSE_TIME_DSEC;
+	pim_ifp->gm_specific_query_max_response_time_dsec =
+		GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	pim_ifp->gm_last_member_query_count = GM_DEFAULT_ROBUSTNESS_VARIABLE;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
 	pim_ifp->ucast_bsm_accept = true;
+	pim_ifp->am_i_dr = false;
 
 	/*
 	  RFC 3376: 8.3. Query Response Interval
 	  The number of seconds represented by the [Query Response Interval]
 	  must be less than the [Query Interval].
 	 */
-	zassert(pim_ifp->igmp_query_max_response_time_dsec
-		< pim_ifp->igmp_default_query_interval);
+	assert(pim_ifp->gm_query_max_response_time_dsec <
+	       pim_ifp->gm_default_query_interval);
 
-	if (pim)
-		PIM_IF_DO_PIM(pim_ifp->options);
-	if (igmp)
-		PIM_IF_DO_IGMP(pim_ifp->options);
+	pim_ifp->pim_enable = pim;
+	pim_ifp->pim_passive_enable = false;
+	pim_ifp->gm_enable = gm;
 
-	PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
-
-	pim_ifp->igmp_join_list = NULL;
-	pim_ifp->igmp_socket_list = NULL;
+	pim_ifp->gm_join_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
 	pim_ifp->upstream_switch_list = NULL;
 	pim_ifp->pim_generation_id = 0;
 
-	/* list of struct igmp_sock */
-	pim_ifp->igmp_socket_list = list_new();
-	pim_ifp->igmp_socket_list->del = (void (*)(void *))igmp_sock_free;
+	/* list of struct gm_sock */
+	pim_igmp_if_init(pim_ifp, ifp);
 
 	/* list of struct pim_neighbor */
 	pim_ifp->pim_neighbor_list = list_new();
@@ -186,6 +175,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_sock_reset(ifp);
 
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
+	pim_ifp->pim->mcast_if_count++;
 
 	return pim_ifp;
 }
@@ -193,36 +183,37 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 void pim_if_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct pim_ifchannel *ch;
 
-	zassert(ifp);
+	assert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
-	if (pim_ifp->igmp_join_list) {
+	pim_ifp->pim->mcast_if_count--;
+#if PIM_IPV == 4
+	if (pim_ifp->gm_join_list) {
 		pim_if_igmp_join_del_all(ifp);
 	}
+#endif
 
 	pim_ifchannel_delete_all(ifp);
+#if PIM_IPV == 4
 	igmp_sock_delete_all(ifp);
-
-	pim_neighbor_delete_all(ifp, "Interface removed from configuration");
+#endif
+	if (pim_ifp->pim_sock_fd >= 0)
+		pim_sock_delete(ifp, "Interface removed from configuration");
 
 	pim_if_del_vif(ifp);
 
-	list_delete(&pim_ifp->igmp_socket_list);
+	pim_igmp_if_fini(pim_ifp);
+
 	list_delete(&pim_ifp->pim_neighbor_list);
 	list_delete(&pim_ifp->upstream_switch_list);
 	list_delete(&pim_ifp->sec_addr_list);
 
+	if (pim_ifp->bfd_config.profile)
+		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
+
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
-		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
-
-		pim_ifchannel_delete(ch);
-	}
-
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
@@ -234,7 +225,7 @@ void pim_if_update_could_assert(struct interface *ifp)
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_could_assert(ch);
@@ -247,7 +238,7 @@ static void pim_if_update_my_assert_metric(struct interface *ifp)
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_my_assert_metric(ch);
@@ -259,7 +250,7 @@ static void pim_addr_change(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	pim_if_dr_election(ifp); /* router's own DR Priority (addr) changes --
 				    Done TODO T30 */
@@ -275,7 +266,7 @@ static void pim_addr_change(struct interface *ifp)
 	  1) Before an interface goes down or changes primary IP address, a
 	  Hello message with a zero HoldTime should be sent immediately
 	  (with the old IP address if the IP address changed).
-	  -- FIXME See CAVEAT C13
+	  -- Done at the caller of the function as new ip already updated here
 
 	  2) After an interface has changed its IP address, it MUST send a
 	  Hello message with its new IP address.
@@ -286,7 +277,7 @@ static void pim_addr_change(struct interface *ifp)
 	  HoldTime should be sent immediately.
 	  -- FIXME See TODO T31
 	 */
-	pim_ifp->pim_ifstat_hello_sent = 0; /* reset hello counter */
+	PIM_IF_FLAG_UNSET_HELLO_SENT(pim_ifp->flags);
 	if (pim_ifp->pim_sock_fd < 0)
 		return;
 	pim_hello_restart_now(ifp); /* send hello and restart timer */
@@ -297,29 +288,26 @@ static int detect_primary_address_change(struct interface *ifp,
 					 const char *caller)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct in_addr new_prim_addr;
+	pim_addr new_prim_addr;
 	int changed;
 
 	if (force_prim_as_any)
-		new_prim_addr.s_addr = INADDR_ANY;
+		new_prim_addr = PIMADDR_ANY;
 	else
 		new_prim_addr = pim_find_primary_addr(ifp);
 
-	changed = new_prim_addr.s_addr != pim_ifp->primary_address.s_addr;
+	changed = pim_addr_cmp(new_prim_addr, pim_ifp->primary_address);
 
-	if (PIM_DEBUG_ZEBRA) {
-		char new_prim_str[INET_ADDRSTRLEN];
-		char old_prim_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<new?>", new_prim_addr, new_prim_str,
-			       sizeof(new_prim_str));
-		pim_inet4_dump("<old?>", pim_ifp->primary_address, old_prim_str,
-			       sizeof(old_prim_str));
-		zlog_debug("%s: old=%s new=%s on interface %s: %s",
-			   __PRETTY_FUNCTION__, old_prim_str, new_prim_str,
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: old=%pPA new=%pPA on interface %s: %s",
+			   __func__, &pim_ifp->primary_address, &new_prim_addr,
 			   ifp->name, changed ? "changed" : "unchanged");
-	}
 
 	if (changed) {
+		/* Before updating pim_ifp send Hello time with 0 hold time */
+		if (pim_ifp->pim_enable) {
+			pim_hello_send(ifp, 0 /* zero-sec holdtime */);
+		}
 		pim_ifp->primary_address = new_prim_addr;
 	}
 
@@ -333,7 +321,7 @@ pim_sec_addr_find(struct pim_interface *pim_ifp, struct prefix *addr)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
-		if (prefix_cmp(&sec_addr->addr, addr)) {
+		if (prefix_cmp(&sec_addr->addr, addr) == 0) {
 			return sec_addr;
 		}
 	}
@@ -395,19 +383,18 @@ static int pim_sec_addr_update(struct interface *ifp)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		struct prefix *p = ifc->address;
+		pim_addr addr = pim_addr_from_prefix(ifc->address);
 
-		if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
+		if (pim_addr_is_any(addr))
 			continue;
-		}
 
-		if (pim_ifp->primary_address.s_addr == p->u.prefix4.s_addr) {
+		if (!pim_addr_cmp(addr, pim_ifp->primary_address)) {
 			/* don't add the primary address into the secondary
 			 * address list */
 			continue;
 		}
 
-		if (pim_sec_addr_add(pim_ifp, p)) {
+		if (pim_sec_addr_add(pim_ifp, ifc->address)) {
 			changed = 1;
 		}
 	}
@@ -463,7 +450,7 @@ static void detect_address_change(struct interface *ifp, int force_prim_as_any,
 
 
 	if (changed) {
-		if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
+		if (!pim_ifp->pim_enable) {
 			return;
 		}
 
@@ -474,7 +461,7 @@ static void detect_address_change(struct interface *ifp, int force_prim_as_any,
 	 * address change on all of them when the lo address changes */
 }
 
-int pim_update_source_set(struct interface *ifp, struct in_addr source)
+int pim_update_source_set(struct interface *ifp, pim_addr source)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
@@ -482,13 +469,12 @@ int pim_update_source_set(struct interface *ifp, struct in_addr source)
 		return PIM_IFACE_NOT_FOUND;
 	}
 
-	if (pim_ifp->update_source.s_addr == source.s_addr) {
+	if (!pim_addr_cmp(pim_ifp->update_source, source)) {
 		return PIM_UPDATE_SOURCE_DUP;
 	}
 
 	pim_ifp->update_source = source;
-	detect_address_change(ifp, 0 /* force_prim_as_any */,
-			      __PRETTY_FUNCTION__);
+	detect_address_change(ifp, 0 /* force_prim_as_any */, __func__);
 
 	return PIM_SUCCESS;
 }
@@ -497,12 +483,12 @@ void pim_if_addr_add(struct connected *ifc)
 {
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;
-	struct in_addr ifaddr;
+	bool vxlan_term;
 
-	zassert(ifc);
+	assert(ifc);
 
 	ifp = ifc->ifp;
-	zassert(ifp);
+	assert(ifp);
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
@@ -510,55 +496,73 @@ void pim_if_addr_add(struct connected *ifc)
 	if (!if_is_operative(ifp))
 		return;
 
-	if (PIM_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(ifc->address, buf, BUFSIZ);
-		zlog_debug("%s: %s ifindex=%d connected IP address %s %s",
-			   __PRETTY_FUNCTION__, ifp->name, ifp->ifindex, buf,
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: %s ifindex=%d connected IP address %pFX %s",
+			   __func__, ifp->name, ifp->ifindex, ifc->address,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
+#if PIM_IPV != 4
+	if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) ||
+	    IN6_IS_ADDR_LOOPBACK(&ifc->address->u.prefix6)) {
+		if (IN6_IS_ADDR_UNSPECIFIED(&pim_ifp->ll_lowest))
+			pim_ifp->ll_lowest = ifc->address->u.prefix6;
+		else if (IPV6_ADDR_CMP(&ifc->address->u.prefix6,
+				       &pim_ifp->ll_lowest) < 0)
+			pim_ifp->ll_lowest = ifc->address->u.prefix6;
+
+		if (IPV6_ADDR_CMP(&ifc->address->u.prefix6,
+				  &pim_ifp->ll_highest) > 0)
+			pim_ifp->ll_highest = ifc->address->u.prefix6;
+
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug(
+				"%s: new link-local %pI6, lowest now %pI6, highest %pI6",
+				ifc->ifp->name, &ifc->address->u.prefix6,
+				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
 	}
+#endif
 
-	ifaddr = ifc->address->u.prefix4;
-
-	detect_address_change(ifp, 0, __PRETTY_FUNCTION__);
+	detect_address_change(ifp, 0, __func__);
 
 	// if (ifc->address->family != AF_INET)
 	//  return;
 
-	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		struct igmp_sock *igmp;
+#if PIM_IPV == 4
+	struct in_addr ifaddr = ifc->address->u.prefix4;
+
+	if (pim_ifp->gm_enable) {
+		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
 						   ifaddr);
 		if (!igmp) {
 			/* if addr new, add IGMP socket */
 			if (ifc->address->family == AF_INET)
-				pim_igmp_sock_add(pim_ifp->igmp_socket_list,
+				pim_igmp_sock_add(pim_ifp->gm_socket_list,
 						  ifaddr, ifp, false);
 		} else if (igmp->mtrace_only) {
 			igmp_sock_delete(igmp);
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp, false);
+			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
+					  false);
 		}
 
 		/* Replay Static IGMP groups */
-		if (pim_ifp->igmp_join_list) {
+		if (pim_ifp->gm_join_list) {
 			struct listnode *node;
 			struct listnode *nextnode;
-			struct igmp_join *ij;
+			struct gm_join *ij;
 			int join_fd;
 
-			for (ALL_LIST_ELEMENTS(pim_ifp->igmp_join_list, node,
+			for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node,
 					       nextnode, ij)) {
 				/* Close socket and reopen with Source and Group
 				 */
 				close(ij->sock_fd);
-				join_fd = igmp_join_sock(
+				join_fd = gm_join_sock(
 					ifp->name, ifp->ifindex, ij->group_addr,
-					ij->source_addr);
+					ij->source_addr, pim_ifp);
 				if (join_fd < 0) {
 					char group_str[INET_ADDRSTRLEN];
 					char source_str[INET_ADDRSTRLEN];
@@ -569,9 +573,9 @@ void pim_if_addr_add(struct connected *ifc)
 						"<src?>", ij->source_addr,
 						source_str, sizeof(source_str));
 					zlog_warn(
-						"%s: igmp_join_sock() failure for IGMP group %s source %s on interface %s",
-						__PRETTY_FUNCTION__, group_str,
-						source_str, ifp->name);
+						"%s: gm_join_sock() failure for IGMP group %s source %s on interface %s",
+						__func__, group_str, source_str,
+						ifp->name);
 					/* warning only */
 				} else
 					ij->sock_fd = join_fd;
@@ -579,23 +583,24 @@ void pim_if_addr_add(struct connected *ifc)
 		}
 	} /* igmp */
 	else {
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
 						   ifaddr);
 		if (ifc->address->family == AF_INET) {
 			if (igmp)
 				igmp_sock_delete(igmp);
 			/* if addr new, add IGMP socket */
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp, true);
+			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
+					  true);
 		}
 	} /* igmp mtrace only */
+#endif
 
-	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+	if (pim_ifp->pim_enable) {
 
-		if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+		if (!pim_addr_is_any(pim_ifp->primary_address)) {
 
 			/* Interface has a valid socket ? */
 			if (pim_ifp->pim_sock_fd < 0) {
@@ -619,9 +624,7 @@ void pim_if_addr_add(struct connected *ifc)
 			   with RNH address to receive update and add the
 			   interface as nexthop. */
 			memset(&rpf, 0, sizeof(struct pim_rpf));
-			rpf.rpf_addr.family = AF_INET;
-			rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-			rpf.rpf_addr.u.prefix4 = ifc->address->u.prefix4;
+			rpf.rpf_addr = pim_addr_from_prefix(ifc->address);
 			pnc = pim_nexthop_cache_find(pim_ifp->pim, &rpf);
 			if (pnc)
 				pim_sendmsg_zebra_rnh(pim_ifp->pim, zclient,
@@ -635,15 +638,18 @@ void pim_if_addr_add(struct connected *ifc)
 	  address assigned, then try to create a vif_index.
 	*/
 	if (pim_ifp->mroute_vif_index < 0) {
-		pim_if_add_vif(ifp, false, false /*vxlan_term*/);
+		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
+		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 }
 
 static void pim_if_addr_del_igmp(struct connected *ifc)
 {
+#if PIM_IPV == 4
 	struct pim_interface *pim_ifp = ifc->ifp->info;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct in_addr ifaddr;
 
 	if (ifc->address->family != AF_INET) {
@@ -659,18 +665,19 @@ static void pim_if_addr_del_igmp(struct connected *ifc)
 	ifaddr = ifc->address->u.prefix4;
 
 	/* lookup IGMP socket */
-	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
+	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 	if (igmp) {
 		/* if addr found, del IGMP socket */
 		igmp_sock_delete(igmp);
 	}
+#endif
 }
 
 static void pim_if_addr_del_pim(struct connected *ifc)
 {
 	struct pim_interface *pim_ifp = ifc->ifp->info;
 
-	if (ifc->address->family != AF_INET) {
+	if (ifc->address->family != PIM_AF) {
 		/* non-IPv4 address */
 		return;
 	}
@@ -680,7 +687,7 @@ static void pim_if_addr_del_pim(struct connected *ifc)
 		return;
 	}
 
-	if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+	if (!pim_addr_is_any(pim_ifp->primary_address)) {
 		/* Interface keeps a valid primary address */
 		return;
 	}
@@ -702,21 +709,57 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 {
 	struct interface *ifp;
 
-	zassert(ifc);
+	assert(ifc);
 	ifp = ifc->ifp;
-	zassert(ifp);
+	assert(ifp);
 
-	if (PIM_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(ifc->address, buf, BUFSIZ);
-		zlog_debug("%s: %s ifindex=%d disconnected IP address %s %s",
-			   __PRETTY_FUNCTION__, ifp->name, ifp->ifindex, buf,
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: %s ifindex=%d disconnected IP address %pFX %s",
+			   __func__, ifp->name, ifp->ifindex, ifc->address,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
-	}
 
-	detect_address_change(ifp, force_prim_as_any, __PRETTY_FUNCTION__);
+#if PIM_IPV == 6
+	struct pim_interface *pim_ifp = ifc->ifp->info;
+
+	if (pim_ifp &&
+	    (!IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_lowest) ||
+	     !IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_highest))) {
+		struct listnode *cnode;
+		struct connected *cc;
+
+		memset(&pim_ifp->ll_lowest, 0xff, sizeof(pim_ifp->ll_lowest));
+		memset(&pim_ifp->ll_highest, 0, sizeof(pim_ifp->ll_highest));
+
+		for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected, cnode, cc)) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&cc->address->u.prefix6) &&
+			    !IN6_IS_ADDR_LOOPBACK(&cc->address->u.prefix6))
+				continue;
+
+			if (IPV6_ADDR_CMP(&cc->address->u.prefix6,
+					  &pim_ifp->ll_lowest) < 0)
+				pim_ifp->ll_lowest = cc->address->u.prefix6;
+			if (IPV6_ADDR_CMP(&cc->address->u.prefix6,
+					  &pim_ifp->ll_highest) > 0)
+				pim_ifp->ll_highest = cc->address->u.prefix6;
+		}
+
+		if (pim_ifp->ll_lowest.s6_addr[0] == 0xff)
+			memset(&pim_ifp->ll_lowest, 0,
+			       sizeof(pim_ifp->ll_lowest));
+
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug(
+				"%s: removed link-local %pI6, lowest now %pI6, highest %pI6",
+				ifc->ifp->name, &ifc->address->u.prefix6,
+				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
+
+		gm_ifp_update(ifp);
+	}
+#endif
+
+	detect_address_change(ifp, force_prim_as_any, __func__);
 
 	pim_if_addr_del_igmp(ifc);
 	pim_if_addr_del_pim(ifc);
@@ -730,6 +773,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
+	bool vxlan_term;
 
 
 	/* PIM/IGMP enabled ? */
@@ -746,30 +790,23 @@ void pim_if_addr_add_all(struct interface *ifp)
 		pim_if_addr_add(ifc);
 	}
 
-	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
-		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-
-			/* Interface has a valid primary address ? */
-			if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
-
-				/* Interface has a valid socket ? */
-				if (pim_ifp->pim_sock_fd < 0) {
-					if (pim_sock_add(ifp)) {
-						zlog_warn(
-							"Failure creating PIM socket for interface %s",
-							ifp->name);
-					}
-				}
-			}
-		} /* pim */
+	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp) &&
+	    pim_ifp->pim_enable && !pim_addr_is_any(pim_ifp->primary_address) &&
+	    pim_ifp->pim_sock_fd < 0 && pim_sock_add(ifp)) {
+		/* Interface has a valid primary address ? */
+		/* Interface has a valid socket ? */
+		zlog_warn("Failure creating PIM socket for interface %s",
+			  ifp->name);
 	}
 	/*
-	 * PIM or IGMP is enabled on interface, and there is at least one
+	 * PIM or IGMP/MLD is enabled on interface, and there is at least one
 	 * address assigned, then try to create a vif_index.
 	 */
 	if (pim_ifp->mroute_vif_index < 0) {
-		pim_if_add_vif(ifp, false, false /*vxlan_term*/);
+		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
+		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 
 	pim_rp_setup(pim_ifp->pim);
@@ -781,12 +818,11 @@ void pim_if_addr_del_all(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 	struct pim_instance *pim;
 
-	if (!vrf)
+	pim = ifp->vrf->info;
+	if (!pim)
 		return;
-	pim = vrf->info;
 
 	/* PIM/IGMP enabled ? */
 	if (!ifp->info)
@@ -795,7 +831,7 @@ void pim_if_addr_del_all(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
 		struct prefix *p = ifc->address;
 
-		if (p->family != AF_INET)
+		if (p->family != PIM_AF)
 			continue;
 
 		pim_if_addr_del(ifc, 1 /* force_prim_as_any=true */);
@@ -825,64 +861,58 @@ void pim_if_addr_del_all_igmp(struct interface *ifp)
 	}
 }
 
-void pim_if_addr_del_all_pim(struct interface *ifp)
+pim_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
 	struct listnode *node;
-	struct listnode *nextnode;
-
-	/* PIM/IGMP enabled ? */
-	if (!ifp->info)
-		return;
-
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
-		struct prefix *p = ifc->address;
-
-		if (p->family != AF_INET)
-			continue;
-
-		pim_if_addr_del_pim(ifc);
-	}
-}
-
-struct in_addr pim_find_primary_addr(struct interface *ifp)
-{
-	struct connected *ifc;
-	struct listnode *node;
-	struct in_addr addr = {0};
-	int v4_addrs = 0;
-	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
-	if (!vrf)
-		return addr;
-
-	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source))
 		return pim_ifp->update_source;
-	}
+
+#if PIM_IPV == 6
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->ll_highest))
+		return pim_ifp->ll_highest;
+
+	pim_addr best_addr = PIMADDR_ANY;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		struct prefix *p = ifc->address;
+		pim_addr addr;
 
-		if (p->family != AF_INET) {
+		if (ifc->address->family != AF_INET6)
+			continue;
+
+		addr = pim_addr_from_prefix(ifc->address);
+		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+			continue;
+		if (pim_addr_cmp(addr, best_addr) > 0)
+			best_addr = addr;
+	}
+
+	return best_addr;
+#else
+	int v4_addrs = 0;
+	int v6_addrs = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		switch (ifc->address->family) {
+		case AF_INET:
+			v4_addrs++;
+			break;
+		case AF_INET6:
 			v6_addrs++;
+			break;
+		default:
 			continue;
 		}
-
-		if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
-			zlog_warn(
-				"%s: null IPv4 address connected to interface %s",
-				__PRETTY_FUNCTION__, ifp->name);
-			continue;
-		}
-
-		v4_addrs++;
 
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
-		return p->u.prefix4;
+		if (ifc->address->family != PIM_AF)
+			continue;
+
+		return pim_addr_from_prefix(ifc->address);
 	}
 
 	/*
@@ -891,21 +921,21 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	 * So let's grab the loopbacks v4 address
 	 * and use that as the primary address
 	 */
-	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
+	if (!v4_addrs && v6_addrs) {
 		struct interface *lo_ifp;
-		// DBS - Come back and check here
-		if (ifp->vrf_id == VRF_DEFAULT)
-			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
-		else
-			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
 
-		if (lo_ifp)
+		// DBS - Come back and check here
+		if (ifp->vrf->vrf_id == VRF_DEFAULT)
+			lo_ifp = if_lookup_by_name("lo", ifp->vrf->vrf_id);
+		else
+			lo_ifp = if_lookup_by_name(ifp->vrf->name,
+						   ifp->vrf->vrf_id);
+
+		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
 	}
-
-	addr.s_addr = PIM_NET_INADDR_ANY;
-
-	return addr;
+	return PIMADDR_ANY;
+#endif
 }
 
 static int pim_iface_next_vif_index(struct interface *ifp)
@@ -936,38 +966,47 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct in_addr ifaddr;
+	pim_addr ifaddr;
 	unsigned char flags = 0;
 
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	if (pim_ifp->mroute_vif_index > 0) {
 		zlog_warn("%s: vif_index=%d > 0 on interface %s ifindex=%d",
-			  __PRETTY_FUNCTION__, pim_ifp->mroute_vif_index,
-			  ifp->name, ifp->ifindex);
+			  __func__, pim_ifp->mroute_vif_index, ifp->name,
+			  ifp->ifindex);
 		return -1;
 	}
 
 	if (ifp->ifindex < 0) {
-		zlog_warn("%s: ifindex=%d < 1 on interface %s",
-			  __PRETTY_FUNCTION__, ifp->ifindex, ifp->name);
+		zlog_warn("%s: ifindex=%d < 1 on interface %s", __func__,
+			  ifp->ifindex, ifp->name);
+		return -2;
+	} else if ((ifp->ifindex == 0) &&
+		   ((strncmp(ifp->name, "pimreg", 6)) &&
+		    (strncmp(ifp->name, "pim6reg", 7)))) {
+		zlog_warn("%s: ifindex=%d == 0 on interface %s", __func__,
+			  ifp->ifindex, ifp->name);
 		return -2;
 	}
 
 	ifaddr = pim_ifp->primary_address;
-	if (!ispimreg && !is_vxlan_term && PIM_INADDR_IS_ANY(ifaddr)) {
+#if PIM_IPV != 6
+	/* IPv6 API is always by interface index */
+	if (!ispimreg && !is_vxlan_term && pim_addr_is_any(ifaddr)) {
 		zlog_warn(
 			"%s: could not get address for interface %s ifindex=%d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex);
+			__func__, ifp->name, ifp->ifindex);
 		return -4;
 	}
+#endif
 
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
 
 	if (pim_ifp->mroute_vif_index >= MAXVIFS) {
 		zlog_warn(
 			"%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
-			__PRETTY_FUNCTION__, MAXVIFS, ifp->name);
+			__func__, MAXVIFS, ifp->name);
 		return -3;
 	}
 
@@ -985,9 +1024,11 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
 
+	if (!ispimreg)
+		gm_ifp_update(ifp);
+
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
-
 	return 0;
 }
 
@@ -997,13 +1038,15 @@ int pim_if_del_vif(struct interface *ifp)
 
 	if (pim_ifp->mroute_vif_index < 1) {
 		zlog_warn("%s: vif_index=%d < 1 on interface %s ifindex=%d",
-			  __PRETTY_FUNCTION__, pim_ifp->mroute_vif_index,
-			  ifp->name, ifp->ifindex);
+			  __func__, pim_ifp->mroute_vif_index, ifp->name,
+			  ifp->ifindex);
 		return -1;
 	}
 
 	/* if the device was a pim_vxlan iif/oif update vxlan mroute entries */
 	pim_vxlan_del_vif(ifp);
+
+	gm_ifp_teardown(ifp);
 
 	pim_mroute_del_vif(ifp);
 
@@ -1013,7 +1056,6 @@ int pim_if_del_vif(struct interface *ifp)
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 0;
 
 	pim_ifp->mroute_vif_index = -1;
-
 	return 0;
 }
 
@@ -1044,7 +1086,7 @@ int pim_if_find_vifindex_by_ifindex(struct pim_instance *pim, ifindex_t ifindex)
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, pim->vrf_id);
+	ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
 	if (!ifp || !ifp->info)
 		return -1;
 	pim_ifp = ifp->info;
@@ -1057,8 +1099,8 @@ int pim_if_lan_delay_enabled(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-	zassert(pim_ifp->pim_number_of_nonlandelay_neighbors >= 0);
+	assert(pim_ifp);
+	assert(pim_ifp->pim_number_of_nonlandelay_neighbors >= 0);
 
 	return pim_ifp->pim_number_of_nonlandelay_neighbors == 0;
 }
@@ -1093,7 +1135,8 @@ int pim_if_t_override_msec(struct interface *ifp)
 	effective_override_interval_msec =
 		pim_if_effective_override_interval_msec(ifp);
 
-	t_override_msec = random() % (effective_override_interval_msec + 1);
+	t_override_msec =
+		frr_weak_random() % (effective_override_interval_msec + 1);
 
 	return t_override_msec;
 }
@@ -1113,32 +1156,29 @@ uint16_t pim_if_jp_override_interval_msec(struct interface *ifp)
   router (Section 4.3.4).  The primary IP address of a neighbor is the
   address that it uses as the source of its PIM Hello messages.
 */
-struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
-					  struct in_addr addr)
+struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr)
 {
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
 	struct pim_interface *pim_ifp;
 	struct prefix p;
 
-	zassert(ifp);
+	assert(ifp);
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
 		return 0;
 	}
 
-	p.family = AF_INET;
-	p.u.prefix4 = addr;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	pim_addr_to_prefix(&p, addr);
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 				  neigh)) {
 
 		/* primary address ? */
-		if (neigh->source_addr.s_addr == addr.s_addr)
+		if (!pim_addr_cmp(neigh->source_addr, addr))
 			return neigh;
 
 		/* secondary address ? */
@@ -1146,13 +1186,10 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 			return neigh;
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: neighbor not found for address %s on interface %s",
-			__PRETTY_FUNCTION__, addr_str, ifp->name);
-	}
+			"%s: neighbor not found for address %pPA on interface %s",
+			__func__, &addr, ifp->name);
 
 	return NULL;
 }
@@ -1164,63 +1201,63 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	uint32_t ramount = 0;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	/* join suppression disabled ? */
-	if (PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options))
+	if (pim_ifp->pim_can_disable_join_suppression)
 		return 0;
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
-	ramount = 1100 + (random() % (1400 - 1100 + 1));
+	ramount = 1100 + (frr_weak_random() % (1400 - 1100 + 1));
 	t_suppressed_msec = router->t_periodic * ramount;
 
 	return t_suppressed_msec;
 }
 
-static void igmp_join_free(struct igmp_join *ij)
+static void gm_join_free(struct gm_join *ij)
 {
 	XFREE(MTYPE_PIM_IGMP_JOIN, ij);
 }
 
-static struct igmp_join *igmp_join_find(struct list *join_list,
-					struct in_addr group_addr,
-					struct in_addr source_addr)
+static struct gm_join *gm_join_find(struct list *join_list, pim_addr group_addr,
+				    pim_addr source_addr)
 {
 	struct listnode *node;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
-	zassert(join_list);
+	assert(join_list);
 
 	for (ALL_LIST_ELEMENTS_RO(join_list, node, ij)) {
-		if ((group_addr.s_addr == ij->group_addr.s_addr)
-		    && (source_addr.s_addr == ij->source_addr.s_addr))
+		if ((!pim_addr_cmp(group_addr, ij->group_addr)) &&
+		    (!pim_addr_cmp(source_addr, ij->source_addr)))
 			return ij;
 	}
 
 	return 0;
 }
 
-static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
-			  struct in_addr group_addr, struct in_addr source_addr)
+static int gm_join_sock(const char *ifname, ifindex_t ifindex,
+			pim_addr group_addr, pim_addr source_addr,
+			struct pim_interface *pim_ifp)
 {
 	int join_fd;
 
-	join_fd = pim_socket_raw(IPPROTO_IGMP);
+	pim_ifp->igmp_ifstat_joins_sent++;
+
+	join_fd = pim_socket_raw(IPPROTO_GM);
 	if (join_fd < 0) {
+		pim_ifp->igmp_ifstat_joins_failed++;
 		return -1;
 	}
 
-	if (pim_igmp_join_source(join_fd, ifindex, group_addr, source_addr)) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
+	if (pim_gm_join_source(join_fd, ifindex, group_addr, source_addr)) {
 		zlog_warn(
-			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, join_fd, group_str, source_str,
-			ifindex, ifname, errno, safe_strerror(errno));
+			"%s: setsockopt(fd=%d) failure for " GM
+			" group %pPAs source %pPAs ifindex %d on interface %s: errno=%d: %s",
+			__func__, join_fd, &group_addr, &source_addr, ifindex,
+			ifname, errno, safe_strerror(errno));
+
+		pim_ifp->igmp_ifstat_joins_failed++;
 
 		close(join_fd);
 		return -2;
@@ -1229,30 +1266,22 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 	return join_fd;
 }
 
-static struct igmp_join *igmp_join_new(struct interface *ifp,
-				       struct in_addr group_addr,
-				       struct in_addr source_addr)
+static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
+				   pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 	int join_fd;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
-	join_fd = igmp_join_sock(ifp->name, ifp->ifindex, group_addr,
-				 source_addr);
+	join_fd = gm_join_sock(ifp->name, ifp->ifindex, group_addr, source_addr,
+			       pim_ifp);
 	if (join_fd < 0) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		zlog_warn(
-			"%s: igmp_join_sock() failure for IGMP group %s source %s on interface %s",
-			__PRETTY_FUNCTION__, group_str, source_str, ifp->name);
+		zlog_warn("%s: gm_join_sock() failure for " GM
+			  " group %pPAs source %pPAs on interface %s",
+			  __func__, &group_addr, &source_addr, ifp->name);
 		return 0;
 	}
 
@@ -1263,16 +1292,16 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	ij->source_addr = source_addr;
 	ij->sock_creation = pim_time_monotonic_sec();
 
-	listnode_add(pim_ifp->igmp_join_list, ij);
+	listnode_add(pim_ifp->gm_join_list, ij);
 
 	return ij;
 }
 
-ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
-			    struct in_addr source_addr)
+ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
+			  pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1280,113 +1309,100 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 					ifp->name);
 	}
 
-	if (!pim_ifp->igmp_join_list) {
-		pim_ifp->igmp_join_list = list_new();
-		pim_ifp->igmp_join_list->del = (void (*)(void *))igmp_join_free;
+	if (!pim_ifp->gm_join_list) {
+		pim_ifp->gm_join_list = list_new();
+		pim_ifp->gm_join_list->del = (void (*)(void *))gm_join_free;
 	}
 
-	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+	ij = gm_join_find(pim_ifp->gm_join_list, group_addr, source_addr);
 
-	/* This interface has already been configured to join this IGMP group
+	/* This interface has already been configured to join this IGMP/MLD
+	 * group
 	 */
 	if (ij) {
 		return ferr_ok();
 	}
 
-	(void)igmp_join_new(ifp, group_addr, source_addr);
+	(void)gm_join_new(ifp, group_addr, source_addr);
 
-	if (PIM_DEBUG_IGMP_EVENTS) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
+	if (PIM_DEBUG_GM_EVENTS) {
 		zlog_debug(
-			"%s: issued static igmp join for channel (S,G)=(%s,%s) on interface %s",
-			__PRETTY_FUNCTION__, source_str, group_str, ifp->name);
+			"%s: issued static " GM
+			" join for channel (S,G)=(%pPA,%pPA) on interface %s",
+			__func__, &source_addr, &group_addr, ifp->name);
 	}
 
 	return ferr_ok();
 }
 
-
-int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
-			 struct in_addr source_addr)
+int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
+		       pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
 		return -1;
 	}
 
-	if (!pim_ifp->igmp_join_list) {
-		zlog_warn("%s: no IGMP join on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+	if (!pim_ifp->gm_join_list) {
+		zlog_warn("%s: no " GM " join on interface %s", __func__,
+			  ifp->name);
 		return -2;
 	}
 
-	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+	ij = gm_join_find(pim_ifp->gm_join_list, group_addr, source_addr);
 	if (!ij) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		zlog_warn(
-			"%s: could not find IGMP group %s source %s on interface %s",
-			__PRETTY_FUNCTION__, group_str, source_str, ifp->name);
+		zlog_warn("%s: could not find " GM
+			  " group %pPAs source %pPAs on interface %s",
+			  __func__, &group_addr, &source_addr, ifp->name);
 		return -3;
 	}
 
 	if (close(ij->sock_fd)) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
 		zlog_warn(
-			"%s: failure closing sock_fd=%d for IGMP group %s source %s on interface %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, ij->sock_fd, group_str, source_str,
+			"%s: failure closing sock_fd=%d for " GM
+			" group %pPAs source %pPAs on interface %s: errno=%d: %s",
+			__func__, ij->sock_fd, &group_addr, &source_addr,
 			ifp->name, errno, safe_strerror(errno));
 		/* warning only */
 	}
-	listnode_delete(pim_ifp->igmp_join_list, ij);
-	igmp_join_free(ij);
-	if (listcount(pim_ifp->igmp_join_list) < 1) {
-		list_delete(&pim_ifp->igmp_join_list);
-		pim_ifp->igmp_join_list = 0;
+	listnode_delete(pim_ifp->gm_join_list, ij);
+	gm_join_free(ij);
+	if (listcount(pim_ifp->gm_join_list) < 1) {
+		list_delete(&pim_ifp->gm_join_list);
+		pim_ifp->gm_join_list = 0;
 	}
 
 	return 0;
 }
 
+#if PIM_IPV == 4
+__attribute__((unused))
 static void pim_if_igmp_join_del_all(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
 		return;
 	}
 
-	if (!pim_ifp->igmp_join_list)
+	if (!pim_ifp->gm_join_list)
 		return;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_join_list, node, nextnode, ij))
-		pim_if_igmp_join_del(ifp, ij->group_addr, ij->source_addr);
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
+		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr);
 }
+#endif /* PIM_IPV == 4 */
 
 /*
   RFC 4601
@@ -1402,21 +1418,20 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
   gone down (and may have come back up), and so we must assume it no
   longer knows it was the winner.
  */
-void pim_if_assert_on_neighbor_down(struct interface *ifp,
-				    struct in_addr neigh_addr)
+void pim_if_assert_on_neighbor_down(struct interface *ifp, pim_addr neigh_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+	assert(pim_ifp);
 
 	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		/* Is (S,G,I) assert loser ? */
 		if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER)
 			continue;
 		/* Dead neighbor was winner ? */
-		if (ch->ifassert_winner.s_addr != neigh_addr.s_addr)
+		if (pim_addr_cmp(ch->ifassert_winner, neigh_addr))
 			continue;
 
 		assert_action_a5(ch);
@@ -1463,48 +1478,61 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
 /*
  * PIM wants to have an interface pointer for everything it does.
  * The pimreg is a special interface that we have that is not
- * quite an inteface but a VIF is created for it.
+ * quite an interface but a VIF is created for it.
  */
 void pim_if_create_pimreg(struct pim_instance *pim)
 {
 	char pimreg_name[INTERFACE_NAMSIZ];
 
 	if (!pim->regiface) {
-		if (pim->vrf_id == VRF_DEFAULT)
-			strlcpy(pimreg_name, "pimreg", sizeof(pimreg_name));
+		if (pim->vrf->vrf_id == VRF_DEFAULT)
+			strlcpy(pimreg_name, PIMREG, sizeof(pimreg_name));
 		else
-			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
+			snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
 				 pim->vrf->data.l.table_id);
 
-		pim->regiface = if_create_name(pimreg_name, pim->vrf_id);
+		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
+					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
-		pim_if_new(pim->regiface, false, false, true,
-			false /*vxlan_term*/);
+		if (!pim->regiface->info)
+			pim_if_new(pim->regiface, false, false, true,
+				   false /*vxlan_term*/);
+
+		/*
+		 * On vrf moves we delete the interface if there
+		 * is nothing going on with it.  We cannot have
+		 * the pimregiface deleted.
+		 */
+		pim->regiface->configured = true;
+
 	}
 }
 
-int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
+struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 {
 	struct listnode *cnode;
 	struct connected *c;
 	struct prefix p;
 
 	if (!ifp)
-		return 0;
+		return NULL;
 
-	p.family = AF_INET;
-	p.u.prefix4 = src;
-	p.prefixlen = IPV4_MAX_BITLEN;
+	pim_addr_to_prefix(&p, src);
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		if ((c->address->family == AF_INET)
-		    && prefix_match(CONNECTED_PREFIX(c), &p)) {
-			return 1;
-		}
+		if (c->address->family != PIM_AF)
+			continue;
+		if (prefix_match(c->address, &p))
+			return c->address;
+		if (CONNECTED_PEER(c) && prefix_match(c->destination, &p))
+			/* this is not a typo, on PtP we need to return the
+			 * *local* address that lines up with src.
+			 */
+			return c->address;
 	}
 
-	return 0;
+	return NULL;
 }
 
 bool pim_if_is_vrf_device(struct interface *ifp)
@@ -1527,17 +1555,17 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 	return count;
 }
 
-int pim_ifp_create(struct interface *ifp)
+static int pim_ifp_create(struct interface *ifp)
 {
 	struct pim_instance *pim;
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
-			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (if_is_operative(ifp)) {
@@ -1552,8 +1580,19 @@ int pim_ifp_create(struct interface *ifp)
 		if (pim_ifp)
 			pim_ifp->pim = pim;
 		pim_if_addr_add_all(ifp);
+
+		/*
+		 * Due to ordering issues based upon when
+		 * a command is entered we should ensure that
+		 * the pim reg is created for this vrf if we
+		 * have configuration for it already.
+		 *
+		 * this is a no-op if it's already been done.
+		 */
+		pim_if_create_pimreg(pim);
 	}
 
+#if PIM_IPV == 4
 	/*
 	 * If we are a vrf device that is up, open up the pim_socket for
 	 * listening
@@ -1573,61 +1612,66 @@ int pim_ifp_create(struct interface *ifp)
 	}
 
 	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
-		     sizeof(PIM_VXLAN_TERM_DEV_NAME)))
-		pim_vxlan_add_term_dev(pim, ifp);
+		     sizeof(PIM_VXLAN_TERM_DEV_NAME))) {
+		if (pim->mcast_if_count < MAXVIFS)
+			pim_vxlan_add_term_dev(pim, ifp);
+		else
+			zlog_warn(
+				"%s: Cannot enable pim on %s. MAXVIFS(%d) reached. Deleting and readding the vxlan termimation device after unconfiguring pim from other interfaces may succeed.",
+				__func__, ifp->name, MAXVIFS);
+	}
+#endif
 
 	return 0;
 }
 
-int pim_ifp_up(struct interface *ifp)
+static int pim_ifp_up(struct interface *ifp)
 {
-	struct pim_instance *pim;
 	uint32_t table_id;
+	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
-			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
-	if (if_is_operative(ifp)) {
-		struct pim_interface *pim_ifp;
+	pim = ifp->vrf->info;
 
-		pim_ifp = ifp->info;
-		/*
-		 * If we have a pim_ifp already and this is an if_add
-		 * that means that we probably have a vrf move event
-		 * If that is the case, set the proper vrfness.
-		 */
-		if (pim_ifp)
-			pim_ifp->pim = pim;
+	pim_ifp = ifp->info;
+	/*
+	 * If we have a pim_ifp already and this is an if_add
+	 * that means that we probably have a vrf move event
+	 * If that is the case, set the proper vrfness.
+	 */
+	if (pim_ifp)
+		pim_ifp->pim = pim;
 
-		/*
-		  pim_if_addr_add_all() suffices for bringing up both IGMP and
-		  PIM
-		*/
-		pim_if_addr_add_all(ifp);
-	}
+	/*
+	  pim_if_addr_add_all() suffices for bringing up both IGMP and
+	  PIM
+	*/
+	pim_if_addr_add_all(ifp);
 
 	/*
 	 * If we have a pimreg device callback and it's for a specific
 	 * table set the master appropriately
 	 */
-	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
+	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) == 1) {
 		struct vrf *vrf;
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf_id != vrf->vrf_id)) {
+			    && (ifp->vrf->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
 					vrf->name, vrf->vrf_id);
 
 				if (!master) {
 					zlog_debug(
 						"%s: Unable to find Master interface for %s",
-						__PRETTY_FUNCTION__, vrf->name);
+						__func__, vrf->name);
 					return 0;
 				}
 				pim_zebra_interface_set_master(master, ifp);
@@ -1637,14 +1681,14 @@ int pim_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-int pim_ifp_down(struct interface *ifp)
+static int pim_ifp_down(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
-			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (!if_is_operative(ifp)) {
@@ -1665,30 +1709,56 @@ int pim_ifp_down(struct interface *ifp)
 		}
 	}
 
-	if (ifp->info)
+	if (ifp->info) {
 		pim_if_del_vif(ifp);
+		pim_ifstat_reset(ifp);
+	}
 
 	return 0;
 }
 
-int pim_ifp_destroy(struct interface *ifp)
+static int pim_ifp_destroy(struct interface *ifp)
 {
-	struct pim_instance *pim;
-
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
-			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+#if PIM_IPV == 4
+	struct pim_instance *pim;
+
+	pim = ifp->vrf->info;
 	if (pim && pim->vxlan.term_if == ifp)
 		pim_vxlan_del_term_dev(pim);
+#endif
 
 	return 0;
+}
+
+static int pim_if_new_hook(struct interface *ifp)
+{
+	return 0;
+}
+
+static int pim_if_delete_hook(struct interface *ifp)
+{
+	if (ifp->info)
+		pim_if_delete(ifp);
+
+	return 0;
+}
+
+void pim_iface_init(void)
+{
+	hook_register_prio(if_add, 0, pim_if_new_hook);
+	hook_register_prio(if_del, 0, pim_if_delete_hook);
+
+	if_zapi_callbacks(pim_ifp_create, pim_ifp_up, pim_ifp_down,
+			  pim_ifp_destroy);
 }

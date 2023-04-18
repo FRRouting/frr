@@ -1,0 +1,12 @@
+{
+  "r2-eth1":{
+    "ldpIgpSyncEnabled":true,
+    "holdDownTimeInSec":300,
+    "ldpIgpSyncState":"Sync achieved"
+  },
+  "r2-eth2":{
+    "ldpIgpSyncEnabled":false,
+    "holdDownTimeInSec":50,
+    "ldpIgpSyncState":"Sync not required"
+  }
+}

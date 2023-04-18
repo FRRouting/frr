@@ -1,0 +1,208 @@
+// SPDX-License-Identifier: BSD-2-Clause
+submodule frr-bgp-common-multiprotocol {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module contains general data definitions for use in BGP
+     Multiprotocol.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  grouping mp-afi-safi-config {
+    description
+      "Configuration parameters used for all BGP AFI-SAFIs.";
+    leaf afi-safi-name {
+      type identityref {
+        base frr-rt:afi-safi-type;
+      }
+      description
+        "AFI, SAFI.";
+    }
+  }
+
+  grouping mp-all-afi-safi-list-contents {
+    description
+      "A common grouping used for contents of the list that is used
+       for AFI-SAFI entries.";
+    container ipv4-unicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-unicast')" {
+        description
+          "Include this container for IPv4 Unicast specific
+           configuration.";
+      }
+      description
+        "IPv4 unicast configuration options.";
+    }
+
+    container ipv6-unicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-unicast')" {
+        description
+          "Include this container for IPv6 Unicast specific
+           configuration.";
+      }
+      description
+        "IPv6 unicast configuration options.";
+    }
+
+    container ipv4-labeled-unicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-labeled-unicast')" {
+        description
+          "Include this container for IPv4 Labeled Unicast specific
+           configuration.";
+      }
+      description
+        "IPv4 Labeled Unicast configuration options.";
+    }
+
+    container ipv6-labeled-unicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-labeled-unicast')" {
+        description
+          "Include this container for IPv6 Labeled Unicast specific
+           configuration.";
+      }
+      description
+        "IPv6 Labeled Unicast configuration options.";
+    }
+
+    container l3vpn-ipv4-unicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv4-unicast')" {
+        description
+          "Include this container for IPv4 Unicast L3VPN specific
+           configuration.";
+      }
+      description
+        "Unicast IPv4 L3VPN configuration options.";
+    }
+
+    container l3vpn-ipv6-unicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv6-unicast')" {
+        description
+          "Include this container for unicast IPv6 L3VPN specific
+           configuration.";
+      }
+      description
+        "Unicast IPv6 L3VPN configuration options.";
+    }
+
+    container l3vpn-ipv4-multicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv4-multicast')" {
+        description
+          "Include this container for multicast IPv4 L3VPN specific
+           configuration.";
+      }
+      description
+        "Multicast IPv4 L3VPN configuration options.";
+    }
+
+    container l3vpn-ipv6-multicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l3vpn-ipv6-multicast')" {
+        description
+          "Include this container for multicast IPv6 L3VPN specific
+           configuration.";
+      }
+      description
+        "Multicast IPv6 L3VPN configuration options.";
+    }
+
+    container l2vpn-vpls {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l2vpn-vpls')" {
+        description
+          "Include this container for BGP-signalled VPLS specific
+           configuration.";
+      }
+      description
+        "BGP-signalled VPLS configuration options.";
+    }
+
+    container l2vpn-evpn {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:l2vpn-evpn')" {
+        description
+          "Include this container for BGP EVPN specific
+           configuration.";
+      }
+      description
+        "BGP EVPN configuration options.";
+    }
+
+    container ipv4-multicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-multicast')" {
+        description
+          "Include this container for IPv4 multicast specific
+           configuration.";
+      }
+      description
+        "IPv4 multicast configuration options.";
+    }
+
+    container ipv6-multicast {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-multicast')" {
+        description
+          "Include this container for IPv6 multicast specific
+           configuration.";
+      }
+      description
+        "IPv6 multicast configuration options.";
+    }
+
+    container ipv4-flowspec {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-flowspec')" {
+        description
+          "Include this container for IPv4 flowspec specific
+           configuration.";
+      }
+      description
+        "IPv4 flowspec configuration options.";
+    }
+
+    container ipv6-flowspec {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv6-flowspec')" {
+        description
+          "Include this container for IPv6 flowspec specific
+           configuration.";
+      }
+      description
+        "IPv6 flowspec configuration options.";
+    }
+  }
+}

@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRRATOMIC_H
@@ -41,6 +30,7 @@ using std::memory_order_seq_cst;
 typedef std::atomic<bool>		atomic_bool;
 typedef std::atomic<size_t>		atomic_size_t;
 typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
+typedef std::atomic<uintptr_t>		atomic_uintptr_t;
 
 #elif defined(HAVE_STDATOMIC_H)
 #include <stdatomic.h>
@@ -230,6 +220,7 @@ typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
 typedef _Atomic bool		atomic_bool;
 typedef _Atomic size_t		atomic_size_t;
 typedef _Atomic uint_fast32_t	atomic_uint_fast32_t;
+typedef _Atomic uintptr_t	atomic_uintptr_t;
 #endif
 
 #endif /* _FRRATOMIC_H */

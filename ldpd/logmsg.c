@@ -1,22 +1,12 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
+#include "lib/printfrr.h"
 
 #include "mpls.h"
 
@@ -59,7 +49,7 @@ log_in6addr(const struct in6_addr *addr)
 }
 
 const char *
-log_in6addr_scope(const struct in6_addr *addr, unsigned int ifindex)
+log_in6addr_scope(const struct in6_addr *addr, ifindex_t ifindex)
 {
 	struct sockaddr_in6	sa_in6;
 
@@ -136,7 +126,7 @@ log_time(time_t t)
 	char		*buf;
 	static char	 tfbuf[TF_BUFS][TF_LEN];	/* ring buffer */
 	static int	 idx = 0;
-	unsigned int	 sec, min, hrs, day, week;
+	uint64_t	 sec, min, hrs, day, week;
 
 	buf = tfbuf[idx++];
 	if (idx == TF_BUFS)
@@ -154,11 +144,17 @@ log_time(time_t t)
 	week /= 7;
 
 	if (week > 0)
-		snprintf(buf, TF_LEN, "%02uw%01ud%02uh", week, day, hrs);
+		snprintfrr(buf, TF_LEN,
+			   "%02" PRIu64 "w%01" PRIu64 "d%02" PRIu64 "h", week,
+			   day, hrs);
 	else if (day > 0)
-		snprintf(buf, TF_LEN, "%01ud%02uh%02um", day, hrs, min);
+		snprintfrr(buf, TF_LEN,
+			   "%01" PRIu64 "d%02" PRIu64 "h%02" PRIu64 "m", day,
+			   hrs, min);
 	else
-		snprintf(buf, TF_LEN, "%02u:%02u:%02u", hrs, min, sec);
+		snprintfrr(buf, TF_LEN,
+			   "%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64, hrs, min,
+			   sec);
 
 	return (buf);
 }
@@ -254,10 +250,10 @@ log_fec(const struct fec *fec)
 			return ("???");
 		break;
 	case FEC_TYPE_PWID:
-		if (snprintf(buf, sizeof(buf),
-		    "pwid %u (%s) - %s",
-		    fec->u.pwid.pwid, pw_type_name(fec->u.pwid.type),
-		    inet_ntoa(fec->u.pwid.lsr_id)) == -1)
+		if (snprintfrr(buf, sizeof(buf),
+			       "pwid %u (%s) - %pI4",
+			       fec->u.pwid.pwid, pw_type_name(fec->u.pwid.type),
+			       &fec->u.pwid.lsr_id) == -1)
 			return ("???");
 		break;
 	default:
@@ -482,6 +478,28 @@ pw_type_name(uint16_t pw_type)
 		return ("Wildcard");
 	default:
 		snprintf(buf, sizeof(buf), "[%0x]", pw_type);
+		return (buf);
+	}
+}
+
+const char *
+pw_error_code(uint8_t status)
+{
+	static char buf[16];
+
+	switch (status) {
+	case F_PW_NO_ERR:
+		return ("No Error");
+	case F_PW_LOCAL_NOT_FWD:
+		return ("local not forwarding");
+	case F_PW_REMOTE_NOT_FWD:
+		return ("remote not forwarding");
+	case F_PW_NO_REMOTE_LABEL:
+		return ("no remote label");
+	case F_PW_MTU_MISMATCH:
+		return ("mtu mismatch between peers");
+	default:
+		snprintf(buf, sizeof(buf), "[%0x]", status);
 		return (buf);
 	}
 }

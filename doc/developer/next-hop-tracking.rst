@@ -111,8 +111,6 @@ provides the following APIs:
 +============================+==================================================+
 | bgp_find_or_add_nexthop()  | find or add a nexthop in BGP nexthop table       |
 +----------------------------+--------------------------------------------------+
-| bgp_find_nexthop()         | find a nexthop in BGP nexthop table              |
-+----------------------------+--------------------------------------------------+
 | bgp_parse_nexthop_update() | parse a nexthop update message coming from zebra |
 +----------------------------+--------------------------------------------------+
 

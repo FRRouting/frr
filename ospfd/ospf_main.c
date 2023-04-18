@@ -1,29 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd main routine.
  *   Copyright (C) 1998, 99 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include <lib/version.h>
+#include "bfd.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -35,12 +21,12 @@
 #include "stream.h"
 #include "log.h"
 #include "memory.h"
-#include "memory_vty.h"
 #include "privs.h"
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -53,7 +39,10 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_ldp_sync.h"
+#include "ospfd/ospf_routemap_nb.h"
 
 /* ospfd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
@@ -72,14 +61,16 @@ struct zebra_privs_t ospfd_privs = {
 	.cap_num_i = 0};
 
 /* OSPFd options. */
-struct option longopts[] = {{"instance", required_argument, NULL, 'n'},
-			    {"apiserver", no_argument, NULL, 'a'},
-			    {0}};
+const struct option longopts[] = {
+	{"instance", required_argument, NULL, 'n'},
+	{"apiserver", no_argument, NULL, 'a'},
+	{0}
+};
 
 /* OSPFd program name */
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
@@ -95,7 +86,9 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+	bfd_protocol_integration_set_shutdown(true);
 	ospf_terminate();
+	exit(0);
 }
 
 /* SIGUSR1 handler. */
@@ -104,7 +97,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t ospf_signals[] = {
+struct frr_signal_t ospf_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -123,8 +116,12 @@ struct quagga_signal_t ospf_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *ospfd_yang_modules[] = {
+static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
+	&frr_ospf_route_map_info,
 };
 
 FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
@@ -134,13 +131,12 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 		.signals = ospf_signals, .n_signals = array_size(ospf_signals),
 
 		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
-		.n_yang_modules = array_size(ospfd_yang_modules), )
+		.n_yang_modules = array_size(ospfd_yang_modules),
+);
 
 /* OSPFd main routine. */
 int main(int argc, char **argv)
 {
-	unsigned short instance = 0;
-
 #ifdef SUPPORT_OSPF_API
 	/* OSPF apiserver is disabled by default. */
 	ospf_apiserver_enable = 0;
@@ -161,8 +157,8 @@ int main(int argc, char **argv)
 
 		switch (opt) {
 		case 'n':
-			ospfd_di.instance = instance = atoi(optarg);
-			if (instance < 1)
+			ospfd_di.instance = ospf_instance = atoi(optarg);
+			if (ospf_instance < 1)
 				exit(0);
 			break;
 		case 0:
@@ -174,7 +170,6 @@ int main(int argc, char **argv)
 #endif /* SUPPORT_OSPF_API */
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -200,7 +195,7 @@ int main(int argc, char **argv)
 
 	/* OSPFd inits. */
 	ospf_if_init();
-	ospf_zebra_init(master, instance);
+	ospf_zebra_init(master, ospf_instance);
 
 	/* OSPF vty inits. */
 	ospf_vty_init();
@@ -208,10 +203,15 @@ int main(int argc, char **argv)
 	ospf_vty_clear_init();
 
 	/* OSPF BFD init */
-	ospf_bfd_init();
+	ospf_bfd_init(master);
+
+	/* OSPF LDP IGP Sync init */
+	ospf_ldp_sync_init();
 
 	ospf_route_map_init();
 	ospf_opaque_init();
+	ospf_gr_init();
+	ospf_gr_helper_init();
 
 	/* OSPF errors init */
 	ospf_error_init();
@@ -220,5 +220,5 @@ int main(int argc, char **argv)
 	frr_run(master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

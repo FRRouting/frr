@@ -1,0 +1,260 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-routing {
+  yang-version "1.1";
+  namespace "http://frrouting.org/yang/routing";
+  prefix "frr-routing";
+
+  import ietf-yang-types {
+    prefix "yang";
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  organization
+    "FRRouting";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This YANG module defines essential components for the management
+     of a routing subsystem.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-08-15 {
+    description
+      "Initial revision.";
+  }
+
+  /* Identities */
+
+  identity address-family {
+    description
+      "Base identity from which identities describing address
+       families are derived.";
+  }
+
+  identity ipv4 {
+    base address-family;
+    description
+      "This identity represents an IPv4 address family.";
+  }
+
+  identity ipv6 {
+    base address-family;
+    description
+      "This identity represents an IPv6 address family.";
+  }
+
+  identity afi-safi-type {
+    description
+      "Base identity type (AFI,SAFI) tuples for RIB";
+  }
+
+  identity ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 unicast address family.";
+  }
+
+  identity ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 unicast address family.";
+  }
+
+  identity ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 multicast address family.";
+  }
+
+  identity ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 multicast address family.";
+  }
+
+  identity ipv4-labeled-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 labeled unicast address family.";
+  }
+
+
+  identity ipv6-labeled-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 labeled unicast address family.";
+  }
+
+
+  identity l3vpn-ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv4 unicast address family.";
+  }
+
+
+  identity l3vpn-ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv6 unicast address family.";
+  }
+
+
+  identity l3vpn-ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv4 multicast address family.";
+  }
+
+
+  identity l3vpn-ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the L3vpn IPv6 multicast address family.";
+  }
+
+
+  identity l2vpn-vpls {
+    base afi-safi-type;
+    description
+      "This identity represents the L2vpn VPLS  address family.";
+  }
+
+
+  identity l2vpn-evpn {
+    base afi-safi-type;
+    description
+      "This identity represents the L2vpn EVPN address family.";
+  }
+
+
+  identity ipv4-flowspec {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 flowspec address family.";
+  }
+
+
+  identity ipv6-flowspec {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 flowspec address family.";
+  }
+
+
+  identity control-plane-protocol {
+    description
+      "Base identity from which control-plane protocol identities are
+       derived.";
+  }
+
+  identity routing-protocol {
+    base control-plane-protocol;
+    description
+      "Identity from which Layer 3 routing protocol identities are
+       derived.";
+  }
+
+  /* Type Definitions */
+
+  typedef administrative-distance {
+    type uint8 {
+      range "1..255";
+    }
+    description
+      "Admin distance associated with the route.";
+  }
+
+  /* Groupings */
+
+  grouping address-family {
+    description
+      "This grouping provides a leaf identifying an address
+       family.";
+    leaf address-family {
+      type identityref {
+        base address-family;
+      }
+      mandatory true;
+      description
+        "Address family.";
+    }
+  }
+
+  grouping router-id {
+    description
+      "This grouping provides a router ID.";
+    leaf router-id {
+      type yang:dotted-quad;
+      description
+        "A 32-bit number in the form of a dotted quad that is used by
+         some routing protocols identifying a router.";
+      reference
+        "RFC 2328: OSPF Version 2";
+    }
+  }
+
+  /* Data nodes */
+
+  container routing {
+    description
+      "Configuration parameters for the routing subsystem.";
+    container control-plane-protocols {
+      description
+        "Support for control-plane protocol instances.";
+      list control-plane-protocol {
+        key "type name vrf";
+        description
+          "Each entry contains a control-plane protocol instance.";
+        leaf type {
+          type identityref {
+            base control-plane-protocol;
+          }
+          description
+            "Type of the control-plane protocol";
+        }
+        leaf name {
+          type string;
+          description
+            "An arbitrary name of the control-plane protocol
+             instance.";
+        }
+        leaf vrf {
+          type frr-vrf:vrf-ref;
+          description
+            "vrf for control-plane protocol";
+        }
+      }
+    }
+  }
+}

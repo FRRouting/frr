@@ -3,34 +3,34 @@
 #
 
 man_RSTFILES = \
-	doc/manpages/bgpd.rst \
+	doc/manpages/bfd-options.rst \
 	doc/manpages/common-options.rst \
 	doc/manpages/conf.py \
 	doc/manpages/defines.rst \
-	doc/manpages/eigrpd.rst \
 	doc/manpages/epilogue.rst \
-	doc/manpages/fabricd.rst \
+	doc/manpages/frr-bfdd.rst \
+	doc/manpages/frr-bgpd.rst \
+	doc/manpages/frr-eigrpd.rst \
+	doc/manpages/frr-fabricd.rst \
+	doc/manpages/frr-isisd.rst \
+	doc/manpages/frr-ldpd.rst \
+	doc/manpages/frr-nhrpd.rst \
+	doc/manpages/frr-ospf6d.rst \
+	doc/manpages/frr-ospfclient.rst \
+	doc/manpages/frr-ospfd.rst \
+	doc/manpages/frr-pbrd.rst \
+	doc/manpages/frr-pimd.rst \
+	doc/manpages/frr-ripd.rst \
+	doc/manpages/frr-ripngd.rst \
+	doc/manpages/frr-sharpd.rst \
+	doc/manpages/frr-staticd.rst \
+	doc/manpages/frr-vrrpd.rst \
+	doc/manpages/frr-watchfrr.rst \
+	doc/manpages/frr-zebra.rst \
 	doc/manpages/frr.rst \
 	doc/manpages/index.rst \
-	doc/manpages/isisd.rst \
-	doc/manpages/ldpd.rst \
 	doc/manpages/mtracebis.rst \
-	doc/manpages/nhrpd.rst \
-	doc/manpages/ospf6d.rst \
-	doc/manpages/ospfclient.rst \
-	doc/manpages/ospfd.rst \
-	doc/manpages/pimd.rst \
-	doc/manpages/ripd.rst \
-	doc/manpages/pbrd.rst \
-	doc/manpages/ripngd.rst \
-	doc/manpages/sharpd.rst \
-	doc/manpages/staticd.rst \
 	doc/manpages/vtysh.rst \
-	doc/manpages/watchfrr.rst \
-	doc/manpages/zebra.rst \
-	doc/manpages/bfdd.rst \
-	doc/manpages/bfd-options.rst \
-	doc/manpages/vrrpd.rst \
 	# end
 
 EXTRA_DIST += $(man_RSTFILES)

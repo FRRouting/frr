@@ -1,0 +1,27 @@
+{
+"ipv4Unicast":{
+  "routerId":"192.168.0.1",
+  "as":65000,
+  "vrfName":"default",
+  "peerCount":2,
+  "peers":{
+    "192.168.0.2":{
+      "hostname":"r2",
+      "remoteAs":65000,
+      "outq":0,
+      "inq":0,
+      "pfxRcd":7,
+      "state":"Established"
+    },
+    "192.168.101.2":{
+      "hostname":"r4",
+      "remoteAs":65100,
+      "outq":0,
+      "inq":0,
+      "pfxRcd":3,
+      "state":"Established"
+    }
+  },
+  "totalPeers":2
+}
+}

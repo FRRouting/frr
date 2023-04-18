@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-staticd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/staticd";
+  prefix frr-staticd;
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  import frr-nexthop {
+    prefix frr-nexthop;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-bfdd {
+    prefix frr-bfdd;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR staticd information.
+     This YANG module augments the ietf-routing with additional
+     nexthop information
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  identity staticd {
+    base frr-rt:routing-protocol;
+    description
+      "'Staticd' routing pseudo-protocol.";
+  }
+
+  grouping staticd-prefix-attributes {
+    list path-list {
+      key "table-id distance";
+      leaf table-id {
+        type uint32;
+        description
+          "Table-id";
+      }
+
+      leaf distance {
+        type frr-rt:administrative-distance;
+        description
+          "Admin distance associated with this route.";
+      }
+
+      leaf tag {
+        type uint32;
+        default "0";
+        description
+          "Route tag";
+      }
+
+      uses frr-nexthop:frr-nexthop;
+    }
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
+    container staticd {
+      when "../frr-rt:type = 'frr-staticd:staticd'" {
+        description
+          "This container is only valid for the 'staticd' routing
+           protocol.";
+      }
+      description
+        "Support for a 'staticd' pseudo-protocol instance
+         consists of a list of routes.";
+      list route-list {
+        key "prefix afi-safi";
+        description
+          "List of staticd IP routes.";
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "IP prefix.";
+        }
+        leaf afi-safi {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI-SAFI type.";
+        }
+
+        uses staticd-prefix-attributes {
+          augment "path-list/frr-nexthops/nexthop" {
+            container bfd-monitoring {
+              description "BFD monitoring options.";
+              presence
+                "Present if BFD configuration is available.";
+
+              when "../nh-type = 'ip4' or ../nh-type = 'ip4-ifindex' or
+                    ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex'";
+              uses frr-bfdd:bfd-monitoring;
+            }
+          }
+        }
+
+        list src-list {
+          key "src-prefix";
+          leaf src-prefix {
+            type inet:ipv6-prefix;
+            description
+              "IPv6 source prefix";
+          }
+
+          uses staticd-prefix-attributes;
+        }
+      }
+    }
+  }
+}

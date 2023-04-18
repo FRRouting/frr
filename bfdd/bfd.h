@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*********************************************************************
  * Copyright 2014,2015,2016,2017 Cumulus Networks, Inc.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * bfd.h: implements the BFD protocol.
  */
@@ -41,9 +28,9 @@
 #define BFDD_JSON_CONV_OPTIONS (0)
 #endif
 
-DECLARE_MGROUP(BFDD)
-DECLARE_MTYPE(BFDD_CONTROL)
-DECLARE_MTYPE(BFDD_NOTIFICATION)
+DECLARE_MGROUP(BFDD);
+DECLARE_MTYPE(BFDD_CONTROL);
+DECLARE_MTYPE(BFDD_NOTIFICATION);
 
 struct bfd_timers {
 	uint32_t desired_min_tx;
@@ -86,7 +73,8 @@ struct bfd_echo_pkt {
 		};
 	};
 	uint32_t my_discr;
-	uint8_t pad[16];
+	uint64_t time_sent_sec;
+	uint64_t time_sent_usec;
 };
 
 
@@ -168,23 +156,32 @@ enum bfd_session_flags {
 						 * expires
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
+	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
 };
 
-#define BFD_SET_FLAG(field, flag) (field |= flag)
-#define BFD_UNSET_FLAG(field, flag) (field &= ~flag)
-#define BFD_CHECK_FLAG(field, flag) (field & flag)
-
-/* BFD session hash keys */
+/*
+ * BFD session hash key.
+ *
+ * This structure must not have any padding bytes because their value is
+ * unspecified after the struct assignment. Even when all fields of two keys
+ * are the same, if the padding bytes are different, then the calculated hash
+ * value is different, and the hash lookup will fail.
+ *
+ * Currently, the structure fields are correctly aligned, and the "packed"
+ * attribute is added as a precaution. "family" and "mhop" fields are two-bytes
+ * to eliminate unaligned memory access to "peer" and "local".
+ */
 struct bfd_key {
 	uint16_t family;
-	uint8_t mhop;
+	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
-};
+	char ifname[INTERFACE_NAMSIZ];
+	char vrfname[VRF_NAMSIZ];
+} __attribute__((packed));
 
 struct bfd_session_stats {
 	uint64_t rx_ctrl_pkt;
@@ -196,8 +193,51 @@ struct bfd_session_stats {
 	uint64_t znotification;
 };
 
+/**
+ * BFD session profile to override default configurations.
+ */
+struct bfd_profile {
+	/** Profile name. */
+	char name[64];
+
+	/** Session detection multiplier. */
+	uint8_t detection_multiplier;
+	/** Desired transmission interval (in microseconds). */
+	uint32_t min_tx;
+	/** Minimum required receive interval (in microseconds). */
+	uint32_t min_rx;
+	/** Administrative state. */
+	bool admin_shutdown;
+	/** Passive mode. */
+	bool passive;
+	/** Minimum expected TTL value. */
+	uint8_t minimum_ttl;
+
+	/** Echo mode (only applies to single hop). */
+	bool echo_mode;
+	/** Desired echo transmission interval (in microseconds). */
+	uint32_t min_echo_tx;
+	/** Minimum required echo receive interval (in microseconds). */
+	uint32_t min_echo_rx;
+
+	/** Profile list entry. */
+	TAILQ_ENTRY(bfd_profile) entry;
+};
+
+/** Profile list type. */
+TAILQ_HEAD(bfdproflist, bfd_profile);
+
 /* bfd_session shortcut label forwarding. */
 struct peer_label;
+
+struct bfd_config_timers {
+	uint32_t desired_min_tx;
+	uint32_t required_min_rx;
+	uint32_t desired_min_echo_tx;
+	uint32_t required_min_echo_rx;
+};
+
+#define BFD_RTT_SAMPLE 8
 
 /*
  * Session state information
@@ -214,16 +254,23 @@ struct bfd_session {
 	uint8_t mh_ttl;
 	uint8_t remote_cbit;
 
+	/** BFD profile name. */
+	char *profile_name;
+	/** BFD pre configured profile. */
+	struct bfd_profile *profile;
+	/** BFD peer configuration (without profile). */
+	struct bfd_profile peer_profile;
+
 	/* Timers */
-	struct bfd_timers timers;
+	struct bfd_config_timers timers;
 	struct bfd_timers cur_timers;
 	uint64_t detect_TO;
-	struct thread *echo_recvtimer_ev;
-	struct thread *recvtimer_ev;
+	struct event *echo_recvtimer_ev;
+	struct event *recvtimer_ev;
 	uint64_t xmt_TO;
 	uint64_t echo_xmt_TO;
-	struct thread *xmttimer_ev;
-	struct thread *echo_xmttimer_ev;
+	struct event *xmttimer_ev;
+	struct event *echo_xmttimer_ev;
 	uint64_t echo_detect_TO;
 
 	/* software object state */
@@ -233,7 +280,9 @@ struct bfd_session {
 	struct bfd_key key;
 	struct peer_label *pl;
 
+	struct bfd_dplane_ctx *bdc;
 	struct sockaddr_any local_address;
+	uint8_t peer_hw_addr[ETH_ALEN];
 	struct interface *ifp;
 	struct vrf *vrf;
 
@@ -252,6 +301,10 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
+
+	uint8_t rtt_valid;	    /* number of valid samples */
+	uint8_t rtt_index;	    /* last index added */
+	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
 struct peer_label {
@@ -295,9 +348,11 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFDETECTMULT 3
 #define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
 #define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
-#define BFD_DEF_REQ_MIN_ECHO (50 * 1000) /* microseconds. */
+#define BFD_DEF_DES_MIN_ECHO_TX (50 * 1000) /* microseconds. */
+#define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
-#define BFD_DEF_MHOP_TTL 5
+/** Minimum multi hop TTL. */
+#define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
 #define BFD_TTL_VAL 255
 #define BFD_RCV_TTL_VAL 1
@@ -346,8 +401,8 @@ struct bfd_control_socket {
 	TAILQ_ENTRY(bfd_control_socket) bcs_entry;
 
 	int bcs_sd;
-	struct thread *bcs_ev;
-	struct thread *bcs_outev;
+	struct event *bcs_ev;
+	struct event *bcs_outev;
 	struct bcqueue bcs_bcqueue;
 
 	/* Notification data */
@@ -367,7 +422,7 @@ int control_init(const char *path);
 void control_shutdown(void);
 int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
-int control_accept(struct thread *t);
+void control_accept(struct event *t);
 
 
 /*
@@ -384,12 +439,16 @@ struct bfd_vrf_global {
 	int bg_echov6;
 	struct vrf *vrf;
 
-	struct thread *bg_ev[6];
+	struct event *bg_ev[6];
 };
+
+/* Forward declaration of data plane context struct. */
+struct bfd_dplane_ctx;
+TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
 
 struct bfd_global {
 	int bg_csock;
-	struct thread *bg_csockev;
+	struct event *bg_csockev;
 	struct bcslist bg_bcslist;
 
 	struct pllist bg_pllist;
@@ -397,10 +456,43 @@ struct bfd_global {
 	struct obslist bg_obslist;
 
 	struct zebra_privs_t bfdd_privs;
+
+	/**
+	 * Daemon is exit()ing? Use this to avoid actions that expect a
+	 * running system or to avoid unnecessary operations when quitting.
+	 */
+	bool bg_shutdown;
+
+	/* Distributed BFD items. */
+	bool bg_use_dplane;
+	int bg_dplane_sock;
+	struct event *bg_dplane_sockev;
+	struct dplane_queue bg_dplaneq;
+
+	/* Debug options. */
+	/* Show distributed BFD debug messages. */
+	bool debug_dplane;
+	/* Show all peer state changes events. */
+	bool debug_peer_event;
+	/*
+	 * Show zebra message exchanges:
+	 * - Interface add/delete.
+	 * - Local address add/delete.
+	 * - VRF add/delete.
+	 */
+	bool debug_zebra;
+	/*
+	 * Show network level debug information:
+	 * - Echo packets without session.
+	 * - Unavailable peer sessions.
+	 * - Network system call failures.
+	 */
+	bool debug_network;
 };
+
 extern struct bfd_global bglobal;
-extern struct bfd_diag_str_list diag_list[];
-extern struct bfd_state_str_list state_list[];
+extern const struct bfd_diag_str_list diag_list[];
+extern const struct bfd_state_str_list state_list[];
 
 void socket_close(int *s);
 
@@ -427,27 +519,14 @@ void pl_free(struct peer_label *pl);
 
 
 /*
- * log.c
- *
- * Contains code that does the logging procedures. Might implement multiple
- * backends (e.g. zebra log, syslog or other logging lib).
+ * logging - alias to zebra log
  */
-enum blog_level {
-	/* level vs syslog equivalent */
-	BLOG_DEBUG = 0,   /* LOG_DEBUG */
-	BLOG_INFO = 1,    /* LOG_INFO */
-	BLOG_WARNING = 2, /* LOG_WARNING */
-	BLOG_ERROR = 3,   /* LOG_ERR */
-	BLOG_FATAL = 4,   /* LOG_CRIT */
-};
-
-void log_init(int foreground, enum blog_level level,
-	      struct frr_daemon_info *fdi);
-void log_info(const char *fmt, ...);
-void log_debug(const char *fmt, ...);
-void log_warning(const char *fmt, ...);
-void log_error(const char *fmt, ...);
-void log_fatal(const char *fmt, ...);
+#define zlog_fatal(msg, ...)                                                   \
+	do {                                                                   \
+		zlog_err(msg, ##__VA_ARGS__);                                  \
+		assert(!msg);                                                  \
+		abort();                                                       \
+	} while (0)
 
 
 /*
@@ -461,19 +540,20 @@ int bp_set_tosv6(int sd, uint8_t value);
 int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
 
-int bp_udp_shop(vrf_id_t vrf_id);
-int bp_udp_mhop(vrf_id_t vrf_id);
-int bp_udp6_shop(vrf_id_t vrf_id);
-int bp_udp6_mhop(vrf_id_t vrf_id);
+int bp_udp_shop(const struct vrf *vrf);
+int bp_udp_mhop(const struct vrf *vrf);
+int bp_udp6_shop(const struct vrf *vrf);
+int bp_udp6_mhop(const struct vrf *vrf);
 int bp_peer_socket(const struct bfd_session *bs);
 int bp_peer_socketv6(const struct bfd_session *bs);
-int bp_echo_socket(vrf_id_t vrf_id);
-int bp_echov6_socket(vrf_id_t vrf_id);
+int bp_echo_socket(const struct vrf *vrf);
+int bp_echov6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
+void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
 
-int bfd_recv_cb(struct thread *t);
+void bfd_recv_cb(struct event *t);
 
 
 /*
@@ -481,7 +561,7 @@ int bfd_recv_cb(struct thread *t);
  *
  * Contains the code related with event loop.
  */
-typedef void (*bfd_ev_cb)(struct thread *t);
+typedef void (*bfd_ev_cb)(struct event *t);
 
 void bfd_recvtimer_update(struct bfd_session *bs);
 void bfd_echo_recvtimer_update(struct bfd_session *bs);
@@ -517,7 +597,8 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
-				      ifindex_t ifindex, vrf_id_t vrfid,
+				      struct interface *ifp,
+				      vrf_id_t vrfid,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
@@ -527,7 +608,7 @@ void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);
 void bs_final_handler(struct bfd_session *bs);
 void bs_set_slow_timers(struct bfd_session *bs);
-const char *satostr(struct sockaddr_any *sa);
+const char *satostr(const struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
@@ -547,6 +628,41 @@ void bfd_session_free(struct bfd_session *bs);
 const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
+void bfd_profiles_remove(void);
+void bfd_rtt_init(struct bfd_session *bfd);
+
+/**
+ * Set the BFD session echo state.
+ *
+ * \param bs the BFD session.
+ * \param echo the echo operational state.
+ */
+void bfd_set_echo(struct bfd_session *bs, bool echo);
+
+/**
+ * Set the BFD session functional state.
+ *
+ * \param bs the BFD session.
+ * \param shutdown the operational value.
+ */
+void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
+
+/**
+ * Set the BFD session passive mode.
+ *
+ * \param bs the BFD session.
+ * \param passive the passive mode.
+ */
+void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+
+/**
+ * Picks the BFD session configuration from the appropriated source:
+ * if using the default peer configuration prefer profile (if it exists),
+ * otherwise use session.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_session_apply(struct bfd_session *bs);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);
@@ -567,16 +683,69 @@ typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_key_iterate(hash_iter_func hif, void *arg);
 
-/* Export callback functions for `event.c`. */
-extern struct thread_master *master;
+unsigned long bfd_get_session_count(void);
 
-int bfd_recvtimer_cb(struct thread *t);
-int bfd_echo_recvtimer_cb(struct thread *t);
-int bfd_xmt_cb(struct thread *t);
-int bfd_echo_xmt_cb(struct thread *t);
+/* Export callback functions for `event.c`. */
+extern struct event_loop *master;
+
+void bfd_recvtimer_cb(struct event *t);
+void bfd_echo_recvtimer_cb(struct event *t);
+void bfd_xmt_cb(struct event *t);
+void bfd_echo_xmt_cb(struct event *t);
 
 extern struct in6_addr zero_addr;
 
+/**
+ * Creates a new profile entry and insert into the global list.
+ *
+ * \param name the BFD profile name.
+ *
+ * \returns `NULL` if it already exists otherwise the new entry.
+ */
+struct bfd_profile *bfd_profile_new(const char *name);
+
+/**
+ * Search for configured BFD profiles (profile name is case insensitive).
+ *
+ * \param name the BFD profile name.
+ *
+ * \returns `NULL` if it doesn't exist otherwise the entry.
+ */
+struct bfd_profile *bfd_profile_lookup(const char *name);
+
+/**
+ * Removes profile from list and free memory.
+ *
+ * \param bp the BFD profile.
+ */
+void bfd_profile_free(struct bfd_profile *bp);
+
+/**
+ * Apply a profile configuration to an existing BFD session. The non default
+ * values will not be overridden.
+ *
+ * NOTE: if the profile doesn't exist yet, then the profile will be applied
+ * once it begins to exist.
+ *
+ * \param profile_name the BFD profile name.
+ * \param bs the BFD session.
+ */
+void bfd_profile_apply(const char *profname, struct bfd_session *bs);
+
+/**
+ * Remove any applied profile from session and revert the session
+ * configuration.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_profile_remove(struct bfd_session *bs);
+
+/**
+ * Apply new profile values to sessions using it.
+ *
+ * \param[in] bp the BFD profile that got updated.
+ */
+void bfd_profile_update(struct bfd_profile *bp);
 
 /*
  * bfdd_vty.c
@@ -603,8 +772,59 @@ void bfdd_zclient_unregister(vrf_id_t vrf_id);
 void bfdd_zclient_register(vrf_id_t vrf_id);
 void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
-void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
+
+/*
+ * dplane.c
+ */
+
+/**
+ * Initialize BFD data plane infrastructure for distributed BFD implementation.
+ *
+ * \param sa socket address.
+ * \param salen socket address structure length.
+ * \param client `true` means connecting socket, `false` listening socket.
+ */
+void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen, bool client);
+
+/**
+ * Attempts to delegate the BFD session liveness detection to hardware.
+ *
+ * \param bs the BFD session data structure.
+ *
+ * \returns
+ * `0` on success and BFD daemon should do nothing or `-1` on failure
+ * and we should fallback to software implementation.
+ */
+int bfd_dplane_add_session(struct bfd_session *bs);
+
+/**
+ * Send new session settings to data plane.
+ *
+ * \param bs the BFD session to update.
+ */
+int bfd_dplane_update_session(const struct bfd_session *bs);
+
+/**
+ * Deletes session from data plane.
+ *
+ * \param bs the BFD session to delete.
+ *
+ * \returns `0` on success otherwise `-1`.
+ */
+int bfd_dplane_delete_session(struct bfd_session *bs);
+
+/**
+ * Asks the data plane for updated counters and update the session data
+ * structure.
+ *
+ * \param bs the BFD session that needs updating.
+ *
+ * \returns `0` on success otherwise `-1` on failure.
+ */
+int bfd_dplane_update_session_counters(struct bfd_session *bs);
+
+void bfd_dplane_show_counters(struct vty *vty);
 
 #endif /* _BFD_H_ */

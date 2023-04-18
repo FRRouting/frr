@@ -1,0 +1,86 @@
+{
+  "10.0.10.0/24": [
+    {
+      "distance": 115, 
+      "metric": 10, 
+      "nexthops": [
+        {
+          "afi": "ipv4", 
+          "interfaceName": "r3-eth1", 
+          "ip": "10.0.10.1" 
+        }
+      ], 
+      "prefix": "10.0.10.0/24", 
+      "protocol": "isis", 
+      "vrfName": "r3-cust1"
+    }, 
+    {
+      "nexthops": [
+        {
+          "active": true, 
+          "directlyConnected": true, 
+          "fib": true, 
+          "interfaceName": "r3-eth1"
+        }
+      ], 
+      "prefix": "10.0.10.0/24", 
+      "protocol": "connected", 
+      "selected": true, 
+      "vrfName": "r3-cust1"
+    }
+  ], 
+  "10.0.11.0/24": [
+    {
+      "distance": 115, 
+      "metric": 10, 
+      "nexthops": [
+        {
+          "active": true, 
+          "afi": "ipv4", 
+          "fib": true, 
+          "interfaceName": "r3-eth1", 
+          "ip": "10.0.10.1" 
+        }
+      ], 
+      "prefix": "10.0.11.0/24", 
+      "protocol": "isis", 
+      "selected": true, 
+      "vrfName": "r3-cust1"
+    }
+  ], 
+  "10.0.20.0/24": [
+    {
+      "nexthops": [
+        {
+          "active": true, 
+          "directlyConnected": true, 
+          "fib": true, 
+          "interfaceName": "r3-eth0"
+        }
+      ], 
+      "prefix": "10.0.20.0/24", 
+      "protocol": "connected", 
+      "selected": true, 
+      "vrfName": "r3-cust1"
+    }
+  ], 
+  "10.0.21.0/24": [
+    {
+      "distance": 115, 
+      "metric": 20, 
+      "nexthops": [
+        {
+          "active": true, 
+          "afi": "ipv4", 
+          "fib": true, 
+          "interfaceName": "r3-eth1", 
+          "ip": "10.0.10.1" 
+        }
+      ], 
+      "prefix": "10.0.21.0/24", 
+      "protocol": "isis", 
+      "selected": true, 
+      "vrfName": "r3-cust1"
+    }
+  ]
+}

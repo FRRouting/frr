@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * clippy (CLI preparator in python) main executable
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "config.h"
@@ -27,6 +14,53 @@
 #include "command_graph.h"
 #include "clippy.h"
 
+#if PY_VERSION_HEX >= 0x03080000
+/* new python init/config API added in Python 3.8 */
+int main(int argc, char **argv)
+{
+	PyStatus status;
+	PyPreConfig preconfig[1];
+	PyConfig config[1];
+
+	PyPreConfig_InitPythonConfig(preconfig);
+	preconfig->configure_locale = 0;
+	preconfig->coerce_c_locale = 1;
+	preconfig->coerce_c_locale_warn = 0;
+	preconfig->isolated = 0;
+	preconfig->utf8_mode = 1;
+	preconfig->parse_argv = 0;
+
+	status = Py_PreInitializeFromBytesArgs(preconfig, argc, argv);
+	if (PyStatus_Exception(status))
+		Py_ExitStatusException(status);
+
+	PyConfig_InitPythonConfig(config);
+#if PY_VERSION_HEX >= 0x030b0000	/* 3.11 */
+	config->safe_path = 0;
+#endif
+
+	status = PyConfig_SetBytesArgv(config, argc, argv);
+	if (PyStatus_Exception(status))
+		Py_ExitStatusException(status);
+
+	PyConfig_SetBytesString(config, &config->program_name,
+				argc > 0 ? argv[0] : "clippy");
+	if (argc > 1)
+		PyConfig_SetBytesString(config, &config->run_filename, argv[1]);
+
+	PyImport_AppendInittab("_clippy", command_py_init);
+
+	status = Py_InitializeFromConfig(config);
+	if (PyStatus_Exception(status))
+		Py_ExitStatusException(status);
+
+	PyConfig_Clear(config);
+
+	return Py_RunMain();
+}
+
+#else /* Python < 3.8 */
+/* old python init/config API, deprecated in Python 3.11 */
 #if PY_MAJOR_VERSION >= 3
 #define pychar wchar_t
 static wchar_t *wconv(const char *s)
@@ -51,7 +85,8 @@ int main(int argc, char **argv)
 #if PY_VERSION_HEX >= 0x03040000 /* 3.4 */
 	Py_SetStandardStreamEncoding("UTF-8", NULL);
 #endif
-	Py_SetProgramName(wconv(argv[0]));
+	wchar_t *name = wconv(argv[0]);
+	Py_SetProgramName(name);
 	PyImport_AppendInittab("_clippy", command_py_init);
 
 	Py_Initialize();
@@ -67,6 +102,8 @@ int main(int argc, char **argv)
 		fp = fopen(pyfile, "r");
 		if (!fp) {
 			fprintf(stderr, "%s: %s\n", pyfile, strerror(errno));
+
+			free(name);
 			return 1;
 		}
 	} else {
@@ -85,6 +122,8 @@ int main(int argc, char **argv)
 	if (PyRun_AnyFile(fp, pyfile)) {
 		if (PyErr_Occurred())
 			PyErr_Print();
+
+		free(name);
 		return 1;
 	}
 	Py_Finalize();
@@ -93,43 +132,23 @@ int main(int argc, char **argv)
 	for (int i = 1; i < argc; i++)
 		free(wargv[i - 1]);
 #endif
+	free(name);
 	free(wargv);
 	return 0;
 }
+#endif /* Python < 3.8 */
 
 /* and now for the ugly part... provide simplified logging functions so we
  * don't need to link libzebra (which would be a circular build dep) */
 
-#ifdef __ASSERT_FUNCTION
-#undef __ASSERT_FUNCTION
-#endif
-
 #include "log.h"
-#include "zassert.h"
 
-#define ZLOG_FUNC(FUNCNAME)                                                    \
-	void FUNCNAME(const char *format, ...)                                 \
-	{                                                                      \
-		va_list args;                                                  \
-		va_start(args, format);                                        \
-		vfprintf(stderr, format, args);                                \
-		fputs("\n", stderr);                                           \
-		va_end(args);                                                  \
-	}
-
-ZLOG_FUNC(zlog_err)
-ZLOG_FUNC(zlog_warn)
-ZLOG_FUNC(zlog_info)
-ZLOG_FUNC(zlog_notice)
-ZLOG_FUNC(zlog_debug)
-
-void _zlog_assert_failed(const char *assertion, const char *file,
-			 unsigned int line, const char *function)
+PRINTFRR(3, 0)
+void vzlogx(const struct xref_logmsg *xref, int prio,
+	    const char *format, va_list args)
 {
-	fprintf(stderr,
-		"Assertion `%s' failed in file %s, line %u, function %s",
-		assertion, file, line, (function ? function : "?"));
-	abort();
+	vfprintf(stderr, format, args);
+	fputs("\n", stderr);
 }
 
 void memory_oom(size_t size, const char *name)

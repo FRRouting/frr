@@ -1,0 +1,293 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-vrrpd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/vrrpd";
+  prefix frr-vrrpd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR vrrpd daemon.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-09-09 {
+    description
+      "Initial revision.";
+  }
+
+  grouping ip-vrrp-config {
+    description
+      "Configuration data for VRRP on IP interfaces";
+    leaf virtual-router-id {
+      type uint8 {
+        range "1..255";
+      }
+      description
+        "Set the virtual router id for use by the VRRP group. This
+         usually also determines the virtual MAC address that is
+         generated for the VRRP group";
+    }
+
+    leaf version {
+      type enumeration {
+        enum "2" {
+          value 2;
+          description
+            "VRRP version 2.";
+        }
+        enum "3" {
+          value 3;
+          description
+            "VRRP version 3.";
+        }
+      }
+      default "3";
+    }
+
+    leaf priority {
+      type uint8 {
+        range "1..254";
+      }
+      default "100";
+      description
+        "Specifies the sending VRRP interface's priority
+         for the virtual router. Higher values equal higher
+         priority";
+    }
+
+    leaf preempt {
+      type boolean;
+      default "true";
+      description
+        "When set to true, enables preemption by a higher
+         priority backup router of a lower priority master router";
+    }
+
+    leaf accept-mode {
+      type boolean;
+      default "true";
+      description
+        "Configure whether packets destined for
+         virtual addresses are accepted even when the virtual
+         address is not owned by the router interface";
+    }
+
+    leaf checksum-with-ipv4-pseudoheader {
+      type boolean;
+      default "true";
+      description
+        "Enabled if VRRPv3 checksum for IPv4 involves pseudoheader";
+    }
+
+    leaf advertisement-interval {
+      type uint16 {
+        range "1..4095";
+      }
+      units "centiseconds";
+      default "100";
+      description
+        "Sets the interval between successive VRRP
+         advertisements -- RFC 5798 defines this as a 12-bit
+         value expressed as 0.1 seconds, with default 100, i.e.,
+         1 second. Several implementation express this in units of
+         seconds";
+    }
+
+    leaf shutdown {
+      type boolean;
+      default "false";
+      description
+        "Administrative shutdown for this VRRP group.";
+    }
+  }
+
+  grouping ip-vrrp-state {
+    description
+      "Grouping for operational state data for a virtual router";
+    leaf current-priority {
+      type uint8;
+      config false;
+      description
+        "Operational value of the priority for the
+         interface in the VRRP group.";
+    }
+
+    leaf vrrp-interface {
+      type frr-interface:interface-ref;
+      config false;
+      description
+        "The interface used to transmit VRRP traffic.";
+    }
+
+    leaf source-address {
+      type inet:ip-address;
+      config false;
+      description
+        "The source IP address used for VRRP advertisements.";
+    }
+
+    leaf state {
+      type enumeration {
+        enum "Initialize" {
+          description
+            "State when virtual router is waiting for a Startup event.";
+        }
+        enum "Master" {
+          description
+            "State when virtual router is functioning as the forwarding router
+             for the virtual addresses.";
+        }
+        enum "Backup" {
+          description
+            "State when virtual router is monitoring the availability and state
+             of the Master router.";
+        }
+      }
+      config false;
+    }
+
+    leaf master-advertisement-interval {
+      type uint16 {
+        range "0..4095";
+      }
+      units "centiseconds";
+      config false;
+      description
+        "Advertisement interval contained in advertisements received from the Master.";
+    }
+
+    leaf skew-time {
+      type uint16;
+      units "centiseconds";
+      config false;
+      description
+        "Time to skew Master_Down_Interval.";
+    }
+
+    container counter {
+      config false;
+      leaf state-transition {
+        type yang:zero-based-counter32;
+        description
+          "Number of state transitions the virtual router has experienced.";
+      }
+
+      container tx {
+        leaf advertisement {
+          type yang:zero-based-counter32;
+          description
+            "Number of sent VRRP advertisements.";
+        }
+      }
+
+      container rx {
+        leaf advertisement {
+          type yang:zero-based-counter32;
+          description
+            "Number of received VRRP advertisements.";
+        }
+      }
+    }
+  }
+
+  grouping ip-vrrp-top {
+    description
+      "Top-level grouping for Virtual Router Redundancy Protocol";
+    container vrrp {
+      description
+        "Enclosing container for VRRP groups handled by this
+         IP interface";
+      reference
+        "RFC 5798 - Virtual Router Redundancy Protocol
+         (VRRP) Version 3 for IPv4 and IPv6";
+      list vrrp-group {
+        key "virtual-router-id";
+        description
+          "List of VRRP groups, keyed by virtual router id";
+        uses ip-vrrp-config;
+
+        container v4 {
+          leaf-list virtual-address {
+            type inet:ipv4-address;
+            description
+              "Configure one or more IPv4 virtual addresses for the
+               VRRP group";
+          }
+
+          uses ip-vrrp-state {
+            augment "counter/tx" {
+              leaf gratuitous-arp {
+                type yang:zero-based-counter32;
+                description
+                  "Number of sent gratuitous ARP requests.";
+              }
+            }
+          }
+        }
+
+        container v6 {
+          when "../version = 3";
+          leaf-list virtual-address {
+            type inet:ipv6-address;
+            description
+              "Configure one or more IPv6 virtual addresses for the
+               VRRP group";
+          }
+
+          uses ip-vrrp-state {
+            augment "counter/tx" {
+              leaf neighbor-advertisement {
+                type yang:zero-based-counter32;
+                description
+                  "Number of sent unsolicited Neighbor Advertisements.";
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface" {
+    uses ip-vrrp-top;
+  }
+}

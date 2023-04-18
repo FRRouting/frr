@@ -1,4 +1,5 @@
 import frrtest
 
+
 class TestTTable(frrtest.TestRefOut):
-    program = './test_ttable'
+    program = "./test_ttable"

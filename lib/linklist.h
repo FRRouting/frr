@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Generic linked list
  * Copyright (C) 1997, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_LINKLIST_H
@@ -43,6 +28,12 @@ struct list {
 	/* invariant: count is the number of listnodes in the list */
 	unsigned int count;
 
+	uint8_t flags;
+/* Indicates that listnode memory is managed by the application and
+ * doesn't need to be freed by this library via listnode_delete etc.
+ */
+#define LINKLIST_FLAG_NODE_MEM_BY_APP (1 << 0)
+
 	/*
 	 * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
 	 * Used as definition of sorted for listnode_add_sort
@@ -60,10 +51,14 @@ struct list {
 #define listhead(X) ((X) ? ((X)->head) : NULL)
 #define listhead_unchecked(X) ((X)->head)
 #define listtail(X) ((X) ? ((X)->tail) : NULL)
+#define listtail_unchecked(X) ((X)->tail)
 #define listcount(X) ((X)->count)
 #define list_isempty(X) ((X)->head == NULL && (X)->tail == NULL)
 /* return X->data only if X and X->data are not NULL */
 #define listgetdata(X) (assert(X), assert((X)->data != NULL), (X)->data)
+/* App is going to manage listnode memory */
+#define listset_app_node_mem(X) ((X)->flags |= LINKLIST_FLAG_NODE_MEM_BY_APP)
+#define listnode_init(X, val) ((X)->data = (val))
 
 /*
  * Create a new linked list.
@@ -95,7 +90,7 @@ extern struct listnode *listnode_add(struct list *list, void *data);
  *    list to operate on
  *
  * data
- *    element to add
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  */
 extern void listnode_add_head(struct list *list, void *data);
 
@@ -112,7 +107,7 @@ extern void listnode_add_head(struct list *list, void *data);
  *    list to operate on
  *
  * val
- *    element to add
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  */
 extern void listnode_add_sort(struct list *list, void *val);
 
@@ -128,7 +123,7 @@ extern void listnode_add_sort(struct list *list, void *val);
  *    listnode to insert after
  *
  * data
- *    data to insert
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  *
  * Returns:
  *    pointer to newly created listnode that contains the inserted data
@@ -148,7 +143,7 @@ extern struct listnode *listnode_add_after(struct list *list,
  *    listnode to insert before
  *
  * data
- *    data to insert
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  *
  * Returns:
  *    pointer to newly created listnode that contains the inserted data
@@ -206,17 +201,6 @@ extern struct listnode *listnode_lookup(struct list *list, const void *data);
  *    data at head of list, or NULL if list is empty
  */
 extern void *listnode_head(struct list *list);
-
-/*
- * Duplicate a list.
- *
- * list
- *    list to duplicate
- *
- * Returns:
- *    copy of the list
- */
-extern struct list *list_dup(struct list *l);
 
 /*
  * Sort a list in place.
@@ -296,32 +280,6 @@ extern void list_delete_all_node(struct list *list);
 extern void list_delete_node(struct list *list, struct listnode *node);
 
 /*
- * Append a list to an existing list.
- *
- * Runtime is O(N) where N = listcount(add).
- *
- * list
- *    list to append to
- *
- * add
- *    list to append
- */
-extern void list_add_list(struct list *list, struct list *add);
-
-/*
- * Delete all nodes which satisfy a condition from a list.
- * Deletes the node if cond function returns true for the node.
- * If function ptr passed is NULL, it deletes all nodes
- *
- * list
- *    list to operate on
- * cond
- *    function pointer which takes node data as input and return true or false
- */
-
-extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));
-
-/*
  * Insert a new element into a list with insertion sort if there is no
  * duplicate element present in the list. This assumes the input list is
  * sorted. If unsorted, it will check for duplicate until it finds out
@@ -337,10 +295,23 @@ extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));
  *    list to operate on
  *
  * val
- *    element to add
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  */
 
 extern bool listnode_add_sort_nodup(struct list *list, void *val);
+
+/*
+ * Duplicate the specified list, creating a shallow copy of each of its
+ * elements.
+ *
+ * list
+ *    list to duplicate
+ *
+ * Returns:
+ *    the duplicated list
+ */
+extern struct list *list_dup(struct list *list);
+
 /* List iteration macro.
  * Usage: for (ALL_LIST_ELEMENTS (...) { ... }
  * It is safe to delete the listnode using this macro.
@@ -362,37 +333,6 @@ extern bool listnode_add_sort_nodup(struct list *list, void *val);
 	(node) = listhead(list), ((data) = NULL);                              \
 	(node) != NULL && ((data) = static_cast(data, listgetdata(node)), 1);  \
 	(node) = listnextnode(node), ((data) = NULL)
-
-/* these *do not* cleanup list nodes and referenced data, as the functions
- * do - these macros simply {de,at}tach a listnode from/to a list.
- */
-
-/* List node attach macro.  */
-#define LISTNODE_ATTACH(L, N)                                                  \
-	do {                                                                   \
-		(N)->prev = (L)->tail;                                         \
-		(N)->next = NULL;                                              \
-		if ((L)->head == NULL)                                         \
-			(L)->head = (N);                                       \
-		else                                                           \
-			(L)->tail->next = (N);                                 \
-		(L)->tail = (N);                                               \
-		(L)->count++;                                                  \
-	} while (0)
-
-/* List node detach macro.  */
-#define LISTNODE_DETACH(L, N)                                                  \
-	do {                                                                   \
-		if ((N)->prev)                                                 \
-			(N)->prev->next = (N)->next;                           \
-		else                                                           \
-			(L)->head = (N)->next;                                 \
-		if ((N)->next)                                                 \
-			(N)->next->prev = (N)->prev;                           \
-		else                                                           \
-			(L)->tail = (N)->prev;                                 \
-		(L)->count--;                                                  \
-	} while (0)
 
 extern struct listnode *listnode_lookup_nocheck(struct list *list, void *data);
 

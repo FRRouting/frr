@@ -1,29 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra privileges header.
  *
  * Copyright (C) 2003 Paul Jakma.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_PRIVS_H
 #define _ZEBRA_PRIVS_H
 
 #include <pthread.h>
+#include <stdint.h>
 #include "lib/queue.h"
 
 #ifdef __cplusplus
@@ -43,6 +29,8 @@ typedef enum {
 	ZCAP_DAC_OVERRIDE,
 	ZCAP_READ_SEARCH,
 	ZCAP_FOWNER,
+	ZCAP_IPC_LOCK,
+	ZCAP_SYS_RAWIO,
 	ZCAP_MAX
 } zebra_capabilities_t;
 
@@ -98,6 +86,8 @@ struct zprivs_ids_t {
 	gid_t gid_normal; /* normal uid */
 	gid_t gid_vty;    /* vty gid */
 };
+
+extern struct zebra_privs_t *lib_privs;
 
 /* initialise zebra privileges */
 extern void zprivs_preinit(struct zebra_privs_t *zprivs);

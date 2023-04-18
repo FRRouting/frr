@@ -1,41 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BFD daemon code
  * Copyright (C) 2018 Network Device Education Foundation, Inc. ("NetDEF")
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
  */
 
 #include <zebra.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+#include <err.h>
+
 #include "filter.h"
+#include "if.h"
+#include "vrf.h"
 
 #include "bfd.h"
 #include "bfdd_nb.h"
+#include "bfddp_packet.h"
 #include "lib/version.h"
+#include "lib/command.h"
 
 
 /*
  * FRR related code.
  */
-DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon")
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory")
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data")
+DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
+DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
+DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
@@ -49,8 +46,8 @@ void socket_close(int *s)
 		return;
 
 	if (close(*s) != 0)
-		log_error("%s: close(%d): (%d) %s", __func__, *s, errno,
-			  strerror(errno));
+		zlog_err("%s: close(%d): (%d) %s", __func__, *s, errno,
+			 strerror(errno));
 
 	*s = -1;
 }
@@ -62,6 +59,8 @@ static void sigusr1_handler(void)
 
 static void sigterm_handler(void)
 {
+	bglobal.bg_shutdown = true;
+
 	/* Signalize shutdown. */
 	frr_early_fini();
 
@@ -90,7 +89,7 @@ static void sighup_handler(void)
 	vty_read_config(NULL, bfdd_di.config_file, config_default);
 }
 
-static struct quagga_signal_t bfd_signals[] = {
+static struct frr_signal_t bfd_signals[] = {
 	{
 		.signal = SIGUSR1,
 		.handler = &sigusr1_handler,
@@ -109,9 +108,11 @@ static struct quagga_signal_t bfd_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *bfdd_yang_modules[] = {
+static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_bfdd_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
@@ -119,11 +120,14 @@ FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
 		.privs = &bglobal.bfdd_privs,
 		.yang_modules = bfdd_yang_modules,
-		.n_yang_modules = array_size(bfdd_yang_modules))
+		.n_yang_modules = array_size(bfdd_yang_modules),
+);
 
 #define OPTION_CTLSOCK 1001
-static struct option longopts[] = {
+#define OPTION_DPLANEADDR 2000
+static const struct option longopts[] = {
 	{"bfdctl", required_argument, NULL, OPTION_CTLSOCK},
+	{"dplaneaddr", required_argument, NULL, OPTION_DPLANEADDR},
 	{0}
 };
 
@@ -133,7 +137,7 @@ static struct option longopts[] = {
  */
 struct bfd_global bglobal;
 
-struct bfd_diag_str_list diag_list[] = {
+const struct bfd_diag_str_list diag_list[] = {
 	{.str = "control-expired", .type = BD_CONTROL_EXPIRED},
 	{.str = "echo-failed", .type = BD_ECHO_FAILED},
 	{.str = "neighbor-down", .type = BD_NEIGHBOR_DOWN},
@@ -145,7 +149,7 @@ struct bfd_diag_str_list diag_list[] = {
 	{.str = NULL},
 };
 
-struct bfd_state_str_list state_list[] = {
+const struct bfd_state_str_list state_list[] = {
 	{.str = "admin-down", .type = PTM_BFD_ADM_DOWN},
 	{.str = "down", .type = PTM_BFD_DOWN},
 	{.str = "init", .type = PTM_BFD_INIT},
@@ -153,6 +157,143 @@ struct bfd_state_str_list state_list[] = {
 	{.str = NULL},
 };
 
+static uint16_t
+parse_port(const char *str)
+{
+	char *nulbyte;
+	long rv;
+
+	errno = 0;
+	rv = strtol(str, &nulbyte, 10);
+	/* No conversion performed. */
+	if (rv == 0 && errno == EINVAL) {
+		fprintf(stderr, "invalid BFD data plane address port: %s\n",
+			str);
+		exit(0);
+	}
+	/* Invalid number range. */
+	if ((rv <= 0 || rv >= 65535) || errno == ERANGE) {
+		fprintf(stderr, "invalid BFD data plane port range: %s\n",
+			str);
+		exit(0);
+	}
+	/* There was garbage at the end of the string. */
+	if (*nulbyte != 0) {
+		fprintf(stderr, "invalid BFD data plane port: %s\n",
+			str);
+		exit(0);
+	}
+
+	return (uint16_t)rv;
+}
+
+static void
+distributed_bfd_init(const char *arg)
+{
+	char *sptr, *saux;
+	bool is_client = false;
+	size_t slen;
+	socklen_t salen;
+	char addr[64];
+	char type[64];
+	union {
+		struct sockaddr_in sin;
+		struct sockaddr_in6 sin6;
+		struct sockaddr_un sun;
+	} sa;
+
+	/* Basic parsing: find ':' to figure out type part and address part. */
+	sptr = strchr(arg, ':');
+	if (sptr == NULL) {
+		fprintf(stderr, "invalid BFD data plane socket: %s\n", arg);
+		exit(1);
+	}
+
+	/* Calculate type string length. */
+	slen = (size_t)(sptr - arg);
+
+	/* Copy the address part. */
+	sptr++;
+	strlcpy(addr, sptr, sizeof(addr));
+
+	/* Copy type part. */
+	strlcpy(type, arg, slen + 1);
+
+	/* Reset address data. */
+	memset(&sa, 0, sizeof(sa));
+
+	/* Fill the address information. */
+	if (strcmp(type, "unix") == 0 || strcmp(type, "unixc") == 0) {
+		if (strcmp(type, "unixc") == 0)
+			is_client = true;
+
+		salen = sizeof(sa.sun);
+		sa.sun.sun_family = AF_UNIX;
+		strlcpy(sa.sun.sun_path, addr, sizeof(sa.sun.sun_path));
+	} else if (strcmp(type, "ipv4") == 0 || strcmp(type, "ipv4c") == 0) {
+		if (strcmp(type, "ipv4c") == 0)
+			is_client = true;
+
+		salen = sizeof(sa.sin);
+		sa.sin.sin_family = AF_INET;
+
+		/* Parse port if any. */
+		sptr = strchr(addr, ':');
+		if (sptr == NULL) {
+			sa.sin.sin_port = htons(BFD_DATA_PLANE_DEFAULT_PORT);
+		} else {
+			*sptr = 0;
+			sa.sin.sin_port = htons(parse_port(sptr + 1));
+		}
+
+		if (inet_pton(AF_INET, addr, &sa.sin.sin_addr) != 1)
+			errx(1, "%s: inet_pton: invalid address %s", __func__,
+			     addr);
+	} else if (strcmp(type, "ipv6") == 0 || strcmp(type, "ipv6c") == 0) {
+		if (strcmp(type, "ipv6c") == 0)
+			is_client = true;
+
+		salen = sizeof(sa.sin6);
+		sa.sin6.sin6_family = AF_INET6;
+
+		/* Check for IPv6 enclosures '[]' */
+		sptr = &addr[0];
+		if (*sptr != '[')
+			errx(1, "%s: invalid IPv6 address format: %s", __func__,
+			     addr);
+
+		saux = strrchr(addr, ']');
+		if (saux == NULL)
+			errx(1, "%s: invalid IPv6 address format: %s", __func__,
+			     addr);
+
+		/* Consume the '[]:' part. */
+		slen = saux - sptr;
+		memmove(addr, addr + 1, slen);
+		addr[slen - 1] = 0;
+
+		/* Parse port if any. */
+		saux++;
+		sptr = strrchr(saux, ':');
+		if (sptr == NULL) {
+			sa.sin6.sin6_port = htons(BFD_DATA_PLANE_DEFAULT_PORT);
+		} else {
+			*sptr = 0;
+			sa.sin6.sin6_port = htons(parse_port(sptr + 1));
+		}
+
+		if (inet_pton(AF_INET6, addr, &sa.sin6.sin6_addr) != 1)
+			errx(1, "%s: inet_pton: invalid address %s", __func__,
+			     addr);
+	} else {
+		fprintf(stderr, "invalid BFD data plane socket type: %s\n",
+			type);
+		exit(1);
+	}
+
+	/* Initialize BFD data plane listening socket. */
+	bfd_dplane_init((struct sockaddr *)&sa, salen, is_client);
+}
 
 static void bg_init(void)
 {
@@ -178,16 +319,19 @@ static void bg_init(void)
 
 int main(int argc, char *argv[])
 {
-	char ctl_path[512];
+	char ctl_path[512], dplane_addr[512];
 	bool ctlsockused = false;
 	int opt;
+
+	bglobal.bg_use_dplane = false;
 
 	/* Initialize system sockets. */
 	bg_init();
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
-		    "      --bfdctl       Specify bfdd control socket\n");
+		    "      --bfdctl       Specify bfdd control socket\n"
+		    "      --dplaneaddr   Specify BFD data plane address\n");
 
 	snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
 		 "", "");
@@ -201,10 +345,13 @@ int main(int argc, char *argv[])
 			strlcpy(ctl_path, optarg, sizeof(ctl_path));
 			ctlsockused = true;
 			break;
+		case OPTION_DPLANEADDR:
+			strlcpy(dplane_addr, optarg, sizeof(dplane_addr));
+			bglobal.bg_use_dplane = true;
+			break;
 
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -212,18 +359,11 @@ int main(int argc, char *argv[])
 		snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
 			 "/", bfdd_di.pathspace);
 
-#if 0 /* TODO add support for JSON configuration files. */
-	parse_config(conf);
-#endif
-
-	/* Initialize logging API. */
-	log_init(1, BLOG_DEBUG, &bfdd_di);
+	/* Initialize FRR infrastructure. */
+	master = frr_init();
 
 	/* Initialize control socket. */
 	control_init(ctl_path);
-
-	/* Initialize FRR infrastructure. */
-	master = frr_init();
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
@@ -235,14 +375,18 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
 
-	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
-			&bglobal.bg_csockev);
+	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
+		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();
+
+	/* Initialize BFD data plane listening socket. */
+	if (bglobal.bg_use_dplane)
+		distributed_bfd_init(dplane_addr);
 
 	frr_run(master);
 	/* NOTREACHED */

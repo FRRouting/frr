@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Defines and structures common to OSPFv2 and OSPFv3
  * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _LIBOSPFD_H
@@ -36,7 +21,7 @@ extern "C" {
 #define IPPROTO_OSPFIGP         89
 #endif /* IPPROTO_OSPFIGP */
 
-/* Architectual Constants */
+/* Architectural Constants */
 #ifdef DEBUG
 #define OSPF_LS_REFRESH_TIME                   120
 #else
@@ -52,6 +37,7 @@ extern "C" {
 #define OSPF_DEFAULT_DESTINATION        0x00000000      /* 0.0.0.0 */
 #define OSPF_INITIAL_SEQUENCE_NUMBER    0x80000001U
 #define OSPF_MAX_SEQUENCE_NUMBER        0x7fffffffU
+#define OSPF_INVALID_SEQUENCE_NUMBER 0x80000000U
 
 /* OSPF Interface Types */
 #define OSPF_IFTYPE_NONE		0

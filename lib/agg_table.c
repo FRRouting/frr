@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Aggregate Route
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "zebra.h"
 
@@ -41,7 +28,7 @@ static void agg_node_destroy(route_table_delegate_t *delegate,
 	XFREE(MTYPE_TMP, anode);
 }
 
-route_table_delegate_t agg_table_delegate = {
+static route_table_delegate_t agg_table_delegate = {
 	.create_node = agg_node_create,
 	.destroy_node = agg_node_destroy,
 };

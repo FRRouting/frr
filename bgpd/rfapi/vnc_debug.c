@@ -1,25 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2016, LabN Consulting, L.L.C.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "lib/zebra.h"
 
-#include <lib/version.h>
 #include "lib/prefix.h"
 #include "lib/linklist.h"
 #include "lib/stream.h"
@@ -38,7 +24,7 @@ struct vnc_debug {
 	const char *name;
 };
 
-struct vnc_debug vncdebug[] = {
+static const struct vnc_debug vncdebug[] = {
 	{VNC_DEBUG_RFAPI_QUERY, "rfapi-query"},
 	{VNC_DEBUG_IMPORT_BI_ATTACH, "import-bi-attach"},
 	{VNC_DEBUG_IMPORT_DEL_REMOTE, "import-del-remote"},
@@ -173,11 +159,17 @@ static int bgp_vnc_config_write_debug(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node debug_node = {DEBUG_VNC_NODE, "", 1};
+static int bgp_vnc_config_write_debug(struct vty *vty);
+static struct cmd_node debug_node = {
+	.name = "vnc debug",
+	.node = DEBUG_VNC_NODE,
+	.prompt = "",
+	.config_write = bgp_vnc_config_write_debug,
+};
 
 void vnc_debug_init(void)
 {
-	install_node(&debug_node, bgp_vnc_config_write_debug);
+	install_node(&debug_node);
 	install_element(ENABLE_NODE, &show_debugging_bgp_vnc_cmd);
 
 	install_element(ENABLE_NODE, &debug_bgp_vnc_cmd);

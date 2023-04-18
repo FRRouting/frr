@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2015-2016, LabN Consulting, L.L.C.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "lib/zebra.h"
@@ -150,8 +137,8 @@ rfapi_tunneltype_option_to_tlv(struct bgp *bgp, struct rfapi_ip_addr *ea,
 		bgp_encap_type_pbb_to_tlv(&tto->bgpinfo.pbb, attr);
 		break;
 
-	default:
-		assert(0);
+	case BGP_ENCAP_TYPE_RESERVED:
+		assert(!"Cannot process BGP_ENCAP_TYPE_RESERVED");
 	}
 	return tto->type;
 }
@@ -170,7 +157,6 @@ struct rfapi_un_option *rfapi_encap_tlv_to_un_option(struct attr *attr)
 	stlv = attr->encap_subtlvs;
 
 	uo = XCALLOC(MTYPE_RFAPI_UN_OPTION, sizeof(struct rfapi_un_option));
-	assert(uo);
 	uo->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
 	uo->v.tunnel.type = attr->encap_tunneltype;
 	tto = &uo->v.tunnel;
@@ -248,7 +234,6 @@ struct rfapi_un_option *rfapi_encap_tlv_to_un_option(struct attr *attr)
 	}
 	if (rc) {
 		XFREE(MTYPE_RFAPI_UN_OPTION, uo);
-		uo = NULL;
 	}
 	return uo;
 }
@@ -739,7 +724,7 @@ void rfapi_print_tunneltype_option(void *stream, int column_offset,
 		print_encap_type_pbb(stream, column_offset, &tto->bgpinfo.pbb);
 		break;
 
-	default:
-		assert(0);
+	case BGP_ENCAP_TYPE_RESERVED:
+		assert(!"Cannot process BGP_ENCAP_TYPE_RESERVED");
 	}
 }

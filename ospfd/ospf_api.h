@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * API message handling module for OSPF daemon and client.
  * Copyright (C) 2001, 2002 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ * Copyright (c) 2022, LabN Consulting, L.L.C.
  */
 
 
@@ -25,6 +11,9 @@
 
 #ifndef _OSPF_API_H
 #define _OSPF_API_H
+
+#include <zebra.h>
+#include "ospf_lsa.h"
 
 #define OSPF_API_VERSION           1
 
@@ -112,6 +101,10 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_SYNC_LSDB             4
 #define MSG_ORIGINATE_REQUEST     5
 #define MSG_DELETE_REQUEST        6
+#define MSG_SYNC_REACHABLE        7
+#define MSG_SYNC_ISM              8
+#define MSG_SYNC_NSM              9
+#define MSG_SYNC_ROUTER_ID        19
 
 /* Messages from OSPF daemon. */
 #define MSG_REPLY                10
@@ -122,6 +115,8 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_DEL_IF               15
 #define MSG_ISM_CHANGE           16
 #define MSG_NSM_CHANGE           17
+#define MSG_REACHABLE_CHANGE     18
+#define MSG_ROUTER_ID_CHANGE     20
 
 struct msg_register_opaque_type {
 	uint8_t lsatype;
@@ -140,16 +135,10 @@ struct msg_unregister_opaque_type {
  * Power2[0] is not used. */
 
 
-#ifdef ORIGINAL_CODING
-static const uint16_t Power2[] = {0x0,   0x1,    0x2,    0x4,    0x8,   0x10,
-				  0x20,  0x40,   0x80,   0x100,  0x200, 0x400,
-				  0x800, 0x1000, 0x2000, 0x4000, 0x8000};
-#else
 static const uint16_t Power2[] = {
 	0,	 (1 << 0),  (1 << 1),  (1 << 2),  (1 << 3), (1 << 4),
 	(1 << 5),  (1 << 6),  (1 << 7),  (1 << 8),  (1 << 9), (1 << 10),
 	(1 << 11), (1 << 12), (1 << 13), (1 << 14), (1 << 15)};
-#endif /* ORIGINAL_CODING */
 
 struct lsa_filter_type {
 	uint16_t typemask; /* bitmask for selecting LSA types (1..16) */
@@ -181,11 +170,19 @@ struct msg_originate_request {
 	struct lsa_header data;
 };
 
+
+/* OSPF API MSG Delete Flag. */
+#define OSPF_API_DEL_ZERO_LEN_LSA 0x01 /* send withdrawal with no LSA data */
+
+#define IS_DEL_ZERO_LEN_LSA(x) ((x)->flags & OSPF_API_DEL_ZERO_LEN_LSA)
+
 struct msg_delete_request {
-	struct in_addr area_id; /* "0.0.0.0" for AS-external opaque LSAs */
+	struct in_addr addr; /* intf IP for link local, area for type 10,
+				"0.0.0.0" for AS-external */
 	uint8_t lsa_type;
 	uint8_t opaque_type;
-	uint8_t pad[2]; /* padding */
+	uint8_t pad;   /* padding */
+	uint8_t flags; /* delete flags */
 	uint32_t opaque_id;
 };
 
@@ -253,6 +250,16 @@ struct msg_nsm_change {
 	uint8_t pad[3];
 };
 
+struct msg_reachable_change {
+	uint16_t nadd;
+	uint16_t nremove;
+	struct in_addr router_ids[]; /* add followed by remove */
+};
+
+struct msg_router_id_change {
+	struct in_addr router_id; /* this systems router id */
+};
+
 /* We make use of a union to define a structure that covers all
    possible API messages. This allows us to find out how much memory
    needs to be reserved for the largest API message. */
@@ -271,10 +278,12 @@ struct apimsg {
 		struct msg_ism_change ism_change;
 		struct msg_nsm_change nsm_change;
 		struct msg_lsa_change_notify lsa_change_notify;
+		struct msg_reachable_change reachable_change;
+		struct msg_router_id_change router_id_change;
 	} u;
 };
 
-#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_LSA_SIZE)
+#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_PACKET_SIZE)
 
 /* -----------------------------------------------------------
  * Prototypes for specific messages
@@ -282,7 +291,7 @@ struct apimsg {
  */
 
 /* For debugging only. */
-extern void api_opaque_lsa_print(struct lsa_header *data);
+extern void api_opaque_lsa_print(struct ospf_lsa *lsa);
 
 /* Messages sent by client */
 extern struct msg *new_msg_register_opaque_type(uint32_t seqnum, uint8_t ltype,
@@ -295,10 +304,9 @@ extern struct msg *new_msg_originate_request(uint32_t seqnum,
 					     struct in_addr ifaddr,
 					     struct in_addr area_id,
 					     struct lsa_header *data);
-extern struct msg *new_msg_delete_request(uint32_t seqnum,
-					  struct in_addr area_id,
+extern struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr addr,
 					  uint8_t lsa_type, uint8_t opaque_type,
-					  uint32_t opaque_id);
+					  uint32_t opaque_id, uint8_t flags);
 
 /* Messages sent by OSPF daemon */
 extern struct msg *new_msg_reply(uint32_t seqnum, uint8_t rc);
@@ -326,6 +334,13 @@ extern struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 					     uint8_t is_self_originated,
 					     struct lsa_header *data);
 
+extern struct msg *new_msg_reachable_change(uint32_t seqnum, uint16_t nadd,
+					    struct in_addr *add,
+					    uint16_t nremove,
+					    struct in_addr *remove);
+
+extern struct msg *new_msg_router_id_change(uint32_t seqnr,
+					    struct in_addr router_id);
 /* string printing functions */
 extern const char *ospf_api_errname(int errcode);
 extern const char *ospf_api_typename(int msgtype);

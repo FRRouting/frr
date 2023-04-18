@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -20,13 +9,55 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "typesafe.h"
 #include "memory.h"
+#include "network.h"
 
-DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket")
-DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow")
-DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array")
+DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket");
+DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow");
+DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array");
+
+struct slist_item typesafe_slist_sentinel = { NULL };
+
+bool typesafe_list_member(const struct slist_head *head,
+			  const struct slist_item *item)
+{
+	struct slist_item *fromhead = head->first;
+	struct slist_item **fromnext = (struct slist_item **)&item->next;
+
+	while (fromhead != _SLIST_LAST) {
+		if (fromhead == item || fromnext == head->last_next)
+			return true;
+
+		fromhead = fromhead->next;
+		if (!*fromnext || *fromnext == _SLIST_LAST)
+			break;
+		fromnext = &(*fromnext)->next;
+	}
+
+	return false;
+}
+
+bool typesafe_dlist_member(const struct dlist_head *head,
+			   const struct dlist_item *item)
+{
+	const struct dlist_item *fromhead = head->hitem.next;
+	const struct dlist_item *fromitem = item->next;
+
+	if (!item->prev || !item->next)
+		return false;
+
+	while (fromhead != &head->hitem && fromitem != item) {
+		if (fromitem == &head->hitem || fromhead == item)
+			return true;
+		fromhead = fromhead->next;
+		fromitem = fromitem->next;
+	}
+
+	return false;
+}
 
 #if 0
 static void hash_consistency_check(struct thash_head *head)
@@ -157,7 +188,7 @@ void typesafe_hash_shrink(struct thash_head *head)
 
 /* skiplist */
 
-static inline struct sskip_item *sl_level_get(struct sskip_item *item,
+static inline struct sskip_item *sl_level_get(const struct sskip_item *item,
 			size_t level)
 {
 	if (level < SKIPLIST_OVERFLOW)
@@ -196,7 +227,7 @@ struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 	int cmpval;
 
 	/* level / newlevel are 1-counted here */
-	newlevel = __builtin_ctz(random()) + 1;
+	newlevel = __builtin_ctz(frr_weak_random()) + 1;
 	if (newlevel > SKIPLIST_MAXDEPTH)
 		newlevel = SKIPLIST_MAXDEPTH;
 
@@ -262,13 +293,14 @@ struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 
 /* NOTE: level counting below is 1-based since that makes the code simpler! */
 
-struct sskip_item *typesafe_skiplist_find(struct sskip_head *head,
+const struct sskip_item *typesafe_skiplist_find(
+		const struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 				const struct sskip_item *a,
 				const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
-	struct sskip_item *prev = &head->hitem, *next;
+	const struct sskip_item *prev = &head->hitem, *next;
 	int cmpval;
 
 	while (level) {
@@ -289,13 +321,14 @@ struct sskip_item *typesafe_skiplist_find(struct sskip_head *head,
 	return NULL;
 }
 
-struct sskip_item *typesafe_skiplist_find_gteq(struct sskip_head *head,
+const struct sskip_item *typesafe_skiplist_find_gteq(
+		const struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 				const struct sskip_item *a,
 				const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
-	struct sskip_item *prev = &head->hitem, *next;
+	const struct sskip_item *prev = &head->hitem, *next;
 	int cmpval;
 
 	while (level) {
@@ -316,13 +349,14 @@ struct sskip_item *typesafe_skiplist_find_gteq(struct sskip_head *head,
 	return next;
 }
 
-struct sskip_item *typesafe_skiplist_find_lt(struct sskip_head *head,
+const struct sskip_item *typesafe_skiplist_find_lt(
+		const struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 				const struct sskip_item *a,
 				const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
-	struct sskip_item *prev = &head->hitem, *next, *best = NULL;
+	const struct sskip_item *prev = &head->hitem, *next, *best = NULL;
 	int cmpval;
 
 	while (level) {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Dump Functions and Debbuging.
  * Copyright (C) 2013-2014
@@ -7,22 +8,6 @@
  *   Matej Perina
  *   Peter Orsag
  *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_EIGRPD_DUMP_H_
@@ -138,9 +123,6 @@ extern unsigned long term_debug_eigrp_zebra;
 
 /* Prototypes. */
 extern const char *eigrp_if_name_string(struct eigrp_interface *);
-extern const char *eigrp_if_ip_string(struct eigrp_interface *);
-extern const char *eigrp_neigh_ip_string(struct eigrp_neighbor *);
-extern const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *);
 
 extern void eigrp_ip_header_dump(struct ip *);
 extern void eigrp_header_dump(struct eigrp_header *);
@@ -154,11 +136,11 @@ extern void show_ip_eigrp_interface_sub(struct vty *, struct eigrp *,
 					struct eigrp_interface *);
 extern void show_ip_eigrp_neighbor_sub(struct vty *, struct eigrp_neighbor *,
 				       int);
-extern void show_ip_eigrp_prefix_entry(struct vty *,
-				       struct eigrp_prefix_entry *);
-extern void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-					struct eigrp_nexthop_entry *ne,
-					bool *first);
+extern void show_ip_eigrp_prefix_descriptor(struct vty *vty,
+					    struct eigrp_prefix_descriptor *tn);
+extern void show_ip_eigrp_route_descriptor(struct vty *vty, struct eigrp *eigrp,
+					   struct eigrp_route_descriptor *ne,
+					   bool *first);
 
 extern void eigrp_debug_init(void);
 

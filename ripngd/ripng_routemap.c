@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPng routemap.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,21 +24,19 @@ struct rip_metric_modifier {
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_metric(void *rule, const struct prefix *prefix,
-		   route_map_object_t type, void *object)
+route_match_metric(void *rule, const struct prefix *prefix, void *object)
 {
 	uint32_t *metric;
 	struct ripng_info *rinfo;
 
-	if (type == RMAP_RIPNG) {
-		metric = rule;
-		rinfo = object;
+	metric = rule;
+	rinfo = object;
 
-		if (rinfo->metric == *metric)
-			return RMAP_MATCH;
-		else
-			return RMAP_NOMATCH;
-	}
+	if (rinfo->metric == *metric)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
+
 	return RMAP_NOMATCH;
 }
 
@@ -79,34 +62,35 @@ static void route_match_metric_free(void *rule)
 }
 
 /* Route map commands for metric matching. */
-static struct route_map_rule_cmd route_match_metric_cmd = {
-	"metric", route_match_metric, route_match_metric_compile,
-	route_match_metric_free};
+static const struct route_map_rule_cmd route_match_metric_cmd = {
+	"metric",
+	route_match_metric,
+	route_match_metric_compile,
+	route_match_metric_free
+};
 
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_interface(void *rule, const struct prefix *prefix,
-		      route_map_object_t type, void *object)
+route_match_interface(void *rule, const struct prefix *prefix, void *object)
 {
 	struct ripng_info *rinfo;
 	struct interface *ifp;
 	char *ifname;
 
-	if (type == RMAP_RIPNG) {
-		ifname = rule;
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+	ifname = rule;
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 
-		if (!ifp)
-			return RMAP_NOMATCH;
+	if (!ifp)
+		return RMAP_NOMATCH;
 
-		rinfo = object;
+	rinfo = object;
 
-		if (rinfo->ifindex == ifp->ifindex)
-			return RMAP_MATCH;
-		else
-			return RMAP_NOMATCH;
-	}
+	if (rinfo->ifindex == ifp->ifindex)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
+
 	return RMAP_NOMATCH;
 }
 
@@ -121,37 +105,39 @@ static void route_match_interface_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static struct route_map_rule_cmd route_match_interface_cmd = {
-	"interface", route_match_interface, route_match_interface_compile,
-	route_match_interface_free};
+static const struct route_map_rule_cmd route_match_interface_cmd = {
+	"interface",
+	route_match_interface,
+	route_match_interface_compile,
+	route_match_interface_free
+};
 
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t route_match_tag(void *rule,
 						   const struct prefix *prefix,
-						   route_map_object_t type,
 						   void *object)
 {
 	route_tag_t *tag;
 	struct ripng_info *rinfo;
 	route_tag_t rinfo_tag;
 
-	if (type == RMAP_RIPNG) {
-		tag = rule;
-		rinfo = object;
+	tag = rule;
+	rinfo = object;
 
-		/* The information stored by rinfo is host ordered. */
-		rinfo_tag = rinfo->tag;
-		if (rinfo_tag == *tag)
-			return RMAP_MATCH;
-		else
-			return RMAP_NOMATCH;
-	}
-	return RMAP_NOMATCH;
+	/* The information stored by rinfo is host ordered. */
+	rinfo_tag = rinfo->tag;
+	if (rinfo_tag == *tag)
+		return RMAP_MATCH;
+	else
+		return RMAP_NOMATCH;
 }
 
-static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+
+static const struct route_map_rule_cmd route_match_tag_cmd = {
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -159,33 +145,31 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 
 /* Set metric to attribute. */
 static enum route_map_cmd_result_t
-route_set_metric(void *rule, const struct prefix *prefix,
-		 route_map_object_t type, void *object)
+route_set_metric(void *rule, const struct prefix *prefix, void *object)
 {
-	if (type == RMAP_RIPNG) {
-		struct rip_metric_modifier *mod;
-		struct ripng_info *rinfo;
+	struct rip_metric_modifier *mod;
+	struct ripng_info *rinfo;
 
-		mod = rule;
-		rinfo = object;
+	mod = rule;
+	rinfo = object;
 
-		if (!mod->used)
-			return RMAP_OKAY;
+	if (!mod->used)
+		return RMAP_OKAY;
 
-		if (mod->type == metric_increment)
-			rinfo->metric_out += mod->metric;
-		else if (mod->type == metric_decrement)
-			rinfo->metric_out -= mod->metric;
-		else if (mod->type == metric_absolute)
-			rinfo->metric_out = mod->metric;
+	if (mod->type == metric_increment)
+		rinfo->metric_out += mod->metric;
+	else if (mod->type == metric_decrement)
+		rinfo->metric_out -= mod->metric;
+	else if (mod->type == metric_absolute)
+		rinfo->metric_out = mod->metric;
 
-		if (rinfo->metric_out < 1)
-			rinfo->metric_out = 1;
-		if (rinfo->metric_out > RIPNG_METRIC_INFINITY)
-			rinfo->metric_out = RIPNG_METRIC_INFINITY;
+	if (rinfo->metric_out < 1)
+		rinfo->metric_out = 1;
+	if (rinfo->metric_out > RIPNG_METRIC_INFINITY)
+		rinfo->metric_out = RIPNG_METRIC_INFINITY;
 
-		rinfo->metric_set = 1;
-	}
+	rinfo->metric_set = 1;
+
 	return RMAP_OKAY;
 }
 
@@ -229,9 +213,9 @@ static void *route_set_metric_compile(const char *arg)
 		return mod;
 
 	if (metric > RIPNG_METRIC_INFINITY) {
-		zlog_info("%s: Metric specified: %ld is being converted into METRIC_INFINITY",
-			  __PRETTY_FUNCTION__,
-			  metric);
+		zlog_info(
+			"%s: Metric specified: %ld is being converted into METRIC_INFINITY",
+			__func__, metric);
 		mod->metric = RIPNG_METRIC_INFINITY;
 	} else
 		mod->metric = metric;
@@ -246,29 +230,28 @@ static void route_set_metric_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_set_metric_compile,
+static const struct route_map_rule_cmd route_set_metric_cmd = {
+	"metric",
+	route_set_metric,
+	route_set_metric_compile,
 	route_set_metric_free,
 };
 
 /* `set ipv6 next-hop local IP_ADDRESS' */
 
-/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+/* Set nexthop to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
-route_set_ipv6_nexthop_local(void *rule, const struct prefix *p,
-			     route_map_object_t type, void *object)
+route_set_ipv6_nexthop_local(void *rule, const struct prefix *p, void *object)
 {
 	struct in6_addr *address;
 	struct ripng_info *rinfo;
 
-	if (type == RMAP_RIPNG) {
-		/* Fetch routemap's rule information. */
-		address = rule;
-		rinfo = object;
+	/* Fetch routemap's rule information. */
+	address = rule;
+	rinfo = object;
 
-		/* Set next hop value. */
-		rinfo->nexthop_out = *address;
-	}
+	/* Set next hop value. */
+	rinfo->nexthop_out = *address;
 
 	return RMAP_OKAY;
 }
@@ -299,37 +282,40 @@ static void route_set_ipv6_nexthop_local_free(void *rule)
 }
 
 /* Route map commands for ipv6 nexthop local set. */
-static struct route_map_rule_cmd route_set_ipv6_nexthop_local_cmd = {
-	"ipv6 next-hop local", route_set_ipv6_nexthop_local,
+static const struct route_map_rule_cmd
+		route_set_ipv6_nexthop_local_cmd = {
+	"ipv6 next-hop local",
+	route_set_ipv6_nexthop_local,
 	route_set_ipv6_nexthop_local_compile,
-	route_set_ipv6_nexthop_local_free};
+	route_set_ipv6_nexthop_local_free
+};
 
 /* `set tag TAG' */
 
-/* Set tag to object.  ojbect must be pointer to struct attr. */
+/* Set tag to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
-route_set_tag(void *rule, const struct prefix *prefix, route_map_object_t type,
-	      void *object)
+route_set_tag(void *rule, const struct prefix *prefix, void *object)
 {
 	route_tag_t *tag;
 	struct ripng_info *rinfo;
 
-	if (type == RMAP_RIPNG) {
-		/* Fetch routemap's rule information. */
-		tag = rule;
-		rinfo = object;
+	/* Fetch routemap's rule information. */
+	tag = rule;
+	rinfo = object;
 
-		/* Set next hop value. */
-		rinfo->tag_out = *tag;
-	}
+	/* Set next hop value. */
+	rinfo->tag_out = *tag;
 
 	return RMAP_OKAY;
 }
 
 /* Route map commands for tag set. */
-static struct route_map_rule_cmd route_set_tag_cmd = {
-	"tag", route_set_tag, route_map_rule_tag_compile,
-	route_map_rule_tag_free};
+static const struct route_map_rule_cmd route_set_tag_cmd = {
+	"tag",
+	route_set_tag,
+	route_map_rule_tag_compile,
+	route_map_rule_tag_free
+};
 
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"

@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -29,12 +18,14 @@
 
 #include "memory.h"
 #include "log.h"
+#include "libfrr_trace.h"
 
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
 
-DEFINE_MGROUP(LIB, "libfrr")
-DEFINE_MTYPE(LIB, TMP, "Temporary memory")
+DEFINE_MGROUP(LIB, "libfrr");
+DEFINE_MTYPE(LIB, TMP, "Temporary memory");
+DEFINE_MTYPE(LIB, BITFIELD, "Bitfield memory");
 
 static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 {
@@ -77,6 +68,8 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 
 static inline void mt_count_free(struct memtype *mt, void *ptr)
 {
+	frrtrace(2, frr_libfrr, memfree, mt, ptr);
+
 	assert(mt->n_alloc);
 	atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
 
@@ -89,6 +82,8 @@ static inline void mt_count_free(struct memtype *mt, void *ptr)
 
 static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
 {
+	frrtrace(3, frr_libfrr, memalloc, mt, ptr, size);
+
 	if (__builtin_expect(ptr == NULL, 0)) {
 		if (size) {
 			/* malloc(0) is allowed to return NULL */
@@ -120,6 +115,12 @@ void *qrealloc(struct memtype *mt, void *ptr, size_t size)
 void *qstrdup(struct memtype *mt, const char *str)
 {
 	return str ? mt_checkalloc(mt, strdup(str), strlen(str) + 1) : NULL;
+}
+
+void qcountfree(struct memtype *mt, void *ptr)
+{
+	if (ptr)
+		mt_count_free(mt, ptr);
 }
 
 void qfree(struct memtype *mt, void *ptr)
@@ -157,13 +158,13 @@ static int qmem_exit_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 
 	if (!mt) {
 		fprintf(eda->fp,
-			"%s: showing active allocations in "
-			"memory group %s\n",
+			"%s: showing active allocations in memory group %s\n",
 			eda->prefix, mg->name);
 
 	} else if (mt->n_alloc) {
 		char size[32];
-		eda->error++;
+		if (!mg->active_at_exit)
+			eda->error++;
 		snprintf(size, sizeof(size), "%10zu", mt->size);
 		fprintf(eda->fp, "%s: memstats:  %-30s: %6zu * %s\n",
 			eda->prefix, mt->name, mt->n_alloc,

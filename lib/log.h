@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_LOG_H
@@ -27,15 +12,14 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
+
 #include "lib/hook.h"
+#include "lib/zlog.h"
+#include "lib/zlog_targets.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* Hook for external logging function */
-DECLARE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
-	     (priority, format, args));
 
 /* Here is some guidance on logging levels to use:
  *
@@ -53,19 +37,7 @@ DECLARE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
  * please use LOG_ERR instead.
  */
 
-/* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent
-   to that logging destination. */
-#define ZLOG_DISABLED	(LOG_EMERG-1)
-
-typedef enum {
-	ZLOG_DEST_SYSLOG = 0,
-	ZLOG_DEST_STDOUT,
-	ZLOG_DEST_MONITOR,
-	ZLOG_DEST_FILE
-} zlog_dest_t;
-#define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
-
-extern bool zlog_startup_stderr;
+extern void zlog_rotate(void);
 
 /* Message structure. */
 struct message {
@@ -73,50 +45,17 @@ struct message {
 	const char *str;
 };
 
-/* Open zlog function */
-extern void openzlog(const char *progname, const char *protoname,
-		     uint16_t instance, int syslog_options,
-		     int syslog_facility);
-
-/* Close zlog function. */
-extern void closezlog(void);
-
-/* Handy zlog functions. */
-extern void zlog_err(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_warn(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_info(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_notice(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_debug(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog(int priority, const char *format, ...) PRINTFRR(2, 3);
-
-/* For logs which have error codes associated with them */
-#define flog_err(ferr_id, format, ...)                                        \
-	zlog_err("[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
-#define flog_err_sys(ferr_id, format, ...)                                     \
-	flog_err(ferr_id, format, ##__VA_ARGS__)
-#define flog_warn(ferr_id, format, ...)                                        \
-	zlog_warn("[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
-#define flog(priority, ferr_id, format, ...)                                   \
-	zlog(priority, "[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
-
 extern void zlog_thread_info(int log_level);
-
-/* Set logging level for the given destination.  If the log_level
-   argument is ZLOG_DISABLED, then the destination is disabled.
-   This function should not be used for file logging (use zlog_set_file
-   or zlog_reset_file instead). */
-extern void zlog_set_level(zlog_dest_t, int log_level);
-
-/* Set logging to the given filename at the specified level. */
-extern int zlog_set_file(const char *filename, int log_level);
-/* Disable file logging. */
-extern int zlog_reset_file(void);
-
-/* Rotate log. */
-extern int zlog_rotate(void);
 
 #define ZLOG_FILTERS_MAX 100      /* Max # of filters at once */
 #define ZLOG_FILTER_LENGTH_MAX 80 /* 80 character filter limit */
+
+struct zlog_cfg_filterfile {
+	struct zlog_cfg_file parent;
+};
+
+extern void zlog_filterfile_init(struct zlog_cfg_filterfile *zcf);
+extern void zlog_filterfile_fini(struct zlog_cfg_filterfile *zcf);
 
 /* Add/Del/Dump log filters */
 extern void zlog_filter_clear(void);
@@ -148,11 +87,11 @@ extern void zlog_backtrace_sigsafe(int priority, void *program_counter);
    It caches the most recent localtime result and can therefore
    avoid multiple calls within the same second.  If buflen is too small,
    *buf will be set to '\0', and 0 will be returned. */
-#define QUAGGA_TIMESTAMP_LEN 40
-extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
-			       char *buf, size_t buflen);
+#define FRR_TIMESTAMP_LEN 40
+extern size_t frr_timestamp(int timestamp_precision /* # subsecond digits */,
+			    char *buf, size_t buflen);
 
-extern void zlog_hexdump(const void *mem, unsigned int len);
+extern void zlog_hexdump(const void *mem, size_t len);
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in,
 				 size_t inlen);
 
@@ -174,17 +113,31 @@ extern int proto_name2num(const char *s);
 extern int proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string(unsigned int command);
+extern const char *zserv_gr_client_cap_string(unsigned int zcc);
 
+#define OSPF_LOG(level, cond, fmt, ...)                                        \
+	do {                                                                   \
+		if (cond)                                                      \
+			zlog_##level(fmt, ##__VA_ARGS__);                      \
+	} while (0)
 
-extern int vzlog_test(int priority);
+#define OSPF_LOG_ERR(fmt, ...) OSPF_LOG(err, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_WARN(fmt, ...) OSPF_LOG(warn, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_INFO(fmt, ...) OSPF_LOG(info, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_DEBUG(cond, fmt, ...) OSPF_LOG(debug, cond, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_NOTICE(fmt, ...) OSPF_LOG(notice, true, fmt, ##__VA_ARGS__)
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {
 	size_t len;			/* length of rendered timestamp */
 	int precision;			/* configuration parameter */
 	int already_rendered;		/* should be initialized to 0 */
-	char buf[QUAGGA_TIMESTAMP_LEN]; /* will contain the rendered timestamp
-					   */
+	char buf[FRR_TIMESTAMP_LEN];	/* will contain the rendered timestamp
+					 */
 };
 
 /* Defines for use in command construction: */

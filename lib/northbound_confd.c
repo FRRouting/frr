@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +11,7 @@
 #include "command.h"
 #include "debug.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 #include "northbound.h"
 
 #include <confd_lib.h>
@@ -32,14 +19,14 @@
 #include <confd_dp.h>
 #include <confd_maapi.h>
 
-DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module")
+DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module");
 
 static struct debug nb_dbg_client_confd = {0, "Northbound client: ConfD"};
 
-static struct thread_master *master;
+static struct event_loop *master;
 static struct sockaddr confd_addr;
 static int cdb_sub_sock, dp_ctl_sock, dp_worker_sock;
-static struct thread *t_cdb_sub, *t_dp_ctl, *t_dp_worker;
+static struct event *t_cdb_sub, *t_dp_ctl, *t_dp_worker;
 static struct confd_daemon_ctx *dctx;
 static struct confd_notification_ctx *live_ctx;
 static bool confd_connected;
@@ -283,10 +270,12 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 	return ITER_RECURSE;
 }
 
-static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
+static void frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 {
+	struct nb_context context = {};
 	struct nb_config *candidate;
 	struct cdb_iter_args iter_args;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	candidate = nb_config_dup(running_config);
@@ -311,9 +300,9 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 			    0, "Couldn't apply configuration changes")
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sub_abort_trans");
-			return -1;
+			return;
 		}
-		return 0;
+		return;
 	}
 
 	/*
@@ -321,24 +310,22 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	 * required to apply them.
 	 */
 	transaction = NULL;
-	ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_CONFD, NULL,
-					  NULL, &transaction);
+	context.client = NB_CLIENT_CONFD;
+	ret = nb_candidate_commit_prepare(context, candidate, NULL,
+					  &transaction, false, false, errmsg,
+					  sizeof(errmsg));
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
-		const char *errmsg;
 
 		switch (ret) {
 		case NB_ERR_LOCKED:
 			errcode = CONFD_ERRCODE_IN_USE;
-			errmsg = "Configuration is locked by another process";
 			break;
 		case NB_ERR_RESOURCE:
 			errcode = CONFD_ERRCODE_RESOURCE_DENIED;
-			errmsg = "Failed do allocate resources";
 			break;
 		default:
-			errcode = CONFD_ERRCODE_INTERNAL;
-			errmsg = "Internal error";
+			errcode = CONFD_ERRCODE_APPLICATION;
 			break;
 		}
 
@@ -347,25 +334,23 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 					errmsg)
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sub_abort_trans");
-			return -1;
+			return;
 		}
 	} else {
 		/* Acknowledge the notification. */
 		if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY)
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sync_subscription_socket");
-			return -1;
+			return;
 		}
 
 		/* No configuration changes. */
 		if (!transaction)
 			nb_config_free(candidate);
 	}
-
-	return 0;
 }
 
-static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
+static void frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
 {
 	/*
 	 * No need to process the configuration changes again as we're already
@@ -376,18 +361,18 @@ static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
 	/* Apply the transaction. */
 	if (transaction) {
 		struct nb_config *candidate = transaction->config;
+		char errmsg[BUFSIZ] = {0};
 
-		nb_candidate_commit_apply(transaction, true, NULL);
+		nb_candidate_commit_apply(transaction, true, NULL, errmsg,
+					  sizeof(errmsg));
 		nb_config_free(candidate);
 	}
 
 	/* Acknowledge the notification. */
 	if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY) != CONFD_OK) {
 		flog_err_confd("cdb_sync_subscription_socket");
-		return -1;
+		return;
 	}
-
-	return 0;
 }
 
 static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
@@ -401,8 +386,9 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 	/* Abort the transaction. */
 	if (transaction) {
 		struct nb_config *candidate = transaction->config;
+		char errmsg[BUFSIZ] = {0};
 
-		nb_candidate_commit_abort(transaction);
+		nb_candidate_commit_abort(transaction, errmsg, sizeof(errmsg));
 		nb_config_free(candidate);
 	}
 
@@ -415,33 +401,35 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 	return 0;
 }
 
-static int frr_confd_cdb_read_cb(struct thread *thread)
+static void frr_confd_cdb_read_cb(struct event *thread)
 {
-	int fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	enum cdb_sub_notification cdb_ev;
 	int flags;
 	int *subp = NULL;
 	int reslen = 0;
 
-	thread = NULL;
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &thread);
+	event_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &t_cdb_sub);
 
 	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
 	    != CONFD_OK) {
 		flog_err_confd("cdb_read_subscription_socket2");
-		return -1;
+		return;
 	}
 
 	switch (cdb_ev) {
 	case CDB_SUB_PREPARE:
-		return frr_confd_cdb_read_cb_prepare(fd, subp, reslen);
+		frr_confd_cdb_read_cb_prepare(fd, subp, reslen);
+		break;
 	case CDB_SUB_COMMIT:
-		return frr_confd_cdb_read_cb_commit(fd, subp, reslen);
+		frr_confd_cdb_read_cb_commit(fd, subp, reslen);
+		break;
 	case CDB_SUB_ABORT:
-		return frr_confd_cdb_read_cb_abort(fd, subp, reslen);
+		frr_confd_cdb_read_cb_abort(fd, subp, reslen);
+		break;
 	default:
 		flog_err_confd("unknown CDB event");
-		return -1;
+		break;
 	}
 }
 
@@ -490,6 +478,47 @@ static void *thread_cdb_trigger_subscriptions(void *data)
 	return NULL;
 }
 
+static int frr_confd_subscribe(const struct lysc_node *snode, void *arg)
+{
+	struct yang_module *module = arg;
+	struct nb_node *nb_node;
+	int *spoint;
+	int ret;
+
+	switch (snode->nodetype) {
+	case LYS_CONTAINER:
+	case LYS_LEAF:
+	case LYS_LEAFLIST:
+	case LYS_LIST:
+		break;
+	default:
+		return YANG_ITER_CONTINUE;
+	}
+
+	if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+		return YANG_ITER_CONTINUE;
+
+	nb_node = snode->priv;
+	if (!nb_node)
+		return YANG_ITER_CONTINUE;
+
+	DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'", __func__,
+	       nb_node->xpath);
+
+	spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
+	ret = cdb_subscribe2(cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
+			     CDB_SUB_WANT_ABORT_ON_ABORT, 3, spoint,
+			     module->confd_hash, nb_node->xpath);
+	if (ret != CONFD_OK) {
+		flog_err_confd("cdb_subscribe2");
+		XFREE(MTYPE_CONFD, spoint);
+		return YANG_ITER_CONTINUE;
+	}
+
+	listnode_add(confd_spoints, spoint);
+	return YANG_ITER_CONTINUE;
+}
+
 static int frr_confd_init_cdb(void)
 {
 	struct yang_module *module;
@@ -513,8 +542,6 @@ static int frr_confd_init_cdb(void)
 	/* Subscribe to all loaded YANG data modules. */
 	confd_spoints = list_new();
 	RB_FOREACH (module, yang_modules, &yang_modules) {
-		struct lys_node *snode;
-
 		module->confd_hash = confd_str2hash(module->info->ns);
 		if (module->confd_hash == 0) {
 			flog_err(
@@ -529,39 +556,8 @@ static int frr_confd_init_cdb(void)
 		 * entire YANG module. So we have to find the top level
 		 * nodes ourselves and subscribe to their paths.
 		 */
-		LY_TREE_FOR (module->info->data, snode) {
-			struct nb_node *nb_node;
-			int *spoint;
-			int ret;
-
-			switch (snode->nodetype) {
-			case LYS_CONTAINER:
-			case LYS_LEAF:
-			case LYS_LEAFLIST:
-			case LYS_LIST:
-				break;
-			default:
-				continue;
-			}
-
-			if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
-				continue;
-
-			nb_node = snode->priv;
-			DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'",
-			       __func__, nb_node->xpath);
-
-			spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
-			ret = cdb_subscribe2(
-				cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
-				CDB_SUB_WANT_ABORT_ON_ABORT, 3, spoint,
-				module->confd_hash, nb_node->xpath);
-			if (ret != CONFD_OK) {
-				flog_err_confd("cdb_subscribe2");
-				XFREE(MTYPE_CONFD, spoint);
-			}
-			listnode_add(confd_spoints, spoint);
-		}
+		yang_snodes_iterate(module->info, frr_confd_subscribe, 0,
+				    module);
 	}
 
 	if (cdb_subscribe_done(cdb_sub_sock) != CONFD_OK) {
@@ -578,8 +574,8 @@ static int frr_confd_init_cdb(void)
 	}
 	pthread_detach(cdb_trigger_thread);
 
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, cdb_sub_sock,
-			&t_cdb_sub);
+	event_add_read(master, frr_confd_cdb_read_cb, NULL, cdb_sub_sock,
+		       &t_cdb_sub);
 
 	return 0;
 
@@ -592,7 +588,7 @@ error:
 static void frr_confd_finish_cdb(void)
 {
 	if (cdb_sub_sock > 0) {
-		THREAD_OFF(t_cdb_sub);
+		EVENT_OFF(t_cdb_sub);
 		cdb_close(cdb_sub_sock);
 	}
 }
@@ -612,7 +608,7 @@ static int frr_confd_data_get_elem(struct confd_trans_ctx *tctx,
 				   confd_hkeypath_t *kp)
 {
 	struct nb_node *nb_node;
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct yang_data *data;
 	confd_value_t v;
 	const void *list_entry = NULL;
@@ -650,7 +646,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 				   confd_hkeypath_t *kp, long next)
 {
 	struct nb_node *nb_node;
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct yang_data *data;
 	const void *parent_list_entry, *nb_next;
 	confd_value_t v[LIST_MAXKEYS];
@@ -701,7 +697,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 			confd_data_reply_next_key(tctx, v, keys.num,
 						  (long)nb_next);
 		} else {
-			char pointer_str[16];
+			char pointer_str[32];
 
 			/*
 			 * ConfD 6.6 user guide, chapter 6.11 (Operational data
@@ -757,9 +753,9 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 				     confd_hkeypath_t *kp)
 {
 	struct nb_node *nb_node;
-	const struct lys_node *child;
-	char xpath[BUFSIZ];
-	char xpath_child[XPATH_MAXLEN];
+	const struct lysc_node *child;
+	char xpath[XPATH_MAXLEN];
+	char xpath_child[XPATH_MAXLEN * 2];
 	struct list *elements;
 	struct yang_data *data;
 	const void *list_entry;
@@ -784,7 +780,7 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 	elements = yang_data_list_new();
 
 	/* Loop through list child nodes. */
-	LY_TREE_FOR (nb_node->snode->child, child) {
+	LY_LIST_FOR (lysc_node_child(nb_node->snode), child) {
 		struct nb_node *nb_node_child = child->priv;
 		confd_value_t *v;
 
@@ -832,14 +828,14 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 					  confd_hkeypath_t *kp, long next)
 {
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct nb_node *nb_node;
 	struct list *elements;
 	const void *parent_list_entry;
 	const void *nb_next;
 #define CONFD_OBJECTS_PER_TIME 100
 	struct confd_next_object objects[CONFD_OBJECTS_PER_TIME + 1];
-	char pseudo_keys[CONFD_OBJECTS_PER_TIME][16];
+	char pseudo_keys[CONFD_OBJECTS_PER_TIME][32];
 	int nobjects = 0;
 
 	frr_confd_get_xpath(kp, xpath, sizeof(xpath));
@@ -864,7 +860,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	memset(objects, 0, sizeof(objects));
 	for (int j = 0; j < CONFD_OBJECTS_PER_TIME; j++) {
 		struct confd_next_object *object;
-		struct lys_node *child;
+		const struct lysc_node *child;
 		struct yang_data *data;
 		size_t nvalues = 0;
 
@@ -914,9 +910,9 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 		}
 
 		/* Loop through list child nodes. */
-		LY_TREE_FOR (nb_node->snode->child, child) {
+		LY_LIST_FOR (lysc_node_child(nb_node->snode), child) {
 			struct nb_node *nb_node_child = child->priv;
-			char xpath_child[XPATH_MAXLEN];
+			char xpath_child[XPATH_MAXLEN * 2];
 			confd_value_t *v;
 
 			if (nvalues > CONFD_MAX_CHILD_NODES)
@@ -1059,13 +1055,14 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 				    struct xml_tag *name, confd_hkeypath_t *kp,
 				    confd_tag_value_t *params, int nparams)
 {
-	char xpath[BUFSIZ];
+	char xpath[XPATH_MAXLEN];
 	struct nb_node *nb_node;
 	struct list *input;
 	struct list *output;
 	struct yang_data *data;
 	confd_tag_value_t *reply;
 	int ret = CONFD_OK;
+	char errmsg[BUFSIZ] = {0};
 
 	/* Getting the XPath is tricky. */
 	if (kp) {
@@ -1091,7 +1088,7 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 
 	/* Process input nodes. */
 	for (int i = 0; i < nparams; i++) {
-		char xpath_input[BUFSIZ];
+		char xpath_input[XPATH_MAXLEN * 2];
 		char value_str[YANG_VALUE_MAXLEN];
 
 		snprintf(xpath_input, sizeof(xpath_input), "%s/%s", xpath,
@@ -1113,7 +1110,9 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 	}
 
 	/* Execute callback registered for this XPath. */
-	if (nb_callback_rpc(nb_node, xpath, input, output) != NB_OK) {
+	if (nb_callback_rpc(nb_node, xpath, input, output, errmsg,
+			    sizeof(errmsg))
+	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
 		ret = CONFD_ERR;
@@ -1156,14 +1155,9 @@ exit:
 }
 
 
-static int frr_confd_dp_read(struct thread *thread)
+static int frr_confd_dp_read(struct confd_daemon_ctx *dctx, int fd)
 {
-	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
 	int ret;
-
-	thread = NULL;
-	thread_add_read(master, frr_confd_dp_read, dctx, fd, &thread);
 
 	ret = confd_fd_ready(dctx, fd);
 	if (ret == CONFD_EOF) {
@@ -1179,12 +1173,33 @@ static int frr_confd_dp_read(struct thread *thread)
 	return 0;
 }
 
-static int frr_confd_subscribe_state(const struct lys_node *snode, void *arg)
+static void frr_confd_dp_ctl_read(struct event *thread)
+{
+	struct confd_daemon_ctx *dctx = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
+
+	event_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
+
+	frr_confd_dp_read(dctx, fd);
+}
+
+static void frr_confd_dp_worker_read(struct event *thread)
+{
+	struct confd_daemon_ctx *dctx = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
+
+	event_add_read(master, frr_confd_dp_worker_read, dctx, fd,
+		       &t_dp_worker);
+
+	frr_confd_dp_read(dctx, fd);
+}
+
+static int frr_confd_subscribe_state(const struct lysc_node *snode, void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
 	struct confd_data_cbs *data_cbs = arg;
 
-	if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+	if (!nb_node || !CHECK_FLAG(snode->flags, LYS_CONFIG_R))
 		return YANG_ITER_CONTINUE;
 	/* We only need to subscribe to the root of the state subtrees. */
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
@@ -1271,7 +1286,7 @@ static int frr_confd_init_dp(const char *program_name)
 	 * Iterate over all loaded YANG modules and subscribe to the paths
 	 * referent to state data.
 	 */
-	yang_snodes_iterate_all(frr_confd_subscribe_state, 0, &data_cbs);
+	yang_snodes_iterate(NULL, frr_confd_subscribe_state, 0, &data_cbs);
 
 	/* Register notification stream. */
 	memset(&ncbs, 0, sizeof(ncbs));
@@ -1306,10 +1321,10 @@ static int frr_confd_init_dp(const char *program_name)
 		goto error;
 	}
 
-	thread_add_read(master, frr_confd_dp_read, dctx, dp_ctl_sock,
-			&t_dp_ctl);
-	thread_add_read(master, frr_confd_dp_read, dctx, dp_worker_sock,
-			&t_dp_worker);
+	event_add_read(master, frr_confd_dp_ctl_read, dctx, dp_ctl_sock,
+		       &t_dp_ctl);
+	event_add_read(master, frr_confd_dp_worker_read, dctx, dp_worker_sock,
+		       &t_dp_worker);
 
 	return 0;
 
@@ -1322,11 +1337,11 @@ error:
 static void frr_confd_finish_dp(void)
 {
 	if (dp_worker_sock > 0) {
-		THREAD_OFF(t_dp_worker);
+		EVENT_OFF(t_dp_worker);
 		close(dp_worker_sock);
 	}
 	if (dp_ctl_sock > 0) {
-		THREAD_OFF(t_dp_ctl);
+		EVENT_OFF(t_dp_ctl);
 		close(dp_ctl_sock);
 	}
 	if (dctx != NULL)
@@ -1383,12 +1398,13 @@ static void frr_confd_cli_init(void)
 
 /* ------------ Main ------------ */
 
-static int frr_confd_calculate_snode_hash(const struct lys_node *snode,
+static int frr_confd_calculate_snode_hash(const struct lysc_node *snode,
 					  void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
 
-	nb_node->confd_hash = confd_str2hash(snode->name);
+	if (nb_node)
+		nb_node->confd_hash = confd_str2hash(snode->name);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -1421,7 +1437,7 @@ static int frr_confd_init(const char *program_name)
 		goto error;
 	}
 
-	yang_snodes_iterate_all(frr_confd_calculate_snode_hash, 0, NULL);
+	yang_snodes_iterate(NULL, frr_confd_calculate_snode_hash, 0, NULL);
 
 	hook_register(nb_notification_send, frr_confd_notification_send);
 
@@ -1449,7 +1465,7 @@ static int frr_confd_finish(void)
 	return 0;
 }
 
-static int frr_confd_module_late_init(struct thread_master *tm)
+static int frr_confd_module_late_init(struct event_loop *tm)
 {
 	master = tm;
 
@@ -1474,4 +1490,5 @@ static int frr_confd_module_init(void)
 
 FRR_MODULE_SETUP(.name = "frr_confd", .version = FRR_VERSION,
 		 .description = "FRR ConfD integration module",
-		 .init = frr_confd_module_init, )
+		 .init = frr_confd_module_init,
+);

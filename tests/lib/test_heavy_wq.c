@@ -1,19 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* This programme shows the effects of 'heavy' long-running functions
@@ -27,7 +13,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -37,11 +23,11 @@
 
 #include "tests.h"
 
-DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test")
-DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node")
-DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str")
+DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test");
+DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node");
+DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str");
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 static struct work_queue *heavy_wq;
 
 struct heavy_wq_node {
@@ -70,18 +56,12 @@ static void heavy_wq_add(struct vty *vty, const char *str, int i)
 	return;
 }
 
-static void slow_func_err(struct work_queue *wq, struct work_queue_item *item)
-{
-	printf("%s: running error function\n", __func__);
-}
-
 static void slow_func_del(struct work_queue *wq, void *data)
 {
 	struct heavy_wq_node *hn = data;
 	assert(hn && hn->str);
 	printf("%s: %s\n", __func__, hn->str);
 	XFREE(MTYPE_WQ_NODE_STR, hn->str);
-	hn->str = NULL;
 	XFREE(MTYPE_WQ_NODE, hn);
 }
 
@@ -144,7 +124,6 @@ static int heavy_wq_init(void)
 	heavy_wq = work_queue_new(master, "heavy_work_queue");
 
 	heavy_wq->spec.workfunc = &slow_func;
-	heavy_wq->spec.errorfunc = &slow_func_err;
 	heavy_wq->spec.del_item_data = &slow_func_del;
 	heavy_wq->spec.max_retries = 3;
 	heavy_wq->spec.hold = 1000;

@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_pfpacket.c
  *
  * Copyright (C) 2001,2002    Sampo Saaristo
  *                            Tampere University of Technology
  *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -32,6 +19,7 @@
 #include "stream.h"
 #include "if.h"
 #include "lib_errors.h"
+#include "vrf.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -45,21 +33,32 @@
 #include "privs.h"
 
 /* tcpdump -i eth0 'isis' -dd */
-static struct sock_filter isisfilter[] = {
+static const struct sock_filter isisfilter[] = {
 	/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped
-	 * off!
-	 * (OTOH it's a bit more lower-layer agnostic and might work
-	 * over GRE?) */
-	/*	{ 0x28, 0, 0, 0x0000000c - 14 }, */
-	/*	{ 0x25, 5, 0, 0x000005dc }, */
-	{0x28, 0, 0, 0x0000000e - 14}, {0x15, 0, 3, 0x0000fefe},
-	{0x30, 0, 0, 0x00000011 - 14}, {0x15, 0, 1, 0x00000083},
-	{0x6, 0, 0, 0x00040000},       {0x6, 0, 0, 0x00000000},
+	 * off! */
+	/* The following BPF filter accepts IS-IS over LLC and IS-IS over
+	 * ethertype 0x00fe.
+	 * BPF assembly:
+	 * l0: ldh [0]
+	 * l1: jeq #0xfefe, l2, l4
+	 * l2: ldb [3]
+	 * l3: jmp l7
+	 * l4: ldh proto
+	 * l5: jeq #0x00fe, l6, l9
+	 * l6: ldb [0]
+	 * l7: jeq #0x83, l8, l9
+	 * l8: ret #0x40000
+	 * l9: ret #0 */
+	{0x28, 0, 0, 0000000000}, {0x15, 0, 2, 0x0000fefe},
+	{0x30, 0, 0, 0x00000003}, {0x05, 0, 0, 0x00000003},
+	{0x28, 0, 0, 0xfffff000}, {0x15, 0, 3, 0x000000fe},
+	{0x30, 0, 0, 0000000000}, {0x15, 0, 1, 0x00000083},
+	{0x06, 0, 0, 0x00040000}, {0x06, 0, 0, 0000000000},
 };
 
-static struct sock_fprog bpf = {
+static const struct sock_fprog bpf = {
 	.len = array_size(isisfilter),
-	.filter = isisfilter,
+	.filter = (struct sock_filter *)isisfilter,
 };
 
 /*
@@ -67,10 +66,10 @@ static struct sock_fprog bpf = {
  * ISO 10589 - 8.4.8
  */
 
-uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
+static const uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
+static const uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
+static const uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
+static const uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 
 static uint8_t discard_buff[8192];
 
@@ -100,16 +99,17 @@ static int isis_multicast_join(int fd, int registerto, int if_num)
 		mreq.mr_type = PACKET_MR_ALLMULTI;
 	}
 #ifdef EXTREME_DEBUG
-	zlog_debug(
-		"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, "
-		"address = %02x:%02x:%02x:%02x:%02x:%02x",
-		fd, registerto, if_num, mreq.mr_address[0], mreq.mr_address[1],
-		mreq.mr_address[2], mreq.mr_address[3], mreq.mr_address[4],
-		mreq.mr_address[5]);
+	if (IS_DEBUG_EVENTS)
+		zlog_debug(
+			"%s: fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
+			__func__, fd, registerto, if_num, mreq.mr_address[0],
+			mreq.mr_address[1], mreq.mr_address[2],
+			mreq.mr_address[3], mreq.mr_address[4],
+			mreq.mr_address[5]);
 #endif /* EXTREME_DEBUG */
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
 		       sizeof(struct packet_mreq))) {
-		zlog_warn("isis_multicast_join(): setsockopt(): %s",
+		zlog_warn("%s: setsockopt(): %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
@@ -121,30 +121,35 @@ static int open_packet_socket(struct isis_circuit *circuit)
 {
 	struct sockaddr_ll s_addr;
 	int fd, retval = ISIS_OK;
+	struct vrf *vrf = NULL;
 
-	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+	vrf = circuit->interface->vrf;
+
+	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL), vrf->vrf_id,
+			vrf->name);
+
 	if (fd < 0) {
-		zlog_warn("open_packet_socket(): socket() failed %s",
+		zlog_warn("%s: socket() failed %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))) {
-		zlog_warn("open_packet_socket(): SO_ATTACH_FILTER failed: %s",
+		zlog_warn("%s: SO_ATTACH_FILTER failed: %s", __func__,
 			  safe_strerror(errno));
 	}
 
 	/*
 	 * Bind to the physical interface
 	 */
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 	s_addr.sll_family = AF_PACKET;
 	s_addr.sll_protocol = htons(ETH_P_ALL);
 	s_addr.sll_ifindex = circuit->interface->ifindex;
 
 	if (bind(fd, (struct sockaddr *)(&s_addr), sizeof(struct sockaddr_ll))
 	    < 0) {
-		zlog_warn("open_packet_socket(): bind() failed: %s",
+		zlog_warn("%s: bind() failed: %s", __func__,
 			  safe_strerror(errno));
 		close(fd);
 		return ISIS_WARNING;
@@ -201,7 +206,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 			circuit->tx = isis_send_pdu_p2p;
 			circuit->rx = isis_recv_pdu_p2p;
 		} else {
-			zlog_warn("isis_sock_init(): unknown circuit type");
+			zlog_warn("%s: unknown circuit type", __func__);
 			retval = ISIS_WARNING;
 			break;
 		}
@@ -226,7 +231,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	addr_len = sizeof(s_addr);
 
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 
 	bytesread =
 		recvfrom(circuit->fd, (void *)&llc, LLC_LEN, MSG_PEEK,
@@ -236,16 +241,13 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	    || (s_addr.sll_ifindex != (int)circuit->interface->ifindex)) {
 		if (bytesread < 0) {
 			zlog_warn(
-				"isis_recv_packet_bcast(): ifname %s, fd %d, "
-				"bytesread %d, recvfrom(): %s",
-				circuit->interface->name, circuit->fd,
+				"%s: ifname %s, fd %d, bytesread %d, recvfrom(): %s",
+				__func__, circuit->interface->name, circuit->fd,
 				bytesread, safe_strerror(errno));
 		}
 		if (s_addr.sll_ifindex != (int)circuit->interface->ifindex) {
 			zlog_warn(
-				"packet is received on multiple interfaces: "
-				"socket interface %d, circuit interface %d, "
-				"packet type %u",
+				"packet is received on multiple interfaces: socket interface %d, circuit interface %d, packet type %u",
 				s_addr.sll_ifindex, circuit->interface->ifindex,
 				s_addr.sll_pkttype);
 		}
@@ -257,7 +259,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 				     (socklen_t *)&addr_len);
 
 		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
+			zlog_warn("%s: recvfrom() failed", __func__);
 
 		return ISIS_WARNING;
 	}
@@ -272,7 +274,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 				     (struct sockaddr *)&s_addr,
 				     (socklen_t *)&addr_len);
 		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
+			zlog_warn("%s: recvfrom() failed", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -302,7 +304,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 	int bytesread, addr_len;
 	struct sockaddr_ll s_addr;
 
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 	addr_len = sizeof(s_addr);
 
 	/* we can read directly to the stream */
@@ -317,7 +319,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 				     (struct sockaddr *)&s_addr,
 				     (socklen_t *)&addr_len);
 		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_p2p(): recvfrom() failed");
+			zlog_warn("%s: recvfrom() failed", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -325,7 +327,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 	 * ISO over GRE we exit with pain :)
 	 */
 	if (ntohs(s_addr.sll_protocol) != 0x00FE) {
-		zlog_warn("isis_recv_pdu_p2p(): protocol mismatch(): %X",
+		zlog_warn("%s: protocol mismatch(): %X", __func__,
 			  ntohs(s_addr.sll_protocol));
 		return ISIS_WARNING;
 	}
@@ -347,7 +349,7 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	struct sockaddr_ll sa;
 
 	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
+	memset(&sa, 0, sizeof(sa));
 	sa.sll_family = AF_PACKET;
 
 	size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
@@ -394,7 +396,7 @@ int isis_send_pdu_p2p(struct isis_circuit *circuit, int level)
 	ssize_t rv;
 
 	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
+	memset(&sa, 0, sizeof(sa));
 	sa.sll_family = AF_PACKET;
 	sa.sll_ifindex = circuit->interface->ifindex;
 	sa.sll_halen = ETH_ALEN;

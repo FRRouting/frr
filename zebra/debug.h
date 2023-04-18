@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra debug related function
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_DEBUG_H
@@ -48,7 +33,8 @@ extern "C" {
 #define ZEBRA_DEBUG_NHT 0x01
 #define ZEBRA_DEBUG_NHT_DETAILED 0x02
 
-#define ZEBRA_DEBUG_MPLS    0x01
+#define ZEBRA_DEBUG_MPLS             0x01
+#define ZEBRA_DEBUG_MPLS_DETAILED    0x02
 
 #define ZEBRA_DEBUG_VXLAN   0x01
 
@@ -57,7 +43,24 @@ extern "C" {
 #define ZEBRA_DEBUG_DPLANE           0x01
 #define ZEBRA_DEBUG_DPLANE_DETAILED  0x02
 
+#define ZEBRA_DEBUG_DPLANE_DPDK 0x01
+#define ZEBRA_DEBUG_DPLANE_DPDK_DETAIL 0x02
+
 #define ZEBRA_DEBUG_MLAG    0x01
+
+#define ZEBRA_DEBUG_NHG             0x01
+#define ZEBRA_DEBUG_NHG_DETAILED    0x02
+
+#define ZEBRA_DEBUG_EVPN_MH_ES 0x01
+#define ZEBRA_DEBUG_EVPN_MH_NH 0x02
+#define ZEBRA_DEBUG_EVPN_MH_MAC 0x04
+#define ZEBRA_DEBUG_EVPN_MH_NEIGH 0x08
+
+#define ZEBRA_DEBUG_PBR 0x01
+
+#define ZEBRA_DEBUG_NEIGH 0x01
+
+#define ZEBRA_DEBUG_TC 0x01
 
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
@@ -83,6 +86,8 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_NHT_DETAILED (zebra_debug_nht & ZEBRA_DEBUG_NHT_DETAILED)
 
 #define IS_ZEBRA_DEBUG_MPLS  (zebra_debug_mpls & ZEBRA_DEBUG_MPLS)
+#define IS_ZEBRA_DEBUG_MPLS_DETAIL \
+	(zebra_debug_mpls & ZEBRA_DEBUG_MPLS_DETAILED)
 #define IS_ZEBRA_DEBUG_VXLAN (zebra_debug_vxlan & ZEBRA_DEBUG_VXLAN)
 #define IS_ZEBRA_DEBUG_PW  (zebra_debug_pw & ZEBRA_DEBUG_PW)
 
@@ -90,7 +95,32 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_DPLANE_DETAIL \
 	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DETAILED)
 
+#define IS_ZEBRA_DEBUG_DPLANE_DPDK                                             \
+	(zebra_debug_dplane_dpdk & ZEBRA_DEBUG_DPLANE_DPDK)
+#define IS_ZEBRA_DEBUG_DPLANE_DPDK_DETAIL                                      \
+	(zebra_debug_dplane_dpdk & ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
+
 #define IS_ZEBRA_DEBUG_MLAG (zebra_debug_mlag & ZEBRA_DEBUG_MLAG)
+
+#define IS_ZEBRA_DEBUG_NHG (zebra_debug_nexthop & ZEBRA_DEBUG_NHG)
+
+#define IS_ZEBRA_DEBUG_NHG_DETAIL \
+	(zebra_debug_nexthop & ZEBRA_DEBUG_NHG_DETAILED)
+
+#define IS_ZEBRA_DEBUG_EVPN_MH_ES \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_ES)
+#define IS_ZEBRA_DEBUG_EVPN_MH_NH \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NH)
+#define IS_ZEBRA_DEBUG_EVPN_MH_MAC \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_MAC)
+#define IS_ZEBRA_DEBUG_EVPN_MH_NEIGH \
+	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NEIGH)
+
+#define IS_ZEBRA_DEBUG_PBR (zebra_debug_pbr & ZEBRA_DEBUG_PBR)
+
+#define IS_ZEBRA_DEBUG_NEIGH (zebra_debug_neigh & ZEBRA_DEBUG_NEIGH)
+
+#define IS_ZEBRA_DEBUG_TC (zebra_debug_tc & ZEBRA_DEBUG_TC)
 
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
@@ -102,7 +132,13 @@ extern unsigned long zebra_debug_mpls;
 extern unsigned long zebra_debug_vxlan;
 extern unsigned long zebra_debug_pw;
 extern unsigned long zebra_debug_dplane;
+extern unsigned long zebra_debug_dplane_dpdk;
 extern unsigned long zebra_debug_mlag;
+extern unsigned long zebra_debug_nexthop;
+extern unsigned long zebra_debug_evpn_mh;
+extern unsigned long zebra_debug_pbr;
+extern unsigned long zebra_debug_neigh;
+extern unsigned long zebra_debug_tc;
 
 extern void zebra_debug_init(void);
 

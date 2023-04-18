@@ -1,27 +1,7 @@
+// SPDX-License-Identifier: BSD-2-Clause
 /*-
  * Copyright 2005,2007,2009 Colin Percival
  * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
  */
 
 #include <zebra.h>
@@ -35,8 +15,6 @@ static inline uint32_t be32dec(const void *pp)
 	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8)
 		+ ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
 }
-#else
-#include <sys/endian.h>
 #endif
 
 #if !HAVE_DECL_BE32ENC
@@ -49,8 +27,6 @@ static inline void be32enc(void *pp, uint32_t x)
 	p[1] = (x >> 16) & 0xff;
 	p[0] = (x >> 24) & 0xff;
 }
-#else
-#include <sys/endian.h>
 #endif
 
 /*
@@ -190,10 +166,10 @@ static void SHA256_Transform(uint32_t *state, const unsigned char block[64])
 		state[i] += S[i];
 
 	/* Clean the stack. */
-	memset(W, 0, 256);
-	memset(S, 0, 32);
-	memset(&t0, 0, sizeof(t0));
-	memset(&t1, 0, sizeof(t0));
+	explicit_bzero(W, 256);
+	explicit_bzero(S, 32);
+	explicit_bzero(&t0, sizeof(t0));
+	explicit_bzero(&t1, sizeof(t0));
 }
 
 static unsigned char PAD[64] = {
@@ -296,7 +272,7 @@ void SHA256_Final(unsigned char digest[32], SHA256_CTX *ctx)
 	be32enc_vect(digest, ctx->state, 32);
 
 	/* Clear the context state */
-	memset((void *)ctx, 0, sizeof(*ctx));
+	explicit_bzero((void *)ctx, sizeof(*ctx));
 }
 
 /* Initialize an HMAC-SHA256 operation with the given key. */
@@ -331,7 +307,7 @@ void HMAC__SHA256_Init(HMAC_SHA256_CTX *ctx, const void *_K, size_t Klen)
 	SHA256_Update(&ctx->octx, pad, 64);
 
 	/* Clean the stack. */
-	memset(khash, 0, 32);
+	explicit_bzero(khash, 32);
 }
 
 /* Add bytes to the HMAC-SHA256 operation. */
@@ -357,7 +333,7 @@ void HMAC__SHA256_Final(unsigned char digest[32], HMAC_SHA256_CTX *ctx)
 	SHA256_Final(digest, &ctx->octx);
 
 	/* Clean the stack. */
-	memset(ihash, 0, 32);
+	explicit_bzero(ihash, 32);
 }
 
 /**
@@ -413,5 +389,5 @@ void PBKDF2_SHA256(const uint8_t *passwd, size_t passwdlen, const uint8_t *salt,
 	}
 
 	/* Clean PShctx, since we never called _Final on it. */
-	memset(&PShctx, 0, sizeof(HMAC_SHA256_CTX));
+	explicit_bzero(&PShctx, sizeof(HMAC_SHA256_CTX));
 }

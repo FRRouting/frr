@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * NS functions.
  * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -40,18 +25,15 @@
 #include "vrf.h"
 #include "lib_errors.h"
 
-DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
-DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
-
-/* default NS ID value used when VRF backend is not NETNS */
-#define NS_DEFAULT_INTERNAL 0
+DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context");
+DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name");
 
 static inline int ns_compare(const struct ns *ns, const struct ns *ns2);
 static struct ns *ns_lookup_name_internal(const char *name);
 
 RB_GENERATE(ns_head, ns, entry, ns_compare)
 
-struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
+static struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
 
 static struct ns *default_ns;
 static int ns_current_ns_fd;
@@ -74,7 +56,8 @@ static inline int ns_map_compare(const struct ns_map_nsid *a,
 RB_HEAD(ns_map_nsid_head, ns_map_nsid);
 RB_PROTOTYPE(ns_map_nsid_head, ns_map_nsid, id_entry, ns_map_compare);
 RB_GENERATE(ns_map_nsid_head, ns_map_nsid, id_entry, ns_map_compare);
-struct ns_map_nsid_head ns_map_nsid_list = RB_INITIALIZER(&ns_map_nsid_list);
+static struct ns_map_nsid_head ns_map_nsid_list =
+		RB_INITIALIZER(&ns_map_nsid_list);
 
 static ns_id_t ns_id_external_numbering;
 
@@ -100,9 +83,6 @@ static inline int setns(int fd, int nstype)
 static int have_netns_enabled = -1;
 #endif /* HAVE_NETNS */
 
-/* default NS ID value used when VRF backend is not NETNS */
-#define NS_DEFAULT_INTERNAL 0
-
 static int have_netns(void)
 {
 #ifdef HAVE_NETNS
@@ -123,7 +103,7 @@ static int have_netns(void)
 }
 
 /* Holding NS hooks  */
-struct ns_master {
+static struct ns_master {
 	int (*ns_new_hook)(struct ns *ns);
 	int (*ns_delete_hook)(struct ns *ns);
 	int (*ns_enable_hook)(struct ns *ns);
@@ -284,7 +264,7 @@ static void ns_disable_internal(struct ns *ns)
 	}
 }
 
-/* VRF list existance check by name. */
+/* VRF list existence check by name. */
 static struct ns_map_nsid *ns_map_nsid_lookup_by_nsid(ns_id_t ns_id)
 {
 	struct ns_map_nsid ns_map;
@@ -370,7 +350,7 @@ int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *))
 
 void ns_disable(struct ns *ns)
 {
-	return ns_disable_internal(ns);
+	ns_disable_internal(ns);
 }
 
 struct ns *ns_lookup(ns_id_t ns_id)
@@ -378,12 +358,20 @@ struct ns *ns_lookup(ns_id_t ns_id)
 	return ns_lookup_internal(ns_id);
 }
 
-void ns_walk_func(int (*func)(struct ns *))
+void ns_walk_func(int (*func)(struct ns *,
+			      void *param_in,
+			      void **param_out),
+		  void *param_in,
+		  void **param_out)
 {
 	struct ns *ns = NULL;
+	int ret;
 
-	RB_FOREACH (ns, ns_head, &ns_tree)
-		func(ns);
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		ret = func(ns, param_in, param_out);
+		if (ret == NS_WALK_STOP)
+			return;
+	}
 }
 
 const char *ns_get_name(struct ns *ns)
@@ -430,7 +418,7 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 		/* relevant pathname */
 		char tmp_name[PATH_MAX];
 
-		snprintf(tmp_name, PATH_MAX, "%s/%s", NS_RUN_DIR, name);
+		snprintf(tmp_name, sizeof(tmp_name), "%s/%s", NS_RUN_DIR, name);
 		result = realpath(tmp_name, pathname);
 	}
 
@@ -583,9 +571,27 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 	return ret;
 }
 
-ns_id_t ns_get_default_id(void)
+/* if relative link_nsid matches default netns,
+ * then return default absolute netns value
+ * otherwise, return NS_UNKNOWN
+ */
+ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid)
 {
-	if (default_ns)
-		return default_ns->ns_id;
-	return NS_DEFAULT_INTERNAL;
+	struct ns *ns;
+
+	ns = ns_lookup(ns_id_reference);
+	if (!ns)
+		return NS_UNKNOWN;
+
+	if (ns->relative_default_ns != link_nsid)
+		return NS_UNKNOWN;
+
+	ns = ns_get_default();
+	assert(ns);
+	return ns->ns_id;
+}
+
+struct ns *ns_get_default(void)
+{
+	return default_ns;
 }

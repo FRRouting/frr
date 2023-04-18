@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018        Volta Networks
  *                           Emanuele Di Pascale
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -32,6 +19,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance",
 			.cbs = {
 				.cli_show = cli_show_router_isis,
+				.cli_show_end = cli_show_router_isis_end,
 				.create = isis_instance_create,
 				.destroy = isis_instance_destroy,
 			},
@@ -60,18 +48,45 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/attach-send",
+			.cbs = {
+				.cli_show = cli_show_isis_attached_send,
+				.modify = isis_instance_attached_send_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/attach-receive-ignore",
+			.cbs = {
+				.cli_show = cli_show_isis_attached_receive,
+				.modify = isis_instance_attached_receive_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/attached",
 			.cbs = {
-				.cli_show = cli_show_isis_attached,
 				.modify = isis_instance_attached_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/overload",
+			.xpath = "/frr-isisd:isis/instance/overload/enabled",
 			.cbs = {
 				.cli_show = cli_show_isis_overload,
-				.modify = isis_instance_overload_modify,
-			},
+				.modify = isis_instance_overload_enabled_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/overload/on-startup",
+			.cbs = {
+				.cli_show = cli_show_isis_overload_on_startup,
+				.modify = isis_instance_overload_on_startup_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/advertise-high-metrics",
+			.cbs = {
+				.cli_show = cli_show_advertise_high_metrics,
+				.modify = isis_instance_advertise_high_metrics_modify,
+			}
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",
@@ -88,6 +103,20 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/admin-group-send-zero",
+			.cbs = {
+				.cli_show = cli_show_isis_admin_group_send_zero,
+				.modify = isis_instance_admin_group_send_zero_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/asla-legacy-flag",
+			.cbs = {
+				.cli_show = cli_show_isis_asla_legacy_flag,
+				.modify = isis_instance_asla_legacy_flag_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/lsp/mtu",
 			.cbs = {
 				.cli_show = cli_show_isis_lsp_mtu,
@@ -95,55 +124,50 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval",
+			.xpath = "/frr-isisd:isis/instance/advertise-passive-only",
 			.cbs = {
-				.cli_show = cli_show_isis_lsp_ref_interval,
+				.cli_show = cli_show_advertise_passive_only,
+				.modify = isis_instance_advertise_passive_only_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-1",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers",
+			.cbs = {
+				.cli_show = cli_show_isis_lsp_timers,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-1/refresh-interval",
 			.cbs = {
 				.modify = isis_instance_lsp_refresh_interval_level_1_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-2",
-			.cbs = {
-				.modify = isis_instance_lsp_refresh_interval_level_2_modify,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime",
-			.cbs = {
-				.cli_show = cli_show_isis_lsp_max_lifetime,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-1/maximum-lifetime",
 			.cbs = {
 				.modify = isis_instance_lsp_maximum_lifetime_level_1_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2",
-			.cbs = {
-				.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval",
-			.cbs = {
-				.cli_show = cli_show_isis_lsp_gen_interval,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-1",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-1/generation-interval",
 			.cbs = {
 				.modify = isis_instance_lsp_generation_interval_level_1_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-2",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-2/refresh-interval",
+			.cbs = {
+				.modify = isis_instance_lsp_refresh_interval_level_2_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-2/maximum-lifetime",
+			.cbs = {
+				.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-2/generation-interval",
 			.cbs = {
 				.modify = isis_instance_lsp_generation_interval_level_2_modify,
 			},
@@ -204,6 +228,30 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.modify = isis_instance_spf_minimum_interval_level_2_modify,
 			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/spf/prefix-priorities/critical/access-list-name",
+			.cbs = {
+				.cli_show = cli_show_isis_spf_prefix_priority,
+				.modify = isis_instance_spf_prefix_priorities_critical_access_list_name_modify,
+				.destroy = isis_instance_spf_prefix_priorities_critical_access_list_name_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/spf/prefix-priorities/high/access-list-name",
+			.cbs = {
+				.cli_show = cli_show_isis_spf_prefix_priority,
+				.modify = isis_instance_spf_prefix_priorities_high_access_list_name_modify,
+				.destroy = isis_instance_spf_prefix_priorities_high_access_list_name_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/spf/prefix-priorities/medium/access-list-name",
+			.cbs = {
+				.cli_show = cli_show_isis_spf_prefix_priority,
+				.modify = isis_instance_spf_prefix_priorities_medium_access_list_name_modify,
+				.destroy = isis_instance_spf_prefix_priorities_medium_access_list_name_destroy,
+			}
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password",
@@ -444,10 +492,91 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-1/lfa/load-sharing",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_lfa_load_sharing,
+				.modify = isis_instance_fast_reroute_level_1_lfa_load_sharing_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-1/lfa/priority-limit",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_lfa_priority_limit,
+				.modify = isis_instance_fast_reroute_level_1_lfa_priority_limit_modify,
+				.destroy = isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-1/lfa/tiebreaker",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_lfa_tiebreaker,
+				.create = isis_instance_fast_reroute_level_1_lfa_tiebreaker_create,
+				.destroy = isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-1/lfa/tiebreaker/type",
+			.cbs = {
+				.modify = isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-1/remote-lfa/prefix-list",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_remote_lfa_plist,
+				.modify = isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify,
+				.destroy = isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/lfa/load-sharing",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_lfa_load_sharing,
+				.modify = isis_instance_fast_reroute_level_2_lfa_load_sharing_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/lfa/priority-limit",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_lfa_priority_limit,
+				.modify = isis_instance_fast_reroute_level_2_lfa_priority_limit_modify,
+				.destroy = isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/lfa/tiebreaker",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_lfa_tiebreaker,
+				.create = isis_instance_fast_reroute_level_2_lfa_tiebreaker_create,
+				.destroy = isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/lfa/tiebreaker/type",
+			.cbs = {
+				.modify = isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/fast-reroute/level-2/remote-lfa/prefix-list",
+			.cbs = {
+				.cli_show = cli_show_isis_frr_remote_lfa_plist,
+				.modify = isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify,
+				.destroy = isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/log-adjacency-changes",
 			.cbs = {
 				.cli_show = cli_show_isis_log_adjacency,
 				.modify = isis_instance_log_adjacency_changes_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/log-pdu-drops",
+			.cbs = {
+				.cli_show = cli_show_isis_log_pdu_drops,
+				.modify = isis_instance_log_pdu_drops_modify,
 			},
 		},
 		{
@@ -464,6 +593,240 @@ const struct frr_yang_module_info frr_isisd_info = {
 				.cli_show = cli_show_isis_mpls_te_router_addr,
 				.destroy = isis_instance_mpls_te_router_address_destroy,
 				.modify = isis_instance_mpls_te_router_address_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/mpls-te/router-address-v6",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_te_router_addr_ipv6,
+				.destroy = isis_instance_mpls_te_router_address_ipv6_destroy,
+				.modify = isis_instance_mpls_te_router_address_ipv6_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/mpls-te/export",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_te_export,
+				.modify = isis_instance_mpls_te_export_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/enabled",
+			.cbs = {
+				.modify = isis_instance_segment_routing_enabled_modify,
+				.cli_show = cli_show_isis_sr_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks",
+			.cbs = {
+				.pre_validate = isis_instance_segment_routing_label_blocks_pre_validate,
+				.cli_show = cli_show_isis_label_blocks,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks/srgb",
+			.cbs = {
+				.apply_finish = isis_instance_segment_routing_srgb_apply_finish,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks/srgb/lower-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srgb_lower_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks/srgb/upper-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srgb_upper_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks/srlb",
+			.cbs = {
+				.apply_finish = isis_instance_segment_routing_srlb_apply_finish,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks/srlb/lower-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srlb_lower_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/label-blocks/srlb/upper-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srlb_upper_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/msd/node-msd",
+			.cbs = {
+				.modify = isis_instance_segment_routing_msd_node_msd_modify,
+				.destroy = isis_instance_segment_routing_msd_node_msd_destroy,
+				.cli_show = cli_show_isis_node_msd,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid",
+			.cbs = {
+				.create = isis_instance_segment_routing_prefix_sid_map_prefix_sid_create,
+				.destroy = isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy,
+				.pre_validate = isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate,
+				.apply_finish = isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish,
+				.cli_show = cli_show_isis_prefix_sid,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/sid-value-type",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/sid-value",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/last-hop-behavior",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/n-flag-clear",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid",
+			.cbs = {
+				.create = isis_instance_segment_routing_algorithm_prefix_sid_create,
+				.destroy = isis_instance_segment_routing_algorithm_prefix_sid_destroy,
+				.pre_validate = isis_instance_segment_routing_algorithm_prefix_sid_pre_validate,
+				.apply_finish = isis_instance_segment_routing_algorithm_prefix_sid_apply_finish,
+				.cli_show = cli_show_isis_prefix_sid_algorithm,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value-type",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/last-hop-behavior",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/n-flag-clear",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo",
+			.cbs = {
+				.cli_show = cli_show_isis_flex_algo,
+				.cli_show_end = cli_show_isis_flex_algo_end,
+				.create = isis_instance_flex_algo_create,
+				.destroy = isis_instance_flex_algo_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/advertise-definition",
+			.cbs = {
+				.modify = isis_instance_flex_algo_advertise_definition_modify,
+				.destroy = isis_instance_flex_algo_advertise_definition_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-alls/affinity-include-all",
+			.cbs = {
+				.create = isis_instance_flex_algo_affinity_include_all_create,
+				.destroy = isis_instance_flex_algo_affinity_include_all_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-anies/affinity-include-any",
+			.cbs = {
+				.create = isis_instance_flex_algo_affinity_include_any_create,
+				.destroy = isis_instance_flex_algo_affinity_include_any_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/affinity-exclude-anies/affinity-exclude-any",
+			.cbs = {
+				.create = isis_instance_flex_algo_affinity_exclude_any_create,
+				.destroy = isis_instance_flex_algo_affinity_exclude_any_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric",
+			.cbs = {
+				.create = isis_instance_flex_algo_prefix_metric_create,
+				.destroy = isis_instance_flex_algo_prefix_metric_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/metric-type",
+			.cbs = {
+				.modify = isis_instance_flex_algo_metric_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/dplane-sr-mpls",
+			.cbs = {
+				.create = isis_instance_flex_algo_dplane_sr_mpls_create,
+				.destroy = isis_instance_flex_algo_dplane_sr_mpls_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/dplane-srv6",
+			.cbs = {
+				.create = isis_instance_flex_algo_dplane_srv6_create,
+				.destroy = isis_instance_flex_algo_dplane_srv6_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/dplane-ip",
+			.cbs = {
+				.create = isis_instance_flex_algo_dplane_ip_create,
+				.destroy = isis_instance_flex_algo_dplane_ip_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/priority",
+			.cbs = {
+				.modify = isis_instance_flex_algo_priority_modify,
+				.destroy = isis_instance_flex_algo_priority_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_ldp_sync,
+				.create = isis_instance_mpls_ldp_sync_create,
+				.destroy = isis_instance_mpls_ldp_sync_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync/holddown",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_ldp_sync_holddown,
+				.modify = isis_instance_mpls_ldp_sync_holddown_modify,
 			},
 		},
 		{
@@ -503,8 +866,21 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring",
 			.cbs = {
-				.modify = lib_interface_isis_bfd_monitoring_modify,
+				.apply_finish = lib_interface_isis_bfd_monitoring_apply_finish,
 				.cli_show = cli_show_ip_isis_bfd_monitoring,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/enabled",
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_enabled_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile",
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_profile_modify,
+				.destroy = lib_interface_isis_bfd_monitoring_profile_destroy,
 			}
 		},
 		{
@@ -664,10 +1040,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/standard",
 			.cbs = {
-				.cli_show = cli_show_ip_isis_mt_ipv4_unicast,
-				.modify = lib_interface_isis_multi_topology_ipv4_unicast_modify,
+				.cli_show = cli_show_ip_isis_mt_standard,
+				.modify = lib_interface_isis_multi_topology_standard_modify,
 			},
 		},
 		{
@@ -713,99 +1089,278 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute",
 			.cbs = {
-				.get_next = lib_interface_isis_adjacencies_adjacency_get_next,
+				.cli_show = cli_show_ip_isis_frr,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sys-type",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/lfa/enable",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_sys_type_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_1_lfa_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sysid",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_sysid_get_elem,
+				.cli_show = cli_show_frr_lfa_exclude_interface,
+				.create = lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create,
+				.destroy = lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-extended-circuit-id",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/enable",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-snpa",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/remote-lfa/maximum-metric",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_snpa_get_elem,
+				.cli_show = cli_show_frr_remote_lfa_max_metric,
+				.modify = lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify,
+				.destroy = lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/hold-timer",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/enable",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_hold_timer_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-priority",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/node-protection",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_priority_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/state",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/ti-lfa/link-fallback",
 			.cbs = {
-				.get_elem = lib_interface_isis_adjacencies_adjacency_state_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-changes",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/lfa/enable",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_adjacency_changes_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_2_lfa_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-number",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_adjacency_number_get_elem,
+				.cli_show = cli_show_frr_lfa_exclude_interface,
+				.create = lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create,
+				.destroy = lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/init-fails",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/enable",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_init_fails_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-rejects",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/remote-lfa/maximum-metric",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_adjacency_rejects_get_elem,
+				.cli_show = cli_show_frr_remote_lfa_max_metric,
+				.modify = lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify,
+				.destroy = lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/id-len-mismatch",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/enable",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_id_len_mismatch_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/max-area-addresses-mismatch",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/node-protection",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-type-fails",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-2/ti-lfa/link-fallback",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_authentication_type_fails_get_elem,
+				.modify = lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-fails",
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis",
 			.cbs = {
-				.get_elem = lib_interface_isis_event_counters_authentication_fails_get_elem,
+				.get_elem = lib_interface_state_isis_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency",
+			.cbs = {
+				.get_next = lib_interface_state_isis_adjacencies_adjacency_get_next,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-sys-type",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_sys_type_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-sysid",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_sysid_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-extended-circuit-id",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-snpa",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_snpa_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/hold-timer",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_hold_timer_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/neighbor-priority",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_neighbor_priority_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/state",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_state_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid",
+			.cbs = {
+				.get_next = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_get_next,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/af",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_af_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/value",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_value_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/weight",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_weight_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/adjacency-sids/adjacency-sid/protection-requested",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_adjacency_sids_adjacency_sid_protection_requested_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid",
+			.cbs = {
+				.get_next = lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_get_next,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/af",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_af_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/value",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_value_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/weight",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_weight_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/adjacencies/adjacency/lan-adjacency-sids/lan-adjacency-sid/protection-requested",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_adjacencies_adjacency_lan_adjacency_sids_lan_adjacency_sid_protection_requested_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-changes",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_adjacency_changes_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-number",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_adjacency_number_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/init-fails",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_init_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/adjacency-rejects",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_adjacency_rejects_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/id-len-mismatch",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_id_len_mismatch_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/max-area-addresses-mismatch",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_max_area_addresses_mismatch_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/authentication-type-fails",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_authentication_type_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/frr-isisd:isis/event-counters/authentication-fails",
+			.cbs = {
+				.get_elem = lib_interface_state_isis_event_counters_authentication_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/mpls/ldp-sync",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_if_ldp_sync,
+				.modify = lib_interface_isis_mpls_ldp_sync_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/mpls/holddown",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_if_ldp_sync_holddown,
+				.modify = lib_interface_isis_mpls_holddown_modify,
+				.destroy = lib_interface_isis_mpls_holddown_destroy,
 			}
 		},
 		{

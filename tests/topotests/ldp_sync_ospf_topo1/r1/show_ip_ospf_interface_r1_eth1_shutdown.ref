@@ -1,0 +1,8 @@
+{
+  "interfaces":{
+    "r1-eth2":{
+      "cost":10
+    }
+  }
+}
+

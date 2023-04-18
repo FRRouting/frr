@@ -1,0 +1,26 @@
+{
+  "neighbors": {
+    "1.1.1.1": [
+      {
+        "nbrPriority":1,
+        "converged":"Full",
+        "ifaceAddress":"10.0.2.1",
+        "ifaceName":"r3-eth1:10.0.2.3",
+        "linkStateRetransmissionListCounter":0,
+        "linkStateRequestListCounter":0,
+        "databaseSummaryListCounter":0
+      }
+    ],
+    "2.2.2.2": [
+      {
+        "nbrPriority":1,
+        "converged":"Full",
+        "ifaceAddress":"10.0.3.2",
+        "ifaceName":"r3-eth2:10.0.3.3",
+        "linkStateRetransmissionListCounter":0,
+        "linkStateRequestListCounter":0,
+        "databaseSummaryListCounter":0
+      }
+    ]
+  }
+}

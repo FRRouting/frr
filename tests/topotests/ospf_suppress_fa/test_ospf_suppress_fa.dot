@@ -1,0 +1,66 @@
+﻿## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph ospf_topo1 {
+	label="ospf suppress-fa";
+
+	# Routers
+	r1 [
+		label="r1\nrtr-id 10.0.12.1",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r2 [
+		label="r2 (ABR)\nrtr-id 10.0.23.2",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r3 [
+		label="r3 (ASBR)\nrtr-id 10.0.23.3",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# Switches
+	s1 [
+		label="s1\n10.0.12.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s2 [
+		label="s2\n10.0.23.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# Connections
+    subgraph cluster0 {
+        label="area 0"
+	    r1 -- s1 [label="eth1\n.1"];
+	    r2 -- s1 [label="eth1\n.2"];
+    }
+
+    subgraph cluster1 {
+        label="area 1\nNSSA"
+	    r2 -- s2 [label="eth2\n.2"];
+	    r3 -- s2 [label="eth1\n.3"];
+    }
+
+    { rank=same; r1; r2; r3; }
+}

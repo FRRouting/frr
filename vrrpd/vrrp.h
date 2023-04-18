@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP global definitions and state machine.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #ifndef __VRRP_H__
 #define __VRRP_H__
@@ -28,9 +15,10 @@
 #include "lib/hook.h"
 #include "lib/if.h"
 #include "lib/linklist.h"
+#include "lib/northbound.h"
 #include "lib/privs.h"
 #include "lib/stream.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vty.h"
 
 /* Global definitions */
@@ -46,30 +34,38 @@
 #define VRRP_LOGPFX_FAM "[%s] "
 
 /* Default defaults */
+#define VRRP_XPATH_FULL "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group"
+#define VRRP_XPATH "./frr-vrrpd:vrrp/vrrp-group"
 #define VRRP_DEFAULT_PRIORITY 100
 #define VRRP_DEFAULT_ADVINT 100
 #define VRRP_DEFAULT_PREEMPT true
 #define VRRP_DEFAULT_ACCEPT true
+#define VRRP_DEFAULT_CHECKSUM_WITH_IPV4_PSEUDOHEADER true
 #define VRRP_DEFAULT_SHUTDOWN false
 
 /* User compatibility constant */
 #define CS2MS 10
 
-DECLARE_MGROUP(VRRPD)
+DECLARE_MGROUP(VRRPD);
+
+/* Northbound */
+extern const struct frr_yang_module_info frr_vrrpd_info;
 
 /* Configured defaults */
 struct vrrp_defaults {
+	uint8_t version;
 	uint8_t priority;
 	uint16_t advertisement_interval;
 	bool preempt_mode;
 	bool accept_mode;
+	bool checksum_with_ipv4_pseudoheader;
 	bool shutdown;
 };
 
 extern struct vrrp_defaults vd;
 
 /* threadmaster */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* privileges */
 extern struct zebra_privs_t vrrp_privs;
@@ -197,10 +193,10 @@ struct vrrp_router {
 		uint32_t trans_cnt;
 	} stats;
 
-	struct thread *t_master_down_timer;
-	struct thread *t_adver_timer;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_master_down_timer;
+	struct event *t_adver_timer;
+	struct event *t_read;
+	struct event *t_write;
 };
 
 /*
@@ -258,6 +254,14 @@ struct vrrp_vrouter {
 	 * it is not the IPvX address owner. The default is False.
 	 */
 	bool accept_mode;
+
+	/*
+	 * Indicates whether this router computes and accepts VRRPv3 checksums
+	 * without pseudoheader, for device interoperability.
+	 *
+	 * This option should only affect IPv4 virtual routers.
+	 */
+	bool checksum_with_ipv4_pseudoheader;
 
 	struct vrrp_router *v4;
 	struct vrrp_router *v6;
@@ -340,7 +344,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 /*
  * Add an IPvX address to a VRRP Virtual Router.
  *
- * r
+ * vr
  *    Virtual Router to add IPvx address to
  *
  * ip
@@ -354,7 +358,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip);
+int vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr *ip);
 
 /*
  * Add an IPv4 address to a VRRP Virtual Router.
@@ -397,7 +401,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 /*
  * Remove an IP address from a VRRP Virtual Router.
  *
- * r
+ * vr
  *    Virtual Router to remove IP address from
  *
  * ip
@@ -413,7 +417,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip);
+int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip);
 
 /*
  * Remove an IPv4 address from a VRRP Virtual Router.
@@ -465,8 +469,7 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 #define VRRP_EVENT_STARTUP 0
 #define VRRP_EVENT_SHUTDOWN 1
 
-extern const char *vrrp_state_names[3];
-extern const char *vrrp_event_names[2];
+extern const char *const vrrp_state_names[3];
 
 /*
  * This hook called whenever the state of a Virtual Router changes, after the
@@ -544,17 +547,6 @@ void vrrp_if_address_del(struct interface *ifp);
 /* Other ------------------------------------------------------------------- */
 
 /*
- * Write interface block-level configuration to vty.
- *
- * vty
- *    vty to write config to
- *
- * Returns:
- *    # of lines written
- */
-int vrrp_config_write_interface(struct vty *vty);
-
-/*
  * Write global level configuration to vty.
  *
  * vty
@@ -568,6 +560,6 @@ int vrrp_config_write_global(struct vty *vty);
 /*
  * Find VRRP Virtual Router by Virtual Router ID
  */
-struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid);
+struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid);
 
 #endif /* __VRRP_H__ */

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,18 +9,20 @@
 #include "if.h"
 #include "log.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"
 
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_top.h"
 #include "ospf6_network.h"
 #include "ospf6_message.h"
 #include "ospf6_route.h"
-#include "ospf6_top.h"
 #include "ospf6_area.h"
+#include "ospf6_abr.h"
+#include "ospf6_nssa.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
@@ -43,25 +30,50 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+#include "ospf6_gr.h"
+#include "lib/json.h"
+#include "ospf6_proto.h"
+#include "lib/keychain.h"
+#include "ospf6_auth_trailer.h"
 
-DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
-DEFINE_QOBJ_TYPE(ospf6_interface)
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_IF, "OSPF6 interface");
+DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_KEYCHAIN, "OSPF6 auth keychain");
+DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_MANUAL_KEY, "OSPF6 auth key");
+DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names");
+DEFINE_QOBJ_TYPE(ospf6_interface);
 DEFINE_HOOK(ospf6_interface_change,
 	    (struct ospf6_interface * oi, int state, int old_state),
-	    (oi, state, old_state))
+	    (oi, state, old_state));
 
 unsigned char conf_debug_ospf6_interface = 0;
 
-const char *ospf6_interface_state_str[] = {
+const char *const ospf6_interface_state_str[] = {
 	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
 	"DROther", "BDR",  "DR",       NULL};
 
-struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex)
+int ospf6_interface_neighbor_count(struct ospf6_interface *oi)
+{
+	int count = 0;
+	struct ospf6_neighbor *nbr = NULL;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, nbr)) {
+		/* Down state is not shown. */
+		if (nbr->state == OSPF6_NEIGHBOR_DOWN)
+			continue;
+		count++;
+	}
+
+	return count;
+}
+
+struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex,
+							  vrf_id_t vrf_id)
 {
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, vrf_id);
 	if (ifp == NULL)
 		return (struct ospf6_interface *)NULL;
 
@@ -117,7 +129,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	/* If all else fails, use default OSPF cost */
 	uint32_t cost;
 	uint32_t bw, refbw;
-
+	struct ospf6 *ospf6;
 	/* interface speed and bw can be 0 in some platforms,
 	 * use ospf default bw. If bw is configured then it would
 	 * be used.
@@ -129,17 +141,16 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 					      : OSPF6_INTERFACE_BANDWIDTH;
 	}
 
+	ospf6 = oi->interface->vrf->info;
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
-	/* A specifed ip ospf cost overrides a calculated one. */
+	/* A specified ip ospf cost overrides a calculated one. */
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
 		cost = oi->cost;
 	else {
 		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
 		if (cost < 1)
 			cost = 1;
-		else if (cost > UINT32_MAX)
-			cost = UINT32_MAX;
 	}
 
 	return cost;
@@ -179,6 +190,8 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	unsigned int iobuflen;
 
 	oi = XCALLOC(MTYPE_OSPF6_IF, sizeof(struct ospf6_interface));
+
+	oi->obuf = ospf6_fifo_new();
 
 	oi->area = (struct ospf6_area *)NULL;
 	oi->neighbor_list = list_new();
@@ -228,6 +241,8 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	/* Compute cost. */
 	oi->cost = ospf6_interface_get_cost(oi);
 
+	oi->at_data.flags = 0;
+
 	return oi;
 }
 
@@ -238,15 +253,18 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 	QOBJ_UNREG(oi);
 
+	ospf6_fifo_free(oi->obuf);
+
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
 
 	list_delete(&oi->neighbor_list);
 
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_send_lsupdate);
-	THREAD_OFF(oi->thread_send_lsack);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_lsupdate);
+	EVENT_OFF(oi->thread_send_lsack);
+	EVENT_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_wait_timer);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -267,10 +285,14 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	if (oi->plist_name)
 		XFREE(MTYPE_CFG_PLIST_NAME, oi->plist_name);
 
-	ospf6_bfd_info_free(&(oi->bfd_info));
-
 	/* disable from area list if possible */
 	ospf6_area_interface_delete(oi);
+
+	if (oi->at_data.auth_key)
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+
+	/* Free BFD allocated data. */
+	XFREE(MTYPE_TMP, oi->bfd_config.profile);
 
 	XFREE(MTYPE_OSPF6_IF, oi);
 }
@@ -285,22 +307,23 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 {
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE);
 
-	thread_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_down, oi, 0);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsdb_self);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
 	ospf6_lsdb_remove_all(oi->lsack_list);
 
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_send_lsupdate);
-	THREAD_OFF(oi->thread_send_lsack);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_lsupdate);
+	EVENT_OFF(oi->thread_send_lsack);
+	EVENT_OFF(oi->thread_sso);
 
-	THREAD_OFF(oi->thread_network_lsa);
-	THREAD_OFF(oi->thread_link_lsa);
-	THREAD_OFF(oi->thread_intra_prefix_lsa);
-	THREAD_OFF(oi->thread_as_extern_lsa);
+	EVENT_OFF(oi->thread_network_lsa);
+	EVENT_OFF(oi->thread_link_lsa);
+	EVENT_OFF(oi->thread_intra_prefix_lsa);
+	EVENT_OFF(oi->thread_as_extern_lsa);
+	EVENT_OFF(oi->thread_wait_timer);
 }
 
 static struct in6_addr *
@@ -321,31 +344,6 @@ ospf6_interface_get_linklocal_address(struct interface *ifp)
 			l = &c->address->u.prefix6;
 	}
 	return l;
-}
-
-void ospf6_interface_if_add(struct interface *ifp)
-{
-	struct ospf6_interface *oi;
-	unsigned int iobuflen;
-
-	oi = (struct ospf6_interface *)ifp->info;
-	if (oi == NULL)
-		return;
-
-	/* Try to adjust I/O buffer size with IfMtu */
-	if (oi->ifmtu == 0)
-		oi->ifmtu = ifp->mtu6;
-	iobuflen = ospf6_iobuf_size(ifp->mtu6);
-	if (oi->ifmtu > iobuflen) {
-		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug(
-				"Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
-				ifp->name, iobuflen);
-		oi->ifmtu = iobuflen;
-	}
-
-	/* interface start */
-	ospf6_interface_state_update(oi->interface);
 }
 
 void ospf6_interface_state_update(struct interface *ifp)
@@ -384,9 +382,9 @@ void ospf6_interface_state_update(struct interface *ifp)
 	if (if_is_operative(ifp)
 	    && (ospf6_interface_get_linklocal_address(oi->interface)
 		|| if_is_loopback(oi->interface)))
-		thread_execute(master, interface_up, oi, 0);
+		event_execute(master, interface_up, oi, 0);
 	else
-		thread_execute(master, interface_down, oi, 0);
+		event_execute(master, interface_down, oi, 0);
 
 	return;
 }
@@ -435,22 +433,20 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		if (oi->plist_name) {
 			struct prefix_list *plist;
 			enum prefix_list_type ret;
-			char buf[PREFIX2STR_BUFFER];
 
-			prefix2str(c->address, buf, sizeof(buf));
 			plist = prefix_list_lookup(AFI_IP6, oi->plist_name);
 			ret = prefix_list_apply(plist, (void *)c->address);
 			if (ret == PREFIX_DENY) {
 				if (IS_OSPF6_DEBUG_INTERFACE)
 					zlog_debug(
-						"%s on %s filtered by prefix-list %s ",
-						buf, oi->interface->name,
+						"%pFX on %s filtered by prefix-list %s ",
+						c->address, oi->interface->name,
 						oi->plist_name);
 				continue;
 			}
 		}
 
-		route = ospf6_route_create();
+		route = ospf6_route_create(oi->area->ospf6);
 		memcpy(&route->prefix, c->address, sizeof(struct prefix));
 		apply_mask(&route->prefix);
 		route->type = OSPF6_DEST_TYPE_NETWORK;
@@ -469,16 +465,20 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 }
 
-static void ospf6_interface_state_change(uint8_t next_state,
-					 struct ospf6_interface *oi)
+static int ospf6_interface_state_change(uint8_t next_state,
+					struct ospf6_interface *oi)
 {
 	uint8_t prev_state;
+	struct ospf6 *ospf6;
 
 	prev_state = oi->state;
 	oi->state = next_state;
 
 	if (prev_state == next_state)
-		return;
+		return -1;
+
+	if (!oi->area)
+		return -1;
 
 	/* log */
 	if (IS_OSPF6_DEBUG_INTERFACE) {
@@ -489,21 +489,24 @@ static void ospf6_interface_state_change(uint8_t next_state,
 	}
 	oi->state_change++;
 
+	ospf6 = oi->area->ospf6;
+
 	if ((prev_state == OSPF6_INTERFACE_DR
 	     || prev_state == OSPF6_INTERFACE_BDR)
 	    && (next_state != OSPF6_INTERFACE_DR
 		&& next_state != OSPF6_INTERFACE_BDR))
 		ospf6_sso(oi->interface->ifindex, &alldrouters6,
-			  IPV6_LEAVE_GROUP);
+			  IPV6_LEAVE_GROUP, ospf6->fd);
 
 	if ((prev_state != OSPF6_INTERFACE_DR
 	     && prev_state != OSPF6_INTERFACE_BDR)
 	    && (next_state == OSPF6_INTERFACE_DR
 		|| next_state == OSPF6_INTERFACE_BDR))
 		ospf6_sso(oi->interface->ifindex, &alldrouters6,
-			  IPV6_JOIN_GROUP);
+			  IPV6_JOIN_GROUP, ospf6->fd);
 
 	OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
+	OSPF6_LINK_LSA_SCHEDULE(oi);
 	if (next_state == OSPF6_INTERFACE_DOWN) {
 		OSPF6_NETWORK_LSA_EXECUTE(oi);
 		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
@@ -517,6 +520,8 @@ static void ospf6_interface_state_change(uint8_t next_state,
 	}
 
 	hook_call(ospf6_interface_change, oi, next_state, prev_state);
+
+	return 0;
 }
 
 
@@ -585,8 +590,9 @@ static struct ospf6_neighbor *better_drouter(struct ospf6_neighbor *a,
 	return a;
 }
 
-static uint8_t dr_election(struct ospf6_interface *oi)
+uint8_t dr_election(struct ospf6_interface *oi)
 {
+	struct ospf6 *ospf6 = oi->area->ospf6;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
 	struct ospf6_neighbor *best_drouter, *best_bdrouter;
@@ -597,13 +603,12 @@ static uint8_t dr_election(struct ospf6_interface *oi)
 
 	/* pseudo neighbor myself, including noting current DR/BDR (1) */
 	memset(&myself, 0, sizeof(myself));
-	inet_ntop(AF_INET, &oi->area->ospf6->router_id, myself.name,
-		  sizeof(myself.name));
+	inet_ntop(AF_INET, &ospf6->router_id, myself.name, sizeof(myself.name));
 	myself.state = OSPF6_NEIGHBOR_TWOWAY;
 	myself.drouter = oi->drouter;
 	myself.bdrouter = oi->bdrouter;
 	myself.priority = oi->priority;
-	myself.router_id = oi->area->ospf6->router_id;
+	myself.router_id = ospf6->router_id;
 
 	/* Electing BDR (2) */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
@@ -652,8 +657,10 @@ static uint8_t dr_election(struct ospf6_interface *oi)
 	/* If DR or BDR change, invoke AdjOK? for each neighbor (7) */
 	/* RFC 2328 section 12.4. Originating LSAs (3) will be handled
 	   accordingly after AdjOK */
-	if (oi->drouter != (drouter ? drouter->router_id : htonl(0))
-	    || oi->bdrouter != (bdrouter ? bdrouter->router_id : htonl(0))) {
+
+	if (oi->drouter != (drouter ? drouter->router_id : htonl(0)) ||
+	    oi->bdrouter != (bdrouter ? bdrouter->router_id : htonl(0)) ||
+	    ospf6->gr_info.restart_in_progress) {
 		if (IS_OSPF6_DEBUG_INTERFACE)
 			zlog_debug("DR Election on %s: DR: %s BDR: %s",
 				   oi->interface->name,
@@ -664,7 +671,8 @@ static uint8_t dr_election(struct ospf6_interface *oi)
 			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
 				continue;
 			/* Schedule AdjOK. */
-			thread_add_event(master, adj_ok, on, 0, NULL);
+			event_add_event(master, adj_ok, on, 0,
+					&on->thread_adj_ok);
 		}
 	}
 
@@ -673,23 +681,57 @@ static uint8_t dr_election(struct ospf6_interface *oi)
 	return next_state;
 }
 
+#ifdef __FreeBSD__
+
+#include <ifaddrs.h>
+
+static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
+{
+	struct ifmaddrs *ifmap, *ifma;
+	struct sockaddr_dl *sdl;
+	struct sockaddr_in6 *sin6;
+	bool found = false;
+
+	if (getifmaddrs(&ifmap) != 0)
+		return false;
+
+	for (ifma = ifmap; ifma; ifma = ifma->ifma_next) {
+		if (ifma->ifma_name == NULL || ifma->ifma_addr == NULL)
+			continue;
+		if (ifma->ifma_name->sa_family != AF_LINK)
+			continue;
+		if (ifma->ifma_addr->sa_family != AF_INET6)
+			continue;
+		sdl = (struct sockaddr_dl *)ifma->ifma_name;
+		sin6 = (struct sockaddr_in6 *)ifma->ifma_addr;
+		if (sdl->sdl_index == ifindex
+		    && memcmp(&sin6->sin6_addr, addr, IPV6_MAX_BYTELEN) == 0) {
+			found = true;
+			break;
+		}
+	}
+
+	if (ifmap)
+		freeifmaddrs(ifmap);
+
+	return found;
+}
+
+#endif /* __FreeBSD__ */
 
 /* Interface State Machine */
-int interface_up(struct thread *thread)
+void interface_up(struct event *thread)
 {
 	struct ospf6_interface *oi;
+	struct ospf6 *ospf6;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (!oi->type_cfg)
 		oi->type = ospf6_default_iftype(oi->interface);
 
-	/*
-	 * Remove old pointer. If this thread wasn't a timer this
-	 * operation won't make a difference, because it is already NULL.
-	 */
-	oi->thread_sso = NULL;
+	event_cancel(&oi->thread_sso);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
 		zlog_debug("Interface Event %s: [InterfaceUp]",
@@ -697,21 +739,18 @@ int interface_up(struct thread *thread)
 
 	/* check physical interface is up */
 	if (!if_is_operative(oi->interface)) {
-		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug(
-				"Interface %s is down, can't execute [InterfaceUp]",
-				oi->interface->name);
-		return 0;
+		zlog_warn("Interface %s is down, can't execute [InterfaceUp]",
+			  oi->interface->name);
+		return;
 	}
 
 	/* check interface has a link-local address */
 	if (!(ospf6_interface_get_linklocal_address(oi->interface)
 	      || if_is_loopback(oi->interface))) {
-		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug(
-				"Interface %s has no link local address, can't execute [InterfaceUp]",
-				oi->interface->name);
-		return 0;
+		zlog_warn(
+			"Interface %s has no link local address, can't execute [InterfaceUp]",
+			oi->interface->name);
+		return;
 	}
 
 	/* Recompute cost */
@@ -722,45 +761,51 @@ int interface_up(struct thread *thread)
 		if (IS_OSPF6_DEBUG_INTERFACE)
 			zlog_debug("Interface %s already enabled",
 				   oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* If no area assigned, return */
 	if (oi->area == NULL) {
-		zlog_debug(
-			"%s: Not scheduleing Hello for %s as there is no area assigned yet",
+		zlog_warn(
+			"%s: Not scheduling Hello for %s as there is no area assigned yet",
 			__func__, oi->interface->name);
-		return 0;
+		return;
 	}
 
 #ifdef __FreeBSD__
 	/*
-	 * XXX: Schedule IPv6 group join for later, otherwise we might
-	 * lose the multicast group registration caused by IPv6 group
-	 * leave race.
+	 * There's a delay in FreeBSD between issuing a command to leave a
+	 * multicast group and an actual leave. If we execute "no router ospf6"
+	 * and "router ospf6" fast enough, we can end up in a situation when OS
+	 * performs the leave later than it performs the join and the interface
+	 * remains without a multicast group. We have to do the join only after
+	 * the interface actually left the group.
 	 */
-	if (oi->sso_try_cnt == 0) {
-		oi->sso_try_cnt++;
-		zlog_info("Scheduling %s for sso", oi->interface->name);
-		thread_add_timer(master, interface_up, oi,
-				 OSPF6_INTERFACE_SSO_RETRY_INT,
-				 &oi->thread_sso);
-		return 0;
+	if (ifmaddr_check(oi->interface->ifindex, &allspfrouters6)) {
+		zlog_info(
+			"Interface %s is still in all routers group, rescheduling for SSO",
+			oi->interface->name);
+		event_add_timer(master, interface_up, oi,
+				OSPF6_INTERFACE_SSO_RETRY_INT, &oi->thread_sso);
+		return;
 	}
 #endif /* __FreeBSD__ */
 
+	ospf6 = oi->area->ospf6;
+
 	/* Join AllSPFRouters */
-	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP)
+	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP,
+		      ospf6->fd)
 	    < 0) {
 		if (oi->sso_try_cnt++ < OSPF6_INTERFACE_SSO_RETRY_MAX) {
 			zlog_info(
 				"Scheduling %s for sso retry, trial count: %d",
 				oi->interface->name, oi->sso_try_cnt);
-			thread_add_timer(master, interface_up, oi,
-					 OSPF6_INTERFACE_SSO_RETRY_INT,
-					 &oi->thread_sso);
+			event_add_timer(master, interface_up, oi,
+					OSPF6_INTERFACE_SSO_RETRY_INT,
+					&oi->thread_sso);
 		}
-		return 0;
+		return;
 	}
 	oi->sso_try_cnt = 0; /* Reset on success */
 
@@ -770,30 +815,29 @@ int interface_up(struct thread *thread)
 	/* Schedule Hello */
 	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
 	    && !if_is_loopback(oi->interface)) {
-		oi->thread_send_hello = NULL;
-		thread_add_event(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 	}
 
 	/* decide next interface state */
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+	if (oi->type == OSPF_IFTYPE_LOOPBACK) {
+		ospf6_interface_state_change(OSPF6_INTERFACE_LOOPBACK, oi);
+	} else if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);
 	} else if (oi->priority == 0)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
 	else {
 		ospf6_interface_state_change(OSPF6_INTERFACE_WAITING, oi);
-		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
-				 NULL);
+		event_add_timer(master, wait_timer, oi, oi->dead_interval,
+				&oi->thread_wait_timer);
 	}
-
-	return 0;
 }
 
-int wait_timer(struct thread *thread)
+void wait_timer(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -802,15 +846,13 @@ int wait_timer(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int backup_seen(struct thread *thread)
+void backup_seen(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -819,15 +861,13 @@ int backup_seen(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int neighbor_change(struct thread *thread)
+void neighbor_change(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -838,17 +878,16 @@ int neighbor_change(struct thread *thread)
 	    || oi->state == OSPF6_INTERFACE_BDR
 	    || oi->state == OSPF6_INTERFACE_DR)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int interface_down(struct thread *thread)
+void interface_down(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
+	struct ospf6 *ospf6;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -856,17 +895,21 @@ int interface_down(struct thread *thread)
 			   oi->interface->name);
 
 	/* Stop Hellos */
-	THREAD_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_hello);
 
 	/* Stop trying to set socket options. */
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_sso);
 
-	/* Leave AllSPFRouters */
-	if (oi->state > OSPF6_INTERFACE_DOWN)
-		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
-			  IPV6_LEAVE_GROUP);
+	/* Cease the HELPER role for all the neighbours
+	 * of this interface.
+	 */
+	if (ospf6_interface_neighbor_count(oi)) {
+		struct listnode *ln;
+		struct ospf6_neighbor *nbr = NULL;
 
-	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, ln, nbr))
+			ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_TOPO_CHG);
+	}
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
@@ -877,7 +920,26 @@ int interface_down(struct thread *thread)
 	 * DR election, as it is no longer valid. */
 	oi->drouter = oi->prev_drouter = htonl(0);
 	oi->bdrouter = oi->prev_bdrouter = htonl(0);
-	return 0;
+
+	if (oi->area == NULL)
+		return;
+
+	ospf6 = oi->area->ospf6;
+	/* Leave AllSPFRouters */
+	if (oi->state > OSPF6_INTERFACE_DOWN)
+		ospf6_sso(oi->interface->ifindex, &allspfrouters6,
+			  IPV6_LEAVE_GROUP, ospf6->fd);
+
+	/* deal with write fifo */
+	ospf6_fifo_flush(oi->obuf);
+	if (oi->on_write_q) {
+		listnode_delete(ospf6->oi_write_q, oi);
+		if (list_isempty(ospf6->oi_write_q))
+			event_cancel(&ospf6->t_write);
+		oi->on_write_q = 0;
+	}
+
+	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
 }
 
 
@@ -895,7 +957,8 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 }
 
 /* show specified interface structure */
-static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
+static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
+				json_object *json_obj, bool use_json)
 {
 	struct ospf6_interface *oi;
 	struct connected *c;
@@ -905,134 +968,434 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 	uint8_t default_iftype;
 	struct timeval res, now;
 	char duration[32];
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsanext;
+	json_object *json_arr;
+	json_object *json_addr;
+	struct json_object *json_auth = NULL;
 
 	default_iftype = ospf6_default_iftype(ifp);
 
-	vty_out(vty, "%s is %s, type %s\n", ifp->name,
-		(if_is_operative(ifp) ? "up" : "down"),
-		ospf6_iftype_str(default_iftype));
-	vty_out(vty, "  Interface ID: %d\n", ifp->ifindex);
+	if (use_json) {
+		json_object_string_add(json_obj, "status",
+				       (if_is_operative(ifp) ? "up" : "down"));
+		json_object_string_add(json_obj, "type",
+				       ospf6_iftype_str(default_iftype));
+		json_object_int_add(json_obj, "interfaceId", ifp->ifindex);
 
-	if (ifp->info == NULL) {
-		vty_out(vty, "   OSPF not enabled on this interface\n");
-		return 0;
-	} else
+		if (ifp->info == NULL)
+			return 0;
+
 		oi = (struct ospf6_interface *)ifp->info;
 
-	if (if_is_operative(ifp) && oi->type != default_iftype)
-		vty_out(vty, "  Operating as type %s\n",
-			ospf6_iftype_str(oi->type));
+		if (if_is_operative(ifp) && oi->type != default_iftype)
+			json_object_string_add(json_obj, "operatingAsType",
+					       ospf6_iftype_str(oi->type));
 
-	vty_out(vty, "  Internet Address:\n");
+	} else {
+		vty_out(vty, "%s is %s, type %s\n", ifp->name,
+			(if_is_operative(ifp) ? "up" : "down"),
+			ospf6_iftype_str(default_iftype));
+		vty_out(vty, "  Interface ID: %d\n", ifp->ifindex);
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
-		p = c->address;
-		prefix2str(p, strbuf, sizeof(strbuf));
-		switch (p->family) {
-		case AF_INET:
-			vty_out(vty, "    inet : %s\n", strbuf);
-			break;
-		case AF_INET6:
-			vty_out(vty, "    inet6: %s\n", strbuf);
-			break;
-		default:
-			vty_out(vty, "    ???  : %s\n", strbuf);
-			break;
+		if (ifp->info == NULL) {
+			vty_out(vty, "   OSPF not enabled on this interface\n");
+			return 0;
+		}
+		oi = (struct ospf6_interface *)ifp->info;
+
+		if (if_is_operative(ifp) && oi->type != default_iftype)
+			vty_out(vty, "  Operating as type %s\n",
+				ospf6_iftype_str(oi->type));
+	}
+
+	if (use_json) {
+		json_arr = json_object_new_array();
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
+			json_addr = json_object_new_object();
+			p = c->address;
+			prefix2str(p, strbuf, sizeof(strbuf));
+			switch (p->family) {
+			case AF_INET:
+				json_object_string_add(json_addr, "type",
+						       "inet");
+				json_object_string_add(json_addr, "address",
+						       strbuf);
+				json_object_array_add(json_arr, json_addr);
+				break;
+			case AF_INET6:
+				json_object_string_add(json_addr, "type",
+						       "inet6");
+				json_object_string_add(json_addr, "address",
+						       strbuf);
+				json_object_array_add(json_arr, json_addr);
+				break;
+			default:
+				json_object_string_add(json_addr, "type",
+						       "unknown");
+				json_object_string_add(json_addr, "address",
+						       strbuf);
+				json_object_array_add(json_arr, json_addr);
+				break;
+			}
+		}
+		json_object_object_add(json_obj, "internetAddress", json_arr);
+	} else {
+		vty_out(vty, "  Internet Address:\n");
+
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
+			p = c->address;
+			prefix2str(p, strbuf, sizeof(strbuf));
+			switch (p->family) {
+			case AF_INET:
+				vty_out(vty, "    inet : %pFX\n", p);
+				break;
+			case AF_INET6:
+				vty_out(vty, "    inet6: %pFX\n", p);
+				break;
+			default:
+				vty_out(vty, "    ???  : %pFX\n", p);
+				break;
+			}
 		}
 	}
 
-	if (oi->area) {
-		vty_out(vty,
-			"  Instance ID %d, Interface MTU %d (autodetect: %d)\n",
-			oi->instance_id, oi->ifmtu, ifp->mtu6);
-		vty_out(vty, "  MTU mismatch detection: %s\n",
-			oi->mtu_ignore ? "disabled" : "enabled");
-		inet_ntop(AF_INET, &oi->area->area_id, strbuf, sizeof(strbuf));
-		vty_out(vty, "  Area ID %s, Cost %u\n", strbuf, oi->cost);
-	} else
-		vty_out(vty, "  Not Attached to Area\n");
+	if (use_json) {
+		if (oi->area) {
+			json_object_boolean_true_add(json_obj,
+						     "attachedToArea");
+			json_object_int_add(json_obj, "instanceId",
+					    oi->instance_id);
+			json_object_int_add(json_obj, "interfaceMtu",
+					    oi->ifmtu);
+			json_object_int_add(json_obj, "autoDetect", ifp->mtu6);
+			json_object_string_add(json_obj, "mtuMismatchDetection",
+					       oi->mtu_ignore ? "disabled"
+							      : "enabled");
+			inet_ntop(AF_INET, &oi->area->area_id, strbuf,
+				  sizeof(strbuf));
+			json_object_string_add(json_obj, "areaId", strbuf);
+			json_object_int_add(json_obj, "cost", oi->cost);
+		} else
+			json_object_boolean_false_add(json_obj,
+						      "attachedToArea");
 
-	vty_out(vty, "  State %s, Transmit Delay %d sec, Priority %d\n",
-		ospf6_interface_state_str[oi->state], oi->transdelay,
-		oi->priority);
-	vty_out(vty, "  Timer intervals configured:\n");
-	vty_out(vty, "   Hello %d, Dead %d, Retransmit %d\n",
-		oi->hello_interval, oi->dead_interval, oi->rxmt_interval);
+	} else {
+		if (oi->area) {
+			vty_out(vty,
+				"  Instance ID %d, Interface MTU %d (autodetect: %d)\n",
+				oi->instance_id, oi->ifmtu, ifp->mtu6);
+			vty_out(vty, "  MTU mismatch detection: %s\n",
+				oi->mtu_ignore ? "disabled" : "enabled");
+			inet_ntop(AF_INET, &oi->area->area_id, strbuf,
+				  sizeof(strbuf));
+			vty_out(vty, "  Area ID %s, Cost %u\n", strbuf,
+				oi->cost);
+		} else
+			vty_out(vty, "  Not Attached to Area\n");
+	}
+
+	if (use_json) {
+		json_object_string_add(json_obj, "ospf6InterfaceState",
+				       ospf6_interface_state_str[oi->state]);
+		json_object_int_add(json_obj, "transmitDelaySec",
+				    oi->transdelay);
+		json_object_int_add(json_obj, "priority", oi->priority);
+		json_object_int_add(json_obj, "timerIntervalsConfigHello",
+				    oi->hello_interval);
+		json_object_int_add(json_obj, "timerIntervalsConfigDead",
+				    oi->dead_interval);
+		json_object_int_add(json_obj, "timerIntervalsConfigRetransmit",
+				    oi->rxmt_interval);
+		json_object_boolean_add(
+			json_obj, "timerPassiveIface",
+			!!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE));
+	} else {
+		vty_out(vty, "  State %s, Transmit Delay %d sec, Priority %d\n",
+			ospf6_interface_state_str[oi->state], oi->transdelay,
+			oi->priority);
+		vty_out(vty, "  Timer intervals configured:\n");
+		if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE))
+			vty_out(vty,
+				"   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
+				oi->hello_interval, oi->thread_send_hello,
+				oi->dead_interval, oi->rxmt_interval);
+		else
+			vty_out(vty, "   No Hellos (Passive interface)\n");
+	}
 
 	inet_ntop(AF_INET, &oi->drouter, drouter, sizeof(drouter));
 	inet_ntop(AF_INET, &oi->bdrouter, bdrouter, sizeof(bdrouter));
-	vty_out(vty, "  DR: %s BDR: %s\n", drouter, bdrouter);
-
-	vty_out(vty, "  Number of I/F scoped LSAs is %u\n", oi->lsdb->count);
+	if (use_json) {
+		json_object_string_add(json_obj, "dr", drouter);
+		json_object_string_add(json_obj, "bdr", bdrouter);
+		json_object_int_add(json_obj, "numberOfInterfaceScopedLsa",
+				    oi->lsdb->count);
+	} else {
+		vty_out(vty, "  DR: %s BDR: %s\n", drouter, bdrouter);
+		vty_out(vty, "  Number of I/F scoped LSAs is %u\n",
+			oi->lsdb->count);
+	}
 
 	monotime(&now);
 
-	timerclear(&res);
-	if (oi->thread_send_lsupdate)
-		timersub(&oi->thread_send_lsupdate->u.sands, &now, &res);
-	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty,
-		"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
-		oi->lsupdate_list->count, duration,
-		(oi->thread_send_lsupdate ? "on" : "off"));
-	for (ALL_LSDB(oi->lsupdate_list, lsa))
-		vty_out(vty, "      %s\n", lsa->name);
+	if (use_json) {
+		timerclear(&res);
+		if (event_is_scheduled(oi->thread_send_lsupdate))
+			timersub(&oi->thread_send_lsupdate->u.sands, &now,
+				 &res);
+		timerstring(&res, duration, sizeof(duration));
+		json_object_int_add(json_obj, "pendingLsaLsUpdateCount",
+				    oi->lsupdate_list->count);
+		json_object_string_add(json_obj, "pendingLsaLsUpdateTime",
+				       duration);
+		json_object_string_add(
+			json_obj, "lsUpdateSendThread",
+			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
+								      : "off"));
 
-	timerclear(&res);
-	if (oi->thread_send_lsack)
-		timersub(&oi->thread_send_lsack->u.sands, &now, &res);
-	timerstring(&res, duration, sizeof(duration));
-	vty_out(vty, "    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
-		oi->lsack_list->count, duration,
-		(oi->thread_send_lsack ? "on" : "off"));
-	for (ALL_LSDB(oi->lsack_list, lsa))
-		vty_out(vty, "      %s\n", lsa->name);
-	ospf6_bfd_show_info(vty, oi->bfd_info, 1);
+		json_arr = json_object_new_array();
+		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
+			json_object_array_add(
+				json_arr, json_object_new_string(lsa->name));
+		json_object_object_add(json_obj, "pendingLsaLsUpdate",
+				       json_arr);
+
+		timerclear(&res);
+		if (event_is_scheduled(oi->thread_send_lsack))
+			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+
+		json_object_int_add(json_obj, "pendingLsaLsAckCount",
+				    oi->lsack_list->count);
+		json_object_string_add(json_obj, "pendingLsaLsAckTime",
+				       duration);
+		json_object_string_add(
+			json_obj, "lsAckSendThread",
+			(event_is_scheduled(oi->thread_send_lsack) ? "on"
+								   : "off"));
+
+		json_arr = json_object_new_array();
+		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
+			json_object_array_add(
+				json_arr, json_object_new_string(lsa->name));
+		json_object_object_add(json_obj, "pendingLsaLsAck", json_arr);
+
+	} else {
+		timerclear(&res);
+		if (event_is_scheduled(oi->thread_send_lsupdate))
+			timersub(&oi->thread_send_lsupdate->u.sands, &now,
+				 &res);
+		timerstring(&res, duration, sizeof(duration));
+		vty_out(vty,
+			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
+			oi->lsupdate_list->count, duration,
+			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
+								      : "off"));
+		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+
+		timerclear(&res);
+		if (event_is_scheduled(oi->thread_send_lsack))
+			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
+		timerstring(&res, duration, sizeof(duration));
+		vty_out(vty,
+			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
+			oi->lsack_list->count, duration,
+			(event_is_scheduled(oi->thread_send_lsack) ? "on"
+								   : "off"));
+		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
+			vty_out(vty, "      %s\n", lsa->name);
+	}
+
+	/* BFD specific. */
+	if (oi->bfd_config.enabled) {
+		if (use_json) {
+			struct json_object *json_bfd = json_object_new_object();
+
+			json_object_int_add(
+				json_bfd, "detectMultiplier",
+				oi->bfd_config.detection_multiplier);
+			json_object_int_add(json_bfd, "rxMinInterval",
+					    oi->bfd_config.min_rx);
+			json_object_int_add(json_bfd, "txMinInterval",
+					    oi->bfd_config.min_tx);
+			json_object_object_add(json_obj, "peerBfdInfo",
+					       json_bfd);
+		} else {
+			vty_out(vty,
+				"  BFD: Detect Multiplier: %d, Min Rx interval: %d, Min Tx interval: %d\n",
+				oi->bfd_config.detection_multiplier,
+				oi->bfd_config.min_rx, oi->bfd_config.min_tx);
+		}
+	}
+
+	if (use_json)
+		json_auth = json_object_new_object();
+	if (oi->at_data.flags != 0) {
+		if (use_json) {
+			if (CHECK_FLAG(oi->at_data.flags,
+				       OSPF6_AUTH_TRAILER_KEYCHAIN)) {
+				json_object_string_add(json_auth, "authType",
+						       "keychain");
+				json_object_string_add(json_auth,
+						       "keychainName",
+						       oi->at_data.keychain);
+			} else if (CHECK_FLAG(oi->at_data.flags,
+					      OSPF6_AUTH_TRAILER_MANUAL_KEY))
+				json_object_string_add(json_auth, "authType",
+						       "manualkey");
+			json_object_int_add(json_auth, "txPktDrop",
+					    oi->at_data.tx_drop);
+			json_object_int_add(json_auth, "rxPktDrop",
+					    oi->at_data.rx_drop);
+		} else {
+			if (CHECK_FLAG(oi->at_data.flags,
+				       OSPF6_AUTH_TRAILER_KEYCHAIN))
+				vty_out(vty,
+					"  Authentication Trailer is enabled with key-chain %s\n",
+					oi->at_data.keychain);
+			else if (CHECK_FLAG(oi->at_data.flags,
+					    OSPF6_AUTH_TRAILER_MANUAL_KEY))
+				vty_out(vty,
+					"  Authentication trailer is enabled with manual key\n");
+			vty_out(vty,
+				"    Packet drop Tx %u, Packet drop Rx %u\n",
+				oi->at_data.tx_drop, oi->at_data.rx_drop);
+		}
+	} else {
+		if (use_json)
+			json_object_string_add(json_auth, "authType", "NULL");
+		else
+			vty_out(vty, "  Authentication Trailer is disabled\n");
+	}
+
+	if (use_json)
+		json_object_object_add(json_obj, "authInfo", json_auth);
+
 	return 0;
 }
 
-/* show interface */
-DEFUN (show_ipv6_ospf6_interface,
-       show_ipv6_ospf6_interface_ifname_cmd,
-       "show ipv6 ospf6 interface [IFNAME]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR)
+/* Find the global address to be used as a forwarding address in NSSA LSA.*/
+struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	int idx_ifname = 4;
-	struct interface *ifp;
+	struct listnode *n;
+	struct connected *c;
 
-	if (argc == 5) {
-		ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
-		if (ifp == NULL) {
-			vty_out(vty, "No such Interface: %s\n",
-				argv[idx_ifname]->arg);
-			return CMD_WARNING;
-		}
-		ospf6_interface_show(vty, ifp);
-	} else {
-		FOR_ALL_INTERFACES (vrf, ifp)
-			ospf6_interface_show(vty, ifp);
+	/* for each connected address */
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+		/* if family not AF_INET6, ignore */
+		if (c->address->family != AF_INET6)
+			continue;
+
+		if (!IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+			return &c->address->u.prefix6;
 	}
+
+	return NULL;
+}
+
+
+static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
+				       int argc, struct cmd_token **argv,
+				       int idx_ifname, int intf_idx,
+				       int json_idx, bool uj)
+{
+
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface *ifp;
+	json_object *json;
+	json_object *json_int;
+
+	if (uj) {
+		json = json_object_new_object();
+		if (argc == json_idx) {
+			ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
+			json_int = json_object_new_object();
+			if (ifp == NULL) {
+				json_object_string_add(json, "noSuchInterface",
+						       argv[idx_ifname]->arg);
+				vty_json(vty, json);
+				json_object_free(json_int);
+				return CMD_WARNING;
+			}
+			ospf6_interface_show(vty, ifp, json_int, uj);
+			json_object_object_add(json, ifp->name, json_int);
+		} else {
+			FOR_ALL_INTERFACES (vrf, ifp) {
+				json_int = json_object_new_object();
+				ospf6_interface_show(vty, ifp, json_int, uj);
+				json_object_object_add(json, ifp->name,
+						       json_int);
+			}
+		}
+		vty_json(vty, json);
+	} else {
+		if (argc == intf_idx) {
+			ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
+			if (ifp == NULL) {
+				vty_out(vty, "No such Interface: %s\n",
+					argv[idx_ifname]->arg);
+				return CMD_WARNING;
+			}
+			ospf6_interface_show(vty, ifp, NULL, uj);
+		} else {
+			FOR_ALL_INTERFACES (vrf, ifp)
+				ospf6_interface_show(vty, ifp, NULL, uj);
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+/* show interface */
+DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface [IFNAME] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR IFNAME_STR JSON_STR)
+{
+	int idx_ifname = 4;
+	int intf_idx = 5;
+	int json_idx = 6;
+	struct listnode *node;
+	struct ospf6 *ospf6;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0) {
+		idx_ifname += 2;
+		intf_idx += 2;
+		json_idx += 2;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			show_ospf6_interface_common(vty, ospf6->vrf_id, argc,
+						    argv, idx_ifname, intf_idx,
+						    json_idx, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
 
-static int ospf6_interface_show_traffic(struct vty *vty, uint32_t vrf_id,
+static int ospf6_interface_show_traffic(struct vty *vty,
 					struct interface *intf_ifp,
-					int display_once)
+					int display_once, json_object *json,
+					bool use_json, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct vrf *vrf = NULL;
 	struct ospf6_interface *oi = NULL;
+	json_object *json_interface;
 
-	vrf = vrf_lookup_by_id(vrf_id);
-
-	if (!display_once) {
+	if (!display_once && !use_json) {
 		vty_out(vty, "\n");
 		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n", "Interface",
 			"    HELLO", "    DB-Desc", "   LS-Req", "   LS-Update",
@@ -1045,152 +1408,425 @@ static int ospf6_interface_show_traffic(struct vty *vty, uint32_t vrf_id,
 	}
 
 	if (intf_ifp == NULL) {
+		vrf = vrf_lookup_by_id(vrf_id);
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (ifp->info)
 				oi = (struct ospf6_interface *)ifp->info;
 			else
 				continue;
 
-			vty_out(vty,
-				"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
-				oi->interface->name, oi->hello_in,
-				oi->hello_out, oi->db_desc_in, oi->db_desc_out,
-				oi->ls_req_in, oi->ls_req_out, oi->ls_upd_in,
-				oi->ls_upd_out, oi->ls_ack_in, oi->ls_ack_out);
+			if (use_json) {
+				json_interface = json_object_new_object();
+				json_object_int_add(json_interface, "helloRx",
+						    oi->hello_in);
+				json_object_int_add(json_interface, "helloTx",
+						    oi->hello_out);
+				json_object_int_add(json_interface, "dbDescRx",
+						    oi->db_desc_in);
+				json_object_int_add(json_interface, "dbDescTx",
+						    oi->db_desc_out);
+				json_object_int_add(json_interface, "lsReqRx",
+						    oi->ls_req_in);
+				json_object_int_add(json_interface, "lsReqTx",
+						    oi->ls_req_out);
+				json_object_int_add(json_interface,
+						    "lsUpdateRx",
+						    oi->ls_upd_in);
+				json_object_int_add(json_interface,
+						    "lsUpdateTx",
+						    oi->ls_upd_out);
+				json_object_int_add(json_interface, "lsAckRx",
+						    oi->ls_ack_in);
+				json_object_int_add(json_interface, "lsAckTx",
+						    oi->ls_ack_out);
+
+				json_object_object_add(json,
+						       oi->interface->name,
+						       json_interface);
+			} else
+				vty_out(vty,
+					"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+					oi->interface->name, oi->hello_in,
+					oi->hello_out, oi->db_desc_in,
+					oi->db_desc_out, oi->ls_req_in,
+					oi->ls_req_out, oi->ls_upd_in,
+					oi->ls_upd_out, oi->ls_ack_in,
+					oi->ls_ack_out);
 		}
 	} else {
 		oi = intf_ifp->info;
 		if (oi == NULL)
 			return CMD_WARNING;
 
-		vty_out(vty,
-			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
-			oi->interface->name, oi->hello_in, oi->hello_out,
-			oi->db_desc_in, oi->db_desc_out, oi->ls_req_in,
-			oi->ls_req_out, oi->ls_upd_in, oi->ls_upd_out,
-			oi->ls_ack_in, oi->ls_ack_out);
+		if (use_json) {
+			json_interface = json_object_new_object();
+			json_object_int_add(json_interface, "helloRx",
+					    oi->hello_in);
+			json_object_int_add(json_interface, "helloTx",
+					    oi->hello_out);
+			json_object_int_add(json_interface, "dbDescRx",
+					    oi->db_desc_in);
+			json_object_int_add(json_interface, "dbDescTx",
+					    oi->db_desc_out);
+			json_object_int_add(json_interface, "lsReqRx",
+					    oi->ls_req_in);
+			json_object_int_add(json_interface, "lsReqTx",
+					    oi->ls_req_out);
+			json_object_int_add(json_interface, "lsUpdateRx",
+					    oi->ls_upd_in);
+			json_object_int_add(json_interface, "lsUpdateTx",
+					    oi->ls_upd_out);
+			json_object_int_add(json_interface, "lsAckRx",
+					    oi->ls_ack_in);
+			json_object_int_add(json_interface, "lsAckTx",
+					    oi->ls_ack_out);
+
+			json_object_object_add(json, oi->interface->name,
+					       json_interface);
+		} else
+			vty_out(vty,
+				"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+				oi->interface->name, oi->hello_in,
+				oi->hello_out, oi->db_desc_in, oi->db_desc_out,
+				oi->ls_req_in, oi->ls_req_out, oi->ls_upd_in,
+				oi->ls_upd_out, oi->ls_ack_in, oi->ls_ack_out);
 	}
 
 	return CMD_SUCCESS;
 }
 
-/* show interface */
-DEFUN (show_ipv6_ospf6_interface_traffic,
-       show_ipv6_ospf6_interface_traffic_cmd,
-       "show ipv6 ospf6 interface traffic [IFNAME]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Protocol Packet counters\n"
-       IFNAME_STR)
+static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
+					       struct cmd_token **argv,
+					       vrf_id_t vrf_id, bool uj)
 {
 	int idx_ifname = 0;
 	int display_once = 0;
 	char *intf_name = NULL;
 	struct interface *ifp = NULL;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	if (argv_find(argv, argc, "IFNAME", &idx_ifname)) {
 		intf_name = argv[idx_ifname]->arg;
-		ifp = if_lookup_by_name(intf_name, VRF_DEFAULT);
-		if (ifp == NULL) {
-			vty_out(vty, "No such Interface: %s\n", intf_name);
-			return CMD_WARNING;
-		}
-		if (ifp->info == NULL) {
-			vty_out(vty,
-				"   OSPF not enabled on this interface %s\n",
-				intf_name);
-			return 0;
+		ifp = if_lookup_by_name(intf_name, vrf_id);
+		if (uj) {
+			if (ifp == NULL) {
+				json_object_string_add(json, "status",
+						       "No Such Interface");
+				json_object_string_add(json, "interface",
+						       intf_name);
+				vty_json(vty, json);
+				return CMD_WARNING;
+			}
+			if (ifp->info == NULL) {
+				json_object_string_add(
+					json, "status",
+					"OSPF not enabled on this interface");
+				json_object_string_add(json, "interface",
+						       intf_name);
+				vty_json(vty, json);
+				return 0;
+			}
+		} else {
+			if (ifp == NULL) {
+				vty_out(vty, "No such Interface: %s\n",
+					intf_name);
+				return CMD_WARNING;
+			}
+			if (ifp->info == NULL) {
+				vty_out(vty,
+					"   OSPF not enabled on this interface %s\n",
+					intf_name);
+				return 0;
+			}
 		}
 	}
 
-	ospf6_interface_show_traffic(vty, VRF_DEFAULT, ifp, display_once);
+	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj, vrf_id);
 
+	if (uj)
+		vty_json(vty, json);
+
+	return CMD_SUCCESS;
+}
+
+/* show interface */
+DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface traffic [IFNAME] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR
+      "Protocol Packet counters\n" IFNAME_STR JSON_STR)
+{
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ospf6_interface_show_traffic_common(vty, argc, argv,
+							    ospf6->vrf_id, uj);
+
+			if (!all_vrf)
+				break;
+		}
+	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
 
 
-DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
-       show_ipv6_ospf6_interface_ifname_prefix_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix\
+DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
+      show_ipv6_ospf6_interface_ifname_prefix_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface IFNAME prefix\
           [<\
 	    detail\
 	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
-	  >]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       "Display details of the prefixes\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n")
+	  >] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR IFNAME_STR
+      "Display connected prefixes to advertise\n"
+      "Display details of the prefixes\n" OSPF6_ROUTE_ADDRESS_STR
+	      OSPF6_ROUTE_PREFIX_STR OSPF6_ROUTE_MATCH_STR
+      "Display details of the prefixes\n" JSON_STR)
 {
 	int idx_ifname = 4;
 	int idx_prefix = 6;
-	struct interface *ifp;
 	struct ospf6_interface *oi;
+	bool uj = use_json(argc, argv);
 
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
-	if (ifp == NULL) {
-		vty_out(vty, "No such Interface: %s\n", argv[idx_ifname]->arg);
-		return CMD_WARNING;
+	struct ospf6 *ospf6;
+	struct listnode *node;
+	struct interface *ifp;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
+
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0) {
+		idx_ifname += 2;
+		idx_prefix += 2;
 	}
 
-	oi = ifp->info;
-	if (oi == NULL) {
-		vty_out(vty, "OSPFv3 is not enabled on %s\n",
-			argv[idx_ifname]->arg);
-		return CMD_WARNING;
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
+						ospf6->vrf_id);
+			if (ifp == NULL) {
+				vty_out(vty, "No such Interface: %s\n",
+					argv[idx_ifname]->arg);
+				return CMD_WARNING;
+			}
+
+			oi = ifp->info;
+			if (oi == NULL
+			    || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
+				vty_out(vty,
+					"Interface %s not attached to area\n",
+					argv[idx_ifname]->arg);
+				return CMD_WARNING;
+			}
+
+			ospf6_route_table_show(vty, idx_prefix, argc, argv,
+					       oi->route_connected, uj);
+
+			if (!all_vrf)
+				break;
+		}
 	}
 
-	ospf6_route_table_show(vty, idx_prefix, argc, argv,
-			       oi->route_connected);
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_interface_prefix,
-       show_ipv6_ospf6_interface_prefix_cmd,
-       "show ipv6 ospf6 interface prefix\
+DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface prefix\
           [<\
 	    detail\
 	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
-	  >]",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Display connected prefixes to advertise\n"
-       "Display details of the prefixes\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n")
+	  >] [json]",
+      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
+      "All VRFs\n" INTERFACE_STR
+      "Display connected prefixes to advertise\n"
+      "Display details of the prefixes\n" OSPF6_ROUTE_ADDRESS_STR
+	      OSPF6_ROUTE_PREFIX_STR OSPF6_ROUTE_MATCH_STR
+      "Display details of the prefixes\n" JSON_STR)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = NULL;
 	int idx_prefix = 5;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
+	bool uj = use_json(argc, argv);
+	struct listnode *node;
+	struct ospf6 *ospf6;
+	const char *vrf_name = NULL;
+	bool all_vrf = false;
+	int idx_vrf = 0;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		oi = (struct ospf6_interface *)ifp->info;
-		if (oi == NULL)
-			continue;
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (idx_vrf > 0)
+		idx_prefix += 2;
 
-		ospf6_route_table_show(vty, idx_prefix, argc, argv,
-				       oi->route_connected);
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+			vrf = vrf_lookup_by_id(ospf6->vrf_id);
+			FOR_ALL_INTERFACES (vrf, ifp) {
+				oi = (struct ospf6_interface *)ifp->info;
+				if (oi == NULL
+				    || CHECK_FLAG(oi->flag,
+						  OSPF6_INTERFACE_DISABLE))
+					continue;
+
+				ospf6_route_table_show(vty, idx_prefix, argc,
+						       argv,
+						       oi->route_connected, uj);
+			}
+			if (!all_vrf)
+				break;
+		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
 
+void ospf6_interface_start(struct ospf6_interface *oi)
+{
+	struct ospf6 *ospf6;
+	struct ospf6_area *oa;
+
+	if (oi->area_id_format == OSPF6_AREA_FMT_UNSET)
+		return;
+
+	if (oi->area) {
+		/* Recompute cost */
+		ospf6_interface_recalculate_cost(oi);
+		return;
+	}
+
+	ospf6 = oi->interface->vrf->info;
+	if (!ospf6)
+		return;
+
+	oa = ospf6_area_lookup(oi->area_id, ospf6);
+	if (oa == NULL)
+		oa = ospf6_area_create(oi->area_id, ospf6, oi->area_id_format);
+
+	/* attach interface to area */
+	listnode_add(oa->if_list, oi);
+	oi->area = oa;
+
+	SET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
+
+	/* start up */
+	ospf6_interface_enable(oi);
+
+	/* If the router is ABR, originate summary routes */
+	if (ospf6_check_and_set_router_abr(ospf6)) {
+		ospf6_abr_enable_area(oa);
+		ospf6_schedule_abr_task(ospf6);
+	}
+}
+
+void ospf6_interface_stop(struct ospf6_interface *oi)
+{
+	struct ospf6_area *oa;
+
+	oa = oi->area;
+	if (!oa)
+		return;
+
+	ospf6_interface_disable(oi);
+
+	listnode_delete(oa->if_list, oi);
+	oi->area = NULL;
+
+	if (oa->if_list->count == 0) {
+		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
+		ospf6_abr_disable_area(oa);
+	}
+}
+
 /* interface variable set command */
+DEFUN (ipv6_ospf6_area,
+       ipv6_ospf6_area_cmd,
+       "ipv6 ospf6 area <A.B.C.D|(0-4294967295)>",
+       IP6_STR
+       OSPF6_STR
+       "Specify the OSPF6 area ID\n"
+       "OSPF6 area ID in IPv4 address notation\n"
+       "OSPF6 area ID in decimal notation\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+	int idx_ipv4 = 3;
+	uint32_t area_id;
+	int format;
+
+	assert(ifp);
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+
+	if (oi->area) {
+		vty_out(vty, "%s already attached to Area %s\n",
+			oi->interface->name, oi->area->name);
+		return CMD_SUCCESS;
+	}
+
+	if (str2area_id(argv[idx_ipv4]->arg, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", argv[idx_ipv4]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	oi->area_id = area_id;
+	oi->area_id_format = format;
+
+	ospf6_interface_start(oi);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_ospf6_area,
+       no_ipv6_ospf6_area_cmd,
+       "no ipv6 ospf6 area [<A.B.C.D|(0-4294967295)>]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Specify the OSPF6 area ID\n"
+       "OSPF6 area ID in IPv4 address notation\n"
+       "OSPF6 area ID in decimal notation\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+
+	assert(ifp);
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	assert(oi);
+
+	ospf6_interface_stop(oi);
+
+	oi->area_id = 0;
+	oi->area_id_format = OSPF6_AREA_FMT_UNSET;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_ifmtu,
        ipv6_ospf6_ifmtu_cmd,
        "ipv6 ospf6 ifmtu (1-65535)",
@@ -1240,8 +1876,8 @@ DEFUN (ipv6_ospf6_ifmtu,
 
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -1286,8 +1922,8 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -1320,12 +1956,11 @@ DEFUN (ipv6_ospf6_cost,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
 	if (oi->cost == lcost)
 		return CMD_SUCCESS;
 
 	oi->cost = lcost;
-	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
-
 	ospf6_interface_force_recalculate_cost(oi);
 
 	return CMD_SUCCESS;
@@ -1413,6 +2048,38 @@ DEFUN (no_auto_cost_reference_bandwidth,
 }
 
 
+DEFUN (ospf6_write_multiplier,
+       ospf6_write_multiplier_cmd,
+       "write-multiplier (1-100)",
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	uint32_t write_oi_count;
+
+	write_oi_count = strtol(argv[1]->arg, NULL, 10);
+	if (write_oi_count < 1 || write_oi_count > 100) {
+		vty_out(vty, "write-multiplier value is invalid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	o->write_oi_count = write_oi_count;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_write_multiplier,
+       no_ospf6_write_multiplier_cmd,
+       "no write-multiplier (1-100)",
+       NO_STR
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+
+	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
+	return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
        "ipv6 ospf6 hello-interval (1-65535)",
@@ -1434,6 +2101,16 @@ DEFUN (ipv6_ospf6_hellointerval,
 	oi->hello_interval = strmatch(argv[0]->text, "no")
 				     ? OSPF_HELLO_INTERVAL_DEFAULT
 				     : strtoul(argv[idx_number]->arg, NULL, 10);
+
+	/*
+	 * If the thread is scheduled, send the new hello now.
+	 */
+	if (event_is_scheduled(oi->thread_send_hello)) {
+		EVENT_OFF(oi->thread_send_hello);
+
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -1571,10 +2248,13 @@ DEFUN (ipv6_ospf6_priority,
 			       ? OSPF6_INTERFACE_PRIORITY
 			       : strtoul(argv[idx_number]->arg, NULL, 10);
 
-	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER
-			 || oi->state == OSPF6_INTERFACE_BDR
-			 || oi->state == OSPF6_INTERFACE_DR))
-		ospf6_interface_state_change(dr_election(oi), oi);
+	if (oi->area
+	    && (oi->state == OSPF6_INTERFACE_DROTHER
+		|| oi->state == OSPF6_INTERFACE_BDR
+		|| oi->state == OSPF6_INTERFACE_DR)) {
+		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
+			OSPF6_LINK_LSA_SCHEDULE(oi);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1642,12 +2322,12 @@ DEFUN (ipv6_ospf6_passive,
 	assert(oi);
 
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_sso);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_sso);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -1672,10 +2352,13 @@ DEFUN (no_ipv6_ospf6_passive,
 	assert(oi);
 
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
-	THREAD_OFF(oi->thread_send_hello);
-	THREAD_OFF(oi->thread_sso);
-	thread_add_event(master, ospf6_hello_send, oi, 0,
-			 &oi->thread_send_hello);
+	EVENT_OFF(oi->thread_send_hello);
+	EVENT_OFF(oi->thread_sso);
+
+	/* don't send hellos over loopback interface */
+	if (!if_is_loopback(oi->interface))
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 
 	return CMD_SUCCESS;
 }
@@ -1835,8 +2518,8 @@ DEFUN (ipv6_ospf6_network,
 	}
 
 	/* Reset the interface */
-	thread_execute(master, interface_down, oi, 0);
-	thread_execute(master, interface_up, oi, 0);
+	event_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1871,27 +2554,32 @@ DEFUN (no_ipv6_ospf6_network,
 	oi->type = type;
 
 	/* Reset the interface */
-	thread_execute(master, interface_down, oi, 0);
-	thread_execute(master, interface_up, oi, 0);
+	event_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
 
-static int config_write_ospf6_interface(struct vty *vty)
+static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct ospf6_interface *oi;
 	struct interface *ifp;
+	char buf[INET_ADDRSTRLEN];
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		oi = (struct ospf6_interface *)ifp->info;
 		if (oi == NULL)
 			continue;
 
-		vty_frame(vty, "interface %s\n", oi->interface->name);
+		if_vty_config_start(vty, ifp);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
+		if (oi->area_id_format != OSPF6_AREA_FMT_UNSET) {
+			area_id2str(buf, sizeof(buf), oi->area_id,
+				    oi->area_id_format);
+			vty_out(vty, " ipv6 ospf6 area %s\n", buf);
+		}
 		if (oi->c_ifmtu)
 			vty_out(vty, " ipv6 ospf6 ifmtu %d\n", oi->c_ifmtu);
 
@@ -1938,21 +2626,34 @@ static int config_write_ospf6_interface(struct vty *vty)
 
 		ospf6_bfd_write_config(vty, oi);
 
-		vty_endframe(vty, "!\n");
+		ospf6_auth_write_config(vty, &oi->at_data);
+		if_vty_config_end(vty);
 	}
 	return 0;
 }
 
-static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
-};
+/* Configuration write function for ospfd. */
+static int config_write_interface(struct vty *vty)
+{
+	int write = 0;
+	struct vrf *vrf = NULL;
+
+	/* Display all VRF aware OSPF interface configuration */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		write += config_write_ospf6_interface(vty, vrf);
+	}
+
+	return write;
+}
 
 static int ospf6_ifp_create(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface add: %s index %d mtu %d", ifp->name,
 			   ifp->ifindex, ifp->mtu6);
-	ospf6_interface_if_add(ifp);
+
+	if (ifp->info)
+		ospf6_interface_start(ifp->info);
 
 	return 0;
 }
@@ -1961,8 +2662,7 @@ static int ospf6_ifp_up(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
-			"Zebra Interface state change: "
-			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			"Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6, ifp->bandwidth);
 
@@ -1975,8 +2675,7 @@ static int ospf6_ifp_down(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
-			"Zebra Interface state change: "
-			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			"Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6, ifp->bandwidth);
 
@@ -1995,14 +2694,16 @@ static int ospf6_ifp_destroy(struct interface *ifp)
 		zlog_debug("Zebra Interface delete: %s index %d mtu %d",
 			   ifp->name, ifp->ifindex, ifp->mtu6);
 
+	if (ifp->info)
+		ospf6_interface_stop(ifp->info);
+
 	return 0;
 }
 
 void ospf6_interface_init(void)
 {
 	/* Install interface node. */
-	install_node(&interface_node, config_write_ospf6_interface);
-	if_cmd_init();
+	if_cmd_init(config_write_interface);
 	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
 			  ospf6_ifp_down, ospf6_ifp_destroy);
 
@@ -2012,6 +2713,8 @@ void ospf6_interface_init(void)
 			&show_ipv6_ospf6_interface_ifname_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_traffic_cmd);
 
+	install_element(INTERFACE_NODE, &ipv6_ospf6_area_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_area_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_cost_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_cost_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_ifmtu_cmd);
@@ -2046,10 +2749,13 @@ void ospf6_interface_init(void)
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
 	install_element(OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
+	/* write-multiplier commands */
+	install_element(OSPF6_NODE, &ospf6_write_multiplier_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_write_multiplier_cmd);
 }
 
 /* Clear the specified interface structure */
-static void ospf6_interface_clear(struct vty *vty, struct interface *ifp)
+void ospf6_interface_clear(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
 
@@ -2065,39 +2771,51 @@ static void ospf6_interface_clear(struct vty *vty, struct interface *ifp)
 		zlog_debug("Interface %s: clear by reset", ifp->name);
 
 	/* Reset the interface */
-	thread_execute(master, interface_down, oi, 0);
-	thread_execute(master, interface_up, oi, 0);
+	event_execute(master, interface_down, oi, 0);
+	event_execute(master, interface_up, oi, 0);
 }
 
 /* Clear interface */
 DEFUN (clear_ipv6_ospf6_interface,
        clear_ipv6_ospf6_interface_cmd,
-       "clear ipv6 ospf6 interface [IFNAME]",
+       "clear ipv6 ospf6 [vrf NAME] interface [IFNAME]",
        CLEAR_STR
        IP6_STR
        OSPF6_STR
+       VRF_CMD_HELP_STR
        INTERFACE_STR
        IFNAME_STR
        )
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
+	int idx_vrf = 3;
 	int idx_ifname = 4;
 	struct interface *ifp;
+	const char *vrf_name;
 
-	if (argc == 4) /* Clear all the ospfv3 interfaces. */
-	{
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "%% VRF %s not found\n", vrf_name);
+		return CMD_WARNING;
+	}
+
+	if (!argv_find(argv, argc, "IFNAME", &idx_ifname)) {
+		/* Clear all the ospfv3 interfaces. */
 		FOR_ALL_INTERFACES (vrf, ifp)
-			ospf6_interface_clear(vty, ifp);
-	} else /* Interface name is specified. */
-	{
-		if ((ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-					     VRF_DEFAULT))
-		    == NULL) {
+			ospf6_interface_clear(ifp);
+	} else {
+		/* Interface name is specified. */
+		ifp = if_lookup_by_name_vrf(argv[idx_ifname]->arg, vrf);
+		if (!ifp) {
 			vty_out(vty, "No such Interface: %s\n",
 				argv[idx_ifname]->arg);
 			return CMD_WARNING;
 		}
-		ospf6_interface_clear(vty, ifp);
+		ospf6_interface_clear(ifp);
 	}
 
 	return CMD_SUCCESS;
@@ -2146,4 +2864,196 @@ void install_element_ospf6_debug_interface(void)
 	install_element(ENABLE_NODE, &no_debug_ospf6_interface_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_interface_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_interface_cmd);
+}
+
+void ospf6_auth_write_config(struct vty *vty, struct ospf6_auth_data *at_data)
+{
+	if (CHECK_FLAG(at_data->flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		vty_out(vty, " ipv6 ospf6 authentication keychain %s\n",
+			at_data->keychain);
+	else if (CHECK_FLAG(at_data->flags, OSPF6_AUTH_TRAILER_MANUAL_KEY))
+		vty_out(vty,
+			" ipv6 ospf6 authentication key-id %d hash-algo %s key %s\n",
+			at_data->key_id,
+			keychain_get_algo_name_by_id(at_data->hash_algo),
+			at_data->auth_key);
+}
+
+DEFUN(ipv6_ospf6_intf_auth_trailer_keychain,
+      ipv6_ospf6_intf_auth_trailer_keychain_cmd,
+      "ipv6 ospf6 authentication keychain KEYCHAIN_NAME",
+      IP6_STR OSPF6_STR
+      "Enable authentication on this interface\n"
+      "Keychain\n"
+      "Keychain name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int keychain_idx = 4;
+	struct ospf6_interface *oi;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY)) {
+		vty_out(vty,
+			"Manual key configured, unconfigure it before configuring key chain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN);
+	if (oi->at_data.keychain)
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+
+	oi->at_data.keychain =
+		XSTRDUP(MTYPE_OSPF6_AUTH_KEYCHAIN, argv[keychain_idx]->arg);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_intf_auth_trailer_keychain,
+      no_ipv6_ospf6_intf_auth_trailer_keychain_cmd,
+      "no ipv6 ospf6 authentication keychain [KEYCHAIN_NAME]",
+      NO_STR IP6_STR OSPF6_STR
+      "Enable authentication on this interface\n"
+      "Keychain\n"
+      "Keychain name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (!CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		return CMD_SUCCESS;
+
+	if (oi->at_data.keychain) {
+		oi->at_data.flags = 0;
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+		oi->at_data.keychain = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(ipv6_ospf6_intf_auth_trailer_key, ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "ipv6 ospf6 authentication key-id (1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD",
+      IP6_STR OSPF6_STR
+      "Authentication\n"
+      "Key ID\n"
+      "Key ID value\n"
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n"
+      "Password\n"
+      "Password string (key)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int key_id_idx = 4;
+	int hash_algo_idx = 6;
+	int password_idx = 8;
+	struct ospf6_interface *oi;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN)) {
+		vty_out(vty,
+			"key chain configured, unconfigure it before configuring manual key\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	hash_algo = keychain_get_algo_id_by_name(argv[hash_algo_idx]->arg);
+#ifndef CRYPTO_OPENSSL
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY);
+	oi->at_data.hash_algo = hash_algo;
+	oi->at_data.key_id = (uint16_t)strtol(argv[key_id_idx]->arg, NULL, 10);
+	if (oi->at_data.auth_key)
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+	oi->at_data.auth_key =
+		XSTRDUP(MTYPE_OSPF6_AUTH_MANUAL_KEY, argv[password_idx]->arg);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_intf_auth_trailer_key,
+      no_ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "no ipv6 ospf6 authentication key-id [(1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD]",
+      NO_STR IP6_STR OSPF6_STR
+      "Authentication\n"
+      "Key ID\n"
+      "Key ID value\n"
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n"
+      "Password\n"
+      "Password string (key)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+#ifndef CRYPTO_OPENSSL
+	int hash_algo_idx = 7;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+#endif /* CRYPTO_OPENSSL */
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (!CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY))
+		return CMD_SUCCESS;
+
+#ifndef CRYPTO_OPENSSL
+	hash_algo = keychain_get_algo_id_by_name(argv[hash_algo_idx]->arg);
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+
+	if (oi->at_data.auth_key) {
+		oi->at_data.flags = 0;
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+		oi->at_data.auth_key = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+void ospf6_interface_auth_trailer_cmd_init(void)
+{
+	/*Install OSPF6 auth trailer commands at interface level */
+	install_element(INTERFACE_NODE,
+			&ipv6_ospf6_intf_auth_trailer_keychain_cmd);
+	install_element(INTERFACE_NODE,
+			&no_ipv6_ospf6_intf_auth_trailer_keychain_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_intf_auth_trailer_key_cmd);
+	install_element(INTERFACE_NODE,
+			&no_ipv6_ospf6_intf_auth_trailer_key_cmd);
 }

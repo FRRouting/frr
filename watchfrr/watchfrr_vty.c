@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * watchfrr CLI functions.
  *
  * Copyright (C) 2016  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -23,6 +10,7 @@
 
 #include "memory.h"
 #include "log.h"
+#include "log_vty.h"
 #include "vty.h"
 #include "command.h"
 
@@ -104,7 +92,10 @@ DEFUN(config_write_integrated,
 
 	/* don't allow the user to pass parameters, we're root here!
 	 * should probably harden vtysh at some point too... */
-	execl(VTYSH_BIN_PATH, "vtysh", "-w", NULL);
+	if (pathspace)
+		execl(VTYSH_BIN_PATH, "vtysh", "-N", pathspace, "-w", NULL);
+	else
+		execl(VTYSH_BIN_PATH, "vtysh", "-w", NULL);
 
 	/* unbuffered write; we just messed with stdout... */
 	char msg[512];
@@ -121,6 +112,8 @@ DEFUN_NOSH (show_debugging_watchfrr,
             DEBUG_STR
             WATCHFRR_STR)
 {
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 
@@ -134,9 +127,20 @@ DEFUN (show_watchfrr,
 	return CMD_SUCCESS;
 }
 
-#ifndef VTYSH_EXTRACT_PL
+/* we don't have the other logging commands since watchfrr only accepts
+ * log config through command line options
+ */
+DEFUN_NOSH (show_logging,
+	    show_logging_cmd,
+	    "show logging",
+	    SHOW_STR
+	    "Show current logging configuration\n")
+{
+	log_show_syslog(vty);
+	return CMD_SUCCESS;
+}
+
 #include "watchfrr/watchfrr_vty_clippy.c"
-#endif
 
 DEFPY (watchfrr_ignore_daemon,
        watchfrr_ignore_daemon_cmd,
@@ -190,4 +194,5 @@ void watchfrr_vty_init(void)
 
 	install_element(CONFIG_NODE, &show_debugging_watchfrr_cmd);
 	install_element(VIEW_NODE, &show_watchfrr_cmd);
+	install_element(VIEW_NODE, &show_logging_cmd);
 }

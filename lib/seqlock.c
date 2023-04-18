@@ -1,22 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /*
  * "Sequence" lock primitive
  *
  * Copyright (C) 2015  David Lamparter <equinox@diac24.net>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301  USA
  */
 
 #define _GNU_SOURCE
@@ -165,7 +151,7 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 /*
  * ABS_REALTIME - used on NetBSD, Solaris and OSX
  */
-#if TIME_ABS_REALTIME
+#ifdef TIME_ABS_REALTIME
 #define time_arg1 &abs_rt
 #define time_arg2 NULL
 #define time_prep
@@ -187,7 +173,7 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 /*
  * RELATIVE - used on OpenBSD (might get a patch to get absolute monotime)
  */
-#elif TIME_RELATIVE
+#elif defined(TIME_RELATIVE)
 	struct timespec reltime;
 
 #define time_arg1 abs_monotime_limit
@@ -254,7 +240,7 @@ bool seqlock_check(struct seqlock *sqlo, seqlock_val_t val)
 
 	cur = atomic_load_explicit(&sqlo->pos, memory_order_relaxed);
 	if (!(cur & SEQLOCK_HELD))
-		return 1;
+		return true;
 	cur = SEQLOCK_VAL(cur) - val - 1;
 	assert(cur < 0x40000000 || cur > 0xc0000000);
 	return cur < 0x80000000;

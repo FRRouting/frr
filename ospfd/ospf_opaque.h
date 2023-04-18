@@ -1,29 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of rfc2370.
  * Copyright (C) 2001 KDD R&D Laboratories, Inc.
  * http://www.kddlabs.co.jp/
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_OPAQUE_H
 #define _ZEBRA_OSPF_OPAQUE_H
 
 #include "vty.h"
+#include <lib/json.h>
 
 #define IS_OPAQUE_LSA(type)                                                    \
 	((type) == OSPF_OPAQUE_LINK_LSA || (type) == OSPF_OPAQUE_AREA_LSA      \
@@ -63,7 +49,7 @@
 #define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
 #define OPAQUE_TYPE_MAX                                8
 
-/* Followings types are proposed in internet-draft documents. */
+/* Following types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
 #define OPAQUE_TYPE_SECONDARY_NEIGHBOR_DISCOVERY	224
 #define OPAQUE_TYPE_FLOODGATE                           225
@@ -76,8 +62,11 @@
 
 #define OPAQUE_TYPE_RANGE_RESERVED(type) (127 < (type) && (type) <= 255)
 
+#define OSPF_OPAQUE_LSA_MIN_SIZE 0 /* RFC5250 imposes no minimum */
+
 #define VALID_OPAQUE_INFO_LEN(lsahdr)                                          \
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
+	 && ((ntohs((lsahdr)->length) < OSPF_MAX_LSA_SIZE))                    \
 	 && ((ntohs((lsahdr)->length) % sizeof(uint32_t)) == 0))
 
 /*
@@ -93,7 +82,7 @@ struct tlv_header {
 
 #define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))
 
-#define TLV_SIZE(tlvh)	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
+#define TLV_SIZE(tlvh)	(uint32_t)(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
 
 #define TLV_HDR_TOP(lsah)                                                      \
 	(struct tlv_header *)((char *)(lsah) + OSPF_LSA_HEADER_SIZE)
@@ -134,7 +123,8 @@ extern int ospf_register_opaque_functab(
 	void (*config_write_router)(struct vty *vty),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa),
 	int (*lsa_originator)(void *arg),
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa),
 	int (*new_lsa_hook)(struct ospf_lsa *lsa),
@@ -148,7 +138,8 @@ extern void ospf_opaque_nsm_change(struct ospf_neighbor *nbr, int old_status);
 extern void ospf_opaque_config_write_router(struct vty *vty, struct ospf *ospf);
 extern void ospf_opaque_config_write_if(struct vty *vty, struct interface *ifp);
 extern void ospf_opaque_config_write_debug(struct vty *vty);
-extern void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa);
+extern void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
+				    json_object *json);
 extern void ospf_opaque_lsa_dump(struct stream *s, uint16_t length);
 
 extern void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi,
@@ -166,5 +157,7 @@ extern void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa);
 extern void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 						     struct ospf_lsa *lsa);
 extern struct ospf *oi_to_top(struct ospf_interface *oi);
+
+extern int ospf_opaque_is_owned(struct ospf_lsa *lsa);
 
 #endif /* _ZEBRA_OSPF_OPAQUE_H */

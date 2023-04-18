@@ -1,0 +1,52 @@
+{
+    "vrfName": "default",
+    "routerId": "10.254.254.3",
+    "localAS": 102,
+    "routes":
+    {
+        "2001:db8:6::/64": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "external",
+                "prefix": "2001:db8:6::",
+                "prefixLen": 64,
+                "network": "2001:db8:6::\/64",
+                "metric": 0,
+                "weight": 32768,
+                "peerId": "(unspec)",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "::",
+                        "afi": "ipv6",
+                        "scope": "global",
+                        "used": true
+                    }
+                ]
+            }
+        ],
+        "2001:db8:7::/64": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "external",
+                "prefix": "2001:db8:7::",
+                "prefixLen": 64,
+                "network": "2001:db8:7::\/64",
+                "metric": 0,
+                "weight": 32768,
+                "peerId": "(unspec)",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "::",
+                        "afi": "ipv6",
+                        "scope": "global",
+                        "used": true
+                    }
+                ]
+            }
+        ]
+    }
+}

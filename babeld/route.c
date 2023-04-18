@@ -1,24 +1,7 @@
+// SPDX-License-Identifier: MIT
 /*
 Copyright (c) 2007, 2008 by Juliusz Chroboczek
 Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 */
 
 #include <zebra.h>
@@ -166,7 +149,7 @@ resize_route_table(int new_slots)
 static struct babel_route *
 insert_route(struct babel_route *route)
 {
-    int i, n;
+    int i, n = 0;
 
     assert(!route->installed);
 
@@ -399,17 +382,17 @@ install_route(struct babel_route *route)
         return;
 
     if(!route_feasible(route))
-        flog_err(EC_BABEL_ROUTE, "WARNING: installing unfeasible route "
-                  "(this shouldn't happen).");
+	    flog_err(EC_BABEL_ROUTE,
+		     "Installing unfeasible route (this shouldn't happen).");
 
     i = find_route_slot(route->src->prefix, route->src->plen, NULL);
     assert(i >= 0 && i < route_slots);
 
     if(routes[i] != route && routes[i]->installed) {
-        flog_err(EC_BABEL_ROUTE,
-		  "WARNING: attempting to install duplicate route "
-                  "(this shouldn't happen).");
-        return;
+	    flog_err(
+		    EC_BABEL_ROUTE,
+		    "Attempting to install duplicate route (this shouldn't happen).");
+	    return;
     }
 
     rc = kernel_route(ROUTE_ADD, route->src->prefix, route->src->plen,
@@ -465,8 +448,8 @@ switch_routes(struct babel_route *old, struct babel_route *new)
         return;
 
     if(!route_feasible(new))
-        flog_err(EC_BABEL_ROUTE, "WARNING: switching to unfeasible route "
-                  "(this shouldn't happen).");
+	    flog_err(EC_BABEL_ROUTE,
+		     "Switching to unfeasible route (this shouldn't happen).");
 
     rc = kernel_route(ROUTE_MODIFY, old->src->prefix, old->src->plen,
                       old->nexthop, old->neigh->ifp->ifindex,
@@ -835,8 +818,7 @@ update_route(const unsigned char *router_id,
            in a timely manner.  If the source remains the same, we ignore
            the update. */
         if(!feasible && route->installed) {
-            debugf(BABEL_DEBUG_COMMON,"Unfeasible update for installed route to %s "
-                   "(%s %d %d -> %s %d %d).",
+            debugf(BABEL_DEBUG_COMMON,"Unfeasible update for installed route to %s (%s %d %d -> %s %d %d).",
                    format_prefix(src->prefix, src->plen),
                    format_eui64(route->src->id),
                    route->seqno, route->refmetric,

@@ -1,0 +1,263 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 24
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "r3": {
+                    "ipv4": "10.0.13.1/24",
+                    "ipv6": "2013:13::1/64",
+                     "ospf": {
+                        "area": "1.1.1.1",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                     "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "area": "1.1.1.1"
+                    }
+               }
+            },
+            "ospf": {
+                "router_id": "1.1.1.1",
+                "neighbors": {
+                    "r3": {}
+                }
+            },
+            "ospf6": {
+                "router_id": "1.1.1.1",
+                "neighbors": {
+                    "r3": {}
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "r3": {
+                    "ipv4": "10.0.23.2/24",
+                    "ipv6": "2023:23::2/64",
+                     "ospf": {
+                        "area": "1.1.1.1",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "1.1.1.1"
+                    }
+                },
+                "r4": {
+                    "ipv4": "10.0.24.2/24",
+                    "ipv6": "2034:34::2/64",
+                     "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "0.0.0.0"
+                    }
+                }
+            },
+            "ospf": {
+                "router_id": "2.2.2.2",
+                "neighbors": {
+                    "r3": {},
+                    "r4": {}
+                }
+            },
+            "ospf6": {
+                "router_id": "2.2.2.2",
+                "neighbors": {
+                    "r3": {},
+                    "r4": {}
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "r1": {
+                    "ipv4": "10.0.13.3/24",
+                    "ipv6": "2013:13::3/64",
+                     "ospf": {
+                        "area": "1.1.1.1",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "1.1.1.1"
+                    }
+                },
+                "r2": {
+                    "ipv4": "10.0.23.3/24",
+                    "ipv6": "2023:23::3/64",
+                     "ospf": {
+                        "area": "1.1.1.1",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "1.1.1.1"
+                    }
+                },
+                "r4": {
+                    "ipv4": "10.0.34.3/24",
+                    "ipv6": "2034:34::3/64",
+                     "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "0.0.0.0"
+                    }
+                }
+            },
+            "ospf": {
+                "router_id": "3.3.3.3",
+                "neighbors": {
+                    "r1": {},
+                    "r2": {},
+                    "r4": {}
+                }
+            },
+            "ospf6": {
+                "router_id": "3.3.3.3",
+                "neighbors": {
+                    "r1": {},
+                    "r2": {},
+                    "r4": {}
+                }
+            }
+        },
+        "r4": {
+            "links": {
+                "r2": {
+                    "ipv4": "10.0.24.4/24",
+                    "ipv6": "2024:24::4/64",
+                     "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "0.0.0.0"
+                    }
+                },
+                "r3": {
+                    "ipv4": "10.0.34.4/24",
+                    "ipv6": "2034:34::4/64",
+                     "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "0.0.0.0"
+                    }
+                },
+                "r5": {
+                    "ipv4": "10.0.45.4/24",
+                    "ipv6": "2045:45::4/64",
+                     "ospf": {
+                        "area": "2.2.2.2",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "2.2.2.2"
+                    }
+                }
+            },
+            "ospf": {
+                "router_id": "4.4.4.4",
+                "neighbors": {
+                    "r2": {},
+                    "r3": {},
+                    "r5": {}
+                }
+            },
+            "ospf6": {
+                "router_id": "4.4.4.4",
+                "neighbors": {
+                    "r2": {},
+                    "r3": {},
+                    "r5": {}
+                }
+            }
+        },
+        "r5": {
+            "links": {
+                "r4": {
+                    "ipv4": "10.0.45.5/24",
+                    "ipv6": "2045:45::5/64",
+                     "ospf": {
+                        "area": "2.2.2.2",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point"
+                    },
+                    "ospf6": {
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "network": "point-to-point",
+                        "area": "2.2.2.2"
+                    }
+                }
+            },
+            "ospf": {
+                "router_id": "5.5.5.5",
+                "neighbors": {
+                    "r4": {}
+                }
+            },
+            "ospf6": {
+                "router_id": "5.5.5.5",
+                "neighbors": {
+                    "r4": {}
+                }
+            }
+        }
+    }
+}

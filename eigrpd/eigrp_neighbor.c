@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Neighbor Handling.
  * Copyright (C) 2013-2016
@@ -11,22 +12,6 @@
  *   Tomas Hvorkovy
  *   Martin Kontsek
  *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,7 +20,7 @@
 #include "prefix.h"
 #include "memory.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "table.h"
 #include "log.h"
@@ -52,8 +37,9 @@
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_errors.h"
+
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_NEIGHBOR, "EIGRP neighbor");
 
 struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
 {
@@ -86,10 +72,6 @@ static struct eigrp_neighbor *eigrp_nbr_add(struct eigrp_interface *ei,
 
 	nbr = eigrp_nbr_new(ei);
 	nbr->src = iph->ip_src;
-
-	//  if (IS_DEBUG_EIGRP_EVENT)
-	//    zlog_debug("NSM[%s:%s]: start", IF_NAME (nbr->oi),
-	//               inet_ntoa (nbr->router_id));
 
 	return nbr;
 }
@@ -182,28 +164,25 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 		eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
-	thread_cancel_event(master, nbr);
+	event_cancel_event(master, nbr);
 	eigrp_fifo_free(nbr->multicast_queue);
 	eigrp_fifo_free(nbr->retrans_queue);
-	THREAD_OFF(nbr->t_holddown);
+	EVENT_OFF(nbr->t_holddown);
 
 	if (nbr->ei)
 		listnode_delete(nbr->ei->nbrs, nbr);
 	XFREE(MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 
-int holddown_timer_expired(struct thread *thread)
+void holddown_timer_expired(struct event *thread)
 {
-	struct eigrp_neighbor *nbr = THREAD_ARG(thread);
+	struct eigrp_neighbor *nbr = EVENT_ARG(thread);
 	struct eigrp *eigrp = nbr->ei->eigrp;
 
-	zlog_info("Neighbor %s (%s) is down: holding time expired",
-		  inet_ntoa(nbr->src),
+	zlog_info("Neighbor %pI4 (%s) is down: holding time expired", &nbr->src,
 		  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	nbr->state = EIGRP_NEIGHBOR_DOWN;
 	eigrp_nbr_delete(nbr);
-
-	return 0;
 }
 
 uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *nbr)
@@ -231,7 +210,7 @@ void eigrp_nbr_state_set(struct eigrp_neighbor *nbr, uint8_t state)
 
 		// hold time..
 		nbr->v_holddown = EIGRP_HOLD_INTERVAL_DEFAULT;
-		THREAD_OFF(nbr->t_holddown);
+		EVENT_OFF(nbr->t_holddown);
 
 		/* out with the old */
 		if (nbr->multicast_queue)
@@ -273,24 +252,24 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 	switch (nbr->state) {
 	case EIGRP_NEIGHBOR_DOWN: {
 		/*Start Hold Down Timer for neighbor*/
-		//     THREAD_OFF(nbr->t_holddown);
-		//     THREAD_TIMER_ON(master, nbr->t_holddown,
+		//     EVENT_OFF(nbr->t_holddown);
+		//     EVENT_TIMER_ON(master, nbr->t_holddown,
 		//     holddown_timer_expired,
 		//     nbr, nbr->v_holddown);
 		break;
 	}
 	case EIGRP_NEIGHBOR_PENDING: {
 		/*Reset Hold Down Timer for neighbor*/
-		THREAD_OFF(nbr->t_holddown);
-		thread_add_timer(master, holddown_timer_expired, nbr,
-				 nbr->v_holddown, &nbr->t_holddown);
+		EVENT_OFF(nbr->t_holddown);
+		event_add_timer(master, holddown_timer_expired, nbr,
+				nbr->v_holddown, &nbr->t_holddown);
 		break;
 	}
 	case EIGRP_NEIGHBOR_UP: {
 		/*Reset Hold Down Timer for neighbor*/
-		THREAD_OFF(nbr->t_holddown);
-		thread_add_timer(master, holddown_timer_expired, nbr,
-				 nbr->v_holddown, &nbr->t_holddown);
+		EVENT_OFF(nbr->t_holddown);
+		event_add_timer(master, holddown_timer_expired, nbr,
+				nbr->v_holddown, &nbr->t_holddown);
 		break;
 	}
 	}
@@ -330,13 +309,12 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 {
 	struct eigrp *eigrp = nbr->ei->eigrp;
 
-	zlog_debug("Neighbor %s (%s) is down: manually cleared",
-		   inet_ntoa(nbr->src),
+	zlog_debug("Neighbor %pI4 (%s) is down: manually cleared", &nbr->src,
 		   ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	if (vty != NULL) {
 		vty_time_print(vty, 0);
-		vty_out(vty, "Neighbor %s (%s) is down: manually cleared\n",
-			inet_ntoa(nbr->src),
+		vty_out(vty, "Neighbor %pI4 (%s) is down: manually cleared\n",
+			&nbr->src,
 			ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	}
 
@@ -349,7 +327,7 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 	eigrp_nbr_delete(nbr);
 }
 
-int eigrp_nbr_split_horizon_check(struct eigrp_nexthop_entry *ne,
+int eigrp_nbr_split_horizon_check(struct eigrp_route_descriptor *ne,
 				  struct eigrp_interface *ei)
 {
 	if (ne->distance == EIGRP_MAX_METRIC)

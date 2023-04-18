@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * clippy (CLI preparator in python) wrapper for FRR command_graph
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* note: this wrapper is intended to be used as build-time helper.  while
@@ -28,6 +15,9 @@
  * setup & these trample over each other.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <Python.h>
 #include "structmember.h"
 #include <string.h>
@@ -197,25 +187,35 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 	if (gn->data) {
 		struct cmd_token *tok = gn->data;
 		switch (tok->type) {
-#define item(x) case x: wrap->type = #x; break;
-			item(WORD_TKN)		      // words
-				item(VARIABLE_TKN)    // almost anything
-				item(RANGE_TKN)       // integer range
-				item(IPV4_TKN)	// IPV4 addresses
-				item(IPV4_PREFIX_TKN) // IPV4 network prefixes
-				item(IPV6_TKN)	// IPV6 prefixes
-				item(IPV6_PREFIX_TKN) // IPV6 network prefixes
-				item(MAC_TKN)	 // MAC address
-				item(MAC_PREFIX_TKN)  // MAC address with mask
+#define item(x)                                                                \
+	case x:                                                                \
+		wrap->type = #x;                                               \
+		break /* no semicolon */
 
-				/* plumbing types */
-				item(FORK_TKN) item(JOIN_TKN) item(START_TKN)
-					item(END_TKN) default
-				: wrap->type = "???";
+			item(WORD_TKN);	       // words
+			item(VARIABLE_TKN);    // almost anything
+			item(RANGE_TKN);       // integer range
+			item(IPV4_TKN);	       // IPV4 addresses
+			item(IPV4_PREFIX_TKN); // IPV4 network prefixes
+			item(IPV6_TKN);	       // IPV6 prefixes
+			item(IPV6_PREFIX_TKN); // IPV6 network prefixes
+			item(MAC_TKN);	       // MAC address
+			item(MAC_PREFIX_TKN);  // MAC address with mask
+			item(ASNUM_TKN);       // ASNUM
+
+			/* plumbing types */
+			item(FORK_TKN);
+			item(JOIN_TKN);
+			item(START_TKN);
+			item(END_TKN);
+			item(NEG_ONLY_TKN);
+#undef item
+		default:
+			wrap->type = "???";
 		}
 
-		wrap->deprecated = (tok->attr == CMD_ATTR_DEPRECATED);
-		wrap->hidden = (tok->attr == CMD_ATTR_HIDDEN);
+		wrap->deprecated = !!(tok->attr & CMD_ATTR_DEPRECATED);
+		wrap->hidden = !!(tok->attr & CMD_ATTR_HIDDEN);
 		wrap->text = tok->text;
 		wrap->desc = tok->desc;
 		wrap->varname = tok->varname;
@@ -341,9 +341,17 @@ PyMODINIT_FUNC command_py_init(void)
 	if (!pymod)
 		initret(NULL);
 
+	if (PyModule_AddIntMacro(pymod, CMD_ATTR_YANG)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_HIDDEN)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_NOSH))
+		initret(NULL);
+
 	Py_INCREF(&typeobj_graph_node);
 	PyModule_AddObject(pymod, "GraphNode", (PyObject *)&typeobj_graph_node);
 	Py_INCREF(&typeobj_graph);
 	PyModule_AddObject(pymod, "Graph", (PyObject *)&typeobj_graph);
+	if (!elf_py_init(pymod))
+		initret(NULL);
 	initret(pymod);
 }

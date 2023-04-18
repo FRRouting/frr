@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -26,11 +15,11 @@
 
 #define	CONTROL_BACKLOG	5
 
-static int		 control_accept(struct thread *);
+static void control_accept(struct event *);
 static struct ctl_conn	*control_connbyfd(int);
 static struct ctl_conn	*control_connbypid(pid_t);
 static void		 control_close(int);
-static int		 control_dispatch_imsg(struct thread *);
+static void control_dispatch_imsg(struct event *);
 
 struct ctl_conns	 ctl_conns;
 
@@ -101,8 +90,7 @@ control_cleanup(char *path)
 }
 
 /* ARGSUSED */
-static int
-control_accept(struct thread *thread)
+static void control_accept(struct event *thread)
 {
 	int			 connfd;
 	socklen_t		 len;
@@ -110,8 +98,8 @@ control_accept(struct thread *thread)
 	struct ctl_conn		*c;
 
 	len = sizeof(s_un);
-	if ((connfd = accept(THREAD_FD(thread), (struct sockaddr *)&s_un,
-	    &len)) == -1) {
+	if ((connfd = accept(EVENT_FD(thread), (struct sockaddr *)&s_un,
+			     &len)) == -1) {
 		/*
 		 * Pause accept if we are out of file descriptors, or
 		 * libevent will haunt us here too.
@@ -121,27 +109,25 @@ control_accept(struct thread *thread)
 		else if (errno != EWOULDBLOCK && errno != EINTR &&
 		    errno != ECONNABORTED)
 			log_warn("%s: accept", __func__);
-		return (0);
+		return;
 	}
 	sock_set_nonblock(connfd);
 
 	if ((c = calloc(1, sizeof(struct ctl_conn))) == NULL) {
 		log_warn(__func__);
 		close(connfd);
-		return (0);
+		return;
 	}
 
 	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler_read = control_dispatch_imsg;
 	c->iev.ev_read = NULL;
-	thread_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
-			&c->iev.ev_read);
+	event_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
+		       &c->iev.ev_read);
 	c->iev.handler_write = ldp_write_handler;
 	c->iev.ev_write = NULL;
 
 	TAILQ_INSERT_TAIL(&ctl_conns, c, entry);
-
-	return (0);
 }
 
 static struct ctl_conn *
@@ -183,18 +169,17 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	THREAD_READ_OFF(c->iev.ev_read);
-	THREAD_WRITE_OFF(c->iev.ev_write);
+	EVENT_OFF(c->iev.ev_read);
+	EVENT_OFF(c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);
 }
 
 /* ARGSUSED */
-static int
-control_dispatch_imsg(struct thread *thread)
+static void control_dispatch_imsg(struct event *thread)
 {
-	int		 fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	struct ctl_conn	*c;
 	struct imsg	 imsg;
 	ssize_t		 n;
@@ -202,7 +187,7 @@ control_dispatch_imsg(struct thread *thread)
 
 	if ((c = control_connbyfd(fd)) == NULL) {
 		log_warnx("%s: fd %d: not found", __func__, fd);
-		return (0);
+		return;
 	}
 
 	c->iev.ev_read = NULL;
@@ -210,13 +195,13 @@ control_dispatch_imsg(struct thread *thread)
 	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
 	    n == 0) {
 		control_close(fd);
-		return (0);
+		return;
 	}
 
 	for (;;) {
 		if ((n = imsg_get(&c->iev.ibuf, &imsg)) == -1) {
 			control_close(fd);
-			return (0);
+			return;
 		}
 
 		if (n == 0)
@@ -263,6 +248,9 @@ control_dispatch_imsg(struct thread *thread)
 
 			nbr_clear_ctl(imsg.data);
 			break;
+		case IMSG_CTL_SHOW_LDP_SYNC:
+			ldpe_ldp_sync_ctl(c);
+			break;
 		case IMSG_CTL_LOG_VERBOSE:
 			/* ignore */
 			break;
@@ -275,8 +263,6 @@ control_dispatch_imsg(struct thread *thread)
 	}
 
 	imsg_event_add(&c->iev);
-
-	return (0);
 }
 
 int

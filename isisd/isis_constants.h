@@ -1,23 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_constants.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef ISIS_CONSTANTS_H
@@ -140,7 +127,7 @@
  * LSP bit masks
  */
 #define LSPBIT_P   0x80
-#define LSPBIT_ATT 0x78
+#define LSPBIT_ATT 0x08 /* only use the Default ATT bit */
 #define LSPBIT_OL  0x04
 #define LSPBIT_IST 0x03
 
@@ -158,7 +145,6 @@
 #define ISIS_MASK_LSP_ATT_ERROR_BIT(x)     ((x)&0x40)
 #define ISIS_MASK_LSP_ATT_EXPENSE_BIT(x)   ((x)&0x20)
 #define ISIS_MASK_LSP_ATT_DELAY_BIT(x)     ((x)&0x10)
-#define ISIS_MASK_LSP_ATT_DEFAULT_BIT(x)   ((x)&0x8)
 
 #define LLC_LEN 3
 

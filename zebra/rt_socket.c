@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Kernel routing table updates by routing socket.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -50,8 +35,7 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 {
 	if (nh_label->num_labels > 1) {
 		flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
-			  "%s: can't push %u labels at "
-			  "once (maximum is 1)",
+			  "%s: can't push %u labels at once (maximum is 1)",
 			  __func__, nh_label->num_labels);
 		return -1;
 	}
@@ -81,10 +65,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	bool gate = false;
 	int error;
 	char gate_buf[INET6_BUFSIZ];
-	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
-
-	prefix2str(p, prefix_buf, sizeof(prefix_buf));
 
 	/*
 	 * We only have the ability to ADD or DELETE at this point
@@ -92,8 +73,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	 */
 	if (cmd != RTM_ADD && cmd != RTM_DELETE) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s odd command %s",
-				   __func__, prefix_buf,
+			zlog_debug("%s: %pFX odd command %s", __func__, p,
 				   lookup_msg(rtm_type_str, cmd, NULL));
 		return 0;
 	}
@@ -178,8 +158,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case NEXTHOP_TYPE_BLACKHOLE:
 			bh_type = nexthop->bh_type;
 			switch (p->family) {
-			case AFI_IP: {
+			case AF_INET: {
 				struct in_addr loopback;
+
 				loopback.s_addr = htonl(INADDR_LOOPBACK);
 				sin_gate.sin.sin_addr = loopback;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
@@ -187,10 +168,21 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 					sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 				gate = true;
-			}
-				break;
-			case AFI_IP6:
-				break;
+			} break;
+			case AF_INET6: {
+				struct in6_addr loopback;
+
+				inet_pton(AF_INET6, "::1", &loopback);
+
+				sin_gate.sin6.sin6_addr = loopback;
+				sin_gate.sin6.sin6_family = AF_INET6;
+
+#ifdef HAVE_STRUCTSOCKADDR_SA_LEN
+				sin_gate.sin6.sin6_len =
+					sizeof(struct sockaddr_in6);
+#endif /* HAVE_STRUCTSOCKADDR_SA_LEN */
+				gate = true;
+			} break;
 			}
 		}
 
@@ -226,17 +218,17 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		if (IS_ZEBRA_DEBUG_KERNEL) {
 			if (!gate) {
 				zlog_debug(
-					"%s: %s: attention! gate not found for re",
-					__func__, prefix_buf);
+					"%s: %pFX: attention! gate not found for re",
+					__func__, p);
 			} else {
 				switch (p->family) {
-				case AFI_IP:
+				case AF_INET:
 					inet_ntop(AF_INET,
 						  &sin_gate.sin.sin_addr,
 						  gate_buf, sizeof(gate_buf));
 					break;
 
-				case AFI_IP6:
+				case AF_INET6:
 					inet_ntop(AF_INET6,
 						  &sin_gate.sin6.sin6_addr,
 						  gate_buf, sizeof(gate_buf));
@@ -255,8 +247,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case ZEBRA_ERR_NOERROR:
 			nexthop_num++;
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %s: successfully did NH %s",
-					   __func__, prefix_buf, gate_buf);
+				zlog_debug("%s: %pFX: successfully did NH %s",
+					   __func__, p, gate_buf);
 			if (cmd == RTM_ADD)
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			break;
@@ -275,11 +267,17 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			continue;
 
 			/* Note any unexpected status returns */
+		case ZEBRA_ERR_RTNOEXIST:
+			if (cmd != RTM_DELETE)
+				flog_err(EC_LIB_SYSTEM_CALL,
+					 "%s: rtm_write() returned %d for command %d",
+					 __func__, error, cmd);
+			break;
 		default:
 			flog_err(
 				EC_LIB_SYSTEM_CALL,
-				"%s: %s: rtm_write() unexpectedly returned %d for command %s",
-				__func__, prefix_buf, error,
+				"%s: %pFX: rtm_write() unexpectedly returned %d for command %s",
+				__func__, p, error,
 				lookup_msg(rtm_type_str, cmd, NULL));
 			break;
 		}
@@ -289,8 +287,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"%s: No useful nexthops were found in RIB prefix %s",
-				__func__, prefix_buf);
+				"%s: No useful nexthops were found in RIB prefix %pFX",
+				__func__, p);
 		return 1;
 	}
 
@@ -347,20 +345,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		}
 	} /* Elevated privs */
 
-	if (RSYSTEM_ROUTE(type)
-	    && dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) {
-		struct nexthop *nexthop;
-
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
-		}
-	}
-
 	return res;
 }
 
@@ -369,8 +353,14 @@ enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
-int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
-			int llalen, ns_id_t ns_id)
+int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client, bool reg)
+{
+	/* TODO */
+	return 0;
+}
+
+int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
+			ns_id_t ns_id, uint8_t family, bool permanent)
 {
 	/* TODO */
 	return 0;
@@ -404,6 +394,27 @@ extern int kernel_interface_set_master(struct interface *master,
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
 	return ifp->speed;
+}
+
+int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
+{
+	return 0;
+}
+
+int kernel_del_mac_nh(uint32_t nh_id)
+{
+	return 0;
+}
+
+int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
+		struct nh_grp *nh_ids)
+{
+	return 0;
+}
+
+int kernel_del_mac_nhg(uint32_t nhg_id)
+{
+	return 0;
 }
 
 #endif /* !HAVE_NETLINK */

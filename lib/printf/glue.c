@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -210,15 +199,16 @@ void printfrr_ext_reg(const struct printfrr_ext *ext)
 	exts[i] = ext;
 }
 
-ssize_t printfrr_extp(char *buf, size_t sz, const char *fmt, int prec,
+ssize_t printfrr_extp(struct fbuf *buf, struct printfrr_eargs *ea,
 		      const void *ptr)
 {
+	const char *fmt = ea->fmt;
 	const struct printfrr_ext *ext;
 	size_t i;
 
 	for (i = ext_offsets[fmt[0] - 'A']; i < MAXEXT; i++) {
 		if (!entries[i].fmt[0] || entries[i].fmt[0] > fmt[0])
-			return 0;
+			return -1;
 		if (entries[i].fmt[1] && entries[i].fmt[1] != fmt[1])
 			continue;
 		ext = exts[i];
@@ -226,20 +216,22 @@ ssize_t printfrr_extp(char *buf, size_t sz, const char *fmt, int prec,
 			continue;
 		if (strncmp(ext->match, fmt, strlen(ext->match)))
 			continue;
-		return ext->print_ptr(buf, sz, fmt, prec, ptr);
+		ea->fmt += strlen(ext->match);
+		return ext->print_ptr(buf, ea, ptr);
 	}
-	return 0;
+	return -1;
 }
 
-ssize_t printfrr_exti(char *buf, size_t sz, const char *fmt, int prec,
+ssize_t printfrr_exti(struct fbuf *buf, struct printfrr_eargs *ea,
 		      uintmax_t num)
 {
+	const char *fmt = ea->fmt;
 	const struct printfrr_ext *ext;
 	size_t i;
 
 	for (i = ext_offsets[fmt[0] - 'A']; i < MAXEXT; i++) {
 		if (!entries[i].fmt[0] || entries[i].fmt[0] > fmt[0])
-			return 0;
+			return -1;
 		if (entries[i].fmt[1] && entries[i].fmt[1] != fmt[1])
 			continue;
 		ext = exts[i];
@@ -247,7 +239,52 @@ ssize_t printfrr_exti(char *buf, size_t sz, const char *fmt, int prec,
 			continue;
 		if (strncmp(ext->match, fmt, strlen(ext->match)))
 			continue;
-		return ext->print_int(buf, sz, fmt, prec, num);
+		ea->fmt += strlen(ext->match);
+		return ext->print_int(buf, ea, num);
 	}
-	return 0;
+	return -1;
+}
+
+printfrr_ext_autoreg_p("FB", printfrr_fb);
+static ssize_t printfrr_fb(struct fbuf *out, struct printfrr_eargs *ea,
+			   const void *ptr)
+{
+	const struct fbuf *in = ptr;
+	ptrdiff_t copy_len;
+
+	if (!in)
+		return bputs(out, "NULL");
+
+	if (out) {
+		copy_len = MIN(in->pos - in->buf,
+			       out->buf + out->len - out->pos);
+		if (copy_len > 0) {
+			memcpy(out->pos, in->buf, copy_len);
+			out->pos += copy_len;
+		}
+	}
+
+	return in->pos - in->buf;
+}
+
+printfrr_ext_autoreg_p("VA", printfrr_va);
+static ssize_t printfrr_va(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
+{
+	const struct va_format *vaf = ptr;
+	va_list ap;
+
+	if (!vaf || !vaf->fmt || !vaf->va)
+		return bputs(buf, "NULL");
+
+	/* make sure we don't alter the data passed in - especially since
+	 * bprintfrr (and thus this) might be called on the same format twice,
+	 * when allocating a larger buffer in asnprintfrr()
+	 */
+	va_copy(ap, *vaf->va);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* can't format check this */
+	return vbprintfrr(buf, vaf->fmt, ap);
+#pragma GCC diagnostic pop
 }

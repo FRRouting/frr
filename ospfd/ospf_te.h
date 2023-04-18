@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * This is an implementation of RFC3630, RFC5392 & RFC6827
  * Copyright (C) 2001 KDD R&D Laboratories, Inc.
@@ -5,22 +6,6 @@
  *
  * Copyright (C) 2012 Orange Labs
  * http://www.orange.com
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* Add support of RFC7471 */
@@ -74,25 +59,29 @@
 #define GMPLS   	0x02
 #define INTER_AS	0x04
 #define PSEUDO_TE	0x08
-#define FLOOD_AREA	0x10
-#define FLOOD_AS	0x20
-#define EMULATED	0x80
+#define EMULATED	0x10
 
-#define IS_STD_TE(x)	    (x & STD_TE)
+#define IS_STD_TE(x)		(x & STD_TE)
 #define IS_PSEUDO_TE(x)		(x & PSEUDO_TE)
 #define IS_INTER_AS(x) 		(x & INTER_AS)
 #define IS_EMULATED(x)		(x & EMULATED)
-#define IS_FLOOD_AREA(x)	(x & FLOOD_AREA)
-#define IS_FLOOD_AS(x)		(x & FLOOD_AS)
-#define IS_INTER_AS_EMU(x) 	(x & INTER_AS & EMULATED)
-#define IS_INTER_AS_AS(x)	(x & INTER_AS & FLOOD_AS)
 
 /* Flags to manage TE Link LSA */
-#define LPFLG_LSA_INACTIVE		0x0
-#define LPFLG_LSA_ACTIVE		0x1
-#define LPFLG_LSA_ENGAGED		0x2
-#define LPFLG_LOOKUP_DONE		0x4
-#define LPFLG_LSA_FORCED_REFRESH	0x8
+#define LPFLG_LSA_INACTIVE		0x00
+#define LPFLG_LSA_ACTIVE		0x01
+#define LPFLG_LSA_ENGAGED		0x02
+#define LPFLG_LOOKUP_DONE		0x04
+#define LPFLG_LSA_FORCED_REFRESH	0x08
+#define LPFLG_LSA_FLOOD_AS		0x10
+
+#define IS_FLOOD_AS(x)		(x & LPFLG_LSA_FLOOD_AS)
+
+/* Macro to log debug message */
+#define ote_debug(...)                                                         \
+	do {                                                                   \
+		if (IS_DEBUG_OSPF_TE)                                          \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
 
 /*
  * Following section defines TLV body parts.
@@ -336,8 +325,12 @@ struct te_link_subtlv {
 
 /* Following structure are internal use only. */
 struct ospf_mpls_te {
-	/* Status of MPLS-TE: enable or disbale */
+	/* Status of MPLS-TE: enable or disable */
 	bool enabled;
+
+	/* Traffic Engineering Database i.e. Link State */
+	struct ls_ted *ted;
+	bool export;
 
 	/* RFC5392 */
 	enum inter_as_mode inter_as;
@@ -413,5 +406,16 @@ extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *, enum lsa_opcode);
 extern void set_linkparams_llri(struct mpls_te_link *, uint32_t, uint32_t);
 extern void set_linkparams_lrrid(struct mpls_te_link *, struct in_addr,
 				 struct in_addr);
+
+struct zapi_opaque_reg_info;
+/**
+ * Call when a client send a Link State Sync message. In turn, OSPF will send
+ * the contain of the Link State Data base.
+ *
+ * @param info    ZAPI Opaque message information
+ *
+ * @return	  0 on success, -1 otherwise
+ */
+extern int ospf_te_sync_ted(struct zapi_opaque_reg_info dst);
 
 #endif /* _ZEBRA_OSPF_MPLS_TE_H */

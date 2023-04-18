@@ -1,24 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Main implementation file for interface to Forwarding Plane Manager.
  *
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -26,10 +11,10 @@
 #include "log.h"
 #include "libfrr.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "network.h"
 #include "command.h"
-#include "version.h"
+#include "lib/version.h"
 #include "jhash.h"
 
 #include "zebra/rib.h"
@@ -37,7 +22,6 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
-#include "zebra/zebra_memory.h"
 
 #include "fpm/fpm.h"
 #include "zebra_fpm_private.h"
@@ -70,21 +54,21 @@ DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
 #define ZFPM_STATS_IVL_SECS        10
 #define FPM_MAX_MAC_MSG_LEN 512
 
-static void zfpm_iterate_rmac_table(struct hash_backet *backet, void *args);
+static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args);
 
 /*
  * Structure that holds state for iterating over all route_node
  * structures that are candidates for being communicated to the FPM.
  */
-typedef struct zfpm_rnodes_iter_t_ {
+struct zfpm_rnodes_iter {
 	rib_tables_iter_t tables_iter;
 	route_table_iter_t iter;
-} zfpm_rnodes_iter_t;
+};
 
 /*
  * Statistics.
  */
-typedef struct zfpm_stats_t_ {
+struct zfpm_stats {
 	unsigned long connect_calls;
 	unsigned long connect_no_sock;
 
@@ -115,13 +99,12 @@ typedef struct zfpm_stats_t_ {
 	unsigned long t_conn_up_yields;
 	unsigned long t_conn_up_aborts;
 	unsigned long t_conn_up_finishes;
-
-} zfpm_stats_t;
+};
 
 /*
  * States for the FPM state machine.
  */
-typedef enum {
+enum zfpm_state {
 
 	/*
 	 * In this state we are not yet ready to connect to the FPM. This
@@ -147,20 +130,21 @@ typedef enum {
 	 */
 	ZFPM_STATE_ESTABLISHED
 
-} zfpm_state_t;
+};
 
 /*
  * Message format to be used to communicate with the FPM.
  */
-typedef enum {
+enum zfpm_msg_format {
 	ZFPM_MSG_FORMAT_NONE,
 	ZFPM_MSG_FORMAT_NETLINK,
 	ZFPM_MSG_FORMAT_PROTOBUF,
-} zfpm_msg_format_e;
+};
+
 /*
  * Globals.
  */
-typedef struct zfpm_glob_t_ {
+struct zfpm_glob {
 
 	/*
 	 * True if the FPM module has been enabled.
@@ -170,11 +154,11 @@ typedef struct zfpm_glob_t_ {
 	/*
 	 * Message format to be used to communicate with the fpm.
 	 */
-	zfpm_msg_format_e message_format;
+	enum zfpm_msg_format message_format;
 
-	struct thread_master *master;
+	struct event_loop *master;
 
-	zfpm_state_t state;
+	enum zfpm_state state;
 
 	in_addr_t fpm_server;
 	/*
@@ -220,28 +204,28 @@ typedef struct zfpm_glob_t_ {
 	/*
 	 * Threads for I/O.
 	 */
-	struct thread *t_connect;
-	struct thread *t_write;
-	struct thread *t_read;
+	struct event *t_connect;
+	struct event *t_write;
+	struct event *t_read;
 
 	/*
 	 * Thread to clean up after the TCP connection to the FPM goes down
 	 * and the state that belongs to it.
 	 */
-	struct thread *t_conn_down;
+	struct event *t_conn_down;
 
 	struct {
-		zfpm_rnodes_iter_t iter;
+		struct zfpm_rnodes_iter iter;
 	} t_conn_down_state;
 
 	/*
 	 * Thread to take actions once the TCP conn to the FPM comes up, and
 	 * the state that belongs to it.
 	 */
-	struct thread *t_conn_up;
+	struct event *t_conn_up;
 
 	struct {
-		zfpm_rnodes_iter_t iter;
+		struct zfpm_rnodes_iter iter;
 	} t_conn_up_state;
 
 	unsigned long connect_calls;
@@ -251,56 +235,63 @@ typedef struct zfpm_glob_t_ {
 	 * Stats from the start of the current statistics interval up to
 	 * now. These are the counters we typically update in the code.
 	 */
-	zfpm_stats_t stats;
+	struct zfpm_stats stats;
 
 	/*
 	 * Statistics that were gathered in the last collection interval.
 	 */
-	zfpm_stats_t last_ivl_stats;
+	struct zfpm_stats last_ivl_stats;
 
 	/*
 	 * Cumulative stats from the last clear to the start of the current
 	 * statistics interval.
 	 */
-	zfpm_stats_t cumulative_stats;
+	struct zfpm_stats cumulative_stats;
 
 	/*
 	 * Stats interval timer.
 	 */
-	struct thread *t_stats;
+	struct event *t_stats;
 
 	/*
 	 * If non-zero, the last time when statistics were cleared.
 	 */
 	time_t last_stats_clear_time;
 
-} zfpm_glob_t;
+	/*
+	 * Flag to track the MAC dump status to FPM
+	 */
+	bool fpm_mac_dump_done;
+};
 
-static zfpm_glob_t zfpm_glob_space;
-static zfpm_glob_t *zfpm_g = &zfpm_glob_space;
+static struct zfpm_glob zfpm_glob_space;
+static struct zfpm_glob *zfpm_g = &zfpm_glob_space;
 
 static int zfpm_trigger_update(struct route_node *rn, const char *reason);
 
-static int zfpm_read_cb(struct thread *thread);
-static int zfpm_write_cb(struct thread *thread);
+static void zfpm_read_cb(struct event *thread);
+static void zfpm_write_cb(struct event *thread);
 
-static void zfpm_set_state(zfpm_state_t state, const char *reason);
+static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
 static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
 
+static const char ipv4_ll_buf[16] = "169.254.0.1";
+union g_addr ipv4ll_gateway;
+
 /*
  * zfpm_thread_should_yield
  */
-static inline int zfpm_thread_should_yield(struct thread *t)
+static inline int zfpm_thread_should_yield(struct event *t)
 {
-	return thread_should_yield(t);
+	return event_should_yield(t);
 }
 
 /*
  * zfpm_state_to_str
  */
-static const char *zfpm_state_to_str(zfpm_state_t state)
+static const char *zfpm_state_to_str(enum zfpm_state state)
 {
 	switch (state) {
 
@@ -343,7 +334,7 @@ static time_t zfpm_get_elapsed_time(time_t reference)
 /*
  * zfpm_rnodes_iter_init
  */
-static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_init(struct zfpm_rnodes_iter *iter)
 {
 	memset(iter, 0, sizeof(*iter));
 	rib_tables_iter_init(&iter->tables_iter);
@@ -360,7 +351,8 @@ static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_next
  */
-static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
+static inline struct route_node *
+zfpm_rnodes_iter_next(struct zfpm_rnodes_iter *iter)
 {
 	struct route_node *rn;
 	struct route_table *table;
@@ -389,7 +381,7 @@ static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_pause
  */
-static inline void zfpm_rnodes_iter_pause(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_pause(struct zfpm_rnodes_iter *iter)
 {
 	route_table_iter_pause(&iter->iter);
 }
@@ -397,7 +389,7 @@ static inline void zfpm_rnodes_iter_pause(zfpm_rnodes_iter_t *iter)
 /*
  * zfpm_rnodes_iter_cleanup
  */
-static inline void zfpm_rnodes_iter_cleanup(zfpm_rnodes_iter_t *iter)
+static inline void zfpm_rnodes_iter_cleanup(struct zfpm_rnodes_iter *iter)
 {
 	route_table_iter_cleanup(&iter->iter);
 	rib_tables_iter_cleanup(&iter->tables_iter);
@@ -408,7 +400,7 @@ static inline void zfpm_rnodes_iter_cleanup(zfpm_rnodes_iter_t *iter)
  *
  * Initialize a statistics block.
  */
-static inline void zfpm_stats_init(zfpm_stats_t *stats)
+static inline void zfpm_stats_init(struct zfpm_stats *stats)
 {
 	memset(stats, 0, sizeof(*stats));
 }
@@ -416,7 +408,7 @@ static inline void zfpm_stats_init(zfpm_stats_t *stats)
 /*
  * zfpm_stats_reset
  */
-static inline void zfpm_stats_reset(zfpm_stats_t *stats)
+static inline void zfpm_stats_reset(struct zfpm_stats *stats)
 {
 	zfpm_stats_init(stats);
 }
@@ -424,7 +416,8 @@ static inline void zfpm_stats_reset(zfpm_stats_t *stats)
 /*
  * zfpm_stats_copy
  */
-static inline void zfpm_stats_copy(const zfpm_stats_t *src, zfpm_stats_t *dest)
+static inline void zfpm_stats_copy(const struct zfpm_stats *src,
+				   struct zfpm_stats *dest)
 {
 	memcpy(dest, src, sizeof(*dest));
 }
@@ -440,8 +433,9 @@ static inline void zfpm_stats_copy(const zfpm_stats_t *src, zfpm_stats_t *dest)
  * structure is composed entirely of counters. This can easily be
  * changed when necessary.
  */
-static void zfpm_stats_compose(const zfpm_stats_t *s1, const zfpm_stats_t *s2,
-			       zfpm_stats_t *result)
+static void zfpm_stats_compose(const struct zfpm_stats *s1,
+			       const struct zfpm_stats *s2,
+			       struct zfpm_stats *result)
 {
 	const unsigned long *p1, *p2;
 	unsigned long *result_p;
@@ -451,7 +445,7 @@ static void zfpm_stats_compose(const zfpm_stats_t *s1, const zfpm_stats_t *s2,
 	p2 = (const unsigned long *)s2;
 	result_p = (unsigned long *)result;
 
-	num_counters = (sizeof(zfpm_stats_t) / sizeof(unsigned long));
+	num_counters = (sizeof(struct zfpm_stats) / sizeof(unsigned long));
 
 	for (i = 0; i < num_counters; i++) {
 		result_p[i] = p1[i] + p2[i];
@@ -466,8 +460,8 @@ static inline void zfpm_read_on(void)
 	assert(!zfpm_g->t_read);
 	assert(zfpm_g->sock >= 0);
 
-	thread_add_read(zfpm_g->master, zfpm_read_cb, 0, zfpm_g->sock,
-			&zfpm_g->t_read);
+	event_add_read(zfpm_g->master, zfpm_read_cb, 0, zfpm_g->sock,
+		       &zfpm_g->t_read);
 }
 
 /*
@@ -478,8 +472,8 @@ static inline void zfpm_write_on(void)
 	assert(!zfpm_g->t_write);
 	assert(zfpm_g->sock >= 0);
 
-	thread_add_write(zfpm_g->master, zfpm_write_cb, 0, zfpm_g->sock,
-			 &zfpm_g->t_write);
+	event_add_write(zfpm_g->master, zfpm_write_cb, 0, zfpm_g->sock,
+			&zfpm_g->t_write);
 }
 
 /*
@@ -487,7 +481,7 @@ static inline void zfpm_write_on(void)
  */
 static inline void zfpm_read_off(void)
 {
-	THREAD_READ_OFF(zfpm_g->t_read);
+	EVENT_OFF(zfpm_g->t_read);
 }
 
 /*
@@ -495,7 +489,12 @@ static inline void zfpm_read_off(void)
  */
 static inline void zfpm_write_off(void)
 {
-	THREAD_WRITE_OFF(zfpm_g->t_write);
+	EVENT_OFF(zfpm_g->t_write);
+}
+
+static inline void zfpm_connect_off(void)
+{
+	EVENT_OFF(zfpm_g->t_connect);
 }
 
 /*
@@ -504,13 +503,11 @@ static inline void zfpm_write_off(void)
  * Callback for actions to be taken when the connection to the FPM
  * comes up.
  */
-static int zfpm_conn_up_thread_cb(struct thread *thread)
+static void zfpm_conn_up_thread_cb(struct event *thread)
 {
 	struct route_node *rnode;
-	zfpm_rnodes_iter_t *iter;
+	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
-
-	zfpm_g->t_conn_up = NULL;
 
 	iter = &zfpm_g->t_conn_up_state.iter;
 
@@ -521,8 +518,13 @@ static int zfpm_conn_up_thread_cb(struct thread *thread)
 		goto done;
 	}
 
-	/* Enqueue FPM updates for all the RMAC entries */
-	hash_iterate(zrouter.l3vni_table, zfpm_iterate_rmac_table, NULL);
+	if (!zfpm_g->fpm_mac_dump_done) {
+		/* Enqueue FPM updates for all the RMAC entries */
+		hash_iterate(zrouter.l3vni_table, zfpm_iterate_rmac_table,
+			     NULL);
+		/* mark dump done so that its not repeated after yield */
+		zfpm_g->fpm_mac_dump_done = true;
+	}
 
 	while ((rnode = zfpm_rnodes_iter_next(iter))) {
 		dest = rib_dest_from_rnode(rnode);
@@ -540,17 +542,15 @@ static int zfpm_conn_up_thread_cb(struct thread *thread)
 
 		zfpm_g->stats.t_conn_up_yields++;
 		zfpm_rnodes_iter_pause(iter);
-		zfpm_g->t_conn_up = NULL;
-		thread_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb,
-				      NULL, 0, &zfpm_g->t_conn_up);
-		return 0;
+		event_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb,
+				     NULL, 0, &zfpm_g->t_conn_up);
+		return;
 	}
 
 	zfpm_g->stats.t_conn_up_finishes++;
 
 done:
 	zfpm_rnodes_iter_cleanup(iter);
-	return 0;
 }
 
 /*
@@ -568,14 +568,15 @@ static void zfpm_connection_up(const char *detail)
 	/*
 	 * Start thread to push existing routes to the FPM.
 	 */
-	assert(!zfpm_g->t_conn_up);
+	EVENT_OFF(zfpm_g->t_conn_up);
 
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_up_state.iter);
+	zfpm_g->fpm_mac_dump_done = false;
 
 	zfpm_debug("Starting conn_up thread");
-	zfpm_g->t_conn_up = NULL;
-	thread_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb, NULL, 0,
-			      &zfpm_g->t_conn_up);
+
+	event_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb, NULL, 0,
+			     &zfpm_g->t_conn_up);
 	zfpm_g->stats.t_conn_up_starts++;
 }
 
@@ -618,10 +619,10 @@ static void zfpm_connect_check(void)
  * Callback that is invoked to clean up state after the TCP connection
  * to the FPM goes down.
  */
-static int zfpm_conn_down_thread_cb(struct thread *thread)
+static void zfpm_conn_down_thread_cb(struct event *thread)
 {
 	struct route_node *rnode;
-	zfpm_rnodes_iter_t *iter;
+	struct zfpm_rnodes_iter *iter;
 	rib_dest_t *dest;
 	struct fpm_mac_info_t *mac = NULL;
 
@@ -667,9 +668,9 @@ static int zfpm_conn_down_thread_cb(struct thread *thread)
 		zfpm_g->stats.t_conn_down_yields++;
 		zfpm_rnodes_iter_pause(iter);
 		zfpm_g->t_conn_down = NULL;
-		thread_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb,
-				      NULL, 0, &zfpm_g->t_conn_down);
-		return 0;
+		event_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb,
+				     NULL, 0, &zfpm_g->t_conn_down);
+		return;
 	}
 
 	zfpm_g->stats.t_conn_down_finishes++;
@@ -679,7 +680,6 @@ static int zfpm_conn_down_thread_cb(struct thread *thread)
 	 * Start the process of connecting to the FPM again.
 	 */
 	zfpm_start_connect_timer("cleanup complete");
-	return 0;
 }
 
 /*
@@ -713,8 +713,8 @@ static void zfpm_connection_down(const char *detail)
 	assert(!zfpm_g->t_conn_down);
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_down_state.iter);
 	zfpm_g->t_conn_down = NULL;
-	thread_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
-			      &zfpm_g->t_conn_down);
+	event_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
+			     &zfpm_g->t_conn_down);
 	zfpm_g->stats.t_conn_down_starts++;
 
 	zfpm_set_state(ZFPM_STATE_IDLE, detail);
@@ -723,7 +723,7 @@ static void zfpm_connection_down(const char *detail)
 /*
  * zfpm_read_cb
  */
-static int zfpm_read_cb(struct thread *thread)
+static void zfpm_read_cb(struct event *thread)
 {
 	size_t already;
 	struct stream *ibuf;
@@ -731,14 +731,13 @@ static int zfpm_read_cb(struct thread *thread)
 	fpm_msg_hdr_t *hdr;
 
 	zfpm_g->stats.read_cb_calls++;
-	zfpm_g->t_read = NULL;
 
 	/*
 	 * Check if async connect is now done.
 	 */
 	if (zfpm_g->state == ZFPM_STATE_CONNECTING) {
 		zfpm_connect_check();
-		return 0;
+		return;
 	}
 
 	assert(zfpm_g->state == ZFPM_STATE_ESTABLISHED);
@@ -756,12 +755,13 @@ static int zfpm_read_cb(struct thread *thread)
 			if (nbyte == -1) {
 				char buffer[1024];
 
-				sprintf(buffer, "closed socket in read(%d): %s",
-					errno, safe_strerror(errno));
+				snprintf(buffer, sizeof(buffer),
+					 "closed socket in read(%d): %s", errno,
+					 safe_strerror(errno));
 				zfpm_connection_down(buffer);
 			} else
 				zfpm_connection_down("closed socket in read");
-			return 0;
+			return;
 		}
 
 		if (nbyte != (ssize_t)(FPM_MSG_HDR_LEN - already))
@@ -776,7 +776,7 @@ static int zfpm_read_cb(struct thread *thread)
 
 	if (!fpm_msg_hdr_ok(hdr)) {
 		zfpm_connection_down("invalid message header");
-		return 0;
+		return;
 	}
 
 	msg_len = fpm_msg_len(hdr);
@@ -793,12 +793,13 @@ static int zfpm_read_cb(struct thread *thread)
 			if (nbyte == -1) {
 				char buffer[1024];
 
-				sprintf(buffer, "failed to read message(%d) %s",
-					errno, safe_strerror(errno));
+				snprintf(buffer, sizeof(buffer),
+					 "failed to read message(%d) %s", errno,
+					 safe_strerror(errno));
 				zfpm_connection_down(buffer);
 			} else
 				zfpm_connection_down("failed to read message");
-			return 0;
+			return;
 		}
 
 		if (nbyte != (ssize_t)(msg_len - already))
@@ -812,7 +813,6 @@ static int zfpm_read_cb(struct thread *thread)
 
 done:
 	zfpm_read_on();
-	return 0;
 }
 
 static bool zfpm_updates_pending(void)
@@ -884,11 +884,10 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
 		len = zfpm_netlink_encode_route(cmd, dest, re, in_buf,
 						in_buf_len);
 		assert(fpm_msg_align(len) == len);
-		*msg_type = FPM_MSG_TYPE_NETLINK;
 #endif /* HAVE_NETLINK */
 		break;
 
-	default:
+	case ZFPM_MSG_FORMAT_NONE:
 		break;
 	}
 
@@ -987,7 +986,6 @@ static int zfpm_build_route_updates(void)
 			data_len = zfpm_encode_route(dest, re, (char *)data,
 						     buf_end - data, &msg_type);
 
-			assert(data_len);
 			if (data_len) {
 				hdr->msg_type = msg_type;
 				msg_len = fpm_data_len_to_msg_len(data_len);
@@ -998,6 +996,9 @@ static int zfpm_build_route_updates(void)
 					zfpm_g->stats.route_adds++;
 				else
 					zfpm_g->stats.route_dels++;
+			} else {
+				zlog_err("%s: Encoding Prefix: %pRN No valid nexthops",
+					 __func__, dest->rnode);
 			}
 		}
 
@@ -1151,20 +1152,19 @@ static void zfpm_build_updates(void)
 /*
  * zfpm_write_cb
  */
-static int zfpm_write_cb(struct thread *thread)
+static void zfpm_write_cb(struct event *thread)
 {
 	struct stream *s;
 	int num_writes;
 
 	zfpm_g->stats.write_cb_calls++;
-	zfpm_g->t_write = NULL;
 
 	/*
 	 * Check if async connect is now done.
 	 */
 	if (zfpm_g->state == ZFPM_STATE_CONNECTING) {
 		zfpm_connect_check();
-		return 0;
+		return;
 	}
 
 	assert(zfpm_g->state == ZFPM_STATE_ESTABLISHED);
@@ -1198,7 +1198,7 @@ static int zfpm_write_cb(struct thread *thread)
 				break;
 
 			zfpm_connection_down("failed to write to socket");
-			return 0;
+			return;
 		}
 
 		if (bytes_written != bytes_to_write) {
@@ -1229,19 +1229,16 @@ static int zfpm_write_cb(struct thread *thread)
 
 	if (zfpm_writes_pending())
 		zfpm_write_on();
-
-	return 0;
 }
 
 /*
  * zfpm_connect_cb
  */
-static int zfpm_connect_cb(struct thread *t)
+static void zfpm_connect_cb(struct event *t)
 {
 	int sock, ret;
 	struct sockaddr_in serv;
 
-	zfpm_g->t_connect = NULL;
 	assert(zfpm_g->state == ZFPM_STATE_ACTIVE);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -1249,7 +1246,7 @@ static int zfpm_connect_cb(struct thread *t)
 		zlog_err("Failed to create socket for connect(): %s",
 			   strerror(errno));
 		zfpm_g->stats.connect_no_sock++;
-		return 0;
+		return;
 	}
 
 	set_nonblocking(sock);
@@ -1277,7 +1274,7 @@ static int zfpm_connect_cb(struct thread *t)
 	if (ret >= 0) {
 		zfpm_g->sock = sock;
 		zfpm_connection_up("connect succeeded");
-		return 1;
+		return;
 	}
 
 	if (errno == EINPROGRESS) {
@@ -1286,7 +1283,7 @@ static int zfpm_connect_cb(struct thread *t)
 		zfpm_write_on();
 		zfpm_set_state(ZFPM_STATE_CONNECTING,
 			       "async connect in progress");
-		return 0;
+		return;
 	}
 
 	zlog_info("can't connect to FPM %d: %s", sock, safe_strerror(errno));
@@ -1296,7 +1293,6 @@ static int zfpm_connect_cb(struct thread *t)
 	 * Restart timer for retrying connection.
 	 */
 	zfpm_start_connect_timer("connect() failed");
-	return 0;
 }
 
 /*
@@ -1304,9 +1300,9 @@ static int zfpm_connect_cb(struct thread *t)
  *
  * Move state machine into the given state.
  */
-static void zfpm_set_state(zfpm_state_t state, const char *reason)
+static void zfpm_set_state(enum zfpm_state state, const char *reason)
 {
-	zfpm_state_t cur_state = zfpm_g->state;
+	enum zfpm_state cur_state = zfpm_g->state;
 
 	if (!reason)
 		reason = "Unknown";
@@ -1392,8 +1388,8 @@ static void zfpm_start_connect_timer(const char *reason)
 	delay_secs = zfpm_calc_connect_delay();
 	zfpm_debug("scheduling connect in %ld seconds", delay_secs);
 
-	thread_add_timer(zfpm_g->master, zfpm_connect_cb, 0, delay_secs,
-			 &zfpm_g->t_connect);
+	event_add_timer(zfpm_g->master, zfpm_connect_cb, 0, delay_secs,
+			&zfpm_g->t_connect);
 	zfpm_set_state(ZFPM_STATE_ACTIVE, reason);
 }
 
@@ -1431,7 +1427,6 @@ static inline int zfpm_conn_is_up(void)
 static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 {
 	rib_dest_t *dest;
-	char buf[PREFIX_STRLEN];
 
 	/*
 	 * Ignore if the connection is down. We will update the FPM about
@@ -1448,8 +1443,8 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 	}
 
 	if (reason) {
-		zfpm_debug("%s triggering update to FPM - Reason: %s",
-			   prefix2str(&rn->p, buf, sizeof(buf)), reason);
+		zfpm_debug("%pFX triggering update to FPM - Reason: %s", &rn->p,
+			   reason);
 	}
 
 	SET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
@@ -1467,9 +1462,33 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 }
 
 /*
+ * zfpm_trigger_remove
+ *
+ * The zebra code invokes this function to indicate that we should
+ * send an remove to the FPM about the given route_node.
+ */
+
+static int zfpm_trigger_remove(struct route_node *rn)
+{
+	rib_dest_t *dest;
+
+	if (!zfpm_conn_is_up())
+		return 0;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM))
+		return 0;
+
+	zfpm_debug("%pRN Removing from update queue shutting down", rn);
+
+	UNSET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
+	TAILQ_REMOVE(&zfpm_g->dest_q, dest, fpm_q_entries);
+
+	return 0;
+}
+
+/*
  * Generate Key for FPM MAC info hash entry
- * Key is generated using MAC address and VNI id which should be sufficient
- * to provide uniqueness
  */
 static unsigned int zfpm_mac_info_hash_keymake(const void *p)
 {
@@ -1491,8 +1510,6 @@ static bool zfpm_mac_info_cmp(const void *p1, const void *p2)
 
 	if (memcmp(fpm_mac1->macaddr.octet, fpm_mac2->macaddr.octet, ETH_ALEN)
 			!= 0)
-		return false;
-	if (fpm_mac1->r_vtep_ip.s_addr != fpm_mac2->r_vtep_ip.s_addr)
 		return false;
 	if (fpm_mac1->vni != fpm_mac2->vni)
 		return false;
@@ -1519,7 +1536,6 @@ static void *zfpm_mac_info_alloc(void *p)
 	fpm_mac = XCALLOC(MTYPE_FPM_MAC_INFO, sizeof(struct fpm_mac_info_t));
 
 	memcpy(&fpm_mac->macaddr, &key->macaddr, ETH_ALEN);
-	memcpy(&fpm_mac->r_vtep_ip, &key->r_vtep_ip, sizeof(struct in_addr));
 	fpm_mac->vni = key->vni;
 
 	return (void *)fpm_mac;
@@ -1544,12 +1560,13 @@ static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
  * This function checks if we already have enqueued an update for this RMAC,
  * If yes, update the same fpm_mac_info_t. Else, create and enqueue an update.
  */
-static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
-					bool delete, const char *reason)
+static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
+				    struct zebra_l3vni *zl3vni, bool delete,
+				    const char *reason)
 {
-	char buf[ETHER_ADDR_STRLEN];
 	struct fpm_mac_info_t *fpm_mac, key;
 	struct interface *vxlan_if, *svi_if;
+	bool mac_found = false;
 
 	/*
 	 * Ignore if the connection is down. We will update the FPM about
@@ -1559,67 +1576,41 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 		return 0;
 
 	if (reason) {
-		zfpm_debug("triggering update to FPM - Reason: %s - %s",
-			reason,
-			prefix_mac2str(&rmac->macaddr, buf, sizeof(buf)));
+		zfpm_debug("triggering update to FPM - Reason: %s - %pEA",
+			   reason, &rmac->macaddr);
 	}
 
 	vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
 	svi_if = zl3vni_map_to_svi_if(zl3vni);
 
-	memset(&key, 0, sizeof(struct fpm_mac_info_t));
+	memset(&key, 0, sizeof(key));
 
 	memcpy(&key.macaddr, &rmac->macaddr, ETH_ALEN);
-	key.r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	key.vni = zl3vni->vni;
 
 	/* Check if this MAC is already present in the queue. */
 	fpm_mac = zfpm_mac_info_lookup(&key);
 
 	if (fpm_mac) {
-		if (!!CHECK_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM)
-			== delete) {
-			/*
-			 * MAC is already present in the queue
-			 * with the same op as this one. Do nothing
-			 */
-			zfpm_g->stats.redundant_triggers++;
-			return 0;
-		}
+		mac_found = true;
 
 		/*
-		 * A new op for an already existing fpm_mac_info_t node.
-		 * Update the existing node for the new op.
+		 * If the enqueued op is "add" and current op is "delete",
+		 * this is a noop. So, Unset ZEBRA_MAC_UPDATE_FPM flag.
+		 * While processing FPM queue, we will silently delete this
+		 * MAC entry without sending any update for this MAC.
 		 */
-		if (!delete) {
-			/*
-			 * New op is "add". Previous op is "delete".
-			 * Update the fpm_mac_info_t for the new add.
-			 */
-			fpm_mac->zebra_flags = rmac->flags;
-
-			fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
-			fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
-
-			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
-			SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
-		} else {
-			/*
-			 * New op is "delete". Previous op is "add".
-			 * Thus, no-op. Unset ZEBRA_MAC_UPDATE_FPM flag.
-			 */
+		if (!CHECK_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM) &&
+		    delete == 1) {
 			SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
 			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
+			return 0;
 		}
+	} else
+		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
+				   zfpm_mac_info_alloc);
 
-		return 0;
-	}
-
-	fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
-			   zfpm_mac_info_alloc);
-	if (!fpm_mac)
-		return 0;
-
+	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;
 	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
 	fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
@@ -1627,8 +1618,11 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
 	if (delete)
 		SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
+	else
+		UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
 
-	TAILQ_INSERT_TAIL(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
+	if (!mac_found)
+		TAILQ_INSERT_TAIL(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
 
 	zfpm_g->stats.updates_triggered++;
 
@@ -1645,11 +1639,11 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
  * Iterate over all the RMAC entries for the given L3VNI
  * and enqueue the RMAC for FPM processing.
  */
-static void zfpm_trigger_rmac_update_wrapper(struct hash_backet *backet,
+static void zfpm_trigger_rmac_update_wrapper(struct hash_bucket *bucket,
 					     void *args)
 {
-	zebra_mac_t *zrmac = (zebra_mac_t *)backet->data;
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)args;
+	struct zebra_mac *zrmac = (struct zebra_mac *)bucket->data;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)args;
 
 	zfpm_trigger_rmac_update(zrmac, zl3vni, false, "RMAC added");
 }
@@ -1659,18 +1653,18 @@ static void zfpm_trigger_rmac_update_wrapper(struct hash_backet *backet,
  * This function iterates over all the L3VNIs to trigger
  * FPM updates for RMACs currently available.
  */
-static void zfpm_iterate_rmac_table(struct hash_backet *backet, void *args)
+static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args)
 {
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)backet->data;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	hash_iterate(zl3vni->rmac_table, zfpm_trigger_rmac_update_wrapper,
 		     (void *)zl3vni);
 }
 
 /*
- * zfpm_stats_timer_cb
+ * struct zfpm_statsimer_cb
  */
-static int zfpm_stats_timer_cb(struct thread *t)
+static void zfpm_stats_timer_cb(struct event *t)
 {
 	zfpm_g->t_stats = NULL;
 
@@ -1692,8 +1686,6 @@ static int zfpm_stats_timer_cb(struct thread *t)
 	zfpm_stats_reset(&zfpm_g->stats);
 
 	zfpm_start_stats_timer();
-
-	return 0;
 }
 
 /*
@@ -1705,7 +1697,7 @@ static void zfpm_stop_stats_timer(void)
 		return;
 
 	zfpm_debug("Stopping existing stats timer");
-	THREAD_TIMER_OFF(zfpm_g->t_stats);
+	EVENT_OFF(zfpm_g->t_stats);
 }
 
 /*
@@ -1715,8 +1707,8 @@ void zfpm_start_stats_timer(void)
 {
 	assert(!zfpm_g->t_stats);
 
-	thread_add_timer(zfpm_g->master, zfpm_stats_timer_cb, 0,
-			 ZFPM_STATS_IVL_SECS, &zfpm_g->t_stats);
+	event_add_timer(zfpm_g->master, zfpm_stats_timer_cb, 0,
+			ZFPM_STATS_IVL_SECS, &zfpm_g->t_stats);
 }
 
 /*
@@ -1733,7 +1725,7 @@ void zfpm_start_stats_timer(void)
  */
 static void zfpm_show_stats(struct vty *vty)
 {
-	zfpm_stats_t total_stats;
+	struct zfpm_stats total_stats;
 	time_t elapsed;
 
 	vty_out(vty, "\n%-40s %10s     Last %2d secs\n\n", "Counter", "Total",
@@ -1833,12 +1825,15 @@ DEFUN (clear_zebra_fpm_stats,
 /*
  * update fpm connection information
  */
-DEFUN ( fpm_remote_ip,
+DEFUN (fpm_remote_ip,
        fpm_remote_ip_cmd,
-        "fpm connection ip A.B.C.D port (1-65535)",
-        "fpm connection remote ip and port\n"
-        "Remote fpm server ip A.B.C.D\n"
-        "Enter ip ")
+       "fpm connection ip A.B.C.D port (1-65535)",
+       "Forwarding Path Manager\n"
+       "Configure FPM connection\n"
+       "Connect to IPv4 address\n"
+       "Connect to IPv4 address\n"
+       "TCP port number\n"
+       "TCP port number\n")
 {
 
 	in_addr_t fpm_server;
@@ -1859,13 +1854,16 @@ DEFUN ( fpm_remote_ip,
 	return CMD_SUCCESS;
 }
 
-DEFUN ( no_fpm_remote_ip,
+DEFUN (no_fpm_remote_ip,
        no_fpm_remote_ip_cmd,
-        "no fpm connection ip A.B.C.D port (1-65535)",
-        "fpm connection remote ip and port\n"
-        "Connection\n"
-        "Remote fpm server ip A.B.C.D\n"
-        "Enter ip ")
+       "no fpm connection ip A.B.C.D port (1-65535)",
+       NO_STR
+       "Forwarding Path Manager\n"
+       "Remove configured FPM connection\n"
+       "Connect to IPv4 address\n"
+       "Connect to IPv4 address\n"
+       "TCP port number\n"
+       "TCP port number\n")
 {
 	if (zfpm_g->fpm_server != inet_addr(argv[4]->arg)
 	    || zfpm_g->fpm_port != atoi(argv[6]->arg))
@@ -1925,8 +1923,7 @@ static inline void zfpm_init_message_format(const char *format)
 			return;
 		}
 		flog_warn(EC_ZEBRA_PROTOBUF_NOT_AVAILABLE,
-			  "FPM protobuf message format is deprecated and scheduled to be removed. "
-			  "Please convert to using netlink format or contact dev@lists.frrouting.org with your use case.");
+			  "FPM protobuf message format is deprecated and scheduled to be removed. Please convert to using netlink format or contact dev@lists.frrouting.org with your use case.");
 		zfpm_g->message_format = ZFPM_MSG_FORMAT_PROTOBUF;
 		return;
 	}
@@ -1952,15 +1949,22 @@ static int fpm_remote_srv_write(struct vty *vty)
 	if ((zfpm_g->fpm_server != FPM_DEFAULT_IP
 	     && zfpm_g->fpm_server != INADDR_ANY)
 	    || (zfpm_g->fpm_port != FPM_DEFAULT_PORT && zfpm_g->fpm_port != 0))
-		vty_out(vty, "fpm connection ip %s port %d\n", inet_ntoa(in),
+		vty_out(vty, "fpm connection ip %pI4 port %d\n", &in,
 			zfpm_g->fpm_port);
 
 	return 0;
 }
 
 
+static int fpm_remote_srv_write(struct vty *vty);
 /* Zebra node  */
-static struct cmd_node zebra_node = {ZEBRA_NODE, "", 1};
+static struct cmd_node zebra_node = {
+	.name = "zebra",
+	.node = ZEBRA_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "",
+	.config_write = fpm_remote_srv_write,
+};
 
 
 /**
@@ -1974,7 +1978,7 @@ static struct cmd_node zebra_node = {ZEBRA_NODE, "", 1};
  *
  * Returns true on success.
  */
-static int zfpm_init(struct thread_master *master)
+static int zfpm_init(struct event_loop *master)
 {
 	int enable = 1;
 	uint16_t port = 0;
@@ -1997,7 +2001,11 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_stats_init(&zfpm_g->last_ivl_stats);
 	zfpm_stats_init(&zfpm_g->cumulative_stats);
 
-	install_node(&zebra_node, fpm_remote_srv_write);
+	memset(&ipv4ll_gateway, 0, sizeof(ipv4ll_gateway));
+	if (inet_pton(AF_INET, ipv4_ll_buf, &ipv4ll_gateway.ipv4) != 1)
+		zlog_warn("inet_pton failed for %s", ipv4_ll_buf);
+
+	install_node(&zebra_node);
 	install_element(ENABLE_NODE, &show_zebra_fpm_stats_cmd);
 	install_element(ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
 	install_element(CONFIG_NODE, &fpm_remote_ip_cmd);
@@ -2029,14 +2037,29 @@ static int zfpm_init(struct thread_master *master)
 	return 0;
 }
 
+static int zfpm_fini(void)
+{
+	zfpm_write_off();
+	zfpm_read_off();
+	zfpm_connect_off();
+
+	zfpm_stop_stats_timer();
+
+	hook_unregister(rib_update, zfpm_trigger_update);
+	return 0;
+}
+
 static int zebra_fpm_module_init(void)
 {
 	hook_register(rib_update, zfpm_trigger_update);
+	hook_register(rib_shutdown, zfpm_trigger_remove);
 	hook_register(zebra_rmac_update, zfpm_trigger_rmac_update);
 	hook_register(frr_late_init, zfpm_init);
+	hook_register(frr_early_fini, zfpm_fini);
 	return 0;
 }
 
 FRR_MODULE_SETUP(.name = "zebra_fpm", .version = FRR_VERSION,
 		 .description = "zebra FPM (Forwarding Plane Manager) module",
-		 .init = zebra_fpm_module_init, )
+		 .init = zebra_fpm_module_init,
+);

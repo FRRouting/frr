@@ -1,0 +1,23 @@
+{
+  "prefix":"198.10.1.1\/32",
+  "paths":[
+    {
+      "valid":true,
+      "multipath":true,
+      "nexthops":[
+        {
+          "ip":"11.1.4.6"
+        }
+      ]
+    },
+    {
+      "valid":true,
+      "multipath":true,
+      "nexthops":[
+        {
+          "ip":"11.1.4.2"
+        }
+      ]
+    }
+  ]
+}

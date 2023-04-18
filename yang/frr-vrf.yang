@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-vrf {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/vrf";
+  prefix frr-vrf;
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR VRF.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-06 {
+    description
+      "Initial revision.";
+  }
+
+  typedef vrf-ref {
+    type leafref {
+      path "/frr-vrf:lib/frr-vrf:vrf/frr-vrf:name";
+      require-instance false;
+    }
+    description
+      "Reference to a VRF";
+  }
+
+  container lib {
+    list vrf {
+      key "name";
+      description
+        "VRF.";
+      leaf name {
+        type string {
+          length "1..36";
+        }
+        description
+          "VRF name.";
+      }
+
+      container state {
+        config false;
+        leaf id {
+          type uint32 {
+            range "0..4294967295";
+          }
+          description
+            "VRF Id.";
+        }
+
+        leaf active {
+          type boolean;
+          default "false";
+          description
+            "VRF active in kernel.";
+        }
+      }
+    }
+  }
+}

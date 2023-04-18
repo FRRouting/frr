@@ -1,0 +1,50 @@
+{
+"ipv4Unicast":{
+  "routerId":"10.0.1.1",
+  "as":100,
+  "vrfName":"default",
+  "peerCount":1,
+  "peers":{
+    "10.0.1.101":{
+      "outq":0,
+      "inq":0,
+      "pfxRcd":0,
+      "pfxSnt":0,
+      "state":"Established"
+    }
+  },
+  "totalPeers":1
+},
+"ipv4Flowspec":{
+  "routerId":"10.0.1.1",
+  "as":100,
+  "vrfName":"default",
+  "peerCount":1,
+  "peers":{
+    "10.0.1.101":{
+      "outq":0,
+      "inq":0,
+      "pfxRcd":1,
+      "pfxSnt":0,
+      "state":"Established"
+    }
+  },
+  "totalPeers":1
+},
+"ipv6Flowspec":{
+  "routerId":"10.0.1.1",
+  "as":100,
+  "vrfName":"default",
+  "peerCount":1,
+  "peers":{
+    "10.0.1.101":{
+      "outq":0,
+      "inq":0,
+      "pfxRcd":1,
+      "pfxSnt":0,
+      "state":"Established"
+    }
+  },
+  "totalPeers":1
+}
+}

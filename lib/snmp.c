@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* SNMP support
  * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,13 +10,11 @@
 
 #include "smux.h"
 
-#define min(A,B) ((A) < (B) ? (A) : (B))
-
 int oid_compare(const oid *o1, int o1_len, const oid *o2, int o2_len)
 {
 	int i;
 
-	for (i = 0; i < min(o1_len, o2_len); i++) {
+	for (i = 0; i < MIN(o1_len, o2_len); i++) {
 		if (o1[i] < o2[i])
 			return -1;
 		else if (o1[i] > o2[i])
@@ -64,7 +47,69 @@ void oid2in_addr(oid oid[], int len, struct in_addr *addr)
 		*pnt++ = oid[i];
 }
 
-void oid_copy_addr(oid oid[], struct in_addr *addr, int len)
+void oid2in6_addr(oid oid[], struct in6_addr *addr)
+{
+	unsigned int i;
+	uint8_t *pnt;
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < sizeof(struct in6_addr); i++)
+		*pnt++ = oid[i];
+}
+
+void oid2int(oid oid[], int *dest)
+{
+	uint8_t i;
+	uint8_t *pnt;
+	int network_dest;
+
+	pnt = (uint8_t *)&network_dest;
+
+	for (i = 0; i < sizeof(int); i++)
+		*pnt++ = oid[i];
+	*dest = ntohl(network_dest);
+}
+
+void oid_copy_in_addr(oid oid[], const struct in_addr *addr)
+{
+	int i;
+	const uint8_t *pnt;
+	int len = sizeof(struct in_addr);
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < len; i++)
+		oid[i] = *pnt++;
+}
+
+
+void oid_copy_in6_addr(oid oid[], const struct in6_addr *addr)
+{
+	int i;
+	const uint8_t *pnt;
+	int len = sizeof(struct in6_addr);
+
+	pnt = (uint8_t *)addr;
+
+	for (i = 0; i < len; i++)
+		oid[i] = *pnt++;
+}
+
+void oid_copy_int(oid oid[], int *val)
+{
+	uint8_t i;
+	const uint8_t *pnt;
+	int network_val;
+
+	network_val = htonl(*val);
+	pnt = (uint8_t *)&network_val;
+
+	for (i = 0; i < sizeof(int); i++)
+		oid[i] = *pnt++;
+}
+
+void oid2string(oid oid[], int len, char *string)
 {
 	int i;
 	uint8_t *pnt;
@@ -72,7 +117,21 @@ void oid_copy_addr(oid oid[], struct in_addr *addr, int len)
 	if (len == 0)
 		return;
 
-	pnt = (uint8_t *)addr;
+	pnt = (uint8_t *)string;
+
+	for (i = 0; i < len; i++)
+		*pnt++ = (uint8_t)oid[i];
+}
+
+void oid_copy_str(oid oid[], const char *string, int len)
+{
+	int i;
+	const uint8_t *pnt;
+
+	if (len == 0)
+		return;
+
+	pnt = (uint8_t *)string;
 
 	for (i = 0; i < len; i++)
 		oid[i] = *pnt++;

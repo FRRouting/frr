@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * basic test for seqlock
  *
  * Copyright (C) 2015  David Lamparter
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
- * Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -32,6 +19,7 @@
 
 #include "monotime.h"
 #include "seqlock.h"
+#include "printfrr.h"
 
 static struct seqlock sqlo;
 static pthread_t thr1;
@@ -43,7 +31,7 @@ static void writestr(const char *str)
 	char buf[32];
 	int64_t usec = monotime_since(&start, NULL);
 
-	snprintf(buf, sizeof(buf), "[%02"PRId64"] ", usec / 100000);
+	snprintfrr(buf, sizeof(buf), "[%02" PRId64 "] ", usec / 100000);
 
 	iov[0].iov_base = buf;
 	iov[0].iov_len = strlen(buf);

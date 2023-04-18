@@ -1,31 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Neighbor functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
+#include "lib/bfd.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "memory.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "table.h"
 #include "log.h"
@@ -43,6 +29,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
+#include "ospfd/ospf_gr.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -98,7 +85,13 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 
 	nbr->crypt_seqnum = 0;
 
-	ospf_bfd_info_nbr_create(oi, nbr);
+	/* Initialize GR Helper info*/
+	nbr->gr_helper_info.recvd_grace_period = 0;
+	nbr->gr_helper_info.actual_grace_period = 0;
+	nbr->gr_helper_info.gr_helper_status = OSPF_GR_NOT_HELPER;
+	nbr->gr_helper_info.helper_exit_reason = OSPF_GR_HELPER_EXIT_NONE;
+	nbr->gr_helper_info.gr_restart_reason = OSPF_GR_UNKNOWN_RESTART;
+
 	return nbr;
 }
 
@@ -132,15 +125,19 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	}
 
 	/* Cancel all timers. */
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
-	OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
-	OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
-	OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
+	EVENT_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_db_desc);
+	EVENT_OFF(nbr->t_ls_req);
+	EVENT_OFF(nbr->t_ls_upd);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
-	thread_cancel_event(master, nbr);
+	event_cancel_event(master, nbr);
 
-	ospf_bfd_info_free(&nbr->bfd_info);
+	bfd_sess_free(&nbr->bfd_session);
+
+	EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
+
+	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);
 }
 
@@ -171,8 +168,8 @@ void ospf_nbr_delete(struct ospf_neighbor *nbr)
 			rn->info = NULL;
 			route_unlock_node(rn);
 		} else
-			zlog_info("Can't find neighbor %s in the interface %s",
-				  inet_ntoa(nbr->src), IF_NAME(oi));
+			zlog_info("Can't find neighbor %pI4 in the interface %s",
+				  &nbr->src, IF_NAME(oi));
 
 		route_unlock_node(rn);
 	} else {
@@ -271,8 +268,8 @@ void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id)
 		/* There is already pseudo neighbor. */
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"router_id %s already present in neighbor table. node refcount %u",
-				inet_ntoa(router_id), rn->lock);
+				"router_id %pI4 already present in neighbor table. node refcount %u",
+				&router_id, route_node_get_lock_count(rn));
 		route_unlock_node(rn);
 	} else
 		rn->info = oi->nbr_self;
@@ -370,9 +367,16 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 	struct route_table *nbrs;
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
+	uint8_t shutdown_save = top->inst_shutdown;
 
 	/* At first, flush self-originated LSAs from routing domain. */
 	ospf_flush_self_originated_lsas_now(top);
+
+	/* ospf_flush_self_originated_lsas_now is primarily intended for shut
+	 * down scenarios. Reset the inst_shutdown flag that it sets. We are
+	 * just changing configuration, and the flag can change the scheduling
+	 * of when maxage LSAs are sent. */
+	top->inst_shutdown = shutdown_save;
 
 	/* Revert all neighbor status to ExStart. */
 	for (ALL_LIST_ELEMENTS_RO(top->oiflist, node, oi)) {
@@ -388,12 +392,15 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"Renegotiate optional capabilities with neighbor(%s)",
-					inet_ntoa(nbr->router_id));
+					"Renegotiate optional capabilities with neighbor(%pI4)",
+					&nbr->router_id);
 
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 		}
 	}
+
+	/* Refresh/Re-originate external LSAs (Type-7 and Type-5).*/
+	ospf_external_lsa_rid_change(top);
 
 	return;
 }
@@ -402,12 +409,14 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 struct ospf_neighbor *ospf_nbr_lookup(struct ospf_interface *oi, struct ip *iph,
 				      struct ospf_header *ospfh)
 {
+	struct in_addr srcaddr = iph->ip_src;
+
 	if (oi->type == OSPF_IFTYPE_VIRTUALLINK
 	    || oi->type == OSPF_IFTYPE_POINTOPOINT)
 		return (ospf_nbr_lookup_by_routerid(oi->nbrs,
 						    &ospfh->router_id));
 	else
-		return (ospf_nbr_lookup_by_addr(oi->nbrs, &iph->ip_src));
+		return (ospf_nbr_lookup_by_addr(oi->nbrs, &srcaddr));
 }
 
 static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
@@ -432,7 +441,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 				nbr->nbr_nbma = nbr_nbma;
 
 				if (nbr_nbma->t_poll)
-					OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
+					EVENT_OFF(nbr_nbma->t_poll);
 
 				nbr->state_change = nbr_nbma->state_change + 1;
 			}
@@ -443,9 +452,12 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 	if (ntohs(ospfh->auth_type) == OSPF_AUTH_CRYPTOGRAPHIC)
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
 
+	/* Configure BFD if interface has it. */
+	ospf_neighbor_bfd_apply(nbr);
+
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("NSM[%s:%s]: start", IF_NAME(nbr->oi),
-			   inet_ntoa(nbr->router_id));
+		zlog_debug("NSM[%s:%pI4]: start", IF_NAME(oi),
+			   &nbr->router_id);
 
 	return nbr;
 }

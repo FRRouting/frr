@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra connect library for EIGRP.
  * Copyright (C) 2013-2014
@@ -7,27 +8,11 @@
  *   Matej Perina
  *   Peter Orsag
  *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -41,6 +26,7 @@
 #include "log.h"
 #include "nexthop.h"
 
+#include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
@@ -52,6 +38,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
+#include "eigrpd/eigrp_metric.h"
 
 static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
@@ -62,7 +49,7 @@ static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
@@ -88,7 +75,8 @@ static int eigrp_zebra_route_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_route_notify_owner note;
 	uint32_t table;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note, NULL,
+				      NULL))
 		return -1;
 
 	return 0;
@@ -99,20 +87,24 @@ static void eigrp_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+static zclient_handler *const eigrp_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = eigrp_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = eigrp_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = eigrp_interface_address_delete,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = eigrp_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = eigrp_zebra_read_route,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = eigrp_zebra_route_notify_owner,
+};
+
 void eigrp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = false};
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, eigrp_handlers,
+			      array_size(eigrp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
-	zclient->router_id_update = eigrp_router_id_update_zebra;
-	zclient->interface_address_add = eigrp_interface_address_add;
-	zclient->interface_address_delete = eigrp_interface_address_delete;
-	zclient->redistribute_route_add = eigrp_zebra_read_route;
-	zclient->redistribute_route_del = eigrp_zebra_read_route;
-	zclient->route_notify_owner = eigrp_zebra_route_notify_owner;
 }
 
 
@@ -150,12 +142,9 @@ static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE)) {
-		char buf[128];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address add %s", c->ifp->name,
-			   buf);
-	}
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: interface %s address add %pFX", c->ifp->name,
+			   c->address);
 
 	eigrp_if_update(c->ifp);
 
@@ -173,12 +162,9 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (c == NULL)
 		return 0;
 
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE)) {
-		char buf[128];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address delete %s",
-			   c->ifp->name, buf);
-	}
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: interface %s address delete %pFX",
+			   c->ifp->name, c->address);
 
 	ifp = c->ifp;
 	ei = ifp->info;
@@ -199,7 +185,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	struct eigrp_nexthop_entry *te;
+	struct eigrp_route_descriptor *te;
 	struct listnode *node;
 	int count = 0;
 
@@ -234,10 +220,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	api.nexthop_num = count;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[2][PREFIX_STRLEN];
-		zlog_debug("Zebra: Route add %s nexthop %s",
-			   prefix2str(p, buf[0], PREFIX_STRLEN),
-			   inet_ntop(AF_INET, 0, buf[1], PREFIX_STRLEN));
+		zlog_debug("Zebra: Route add %pFX", p);
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
@@ -257,11 +240,8 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 	memcpy(&api.prefix, p, sizeof(*p));
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX_STRLEN];
-		zlog_debug("Zebra: Route del %s",
-			   prefix2str(p, buf, PREFIX_STRLEN));
-	}
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("Zebra: Route del %pFX", p);
 
 	return;
 }

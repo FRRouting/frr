@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_SPF_H
@@ -23,6 +8,7 @@
 
 #include "typesafe.h"
 #include "ospf6_top.h"
+#include "lib/json.h"
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_spf;
@@ -34,7 +20,9 @@ extern unsigned char conf_debug_ospf6_spf;
 #define IS_OSPF6_DEBUG_SPF(level)                                              \
 	(conf_debug_ospf6_spf & OSPF6_DEBUG_SPF_##level)
 
-PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
+#define OSPF6_ASE_CALC_INTERVAL 1
+
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue);
 /* Transit Vertex */
 struct ospf6_vertex {
 	/* type of this vertex */
@@ -88,6 +76,9 @@ struct ospf6_vertex {
 #define OSPF6_SPF_FLAGS_LINK_LSA_REMOVED         (1 << 5)
 #define OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED    (1 << 6)
 #define OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED   (1 << 7)
+#define OSPF6_SPF_FLAGS_CONFIG_CHANGE            (1 << 8)
+#define OSPF6_SPF_FLAGS_ASBR_STATUS_CHANGE       (1 << 9)
+#define OSPF6_SPF_FLAGS_GR_FINISH                (1 << 10)
 
 static inline void ospf6_set_spf_reason(struct ospf6 *ospf, unsigned int reason)
 {
@@ -146,9 +137,10 @@ extern void ospf6_spf_calculation(uint32_t router_id,
 extern void ospf6_spf_schedule(struct ospf6 *ospf, unsigned int reason);
 
 extern void ospf6_spf_display_subtree(struct vty *vty, const char *prefix,
-				      int rest, struct ospf6_vertex *v);
+				      int rest, struct ospf6_vertex *v,
+				      json_object *json_obj, bool use_json);
 
-extern void ospf6_spf_config_write(struct vty *vty);
+extern void ospf6_spf_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_spf(struct vty *vty);
 extern void install_element_ospf6_debug_spf(void);
 extern void ospf6_spf_init(void);
@@ -157,5 +149,11 @@ extern struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 							struct ospf6_lsdb *lsdb,
 							uint32_t adv_router);
 extern void ospf6_remove_temp_router_lsa(struct ospf6_area *area);
-
+extern void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6);
+extern int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
+				     struct ospf6_area *area);
+extern bool
+ospf6_merge_parents_nh_to_child(struct ospf6_vertex *v,
+				struct ospf6_route *route,
+				struct ospf6_route_table *result_table);
 #endif /* OSPF6_SPF_H */

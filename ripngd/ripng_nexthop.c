@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPngd Zebra
  * Copyright (C) 2002 6WIND <vincent.jardin@6wind.com>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* This file is required in order to support properly the RIPng nexthop
@@ -39,11 +24,9 @@
 #include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data");
 
 #define DEBUG 1
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
 
 struct ripng_rte_data {
 	struct prefix_ipv6 *p;
@@ -151,7 +134,7 @@ void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 	if (mtu < 0)
 		mtu = IFMINMTU;
 
-	rtemax = (min(mtu, RIPNG_MAX_PACKET_SIZE) - IPV6_HDRLEN
+	rtemax = (MIN(mtu, RIPNG_MAX_PACKET_SIZE) - IPV6_HDRLEN
 		  - sizeof(struct udphdr) - sizeof(struct ripng_packet)
 		  + sizeof(struct rte))
 		 / sizeof(struct rte);

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
@@ -5,18 +6,6 @@
  * Copyright (c) 2012 Alexander Bluhm <bluhm@openbsd.org>
  * Copyright (c) 2004 Esben Norby <norby@openbsd.org>
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -182,7 +171,7 @@ ldp_prefixcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b,
 	case AF_INET:
 		if (prefixlen == 0)
 			return (0);
-		if (prefixlen > 32)
+		if (prefixlen > IPV4_MAX_BITLEN)
 			fatalx("ldp_prefixcmp: bad IPv4 prefixlen");
 		mask = htonl(prefixlen2mask(prefixlen));
 		aa = htonl(a->v4.s_addr) & mask;
@@ -191,7 +180,7 @@ ldp_prefixcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b,
 	case AF_INET6:
 		if (prefixlen == 0)
 			return (0);
-		if (prefixlen > 128)
+		if (prefixlen > IPV6_MAX_BITLEN)
 			fatalx("ldp_prefixcmp: bad IPv6 prefixlen");
 		for (i = 0; i < prefixlen / 8; i++)
 			if (a->v6.s6_addr[i] != b->v6.s6_addr[i])

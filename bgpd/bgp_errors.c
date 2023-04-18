@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BGP-specific error messages.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Don Slice
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -182,6 +169,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log files and open an Issue, restart FRR",
 	},
 	{
+		.code = EC_BGP_SENDQ_STUCK_WARN,
+		.title = "BGP has been unable to send anything to a peer for an extended time",
+		.description = "The BGP peer does not seem to be receiving or processing any data received from us, causing updates to be delayed.",
+		.suggestion = "Check connectivity to the peer and that it is not overloaded",
+	},
+	{
 		.code = END_FERR,
 	}
 };
@@ -228,6 +221,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.title = "BGP PMSI tunnel attribute length is invalid",
 		.description = "BGP update has invalid length for PMSI tunnel",
 		.suggestion = "Determine the source of the update and determine why the PMSI tunnel attribute length has been set incorrectly"
+	},
+	{
+		.code = EC_BGP_ATTR_AIGP,
+		.title = "BGP AIGP attribute is incorrect",
+		.description = "BGP AIGP attribute is incorrect",
+		.suggestion = "Determine the source of the attribute and determine why the AIGP attribute has been set incorrectly"
 	},
 	{
 		.code = EC_BGP_PEER_GROUP,
@@ -455,6 +454,36 @@ static struct log_ref ferr_bgp_err[] = {
 		.title = "BGP has detected a configuration overwrite during peer collision resolution",
 		.description = "As part of BGP startup, the peer and ourselves can start connections to each other at the same time. During this process BGP received additional configuration, but it was only applied to one of the two nascent connections. Depending on the result of collision detection and resolution this configuration might be lost.  To remedy this, after performing collision detection and resolution the peer session has been reset in order to apply the new configuration.",
 		.suggestion = "Gather data and open a Issue so that this developmental escape can be fixed, the peer should have been reset",
+	},
+	{
+		.code = EC_BGP_ROUTER_ID_SAME,
+		.title = "BGP has detected a duplicate router id during collision resolution",
+		.description = "As part of normal collision detection for opening a connection to a peer, BGP has detected that the remote peer's router-id is the same as ours",
+		.suggestion = "Change one of the two router-id's",
+	},
+	{
+		.code = EC_BGP_INVALID_BGP_INSTANCE,
+		.title = "BGP instance for the specific vrf is invalid",
+		.description = "Indicates that specified bgp instance is NULL",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
+		.code = EC_BGP_INVALID_ROUTE,
+		.title = "BGP route node is invalid",
+		.description = "BGP route for the specified AFI/SAFI is NULL",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
+		.code = EC_BGP_NO_LL_ADDRESS_AVAILABLE,
+		.title = "BGP v6 peer with no LL address on outgoing interface",
+		.description = "BGP when using a v6 peer requires a v6 LL address to be configured on the outgoing interface as per RFC 4291 section 2.1",
+		.suggestion = "Add a v6 LL address to the outgoing interfaces as per RFC",
+	},
+	{
+		.code = EC_BGP_SENDQ_STUCK_PROPER,
+		.title = "BGP is shutting down a peer due to being unable to send anything for an extended time",
+		.description = "No BGP updates were successfully sent to the peer for more than twice the holdtime.",
+		.suggestion = "Check connectivity to the peer and that it is not overloaded",
 	},
 	{
 		.code = END_FERR,

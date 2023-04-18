@@ -1,25 +1,19 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2017-19  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef _FRRCU_H
 #define _FRRCU_H
 
+#include <assert.h>
+
 #include "memory.h"
 #include "atomlist.h"
-#include "seqlock.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* quick RCU primer:
  *   There's a global sequence counter.  Whenever a thread does a
@@ -113,7 +107,7 @@ struct rcu_action {
 };
 
 /* RCU cleanup function queue item */
-PREDECL_ATOMLIST(rcu_heads)
+PREDECL_ATOMLIST(rcu_heads);
 struct rcu_head {
 	struct rcu_heads_item head;
 	const struct rcu_action *action;
@@ -139,6 +133,8 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 #define rcu_free(mtype, ptr, field)                                            \
 	do {                                                                   \
 		typeof(ptr) _ptr = (ptr);                                      \
+		if (!_ptr)                                                     \
+			break;                                                 \
 		struct rcu_head *_rcu_head = &_ptr->field;                     \
 		static const struct rcu_action _rcu_action = {                 \
 			.type = RCUA_FREE,                                     \
@@ -168,5 +164,9 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 	} while (0)
 
 extern void rcu_close(struct rcu_head_close *head, int fd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRRCU_H */

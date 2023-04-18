@@ -6,8 +6,8 @@ FRRouting
 =========
 
 FRR is free software that implements and manages various IPv4 and IPv6 routing
-protocols. It runs on nearly all distributions of Linux and BSD as well as
-Solaris and supports all modern CPU architectures.
+protocols. It runs on nearly all distributions of Linux and BSD and
+supports all modern CPU architectures.
 
 FRR currently supports the following protocols:
 
@@ -59,7 +59,7 @@ lists:
 
 For chat, we currently use [Slack](https://frrouting.slack.com). You can join
 by clicking the "Slack" link under the
-[Participate](https://frrouting.org/#participate) section of our website.
+[Participate](https://frrouting.org/community) section of our website.
 
 
 Contributing

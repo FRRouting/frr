@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IP SSM ranges for FRR
  * Copyright (C) 2017 Cumulus Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,11 +14,13 @@
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_ssm.h"
-#include "pim_zebra.h"
+#include "pim_igmp.h"
 
 static void pim_ssm_range_reevaluate(struct pim_instance *pim)
 {
+#if PIM_IPV == 4
 	/* 1. Setup register state for (S,G) entries if G has changed from SSM
 	 * to
 	 *    ASM.
@@ -50,6 +39,7 @@ static void pim_ssm_range_reevaluate(struct pim_instance *pim)
 	 */
 	pim_upstream_register_reevaluate(pim);
 	igmp_source_forward_reevaluate_all(pim);
+#endif
 }
 
 void pim_ssm_prefix_list_update(struct pim_instance *pim,
@@ -68,42 +58,30 @@ void pim_ssm_prefix_list_update(struct pim_instance *pim,
 
 static int pim_is_grp_standard_ssm(struct prefix *group)
 {
-	static int first = 1;
-	static struct prefix group_ssm;
+	pim_addr addr = pim_addr_from_prefix(group);
 
-	if (first) {
-		if (!str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm))
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: Failure to Read Group Address: %s",
-				 __PRETTY_FUNCTION__, PIM_SSM_STANDARD_RANGE);
-
-		first = 0;
-	}
-
-	return prefix_match(&group_ssm, group);
+	return pim_addr_ssm(addr);
 }
 
-int pim_is_grp_ssm(struct pim_instance *pim, struct in_addr group_addr)
+int pim_is_grp_ssm(struct pim_instance *pim, pim_addr group_addr)
 {
 	struct pim_ssm *ssm;
 	struct prefix group;
 	struct prefix_list *plist;
 
-	memset(&group, 0, sizeof(group));
-	group.family = AF_INET;
-	group.u.prefix4 = group_addr;
-	group.prefixlen = 32;
+	pim_addr_to_prefix(&group, group_addr);
 
 	ssm = pim->ssm_info;
 	if (!ssm->plist_name) {
 		return pim_is_grp_standard_ssm(&group);
 	}
 
-	plist = prefix_list_lookup(AFI_IP, ssm->plist_name);
+	plist = prefix_list_lookup(PIM_AFI, ssm->plist_name);
 	if (!plist)
 		return 0;
 
-	return (prefix_list_apply(plist, &group) == PREFIX_PERMIT);
+	return (prefix_list_apply_ext(plist, NULL, &group, true) ==
+		PREFIX_PERMIT);
 }
 
 int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
@@ -112,7 +90,7 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 	struct pim_ssm *ssm;
 	int change = 0;
 
-	if (vrf_id != pim->vrf_id)
+	if (vrf_id != pim->vrf->vrf_id)
 		return PIM_SSM_ERR_NO_VRF;
 
 	ssm = pim->ssm_info;

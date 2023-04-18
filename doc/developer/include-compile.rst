@@ -2,11 +2,6 @@ Clone the FRR git repo and use the included ``configure`` script to configure
 FRR's build time options to your liking. The full option listing can be
 obtained by running ``./configure -h``. The options shown below are examples.
 
-.. note::
-
-   If your platform uses ``systemd``, please make sure to add
-   ``--enable-systemd=yes`` to your configure options.
-
 .. code-block:: console
 
    git clone https://github.com/frrouting/frr.git frr
@@ -15,7 +10,6 @@ obtained by running ``./configure -h``. The options shown below are examples.
    ./configure \
        --prefix=/usr \
        --includedir=\${prefix}/include \
-       --enable-exampledir=\${prefix}/share/doc/frr/examples \
        --bindir=\${prefix}/bin \
        --sbindir=\${prefix}/lib/frr \
        --libdir=\${prefix}/lib/frr \

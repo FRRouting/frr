@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra next hop tracking code
  * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -28,7 +13,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -46,20 +31,24 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
-#include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object")
+DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object");
+
+/* UI controls whether to notify about changes that only involve backup
+ * nexthops. Default is to notify all changes.
+ */
+static bool rnh_hide_backups;
 
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
-static void copy_state(struct rnh *rnh, struct route_entry *re,
+static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn);
-static int compare_state(struct route_entry *r1, struct route_entry *r2);
-static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
-		       vrf_id_t vrf_id);
-static void print_rnh(struct route_node *rn, struct vty *vty);
+static bool compare_state(struct route_entry *r1, struct route_entry *r2);
+static void print_rnh(struct route_node *rn, struct vty *vty,
+		      json_object *json);
 static int zebra_client_cleanup_rnh(struct zserv *client);
 
 void zebra_rnh_init(void)
@@ -68,35 +57,26 @@ void zebra_rnh_init(void)
 }
 
 static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
-						rnh_type_t type)
+						safi_t safi)
 {
 	struct zebra_vrf *zvrf;
 	struct route_table *t = NULL;
 
 	zvrf = zebra_vrf_lookup_by_id(vrfid);
-	if (zvrf)
-		switch (type) {
-		case RNH_NEXTHOP_TYPE:
+	if (zvrf) {
+		if (safi == SAFI_UNICAST)
 			t = zvrf->rnh_table[afi];
-			break;
-		case RNH_IMPORT_CHECK_TYPE:
-			t = zvrf->import_check_table[afi];
-			break;
-		}
+		else if (safi == SAFI_MULTICAST)
+			t = zvrf->rnh_table_multicast[afi];
+	}
 
 	return t;
-}
-
-char *rnh_str(struct rnh *rnh, char *buf, int size)
-{
-	prefix2str(&(rnh->node->p), buf, size);
-	return buf;
 }
 
 static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	struct route_table *table = zvrf->table[rnh->afi][SAFI_UNICAST];
+	struct route_table *table = zvrf->table[rnh->afi][rnh->safi];
 	struct route_node *rn;
 	rib_dest_t *dest;
 
@@ -107,15 +87,10 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 	if (!rn)
 		return;
 
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-		char buf[PREFIX_STRLEN];
-		char buf1[PREFIX_STRLEN];
-
-		zlog_debug("%s: %u:%s removed from tracking on %s",
-			   __PRETTY_FUNCTION__, rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-	}
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: %s(%u):%pRN removed from tracking on %pRN",
+			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+			   rnh->node, rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_del(&dest->nht, rnh);
@@ -125,7 +100,7 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	struct route_table *table = zvrf->table[rnh->afi][SAFI_UNICAST];
+	struct route_table *table = zvrf->table[rnh->afi][rnh->safi];
 	struct route_node *rn;
 	rib_dest_t *dest;
 
@@ -133,42 +108,39 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	if (!rn)
 		return;
 
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-		char buf[PREFIX_STRLEN];
-		char buf1[PREFIX_STRLEN];
-
-		zlog_debug("%s: %u:%s added for tracking on %s",
-			   __PRETTY_FUNCTION__, rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-	}
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: %s(%u):%pRN added for tracking on %pRN",
+			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+			   rnh->node, rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_add_tail(&dest->nht, rnh);
 	route_unlock_node(rn);
 }
 
-struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
+struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
 			  bool *exists)
 {
 	struct route_table *table;
 	struct route_node *rn;
 	struct rnh *rnh = NULL;
-	char buf[PREFIX2STR_BUFFER];
 	afi_t afi = family2afi(p->family);
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(p, buf, sizeof(buf));
-		zlog_debug("%u: Add RNH %s type %s", vrfid, buf,
-			   rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(vrfid);
+
+		zlog_debug("%s(%u): Add RNH %pFX for safi: %u",
+			   VRF_LOGNAME(vrf), vrfid, p, safi);
 	}
-	table = get_rnh_table(vrfid, afi, type);
+
+	table = get_rnh_table(vrfid, afi, safi);
 	if (!table) {
-		prefix2str(p, buf, sizeof(buf));
+		struct vrf *vrf = vrf_lookup_by_id(vrfid);
+
 		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
-			  "%u: Add RNH %s type %s - table not found", vrfid,
-			  buf, rnh_type2str(type));
-		exists = false;
+			  "%s(%u): Add RNH %pFX - table not found",
+			  VRF_LOGNAME(vrf), vrfid, p);
+		*exists = false;
 		return NULL;
 	}
 
@@ -190,9 +162,9 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 		rnh->resolved_route.family = p->family;
 		rnh->client_list = list_new();
 		rnh->vrf_id = vrfid;
-		rnh->type = type;
 		rnh->seqno = 0;
 		rnh->afi = afi;
+		rnh->safi = safi;
 		rnh->zebra_pseudowire_list = list_new();
 		route_lock_node(rn);
 		rn->info = rnh;
@@ -207,12 +179,12 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 	return (rn->info);
 }
 
-struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
+struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi)
 {
 	struct route_table *table;
 	struct route_node *rn;
 
-	table = get_rnh_table(vrfid, family2afi(PREFIX_FAMILY(p)), type);
+	table = get_rnh_table(vrfid, family2afi(PREFIX_FAMILY(p)), safi);
 	if (!table)
 		return NULL;
 
@@ -239,7 +211,7 @@ void zebra_free_rnh(struct rnh *rnh)
 	list_delete(&rnh->zebra_pseudowire_list);
 
 	zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	table = zvrf->table[family2afi(rnh->resolved_route.family)][SAFI_UNICAST];
+	table = zvrf->table[family2afi(rnh->resolved_route.family)][rnh->safi];
 
 	if (table) {
 		struct route_node *rern;
@@ -258,7 +230,7 @@ void zebra_free_rnh(struct rnh *rnh)
 	XFREE(MTYPE_RNH, rnh);
 }
 
-static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
+static void zebra_delete_rnh(struct rnh *rnh)
 {
 	struct route_node *rn;
 
@@ -270,9 +242,10 @@ static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%u: Del RNH %s type %s", rnh->vrf_id,
-			   rnh_str(rnh, buf, sizeof(buf)), rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
+
+		zlog_debug("%s(%u): Del RNH %pRN", VRF_LOGNAME(vrf),
+			   rnh->vrf_id, rnh->node);
 	}
 
 	zebra_free_rnh(rnh);
@@ -289,13 +262,14 @@ static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
  * and as such it will have a resolved rnh.
  */
 void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
-			  rnh_type_t type, vrf_id_t vrf_id)
+			  vrf_id_t vrf_id)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%u: Client %s registers for RNH %s type %s", vrf_id,
-			   zebra_route_string(client->proto),
-			   rnh_str(rnh, buf, sizeof(buf)), rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+		zlog_debug("%s(%u): Client %s registers for RNH %pRN",
+			   VRF_LOGNAME(vrf), vrf_id,
+			   zebra_route_string(client->proto), rnh->node);
 	}
 	if (!listnode_lookup(rnh->client_list, client))
 		listnode_add(rnh->client_list, client);
@@ -304,20 +278,20 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	 * We always need to respond with known information,
 	 * currently multiple daemons expect this behavior
 	 */
-	send_client(rnh, client, type, vrf_id);
+	zebra_send_rnh_update(rnh, client, vrf_id, 0);
 }
 
-void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
-			     rnh_type_t type)
+void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
-		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("Client %s unregisters for RNH %s type %s",
-			   zebra_route_string(client->proto),
-			   rnh_str(rnh, buf, sizeof(buf)), rnh_type2str(type));
+		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
+
+		zlog_debug("Client %s unregisters for RNH %s(%u)%pRN",
+			   zebra_route_string(client->proto), VRF_LOGNAME(vrf),
+			   vrf->vrf_id, rnh->node);
 	}
 	listnode_delete(rnh->client_list, client);
-	zebra_delete_rnh(rnh, type);
+	zebra_delete_rnh(rnh);
 }
 
 /* XXX move this utility function elsewhere? */
@@ -342,25 +316,32 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 	}
 }
 
-void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
+void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
+				   bool *nht_exists)
 {
 	struct prefix nh;
 	struct rnh *rnh;
 	bool exists;
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(vrf_id);
+	*nht_exists = false;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	if (!zvrf)
 		return;
 
 	addr2hostprefix(pw->af, &pw->nexthop, &nh);
-	rnh = zebra_add_rnh(&nh, vrf_id, RNH_NEXTHOP_TYPE, &exists);
-	if (rnh && !listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
+	rnh = zebra_add_rnh(&nh, vrf_id, SAFI_UNICAST, &exists);
+	if (!rnh)
+		return;
+
+	if (!listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
 		listnode_add(rnh->zebra_pseudowire_list, pw);
 		pw->rnh = rnh;
-		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1,
-				   RNH_NEXTHOP_TYPE, &nh);
-	}
+		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1, &nh,
+				   SAFI_UNICAST);
+	} else
+		*nht_exists = true;
 }
 
 void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
@@ -374,7 +355,7 @@ void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 	listnode_delete(rnh->zebra_pseudowire_list, pw);
 	pw->rnh = NULL;
 
-	zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
+	zebra_delete_rnh(rnh);
 }
 
 /* Clear the NEXTHOP_FLAG_RNH_FILTERED flags on all nexthops
@@ -384,7 +365,7 @@ static void zebra_rnh_clear_nexthop_rnh_filters(struct route_entry *re)
 	struct nexthop *nexthop;
 
 	if (re) {
-		for (nexthop = re->ng->nexthop; nexthop;
+		for (nexthop = re->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED);
 		}
@@ -403,7 +384,7 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 	route_map_result_t ret;
 
 	if (prn && re) {
-		for (nexthop = re->ng->nexthop; nexthop;
+		for (nexthop = re->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {
 			ret = zebra_nht_route_map_check(
 				afi, proto, &prn->p, zvrf, re, nexthop);
@@ -411,122 +392,11 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 				at_least_one++; /* at least one valid NH */
 			else {
 				SET_FLAG(nexthop->flags,
-						NEXTHOP_FLAG_RNH_FILTERED);
+					 NEXTHOP_FLAG_RNH_FILTERED);
 			}
 		}
 	}
 	return (at_least_one);
-}
-
-/*
- * Determine appropriate route (RE entry) resolving a tracked BGP route
- * for BGP route for import.
- */
-static struct route_entry *
-zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
-			       struct route_node *nrn, struct rnh *rnh,
-			       struct route_node **prn)
-{
-	struct route_table *route_table;
-	struct route_node *rn;
-	struct route_entry *re;
-
-	*prn = NULL;
-
-	route_table = zvrf->table[afi][SAFI_UNICAST];
-	if (!route_table) // unexpected
-		return NULL;
-
-	rn = route_node_match(route_table, &nrn->p);
-	if (!rn)
-		return NULL;
-
-	/* Unlock route node - we don't need to lock when walking the tree. */
-	route_unlock_node(rn);
-
-	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)
-	    && !prefix_same(&nrn->p, &rn->p))
-		return NULL;
-
-	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-		char buf[PREFIX_STRLEN];
-		char buf1[PREFIX_STRLEN];
-
-		zlog_debug("%s: %u:%s Resolved Import Entry to %s",
-			   __PRETTY_FUNCTION__, rnh->vrf_id,
-			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-	}
-
-	/* Identify appropriate route entry. */
-	RNODE_FOREACH_RE (rn, re) {
-		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
-		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
-		    && !CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED)
-		    && (re->type != ZEBRA_ROUTE_BGP))
-			break;
-	}
-
-	if (re)
-		*prn = rn;
-
-	if (!re && IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("\tRejected due to removed or is a bgp route");
-
-	return re;
-}
-
-/*
- * See if a tracked route entry for import (by BGP) has undergone any
- * change, and if so, notify the client.
- */
-static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
-					      int force, struct route_node *nrn,
-					      struct rnh *rnh,
-					      struct route_node *prn,
-					      struct route_entry *re)
-{
-	int state_changed = 0;
-	struct zserv *client;
-	char bufn[INET6_ADDRSTRLEN];
-	struct listnode *node;
-
-	zebra_rnh_remove_from_routing_table(rnh);
-	if (prn) {
-		prefix_copy(&rnh->resolved_route, &prn->p);
-	} else {
-		int family = rnh->resolved_route.family;
-
-		memset(&rnh->resolved_route.family, 0, sizeof(struct prefix));
-		rnh->resolved_route.family = family;
-	}
-	zebra_rnh_store_in_routing_table(rnh);
-
-	if (re && (rnh->state == NULL)) {
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
-			state_changed = 1;
-	} else if (!re && (rnh->state != NULL))
-		state_changed = 1;
-
-	if (compare_state(re, rnh->state)) {
-		copy_state(rnh, re, nrn);
-		state_changed = 1;
-	}
-
-	if (state_changed || force) {
-		if (IS_ZEBRA_DEBUG_NHT) {
-			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s",
-				   zvrf->vrf->vrf_id,
-				   bufn, rnh->state ? "passed" : "failed",
-				   state_changed ? "(state changed)" : "");
-		}
-		/* state changed, notify clients */
-		for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
-			send_client(rnh, client,
-				    RNH_IMPORT_CHECK_TYPE, zvrf->vrf->vrf_id);
-		}
-	}
 }
 
 /*
@@ -540,19 +410,17 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 {
 	struct listnode *node;
 	struct zserv *client;
-	char bufn[INET6_ADDRSTRLEN];
-	char bufp[INET6_ADDRSTRLEN];
 	int num_resolving_nh;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
 		if (prn && re) {
-			srcdest_rnode2str(prn, bufp, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: NH resolved over route %s",
-				   zvrf->vrf->vrf_id, bufn, bufp);
+			zlog_debug("%s(%u):%pRN: NH resolved over route %pRN",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   nrn, prn);
 		} else
-			zlog_debug("%u:%s: NH has become unresolved",
-				   zvrf->vrf->vrf_id, bufn);
+			zlog_debug("%s(%u):%pRN: NH has become unresolved",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   nrn);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
@@ -571,8 +439,9 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 
 			if (IS_ZEBRA_DEBUG_NHT)
 				zlog_debug(
-					"%u:%s: Notifying client %s about NH %s",
-					zvrf->vrf->vrf_id, bufn,
+					"%s(%u):%pRN: Notifying client %s about NH %s",
+					VRF_LOGNAME(zvrf->vrf),
+					zvrf->vrf->vrf_id, nrn,
 					zebra_route_string(client->proto),
 					num_resolving_nh
 						? ""
@@ -581,12 +450,13 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 			rnh->filtered[client->proto] = 0;
 			if (IS_ZEBRA_DEBUG_NHT)
 				zlog_debug(
-					"%u:%s: Notifying client %s about NH (unreachable)",
-					zvrf->vrf->vrf_id, bufn,
+					"%s(%u):%pRN: Notifying client %s about NH (unreachable)",
+					VRF_LOGNAME(zvrf->vrf),
+					zvrf->vrf->vrf_id, nrn,
 					zebra_route_string(client->proto));
 		}
 
-		send_client(rnh, client, RNH_NEXTHOP_TYPE, zvrf->vrf->vrf_id);
+		zebra_send_rnh_update(rnh, client, zvrf->vrf->vrf_id, 0);
 	}
 
 	if (re)
@@ -598,14 +468,72 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
  * check in a couple of places, so this is a single home for the logic we
  * use.
  */
-static bool rnh_nexthop_valid(const struct route_entry *re,
-			      const struct nexthop *nh)
+
+static const int RNH_INVALID_NH_FLAGS = (NEXTHOP_FLAG_RECURSIVE |
+					 NEXTHOP_FLAG_DUPLICATE |
+					 NEXTHOP_FLAG_RNH_FILTERED);
+
+bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh)
 {
 	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
 		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
-		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)
-		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE)
-		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RNH_FILTERED));
+		&& !CHECK_FLAG(nh->flags, RNH_INVALID_NH_FLAGS));
+}
+
+/*
+ * Determine whether an re's nexthops are valid for tracking.
+ */
+static bool rnh_check_re_nexthops(const struct route_entry *re,
+				  const struct rnh *rnh)
+{
+	bool ret = false;
+	const struct nexthop *nexthop = NULL;
+
+	/* Check route's nexthops */
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		if (rnh_nexthop_valid(re, nexthop))
+			break;
+	}
+
+	/* Check backup nexthops, if any. */
+	if (nexthop == NULL && re->nhe->backup_info &&
+	    re->nhe->backup_info->nhe) {
+		for (ALL_NEXTHOPS(re->nhe->backup_info->nhe->nhg, nexthop)) {
+			if (rnh_nexthop_valid(re, nexthop))
+				break;
+		}
+	}
+
+	if (nexthop == NULL) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug(
+				"        Route Entry %s no nexthops",
+				zebra_route_string(re->type));
+
+		goto done;
+	}
+
+	/* Some special checks if registration asked for them. */
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
+		if ((re->type == ZEBRA_ROUTE_CONNECT)
+		    || (re->type == ZEBRA_ROUTE_STATIC))
+			ret = true;
+		if (re->type == ZEBRA_ROUTE_NHRP) {
+
+			for (nexthop = re->nhe->nhg.nexthop;
+			     nexthop;
+			     nexthop = nexthop->next)
+				if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
+					break;
+			if (nexthop)
+				ret = true;
+		}
+	} else {
+		ret = true;
+	}
+
+done:
+	return ret;
 }
 
 /*
@@ -614,17 +542,16 @@ static bool rnh_nexthop_valid(const struct route_entry *re,
  */
 static struct route_entry *
 zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
-				struct route_node *nrn, struct rnh *rnh,
+				struct route_node *nrn, const struct rnh *rnh,
 				struct route_node **prn)
 {
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
-	struct nexthop *nexthop;
 
 	*prn = NULL;
 
-	route_table = zvrf->table[afi][SAFI_UNICAST];
+	route_table = zvrf->table[afi][rnh->safi];
 	if (!route_table)
 		return NULL;
 
@@ -639,24 +566,23 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 * most-specific match. Do similar logic as in zebra_rib.c
 	 */
 	while (rn) {
-		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-			char buf[PREFIX_STRLEN];
-			char buf1[PREFIX_STRLEN];
-
-			zlog_debug("%s: %u:%s Possible Match to %s",
-				   __PRETTY_FUNCTION__, rnh->vrf_id,
-				   prefix2str(&rnh->node->p, buf, sizeof(buf)),
-				   srcdest_rnode2str(rn, buf1, sizeof(buf)));
-		}
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: %s(%u):%pRN Possible Match to %pRN",
+				   __func__, VRF_LOGNAME(zvrf->vrf),
+				   rnh->vrf_id, rnh->node, rn);
 
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(zvrf, rn->p.family)) {
+		    && (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT)
+			&& !rnh_resolve_via_default(zvrf, rn->p.family))) {
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"\tNot allowed to resolve through default prefix");
+					"        Not allowed to resolve through default prefix: rnh->resolve_via_default: %u",
+					CHECK_FLAG(
+						rnh->flags,
+						ZEBRA_NHT_RESOLVE_VIA_DEFAULT));
 			return NULL;
 		}
 
@@ -665,14 +591,15 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s removed",
+						"        Route Entry %s removed",
 						zebra_route_string(re->type));
 				continue;
 			}
-			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) &&
+			    !CHECK_FLAG(re->flags, ZEBRA_FLAG_FIB_OVERRIDE)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s !selected",
+						"        Route Entry %s !selected",
 						zebra_route_string(re->type));
 				continue;
 			}
@@ -680,7 +607,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s queued",
+						"        Route Entry %s queued",
 						zebra_route_string(re->type));
 				continue;
 			}
@@ -688,34 +615,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
-				if (rnh_nexthop_valid(re, nexthop))
-					break;
-			}
-
-			if (nexthop == NULL) {
-				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug(
-						"\tRoute Entry %s no nexthops",
-						zebra_route_string(re->type));
-				continue;
-			}
-
-			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
-				if ((re->type == ZEBRA_ROUTE_CONNECT)
-				    || (re->type == ZEBRA_ROUTE_STATIC))
-					break;
-				if (re->type == ZEBRA_ROUTE_NHRP) {
-
-					for (nexthop = re->ng->nexthop; nexthop;
-					     nexthop = nexthop->next)
-						if (nexthop->type
-						    == NEXTHOP_TYPE_IFINDEX)
-							break;
-					if (nexthop)
-						break;
-				}
-			} else
+			if (rnh_check_re_nexthops(re, rnh))
 				break;
 		}
 
@@ -723,15 +623,11 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		if (re) {
 			*prn = rn;
 			return re;
-		}
-
-		if (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+		} else {
+			/* Resolve the nexthop recursively by finding matching
+			 * route with lower prefix length
+			 */
 			rn = rn->parent;
-		else {
-			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug(
-					"\tNexthop must be connected, cannot recurse up");
-			return NULL;
 		}
 	}
 
@@ -802,27 +698,22 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 /* Evaluate one tracked entry */
 static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
-				     int force, rnh_type_t type,
-				     struct route_node *nrn)
+				     int force, struct route_node *nrn)
 {
 	struct rnh *rnh;
 	struct route_entry *re;
 	struct route_node *prn;
-	char bufn[INET6_ADDRSTRLEN];
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s: Evaluate RNH, type %s %s", zvrf->vrf->vrf_id,
-			   bufn, rnh_type2str(type), force ? "(force)" : "");
+		zlog_debug("%s(%u):%pRN: Evaluate RNH, %s",
+			   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn,
+			   force ? "(force)" : "");
 	}
 
 	rnh = nrn->info;
 
 	/* Identify route entry (RE) resolving this tracked entry. */
-	if (type == RNH_IMPORT_CHECK_TYPE)
-		re = zebra_rnh_resolve_import_entry(zvrf, afi, nrn, rnh, &prn);
-	else
-		re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
 
 	/* If the entry cannot be resolved and that is also the existing state,
 	 * there is nothing further to do.
@@ -831,12 +722,7 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 		return;
 
 	/* Process based on type of entry. */
-	if (type == RNH_IMPORT_CHECK_TYPE)
-		zebra_rnh_eval_import_check_entry(zvrf, afi, force, nrn, rnh,
-						  prn, re);
-	else
-		zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn,
-					     re);
+	zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn, re);
 }
 
 /*
@@ -849,7 +735,7 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
  * covers multiple nexthops we are interested in.
  */
 static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
-				     rnh_type_t type, struct route_node *nrn)
+				     struct route_node *nrn)
 {
 	struct rnh *rnh;
 	struct route_entry *re;
@@ -858,12 +744,7 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
 	rnh = nrn->info;
 
 	/* Identify route entry (RIB) resolving this tracked entry. */
-	if (type == RNH_IMPORT_CHECK_TYPE)
-		re = zebra_rnh_resolve_import_entry(zvrf, afi, nrn, rnh,
-						    &prn);
-	else
-		re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh,
-						     &prn);
+	re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh, &prn);
 
 	if (re)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
@@ -873,12 +754,12 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
  * of a particular VRF and address-family or a specific prefix.
  */
 void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
-			rnh_type_t type, struct prefix *p)
+			const struct prefix *p, safi_t safi)
 {
 	struct route_table *rnh_table;
 	struct route_node *nrn;
 
-	rnh_table = get_rnh_table(zvrf->vrf->vrf_id, afi, type);
+	rnh_table = get_rnh_table(zvrf->vrf->vrf_id, afi, safi);
 	if (!rnh_table) // unexpected
 		return;
 
@@ -886,7 +767,7 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 		/* Evaluating a specific entry, make sure it exists. */
 		nrn = route_node_lookup(rnh_table, p);
 		if (nrn && nrn->info)
-			zebra_rnh_evaluate_entry(zvrf, afi, force, type, nrn);
+			zebra_rnh_evaluate_entry(zvrf, afi, force, nrn);
 
 		if (nrn)
 			route_unlock_node(nrn);
@@ -895,26 +776,26 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 		nrn = route_top(rnh_table);
 		while (nrn) {
 			if (nrn->info)
-				zebra_rnh_evaluate_entry(zvrf, afi, force, type,
-							 nrn);
+				zebra_rnh_evaluate_entry(zvrf, afi, force, nrn);
 			nrn = route_next(nrn); /* this will also unlock nrn */
 		}
 		nrn = route_top(rnh_table);
 		while (nrn) {
 			if (nrn->info)
-				zebra_rnh_clear_nhc_flag(zvrf, afi, type, nrn);
+				zebra_rnh_clear_nhc_flag(zvrf, afi, nrn);
 			nrn = route_next(nrn); /* this will also unlock nrn */
 		}
 	}
 }
 
-void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
-			   rnh_type_t type, struct prefix *p)
+void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
+			   struct vty *vty, const struct prefix *p,
+			   json_object *json)
 {
 	struct route_table *table;
 	struct route_node *rn;
 
-	table = get_rnh_table(vrfid, afi, type);
+	table = get_rnh_table(vrfid, afi, safi);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_NHT)
 			zlog_debug("print_rnhs: rnh table not found");
@@ -926,7 +807,7 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 			continue;
 
 		if (rn->info)
-			print_rnh(rn, vty);
+			print_rnh(rn, vty, json);
 	}
 }
 
@@ -940,11 +821,11 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		return;
 
 	/* free RE and nexthops */
-	nexthop_group_delete(&re->ng);
+	zebra_nhg_free(re->nhe);
 	XFREE(MTYPE_RE, re);
 }
 
-static void copy_state(struct rnh *rnh, struct route_entry *re,
+static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn)
 {
 	struct route_entry *state;
@@ -963,47 +844,304 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->metric = re->metric;
 	state->vrf_id = re->vrf_id;
 	state->status = re->status;
-	state->ng = nexthop_group_new();
 
-	route_entry_copy_nexthops(state, re->ng->nexthop);
+	state->nhe = zebra_nhe_copy(re->nhe, 0);
+
+	/* Copy the 'fib' nexthops also, if present - we want to capture
+	 * the true installed nexthops.
+	 */
+	if (re->fib_ng.nexthop)
+		nexthop_group_copy(&state->fib_ng, &re->fib_ng);
+	if (re->fib_backup_ng.nexthop)
+		nexthop_group_copy(&state->fib_backup_ng, &re->fib_backup_ng);
+
 	rnh->state = state;
 }
 
-static int compare_state(struct route_entry *r1, struct route_entry *r2)
+/*
+ * Locate the next primary nexthop, used when comparing current rnh info with
+ * an updated route.
+ */
+static struct nexthop *next_valid_primary_nh(struct route_entry *re,
+					     struct nexthop *nh)
 {
-	if (!r1 && !r2)
-		return 0;
+	struct nexthop_group *nhg;
+	struct nexthop *bnh;
+	int i, idx;
+	bool default_path = true;
 
-	if ((!r1 && r2) || (r1 && !r2))
-		return 1;
+	/* Fib backup ng present: some backups are installed,
+	 * and we're configured for special handling if there are backups.
+	 */
+	if (rnh_hide_backups && (re->fib_backup_ng.nexthop != NULL))
+		default_path = false;
 
-	if (r1->distance != r2->distance)
-		return 1;
+	/* Default path: no special handling, just using the 'installed'
+	 * primary nexthops and the common validity test.
+	 */
+	if (default_path) {
+		if (nh == NULL) {
+			nhg = rib_get_fib_nhg(re);
+			nh = nhg->nexthop;
+		} else
+			nh = nexthop_next(nh);
 
-	if (r1->metric != r2->metric)
-		return 1;
+		while (nh) {
+			if (rnh_nexthop_valid(re, nh))
+				break;
+			else
+				nh = nexthop_next(nh);
+		}
 
-	if (nexthop_group_nexthop_num(r1->ng)
-	    != nexthop_group_nexthop_num(r2->ng))
-		return 1;
+		return nh;
+	}
 
-	if (nexthop_group_hash(r1->ng) != nexthop_group_hash(r2->ng))
-		return 1;
+	/* Hide backup activation/switchover events.
+	 *
+	 * If we've had a switchover, an inactive primary won't be in
+	 * the fib list at all - the 'fib' list could even be empty
+	 * in the case where no primary is installed. But we want to consider
+	 * those primaries "valid" if they have an activated backup nh.
+	 *
+	 * The logic is something like:
+	 * if (!fib_nhg)
+	 *     // then all primaries are installed
+	 * else
+	 *     for each primary in re nhg
+	 *         if in fib_nhg
+	 *             primary is installed
+	 *         else if a backup is installed
+	 *             primary counts as installed
+	 *         else
+	 *             primary !installed
+	 */
 
-	return 0;
+	/* Start with the first primary */
+	if (nh == NULL)
+		nh = re->nhe->nhg.nexthop;
+	else
+		nh = nexthop_next(nh);
+
+	while (nh) {
+
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: checking primary NH %pNHv",
+				   __func__, nh);
+
+		/* If this nexthop is in the fib list, it's installed */
+		nhg = rib_get_fib_nhg(re);
+
+		for (bnh = nhg->nexthop; bnh; bnh = nexthop_next(bnh)) {
+			if (nexthop_cmp(nh, bnh) == 0)
+				break;
+		}
+
+		if (bnh != NULL) {
+			/* Found the match */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s:     NH in fib list", __func__);
+			break;
+		}
+
+		/* Else if this nexthop's backup is installed, it counts */
+		nhg = rib_get_fib_backup_nhg(re);
+		bnh = nhg->nexthop;
+
+		for (idx = 0; bnh != NULL; idx++) {
+			/* If we find an active backup nh for this
+			 * primary, we're done;
+			 */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s: checking backup %pNHv [%d]",
+					   __func__, bnh, idx);
+
+			if (!CHECK_FLAG(bnh->flags, NEXTHOP_FLAG_ACTIVE))
+				continue;
+
+			for (i = 0; i < nh->backup_num; i++) {
+				/* Found a matching activated backup nh */
+				if (nh->backup_idx[i] == idx) {
+					if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+						zlog_debug("%s: backup %d activated",
+							   __func__, i);
+
+					goto done;
+				}
+			}
+
+			/* Note that we're not recursing here if the
+			 * backups are recursive: the primary's index is
+			 * only valid in the top-level backup list.
+			 */
+			bnh = bnh->next;
+		}
+
+		/* Try the next primary nexthop */
+		nh = nexthop_next(nh);
+	}
+
+done:
+
+	return nh;
 }
 
-static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
-		       vrf_id_t vrf_id)
+/*
+ * Compare two route_entries' nexthops. Account for backup nexthops
+ * and for the 'fib' nexthop lists, if present.
+ */
+static bool compare_valid_nexthops(struct route_entry *r1,
+				   struct route_entry *r2)
 {
-	struct stream *s;
+	bool matched_p = false;
+	struct nexthop_group *nhg1, *nhg2;
+	struct nexthop *nh1, *nh2;
+
+	/* Start with the primary nexthops */
+
+	nh1 = next_valid_primary_nh(r1, NULL);
+	nh2 = next_valid_primary_nh(r2, NULL);
+
+	while (1) {
+		/* Find any differences in the nexthop lists */
+
+		if (nh1 && nh2) {
+			/* Any difference is a no-match */
+			if (nexthop_cmp(nh1, nh2) != 0) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug("%s: nh1: %pNHv, nh2: %pNHv differ",
+						   __func__, nh1, nh2);
+				goto done;
+			}
+
+		} else if (nh1 || nh2) {
+			/* One list has more valid nexthops than the other */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s: nh1 %s, nh2 %s", __func__,
+					   nh1 ? "non-NULL" : "NULL",
+					   nh2 ? "non-NULL" : "NULL");
+			goto done;
+		} else
+			break; /* Done with both lists */
+
+		nh1 = next_valid_primary_nh(r1, nh1);
+		nh2 = next_valid_primary_nh(r2, nh2);
+	}
+
+	/* If configured, don't compare installed backup state - we've
+	 * accounted for that with the primaries above.
+	 *
+	 * But we do want to compare the routes' backup info,
+	 * in case the owning route has changed the backups -
+	 * that change we do want to report.
+	 */
+	if (rnh_hide_backups) {
+		uint32_t hash1 = 0, hash2 = 0;
+
+		if (r1->nhe->backup_info)
+			hash1 = nexthop_group_hash(
+				&r1->nhe->backup_info->nhe->nhg);
+
+		if (r2->nhe->backup_info)
+			hash2 = nexthop_group_hash(
+				&r2->nhe->backup_info->nhe->nhg);
+
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: backup hash1 %#x, hash2 %#x",
+				   __func__, hash1, hash2);
+
+		if (hash1 != hash2)
+			goto done;
+		else
+			goto finished;
+	}
+
+	/* The test for the backups is slightly different: the only installed
+	 * backups will be in the 'fib' list.
+	 */
+	nhg1 = rib_get_fib_backup_nhg(r1);
+	nhg2 = rib_get_fib_backup_nhg(r2);
+
+	nh1 = nhg1->nexthop;
+	nh2 = nhg2->nexthop;
+
+	while (1) {
+		/* Find each backup list's next valid nexthop */
+		while ((nh1 != NULL) && !rnh_nexthop_valid(r1, nh1))
+			nh1 = nexthop_next(nh1);
+
+		while ((nh2 != NULL) && !rnh_nexthop_valid(r2, nh2))
+			nh2 = nexthop_next(nh2);
+
+		if (nh1 && nh2) {
+			/* Any difference is a no-match */
+			if (nexthop_cmp(nh1, nh2) != 0) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug("%s: backup nh1: %pNHv, nh2: %pNHv differ",
+						   __func__, nh1, nh2);
+				goto done;
+			}
+
+			nh1 = nexthop_next(nh1);
+			nh2 = nexthop_next(nh2);
+		} else if (nh1 || nh2) {
+			/* One list has more valid nexthops than the other */
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%s: backup nh1 %s, nh2 %s",
+					   __func__,
+					   nh1 ? "non-NULL" : "NULL",
+					   nh2 ? "non-NULL" : "NULL");
+			goto done;
+		} else
+			break; /* Done with both lists */
+	}
+
+finished:
+
+	/* Well, it's a match */
+	matched_p = true;
+
+done:
+
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("%s: %smatched",
+			   __func__, (matched_p ? "" : "NOT "));
+
+	return matched_p;
+}
+
+/* Returns 'false' if no difference. */
+static bool compare_state(struct route_entry *r1,
+			  struct route_entry *r2)
+{
+	if (!r1 && !r2)
+		return false;
+
+	if ((!r1 && r2) || (r1 && !r2))
+		return true;
+
+	if (r1->distance != r2->distance)
+		return true;
+
+	if (r1->metric != r2->metric)
+		return true;
+
+	if (!compare_valid_nexthops(r1, r2))
+		return true;
+
+	return false;
+}
+
+int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
+			  vrf_id_t vrf_id, uint32_t srte_color)
+{
+	struct stream *s = NULL;
 	struct route_entry *re;
 	unsigned long nump;
 	uint8_t num;
 	struct nexthop *nh;
 	struct route_node *rn;
-	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE
-						  : ZEBRA_NEXTHOP_UPDATE;
+	int ret;
+	uint32_t message = 0;
 
 	rn = rnh->node;
 	re = rnh->state;
@@ -1011,25 +1149,59 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	/* Get output stream. */
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, ZEBRA_NEXTHOP_UPDATE, vrf_id);
 
+	/* Message flags. */
+	if (srte_color)
+		SET_FLAG(message, ZAPI_MESSAGE_SRTE);
+	stream_putl(s, message);
+
+	/*
+	 * Put what we were told to match against
+	 */
+	stream_putw(s, rnh->safi);
 	stream_putw(s, rn->p.family);
+	stream_putc(s, rn->p.prefixlen);
 	switch (rn->p.family) {
 	case AF_INET:
-		stream_putc(s, rn->p.prefixlen);
 		stream_put_in_addr(s, &rn->p.u.prefix4);
 		break;
 	case AF_INET6:
-		stream_putc(s, rn->p.prefixlen);
 		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
-			 "%s: Unknown family (%d) notification attempted\n",
-			 __FUNCTION__, rn->p.family);
-		break;
+			 "%s: Unknown family (%d) notification attempted",
+			 __func__, rn->p.family);
+		goto failure;
 	}
+
+	/*
+	 * What we matched against
+	 */
+	stream_putw(s, rnh->resolved_route.family);
+	stream_putc(s, rnh->resolved_route.prefixlen);
+	switch (rnh->resolved_route.family) {
+	case AF_INET:
+		stream_put_in_addr(s, &rnh->resolved_route.u.prefix4);
+		break;
+	case AF_INET6:
+		stream_put(s, &rnh->resolved_route.u.prefix6, IPV6_MAX_BYTELEN);
+		break;
+	default:
+		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
+			 "%s: Unknown family (%d) notification attempted",
+			 __func__, rn->p.family);
+		goto failure;
+	}
+
+	if (srte_color)
+		stream_putl(s, srte_color);
+
 	if (re) {
+		struct zapi_nexthop znh;
+		struct nexthop_group *nhg;
+
 		stream_putc(s, re->type);
 		stream_putw(s, re->instance);
 		stream_putc(s, re->distance);
@@ -1037,41 +1209,33 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (ALL_NEXTHOPS_PTR(re->ng, nh))
+
+		nhg = rib_get_fib_nhg(re);
+		for (ALL_NEXTHOPS_PTR(nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
-				stream_putl(s, nh->vrf_id);
-				stream_putc(s, nh->type);
-				switch (nh->type) {
-				case NEXTHOP_TYPE_IPV4:
-				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					stream_put_in_addr(s, &nh->gate.ipv4);
-					stream_putl(s, nh->ifindex);
-					break;
-				case NEXTHOP_TYPE_IFINDEX:
-					stream_putl(s, nh->ifindex);
-					break;
-				case NEXTHOP_TYPE_IPV6:
-				case NEXTHOP_TYPE_IPV6_IFINDEX:
-					stream_put(s, &nh->gate.ipv6, 16);
-					stream_putl(s, nh->ifindex);
-					break;
-				default:
-					/* do nothing */
-					break;
-				}
-				if (nh->nh_label) {
-					stream_putc(s,
-						    nh->nh_label->num_labels);
-					if (nh->nh_label->num_labels)
-						stream_put(
-							s,
-							&nh->nh_label->label[0],
-							nh->nh_label->num_labels
-								* sizeof(mpls_label_t));
-				} else
-					stream_putc(s, 0);
+				zapi_nexthop_from_nexthop(&znh, nh);
+				ret = zapi_nexthop_encode(s, &znh, 0, message);
+				if (ret < 0)
+					goto failure;
+
 				num++;
 			}
+
+		nhg = rib_get_fib_backup_nhg(re);
+		if (nhg) {
+			for (ALL_NEXTHOPS_PTR(nhg, nh))
+				if (rnh_nexthop_valid(re, nh)) {
+					zapi_nexthop_from_nexthop(&znh, nh);
+					ret = zapi_nexthop_encode(
+						s, &znh, 0 /* flags */,
+						0 /* message */);
+					if (ret < 0)
+						goto failure;
+
+					num++;
+				}
+		}
+
 		stream_putc_at(s, nump, num);
 	} else {
 		stream_putc(s, 0); // type
@@ -1083,92 +1247,435 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	client->nh_last_upd_time = monotime(NULL);
-	client->last_write_cmd = cmd;
 	return zserv_send_message(client, s);
+
+failure:
+
+	stream_free(s);
+	return -1;
 }
 
-static void print_nh(struct nexthop *nexthop, struct vty *vty)
+
+/*
+ * Render a nexthop into a json object; the caller allocates and owns
+ * the json object memory.
+ */
+void show_nexthop_json_helper(json_object *json_nexthop,
+			      const struct nexthop *nexthop,
+			      const struct route_entry *re)
 {
-	char buf[BUFSIZ];
-	struct zebra_ns *zns = zebra_ns_lookup(nexthop->vrf_id);
+	json_object *json_labels = NULL;
+	json_object *json_backups = NULL;
+	json_object *json_seg6local = NULL;
+	json_object *json_seg6 = NULL;
+	int i;
+
+	json_object_int_add(json_nexthop, "flags", nexthop->flags);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		json_object_boolean_true_add(json_nexthop, "duplicate");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+		json_object_boolean_true_add(json_nexthop, "fib");
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		vty_out(vty, " via %s", inet_ntoa(nexthop->gate.ipv4));
-		if (nexthop->ifindex)
-			vty_out(vty, ", %s",
-				ifindex2ifname_per_ns(zns, nexthop->ifindex));
+		json_object_string_addf(json_nexthop, "ip", "%pI4",
+					&nexthop->gate.ipv4);
+		json_object_string_add(json_nexthop, "afi", "ipv4");
+
+		if (nexthop->ifindex) {
+			json_object_int_add(json_nexthop, "interfaceIndex",
+					    nexthop->ifindex);
+			json_object_string_add(json_nexthop, "interfaceName",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
+		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		vty_out(vty, " %s",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
-		if (nexthop->ifindex)
-			vty_out(vty, ", via %s",
-				ifindex2ifname_per_ns(zns, nexthop->ifindex));
+		json_object_string_addf(json_nexthop, "ip", "%pI6",
+					&nexthop->gate.ipv6);
+		json_object_string_add(json_nexthop, "afi", "ipv6");
+
+		if (nexthop->ifindex) {
+			json_object_int_add(json_nexthop, "interfaceIndex",
+					    nexthop->ifindex);
+			json_object_string_add(json_nexthop, "interfaceName",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
+		}
 		break;
+
 	case NEXTHOP_TYPE_IFINDEX:
-		vty_out(vty, " is directly connected, %s",
-			ifindex2ifname_per_ns(zns, nexthop->ifindex));
+		json_object_boolean_true_add(json_nexthop, "directlyConnected");
+		json_object_int_add(json_nexthop, "interfaceIndex",
+				    nexthop->ifindex);
+		json_object_string_add(
+			json_nexthop, "interfaceName",
+			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id));
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
-		vty_out(vty, " is directly connected, Null0");
-		break;
-	default:
+		json_object_boolean_true_add(json_nexthop, "unreachable");
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			json_object_boolean_true_add(json_nexthop, "reject");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			json_object_boolean_true_add(json_nexthop,
+						     "adminProhibited");
+			break;
+		case BLACKHOLE_NULL:
+			json_object_boolean_true_add(json_nexthop, "blackhole");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
 		break;
 	}
-	vty_out(vty, "\n");
+
+	/* This nexthop is a resolver for the parent nexthop.
+	 * Set resolver flag for better clarity and delimiter
+	 * in flat list of nexthops in json.
+	 */
+	if (nexthop->rparent)
+		json_object_boolean_true_add(json_nexthop, "resolver");
+
+	if ((re == NULL || (nexthop->vrf_id != re->vrf_id)))
+		json_object_string_add(json_nexthop, "vrf",
+				       vrf_id_to_name(nexthop->vrf_id));
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		json_object_boolean_true_add(json_nexthop, "duplicate");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		json_object_boolean_true_add(json_nexthop, "active");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+		json_object_boolean_true_add(json_nexthop, "onLink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		json_object_boolean_true_add(json_nexthop, "linkDown");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		json_object_boolean_true_add(json_nexthop, "recursive");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		json_backups = json_object_new_array();
+		for (i = 0; i < nexthop->backup_num; i++) {
+			json_object_array_add(
+				json_backups,
+				json_object_new_int(nexthop->backup_idx[i]));
+		}
+
+		json_object_object_add(json_nexthop, "backupIndex",
+				       json_backups);
+	}
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop->src.ipv4.s_addr)
+			json_object_string_addf(json_nexthop, "source", "%pI4",
+						&nexthop->src.ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			json_object_string_addf(json_nexthop, "source", "%pI6",
+						&nexthop->src.ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+		json_labels = json_object_new_array();
+
+		for (int label_index = 0;
+		     label_index < nexthop->nh_label->num_labels; label_index++)
+			json_object_array_add(
+				json_labels,
+				json_object_new_int((
+					(nexthop->nh_label_type ==
+					 ZEBRA_LSP_EVPN)
+						? label2vni(
+							  &nexthop->nh_label->label
+								   [label_index])
+						: nexthop->nh_label->label
+							  [label_index])));
+
+		json_object_object_add(json_nexthop, "labels", json_labels);
+	}
+
+	if (nexthop->weight)
+		json_object_int_add(json_nexthop, "weight", nexthop->weight);
+
+	if (nexthop->srte_color)
+		json_object_int_add(json_nexthop, "srteColor",
+				    nexthop->srte_color);
+
+	if (nexthop->nh_srv6) {
+		json_seg6local = json_object_new_object();
+		json_object_string_add(
+			json_seg6local, "action",
+			seg6local_action2str(
+				nexthop->nh_srv6->seg6local_action));
+		json_object_object_add(json_nexthop, "seg6local",
+				       json_seg6local);
+
+		json_seg6 = json_object_new_object();
+		json_object_string_addf(json_seg6, "segs", "%pI6",
+					&nexthop->nh_srv6->seg6_segs);
+		json_object_object_add(json_nexthop, "seg6", json_seg6);
+	}
 }
 
-static void print_rnh(struct route_node *rn, struct vty *vty)
+/*
+ * Helper for nexthop output, used in the 'show ip route' path
+ */
+void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
+			       const struct nexthop *nexthop)
+{
+	char buf[MPLS_LABEL_STRLEN];
+	int i;
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		vty_out(vty, " via %pI4", &nexthop->gate.ipv4);
+		if (nexthop->ifindex)
+			vty_out(vty, ", %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		vty_out(vty, " via %s",
+			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+				  sizeof(buf)));
+		if (nexthop->ifindex)
+			vty_out(vty, ", %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+
+	case NEXTHOP_TYPE_IFINDEX:
+		vty_out(vty, " is directly connected, %s",
+			ifindex2ifname(nexthop->ifindex, nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		vty_out(vty, " unreachable");
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			vty_out(vty, " (ICMP unreachable)");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			vty_out(vty, " (ICMP admin-prohibited)");
+			break;
+		case BLACKHOLE_NULL:
+			vty_out(vty, " (blackhole)");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
+		break;
+	}
+
+	if ((re == NULL || (nexthop->vrf_id != re->vrf_id)))
+		vty_out(vty, " (vrf %s)", vrf_id_to_name(nexthop->vrf_id));
+
+	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		vty_out(vty, " inactive");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+		vty_out(vty, " onlink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		vty_out(vty, " linkdown");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		vty_out(vty, " (recursive)");
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop->src.ipv4.s_addr) {
+			vty_out(vty, ", src %pI4", &nexthop->src.ipv4);
+			/* SR-TE information */
+			if (nexthop->srte_color)
+				vty_out(vty, ", SR-TE color %u",
+					nexthop->srte_color);
+		}
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	/* Label information */
+	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+		vty_out(vty, ", label %s",
+			mpls_label2str(nexthop->nh_label->num_labels,
+				       nexthop->nh_label->label, buf,
+				       sizeof(buf), nexthop->nh_label_type, 1));
+	}
+
+	if (nexthop->nh_srv6) {
+		seg6local_context2str(buf, sizeof(buf),
+				      &nexthop->nh_srv6->seg6local_ctx,
+				      nexthop->nh_srv6->seg6local_action);
+		vty_out(vty, ", seg6local %s %s",
+			seg6local_action2str(
+				nexthop->nh_srv6->seg6local_action),
+			buf);
+		vty_out(vty, ", seg6 %pI6", &nexthop->nh_srv6->seg6_segs);
+	}
+
+	if (nexthop->weight)
+		vty_out(vty, ", weight %u", nexthop->weight);
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
+
+		for (i = 1; i < nexthop->backup_num; i++)
+			vty_out(vty, ",%d", nexthop->backup_idx[i]);
+	}
+}
+
+static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 {
 	struct rnh *rnh;
 	struct nexthop *nexthop;
 	struct listnode *node;
 	struct zserv *client;
 	char buf[BUFSIZ];
+	json_object *json_nht = NULL;
+	json_object *json_client_array = NULL;
+	json_object *json_client = NULL;
+	json_object *json_nexthop_array = NULL;
+	json_object *json_nexthop = NULL;
 
 	rnh = rn->info;
-	vty_out(vty, "%s%s\n",
-		inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
-		CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ? "(Connected)"
-							    : "");
-	if (rnh->state) {
-		vty_out(vty, " resolved via %s\n",
-			zebra_route_string(rnh->state->type));
-		for (nexthop = rnh->state->ng->nexthop; nexthop;
-		     nexthop = nexthop->next)
-			print_nh(nexthop, vty);
-	} else
-		vty_out(vty, " unresolved%s\n",
+
+	if (json) {
+		json_nht = json_object_new_object();
+		json_nexthop_array = json_object_new_array();
+		json_client_array = json_object_new_array();
+
+		json_object_object_add(
+			json,
+			inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
+			json_nht);
+		json_object_boolean_add(
+			json_nht, "nhtConnected",
+			CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED));
+		json_object_object_add(json_nht, "clientList",
+				       json_client_array);
+		json_object_object_add(json_nht, "nexthops",
+				       json_nexthop_array);
+	} else {
+		vty_out(vty, "%s%s\n",
+			inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
 			CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)
 				? "(Connected)"
 				: "");
+	}
 
-	vty_out(vty, " Client list:");
-	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
-		vty_out(vty, " %s(fd %d)%s", zebra_route_string(client->proto),
-			client->sock,
-			rnh->filtered[client->proto] ? "(filtered)" : "");
-	if (!list_isempty(rnh->zebra_pseudowire_list))
-		vty_out(vty, " zebra[pseudowires]");
-	vty_out(vty, "\n");
+	if (rnh->state) {
+		if (json)
+			json_object_string_add(
+				json_nht, "resolvedProtocol",
+				zebra_route_string(rnh->state->type));
+		else
+			vty_out(vty, " resolved via %s\n",
+				zebra_route_string(rnh->state->type));
+
+		for (nexthop = rnh->state->nhe->nhg.nexthop; nexthop;
+		     nexthop = nexthop->next) {
+			if (json) {
+				json_nexthop = json_object_new_object();
+				json_object_array_add(json_nexthop_array,
+						      json_nexthop);
+				show_nexthop_json_helper(json_nexthop, nexthop,
+							 NULL);
+			} else {
+				show_route_nexthop_helper(vty, NULL, nexthop);
+				vty_out(vty, "\n");
+			}
+		}
+	} else {
+		if (json)
+			json_object_boolean_add(
+				json_nht, "unresolved",
+				CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED));
+		else
+			vty_out(vty, " unresolved%s\n",
+				CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)
+					? "(Connected)"
+					: "");
+	}
+
+	if (!json)
+		vty_out(vty, " Client list:");
+
+	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
+		if (json) {
+			json_client = json_object_new_object();
+			json_object_array_add(json_client_array, json_client);
+
+			json_object_string_add(
+				json_client, "protocol",
+				zebra_route_string(client->proto));
+			json_object_int_add(json_client, "socket",
+					    client->sock);
+			json_object_string_add(json_client, "protocolFiltered",
+					       (rnh->filtered[client->proto]
+							? "(filtered)"
+							: "none"));
+		} else {
+			vty_out(vty, " %s(fd %d)%s",
+				zebra_route_string(client->proto), client->sock,
+				rnh->filtered[client->proto] ? "(filtered)"
+							     : "");
+		}
+	}
+
+	if (!list_isempty(rnh->zebra_pseudowire_list)) {
+		if (json)
+			json_object_boolean_true_add(json_nht,
+						     "zebraPseudowires");
+		else
+			vty_out(vty, " zebra[pseudowires]");
+	}
+
+	if (!json)
+		vty_out(vty, "\n");
 }
 
-static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
-				    struct zserv *client, rnh_type_t type)
+static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi, safi_t safi,
+				    struct zserv *client)
 {
 	struct route_table *ntable;
 	struct route_node *nrn;
 	struct rnh *rnh;
 
-	if (IS_ZEBRA_DEBUG_NHT)
-		zlog_debug("%u: Client %s RNH cleanup for family %s type %s",
-			   vrf_id, zebra_route_string(client->proto),
-			   afi2str(afi), rnh_type2str(type));
+	if (IS_ZEBRA_DEBUG_NHT) {
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-	ntable = get_rnh_table(vrf_id, afi, type);
+		zlog_debug("%s(%u): Client %s RNH cleanup for family %s",
+			   VRF_LOGNAME(vrf), vrf_id,
+			   zebra_route_string(client->proto), afi2str(afi));
+	}
+
+	ntable = get_rnh_table(vrf_id, afi, safi);
 	if (!ntable) {
 		zlog_debug("cleanup_rnh_client: rnh table not found");
 		return -1;
@@ -1179,7 +1686,7 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
 			continue;
 
 		rnh = nrn->info;
-		zebra_remove_rnh_client(rnh, client, type);
+		zebra_remove_rnh_client(rnh, client);
 	}
 	return 1;
 }
@@ -1193,14 +1700,14 @@ static int zebra_client_cleanup_rnh(struct zserv *client)
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
 		if (zvrf) {
-			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP, client,
-						 RNH_NEXTHOP_TYPE);
-			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6, client,
-						 RNH_NEXTHOP_TYPE);
-			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP, client,
-						 RNH_IMPORT_CHECK_TYPE);
-			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6, client,
-						 RNH_IMPORT_CHECK_TYPE);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP,
+						 SAFI_UNICAST, client);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP,
+						 SAFI_MULTICAST, client);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6,
+						 SAFI_UNICAST, client);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6,
+						 SAFI_MULTICAST, client);
 		}
 	}
 
@@ -1214,4 +1721,17 @@ int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family)
 		return 1;
 	else
 		return 0;
+}
+
+/*
+ * UI control to avoid notifications if backup nexthop status changes
+ */
+void rnh_set_hide_backups(bool hide_p)
+{
+	rnh_hide_backups = hide_p;
+}
+
+bool rnh_get_hide_backups(void)
+{
+	return rnh_hide_backups;
 }

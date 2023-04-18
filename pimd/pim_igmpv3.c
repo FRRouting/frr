@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,6 +11,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_iface.h"
 #include "pim_igmp.h"
 #include "pim_igmpv3.h"
@@ -32,19 +20,20 @@
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_oil.h"
+#include "pim_ssm.h"
 
-static void group_retransmit_timer_on(struct igmp_group *group);
-static long igmp_group_timer_remain_msec(struct igmp_group *group);
-static long igmp_source_timer_remain_msec(struct igmp_source *source);
-static void group_query_send(struct igmp_group *group);
-static void source_query_send_by_flag(struct igmp_group *group,
+static void group_retransmit_timer_on(struct gm_group *group);
+static long igmp_group_timer_remain_msec(struct gm_group *group);
+static long igmp_source_timer_remain_msec(struct gm_source *source);
+static void group_query_send(struct gm_group *group);
+static void source_query_send_by_flag(struct gm_group *group,
 				      int num_sources_tosend);
 
 static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr from, struct in_addr group_addr,
 		     int num_sources, struct in_addr *sources)
 {
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char from_str[INET_ADDRSTRLEN];
 		char group_str[INET_ADDRSTRLEN];
 
@@ -57,16 +46,28 @@ static void on_trace(const char *label, struct interface *ifp,
 	}
 }
 
-void igmp_group_reset_gmi(struct igmp_group *group)
+static inline long igmp_gmi_msec(struct gm_group *group)
+{
+	struct pim_interface *pim_ifp = group->interface->info;
+	struct gm_sock *igmp;
+	struct listnode *sock_node;
+
+	long qrv = 0, qqi = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
+		qrv = MAX(qrv, igmp->querier_robustness_variable);
+		qqi = MAX(qqi, igmp->querier_query_interval);
+	}
+	return PIM_IGMP_GMI_MSEC(qrv, qqi,
+				 pim_ifp->gm_query_max_response_time_dsec);
+}
+
+void igmp_group_reset_gmi(struct gm_group *group)
 {
 	long group_membership_interval_msec;
-	struct pim_interface *pim_ifp;
-	struct igmp_sock *igmp;
 	struct interface *ifp;
 
-	igmp = group->group_igmp_sock;
-	ifp = igmp->interface;
-	pim_ifp = ifp->info;
+	ifp = group->interface;
 
 	/*
 	  RFC 3376: 8.4. Group Membership Interval
@@ -82,11 +83,9 @@ void igmp_group_reset_gmi(struct igmp_group *group)
 					   (1000 * querier_query_interval) +
 					   100 * query_response_interval_dsec;
 	*/
-	group_membership_interval_msec = PIM_IGMP_GMI_MSEC(
-		igmp->querier_robustness_variable, igmp->querier_query_interval,
-		pim_ifp->igmp_query_max_response_time_dsec);
+	group_membership_interval_msec = igmp_gmi_msec(group);
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
@@ -103,21 +102,21 @@ void igmp_group_reset_gmi(struct igmp_group *group)
 	  it represents the time for the *filter-mode* of the group to
 	  expire and switch to INCLUDE mode.
 	*/
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
 
-static int igmp_source_timer(struct thread *t)
+static void igmp_source_timer(struct event *t)
 {
-	struct igmp_source *source;
-	struct igmp_group *group;
+	struct gm_source *source;
+	struct gm_group *group;
 
-	source = THREAD_ARG(t);
+	source = EVENT_ARG(t);
 
 	group = source->source_group;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -126,8 +125,8 @@ static int igmp_source_timer(struct thread *t)
 			       sizeof(source_str));
 		zlog_debug(
 			"%s: Source timer expired for group %s source %s on %s",
-			__PRETTY_FUNCTION__, group_str, source_str,
-			group->group_igmp_sock->interface->name);
+			__func__, group_str, source_str,
+			group->interface->name);
 	}
 
 	/*
@@ -169,17 +168,14 @@ static int igmp_source_timer(struct thread *t)
 			igmp_group_delete_empty_include(group);
 		}
 	}
-
-	return 0;
 }
 
-static void source_timer_off(struct igmp_group *group,
-			     struct igmp_source *source)
+static void source_timer_off(struct gm_group *group, struct gm_source *source)
 {
 	if (!source->t_source_timer)
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -188,20 +184,19 @@ static void source_timer_off(struct igmp_group *group,
 			       sizeof(source_str));
 		zlog_debug(
 			"Cancelling TIMER event for group %s source %s on %s",
-			group_str, source_str,
-			group->group_igmp_sock->interface->name);
+			group_str, source_str, group->interface->name);
 	}
 
-	THREAD_OFF(source->t_source_timer);
+	EVENT_OFF(source->t_source_timer);
 }
 
-static void igmp_source_timer_on(struct igmp_group *group,
-				 struct igmp_source *source, long interval_msec)
+static void igmp_source_timer_on(struct gm_group *group,
+				 struct gm_source *source, long interval_msec)
 {
 	source_timer_off(group, source);
-	struct pim_interface *pim_ifp = group->group_igmp_sock->interface->info;
+	struct pim_interface *pim_ifp = group->interface->info;
 
-	if (PIM_DEBUG_IGMP_EVENTS) {
+	if (PIM_DEBUG_GM_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -211,11 +206,11 @@ static void igmp_source_timer_on(struct igmp_group *group,
 		zlog_debug(
 			"Scheduling %ld.%03ld sec TIMER event for group %s source %s on %s",
 			interval_msec / 1000, interval_msec % 1000, group_str,
-			source_str, group->group_igmp_sock->interface->name);
+			source_str, group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_source_timer, source,
-			      interval_msec, &source->t_source_timer);
+	event_add_timer_msec(router->master, igmp_source_timer, source,
+			     interval_msec, &source->t_source_timer);
 
 	/*
 	  RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
@@ -225,21 +220,16 @@ static void igmp_source_timer_on(struct igmp_group *group,
 	igmp_source_forward_start(pim_ifp->pim, source);
 }
 
-void igmp_source_reset_gmi(struct igmp_sock *igmp, struct igmp_group *group,
-			   struct igmp_source *source)
+void igmp_source_reset_gmi(struct gm_group *group, struct gm_source *source)
 {
 	long group_membership_interval_msec;
-	struct pim_interface *pim_ifp;
 	struct interface *ifp;
 
-	ifp = igmp->interface;
-	pim_ifp = ifp->info;
+	ifp = group->interface;
 
-	group_membership_interval_msec = PIM_IGMP_GMI_MSEC(
-		igmp->querier_robustness_variable, igmp->querier_query_interval,
-		pim_ifp->igmp_query_max_response_time_dsec);
+	group_membership_interval_msec = igmp_gmi_msec(group);
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 
@@ -258,30 +248,30 @@ void igmp_source_reset_gmi(struct igmp_sock *igmp, struct igmp_group *group,
 	igmp_source_timer_on(group, source, group_membership_interval_msec);
 }
 
-static void source_mark_delete_flag(struct igmp_group *group)
+static void source_mark_delete_flag(struct gm_group *group)
 {
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src)) {
 		IGMP_SOURCE_DO_DELETE(src->source_flags);
 	}
 }
 
-static void source_mark_send_flag(struct igmp_group *group)
+static void source_mark_send_flag(struct gm_group *group)
 {
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src)) {
 		IGMP_SOURCE_DO_SEND(src->source_flags);
 	}
 }
 
-static int source_mark_send_flag_by_timer(struct igmp_group *group)
+static int source_mark_send_flag_by_timer(struct gm_group *group)
 {
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 	int num_marked_sources = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src)) {
@@ -300,7 +290,7 @@ static int source_mark_send_flag_by_timer(struct igmp_group *group)
 static void source_clear_send_flag(struct list *source_list)
 {
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS_RO(source_list, src_node, src)) {
 		IGMP_SOURCE_DONT_SEND(src->source_flags);
@@ -310,46 +300,45 @@ static void source_clear_send_flag(struct list *source_list)
 /*
   Any source (*,G) is forwarded only if mode is EXCLUDE {empty}
 */
-static void group_exclude_fwd_anysrc_ifempty(struct igmp_group *group)
+static void group_exclude_fwd_anysrc_ifempty(struct gm_group *group)
 {
-	struct pim_interface *pim_ifp = group->group_igmp_sock->interface->info;
+	struct pim_interface *pim_ifp = group->interface->info;
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	if (listcount(group->group_source_list) < 1) {
 		igmp_anysource_forward_start(pim_ifp->pim, group);
 	}
 }
 
-void igmp_source_free(struct igmp_source *source)
+void igmp_source_free(struct gm_source *source)
 {
 	/* make sure there is no source timer running */
-	zassert(!source->t_source_timer);
+	assert(!source->t_source_timer);
 
 	XFREE(MTYPE_PIM_IGMP_GROUP_SOURCE, source);
 }
 
-static void source_channel_oil_detach(struct igmp_source *source)
+static void source_channel_oil_detach(struct gm_source *source)
 {
 	if (source->source_channel_oil) {
-		pim_channel_oil_del(source->source_channel_oil,
-				    __PRETTY_FUNCTION__);
+		pim_channel_oil_del(source->source_channel_oil, __func__);
 		source->source_channel_oil = NULL;
 	}
 }
 
 /*
-  igmp_source_delete:       stop fowarding, and delete the source
-  igmp_source_forward_stop: stop fowarding, but keep the source
+  igmp_source_delete:       stop forwarding, and delete the source
+  igmp_source_forward_stop: stop forwarding, but keep the source
 */
-void igmp_source_delete(struct igmp_source *source)
+void igmp_source_delete(struct gm_source *source)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
 	struct in_addr src;
 
 	group = source->source_group;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -357,9 +346,8 @@ void igmp_source_delete(struct igmp_source *source)
 		pim_inet4_dump("<source?>", source->source_addr, source_str,
 			       sizeof(source_str));
 		zlog_debug(
-			"Deleting IGMP source %s for group %s from socket %d interface %s c_oil ref_count %d",
-			source_str, group_str, group->group_igmp_sock->fd,
-			group->group_igmp_sock->interface->name,
+			"Deleting IGMP source %s for group %s from interface %s c_oil ref_count %d",
+			source_str, group_str, group->interface->name,
 			source->source_channel_oil
 				? source->source_channel_oil->oil_ref_count
 				: 0);
@@ -377,10 +365,9 @@ void igmp_source_delete(struct igmp_source *source)
 		pim_inet4_dump("<source?>", source->source_addr, source_str,
 			       sizeof(source_str));
 		zlog_warn(
-			"%s: forwarding=ON(!) IGMP source %s for group %s from socket %d interface %s",
-			__PRETTY_FUNCTION__, source_str, group_str,
-			group->group_igmp_sock->fd,
-			group->group_igmp_sock->interface->name);
+			"%s: forwarding=ON(!) IGMP source %s for group %s from interface %s",
+			__func__, source_str, group_str,
+			group->interface->name);
 		/* warning only */
 	}
 
@@ -409,7 +396,7 @@ static void source_delete_by_flag(struct list *source_list)
 {
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
-	struct igmp_source *src;
+	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS(source_list, src_node, src_nextnode, src))
 		if (IGMP_SOURCE_TEST_DELETE(src->source_flags))
@@ -420,18 +407,18 @@ void igmp_source_delete_expired(struct list *source_list)
 {
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
-	struct igmp_source *src;
+	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS(source_list, src_node, src_nextnode, src))
 		if (!src->t_source_timer)
 			igmp_source_delete(src);
 }
 
-struct igmp_source *igmp_find_source_by_addr(struct igmp_group *group,
-					     struct in_addr src_addr)
+struct gm_source *igmp_find_source_by_addr(struct gm_group *group,
+					   struct in_addr src_addr)
 {
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src))
 		if (src_addr.s_addr == src->source_addr.s_addr)
@@ -440,12 +427,19 @@ struct igmp_source *igmp_find_source_by_addr(struct igmp_group *group,
 	return 0;
 }
 
-struct igmp_source *source_new(struct igmp_group *group,
-			       struct in_addr src_addr)
+struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
+					  struct in_addr src_addr, bool *new)
 {
-	struct igmp_source *src;
+	struct gm_source *src;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (new)
+		*new = false;
+
+	src = igmp_find_source_by_addr(group, src_addr);
+	if (src)
+		return src;
+
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -453,12 +447,14 @@ struct igmp_source *source_new(struct igmp_group *group,
 		pim_inet4_dump("<source?>", src_addr, source_str,
 			       sizeof(source_str));
 		zlog_debug(
-			"Creating new IGMP source %s for group %s on socket %d interface %s",
-			source_str, group_str, group->group_igmp_sock->fd,
-			group->group_igmp_sock->interface->name);
+			"Creating new IGMP source %s for group %s on interface %s",
+			source_str, group_str, group->interface->name);
 	}
 
 	src = XCALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
+
+	if (new)
+		*new = true;
 
 	src->t_source_timer = NULL;
 	src->source_group = group; /* back pointer */
@@ -472,35 +468,46 @@ struct igmp_source *source_new(struct igmp_group *group,
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
-
 	return src;
 }
 
-static struct igmp_source *add_source_by_addr(struct igmp_sock *igmp,
-					      struct igmp_group *group,
-					      struct in_addr src_addr)
-{
-	struct igmp_source *src;
-
-	src = igmp_find_source_by_addr(group, src_addr);
-	if (src) {
-		return src;
-	}
-
-	src = source_new(group, src_addr);
-
-	return src;
-}
-
-static void allow(struct igmp_sock *igmp, struct in_addr from,
+static void allow(struct gm_sock *igmp, struct in_addr from,
 		  struct in_addr group_addr, int num_sources,
 		  struct in_addr *sources)
 {
-	struct igmp_source *source;
-	struct igmp_group *group;
+	struct gm_source *source;
+	struct gm_group *group;
 	int i;
 
-	/* non-existant group is created as INCLUDE {empty} */
+	if (num_sources == 0) {
+		/*
+		  RFC 3376: 3.1. Socket-State
+		  If the requested filter mode is INCLUDE *and* the requested
+		  source list is empty, then the entry corresponding to the
+		  requested interface and multicast address is deleted if
+		  present. If no such entry is present, the request is ignored.
+		  So, deleting the group present.
+		*/
+		group = find_group_by_addr(igmp, group_addr);
+		if (!group) {
+			return;
+		}
+		if (group->group_filtermode_isexcl) {
+			if (listcount(group->group_source_list) == 1) {
+				struct in_addr star = {.s_addr = INADDR_ANY};
+
+				source = igmp_find_source_by_addr(group, star);
+				if (source)
+					igmp_source_reset_gmi(group, source);
+			}
+		} else {
+			igmp_group_delete(group);
+		}
+
+		return;
+	}
+
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -512,10 +519,9 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 
 		src_addr = sources + i;
 
-		source = add_source_by_addr(igmp, group, *src_addr);
-		if (!source) {
+		source = igmp_get_source_by_addr(group, *src_addr, NULL);
+		if (!source)
 			continue;
-		}
 
 		/*
 		  RFC 3376: 6.4.1. Reception of Current-State Records
@@ -527,38 +533,29 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 		  igmp_source_reset_gmi() below, resetting the source timers to
 		  GMI, accomplishes this.
 		*/
-		igmp_source_reset_gmi(igmp, group, source);
+		igmp_source_reset_gmi(group, source);
 
 	} /* scan received sources */
-
-	if ((num_sources == 0) && (group->group_filtermode_isexcl)
-	    && (listcount(group->group_source_list) == 1)) {
-		struct in_addr star = {.s_addr = INADDR_ANY};
-
-		source = igmp_find_source_by_addr(group, star);
-		if (source)
-			igmp_source_reset_gmi(igmp, group, source);
-	}
 }
 
-void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_isin(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
-	on_trace(__PRETTY_FUNCTION__, igmp->interface, from, group_addr,
-		 num_sources, sources);
+	on_trace(__func__, igmp->interface, from, group_addr, num_sources,
+		 sources);
 
 	allow(igmp, from, group_addr, num_sources, sources);
 }
 
-static void isex_excl(struct igmp_group *group, int num_sources,
+static void isex_excl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
-	struct igmp_source *source;
+	struct gm_source *source;
 	int i;
 
 	/* EXCLUDE mode */
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	/* E.1: set deletion flag for known sources (X,Y) */
 	source_mark_delete_flag(group);
@@ -566,22 +563,24 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 	/* scan received sources (A) */
 	for (i = 0; i < num_sources; ++i) {
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* E.2: lookup reported source from (A) in (X,Y) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* E.3: if found, clear deletion flag: (X*A) or (Y*A) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 		} else {
 			/* E.4: if not found, create source with timer=GMI:
 			 * (A-X-Y) */
-			source = source_new(group, *src_addr);
-			zassert(!source->t_source_timer); /* timer == 0 */
-			igmp_source_reset_gmi(group->group_igmp_sock, group,
-					      source);
-			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+			assert(!source->t_source_timer); /* timer == 0 */
+			igmp_source_reset_gmi(group, source);
+			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 		}
 
 	} /* scan received sources */
@@ -596,8 +595,7 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 		source = igmp_find_source_by_addr(group, star);
 		if (source) {
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
-			igmp_source_reset_gmi(group->group_igmp_sock, group,
-					      source);
+			igmp_source_reset_gmi(group, source);
 		}
 	}
 
@@ -605,34 +603,37 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 	source_delete_by_flag(group->group_source_list);
 }
 
-static void isex_incl(struct igmp_group *group, int num_sources,
+static void isex_incl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
 	int i;
 
 	/* INCLUDE mode */
-	zassert(!group->group_filtermode_isexcl);
+	assert(!group->group_filtermode_isexcl);
 
 	/* I.1: set deletion flag for known sources (A) */
 	source_mark_delete_flag(group);
 
 	/* scan received sources (B) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* I.2: lookup reported source (B) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* I.3: if found, clear deletion flag (A*B) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 		} else {
 			/* I.4: if not found, create source with timer=0 (B-A)
 			 */
-			source = source_new(group, *src_addr);
-			zassert(!source->t_source_timer); /* (B-A) timer=0 */
+			assert(!source->t_source_timer); /* (B-A) timer=0 */
 		}
 
 	} /* scan received sources */
@@ -642,25 +643,24 @@ static void isex_incl(struct igmp_group *group, int num_sources,
 
 	group->group_filtermode_isexcl = 1; /* boolean=true */
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	group_exclude_fwd_anysrc_ifempty(group);
 }
 
-void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources, int from_igmp_v2_report)
 {
 	struct interface *ifp = igmp->interface;
-	struct igmp_group *group;
+	struct gm_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	if (pim_is_group_filtered(ifp->info, &group_addr))
 		return;
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -677,18 +677,17 @@ void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
 	} else {
 		/* INCLUDE mode */
 		isex_incl(group, num_sources, sources);
-		zassert(group->group_filtermode_isexcl);
+		assert(group->group_filtermode_isexcl);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	igmp_group_reset_gmi(group);
 }
 
-static void toin_incl(struct igmp_group *group, int num_sources,
+static void toin_incl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
-	struct igmp_sock *igmp = group->group_igmp_sock;
 	int num_sources_tosend = listcount(group->group_source_list);
 	int i;
 
@@ -697,24 +696,25 @@ static void toin_incl(struct igmp_group *group, int num_sources,
 
 	/* Scan received sources (B) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* Lookup reported source (B) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* If found, clear SEND flag (A*B) */
 			IGMP_SOURCE_DONT_SEND(source->source_flags);
 			--num_sources_tosend;
-		} else {
-			/* If not found, create new source */
-			source = source_new(group, *src_addr);
 		}
 
 		/* (B)=GMI */
-		igmp_source_reset_gmi(igmp, group, source);
+		igmp_source_reset_gmi(group, source);
 	}
 
 	/* Send sources marked with SEND flag: Q(G,A-B) */
@@ -723,10 +723,9 @@ static void toin_incl(struct igmp_group *group, int num_sources,
 	}
 }
 
-static void toin_excl(struct igmp_group *group, int num_sources,
+static void toin_excl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
-	struct igmp_sock *igmp = group->group_igmp_sock;
 	int num_sources_tosend;
 	int i;
 
@@ -735,27 +734,26 @@ static void toin_excl(struct igmp_group *group, int num_sources,
 
 	/* Scan received sources (A) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* Lookup reported source (A) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
-			if (source->t_source_timer) {
-				/* If found and timer running, clear SEND flag
-				 * (X*A) */
-				IGMP_SOURCE_DONT_SEND(source->source_flags);
-				--num_sources_tosend;
-			}
-		} else {
-			/* If not found, create new source */
-			source = source_new(group, *src_addr);
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (source->t_source_timer) {
+			/* If found and timer running, clear SEND flag
+			 * (X*A) */
+			IGMP_SOURCE_DONT_SEND(source->source_flags);
+			--num_sources_tosend;
 		}
 
 		/* (A)=GMI */
-		igmp_source_reset_gmi(igmp, group, source);
+		igmp_source_reset_gmi(group, source);
 	}
 
 	/* Send sources marked with SEND flag: Q(G,X-A) */
@@ -767,15 +765,14 @@ static void toin_excl(struct igmp_group *group, int num_sources,
 	group_query_send(group);
 }
 
-void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_toin(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
 	struct interface *ifp = igmp->interface;
-	struct igmp_group *group;
+	struct gm_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	/*
 	 * If the requested filter mode is INCLUDE *and* the requested source
@@ -784,7 +781,7 @@ void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
 	 * entry is present, the request is ignored.
 	 */
 	if (num_sources) {
-		/* non-existant group is created as INCLUDE {empty} */
+		/* non-existent group is created as INCLUDE {empty} */
 		group = igmp_add_group_by_addr(igmp, group_addr);
 		if (!group) {
 			return;
@@ -804,13 +801,13 @@ void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
 	}
 }
 
-static void toex_incl(struct igmp_group *group, int num_sources,
+static void toex_incl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
 	int num_sources_tosend = 0;
 	int i;
 
-	zassert(!group->group_filtermode_isexcl);
+	assert(!group->group_filtermode_isexcl);
 
 	/* Set DELETE flag for all known sources (A) */
 	source_mark_delete_flag(group);
@@ -820,24 +817,20 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 
 	/* Scan received sources (B) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* Lookup reported source (B) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!new) {
 			/* If found, clear deletion flag: (A*B) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 			/* and set SEND flag (A*B) */
 			IGMP_SOURCE_DO_SEND(source->source_flags);
 			++num_sources_tosend;
-		} else {
-			/* If source not found, create source with timer=0:
-			 * (B-A)=0 */
-			source = source_new(group, *src_addr);
-			zassert(!source->t_source_timer); /* (B-A) timer=0 */
 		}
 
 	} /* Scan received sources (B) */
@@ -852,12 +845,12 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 		source_query_send_by_flag(group, num_sources_tosend);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	group_exclude_fwd_anysrc_ifempty(group);
 }
 
-static void toex_excl(struct igmp_group *group, int num_sources,
+static void toex_excl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
 	int num_sources_tosend = 0;
@@ -870,7 +863,7 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 	source_clear_send_flag(group->group_source_list);
 
 	if (num_sources == 0) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr any = {.s_addr = INADDR_ANY};
 
 		source = igmp_find_source_by_addr(group, any);
@@ -880,14 +873,18 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 
 	/* scan received sources (A) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* lookup reported source (A) in known sources (X,Y) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* if found, clear off DELETE flag from reported source
 			 * (A) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
@@ -895,19 +892,18 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 			/* if not found, create source with Group Timer:
 			 * (A-X-Y)=Group Timer */
 			long group_timer_msec;
-			source = source_new(group, *src_addr);
 
-			zassert(!source->t_source_timer); /* timer == 0 */
+			assert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
 			igmp_source_timer_on(group, source, group_timer_msec);
-			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 
 			/* make sure source is created with DELETE flag unset */
-			zassert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
+			assert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
 		}
 
 		/* make sure reported source has DELETE flag unset */
-		zassert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
+		assert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
 
 		if (source->t_source_timer) {
 			/* if source timer>0 mark SEND flag: Q(G,A-Y) */
@@ -930,17 +926,16 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 	}
 }
 
-void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
 	struct interface *ifp = igmp->interface;
-	struct igmp_group *group;
+	struct gm_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -952,22 +947,40 @@ void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
 	} else {
 		/* INCLUDE mode */
 		toex_incl(group, num_sources, sources);
-		zassert(group->group_filtermode_isexcl);
+		assert(group->group_filtermode_isexcl);
 	}
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	/* Group Timer=GMI */
 	igmp_group_reset_gmi(group);
 }
 
-void igmpv3_report_allow(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_allow(struct gm_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources)
 {
-	on_trace(__PRETTY_FUNCTION__, igmp->interface, from, group_addr,
-		 num_sources, sources);
+	on_trace(__func__, igmp->interface, from, group_addr, num_sources,
+		 sources);
 
 	allow(igmp, from, group_addr, num_sources, sources);
+}
+
+static void igmp_send_query_group(struct gm_group *group, char *query_buf,
+				  size_t query_buf_size, int num_sources,
+				  int s_flag)
+{
+	struct interface *ifp = group->interface;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_sock *igmp;
+	struct listnode *sock_node;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
+		igmp_send_query(
+			pim_ifp->igmp_version, group, query_buf, query_buf_size,
+			num_sources, group->group_addr, group->group_addr,
+			pim_ifp->gm_specific_query_max_response_time_dsec,
+			s_flag, igmp);
+	}
 }
 
 /*
@@ -977,9 +990,8 @@ void igmpv3_report_allow(struct igmp_sock *igmp, struct in_addr from,
   larger than LMQT, the "Suppress Router-Side Processing" bit is set
   in the query message.
 */
-static void group_retransmit_group(struct igmp_group *group)
+static void group_retransmit_group(struct gm_group *group)
 {
-	struct igmp_sock *igmp;
 	struct pim_interface *pim_ifp;
 	long lmqc;      /* Last Member Query Count */
 	long lmqi_msec; /* Last Member Query Interval */
@@ -987,8 +999,7 @@ static void group_retransmit_group(struct igmp_group *group)
 	int s_flag;
 	int query_buf_size;
 
-	igmp = group->group_igmp_sock;
-	pim_ifp = igmp->interface->info;
+	pim_ifp = group->interface->info;
 
 	if (pim_ifp->igmp_version == 3) {
 		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
@@ -998,8 +1009,8 @@ static void group_retransmit_group(struct igmp_group *group)
 
 	char query_buf[query_buf_size];
 
-	lmqc = pim_ifp->igmp_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1011,13 +1022,13 @@ static void group_retransmit_group(struct igmp_group *group)
 	*/
 	s_flag = igmp_group_timer_remain_msec(group) > lmqt_msec;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug(
 			"retransmit_group_specific_query: group %s on %s: s_flag=%d count=%d",
-			group_str, igmp->interface->name, s_flag,
+			group_str, group->interface->name, s_flag,
 			group->group_specific_query_retransmit_count);
 	}
 
@@ -1029,14 +1040,7 @@ static void group_retransmit_group(struct igmp_group *group)
 	  interest.
 	*/
 
-	igmp_send_query(pim_ifp->igmp_version, group, igmp->fd,
-			igmp->interface->name, query_buf, sizeof(query_buf),
-			0 /* num_sources_tosend */,
-			group->group_addr /* dst_addr */,
-			group->group_addr /* group_addr */,
-			pim_ifp->igmp_specific_query_max_response_time_dsec,
-			s_flag, igmp->querier_robustness_variable,
-			igmp->querier_query_interval);
+	igmp_send_query_group(group, query_buf, sizeof(query_buf), 0, s_flag);
 }
 
 /*
@@ -1051,10 +1055,9 @@ static void group_retransmit_group(struct igmp_group *group)
   or equal to LMQT.  If either of the two calculated messages does not
   contain any sources, then its transmission is suppressed.
  */
-static int group_retransmit_sources(struct igmp_group *group,
+static int group_retransmit_sources(struct gm_group *group,
 				    int send_with_sflag_set)
 {
-	struct igmp_sock *igmp;
 	struct pim_interface *pim_ifp;
 	long lmqc;      /* Last Member Query Count */
 	long lmqi_msec; /* Last Member Query Interval */
@@ -1068,17 +1071,16 @@ static int group_retransmit_sources(struct igmp_group *group,
 	int num_sources_tosend1;
 	int num_sources_tosend2;
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 	int num_retransmit_sources_left = 0;
 
 	source_addr1 = (struct in_addr *)(query_buf1 + IGMP_V3_SOURCES_OFFSET);
 	source_addr2 = (struct in_addr *)(query_buf2 + IGMP_V3_SOURCES_OFFSET);
 
-	igmp = group->group_igmp_sock;
-	pim_ifp = igmp->interface->info;
+	pim_ifp = group->interface->info;
 
-	lmqc = pim_ifp->igmp_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/* Scan all group sources */
@@ -1109,13 +1111,13 @@ static int group_retransmit_sources(struct igmp_group *group,
 		source_addr2
 		- (struct in_addr *)(query_buf2 + IGMP_V3_SOURCES_OFFSET);
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug(
 			"retransmit_grp&src_specific_query: group %s on %s: srcs_with_sflag=%d srcs_wo_sflag=%d will_send_sflag=%d retransmit_src_left=%d",
-			group_str, igmp->interface->name, num_sources_tosend1,
+			group_str, group->interface->name, num_sources_tosend1,
 			num_sources_tosend2, send_with_sflag_set,
 			num_retransmit_sources_left);
 	}
@@ -1137,8 +1139,8 @@ static int group_retransmit_sources(struct igmp_group *group,
 					       group_str, sizeof(group_str));
 				zlog_warn(
 					"%s: group %s on %s: s_flag=1 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
-					__PRETTY_FUNCTION__, group_str,
-					igmp->interface->name,
+					__func__, group_str,
+					group->interface->name,
 					num_sources_tosend1, sizeof(query_buf1),
 					query_buf1_max_sources);
 			} else {
@@ -1153,15 +1155,9 @@ static int group_retransmit_sources(struct igmp_group *group,
 				  interest.
 				*/
 
-				igmp_send_query(
-					pim_ifp->igmp_version, group, igmp->fd,
-					igmp->interface->name, query_buf1,
-					sizeof(query_buf1), num_sources_tosend1,
-					group->group_addr, group->group_addr,
-					pim_ifp->igmp_specific_query_max_response_time_dsec,
-					1 /* s_flag */,
-					igmp->querier_robustness_variable,
-					igmp->querier_query_interval);
+				igmp_send_query_group(
+					group, query_buf1, sizeof(query_buf1),
+					num_sources_tosend1, 1 /* s_flag */);
 			}
 
 		} /* send_with_sflag_set */
@@ -1181,9 +1177,9 @@ static int group_retransmit_sources(struct igmp_group *group,
 				       sizeof(group_str));
 			zlog_warn(
 				"%s: group %s on %s: s_flag=0 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
-				__PRETTY_FUNCTION__, group_str,
-				igmp->interface->name, num_sources_tosend2,
-				sizeof(query_buf2), query_buf2_max_sources);
+				__func__, group_str, group->interface->name,
+				num_sources_tosend2, sizeof(query_buf2),
+				query_buf2_max_sources);
 		} else {
 			/*
 			  RFC3376: 4.1.12. IP Destination Addresses for Queries
@@ -1195,35 +1191,29 @@ static int group_retransmit_sources(struct igmp_group *group,
 			  interest.
 			*/
 
-			igmp_send_query(
-				pim_ifp->igmp_version, group, igmp->fd,
-				igmp->interface->name, query_buf2,
-				sizeof(query_buf2), num_sources_tosend2,
-				group->group_addr, group->group_addr,
-				pim_ifp->igmp_specific_query_max_response_time_dsec,
-				0 /* s_flag */,
-				igmp->querier_robustness_variable,
-				igmp->querier_query_interval);
+			igmp_send_query_group(
+				group, query_buf2, sizeof(query_buf2),
+				num_sources_tosend2, 0 /* s_flag */);
 		}
 	}
 
 	return num_retransmit_sources_left;
 }
 
-static int igmp_group_retransmit(struct thread *t)
+static void igmp_group_retransmit(struct event *t)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
 	int num_retransmit_sources_left;
 	int send_with_sflag_set; /* boolean */
 
-	group = THREAD_ARG(t);
+	group = EVENT_ARG(t);
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug("group_retransmit_timer: group %s on %s", group_str,
-			   group->group_igmp_sock->interface->name);
+			   group->interface->name);
 	}
 
 	/* Retransmit group-specific queries? (RFC3376: 6.6.3.1) */
@@ -1260,8 +1250,6 @@ static int igmp_group_retransmit(struct thread *t)
 	    || (group->group_specific_query_retransmit_count > 0)) {
 		group_retransmit_timer_on(group);
 	}
-
-	return 0;
 }
 
 /*
@@ -1269,9 +1257,8 @@ static int igmp_group_retransmit(struct thread *t)
   if group retransmit timer isn't running, starts it;
   otherwise, do nothing
 */
-static void group_retransmit_timer_on(struct igmp_group *group)
+static void group_retransmit_timer_on(struct gm_group *group)
 {
-	struct igmp_sock *igmp;
 	struct pim_interface *pim_ifp;
 	long lmqi_msec; /* Last Member Query Interval */
 
@@ -1280,32 +1267,30 @@ static void group_retransmit_timer_on(struct igmp_group *group)
 		return;
 	}
 
-	igmp = group->group_igmp_sock;
-	pim_ifp = igmp->interface->info;
+	pim_ifp = group->interface->info;
 
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug(
 			"Scheduling %ld.%03ld sec retransmit timer for group %s on %s",
 			lmqi_msec / 1000, lmqi_msec % 1000, group_str,
-			igmp->interface->name);
+			group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_group_retransmit, group,
-			      lmqi_msec,
-			      &group->t_group_query_retransmit_timer);
+	event_add_timer_msec(router->master, igmp_group_retransmit, group,
+			     lmqi_msec, &group->t_group_query_retransmit_timer);
 }
 
-static long igmp_group_timer_remain_msec(struct igmp_group *group)
+static long igmp_group_timer_remain_msec(struct gm_group *group)
 {
 	return pim_time_timer_remain_msec(group->t_group_timer);
 }
 
-static long igmp_source_timer_remain_msec(struct igmp_source *source)
+static long igmp_source_timer_remain_msec(struct gm_source *source)
 {
 	return pim_time_timer_remain_msec(source->t_source_timer);
 }
@@ -1313,15 +1298,13 @@ static long igmp_source_timer_remain_msec(struct igmp_source *source)
 /*
   RFC3376: 6.6.3.1. Building and Sending Group Specific Queries
 */
-static void group_query_send(struct igmp_group *group)
+static void group_query_send(struct gm_group *group)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_sock *igmp;
 	long lmqc; /* Last Member Query Count */
 
-	igmp = group->group_igmp_sock;
-	pim_ifp = igmp->interface->info;
-	lmqc = pim_ifp->igmp_last_member_query_count;
+	pim_ifp = group->interface->info;
+	lmqc = pim_ifp->gm_last_member_query_count;
 
 	/* lower group timer to lmqt */
 	igmp_group_timer_lower_to_lmqt(group);
@@ -1340,24 +1323,22 @@ static void group_query_send(struct igmp_group *group)
 /*
   RFC3376: 6.6.3.2. Building and Sending Group and Source Specific Queries
 */
-static void source_query_send_by_flag(struct igmp_group *group,
+static void source_query_send_by_flag(struct gm_group *group,
 				      int num_sources_tosend)
 {
-	struct igmp_sock *igmp;
 	struct pim_interface *pim_ifp;
 	struct listnode *src_node;
-	struct igmp_source *src;
+	struct gm_source *src;
 	long lmqc;      /* Last Member Query Count */
 	long lmqi_msec; /* Last Member Query Interval */
 	long lmqt_msec; /* Last Member Query Time */
 
-	zassert(num_sources_tosend > 0);
+	assert(num_sources_tosend > 0);
 
-	igmp = group->group_igmp_sock;
-	pim_ifp = igmp->interface->info;
+	pim_ifp = group->interface->info;
 
-	lmqc = pim_ifp->igmp_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1388,7 +1369,7 @@ static void source_query_send_by_flag(struct igmp_group *group,
 	group_retransmit_timer_on(group);
 }
 
-static void block_excl(struct igmp_group *group, int num_sources,
+static void block_excl(struct gm_group *group, int num_sources,
 		       struct in_addr *sources)
 {
 	int num_sources_tosend = 0;
@@ -1399,23 +1380,26 @@ static void block_excl(struct igmp_group *group, int num_sources,
 
 	/* 2. scan received sources (A) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* lookup reported source (A) in known sources (X,Y) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (!source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (new) {
 			/* 3: if not found, create source with Group Timer:
 			 * (A-X-Y)=Group Timer */
 			long group_timer_msec;
-			source = source_new(group, *src_addr);
 
-			zassert(!source->t_source_timer); /* timer == 0 */
+			assert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
 			igmp_source_timer_on(group, source, group_timer_msec);
-			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
 		}
 
 		if (source->t_source_timer) {
@@ -1431,7 +1415,7 @@ static void block_excl(struct igmp_group *group, int num_sources,
 	}
 }
 
-static void block_incl(struct igmp_group *group, int num_sources,
+static void block_incl(struct gm_group *group, int num_sources,
 		       struct in_addr *sources)
 {
 	int num_sources_tosend = 0;
@@ -1442,7 +1426,7 @@ static void block_incl(struct igmp_group *group, int num_sources,
 
 	/* 2. scan received sources (A) */
 	for (i = 0; i < num_sources; ++i) {
-		struct igmp_source *source;
+		struct gm_source *source;
 		struct in_addr *src_addr;
 
 		src_addr = sources + i;
@@ -1462,17 +1446,16 @@ static void block_incl(struct igmp_group *group, int num_sources,
 	}
 }
 
-void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_block(struct gm_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources)
 {
 	struct interface *ifp = igmp->interface;
-	struct igmp_group *group;
+	struct gm_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -1487,9 +1470,8 @@ void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
 	}
 }
 
-void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
+void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 {
-	struct igmp_sock *igmp;
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	char *ifname;
@@ -1508,35 +1490,33 @@ void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
 		return;
 	}
 
-	igmp = group->group_igmp_sock;
-	ifp = igmp->interface;
+	ifp = group->interface;
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->igmp_specific_query_max_response_time_dsec;
-	lmqc = pim_ifp->igmp_last_member_query_count;
+	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug(
 			"%s: group %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
-			__PRETTY_FUNCTION__, group_str, ifname, lmqc, lmqi_dsec,
+			__func__, group_str, ifname, lmqc, lmqi_dsec,
 			lmqt_msec);
 	}
 
-	zassert(group->group_filtermode_isexcl);
+	assert(group->group_filtermode_isexcl);
 
 	igmp_group_timer_on(group, lmqt_msec, ifname);
 }
 
-void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
+void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 {
-	struct igmp_group *group;
-	struct igmp_sock *igmp;
+	struct gm_group *group;
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	char *ifname;
@@ -1545,17 +1525,16 @@ void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
 	int lmqt_msec; /* Last Member Query Time */
 
 	group = source->source_group;
-	igmp = group->group_igmp_sock;
-	ifp = igmp->interface;
+	ifp = group->interface;
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->igmp_specific_query_max_response_time_dsec;
-	lmqc = pim_ifp->igmp_last_member_query_count;
+	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -1564,14 +1543,14 @@ void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
 			       sizeof(source_str));
 		zlog_debug(
 			"%s: group %s source %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
-			__PRETTY_FUNCTION__, group_str, source_str, ifname,
-			lmqc, lmqi_dsec, lmqt_msec);
+			__func__, group_str, source_str, ifname, lmqc,
+			lmqi_dsec, lmqt_msec);
 	}
 
 	igmp_source_timer_on(group, source, lmqt_msec);
 }
 
-void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
+void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 			char *query_buf, int query_buf_size, int num_sources,
 			struct in_addr dst_addr, struct in_addr group_addr,
 			int query_max_response_time_dsec, uint8_t s_flag,
@@ -1586,20 +1565,19 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 	socklen_t tolen;
 	uint16_t checksum;
 
-	zassert(num_sources >= 0);
+	assert(num_sources >= 0);
 
 	msg_size = IGMP_V3_SOURCES_OFFSET + (num_sources << 2);
 	if (msg_size > query_buf_size) {
 		flog_err(
 			EC_LIB_DEVELOPMENT,
 			"%s %s: unable to send: msg_size=%zd larger than query_buf_size=%d",
-			__FILE__, __PRETTY_FUNCTION__, msg_size,
-			query_buf_size);
+			__FILE__, __func__, msg_size, query_buf_size);
 		return;
 	}
 
 	s_flag = PIM_FORCE_BOOLEAN(s_flag);
-	zassert((s_flag == 0) || (s_flag == 1));
+	assert((s_flag == 0) || (s_flag == 1));
 
 	max_resp_code = igmp_msg_encode16to8(query_max_response_time_dsec);
 	qqic = igmp_msg_encode16to8(querier_query_interval);
@@ -1630,7 +1608,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 	checksum = in_cksum(query_buf, msg_size);
 	*(uint16_t *)(query_buf + IGMP_CHECKSUM_OFFSET) = checksum;
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		char dst_str[INET_ADDRSTRLEN];
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
@@ -1682,7 +1660,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 	*/
 	if (!s_flag) {
 		/* general query? */
-		if (PIM_INADDR_IS_ANY(group_addr)) {
+		if (group_addr.s_addr == INADDR_ANY) {
 			char dst_str[INET_ADDRSTRLEN];
 			char group_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<dst?>", dst_addr, dst_str,
@@ -1691,13 +1669,13 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 				       sizeof(group_str));
 			zlog_warn(
 				"%s: to %s on %s: group=%s sources=%d: s_flag is clear for general query!",
-				__PRETTY_FUNCTION__, dst_str, ifname, group_str,
+				__func__, dst_str, ifname, group_str,
 				num_sources);
 		}
 	}
 }
 
-void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
+void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 			char *igmp_msg)
 {
 	struct interface *ifp;
@@ -1724,7 +1702,7 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 	resv_s_qrv = igmp_msg[8];
 	qrv = 7 & resv_s_qrv;
 	igmp->querier_robustness_variable =
-		qrv ? qrv : pim_ifp->igmp_default_robustness_variable;
+		qrv ? qrv : pim_ifp->gm_default_robustness_variable;
 
 	/*
 	 * RFC 3376: 4.1.7. QQIC (Querier's Query Interval Code)
@@ -1741,9 +1719,9 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 		qqic = igmp_msg[9];
 		qqi = igmp_msg_decode8to16(qqic);
 		igmp->querier_query_interval =
-			qqi ? qqi : pim_ifp->igmp_default_query_interval;
+			qqi ? qqi : pim_ifp->gm_default_query_interval;
 
-		if (PIM_DEBUG_IGMP_TRACE) {
+		if (PIM_DEBUG_GM_TRACE) {
 			char ifaddr_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
 				       sizeof(ifaddr_str));
@@ -1769,14 +1747,14 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 	if (!s_flag) {
 		/* s_flag is clear */
 
-		if (PIM_INADDR_IS_ANY(group_addr)) {
+		if (group_addr.s_addr == INADDR_ANY) {
 			/* this is a general query */
 			/* log that general query should have the s_flag set */
 			zlog_warn(
 				"General IGMP query v3 from %s on %s: Suppress Router-Side Processing flag is clear",
 				from_str, ifp->name);
 		} else {
-			struct igmp_group *group;
+			struct gm_group *group;
 
 			/* this is a non-general query: perform timer updates */
 
@@ -1810,7 +1788,7 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 							    + IGMP_V3_SOURCES_OFFSET);
 					for (i = 0; i < recv_num_sources; ++i) {
 						struct in_addr src_addr;
-						struct igmp_source *src;
+						struct gm_source *src;
 						memcpy(&src_addr, sources + i,
 						       sizeof(struct in_addr));
 						src = igmp_find_source_by_addr(
@@ -1833,23 +1811,76 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 	} /* s_flag is clear: timer updates */
 }
 
-int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
+static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
+				 struct in_addr grp, int rec_type)
+{
+	struct pim_interface *pim_ifp;
+	struct in_addr grp_addr;
+
+	pim_ifp = ifp->info;
+
+	/* determine filtering status for group */
+	if (pim_is_group_filtered(pim_ifp, &grp)) {
+		if (PIM_DEBUG_GM_PACKETS) {
+			zlog_debug(
+				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
+				&grp.s_addr, from_str, ifp->name,
+				pim_ifp->boundary_oil_plist);
+		}
+		return false;
+	}
+
+	/*
+	 * If we receive a igmp report with the group in 224.0.0.0/24
+	 * then we should ignore it
+	 */
+
+	grp_addr.s_addr = ntohl(grp.s_addr);
+
+	if (pim_is_group_224_0_0_0_24(grp_addr)) {
+		if (PIM_DEBUG_GM_PACKETS) {
+			zlog_debug(
+				"Ignoring IGMPv3 group record %pI4 from %s on %s group range falls in 224.0.0.0/24",
+				&grp.s_addr, from_str, ifp->name);
+		}
+		return false;
+	}
+
+	/*
+	 * RFC 4604
+	 * section 2.2.1
+	 * EXCLUDE mode does not apply to SSM addresses, and an SSM-aware router
+	 * will ignore MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE requests in
+	 * the SSM range.
+	 */
+	if (pim_is_grp_ssm(pim_ifp->pim, grp)) {
+		switch (rec_type) {
+		case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
+		case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
+			if (PIM_DEBUG_GM_PACKETS) {
+				zlog_debug(
+					"Ignoring IGMPv3 group record %pI4 from %s on %s exclude mode in SSM range",
+					&grp.s_addr, from_str, ifp->name);
+			}
+			return false;
+		}
+	}
+
+	return true;
+}
+
+int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
-	uint16_t recv_checksum;
-	uint16_t checksum;
 	int num_groups;
 	uint8_t *group_record;
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
 	struct interface *ifp = igmp->interface;
+	struct pim_interface *pim_ifp = ifp->info;
 	int i;
-	int local_ncb = 0;
-	struct pim_interface *pim_ifp;
 
 	if (igmp->mtrace_only)
 		return 0;
-
-	pim_ifp = igmp->interface->info;
 
 	if (igmp_msg_len < IGMP_V3_MSG_MIN_SIZE) {
 		zlog_warn(
@@ -1859,21 +1890,22 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
-	recv_checksum = *(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET);
-
-	/* for computing checksum */
-	*(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET) = 0;
-
-	checksum = in_cksum(igmp_msg, igmp_msg_len);
-	if (checksum != recv_checksum) {
+	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
 		zlog_warn(
-			"Recv IGMP report v3 from %s on %s: checksum mismatch: received=%x computed=%x",
-			from_str, ifp->name, recv_checksum, checksum);
+			"Recv IGMPv3 report from %s on %s with invalid checksum",
+			from_str, ifp->name);
 		return -1;
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.report_v3++;
+	igmp->igmp_stats.report_v3++;
+
+	if (pim_ifp->igmp_version == 2) {
+		zlog_warn(
+			"Received Version 3 packet but interface: %s is configured for version 2",
+			ifp->name);
+		return -1;
+	}
 
 	num_groups = ntohs(
 		*(uint16_t *)(igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET));
@@ -1884,11 +1916,10 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		zlog_debug(
-			"Recv IGMP report v3 from %s on %s: size=%d checksum=%x groups=%d",
-			from_str, ifp->name, igmp_msg_len, checksum,
-			num_groups);
+			"Recv IGMP report v3 from %s on %s: size=%d groups=%d",
+			from_str, ifp->name, igmp_msg_len, num_groups);
 	}
 
 	group_record = (uint8_t *)igmp_msg + IGMP_V3_REPORT_GROUPPRECORD_OFFSET;
@@ -1902,9 +1933,6 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		int rec_auxdatalen;
 		int rec_num_sources;
 		int j;
-		struct prefix lncb;
-		struct prefix g;
-		bool filtered = false;
 
 		if ((group_record + IGMP_V3_GROUP_RECORD_MIN_SIZE)
 		    > report_pastend) {
@@ -1925,12 +1953,12 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		       group_record + IGMP_V3_GROUP_RECORD_GROUP_OFFSET,
 		       sizeof(struct in_addr));
 
-		if (PIM_DEBUG_IGMP_PACKETS) {
+		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug(
-				"Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%s",
+				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
 				from_str, ifp->name, i, rec_type,
 				rec_auxdatalen, rec_num_sources,
-				inet_ntoa(rec_group));
+				&rec_group);
 		}
 
 		/* Scan sources */
@@ -1946,46 +1974,23 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 				return -1;
 			}
 
-			if (PIM_DEBUG_IGMP_PACKETS) {
+			if (PIM_DEBUG_GM_PACKETS) {
 				char src_str[200];
 
 				if (!inet_ntop(AF_INET, src, src_str,
 					       sizeof(src_str)))
-					sprintf(src_str, "<source?>");
+					snprintf(src_str, sizeof(src_str),
+						 "<source?>");
 
 				zlog_debug(
-					"Recv IGMP report v3 from %s on %s: record=%d group=%s source=%s",
+					"        Recv IGMP report v3 from %s on %s: record=%d group=%pI4 source=%s",
 					from_str, ifp->name, i,
-					inet_ntoa(rec_group), src_str);
+					&rec_group, src_str);
 			}
 		} /* for (sources) */
 
 
-		lncb.family = AF_INET;
-		lncb.u.prefix4.s_addr = 0x000000E0;
-		lncb.prefixlen = 24;
-
-		g.family = AF_INET;
-		g.u.prefix4 = rec_group;
-		g.prefixlen = 32;
-
-		/* determine filtering status for group */
-		filtered = pim_is_group_filtered(ifp->info, &rec_group);
-
-		if (PIM_DEBUG_IGMP_PACKETS && filtered)
-			zlog_debug(
-				"Filtering IGMPv3 group record %s from %s on %s per prefix-list %s",
-				inet_ntoa(rec_group), from_str, ifp->name,
-				pim_ifp->boundary_oil_plist);
-
-		/*
-		 * If we receive a igmp report with the group in 224.0.0.0/24
-		 * then we should ignore it
-		 */
-		if (prefix_match(&lncb, &g))
-			local_ncb = 1;
-
-		if (!local_ncb && !filtered)
+		if (igmp_pkt_grp_addr_ok(ifp, from_str, rec_group, rec_type))
 			switch (rec_type) {
 			case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
 				igmpv3_report_isin(igmp, from, rec_group,
@@ -2025,7 +2030,6 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 		group_record +=
 			8 + (rec_num_sources << 2) + (rec_auxdatalen << 2);
-		local_ncb = 0;
 
 	} /* for (group records) */
 

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPng offset-list
  * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* RIPng support by Vincent Jardin <vincent.jardin@6wind.com>
@@ -33,7 +18,7 @@
 
 #include "ripngd/ripngd.h"
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_OFFSET_LIST, "RIPng offset lst")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_OFFSET_LIST, "RIPng offset lst");
 
 #define OFFSET_LIST_IN_NAME(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].alist_name)
 #define OFFSET_LIST_IN_METRIC(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].metric)
@@ -85,7 +70,7 @@ struct ripng_offset_list *ripng_offset_list_lookup(struct ripng *ripng,
 	return NULL;
 }
 
-/* If metric is modifed return 1. */
+/* If metric is modified return 1. */
 int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
 			       struct interface *ifp, uint8_t *metric)
 {
@@ -123,7 +108,7 @@ int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
 	return 0;
 }
 
-/* If metric is modifed return 1. */
+/* If metric is modified return 1. */
 int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
 				struct interface *ifp, uint8_t *metric)
 {

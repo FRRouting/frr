@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * FRR ID Number Allocator
  * Copyright (C) 2018  Amazon.com, Inc. or its affiliates
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -29,13 +16,14 @@
 
 #include <inttypes.h>
 
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR, "ID Number Allocator")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR_NAME, "ID Number Allocator Name")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_DIRECTORY, "ID Number Allocator Directory")
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR, "ID Number Allocator");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_ALLOCATOR_NAME, "ID Number Allocator Name");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_DIRECTORY, "ID Number Allocator Directory");
 DEFINE_MTYPE_STATIC(LIB, IDALLOC_SUBDIRECTORY,
-		    "ID Number Allocator Subdirectory")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_PAGE, "ID Number Allocator Page")
-DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL, "ID Number temporary holding pool entry")
+		    "ID Number Allocator Subdirectory");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_PAGE, "ID Number Allocator Page");
+DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL,
+		    "ID Number temporary holding pool entry");
 
 #if UINT_MAX >= UINT32_MAX
 #define FFS32(x) ffs(x)
@@ -108,7 +96,7 @@ static struct id_alloc_page *find_or_create_page(struct id_alloc *alloc,
 	} else if (page != NULL && create) {
 		flog_err(
 			EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s attempt to re-create page at %" PRIu32,
+			"ID Allocator %s attempt to re-create page at %u",
 			alloc->name, id);
 	}
 
@@ -131,8 +119,7 @@ void idalloc_free(struct id_alloc *alloc, uint32_t id)
 	page = find_or_create_page(alloc, id, 0);
 	if (!page) {
 		flog_err(EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s cannot free #%" PRIu32
-			". ID Block does not exist.",
+			"ID Allocator %s cannot free #%u. ID Block does not exist.",
 			alloc->name, id);
 		return;
 	}
@@ -142,8 +129,7 @@ void idalloc_free(struct id_alloc *alloc, uint32_t id)
 
 	if ((page->allocated_mask[word] & (1 << offset)) == 0) {
 		flog_err(EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s cannot free #%" PRIu32
-			". ID was not allocated at the time of free.",
+			"ID Allocator %s cannot free #%u. ID was not allocated at the time of free.",
 			alloc->name, id);
 		return;
 	}
@@ -285,8 +271,7 @@ uint32_t idalloc_reserve(struct id_alloc *alloc, uint32_t id)
 
 	if (page->allocated_mask[word] & (((uint32_t)1) << offset)) {
 		flog_err(EC_LIB_ID_CONSISTENCY,
-			"ID Allocator %s could not reserve %" PRIu32
-			" because it is already allocated.",
+			"ID Allocator %s could not reserve %u because it is already allocated.",
 			alloc->name, id);
 		return IDALLOC_INVALID;
 	}

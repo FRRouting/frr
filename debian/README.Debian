@@ -31,14 +31,6 @@ The following Build Profiles have been added:
   controls whether the RPKI module is built.
   Will be enabled by default at some point, adds some extra dependencies.
 
-- pkg.frr.nosnmp (pkg.frr.snmp)
-  controls whether the SNMP module is built, see below for license issues.
-  Will remain default-off as long as the license issue persists.
-
-- pkg.frr.nosystemd
-  Disables both systemd unit file installation as well as watchfrr sd_notify
-  support at startup.  Removes libsystemd dependency.
-
 Note that all options have a "no" form;  if you want to have your decision
 be sticky regardless of changes to what it defaults to, then always use one
 of the two.  For example, all occurrences of <pkg.frr.rtrlib> will at some
@@ -46,35 +38,6 @@ point be replaced with <!pkg.frr.nortrlib>.
 
 The main frr package has the exact same contents regardless of rtrlib or snmp
 choices.  The options only control frr-snmp and frr-rpki-rtrlib packages.
-
-The main frr package does NOT have the same contents if pkg.frr.nosystemd is
-used.  This option should only be used for systems that do not have systemd,
-e.g. Ubuntu 14.04.
-
-
-* Why has SNMP support been disabled?
-=====================================
-FRR used to link against the NetSNMP libraries to provide SNMP
-support. Those libraries sadly link against the OpenSSL libraries
-to provide crypto support for SNMPv3 among others.
-OpenSSL now is not compatible with the GNU GENERAL PUBLIC LICENSE (GPL)
-licence that FRR is distributed under. For more explanation read:
-  http://www.gnome.org/~markmc/openssl-and-the-gpl.html
-  http://www.gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs
-Updating the licence to explecitly allow linking against OpenSSL
-would requite the affirmation of all people that ever contributed
-a significant part to Zebra / Quagga or FRR and thus are the collective
-"copyright holder". That's too much work. Using a shrinked down 
-version of NetSNMP without OpenSSL or convincing the NetSNMP people
-to change to GnuTLS are maybe good solutions but not reachable
-during the last days before the Sarge release :-(
-
-        *BUT*
-
-It is allowed by the used licence mix that you fetch the sources and
-build FRR yourself with SNMP with
-        # apt-get -b source -Ppkg.frr.snmp frr
-Just distributing it in binary form, linked against OpenSSL, is forbidden.
 
 
 * Debian Policy compliance notes
@@ -133,3 +96,5 @@ See message #4525 from 2005-05-09 in the quagga-users mailing list.
 Check /etc/pam.d/frr, it probably denies access to your user. The passwords
 configured in /etc/frr/frr.conf are only for telnet access.
 
+
+ -- Ondřej Surý <Ondřej Surý <ondrej@debian.org>>, Fri,  3 Jul 2020 12:39:42 +0200

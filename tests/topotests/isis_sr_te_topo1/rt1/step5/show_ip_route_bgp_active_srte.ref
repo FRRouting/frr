@@ -1,0 +1,29 @@
+{
+  "9.9.9.2\/32":[
+    {
+      "prefix":"9.9.9.2\/32",
+      "protocol":"bgp",
+      "installed":true,
+      "nexthops":[
+        {
+          "ip":"6.6.6.6",
+          "afi":"ipv4",
+          "active":true,
+          "recursive":true,
+          "srteColor":1
+        },
+        {
+          "fib":true,
+          "ip":"10.0.1.3",
+          "afi":"ipv4",
+          "interfaceName":"eth-sw1",
+          "active":true,
+          "labels":[
+            16050,
+            16060
+          ]
+        }
+      ]
+    }
+  ]
+}

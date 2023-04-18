@@ -1,28 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - OpenFabric extensions
  *
  * Copyright (C) 2018 Christian Franke
  *
- * This file is part of FreeRangeRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ * This file is part of FRRouting (FRR)
  */
 #include <zebra.h>
 #include "isisd/fabricd.h"
 #include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_adjacency.h"
@@ -33,9 +19,9 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_csm.h"
 
-DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
-DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry")
-DEFINE_MTYPE_STATIC(ISISD, FABRICD_FLOODING_INFO, "ISIS OpenFabric Flooding Log")
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric");
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry");
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_FLOODING_INFO, "ISIS OpenFabric Flooding Log");
 
 /* Tracks initial synchronization as per section 2.4
  *
@@ -54,7 +40,7 @@ struct fabricd {
 	enum fabricd_sync_state initial_sync_state;
 	time_t initial_sync_start;
 	struct isis_circuit *initial_sync_circuit;
-	struct thread *initial_sync_timeout;
+	struct event *initial_sync_timeout;
 
 	struct isis_spftree *spftree;
 	struct skiplist *neighbors;
@@ -63,8 +49,8 @@ struct fabricd {
 	uint8_t tier;
 	uint8_t tier_config;
 	uint8_t tier_pending;
-	struct thread *tier_calculation_timer;
-	struct thread *tier_set_timer;
+	struct event *tier_calculation_timer;
+	struct event *tier_set_timer;
 
 	int csnp_delay;
 	bool always_send_csnp;
@@ -122,9 +108,9 @@ static bool neighbor_entry_hash_cmp(const void *a, const void *b)
 	return memcmp(na->id, nb->id, sizeof(na->id)) == 0;
 }
 
-static int neighbor_entry_list_cmp(void *a, void *b)
+static int neighbor_entry_list_cmp(const void *a, const void *b)
 {
-	struct neighbor_entry *na = a, *nb = b;
+	const struct neighbor_entry *na = a, *nb = b;
 
 	return -memcmp(na->id, nb->id, sizeof(na->id));
 }
@@ -221,7 +207,10 @@ struct fabricd *fabricd_new(struct isis_area *area)
 	rv->area = area;
 	rv->initial_sync_state = FABRICD_SYNC_PENDING;
 
-	rv->spftree = isis_spftree_new(area);
+	rv->spftree = isis_spftree_new(
+		area, &area->lspdb[IS_LEVEL_2 - 1], area->isis->sysid,
+		ISIS_LEVEL2, SPFTREE_IPV4, SPF_TYPE_FORWARD,
+		F_SPFTREE_HOPCOUNT_METRIC, SR_ALGORITHM_SPF);
 	rv->neighbors = skiplist_new(0, neighbor_entry_list_cmp,
 				     neighbor_entry_del_void);
 	rv->neighbors_neighbors = hash_create(neighbor_entry_hash_key,
@@ -236,14 +225,11 @@ struct fabricd *fabricd_new(struct isis_area *area)
 
 void fabricd_finish(struct fabricd *f)
 {
-	if (f->initial_sync_timeout)
-		thread_cancel(f->initial_sync_timeout);
+	EVENT_OFF(f->initial_sync_timeout);
 
-	if (f->tier_calculation_timer)
-		thread_cancel(f->tier_calculation_timer);
+	EVENT_OFF(f->tier_calculation_timer);
 
-	if (f->tier_set_timer)
-		thread_cancel(f->tier_set_timer);
+	EVENT_OFF(f->tier_set_timer);
 
 	isis_spftree_del(f->spftree);
 	neighbor_lists_clear(f);
@@ -251,16 +237,16 @@ void fabricd_finish(struct fabricd *f)
 	hash_free(f->neighbors_neighbors);
 }
 
-static int fabricd_initial_sync_timeout(struct thread *thread)
+static void fabricd_initial_sync_timeout(struct event *thread)
 {
-	struct fabricd *f = THREAD_ARG(thread);
+	struct fabricd *f = EVENT_ARG(thread);
 
-	zlog_info("OpenFabric: Initial synchronization on %s timed out!",
-		  f->initial_sync_circuit->interface->name);
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug(
+			"OpenFabric: Initial synchronization on %s timed out!",
+			f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_PENDING;
 	f->initial_sync_circuit = NULL;
-	f->initial_sync_timeout = NULL;
-	return 0;
 }
 
 void fabricd_initial_sync_hello(struct isis_circuit *circuit)
@@ -281,13 +267,15 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 	if (f->initial_sync_timeout)
 		return;
 
-	thread_add_timer(master, fabricd_initial_sync_timeout, f,
-			 timeout, &f->initial_sync_timeout);
+	event_add_timer(master, fabricd_initial_sync_timeout, f, timeout,
+			&f->initial_sync_timeout);
 	f->initial_sync_start = monotime(NULL);
 
-	zlog_info("OpenFabric: Started initial synchronization with %s on %s",
-		  sysid_print(circuit->u.p2p.neighbor->sysid),
-		  circuit->interface->name);
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug(
+			"OpenFabric: Started initial synchronization with %pSY on %s",
+			circuit->u.p2p.neighbor->sysid,
+			circuit->interface->name);
 }
 
 bool fabricd_initial_sync_is_in_progress(struct isis_area *area)
@@ -337,8 +325,7 @@ void fabricd_initial_sync_finish(struct isis_area *area)
 		  f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_COMPLETE;
 	f->initial_sync_circuit = NULL;
-	thread_cancel(f->initial_sync_timeout);
-	f->initial_sync_timeout = NULL;
+	EVENT_OFF(f->initial_sync_timeout);
 }
 
 static void fabricd_bump_tier_calculation_timer(struct fabricd *f);
@@ -372,8 +359,9 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 		return ISIS_TIER_UNDEFINED;
 	}
 
-	zlog_info("OpenFabric: Found %s as furthest t0 from local system, dist == %"
-		  PRIu32, rawlspid_print(furthest_t0->N.id), furthest_t0->d_N);
+	zlog_info(
+		"OpenFabric: Found %pLS as furthest t0 from local system, dist == %u",
+		furthest_t0->N.id, furthest_t0->d_N);
 
 	struct isis_spftree *remote_tree =
 		isis_run_hopcount_spf(area, furthest_t0->N.id, NULL);
@@ -386,9 +374,9 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 		isis_spftree_del(remote_tree);
 		return ISIS_TIER_UNDEFINED;
 	} else {
-		zlog_info("OpenFabric: Found %s as furthest from remote dist == %"
-			  PRIu32, rawlspid_print(furthest_from_remote->N.id),
-			  furthest_from_remote->d_N);
+		zlog_info(
+			"OpenFabric: Found %pLS as furthest from remote dist == %u",
+			furthest_from_remote->N.id, furthest_from_remote->d_N);
 	}
 
 	int64_t tier = furthest_from_remote->d_N - furthest_t0->d_N;
@@ -404,58 +392,46 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 	return tier;
 }
 
-static int fabricd_tier_set_timer(struct thread *thread)
+static void fabricd_tier_set_timer(struct event *thread)
 {
-	struct fabricd *f = THREAD_ARG(thread);
-	f->tier_set_timer = NULL;
+	struct fabricd *f = EVENT_ARG(thread);
 
 	fabricd_set_tier(f, f->tier_pending);
-	return 0;
 }
 
-static int fabricd_tier_calculation_cb(struct thread *thread)
+static void fabricd_tier_calculation_cb(struct event *thread)
 {
-	struct fabricd *f = THREAD_ARG(thread);
+	struct fabricd *f = EVENT_ARG(thread);
 	uint8_t tier = ISIS_TIER_UNDEFINED;
-	f->tier_calculation_timer = NULL;
 
 	tier = fabricd_calculate_fabric_tier(f->area);
 	if (tier == ISIS_TIER_UNDEFINED)
-		return 0;
+		return;
 
-	zlog_info("OpenFabric: Got tier %" PRIu8 " from algorithm. Arming timer.",
+	zlog_info("OpenFabric: Got tier %hhu from algorithm. Arming timer.",
 		  tier);
 	f->tier_pending = tier;
-	thread_add_timer(master, fabricd_tier_set_timer, f,
-			 f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
-			 &f->tier_set_timer);
-
-	return 0;
+	event_add_timer(master, fabricd_tier_set_timer, f,
+			f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
+			&f->tier_set_timer);
 }
 
 static void fabricd_bump_tier_calculation_timer(struct fabricd *f)
 {
 	/* Cancel timer if we already know our tier */
-	if (f->tier != ISIS_TIER_UNDEFINED
-	    || f->tier_set_timer) {
-		if (f->tier_calculation_timer) {
-			thread_cancel(f->tier_calculation_timer);
-			f->tier_calculation_timer = NULL;
-		}
+	if (f->tier != ISIS_TIER_UNDEFINED || f->tier_set_timer) {
+		EVENT_OFF(f->tier_calculation_timer);
 		return;
 	}
 
 	/* If we need to calculate the tier, wait some
 	 * time for the topology to settle before running
 	 * the calculation */
-	if (f->tier_calculation_timer) {
-		thread_cancel(f->tier_calculation_timer);
-		f->tier_calculation_timer = NULL;
-	}
+	EVENT_OFF(f->tier_calculation_timer);
 
-	thread_add_timer(master, fabricd_tier_calculation_cb, f,
-			 2 * f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
-			 &f->tier_calculation_timer);
+	event_add_timer(master, fabricd_tier_calculation_cb, f,
+			2 * f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
+			&f->tier_calculation_timer);
 }
 
 static void fabricd_set_tier(struct fabricd *f, uint8_t tier)
@@ -463,7 +439,7 @@ static void fabricd_set_tier(struct fabricd *f, uint8_t tier)
 	if (f->tier == tier)
 		return;
 
-	zlog_info("OpenFabric: Set own tier to %" PRIu8, tier);
+	zlog_info("OpenFabric: Set own tier to %hhu", tier);
 	f->tier = tier;
 
 	fabricd_bump_tier_calculation_timer(f);
@@ -477,7 +453,7 @@ void fabricd_run_spf(struct isis_area *area)
 	if (!f)
 		return;
 
-	isis_run_hopcount_spf(area, isis->sysid, f->spftree);
+	isis_run_hopcount_spf(area, area->isis->sysid, f->spftree);
 	neighbors_neighbors_update(f);
 	fabricd_bump_tier_calculation_timer(f);
 }
@@ -522,7 +498,7 @@ int fabricd_write_settings(struct isis_area *area, struct vty *vty)
 		return written;
 
 	if (f->tier_config != ISIS_TIER_UNDEFINED) {
-		vty_out(vty, " fabric-tier %" PRIu8 "\n", f->tier_config);
+		vty_out(vty, " fabric-tier %hhu\n", f->tier_config);
 		written++;
 	}
 
@@ -543,7 +519,7 @@ static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
 	if (n->adj && n->adj->circuit == circuit)
 		return;
 
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (IS_DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Adding %s to %s",
 			   print_sys_hostname(n->id),
 			   (type == TX_LSP_NORMAL) ? "RF" : "DNR");
@@ -576,7 +552,7 @@ static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 
 	n = neighbor_entry_lookup_list(f->neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (IS_DEBUG_FLOODING) {
 			zlog_debug("Removing %s from NL as its in the reverse path",
 				   print_sys_hostname(n->id));
 		}
@@ -585,7 +561,7 @@ static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 
 	n = neighbor_entry_lookup_hash(f->neighbors_neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (IS_DEBUG_FLOODING) {
 			zlog_debug("Removing %s from NN as its in the reverse path",
 				   print_sys_hostname(n->id));
 		}
@@ -673,7 +649,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 
 		struct isis_lsp *nlsp = lsp_for_neighbor(f, n);
 		if (!nlsp || !nlsp->tlvs) {
-			if (isis->debugs & DEBUG_FLOODING) {
+			if (IS_DEBUG_FLOODING) {
 				zlog_debug("Moving %s to DNR as it has no LSP",
 					   print_sys_hostname(n->id));
 			}
@@ -682,7 +658,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 			continue;
 		}
 
-		if (isis->debugs & DEBUG_FLOODING) {
+		if (IS_DEBUG_FLOODING) {
 			zlog_debug("Considering %s from NL...",
 				   print_sys_hostname(n->id));
 		}
@@ -699,7 +675,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 							er->id);
 
 			if (nn) {
-				if (isis->debugs & DEBUG_FLOODING) {
+				if (IS_DEBUG_FLOODING) {
 					zlog_debug("Found neighbor %s in NN, removing it from NN and setting reflood.",
 						   print_sys_hostname(nn->id));
 				}
@@ -714,7 +690,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 			      circuit);
 	}
 
-	if (isis->debugs & DEBUG_FLOODING) {
+	if (IS_DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Flooding algorithm complete.");
 	}
 }
@@ -736,16 +712,16 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 		if (!circuit->t_send_csnp[1])
 			continue;
 
-		thread_cancel(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
-		thread_add_timer_msec(master, send_l2_csnp, circuit,
-				      isis_jitter(f->csnp_delay, CSNP_JITTER),
-				      &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
+		EVENT_OFF(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
+		event_add_timer_msec(master, send_l2_csnp, circuit,
+				     isis_jitter(f->csnp_delay, CSNP_JITTER),
+				     &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
 	}
 }
 
 struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
 {
-	if (circuit->ip_addrs && listcount(circuit->ip_addrs))
+	if (listcount(circuit->ip_addrs))
 		return circuit->ip_addrs;
 
 	if (!fabricd || !circuit->area || !circuit->area->circuit_list)
@@ -758,7 +734,7 @@ struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
 		if (c->circ_type != CIRCUIT_T_LOOPBACK)
 			continue;
 
-		if (!c->ip_addrs || !listcount(c->ip_addrs))
+		if (!listcount(c->ip_addrs))
 			return NULL;
 
 		return c->ip_addrs;

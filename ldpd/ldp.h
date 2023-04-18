@@ -1,21 +1,10 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /* LDP protocol definitions */
@@ -50,6 +39,8 @@
 
 #define	INIT_DELAY_TMR		15
 #define	MAX_DELAY_TMR		120
+
+#define	DFLT_WAIT_FOR_SYNC	10
 
 #define	MIN_PWID_ID		1
 #define	MAX_PWID_ID		0xffffffff
@@ -325,13 +316,6 @@ struct pw_status_tlv {
 };
 #define PW_STATUS_TLV_SIZE	8
 #define PW_STATUS_TLV_LEN	4
-
-#define PW_FORWARDING		0
-#define PW_NOT_FORWARDING	(1 << 0)
-#define PW_LOCAL_RX_FAULT	(1 << 1)
-#define PW_LOCAL_TX_FAULT	(1 << 2)
-#define PW_PSN_RX_FAULT		(1 << 3)
-#define PW_PSN_TX_FAULT		(1 << 4)
 
 #define	NO_LABEL		UINT32_MAX
 

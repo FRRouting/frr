@@ -74,6 +74,23 @@ pat f
 pat f foo
 pat f key
 
+no pat g
+no pat g test
+no pat g test more
+
+pat h foo ?1.2.3.4 final
+no pat h foo ?1.2.3.4 final
+pat h foo final
+no pat h foo final
+pat h bar final
+no pat h bar final
+pat h bar 1::2 final
+no pat h bar 1::2 final
+pat h bar 1::2 foo final
+no pat h bar 1::2 foo final
+pat h bar 1::2 foo 1.2.3.4 final
+no pat h bar 1::2 foo 1.2.3.4 final
+
 alt a 	a?b
 alt a 1	.2?.3.4
 alt a 1	:2?	::?3

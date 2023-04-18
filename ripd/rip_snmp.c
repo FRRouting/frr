@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIP SNMP support
  * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -31,7 +16,7 @@
 #include "table.h"
 #include "smux.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "ripd/ripd.h"
 
@@ -150,7 +135,7 @@ static struct variable rip_variables[] = {
 	{RIP2PEERRCVBADPACKETS, COUNTER, RONLY, rip2PeerTable, 3, {4, 1, 5}},
 	{RIP2PEERRCVBADROUTES, COUNTER, RONLY, rip2PeerTable, 3, {4, 1, 6}}};
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 			    int exact, size_t *var_len,
@@ -166,17 +151,14 @@ static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 	if (!rip)
 		return NULL;
 
-	/* Retrun global counter. */
+	/* Return global counter. */
 	switch (v->magic) {
 	case RIP2GLOBALROUTECHANGES:
 		return SNMP_INTEGER(rip->counters.route_changes);
-		break;
 	case RIP2GLOBALQUERIES:
 		return SNMP_INTEGER(rip->counters.queries);
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -260,7 +242,7 @@ static struct interface *rip2IfLookup(struct variable *v, oid name[],
 
 		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
 
-		return if_lookup_exact_address((void *)addr, AF_INET,
+		return if_lookup_address_local((void *)addr, AF_INET,
 					       VRF_DEFAULT);
 	} else {
 		len = *length - v->namelen;
@@ -274,7 +256,7 @@ static struct interface *rip2IfLookup(struct variable *v, oid name[],
 		if (ifp == NULL)
 			return NULL;
 
-		oid_copy_addr(name + v->namelen, addr, sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, addr);
 
 		*length = v->namelen + sizeof(struct in_addr);
 
@@ -323,8 +305,8 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 			    || (peer->domain
 				> (int)name[v->namelen
 					    + sizeof(struct in_addr)])) {
-				oid_copy_addr(name + v->namelen, &peer->addr,
-					      sizeof(struct in_addr));
+				oid_copy_in_addr(name + v->namelen,
+						 &peer->addr);
 				name[v->namelen + sizeof(struct in_addr)] =
 					peer->domain;
 				*length =
@@ -337,8 +319,7 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 		if (!peer)
 			return NULL;
 
-		oid_copy_addr(name + v->namelen, &peer->addr,
-			      sizeof(struct in_addr));
+		oid_copy_in_addr(name + v->namelen, &peer->addr);
 		name[v->namelen + sizeof(struct in_addr)] = peer->domain;
 		*length = sizeof(struct in_addr) + v->namelen + 1;
 
@@ -360,7 +341,7 @@ static uint8_t *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	ifp = rip2IfLookup(v, name, length, &addr, exact);
@@ -373,7 +354,6 @@ static uint8_t *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2IFSTATADDRESS:
 		return SNMP_IPADDRESS(addr);
-		break;
 	case RIP2IFSTATRCVBADPACKETS:
 		*var_len = sizeof(long);
 		return (uint8_t *)&ri->recv_badpackets;
@@ -462,7 +442,7 @@ static uint8_t *rip2IfConfAddress(struct variable *v, oid name[],
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	ifp = rip2IfLookup(v, name, length, &addr, exact);
@@ -534,7 +514,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	peer = rip2PeerLookup(v, name, length, &addr, exact);
@@ -551,18 +531,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 		return (uint8_t *)&domain;
 
 	case RIP2PEERLASTUPDATE:
-#if 0
-      /* We don't know the SNMP agent startup time. We have two choices here:
-       * - assume ripd startup time equals SNMP agent startup time
-       * - don't support this variable, at all
-       * Currently, we do the latter...
-       */
-      *val_len = sizeof (time_t);
-      uptime = peer->uptime; /* now - snmp_agent_startup - peer->uptime */
-      return (uint8_t *) &uptime;
-#else
 		return (uint8_t *)NULL;
-#endif
 
 	case RIP2PEERVERSION:
 		*val_len = sizeof(int);
@@ -584,7 +553,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 }
 
 /* Register RIPv2-MIB. */
-static int rip_snmp_init(struct thread_master *master)
+static int rip_snmp_init(struct event_loop *master)
 {
 	rip_ifaddr_table = route_table_init();
 
@@ -604,4 +573,5 @@ static int rip_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "ripd_snmp", .version = FRR_VERSION,
 		 .description = "ripd AgentX SNMP module",
-		 .init = rip_snmp_module_init, )
+		 .init = rip_snmp_module_init,
+);

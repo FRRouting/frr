@@ -1,30 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Server side of OSPF API.
  * Copyright (C) 2001, 2002 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _OSPF_APISERVER_H
 #define _OSPF_APISERVER_H
 
-/* MTYPE definition is not reflected to "memory.h". */
-#define MTYPE_OSPF_APISERVER MTYPE_TMP
-#define MTYPE_OSPF_APISERVER_MSGFILTER MTYPE_TMP
+#include <zebra.h>
+#include "ospf_api.h"
+#include "ospf_lsdb.h"
 
 /* List of opaque types that application registered */
 struct registered_opaque_type {
@@ -52,6 +37,9 @@ struct ospf_apiserver {
 	/* Temporary storage for LSA instances to be refreshed. */
 	struct ospf_lsdb reserve;
 
+	/* Sync reachable routers */
+	bool reachable_sync;
+
 	/* filter for LSA update/delete notifies */
 	struct lsa_filter_type *filter;
 
@@ -60,15 +48,15 @@ struct ospf_apiserver {
 	struct msg_fifo *out_async_fifo;
 
 	/* Read and write threads */
-	struct thread *t_sync_read;
+	struct event *t_sync_read;
 #ifdef USE_ASYNC_READ
-	struct thread *t_async_read;
+	struct event *t_async_read;
 #endif /* USE_ASYNC_READ */
-	struct thread *t_sync_write;
-	struct thread *t_async_write;
+	struct event *t_sync_write;
+	struct event *t_async_write;
 };
 
-enum event {
+enum ospf_apiserver_event {
 	OSPF_APISERVER_ACCEPT,
 	OSPF_APISERVER_SYNC_READ,
 #ifdef USE_ASYNC_READ
@@ -79,7 +67,7 @@ enum event {
 };
 
 /* -----------------------------------------------------------
- * Followings are functions to manage client connections.
+ * Following are functions to manage client connections.
  * -----------------------------------------------------------
  */
 
@@ -88,18 +76,18 @@ extern int ospf_apiserver_init(void);
 extern void ospf_apiserver_term(void);
 extern struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async);
 extern void ospf_apiserver_free(struct ospf_apiserver *apiserv);
-extern void ospf_apiserver_event(enum event event, int fd,
+extern void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 				 struct ospf_apiserver *apiserv);
 extern int ospf_apiserver_serv_sock_family(unsigned short port, int family);
-extern int ospf_apiserver_accept(struct thread *thread);
-extern int ospf_apiserver_read(struct thread *thread);
-extern int ospf_apiserver_sync_write(struct thread *thread);
-extern int ospf_apiserver_async_write(struct thread *thread);
+extern void ospf_apiserver_accept(struct event *thread);
+extern void ospf_apiserver_read(struct event *thread);
+extern void ospf_apiserver_sync_write(struct event *thread);
+extern void ospf_apiserver_async_write(struct event *thread);
 extern int ospf_apiserver_send_reply(struct ospf_apiserver *apiserv,
 				     uint32_t seqnr, uint8_t rc);
 
 /* -----------------------------------------------------------
- * Followings are message handler functions
+ * Following are message handler functions
  * -----------------------------------------------------------
  */
 
@@ -118,6 +106,8 @@ extern void ospf_apiserver_clients_notify_new_if(struct ospf_interface *oi);
 extern void ospf_apiserver_clients_notify_del_if(struct ospf_interface *oi);
 extern void ospf_apiserver_clients_notify_ism_change(struct ospf_interface *oi);
 extern void ospf_apiserver_clients_notify_nsm_change(struct ospf_neighbor *nbr);
+extern void
+ospf_apiserver_clients_notify_router_id_change(struct in_addr router_id);
 
 extern int ospf_apiserver_is_ready_type9(struct ospf_interface *oi);
 extern int ospf_apiserver_is_ready_type10(struct ospf_area *area);
@@ -144,10 +134,20 @@ extern int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 						struct msg *msg);
 extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 					   struct msg *msg);
+extern int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
+						struct msg *msg);
+extern int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
+					  struct msg *msg);
+extern int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
+					  struct msg *msg);
+extern int ospf_apiserver_handle_sync_router_id(struct ospf_apiserver *apiserv,
+						struct msg *msg);
 
+extern void ospf_apiserver_notify_reachable(struct route_table *ort,
+					    struct route_table *nrt);
 
 /* -----------------------------------------------------------
- * Followings are functions for LSA origination/deletion
+ * Following are functions for LSA origination/deletion
  * -----------------------------------------------------------
  */
 
@@ -164,12 +164,13 @@ extern struct ospf_interface *
 ospf_apiserver_if_lookup_by_addr(struct in_addr address);
 extern struct ospf_interface *
 ospf_apiserver_if_lookup_by_ifp(struct interface *ifp);
-extern int ospf_apiserver_originate1(struct ospf_lsa *lsa);
+extern int ospf_apiserver_originate1(struct ospf_lsa *lsa,
+				     struct ospf_lsa *old);
 extern void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa);
 
 
 /* -----------------------------------------------------------
- * Followings are callback functions to handle opaque types
+ * Following are callback functions to handle opaque types
  * -----------------------------------------------------------
  */
 
@@ -182,7 +183,8 @@ extern void ospf_apiserver_nsm_change(struct ospf_neighbor *nbr,
 extern void ospf_apiserver_config_write_router(struct vty *vty);
 extern void ospf_apiserver_config_write_if(struct vty *vty,
 					   struct interface *ifp);
-extern void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa);
+extern void ospf_apiserver_show_info(struct vty *vty, struct json_object *json,
+				     struct ospf_lsa *lsa);
 extern int ospf_ospf_apiserver_lsa_originator(void *arg);
 extern struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa);
 extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
@@ -190,7 +192,7 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 					    uint8_t opaque_type);
 
 /* -----------------------------------------------------------
- * Followings are hooks when LSAs are updated or deleted
+ * Following are hooks when LSAs are updated or deleted
  * -----------------------------------------------------------
  */
 
@@ -199,8 +201,5 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 
 extern int ospf_apiserver_lsa_update(struct ospf_lsa *lsa);
 extern int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa);
-
-extern void ospf_apiserver_clients_lsa_change_notify(uint8_t msgtype,
-						     struct ospf_lsa *lsa);
 
 #endif /* _OSPF_APISERVER_H */

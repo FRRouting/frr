@@ -1,0 +1,16 @@
+{
+  "neighbors":{
+    "192.168.0.1":[
+      {
+        "nbrPriority":10,
+        "converged":"Full"
+      }
+    ],
+    "192.168.0.2":[
+      {
+        "nbrPriority":10,
+        "converged":"Full"
+      }
+    ]
+  }
+}

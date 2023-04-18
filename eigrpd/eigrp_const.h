@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Definition of Constants.
  * Copyright (C) 2013-2016
@@ -11,22 +12,6 @@
  *   Tomas Hvorkovy
  *   Martin Kontsek
  *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_EIGRP_CONST_H_
@@ -110,10 +95,8 @@ enum metric_change { METRIC_DECREASE, METRIC_SAME, METRIC_INCREASE };
 #define EIGRP_IFTYPE_NONE 0
 #define EIGRP_IFTYPE_POINTOPOINT 1
 #define EIGRP_IFTYPE_BROADCAST 2
-#define EIGRP_IFTYPE_NBMA 3
-#define EIGRP_IFTYPE_POINTOMULTIPOINT 4
-#define EIGRP_IFTYPE_LOOPBACK 5
-#define EIGRP_IFTYPE_MAX 6
+#define EIGRP_IFTYPE_LOOPBACK 3
+#define EIGRP_IFTYPE_MAX 4
 
 #define EIGRP_IF_ACTIVE                  0
 #define EIGRP_IF_PASSIVE                 1
@@ -124,10 +107,10 @@ enum metric_change { METRIC_DECREASE, METRIC_SAME, METRIC_INCREASE };
 #define EIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL     2 // Remote external network
 
 /*EIGRP TT entry flags*/
-#define EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG     (1 << 0)
-#define EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG    (1 << 1)
-#define EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG       (1 << 2)
-#define EIGRP_NEXTHOP_ENTRY_EXTERNAL_FLAG      (1 << 3)
+#define EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG (1 << 0)
+#define EIGRP_ROUTE_DESCRIPTOR_FSUCCESSOR_FLAG (1 << 1)
+#define EIGRP_ROUTE_DESCRIPTOR_INTABLE_FLAG (1 << 2)
+#define EIGRP_ROUTE_DESCRIPTOR_EXTERNAL_FLAG (1 << 3)
 
 /*EIGRP FSM state count, event count*/
 #define EIGRP_FSM_STATE_MAX                  5

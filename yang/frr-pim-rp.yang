@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-pim-rp {
+  yang-version "1.1";
+  namespace "http://frrouting.org/yang/pim-rp";
+
+  prefix frr-pim-rp;
+
+  import ietf-inet-types {
+    prefix "inet";
+  }
+
+  import frr-routing {
+    prefix "frr-rt";
+  }
+
+  import frr-pim {
+    prefix "frr-pim";
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "FRRouting";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "The module defines a collection of YANG definitions common for
+     all PIM (Protocol Independent Multicast) RP (Rendezvous Point) model.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2017-03-09 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for PIM RP";
+  }
+
+  typedef plist-ref {
+    type string;
+  }
+
+  /*
+   * Groupings
+   */
+  grouping static-rp-container {
+    description
+      "Grouping of static RP container.";
+
+    container static-rp {
+      description
+        "Containing static RP attributes.";
+
+      list rp-list {
+        key "rp-address";
+        description
+          "A list of RP addresses.";
+
+        leaf rp-address {
+          type inet:ip-address;
+          description
+            "Specifies a static RP address.";
+        }
+
+        choice group-list-or-prefix-list {
+          description "Use group-list or prefix-list";
+          case group-list {
+            leaf-list group-list{
+              type frr-route-types:ip-multicast-group-prefix;
+              description
+                "List of multicast group address.";
+            }
+          }
+          case prefix-list {
+            leaf prefix-list {
+              type plist-ref;
+              description
+                "Group prefix-list filter";
+            }
+          }
+        }
+      }
+    } // static-rp
+  } // static-rp-container
+
+  /*
+   * Configuration data nodes
+   */
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
+    + "frr-rt:control-plane-protocol/frr-pim:pim/"
+    + "frr-pim:address-family" {
+    description "PIM RP augmentation.";
+
+    container rp {
+      description
+        "PIM RP configuration data.";
+      uses static-rp-container;
+    } // rp
+  } // augment
+}

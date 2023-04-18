@@ -1,32 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* NHRP virtual connection
  * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #include "zebra.h"
 #include "memory.h"
 #include "stream.h"
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "jhash.h"
 
 #include "nhrpd.h"
 #include "os.h"
 
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection");
+
+PREDECL_DLIST(childlist);
 
 struct child_sa {
 	uint32_t id;
 	struct nhrp_vc *vc;
-	struct list_head childlist_entry;
+	struct childlist_item childlist_entry;
 };
 
+DECLARE_DLIST(childlist, struct child_sa, childlist_entry);
+
 static struct hash *nhrp_vc_hash;
-static struct list_head childlist_head[512];
+static struct childlist_head childlist_head[512];
 
 static unsigned int nhrp_vc_key(const void *peer_data)
 {
@@ -100,13 +100,11 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 
 int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 {
-	char buf[2][SU_ADDRSTRLEN];
 	struct child_sa *sa = NULL, *lsa;
 	uint32_t child_hash = child_id % array_size(childlist_head);
 	int abort_migration = 0;
 
-	list_for_each_entry(lsa, &childlist_head[child_hash], childlist_entry)
-	{
+	frr_each (childlist, &childlist_head[child_hash], lsa) {
 		if (lsa->id == child_id) {
 			sa = lsa;
 			break;
@@ -121,12 +119,9 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 
 		*sa = (struct child_sa){
 			.id = child_id,
-			.childlist_entry =
-				LIST_INITIALIZER(sa->childlist_entry),
 			.vc = NULL,
 		};
-		list_add_tail(&sa->childlist_entry,
-			      &childlist_head[child_hash]);
+		childlist_add_tail(&childlist_head[child_hash], sa);
 	}
 
 	if (sa->vc == vc)
@@ -140,10 +135,8 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 	if (sa->vc && vc) {
 		/* Notify old VC of migration */
 		sa->vc->abort_migration = 0;
-		debugf(NHRP_DEBUG_COMMON, "IPsec NBMA change of %s to %s",
-		       sockunion2str(&sa->vc->remote.nbma, buf[0],
-				     sizeof buf[0]),
-		       sockunion2str(&vc->remote.nbma, buf[1], sizeof buf[1]));
+		debugf(NHRP_DEBUG_COMMON, "IPsec NBMA change of %pSU to %pSU",
+		       &sa->vc->remote.nbma, &vc->remote.nbma);
 		nhrp_vc_update(sa->vc, NOTIFY_VC_IPSEC_UPDATE_NBMA);
 		abort_migration = sa->vc->abort_migration;
 	}
@@ -158,7 +151,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 	/* Update */
 	sa->vc = vc;
 	if (!vc) {
-		list_del(&sa->childlist_entry);
+		childlist_del(&childlist_head[child_hash], sa);
 		XFREE(MTYPE_NHRP_VC, sa);
 	}
 
@@ -173,7 +166,7 @@ void nhrp_vc_notify_add(struct nhrp_vc *vc, struct notifier_block *n,
 
 void nhrp_vc_notify_del(struct nhrp_vc *vc, struct notifier_block *n)
 {
-	notifier_del(n);
+	notifier_del(n, &vc->notifier_list);
 	nhrp_vc_check_delete(vc);
 }
 
@@ -203,17 +196,16 @@ void nhrp_vc_init(void)
 
 	nhrp_vc_hash = hash_create(nhrp_vc_key, nhrp_vc_cmp, "NHRP VC hash");
 	for (i = 0; i < array_size(childlist_head); i++)
-		list_init(&childlist_head[i]);
+		childlist_init(&childlist_head[i]);
 }
 
 void nhrp_vc_reset(void)
 {
-	struct child_sa *sa, *n;
+	struct child_sa *sa;
 	size_t i;
 
 	for (i = 0; i < array_size(childlist_head); i++) {
-		list_for_each_entry_safe(sa, n, &childlist_head[i],
-					 childlist_entry)
+		frr_each_safe (childlist, &childlist_head[i], sa)
 			nhrp_vc_ipsec_updown(sa->id, 0);
 	}
 }

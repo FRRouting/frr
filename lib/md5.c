@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /*
  * Copyright (C) 2004 6WIND
  *                          <Vincent.Jardin@6WIND.com>
@@ -9,30 +10,6 @@
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the project nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE PROJECT OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
  */
 
 #include <zebra.h>
@@ -412,8 +389,8 @@ void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
 	 */
 
 	/* start out by storing key in pads */
-	bzero(k_ipad, sizeof k_ipad);
-	bzero(k_opad, sizeof k_opad);
+	bzero(k_ipad, sizeof(k_ipad));
+	bzero(k_opad, sizeof(k_opad));
 	bcopy(key, k_ipad, key_len);
 	bcopy(key, k_opad, key_len);
 
@@ -429,7 +406,7 @@ void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
 						* pass */
 	MD5Update(&context, k_ipad, 64);       /* start with inner pad */
 	MD5Update(&context, text, text_len);   /* then text of datagram */
-	MD5Final((uint8_t *)digest, &context); /* finish up 1st pass */
+	MD5Final(digest, &context); /* finish up 1st pass */
 	/*
 	 * perform outer MD5
 	 */
@@ -438,5 +415,6 @@ void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
 	MD5Update(&context, k_opad, 64);       /* start with outer pad */
 	MD5Update(&context, digest, 16);       /* then results of 1st
 						* hash */
-	MD5Final((uint8_t *)digest, &context); /* finish up 2nd pass */
+	MD5Final(digest, &context); /* finish up 2nd pass */
+	explicit_bzero(&context, sizeof(context));
 }

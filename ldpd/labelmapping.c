@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2014, 2015 Renato Westphal <renato@openbsd.org>
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -723,6 +712,14 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 		/* Prefix Length */
 		map->fec.prefix.prefixlen = buf[off];
 		off += sizeof(uint8_t);
+		if ((map->fec.prefix.af == AF_IPV4
+		     && map->fec.prefix.prefixlen > IPV4_MAX_BITLEN)
+		    || (map->fec.prefix.af == AF_IPV6
+			&& map->fec.prefix.prefixlen > IPV6_MAX_BITLEN)) {
+			session_shutdown(nbr, S_BAD_TLV_VAL, msg->id,
+			    msg->type);
+			return (-1);
+		}
 		if (len < off + PREFIX_SIZE(map->fec.prefix.prefixlen)) {
 			session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
 			    msg->type);
@@ -902,6 +899,6 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 static void
 log_msg_mapping(int out, uint16_t msg_type, struct nbr *nbr, struct map *map)
 {
-	debug_msg(out, "%s: lsr-id %s, fec %s, label %s", msg_name(msg_type),
-	    inet_ntoa(nbr->id), log_map(map), log_label(map->label));
+	debug_msg(out, "%s: lsr-id %pI4, fec %s, label %s", msg_name(msg_type),
+	    &nbr->id, log_map(map), log_label(map->label));
 }

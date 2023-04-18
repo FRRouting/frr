@@ -1,0 +1,204 @@
+// SPDX-License-Identifier: BSD-2-Clause
+submodule frr-bgp-bmp {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
+  include "frr-bgp-common-multiprotocol";
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This submodule defines a model for managing FRR BGP BMP.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  grouping bmp-incoming-session {
+    container incoming-session {
+      list session-list {
+        key "address tcp-port";
+        leaf address {
+          type inet:ip-address;
+          description
+            "IPv4 address to listen on.";
+        }
+
+        leaf tcp-port {
+          type uint32;
+        }
+      }
+    }
+  }
+
+  grouping bmp-outgoing-session {
+    container outgoing-session {
+      list session-list {
+        key "hostname tcp-port";
+        leaf hostname {
+          type string;
+        }
+
+        leaf tcp-port {
+          type uint32;
+        }
+
+        leaf min-retry-time {
+          type uint32 {
+            range "100..86400000";
+          }
+          units "milliseconds";
+          default "30000";
+          description
+            "Minimum connection retry interval.";
+        }
+
+        leaf max-retry-time {
+          type uint32 {
+            range "100..86400000";
+          }
+          units "milliseconds";
+          default "720000";
+          description
+            "Maximum connection retry interval.";
+        }
+      }
+    }
+  }
+
+  grouping bmp-afi-safis {
+    container afi-safis {
+      description
+        "List of address-families associated with the BGP
+         instance.";
+      list afi-safi {
+        key "afi-safi-name";
+        description
+          "AFI, SAFI configuration available for the
+           neighbour or group.";
+        uses mp-afi-safi-config;
+
+        uses mp-all-afi-safi-list-contents;
+      }
+    }
+  }
+
+  grouping bmp-afi-safi-common-config {
+    container common-config {
+      leaf pre-policy {
+        type boolean;
+        default "false";
+        description
+          "Send state before policy and filter processing.";
+      }
+
+      leaf post-policy {
+        type boolean;
+        default "false";
+        description
+          "Send state after policy and filter processing.";
+      }
+    }
+  }
+
+  grouping global-bmp-config {
+    description
+      "Structural grouping used to include filter
+       configuration for BMP.";
+    container bmp-config {
+      description
+        "BMP related parameters.";
+      list target-list {
+        key "target-name";
+        leaf target-name {
+          type string;
+          description
+            "Targets group name.";
+        }
+
+        uses bmp-incoming-session;
+
+        uses bmp-outgoing-session;
+
+        leaf mirror {
+          type boolean;
+          default "false";
+          description
+            "When set to 'TRUE' it send BMP route mirroring messages.";
+        }
+
+        leaf stats-time {
+          type uint32 {
+            range "100..86400000";
+          }
+          units "milliseconds";
+          description
+            "Interval to send BMP Stats.";
+        }
+
+        leaf ipv4-access-list {
+          type frr-bt:access-list-ref;
+          description
+            "Access list to restrict BMP sessions.";
+        }
+
+        leaf ipv6-access-list {
+          type frr-bt:access-list-ref;
+          description
+            "Access list to restrict BMP sessions.";
+        }
+
+        uses bmp-afi-safis;
+      }
+
+      leaf mirror-buffer-limit {
+        type uint32 {
+          range "0..4294967294";
+        }
+        units "bytes";
+        description
+          "Maximum memory used for buffered mirroring messages.";
+      }
+    }
+  }
+}

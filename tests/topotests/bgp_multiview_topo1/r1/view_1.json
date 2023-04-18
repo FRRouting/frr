@@ -1,0 +1,728 @@
+{
+  "vrfName": "1",
+  "routerId": "172.30.1.1",
+  "defaultLocPrf": 100,
+  "localAS": 100,
+  "routes": {
+    "10.0.1.0/24": [
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "prefix": "10.0.1.0",
+        "prefixLen": 24,
+        "network": "10.0.1.0/24",
+        "metric": 5,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "prefix": "10.0.1.0",
+        "prefixLen": 24,
+        "network": "10.0.1.0/24",
+        "metric": 2,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.0.1.0",
+        "prefixLen": 24,
+        "network": "10.0.1.0/24",
+        "metric": 1,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.0.0",
+        "prefixLen": 24,
+        "network": "10.101.0.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.1.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.1.0",
+        "prefixLen": 24,
+        "network": "10.101.1.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.2.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.2.0",
+        "prefixLen": 24,
+        "network": "10.101.2.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.3.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.3.0",
+        "prefixLen": 24,
+        "network": "10.101.3.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.4.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.4.0",
+        "prefixLen": 24,
+        "network": "10.101.4.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.5.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.5.0",
+        "prefixLen": 24,
+        "network": "10.101.5.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.6.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.6.0",
+        "prefixLen": 24,
+        "network": "10.101.6.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.7.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.7.0",
+        "prefixLen": 24,
+        "network": "10.101.7.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.8.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.8.0",
+        "prefixLen": 24,
+        "network": "10.101.8.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.101.9.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.101.9.0",
+        "prefixLen": 24,
+        "network": "10.101.9.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.1",
+        "path": "65001",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.1",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.0.0",
+        "prefixLen": 24,
+        "network": "10.102.0.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.1.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.1.0",
+        "prefixLen": 24,
+        "network": "10.102.1.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.2.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.2.0",
+        "prefixLen": 24,
+        "network": "10.102.2.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.3.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.3.0",
+        "prefixLen": 24,
+        "network": "10.102.3.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.4.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.4.0",
+        "prefixLen": 24,
+        "network": "10.102.4.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.5.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.5.0",
+        "prefixLen": 24,
+        "network": "10.102.5.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.6.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.6.0",
+        "prefixLen": 24,
+        "network": "10.102.6.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.7.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.7.0",
+        "prefixLen": 24,
+        "network": "10.102.7.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.8.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.8.0",
+        "prefixLen": 24,
+        "network": "10.102.8.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.102.9.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.102.9.0",
+        "prefixLen": 24,
+        "network": "10.102.9.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.2",
+        "path": "65002",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.2",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.0.0",
+        "prefixLen": 24,
+        "network": "10.105.0.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.1.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.1.0",
+        "prefixLen": 24,
+        "network": "10.105.1.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.2.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.2.0",
+        "prefixLen": 24,
+        "network": "10.105.2.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.3.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.3.0",
+        "prefixLen": 24,
+        "network": "10.105.3.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.4.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.4.0",
+        "prefixLen": 24,
+        "network": "10.105.4.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.5.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.5.0",
+        "prefixLen": 24,
+        "network": "10.105.5.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.6.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.6.0",
+        "prefixLen": 24,
+        "network": "10.105.6.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.7.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.7.0",
+        "prefixLen": 24,
+        "network": "10.105.7.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.8.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.8.0",
+        "prefixLen": 24,
+        "network": "10.105.8.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "10.105.9.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "prefix": "10.105.9.0",
+        "prefixLen": 24,
+        "network": "10.105.9.0/24",
+        "metric": 100,
+        "weight": 0,
+        "peerId": "172.16.1.5",
+        "path": "65005",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "172.16.1.5",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}

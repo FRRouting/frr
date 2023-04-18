@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPFv3 SNMP support
  * Copyright (C) 2004 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -30,7 +15,7 @@
 #include "vrf.h"
 #include "smux.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -637,8 +622,10 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 {
 	uint16_t sum;
 	uint32_t count;
-	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_lsa *lsa = NULL, *lsanext;
+	struct ospf6 *ospf6;
 
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 	/* Check whether the instance identifier is valid */
 	if (smux_header_generic(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -662,9 +649,10 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 		return SNMP_INTEGER(3);
 	case OSPFv3AREABDRRTRSTATUS:
 		if (ospf6)
-			return SNMP_INTEGER(ospf6_is_router_abr(ospf6)
-						    ? SNMP_TRUE
-						    : SNMP_FALSE);
+			return SNMP_INTEGER(
+				ospf6_check_and_set_router_abr(ospf6)
+					? SNMP_TRUE
+					: SNMP_FALSE);
 		return SNMP_INTEGER(SNMP_FALSE);
 	case OSPFv3ASBDRRTRSTATUS:
 		if (ospf6)
@@ -679,7 +667,7 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 	case OSPFv3ASSCOPELSACHECKSUMSUM:
 		if (ospf6) {
 			sum = 0;
-			for (ALL_LSDB(ospf6->lsdb, lsa))
+			for (ALL_LSDB(ospf6->lsdb, lsa, lsanext))
 				sum += ntohs(lsa->header->checksum);
 			return SNMP_INTEGER(sum);
 		}
@@ -733,7 +721,7 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 				WriteMethod **write_method)
 {
 	struct ospf6_area *oa, *area = NULL;
-	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_lsa *lsa = NULL, *lsanext;
 	uint32_t area_id = 0;
 	uint32_t count;
 	uint16_t sum;
@@ -741,6 +729,9 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 	unsigned int len;
 	char a[16];
 	struct ospf6_route *ro;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (ospf6 == NULL)
 		return NULL;
@@ -808,7 +799,7 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(area->lsdb->count);
 	case OSPFv3AREASCOPELSACKSUMSUM:
 		sum = 0;
-		for (ALL_LSDB(area->lsdb, lsa))
+		for (ALL_LSDB(area->lsdb, lsa, lsanext))
 			sum += ntohs(lsa->header->checksum);
 		return SNMP_INTEGER(sum);
 	case OSPFv3AREASUMMARY:
@@ -837,7 +828,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 				  int exact, size_t *var_len,
 				  WriteMethod **write_method)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct ospf6_lsa *lsa = NULL;
 	ifindex_t ifindex;
 	uint32_t area_id, id, instid, adv_router;
@@ -850,6 +841,9 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	struct interface *iif;
 	struct ospf6_interface *oi = NULL;
 	struct list *ifslist;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -861,6 +855,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf6 == NULL)
 		return NULL;
 
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
 	/* Get variable length. */
 	offset = name + v->namelen;
 	offsetlen = *length - v->namelen;
@@ -926,7 +921,8 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 				return NULL;
 			lsa = ospf6_lsdb_lookup(type, id, adv_router, oa->lsdb);
 		} else if (v->magic & OSPFv3WWLINKTABLE) {
-			oi = ospf6_interface_lookup_by_ifindex(ifindex);
+			oi = ospf6_interface_lookup_by_ifindex(ifindex,
+							       ospf6->vrf_id);
 			if (!oi || oi->instance_id != instid)
 				return NULL;
 			lsa = ospf6_lsdb_lookup(type, id, adv_router, oi->lsdb);
@@ -953,8 +949,6 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 		else if (v->magic & OSPFv3WWLINKTABLE) {
 			/* We build a sorted list of interfaces */
 			ifslist = list_new();
-			if (!ifslist)
-				return NULL;
 			ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
 			FOR_ALL_INTERFACES (vrf, iif)
 				listnode_add_sort(ifslist, iif);
@@ -962,8 +956,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 			for (ALL_LIST_ELEMENTS_RO(ifslist, node, iif)) {
 				if (!iif->ifindex)
 					continue;
-				oi = ospf6_interface_lookup_by_ifindex(
-					iif->ifindex);
+				oi = iif->info;
 				if (!oi)
 					continue;
 				if (iif->ifindex < ifindex)
@@ -983,6 +976,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 			}
 
 			list_delete_all_node(ifslist);
+			list_delete(&ifslist);
 		}
 	}
 
@@ -1017,23 +1011,18 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	switch (v->magic & OSPFv3WWCOLUMN) {
 	case OSPFv3WWLSDBSEQUENCE:
 		return SNMP_INTEGER(ntohl(lsa->header->seqnum));
-		break;
 	case OSPFv3WWLSDBAGE:
 		ospf6_lsa_age_current(lsa);
 		return SNMP_INTEGER(ntohs(lsa->header->age));
-		break;
 	case OSPFv3WWLSDBCHECKSUM:
 		return SNMP_INTEGER(ntohs(lsa->header->checksum));
-		break;
 	case OSPFv3WWLSDBADVERTISEMENT:
 		*var_len = ntohs(lsa->header->length);
 		return (uint8_t *)lsa->header;
-		break;
 	case OSPFv3WWLSDBTYPEKNOWN:
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)
 					    ? SNMP_TRUE
 					    : SNMP_FALSE);
-		break;
 	}
 	return NULL;
 }
@@ -1042,17 +1031,20 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			      int exact, size_t *var_len,
 			      WriteMethod **write_method)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	ifindex_t ifindex = 0;
 	unsigned int instid = 0;
 	struct ospf6_interface *oi = NULL;
-	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_lsa *lsa = NULL, *lsanext;
 	struct interface *iif;
 	struct listnode *i;
 	struct list *ifslist;
 	oid *offset;
 	int offsetlen, len;
 	uint32_t sum;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1062,6 +1054,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf6 == NULL)
 		return NULL;
 
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
 	/* Get variable length. */
 	offset = name + v->namelen;
 	offsetlen = *length - v->namelen;
@@ -1084,14 +1077,12 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	// offsetlen -= len;
 
 	if (exact) {
-		oi = ospf6_interface_lookup_by_ifindex(ifindex);
+		oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 		if (!oi || oi->instance_id != instid)
 			return NULL;
 	} else {
 		/* We build a sorted list of interfaces */
 		ifslist = list_new();
-		if (!ifslist)
-			return NULL;
 		ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
 		FOR_ALL_INTERFACES (vrf, iif)
 			listnode_add_sort(ifslist, iif);
@@ -1099,7 +1090,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex);
+			oi = iif->info;
 			if (!oi)
 				continue;
 			if (iif->ifindex > ifindex
@@ -1110,6 +1101,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		}
 
 		list_delete_all_node(ifslist);
+		list_delete(&ifslist);
 	}
 
 	if (!oi)
@@ -1171,7 +1163,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(oi->lsdb->count);
 	case OSPFv3IFLINKLSACKSUMSUM:
 		sum = 0;
-		for (ALL_LSDB(oi->lsdb, lsa))
+		for (ALL_LSDB(oi->lsdb, lsa, lsanext))
 			sum += ntohs(lsa->header->checksum);
 		return SNMP_INTEGER(sum);
 	case OSPFv3IFDEMANDNBRPROBE:
@@ -1195,7 +1187,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 			       int exact, size_t *var_len,
 			       WriteMethod **write_method)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	ifindex_t ifindex = 0;
 	unsigned int instid, rtrid;
 	struct ospf6_interface *oi = NULL;
@@ -1205,6 +1197,9 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	struct list *ifslist;
 	oid *offset;
 	int offsetlen, len;
+	struct ospf6 *ospf6;
+
+	ospf6 = ospf6_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1216,6 +1211,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf6 == NULL)
 		return NULL;
 
+	vrf = vrf_lookup_by_id(ospf6->vrf_id);
 	/* Get variable length. */
 	offset = name + v->namelen;
 	offsetlen = *length - v->namelen;
@@ -1245,15 +1241,13 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	// offsetlen -= len;
 
 	if (exact) {
-		oi = ospf6_interface_lookup_by_ifindex(ifindex);
+		oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 		if (!oi || oi->instance_id != instid)
 			return NULL;
 		on = ospf6_neighbor_lookup(rtrid, oi);
 	} else {
 		/* We build a sorted list of interfaces */
 		ifslist = list_new();
-		if (!ifslist)
-			return NULL;
 		ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
 		FOR_ALL_INTERFACES (vrf, iif)
 			listnode_add_sort(ifslist, iif);
@@ -1261,7 +1255,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex);
+			oi = iif->info;
 			if (!oi)
 				continue;
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
@@ -1280,6 +1274,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		}
 
 		list_delete_all_node(ifslist);
+		list_delete(&ifslist);
 	}
 
 	if (!oi || !on)
@@ -1360,7 +1355,7 @@ static int ospf6TrapNbrStateChange(struct ospf6_neighbor *on, int next_state,
 
 	smux_trap(ospfv3_variables, array_size(ospfv3_variables),
 		  ospfv3_trap_oid, array_size(ospfv3_trap_oid), ospfv3_oid,
-		  sizeof ospfv3_oid / sizeof(oid), index, 3, ospf6NbrTrapList,
+		  sizeof(ospfv3_oid) / sizeof(oid), index, 3, ospf6NbrTrapList,
 		  array_size(ospf6NbrTrapList), NBRSTATECHANGE);
 	return 0;
 }
@@ -1382,13 +1377,13 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 
 	smux_trap(ospfv3_variables, array_size(ospfv3_variables),
 		  ospfv3_trap_oid, array_size(ospfv3_trap_oid), ospfv3_oid,
-		  sizeof ospfv3_oid / sizeof(oid), index, 2, ospf6IfTrapList,
+		  sizeof(ospfv3_oid) / sizeof(oid), index, 2, ospf6IfTrapList,
 		  array_size(ospf6IfTrapList), IFSTATECHANGE);
 	return 0;
 }
 
 /* Register OSPFv3-MIB. */
-static int ospf6_snmp_init(struct thread_master *master)
+static int ospf6_snmp_init(struct event_loop *master)
 {
 	smux_init(master);
 	REGISTER_MIB("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
@@ -1405,4 +1400,5 @@ static int ospf6_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "ospf6d_snmp", .version = FRR_VERSION,
 		 .description = "ospf6d AgentX SNMP module",
-		 .init = ospf6_snmp_module_init, )
+		 .init = ospf6_snmp_module_init,
+);

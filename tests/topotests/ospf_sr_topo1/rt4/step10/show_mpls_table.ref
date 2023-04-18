@@ -1,0 +1,73 @@
+{
+  "16010":{
+    "inLabel":16010,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":16010,
+        "installed":true,
+        "nexthop":"10.0.3.2"
+      }
+    ]
+  },
+  "16020":{
+    "inLabel":16020,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":16020,
+        "installed":true,
+        "nexthop":"10.0.3.2"
+      }
+    ]
+  },
+  "16030":{
+    "inLabel":16030,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":16030,
+        "installed":true,
+        "nexthop":"10.0.3.2"
+      }
+    ]
+  },
+  "16040":{
+    "inLabel":16040,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  },
+  "16050":{
+    "inLabel":16050,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":18050,
+        "installed":true,
+        "nexthop":"10.0.7.6"
+      }
+    ]
+  },
+  "16060":{
+    "inLabel":16060,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (OSPF)",
+        "outLabel":3,
+        "installed":true,
+        "nexthop":"10.0.7.6"
+      }
+    ]
+  }
+}

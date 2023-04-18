@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,12 +15,14 @@
 struct ldp_debug conf_ldp_debug;
 struct ldp_debug ldp_debug;
 
+static int	ldp_debug_config_write(struct vty *);
+
 /* Debug node. */
-struct cmd_node ldp_debug_node =
-{
-	DEBUG_NODE,
-	"",
-	1
+struct cmd_node ldp_debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = ldp_debug_config_write,
 };
 
 int
@@ -97,6 +85,11 @@ ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
 					DEBUG_ON(msg, LDP_DEBUG_MSG_SEND_ALL);
 			}
 		}
+	} else if (strcmp(type_str, "sync") == 0) {
+		if (negate)
+			DEBUG_OFF(sync, LDP_DEBUG_SYNC);
+		else
+			DEBUG_ON(sync, LDP_DEBUG_SYNC);
 	} else if (strcmp(type_str, "zebra") == 0) {
 		if (negate)
 			DEBUG_OFF(zebra, LDP_DEBUG_ZEBRA);
@@ -135,6 +128,8 @@ ldp_vty_show_debugging(struct vty *vty)
 			  "  LDP detailed messages debugging is on (outbound)\n");
 	else if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND))
 		vty_out (vty,"  LDP messages debugging is on (outbound)\n");
+	if (LDP_DEBUG(sync, LDP_DEBUG_SYNC))
+		vty_out (vty, "  LDP sync debugging is on\n");
 	if (LDP_DEBUG(zebra, LDP_DEBUG_ZEBRA))
 		vty_out (vty, "  LDP zebra debugging is on\n");
 	vty_out (vty, "\n");
@@ -142,7 +137,7 @@ ldp_vty_show_debugging(struct vty *vty)
 	return (CMD_SUCCESS);
 }
 
-int
+static int
 ldp_debug_config_write(struct vty *vty)
 {
 	int write = 0;
@@ -190,6 +185,11 @@ ldp_debug_config_write(struct vty *vty)
 
 	if (CONF_LDP_DEBUG(zebra, LDP_DEBUG_ZEBRA)) {
 		vty_out (vty, "debug mpls ldp zebra\n");
+		write = 1;
+	}
+
+	if (CONF_LDP_DEBUG(sync, LDP_DEBUG_SYNC)) {
+		vty_out (vty, "debug mpls ldp sync\n");
 		write = 1;
 	}
 

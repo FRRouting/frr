@@ -1,0 +1,505 @@
+module frr-pathd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/pathd";
+  prefix frr-pathd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import ietf-routing-types {
+    prefix rt-types;
+  }
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR pathd daemon.";
+
+  revision 2018-11-06 {
+    description
+      "Initial revision.";
+  }
+
+  typedef protocol-origin-type {
+    description
+      "Indication for the protocol origin of an object.";
+    type enumeration {
+      enum pcep {
+        value 1;
+        description "The object was created through PCEP";
+      }
+      enum bgp {
+        value 2;
+        description "The object was created through GBP";
+      }
+      enum local {
+        value 3;
+        description "The object was created through CLI, Yang model via Netconf, gRPC, etc";
+      }
+    }
+  }
+
+  typedef originator-type {
+        type string {
+          length "1..64";
+        }
+        description
+          "Identifier of the originator of an object, could be 'config', '1.1.1.1:4189' or '2001:db8:85a3::8a2e:370:7334:4189'";
+      }
+
+  container pathd {
+    container srte {
+      list segment-list {
+        key "name";
+        description "Segment-list properties";
+        leaf name {
+          type string {
+            length "1..64";
+          }
+          description "Segment-list name";
+        }
+        leaf protocol-origin {
+          type protocol-origin-type;
+          mandatory true;
+          description
+            "Indication for the protocol origin of the segment list.";
+        }
+        leaf originator {
+          type originator-type;
+          mandatory true;
+          description "Originator of the segment list";
+        }
+        list segment {
+          key "index";
+          description "Configure Segment/hop at the index";
+          leaf index {
+            type uint32;
+            description "Segment index";
+	  }
+        leaf sid-value {
+          type rt-types:mpls-label;
+          description "MPLS label value";
+        }
+        container nai {
+          presence "The segment has a Node or Adjacency Identifier";
+          leaf type {
+            description "NAI type";
+            mandatory true;
+            type enumeration {
+              enum ipv4_node {
+                value 1;
+                description "IPv4 node identifier";
+              }
+              enum ipv6_node {
+                value 2;
+                description "IPv6 node identifier";
+              }
+              enum ipv4_adjacency {
+                value 3;
+                description "IPv4 adjacency";
+              }
+              enum ipv6_adjacency {
+                value 4;
+                description "IPv6 adjacency";
+              }
+              enum ipv4_unnumbered_adjacency {
+                value 5;
+                description "IPv4 unnumbered adjacency";
+              }
+              enum ipv4_local_iface {
+                value 7;
+                description "IPv4 prefix with local interface id";
+              }
+              enum ipv6_local_iface {
+                value 8;
+                description "IPv6 prefix with local interface id";
+              }
+              enum ipv4_algo {
+                value 9;
+                description "IPv4 prefix with optional algorithm";
+              }
+              enum ipv6_algo {
+                value 10;
+                description "IPv6 prefix with optional algorithm";
+              }
+            }
+          }
+          leaf local-address {
+            type inet:ip-address;
+            mandatory true;
+          }
+          leaf local-prefix-len {
+            type uint8;
+            mandatory true;
+            when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
+          }
+          leaf local-interface {
+            type uint32;
+            mandatory true;
+            when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_unnumbered_adjacency'";
+          }
+          leaf remote-address {
+            type inet:ip-address;
+              mandatory true;
+              when "../type = 'ipv4_adjacency' or ../type = 'ipv6_adjacency' or ../type = 'ipv4_unnumbered_adjacency'";
+            }
+            leaf remote-interface {
+              type uint32;
+              mandatory true;
+              when "../type = 'ipv4_unnumbered_adjacency'";
+            }
+          leaf algorithm {
+            type uint8;
+            mandatory true;
+            when "../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
+          }
+          }
+        }
+      }
+      list policy {
+        key "color endpoint";
+        unique "name";
+        leaf color {
+          type uint32;
+          description
+            "Color of the SR Policy.";
+        }
+        leaf endpoint {
+          type inet:ip-address;
+          description
+            "Indication for the endpoint of the SR Policy.";
+        }
+        leaf name {
+          type string {
+            length "1..64";
+          }
+          description
+            "Name of the SR Policy.";
+        }
+        leaf binding-sid {
+          type rt-types:mpls-label;
+          description
+            "BSID of the SR Policy.";
+        }
+        leaf is-operational {
+          type boolean;
+          config false;
+          description
+            "True if a valid candidate path of this policy is operational in zebra, False otherwise";
+        }
+        list candidate-path {
+          unique "name";
+          description
+            "List of Candidate Paths of the SR Policy.";
+          key "preference";
+          leaf preference {
+            type uint32;
+            description
+              "Administrative preference.";
+          }
+          leaf name {
+            type string {
+              length "1..64";
+            }
+            mandatory true;
+            description
+              "Symbolic Name of the Candidate Path.";
+          }
+          leaf is-best-candidate-path {
+            type boolean;
+            config false;
+            description
+              "True if the candidate path is the best candidate path, False otherwise";
+          }
+          leaf protocol-origin {
+            type protocol-origin-type;
+            mandatory true;
+            description
+              "Indication for the protocol origin of the Candidate Path.";
+          }
+          leaf originator {
+            type originator-type;
+            mandatory true;
+            description "Originator of the candidate path";
+          }
+          leaf discriminator {
+            type uint32;
+            config false;
+            description "Candidate path distinguisher";
+          }
+          leaf type {
+            description
+              "Type of the Candidate Path.";
+            mandatory true;
+            type enumeration {
+              enum explicit {
+                value 1;
+              }
+              enum dynamic {
+                value 2;
+              }
+            }
+          }
+          leaf segment-list-name {
+            type leafref {
+              path ../../../segment-list/name;
+            }
+            description
+              "The name of the Segment List to use as LSP.";
+          }
+          container constraints {
+            when "../type = 'dynamic'";
+            description
+              "Generic dynamic path constraints";
+            container bandwidth {
+              presence "If the candidate has a bandwidth constraint";
+              description
+                "The bandwidth needed by the candidate path.";
+              leaf required {
+                type boolean;
+                default "true";
+                description
+                  "If the bandwidth limitation is a requirement or only a suggestion";
+              }
+              leaf value {
+                mandatory true;
+                type decimal64 {
+                    fraction-digits 6;
+                }
+              }
+            }
+            container affinity {
+              description
+                "Affinity let you configure how the links should be used when calculating a path.";
+              leaf exclude-any {
+                type uint32;
+                description
+                  "A 32-bit vector representing a set of attribute filters which renders a link unacceptable.";
+              }
+              leaf include-any {
+                type uint32;
+                description
+                  "A 32-bit vector representing a set of attribute filters which renders a link acceptable. A null set (all bits set to zero) automatically passes.";
+              }
+              leaf include-all {
+                type uint32;
+                description
+                  "A 32-bit vector representing a set of attribute filters which must be present for a link to be acceptable.  A null set (all bits set to zero) automatically passes.";
+              }
+            }
+            list metrics {
+              key "type";
+              leaf type {
+                description
+                  "Type of the metric.";
+                type enumeration {
+                  enum igp {
+                    value 1;
+                    description "IGP metric";
+                  }
+                  enum te {
+                    value 2;
+                    description "TE metric";
+                  }
+                  enum hc {
+                    value 3;
+                    description "Hop Counts";
+                  }
+                  enum abc {
+                    value 4;
+                    description "Aggregate bandwidth consumption";
+                  }
+                  enum lmll {
+                    value 5;
+                    description "Load of the most loaded link";
+                  }
+                  enum cigp {
+                    value 6;
+                    description "Cumulative IGP cost";
+                  }
+                  enum cte {
+                    value 7;
+                    description "Cumulative TE cost";
+                  }
+                  enum pigp {
+                    value 8;
+                    description "P2MP IGP metric";
+                  }
+                  enum pte {
+                    value 9;
+                    description "P2MP TE metric";
+                  }
+                  enum phc {
+                    value 10;
+                    description "P2MP hop count metric";
+                  }
+                  enum msd {
+                    value 11;
+                    description "Segment-ID (SID) Depth";
+                  }
+                  enum pd {
+                    value 12;
+                    description "Path Delay metric";
+                  }
+                  enum pdv {
+                    value 13;
+                    description "Path Delay Variation metric";
+                  }
+                  enum pl {
+                    value 14;
+                    description "Path Loss metric";
+                  }
+                  enum ppd {
+                    value 15;
+                    description "P2MP Path Delay metric";
+                  }
+                  enum ppdv {
+                    value 16;
+                    description "P2MP Path Delay variation metric";
+                  }
+                  enum ppl {
+                    value 17;
+                    description "P2MP Path Loss metric";
+                  }
+                  enum nap {
+                    value 18;
+                    description "Number of adaptations on a path";
+                  }
+                  enum nlp {
+                    value 19;
+                    description "Number of layers on a path";
+                  }
+                  enum dc {
+                    value 20;
+                    description "Domain Count metric";
+                  }
+                  enum bnc {
+                    value 21;
+                    description "Border Node Count metric";
+                  }
+                }
+              }
+              leaf required {
+                type boolean;
+                default "true";
+                description
+                  "If the metric is a requirement, or if it is only a suggestion";
+              }
+              leaf is-bound {
+                type boolean;
+                description
+                  "Defines if the value is a bound (a maximum) for the path metric that must not be exceeded.";
+              }
+              leaf is-computed {
+                type boolean;
+                description
+                  "Defines if the value has been generated by the originator of the path.";
+              }
+              leaf value {
+                mandatory true;
+                type decimal64 {
+                    fraction-digits 6;
+                }
+              }
+            }
+            container objective-function {
+              presence "If the candidate has an objective function constraint";
+              description
+                "Define objective function constraint as a list of preferred functions";
+              leaf required {
+                type boolean;
+                default "true";
+                description
+                  "If an objective function is a requirement, or if it is only a suggestion";
+              }
+              leaf type {
+                description
+                  "Type of objective function.";
+                mandatory true;
+                type enumeration {
+                  enum mcp {
+                    value 1;
+                    description "Minimum Cost Path";
+                  }
+                  enum mlp {
+                    value 2;
+                    description "Minimum Load Path";
+                  }
+                  enum mbp {
+                    value 3;
+                    description "Maximum residual Bandwidth Path";
+                  }
+                  enum mbc {
+                    value 4;
+                    description "Minimize aggregate Bandwidth Consumption";
+                  }
+                  enum mll {
+                    value 5;
+                    description "Minimize the Load of the most loaded Link";
+                  }
+                  enum mcc {
+                    value 6;
+                    description "Minimize the Cumulative Cost of a set of paths";
+                  }
+                  enum spt {
+                    value 7;
+                    description "Shortest Path Tree";
+                  }
+                  enum mct {
+                    value 8;
+                    description "Minimum Cost Tree";
+                  }
+                  enum mplp {
+                    value 9;
+                    description "Minimum Packet Loss Path";
+                  }
+                  enum mup {
+                    value 10;
+                    description "Maximum Under-Utilized Path";
+                  }
+                  enum mrup {
+                    value 11;
+                    description "Maximum Reserved Under-Utilized Path";
+                  }
+                  enum mtd {
+                    value 12;
+                    description "Minimize the number of Transit Domains";
+                  }
+                  enum mbn {
+                    value 13;
+                    description "Minimize the number of Border Nodes";
+                  }
+                  enum mctd {
+                    value 14;
+                    description "Minimize the number of Common Transit Domains";
+                  }
+                  enum msl {
+                    value 15;
+                    description "Minimize the number of Shared Links";
+                  }
+                  enum mss {
+                    value 16;
+                    description "Minimize the number of Shared SRLGs";
+                  }
+                  enum msn {
+                    value 17;
+                    description "Minimize the number of Shared Nodes";
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

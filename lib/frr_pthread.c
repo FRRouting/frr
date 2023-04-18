@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Utilities and interfaces for managing POSIX threads within FRR.
  * Copyright (C) 2017  Cumulus Networks, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,9 +14,12 @@
 #include "frr_pthread.h"
 #include "memory.h"
 #include "linklist.h"
+#include "zlog.h"
+#include "libfrr.h"
+#include "libfrr_trace.h"
 
-DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
-DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
+DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
+DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives");
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);
@@ -39,7 +29,7 @@ static int fpt_halt(struct frr_pthread *fpt, void **res);
 static void frr_pthread_destroy_nolock(struct frr_pthread *fpt);
 
 /* default frr_pthread attributes */
-struct frr_pthread_attr frr_pthread_attr_default = {
+const struct frr_pthread_attr frr_pthread_attr_default = {
 	.start = fpt_run,
 	.stop = fpt_halt,
 };
@@ -52,7 +42,7 @@ static struct list *frr_pthread_list;
 
 void frr_pthread_init(void)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		frr_pthread_list = list_new();
 	}
 }
@@ -61,7 +51,7 @@ void frr_pthread_finish(void)
 {
 	frr_pthread_stop_all();
 
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		struct listnode *n, *nn;
 		struct frr_pthread *fpt;
 
@@ -74,7 +64,7 @@ void frr_pthread_finish(void)
 	}
 }
 
-struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
+struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 				    const char *name, const char *os_name)
 {
 	struct frr_pthread *fpt = NULL;
@@ -85,7 +75,7 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	/* initialize mutex */
 	pthread_mutex_init(&fpt->mtx, NULL);
 	/* create new thread master */
-	fpt->master = thread_master_create(name);
+	fpt->master = event_master_create(name);
 	/* set attributes */
 	fpt->attr = *attr;
 	name = (name ? name : "Anonymous thread");
@@ -102,7 +92,7 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	pthread_mutex_init(fpt->running_cond_mtx, NULL);
 	pthread_cond_init(fpt->running_cond, NULL);
 
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		listnode_add(frr_pthread_list, fpt);
 	}
 
@@ -111,7 +101,7 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 
 static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 {
-	thread_master_free(fpt->master);
+	event_master_free(fpt->master);
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
@@ -123,7 +113,7 @@ static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 
 void frr_pthread_destroy(struct frr_pthread *fpt)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		listnode_delete(frr_pthread_list, fpt);
 	}
 
@@ -158,9 +148,23 @@ static void *frr_pthread_inner(void *arg)
 int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 {
 	int ret;
+	sigset_t oldsigs, blocksigs;
+
+	assert(frr_is_after_fork || !"trying to start thread before fork()");
+
+	/* Ensure we never handle signals on a background thread by blocking
+	 * everything here (new thread inherits signal mask)
+	 */
+	sigfillset(&blocksigs);
+	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
+
+	frrtrace(1, frr_libfrr, frr_pthread_run, fpt->name);
 
 	fpt->rcu_thread = rcu_thread_prepare();
 	ret = pthread_create(&fpt->thread, attr, frr_pthread_inner, fpt);
+
+	/* Restore caller's signals */
+	pthread_sigmask(SIG_SETMASK, &oldsigs, NULL);
 
 	/*
 	 * Per pthread_create(3), the contents of fpt->thread are undefined if
@@ -176,7 +180,7 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 
 void frr_pthread_wait_running(struct frr_pthread *fpt)
 {
-	frr_with_mutex(fpt->running_cond_mtx) {
+	frr_with_mutex (fpt->running_cond_mtx) {
 		while (!fpt->running)
 			pthread_cond_wait(fpt->running_cond,
 					  fpt->running_cond_mtx);
@@ -185,7 +189,7 @@ void frr_pthread_wait_running(struct frr_pthread *fpt)
 
 void frr_pthread_notify_running(struct frr_pthread *fpt)
 {
-	frr_with_mutex(fpt->running_cond_mtx) {
+	frr_with_mutex (fpt->running_cond_mtx) {
 		fpt->running = true;
 		pthread_cond_signal(fpt->running_cond);
 	}
@@ -193,6 +197,8 @@ void frr_pthread_notify_running(struct frr_pthread *fpt)
 
 int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 {
+	frrtrace(1, frr_libfrr, frr_pthread_stop, fpt->name);
+
 	int ret = (*fpt->attr.stop)(fpt, result);
 	memset(&fpt->thread, 0x00, sizeof(fpt->thread));
 	return ret;
@@ -200,7 +206,7 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 
 void frr_pthread_stop_all(void)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		struct listnode *n;
 		struct frr_pthread *fpt;
 		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt)) {
@@ -218,24 +224,22 @@ void frr_pthread_stop_all(void)
  */
 
 /* dummy task for sleeper pipe */
-static int fpt_dummy(struct thread *thread)
+static void fpt_dummy(struct event *thread)
 {
-	return 0;
 }
 
 /* poison pill task to end event loop */
-static int fpt_finish(struct thread *thread)
+static void fpt_finish(struct event *thread)
 {
-	struct frr_pthread *fpt = THREAD_ARG(thread);
+	struct frr_pthread *fpt = EVENT_ARG(thread);
 
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
-	return 0;
 }
 
 /* stop function, called from other threads to halt this one */
 static int fpt_halt(struct frr_pthread *fpt, void **res)
 {
-	thread_add_event(fpt->master, &fpt_finish, fpt, 0, NULL);
+	event_add_event(fpt->master, &fpt_finish, fpt, 0, NULL);
 	pthread_join(fpt->thread, res);
 
 	return 0;
@@ -273,9 +277,11 @@ static void *fpt_run(void *arg)
 	struct frr_pthread *fpt = arg;
 	fpt->master->owner = pthread_self();
 
+	zlog_tls_buffer_init();
+
 	int sleeper[2];
 	pipe(sleeper);
-	thread_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
+	event_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
 
 	fpt->master->handle_signals = false;
 
@@ -283,16 +289,18 @@ static void *fpt_run(void *arg)
 
 	frr_pthread_notify_running(fpt);
 
-	struct thread task;
+	struct event task;
 	while (atomic_load_explicit(&fpt->running, memory_order_relaxed)) {
 		pthread_testcancel();
-		if (thread_fetch(fpt->master, &task)) {
-			thread_call(&task);
+		if (event_fetch(fpt->master, &task)) {
+			event_call(&task);
 		}
 	}
 
 	close(sleeper[1]);
 	close(sleeper[0]);
+
+	zlog_tls_buffer_fini();
 
 	return NULL;
 }

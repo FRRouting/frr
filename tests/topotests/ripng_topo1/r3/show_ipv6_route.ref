@@ -1,0 +1,3 @@
+R>* fc00:5::/64 [120/2] via fe80::XXXX:XXXX:XXXX:XXXX, r3-eth1, weight 1
+R>* fc00:98:0:1::/64 [120/3] via fe80::XXXX:XXXX:XXXX:XXXX, r3-eth1, weight 1
+R>* fc00:99:0:1::/64 [120/3] via fe80::XXXX:XXXX:XXXX:XXXX, r3-eth1, weight 1

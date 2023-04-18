@@ -1,0 +1,44 @@
+Adding colors to FRR CLI output
+===============================
+
+
+There were multiple approaches/attempts to get colored output for the CLI into
+FRR, most recently End of 2022 in PR #12497.  After some discussion, some items
+crystallized out:
+
+First, generally speaking, colors (or other rich output formatting) must be
+used sparingly.  In particular, e.g. "every IP address" is not something to
+color.  The output formatting needs to have an actual purpose to improve UX,
+not turn it into a christmas tree.
+
+In the long run, the CLI will hopefully become a YANG frontend.  In that case,
+the CLI frontend component is a great place to apply all kinds of output/UI/UX
+features.  However, this is a long way off.
+
+That said, an implementation in the current vtysh+daemon ecosystem is not out
+of the question, especially if the use of colors/formatting is limited to
+important places (which is desirable anyway - see general statement above.)
+We don't want to litter formatting all over every single vty_out call.
+
+A color option on a per-command/DEFUN level (i.e. the way `[json]` is done) was
+rejected.  The decision to color output must take information from vtysh's
+environment into account, notably the TERM environment variable, the NO_COLOR
+environment variable, and whether stdout is a terminal or not.  An explicit
+`--color` switch (or `terminal color` vtysh command, or other similar things)
+is needed too.  To be clear, the switch must not be on individual commands, it
+needs to be on the vtysh session level.
+
+Lastly, the output pager needs to work with this.
+
+
+Suggested implementation
+------------------------
+
+(not part of the consensus / accord, only to record discussion)
+
+As far as discussion went, the most promising approach to actually implement
+this is to put some type of unconditional formatting tag into daemon's vty_out
+calls.  This would be some escape-like sequence - an actual ANSI color code
+itself is not particularly readable or pretty, though that would work as well.
+vtysh would then, while passing through the output from the daemons, replace or
+remove these tags according to terminal/user settings.

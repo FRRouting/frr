@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -64,8 +51,8 @@ static void clear_rip_route(struct rip *rip)
 		}
 
 		if (rinfo) {
-			RIP_TIMER_OFF(rinfo->t_timeout);
-			RIP_TIMER_OFF(rinfo->t_garbage_collect);
+			EVENT_OFF(rinfo->t_timeout);
+			EVENT_OFF(rinfo->t_garbage_collect);
 			listnode_delete(list, rinfo);
 			rip_info_free(rinfo);
 		}
@@ -78,13 +65,13 @@ static void clear_rip_route(struct rip *rip)
 	}
 }
 
-int clear_rip_route_rpc(const char *xpath, const struct list *input,
-			struct list *output)
+int clear_rip_route_rpc(struct nb_cb_rpc_args *args)
 {
 	struct rip *rip;
 	struct yang_data *yang_vrf;
 
-	yang_vrf = yang_data_list_find(input, "%s/%s", xpath, "input/vrf");
+	yang_vrf = yang_data_list_find(args->input, "%s/%s", args->xpath,
+				       "input/vrf");
 	if (yang_vrf) {
 		rip = rip_lookup_by_vrf_name(yang_vrf->value);
 		if (rip)

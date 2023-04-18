@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPng peer support
  * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* RIPng support added by Vincent Jardin <vincent.jardin@6wind.com>
@@ -28,13 +13,13 @@
 #include "prefix.h"
 #include "command.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"
 
-DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer");
 
 static struct ripng_peer *ripng_peer_new(void)
 {
@@ -43,7 +28,7 @@ static struct ripng_peer *ripng_peer_new(void)
 
 static void ripng_peer_free(struct ripng_peer *peer)
 {
-	RIPNG_TIMER_OFF(peer->t_timeout);
+	EVENT_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIPNG_PEER, peer);
 }
 
@@ -75,15 +60,13 @@ struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
 /* RIPng peer is timeout.
  * Garbage collector.
  **/
-static int ripng_peer_timeout(struct thread *t)
+static void ripng_peer_timeout(struct event *t)
 {
 	struct ripng_peer *peer;
 
-	peer = THREAD_ARG(t);
+	peer = EVENT_ARG(t);
 	listnode_delete(peer->ripng->peer_list, peer);
 	ripng_peer_free(peer);
-
-	return 0;
 }
 
 /* Get RIPng peer.  At the same time update timeout thread. */
@@ -95,8 +78,7 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	peer = ripng_peer_lookup(ripng, addr);
 
 	if (peer) {
-		if (peer->t_timeout)
-			thread_cancel(peer->t_timeout);
+		EVENT_OFF(peer->t_timeout);
 	} else {
 		peer = ripng_peer_new();
 		peer->ripng = ripng;
@@ -105,9 +87,8 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	}
 
 	/* Update timeout thread. */
-	peer->t_timeout = NULL;
-	thread_add_timer(master, ripng_peer_timeout, peer,
-			 RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
+	event_add_timer(master, ripng_peer_timeout, peer,
+			RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
 
 	/* Last update time set. */
 	time(&peer->uptime);
@@ -141,7 +122,6 @@ void ripng_peer_bad_packet(struct ripng *ripng, struct sockaddr_in6 *from)
 static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 {
 	time_t uptime;
-	struct tm *tm;
 
 	/* If there is no connection has been done before print `never'. */
 	if (peer->uptime == 0) {
@@ -152,17 +132,9 @@ static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 	/* Get current time. */
 	uptime = time(NULL);
 	uptime -= peer->uptime;
-	tm = gmtime(&uptime);
 
-	if (uptime < ONE_DAY_SECOND)
-		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
-	else if (uptime < ONE_WEEK_SECOND)
-		snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
-	else
-		snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+	frrtime_to_interval(uptime, buf, len);
+
 	return buf;
 }
 
@@ -174,8 +146,8 @@ void ripng_peer_display(struct vty *vty, struct ripng *ripng)
 	char timebuf[RIPNG_UPTIME_LEN];
 
 	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
-		vty_out(vty, "    %s \n%14s %10d %10d %10d      %s\n",
-			inet6_ntoa(peer->addr), " ", peer->recv_badpackets,
+		vty_out(vty, "    %pI6 \n%14s %10d %10d %10d      %s\n",
+			&peer->addr, " ", peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIPNG_DISTANCE_DEFAULT,
 			ripng_peer_uptime(peer, timebuf, RIPNG_UPTIME_LEN));
 	}

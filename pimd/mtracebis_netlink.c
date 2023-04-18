@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * libnetlink.c	RTnetlink service routines.
- *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -92,7 +88,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 			rth->local.nl_family);
 		return -1;
 	}
-	rth->seq = time(NULL);
+	rth->seq = getpid();
 	return 0;
 }
 
@@ -187,16 +183,18 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		       const struct rtnl_dump_filter_arg *arg)
 {
 	struct sockaddr_nl nladdr;
-	struct iovec iov;
+	char buf[16384];
+	struct iovec iov = {
+		.iov_base = buf,
+		.iov_len = sizeof(buf),
+	};
 	struct msghdr msg = {
 		.msg_name = &nladdr,
 		.msg_namelen = sizeof(nladdr),
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char buf[16384];
 
-	iov.iov_base = buf;
 	while (1) {
 		int status;
 		const struct rtnl_dump_filter_arg *a;
@@ -220,7 +218,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		}
 
 		for (a = arg; a->filter; a++) {
-			struct nlmsghdr *h = (struct nlmsghdr *)buf;
+			struct nlmsghdr *h = (struct nlmsghdr *)iov.iov_base;
 			msglen = status;
 
 			while (NLMSG_OK(h, (uint32_t)msglen)) {
@@ -348,7 +346,8 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 				msg.msg_namelen);
 			exit(1);
 		}
-		for (h = (struct nlmsghdr *)buf; status >= (int)sizeof(*h);) {
+		for (h = (struct nlmsghdr *)iov.iov_base;
+		     status >= (int)sizeof(*h);) {
 			int err;
 			int len = h->nlmsg_len;
 			int l = len - sizeof(*h);
@@ -421,21 +420,23 @@ int rtnl_listen(struct rtnl_handle *rtnl, rtnl_filter_t handler, void *jarg)
 	int status;
 	struct nlmsghdr *h;
 	struct sockaddr_nl nladdr;
-	struct iovec iov;
+	char buf[8192];
+	struct iovec iov = {
+		.iov_base = buf,
+		.iov_len = sizeof(buf),
+	};
 	struct msghdr msg = {
 		.msg_name = &nladdr,
 		.msg_namelen = sizeof(nladdr),
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char buf[8192];
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
 	nladdr.nl_pid = 0;
 	nladdr.nl_groups = 0;
 
-	iov.iov_base = buf;
 	while (1) {
 		iov.iov_len = sizeof(buf);
 		status = recvmsg(rtnl->fd, &msg, 0);

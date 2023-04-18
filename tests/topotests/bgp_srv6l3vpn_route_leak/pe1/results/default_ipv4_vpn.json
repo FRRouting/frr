@@ -1,0 +1,31 @@
+{
+    "vrfName": "default",
+    "routerId": "192.0.2.1",
+    "localAS": 65001,
+    "routes": {
+        "routeDistinguishers": {
+            "65001:10": {
+                "172.16.0.0/24": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "pathFrom": "external",
+                        "prefix": "172.16.0.0",
+                        "prefixLen": 24,
+                        "network": "172.16.0.0\/24",
+                        "origin": "incomplete",
+                        "announceNexthopSelf": true,
+                        "nhVrfName": "vrf10",
+                        "nexthops": [
+                            {
+                                "hostname": "pe1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}

@@ -1,27 +1,12 @@
+// SPDX-License-Identifier: LicenseRef-Skiplist-BSD-0-Clause
 /*
  * Copyright 1990 William Pugh
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
  *
  * Permission to include in quagga provide on March 31, 2016
  */
 
 /*
- * Skip List impementation based on code from William Pugh.
+ * Skip List implementation based on code from William Pugh.
  * ftp://ftp.cs.umd.edu/pub/skipLists/
  */
 
@@ -60,7 +45,7 @@ struct skiplist {
 	int level; /* max lvl (1 + current # of levels in list) */
 	unsigned int count;
 	struct skiplistnode *header;
-	struct skiplistnode *stats;
+	int *level_stats;
 	struct skiplistnode
 		*last; /* last real list item (NULL if empty list) */
 
@@ -68,7 +53,7 @@ struct skiplist {
 	 * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
 	 * Used as definition of sorted for listnode_add_sort
 	 */
-	int (*cmp)(void *val1, void *val2);
+	int (*cmp)(const void *val1, const void *val2);
 
 	/* callback to free user-owned data when listnode is deleted. supplying
 	 * this callback is very much encouraged!
@@ -81,8 +66,9 @@ struct skiplist {
 extern struct skiplist *
 skiplist_new(/* encouraged: set list.del callback on new lists */
 	     int flags,
-	     int (*cmp)(void *key1, void *key2), /* NULL => default cmp */
-	     void (*del)(void *val));		 /* NULL => no auto val free */
+	     int (*cmp)(const void *key1,
+			const void *key2), /* NULL => default cmp */
+	     void (*del)(void *val));	   /* NULL => no auto val free */
 
 extern void skiplist_free(struct skiplist *);
 
@@ -96,12 +82,12 @@ extern int skiplist_search(register struct skiplist *l, register void *key,
 			   void **valuePointer);
 
 extern int skiplist_first_value(register struct skiplist *l, /* in */
-				register void *key,	  /* in */
-				void **valuePointer,	 /* in/out */
+				register const void *key,    /* in */
+				void **valuePointer,	     /* in/out */
 				void **cursor);		     /* out */
 
 extern int skiplist_next_value(register struct skiplist *l, /* in */
-			       register void *key,	  /* in */
+			       register const void *key,	  /* in */
 			       void **valuePointer,	 /* in/out */
 			       void **cursor);		    /* in/out */
 
@@ -122,6 +108,7 @@ extern int skiplist_empty(register struct skiplist *l); /* in */
 
 extern unsigned int skiplist_count(register struct skiplist *l); /* in */
 
+struct vty;
 extern void skiplist_debug(struct vty *vty, struct skiplist *l);
 
 extern void skiplist_test(struct vty *vty);

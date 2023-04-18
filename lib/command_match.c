@@ -1,32 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Input matching routines for CLI backend.
  *
  * --
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "command_match.h"
 #include "memory.h"
+#include "asn.h"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
+DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack");
 
 #ifdef TRACE_MATCHER
 #define TM 1
@@ -42,7 +28,7 @@ DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
 
 /* matcher helper prototypes */
 static int add_nexthops(struct list *, struct graph_node *,
-			struct graph_node **, size_t);
+			struct graph_node **, size_t, bool);
 
 static enum matcher_rv command_match_r(struct graph_node *, vector,
 				       unsigned int, struct graph_node **,
@@ -79,6 +65,13 @@ static enum match_type match_variable(struct cmd_token *, const char *);
 
 static enum match_type match_mac(const char *, bool);
 
+static bool is_neg(vector vline, size_t idx)
+{
+	if (idx >= vector_active(vline) || !vector_slot(vline, idx))
+		return false;
+	return !strcmp(vector_slot(vline, idx), "no");
+}
+
 enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 			      struct list **argv, const struct cmd_element **el)
 {
@@ -88,7 +81,7 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 
 	// prepend a dummy token to match that pesky start node
 	vector vvline = vector_init(vline->alloced + 1);
-	vector_set_index(vvline, 0, (void *)XSTRDUP(MTYPE_TMP, "dummy"));
+	vector_set_index(vvline, 0, XSTRDUP(MTYPE_TMP, "dummy"));
 	memcpy(vvline->index + 1, vline->index,
 	       sizeof(void *) * vline->alloced);
 	vvline->active = vline->active + 1;
@@ -248,7 +241,7 @@ static enum matcher_rv command_match_r(struct graph_node *start, vector vline,
 
 	// get all possible nexthops
 	struct list *next = list_new();
-	add_nexthops(next, start, NULL, 0);
+	add_nexthops(next, start, NULL, 0, is_neg(vline, 1));
 
 	// determine the best match
 	for (ALL_LIST_ELEMENTS_RO(next, ln, gn)) {
@@ -349,6 +342,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 {
 	// pointer to next input token to match
 	char *input_token;
+	bool neg = is_neg(vline, 0);
 
 	struct list *
 		current =
@@ -363,7 +357,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 
 	// add all children of start node to list
 	struct graph_node *start = vector_slot(graph->nodes, 0);
-	add_nexthops(next, start, &start, 0);
+	add_nexthops(next, start, &start, 0, neg);
 
 	unsigned int idx;
 	for (idx = 0; idx < vector_active(vline) && next->count > 0; idx++) {
@@ -387,8 +381,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 		for (ALL_LIST_ELEMENTS_RO(current, node, gstack)) {
 			struct cmd_token *token = gstack[0]->data;
 
-			if (token->attr == CMD_ATTR_HIDDEN
-			    || token->attr == CMD_ATTR_DEPRECATED)
+			if (token->attr & CMD_ATTR_HIDDEN)
 				continue;
 
 			enum match_type minmatch = min_match_level(token->type);
@@ -428,9 +421,9 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 					listnode_add(next, newstack);
 				} else if (matchtype >= minmatch)
 					add_nexthops(next, gstack[0], gstack,
-						     idx + 1);
+						     idx + 1, neg);
 				break;
-			default:
+			case no_match:
 				trace_matcher("no_match\n");
 				break;
 			}
@@ -478,7 +471,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
  * output, instead of direct node pointers!
  */
 static int add_nexthops(struct list *list, struct graph_node *node,
-			struct graph_node **stack, size_t stackpos)
+			struct graph_node **stack, size_t stackpos, bool neg)
 {
 	int added = 0;
 	struct graph_node *child;
@@ -494,8 +487,13 @@ static int add_nexthops(struct list *list, struct graph_node *node,
 			if (j != stackpos)
 				continue;
 		}
+
+		if (token->type == NEG_ONLY_TKN && !neg)
+			continue;
+
 		if (token->type >= SPECIAL_TKN && token->type != END_TKN) {
-			added += add_nexthops(list, child, stack, stackpos);
+			added +=
+				add_nexthops(list, child, stack, stackpos, neg);
 		} else {
 			if (stack) {
 				nextstack = XMALLOC(
@@ -532,9 +530,23 @@ static enum match_type min_match_level(enum cmd_token_type type)
 	// allowing words to partly match enables command abbreviation
 	case WORD_TKN:
 		return partly_match;
-	default:
+	case RANGE_TKN:
+	case IPV4_TKN:
+	case IPV4_PREFIX_TKN:
+	case IPV6_TKN:
+	case IPV6_PREFIX_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
+	case FORK_TKN:
+	case JOIN_TKN:
+	case END_TKN:
+	case NEG_ONLY_TKN:
+	case VARIABLE_TKN:
+	case ASNUM_TKN:
 		return exact_match;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /**
@@ -554,15 +566,22 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
+	case ASNUM_TKN:
 	case RANGE_TKN:
 		return 2;
 	case WORD_TKN:
 		return 3;
 	case VARIABLE_TKN:
 		return 4;
-	default:
+	case JOIN_TKN:
+	case START_TKN:
+	case END_TKN:
+	case NEG_ONLY_TKN:
+	case SPECIAL_TKN:
 		return 10;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 /**
@@ -682,10 +701,17 @@ static enum match_type match_token(struct cmd_token *token, char *input_token)
 		return match_mac(input_token, false);
 	case MAC_PREFIX_TKN:
 		return match_mac(input_token, true);
+	case ASNUM_TKN:
+		return asn_str2asn_match(input_token);
 	case END_TKN:
-	default:
+	case FORK_TKN:
+	case JOIN_TKN:
+	case START_TKN:
+	case NEG_ONLY_TKN:
 		return no_match;
 	}
+
+	assert(!"Reached end of function we should never hit");
 }
 
 #define IPV4_ADDR_STR   "0123456789."
@@ -813,12 +839,11 @@ static enum match_type match_ipv4_prefix(const char *str)
 		str++;
 	}
 
-	if (atoi(sp) > 32)
+	if (atoi(sp) > IPV4_MAX_BITLEN)
 		return no_match;
 
 	return exact_match;
 }
-
 
 #define IPV6_ADDR_STR   "0123456789abcdefABCDEF:."
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"
@@ -948,7 +973,7 @@ static enum match_type match_ipv6_prefix(const char *str, bool prefix)
 	if (*endptr != '\0')
 		return no_match;
 
-	if (mask < 0 || mask > 128)
+	if (mask < 0 || mask > IPV6_MAX_BITLEN)
 		return no_match;
 
 	return exact_match;

@@ -1,36 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * generic CLI test helper functions
  *
  * Copyright (C) 2015 by David Lamparter,
  *                   for Open Source Routing / NetDEF, Inc.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "log.h"
 
 #include "common_cli.h"
 
-struct thread_master *master;
+struct event_loop *master;
 
 int dump_args(struct vty *vty, const char *descr, int argc,
 	      struct cmd_token *argv[])
@@ -52,30 +39,29 @@ static void vty_do_exit(int isexit)
 	vty_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
-	closezlog();
+	event_master_free(master);
 
 	log_memstats(stderr, "testcli");
 	if (!isexit)
 		exit(0);
 }
 
+const struct frr_yang_module_info *const *test_yang_modules = NULL;
+int test_log_prio = ZLOG_DISABLED;
+
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
+	size_t yangcount;
 
 	/* Set umask before anything for security */
 	umask(0027);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
-	openzlog("common-cli", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
-		 LOG_DAEMON);
-	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-	zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
-	zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
+	zlog_aux_init("NONE: ", test_log_prio);
 
 	/* Library inits. */
 	cmd_init(1);
@@ -83,17 +69,20 @@ int main(int argc, char **argv)
 	cmd_domainname_set("test.domain");
 
 	vty_init(master, false);
-	memory_init();
-	yang_init();
-	nb_init(master, NULL, 0);
+	lib_cmd_init();
+
+	for (yangcount = 0; test_yang_modules && test_yang_modules[yangcount];
+	     yangcount++)
+		;
+	nb_init(master, test_yang_modules, yangcount, false);
 
 	test_init(argc, argv);
 
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

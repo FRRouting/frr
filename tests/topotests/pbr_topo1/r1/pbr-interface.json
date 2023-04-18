@@ -1,0 +1,27 @@
+[
+  {
+    "name":"r1-eth1",
+    "policy":"EVA",
+    "valid":true
+  },
+  {
+    "name":"r1-eth2",
+    "policy":"DONNA",
+    "valid":true
+  },
+  {
+    "name":"r1-eth3",
+    "policy":"AKIHABARA",
+    "valid":true
+  },
+  {
+    "name":"r1-eth4",
+    "policy":"ASAKUSA",
+    "valid":true
+  },
+  {
+    "name":"r1-noexist",
+    "policy":"NOEXIST",
+    "valid":false
+  }
+]

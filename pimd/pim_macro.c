@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,6 +12,7 @@
 #include "plist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_macro.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
@@ -45,11 +33,9 @@ static int downstream_jpstate_isjoined(const struct pim_ifchannel *ch)
 	case PIM_IFJOIN_PRUNE_TMP:
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
 		return 0;
-		break;
 	case PIM_IFJOIN_JOIN:
 	case PIM_IFJOIN_PRUNE_PENDING:
 		return 1;
-		break;
 	}
 	return 0;
 }
@@ -115,8 +101,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 
 	ifp = ch->interface;
 	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __PRETTY_FUNCTION__,
-			  ch->sg_str);
+		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
 		return 0; /* false */
 	}
 
@@ -127,15 +112,15 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ifp->name);
+			  __func__, ch->sg_str, ifp->name);
 		return 0; /* false */
 	}
 
-	if (PIM_INADDR_IS_ANY(ch->ifassert_winner))
+	if (pim_addr_is_any(ch->ifassert_winner))
 		return 0; /* false */
 
 	/* AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (!pim_addr_cmp(ch->ifassert_winner, pim_ifp->primary_address))
 		return 0; /* false */
 
 	spt_assert_metric = pim_macro_spt_assert_metric(
@@ -160,10 +145,11 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
+	bool mlag_active = false;
 
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
+			  __func__, ch->sg_str, ch->interface->name);
 		return 0; /* false */
 	}
 
@@ -172,12 +158,24 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 		return 0; /* false */
 
 	/* OR AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (!pim_addr_cmp(ch->ifassert_winner, pim_ifp->primary_address))
 		return 1; /* true */
+
+	/*
+	 * When we have a activeactive interface we need to signal
+	 * that this interface is interesting to the upstream
+	 * decision to JOIN *if* we are syncing over the interface
+	 */
+	if (pim_ifp->activeactive) {
+		struct pim_upstream *up = ch->upstream;
+
+		if (PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
+			mlag_active = true;
+	}
 
 	return (
 		/* I_am_DR( I ) ? */
-		PIM_I_am_DR(pim_ifp) &&
+		(PIM_I_am_DR(pim_ifp) || mlag_active) &&
 		/* lost_assert(S,G,I) == false ? */
 		(!pim_macro_ch_lost_assert(ch)));
 }
@@ -223,8 +221,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 
 	ifp = ch->interface;
 	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __PRETTY_FUNCTION__,
-			  ch->sg_str);
+		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
 		return 0; /* false */
 	}
 
@@ -252,7 +249,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
     }
 */
 struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr)
+						     pim_addr ifaddr)
 {
 	struct pim_assert_metric metric;
 
@@ -381,15 +378,14 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 
 	ifp = ch->interface;
 	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __PRETTY_FUNCTION__,
-			  ch->sg_str);
+		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
 		return 0; /* false */
 	}
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
+			  __func__, ch->sg_str, ch->interface->name);
 		return 0; /* false */
 	}
 
@@ -404,8 +400,8 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 			return 1; /* true */
 
 		/* AssertWinner(S,G,I) == me ? */
-		if (ch->ifassert_winner.s_addr
-		    == pim_ifp->primary_address.s_addr)
+		if (!pim_addr_cmp(ch->ifassert_winner,
+				  pim_ifp->primary_address))
 			return 1; /* true */
 	}
 

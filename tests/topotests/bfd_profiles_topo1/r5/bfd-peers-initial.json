@@ -1,0 +1,21 @@
+[
+    {
+        "detect-multiplier": 3,
+        "diagnostic": "ok",
+        "id": "*",
+        "interface": "r5-eth0",
+        "local": "*",
+        "multihop": false,
+        "peer": "*",
+        "receive-interval": 300,
+        "remote-detect-multiplier": 3,
+        "remote-diagnostic": "ok",
+        "remote-id": "*",
+        "remote-receive-interval": 250,
+        "remote-transmit-interval": 250,
+        "status": "up",
+        "transmit-interval": 300,
+        "uptime": "*",
+        "vrf": "default"
+    }
+]

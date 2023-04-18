@@ -1,22 +1,12 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2019  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /* C++ called, they want their templates back */
 #define item		concat(item_, TYPE)
 #define itm		concat(itm_, TYPE)
+#define itmswap		concat(itmswap_, TYPE)
 #define head		concat(head_, TYPE)
 #define list		concat(TYPE, )
 #define list_head	concat(TYPE, _head)
@@ -25,9 +15,16 @@
 #define list_hash	concat(TYPE, _hash)
 #define list_init	concat(TYPE, _init)
 #define list_fini	concat(TYPE, _fini)
+#define list_const_first concat(TYPE, _const_first)
 #define list_first	concat(TYPE, _first)
+#define list_const_next	concat(TYPE, _const_next)
 #define list_next	concat(TYPE, _next)
 #define list_next_safe	concat(TYPE, _next_safe)
+#define list_const_last concat(TYPE, _const_last)
+#define list_last	concat(TYPE, _last)
+#define list_const_prev	concat(TYPE, _const_prev)
+#define list_prev	concat(TYPE, _prev)
+#define list_prev_safe	concat(TYPE, _prev_safe)
 #define list_count	concat(TYPE, _count)
 #define list_add	concat(TYPE, _add)
 #define list_add_head	concat(TYPE, _add_head)
@@ -36,16 +33,19 @@
 #define list_find	concat(TYPE, _find)
 #define list_find_lt	concat(TYPE, _find_lt)
 #define list_find_gteq	concat(TYPE, _find_gteq)
+#define list_member	concat(TYPE, _member)
+#define list_anywhere	concat(TYPE, _anywhere)
 #define list_del	concat(TYPE, _del)
 #define list_pop	concat(TYPE, _pop)
+#define list_swap_all	concat(TYPE, _swap_all)
 
-#define ts_hash		concat(ts_hash_, TYPE)
+#define ts_hash_head	concat(ts_hash_head_, TYPE)
 
 #ifndef REALTYPE
 #define REALTYPE TYPE
 #endif
 
-PREDECL(REALTYPE, list)
+PREDECL(REALTYPE, list);
 struct item {
 	uint64_t val;
 	struct list_item itm;
@@ -57,20 +57,20 @@ static int list_cmp(const struct item *a, const struct item *b);
 
 #if IS_HASH(REALTYPE)
 static uint32_t list_hash(const struct item *a);
-DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash);
 
 static uint32_t list_hash(const struct item *a)
 {
 #ifdef SHITTY_HASH
 	/* crappy hash to get some hash collisions */
-	return a->val ^ (a->val << 29) ^ 0x55AA0000U;
+	return (a->val & 0xFF) ^ (a->val << 29) ^ 0x55AA0000U;
 #else
 	return jhash_1word(a->val, 0xdeadbeef);
 #endif
 }
 
 #else
-DECLARE(REALTYPE, list, struct item, itm, list_cmp)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp);
 #endif
 
 static int list_cmp(const struct item *a, const struct item *b)
@@ -83,14 +83,16 @@ static int list_cmp(const struct item *a, const struct item *b)
 }
 
 #else /* !IS_SORTED */
-DECLARE(REALTYPE, list, struct item, itm)
+DECLARE(REALTYPE, list, struct item, itm);
 #endif
 
 #define NITEM 10000
-struct item itm[NITEM];
+#define NITEM_SWAP 100 /* other container for swap */
+struct item itm[NITEM], itmswap[NITEM_SWAP];
 static struct list_head head = concat(INIT_, REALTYPE)(head);
 
-static void ts_hash(const char *text, const char *expect)
+static void ts_hash_head(struct list_head *h, const char *text,
+			 const char *expect)
 {
 	int64_t us = monotime_since(&ref, NULL);
 	SHA256_CTX ctx;
@@ -98,14 +100,15 @@ static void ts_hash(const char *text, const char *expect)
 	unsigned i = 0;
 	uint8_t hash[32];
 	char hashtext[65];
-	uint32_t count;
+	uint32_t swap_count, count;
 
-	count = htonl(list_count(&head));
+	count = list_count(h);
+	swap_count = htonl(count);
 
 	SHA256_Init(&ctx);
-	SHA256_Update(&ctx, &count, sizeof(count));
+	SHA256_Update(&ctx, &swap_count, sizeof(swap_count));
 
-	frr_each (list, &head, item) {
+	frr_each (list, h, item) {
 		struct {
 			uint32_t val_upper, val_lower, index;
 		} hashitem = {
@@ -115,32 +118,37 @@ static void ts_hash(const char *text, const char *expect)
 		};
 		SHA256_Update(&ctx, &hashitem, sizeof(hashitem));
 		i++;
-		assert(i < count);
+		assert(i <= count);
 	}
 	SHA256_Final(hash, &ctx);
 
 	for (i = 0; i < sizeof(hash); i++)
 		sprintf(hashtext + i * 2, "%02x", hash[i]);
 
-	printf("%7"PRId64"us  %-25s %s%s\n", us, text,
+	printfrr("%7"PRId64"us  %-25s %s%s\n", us, text,
 	       expect ? " " : "*", hashtext);
 	if (expect && strcmp(expect, hashtext)) {
-		printf("%-21s %s\n", "EXPECTED:", expect);
+		printfrr("%-21s %s\n", "EXPECTED:", expect);
 		assert(0);
 	}
 	monotime(&ref);
 }
 /* hashes will have different item ordering */
 #if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
-#define ts_hashx(pos, csum) ts_hash(pos, NULL)
+#define ts_hash(pos, csum) ts_hash_head(&head, pos, NULL)
+#define ts_hashx(pos, csum) ts_hash_head(&head, pos, NULL)
+#define ts_hash_headx(head, pos, csum) ts_hash_head(head, pos, NULL)
 #else
-#define ts_hashx(pos, csum) ts_hash(pos, csum)
+#define ts_hash(pos, csum) ts_hash_head(&head, pos, csum)
+#define ts_hashx(pos, csum) ts_hash_head(&head, pos, csum)
+#define ts_hash_headx(head, pos, csum) ts_hash_head(head, pos, csum)
 #endif
 
 static void concat(test_, TYPE)(void)
 {
 	size_t i, j, k, l;
 	struct prng *prng;
+	struct prng *prng_swap __attribute__((unused));
 	struct item *item, *prev __attribute__((unused));
 	struct item dummy __attribute__((unused));
 
@@ -148,11 +156,18 @@ static void concat(test_, TYPE)(void)
 	for (i = 0; i < NITEM; i++)
 		itm[i].val = i;
 
-	printf("%s start\n", str(TYPE));
+	memset(itmswap, 0, sizeof(itmswap));
+	for (i = 0; i < NITEM_SWAP; i++)
+		itmswap[i].val = i;
+
+	printfrr("%s start\n", str(TYPE));
 	ts_start();
 
 	list_init(&head);
 	assert(list_first(&head) == NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(list_last(&head) == NULL);
+#endif
 
 	ts_hash("init", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
 
@@ -175,20 +190,115 @@ static void concat(test_, TYPE)(void)
 	assert(list_first(&head) != NULL);
 	ts_hashx("fill", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
 
+#if !IS_ATOMIC(REALTYPE)
+	struct list_head other;
+
+	list_init(&other);
+	list_swap_all(&head, &other);
+
+	assert(list_count(&head) == 0);
+	assert(!list_first(&head));
+	assert(list_count(&other) == k);
+	assert(list_first(&other) != NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(!list_last(&head));
+	assert(list_last(&other) != NULL);
+#endif
+	ts_hash_headx(
+		&other, "swap1",
+		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
+
+	prng_swap = prng_new(0x1234dead);
+	l = 0;
+	for (i = 0; i < NITEM_SWAP; i++) {
+		j = prng_rand(prng_swap) % NITEM_SWAP;
+		if (itmswap[j].scratchpad == 0) {
+			list_add(&head, &itmswap[j]);
+			itmswap[j].scratchpad = 1;
+			l++;
+		}
+#if !IS_HEAP(REALTYPE)
+		else {
+			struct item *rv = list_add(&head, &itmswap[j]);
+			assert(rv == &itmswap[j]);
+		}
+#endif
+	}
+	assert(list_count(&head) == l);
+	assert(list_first(&head) != NULL);
+	ts_hash_headx(
+		&head, "swap-fill",
+		"26df437174051cf305d1bbb62d779ee450ca764167a1e7a94be1aece420008e6");
+
+	list_swap_all(&head, &other);
+
+	assert(list_count(&other) == l);
+	assert(list_first(&other));
+	ts_hash_headx(
+		&other, "swap2a",
+		"26df437174051cf305d1bbb62d779ee450ca764167a1e7a94be1aece420008e6");
+	assert(list_count(&head) == k);
+	assert(list_first(&head) != NULL);
+	ts_hash_headx(
+		&head, "swap2b",
+		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
+
+	while (list_pop(&other))
+		;
+	list_fini(&other);
+	prng_free(prng_swap);
+
+	ts_ref("swap-cleanup");
+#endif /* !IS_ATOMIC */
+
 	k = 0;
-	prev = NULL;
-	frr_each(list, &head, item) {
+
+#if IS_ATOMIC(REALTYPE)
+	struct list_head *chead = &head;
+	struct item *citem, *cprev = NULL;
+
+	frr_each(list, chead, citem) {
+#else
+	const struct list_head *chead = &head;
+	const struct item *citem, *cprev = NULL;
+
+	frr_each(list_const, chead, citem) {
+#endif
+
 #if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
 		/* hash table doesn't give sorting */
-		(void)prev;
+		(void)cprev;
 #else
-		assert(!prev || prev->val < item->val);
+		assert(!cprev || cprev->val < citem->val);
+#if IS_REVERSE(REALTYPE)
+		assert(list_const_prev(chead, citem) == cprev);
 #endif
-		prev = item;
+#endif
+		cprev = citem;
 		k++;
 	}
-	assert(list_count(&head) == k);
+	assert(list_count(chead) == k);
+#if IS_REVERSE(REALTYPE)
+	assert(cprev == list_const_last(chead));
+#endif
 	ts_ref("walk");
+
+#if IS_REVERSE(REALTYPE) && !IS_HASH(REALTYPE) && !IS_HEAP(REALTYPE)
+	cprev = NULL;
+	k = 0;
+
+	frr_rev_each(list_const, chead, citem) {
+		assert(!cprev || cprev->val > citem->val);
+		assert(list_const_next(chead, citem) == cprev);
+
+		cprev = citem;
+		k++;
+	}
+	assert(list_count(chead) == k);
+	assert(cprev == list_const_first(chead));
+
+	ts_ref("reverse-walk");
+#endif
 
 #if IS_UNIQ(REALTYPE)
 	prng_free(prng);
@@ -217,7 +327,7 @@ static void concat(test_, TYPE)(void)
 #elif IS_HEAP(REALTYPE)
 	/* heap - partially sorted. */
 	prev = NULL;
-	l = k / 2;
+	l = k / 4;
 	for (i = 0; i < l; i++) {
 		item = list_pop(&head);
 		if (prev)
@@ -226,7 +336,24 @@ static void concat(test_, TYPE)(void)
 		k--;
 		prev = item;
 	}
-	ts_hash("pop", NULL);
+	ts_hash("pop#1", NULL);
+
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hash("member", NULL);
+
+	l = k / 2;
+	for (; i < l; i++) {
+		item = list_pop(&head);
+		if (prev)
+			assert(prev->val < item->val);
+		item->scratchpad = 0;
+		k--;
+		prev = item;
+	}
+	ts_hash("pop#2", NULL);
 
 #else /* !IS_UNIQ(REALTYPE) && !IS_HEAP(REALTYPE) */
 	for (i = 0; i < NITEM; i++) {
@@ -303,6 +430,14 @@ static void concat(test_, TYPE)(void)
 	assert(l + list_count(&head) == k);
 	ts_hashx("del", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
 
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hashx("member", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
+#endif
+
 	frr_each_safe(list, &head, item) {
 		assert(item->scratchpad != 0);
 
@@ -328,7 +463,65 @@ static void concat(test_, TYPE)(void)
 	}
 	assert(list_count(&head) == k);
 	assert(list_first(&head) != NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(list_last(&head) != NULL);
+#endif
 	ts_hash("fill / add_tail", "eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+#if !IS_ATOMIC(REALTYPE)
+	struct list_head other;
+
+	list_init(&other);
+	list_swap_all(&head, &other);
+
+	assert(list_count(&head) == 0);
+	assert(!list_first(&head));
+	assert(list_count(&other) == k);
+	assert(list_first(&other) != NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(!list_last(&head));
+	assert(list_last(&other) != NULL);
+#endif
+	ts_hash_head(
+		&other, "swap1",
+		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+	prng_swap = prng_new(0x1234dead);
+	l = 0;
+	for (i = 0; i < NITEM_SWAP; i++) {
+		j = prng_rand(prng_swap) % NITEM_SWAP;
+		if (itmswap[j].scratchpad == 0) {
+			list_add_tail(&head, &itmswap[j]);
+			itmswap[j].scratchpad = 1;
+			l++;
+		}
+	}
+	assert(list_count(&head) == l);
+	assert(list_first(&head) != NULL);
+	ts_hash_head(
+		&head, "swap-fill",
+		"833e6ae437e322dfbd36eda8cfc33a61109be735b43f15d256c05e52d1b01909");
+
+	list_swap_all(&head, &other);
+
+	assert(list_count(&other) == l);
+	assert(list_first(&other));
+	ts_hash_head(
+		&other, "swap2a",
+		"833e6ae437e322dfbd36eda8cfc33a61109be735b43f15d256c05e52d1b01909");
+	assert(list_count(&head) == k);
+	assert(list_first(&head) != NULL);
+	ts_hash_head(
+		&head, "swap2b",
+		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+	while (list_pop(&other))
+		;
+	list_fini(&other);
+	prng_free(prng_swap);
+
+	ts_ref("swap-cleanup");
+#endif
 
 	for (i = 0; i < NITEM / 2; i++) {
 		j = prng_rand(prng) % NITEM;
@@ -340,7 +533,54 @@ static void concat(test_, TYPE)(void)
 	}
 	ts_hash("del-prng", "86d568a95eb429dab3162976c5a5f3f75aabc835932cd682aa280b6923549564");
 
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++) {
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+		assertf(list_anywhere(&itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_anywhere(&itm[i]));
+	}
+	ts_hash("member", "86d568a95eb429dab3162976c5a5f3f75aabc835932cd682aa280b6923549564");
+#endif
+
 	l = 0;
+	while (l < (k / 4) && (prev = list_pop(&head))) {
+		assert(prev->scratchpad != 0);
+
+		prev->scratchpad = 0;
+		l++;
+	}
+	ts_hash("pop#1", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++) {
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+		assertf(list_anywhere(&itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_anywhere(&itm[i]));
+	}
+	ts_hash("member", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+#endif
+#if IS_REVERSE(REALTYPE)
+	i = 0;
+	prev = NULL;
+
+	frr_rev_each (list, &head, item) {
+		assert(item->scratchpad != 0);
+		assert(list_next(&head, item) == prev);
+
+		i++;
+		prev = item;
+	}
+	assert(list_first(&head) == prev);
+	assert(list_count(&head) == i);
+	ts_hash("reverse-walk", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+#endif
+
 	while ((item = list_pop(&head))) {
 		assert(item->scratchpad != 0);
 
@@ -350,7 +590,7 @@ static void concat(test_, TYPE)(void)
 	assert(l == k);
 	assert(list_count(&head) == 0);
 	assert(list_first(&head) == NULL);
-	ts_hash("pop", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
+	ts_hash("pop#2", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
 
 	prng_free(prng);
 	prng = prng_new(0x1e5a2d69);
@@ -529,13 +769,18 @@ static void concat(test_, TYPE)(void)
 	list_fini(&head);
 	ts_ref("fini");
 	ts_end();
-	printf("%s end\n", str(TYPE));
+	prng_free(prng);
+	printfrr("%s end\n", str(TYPE));
 }
 
+#undef ts_hash
 #undef ts_hashx
+#undef ts_hash_head
+#undef ts_hash_headx
 
 #undef item
 #undef itm
+#undef itmswap
 #undef head
 #undef list
 #undef list_head
@@ -547,6 +792,13 @@ static void concat(test_, TYPE)(void)
 #undef list_first
 #undef list_next
 #undef list_next_safe
+#undef list_const_first
+#undef list_const_next
+#undef list_last
+#undef list_prev
+#undef list_prev_safe
+#undef list_const_last
+#undef list_const_prev
 #undef list_count
 #undef list_add
 #undef list_add_head
@@ -555,8 +807,11 @@ static void concat(test_, TYPE)(void)
 #undef list_find
 #undef list_find_lt
 #undef list_find_gteq
+#undef list_member
+#undef list_anywhere
 #undef list_del
 #undef list_pop
+#undef list_swap_all
 
 #undef REALTYPE
 #undef TYPE

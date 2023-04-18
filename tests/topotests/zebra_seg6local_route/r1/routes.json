@@ -1,0 +1,123 @@
+[
+  {
+    "in": {
+      "dest": "1::1",
+      "context": "End"
+    },
+    "out":[{
+        "prefix":"1::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "directlyConnected":true,
+            "interfaceName": "dum0",
+            "seg6local": { "action": "End" }
+        }]
+    }]
+  },
+  {
+    "in": {
+      "dest": "2::1",
+      "context": "End_X 2001::1"
+    },
+    "out":[{
+        "prefix":"2::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "directlyConnected":true,
+            "interfaceName": "dum0",
+            "seg6local": { "action": "End.X" }
+        }]
+    }]
+  },
+  {
+    "in": {
+      "dest": "3::1",
+      "context": "End_T 10"
+    },
+    "out":[{
+        "prefix":"3::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "directlyConnected":true,
+            "interfaceName": "dum0",
+            "seg6local": { "action": "End.T" }
+        }]
+    }]
+  },
+  {
+    "in": {
+      "dest": "4::1",
+      "context": "End_DX4 10.0.0.1"
+    },
+    "out":[{
+        "prefix":"4::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "directlyConnected":true,
+            "interfaceName": "dum0",
+            "seg6local": { "action": "End.DX4" }
+        }]
+    }]
+  },
+  {
+    "in": {
+      "dest": "5::1",
+      "context": "End_DT46 10"
+    },
+    "out":[{
+        "prefix":"5::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "directlyConnected":true,
+            "interfaceName": "dum0",
+            "seg6local": { "action": "End.DT46" }
+        }]
+    }],
+    "required_kernel": "5.14"
+  }
+]

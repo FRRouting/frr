@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Nexthop Group Private Functions.
  * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Stephen Worley
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /**
@@ -29,6 +16,10 @@
 #define __ZEBRA_NHG_PRIVATE_H__
 
 #include "zebra/zebra_nhg.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Abstraction for connected trees */
 struct nhg_connected {
@@ -52,11 +43,26 @@ extern bool
 nhg_connected_tree_is_empty(const struct nhg_connected_tree_head *head);
 extern struct nhg_connected *
 nhg_connected_tree_root(struct nhg_connected_tree_head *head);
-extern void nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
-				       struct nhg_hash_entry *nhe);
-extern void nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
-				       struct nhg_hash_entry *nhe);
 
-extern void zebra_nhg_free(void *arg);
+/* I realize _add/_del returns are backwords.
+ *
+ * Currently the list APIs are not standardized for what happens in
+ * the _del() function when the item isn't present.
+ *
+ * We are choosing to return NULL if not found in the _del case for now.
+ */
+
+/* Delete NHE from the tree. On success, return the NHE, otherwise NULL. */
+extern struct nhg_hash_entry *
+nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
+			   struct nhg_hash_entry *nhe);
+/* ADD NHE to the tree. On success, return NULL, otherwise return the NHE. */
+extern struct nhg_hash_entry *
+nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
+			   struct nhg_hash_entry *nhe);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __ZEBRA_NHG_PRIVATE_H__ */

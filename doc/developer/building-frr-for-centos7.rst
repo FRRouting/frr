@@ -21,7 +21,10 @@ Add packages:
     sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
-      python-devel systemd-devel python-sphinx libcap-devel
+      python-devel python-sphinx libcap-devel \
+      elfutils-libelf-devel libunwind-devel protobuf-c-devel
+
+.. include:: building-libunwind-note.rst
 
 .. include:: building-libyang.rst
 
@@ -65,8 +68,6 @@ an example.)
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-	--enable-systemd=yes \
-        --disable-exampledir \
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
@@ -104,7 +105,7 @@ Install daemon config file
 
 ::
 
-    sudo install -p -m 644 redhat/daemons /etc/frr/
+    sudo install -p -m 644 tools/etc/frr/daemons /etc/frr/
     sudo chown frr:frr /etc/frr/daemons
 
 Edit /etc/frr/daemons as needed to select the required daemons
@@ -133,13 +134,12 @@ Load the modified sysctl's on the system:
 
     sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
-Install frr Service and redhat init files
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Install frr Service
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
-    sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
-    sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
+    sudo install -p -m 644 tools/frr.service /usr/lib/systemd/system/frr.service
 
 Register the systemd files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

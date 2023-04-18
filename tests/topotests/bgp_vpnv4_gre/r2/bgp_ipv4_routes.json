@@ -1,0 +1,38 @@
+{
+     "vrfName": "vrf1",
+     "localAS": 65500,
+     "routes":
+         {
+            "10.201.0.0/24": [
+                {
+                    "prefix": "10.201.0.0",
+                    "prefixLen": 24,
+                    "network": "10.201.0.0\/24",
+                    "nhVrfName": "default",
+                    "nexthops": [
+                        {
+                            "ip": "192.0.2.1",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ],
+            "10.200.0.0/24": [
+                {
+                    "valid": true,
+                    "bestpath": true,
+                    "prefix": "10.200.0.0",
+                    "prefixLen": 24,
+                    "network": "10.200.0.0\/24",
+                    "nexthops": [
+                        {
+                            "ip": "0.0.0.0",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ]
+         }
+}

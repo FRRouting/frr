@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -25,9 +11,7 @@
 
 #include "ldpd/ldpd.h"
 #include "ldpd/ldp_vty.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ldpd/ldp_vty_cmds_clippy.c"
-#endif
 
 DEFPY_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,
@@ -221,16 +205,44 @@ DEFPY  (ldp_router_id,
 	return (ldp_vty_router_id(vty, no, address));
 }
 
+DEFPY  (ldp_ordered_control,
+        ldp_ordered_control_cmd,
+        "[no] ordered-control",
+        NO_STR
+        "Configure LDP ordered label distribution control mode\n")
+{
+	return (ldp_vty_ordered_control(vty, no));
+}
+
+DEFPY  (ldp_wait_for_sync,
+        ldp_wait_for_sync_cmd,
+        "[no] wait-for-sync (1-10000)$waitforsync",
+        NO_STR
+        "Time to wait for LDP-IGP Sync to complete label exchange\n"
+        "Time (seconds)\n")
+{
+        return (ldp_vty_wait_for_sync_interval(vty, no, waitforsync));
+
+}
+
+DEFPY  (ldp_allow_broken_lsps,
+	ldp_allow_broken_lsps_cmd,
+	"[no] install allow-broken-lsps",
+	NO_STR
+	"install lsps\n"
+	"if no remote-label install with imp-null\n")
+{
+	return (ldp_vty_allow_broken_lsp(vty, no));
+}
+
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
-	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
+	"[no] discovery targeted-hello accept [from ACCESSLIST_NAME$from_acl]",
 	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
 	"Accept and respond to targeted hellos\n"
 	"Access list to specify acceptable targeted hello source\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_targeted_hello_accept(vty, no, from_acl));
@@ -260,18 +272,14 @@ DEFPY  (ldp_discovery_transport_address_ipv6,
 
 DEFPY  (ldp_label_local_advertise,
 	ldp_label_local_advertise_cmd,
-	"[no] label local advertise [{to <(1-199)|(1300-2699)|WORD>$to_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}]",
+	"[no] label local advertise [{to ACCESSLIST_NAME$to_acl|for ACCESSLIST_NAME$for_acl}]",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure outbound label advertisement control\n"
 	"IP Access-list specifying controls on LDP Peers\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n"
 	"IP access-list for destination prefixes\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_advertise(vty, no, to_acl, for_acl));
@@ -279,15 +287,13 @@ DEFPY  (ldp_label_local_advertise,
 
 DEFPY  (ldp_label_local_advertise_explicit_null,
 	ldp_label_local_advertise_explicit_null_cmd,
-	"[no] label local advertise explicit-null [for <(1-199)|(1300-2699)|WORD>$for_acl]",
+	"[no] label local advertise explicit-null [for ACCESSLIST_NAME$for_acl]",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure outbound label advertisement control\n"
 	"Configure explicit-null advertisement\n"
 	"IP access-list for destination prefixes\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_expnull(vty, no, for_acl));
@@ -295,15 +301,13 @@ DEFPY  (ldp_label_local_advertise_explicit_null,
 
 DEFPY  (ldp_label_local_allocate,
 	ldp_label_local_allocate_cmd,
-	"[no] label local allocate <host-routes$host_routes|for <(1-199)|(1300-2699)|WORD>$for_acl>",
+	"[no] label local allocate <host-routes$host_routes|for ACCESSLIST_NAME$for_acl>",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure label allocation control\n"
 	"allocate local label for host routes only\n"
 	"IP access-list\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_allocate(vty, no, host_routes, for_acl));
@@ -311,18 +315,14 @@ DEFPY  (ldp_label_local_allocate,
 
 DEFPY  (ldp_label_remote_accept,
 	ldp_label_remote_accept_cmd,
-	"[no] label remote accept {from <(1-199)|(1300-2699)|WORD>$from_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}",
+	"[no] label remote accept {from ACCESSLIST_NAME$from_acl|for ACCESSLIST_NAME$for_acl}",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure remote/peer label control and policies\n"
 	"Configure inbound label acceptance control\n"
 	"Neighbor from whom to accept label advertisement\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n"
 	"IP access-list for destination prefixes\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
 	return (ldp_vty_label_accept(vty, no, from_acl, for_acl));
@@ -538,7 +538,7 @@ DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 
 DEFPY  (ldp_debug_mpls_ldp_type,
 	ldp_debug_mpls_ldp_type_cmd,
-	"[no] debug mpls ldp <errors|event|labels|zebra>$type",
+	"[no] debug mpls ldp <errors|event|labels|sync|zebra>$type",
 	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -546,6 +546,7 @@ DEFPY  (ldp_debug_mpls_ldp_type,
 	"Errors\n"
 	"LDP event information\n"
 	"LDP label allocation information\n"
+	"LDP sync information\n"
 	"LDP zebra information\n")
 {
 	return (ldp_vty_debug(vty, no, type, NULL, NULL));
@@ -607,6 +608,8 @@ DEFPY  (ldp_show_mpls_ldp_binding,
 	"Show detailed information\n"
 	JSON_STR)
 {
+	if (!(ldpd_conf->flags & F_LDPD_ENABLED))
+		return CMD_SUCCESS;
 	if (!local_label_str)
 		local_label = NO_LABEL;
 	if (!remote_label_str)
@@ -684,6 +687,18 @@ DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	return (ldp_vty_show_neighbor(vty, lsr_id_str, 1, NULL, json));
 }
 
+DEFPY  (ldp_show_mpls_ldp_igp_sync,
+	ldp_show_mpls_ldp_igp_sync_cmd,
+	"show mpls ldp igp-sync [json]$json",
+	"Show mpls ldp ldp-sync information\n"
+	"MPLS information\n"
+	"Label Distribution Protocol\n"
+	"LDP-IGP Sync information\n"
+	JSON_STR)
+{
+	return (ldp_vty_show_ldp_sync(vty, json));
+}
+
 DEFPY  (ldp_show_l2vpn_atom_binding,
 	ldp_show_l2vpn_atom_binding_cmd,
 	"show l2vpn atom binding\
@@ -743,7 +758,11 @@ DEFPY_NOSH (ldp_show_debugging_mpls_ldp,
 	    "MPLS information\n"
 	    "Label Distribution Protocol\n")
 {
-	return (ldp_vty_show_debugging(vty));
+	ldp_vty_show_debugging(vty);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
 }
 
 static void
@@ -770,14 +789,14 @@ ldp_vty_init (void)
 {
 	cmd_variable_handler_register(l2vpn_var_handlers);
 
-	install_node(&ldp_node, ldp_config_write);
-	install_node(&ldp_ipv4_node, NULL);
-	install_node(&ldp_ipv6_node, NULL);
-	install_node(&ldp_ipv4_iface_node, NULL);
-	install_node(&ldp_ipv6_iface_node, NULL);
-	install_node(&ldp_l2vpn_node, ldp_l2vpn_config_write);
-	install_node(&ldp_pseudowire_node, NULL);
-	install_node(&ldp_debug_node, ldp_debug_config_write);
+	install_node(&ldp_node);
+	install_node(&ldp_ipv4_node);
+	install_node(&ldp_ipv6_node);
+	install_node(&ldp_ipv4_iface_node);
+	install_node(&ldp_ipv6_iface_node);
+	install_node(&ldp_l2vpn_node);
+	install_node(&ldp_pseudowire_node);
+	install_node(&ldp_debug_node);
 	install_default(LDP_NODE);
 	install_default(LDP_IPV4_NODE);
 	install_default(LDP_IPV6_NODE);
@@ -807,6 +826,9 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_neighbor_session_holdtime_cmd);
 	install_element(LDP_NODE, &ldp_neighbor_ttl_security_cmd);
 	install_element(LDP_NODE, &ldp_router_id_cmd);
+	install_element(LDP_NODE, &ldp_ordered_control_cmd);
+	install_element(LDP_NODE, &ldp_wait_for_sync_cmd);
+	install_element(LDP_NODE, &ldp_allow_broken_lsps_cmd);
 
 	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);
@@ -876,4 +898,5 @@ ldp_vty_init (void)
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_binding_cmd);
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_vc_cmd);
 	install_element(VIEW_NODE, &ldp_show_debugging_mpls_ldp_cmd);
+	install_element(VIEW_NODE, &ldp_show_mpls_ldp_igp_sync_cmd);
 }

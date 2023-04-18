@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP daemon CLI implementation.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301 USA.
  */
 
 #include <zebra.h>
@@ -29,15 +15,14 @@
 #include "eigrp_structs.h"
 #include "eigrpd.h"
 #include "eigrp_zebra.h"
+#include "eigrp_cli.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "eigrpd/eigrp_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
 
 /*
  * XPath: /frr-eigrpd:eigrpd/instance
  */
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	router_eigrp,
 	router_eigrp_cmd,
 	"router eigrp (1-65535)$as [vrf NAME]",
@@ -61,7 +46,7 @@ DEFPY_NOSH(
 	return rv;
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_router_eigrp,
 	no_router_eigrp_cmd,
 	"no router eigrp (1-65535)$as [vrf NAME]",
@@ -78,10 +63,10 @@ DEFPY(
 		 as_str, vrf ? vrf : VRF_DEFAULT_NAME);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
-void eigrp_cli_show_header(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_header(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	const char *asn = yang_dnode_get_string(dnode, "./asn");
@@ -93,15 +78,16 @@ void eigrp_cli_show_header(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void eigrp_cli_show_end_header(struct vty *vty, struct lyd_node *dnode)
+void eigrp_cli_show_end_header(struct vty *vty, const struct lyd_node *dnode)
 {
+	vty_out(vty, "exit\n");
 	vty_out(vty, "!\n");
 }
 
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/router-id
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_router_id,
 	eigrp_router_id_cmd,
 	"eigrp router-id A.B.C.D$addr",
@@ -113,7 +99,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_router_id,
 	no_eigrp_router_id_cmd,
 	"no eigrp router-id [A.B.C.D]",
@@ -126,7 +112,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_router_id(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_router_id(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *router_id = yang_dnode_get_string(dnode, NULL);
@@ -137,7 +123,7 @@ void eigrp_cli_show_router_id(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/passive-interface
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_passive_interface,
 	eigrp_passive_interface_cmd,
 	"[no] passive-interface IFNAME",
@@ -155,7 +141,8 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_passive_interface(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	const char *ifname = yang_dnode_get_string(dnode, NULL);
@@ -166,7 +153,7 @@ void eigrp_cli_show_passive_interface(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/active-time
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_timers_active,
 	eigrp_timers_active_cmd,
 	"timers active-time <(1-65535)$timer|disabled$disabled>",
@@ -184,7 +171,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_timers_active,
 	no_eigrp_timers_active_cmd,
 	"no timers active-time [<(1-65535)|disabled>]",
@@ -198,7 +185,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_active_time(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_active_time(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	const char *timer = yang_dnode_get_string(dnode, NULL);
@@ -209,7 +196,7 @@ void eigrp_cli_show_active_time(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/variance
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_variance,
 	eigrp_variance_cmd,
 	"variance (1-128)$variance",
@@ -220,7 +207,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_variance,
 	no_eigrp_variance_cmd,
 	"no variance [(1-128)]",
@@ -232,7 +219,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_variance(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_variance(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	const char *variance = yang_dnode_get_string(dnode, NULL);
@@ -243,7 +230,7 @@ void eigrp_cli_show_variance(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/maximum-paths
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_maximum_paths,
 	eigrp_maximum_paths_cmd,
 	"maximum-paths (1-32)$maximum_paths",
@@ -255,7 +242,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_maximum_paths,
 	no_eigrp_maximum_paths_cmd,
 	"no maximum-paths [(1-32)]",
@@ -267,7 +254,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_maximum_paths(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_maximum_paths(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	const char *maximum_paths = yang_dnode_get_string(dnode, NULL);
@@ -283,7 +270,7 @@ void eigrp_cli_show_maximum_paths(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-eigrpd:eigrpd/instance/metric-weights/K5
  * XPath: /frr-eigrpd:eigrpd/instance/metric-weights/K6
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_metric_weights,
 	eigrp_metric_weights_cmd,
 	"metric weights (0-255)$k1 (0-255)$k2 (0-255)$k3 (0-255)$k4 (0-255)$k5 [(0-255)$k6]",
@@ -308,7 +295,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_metric_weights,
 	no_eigrp_metric_weights_cmd,
 	"no metric weights [(0-255) (0-255) (0-255) (0-255) (0-255) (0-255)]",
@@ -331,7 +318,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_metrics(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_metrics(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults)
 {
 	const char *k1, *k2, *k3, *k4, *k5, *k6;
@@ -359,7 +346,7 @@ void eigrp_cli_show_metrics(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/network
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_network,
 	eigrp_network_cmd,
 	"[no] network A.B.C.D/M$prefix",
@@ -377,7 +364,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_network(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_network(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults)
 {
 	const char *prefix = yang_dnode_get_string(dnode, NULL);
@@ -388,7 +375,7 @@ void eigrp_cli_show_network(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-eigrpd:eigrpd/instance/neighbor
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_neighbor,
 	eigrp_neighbor_cmd,
 	"[no] neighbor A.B.C.D$addr",
@@ -406,8 +393,8 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_neighbor(struct vty *vty, struct lyd_node *dnode,
-			    bool show_defaults)
+void eigrp_cli_show_neighbor(struct vty *vty, const struct lyd_node *dnode,
+			     bool show_defaults)
 {
 	const char *prefix = yang_dnode_get_string(dnode, NULL);
 
@@ -423,7 +410,7 @@ void eigrp_cli_show_neighbor(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute/metrics/load
  * XPath: /frr-eigrpd:eigrpd/instance/redistribute/metrics/mtu
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_redistribute_source_metric,
 	eigrp_redistribute_source_metric_cmd,
 	"[no] redistribute " FRR_REDIST_STR_EIGRPD
@@ -466,7 +453,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_redistribute(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_redistribute(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	const char *proto = yang_dnode_get_string(dnode, "./protocol");
@@ -493,7 +480,7 @@ void eigrp_cli_show_redistribute(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/delay
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_delay,
 	eigrp_if_delay_cmd,
 	"delay (1-16777215)$delay",
@@ -505,7 +492,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_delay,
 	no_eigrp_if_delay_cmd,
 	"no delay [(1-16777215)]",
@@ -518,7 +505,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_delay(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_delay(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	const char *delay = yang_dnode_get_string(dnode, NULL);
@@ -529,7 +516,7 @@ void eigrp_cli_show_delay(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/bandwidth
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_bandwidth,
 	eigrp_if_bandwidth_cmd,
 	"eigrp bandwidth (1-10000000)$bw",
@@ -542,7 +529,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_bandwidth,
 	no_eigrp_if_bandwidth_cmd,
 	"no eigrp bandwidth [(1-10000000)]",
@@ -556,7 +543,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_bandwidth(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_bandwidth(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *bandwidth = yang_dnode_get_string(dnode, NULL);
@@ -567,7 +554,7 @@ void eigrp_cli_show_bandwidth(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/hello-interval
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_ip_hellointerval,
 	eigrp_if_ip_hellointerval_cmd,
 	"ip hello-interval eigrp (1-65535)$hello",
@@ -581,7 +568,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_ip_hellointerval,
 	no_eigrp_if_ip_hellointerval_cmd,
 	"no ip hello-interval eigrp [(1-65535)]",
@@ -597,7 +584,8 @@ DEFPY(
 }
 
 
-void eigrp_cli_show_hello_interval(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_hello_interval(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	const char *hello = yang_dnode_get_string(dnode, NULL);
@@ -608,7 +596,7 @@ void eigrp_cli_show_hello_interval(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/hold-time
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_if_ip_holdinterval,
 	eigrp_if_ip_holdinterval_cmd,
 	"ip hold-time eigrp (1-65535)$hold",
@@ -622,7 +610,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_if_ip_holdinterval,
 	no_eigrp_if_ip_holdinterval_cmd,
 	"no ip hold-time eigrp [(1-65535)]",
@@ -637,7 +625,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_hold_time(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_hold_time(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *holdtime = yang_dnode_get_string(dnode, NULL);
@@ -654,7 +642,7 @@ void eigrp_cli_show_hold_time(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance/summarize-addresses
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_ip_summary_address,
 	eigrp_ip_summary_address_cmd,
 	"ip summary-address eigrp (1-65535)$as A.B.C.D/M$prefix",
@@ -670,13 +658,13 @@ DEFPY(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-address", xpath);
+	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
 	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_CREATE, prefix_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_ip_summary_address,
 	no_eigrp_ip_summary_address_cmd,
 	"no ip summary-address eigrp (1-65535)$as A.B.C.D/M$prefix",
@@ -693,28 +681,30 @@ DEFPY(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-address", xpath);
+	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
 	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_DESTROY, prefix_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_summarize_address(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_summarize_address(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	const struct eigrp_interface *eif = nb_running_get_entry(dnode, NULL,
-								 true);
+	const struct lyd_node *instance =
+		yang_dnode_get_parent(dnode, "instance");
+	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
 	const char *summarize_address = yang_dnode_get_string(dnode, NULL);
 
-	vty_out(vty, " ip summary-address eigrp %d %s\n",
-		eif->eigrp->AS, summarize_address);
+	vty_out(vty, " ip summary-address eigrp %d %s\n", asn,
+		summarize_address);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance/authentication
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_authentication_mode,
 	eigrp_authentication_mode_cmd,
 	"ip authentication mode eigrp (1-65535)$as <md5|hmac-sha-256>$crypt",
@@ -738,7 +728,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_authentication_mode,
 	no_eigrp_authentication_mode_cmd,
 	"no ip authentication mode eigrp (1-65535)$as [<md5|hmac-sha-256>]",
@@ -763,22 +753,23 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_authentication(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_authentication(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	const struct eigrp_interface *eif = nb_running_get_entry(dnode, NULL,
-								 true);
+	const struct lyd_node *instance =
+		yang_dnode_get_parent(dnode, "instance");
+	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
 	const char *crypt = yang_dnode_get_string(dnode, NULL);
 
-	vty_out(vty, " ip authentication mode eigrp %d %s\n",
-		eif->eigrp->AS, crypt);
+	vty_out(vty, " ip authentication mode eigrp %d %s\n", asn, crypt);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance
  * XPath: /frr-interface:lib/interface/frr-eigrpd:eigrp/instance/keychain
  */
-DEFPY(
+DEFPY_YANG(
 	eigrp_authentication_keychain,
 	eigrp_authentication_keychain_cmd,
 	"ip authentication key-chain eigrp (1-65535)$as WORD$name",
@@ -801,7 +792,7 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(
+DEFPY_YANG(
 	no_eigrp_authentication_keychain,
 	no_eigrp_authentication_keychain_cmd,
 	"no ip authentication key-chain eigrp (1-65535)$as [WORD]",
@@ -823,26 +814,34 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void eigrp_cli_show_keychain(struct vty *vty, struct lyd_node *dnode,
+void eigrp_cli_show_keychain(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
-	const struct eigrp_interface *eif = nb_running_get_entry(dnode, NULL,
-								 true);
+	const struct lyd_node *instance =
+		yang_dnode_get_parent(dnode, "instance");
+	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
 	const char *keychain = yang_dnode_get_string(dnode, NULL);
 
-	vty_out(vty, " ip authentication key-chain eigrp %d %s\n",
-		eif->eigrp->AS, keychain);
+	vty_out(vty, " ip authentication key-chain eigrp %d %s\n", asn,
+		keychain);
 }
 
 
 /*
  * CLI installation procedures.
  */
-static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# ", 1};
+static int eigrp_config_write(struct vty *vty);
+static struct cmd_node eigrp_node = {
+	.name = "eigrp",
+	.node = EIGRP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = eigrp_config_write,
+};
 
 static int eigrp_config_write(struct vty *vty)
 {
-	struct lyd_node *dnode;
+	const struct lyd_node *dnode;
 	int written = 0;
 
 	dnode = yang_dnode_get(running_config->dnode, "/frr-eigrpd:eigrpd");
@@ -854,41 +853,13 @@ static int eigrp_config_write(struct vty *vty)
 	return written;
 }
 
-static struct cmd_node eigrp_interface_node = {INTERFACE_NODE,
-					       "%s(config-if)# ", 1};
-
-
-static int eigrp_write_interface(struct vty *vty)
-{
-	struct lyd_node *dnode;
-	struct interface *ifp;
-	struct vrf *vrf;
-	int written = 0;
-
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
-		FOR_ALL_INTERFACES(vrf, ifp) {
-			dnode = yang_dnode_get(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			written = 1;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-
-	return written;
-}
-
 void
 eigrp_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_eigrp_cmd);
 	install_element(CONFIG_NODE, &no_router_eigrp_cmd);
 
-	install_node(&eigrp_node, eigrp_config_write);
+	install_node(&eigrp_node);
 	install_default(EIGRP_NODE);
 
 	install_element(EIGRP_NODE, &eigrp_router_id_cmd);
@@ -906,8 +877,9 @@ eigrp_cli_init(void)
 	install_element(EIGRP_NODE, &eigrp_neighbor_cmd);
 	install_element(EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
 
-	install_node(&eigrp_interface_node, eigrp_write_interface);
-	if_cmd_init();
+	vrf_cmd_init(NULL);
+
+	if_cmd_init_default();
 
 	install_element(INTERFACE_NODE, &eigrp_if_delay_cmd);
 	install_element(INTERFACE_NODE, &no_eigrp_if_delay_cmd);

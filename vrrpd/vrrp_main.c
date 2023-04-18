@@ -1,29 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * VRRP entry point.
  * Copyright (C) 2018-2019 Cumulus Networks, Inc.
  * Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
+
+#include <getopt.h>
 
 #include <lib/version.h>
 
 #include "lib/command.h"
 #include "lib/filter.h"
-#include "lib/getopt.h"
 #include "lib/if.h"
 #include "lib/libfrr.h"
 #include "lib/log.h"
@@ -31,15 +19,16 @@
 #include "lib/nexthop.h"
 #include "lib/privs.h"
 #include "lib/sigevent.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vrf.h"
+#include "lib/vty.h"
 
 #include "vrrp.h"
 #include "vrrp_debug.h"
 #include "vrrp_vty.h"
 #include "vrrp_zebra.h"
 
-DEFINE_MGROUP(VRRPD, "vrrpd")
+DEFINE_MGROUP(VRRPD, "vrrpd");
 
 char backup_config_file[256];
 
@@ -62,12 +51,16 @@ struct zebra_privs_t vrrp_privs = {
 struct option longopts[] = { {0} };
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
+
+static struct frr_daemon_info vrrpd_di;
 
 /* SIGHUP handler. */
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
+
+	vty_read_config(NULL, vrrpd_di.config_file, config_default);
 }
 
 /* SIGINT / SIGTERM handler. */
@@ -76,6 +69,8 @@ static void __attribute__((noreturn)) sigint(void)
 	zlog_notice("Terminating on signal");
 
 	vrrp_fini();
+
+	frr_fini();
 
 	exit(0);
 }
@@ -86,7 +81,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t vrrp_signals[] = {
+struct frr_signal_t vrrp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -105,8 +100,11 @@ struct quagga_signal_t vrrp_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *vrrp_yang_modules[] = {
+static const struct frr_yang_module_info *const vrrp_yang_modules[] = {
+	&frr_filter_info,
+	&frr_vrf_info,
 	&frr_interface_info,
+	&frr_vrrpd_info,
 };
 
 #define VRRP_VTY_PORT 2619
@@ -118,7 +116,7 @@ FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
 		.privs = &vrrp_privs,
 		.yang_modules = vrrp_yang_modules,
 		.n_yang_modules = array_size(vrrp_yang_modules),
-)
+);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -138,7 +136,6 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 

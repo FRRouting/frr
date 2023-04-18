@@ -1,23 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* key-chain for authentication.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "config.h"
 #include <zebra.h>
 
 #include "command.h"
@@ -25,11 +11,11 @@
 #include "linklist.h"
 #include "keychain.h"
 
-DEFINE_MTYPE_STATIC(LIB, KEY, "Key")
-DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain")
+DEFINE_MTYPE_STATIC(LIB, KEY, "Key");
+DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain");
 
-DEFINE_QOBJ_TYPE(keychain)
-DEFINE_QOBJ_TYPE(key)
+DEFINE_QOBJ_TYPE(keychain);
+DEFINE_QOBJ_TYPE(key);
 
 /* Master list of key chain. */
 static struct list *keychain_list;
@@ -207,6 +193,7 @@ static struct key *key_get(const struct keychain *keychain, uint32_t index)
 
 	key = key_new();
 	key->index = index;
+	key->hash_algo = KEYCHAIN_ALGO_NULL;
 	listnode_add_sort(keychain->key, key);
 
 	return key;
@@ -336,6 +323,133 @@ DEFUN (no_key_string,
 	return CMD_SUCCESS;
 }
 
+const struct keychain_algo_info algo_info[] = {
+	{KEYCHAIN_ALGO_NULL, "null", 0, 0, "NULL"},
+	{KEYCHAIN_ALGO_MD5, "md5", KEYCHAIN_MD5_HASH_SIZE,
+	 KEYCHAIN_ALGO_MD5_INTERNAL_BLK_SIZE, "MD5"},
+	{KEYCHAIN_ALGO_HMAC_SHA1, "hmac-sha-1", KEYCHAIN_HMAC_SHA1_HASH_SIZE,
+	 KEYCHAIN_ALGO_SHA1_INTERNAL_BLK_SIZE, "HMAC-SHA-1"},
+	{KEYCHAIN_ALGO_HMAC_SHA256, "hmac-sha-256",
+	 KEYCHAIN_HMAC_SHA256_HASH_SIZE, KEYCHAIN_ALGO_SHA256_INTERNAL_BLK_SIZE,
+	 "HMAC-SHA-256"},
+	{KEYCHAIN_ALGO_HMAC_SHA384, "hmac-sha-384",
+	 KEYCHAIN_HMAC_SHA384_HASH_SIZE, KEYCHAIN_ALGO_SHA384_INTERNAL_BLK_SIZE,
+	 "HMAC-SHA-384"},
+	{KEYCHAIN_ALGO_HMAC_SHA512, "hmac-sha-512",
+	 KEYCHAIN_HMAC_SHA512_HASH_SIZE, KEYCHAIN_ALGO_SHA512_INTERNAL_BLK_SIZE,
+	 "HMAC-SHA-512"},
+	{KEYCHAIN_ALGO_MAX, "max", KEYCHAIN_MAX_HASH_SIZE,
+	 KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE, "Not defined"}
+};
+
+uint16_t keychain_get_block_size(enum keychain_hash_algo key)
+{
+	return algo_info[key].block;
+}
+
+uint16_t keychain_get_hash_len(enum keychain_hash_algo key)
+{
+	return algo_info[key].length;
+}
+
+const char *keychain_get_description(enum keychain_hash_algo key)
+{
+	return algo_info[key].desc;
+}
+
+struct keychain_algo_info
+keychain_get_hash_algo_info(enum keychain_hash_algo key)
+{
+	return algo_info[key];
+}
+
+enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name)
+{
+#ifdef CRYPTO_INTERNAL
+	if (!strncmp(name, "hmac-sha-2", 10))
+		return KEYCHAIN_ALGO_HMAC_SHA256;
+	else if (!strncmp(name, "m", 1))
+		return KEYCHAIN_ALGO_MD5;
+	else
+		return KEYCHAIN_ALGO_NULL;
+#else
+	if (!strncmp(name, "m", 1))
+		return KEYCHAIN_ALGO_MD5;
+	else if (!strncmp(name, "hmac-sha-1", 10))
+		return KEYCHAIN_ALGO_HMAC_SHA1;
+	else if (!strncmp(name, "hmac-sha-2", 10))
+		return KEYCHAIN_ALGO_HMAC_SHA256;
+	else if (!strncmp(name, "hmac-sha-3", 10))
+		return KEYCHAIN_ALGO_HMAC_SHA384;
+	else if (!strncmp(name, "hmac-sha-5", 10))
+		return KEYCHAIN_ALGO_HMAC_SHA512;
+	else
+		return KEYCHAIN_ALGO_NULL;
+#endif
+}
+
+const char *keychain_get_algo_name_by_id(enum keychain_hash_algo key)
+{
+	return algo_info[key].name;
+}
+
+DEFUN(cryptographic_algorithm, cryptographic_algorithm_cmd,
+      "cryptographic-algorithm "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>",
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n")
+{
+	int algo_idx = 1;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+	hash_algo = keychain_get_algo_id_by_name(argv[algo_idx]->arg);
+#ifndef CRYPTO_OPENSSL
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+	key->hash_algo = hash_algo;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_cryptographic_algorithm, no_cryptographic_algorithm_cmd,
+      "no cryptographic-algorithm "
+      "[<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>]",
+      NO_STR
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n")
+{
+	int algo_idx = 2;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+	if (argc > algo_idx) {
+		hash_algo = keychain_get_algo_id_by_name(argv[algo_idx]->arg);
+		if (hash_algo == KEYCHAIN_ALGO_NULL) {
+			vty_out(vty,
+				"Hash algorithm not supported, try compiling with --with-crypto=openssl\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if ((hash_algo != KEYCHAIN_ALGO_NULL) && (hash_algo != key->hash_algo))
+		return CMD_SUCCESS;
+
+	key->hash_algo = KEYCHAIN_ALGO_NULL;
+	return CMD_SUCCESS;
+}
+
 /* Convert HH:MM:SS MON DAY YEAR to time_t value.  -1 is returned when
    given string is malformed. */
 static time_t key_str2time(const char *time_str, const char *day_str,
@@ -413,7 +527,7 @@ static time_t key_str2time(const char *time_str, const char *day_str,
 	/* Check year_str.  Year must be <1993-2035>. */
 	GET_LONG_RANGE(year, year_str, 1993, 2035);
 
-	memset(&tm, 0, sizeof(struct tm));
+	memset(&tm, 0, sizeof(tm));
 	tm.tm_sec = sec;
 	tm.tm_min = min;
 	tm.tm_hour = hour;
@@ -959,20 +1073,30 @@ DEFUN (no_send_lifetime,
 	return CMD_SUCCESS;
 }
 
-static struct cmd_node keychain_node = {KEYCHAIN_NODE, "%s(config-keychain)# ",
-					1};
+static int keychain_config_write(struct vty *vty);
+static struct cmd_node keychain_node = {
+	.name = "keychain",
+	.node = KEYCHAIN_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-keychain)# ",
+	.config_write = keychain_config_write,
+};
 
-static struct cmd_node keychain_key_node = {KEYCHAIN_KEY_NODE,
-					    "%s(config-keychain-key)# ", 1};
+static struct cmd_node keychain_key_node = {
+	.name = "keychain key",
+	.node = KEYCHAIN_KEY_NODE,
+	.parent_node = KEYCHAIN_NODE,
+	.prompt = "%s(config-keychain-key)# ",
+};
 
 static int keychain_strftime(char *buf, int bufsiz, time_t *time)
 {
-	struct tm *tm;
+	struct tm tm;
 	size_t len;
 
-	tm = localtime(time);
+	localtime_r(time, &tm);
 
-	len = strftime(buf, bufsiz, "%T %b %d %Y", tm);
+	len = strftime(buf, bufsiz, "%T %b %d %Y", &tm);
 
 	return len;
 }
@@ -993,6 +1117,11 @@ static int keychain_config_write(struct vty *vty)
 
 			if (key->string)
 				vty_out(vty, "  key-string %s\n", key->string);
+
+			if (key->hash_algo != KEYCHAIN_ALGO_NULL)
+				vty_out(vty, "  cryptographic-algorithm %s\n",
+					keychain_get_algo_name_by_id(
+						key->hash_algo));
 
 			if (key->accept.start) {
 				keychain_strftime(buf, BUFSIZ,
@@ -1031,19 +1160,41 @@ static int keychain_config_write(struct vty *vty)
 				}
 				vty_out(vty, "\n");
 			}
+
+			vty_out(vty, " exit\n");
 		}
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 
 	return 0;
 }
 
+
+static void keychain_active_config(vector comps, struct cmd_token *token)
+{
+	struct keychain *keychain;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(keychain_list, node, keychain))
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, keychain->name));
+}
+
+static const struct cmd_variable_handler keychain_var_handlers[] = {
+	{.varname = "key_chain", .completions = keychain_active_config},
+	{.tokenname = "KEYCHAIN_NAME", .completions = keychain_active_config},
+	{.tokenname = "KCHAIN_NAME", .completions = keychain_active_config},
+	{.completions = NULL}
+};
+
 void keychain_init(void)
 {
 	keychain_list = list_new();
 
-	install_node(&keychain_node, keychain_config_write);
-	install_node(&keychain_key_node, NULL);
+	/* Register handler for keychain auto config support */
+	cmd_variable_handler_register(keychain_var_handlers);
+	install_node(&keychain_node);
+	install_node(&keychain_key_node);
 
 	install_default(KEYCHAIN_NODE);
 	install_default(KEYCHAIN_KEY_NODE);
@@ -1100,4 +1251,6 @@ void keychain_init(void)
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_duration_month_day_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &no_send_lifetime_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &cryptographic_algorithm_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &no_cryptographic_algorithm_cmd);
 }

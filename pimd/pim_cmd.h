@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef PIM_CMD_H
@@ -54,6 +41,7 @@
 #define DEBUG_PIM_PACKETDUMP_RECV_STR               "Dump received packets\n"
 #define DEBUG_PIM_TRACE_STR                         "PIM internal daemon activity\n"
 #define DEBUG_PIM_ZEBRA_STR                         "ZEBRA protocol activity\n"
+#define DEBUG_PIM_MLAG_STR                          "PIM Mlag activity\n"
 #define DEBUG_PIM_VXLAN_STR                         "PIM VxLAN events\n"
 #define DEBUG_SSMPINGD_STR                          "ssmpingd activity\n"
 #define CLEAR_IP_IGMP_STR                           "IGMP clear commands\n"
@@ -72,13 +60,5 @@
 
 void pim_cmd_init(void);
 
-/*
- * Special Macro to allow us to get the correct pim_instance;
- */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf;
-
+#define PIM_TIME_STRLEN 10
 #endif /* PIM_CMD_H */

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * EIGRP Main Routine.
  * Copyright (C) 2013-2015
@@ -11,28 +12,12 @@
  *   Tomas Hvorkovy
  *   Martin Kontsek
  *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -66,6 +51,8 @@
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_errors.h"
 #include "eigrpd/eigrp_vrf.h"
+#include "eigrpd/eigrp_cli.h"
+#include "eigrpd/eigrp_yang.h"
 //#include "eigrpd/eigrp_routemap.h"
 
 /* eigprd privileges */
@@ -89,7 +76,7 @@ struct zebra_privs_t eigrpd_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Forward declaration of daemon info structure. */
 static struct frr_daemon_info eigrpd_di;
@@ -118,7 +105,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t eigrp_signals[] = {
+struct frr_signal_t eigrp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -137,9 +124,12 @@ struct quagga_signal_t eigrp_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *eigrpd_yang_modules[] = {
+static const struct frr_yang_module_info *const eigrpd_yang_modules[] = {
 	&frr_eigrpd_info,
+	&frr_filter_info,
 	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
@@ -150,7 +140,8 @@ FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 		.n_signals = array_size(eigrp_signals),
 
 		.privs = &eigrpd_privs, .yang_modules = eigrpd_yang_modules,
-		.n_yang_modules = array_size(eigrpd_yang_modules), )
+		.n_yang_modules = array_size(eigrpd_yang_modules),
+);
 
 /* EIGRPd main routine. */
 int main(int argc, char **argv, char **envp)
@@ -171,7 +162,6 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -184,7 +174,7 @@ int main(int argc, char **argv, char **envp)
 
 	eigrp_error_init();
 	eigrp_vrf_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 
 	/*EIGRPd init*/
 	eigrp_if_init();
@@ -221,12 +211,10 @@ int main(int argc, char **argv, char **envp)
 	  route_map_add_hook (eigrp_rmap_update);
 	  route_map_delete_hook (eigrp_rmap_update);*/
 	/*if_rmap_init (EIGRP_NODE); */
-	/* Distribute list install. */
-	distribute_list_init(EIGRP_NODE);
 
 	frr_config_fork();
 	frr_run(master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

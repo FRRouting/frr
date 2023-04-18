@@ -1,0 +1,20 @@
+{
+  "2.2.2.2/32":[
+    {
+      "prefix":"2.2.2.2/32",
+      "protocol":"ospf",
+      "selected":true,
+      "distance":110,
+      "metric":20,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.2.3",
+          "afi":"ipv4",
+          "interfaceName":"r1-eth2",
+          "active":true
+        }
+      ]
+    }
+  ]
+}

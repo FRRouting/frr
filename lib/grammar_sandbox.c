@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Testing shim and API examples for the new CLI backend.
  *
@@ -5,22 +6,6 @@
  * be used to test and interact with the new engine.
  * --
  * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -28,20 +13,19 @@
 #endif
 
 #include "command.h"
-#include "memory_vty.h"
 #include "graph.h"
 #include "linklist.h"
 #include "command_match.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc")
+DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc");
 
 /** headers **/
 void grammar_sandbox_init(void);
-void pretty_print_graph(struct vty *vty, struct graph_node *, int, int,
-			struct graph_node **, size_t);
-void init_cmdgraph(struct vty *, struct graph **);
+static void pretty_print_graph(struct vty *vty, struct graph_node *, int, int,
+			       struct graph_node **, size_t);
+static void init_cmdgraph(struct vty *, struct graph **);
 
 /** shim interface commands **/
 static struct graph *nodegraph = NULL, *nodegraph_free = NULL;
@@ -77,8 +61,7 @@ DEFUN (grammar_test,
 
 	// parse the command and install it into the command graph
 	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
 	cmd_graph_parse(graph, cmd);
@@ -197,7 +180,7 @@ DEFUN (grammar_test_match,
 		case MATCHER_AMBIGUOUS:
 			vty_out(vty, "%% Ambiguous command\n");
 			break;
-		default:
+		case MATCHER_OK:
 			vty_out(vty, "%% Unknown error\n");
 			break;
 		}
@@ -396,11 +379,12 @@ DEFUN (grammar_findambig,
 				vector_slot(cmdvec, scannode++);
 			if (!cnode)
 				continue;
+			cmd_finalize_node(cnode);
 			nodegraph = cnode->cmdgraph;
 			if (!nodegraph)
 				continue;
 			vty_out(vty, "scanning node %d (%s)\n", scannode - 1,
-				node_names[scannode - 1]);
+				cnode->name);
 		}
 
 		commands = cmd_graph_permutations(nodegraph);
@@ -467,6 +451,7 @@ DEFUN (grammar_access,
 	}
 
 	vty_out(vty, "node %d\n", (int)cnode->node);
+	cmd_finalize_node(cnode);
 	nodegraph = cnode->cmdgraph;
 	return CMD_SUCCESS;
 }
@@ -492,8 +477,9 @@ void grammar_sandbox_init(void)
  * @param start the node to take as the root
  * @param level indent level for recursive calls, always pass 0
  */
-void pretty_print_graph(struct vty *vty, struct graph_node *start, int level,
-			int desc, struct graph_node **stack, size_t stackpos)
+static void pretty_print_graph(struct vty *vty, struct graph_node *start,
+			       int level, int desc, struct graph_node **stack,
+			       size_t stackpos)
 {
 	// print this node
 	char tokennum[32];
@@ -551,7 +537,7 @@ void pretty_print_graph(struct vty *vty, struct graph_node *start, int level,
 }
 
 /** stuff that should go in command.c + command.h */
-void init_cmdgraph(struct vty *vty, struct graph **graph)
+static void init_cmdgraph(struct vty *vty, struct graph **graph)
 {
 	// initialize graph, add start noe
 	*graph = graph_new();

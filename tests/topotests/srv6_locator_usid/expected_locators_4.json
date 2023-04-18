@@ -1,0 +1,35 @@
+{
+  "locators":[
+    {
+      "name": "loc1",
+      "prefix": "fc00:0:1::/48",
+      "blockBitsLength": 32,
+      "nodeBitsLength": 16,
+      "functionBitsLength": 16,
+      "argumentBitsLength": 0,
+      "behavior": "usid",
+      "statusUp": true,
+      "chunks": [
+        {
+          "prefix": "fc00:0:1::/48",
+          "proto": "system"
+        }
+      ]
+    },
+    {
+      "name": "loc2",
+      "prefix": "fc00:0:2::/48",
+      "blockBitsLength": 32,
+      "nodeBitsLength": 16,
+      "functionBitsLength": 16,
+      "argumentBitsLength": 0,
+      "statusUp": true,
+      "chunks": [
+        {
+          "prefix": "fc00:0:2::/48",
+          "proto": "system"
+        }
+      ]
+    }
+  ]
+}

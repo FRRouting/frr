@@ -1,34 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Get interface's address and mask information by sysctl() function.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#if !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5)
+#if !defined(GNU_LINUX) && !defined(OPEN_BSD)
 
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"
 #include "connected.h"
 #include "memory.h"
-#include "zebra_memory.h"
 #include "ioctl.h"
 #include "log.h"
 #include "interface.h"
@@ -98,7 +82,7 @@ void interface_list(struct zebra_ns *zns)
 		NET_RT_IFLIST, 0};
 
 	if (zns->ns_id != NS_DEFAULT) {
-		zlog_debug("interface_list: ignore NS %u", zns->ns_id);
+		zlog_debug("%s: ignore NS %u", __func__, zns->ns_id);
 		return;
 	}
 
@@ -133,7 +117,7 @@ void interface_list(struct zebra_ns *zns)
 			ifam_read((struct ifa_msghdr *)ifm);
 			break;
 		default:
-			zlog_info("interfaces_list(): unexpected message type");
+			zlog_info("%s: unexpected message type", __func__);
 			XFREE(MTYPE_TMP, ref);
 			return;
 			break;
@@ -144,4 +128,4 @@ void interface_list(struct zebra_ns *zns)
 	XFREE(MTYPE_TMP, ref);
 }
 
-#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5) */
+#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

@@ -1,0 +1,15 @@
+[
+    {
+        "multihop":true,
+        "peer":"2001:db8:1::1",
+        "local":"2001:db8:4::1",
+        "status":"down",
+        "receive-interval":300,
+        "transmit-interval":300,
+        "echo-receive-interval":50,
+        "echo-transmit-interval":0,
+        "remote-receive-interval":300,
+        "remote-transmit-interval":300,
+        "remote-echo-receive-interval":50
+    }
+]

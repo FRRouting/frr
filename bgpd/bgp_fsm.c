@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP-4 Finite State Machine
  * From RFC1771 [A Border Gateway Protocol 4 (BGP-4)]
  * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,7 +9,7 @@
 #include "linklist.h"
 #include "prefix.h"
 #include "sockunion.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "stream.h"
 #include "ringbuf.h"
@@ -35,7 +20,7 @@
 #include "filter.h"
 #include "command.h"
 #include "lib_errors.h"
-
+#include "zclient.h"
 #include "lib/json.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -48,6 +33,7 @@
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_advertise.h"
+#include "bgpd/bgp_community.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
@@ -55,24 +41,34 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_vty.h"
 
-DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
+DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
+
+enum bgp_fsm_state_progress {
+	BGP_FSM_FAILURE_AND_DELETE = -2,
+	BGP_FSM_FAILURE = -1,
+	BGP_FSM_SUCCESS = 0,
+	BGP_FSM_SUCCESS_STATE_TRANSFER = 1,
+};
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
-static const char *bgp_event_str[] = {
+static const char *const bgp_event_str[] = {
 	NULL,
 	"BGP_Start",
 	"BGP_Stop",
 	"TCP_connection_open",
+	"TCP_connection_open_w_delay",
 	"TCP_connection_closed",
 	"TCP_connection_open_failed",
 	"TCP_fatal_error",
 	"ConnectRetry_timer_expired",
 	"Hold_Timer_expired",
 	"KeepAlive_timer_expired",
+	"DelayOpen_timer_expired",
 	"Receive_OPEN_message",
 	"Receive_KEEPALIVE_message",
 	"Receive_UPDATE_message",
@@ -86,29 +82,30 @@ static const char *bgp_event_str[] = {
    function. */
 
 /* BGP event function. */
-int bgp_event(struct thread *);
+void bgp_event(struct event *event);
 
 /* BGP thread functions. */
-static int bgp_start_timer(struct thread *);
-static int bgp_connect_timer(struct thread *);
-static int bgp_holdtime_timer(struct thread *);
+static void bgp_start_timer(struct event *event);
+static void bgp_connect_timer(struct event *event);
+static void bgp_holdtime_timer(struct event *event);
+static void bgp_delayopen_timer(struct event *event);
 
 /* BGP FSM functions. */
-static int bgp_start(struct peer *);
+static enum bgp_fsm_state_progress bgp_start(struct peer *);
 
 /* Register peer with NHT */
-static int bgp_peer_reg_with_nht(struct peer *peer)
+int bgp_peer_reg_with_nht(struct peer *peer)
 {
 	int connected = 0;
 
-	if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
+	if (peer->sort == BGP_PEER_EBGP && peer->ttl == BGP_DEFAULT_TTL
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    && !bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
 	return bgp_find_or_add_nexthop(
 		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
-		NULL, peer, connected);
+		SAFI_UNICAST, NULL, peer, connected, NULL);
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
@@ -130,8 +127,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	afi_t afi;
 	safi_t safi;
 	int fd;
-	int status, pstatus;
-	unsigned char last_evt, last_maj_evt;
+	enum bgp_fsm_status status, pstatus;
+	enum bgp_fsm_events last_evt, last_maj_evt;
 
 	assert(from_peer != NULL);
 
@@ -164,22 +161,32 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	bgp_writes_off(from_peer);
 	bgp_reads_off(from_peer);
 
-	BGP_TIMER_OFF(peer->t_routeadv);
-	BGP_TIMER_OFF(peer->t_connect);
-	BGP_TIMER_OFF(peer->t_connect_check_r);
-	BGP_TIMER_OFF(peer->t_connect_check_w);
-	BGP_TIMER_OFF(from_peer->t_routeadv);
-	BGP_TIMER_OFF(from_peer->t_connect);
-	BGP_TIMER_OFF(from_peer->t_connect_check_r);
-	BGP_TIMER_OFF(from_peer->t_connect_check_w);
-	BGP_TIMER_OFF(from_peer->t_process_packet);
+	/*
+	 * Before exchanging FD remove doppelganger from
+	 * keepalive peer hash. It could be possible conf peer
+	 * fd is set to -1. If blocked on lock then keepalive
+	 * thread can access peer pointer with fd -1.
+	 */
+	bgp_keepalives_off(from_peer);
+
+	EVENT_OFF(peer->t_routeadv);
+	EVENT_OFF(peer->t_connect);
+	EVENT_OFF(peer->t_delayopen);
+	EVENT_OFF(peer->t_connect_check_r);
+	EVENT_OFF(peer->t_connect_check_w);
+	EVENT_OFF(from_peer->t_routeadv);
+	EVENT_OFF(from_peer->t_connect);
+	EVENT_OFF(from_peer->t_delayopen);
+	EVENT_OFF(from_peer->t_connect_check_r);
+	EVENT_OFF(from_peer->t_connect_check_w);
+	EVENT_OFF(from_peer->t_process_packet);
 
 	/*
 	 * At this point in time, it is possible that there are packets pending
 	 * on various buffers. Those need to be transferred or dropped,
 	 * otherwise we'll get spurious failures during session establishment.
 	 */
-	frr_with_mutex(&peer->io_mtx, &from_peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx, &from_peer->io_mtx) {
 		fd = peer->fd;
 		peer->fd = from_peer->fd;
 		from_peer->fd = fd;
@@ -225,8 +232,10 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->v_holdtime = from_peer->v_holdtime;
 	peer->v_keepalive = from_peer->v_keepalive;
 	peer->v_routeadv = from_peer->v_routeadv;
+	peer->v_delayopen = from_peer->v_delayopen;
 	peer->v_gr_restart = from_peer->v_gr_restart;
 	peer->cap = from_peer->cap;
+	peer->remote_role = from_peer->remote_role;
 	status = peer->status;
 	pstatus = peer->ostatus;
 	last_evt = peer->last_event;
@@ -241,35 +250,55 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	from_peer->last_major_event = last_maj_evt;
 	peer->remote_id = from_peer->remote_id;
 	peer->last_reset = from_peer->last_reset;
+	peer->max_packet_size = from_peer->max_packet_size;
 
-	if (from_peer->hostname != NULL) {
-		if (peer->hostname) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-			peer->hostname = NULL;
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
+
+	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
+
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+			peer_nsf_stop(peer);
 		}
+	}
 
+	if (peer->hostname) {
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		peer->hostname = NULL;
+	}
+	if (from_peer->hostname != NULL) {
 		peer->hostname = from_peer->hostname;
 		from_peer->hostname = NULL;
 	}
 
+	if (peer->domainname) {
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		peer->domainname = NULL;
+	}
 	if (from_peer->domainname != NULL) {
-		if (peer->domainname) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-			peer->domainname = NULL;
-		}
-
 		peer->domainname = from_peer->domainname;
 		from_peer->domainname = NULL;
 	}
 
+	if (peer->soft_version) {
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+		peer->soft_version = NULL;
+	}
+	if (from_peer->soft_version) {
+		peer->soft_version = from_peer->soft_version;
+		from_peer->soft_version = NULL;
+	}
+
 	FOREACH_AFI_SAFI (afi, safi) {
-		peer->af_flags[afi][safi] = from_peer->af_flags[afi][safi];
 		peer->af_sflags[afi][safi] = from_peer->af_sflags[afi][safi];
 		peer->af_cap[afi][safi] = from_peer->af_cap[afi][safi];
 		peer->afc_nego[afi][safi] = from_peer->afc_nego[afi][safi];
 		peer->afc_adv[afi][safi] = from_peer->afc_adv[afi][safi];
 		peer->afc_recv[afi][safi] = from_peer->afc_recv[afi][safi];
 		peer->orf_plist[afi][safi] = from_peer->orf_plist[afi][safi];
+		peer->llgr[afi][safi] = from_peer->llgr[afi][safi];
 	}
 
 	if (bgp_getsockname(peer) < 0) {
@@ -280,8 +309,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 				 ? "accept"
 				 : ""),
 			peer->host, peer->fd, from_peer->fd);
-		bgp_stop(peer);
-		bgp_stop(from_peer);
+		BGP_EVENT_ADD(peer, BGP_Stop);
+		BGP_EVENT_ADD(from_peer, BGP_Stop);
 		return NULL;
 	}
 	if (from_peer->status > Active) {
@@ -309,11 +338,13 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 * needed, even on a passive connection.
 	 */
 	bgp_peer_reg_with_nht(peer);
+	if (from_peer)
+		bgp_replace_nexthop_by_peer(from_peer, peer);
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
-	thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
-			      &peer->t_process_packet);
+	event_add_event(bm->master, bgp_process_packet, peer, 0,
+			&peer->t_process_packet);
 
 	return (peer);
 }
@@ -323,322 +354,562 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
    structure. */
 void bgp_timer_set(struct peer *peer)
 {
+	afi_t afi;
+	safi_t safi;
+
 	switch (peer->status) {
 	case Idle:
 		/* First entry point of peer's finite state machine.  In Idle
 		   status start timer is on unless peer is shutdown or peer is
 		   inactive.  All other timer must be turned off */
 		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(peer)
-		    || (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
-			peer->bgp->vrf_id == VRF_UNKNOWN)) {
-			BGP_TIMER_OFF(peer->t_start);
+		    || peer->bgp->vrf_id == VRF_UNKNOWN) {
+			EVENT_OFF(peer->t_start);
 		} else {
 			BGP_TIMER_ON(peer->t_start, bgp_start_timer,
 				     peer->v_start);
 		}
-		BGP_TIMER_OFF(peer->t_connect);
-		BGP_TIMER_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_delayopen);
 		break;
 
 	case Connect:
 		/* After start timer is expired, the peer moves to Connect
 		   status.  Make sure start timer is off and connect timer is
 		   on. */
-		BGP_TIMER_OFF(peer->t_start);
-		BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
-			     peer->v_connect);
-		BGP_TIMER_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->t_start);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
+				     (peer->v_delayopen + peer->v_connect));
+		else
+			BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
+				     peer->v_connect);
+
+		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 		break;
 
 	case Active:
 		/* Active is waiting connection from remote peer.  And if
 		   connect timer is expired, change status to Connect. */
-		BGP_TIMER_OFF(peer->t_start);
+		EVENT_OFF(peer->t_start);
 		/* If peer is passive mode, do not set connect timer. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)
 		    || CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
-			BGP_TIMER_OFF(peer->t_connect);
+			EVENT_OFF(peer->t_connect);
 		} else {
-			BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
-				     peer->v_connect);
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+				BGP_TIMER_ON(
+					peer->t_connect, bgp_connect_timer,
+					(peer->v_delayopen + peer->v_connect));
+			else
+				BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
+					     peer->v_connect);
 		}
-		BGP_TIMER_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 		break;
 
 	case OpenSent:
 		/* OpenSent status. */
-		BGP_TIMER_OFF(peer->t_start);
-		BGP_TIMER_OFF(peer->t_connect);
+		EVENT_OFF(peer->t_start);
+		EVENT_OFF(peer->t_connect);
 		if (peer->v_holdtime != 0) {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 		} else {
-			BGP_TIMER_OFF(peer->t_holdtime);
+			EVENT_OFF(peer->t_holdtime);
 		}
 		bgp_keepalives_off(peer);
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_delayopen);
 		break;
 
 	case OpenConfirm:
 		/* OpenConfirm status. */
-		BGP_TIMER_OFF(peer->t_start);
-		BGP_TIMER_OFF(peer->t_connect);
+		EVENT_OFF(peer->t_start);
+		EVENT_OFF(peer->t_connect);
 
-		/* If the negotiated Hold Time value is zero, then the Hold Time
-		   timer and KeepAlive timers are not started. */
-		if (peer->v_holdtime == 0) {
-			BGP_TIMER_OFF(peer->t_holdtime);
+		/*
+		 * If the negotiated Hold Time value is zero, then the Hold Time
+		 * timer and KeepAlive timers are not started.
+		 * Additionally if a different hold timer has been negotiated
+		 * than we must stop then start the timer again
+		 */
+		EVENT_OFF(peer->t_holdtime);
+		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
-		} else {
+		else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 			bgp_keepalives_on(peer);
 		}
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_delayopen);
 		break;
 
 	case Established:
 		/* In Established status start and connect timer is turned
 		   off. */
-		BGP_TIMER_OFF(peer->t_start);
-		BGP_TIMER_OFF(peer->t_connect);
+		EVENT_OFF(peer->t_start);
+		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->t_delayopen);
 
-		/* Same as OpenConfirm, if holdtime is zero then both holdtime
-		   and keepalive must be turned off. */
-		if (peer->v_holdtime == 0) {
-			BGP_TIMER_OFF(peer->t_holdtime);
+		/*
+		 * Same as OpenConfirm, if holdtime is zero then both holdtime
+		 * and keepalive must be turned off.
+		 * Additionally if a different hold timer has been negotiated
+		 * then we must stop then start the timer again
+		 */
+		EVENT_OFF(peer->t_holdtime);
+		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
-		} else {
+		else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
 			bgp_keepalives_on(peer);
 		}
 		break;
 	case Deleted:
-		BGP_TIMER_OFF(peer->t_gr_restart);
-		BGP_TIMER_OFF(peer->t_gr_stale);
-		BGP_TIMER_OFF(peer->t_pmax_restart);
+		EVENT_OFF(peer->t_gr_restart);
+		EVENT_OFF(peer->t_gr_stale);
+
+		FOREACH_AFI_SAFI (afi, safi)
+			EVENT_OFF(peer->t_llgr_stale[afi][safi]);
+
+		EVENT_OFF(peer->t_pmax_restart);
+		EVENT_OFF(peer->t_refresh_stalepath);
 	/* fallthru */
 	case Clearing:
-		BGP_TIMER_OFF(peer->t_start);
-		BGP_TIMER_OFF(peer->t_connect);
-		BGP_TIMER_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->t_start);
+		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_delayopen);
+		break;
+	case BGP_STATUS_MAX:
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "BGP_STATUS_MAX while a legal state is not valid state for the FSM");
 		break;
 	}
 }
 
 /* BGP start timer.  This function set BGP_Start event to thread value
    and process event. */
-static int bgp_start_timer(struct thread *thread)
+static void bgp_start_timer(struct event *thread)
 {
 	struct peer *peer;
 
-	peer = THREAD_ARG(thread);
-	peer->t_start = NULL;
+	peer = EVENT_ARG(thread);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (start timer expire).", peer->host);
 
-	THREAD_VAL(thread) = BGP_Start;
+	EVENT_VAL(thread) = BGP_Start;
 	bgp_event(thread); /* bgp_event unlocks peer */
-
-	return 0;
 }
 
 /* BGP connect retry timer. */
-static int bgp_connect_timer(struct thread *thread)
+static void bgp_connect_timer(struct event *thread)
 {
 	struct peer *peer;
-	int ret;
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
+
+	/* stop the DelayOpenTimer if it is running */
+	EVENT_OFF(peer->t_delayopen);
 
 	assert(!peer->t_write);
 	assert(!peer->t_read);
 
-	peer->t_connect = NULL;
-
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (connect timer expire)", peer->host);
 
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) {
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
 		bgp_stop(peer);
-		ret = -1;
-	} else {
-		THREAD_VAL(thread) = ConnectRetry_timer_expired;
+	else {
+		EVENT_VAL(thread) = ConnectRetry_timer_expired;
 		bgp_event(thread); /* bgp_event unlocks peer */
-		ret = 0;
 	}
-
-	return ret;
 }
 
 /* BGP holdtime timer. */
-static int bgp_holdtime_timer(struct thread *thread)
+static void bgp_holdtime_timer(struct event *thread)
 {
+	atomic_size_t inq_count;
 	struct peer *peer;
 
-	peer = THREAD_ARG(thread);
-	peer->t_holdtime = NULL;
+	peer = EVENT_ARG(thread);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (holdtime timer expire)",
 			   peer->host);
 
-	THREAD_VAL(thread) = Hold_Timer_expired;
-	bgp_event(thread); /* bgp_event unlocks peer */
+	/*
+	 * Given that we do not have any expectation of ordering
+	 * for handling packets from a peer -vs- handling
+	 * the hold timer for a peer as that they are both
+	 * events on the peer.  If we have incoming
+	 * data on the peers inq, let's give the system a chance
+	 * to handle that data.  This can be especially true
+	 * for systems where we are heavily loaded for one
+	 * reason or another.
+	 */
+	inq_count = atomic_load_explicit(&peer->ibuf->count,
+					 memory_order_relaxed);
+	if (inq_count)
+		BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
+			     peer->v_holdtime);
 
-	return 0;
+	EVENT_VAL(thread) = Hold_Timer_expired;
+	bgp_event(thread); /* bgp_event unlocks peer */
 }
 
-int bgp_routeadv_timer(struct thread *thread)
+void bgp_routeadv_timer(struct event *thread)
 {
 	struct peer *peer;
 
-	peer = THREAD_ARG(thread);
-	peer->t_routeadv = NULL;
+	peer = EVENT_ARG(thread);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (routeadv timer expire)",
 			   peer->host);
 
-	peer->synctime = bgp_clock();
+	peer->synctime = monotime(NULL);
 
-	thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
-			      &peer->t_generate_updgrp_packets);
+	event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
+			     &peer->t_generate_updgrp_packets);
 
 	/* MRAI timer will be started again when FIFO is built, no need to
 	 * do it here.
 	 */
-	return 0;
+}
+
+/* RFC 4271 DelayOpenTimer */
+void bgp_delayopen_timer(struct event *thread)
+{
+	struct peer *peer;
+
+	peer = EVENT_ARG(thread);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [FSM] Timer (DelayOpentimer expire)",
+			   peer->host);
+
+	EVENT_VAL(thread) = DelayOpen_timer_expired;
+	bgp_event(thread); /* bgp_event unlocks peer */
 }
 
 /* BGP Peer Down Cause */
-const char *peer_down_str[] = {"",
-			       "Router ID changed",
-			       "Remote AS changed",
-			       "Local AS change",
-			       "Cluster ID changed",
-			       "Confederation identifier changed",
-			       "Confederation peer changed",
-			       "RR client config change",
-			       "RS client config change",
-			       "Update source change",
-			       "Address family activated",
-			       "Admin. shutdown",
-			       "User reset",
-			       "BGP Notification received",
-			       "BGP Notification send",
-			       "Peer closed the session",
-			       "Neighbor deleted",
-			       "Peer-group add member",
-			       "Peer-group delete member",
-			       "Capability changed",
-			       "Passive config change",
-			       "Multihop config change",
-			       "NSF peer closed the session",
-			       "Intf peering v6only config change",
-			       "BFD down received",
-			       "Interface down",
-			       "Neighbor address lost",
-			       "Waiting for NHT",
-			       "Waiting for Peer IPv6 LLA",
-			       "Waiting for VRF to be initialized",
-			       "No AFI/SAFI activated for peer"};
+const char *const peer_down_str[] = {"",
+				     "Router ID changed",
+				     "Remote AS changed",
+				     "Local AS change",
+				     "Cluster ID changed",
+				     "Confederation identifier changed",
+				     "Confederation peer changed",
+				     "RR client config change",
+				     "RS client config change",
+				     "Update source change",
+				     "Address family activated",
+				     "Admin. shutdown",
+				     "User reset",
+				     "BGP Notification received",
+				     "BGP Notification send",
+				     "Peer closed the session",
+				     "Neighbor deleted",
+				     "Peer-group add member",
+				     "Peer-group delete member",
+				     "Capability changed",
+				     "Passive config change",
+				     "Multihop config change",
+				     "NSF peer closed the session",
+				     "Intf peering v6only config change",
+				     "BFD down received",
+				     "Interface down",
+				     "Neighbor address lost",
+				     "No path to specified Neighbor",
+				     "Waiting for Peer IPv6 LLA",
+				     "Waiting for VRF to be initialized",
+				     "No AFI/SAFI activated for peer",
+				     "AS Set config change",
+				     "Waiting for peer OPEN",
+				     "Reached received prefix count",
+				     "Socket Error",
+				     "Admin. shutdown (RTT)"};
 
-static int bgp_graceful_restart_timer_expire(struct thread *thread)
+static void bgp_graceful_restart_timer_off(struct peer *peer)
 {
-	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 
-	peer = THREAD_ARG(thread);
-	peer->t_gr_restart = NULL;
-
-	/* NSF delete stale route */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
-			if (peer->nsf[afi][safi])
-				bgp_clear_stale_route(peer, afi, safi);
+	FOREACH_AFI_SAFI (afi, safi)
+		if (CHECK_FLAG(peer->af_sflags[afi][safi],
+			       PEER_STATUS_LLGR_WAIT))
+			return;
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
-	BGP_TIMER_OFF(peer->t_gr_stale);
+	EVENT_OFF(peer->t_gr_stale);
 
-	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug("%s graceful restart timer expired", peer->host);
-		zlog_debug("%s graceful restart stalepath timer stopped",
-			   peer->host);
+	if (peer_dynamic_neighbor(peer) &&
+	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
+		peer_delete(peer);
 	}
 
 	bgp_timer_set(peer);
-
-	return 0;
 }
 
-static int bgp_graceful_stale_timer_expire(struct thread *thread)
+static void bgp_llgr_stale_timer_expire(struct event *thread)
+{
+	struct peer_af *paf;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	paf = EVENT_ARG(thread);
+
+	peer = paf->peer;
+	afi = paf->afi;
+	safi = paf->safi;
+
+	/* If the timer for the "Long-lived Stale Time" expires before the
+	 * session is re-established, the helper MUST delete all the
+	 * stale routes from the neighbor that it is retaining.
+	 */
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP Long-lived stale timer (%s) expired", peer,
+			   get_afi_safi_str(afi, safi, false));
+
+	UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_LLGR_WAIT);
+
+	bgp_clear_stale_route(peer, afi, safi);
+
+	bgp_graceful_restart_timer_off(peer);
+}
+
+static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	struct bgp_table *table;
+	struct attr attr;
+
+	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
+		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
+		     dest = bgp_route_next(dest)) {
+			struct bgp_dest *rm;
+
+			table = bgp_dest_get_bgp_table_info(dest);
+			if (!table)
+				continue;
+
+			for (rm = bgp_table_top(table); rm;
+			     rm = bgp_route_next(rm))
+				for (pi = bgp_dest_get_bgp_path_info(rm); pi;
+				     pi = pi->next) {
+					if (pi->peer != peer)
+						continue;
+
+					if (bgp_attr_get_community(pi->attr) &&
+					    community_include(
+						    bgp_attr_get_community(
+							    pi->attr),
+						    COMMUNITY_NO_LLGR))
+						continue;
+
+					if (bgp_debug_neighbor_events(peer))
+						zlog_debug(
+							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+							peer, &dest->p);
+
+					attr = *pi->attr;
+					bgp_attr_add_llgr_community(&attr);
+					pi->attr = bgp_attr_intern(&attr);
+					bgp_recalculate_afi_safi_bestpaths(
+						peer->bgp, afi, safi);
+
+					break;
+				}
+		}
+	} else {
+		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
+		     dest = bgp_route_next(dest))
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				if (pi->peer != peer)
+					continue;
+
+				if (bgp_attr_get_community(pi->attr) &&
+				    community_include(
+					    bgp_attr_get_community(pi->attr),
+					    COMMUNITY_NO_LLGR))
+					continue;
+
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+						peer, &dest->p);
+
+				attr = *pi->attr;
+				bgp_attr_add_llgr_community(&attr);
+				pi->attr = bgp_attr_intern(&attr);
+				bgp_recalculate_afi_safi_bestpaths(peer->bgp,
+								   afi, safi);
+
+				break;
+			}
+	}
+}
+
+static void bgp_graceful_restart_timer_expire(struct event *thread)
+{
+	struct peer *peer, *tmp_peer;
+	struct listnode *node, *nnode;
+	struct peer_af *paf;
+	afi_t afi;
+	safi_t safi;
+
+	peer = EVENT_ARG(thread);
+
+	if (bgp_debug_neighbor_events(peer)) {
+		zlog_debug("%pBP graceful restart timer expired", peer);
+		zlog_debug("%pBP graceful restart stalepath timer stopped",
+			   peer);
+	}
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->nsf[afi][safi])
+			continue;
+
+		/* Once the "Restart Time" period ends, the LLGR period is
+		 * said to have begun and the following procedures MUST be
+		 * performed:
+		 *
+		 * The helper router MUST start a timer for the
+		 * "Long-lived Stale Time".
+		 *
+		 * The helper router MUST attach the LLGR_STALE community
+		 * for the stale routes being retained. Note that this
+		 * requirement implies that the routes would need to be
+		 * readvertised, to disseminate the modified community.
+		 */
+		if (peer->llgr[afi][safi].stale_time) {
+			paf = peer_af_find(peer, afi, safi);
+			if (!paf)
+				continue;
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%pBP Long-lived stale timer (%s) started for %d sec",
+					peer,
+					get_afi_safi_str(afi, safi, false),
+					peer->llgr[afi][safi].stale_time);
+
+			SET_FLAG(peer->af_sflags[afi][safi],
+				 PEER_STATUS_LLGR_WAIT);
+
+			bgp_set_llgr_stale(peer, afi, safi);
+			bgp_clear_stale_route(peer, afi, safi);
+
+			event_add_timer(bm->master, bgp_llgr_stale_timer_expire,
+					paf, peer->llgr[afi][safi].stale_time,
+					&peer->t_llgr_stale[afi][safi]);
+
+			for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode,
+					       tmp_peer))
+				bgp_announce_route(tmp_peer, afi, safi, false);
+		} else {
+			bgp_clear_stale_route(peer, afi, safi);
+		}
+	}
+
+	bgp_graceful_restart_timer_off(peer);
+}
+
+static void bgp_graceful_stale_timer_expire(struct event *thread)
 {
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 
-	peer = THREAD_ARG(thread);
-	peer->t_gr_stale = NULL;
+	peer = EVENT_ARG(thread);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s graceful restart stalepath timer expired",
-			   peer->host);
+		zlog_debug("%pBP graceful restart stalepath timer expired",
+			   peer);
 
 	/* NSF delete stale route */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
-			if (peer->nsf[afi][safi])
-				bgp_clear_stale_route(peer, afi, safi);
-
-	return 0;
+	FOREACH_AFI_SAFI_NSF (afi, safi)
+		if (peer->nsf[afi][safi])
+			bgp_clear_stale_route(peer, afi, safi);
 }
 
-static int bgp_update_delay_applicable(struct bgp *bgp)
+/* Selection deferral timer processing function */
+static void bgp_graceful_deferral_timer_expire(struct event *thread)
+{
+	struct afi_safi_info *info;
+	afi_t afi;
+	safi_t safi;
+	struct bgp *bgp;
+
+	info = EVENT_ARG(thread);
+	afi = info->afi;
+	safi = info->safi;
+	bgp = info->bgp;
+
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug(
+			"afi %d, safi %d : graceful restart deferral timer expired",
+			afi, safi);
+
+	bgp->gr_info[afi][safi].eor_required = 0;
+	bgp->gr_info[afi][safi].eor_received = 0;
+	XFREE(MTYPE_TMP, info);
+
+	/* Best path selection */
+	bgp_best_path_select_defer(bgp, afi, safi);
+}
+
+static bool bgp_update_delay_applicable(struct bgp *bgp)
 {
 	/* update_delay_over flag should be reset (set to 0) for any new
 	   applicability of the update-delay during BGP process lifetime.
 	   And it should be set after an occurence of the update-delay is
 	   over)*/
 	if (!bgp->update_delay_over)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_update_delay_active(struct bgp *bgp)
+bool bgp_update_delay_active(struct bgp *bgp)
 {
 	if (bgp->t_update_delay)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_update_delay_configured(struct bgp *bgp)
+bool bgp_update_delay_configured(struct bgp *bgp)
 {
 	if (bgp->v_update_delay)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
 /* Do the post-processing needed when bgp comes out of the read-only mode
    on ending the update delay. */
 void bgp_update_delay_end(struct bgp *bgp)
 {
-	THREAD_TIMER_OFF(bgp->t_update_delay);
-	THREAD_TIMER_OFF(bgp->t_establish_wait);
+	EVENT_OFF(bgp->t_update_delay);
+	EVENT_OFF(bgp->t_establish_wait);
 
 	/* Reset update-delay related state */
 	bgp->update_delay_over = 1;
@@ -647,8 +918,8 @@ void bgp_update_delay_end(struct bgp *bgp)
 	bgp->implicit_eors = 0;
 	bgp->explicit_eors = 0;
 
-	quagga_timestamp(3, bgp->update_delay_end_time,
-			 sizeof(bgp->update_delay_end_time));
+	frr_timestamp(3, bgp->update_delay_end_time,
+		      sizeof(bgp->update_delay_end_time));
 
 	/*
 	 * Add an end-of-initial-update marker to the main process queues so
@@ -673,11 +944,12 @@ void bgp_update_delay_end(struct bgp *bgp)
 	bgp->main_zebra_update_hold = 1;
 	bgp->main_peers_update_hold = 1;
 
-	/* Resume the queue processing. This should trigger the event that would
-	   take
-	   care of processing any work that was queued during the read-only
-	   mode. */
-	work_queue_unplug(bm->process_main_queue);
+	/*
+	 * Resume the queue processing. This should trigger the event that would
+	 * take care of processing any work that was queued during the read-only
+	 * mode.
+	 */
+	work_queue_unplug(bgp->process_queue);
 }
 
 /**
@@ -688,19 +960,19 @@ void bgp_start_routeadv(struct bgp *bgp)
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
-	zlog_info("bgp_start_routeadv(), update hold status %d",
+	zlog_info("%s, update hold status %d", __func__,
 		  bgp->main_peers_update_hold);
 
 	if (bgp->main_peers_update_hold)
 		return;
 
-	quagga_timestamp(3, bgp->update_delay_peers_resume_time,
-			 sizeof(bgp->update_delay_peers_resume_time));
+	frr_timestamp(3, bgp->update_delay_peers_resume_time,
+		      sizeof(bgp->update_delay_peers_resume_time));
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->status != Established)
+		if (!peer_established(peer))
 			continue;
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 	}
 }
@@ -710,7 +982,7 @@ void bgp_start_routeadv(struct bgp *bgp)
  */
 void bgp_adjust_routeadv(struct peer *peer)
 {
-	time_t nowtime = bgp_clock();
+	time_t nowtime = monotime(NULL);
 	double diff;
 	unsigned long remain;
 
@@ -720,13 +992,16 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 * different
 		 * duration and schedule write thread immediately.
 		 */
-		if (peer->t_routeadv)
-			BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 
-		peer->synctime = bgp_clock();
-		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
-				      peer, 0,
-				      &peer->t_generate_updgrp_packets);
+		peer->synctime = monotime(NULL);
+		/* If suppress fib pending is enabled, route is advertised to
+		 * peers when the status is received from the FIB. The delay
+		 * is added to update group packet generate which will allow
+		 * more routes to be sent in the update message
+		 */
+		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+					  bgp_generate_updgrp_packets);
 		return;
 	}
 
@@ -749,7 +1024,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 	 */
 	diff = difftime(nowtime, peer->last_update);
 	if (diff > (double)peer->v_routeadv) {
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 		return;
 	}
@@ -771,38 +1046,35 @@ void bgp_adjust_routeadv(struct peer *peer)
 	 *                     (MRAI - m) < r
 	 */
 	if (peer->t_routeadv)
-		remain = thread_timer_remain_second(peer->t_routeadv);
+		remain = event_timer_remain_second(peer->t_routeadv);
 	else
 		remain = peer->v_routeadv;
 	diff = peer->v_routeadv - diff;
 	if (diff <= (double)remain) {
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, diff);
 	}
 }
 
-static int bgp_maxmed_onstartup_applicable(struct bgp *bgp)
+static bool bgp_maxmed_onstartup_applicable(struct bgp *bgp)
 {
 	if (!bgp->maxmed_onstartup_over)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_maxmed_onstartup_configured(struct bgp *bgp)
+bool bgp_maxmed_onstartup_configured(struct bgp *bgp)
 {
 	if (bgp->v_maxmed_onstartup != BGP_MAXMED_ONSTARTUP_UNCONFIGURED)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_maxmed_onstartup_active(struct bgp *bgp)
+bool bgp_maxmed_onstartup_active(struct bgp *bgp)
 {
 	if (bgp->t_maxmed_onstartup)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
 void bgp_maxmed_update(struct bgp *bgp)
@@ -830,20 +1102,39 @@ void bgp_maxmed_update(struct bgp *bgp)
 	}
 }
 
+int bgp_fsm_error_subcode(int status)
+{
+	int fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC;
+
+	switch (status) {
+	case OpenSent:
+		fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_OPENSENT;
+		break;
+	case OpenConfirm:
+		fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_OPENCONFIRM;
+		break;
+	case Established:
+		fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_ESTABLISHED;
+		break;
+	default:
+		break;
+	}
+
+	return fsm_err_subcode;
+}
+
 /* The maxmed onstartup timer expiry callback. */
-static int bgp_maxmed_onstartup_timer(struct thread *thread)
+static void bgp_maxmed_onstartup_timer(struct event *thread)
 {
 	struct bgp *bgp;
 
 	zlog_info("Max med on startup ended - timer expired.");
 
-	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_maxmed_onstartup);
+	bgp = EVENT_ARG(thread);
+	EVENT_OFF(bgp->t_maxmed_onstartup);
 	bgp->maxmed_onstartup_over = 1;
 
 	bgp_maxmed_update(bgp);
-
-	return 0;
 }
 
 static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
@@ -855,8 +1146,8 @@ static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
 	zlog_info("Begin maxmed onstartup mode - timer %d seconds",
 		  bgp->v_maxmed_onstartup);
 
-	thread_add_timer(bm->master, bgp_maxmed_onstartup_timer, bgp,
-			 bgp->v_maxmed_onstartup, &bgp->t_maxmed_onstartup);
+	event_add_timer(bm->master, bgp_maxmed_onstartup_timer, bgp,
+			bgp->v_maxmed_onstartup, &bgp->t_maxmed_onstartup);
 
 	if (!bgp->v_maxmed_admin) {
 		bgp->maxmed_active = 1;
@@ -869,37 +1160,33 @@ static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
 
 static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 {
-	if (peer->status == Established && !peer->bgp->established) {
+	if (peer_established(peer) && !peer->bgp->established) {
 		bgp_maxmed_onstartup_begin(peer->bgp);
 	}
 }
 
 /* The update delay timer expiry callback. */
-static int bgp_update_delay_timer(struct thread *thread)
+static void bgp_update_delay_timer(struct event *thread)
 {
 	struct bgp *bgp;
 
 	zlog_info("Update delay ended - timer expired.");
 
-	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_update_delay);
+	bgp = EVENT_ARG(thread);
+	EVENT_OFF(bgp->t_update_delay);
 	bgp_update_delay_end(bgp);
-
-	return 0;
 }
 
 /* The establish wait timer expiry callback. */
-static int bgp_establish_wait_timer(struct thread *thread)
+static void bgp_establish_wait_timer(struct event *thread)
 {
 	struct bgp *bgp;
 
 	zlog_info("Establish wait - timer expired.");
 
-	bgp = THREAD_ARG(thread);
-	THREAD_TIMER_OFF(bgp->t_establish_wait);
+	bgp = EVENT_ARG(thread);
+	EVENT_OFF(bgp->t_establish_wait);
 	bgp_check_update_delay(bgp);
-
-	return 0;
 }
 
 /* Steps to begin the update delay:
@@ -912,33 +1199,33 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 	struct peer *peer;
 
 	/* Stop the processing of queued work. Enqueue shall continue */
-	work_queue_plug(bm->process_main_queue);
+	work_queue_plug(bgp->process_queue);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 		peer->update_delay_over = 0;
 
 	/* Start the update-delay timer */
-	thread_add_timer(bm->master, bgp_update_delay_timer, bgp,
-			 bgp->v_update_delay, &bgp->t_update_delay);
+	event_add_timer(bm->master, bgp_update_delay_timer, bgp,
+			bgp->v_update_delay, &bgp->t_update_delay);
 
 	if (bgp->v_establish_wait != bgp->v_update_delay)
-		thread_add_timer(bm->master, bgp_establish_wait_timer, bgp,
-				 bgp->v_establish_wait, &bgp->t_establish_wait);
+		event_add_timer(bm->master, bgp_establish_wait_timer, bgp,
+				bgp->v_establish_wait, &bgp->t_establish_wait);
 
-	quagga_timestamp(3, bgp->update_delay_begin_time,
-			 sizeof(bgp->update_delay_begin_time));
+	frr_timestamp(3, bgp->update_delay_begin_time,
+		      sizeof(bgp->update_delay_begin_time));
 }
 
 static void bgp_update_delay_process_status_change(struct peer *peer)
 {
-	if (peer->status == Established) {
+	if (peer_established(peer)) {
 		if (!peer->bgp->established++) {
 			bgp_update_delay_begin(peer->bgp);
 			zlog_info(
 				"Begin read-only mode - update-delay timer %d seconds",
 				peer->bgp->v_update_delay);
 		}
-		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
+		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 			bgp_update_restarted_peers(peer);
 	}
 	if (peer->ostatus == Established
@@ -957,7 +1244,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 
 /* Called after event occurred, this function change status and reset
    read/write and timer thread. */
-void bgp_fsm_change_status(struct peer *peer, int status)
+void bgp_fsm_change_status(struct peer *peer, enum bgp_fsm_status status)
 {
 	struct bgp *bgp;
 	uint32_t peer_count;
@@ -967,7 +1254,7 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 
 	if (status == Established)
 		bgp->established_peers++;
-	else if ((peer->status == Established) && (status != Established))
+	else if ((peer_established(peer)) && (status != Established))
 		bgp->established_peers--;
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1012,13 +1299,21 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 		 * Clearing
 		 * (or Deleted).
 		 */
-		if (!work_queue_is_scheduled(peer->clear_node_queue))
+		if (!work_queue_is_scheduled(peer->clear_node_queue) &&
+		    status != Deleted)
 			BGP_EVENT_ADD(peer, Clearing_Completed);
 	}
 
 	/* Preserve old status and change into new status. */
 	peer->ostatus = peer->status;
 	peer->status = status;
+
+	/* Reset received keepalives counter on every FSM change */
+	peer->rtt_keepalive_rcv = 0;
+
+	/* Fire backward transition hook if that's the case */
+	if (peer->ostatus == Established && peer->status != Established)
+		hook_call(peer_backward_transition, peer);
 
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
@@ -1044,17 +1339,17 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 		bgp_update_delay_process_status_change(peer);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s went from %s to %s", peer->host,
+		zlog_debug("%s fd %d went from %s to %s", peer->host, peer->fd,
 			   lookup_msg(bgp_status_msg, peer->ostatus, NULL),
 			   lookup_msg(bgp_status_msg, peer->status, NULL));
 }
 
 /* Flush the event queue and ensure the peer is shut down */
-static int bgp_clearing_completed(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_clearing_completed(struct peer *peer)
 {
-	int rc = bgp_stop(peer);
+	enum bgp_fsm_state_progress rc = bgp_stop(peer);
 
-	if (rc >= 0)
+	if (rc >= BGP_FSM_SUCCESS)
 		BGP_EVENT_FLUSH(peer);
 
 	return rc;
@@ -1062,19 +1357,29 @@ static int bgp_clearing_completed(struct peer *peer)
 
 /* Administrative BGP peer stop event. */
 /* May be called multiple times for the same peer */
-int bgp_stop(struct peer *peer)
+enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
 	char orf_name[BUFSIZ];
-	int ret = 0;
+	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
+	struct bgp *bgp = peer->bgp;
+	struct graceful_restart_info *gr_info = NULL;
 
-	if (peer_dynamic_neighbor(peer)
-	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
+	peer->nsf_af_count = 0;
+
+	/* deregister peer */
+	if (peer->bfd_config
+	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
+		bfd_sess_uninstall(peer->bfd_config->session);
+
+	if (peer_dynamic_neighbor_no_nsf(peer) &&
+	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
-		return -1;
+		return BGP_FSM_FAILURE_AND_DELETE;
 	}
 
 	/* Can't do this in Clearing; events are used for state transitions */
@@ -1084,39 +1389,43 @@ int bgp_stop(struct peer *peer)
 	}
 
 	/* Increment Dropped count. */
-	if (peer->status == Established) {
+	if (peer_established(peer)) {
 		peer->dropped++;
 
+		/* Notify BGP conditional advertisement process */
+		peer->advmap_table_change = true;
+
 		/* bgp log-neighbor-changes of neighbor Down */
-		if (bgp_flag_check(peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
+		if (CHECK_FLAG(peer->bgp->flags,
+			       BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 			struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
+
 			zlog_info(
-				"%%ADJCHANGE: neighbor %s(%s) in vrf %s Down %s",
-				peer->host,
-				(peer->hostname) ? peer->hostname : "Unknown",
+				"%%ADJCHANGE: neighbor %pBP in vrf %s Down %s",
+				peer,
 				vrf ? ((vrf->vrf_id != VRF_DEFAULT)
-						? vrf->name
-						: VRF_DEFAULT_NAME)
+					       ? vrf->name
+					       : VRF_DEFAULT_NAME)
 				    : "",
 				peer_down_str[(int)peer->last_reset]);
 		}
 
 		/* graceful restart */
 		if (peer->t_gr_stale) {
-			BGP_TIMER_OFF(peer->t_gr_stale);
+			EVENT_OFF(peer->t_gr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s graceful restart stalepath timer stopped",
-					peer->host);
+					"%pBP graceful restart stalepath timer stopped",
+					peer);
 		}
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
 			if (bgp_debug_neighbor_events(peer)) {
 				zlog_debug(
-					"%s graceful restart timer started for %d sec",
-					peer->host, peer->v_gr_restart);
+					"%pBP graceful restart timer started for %d sec",
+					peer, peer->v_gr_restart);
 				zlog_debug(
-					"%s graceful restart stalepath timer started for %d sec",
-					peer->host, peer->bgp->stalepath_time);
+					"%pBP graceful restart stalepath timer started for %d sec",
+					peer, peer->bgp->stalepath_time);
 			}
 			BGP_TIMER_ON(peer->t_gr_restart,
 				     bgp_graceful_restart_timer_expire,
@@ -1127,21 +1436,63 @@ int bgp_stop(struct peer *peer)
 		} else {
 			UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
-				     safi++)
-					peer->nsf[afi][safi] = 0;
+			FOREACH_AFI_SAFI_NSF (afi, safi)
+				peer->nsf[afi][safi] = 0;
+		}
+
+		/* Stop route-refresh stalepath timer */
+		if (peer->t_refresh_stalepath) {
+			EVENT_OFF(peer->t_refresh_stalepath);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%pBP route-refresh restart stalepath timer stopped",
+					peer);
+		}
+
+		/* If peer reset before receiving EOR, decrement EOR count and
+		 * cancel the selection deferral timer if there are no
+		 * pending EOR messages to be received
+		 */
+		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (!peer->afc_nego[afi][safi]
+				    || CHECK_FLAG(peer->af_sflags[afi][safi],
+						  PEER_STATUS_EOR_RECEIVED))
+					continue;
+
+				gr_info = &bgp->gr_info[afi][safi];
+				if (!gr_info)
+					continue;
+
+				if (gr_info->eor_required)
+					gr_info->eor_required--;
+
+				if (BGP_DEBUG(update, UPDATE_OUT))
+					zlog_debug("peer %s, EOR_required %d",
+						   peer->host,
+						   gr_info->eor_required);
+
+				/* There is no pending EOR message */
+				if (gr_info->eor_required == 0) {
+					if (gr_info->t_select_deferral) {
+						void *info = EVENT_ARG(
+							gr_info->t_select_deferral);
+						XFREE(MTYPE_TMP, info);
+					}
+					EVENT_OFF(gr_info->t_select_deferral);
+					gr_info->eor_received = 0;
+				}
+			}
 		}
 
 		/* set last reset time */
-		peer->resettime = peer->uptime = bgp_clock();
+		peer->resettime = peer->uptime = monotime(NULL);
 
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 			zlog_debug("%s remove from all update group",
 				   peer->host);
 		update_group_remove_peer_afs(peer);
-
-		hook_call(peer_backward_transition, peer);
 
 		/* Reset peer synctime */
 		peer->synctime = 0;
@@ -1154,17 +1505,18 @@ int bgp_stop(struct peer *peer)
 	bgp_writes_off(peer);
 	bgp_reads_off(peer);
 
-	THREAD_OFF(peer->t_connect_check_r);
-	THREAD_OFF(peer->t_connect_check_w);
+	EVENT_OFF(peer->t_connect_check_r);
+	EVENT_OFF(peer->t_connect_check_w);
 
 	/* Stop all timers. */
-	BGP_TIMER_OFF(peer->t_start);
-	BGP_TIMER_OFF(peer->t_connect);
-	BGP_TIMER_OFF(peer->t_holdtime);
-	BGP_TIMER_OFF(peer->t_routeadv);
+	EVENT_OFF(peer->t_start);
+	EVENT_OFF(peer->t_connect);
+	EVENT_OFF(peer->t_holdtime);
+	EVENT_OFF(peer->t_routeadv);
+	EVENT_OFF(peer->t_delayopen);
 
 	/* Clear input and output buffer.  */
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		if (peer->ibuf)
 			stream_fifo_clean(peer->ibuf);
 		if (peer->obuf)
@@ -1187,6 +1539,12 @@ int bgp_stop(struct peer *peer)
 		peer->fd = -1;
 	}
 
+	/* Reset capabilities. */
+	peer->cap = 0;
+
+	/* Resetting neighbor role to the default value */
+	peer->remote_role = ROLE_UNDEFINED;
+
 	FOREACH_AFI_SAFI (afi, safi) {
 		/* Reset all negotiated variables */
 		peer->afc_nego[afi][safi] = 0;
@@ -1202,10 +1560,10 @@ int bgp_stop(struct peer *peer)
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
 
-		if ((peer->status == OpenConfirm)
-		    || (peer->status == Established)) {
+		if ((peer->status == OpenConfirm) || (peer_established(peer))) {
 			/* ORF received prefix-filter pnt */
-			sprintf(orf_name, "%s.%d.%d", peer->host, afi, safi);
+			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
+				 peer->host, afi, safi);
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
 	}
@@ -1219,34 +1577,26 @@ int bgp_stop(struct peer *peer)
 		peer->v_holdtime = peer->bgp->default_holdtime;
 	}
 
-	peer->update_time = 0;
+	/* Reset DelayOpenTime */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+		peer->v_delayopen = peer->delayopen;
+	else
+		peer->v_delayopen = peer->bgp->default_delayopen;
 
-/* Until we are sure that there is no problem about prefix count
-   this should be commented out.*/
-#if 0
-  /* Reset prefix count */
-  peer->pcount[AFI_IP][SAFI_UNICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_MULTICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_LABELED_UNICAST] = 0;
-  peer->pcount[AFI_IP][SAFI_MPLS_VPN] = 0;
-  peer->pcount[AFI_IP6][SAFI_UNICAST] = 0;
-  peer->pcount[AFI_IP6][SAFI_MULTICAST] = 0;
-  peer->pcount[AFI_IP6][SAFI_LABELED_UNICAST] = 0;
-#endif /* 0 */
+	peer->update_time = 0;
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		peer_delete(peer);
-		ret = -1;
+		ret = BGP_FSM_FAILURE_AND_DELETE;
 	} else {
 		bgp_peer_conf_if_to_su_update(peer);
 	}
-
 	return ret;
 }
 
 /* BGP peer is stoped by the error. */
-static int bgp_stop_with_error(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_stop_with_error(struct peer *peer)
 {
 	/* Double start timer. */
 	peer->v_start *= 2;
@@ -1255,35 +1605,37 @@ static int bgp_stop_with_error(struct peer *peer)
 	if (peer->v_start >= (60 * 2))
 		peer->v_start = (60 * 2);
 
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
-		return -1;
+		return BGP_FSM_FAILURE;
 	}
 
-	return (bgp_stop(peer));
+	return bgp_stop(peer);
 }
 
 
 /* something went wrong, send notify and tear down */
-static int bgp_stop_with_notify(struct peer *peer, uint8_t code,
-				uint8_t sub_code)
+static enum bgp_fsm_state_progress
+bgp_stop_with_notify(struct peer *peer, uint8_t code, uint8_t sub_code)
 {
 	/* Send notify to remote peer */
 	bgp_notify_send(peer, code, sub_code);
 
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
-		return -1;
+		return BGP_FSM_FAILURE;
 	}
 
 	/* Clear start timer value to default. */
 	peer->v_start = BGP_INIT_START_TIMER;
 
-	return (bgp_stop(peer));
+	return bgp_stop(peer);
 }
 
 /**
@@ -1301,21 +1653,21 @@ static int bgp_stop_with_notify(struct peer *peer, uint8_t code,
  * when the connection is established. A read event is triggered when the
  * connection is closed. Thus we need to cancel whichever one did not occur.
  */
-static int bgp_connect_check(struct thread *thread)
+static void bgp_connect_check(struct event *thread)
 {
 	int status;
 	socklen_t slen;
 	int ret;
 	struct peer *peer;
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!peer->t_read);
 	assert(!peer->t_write);
 
-	THREAD_OFF(peer->t_connect_check_r);
-	THREAD_OFF(peer->t_connect_check_w);
+	EVENT_OFF(peer->t_connect_check_r);
+	EVENT_OFF(peer->t_connect_check_w);
 
 	/* Check file descriptor. */
 	slen = sizeof(status);
@@ -1327,79 +1679,144 @@ static int bgp_connect_check(struct thread *thread)
 		zlog_err("can't get sockopt for nonblocking connect: %d(%s)",
 			  errno, safe_strerror(errno));
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
-		return -1;
+		return;
 	}
 
 	/* When status is 0 then TCP connection is established. */
 	if (status == 0) {
-		BGP_EVENT_ADD(peer, TCP_connection_open);
-		return 1;
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_EVENT_ADD(peer, TCP_connection_open_w_delay);
+		else
+			BGP_EVENT_ADD(peer, TCP_connection_open);
+		return;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] Connect failed %d(%s)",
 				   peer->host, status, safe_strerror(status));
 		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
-		return 0;
+		return;
 	}
 }
 
 /* TCP connection open.  Next we send open message to remote peer. And
    add read thread for reading open message. */
-static int bgp_connect_success(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 {
 	if (peer->fd < 0) {
-		flog_err(EC_BGP_CONNECT,
-			 "bgp_connect_success peer's fd is negative value %d",
-			 peer->fd);
-		bgp_stop(peer);
-		return -1;
+		flog_err(EC_BGP_CONNECT, "%s peer's fd is negative value %d",
+			 __func__, peer->fd);
+		return bgp_stop(peer);
 	}
 
 	if (bgp_getsockname(peer) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
-			     __FUNCTION__, peer->host, peer->fd);
+			     __func__, peer->host, peer->fd);
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
-				0); /* internal error */
+				bgp_fsm_error_subcode(peer->status));
 		bgp_writes_on(peer);
-		return -1;
+		return BGP_FSM_FAILURE;
 	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		char buf1[SU_ADDRSTRLEN];
-
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %s",
-				   peer->host,
-				   sockunion2str(peer->su_local, buf1,
-						 SU_ADDRSTRLEN));
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
 
+	/* Send an open message */
 	bgp_open_send(peer);
 
-	return 0;
+	return BGP_FSM_SUCCESS;
+}
+
+/* TCP connection open with RFC 4271 optional session attribute DelayOpen flag
+ * set.
+ */
+static enum bgp_fsm_state_progress
+bgp_connect_success_w_delayopen(struct peer *peer)
+{
+	if (peer->fd < 0) {
+		flog_err(EC_BGP_CONNECT, "%s: peer's fd is negative value %d",
+			 __func__, peer->fd);
+		return bgp_stop(peer);
+	}
+
+	if (bgp_getsockname(peer) < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
+			     __func__, peer->host, peer->fd);
+		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
+				bgp_fsm_error_subcode(peer->status));
+		bgp_writes_on(peer);
+		return BGP_FSM_FAILURE;
+	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
+	bgp_reads_on(peer);
+
+	if (bgp_debug_neighbor_events(peer)) {
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+			zlog_debug("%s open active, local address %pSU",
+				   peer->host, peer->su_local);
+		else
+			zlog_debug("%s passive open", peer->host);
+	}
+
+	/* set the DelayOpenTime to the inital value */
+	peer->v_delayopen = peer->delayopen;
+
+	/* Start the DelayOpenTimer if it is not already running */
+	if (!peer->t_delayopen)
+		BGP_TIMER_ON(peer->t_delayopen, bgp_delayopen_timer,
+			     peer->v_delayopen);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [FSM] BGP OPEN message delayed for %d seconds",
+			   peer->host, peer->delayopen);
+
+	return BGP_FSM_SUCCESS;
 }
 
 /* TCP connect fail */
-static int bgp_connect_fail(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_connect_fail(struct peer *peer)
 {
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
-		return -1;
+		return BGP_FSM_FAILURE_AND_DELETE;
 	}
 
-	return (bgp_stop(peer));
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
+	return bgp_stop(peer);
 }
 
 /* This function is the first starting point of all BGP connection. It
-   try to connect to remote peer with non-blocking IO. */
-int bgp_start(struct peer *peer)
+ * try to connect to remote peer with non-blocking IO.
+ */
+enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 {
 	int status;
 
@@ -1411,16 +1828,23 @@ int bgp_start(struct peer *peer)
 				"%s [FSM] Unable to get neighbor's IP address, waiting...",
 				peer->host);
 		peer->last_reset = PEER_DOWN_NBR_ADDR;
-		return -1;
+		return BGP_FSM_FAILURE;
 	}
 
 	if (BGP_PEER_START_SUPPRESSED(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(EC_BGP_FSM,
-				 "%s [FSM] Trying to start suppressed peer"
-				 " - this is never supposed to happen!",
+				 "%s [FSM] Trying to start suppressed peer - this is never supposed to happen!",
 				 peer->host);
-		return -1;
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN))
+			peer->last_reset = PEER_DOWN_RTT_SHUTDOWN;
+		else if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		else if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
+			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		else if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+			peer->last_reset = PEER_DOWN_PFX_COUNT;
+		return BGP_FSM_FAILURE;
 	}
 
 	/* Scrub some information that might be left over from a previous,
@@ -1438,7 +1862,7 @@ int bgp_start(struct peer *peer)
 	}
 
 	/* Clear remote router-id. */
-	peer->remote_id.s_addr = 0;
+	peer->remote_id.s_addr = INADDR_ANY;
 
 	/* Clear peer capability flag. */
 	peer->cap = 0;
@@ -1446,18 +1870,17 @@ int bgp_start(struct peer *peer)
 	/* If the peer is passive mode, force to move to Active mode. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
 		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
-		return 0;
+		return BGP_FSM_SUCCESS;
 	}
 
-	if (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
-	    peer->bgp->vrf_id == VRF_UNKNOWN) {
+	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(
 				EC_BGP_FSM,
 				"%s [FSM] In a VRF that is not initialised yet",
 				peer->host);
 		peer->last_reset = PEER_DOWN_VRF_UNINIT;
-		return -1;
+		return BGP_FSM_FAILURE;
 	}
 
 	/* Register peer for NHT. If next hop is already resolved, proceed
@@ -1466,11 +1889,12 @@ int bgp_start(struct peer *peer)
 	if (!bgp_peer_reg_with_nht(peer)) {
 		if (bgp_zebra_num_connects()) {
 			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%s [FSM] Waiting for NHT",
-					   peer->host);
+				zlog_debug(
+					"%s [FSM] Waiting for NHT, no path to neighbor present",
+					peer->host);
 			peer->last_reset = PEER_DOWN_WAITING_NHT;
 			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
-			return 0;
+			return BGP_FSM_SUCCESS;
 		}
 	}
 
@@ -1491,6 +1915,7 @@ int bgp_start(struct peer *peer)
 			zlog_debug(
 				"%s [FSM] Connect immediately success, fd %d",
 				peer->host, peer->fd);
+
 		BGP_EVENT_ADD(peer, TCP_connection_open);
 		break;
 	case connect_in_progress:
@@ -1502,9 +1927,9 @@ int bgp_start(struct peer *peer)
 				peer->host, peer->fd);
 		if (peer->fd < 0) {
 			flog_err(EC_BGP_FSM,
-				 "bgp_start peer's fd is negative value %d",
+				 "%s peer's fd is negative value %d", __func__,
 				 peer->fd);
-			return -1;
+			return BGP_FSM_FAILURE;
 		}
 		/*
 		 * - when the socket becomes ready, poll() will signify POLLOUT
@@ -1515,54 +1940,159 @@ int bgp_start(struct peer *peer)
 		 * bgp_connect_check() as the handler for each and cancel the
 		 * unused event in that function.
 		 */
-		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd,
-				&peer->t_connect_check_r);
-		thread_add_write(bm->master, bgp_connect_check, peer, peer->fd,
-				 &peer->t_connect_check_w);
+		event_add_read(bm->master, bgp_connect_check, peer, peer->fd,
+			       &peer->t_connect_check_r);
+		event_add_write(bm->master, bgp_connect_check, peer, peer->fd,
+				&peer->t_connect_check_w);
 		break;
 	}
-	return 0;
+	return BGP_FSM_SUCCESS;
 }
 
 /* Connect retry timer is expired when the peer status is Connect. */
-static int bgp_reconnect(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_reconnect(struct peer *peer)
 {
-	if (bgp_stop(peer) < 0)
-		return -1;
+	enum bgp_fsm_state_progress ret;
 
-	bgp_start(peer);
-	return 0;
+	ret = bgp_stop(peer);
+	if (ret < BGP_FSM_SUCCESS)
+		return ret;
+
+	/* Send graceful restart capabilty */
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
+
+	return bgp_start(peer);
 }
 
-static int bgp_fsm_open(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_fsm_open(struct peer *peer)
 {
+	/* If DelayOpen is active, we may still need to send an open message */
+	if ((peer->status == Connect) || (peer->status == Active))
+		bgp_open_send(peer);
+
 	/* Send keepalive and make keepalive timer */
 	bgp_keepalive_send(peer);
 
-	/* Reset holdtimer value. */
-	BGP_TIMER_OFF(peer->t_holdtime);
-
-	return 0;
+	return BGP_FSM_SUCCESS;
 }
 
 /* FSM error, unexpected event.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
-static int bgp_fsm_event_error(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_fsm_event_error(struct peer *peer)
 {
 	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
 		 peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
 
-	return bgp_stop_with_notify(peer, BGP_NOTIFY_FSM_ERR, 0);
+	return bgp_stop_with_notify(peer, BGP_NOTIFY_FSM_ERR,
+				    bgp_fsm_error_subcode(peer->status));
 }
 
 /* Hold timer expire.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
-static int bgp_fsm_holdtime_expire(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_fsm_holdtime_expire(struct peer *peer)
 {
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire", peer->host);
 
+	/* RFC8538 updates RFC 4724 by defining an extension that permits
+	 * the Graceful Restart procedures to be performed when the BGP
+	 * speaker receives a BGP NOTIFICATION message or the Hold Time expires.
+	 */
+	if (peer_established(peer) &&
+	    bgp_has_graceful_restart_notification(peer))
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_HOLD_ERR, 0);
+}
+
+/* RFC 4271 DelayOpenTimer_Expires event */
+static enum bgp_fsm_state_progress
+bgp_fsm_delayopen_timer_expire(struct peer *peer)
+{
+	/* Stop the DelayOpenTimer */
+	EVENT_OFF(peer->t_delayopen);
+
+	/* Send open message to peer */
+	bgp_open_send(peer);
+
+	/* Set the HoldTimer to a large value (4 minutes) */
+	peer->v_holdtime = 245;
+
+	return BGP_FSM_SUCCESS;
+}
+
+/* Start the selection deferral timer thread for the specified AFI, SAFI */
+static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
+				    struct graceful_restart_info *gr_info)
+{
+	struct afi_safi_info *thread_info;
+
+	/* If the deferral timer is active, then increment eor count */
+	if (gr_info->t_select_deferral) {
+		gr_info->eor_required++;
+		return 0;
+	}
+
+	/* Start the deferral timer when the first peer enabled for the graceful
+	 * restart is established
+	 */
+	if (gr_info->eor_required == 0) {
+		thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
+
+		thread_info->afi = afi;
+		thread_info->safi = safi;
+		thread_info->bgp = bgp;
+
+		event_add_timer(bm->master, bgp_graceful_deferral_timer_expire,
+				thread_info, bgp->select_defer_time,
+				&gr_info->t_select_deferral);
+	}
+	gr_info->eor_required++;
+	/* Send message to RIB indicating route update pending */
+	if (gr_info->af_enabled[afi][safi] == false) {
+		gr_info->af_enabled[afi][safi] = true;
+		/* Send message to RIB */
+		bgp_zebra_update(bgp, afi, safi,
+				 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+	}
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("Started the deferral timer for %s eor_required %d",
+			   get_afi_safi_str(afi, safi, false),
+			   gr_info->eor_required);
+	return 0;
+}
+
+/* Update the graceful restart information for the specified AFI, SAFI */
+static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct graceful_restart_info *gr_info;
+	struct bgp *bgp = peer->bgp;
+	int ret = 0;
+
+	if ((afi < AFI_IP) || (afi >= AFI_MAX)) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("%s : invalid afi %d", __func__, afi);
+		return -1;
+	}
+
+	if ((safi < SAFI_UNICAST) || (safi > SAFI_MPLS_VPN)) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("%s : invalid safi %d", __func__, safi);
+		return -1;
+	}
+
+	/* Restarting router */
+	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
+	    && BGP_PEER_RESTARTING_MODE(peer)) {
+		/* Check if the forwarding state is preserved */
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)) {
+			gr_info = &(bgp->gr_info[afi][safi]);
+			ret = bgp_start_deferral_timer(bgp, afi, safi, gr_info);
+		}
+	}
+	return ret;
 }
 
 /**
@@ -1571,24 +2101,28 @@ static int bgp_fsm_holdtime_expire(struct peer *peer)
  * Convert peer from stub to full fledged peer, set some timers, and generate
  * initial updates.
  */
-static int bgp_establish(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
 	int nsf_af_count = 0;
-	int ret = 0;
+	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
+	int status;
 
 	other = peer->doppelganger;
+	hash_release(peer->bgp->peerhash, peer);
+	if (other)
+		hash_release(peer->bgp->peerhash, other);
+
 	peer = peer_xfer_conn(peer);
 	if (!peer) {
 		flog_err(EC_BGP_CONNECT, "%%Neighbor failed in xfer_conn");
-		return -1;
+		return BGP_FSM_FAILURE;
 	}
 
 	if (other == peer)
-		ret = 1; /* bgp_establish specific code when xfer_conn
-			    happens. */
+		ret = BGP_FSM_SUCCESS_STATE_TRANSFER;
 
 	/* Reset capability open status flag. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN))
@@ -1602,14 +2136,12 @@ static int bgp_establish(struct peer *peer)
 	bgp_fsm_change_status(peer, Established);
 
 	/* bgp log-neighbor-changes of neighbor Up */
-	if (bgp_flag_check(peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 		struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
-		zlog_info("%%ADJCHANGE: neighbor %s(%s) in vrf %s Up",
-			  peer->host,
-			  (peer->hostname) ? peer->hostname : "Unknown",
+		zlog_info("%%ADJCHANGE: neighbor %pBP in vrf %s Up", peer,
 			  vrf ? ((vrf->vrf_id != VRF_DEFAULT)
-					? vrf->name
-					: VRF_DEFAULT_NAME)
+					 ? vrf->name
+					 : VRF_DEFAULT_NAME)
 			      : "");
 	}
 	/* assign update-group/subgroup */
@@ -1617,67 +2149,128 @@ static int bgp_establish(struct peer *peer)
 
 	/* graceful restart */
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-			if (peer->afc_nego[afi][safi]
-			    && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)
-			    && CHECK_FLAG(peer->af_cap[afi][safi],
-					  PEER_CAP_RESTART_AF_RCV)) {
-				if (peer->nsf[afi][safi]
-				    && !CHECK_FLAG(
-					       peer->af_cap[afi][safi],
-					       PEER_CAP_RESTART_AF_PRESERVE_RCV))
-					bgp_clear_stale_route(peer, afi, safi);
+	if (bgp_debug_neighbor_events(peer)) {
+		if (BGP_PEER_RESTARTING_MODE(peer))
+			zlog_debug("%pBP BGP_RESTARTING_MODE", peer);
+		else if (BGP_PEER_HELPER_MODE(peer))
+			zlog_debug("%pBP BGP_HELPER_MODE", peer);
+	}
 
-				peer->nsf[afi][safi] = 1;
-				nsf_af_count++;
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (peer->afc_nego[afi][safi] &&
+		    CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
+		    CHECK_FLAG(peer->af_cap[afi][safi],
+			       PEER_CAP_RESTART_AF_RCV)) {
+			if (peer->nsf[afi][safi] &&
+			    !CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_RESTART_AF_PRESERVE_RCV))
+				bgp_clear_stale_route(peer, afi, safi);
+
+			peer->nsf[afi][safi] = 1;
+			nsf_af_count++;
+		} else {
+			if (peer->nsf[afi][safi])
+				bgp_clear_stale_route(peer, afi, safi);
+			peer->nsf[afi][safi] = 0;
+		}
+		/* Update the graceful restart information */
+		if (peer->afc_nego[afi][safi]) {
+			if (!BGP_SELECT_DEFER_DISABLE(peer->bgp)) {
+				status = bgp_update_gr_info(peer, afi, safi);
+				if (status < 0)
+					zlog_err(
+						"Error in updating graceful restart for %s",
+						get_afi_safi_str(afi, safi,
+								 false));
 			} else {
-				if (peer->nsf[afi][safi])
-					bgp_clear_stale_route(peer, afi, safi);
-				peer->nsf[afi][safi] = 0;
+				if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
+				    BGP_PEER_RESTARTING_MODE(peer) &&
+				    CHECK_FLAG(peer->bgp->flags,
+					       BGP_FLAG_GR_PRESERVE_FWD))
+					peer->bgp->gr_info[afi][safi]
+						.eor_required++;
 			}
 		}
+	}
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
+		if ((bgp_peer_gr_mode_get(peer) == PEER_GR)
+		    || ((bgp_peer_gr_mode_get(peer) == PEER_GLOBAL_INHERIT)
+			&& (bgp_global_gr_mode_get(peer->bgp) == GLOBAL_GR))) {
+			FOREACH_AFI_SAFI (afi, safi)
+				/* Send route processing complete
+				   message to RIB */
+				bgp_zebra_update(
+					peer->bgp, afi, safi,
+					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+		}
+	} else {
+		/* Peer sends R-bit. In this case, we need to send
+		 * ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE to Zebra. */
+		if (CHECK_FLAG(peer->cap,
+			       PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
+			FOREACH_AFI_SAFI (afi, safi)
+				/* Send route processing complete
+				   message to RIB */
+				bgp_zebra_update(
+					peer->bgp, afi, safi,
+					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+		}
+	}
+
+	peer->nsf_af_count = nsf_af_count;
 
 	if (nsf_af_count)
 		SET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 	else {
 		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 		if (peer->t_gr_stale) {
-			BGP_TIMER_OFF(peer->t_gr_stale);
+			EVENT_OFF(peer->t_gr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s graceful restart stalepath timer stopped",
-					peer->host);
+					"%pBP graceful restart stalepath timer stopped",
+					peer);
 		}
 	}
 
 	if (peer->t_gr_restart) {
-		BGP_TIMER_OFF(peer->t_gr_restart);
+		EVENT_OFF(peer->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s graceful restart timer stopped",
-				   peer->host);
+			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 
 	/* Reset uptime, turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
 		bgp_keepalives_on(peer);
 
-	peer->uptime = bgp_clock();
+	peer->uptime = monotime(NULL);
 
-	/* Send route-refresh when ORF is enabled */
+	/* Send route-refresh when ORF is enabled.
+	 * Stop Long-lived Graceful Restart timers.
+	 */
 	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->t_llgr_stale[afi][safi]) {
+			EVENT_OFF(peer->t_llgr_stale[afi][safi]);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%pBP Long-lived stale timer stopped for afi/safi: %d/%d",
+					peer, afi, safi);
+		}
+
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_SM_ADV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				bgp_route_refresh_send(peer, afi, safi,
-						       ORF_TYPE_PREFIX,
-						       REFRESH_IMMEDIATE, 0);
+				bgp_route_refresh_send(
+					peer, afi, safi, ORF_TYPE_PREFIX,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 			else if (CHECK_FLAG(peer->af_cap[afi][safi],
 					    PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
-				bgp_route_refresh_send(peer, afi, safi,
-						       ORF_TYPE_PREFIX_OLD,
-						       REFRESH_IMMEDIATE, 0);
+				bgp_route_refresh_send(
+					peer, afi, safi, ORF_TYPE_PREFIX_OLD,
+					REFRESH_IMMEDIATE, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 
@@ -1702,7 +2295,7 @@ static int bgp_establish(struct peer *peer)
 	 * of read-only mode.
 	 */
 	if (!bgp_update_delay_active(peer->bgp)) {
-		BGP_TIMER_OFF(peer->t_routeadv);
+		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 	}
 
@@ -1725,29 +2318,31 @@ static int bgp_establish(struct peer *peer)
 	 * the doppelgangers su and this peer's su are the same
 	 * so the hash_release is the same for either.
 	 */
-	hash_release(peer->bgp->peerhash, peer);
-	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
-	bgp_bfd_register_peer(peer);
+	/* Start BFD peer if not already running. */
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return ret;
 }
 
 /* Keepalive packet is received. */
-static int bgp_fsm_keepalive(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_fsm_keepalive(struct peer *peer)
 {
-	BGP_TIMER_OFF(peer->t_holdtime);
-	return 0;
+	EVENT_OFF(peer->t_holdtime);
+	return BGP_FSM_SUCCESS;
 }
 
 /* Update packet is received. */
-static int bgp_fsm_update(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_fsm_update(struct peer *peer)
 {
-	BGP_TIMER_OFF(peer->t_holdtime);
-	return 0;
+	EVENT_OFF(peer->t_holdtime);
+	return BGP_FSM_SUCCESS;
 }
 
 /* This is empty event. */
-static int bgp_ignore(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_ignore(struct peer *peer)
 {
 	flog_err(
 		EC_BGP_FSM,
@@ -1756,11 +2351,11 @@ static int bgp_ignore(struct peer *peer)
 		lookup_msg(bgp_status_msg, peer->status, NULL),
 		bgp_event_str[peer->last_event],
 		bgp_event_str[peer->last_major_event], peer->fd);
-	return 0;
+	return BGP_FSM_SUCCESS;
 }
 
 /* This is to handle unexpected events.. */
-static int bgp_fsm_exeption(struct peer *peer)
+static enum bgp_fsm_state_progress bgp_fsm_exception(struct peer *peer)
 {
 	flog_err(
 		EC_BGP_FSM,
@@ -1769,47 +2364,49 @@ static int bgp_fsm_exeption(struct peer *peer)
 		lookup_msg(bgp_status_msg, peer->status, NULL),
 		bgp_event_str[peer->last_event],
 		bgp_event_str[peer->last_major_event], peer->fd);
-	return (bgp_stop(peer));
+	return bgp_stop(peer);
 }
 
-void bgp_fsm_event_update(struct peer *peer, int valid)
+void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 {
 	if (!peer)
 		return;
 
 	switch (peer->status) {
 	case Idle:
-		if (valid)
+		if (has_valid_nexthops)
 			BGP_EVENT_ADD(peer, BGP_Start);
 		break;
 	case Connect:
-		if (!valid) {
-			BGP_TIMER_OFF(peer->t_connect);
+		if (!has_valid_nexthops) {
+			EVENT_OFF(peer->t_connect);
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 		}
 		break;
 	case Active:
-		if (valid) {
-			BGP_TIMER_OFF(peer->t_connect);
+		if (has_valid_nexthops) {
+			EVENT_OFF(peer->t_connect);
 			BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
 		}
 		break;
 	case OpenSent:
 	case OpenConfirm:
 	case Established:
-		if (!valid && (peer->gtsm_hops == 1))
+		if (!has_valid_nexthops
+		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED
+			|| peer->bgp->fast_convergence))
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 	case Clearing:
 	case Deleted:
-	default:
+	case BGP_STATUS_MAX:
 		break;
 	}
 }
 
 /* Finite State Machine structure */
 static const struct {
-	int (*func)(struct peer *);
-	int next_state;
+	enum bgp_fsm_state_progress (*func)(struct peer *);
+	enum bgp_fsm_status next_state;
 } FSM[BGP_STATUS_MAX - 1][BGP_EVENTS_MAX - 1] = {
 	{
 		/* Idle state: In Idle state, all events other than BGP_Start is
@@ -1818,12 +2415,14 @@ static const struct {
 		{bgp_start, Connect}, /* BGP_Start                    */
 		{bgp_stop, Idle},     /* BGP_Stop                     */
 		{bgp_stop, Idle},     /* TCP_connection_open          */
+		{bgp_stop, Idle},     /* TCP_connection_open_w_delay */
 		{bgp_stop, Idle},     /* TCP_connection_closed        */
 		{bgp_ignore, Idle},   /* TCP_connection_open_failed   */
 		{bgp_stop, Idle},     /* TCP_fatal_error              */
 		{bgp_ignore, Idle},   /* ConnectRetry_timer_expired   */
 		{bgp_ignore, Idle},   /* Hold_Timer_expired           */
 		{bgp_ignore, Idle},   /* KeepAlive_timer_expired      */
+		{bgp_ignore, Idle},   /* DelayOpen_timer_expired */
 		{bgp_ignore, Idle},   /* Receive_OPEN_message         */
 		{bgp_ignore, Idle},   /* Receive_KEEPALIVE_message    */
 		{bgp_ignore, Idle},   /* Receive_UPDATE_message       */
@@ -1835,103 +2434,119 @@ static const struct {
 		{bgp_ignore, Connect}, /* BGP_Start                    */
 		{bgp_stop, Idle},      /* BGP_Stop                     */
 		{bgp_connect_success, OpenSent}, /* TCP_connection_open */
-		{bgp_stop, Idle},	   /* TCP_connection_closed        */
+		{bgp_connect_success_w_delayopen,
+		 Connect},		    /* TCP_connection_open_w_delay */
+		{bgp_stop, Idle},	    /* TCP_connection_closed        */
 		{bgp_connect_fail, Active}, /* TCP_connection_open_failed   */
 		{bgp_connect_fail, Idle},   /* TCP_fatal_error              */
 		{bgp_reconnect, Connect},   /* ConnectRetry_timer_expired   */
-		{bgp_fsm_exeption, Idle},   /* Hold_Timer_expired           */
-		{bgp_fsm_exeption, Idle},   /* KeepAlive_timer_expired      */
-		{bgp_fsm_exeption, Idle},   /* Receive_OPEN_message         */
-		{bgp_fsm_exeption, Idle},   /* Receive_KEEPALIVE_message    */
-		{bgp_fsm_exeption, Idle},   /* Receive_UPDATE_message       */
-		{bgp_stop, Idle},	   /* Receive_NOTIFICATION_message */
-		{bgp_fsm_exeption, Idle},   /* Clearing_Completed           */
+		{bgp_fsm_exception, Idle},  /* Hold_Timer_expired           */
+		{bgp_fsm_exception, Idle},  /* KeepAlive_timer_expired      */
+		{bgp_fsm_delayopen_timer_expire,
+		 OpenSent},		     /* DelayOpen_timer_expired */
+		{bgp_fsm_open, OpenConfirm}, /* Receive_OPEN_message         */
+		{bgp_fsm_exception, Idle},   /* Receive_KEEPALIVE_message    */
+		{bgp_fsm_exception, Idle},   /* Receive_UPDATE_message       */
+		{bgp_stop, Idle},	     /* Receive_NOTIFICATION_message */
+		{bgp_fsm_exception, Idle},   /* Clearing_Completed           */
 	},
 	{
 		/* Active, */
 		{bgp_ignore, Active}, /* BGP_Start                    */
 		{bgp_stop, Idle},     /* BGP_Stop                     */
 		{bgp_connect_success, OpenSent}, /* TCP_connection_open */
-		{bgp_stop, Idle},	 /* TCP_connection_closed        */
-		{bgp_ignore, Active},     /* TCP_connection_open_failed   */
-		{bgp_fsm_exeption, Idle}, /* TCP_fatal_error              */
-		{bgp_start, Connect},     /* ConnectRetry_timer_expired   */
-		{bgp_fsm_exeption, Idle}, /* Hold_Timer_expired           */
-		{bgp_fsm_exeption, Idle}, /* KeepAlive_timer_expired      */
-		{bgp_fsm_exeption, Idle}, /* Receive_OPEN_message         */
-		{bgp_fsm_exeption, Idle}, /* Receive_KEEPALIVE_message    */
-		{bgp_fsm_exeption, Idle}, /* Receive_UPDATE_message       */
-		{bgp_fsm_exeption, Idle}, /* Receive_NOTIFICATION_message */
-		{bgp_fsm_exeption, Idle}, /* Clearing_Completed           */
+		{bgp_connect_success_w_delayopen,
+		 Active},		   /* TCP_connection_open_w_delay */
+		{bgp_stop, Idle},	   /* TCP_connection_closed        */
+		{bgp_ignore, Active},	   /* TCP_connection_open_failed   */
+		{bgp_fsm_exception, Idle}, /* TCP_fatal_error              */
+		{bgp_start, Connect},	   /* ConnectRetry_timer_expired   */
+		{bgp_fsm_exception, Idle}, /* Hold_Timer_expired           */
+		{bgp_fsm_exception, Idle}, /* KeepAlive_timer_expired      */
+		{bgp_fsm_delayopen_timer_expire,
+		 OpenSent},		     /* DelayOpen_timer_expired */
+		{bgp_fsm_open, OpenConfirm}, /* Receive_OPEN_message         */
+		{bgp_fsm_exception, Idle},   /* Receive_KEEPALIVE_message    */
+		{bgp_fsm_exception, Idle},   /* Receive_UPDATE_message       */
+		{bgp_fsm_exception, Idle},   /* Receive_NOTIFICATION_message */
+		{bgp_fsm_exception, Idle},   /* Clearing_Completed           */
 	},
 	{
 		/* OpenSent, */
-		{bgp_ignore, OpenSent},   /* BGP_Start                    */
-		{bgp_stop, Idle},	 /* BGP_Stop                     */
-		{bgp_stop, Active},       /* TCP_connection_open          */
-		{bgp_stop, Active},       /* TCP_connection_closed        */
-		{bgp_stop, Active},       /* TCP_connection_open_failed   */
-		{bgp_stop, Active},       /* TCP_fatal_error              */
-		{bgp_fsm_exeption, Idle}, /* ConnectRetry_timer_expired   */
+		{bgp_ignore, OpenSent},	   /* BGP_Start                    */
+		{bgp_stop, Idle},	   /* BGP_Stop                     */
+		{bgp_stop, Active},	   /* TCP_connection_open          */
+		{bgp_fsm_exception, Idle}, /* TCP_connection_open_w_delay */
+		{bgp_stop, Active},	   /* TCP_connection_closed        */
+		{bgp_stop, Active},	   /* TCP_connection_open_failed   */
+		{bgp_stop, Active},	   /* TCP_fatal_error              */
+		{bgp_fsm_exception, Idle}, /* ConnectRetry_timer_expired   */
 		{bgp_fsm_holdtime_expire, Idle}, /* Hold_Timer_expired */
-		{bgp_fsm_exeption, Idle},    /* KeepAlive_timer_expired      */
+		{bgp_fsm_exception, Idle},   /* KeepAlive_timer_expired      */
+		{bgp_fsm_exception, Idle},   /* DelayOpen_timer_expired */
 		{bgp_fsm_open, OpenConfirm}, /* Receive_OPEN_message         */
 		{bgp_fsm_event_error, Idle}, /* Receive_KEEPALIVE_message    */
 		{bgp_fsm_event_error, Idle}, /* Receive_UPDATE_message       */
-		{bgp_stop_with_error, Idle}, /* Receive_NOTIFICATION_message */
-		{bgp_fsm_exeption, Idle},    /* Clearing_Completed           */
+		{bgp_fsm_event_error, Idle}, /* Receive_NOTIFICATION_message */
+		{bgp_fsm_exception, Idle},   /* Clearing_Completed           */
 	},
 	{
 		/* OpenConfirm, */
 		{bgp_ignore, OpenConfirm}, /* BGP_Start                    */
-		{bgp_stop, Idle},	  /* BGP_Stop                     */
-		{bgp_stop, Idle},	  /* TCP_connection_open          */
-		{bgp_stop, Idle},	  /* TCP_connection_closed        */
-		{bgp_stop, Idle},	  /* TCP_connection_open_failed   */
-		{bgp_stop, Idle},	  /* TCP_fatal_error              */
-		{bgp_fsm_exeption, Idle},  /* ConnectRetry_timer_expired   */
+		{bgp_stop, Idle},	   /* BGP_Stop                     */
+		{bgp_stop, Idle},	   /* TCP_connection_open          */
+		{bgp_fsm_exception, Idle}, /* TCP_connection_open_w_delay */
+		{bgp_stop, Idle},	   /* TCP_connection_closed        */
+		{bgp_stop, Idle},	   /* TCP_connection_open_failed   */
+		{bgp_stop, Idle},	   /* TCP_fatal_error              */
+		{bgp_fsm_exception, Idle}, /* ConnectRetry_timer_expired   */
 		{bgp_fsm_holdtime_expire, Idle}, /* Hold_Timer_expired */
 		{bgp_ignore, OpenConfirm},    /* KeepAlive_timer_expired      */
-		{bgp_fsm_exeption, Idle},     /* Receive_OPEN_message         */
+		{bgp_fsm_exception, Idle},    /* DelayOpen_timer_expired */
+		{bgp_fsm_exception, Idle},    /* Receive_OPEN_message         */
 		{bgp_establish, Established}, /* Receive_KEEPALIVE_message    */
-		{bgp_fsm_exeption, Idle},     /* Receive_UPDATE_message       */
+		{bgp_fsm_exception, Idle},    /* Receive_UPDATE_message       */
 		{bgp_stop_with_error, Idle},  /* Receive_NOTIFICATION_message */
-		{bgp_fsm_exeption, Idle},     /* Clearing_Completed           */
+		{bgp_fsm_exception, Idle},    /* Clearing_Completed           */
 	},
 	{
 		/* Established, */
 		{bgp_ignore, Established}, /* BGP_Start                    */
-		{bgp_stop, Clearing},      /* BGP_Stop                     */
-		{bgp_stop, Clearing},      /* TCP_connection_open          */
-		{bgp_stop, Clearing},      /* TCP_connection_closed        */
-		{bgp_stop, Clearing},      /* TCP_connection_open_failed   */
-		{bgp_stop, Clearing},      /* TCP_fatal_error              */
-		{bgp_stop, Clearing},      /* ConnectRetry_timer_expired   */
+		{bgp_stop, Clearing},	   /* BGP_Stop                     */
+		{bgp_stop, Clearing},	   /* TCP_connection_open          */
+		{bgp_fsm_exception, Idle}, /* TCP_connection_open_w_delay */
+		{bgp_stop, Clearing},	   /* TCP_connection_closed        */
+		{bgp_stop, Clearing},	   /* TCP_connection_open_failed   */
+		{bgp_stop, Clearing},	   /* TCP_fatal_error              */
+		{bgp_stop, Clearing},	   /* ConnectRetry_timer_expired   */
 		{bgp_fsm_holdtime_expire, Clearing}, /* Hold_Timer_expired */
 		{bgp_ignore, Established}, /* KeepAlive_timer_expired      */
-		{bgp_stop, Clearing},      /* Receive_OPEN_message         */
+		{bgp_fsm_exception, Idle}, /* DelayOpen_timer_expired */
+		{bgp_stop, Clearing},	   /* Receive_OPEN_message         */
 		{bgp_fsm_keepalive,
 		 Established}, /* Receive_KEEPALIVE_message    */
 		{bgp_fsm_update, Established}, /* Receive_UPDATE_message */
 		{bgp_stop_with_error,
-		 Clearing},		  /* Receive_NOTIFICATION_message */
-		{bgp_fsm_exeption, Idle}, /* Clearing_Completed           */
+		 Clearing},		   /* Receive_NOTIFICATION_message */
+		{bgp_fsm_exception, Idle}, /* Clearing_Completed           */
 	},
 	{
 		/* Clearing, */
 		{bgp_ignore, Clearing}, /* BGP_Start                    */
-		{bgp_stop, Clearing},   /* BGP_Stop                     */
-		{bgp_stop, Clearing},   /* TCP_connection_open          */
-		{bgp_stop, Clearing},   /* TCP_connection_closed        */
-		{bgp_stop, Clearing},   /* TCP_connection_open_failed   */
-		{bgp_stop, Clearing},   /* TCP_fatal_error              */
-		{bgp_stop, Clearing},   /* ConnectRetry_timer_expired   */
-		{bgp_stop, Clearing},   /* Hold_Timer_expired           */
-		{bgp_stop, Clearing},   /* KeepAlive_timer_expired      */
-		{bgp_stop, Clearing},   /* Receive_OPEN_message         */
-		{bgp_stop, Clearing},   /* Receive_KEEPALIVE_message    */
-		{bgp_stop, Clearing},   /* Receive_UPDATE_message       */
-		{bgp_stop, Clearing},   /* Receive_NOTIFICATION_message */
+		{bgp_stop, Clearing},	/* BGP_Stop                     */
+		{bgp_stop, Clearing},	/* TCP_connection_open          */
+		{bgp_stop, Clearing},	/* TCP_connection_open_w_delay */
+		{bgp_stop, Clearing},	/* TCP_connection_closed        */
+		{bgp_stop, Clearing},	/* TCP_connection_open_failed   */
+		{bgp_stop, Clearing},	/* TCP_fatal_error              */
+		{bgp_stop, Clearing},	/* ConnectRetry_timer_expired   */
+		{bgp_stop, Clearing},	/* Hold_Timer_expired           */
+		{bgp_stop, Clearing},	/* KeepAlive_timer_expired      */
+		{bgp_stop, Clearing},	/* DelayOpen_timer_expired */
+		{bgp_stop, Clearing},	/* Receive_OPEN_message         */
+		{bgp_stop, Clearing},	/* Receive_KEEPALIVE_message    */
+		{bgp_stop, Clearing},	/* Receive_UPDATE_message       */
+		{bgp_stop, Clearing},	/* Receive_NOTIFICATION_message */
 		{bgp_clearing_completed, Idle}, /* Clearing_Completed */
 	},
 	{
@@ -1939,12 +2554,14 @@ static const struct {
 		{bgp_ignore, Deleted}, /* BGP_Start                    */
 		{bgp_ignore, Deleted}, /* BGP_Stop                     */
 		{bgp_ignore, Deleted}, /* TCP_connection_open          */
+		{bgp_ignore, Deleted}, /* TCP_connection_open_w_delay */
 		{bgp_ignore, Deleted}, /* TCP_connection_closed        */
 		{bgp_ignore, Deleted}, /* TCP_connection_open_failed   */
 		{bgp_ignore, Deleted}, /* TCP_fatal_error              */
 		{bgp_ignore, Deleted}, /* ConnectRetry_timer_expired   */
 		{bgp_ignore, Deleted}, /* Hold_Timer_expired           */
 		{bgp_ignore, Deleted}, /* KeepAlive_timer_expired      */
+		{bgp_ignore, Deleted}, /* DelayOpen_timer_expired */
 		{bgp_ignore, Deleted}, /* Receive_OPEN_message         */
 		{bgp_ignore, Deleted}, /* Receive_KEEPALIVE_message    */
 		{bgp_ignore, Deleted}, /* Receive_UPDATE_message       */
@@ -1954,24 +2571,23 @@ static const struct {
 };
 
 /* Execute event process. */
-int bgp_event(struct thread *thread)
+void bgp_event(struct event *thread)
 {
-	int event;
+	enum bgp_fsm_events event;
 	struct peer *peer;
-	int ret;
 
-	peer = THREAD_ARG(thread);
-	event = THREAD_VAL(thread);
+	peer = EVENT_ARG(thread);
+	event = EVENT_VAL(thread);
 
-	ret = bgp_event_update(peer, event);
-
-	return (ret);
+	peer_lock(peer);
+	bgp_event_update(peer, event);
+	peer_unlock(peer);
 }
 
-int bgp_event_update(struct peer *peer, int event)
+int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 {
-	int next;
-	int ret = 0;
+	enum bgp_fsm_status next;
+	enum bgp_fsm_state_progress ret = 0;
 	struct peer *other;
 	int passive_conn = 0;
 	int dyn_nbr;
@@ -2000,8 +2616,9 @@ int bgp_event_update(struct peer *peer, int event)
 	if (FSM[peer->status - 1][event - 1].func)
 		ret = (*(FSM[peer->status - 1][event - 1].func))(peer);
 
-	if (ret >= 0) {
-		if (ret == 1 && next == Established) {
+	if (ret >= BGP_FSM_SUCCESS) {
+		if (ret == BGP_FSM_SUCCESS_STATE_TRANSFER &&
+		    next == Established) {
 			/* The case when doppelganger swap accurred in
 			   bgp_establish.
 			   Update the peer pointer accordingly */
@@ -2035,11 +2652,11 @@ int bgp_event_update(struct peer *peer, int event)
 		 * we need to indicate that the peer was stopped in the return
 		 * code.
 		 */
-		if (!dyn_nbr && !passive_conn && peer->bgp) {
+		if (!dyn_nbr && !passive_conn && peer->bgp &&
+		    ret != BGP_FSM_FAILURE_AND_DELETE) {
 			flog_err(
 				EC_BGP_FSM,
-				"%s [FSM] Failure handling event %s in state %s, "
-				"prior events %s, %s, fd %d",
+				"%s [FSM] Failure handling event %s in state %s, prior events %s, %s, fd %d",
 				peer->host, bgp_event_str[peer->cur_event],
 				lookup_msg(bgp_status_msg, peer->status, NULL),
 				bgp_event_str[peer->last_event],
@@ -2053,4 +2670,480 @@ int bgp_event_update(struct peer *peer, int event)
 	}
 
 	return ret;
+}
+/* BGP GR Code */
+
+int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
+				    enum global_mode global_new_state,
+				    enum global_mode global_old_state)
+{
+	struct peer *peer = {0};
+	struct listnode *node = {0};
+	struct listnode *nnode = {0};
+	enum peer_mode peer_old_state = PEER_INVALID;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s [BGP_GR] Peer: (%s) :", __func__,
+				   peer->host);
+
+		peer_old_state = bgp_peer_gr_mode_get(peer);
+
+		if (peer_old_state == PEER_GLOBAL_INHERIT) {
+
+			/*
+			 *Reset only these peers and send a
+			 *new open message with the change capabilities.
+			 *Considering the mode to be "global_new_state" and
+			 *do all operation accordingly
+			 */
+
+			switch (global_new_state) {
+			case GLOBAL_HELPER:
+				BGP_PEER_GR_HELPER_ENABLE(peer);
+				break;
+			case GLOBAL_GR:
+				BGP_PEER_GR_ENABLE(peer);
+				break;
+			case GLOBAL_DISABLE:
+				BGP_PEER_GR_DISABLE(peer);
+				break;
+			case GLOBAL_INVALID:
+				zlog_debug("%s [BGP_GR] GLOBAL_INVALID",
+					   __func__);
+				return BGP_ERR_GR_OPERATION_FAILED;
+			}
+		}
+	}
+
+	bgp->global_gr_present_state = global_new_state;
+
+	return BGP_GR_SUCCESS;
+}
+
+int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd)
+{
+	enum global_mode global_new_state = GLOBAL_INVALID;
+	enum global_mode global_old_state = GLOBAL_INVALID;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s [BGP_GR]START: global_gr_cmd :%s:", __func__,
+			   print_global_gr_cmd(global_gr_cmd));
+
+	global_old_state = bgp_global_gr_mode_get(bgp);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("[BGP_GR] global_old_gr_state :%s:",
+			   print_global_gr_mode(global_old_state));
+
+	if (global_old_state != GLOBAL_INVALID) {
+		global_new_state =
+			bgp->GLOBAL_GR_FSM[global_old_state][global_gr_cmd];
+
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("[BGP_GR] global_new_gr_state :%s:",
+				   print_global_gr_mode(global_new_state));
+	} else {
+		zlog_err("%s [BGP_GR] global_old_state == GLOBAL_INVALID",
+			 __func__);
+		return BGP_ERR_GR_OPERATION_FAILED;
+	}
+
+	if (global_new_state == GLOBAL_INVALID) {
+		zlog_err("%s [BGP_GR] global_new_state == GLOBAL_INVALID",
+			 __func__);
+		return BGP_ERR_GR_INVALID_CMD;
+	}
+	if (global_new_state == global_old_state) {
+		/* Trace msg */
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug(
+				"%s [BGP_GR] global_new_state == global_old_state :%s",
+				__func__,
+				print_global_gr_mode(global_new_state));
+		return BGP_GR_NO_OPERATION;
+	}
+
+	return bgp_gr_lookup_n_update_all_peer(bgp, global_new_state,
+					       global_old_state);
+}
+
+const char *print_peer_gr_mode(enum peer_mode pr_mode)
+{
+	const char *peer_gr_mode = NULL;
+
+	switch (pr_mode) {
+	case PEER_HELPER:
+		peer_gr_mode = "PEER_HELPER";
+		break;
+	case PEER_GR:
+		peer_gr_mode = "PEER_GR";
+		break;
+	case PEER_DISABLE:
+		peer_gr_mode = "PEER_DISABLE";
+		break;
+	case PEER_INVALID:
+		peer_gr_mode = "PEER_INVALID";
+		break;
+	case PEER_GLOBAL_INHERIT:
+		peer_gr_mode = "PEER_GLOBAL_INHERIT";
+		break;
+	}
+
+	return peer_gr_mode;
+}
+
+const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
+{
+	const char *peer_gr_cmd = NULL;
+
+	switch (pr_gr_cmd) {
+	case PEER_GR_CMD:
+		peer_gr_cmd = "PEER_GR_CMD";
+		break;
+	case NO_PEER_GR_CMD:
+		peer_gr_cmd = "NO_PEER_GR_CMD";
+		break;
+	case PEER_DISABLE_CMD:
+		peer_gr_cmd = "PEER_DISABLE_GR_CMD";
+		break;
+	case NO_PEER_DISABLE_CMD:
+		peer_gr_cmd = "NO_PEER_DISABLE_GR_CMD";
+		break;
+	case PEER_HELPER_CMD:
+		peer_gr_cmd = "PEER_HELPER_CMD";
+		break;
+	case NO_PEER_HELPER_CMD:
+		peer_gr_cmd = "NO_PEER_HELPER_CMD";
+		break;
+	}
+
+	return peer_gr_cmd;
+}
+
+const char *print_global_gr_mode(enum global_mode gl_mode)
+{
+	const char *global_gr_mode = "???";
+
+	switch (gl_mode) {
+	case GLOBAL_HELPER:
+		global_gr_mode = "GLOBAL_HELPER";
+		break;
+	case GLOBAL_GR:
+		global_gr_mode = "GLOBAL_GR";
+		break;
+	case GLOBAL_DISABLE:
+		global_gr_mode = "GLOBAL_DISABLE";
+		break;
+	case GLOBAL_INVALID:
+		global_gr_mode = "GLOBAL_INVALID";
+		break;
+	}
+
+	return global_gr_mode;
+}
+
+const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd)
+{
+	const char *global_gr_cmd = NULL;
+
+	switch (gl_gr_cmd) {
+	case GLOBAL_GR_CMD:
+		global_gr_cmd = "GLOBAL_GR_CMD";
+		break;
+	case NO_GLOBAL_GR_CMD:
+		global_gr_cmd = "NO_GLOBAL_GR_CMD";
+		break;
+	case GLOBAL_DISABLE_CMD:
+		global_gr_cmd = "GLOBAL_DISABLE_CMD";
+		break;
+	case NO_GLOBAL_DISABLE_CMD:
+		global_gr_cmd = "NO_GLOBAL_DISABLE_CMD";
+		break;
+	}
+
+	return global_gr_cmd;
+}
+
+enum global_mode bgp_global_gr_mode_get(struct bgp *bgp)
+{
+	return bgp->global_gr_present_state;
+}
+
+enum peer_mode bgp_peer_gr_mode_get(struct peer *peer)
+{
+	return peer->peer_gr_present_state;
+}
+
+int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd)
+{
+	enum peer_mode peer_new_state = PEER_INVALID;
+	enum peer_mode peer_old_state = PEER_INVALID;
+	struct bgp_peer_gr peer_state;
+	int result = BGP_GR_FAILURE;
+
+	/*
+	 * fetch peer_old_state from peer structure also
+	 * fetch global_old_state from bgp structure,
+	 * peer had a back pointer to bgpo struct ;
+	 */
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s [BGP_GR] START:Peer: (%s) : peer_gr_cmd :%s:",
+			   __func__, peer->host,
+			   print_peer_gr_cmd(peer_gr_cmd));
+
+	peer_old_state = bgp_peer_gr_mode_get(peer);
+
+	if (peer_old_state == PEER_INVALID) {
+		zlog_debug("[BGP_GR] peer_old_state == Invalid state !");
+		return BGP_ERR_GR_OPERATION_FAILED;
+	}
+
+	peer_state = peer->PEER_GR_FSM[peer_old_state][peer_gr_cmd];
+	peer_new_state = peer_state.next_state;
+
+	if (peer_new_state == PEER_INVALID) {
+		zlog_debug(
+			"[BGP_GR] Invalid bgp graceful restart command used !");
+		return BGP_ERR_GR_INVALID_CMD;
+	}
+
+	if (peer_new_state != peer_old_state) {
+		result = peer_state.action_fun(peer, peer_old_state,
+					       peer_new_state);
+	} else {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug(
+				"[BGP_GR] peer_old_state == peer_new_state !");
+		return BGP_GR_NO_OPERATION;
+	}
+
+	if (result == BGP_GR_SUCCESS) {
+
+		/* Update the mode i.e peer_new_state into the peer structure */
+		peer->peer_gr_present_state = peer_new_state;
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug(
+				"[BGP_GR] Successfully change the state of the peer to : %s : !",
+				print_peer_gr_mode(peer_new_state));
+
+		return BGP_GR_SUCCESS;
+	}
+
+	return result;
+}
+
+unsigned int bgp_peer_gr_action(struct peer *peer, int old_peer_state,
+				int new_peer_state)
+{
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug(
+			"%s [BGP_GR] Move peer from old_peer_state :%s: to new_peer_state :%s: !!!!",
+			__func__, print_peer_gr_mode(old_peer_state),
+			print_peer_gr_mode(new_peer_state));
+
+	int bgp_gr_global_mode = GLOBAL_INVALID;
+	unsigned int ret = BGP_GR_FAILURE;
+
+	if (old_peer_state == new_peer_state) {
+		/* Nothing to do over here as the present and old state is the
+		 * same */
+		return BGP_GR_NO_OPERATION;
+	}
+	if ((old_peer_state == PEER_INVALID)
+	    || (new_peer_state == PEER_INVALID)) {
+		/* something bad happend , print error message */
+		return BGP_ERR_GR_INVALID_CMD;
+	}
+
+	bgp_gr_global_mode = bgp_global_gr_mode_get(peer->bgp);
+
+	if ((old_peer_state == PEER_GLOBAL_INHERIT)
+	    && (new_peer_state != PEER_GLOBAL_INHERIT)) {
+
+		/* fetch the Mode running in the Global state machine
+		 *from the bgp structure into a variable called
+		 *bgp_gr_global_mode
+		 */
+
+		/* Here we are checking if the
+		 *1. peer_new_state == global_mode == helper_mode
+		 *2. peer_new_state == global_mode == GR_mode
+		 *3. peer_new_state == global_mode == disabled_mode
+		 */
+
+		BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer);
+
+		if (new_peer_state == bgp_gr_global_mode) {
+			/*This is incremental updates i.e no tear down
+			 *of the existing session
+			 *as the peer is already working in the same mode.
+			 */
+			ret = BGP_GR_SUCCESS;
+		} else {
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug(
+					"[BGP_GR] Peer state changed from :%s ",
+					print_peer_gr_mode(old_peer_state));
+
+			bgp_peer_move_to_gr_mode(peer, new_peer_state);
+
+			ret = BGP_GR_SUCCESS;
+		}
+	}
+	/* In the case below peer is going into Global inherit mode i.e.
+	 * the peer would work as the mode configured at the global level
+	 */
+	else if ((new_peer_state == PEER_GLOBAL_INHERIT)
+		 && (old_peer_state != PEER_GLOBAL_INHERIT)) {
+		/* Here in this case it would be destructive
+		 * in all the cases except one case when,
+		 * Global GR is configured Disabled
+		 * and present_peer_state is not disable
+		 */
+
+		BGP_PEER_GR_GLOBAL_INHERIT_SET(peer);
+
+		if (old_peer_state == bgp_gr_global_mode) {
+
+			/* This is incremental updates
+			 *i.e no tear down of the existing session
+			 *as the peer is already working in the same mode.
+			 */
+			ret = BGP_GR_SUCCESS;
+		} else {
+			/*  Destructive always */
+			/*  Tear down the old session
+			 *  and send the new capability
+			 *  as per the bgp_gr_global_mode
+			 */
+
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug(
+					"[BGP_GR] Peer state changed from :%s",
+					print_peer_gr_mode(old_peer_state));
+
+			bgp_peer_move_to_gr_mode(peer, bgp_gr_global_mode);
+
+			ret = BGP_GR_SUCCESS;
+		}
+	} else {
+		/*
+		 *This else case, it include all the cases except -->
+		 *(new_peer_state != Peer_Global) &&
+		 *( old_peer_state != Peer_Global )
+		 */
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("[BGP_GR] Peer state changed from :%s",
+				   print_peer_gr_mode(old_peer_state));
+
+		bgp_peer_move_to_gr_mode(peer, new_peer_state);
+
+		ret = BGP_GR_SUCCESS;
+	}
+
+	return ret;
+}
+
+inline void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state)
+
+{
+	int bgp_global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+
+	switch (new_state) {
+	case PEER_HELPER:
+		BGP_PEER_GR_HELPER_ENABLE(peer);
+		break;
+	case PEER_GR:
+		BGP_PEER_GR_ENABLE(peer);
+		break;
+	case PEER_DISABLE:
+		BGP_PEER_GR_DISABLE(peer);
+		break;
+	case PEER_GLOBAL_INHERIT:
+		BGP_PEER_GR_GLOBAL_INHERIT_SET(peer);
+
+		if (bgp_global_gr_mode == GLOBAL_HELPER) {
+			BGP_PEER_GR_HELPER_ENABLE(peer);
+		} else if (bgp_global_gr_mode == GLOBAL_GR) {
+			BGP_PEER_GR_ENABLE(peer);
+		} else if (bgp_global_gr_mode == GLOBAL_DISABLE) {
+			BGP_PEER_GR_DISABLE(peer);
+		} else {
+			zlog_err(
+				"[BGP_GR] Default switch inherit mode ::: SOMETHING IS WRONG !!!");
+		}
+		break;
+	default:
+		zlog_err(
+			"[BGP_GR] Default switch mode ::: SOMETHING IS WRONG !!!");
+		break;
+	}
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("[BGP_GR] Peer state changed  --to-->  : %d : !",
+			   new_state);
+}
+
+void bgp_peer_gr_flags_update(struct peer *peer)
+{
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s [BGP_GR] called !", __func__);
+	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+		       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
+		SET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER);
+	else
+		UNSET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug(
+			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_HELPER : %s : !",
+			peer->host,
+			(CHECK_FLAG(peer->flags,
+				    PEER_FLAG_GRACEFUL_RESTART_HELPER)
+				 ? "Set"
+				 : "UnSet"));
+	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+		       PEER_GRACEFUL_RESTART_NEW_STATE_RESTART))
+		SET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART);
+	else
+		UNSET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug(
+			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART : %s : !",
+			peer->host,
+			(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+				 ? "Set"
+				 : "UnSet"));
+	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
+		       PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT))
+		SET_FLAG(peer->flags,
+			 PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
+	else
+		UNSET_FLAG(peer->flags,
+			   PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug(
+			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT : %s : !",
+			peer->host,
+			(CHECK_FLAG(peer->flags,
+				    PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT)
+				 ? "Set"
+				 : "UnSet"));
+
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+	    && !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER)) {
+		zlog_debug("[BGP_GR] Peer %s UNSET PEER_STATUS_NSF_MODE!",
+			   peer->host);
+
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+
+			peer_nsf_stop(peer);
+			zlog_debug(
+				"[BGP_GR] Peer %s UNSET PEER_STATUS_NSF_WAIT!",
+				peer->host);
+		}
+	}
 }

@@ -23,19 +23,18 @@ On top of current topotests framework following enhancements are done:
 Logging of test case executions
 -------------------------------
 
-* The user can enable logging of testcases execution messages into log file by
-  adding ``frrtest_log_dir = /tmp/topotests/`` in :file:`pytest.ini`.
-* Router's current configuration can be displyed on console or sent to logs by
-  adding ``show_router_config = True`` in :file:`pytest.ini`.
+* The execution log for each test is saved in the test specific directory create
+  under `/tmp/topotests` (e.g.,
+  `/tmp/topotests/<testdirname.testfilename>/exec.log`)
 
-Log file name will be displayed when we start execution:
+* Additionally all test logs are captured in the `topotest.xml` results file.
+  This file will be saved in `/tmp/topotests/topotests.xml`. In order to extract
+  the logs for a particular test one can use the `analyze.py` utility found in
+  the topotests base directory.
 
-.. code-block:: console
-
-   root@test:# python ./test_topo_json_single_link.py
-
-   Logs will be sent to logfile:
-   /tmp/topotests/test_topo_json_single_link_11:57:01.353797
+* Router's current configuration, as it is changed during the test, can be
+  displayed on console or sent to logs by adding ``show_router_config = True`` in
+  :file:`pytest.ini`.
 
 Note: directory "/tmp/topotests/" is created by topotests by default, making
 use of same directory to save execution logs.
@@ -51,12 +50,18 @@ topology test.
 
 This is the recommended test writing routine:
 
-* Create a json file , which will have routers and protocol configurations
-* Create topology from json
-* Create configuration from json
-* Write the tests
+* Create a json file which will have routers and protocol configurations
+* Write and debug the tests
+* Format the new code using `black <https://github.com/psf/black>`_
 * Create a Pull Request
 
+.. Note::
+
+   BGP tests MUST use generous convergence timeouts - you must ensure that any
+   test involving BGP uses a convergence timeout that is proportional to the
+   configured BGP timers. If the timers are not reduced from their defaults this
+   means 130 seconds; however, it is highly recommended that timers be reduced
+   from the default values unless the test requires they not be.
 
 File Hierarchy
 ^^^^^^^^^^^^^^
@@ -66,21 +71,17 @@ repository hierarchy looks like this:
 
 .. code-block:: console
 
-   $ cd path/to/topotests
+   $ cd frr/tests/topotests
    $ find ./*
    ...
-   ./example-topojson-test  # the basic example test topology-1
-   ./example-topojson-test/test_example_topojson.json # input json file, having
-   topology, interfaces, bgp and other configuration
-   ./example-topojson-test/test_example_topojson.py # test script to write and
-   execute testcases
+   ./example_test/
+   ./example_test/test_template_json.json # input json file, having topology, interfaces, bgp and other configuration
+   ./example_test/test_template_json.py # test script to write and execute testcases
    ...
    ./lib # shared test/topology functions
-   ./lib/topojson.py # library to create topology and configurations dynamically
-   from json file
-   ./lib/common_config.py # library to create protocol's common configurations ex-
-   static_routes, prefix_lists, route_maps etc.
-   ./lib/bgp.py # library to create only bgp configurations
+   ./lib/topojson.py # library to create topology and configurations dynamically from json file
+   ./lib/common_config.py # library to create protocol's common configurations ex- static_routes, prefix_lists, route_maps etc.
+   ./lib/bgp.py # library to create and test bgp configurations
 
 Defining the Topology and initial configuration in JSON file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -89,7 +90,7 @@ The first step to write a new test is to define the topology and initial
 configuration. User has to define topology and initial configuration in JSON
 file. Here is an example of JSON file::
 
-   BGP neihghborship with single phy-link, sample JSON file:
+   BGP neighborship with single phy-link, sample JSON file:
    {
    "ipv4base": "192.168.0.0",
    "ipv4mask": 30,
@@ -364,39 +365,32 @@ Optional keywords/options in JSON:
 Building topology and configurations
 """"""""""""""""""""""""""""""""""""
 
-Topology and initial configuration will be created in setup_module(). Following
-is the sample code::
-
-   class TemplateTopo(Topo):
-       def build(self, *_args, **_opts):
-       "Build function"
-       tgen = get_topogen(self)
-
-       # Building topology from json file
-       build_topo_from_json(tgen, topo)
-
-   def setup_module(mod):
-       tgen = Topogen(TemplateTopo, mod.__name__)
-
-       # Starting topology, create tmp files which are loaded to routers
-       #  to start deamons and then start routers
-       start_topology(tgen)
-
-       # Creating configuration from JSON
-       build_config_from_json(tgen, topo)
-
-   def teardown_module(mod):
-       tgen = get_topogen()
-
-       # Stop toplogy and Remove tmp files
-       stop_topology(tgen)
+Topology and initial configuration as well as teardown are invoked through the
+use of a pytest fixture::
 
 
-* Note: Topology will  be created in setup module but routers will not be
-  started until we load zebra.conf and bgpd.conf to routers. For all routers
-  dirs will be created in /tmp/topotests/<test_folder_name>/<router_name>
-  zebra.conf and bgpd.conf empty files will be created and laoded to routers.
-  All folder and files are deleted in teardown module..
+   from lib import fixtures
+
+   tgen = pytest.fixture(fixtures.tgen_json, scope="module")
+
+
+   # tgen is defined above
+   # topo is a fixture defined in ../conftest.py and automatically available
+   def test_bgp_convergence(tgen, topo):
+       bgp_convergence = bgp.verify_bgp_convergence(tgen, topo)
+       assert bgp_convergence
+
+The `fixtures.topo_json` function calls `topojson.setup_module_from_json()` to
+create and return a new `topogen.Topogen()` object using the JSON config file
+with the same base filename as the test (i.e., `test_file.py` ->
+`test_file.json`). Additionally, the fixture calls `tgen.stop_topology()` after
+all the tests have run to cleanup. The function is only invoked once per
+file/module (scope="module"), but the resulting object is passed to each
+function that has `tgen` as an argument.
+
+For more info on the powerful pytest fixtures feature please see `FIXTURES`_.
+
+.. _FIXTURES: https://docs.pytest.org/en/6.2.x/fixture.html
 
 Creating configuration files
 """"""""""""""""""""""""""""
@@ -406,10 +400,12 @@ configurations are like, static routes, prefixlists and route maps etc configs,
 these configs can be used by any other protocols as it is.
 BGP config will be specific to BGP protocol testing.
 
-* JSON file is passed to API build_config_from_json(), which looks for
-  configuration tags in JSON file.
-* If tag is found in JSON, configuration is created as per input and written
-  to file frr_json.conf
+* json file is passed to API Topogen() which saves the JSON object in
+  `self.json_topo`
+* The Topogen object is then passed to API build_config_from_json(), which looks
+  for configuration tags in new JSON object.
+* If tag is found in the JSON object, configuration is created as per input and
+  written to file frr_json.conf
 * Once JSON parsing is over, frr_json.conf is loaded onto respective router.
   Config loading is done using 'vtysh -f <file>'. Initial config at this point
   is also saved frr_json_initial.conf. This file can be used to reset
@@ -422,49 +418,37 @@ Writing Tests
 """""""""""""
 
 Test topologies should always be bootstrapped from the
-example-test/test_example.py, because it contains important boilerplate code
-that can't be avoided, like:
-
-imports: os, sys, pytest, topotest/topogen and mininet topology class
-
-The global variable CWD (Current Working directory): which is most likely going
-to be used to reference the routers configuration file location
+`example_test/test_template_json.py` when possible in order to take advantage of
+the most recent infrastructure support code.
 
 Example:
 
 
-* The topology class that inherits from Mininet Topo class;
+* Define a module scoped fixture to setup/teardown and supply the tests with the
+  `Topogen` object.
 
-  .. code-block:: python
+.. code-block:: python
 
-     class TemplateTopo(Topo):
-       def build(self, *_args, **_opts):
-         tgen = get_topogen(self)
-         # topology build code
+   import pytest
+   from lib import fixtures
 
-
-* pytest setup_module() and teardown_module() to start the topology:
-
-  .. code-block:: python
-
-     def setup_module(_m):
-       tgen = Topogen(TemplateTopo)
-
-       # Starting topology, create tmp files which are loaded to routers
-       #  to start deamons and then start routers
-       start_topology(tgen, CWD)
-
-     def teardown_module(_m):
-       tgen = get_topogen()
-
-       # Stop toplogy and Remove tmp files
-       stop_topology(tgen, CWD)
+   tgen = pytest.fixture(fixtures.tgen_json, scope="module")
 
 
-* ``__main__`` initialization code (to support running the script directly)
+* Define test functions using pytest fixtures
 
-  .. code-block:: python
+.. code-block:: python
 
-     if **name** == '\ **main**\ ':
-       sys.exit(pytest.main(["-s"]))
+   from lib import bgp
 
+   # tgen is defined above
+   # topo is a global available fixture defined in ../conftest.py
+   def test_bgp_convergence(tgen, topo):
+       "Test for BGP convergence."
+
+       # Don't run this test if we have any failure.
+       if tgen.routers_have_failure():
+           pytest.skip(tgen.errors)
+
+       bgp_convergence = bgp.verify_bgp_convergence(tgen, topo)
+       assert bgp_convergence

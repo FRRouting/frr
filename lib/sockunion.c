@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Socket union related function.
  * Copyright (c) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,8 +12,9 @@
 #include "log.h"
 #include "jhash.h"
 #include "lib_errors.h"
+#include "printfrr.h"
 
-DEFINE_MTYPE_STATIC(LIB, SOCKUNION, "Socket union")
+DEFINE_MTYPE_STATIC(LIB, SOCKUNION, "Socket union");
 
 const char *inet_sutop(const union sockunion *su, char *str)
 {
@@ -106,7 +92,7 @@ static void sockunion_normalise_mapped(union sockunion *su)
 
 	if (su->sa.sa_family == AF_INET6
 	    && IN6_IS_ADDR_V4MAPPED(&su->sin6.sin6_addr)) {
-		memset(&sin, 0, sizeof(struct sockaddr_in));
+		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_port = su->sin6.sin6_port;
 		memcpy(&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
@@ -124,7 +110,6 @@ static const char *sockunion_log(const union sockunion *su, char *buf,
 
 	case AF_INET6:
 		return inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf, len);
-		break;
 
 	default:
 		snprintf(buf, len, "af_unknown %d ", su->sa.sa_family);
@@ -215,7 +200,7 @@ enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
 		if (errno != EINPROGRESS) {
 			char str[SU_ADDRSTRLEN];
 			zlog_info("can't connect to %s fd %d : %s",
-				  sockunion_log(&su, str, sizeof str), fd,
+				  sockunion_log(&su, str, sizeof(str)), fd,
 				  safe_strerror(errno));
 			return connect_error;
 		}
@@ -290,8 +275,10 @@ int sockopt_reuseaddr(int sock)
 	ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&on,
 			 sizeof(on));
 	if (ret < 0) {
-		flog_err(EC_LIB_SOCKET,
-			 "can't set sockopt SO_REUSEADDR to socket %d", sock);
+		flog_err(
+			EC_LIB_SOCKET,
+			"can't set sockopt SO_REUSEADDR to socket %d errno=%d: %s",
+			sock, errno, safe_strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -351,21 +338,6 @@ int sockopt_ttl(int family, int sock, int ttl)
 	return 0;
 }
 
-/*
- * This function called setsockopt(.., TCP_CORK,...)
- * Which on linux is a no-op since it is enabled by
- * default and on BSD it uses TCP_NOPUSH to do
- * the same thing( which it was not configured to
- * use).  This cleanup of the api occurred on 8/1/17
- * I imagine if after more than 1 year of no-one
- * complaining, and a major upgrade release we
- * can deprecate and remove this function call
- */
-int sockopt_cork(int sock, int onoff)
-{
-	return 0;
-}
-
 int sockopt_minttl(int family, int sock, int minttl)
 {
 #ifdef IP_MINTTL
@@ -407,8 +379,7 @@ int sockopt_v6only(int family, int sock)
 				 sizeof(int));
 		if (ret < 0) {
 			flog_err(EC_LIB_SOCKET,
-				 "can't set sockopt IPV6_V6ONLY "
-				 "to socket %d",
+				 "can't set sockopt IPV6_V6ONLY to socket %d",
 				 sock);
 			return -1;
 		}
@@ -519,8 +490,8 @@ union sockunion *sockunion_getsockname(int fd)
 	} name;
 	union sockunion *su;
 
-	memset(&name, 0, sizeof name);
-	len = sizeof name;
+	memset(&name, 0, sizeof(name));
+	len = sizeof(name);
 
 	ret = getsockname(fd, (struct sockaddr *)&name, &len);
 	if (ret < 0) {
@@ -541,6 +512,11 @@ union sockunion *sockunion_getsockname(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getsockname call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 
@@ -557,8 +533,8 @@ union sockunion *sockunion_getpeername(int fd)
 	} name;
 	union sockunion *su;
 
-	memset(&name, 0, sizeof name);
-	len = sizeof name;
+	memset(&name, 0, sizeof(name));
+	len = sizeof(name);
 	ret = getpeername(fd, (struct sockaddr *)&name, &len);
 	if (ret < 0) {
 		flog_err(EC_LIB_SOCKET, "Can't get remote address and port: %s",
@@ -577,6 +553,11 @@ union sockunion *sockunion_getpeername(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getpeername call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 
@@ -588,15 +569,11 @@ static void __attribute__((unused)) sockunion_print(const union sockunion *su)
 
 	switch (su->sa.sa_family) {
 	case AF_INET:
-		printf("%s\n", inet_ntoa(su->sin.sin_addr));
+		printf("%pI4\n", &su->sin.sin_addr);
 		break;
-	case AF_INET6: {
-		char buf[SU_ADDRSTRLEN];
-
-		printf("%s\n", inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf,
-					 sizeof(buf)));
-	} break;
-
+	case AF_INET6:
+		printf("%pI6\n", &su->sin6.sin6_addr);
+		break;
 #ifdef AF_LINK
 	case AF_LINK: {
 		struct sockaddr_dl *sdl;
@@ -611,8 +588,7 @@ static void __attribute__((unused)) sockunion_print(const union sockunion *su)
 	}
 }
 
-static int in6addr_cmp(const struct in6_addr *addr1,
-		       const struct in6_addr *addr2)
+int in6addr_cmp(const struct in6_addr *addr1, const struct in6_addr *addr2)
 {
 	unsigned int i;
 	const uint8_t *p1, *p2;
@@ -666,4 +642,140 @@ void sockunion_free(union sockunion *su)
 void sockunion_init(union sockunion *su)
 {
 	memset(su, 0, sizeof(union sockunion));
+}
+
+printfrr_ext_autoreg_p("SU", printfrr_psu);
+static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
+{
+	const union sockunion *su = ptr;
+	bool include_port = false, include_scope = false;
+	bool endflags = false;
+	ssize_t ret = 0;
+	char cbuf[INET6_ADDRSTRLEN];
+
+	if (!su)
+		return bputs(buf, "(null)");
+
+	while (!endflags) {
+		switch (*ea->fmt) {
+		case 'p':
+			ea->fmt++;
+			include_port = true;
+			break;
+		case 's':
+			ea->fmt++;
+			include_scope = true;
+			break;
+		default:
+			endflags = true;
+			break;
+		}
+	}
+
+	switch (sockunion_family(su)) {
+	case AF_UNSPEC:
+		ret += bputs(buf, "(unspec)");
+		break;
+	case AF_INET:
+		inet_ntop(AF_INET, &su->sin.sin_addr, cbuf, sizeof(cbuf));
+		ret += bputs(buf, cbuf);
+		if (include_port)
+			ret += bprintfrr(buf, ":%d", ntohs(su->sin.sin_port));
+		break;
+	case AF_INET6:
+		if (include_port)
+			ret += bputch(buf, '[');
+		inet_ntop(AF_INET6, &su->sin6.sin6_addr, cbuf, sizeof(cbuf));
+		ret += bputs(buf, cbuf);
+		if (include_scope && su->sin6.sin6_scope_id)
+			ret += bprintfrr(buf, "%%%u",
+					 (unsigned int)su->sin6.sin6_scope_id);
+		if (include_port)
+			ret += bprintfrr(buf, "]:%d",
+					 ntohs(su->sin6.sin6_port));
+		break;
+	case AF_UNIX: {
+		int len;
+#ifdef __linux__
+		if (su->sun.sun_path[0] == '\0' && su->sun.sun_path[1]) {
+			len = strnlen(su->sun.sun_path + 1,
+				      sizeof(su->sun.sun_path) - 1);
+			ret += bprintfrr(buf, "@%*pSE", len,
+					 su->sun.sun_path + 1);
+			break;
+		}
+#endif
+		len = strnlen(su->sun.sun_path, sizeof(su->sun.sun_path));
+		ret += bprintfrr(buf, "%*pSE", len, su->sun.sun_path);
+		break;
+	}
+	default:
+		ret += bprintfrr(buf, "(af %d)", sockunion_family(su));
+	}
+
+	return ret;
+}
+
+int sockunion_is_null(const union sockunion *su)
+{
+	unsigned char null_s6_addr[16] = {0};
+
+	switch (sockunion_family(su)) {
+	case AF_UNSPEC:
+		return 1;
+	case AF_INET:
+		return (su->sin.sin_addr.s_addr == 0);
+	case AF_INET6:
+		return !memcmp(su->sin6.sin6_addr.s6_addr, null_s6_addr,
+			       sizeof(null_s6_addr));
+	default:
+		return 0;
+	}
+}
+
+printfrr_ext_autoreg_i("PF", printfrr_pf);
+static ssize_t printfrr_pf(struct fbuf *buf, struct printfrr_eargs *ea,
+			   uintmax_t val)
+{
+	switch (val) {
+	case AF_INET:
+		return bputs(buf, "AF_INET");
+	case AF_INET6:
+		return bputs(buf, "AF_INET6");
+	case AF_UNIX:
+		return bputs(buf, "AF_UNIX");
+#ifdef AF_PACKET
+	case AF_PACKET:
+		return bputs(buf, "AF_PACKET");
+#endif
+#ifdef AF_NETLINK
+	case AF_NETLINK:
+		return bputs(buf, "AF_NETLINK");
+#endif
+	}
+	return bprintfrr(buf, "AF_(%ju)", val);
+}
+
+printfrr_ext_autoreg_i("SO", printfrr_so);
+static ssize_t printfrr_so(struct fbuf *buf, struct printfrr_eargs *ea,
+			   uintmax_t val)
+{
+	switch (val) {
+	case SOCK_STREAM:
+		return bputs(buf, "SOCK_STREAM");
+	case SOCK_DGRAM:
+		return bputs(buf, "SOCK_DGRAM");
+	case SOCK_SEQPACKET:
+		return bputs(buf, "SOCK_SEQPACKET");
+#ifdef SOCK_RAW
+	case SOCK_RAW:
+		return bputs(buf, "SOCK_RAW");
+#endif
+#ifdef SOCK_PACKET
+	case SOCK_PACKET:
+		return bputs(buf, "SOCK_PACKET");
+#endif
+	}
+	return bprintfrr(buf, "SOCK_(%ju)", val);
 }

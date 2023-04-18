@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "lib/zebra.h"
@@ -81,10 +68,10 @@
  * is used to spread out the sort for adbs with the same lifetime
  * and thereby make the skip list operations more efficient.
  */
-static int sl_adb_lifetime_cmp(void *adb1, void *adb2)
+static int sl_adb_lifetime_cmp(const void *adb1, const void *adb2)
 {
-	struct rfapi_adb *a1 = adb1;
-	struct rfapi_adb *a2 = adb2;
+	const struct rfapi_adb *a1 = adb1;
+	const struct rfapi_adb *a2 = adb2;
 
 	if (a1->lifetime < a2->lifetime)
 		return -1;
@@ -459,7 +446,6 @@ int rfapiApAdd(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	if (rc) {
 		/* Not found */
 		adb = XCALLOC(MTYPE_RFAPI_ADB, sizeof(struct rfapi_adb));
-		assert(adb);
 		adb->lifetime = lifetime;
 		adb->u.key = rk;
 

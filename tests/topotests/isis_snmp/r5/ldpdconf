@@ -1,0 +1,25 @@
+hostname r5
+log file ldpd.log
+!
+!debug mpls ldp zebra
+!debug mpls ldp event
+!debug mpls ldp errors
+!debug mpls ldp sync
+!
+mpls ldp
+ router-id 3.3.3.3
+ !
+ address-family ipv4
+  discovery transport-address 5.5.5.5
+  label local allocate host-routes
+  !
+  ttl-security disable
+  !
+  interface r5-eth0
+  !
+  interface r5-eth1
+  !
+ !
+!
+line vty
+!

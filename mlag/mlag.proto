@@ -1,0 +1,186 @@
+// See README.txt for information and build instructions.
+//
+// Note: START and END tags are used in comments to define sections used in
+// tutorials.  They are not part of the syntax for Protocol Buffers.
+//
+// To get an in-depth walkthrough of this file and the related examples, see:
+// https://developers.google.com/protocol-buffers/docs/tutorials
+
+// [START declaration]
+syntax = "proto3";
+//package tutorial;
+
+/*
+ * This Contains the Message structures used for PIM MLAG Active-Active support.
+ * Mainly there were two types of messages
+ *
+ *  1. Messages sent from PIM (Node-1) to PIM (Node-2)
+ *  2. Messages sent from CLAG to PIM (status Messages)
+ *
+ * ProtoBuf supports maximum 32 fields, so to make it more generic message
+ * encoding is like below.
+ *    __________________________________________
+ *    |              |                          |
+ *    |    Header    |     bytes                |
+ *    ___________________________________________
+ *
+ *
+ *  Header carries Information about
+ *    1) what Message it is carrying
+ *    2) Bytes carries the actual payload encoded with protobuf
+ *
+ *
+ * Limitations
+ *=============
+ *  Since message-type is 32-bit, there were no real limitations on number of
+ *  messages Infra can support, but each message can carry only 32 fields.
+ *
+ */
+
+
+// [START messages]
+message ZebraMlag_Header {
+    enum MessageType {
+        ZEBRA_MLAG_NONE = 0; //Invalid message-type
+        ZEBRA_MLAG_REGISTER = 1;
+        ZEBRA_MLAG_DEREGISTER = 2;
+        ZEBRA_MLAG_STATUS_UPDATE = 3;
+        ZEBRA_MLAG_MROUTE_ADD = 4;
+        ZEBRA_MLAG_MROUTE_DEL = 5;
+        ZEBRA_MLAG_DUMP = 6;
+        ZEBRA_MLAG_MROUTE_ADD_BULK = 7;
+        ZEBRA_MLAG_MROUTE_DEL_BULK = 8;
+        ZEBRA_MLAG_PIM_CFG_DUMP = 10;
+        ZEBRA_MLAG_VXLAN_UPDATE = 11;
+        ZEBRA_MLAG_ZEBRA_STATUS_UPDATE = 12;
+    }
+
+    /*
+     * tells what type of message this payload carries
+     */
+    MessageType type = 1;
+
+    /*
+     * Length of payload
+     */
+    uint32      len  = 2;
+
+    /*
+     * Actual Encoded payload
+     */
+    bytes       data = 3;
+}
+
+
+/*
+ * ZEBRA_MLAG_REGISTER & ZEBRA_MLAG_DEREGISTER
+ *
+ * After the MLAGD is up, First Zebra has to register to send any data,
+ * otherwise MLAGD will not accept any data from the client.
+ * De-register will be used for the Data cleanup at MLAGD
+ * These are NULL payload message currently
+ */
+
+/*
+ * ZEBRA_MLAG_STATUS_UPDATE
+ *
+ * This message will be posted by CLAGD(an external control plane manager
+ * which monitors CLAG failures) to inform peerlink/CLAG Failure
+ * to zebra, after the failure Notification Node with primary role will
+ * forward the Traffic and Node with standby will drop the traffic
+ */
+
+message ZebraMlagStatusUpdate {
+    enum ClagState {
+        CLAG_STATE_DOWN = 0;
+        CLAG_STATE_RUNNING = 1;
+    }
+
+    enum ClagRole {
+        CLAG_ROLE_NONE = 0;
+        CLAG_ROLE_PRIMAY = 1;
+        CLAG_ROLE_SECONDARY = 2;
+    }
+
+    string    peerlink = 1;
+    ClagRole  my_role = 2;
+    ClagState peer_state = 3;
+}
+
+/*
+ * ZEBRA_MLAG_VXLAN_UPDATE
+ *
+ * This message will be posted by CLAGD(an external control plane Manager
+ * which is responsible for MCLAG) to inform zebra obout anycast/local
+ * ip updates.
+ */
+message ZebraMlagVxlanUpdate {
+	uint32 anycast_ip = 1;
+	uint32 local_ip = 2;
+}
+
+/*
+ * ZebraMlagZebraStatusUpdate
+ *
+ * This message will be posted by CLAGD to advertise FRR state
+ * Change Information to peer
+ */
+
+message ZebraMlagZebraStatusUpdate{
+    enum FrrState {
+        FRR_STATE_NONE = 0;
+        FRR_STATE_DOWN = 1;
+        FRR_STATE_UP = 2;
+    }
+
+    FrrState peer_frrstate = 1;
+}
+
+/*
+ * ZEBRA_MLAG_MROUTE_ADD & ZEBRA_MLAG_MROUTE_DEL
+ *
+ * These messages will be sent from PIM (Node-1) to PIM (Node-2) to perform
+ * DF Election for each Mcast flow. Elected DF will forward the traffic
+ * towards the host and loser will keep the OIL as empty, so that only single
+ * copy will be sent to host
+ * This message will be posted with any change in the params.
+ *
+ * ZEBRA_MLAG_MROUTE_DEL is mainly to delete the record at MLAGD when the
+ * mcast flow is deleted.
+ * key for the MLAGD lookup is (vrf_id, source_ip & group_ip)
+ */
+
+message ZebraMlagMrouteAdd {
+    string   vrf_name = 1;
+    uint32   source_ip = 2;
+    uint32   group_ip = 3;
+    /*
+     * This is the IGP Cost to reach Configured RP in case of (*,G) or
+     * Cost to the source in case of (S,G) entry
+     */
+    uint32   cost_to_rp = 4;
+    uint32   owner_id = 5;
+    bool     am_i_DR = 6;
+    bool     am_i_Dual_active = 7;
+    uint32   vrf_id = 8;
+    string   intf_name = 9;
+}
+
+message ZebraMlagMrouteDel {
+    string   vrf_name = 1;
+    uint32   source_ip = 2;
+    uint32   group_ip = 3;
+    uint32   owner_id = 4;
+    uint32   vrf_id = 5;
+    string   intf_name = 6;
+}
+
+message ZebraMlagMrouteAddBulk {
+    repeated ZebraMlagMrouteAdd mroute_add = 1;
+}
+
+message ZebraMlagMrouteDelBulk {
+    repeated ZebraMlagMrouteDel mroute_del = 1;
+}
+
+// [END messages]

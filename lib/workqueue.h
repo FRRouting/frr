@@ -1,23 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Quagga Work Queues.
  *
  * Copyright (C) 2005 Sun Microsystems, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_WORK_QUEUE_H
@@ -30,7 +15,7 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(WORK_QUEUE)
+DECLARE_MTYPE(WORK_QUEUE);
 
 /* Hold time for the initial schedule of a queue run, in  millisec */
 #define WORK_QUEUE_DEFAULT_HOLD 50
@@ -41,7 +26,6 @@ DECLARE_MTYPE(WORK_QUEUE)
 /* action value, for use by item processor and item error handlers */
 typedef enum {
 	WQ_SUCCESS = 0,
-	WQ_ERROR,	 /* Error, run error handler if provided */
 	WQ_RETRY_NOW,     /* retry immediately */
 	WQ_RETRY_LATER,   /* retry later, cease processing work queue */
 	WQ_REQUEUE,       /* requeue item, continue processing work queue */
@@ -63,8 +47,8 @@ struct work_queue {
 	/* Everything but the specification struct is private
 	 * the following may be read
 	 */
-	struct thread_master *master; /* thread master */
-	struct thread *thread;	/* thread, if one is active */
+	struct event_loop *master;    /* thread master */
+	struct event *thread;	      /* thread, if one is active */
 	char *name;		      /* work queue name */
 
 	/* Specification for this work queue.
@@ -79,10 +63,6 @@ struct work_queue {
 		 * Second argument is the item data
 		 */
 		wq_item_status (*workfunc)(struct work_queue *, void *);
-
-		/* error handling function, optional */
-		void (*errorfunc)(struct work_queue *,
-				  struct work_queue_item *);
 
 		/* callback to delete user specific item data */
 		void (*del_item_data)(struct work_queue *, void *);
@@ -157,7 +137,8 @@ static inline void work_queue_item_dequeue(struct work_queue *wq,
  * user must fill in the spec of the returned work queue before adding
  * anything to it
  */
-extern struct work_queue *work_queue_new(struct thread_master *, const char *);
+extern struct work_queue *work_queue_new(struct event_loop *m,
+					 const char *queue_name);
 
 /* destroy work queue */
 /*
@@ -174,10 +155,10 @@ extern void work_queue_plug(struct work_queue *wq);
 /* unplug the queue, allow it to be drained again */
 extern void work_queue_unplug(struct work_queue *wq);
 
-bool work_queue_is_scheduled(struct work_queue *);
+bool work_queue_is_scheduled(struct work_queue *wq);
 
 /* Helpers, exported for thread.c and command.c */
-extern int work_queue_run(struct thread *);
+extern void work_queue_run(struct event *thread);
 
 extern void workqueue_cmd_init(void);
 

@@ -1,0 +1,27 @@
+{
+ "vrfName": "vrf-blue",
+ "routerId": "10.100.0.1",
+ "defaultLocPrf": 100,
+ "localAS": 101,
+ "routes": { "100::21/128": [
+  {
+    "valid":true,
+    "bestpath":true,
+    "pathFrom":"external",
+    "prefix":"100::21",
+    "prefixLen":128,
+    "network":"100::21\/128",
+    "metric":0,
+    "weight":0,
+    "peerId":"50:0:1::11",
+    "path":"111",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"50:0:1::11",
+        "afi":"ipv6",
+        "scope":"global"
+      }
+    ]
+  }
+] }  }

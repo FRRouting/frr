@@ -1,21 +1,10 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$ */
 
 /*
  * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
  * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
  * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -28,12 +17,12 @@
 
 static struct iface		*disc_find_iface(unsigned int, int,
 				    union ldpd_addr *);
-static int			 session_read(struct thread *);
-static int			 session_write(struct thread *);
+static void session_read(struct event *thread);
+static void session_write(struct event *thread);
 static ssize_t			 session_get_pdu(struct ibuf_read *, char **);
 static void			 tcp_close(struct tcp_conn *);
 static struct pending_conn	*pending_conn_new(int, int, union ldpd_addr *);
-static int			 pending_conn_timeout(struct thread *);
+static void pending_conn_timeout(struct event *thread);
 
 int
 gen_ldp_hdr(struct ibuf *buf, uint16_t size)
@@ -77,8 +66,7 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 		if (ia && IN_MULTICAST(ntohl(dst->v4.s_addr))) {
 			/* set outgoing interface for multicast traffic */
 			if (sock_set_ipv4_mcast(ia->iface) == -1) {
-				log_debug("%s: error setting multicast "
-				    "interface, %s", __func__, ia->iface->name);
+				log_debug("%s: error setting multicast interface, %s", __func__, ia->iface->name);
 				return (-1);
 			}
 		}
@@ -87,8 +75,7 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 		if (ia && IN6_IS_ADDR_MULTICAST(&dst->v6)) {
 			/* set outgoing interface for multicast traffic */
 			if (sock_set_ipv6_mcast(ia->iface) == -1) {
-				log_debug("%s: error setting multicast "
-				    "interface, %s", __func__, ia->iface->name);
+				log_debug("%s: error setting multicast interface, %s", __func__, ia->iface->name);
 				return (-1);
 			}
 		}
@@ -108,11 +95,10 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 }
 
 /* Discovery functions */
-int
-disc_recv_packet(struct thread *thread)
+void disc_recv_packet(struct event *thread)
 {
-	int			 fd = THREAD_FD(thread);
-	struct thread		**threadp = THREAD_ARG(thread);
+	int fd = EVENT_FD(thread);
+	struct event **threadp = EVENT_ARG(thread);
 
 	union {
 		struct	cmsghdr hdr;
@@ -143,8 +129,7 @@ disc_recv_packet(struct thread *thread)
 	struct in_addr		 lsr_id;
 
 	/* reschedule read */
-	*threadp = NULL;
-	thread_add_read(master, disc_recv_packet, threadp, fd, threadp);
+	event_add_read(master, disc_recv_packet, threadp, fd, threadp);
 
 	/* setup buffer */
 	memset(&m, 0, sizeof(m));
@@ -161,7 +146,7 @@ disc_recv_packet(struct thread *thread)
 		if (errno != EAGAIN && errno != EINTR)
 			log_debug("%s: read error: %s", __func__,
 			    strerror(errno));
-		return (0);
+		return;
 	}
 
 	sa2addr((struct sockaddr *)&from, &af, &src, NULL);
@@ -208,7 +193,7 @@ disc_recv_packet(struct thread *thread)
 	if (bad_addr(af, &src)) {
 		log_debug("%s: invalid source address: %s", __func__,
 		    log_addr(af, &src));
-		return (0);
+		return;
 	}
 	ifindex = getsockopt_ifindex(af, &m);
 
@@ -216,7 +201,7 @@ disc_recv_packet(struct thread *thread)
 	if (multicast) {
 		iface = disc_find_iface(ifindex, af, &src);
 		if (iface == NULL)
-			return (0);
+			return;
 	}
 
 	/* check packet size */
@@ -224,7 +209,7 @@ disc_recv_packet(struct thread *thread)
 	if (len < (LDP_HDR_SIZE + LDP_MSG_SIZE) || len > LDP_MAX_LEN) {
 		log_debug("%s: bad packet size, source %s", __func__,
 		    log_addr(af, &src));
-		return (0);
+		return;
 	}
 
 	/* LDP header sanity checks */
@@ -232,12 +217,12 @@ disc_recv_packet(struct thread *thread)
 	if (ntohs(ldp_hdr.version) != LDP_VERSION) {
 		log_debug("%s: invalid LDP version %d, source %s", __func__,
 		    ntohs(ldp_hdr.version), log_addr(af, &src));
-		return (0);
+		return;
 	}
 	if (ntohs(ldp_hdr.lspace_id) != 0) {
 		log_debug("%s: invalid label space %u, source %s", __func__,
 		    ntohs(ldp_hdr.lspace_id), log_addr(af, &src));
-		return (0);
+		return;
 	}
 	/* check "PDU Length" field */
 	pdu_len = ntohs(ldp_hdr.length);
@@ -245,7 +230,7 @@ disc_recv_packet(struct thread *thread)
 	    (pdu_len > (len - LDP_HDR_DEAD_LEN))) {
 		log_debug("%s: invalid LDP packet length %u, source %s",
 		    __func__, ntohs(ldp_hdr.length), log_addr(af, &src));
-		return (0);
+		return;
 	}
 	buf += LDP_HDR_SIZE;
 	len -= LDP_HDR_SIZE;
@@ -264,7 +249,7 @@ disc_recv_packet(struct thread *thread)
 	if (msg_len < LDP_MSG_LEN || ((msg_len + LDP_MSG_DEAD_LEN) > pdu_len)) {
 		log_debug("%s: invalid LDP message length %u, source %s",
 		    __func__, ntohs(msg.length), log_addr(af, &src));
-		return (0);
+		return;
 	}
 	buf += LDP_MSG_SIZE;
 	len -= LDP_MSG_SIZE;
@@ -278,8 +263,6 @@ disc_recv_packet(struct thread *thread)
 		log_debug("%s: unknown LDP packet type, source %s", __func__,
 		    log_addr(af, &src));
 	}
-
-	return (0);
 }
 
 static struct iface *
@@ -307,10 +290,9 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src)
 	return (iface);
 }
 
-int
-session_accept(struct thread *thread)
+void session_accept(struct event *thread)
 {
-	int			 fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	struct sockaddr_storage	 src;
 	socklen_t		 len = sizeof(src);
 	int			 newfd;
@@ -331,7 +313,7 @@ session_accept(struct thread *thread)
 		    errno != ECONNABORTED)
 			log_debug("%s: accept error: %s", __func__,
 			    strerror(errno));
-		return (0);
+		return;
 	}
 	sock_set_nonblock(newfd);
 
@@ -360,23 +342,20 @@ session_accept(struct thread *thread)
 			close(newfd);
 		else
 			pending_conn_new(newfd, af, &addr);
-		return (0);
+		return;
 	}
 	/* protection against buggy implementations */
 	if (nbr_session_active_role(nbr)) {
 		close(newfd);
-		return (0);
+		return;
 	}
 	if (nbr->state != NBR_STA_PRESENT) {
-		log_debug("%s: lsr-id %s: rejecting additional transport "
-		    "connection", __func__, inet_ntoa(nbr->id));
+		log_debug("%s: lsr-id %pI4: rejecting additional transport connection", __func__, &nbr->id);
 		close(newfd);
-		return (0);
+		return;
 	}
 
 	session_accept_nbr(nbr, newfd);
-
-	return (0);
 }
 
 void
@@ -415,11 +394,10 @@ session_accept_nbr(struct nbr *nbr, int fd)
 	nbr_fsm(nbr, NBR_EVT_MATCH_ADJ);
 }
 
-static int
-session_read(struct thread *thread)
+static void session_read(struct event *thread)
 {
-	int		 fd = THREAD_FD(thread);
-	struct nbr	*nbr = THREAD_ARG(thread);
+	int fd = EVENT_FD(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 	struct tcp_conn	*tcp = nbr->tcp;
 	struct ldp_hdr	*ldp_hdr;
 	struct ldp_msg	*msg;
@@ -428,24 +406,23 @@ session_read(struct thread *thread)
 	uint16_t	 pdu_len, msg_len, msg_size, max_pdu_len;
 	int		 ret;
 
-	tcp->rev = NULL;
-	thread_add_read(master, session_read, nbr, fd, &tcp->rev);
+	event_add_read(master, session_read, nbr, fd, &tcp->rev);
 
 	if ((n = read(fd, tcp->rbuf->buf + tcp->rbuf->wpos,
 	    sizeof(tcp->rbuf->buf) - tcp->rbuf->wpos)) == -1) {
 		if (errno != EINTR && errno != EAGAIN) {
 			log_warn("%s: read error", __func__);
 			nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
-			return (0);
+			return;
 		}
 		/* retry read */
-		return (0);
+		return;
 	}
 	if (n == 0) {
 		/* connection closed */
 		log_debug("%s: connection closed by remote end", __func__);
 		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
-		return (0);
+		return;
 	}
 	tcp->rbuf->wpos += n;
 
@@ -455,7 +432,7 @@ session_read(struct thread *thread)
 		if (ntohs(ldp_hdr->version) != LDP_VERSION) {
 			session_shutdown(nbr, S_BAD_PROTO_VER, 0, 0);
 			free(buf);
-			return (0);
+			return;
 		}
 
 		pdu_len = ntohs(ldp_hdr->length);
@@ -472,14 +449,14 @@ session_read(struct thread *thread)
 		    pdu_len > max_pdu_len) {
 			session_shutdown(nbr, S_BAD_PDU_LEN, 0, 0);
 			free(buf);
-			return (0);
+			return;
 		}
 		pdu_len -= LDP_HDR_PDU_LEN;
 		if (ldp_hdr->lsr_id != nbr->id.s_addr ||
 		    ldp_hdr->lspace_id != 0) {
 			session_shutdown(nbr, S_BAD_LDP_ID, 0, 0);
 			free(buf);
-			return (0);
+			return;
 		}
 		pdu += LDP_HDR_SIZE;
 		len -= LDP_HDR_SIZE;
@@ -497,7 +474,7 @@ session_read(struct thread *thread)
 				session_shutdown(nbr, S_BAD_MSG_LEN, msg->id,
 				    msg->type);
 				free(buf);
-				return (0);
+				return;
 			}
 			msg_size = msg_len + LDP_MSG_DEAD_LEN;
 			pdu_len -= msg_size;
@@ -510,7 +487,7 @@ session_read(struct thread *thread)
 					session_shutdown(nbr, S_SHUTDOWN,
 					    msg->id, msg->type);
 					free(buf);
-					return (0);
+					return;
 				}
 				break;
 			case MSG_TYPE_KEEPALIVE:
@@ -519,7 +496,7 @@ session_read(struct thread *thread)
 					session_shutdown(nbr, S_SHUTDOWN,
 					    msg->id, msg->type);
 					free(buf);
-					return (0);
+					return;
 				}
 				break;
 			case MSG_TYPE_NOTIFICATION:
@@ -529,7 +506,7 @@ session_read(struct thread *thread)
 					session_shutdown(nbr, S_SHUTDOWN,
 					    msg->id, msg->type);
 					free(buf);
-					return (0);
+					return;
 				}
 				break;
 			}
@@ -561,11 +538,13 @@ session_read(struct thread *thread)
 				    type);
 				break;
 			default:
-				log_debug("%s: unknown LDP message from nbr %s",
-				    __func__, inet_ntoa(nbr->id));
-				if (!(ntohs(msg->type) & UNKNOWN_FLAG))
+				log_debug("%s: unknown LDP message from nbr %pI4",
+				    __func__, &nbr->id);
+				if (!(ntohs(msg->type) & UNKNOWN_FLAG)) {
+					nbr->stats.unknown_msg++;
 					send_notification(nbr->tcp,
 					    S_UNKNOWN_MSG, msg->id, msg->type);
+				}
 				/* ignore the message */
 				ret = 0;
 				break;
@@ -574,7 +553,7 @@ session_read(struct thread *thread)
 			if (ret == -1) {
 				/* parser failed, giving up */
 				free(buf);
-				return (0);
+				return;
 			}
 
 			/* no errors - update per neighbor message counters */
@@ -621,7 +600,7 @@ session_read(struct thread *thread)
 		buf = NULL;
 		if (len != 0) {
 			session_shutdown(nbr, S_BAD_PDU_LEN, 0, 0);
-			return (0);
+			return;
 		}
 	}
 
@@ -629,13 +608,11 @@ session_read(struct thread *thread)
 	 * allocated - but let's get rid of the SA warning.
 	 */
 	free(buf);
-	return (0);
 }
 
-static int
-session_write(struct thread *thread)
+static void session_write(struct event *thread)
 {
-	struct tcp_conn *tcp = THREAD_ARG(thread);
+	struct tcp_conn *tcp = EVENT_ARG(thread);
 	struct nbr	*nbr = tcp->nbr;
 
 	tcp->wbuf.ev = NULL;
@@ -650,12 +627,10 @@ session_write(struct thread *thread)
 		 * close the socket.
 		 */
 		tcp_close(tcp);
-		return (0);
+		return;
 	}
 
 	evbuf_event_add(&tcp->wbuf);
-
-	return (0);
 }
 
 void
@@ -665,11 +640,17 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	switch (nbr->state) {
 	case NBR_STA_PRESENT:
 		if (nbr_pending_connect(nbr))
-			THREAD_WRITE_OFF(nbr->ev_connect);
+			EVENT_OFF(nbr->ev_connect);
 		break;
 	case NBR_STA_INITIAL:
 	case NBR_STA_OPENREC:
 	case NBR_STA_OPENSENT:
+		/* update SNMP session counters during initialization */
+		leconf->stats.session_attempts++;
+		send_notification(nbr->tcp, status, msg_id, msg_type);
+
+		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
+		break;
 	case NBR_STA_OPER:
 		send_notification(nbr->tcp, status, msg_id, msg_type);
 
@@ -683,8 +664,10 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 void
 session_close(struct nbr *nbr)
 {
-	log_debug("%s: closing session with lsr-id %s", __func__,
-	    inet_ntoa(nbr->id));
+	log_debug("%s: closing session with lsr-id %pI4", __func__,
+	    &nbr->id);
+
+	ldp_sync_fsm_nbr_event(nbr, LDP_SYNC_EVT_SESSION_CLOSE);
 
 	tcp_close(nbr->tcp);
 	nbr_stop_ktimer(nbr);
@@ -738,8 +721,7 @@ tcp_new(int fd, struct nbr *nbr)
 		if ((tcp->rbuf = calloc(1, sizeof(struct ibuf_read))) == NULL)
 			fatal(__func__);
 
-		tcp->rev = NULL;
-		thread_add_read(master, session_read, nbr, tcp->fd, &tcp->rev);
+		event_add_read(master, session_read, nbr, tcp->fd, &tcp->rev);
 		tcp->nbr = nbr;
 	}
 
@@ -763,7 +745,7 @@ tcp_close(struct tcp_conn *tcp)
 	evbuf_clear(&tcp->wbuf);
 
 	if (tcp->nbr) {
-		THREAD_READ_OFF(tcp->rev);
+		EVENT_OFF(tcp->rev);
 		free(tcp->rbuf);
 		tcp->nbr->tcp = NULL;
 	}
@@ -786,8 +768,8 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 	pconn->addr = *addr;
 	TAILQ_INSERT_TAIL(&global.pending_conns, pconn, entry);
 	pconn->ev_timeout = NULL;
-	thread_add_timer(master, pending_conn_timeout, pconn, PENDING_CONN_TIMEOUT,
-			 &pconn->ev_timeout);
+	event_add_timer(master, pending_conn_timeout, pconn,
+			PENDING_CONN_TIMEOUT, &pconn->ev_timeout);
 
 	return (pconn);
 }
@@ -795,7 +777,7 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 void
 pending_conn_del(struct pending_conn *pconn)
 {
-	THREAD_TIMER_OFF(pconn->ev_timeout);
+	EVENT_OFF(pconn->ev_timeout);
 	TAILQ_REMOVE(&global.pending_conns, pconn, entry);
 	free(pconn);
 }
@@ -813,10 +795,9 @@ pending_conn_find(int af, union ldpd_addr *addr)
 	return (NULL);
 }
 
-static int
-pending_conn_timeout(struct thread *thread)
+static void pending_conn_timeout(struct event *thread)
 {
-	struct pending_conn	*pconn = THREAD_ARG(thread);
+	struct pending_conn *pconn = EVENT_ARG(thread);
 	struct tcp_conn		*tcp;
 
 	pconn->ev_timeout = NULL;
@@ -833,6 +814,4 @@ pending_conn_timeout(struct thread *thread)
 	msgbuf_write(&tcp->wbuf.wbuf);
 
 	pending_conn_del(pconn);
-
-	return (0);
 }

@@ -1,0 +1,21 @@
+{
+  "10.254.254.4/32": [
+    {
+      "distance": 0,
+      "protocol": "connected",
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.4/32",
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "lo",
+          "fib": true,
+          "flags": 3,
+          "active": true
+        }
+      ]
+    }
+  ]
+}

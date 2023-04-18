@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPFd dump routine (parts used by ospfclient).
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -105,7 +91,7 @@ char *ospf_options_dump(uint8_t options)
 {
 	static char buf[OSPF_OPTION_STR_MAXLEN];
 
-	snprintf(buf, OSPF_OPTION_STR_MAXLEN, "*|%s|%s|%s|%s|%s|%s|%s",
+	snprintf(buf, sizeof(buf), "*|%s|%s|%s|%s|%s|%s|%s",
 		 (options & OSPF_OPTION_O) ? "O" : "-",
 		 (options & OSPF_OPTION_DC) ? "DC" : "-",
 		 (options & OSPF_OPTION_EA) ? "EA" : "-",
@@ -127,8 +113,8 @@ void ospf_lsa_header_dump(struct lsa_header *lsah)
 		   ospf_options_dump(lsah->options));
 	zlog_debug("    LS type %d (%s)", lsah->type,
 		   (lsah->type ? lsah_type : "unknown type"));
-	zlog_debug("    Link State ID %s", inet_ntoa(lsah->id));
-	zlog_debug("    Advertising Router %s", inet_ntoa(lsah->adv_router));
+	zlog_debug("    Link State ID %pI4", &lsah->id);
+	zlog_debug("    Advertising Router %pI4", &lsah->adv_router);
 	zlog_debug("    LS sequence number 0x%lx",
 		   (unsigned long)ntohl(lsah->ls_seqnum));
 	zlog_debug("    LS checksum 0x%x", ntohs(lsah->checksum));

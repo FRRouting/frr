@@ -1,0 +1,25 @@
+[
+  {
+    "in": {
+      "dest": "1::1",
+      "nh": "2001::2",
+      "sid": "a::"
+    },
+    "out":[{
+        "prefix":"1::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "seg6": { "segs": "a::" }
+        }]
+    }]
+  }
+]

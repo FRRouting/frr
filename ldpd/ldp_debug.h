@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
  */
 
 #ifndef _LDP_DEBUG_H_
@@ -42,6 +28,10 @@ struct ldp_debug {
 
 	int	 zebra;
 #define LDP_DEBUG_ZEBRA		0x01
+
+	int	 sync;
+#define LDP_DEBUG_SYNC		0x01
+
 };
 extern struct ldp_debug	 conf_ldp_debug;
 extern struct ldp_debug	 ldp_debug;
@@ -141,6 +131,12 @@ do {									\
 do {									\
 	if (LDP_DEBUG(zebra, LDP_DEBUG_ZEBRA))				\
 		log_debug("zebra[out]: " emsg, __VA_ARGS__);		\
+} while (0)
+
+#define		 debug_evt_ldp_sync(emsg, ...)				\
+do {									\
+	if (LDP_DEBUG(sync, LDP_DEBUG_SYNC))				\
+		log_debug("sync: " emsg, __VA_ARGS__);			\
 } while (0)
 
 #endif /* _LDP_DEBUG_H_ */

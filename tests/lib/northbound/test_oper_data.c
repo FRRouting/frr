@@ -1,33 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "log.h"
 #include "northbound.h"
 
-static struct thread_master *master;
+static struct event_loop *master;
 
 struct troute {
 	struct prefix_ipv4 prefix;
@@ -49,41 +36,38 @@ static struct list *vrfs;
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf
  */
 static const void *
-frr_test_module_vrfs_vrf_get_next(const void *parent_list_entry,
-				  const void *list_entry)
+frr_test_module_vrfs_vrf_get_next(struct nb_cb_get_next_args *args)
 {
 	struct listnode *node;
 
-	if (list_entry == NULL)
+	if (args->list_entry == NULL)
 		node = listhead(vrfs);
 	else
-		node = listnextnode((struct listnode *)list_entry);
+		node = listnextnode((struct listnode *)args->list_entry);
 
 	return node;
 }
 
-static int frr_test_module_vrfs_vrf_get_keys(const void *list_entry,
-					     struct yang_list_keys *keys)
+static int frr_test_module_vrfs_vrf_get_keys(struct nb_cb_get_keys_args *args)
 {
 	const struct tvrf *vrf;
 
-	vrf = listgetdata((struct listnode *)list_entry);
+	vrf = listgetdata((struct listnode *)args->list_entry);
 
-	keys->num = 1;
-	strlcpy(keys->key[0], vrf->name, sizeof(keys->key[0]));
+	args->keys->num = 1;
+	strlcpy(args->keys->key[0], vrf->name, sizeof(args->keys->key[0]));
 
 	return NB_OK;
 }
 
 static const void *
-frr_test_module_vrfs_vrf_lookup_entry(const void *parent_list_entry,
-				      const struct yang_list_keys *keys)
+frr_test_module_vrfs_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	struct listnode *node;
 	struct tvrf *vrf;
 	const char *vrfname;
 
-	vrfname = keys->key[0];
+	vrfname = args->keys->key[0];
 
 	for (ALL_LIST_ELEMENTS_RO(vrfs, node, vrf)) {
 		if (strmatch(vrf->name, vrfname))
@@ -97,39 +81,37 @@ frr_test_module_vrfs_vrf_lookup_entry(const void *parent_list_entry,
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/name
  */
 static struct yang_data *
-frr_test_module_vrfs_vrf_name_get_elem(const char *xpath,
-				       const void *list_entry)
+frr_test_module_vrfs_vrf_name_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct tvrf *vrf;
 
-	vrf = listgetdata((struct listnode *)list_entry);
-	return yang_data_new_string(xpath, vrf->name);
+	vrf = listgetdata((struct listnode *)args->list_entry);
+	return yang_data_new_string(args->xpath, vrf->name);
 }
 
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface
  */
-static struct yang_data *
-frr_test_module_vrfs_vrf_interfaces_interface_get_elem(const char *xpath,
-						       const void *list_entry)
+static struct yang_data *frr_test_module_vrfs_vrf_interfaces_interface_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	const char *interface;
 
-	interface = listgetdata((struct listnode *)list_entry);
-	return yang_data_new_string(xpath, interface);
+	interface = listgetdata((struct listnode *)args->list_entry);
+	return yang_data_new_string(args->xpath, interface);
 }
 
 static const void *frr_test_module_vrfs_vrf_interfaces_interface_get_next(
-	const void *parent_list_entry, const void *list_entry)
+	struct nb_cb_get_next_args *args)
 {
 	const struct tvrf *vrf;
 	struct listnode *node;
 
-	vrf = listgetdata((struct listnode *)parent_list_entry);
-	if (list_entry == NULL)
+	vrf = listgetdata((struct listnode *)args->parent_list_entry);
+	if (args->list_entry == NULL)
 		node = listhead(vrf->interfaces);
 	else
-		node = listnextnode((struct listnode *)list_entry);
+		node = listnextnode((struct listnode *)args->list_entry);
 
 	return node;
 }
@@ -138,17 +120,16 @@ static const void *frr_test_module_vrfs_vrf_interfaces_interface_get_next(
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route
  */
 static const void *
-frr_test_module_vrfs_vrf_routes_route_get_next(const void *parent_list_entry,
-					       const void *list_entry)
+frr_test_module_vrfs_vrf_routes_route_get_next(struct nb_cb_get_next_args *args)
 {
 	const struct tvrf *vrf;
 	struct listnode *node;
 
-	vrf = listgetdata((struct listnode *)parent_list_entry);
-	if (list_entry == NULL)
+	vrf = listgetdata((struct listnode *)args->parent_list_entry);
+	if (args->list_entry == NULL)
 		node = listhead(vrf->routes);
 	else
-		node = listnextnode((struct listnode *)list_entry);
+		node = listnextnode((struct listnode *)args->list_entry);
 
 	return node;
 }
@@ -156,67 +137,64 @@ frr_test_module_vrfs_vrf_routes_route_get_next(const void *parent_list_entry,
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route/prefix
  */
-static struct yang_data *
-frr_test_module_vrfs_vrf_routes_route_prefix_get_elem(const char *xpath,
-						      const void *list_entry)
+static struct yang_data *frr_test_module_vrfs_vrf_routes_route_prefix_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	const struct troute *route;
 
-	route = listgetdata((struct listnode *)list_entry);
-	return yang_data_new_ipv4p(xpath, &route->prefix);
+	route = listgetdata((struct listnode *)args->list_entry);
+	return yang_data_new_ipv4p(args->xpath, &route->prefix);
 }
 
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route/next-hop
  */
 static struct yang_data *
-frr_test_module_vrfs_vrf_routes_route_next_hop_get_elem(const char *xpath,
-							const void *list_entry)
+frr_test_module_vrfs_vrf_routes_route_next_hop_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	const struct troute *route;
 
-	route = listgetdata((struct listnode *)list_entry);
-	return yang_data_new_ipv4(xpath, &route->nexthop);
+	route = listgetdata((struct listnode *)args->list_entry);
+	return yang_data_new_ipv4(args->xpath, &route->nexthop);
 }
 
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route/interface
  */
 static struct yang_data *
-frr_test_module_vrfs_vrf_routes_route_interface_get_elem(const char *xpath,
-							 const void *list_entry)
+frr_test_module_vrfs_vrf_routes_route_interface_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	const struct troute *route;
 
-	route = listgetdata((struct listnode *)list_entry);
-	return yang_data_new_string(xpath, route->ifname);
+	route = listgetdata((struct listnode *)args->list_entry);
+	return yang_data_new_string(args->xpath, route->ifname);
 }
 
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route/metric
  */
-static struct yang_data *
-frr_test_module_vrfs_vrf_routes_route_metric_get_elem(const char *xpath,
-						      const void *list_entry)
+static struct yang_data *frr_test_module_vrfs_vrf_routes_route_metric_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	const struct troute *route;
 
-	route = listgetdata((struct listnode *)list_entry);
-	return yang_data_new_uint8(xpath, route->metric);
+	route = listgetdata((struct listnode *)args->list_entry);
+	return yang_data_new_uint8(args->xpath, route->metric);
 }
 
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route/active
  */
-static struct yang_data *
-frr_test_module_vrfs_vrf_routes_route_active_get_elem(const char *xpath,
-						      const void *list_entry)
+static struct yang_data *frr_test_module_vrfs_vrf_routes_route_active_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	const struct troute *route;
 
-	route = listgetdata((struct listnode *)list_entry);
+	route = listgetdata((struct listnode *)args->list_entry);
 	if (route->active)
-		return yang_data_new(xpath, NULL);
+		return yang_data_new(args->xpath, NULL);
 
 	return NULL;
 }
@@ -271,7 +249,7 @@ const struct frr_yang_module_info frr_test_module_info = {
 };
 /* clang-format on */
 
-static const struct frr_yang_module_info *modules[] = {
+static const struct frr_yang_module_info *const modules[] = {
 	&frr_test_module_info,
 };
 
@@ -373,8 +351,7 @@ static void vty_do_exit(int isexit)
 	vty_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
-	closezlog();
+	event_master_free(master);
 
 	log_memstats(stderr, "test-nb-oper-data");
 	if (!isexit)
@@ -384,7 +361,7 @@ static void vty_do_exit(int isexit)
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
 	unsigned int num_vrfs = 2;
 	unsigned int num_interfaces = 4;
 	unsigned int num_routes = 6;
@@ -400,21 +377,16 @@ int main(int argc, char **argv)
 	umask(0027);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
-	openzlog("test-nb-oper-data", "NONE", 0,
-		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-	zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
-	zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
+	zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
 	/* Library inits. */
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
-	memory_init();
-	yang_init();
-	nb_init(master, modules, array_size(modules));
+	lib_cmd_init();
+	nb_init(master, modules, array_size(modules), false);
 
 	/* Create artificial data. */
 	create_data(num_vrfs, num_interfaces, num_routes);
@@ -423,8 +395,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

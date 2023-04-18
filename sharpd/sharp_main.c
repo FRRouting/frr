@@ -1,29 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SHARP - main code
  * Copyright (C) Cumulus Networks, Inc.
  *               Donald Sharp
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -43,12 +28,14 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "nexthop_group.h"
+#include "link_state.h"
 
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
 #include "sharp_globals.h"
+#include "sharp_nht.h"
 
-DEFINE_MGROUP(SHARPD, "sharpd")
+DEFINE_MGROUP(SHARPD, "sharpd");
 
 zebra_capabilities_t _caps_p[] = {
 };
@@ -68,7 +55,7 @@ struct zebra_privs_t sharp_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -81,6 +68,8 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	frr_fini();
+
 	exit(0);
 }
 
@@ -90,7 +79,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t sharp_signals[] = {
+struct frr_signal_t sharp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -111,7 +100,11 @@ struct quagga_signal_t sharp_signals[] = {
 
 #define SHARP_VTY_PORT 2614
 
-static const struct frr_yang_module_info *sharpd_yang_modules[] = {
+static const struct frr_yang_module_info *const sharpd_yang_modules[] = {
+	&frr_filter_info,
+	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
@@ -122,7 +115,8 @@ FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 		.n_signals = array_size(sharp_signals),
 
 		.privs = &sharp_privs, .yang_modules = sharpd_yang_modules,
-		.n_yang_modules = array_size(sharpd_yang_modules), )
+		.n_yang_modules = array_size(sharpd_yang_modules),
+);
 
 struct sharp_global sg;
 
@@ -130,6 +124,18 @@ static void sharp_global_init(void)
 {
 	memset(&sg, 0, sizeof(sg));
 	sg.nhs = list_new();
+	sg.ted = NULL;
+	sg.srv6_locators = list_new();
+}
+
+static void sharp_start_configuration(void)
+{
+	zlog_debug("Configuration has started to be read");
+}
+
+static void sharp_end_configuration(void)
+{
+	zlog_debug("Configuration has finished being read");
 }
 
 int main(int argc, char **argv, char **envp)
@@ -150,19 +156,17 @@ int main(int argc, char **argv, char **envp)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
 	master = frr_init();
 
+	cmd_init_config_callbacks(sharp_start_configuration,
+				  sharp_end_configuration);
 	sharp_global_init();
 
-	nexthop_group_init(NULL, NULL, NULL, NULL);
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
-
-	access_list_init();
-	route_map_init();
+	sharp_nhgroup_init();
+	vrf_init(NULL, NULL, NULL, NULL);
 
 	sharp_zebra_init();
 

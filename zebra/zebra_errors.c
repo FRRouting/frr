@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Zebra-specific error messages.
  * Copyright (C) 2018  Cumulus Networks, Inc.
  *                     Quentin Young
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -311,10 +298,10 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check to see if the nexthop group on the route you tried to install is valid."
 	},
 	{
-		.code = EC_ZEBRA_IF_LOOKUP_FAILED,
-		.title = "Zebra interface lookup failed",
-		.description = "Zebra attempted to look up a interface for a particular vrf_id and interface index, but didn't find anything.",
-		.suggestion = "If you entered a command to trigger this error, make sure you entered the arguments correctly. Check your config file for any potential errors. If these look correct, seek help.",
+		.code = EC_ZEBRA_NS_NO_DEFAULT,
+		.title = "Zebra NameSpace failed to find Default",
+		.description = "Zebra NameSpace subsystem failed to find a Default namespace during initialization.",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR",
 	},
 	/* Warnings */
 	{
@@ -778,6 +765,27 @@ static struct log_ref ferr_zebra_err[] = {
 			"Zebra received Nexthop Group message from the kernel that it is identical to one it/we already have but with a different ID.",
 		.suggestion =
 			"See if the nexthop you are trying to add is already present in the fib."
+	},
+	{
+		.code = EC_ZEBRA_VRF_MISCONFIGURED,
+		.title = "Duplicate VRF table id detected",
+		.description = "Zebra has detected a situation where there are two vrf devices with the exact same tableid.  This is considered a complete misconfiguration of VRF devices and breaks a fundamental assumption in FRR about how VRF's work",
+		.suggestion = "Use different table id's for the VRF's in question"
+	},
+	{
+		.code = EC_ZEBRA_SRV6M_UNRELEASED_LOCATOR_CHUNK,
+		.title = "Zebra did not free any srv6 locator chunks",
+		.description = "Zebra's srv6-locator chunk cleanup procedure ran, but no srv6 locator chunks were released.",
+		.suggestion = "Ignore this error.",
+	},
+	{
+		.code = EC_ZEBRA_INTF_UPDATE_FAILURE,
+		.title =
+			"Zebra failed to update interface in the kernel",
+		.description =
+			"Zebra made an attempt to update an interfce in the kernel, but it was not successful.",
+		.suggestion =
+			"Wait for Zebra to reattempt update.",
 	},
 	{
 		.code = END_FERR,

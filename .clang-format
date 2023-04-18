@@ -15,7 +15,7 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AlignAfterOpenBracket: true
 SpaceAfterCStyleCast: false
 MaxEmptyLinesToKeep: 2
-BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBinaryOperators: None
 BreakStringLiterals: false
 SortIncludes:    false
 IncludeCategories:
@@ -28,6 +28,9 @@ ForEachMacros:
   - frr_each
   - frr_each_safe
   - frr_each_from
+  - frr_rev_each
+  - frr_rev_each_safe
+  - frr_rev_each_from
   - frr_with_mutex
   - frr_with_privs
   - LIST_FOREACH
@@ -49,9 +52,17 @@ ForEachMacros:
   - FOR_ALL_INTERFACES
   - FOR_ALL_INTERFACES_ADDRESSES
   - JSON_FOREACH
+  - FOREACH_BE_TXN_BATCH_IN_LIST
+  - FOREACH_BE_APPLY_BATCH_IN_LIST
+  - FOREACH_BE_TXN_IN_LIST
+  - FOREACH_SESSION_IN_LIST
+  - FOREACH_MGMTD_BE_CLIENT_ID
   # libyang
+  - LY_FOR_KEYS
+  - LY_LIST_FOR
   - LY_TREE_FOR
   - LY_TREE_DFS_BEGIN
+  - LYD_TREE_DFS_BEGIN
   # zebra
   - RE_DEST_FOREACH_ROUTE
   - RE_DEST_FOREACH_ROUTE_SAFE
@@ -66,5 +77,16 @@ ForEachMacros:
   - SUBGRP_FOREACH_ADJ_SAFE
   - AF_FOREACH
   - FOREACH_AFI_SAFI
+  - FOREACH_AFI_SAFI_NSF
+  - FOREACH_SAFI
   # ospfd
   - LSDB_LOOP
+  # mgmtd
+  - FOREACH_CMT_REC
+  - FOREACH_TXN_CFG_BATCH_IN_LIST
+  - FOREACH_TXN_REQ_IN_LIST
+  - FOREACH_TXN_IN_LIST
+  - FOREACH_MGMTD_DB_ID
+  - FOREACH_ADAPTER_IN_LIST
+  - FOREACH_SESSION_IN_LIST
+  - FOREACH_SESSION_IN_LIST_SAFE

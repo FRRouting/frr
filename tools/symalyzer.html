@@ -1,0 +1,348 @@
+<html>
+<!--
+  - SPDX-License-Identifier: NONE
+  - 2019 by David Lamparter, placed in public domain
+  -->
+  <head>
+    <title>Symalyzer report</title>
+    <style type="text/css">
+html {
+  margin:auto;
+  max-width:70em;
+  font-family:Fira Sans, sans-serif;
+}
+dl {
+  display:grid;
+  grid-template-columns: 1.4em 1.4em 1fr 1fr;
+  grid-auto-rows: auto;
+}
+dt.dir {
+  background-color:#ff8;
+  color:#000;
+  border:1px solid #000;
+  border-bottom:2px solid #000;
+  font-size:14pt;
+  padding:2pt 15pt;
+  margin:0pt;
+  margin-top:10pt;
+  grid-column:1 / -1;
+}
+dt.file {
+  background-color:#ffa;
+  color:#000;
+  border-bottom:1px solid #000;
+  font-size:12pt;
+  padding:2pt 15pt;
+  margin:5pt 0pt;
+  grid-column:1 / -1;
+}
+dt.file.filehidden {
+  background-color:#ffc;
+  font-size:10pt;
+  padding:0.5pt 15pt;
+  margin-bottom:-5pt;
+}
+dd {
+  display:inline-block;
+  vertical-align:middle;
+  margin:0;
+}
+dd.symtype {
+  grid-column:1;
+
+  border:1px solid #666;
+  text-align:center;
+}
+dd.symklass {
+  grid-column:2;
+
+  border:1px solid #666;
+  text-align:center;
+}
+dd.symname {
+  grid-column:3;
+
+  font-family:monospace;
+  padding:0 0.5em;
+  padding-top:2px;
+  border-bottom:1px dashed #ccc;
+}
+dd.symloc {
+  grid-column:4;
+
+  padding:0 0.5em;
+  border-bottom:1px dashed #ccc;
+}
+.symloc-unknown {
+  font-style:italic;
+  color:#aaa;
+}
+
+.symtype.sym-static {
+  background-color:#cf4;
+  color:#000;
+}
+.symtype.sym-extrastatic {
+  background-color:#fe8;
+  color:#000;
+}
+.symtype.sym-liblocal {
+  background-color:#fc6;
+  color:#000;
+}
+
+.symklass.symk-T {
+  background-color:#ddd;
+  color:#000;
+}
+.symklass.symk-B,
+.symklass.symk-C,
+.symklass.symk-D {
+  background-color:#faa;
+  color:#000;
+}
+.symklass.symk-R {
+  background-color:#fd8;
+  color:#000;
+}
+
+.symtype.sym-api {
+  background-color:#d9f;
+  color:#000;
+}
+.symname.sym-api,
+.symloc.sym-api {
+  background-color:#f8e8ff;
+}
+
+dt.file.dirhidden,
+dd.dirhidden {
+  display:none;
+}
+dd.filehidden {
+  display:none;
+}
+dd.symhidden {
+  display:none;
+}
+
+ul {
+  font-size:10pt;
+}
+li {
+  margin-bottom:6pt;
+  text-indent:-2.5em;
+  margin-left:2.5em;
+}
+code {
+  background-color:#eee;
+  color:#060;
+  text-decoration:underline;
+}
+b.symtype,
+b.symklass {
+  display:inline-block;
+  text-align:center;
+  border:1px solid #666;
+  width:1.4em;
+  text-indent:0;
+}
+    </style>
+    <script src="jquery-3.4.1.min.js"></script>
+    <script>
+
+function dirtoggle(elem, visible) {
+  if (visible) {
+    elem.removeClass("dirhidden");
+  } else {
+    elem.addClass("dirhidden");
+  }
+
+  var next = elem.next();
+  while (next.is("dd") || next.is("dt.file")) {
+    if (visible) {
+      next.removeClass("dirhidden");
+    } else {
+      next.addClass("dirhidden");
+    }
+    next = next.next();
+  }
+}
+
+function filetoggle(elem, visible) {
+  if (visible) {
+    elem.removeClass("filehidden");
+  } else {
+    elem.addClass("filehidden");
+  }
+
+  var next = elem.next();
+  while (next.is("dd")) {
+    if (visible) {
+      next.removeClass("filehidden");
+    } else {
+      next.addClass("filehidden");
+    }
+    next = next.next();
+  }
+}
+
+function symtoggle(elem, visible) {
+  if (visible) {
+    elem.removeClass("symhidden");
+  } else {
+    elem.addClass("symhidden");
+  }
+
+  var next = elem.next();
+  while (next.is(".symklass") || next.is(".symname") || next.is(".symloc")) {
+    if (visible) {
+      next.removeClass("symhidden");
+    } else {
+      next.addClass("symhidden");
+    }
+    next = next.next();
+  }
+}
+
+
+$(document).ready(function(){
+  $("dt.dir").each(function(){
+    var elem = $(this);
+
+    elem.click(function(){
+      dirtoggle(elem, elem.is(".dirhidden"));
+    });
+
+    dirtoggle(elem, false);
+  });
+
+  $("dt.file").each(function(){
+    var elem = $(this);
+
+    elem.click(function(){
+      filetoggle(elem, elem.is(".filehidden"));
+    });
+
+    /* filetoggle(elem, false); */
+  });
+
+  $("#f_hide_all").click(function(){
+    $("dt.file").each(function(){
+      filetoggle($(this), false);
+    });
+  });
+  $("#f_show_all").click(function(){
+    $("dt.file").each(function(){
+      filetoggle($(this), true);
+    });
+  });
+
+  $("#s_show_all").click(function(){
+    $("dd.symtype").each(function(){
+      symtoggle($(this), true);
+    });
+  });
+  $("#s_hide_all").click(function(){
+    $("dd.symtype").each(function(){
+      symtoggle($(this), false);
+    });
+  });
+  $("#s_show_vars").click(function(){
+    $("dd.symtype").each(function(){
+      var elem_type = $(this);
+      if (elem_type.text() === "A") {
+        return;
+      }
+
+      var elem_klass = elem_type.next();
+
+      if ("BbCDdGgnRrSs".indexOf(elem_klass.text()) >= 0) {
+        symtoggle(elem_type, true);
+      }
+    });
+  });
+  $("#s_show_funcs").click(function(){
+    $("dd.symtype").each(function(){
+      var elem_type = $(this);
+      if (elem_type.text() === "A") {
+        return;
+      }
+
+      var elem_klass = elem_type.next();
+
+      if ("Tt".indexOf(elem_klass.text()) >= 0) {
+        symtoggle(elem_type, true);
+      }
+    });
+  });
+  $("#s_show_api").click(function(){
+    $("dd.sym-api").each(function(){
+      symtoggle($(this), true);
+    });
+  });
+
+  $("#jsbuttons").show();
+});
+    </script>
+  </head>
+  <body>
+    <table style="display:none" id="jsbuttons">
+      <tr><td>Files</td><td>
+          <button type="button" id="f_hide_all">Hide all</button>
+          <button type="button" id="f_show_all">Show all</button>
+        </td></tr>
+      <tr><td>Symbols</td><td>
+          <button type="button" id="s_hide_all">Hide all</button>
+          <button type="button" id="s_show_all">Show all</button><br>
+          <button type="button" id="s_show_vars">Show variables</button>
+          <button type="button" id="s_show_funcs">Show functions</button>
+          <button type="button" id="s_show_api">Show module/API usage</button>
+        </td></tr>
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;">
+      <ul>
+        <li><b class="symtype sym-static">S</b> means the symbol is not used outside its own file.
+          It could either be completely unused or used locally.  It might be appropriate to make it
+          <code>static</code>.</li>
+        <li><b class="symtype sym-extrastatic">Z</b> means the symbol is not used outside its own file,
+          and it's not visible to the outside of the library or daemon (i.e. ELF hidden linkage.)
+          It could still be completely unused, or used within the library.  It might be appropriate to make it
+          <code>static</code>.</li>
+        <li><b class="symtype sym-liblocal">L</b> means the symbol is used from other files in the library,
+          but not from outside.  It might be appropriate to make it <code>DSO_LOCAL</code>.</li>
+        <li><b class="symtype sym-api">A</b> means the symbol is used from some other file, most likely a
+          loadable module.  Note this is only flagged for symbols in executable files, not libraries.</li>
+      </ul>
+      <ul>
+        <li><b class="symklass symk-T">T</b> are normal functions ("program <u>T</u>ext")</li>
+        <li style="text-indent:0;margin-left:0">
+          <b class="symklass symk-B">B</b> (<u>B</u>SS),<br>
+          <b class="symklass symk-C">C</b> (<u>C</u>ommon),<br>
+          <b class="symklass symk-D">D</b> (<u>D</u>ata)<br>
+          are various types of writable global variables</li>
+        <li><b class="symklass symk-R">R</b> are read-only global variables ("<u>R</u>odata")</li>
+      </ul>
+    </div>
+    <dl>
+      {%- for subdir, subreport in dirgroups.items()|sort %}
+        <dt class="dir">{{ subdir }}</dt>
+        {%- for obj, reports in subreport.items()|sort %}
+          <dt class="file">{{ obj }}</dt>
+          {%- for report in reports|sort %}
+          {#- <dd class="{{ report.idlong }}"> #}
+              <dd class="sym-{{ report.idlong }} symtype" title="{{ report.title }}">{{ report.idshort }}</dd>
+              <dd class="sym-{{ report.idlong }} symk-{{ report.sym.klass }} symklass" title="{{ klasses.get(report.sym.klass, '???') }}">{{ report.sym.klass }}</dd>
+              <dd class="sym-{{ report.idlong }} symname">{{ report.sym.name }}</dd>
+              {% if report.sym.loc %}
+              <dd class="sym-{{ report.idlong }} symloc">{{ report.sym.loc }}</dd>
+              {% else %}
+              <dd class="sym-{{ report.idlong }} symloc symloc-unknown">unknown</dd>
+              {% endif %}
+          {#- </dd> #}
+          {%- endfor %}
+        {%- endfor %}
+      {%- endfor %}
+    </dl>
+  </body>
+</html>

@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * RIPngd main routine.
  * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -27,8 +12,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "memory_vty.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "prefix.h"
 #include "if.h"
@@ -37,6 +21,7 @@
 #include "vrf.h"
 #include "if_rmap.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nb.h"
@@ -63,7 +48,7 @@ struct zebra_privs_t ripngd_privs = {
 
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info ripngd_di;
 
@@ -94,7 +79,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t ripng_signals[] = {
+struct frr_signal_t ripng_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -113,9 +98,12 @@ struct quagga_signal_t ripng_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *ripngd_yang_modules[] = {
+static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_ripngd_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
@@ -128,7 +116,8 @@ FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 		.privs = &ripngd_privs,
 
 		.yang_modules = ripngd_yang_modules,
-		.n_yang_modules = array_size(ripngd_yang_modules), )
+		.n_yang_modules = array_size(ripngd_yang_modules),
+);
 
 #define DEPRECATED_OPTIONS ""
 
@@ -159,7 +148,6 @@ int main(int argc, char **argv)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 

@@ -1,0 +1,1004 @@
+module frr-ospfd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/ospfd";
+  prefix frr-ospfd;
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR OSPFd information.
+     This YANG module augments the basic routing with additional
+     OSPF information";
+
+  revision 2020-07-21 {
+    description
+      "Initial revision.";
+  }
+
+  identity ospf {
+    base frr-rt:routing-protocol;
+    description
+      "'OSPF' routing ospf-protocol.";
+  }
+
+  /* Policy types to be removed later, once policy Yang finalized */
+  typedef plist-ref {
+    type string;
+  }
+
+  typedef access-list-ref {
+    type string;
+  }
+
+  typedef ospf-area-id {
+    type union {
+      type inet:ipv4-address;
+      type uint32;
+    }
+    description "OSPF Area ID.";
+  }
+
+  grouping nssa-grouping {
+    container nssa {
+      presence "Present if the nssa is enabled";
+      leaf no-summary {
+        type boolean;
+        default "false";
+        description
+          "Do not inject inter-area routes into nssa";
+      }
+
+      leaf translate-always {
+        type boolean;
+        default "false";
+        description
+          "NSSA-ABR to always translate";
+      }
+
+      leaf translate-candidate {
+        type boolean;
+        default "false";
+        description
+          "NSSA-ABR for translate election";
+      }
+
+      leaf translate-never {
+        type boolean;
+        default "false";
+        description
+          "NSSA-ABR to never translate";
+      }
+    }
+  }
+
+  grouping range-grouping {
+    container ranges {
+      list range {
+        key "prefix";
+        description
+          "A list of range objects";
+        leaf prefix {
+          type inet:ipv4-prefix;
+          description
+            "Area range prefix";
+        }
+
+        leaf advertise {
+          type boolean;
+          description
+            "Advertise this range";
+        }
+
+        leaf not-advertise {
+          type boolean;
+          default "false";
+          description
+            "Do not advertise this range";
+        }
+
+        leaf cost {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Metric for this range";
+        }
+
+        leaf substitute {
+          type inet:ipv4-prefix;
+          description
+            "Network prefix to be announced instead of range";
+        }
+      }
+    }
+  }
+
+  grouping stub-grouping {
+    container stub {
+      presence "Present when area is stub";
+      leaf no-summary {
+        type boolean;
+        default "false";
+        description
+          "Do not inject inter-area routes into stub";
+      }
+    }
+  }
+
+  grouping shortcut-grouping {
+    container shortcut {
+      leaf default {
+        type boolean;
+        default "false";
+        description
+          "Default shortcutting behavior";
+      }
+
+      leaf disable {
+        type boolean;
+        description
+          "Disable shortcutting through the area";
+      }
+
+      leaf enable {
+        type boolean;
+        description
+          "Enable shortcutting through the area";
+      }
+    }
+  }
+
+  grouping authentication-group {
+    container authentication {
+      presence "Enable authentication.";
+      description
+        "Enable authentication on this virtual link.";
+      leaf message-digest {
+        type boolean;
+        description
+          "Use message-digest authentication.";
+      }
+
+      leaf null {
+        type boolean;
+        description
+          "Use null authentication.";
+      }
+    }
+
+    list message-digest-key {
+      key "key-id";
+      leaf key-id {
+        type uint8;
+        description
+          "Key id";
+      }
+
+      leaf mds-key {
+        type string;
+        description
+          "The OSPF password.";
+      }
+    }
+
+    leaf authentication-key {
+      type string;
+      description
+        "The OSPF password.";
+    }
+  }
+
+  grouping virtual-link-group {
+    list virtual-link {
+      key "neighbor area-id";
+      description
+        "Virtual link parameters.";
+      leaf neighbor {
+        type inet:ipv4-address;
+        description
+          "Router ID of the remote ABR.";
+      }
+
+      leaf area-id {
+        mandatory true;
+        type ospf-area-id;
+      }
+
+      uses authentication-group;
+
+      container timers {
+        leaf dead-interval {
+          type uint16;
+          units "seconds";
+          description
+            "Interval time after which a neighbor is declared down.";
+        }
+
+        leaf hello-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "Time between HELLO packets.";
+        }
+
+        leaf retransmit-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "Time between retransmitting lost link state advertisements.";
+        }
+
+        leaf transmit-delay {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "Link state transmit delay.";
+        }
+      }
+    }
+  }
+
+  grouping area-groupings {
+    container areas {
+      list area {
+        key "area-id";
+        description
+          "A list of area objects";
+        leaf area-id {
+          type ospf-area-id;
+        }
+
+        container authentication {
+          presence "Enable authentication";
+          leaf message-digest {
+            type boolean;
+            description
+              "Use message-digest authentication";
+          }
+        }
+
+        leaf default-cost {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Advertised default summary cost";
+        }
+
+        leaf export-list {
+          type access-list-ref;
+          description
+            "Filter for networks announced to other areas.";
+        }
+
+        leaf import-list {
+          type access-list-ref;
+          description
+            "Filter for networks from other areas announced to the specified one.";
+        }
+
+        container filter-list {
+          leaf prefix {
+            type plist-ref;
+            description
+              "Filter networks between OSPF areas.";
+          }
+
+          leaf in {
+            type boolean;
+          }
+
+          leaf out {
+            type boolean;
+          }
+        }
+
+        uses nssa-grouping;
+
+        uses range-grouping;
+
+        uses stub-grouping;
+
+        uses shortcut-grouping;
+
+        uses virtual-link-group;
+      }
+    }
+  }
+
+  /* router ospf attributes */
+  grouping route-ospf-leaf-attributes {
+    leaf auto-cost-reference-bandwidth {
+      type uint32 {
+        range "1..4294967";
+      }
+      units "Mbits";
+      description
+        "The reference bandwidth in terms of Mbits per second.";
+    }
+
+    leaf use-arp {
+      type boolean;
+      default "true";
+      description 
+        "ARP for neighbor table entry.";
+    }
+
+    leaf capability-opaque {
+      type boolean;
+      default "false";
+      description
+        "Opaque LSA.";
+    }
+
+    leaf compatible-rfc1583 {
+      type boolean;
+      description
+        "Compatible with RFC 1583.";
+    }
+
+    leaf default-metric {
+      type uint32 {
+        range "0..16777214";
+      }
+      description
+        "Metric of redistributed routes.";
+    }
+
+    leaf write-multiplier {
+      type uint8 {
+        range "1..100";
+      }
+      description
+        "Maximum number of interfaces serviced per write.";
+    }
+
+    container router-info {
+      choice router-info {
+        case as {
+          leaf as {
+            type boolean;
+            description
+              "Enable the Router Information functionality with AS flooding scope.";
+          }
+        }
+        case area {
+          leaf area {
+            type ospf-area-id;
+            description
+            "Enable the Router Information functionality with Area flooding scope.";
+          }
+        }
+      }
+    }
+  }
+
+  grouping metric-common-group {
+    leaf metric {
+      type uint32 {
+        range "0..16777214";
+      }
+      description
+        "OSPF default metric.";
+    }
+
+    leaf metric-type {
+      type enumeration {
+        enum "type-1" {
+          value 1;
+        }
+        enum "type-2" {
+          value 2;
+        }
+      }
+      description
+        "Metric type (1/2).";
+    }
+
+    leaf route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Route map reference.";
+    }
+  }
+
+  grouping default-info-group {
+    container default-information {
+      leaf originate {
+        type boolean;
+        description
+          "Advertise a default route";
+      }
+
+      leaf always {
+        type boolean;
+        description
+          "Always advertise default route.";
+      }
+
+      uses metric-common-group;
+    }
+  }
+
+  grouping redistribute-group {
+    list redistribute {
+      key "protocol";
+      leaf protocol {
+        type frr-route-types:frr-route-types-v4;
+        description
+          "Protocol.";
+      }
+
+      uses metric-common-group;
+    }
+  }
+
+  grouping distance-group {
+    container distance {
+      leaf admin-value {
+        type uint8 {
+          range "1..255";
+        }
+        description
+          "Admin value.";
+      }
+
+      container ospf {
+        leaf external {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Distance for external routes.";
+        }
+
+        leaf inter-area {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Distance for inter-area routes.";
+        }
+
+        leaf intra-area {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Distance for intra-area routes.";
+        }
+      }
+    }
+  }
+
+  grouping distribute-list-group {
+    container distribute-list {
+      list dlist {
+        key "name protocol";
+        leaf name {
+          type string;
+          description
+            "Filter networks in routing updates.";
+        }
+
+        leaf protocol {
+          type frr-route-types:frr-route-types-v4;
+          description
+            "Out protocol.";
+        }
+      }
+    }
+  }
+
+  grouping max-metric-group {
+    container max-metric {
+      container router-lsa {
+        description
+          "Advertise own Router-LSA with infinite distance (stub router).";
+        leaf administrative {
+          type boolean;
+          description
+            "Administratively applied, for an indefinite period.";
+        }
+
+        leaf on-shutdown {
+          type uint8 {
+            range "5..100";
+          }
+          description
+            "Advertise stub-router prior to full shutdown of OSPF.";
+        }
+
+        leaf on-startup {
+          type uint32 {
+            range "5..86400";
+          }
+          description
+            "Automatically advertise stub Router-LSA on startup of OSPF.";
+        }
+      }
+    }
+  }
+
+  grouping mpls-te-group {
+    container mpls-te {
+      leaf on {
+        type boolean;
+        description
+          "Enable the MPLS-TE functionality.";
+      }
+
+      leaf router-address {
+        type inet:ipv4-address;
+        description
+          "Stable IP address of the advertising router.";
+      }
+
+      container inter-as {
+        leaf as {
+          type boolean;
+          description
+            "AS native mode self originate INTER-AS LSA with Type 11 (as flooding scope).";
+        }
+
+        leaf area {
+          type ospf-area-id;
+          description
+            "AREA native mode self originate INTER-AS LSA with Type 10 (area flooding scope).";
+        }
+      }
+    }
+  }
+
+  grouping ospf-group {
+    container ospf {
+      leaf abr-type {
+        type enumeration {
+          enum "cisco" {
+            value 1;
+            description
+              "Alternative ABR, Cisco implementation.";
+          }
+          enum "ibm" {
+            value 2;
+            description
+              "Alternative ABR,  IBM implementation.";
+          }
+          enum "shortcut" {
+            value 3;
+            description
+              "Shortcut ABR.";
+          }
+          enum "standard" {
+            value 4;
+            description
+              "Standard behavior (RFC2328).";
+          }
+        }
+      }
+
+      leaf opaque-lsa {
+        type boolean;
+        description
+          "Enable the Opaque-LSA capability (RFC2370)";
+      }
+
+      leaf rfc1583compatibility {
+        type boolean;
+        description
+          "Enable the RFC 1583 compatibility flag.";
+      }
+
+      leaf router-id {
+        type inet:ipv4-address;
+        description
+          "Router-id for the OSPF process.";
+      }
+
+      leaf write-multiplier {
+        type uint8 {
+          range "1..100";
+        }
+        description
+          "Write multiplier.";
+      }
+    }
+  }
+
+  grouping timer-group {
+    container timers {
+      leaf refresh-interval {
+        type uint16 {
+          range "10..1800";
+        }
+        units "seconds";
+        description
+          "The maximum time between distinct originations of any particular
+           LSA, value in units seconds.";
+      }
+
+      leaf lsa-min-arrival {
+        type uint32 {
+          range "0..600000";
+        }
+        units "milliseconds";
+        description
+          "Minimum delay in receiving new version of an LSA.";
+      }
+
+      container throttle {
+        leaf lsa-all {
+          type uint16 {
+            range "0..5000";
+          }
+          units "milliseconds";
+          description
+            "LSA delay between transmissions.";
+        }
+
+        leaf spf {
+          type uint32 {
+            range "0..600000";
+          }
+          units "milliseconds";
+          description
+            "Delay from first change received till SPF calculation.";
+        }
+      }
+    }
+  }
+
+  grouping segment-routing-group {
+    container segment-routing {
+      container global-block {
+        description
+          "Segment Routing Global Block label range.";
+        leaf lower-bound {
+          must "../upper-bound > .";
+          type uint32 {
+            range "0..1048575";
+          }
+          default "16000";
+        }
+
+        leaf upper-bound {
+          must ". > ../lower-bound";
+          type uint32 {
+            range "0..1048575";
+          }
+          default "23999";
+        }
+      }
+
+      container srlb {
+        description
+          "Local blocks to be advertised.";
+        leaf lower-bound {
+          must "../upper-bound > .";
+          type uint32;
+          default "15000";
+          description
+            "Lower value in the label range.";
+        }
+        leaf upper-bound {
+          must ". > ../lower-bound";
+          type uint32;
+          default "15999";
+          description
+            "Upper value in the label range.";
+        }
+      }
+
+      leaf node-msd {
+        type uint8 {
+          range "1..16";
+        }
+        description
+          "Maximum Stack Depth for this router.";
+      }
+
+      leaf on {
+        type boolean;
+        description
+          "Enable Segment Routing.";
+      }
+
+      list prefix-sid {
+        key "index";
+        leaf index {
+          type uint16;
+          description
+            "SID index for this prefix.";
+        }
+
+        leaf prefix {
+          type inet:ipv4-prefix;
+          description
+            "Prefix SID.";
+        }
+
+        leaf last-hop-behavior {
+          type enumeration {
+            enum "explicit-null" {
+              value 0;
+              description
+                "Use explicit-null for the SID.";
+            }
+            enum "no-php" {
+              value 1;
+              description
+                "Do not use Penultimate Hop Popping (PHP)
+                   for the SID.";
+             }
+             enum "php" {
+               value 2;
+               description
+                 "Use PHP for the SID.";
+             }
+           }
+           default "php";
+             description
+               "Configure last hop behavior.";
+        }
+      }
+    }
+  }
+
+  grouping ospf-list-group {
+    list neighbor {
+      key "ip";
+      description
+        "Neighbor list.";
+      leaf ip {
+        type inet:ipv4-address;
+        description
+          "Neighbor IP address.";
+      }
+
+      leaf priority {
+        type uint8;
+        description
+          "Neighbor Priority.";
+      }
+
+      leaf poll-interval {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+        description
+          "Dead Neighbor Polling interval.";
+      }
+    }
+
+    list network {
+      key "prefix";
+      description
+        "Enable routing on list of IP network.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "Prefix on which routing needs to be enabled.";
+      }
+
+      leaf area {
+        type ospf-area-id;
+        description
+          "Area ID for this network.";
+      }
+    }
+
+    list passive-interface {
+      key "interface";
+      description
+        "Suppress routing updates on list interface.";
+      leaf interface {
+        type frr-interface:interface-ref;
+        description
+          "Suppress routing updates on an interface.";
+      }
+
+      leaf address {
+        type inet:ipv4-address;
+        description
+          "Interface address.";
+      }
+    }
+  }
+
+  grouping interface-ospf-attribute-group {
+    leaf area {
+      type ospf-area-id;
+      description
+        "OSPF area ID.";
+    }
+
+    uses authentication-group;
+
+    leaf cost {
+      type uint16 {
+        range "1..65535";
+      }
+      description
+        "Interface cost";
+    }
+
+    container dead-interval {
+      leaf interval {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+      }
+
+      container minimal {
+        leaf hello-multiplier {
+          type uint8 {
+            range "1..10";
+          }
+        }
+      }
+    }
+
+    leaf hello-interval {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Time between HELLO packets.";
+    }
+
+    leaf retransmit-interval {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Time between retransmitting lost link state advertisements.";
+    }
+
+    leaf transmit-delay {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Link state transmit delay.";
+    }
+
+    leaf mtu-ignore {
+      type boolean;
+      description
+        "Disable MTU mismatch detection on this interface.";
+    }
+
+    leaf priority {
+      type uint8;
+      description
+        "Router priority.";
+    }
+  }
+
+  grouping interface-ospf-group {
+    list instance {
+      key "id";
+      leaf id {
+        type uint16;
+        description
+          "OSPF instance ID.";
+      }
+
+      leaf bfd {
+        type boolean;
+        default "false";
+        description
+          "BFD support.";
+      }
+
+      leaf network {
+        type enumeration {
+          enum "broadcast" {
+            value 1;
+          }
+          enum "non-broadcast" {
+            value 2;
+          }
+          enum "point-to-multipoint" {
+            value 3;
+          }
+          enum "point-to-point" {
+            value 4;
+          }
+        }
+      }
+
+      uses interface-ospf-attribute-group;
+
+      list interface-address {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+          description
+            "Address of interface";
+        }
+
+        uses interface-ospf-attribute-group;
+      }
+    }
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
+    container ospf {
+      when "../frr-rt:type = 'frr-ospfd:ospf'" {
+        description
+          "This container is only valid for the 'OSPF' routing
+           protocol.";
+      }
+
+      uses route-ospf-leaf-attributes;
+
+      uses default-info-group;
+
+      uses redistribute-group;
+
+      uses distance-group;
+
+      uses distribute-list-group;
+
+      uses max-metric-group;
+
+      uses mpls-te-group;
+
+      uses ospf-group;
+
+      uses timer-group;
+
+      uses segment-routing-group;
+
+      uses ospf-list-group;
+
+      uses area-groupings;
+    }
+  }
+
+  /*
+   * Per-interface configuration data
+   */
+  augment "/frr-interface:lib/frr-interface:interface" {
+    container ospf {
+      description
+        "OSPF interface parameters.";
+      uses interface-ospf-group;
+    }
+  }
+}

@@ -1,25 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP flap dampening
  * Copyright (C) 2001 IP Infusion Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_DAMP_H
 #define _QUAGGA_BGP_DAMP_H
+
+#include "bgpd/bgp_table.h"
 
 /* Structure maintained on a per-route basis. */
 struct bgp_damp_info {
@@ -47,7 +34,7 @@ struct bgp_damp_info {
 	struct bgp_path_info *path;
 
 	/* Back reference to bgp_node. */
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	/* Current index in the reuse_list. */
 	int index;
@@ -105,7 +92,10 @@ struct bgp_damp_config {
 	struct bgp_damp_info *no_reuse_list;
 
 	/* Reuse timer thread per-set base. */
-	struct thread *t_reuse;
+	struct event *t_reuse;
+
+	afi_t afi;
+	safi_t safi;
 };
 
 #define BGP_DAMP_NONE           0
@@ -127,24 +117,28 @@ struct bgp_damp_config {
 #define REUSE_LIST_SIZE          256
 #define REUSE_ARRAY_SIZE        1024
 
-extern int bgp_damp_enable(struct bgp *, afi_t, safi_t, time_t, unsigned int,
-			   unsigned int, time_t);
-extern int bgp_damp_disable(struct bgp *, afi_t, safi_t);
-extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_node *rn,
+extern int bgp_damp_enable(struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
+			   unsigned int reuse, unsigned int suppress,
+			   time_t max);
+extern int bgp_damp_disable(struct bgp *bgp, afi_t afi, safi_t safi);
+extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 			     afi_t afi, safi_t safi, int attr_change);
-extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_node *rn,
+extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 			   afi_t afi, safi_t saff);
-extern int bgp_damp_scan(struct bgp_path_info *path, afi_t afi, safi_t safi);
-extern void bgp_damp_info_free(struct bgp_damp_info *path, int withdraw);
-extern void bgp_damp_info_clean(void);
-extern int bgp_damp_decay(time_t, int);
-extern void bgp_config_write_damp(struct vty *);
+extern void bgp_damp_info_free(struct bgp_damp_info *path, int withdraw,
+			       afi_t afi, safi_t safi);
+extern void bgp_damp_info_clean(afi_t afi, safi_t safi);
+extern int bgp_damp_decay(time_t tdiff, int penalty,
+			  struct bgp_damp_config *damp);
+extern void bgp_config_write_damp(struct vty *vty, afi_t afi, safi_t safi);
 extern void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path,
-			      json_object *json_path);
+			      afi_t afi, safi_t safi, json_object *json_path);
 extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
 					   struct bgp_path_info *path,
-					   char *timebuf, size_t len,
-					   bool use_json, json_object *json);
-extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);
+					   char *timebuf, size_t len, afi_t afi,
+					   safi_t safi, bool use_json,
+					   json_object *json);
+extern int bgp_show_dampening_parameters(struct vty *vty, afi_t afi,
+					 safi_t safi, uint16_t show_flags);
 
 #endif /* _QUAGGA_BGP_DAMP_H */

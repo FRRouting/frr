@@ -1,0 +1,111 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph template {
+	label="Test Topology - LDP-VPLS 1";
+
+	# Routers
+	ce1 [
+		shape=doubleoctagon,
+		label="ce1",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	ce2 [
+		shape=doubleoctagon
+		label="ce2",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	ce3 [
+		shape=doubleoctagon
+		label="ce3",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r1 [
+		shape=doubleoctagon,
+		label="r1",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r2 [
+		shape=doubleoctagon
+		label="r2",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r3 [
+		shape=doubleoctagon
+		label="r3",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+
+	# Switches
+	s1 [
+		shape=oval,
+		label="VPLS\n172.16.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s2 [
+		shape=oval,
+		label="VPLS\n172.16.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s3 [
+		shape=oval,
+		label="VPLS\n172.16.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s4 [
+		shape=oval,
+		label="s4\n10.0.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s5 [
+		shape=oval,
+		label="s5\n10.0.2.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s6 [
+		shape=oval,
+		label="s6\n10.0.3.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# Connections
+	ce1 -- s1 [label="eth0\n.1"];
+	ce2 -- s2 [label="eth0\n.2"];
+	ce3 -- s3 [label="eth0\n.3"];
+
+	r1 -- s1 [label="eth0"];
+	r1 -- s4 [label="eth1\n.1"];
+	r1 -- s5 [label="eth2\n.1"];
+
+	r2 -- s2 [label="eth0"];
+	r2 -- s4 [label="eth1\n.2"];
+	r2 -- s6 [label="eth2\n.2"];
+
+	r3 -- s3 [label="eth0"];
+	r3 -- s5 [label="eth1\n.3"];
+	r3 -- s6 [label="eth2\n.3"];
+}

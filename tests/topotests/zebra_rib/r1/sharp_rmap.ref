@@ -1,0 +1,17 @@
+ZEBRA:
+route-map: sharp Invoked: 500 Optimization: enabled Processed Change: false
+ permit, sequence 10 Invoked 244
+  Match clauses:
+    ip address 10
+  Set clauses:
+    src 192.168.214.1
+  Call clause:
+  Action:
+    Exit routemap
+ permit, sequence 20 Invoked 256
+  Match clauses:
+  Set clauses:
+    src 192.168.213.1
+  Call clause:
+  Action:
+    Exit routemap

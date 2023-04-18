@@ -1,19 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2015, LabN Consulting, L.L.C.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -212,12 +199,12 @@ subtlv_encode_remote_endpoint(struct bgp_tea_subtlv_remote_endpoint *st)
 	new->length = total;
 	p = new->value;
 	if (st->family == AF_INET) {
-		memcpy(p, &(st->ip_address.v4.s_addr), 4);
-		p += 4;
+		memcpy(p, &(st->ip_address.v4.s_addr), IPV4_MAX_BYTELEN);
+		p += IPV4_MAX_BYTELEN;
 	} else {
 		assert(st->family == AF_INET6);
-		memcpy(p, &(st->ip_address.v6.s6_addr), 16);
-		p += 16;
+		memcpy(p, &(st->ip_address.v6.s6_addr), IPV6_MAX_BYTELEN);
+		p += IPV6_MAX_BYTELEN;
 	}
 	memcpy(p, &(st->as4), 4);
 	return new;
@@ -577,10 +564,12 @@ subtlv_decode_remote_endpoint(struct bgp_attr_encap_subtlv *subtlv,
 	}
 	if (subtlv->length == 8) {
 		st->family = AF_INET;
-		memcpy(&st->ip_address.v4.s_addr, subtlv->value, 4);
+		memcpy(&st->ip_address.v4.s_addr, subtlv->value,
+		       IPV4_MAX_BYTELEN);
 	} else {
 		st->family = AF_INET6;
-		memcpy(&(st->ip_address.v6.s6_addr), subtlv->value, 16);
+		memcpy(&(st->ip_address.v6.s6_addr), subtlv->value,
+		       IPV6_MAX_BYTELEN);
 	}
 	i = subtlv->length - 4;
 	ptr_get_be32(subtlv->value + i, &st->as4);

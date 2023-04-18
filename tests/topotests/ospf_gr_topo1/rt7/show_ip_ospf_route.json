@@ -1,0 +1,168 @@
+{
+  "0.0.0.0\/0":{
+    "routeType":"N IA",
+    "cost":11,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "1.1.1.1\/32":{
+    "routeType":"N IA",
+    "cost":40,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "2.2.2.2\/32":{
+    "routeType":"N IA",
+    "cost":30,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "3.3.3.3\/32":{
+    "routeType":"N IA",
+    "cost":20,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "4.4.4.4\/32":{
+    "routeType":"N IA",
+    "cost":30,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "5.5.5.5\/32":{
+    "routeType":"N IA",
+    "cost":40,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "6.6.6.6\/32":{
+    "routeType":"N IA",
+    "cost":10,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "7.7.7.7\/32":{
+    "routeType":"N",
+    "cost":0,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":" ",
+        "directlyAttachedTo":"lo"
+      }
+    ]
+  },
+  "10.0.1.0\/24":{
+    "routeType":"N IA",
+    "cost":40,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "10.0.2.0\/24":{
+    "routeType":"N IA",
+    "cost":30,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "10.0.3.0\/24":{
+    "routeType":"N IA",
+    "cost":30,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "10.0.4.0\/24":{
+    "routeType":"N IA",
+    "cost":20,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "10.0.5.0\/24":{
+    "routeType":"N IA",
+    "cost":40,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  },
+  "10.0.6.0\/24":{
+    "routeType":"N",
+    "cost":10,
+    "area":"0.0.0.3",
+    "nexthops":[
+      {
+        "ip":" ",
+        "directlyAttachedTo":"eth-rt6"
+      }
+    ]
+  },
+  "6.6.6.6":{
+    "routeType":"R ",
+    "cost":10,
+    "area":"0.0.0.3",
+    "routerType":"abr",
+    "nexthops":[
+      {
+        "ip":"10.0.6.6",
+        "via":"eth-rt6"
+      }
+    ]
+  }
+}

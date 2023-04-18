@@ -1,0 +1,29 @@
+{
+  "50.0.1.0\/24":[
+    {
+      "prefix":"50.0.1.0\/24",
+      "protocol":"connected",
+      "vrfName":"vrf-blue",
+      "selected":true,
+      "destSelected":true,
+      "distance":0,
+      "metric":0,
+      "installed":true,
+      "table":10,
+      "internalStatus":16,
+      "internalFlags":8,
+      "internalNextHopNum":1,
+      "internalNextHopActiveNum":1,
+      "nexthops":[
+        {
+          "flags":3,
+          "fib":true,
+          "directlyConnected":true,
+          "interfaceName":"br100",
+          "active":true
+        }
+      ]
+    }
+  ],
+   "100.0.0.21\/32": null
+}

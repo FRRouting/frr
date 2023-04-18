@@ -1,0 +1,17 @@
+[
+  {
+    "peer": "192.168.0.1",
+    "status": "up"
+  },
+  {
+    "remote-echo-receive-interval": 1000,
+    "peer": "192.168.1.1",
+    "status": "up"
+  },
+  {
+    "remote-transmit-interval": 2000,
+    "remote-receive-interval": 2000,
+    "peer": "192.168.2.1",
+    "status": "up"
+  }
+]

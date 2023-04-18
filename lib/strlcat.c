@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /* Append a null-terminated string to another string, with length checking.
  * Copyright (C) 2016 Free Software Foundation, Inc.
  * This file is part of the GNU C Library.
- *
- * The GNU C Library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * The GNU C Library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with the GNU C Library; if not, see
- * <http://www.gnu.org/licenses/>.
  */
 
 /* adapted for Quagga from glibc patch submission originally from
@@ -64,10 +51,8 @@ size_t strlcat(char *__restrict dest,
    (which the static_assert checks), then by the pigeonhole
    principle, the two input strings must overlap, which is
    undefined.  */
-#if __STDC_VERSION__ >= 201112L
 	_Static_assert(sizeof(uintptr_t) == sizeof(size_t),
 		       "theoretical maximum object size covers address space");
-#endif
 	return dest_length + src_length;
 }
 #endif /* HAVE_STRLCAT */

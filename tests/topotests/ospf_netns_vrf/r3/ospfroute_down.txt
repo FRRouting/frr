@@ -1,0 +1,8 @@
+VRF Name: r3-ospf-cust1
+============ OSPF network routing table ============
+N    10.0.10.0/24          [10] area: 0.0.0.0
+                           directly attached to r3-eth1
+
+============ OSPF router routing table =============
+
+============ OSPF external routing table ===========

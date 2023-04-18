@@ -23,7 +23,8 @@ Add packages:
 ::
 
     sudo pkg_add git autoconf automake libtool gmake openssl \
-       pkg-config json-c py36-test python36 py36-sphinx
+       pkg-config json-c py36-test python36 py36-sphinx \
+       protobuf-c
 
 Install SSL Root Certificates (for git https access):
 
@@ -64,7 +65,6 @@ an example)
     export CPPFLAGS="-I/usr/pkg/include"
     ./configure \
         --sysconfdir=/usr/pkg/etc/frr \
-        --enable-exampledir=/usr/pkg/share/examples/frr \
         --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
         --localstatedir=/var/run/frr \
         --enable-multipath=64 \

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Main routine of bgpd.
  * Copyright (C) 1996, 97, 98, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -24,10 +9,9 @@
 #include "vector.h"
 #include "command.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include <lib/version.h>
 #include "memory.h"
-#include "memory_vty.h"
 #include "prefix.h"
 #include "log.h"
 #include "privs.h"
@@ -61,6 +45,11 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_script.h"
+#include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_routemap_nb.h"
+#include "bgpd/bgp_community_alias.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -86,7 +75,7 @@ void sigusr1(void);
 static void bgp_exit(int);
 static void bgp_vrf_terminate(void);
 
-static struct quagga_signal_t bgp_signals[] = {
+static struct frr_signal_t bgp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -127,16 +116,27 @@ static struct frr_daemon_info bgpd_di;
 /* SIGHUP handler. */
 void sighup(void)
 {
-	zlog_info("SIGHUP received");
+	zlog_info("SIGHUP received, ignoring");
 
+	return;
+
+	/*
+	 * This is turned off for the moment.  There is all
+	 * sorts of config turned off by bgp_terminate
+	 * that is not setup properly again in bgp_reset.
+	 * I see no easy way to do this nor do I see that
+	 * this is a desirable way to reload config
+	 * given the yang work.
+	 */
 	/* Terminate all thread. */
-	bgp_terminate();
-	bgp_reset();
-	zlog_info("bgpd restarting!");
+	/*
+	 * bgp_terminate();
+	 * bgp_reset();
+	 * zlog_info("bgpd restarting!");
 
-	/* Reload config file. */
-	vty_read_config(NULL, bgpd_di.config_file, config_default);
-
+	 * Reload config file.
+	 * vty_read_config(NULL, bgpd_di.config_file, config_default);
+	 */
 	/* Try to return to normal operation. */
 }
 
@@ -146,6 +146,9 @@ __attribute__((__noreturn__)) void sigint(void)
 	zlog_notice("Terminating on signal");
 	assert(bm->terminating == false);
 	bm->terminating = true;	/* global flag that shutting down */
+
+	/* Disable BFD events to avoid wasting processing. */
+	bfd_protocol_integration_set_shutdown(true);
 
 	bgp_terminate();
 
@@ -177,8 +180,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	frr_early_fini();
 
-	bfd_gbl_exit();
-
 	bgp_close();
 
 	bgp_default = bgp_get_default();
@@ -195,8 +196,14 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	if (bgp_default)
 		bgp_delete(bgp_default);
 
+	bgp_evpn_mh_finish();
+	bgp_l3nhg_finish();
+
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
+
+	/* BGP community aliases */
+	bgp_community_alias_finish();
 
 	/* reverse bgp_route_init */
 	bgp_route_finish();
@@ -229,13 +236,14 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	community_list_terminate(bgp_clist);
 
 	bgp_vrf_terminate();
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	vnc_zebra_destroy();
 #endif
 	bgp_zebra_destroy();
 
 	bf_free(bm->rd_idspace);
 	list_delete(&bm->bgp);
+	list_delete(&bm->addresses);
 
 	bgp_lp_finish();
 
@@ -271,31 +279,16 @@ static int bgp_vrf_enable(struct vrf *vrf)
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp && bgp->vrf_id != vrf->vrf_id) {
-		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_BGP, bgp->name);
-			bgp->name = NULL;
-			XFREE(MTYPE_BGP, bgp->name_pretty);
-			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
-			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-#if ENABLE_BGP_VNC
-			if (!bgp->rfapi) {
-				bgp->rfapi = bgp_rfapi_new(bgp);
-				assert(bgp->rfapi);
-				assert(bgp->rfapi_cfg);
-			}
-#endif /* ENABLE_BGP_VNC */
-		}
 		old_vrf_id = bgp->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
-		/* Update any redistribution if vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
-			bgp_redistribute_redo(bgp);
 		bgp_instance_up(bgp);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
 				    bgp_get_default(), bgp);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP,
@@ -312,7 +305,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 static int bgp_vrf_disable(struct vrf *vrf)
 {
 	struct bgp *bgp;
-	vrf_id_t old_vrf_id;
 
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
@@ -334,15 +326,11 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
 				   bgp_get_default(), bgp);
 
-		old_vrf_id = bgp->vrf_id;
 		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
-		bgp_vrf_unlink(bgp, vrf);
-		/* Delete any redistribute vrf bitmaps if the vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
-			bgp_unset_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_down(bgp);
+		bgp_vrf_unlink(bgp, vrf);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
@@ -351,8 +339,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 
 static void bgp_vrf_init(void)
 {
-	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable,
-		 bgp_vrf_delete, bgp_vrf_enable);
+	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
 }
 
 static void bgp_vrf_terminate(void)
@@ -360,7 +347,12 @@ static void bgp_vrf_terminate(void)
 	vrf_terminate();
 }
 
-static const struct frr_yang_module_info *bgpd_yang_modules[] = {
+static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
+	&frr_filter_info,
+	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_vrf_info,
+	&frr_bgp_route_map_info,
 };
 
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
@@ -370,7 +362,8 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 		.signals = bgp_signals, .n_signals = array_size(bgp_signals),
 
 		.privs = &bgpd_privs, .yang_modules = bgpd_yang_modules,
-		.n_yang_modules = array_size(bgpd_yang_modules), )
+		.n_yang_modules = array_size(bgpd_yang_modules),
+);
 
 #define DEPRECATED_OPTIONS ""
 
@@ -382,12 +375,16 @@ int main(int argc, char **argv)
 	int tmp_port;
 
 	int bgp_port = BGP_PORT_DEFAULT;
-	char *bgp_address = NULL;
+	struct list *addresses = list_new();
 	int no_fib_flag = 0;
 	int no_zebra_flag = 0;
 	int skip_runas = 0;
 	int instance = 0;
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
+	char *address;
+	struct listnode *node;
+
+	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
@@ -425,21 +422,24 @@ int main(int argc, char **argv)
 			else
 				bgp_port = tmp_port;
 			break;
-		case 'e':
-			multipath_num = atoi(optarg);
-			if (multipath_num > MULTIPATH_NUM
-			    || multipath_num <= 0) {
+		case 'e': {
+			unsigned long int parsed_multipath =
+				strtoul(optarg, NULL, 10);
+			if (parsed_multipath == 0
+			    || parsed_multipath > MULTIPATH_NUM
+			    || parsed_multipath > UINT_MAX) {
 				flog_err(
 					EC_BGP_MULTIPATH,
-					"Multipath Number specified must be less than %d and greater than 0",
+					"Multipath Number specified must be less than %u and greater than 0",
 					MULTIPATH_NUM);
 				return 1;
 			}
+			multipath_num = parsed_multipath;
 			break;
+		}
 		case 'l':
-			bgp_address = optarg;
-		/* listenon implies -n */
-		/* fallthru */
+			listnode_add_sort_nodup(addresses, optarg);
+			break;
 		case 'n':
 			no_fib_flag = 1;
 			break;
@@ -460,18 +460,16 @@ int main(int argc, char **argv)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 	if (skip_runas)
 		memset(&bgpd_privs, 0, sizeof(bgpd_privs));
 
 	/* BGP master init. */
-	bgp_master_init(frr_init(), buffer_size);
+	bgp_master_init(frr_init(), buffer_size, addresses);
 	bm->port = bgp_port;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);
-	bm->address = bgp_address;
 	if (no_fib_flag || no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
@@ -480,17 +478,32 @@ int main(int argc, char **argv)
 	/* Initializations. */
 	bgp_vrf_init();
 
+#ifdef HAVE_SCRIPTING
+	bgp_script_init();
+#endif
+
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
 
-	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
-		 (bm->address ? bm->address : "<all>"), bm->port);
+	if (list_isempty(bm->addresses)) {
+		snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo),
+			 ", bgp@<all>:%d", bm->port);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(bm->addresses, node, address))
+			snprintf(bgpd_di.startinfo + strlen(bgpd_di.startinfo),
+				 sizeof(bgpd_di.startinfo)
+					 - strlen(bgpd_di.startinfo),
+				 ", bgp@%s:%d", address, bm->port);
+	}
+
+	bgp_if_init();
 
 	frr_config_fork();
 	/* must be called after fork() */
+	bgp_gr_apply_running_config();
 	bgp_pthreads_run();
 	frr_run(bm->master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

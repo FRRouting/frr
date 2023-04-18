@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2008 Sun Microsystems, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -49,8 +34,8 @@
 #define OPT_PARAM  2
 
 /* need these to link in libbgp */
-struct zebra_privs_t *bgpd_privs = NULL;
-struct thread_master *master = NULL;
+struct zebra_privs_t bgpd_privs = {};
+struct event_loop *master = NULL;
 
 static int failed = 0;
 static int tty = 0;
@@ -951,12 +936,19 @@ static struct test_segment mp_prefix_sid[] = {
 		"PREFIX-SID",
 		"PREFIX-SID Test 1",
 		{
-			0x01, 0x00, 0x07,
-			0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x02,
-			0x03, 0x00, 0x08, 0x00,
-			0x00, 0x0a, 0x1b, 0xfe,
-			0x00, 0x00, 0x0a
+			/* TLV[0] Latel-Index TLV */
+			0x01,                    /* Type 0x01:Label-Index */
+			0x00, 0x07,              /* Length */
+			0x00,                    /* RESERVED */
+			0x00, 0x00,              /* Flags */
+			0x00, 0x00, 0x00, 0x02,  /* Label Index */
+
+			/* TLV[1] SRGB TLV */
+			0x03,                    /* Type 0x03:SRGB */
+			0x00, 0x08,              /* Length */
+			0x00, 0x00,              /* Flags */
+			0x0a, 0x1b, 0xfe,        /* SRGB[0] first label */
+			0x00, 0x00, 0x0a         /* SRBG[0] nb-labels in range */
 		},
 		.len = 21,
 		.parses = SHOULD_PARSE,
@@ -1027,7 +1019,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		parse_ret = bgp_mp_unreach_parse(&attr_args, &nlri);
 		break;
 	case BGP_ATTR_PREFIX_SID:
-		parse_ret = bgp_attr_prefix_sid(t->len, &attr_args, &nlri);
+		parse_ret = bgp_attr_prefix_sid(&attr_args);
 		break;
 	default:
 		printf("unknown type");
@@ -1050,9 +1042,9 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 
 	if (!parse_ret) {
 		if (type == BGP_ATTR_MP_REACH_NLRI)
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, 0);
+			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, false);
 		else if (type == BGP_ATTR_MP_UNREACH_NLRI)
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, 1);
+			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, true);
 	}
 	handle_result(peer, t, parse_ret, nlri_ret);
 }
@@ -1078,16 +1070,17 @@ int main(void)
 	qobj_init();
 	cmd_init(0);
 	bgp_vty_init();
-	master = thread_master_create("test mp attr");
-	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	master = event_master_create("test mp attr");
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
+	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));
 
-	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT))
+	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT, NULL,
+		    ASNOTATION_PLAIN) < 0)
 		return -1;
 
 	peer = peer_create_accept(bgp);

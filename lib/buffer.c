@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Buffering of output and input.
  * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,8 +14,8 @@
 
 #include <stddef.h>
 
-DEFINE_MTYPE_STATIC(LIB, BUFFER, "Buffer")
-DEFINE_MTYPE_STATIC(LIB, BUFFER_DATA, "Buffer data")
+DEFINE_MTYPE_STATIC(LIB, BUFFER, "Buffer");
+DEFINE_MTYPE_STATIC(LIB, BUFFER_DATA, "Buffer data");
 
 /* Buffer master. */
 struct buffer {
@@ -59,7 +44,7 @@ struct buffer_data {
 /* It should always be true that: 0 <= sp <= cp <= size */
 
 /* Default buffer size (used if none specified).  It is rounded up to the
-   next page boundery. */
+   next page boundary. */
 #define BUFFER_SIZE_DEFAULT		4096
 
 #define BUFFER_DATA_FREE(D) XFREE(MTYPE_BUFFER_DATA, (D))
@@ -112,12 +97,6 @@ char *buffer_getstr(struct buffer *b)
 	}
 	*p = '\0';
 	return s;
-}
-
-/* Return 1 if buffer is empty. */
-int buffer_empty(struct buffer *b)
-{
-	return (b->head == NULL);
 }
 
 /* Clear and free all allocated data. */
@@ -294,7 +273,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 	/* Previously print out is performed. */
 	if (erase_flag) {
 		iov[iov_index].iov_base = erase;
-		iov[iov_index].iov_len = sizeof erase;
+		iov[iov_index].iov_len = sizeof(erase);
 		iov_index++;
 	}
 
@@ -333,8 +312,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 				/* This should absolutely never occur. */
 				flog_err_sys(
 					EC_LIB_SYSTEM_CALL,
-					"%s: corruption detected: iov_small overflowed; "
-					"head %p, tail %p, head->next %p",
+					"%s: corruption detected: iov_small overflowed; head %p, tail %p, head->next %p",
 					__func__, (void *)b->head,
 					(void *)b->tail, (void *)b->head->next);
 				iov = XMALLOC(MTYPE_TMP,
@@ -347,7 +325,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 	/* In case of `more' display need. */
 	if (b->tail && (b->tail->sp < b->tail->cp) && !no_more_flag) {
 		iov[iov_index].iov_base = more;
-		iov[iov_index].iov_len = sizeof more;
+		iov[iov_index].iov_len = sizeof(more);
 		iov_index++;
 	}
 
@@ -364,7 +342,8 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 
 			iov_size =
 				((iov_index > IOV_MAX) ? IOV_MAX : iov_index);
-			if ((nbytes = writev(fd, c_iov, iov_size)) < 0) {
+			nbytes = writev(fd, c_iov, iov_size);
+			if (nbytes < 0) {
 				flog_err(EC_LIB_SOCKET,
 					 "%s: writev to fd %d failed: %s",
 					 __func__, fd, safe_strerror(errno));
@@ -377,7 +356,8 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 		}
 	}
 #else  /* IOV_MAX */
-	if ((nbytes = writev(fd, iov, iov_index)) < 0)
+	nbytes = writev(fd, iov, iov_index);
+	if (nbytes < 0)
 		flog_err(EC_LIB_SOCKET, "%s: writev to fd %d failed: %s",
 			 __func__, fd, safe_strerror(errno));
 #endif /* IOV_MAX */
@@ -475,27 +455,21 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 {
 	ssize_t nbytes;
 
-#if 0
-	/*
-	 * Should we attempt to drain any previously buffered data?
-	 * This could help reduce latency in pushing out the data if
-	 * we are stuck in a long-running thread that is preventing
-	 * the main select loop from calling the flush thread...
-	 */
-	if (b->head && (buffer_flush_available(b, fd) == BUFFER_ERROR))
-		return BUFFER_ERROR;
-#endif
 	if (b->head)
 		/* Buffer is not empty, so do not attempt to write the new data.
 		 */
 		nbytes = 0;
-	else if ((nbytes = write(fd, p, size)) < 0) {
-		if (ERRNO_IO_RETRY(errno))
-			nbytes = 0;
-		else {
-			flog_err(EC_LIB_SOCKET, "%s: write error on fd %d: %s",
-				 __func__, fd, safe_strerror(errno));
-			return BUFFER_ERROR;
+	else {
+		nbytes = write(fd, p, size);
+		if (nbytes < 0) {
+			if (ERRNO_IO_RETRY(errno))
+				nbytes = 0;
+			else {
+				flog_err(EC_LIB_SOCKET,
+					 "%s: write error on fd %d: %s",
+					 __func__, fd, safe_strerror(errno));
+				return BUFFER_ERROR;
+			}
 		}
 	}
 	/* Add any remaining data to the buffer. */

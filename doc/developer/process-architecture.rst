@@ -3,34 +3,38 @@
 Process Architecture
 ====================
 
-FRR inherited its overall design architecture from Quagga. The chosen model for
-Quagga is that of a suite of independent daemons that do IPC via Unix domain
-sockets. Within each daemon, the architecture follows the event-driven model.
-FRR has inherited this model as well. As FRR is deployed at larger scales and
-gains ever more features, each adding to the overall processing workload, we
-are approaching the saturation point for a single thread per daemon. In light
-of this, there are ongoing efforts to introduce multithreading to various
-components of FRR. This document aims to describe the current design choices
-and overall model for integrating the event-driven and multithreaded
-architectures into a cohesive whole.
+FRR is a suite of daemons that serve different functions. This document
+describes internal architecture of daemons, focusing their general design
+patterns, and especially how threads are used in the daemons that use them.
+
+Overview
+--------
+The fundamental pattern used in FRR daemons is an `event loop
+<https://en.wikipedia.org/wiki/Event_loop>`_. Some daemons use `kernel threads
+<https://en.wikipedia.org/wiki/Thread_(computing)#Kernel_threads>`_. In these
+daemons, each kernel thread runs its own event loop. The event loop
+implementation is constructed to be thread safe and to allow threads other than
+its owning thread to schedule events on it. The rest of this document describes
+these two designs in detail.
 
 Terminology
 -----------
-Because this document describes the architecture for true kernel threads as
-well as the event system, a digression on terminology is in order here.
+Because this document describes the architecture for kernel threads as well as
+the event system, a digression on terminology is in order here.
 
-Historically Quagga's event system was viewed as an implementation of userspace
+Historically Quagga's loop system was viewed as an implementation of userspace
 threading. Because of this design choice, the names for various datastructures
 within the event system are variations on the term "thread". The primary
-context datastructure in this system is called a "threadmaster". What would
-today be called an 'event' or 'task' in systems such as libevent are called
-"threads" and the datastructure for them is ``struct thread``. To add to the
-confusion, these "threads" have various types, one of which is "event". To
-hopefully avoid some of this confusion, this document refers to these "threads"
-as a 'task' except where the datastructures are explicitly named. When they are
-explicitly named, they will be formatted ``like this`` to differentiate from
-the conceptual names. When speaking of kernel threads, the term used will be
-"pthread" since FRR's kernel threading implementation is POSIX threads.
+datastructure that holds the state of an event loop in this system is called a
+"threadmaster". Events scheduled on the event loop - what would today be called
+an 'event' or 'task' in systems such as libevent - are called "threads" and the
+datastructure for them is ``struct event``. To add to the confusion, these
+"threads" have various types, one of which is "event". To hopefully avoid some
+of this confusion, this document refers to these "threads" as a 'task' except
+where the datastructures are explicitly named. When they are explicitly named,
+they will be formatted ``like this`` to differentiate from the conceptual
+names. When speaking of kernel threads, the term used will be "pthread" since
+FRR's kernel threading implementation uses the POSIX threads API.
 
 .. This should be broken into its document under :ref:`libfrr`
 .. _event-architecture:
@@ -43,7 +47,7 @@ section. For now it provides basic information necessary to understand the
 interplay between the event system and kernel threads.
 
 The core event system is implemented in :file:`lib/thread.[ch]`. The primary
-structure is ``struct thread_master``, hereafter referred to as a
+structure is ``struct event_loop``, hereafter referred to as a
 ``threadmaster``. A ``threadmaster`` is a global state object, or context, that
 holds all the tasks currently pending execution as well as statistics on tasks
 that have already executed. The event system is driven by adding tasks to this
@@ -53,7 +57,7 @@ execute. At initialization, a daemon will typically create one
 fetch each task and execute it.
 
 These tasks have various types corresponding to their general action. The types
-are given by integer macros in :file:`thread.h` and are:
+are given by integer macros in :file:`event.h` and are:
 
 ``THREAD_READ``
    Task which waits for a file descriptor to become ready for reading and then
@@ -76,8 +80,8 @@ are given by integer macros in :file:`thread.h` and are:
    Type used internally for tasks on the ready queue.
 
 ``THREAD_UNUSED``
-   Type used internally for ``struct thread`` objects that aren't being used.
-   The event system pools ``struct thread`` to avoid heap allocations; this is
+   Type used internally for ``struct event`` objects that aren't being used.
+   The event system pools ``struct event`` to avoid heap allocations; this is
    the type they have when they're in the pool.
 
 ``THREAD_EXECUTE``
@@ -91,10 +95,12 @@ irrelevant for the time being) for the specific type. For example, to add a
 
 ::
 
-   thread_add_read(struct thread_master *master, int (*handler)(struct thread *), void *arg, int fd, struct thread **ref);
+   event_add_read(struct event_loop *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
 
-The ``struct thread`` is then created and added to the appropriate internal
-datastructure within the ``threadmaster``.
+The ``struct event`` is then created and added to the appropriate internal
+datastructure within the ``threadmaster``. Note that the ``READ`` and
+``WRITE`` tasks are independent - a ``READ`` task only tests for
+readability, for example.
 
 The Event Loop
 ^^^^^^^^^^^^^^
@@ -105,13 +111,13 @@ program. When no more tasks are available, the program dies. Typically at
 startup the first task added is an I/O task for VTYSH as well as any network
 sockets needed for peerings or IPC.
 
-To retrieve the next task to run the program calls ``thread_fetch()``.
-``thread_fetch()`` internally computes which task to execute next based on
+To retrieve the next task to run the program calls ``event_fetch()``.
+``event_fetch()`` internally computes which task to execute next based on
 rudimentary priority logic. Events (type ``THREAD_EVENT``) execute with the
 highest priority, followed by expired timers and finally I/O tasks (type
 ``THREAD_READ`` and ``THREAD_WRITE``). When scheduling a task a function and an
-arbitrary argument are provided. The task returned from ``thread_fetch()`` is
-then executed with ``thread_call()``.
+arbitrary argument are provided. The task returned from ``event_fetch()`` is
+then executed with ``event_call()``.
 
 The following diagram illustrates a simplified version of this infrastructure.
 
@@ -127,18 +133,18 @@ illustrated at the bottom.
 
 Mapping the general names used in the figure to specific FRR functions:
 
-- ``task`` is ``struct thread *``
-- ``fetch`` is ``thread_fetch()``
-- ``exec()`` is ``thread_call``
-- ``cancel()`` is ``thread_cancel()``
-- ``schedule()`` is any of the various task-specific ``thread_add_*`` functions
+- ``task`` is ``struct event *``
+- ``fetch`` is ``event_fetch()``
+- ``exec()`` is ``event_call``
+- ``cancel()`` is ``event_cancel()``
+- ``schedule()`` is any of the various task-specific ``event_add_*`` functions
 
 Adding tasks is done with various task-specific function-like macros. These
 macros wrap underlying functions in :file:`thread.c` to provide additional
 information added at compile time, such as the line number the task was
 scheduled from, that can be accessed at runtime for debugging, logging and
 informational purposes. Each task type has its own specific scheduling function
-that follow the naming convention ``thread_add_<type>``; see :file:`thread.h`
+that follow the naming convention ``event_add_<type>``; see :file:`event.h`
 for details.
 
 There are some gotchas to keep in mind:
@@ -222,7 +228,7 @@ well as *any other pthread*. This serves as the basis for inter-thread
 communication and boils down to a slightly more complicated method of message
 passing, where the messages are the regular task events as used in the
 event-driven model. The only difference is thread cancellation, which requires
-calling ``thread_cancel_async()`` instead of ``thread_cancel`` to cancel a task
+calling ``event_cancel_async()`` instead of ``event_cancel`` to cancel a task
 currently scheduled on a ``threadmaster`` belonging to a different pthread.
 This is necessary to avoid race conditions in the specific case where one
 pthread wants to guarantee that a task on another pthread is cancelled before

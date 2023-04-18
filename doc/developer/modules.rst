@@ -1,3 +1,5 @@
+.. _modules:
+
 Modules
 =======
 
@@ -54,9 +56,9 @@ Basic boilerplate:
     #include "hook.h"
     #include "module.h"
     #include "libfrr.h"
-    #include "thread.h"
+    #include "frrevent.h"
 
-    static int module_late_init(struct thread_master *master)
+    static int module_late_init(struct event_loop *master)
     {
         /* Do initialization stuff here */
         return 0;
@@ -74,7 +76,7 @@ Basic boilerplate:
         .version = "0.0",
         .description = "my module",
         .init = module_init,
-    )
+    );
 
 The ``frr_late_init`` hook will be called after the daemon has finished
 its other startup and is about to enter the main event loop; this is the

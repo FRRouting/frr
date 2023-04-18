@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #define REALLY_NEED_PLAIN_GETOPT 1
@@ -32,7 +19,7 @@ static void __attribute__((noreturn)) usage(int status)
 	exit(status);
 }
 
-static int generate_yang_deviation(const struct lys_node *snode, void *arg)
+static int generate_yang_deviation(const struct lysc_node *snode, void *arg)
 {
 	char xpath[XPATH_MAXLEN];
 
@@ -65,14 +52,13 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
-	yang_init();
+	yang_init(false, false);
 
 	/* Load YANG module. */
 	module = yang_module_load(argv[0]);
 
 	/* Generate deviations. */
-	yang_snodes_iterate_module(module->info, generate_yang_deviation,
-				   YANG_ITER_FILTER_IMPLICIT, NULL);
+	yang_snodes_iterate(module->info, generate_yang_deviation, 0, NULL);
 
 	/* Cleanup and exit. */
 	yang_terminate();

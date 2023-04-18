@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* User authentication for vtysh.
  * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -71,6 +56,10 @@ static int vtysh_pam(const char *user)
 		fprintf(stderr, "vtysh_pam: Failure to initialize pam: %s(%d)",
 			pam_strerror(pamh, ret), ret);
 
+	if (pam_acct_mgmt(pamh, 0) != PAM_SUCCESS)
+		fprintf(stderr, "%s: Failed in account validation: %s(%d)",
+			__func__, pam_strerror(pamh, ret), ret);
+
 	/* close Linux-PAM */
 	if (pam_end(pamh, ret) != PAM_SUCCESS) {
 		pamh = NULL;
@@ -115,7 +104,8 @@ void user_config_write(void)
 
 	for (ALL_LIST_ELEMENTS(userlist, node, nnode, user)) {
 		if (user->nopassword) {
-			sprintf(line, "username %s nopassword", user->name);
+			snprintf(line, sizeof(line), "username %s nopassword",
+				 user->name);
 			config_add_line(config_top, line);
 		}
 	}
@@ -145,6 +135,26 @@ DEFUN (vtysh_banner_motd_file,
 {
 	int idx_file = 3;
 	return cmd_banner_motd_file(argv[idx_file]->arg);
+}
+
+DEFUN (vtysh_banner_motd_line,
+       vtysh_banner_motd_line_cmd,
+       "banner motd line LINE...",
+       "Set banner\n"
+       "Banner for motd\n"
+       "Banner from an input\n"
+       "Text\n")
+{
+	int idx = 0;
+	char *motd;
+
+	argv_find(argv, argc, "LINE", &idx);
+	motd = argv_concat(argv, argc, idx);
+
+	cmd_banner_motd_line(motd);
+	XFREE(MTYPE_TMP, motd);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (username_nopassword,
@@ -203,4 +213,5 @@ void vtysh_user_init(void)
 	userlist = list_new();
 	install_element(CONFIG_NODE, &username_nopassword_cmd);
 	install_element(CONFIG_NODE, &vtysh_banner_motd_file_cmd);
+	install_element(CONFIG_NODE, &vtysh_banner_motd_line_cmd);
 }

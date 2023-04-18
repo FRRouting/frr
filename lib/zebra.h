@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra common header.
  * Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_H
@@ -26,12 +11,6 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "compiler.h"
-
-#ifdef SUNOS_5
-typedef unsigned int uint32_t;
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
-#endif /* SUNOS_5 */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -52,7 +31,9 @@ typedef unsigned char uint8_t;
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
-#ifndef GNU_LINUX
+#ifdef GNU_LINUX
+#include <linux/types.h>
+#else
 #include <sys/sysctl.h>
 #endif
 #endif /* HAVE_SYS_SYSCTL_H */
@@ -72,47 +53,20 @@ typedef unsigned char uint8_t;
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
-
-/* machine dependent includes */
-#ifdef SUNOS_5
-#include <strings.h>
-#endif /* SUNOS_5 */
-
-/* machine dependent includes */
-#ifdef HAVE_LINUX_VERSION_H
-#include <linux/version.h>
-#endif /* HAVE_LINUX_VERSION_H */
-
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
 
 /* misc include group */
 #include <stdarg.h>
-#if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
-/* Not C99; do we need to define va_copy? */
-#ifndef va_copy
-#ifdef __va_copy
-#define va_copy(DST,SRC) __va_copy(DST,SRC)
-#else
-/* Now we are desperate; this should work on many typical platforms.
-   But this is slightly dangerous, because the standard does not require
-   va_copy to be a macro. */
-#define va_copy(DST,SRC) memcpy(&(DST), &(SRC), sizeof(va_list))
-#warning "Not C99 and no va_copy macro available, falling back to memcpy"
-#endif /* __va_copy */
-#endif /* !va_copy */
-#endif /* !C99 */
-
 
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #endif /* HAVE_LCAPS */
-
-#ifdef HAVE_SOLARIS_CAPABILITIES
-#include <priv.h>
-#endif /* HAVE_SOLARIS_CAPABILITIES */
 
 /* network include group */
 
@@ -224,11 +178,11 @@ typedef unsigned char uint8_t;
 #endif /* HAVE_GLIBC_BACKTRACE */
 
 /* Local includes: */
-#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL))
+#if !defined(__GNUC__)
 #define __attribute__(x)
-#endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
+#endif /* !__GNUC__ */
 
-#include "zassert.h"
+#include <assert.h>
 
 /*
  * Add explicit static cast only when using a C++ compiler.
@@ -239,6 +193,10 @@ typedef unsigned char uint8_t;
 #define static_cast(l, r) (r)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
@@ -246,6 +204,30 @@ size_t strlcat(char *__restrict dest,
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
+#endif
+
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *buf, size_t len);
+#endif
+
+#if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
+/* avoid conflicts in case we have partial support */
+#define mmsghdr frr_mmsghdr
+#define sendmmsg frr_sendmmsg
+
+struct mmsghdr {
+	struct msghdr msg_hdr;
+	unsigned int msg_len;
+};
+
+/* just go 1 at a time here, the loop this is used in will handle the rest */
+static inline int sendmmsg(int fd, struct mmsghdr *mmh, unsigned int len,
+			   int flags)
+{
+	int rv = sendmsg(fd, &mmh->msg_hdr, 0);
+
+	return rv > 0 ? 1 : rv;
+}
 #endif
 
 /*
@@ -304,27 +286,14 @@ struct in_pktinfo {
 #if defined(__NetBSD__)                                                        \
 	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
 	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))                                                \
-	|| (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
+	|| (defined(__APPLE__))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
-/* Define BYTE_ORDER, if not defined. Useful for compiler conditional
- * code, rather than preprocessor conditional.
- * Not all the world has this BSD define.
- */
+/* autoconf macros for this are deprecated, just find endian.h */
 #ifndef BYTE_ORDER
-#define BIG_ENDIAN	4321	/* least-significant byte first (vax, pc) */
-#define LITTLE_ENDIAN	1234	/* most-significant byte first (IBM, net) */
-#define PDP_ENDIAN	3412	/* LSB first in word, MSW first in long (pdp) */
-
-#if defined(WORDS_BIGENDIAN)
-#define BYTE_ORDER	BIG_ENDIAN
-#else  /* !WORDS_BIGENDIAN */
-#define BYTE_ORDER	LITTLE_ENDIAN
-#endif /* WORDS_BIGENDIAN */
-
-#endif /* ndef BYTE_ORDER */
+#error please locate an endian.h file appropriate to your platform
+#endif
 
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
@@ -341,9 +310,17 @@ struct in_pktinfo {
 #include "compiler.h"
 
 /* Zebra route's types are defined in route_types.h */
-#include "route_types.h"
+#include "lib/route_types.h"
 
 #define strmatch(a,b) (!strcmp((a), (b)))
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define htonll(x) (((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x) (((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#else
+#define htonll(x) (x)
+#define ntohll(x) (x)
+#endif
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
@@ -358,6 +335,8 @@ typedef enum {
 	AFI_MAX = 4
 } afi_t;
 
+#define IS_VALID_AFI(a) ((a) > AFI_UNSPEC && (a) < AFI_MAX)
+
 /* Subsequent Address Family Identifier. */
 typedef enum {
 	SAFI_UNSPEC = 0,
@@ -371,18 +350,34 @@ typedef enum {
 	SAFI_MAX = 8
 } safi_t;
 
+#define FOREACH_AFI_SAFI(afi, safi)                                            \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
+#define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
+
 /* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT      1
-#define ZEBRA_RIP_DISTANCE_DEFAULT       120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT     120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT      110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT     110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT      115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT      200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT       20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT      15
+#define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
+#define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
+#define ZEBRA_STATIC_DISTANCE_DEFAULT       1
+#define ZEBRA_RIP_DISTANCE_DEFAULT        120
+#define ZEBRA_RIPNG_DISTANCE_DEFAULT      120
+#define ZEBRA_OSPF_DISTANCE_DEFAULT       110
+#define ZEBRA_OSPF6_DISTANCE_DEFAULT      110
+#define ZEBRA_ISIS_DISTANCE_DEFAULT       115
+#define ZEBRA_IBGP_DISTANCE_DEFAULT       200
+#define ZEBRA_EBGP_DISTANCE_DEFAULT        20
+#define ZEBRA_TABLE_DISTANCE_DEFAULT       15
+#define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
+#define ZEBRA_NHRP_DISTANCE_DEFAULT        10
+#define ZEBRA_LDP_DISTANCE_DEFAULT        150
+#define ZEBRA_BABEL_DISTANCE_DEFAULT      100
+#define ZEBRA_SHARP_DISTANCE_DEFAULT      150
+#define ZEBRA_PBR_DISTANCE_DEFAULT        200
+#define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
+#define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
@@ -407,5 +402,9 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_H */

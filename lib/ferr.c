@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -35,7 +24,7 @@
 #include "linklist.h"
 #include "frr_pthread.h"
 
-DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
+DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information");
 
 /*
  * Thread-specific key for temporary storage of allocated ferr.
@@ -84,9 +73,9 @@ void log_ref_add(struct log_ref *ref)
 {
 	uint32_t i = 0;
 
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		while (ref[i].code != END_FERR) {
-			hash_get(refs, &ref[i], hash_alloc_intern);
+			(void)hash_get(refs, &ref[i], hash_alloc_intern);
 			i++;
 		}
 	}
@@ -98,7 +87,7 @@ struct log_ref *log_ref_get(uint32_t code)
 	struct log_ref *ref;
 
 	holder.code = code;
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		ref = hash_lookup(refs, &holder);
 	}
 
@@ -115,14 +104,18 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 	if (json)
 		top = json_object_new_object();
 
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		errlist = code ? list_new() : hash_to_list(refs);
 	}
 
 	if (code) {
 		ref = log_ref_get(code);
-		if (!ref)
+		if (!ref) {
+			if (top)
+				json_object_free(top);
+			list_delete(&errlist);
 			return;
+		}
 		listnode_add(errlist, ref);
 	}
 
@@ -130,7 +123,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 		if (json) {
 			char key[11];
 
-			snprintf(key, sizeof(key), "%"PRIu32, ref->code);
+			snprintf(key, sizeof(key), "%u", ref->code);
 			obj = json_object_new_object();
 			json_object_string_add(obj, "title", ref->title);
 			json_object_string_add(obj, "description",
@@ -142,7 +135,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 			char pbuf[256];
 			char ubuf[256];
 
-			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
+			snprintf(pbuf, sizeof(pbuf), "\nError %u - %s",
 				 ref->code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
 			ubuf[strlen(pbuf)] = '\0';
@@ -153,13 +146,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 		}
 	}
 
-	if (json) {
-		const char *str = json_object_to_json_string_ext(
-			top, JSON_C_TO_STRING_PRETTY);
-		vty_out(vty, "%s\n", str);
-		json_object_free(top);
-	}
-
+	vty_json(vty, top);
 	list_delete(&errlist);
 }
 
@@ -184,7 +171,7 @@ DEFUN_NOSH(show_error_code,
 
 void log_ref_init(void)
 {
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		refs = hash_create(ferr_hash_key, ferr_hash_cmp,
 				   "Error Reference Texts");
 	}
@@ -192,10 +179,8 @@ void log_ref_init(void)
 
 void log_ref_fini(void)
 {
-	frr_with_mutex(&refs_mtx) {
-		hash_clean(refs, NULL);
-		hash_free(refs);
-		refs = NULL;
+	frr_with_mutex (&refs_mtx) {
+		hash_clean_and_free(&refs, NULL);
 	}
 }
 
@@ -221,6 +206,7 @@ ferr_r ferr_clear(void)
 	return ferr_ok();
 }
 
+PRINTFRR(7, 0)
 static ferr_r ferr_set_va(const char *file, int line, const char *func,
 			  enum ferr_kind kind, const char *pathname,
 			  int errno_val, const char *text, va_list va)

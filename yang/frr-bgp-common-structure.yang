@@ -1,0 +1,815 @@
+// SPDX-License-Identifier: BSD-2-Clause
+submodule frr-bgp-common-structure {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import ietf-bgp-types {
+    prefix bt;
+  }
+
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
+  include "frr-bgp-common";
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This submodule contains general data definitions for use in BGP.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  grouping structure-neighbor-group-ebgp-multihop {
+    description
+      "Structural grouping used to include EBGP multi-hop
+       configuration for both BGP neighbors and peer groups.";
+    container ebgp-multihop {
+      description
+        "EBGP multi-hop parameters for the BGP group.";
+      choice hop-count-choice {
+        case default-hop-count {
+          leaf enabled {
+            type boolean;
+            default "false";
+            description
+              "When enabled the referenced group or neighbors are
+               permitted to be indirectly connected - including cases
+               where the TTL can be decremented between the BGP peers.";
+          }
+        }
+
+        case max-hop-count {
+          leaf multihop-ttl {
+            type uint8 {
+              range "1..255";
+            }
+            description
+              "Time-to-live value to use when packets are sent to the
+               referenced group or neighbors and ebgp-multihop is
+               enabled.";
+          }
+        }
+      }
+
+      leaf disable-connected-check {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' it enforces EBGP neighbors perform multihop.";
+      }
+    }
+  }
+
+  grouping neighbor-local-as-options {
+    container local-as {
+      leaf local-as {
+        type inet:as-number;
+        description
+          "The local autonomous system number that is to be used when
+           establishing sessions with the remote peer or peer group, if
+           this differs from the global BGP router autonomous system
+           number.";
+      }
+
+      leaf no-prepend {
+        type boolean;
+        default "false";
+        description
+          "Do not prepend local-as to updates from EBGP peers. When
+           set to 'true' it will not prepend local-as to updates. When
+           set to 'false' it will prepend local-as to updates.";
+      }
+
+      leaf replace-as {
+        type boolean;
+        default "false";
+        description
+          "Do not prepend local-as to updates from IBGP peers.";
+      }
+    }
+  }
+
+  grouping neighbor-bfd-options {
+    container bfd-options {
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "BFD support.";
+      }
+
+      leaf detect-multiplier {
+        when "../enable = 'true'";
+        type uint8 {
+          range "2..255";
+        }
+        default "3";
+        description
+          "Detect multiplier.";
+      }
+
+      leaf required-min-rx {
+        when "../enable = 'true'";
+        type uint16 {
+          range "50..60000";
+        }
+        units "milliseconds";
+        default "300";
+        description
+          "Required min receive interval.";
+      }
+
+      leaf desired-min-tx {
+        when "../enable = 'true'";
+        type uint16 {
+          range "50..60000";
+        }
+        units "milliseconds";
+        default "300";
+        description
+          "Desired min transmit interval.";
+      }
+
+      leaf session-type {
+        when "../enable = 'true'";
+        type frr-bt:bfd-session-type;
+        default "not-configured";
+        description
+          "BFD session type.";
+      }
+
+      leaf check-cp-failure {
+        when "../enable = 'true'";
+        type boolean;
+        default "false";
+        description
+          "Link dataplane status with BGP control plane.";
+      }
+    }
+  }
+
+  grouping neighbor-remote-as {
+    container neighbor-remote-as {
+      leaf remote-as-type {
+        type frr-bt:as-type;
+        description
+          "Remote AS type.";
+      }
+
+      leaf remote-as {
+        when "../remote-as-type = 'as-specified'";
+        type inet:as-number;
+        description
+          "The remote autonomous system number received in
+           the BGP OPEN message.";
+        reference
+          "RFC 4271";
+      }
+    }
+  }
+
+  grouping neighbor-update-source {
+    description
+      "Source of routing updates.";
+    container update-source {
+      description
+        "Source of routing updates config.";
+      choice source {
+        case ip-based {
+          leaf ip {
+            type inet:ip-address;
+            description
+              "IPv4 address/IPv6 address.";
+          }
+        }
+
+        case interface-based {
+          leaf interface {
+            type frr-interface:interface-ref {
+              require-instance false;
+            }
+            description
+              "The local interface.";
+          }
+        }
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-add-paths {
+    description
+      "Structural grouping used to include ADD-PATHs configuration
+       and state for both BGP neighbors and peer groups.";
+    container add-paths {
+      description
+        "Parameters relating to the advertisement and receipt of
+         multiple paths for a single NLRI (add-paths).";
+      reference
+        "RFC 7911: ADD-PATH.";
+      leaf path-type {
+        type frr-bt:add-path-type;
+        default "none";
+        description
+          "Enable ability to receive multiple path advertisements for
+           an NLRI from the neighbor or group.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-as-path-options {
+    description
+      "Structural grouping used to include AS_PATH manipulation
+       configuration both BGP neighbors and peer groups.";
+    container as-path-options {
+      description
+        "AS_PATH manipulation parameters for the BGP neighbor or
+         group.";
+      choice allowas-in {
+        case occurence-based {
+          leaf allow-own-as {
+            type uint8 {
+              range "1..10";
+            }
+            description
+              "Specify the number of occurrences of the local BGP
+               speaker's AS that can occur within the AS_PATH before it
+               is rejected.";
+          }
+        }
+
+        case origin-based {
+          leaf allow-own-origin-as {
+            type boolean;
+            default "false";
+            description
+              "When set to 'true' only accept my AS in the as-path
+               if the route was originated in my AS.";
+          }
+        }
+      }
+
+      leaf replace-peer-as {
+        type boolean;
+        default "false";
+        description
+          "Replace occurrences of the peer's AS in the AS_PATH with
+           the local autonomous system number. This is same as override
+           ASN CLI.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-capability-options {
+    description
+      "Structural grouping used to include capability
+       configuration for both BGP neighbors and peer groups.";
+    container capability-options {
+      description
+        "Capability manipulation parameters for the BGP neighbor or
+         group.";
+      leaf dynamic-capability {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' dynamic capability is advertise to this peer.";
+      }
+
+      leaf strict-capability {
+        type boolean;
+        default "false";
+        description
+          "Strict capability negotiation match. When set to 'true'
+           remote and local capabilities are strictly compared
+           if capabilities are different, send Unsupported Capability
+           error then reset connection.";
+      }
+
+      leaf extended-nexthop-capability {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' extended next-hop capability is advertise
+           to this peer.";
+      }
+
+      leaf capability-negotiate {
+        type boolean;
+        default "true";
+        description
+          "When set to 'true' sending Capability Negotiation in the open
+           message is suppressed to this peer.";
+      }
+
+      leaf override-capability {
+        type boolean;
+        default "false";
+        description
+          "Overrides the result of Capability Negotiation, ignoring remote
+           peer's capability value, when set to 'true'.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-default-originate-options {
+    description
+      "Structural grouping used to include default-originate
+       configuration for both BGP neighbors and peer groups.";
+    container default-originate {
+      description
+        "default originate parameters for the BGP neighbor or
+         group.";
+      leaf originate {
+        type boolean;
+        default "false";
+        description
+          "If set to 'true', send the default-route to the neighbour(s).";
+      }
+
+      leaf route-map {
+        type frr-route-map:route-map-ref;
+        description
+          "Route-map to specify criteria to originate default.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-prefix-limit {
+    container prefix-limit {
+      description
+        "Parameters relating to the prefix limit for the AFI-SAFI.";
+      list direction-list {
+        key "direction";
+        leaf direction {
+          type frr-bt:direction;
+          description
+            "Prefix limit applied on Tx route-updates or Rx route-updates.";
+        }
+
+        leaf max-prefixes {
+          type uint32;
+          mandatory true;
+          description
+            "Maximum number of prefixes that will be accepted from the
+             neighbour.";
+        }
+
+        leaf force-check {
+          type boolean;
+          default false;
+          description
+            "Force check all received routes.";
+        }
+
+        container options {
+          when "../direction = 'in'";
+          choice options {
+            case warning {
+              leaf warning-only {
+                type boolean;
+                default "false";
+                description
+                  "When set to 'true' only give warning message when limit
+                   is exceeded.";
+              }
+            }
+
+            case restart {
+              leaf restart-timer {
+                type uint16;
+                units "minutes";
+                description
+                  "Time interval in seconds after which the BGP session is
+                   re-established after being torn down due to exceeding the
+                   max-prefix limit.";
+              }
+            }
+
+            case threshold {
+              leaf shutdown-threshold-pct {
+                type bt:percentage;
+                description
+                  "Threshold on number of prefixes that can be received from
+                   a neighbour before generation of warning messages or log
+                   entries. Expressed as a percentage of max-prefixes.";
+              }
+            }
+
+            case threshold-restart {
+              leaf tr-shutdown-threshold-pct {
+                type bt:percentage;
+                description
+                  "Threshold on number of prefixes that can be received from
+                   a neighbour before generation of warning messages or log
+                   entries. Expressed as a percentage of max-prefixes.";
+              }
+
+              leaf tr-restart-timer {
+                type uint16;
+                units "minutes";
+                description
+                  "Time interval in seconds after which the BGP session is
+                   re-established after being torn down due to exceeding the
+                   max-prefix limit.";
+              }
+            }
+
+            case threshold-warning {
+              leaf tw-shutdown-threshold-pct {
+                type bt:percentage;
+                description
+                  "Threshold on number of prefixes that can be received from
+                   a neighbour before generation of warning messages or log
+                   entries. Expressed as a percentage of max-prefixes.";
+              }
+
+              leaf tw-warning-only {
+                type boolean;
+                default "false";
+                description
+                  "When set to 'true' only give warning message when limit
+                   is exceeded.";
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping structure-neighbor-nexthop-self {
+    container nexthop-self {
+      description
+        "Parameters relating to the nexthop-self for the AFI-SAFI.";
+      leaf next-hop-self {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', EBGP learned routes are announced with the
+           local speaker's nexthop.";
+      }
+
+      leaf next-hop-self-force {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', EBGP learned routes are announced with the
+           local speaker's nexthop.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-private-as {
+    container private-as {
+      description
+        "Parameters relating to the private-as for the AFI-SAFI.";
+      leaf remove-private-as-all {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', private ASNs are removed from outbound updates;
+           applies to all AS numbers.";
+      }
+
+      leaf remove-private-as-all-replace {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', private ASNs are replaced by the local
+           speaker's ASN in all outbound updates; applies to all AS numbers.";
+      }
+
+      leaf remove-private-as {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', removes private ASNs in outbound updates;
+           applies to all AS numbers.";
+      }
+
+      leaf remove-private-as-replace {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true', private ASNs are replaced with the local
+           speaker's ASN in all outbound updates; applies to all AS numbers.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-weight {
+    container weight {
+      description
+        "Parameters relating to the weight for the AFI-SAFI.";
+      leaf weight-attribute {
+        type uint16 {
+          range "0..65535";
+        }
+        description
+          "Set default weight for routes from this neighbor.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-route-reflector {
+    container route-reflector {
+      description
+        "Parameters relating to the route-reflector for the AFI-SAFI.";
+      leaf route-reflector-client {
+        type boolean;
+        default "false";
+        description
+          "Configure a neighbor as route reflector client.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-route-server {
+    container route-server {
+      description
+        "Parameters relating to the route-server for the AFI-SAFI.";
+      leaf route-server-client {
+        type boolean;
+        default "false";
+        description
+          "Configure a neighbor as route server client.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-send-community {
+    container send-community {
+      description
+        "Parameters relating to the send-community for the AFI-SAFI.";
+      leaf send-community {
+        type boolean;
+        default "true";
+        description
+          "Send standard community attribute to this neighbor.";
+      }
+
+      leaf send-ext-community {
+        type boolean;
+        default "true";
+        description
+          "Send extended community attribute to this neighbor.";
+      }
+
+      leaf send-large-community {
+        type boolean;
+        default "true";
+        description
+          "Send large community attribute to this neighbor.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-admin-shutdown {
+    description
+      "Structural grouping used to include admin-shutdown
+       configuration for both BGP neighbors and peer groups.";
+    container admin-shutdown {
+      description
+        "BGP Administrative Shutdown Communication.";
+      leaf enable {
+        type boolean;
+        description
+          "When set to 'true', BGP shutdown communication is enabled.";
+      }
+
+      leaf message {
+        type string;
+        description
+          "Shutdown message.";
+        reference
+          "draft-ietf-idr-shutdown-06";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-graceful-restart {
+    description
+      "Structural grouping used to include graceful-restart
+       configuration for both BGP neighbors and peer groups.";
+    container graceful-restart {
+      description
+        "BGP Graceful restart feature.";
+      choice mode {
+        case graceful-restart-mode {
+          leaf enable {
+            type boolean;
+            default "false";
+            description
+              "Enable or disable the graceful-restart capability.
+               Setting this value to 'true' enables the graceful-restart
+               and helper both at peer level. Setting this value to 'false'
+               disables graceful restart and helper mode. The peer will inherit
+               global configuration.";
+          }
+        }
+
+        case graceful-restart-helper-mode {
+          leaf graceful-restart-helper {
+            type boolean;
+            default "false";
+            description
+              "Setting this value to 'true' enables helper mode for the peer
+               Setting this value to 'false' disables the helper mode. The
+               peer will inherit global configuration.";
+          }
+        }
+
+        case graceful-restart-disable-mode {
+          leaf graceful-restart-disable {
+            type boolean;
+            default "false";
+            description
+              "Setting this value to 'true' disables the graceful-restart
+               and helper Mode. Setting this value to 'false' causes the peer
+               to inherit global configuration.";
+          }
+        }
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-soft-reconfiguration {
+    description
+      "Structural grouping used to include soft-reconfiguration
+       configuration for both BGP neighbors and peer groups.";
+    leaf soft-reconfiguration {
+      type boolean;
+      default "false";
+      description
+        "Allow inbound soft reconfiguration for this neighbor.";
+    }
+  }
+
+  grouping structure-neighbor-group-attr-unchanged {
+    description
+      "Structural grouping used to include BGP route propagation
+       rules configuration for both BGP neighbors and peer groups.";
+    container attr-unchanged {
+      description
+        "BGP route propagation rules configuration.";
+      leaf as-path-unchanged {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' as-path attribute is propagated unchanged.";
+      }
+
+      leaf next-hop-unchanged {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' next-hop attribute is propagated unchanged.";
+      }
+
+      leaf med-unchanged {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' med attribute is propagated unchanged.";
+      }
+    }
+  }
+
+  grouping structure-neighbor-group-orf-capability {
+    description
+      "Structural grouping used to include orf
+       configuration for both BGP neighbors and peer groups.";
+    container orf-capability {
+      choice orf-update {
+        case send {
+          leaf orf-send {
+            type boolean;
+            default "false";
+            description
+              "Setting to 'true' advertises the ORF capability.";
+          }
+        }
+
+        case receive {
+          leaf orf-receive {
+            type boolean;
+            default "false";
+            description
+              "When set to 'true' it receives the orf capability.";
+          }
+        }
+
+        case both {
+          leaf orf-both {
+            type boolean;
+            default "false";
+            description
+              "When set to 'true' it advertises/receives the orf capability.";
+          }
+        }
+      }
+    }
+  }
+
+  grouping structure-neighbor-config-timers {
+    description
+      "Structural grouping used to include per neighbor timers
+       configuration for both BGP neighbors and peer groups.";
+    container timers {
+      leaf advertise-interval {
+        type uint16 {
+          range "0..600";
+        }
+        units "seconds";
+        description
+          "Minimum interval between sending BGP routing updates.";
+      }
+
+      leaf connect-time {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+        description
+          "BGP connect timer.";
+      }
+
+      uses neighbor-timers;
+    }
+  }
+
+  grouping structure-neighbor-group-filter-config {
+    description
+      "Structural grouping used to include filter
+       configuration for both BGP neighbors and peer groups.";
+    container filter-config {
+      description
+        "BGP Policy configuration for both BGP neighbors and groups.";
+      uses rmap-policy-import;
+
+      uses rmap-policy-export;
+
+      uses plist-policy-import;
+
+      uses plist-policy-export;
+
+      uses access-list-policy-import;
+
+      uses access-list-policy-export;
+
+      uses as-path-filter-list-policy-import;
+
+      uses as-path-filter-list-policy-export;
+
+      uses unsuppress-map-policy-import;
+
+      uses unsuppress-map-policy-export;
+    }
+  }
+}

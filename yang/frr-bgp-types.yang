@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-bgp-types {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/bgp-types";
+  prefix frr-bt;
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module contains general data definitions for use in BGP.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  typedef plist-ref {
+    type string;
+  }
+
+  typedef access-list-ref {
+    type string;
+  }
+
+  typedef as-path-filter-ref {
+    type string;
+  }
+
+  typedef bgp-instance-type {
+    type enumeration {
+      enum "default" {
+        value 1;
+        description
+          "BGP instance default.";
+      }
+      enum "vrf" {
+        value 2;
+        description
+          "BGP instance vrf.";
+      }
+      enum "view" {
+        value 3;
+        description
+          "BGP instance view.";
+      }
+    }
+  }
+
+  typedef as-type {
+    type enumeration {
+      enum "as-specified" {
+        value 1;
+        description
+          "AS has explicitly specified value.";
+      }
+      enum "internal" {
+        value 2;
+        description
+          "Internal BGP peer.";
+      }
+      enum "external" {
+        value 3;
+        description
+          "External BGP peer.";
+      }
+    }
+  }
+
+  typedef add-path-type {
+    type enumeration {
+      enum "all" {
+        value 1;
+        description
+          "To advertise all paths to a neighbor.";
+      }
+      enum "per-as" {
+        value 2;
+        description
+          "To advertise the best path per each neighboring AS.";
+      }
+      enum "none" {
+        value 3;
+        description
+          "Add path feature is disabled.";
+      }
+    }
+  }
+
+  typedef bfd-session-type {
+    type enumeration {
+      enum "single-hop" {
+        value 1;
+        description
+          "Single hop session.";
+      }
+      enum "multi-hop" {
+        value 2;
+        description
+          "Multiple hop session.";
+      }
+      enum "not-configured" {
+        value 3;
+        description
+          "Not Configured.";
+      }
+    }
+  }
+
+  typedef direction {
+    type enumeration {
+      enum "in" {
+        value 1;
+        description
+          "IN, ingress, Rx.";
+      }
+      enum "out" {
+        value 2;
+        description
+          "OUT, egress, Tx.";
+      }
+    }
+  }
+}

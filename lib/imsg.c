@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -37,7 +26,7 @@ static int available_fds(unsigned int n)
 	int ret, fds[256];
 
 	if (n > (unsigned int)array_size(fds))
-		return (1);
+		return 1;
 
 	ret = 0;
 	for (i = 0; i < n; i++) {
@@ -93,7 +82,7 @@ ssize_t imsg_read(struct imsgbuf *ibuf)
 	msg.msg_controllen = sizeof(cmsgbuf.buf);
 
 	if ((ifd = calloc(1, sizeof(struct imsg_fd))) == NULL)
-		return (-1);
+		return -1;
 
 again:
 #ifdef __OpenBSD__
@@ -108,7 +97,7 @@ again:
 #endif
 		errno = EAGAIN;
 		free(ifd);
-		return (-1);
+		return -1;
 	}
 
 	n = recvmsg(ibuf->fd, &msg, 0);
@@ -161,21 +150,21 @@ ssize_t imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 	av = ibuf->r.wpos;
 
 	if (IMSG_HEADER_SIZE > av)
-		return (0);
+		return 0;
 
 	memcpy(&imsg->hdr, ibuf->r.buf, sizeof(imsg->hdr));
 	if (imsg->hdr.len < IMSG_HEADER_SIZE || imsg->hdr.len > MAX_IMSGSIZE) {
 		errno = ERANGE;
-		return (-1);
+		return -1;
 	}
 	if (imsg->hdr.len > av)
-		return (0);
+		return 0;
 	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
 	ibuf->r.rptr = ibuf->r.buf + IMSG_HEADER_SIZE;
 	if (datalen == 0)
 		imsg->data = NULL;
 	else if ((imsg->data = malloc(datalen)) == NULL)
-		return (-1);
+		return -1;
 
 	if (imsg->hdr.flags & IMSGF_HASFD)
 		imsg->fd = imsg_get_fd(ibuf);
@@ -201,16 +190,16 @@ int imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 	struct ibuf *wbuf;
 
 	if ((wbuf = imsg_create(ibuf, type, peerid, pid, datalen)) == NULL)
-		return (-1);
+		return -1;
 
 	if (imsg_add(wbuf, data, datalen) == -1)
-		return (-1);
+		return -1;
 
 	wbuf->fd = fd;
 
 	imsg_close(ibuf, wbuf);
 
-	return (1);
+	return 1;
 }
 
 int imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
@@ -223,17 +212,17 @@ int imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 		datalen += iov[i].iov_len;
 
 	if ((wbuf = imsg_create(ibuf, type, peerid, pid, datalen)) == NULL)
-		return (-1);
+		return -1;
 
 	for (i = 0; i < iovcnt; i++)
 		if (imsg_add(wbuf, iov[i].iov_base, iov[i].iov_len) == -1)
-			return (-1);
+			return -1;
 
 	wbuf->fd = fd;
 
 	imsg_close(ibuf, wbuf);
 
-	return (1);
+	return 1;
 }
 
 /* ARGSUSED */
@@ -248,7 +237,7 @@ struct ibuf *imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 	datalen += IMSG_HEADER_SIZE;
 	if (datalen > MAX_IMSGSIZE) {
 		errno = ERANGE;
-		return (NULL);
+		return NULL;
 	}
 
 	hdr.type = type;
@@ -257,10 +246,10 @@ struct ibuf *imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 	if ((hdr.pid = pid) == 0)
 		hdr.pid = ibuf->pid;
 	if ((wbuf = ibuf_dynamic(datalen, MAX_IMSGSIZE)) == NULL) {
-		return (NULL);
+		return NULL;
 	}
 	if (imsg_add(wbuf, &hdr, sizeof(hdr)) == -1)
-		return (NULL);
+		return NULL;
 
 	return (wbuf);
 }
@@ -270,7 +259,7 @@ int imsg_add(struct ibuf *msg, const void *data, uint16_t datalen)
 	if (datalen)
 		if (ibuf_add(msg, data, datalen) == -1) {
 			ibuf_free(msg);
-			return (-1);
+			return -1;
 		}
 	return (datalen);
 }
@@ -301,7 +290,7 @@ int imsg_get_fd(struct imsgbuf *ibuf)
 	struct imsg_fd *ifd;
 
 	if ((ifd = TAILQ_POP_FIRST(&ibuf->fds, entry)) == NULL)
-		return (-1);
+		return -1;
 
 	fd = ifd->fd;
 	free(ifd);
@@ -313,8 +302,8 @@ int imsg_flush(struct imsgbuf *ibuf)
 {
 	while (ibuf->w.queued)
 		if (msgbuf_write(&ibuf->w) <= 0)
-			return (-1);
-	return (0);
+			return -1;
+	return 0;
 }
 
 void imsg_clear(struct imsgbuf *ibuf)

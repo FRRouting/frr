@@ -1,26 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
+#include "defaults.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
@@ -31,9 +19,7 @@
 #include "northbound.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/northbound_cli_clippy.c"
-#endif
 
 struct debug nb_dbg_cbs_config = {0, "Northbound callbacks: configuration"};
 struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
@@ -43,31 +29,98 @@ struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
-static struct thread_master *master;
+static struct event_loop *master;
 
-static void vty_show_libyang_errors(struct vty *vty, struct ly_ctx *ly_ctx)
+static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
-	struct ly_err_item *ei;
-	const char *path;
+	vty_out(vty, "Error type: %s\n", nb_err_name(error));
+	if (strlen(errmsg) > 0)
+		vty_out(vty, "Error description: %s\n", errmsg);
+}
 
-	ei = ly_err_first(ly_ctx);
-	if (!ei)
-		return;
+static int nb_cli_classic_commit(struct vty *vty)
+{
+	struct nb_context context = {};
+	char errmsg[BUFSIZ] = {0};
+	int ret;
 
-	for (; ei; ei = ei->next)
-		vty_out(vty, "%s\n", ei->msg);
+	context.client = NB_CLIENT_CLI;
+	context.user = vty;
+	ret = nb_candidate_commit(context, vty->candidate_config, true, NULL,
+				  NULL, errmsg, sizeof(errmsg));
+	switch (ret) {
+	case NB_OK:
+		/* Successful commit. Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
+		break;
+	case NB_ERR_NO_CHANGES:
+		break;
+	default:
+		vty_out(vty, "%% Configuration failed.\n\n");
+		vty_show_nb_errors(vty, ret, errmsg);
+		if (vty->pending_commit)
+			vty_out(vty,
+				"The following commands were dynamically grouped into the same transaction and rejected:\n%s",
+				vty->pending_cmds_buf);
 
-	path = ly_errpath(ly_ctx);
-	if (path)
-		vty_out(vty, "YANG path: %s\n", path);
+		/* Regenerate candidate for consistency. */
+		nb_config_replace(vty->candidate_config, running_config, true);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	ly_err_clean(ly_ctx, NULL);
+	return CMD_SUCCESS;
+}
+
+static void nb_cli_pending_commit_clear(struct vty *vty)
+{
+	vty->pending_commit = 0;
+	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
+	vty->pending_cmds_buflen = 0;
+	vty->pending_cmds_bufpos = 0;
+}
+
+int nb_cli_pending_commit_check(struct vty *vty)
+{
+	int ret = CMD_SUCCESS;
+
+	if (vty->pending_commit) {
+		ret = nb_cli_classic_commit(vty);
+		nb_cli_pending_commit_clear(vty);
+	}
+
+	return ret;
+}
+
+static int nb_cli_schedule_command(struct vty *vty)
+{
+	/* Append command to dynamically sized buffer of scheduled commands. */
+	if (!vty->pending_cmds_buf) {
+		vty->pending_cmds_buflen = 4096;
+		vty->pending_cmds_buf =
+			XCALLOC(MTYPE_TMP, vty->pending_cmds_buflen);
+	}
+	if ((strlen(vty->buf) + 3)
+	    > (vty->pending_cmds_buflen - vty->pending_cmds_bufpos)) {
+		vty->pending_cmds_buflen *= 2;
+		vty->pending_cmds_buf =
+			XREALLOC(MTYPE_TMP, vty->pending_cmds_buf,
+				 vty->pending_cmds_buflen);
+	}
+	strlcat(vty->pending_cmds_buf, "- ", vty->pending_cmds_buflen);
+	vty->pending_cmds_bufpos = strlcat(vty->pending_cmds_buf, vty->buf,
+					   vty->pending_cmds_buflen);
+
+	/* Schedule the commit operation. */
+	vty->pending_commit = 1;
+
+	return CMD_SUCCESS;
 }
 
 void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 			   enum nb_operation operation, const char *value)
 {
-	struct vty_cfg_change *change;
+	struct nb_cfg_change *change;
 
 	if (vty->num_cfg_changes == VTY_MAXCFGCHANGES) {
 		/* Not expected to happen. */
@@ -83,13 +136,55 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 	change->value = value;
 }
 
+static int nb_cli_apply_changes_internal(struct vty *vty,
+					 const char *xpath_base,
+					 bool clear_pending)
+{
+	bool error = false;
+	char buf[BUFSIZ];
+
+	VTY_CHECK_XPATH;
+
+	nb_candidate_edit_config_changes(
+		vty->candidate_config, vty->cfg_changes, vty->num_cfg_changes,
+		xpath_base, VTY_CURR_XPATH, vty->xpath_index, buf, sizeof(buf),
+		&error);
+	if (error) {
+		/*
+		 * Failure to edit the candidate configuration should never
+		 * happen in practice, unless there's a bug in the code. When
+		 * that happens, log the error but otherwise ignore it.
+		 */
+		vty_out(vty, "%s", buf);
+	}
+
+	/*
+	 * Maybe do an implicit commit when using the classic CLI mode.
+	 *
+	 * NOTE: the implicit commit might be scheduled to run later when
+	 * too many commands are being sent at the same time. This is a
+	 * protection mechanism where multiple commands are grouped into the
+	 * same configuration transaction, allowing them to be processed much
+	 * faster.
+	 */
+	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
+		if (clear_pending) {
+			if (vty->pending_commit)
+				return nb_cli_pending_commit_check(vty);
+		} else if (vty->pending_allowed)
+			return nb_cli_schedule_command(vty);
+		assert(!vty->pending_commit);
+		return nb_cli_classic_commit(vty);
+	}
+
+	return CMD_SUCCESS;
+}
+
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
 	char xpath_base[XPATH_MAXLEN] = {};
-	bool error = false;
+	bool implicit_commit;
 	int ret;
-
-	VTY_CHECK_XPATH;
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -100,96 +195,54 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		va_end(ap);
 	}
 
-	/* Edit candidate configuration. */
-	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
-		struct vty_cfg_change *change = &vty->cfg_changes[i];
-		struct nb_node *nb_node;
-		char xpath[XPATH_MAXLEN];
-		struct yang_data *data;
+	if (vty_mgmt_fe_enabled()) {
+		VTY_CHECK_XPATH;
 
-		/* Handle relative XPaths. */
-		memset(xpath, 0, sizeof(xpath));
-		if (vty->xpath_index > 0
-		    && ((xpath_base_fmt && xpath_base[0] == '.')
-			|| change->xpath[0] == '.'))
-			strlcpy(xpath, VTY_CURR_XPATH, sizeof(xpath));
-		if (xpath_base_fmt) {
-			if (xpath_base[0] == '.')
-				strlcat(xpath, xpath_base + 1, sizeof(xpath));
-			else
-				strlcat(xpath, xpath_base, sizeof(xpath));
-		}
-		if (change->xpath[0] == '.')
-			strlcat(xpath, change->xpath + 1, sizeof(xpath));
-		else
-			strlcpy(xpath, change->xpath, sizeof(xpath));
-
-		/* Find the northbound node associated to the data path. */
-		nb_node = nb_node_find(xpath);
-		if (!nb_node) {
-			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-				  "%s: unknown data path: %s", __func__, xpath);
-			error = true;
-			continue;
-		}
-
-		/* If the value is not set, get the default if it exists. */
-		if (change->value == NULL)
-			change->value = yang_snode_get_default(nb_node->snode);
-		data = yang_data_new(xpath, change->value);
-
-		/*
-		 * Ignore "not found" errors when editing the candidate
-		 * configuration.
-		 */
-		ret = nb_candidate_edit(vty->candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
-		yang_data_free(data);
-		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
-			flog_warn(
-				EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-				"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
-				__func__, nb_operation_name(change->operation),
-				xpath);
-			error = true;
-			continue;
-		}
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
 	}
 
-	if (error) {
-		/*
-		 * Failure to edit the candidate configuration should never
-		 * happen in practice, unless there's a bug in the code. When
-		 * that happens, log the error but otherwise ignore it.
-		 */
-		vty_out(vty, "%% Failed to edit configuration.\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
-	}
-
-	/* Do an implicit "commit" when using the classic CLI mode. */
-	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
-					  vty, false, NULL, NULL);
-		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
-			vty_out(vty, "%% Configuration failed: %s.\n\n",
-				nb_err_name(ret));
-			vty_out(vty,
-				"Please check the logs for more details.\n");
-
-			/* Regenerate candidate for consistency. */
-			nb_config_replace(vty->candidate_config, running_config,
-					  true);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes_internal(vty, xpath_base, false);
 }
 
-int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
+int nb_cli_apply_changes_clear_pending(struct vty *vty,
+				       const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+	bool implicit_commit;
+	int ret;
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+
+	if (vty_mgmt_fe_enabled()) {
+		VTY_CHECK_XPATH;
+
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
+	}
+
+	return nb_cli_apply_changes_internal(vty, xpath_base, true);
+}
+
+int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
+	       struct list *output)
 {
 	struct nb_node *nb_node;
 	int ret;
+	char errmsg[BUFSIZ] = {0};
 
 	nb_node = nb_node_find(xpath);
 	if (!nb_node) {
@@ -198,45 +251,58 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 		return CMD_WARNING;
 	}
 
-	ret = nb_callback_rpc(nb_node, xpath, input, output);
+	ret = nb_callback_rpc(nb_node, xpath, input, output, errmsg,
+			      sizeof(errmsg));
 	switch (ret) {
 	case NB_OK:
 		return CMD_SUCCESS;
 	default:
+		if (strlen(errmsg))
+			vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 }
 
 void nb_cli_confirmed_commit_clean(struct vty *vty)
 {
-	THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+	event_cancel(&vty->t_confirmed_commit_timeout);
 	nb_config_free(vty->confirmed_commit_rollback);
 	vty->confirmed_commit_rollback = NULL;
 }
 
 int nb_cli_confirmed_commit_rollback(struct vty *vty)
 {
+	struct nb_context context = {};
 	uint32_t transaction_id;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	/* Perform the rollback. */
+	context.client = NB_CLIENT_CLI;
+	context.user = vty;
 	ret = nb_candidate_commit(
-		vty->confirmed_commit_rollback, NB_CLIENT_CLI, vty, true,
+		context, vty->confirmed_commit_rollback, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
-		&transaction_id);
-	if (ret == NB_OK)
+		&transaction_id, errmsg, sizeof(errmsg));
+	if (ret == NB_OK) {
 		vty_out(vty,
 			"Rollback performed successfully (Transaction ID #%u).\n",
 			transaction_id);
-	else
-		vty_out(vty, "Failed to rollback to previous configuration.\n");
+		/* Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
+	} else {
+		vty_out(vty,
+			"Failed to rollback to previous configuration.\n\n");
+		vty_show_nb_errors(vty, ret, errmsg);
+	}
 
 	return ret;
 }
 
-static int nb_cli_confirmed_commit_timeout(struct thread *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *thread)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	/* XXX: broadcast this message to all logged-in users? */
 	vty_out(vty,
@@ -244,14 +310,14 @@ static int nb_cli_confirmed_commit_timeout(struct thread *thread)
 
 	nb_cli_confirmed_commit_rollback(vty);
 	nb_cli_confirmed_commit_clean(vty);
-
-	return 0;
 }
 
 static int nb_cli_commit(struct vty *vty, bool force,
 			 unsigned int confirmed_timeout, char *comment)
 {
+	struct nb_context context = {};
 	uint32_t transaction_id = 0;
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */
@@ -262,11 +328,10 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
 				confirmed_timeout);
 
-			THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
-			thread_add_timer(master,
-					 nb_cli_confirmed_commit_timeout, vty,
-					 confirmed_timeout * 60,
-					 &vty->t_confirmed_commit_timeout);
+			event_cancel(&vty->t_confirmed_commit_timeout);
+			event_add_timer(master, nb_cli_confirmed_commit_timeout,
+					vty, confirmed_timeout * 60,
+					&vty->t_confirmed_commit_timeout);
 		} else {
 			/* Accept commit confirmation. */
 			vty_out(vty, "%% Commit complete.\n\n");
@@ -289,13 +354,15 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
 		vty->t_confirmed_commit_timeout = NULL;
-		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
-				 confirmed_timeout * 60,
-				 &vty->t_confirmed_commit_timeout);
+		event_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
+				confirmed_timeout * 60,
+				&vty->t_confirmed_commit_timeout);
 	}
 
-	ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI, vty,
-				  true, comment, &transaction_id);
+	context.client = NB_CLIENT_CLI;
+	context.user = vty;
+	ret = nb_candidate_commit(context, vty->candidate_config, true, comment,
+				  &transaction_id, errmsg, sizeof(errmsg));
 
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
@@ -305,15 +372,17 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
+		/* Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
 		return CMD_SUCCESS;
 	case NB_ERR_NO_CHANGES:
 		vty_out(vty, "%% No configuration changes to commit.\n\n");
 		return CMD_SUCCESS;
 	default:
 		vty_out(vty,
-			"%% Failed to commit candidate configuration: %s.\n\n",
-			nb_err_name(ret));
-		vty_out(vty, "Please check the logs for more details.\n");
+			"%% Failed to commit candidate configuration.\n\n");
+		vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 }
@@ -327,6 +396,8 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 	struct lyd_node *dnode;
 	struct ly_ctx *ly_ctx;
 	int ly_format;
+	char buf[BUFSIZ];
+	LY_ERR err;
 
 	switch (format) {
 	case NB_CFG_FMT_CMDS:
@@ -344,12 +415,16 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 		ly_format = (format == NB_CFG_FMT_JSON) ? LYD_JSON : LYD_XML;
 
 		ly_ctx = translator ? translator->ly_ctx : ly_native_ctx;
-		dnode = lyd_parse_path(ly_ctx, path, ly_format, LYD_OPT_EDIT);
-		if (!dnode) {
+		err = lyd_parse_data_path(ly_ctx, path, ly_format,
+					  LYD_PARSE_ONLY | LYD_PARSE_NO_STATE,
+					  0, &dnode);
+		if (err || !dnode) {
 			flog_warn(EC_LIB_LIBYANG, "%s: lyd_parse_path() failed",
 				  __func__);
 			vty_out(vty, "%% Failed to load configuration:\n\n");
-			vty_show_libyang_errors(vty, ly_ctx);
+			vty_out(vty, "%s",
+				yang_print_errors(ly_native_ctx, buf,
+						  sizeof(buf)));
 			return CMD_WARNING;
 		}
 		if (translator
@@ -370,7 +445,8 @@ static int nb_cli_candidate_load_file(struct vty *vty,
 		 != NB_OK) {
 		vty_out(vty,
 			"%% Failed to merge the loaded configuration:\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_out(vty, "%s",
+			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 		return CMD_WARNING;
 	}
 
@@ -382,6 +458,7 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 					     bool replace)
 {
 	struct nb_config *loaded_config;
+	char buf[BUFSIZ];
 
 	loaded_config = nb_db_transaction_load(transaction_id);
 	if (!loaded_config) {
@@ -396,30 +473,12 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 		 != NB_OK) {
 		vty_out(vty,
 			"%% Failed to merge the loaded configuration:\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_out(vty, "%s",
+			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
 		return CMD_WARNING;
 	}
 
 	return CMD_SUCCESS;
-}
-
-/*
- * ly_iter_next_is_up: detects when iterating up on the yang model.
- *
- * This function detects whether next node in the iteration is upwards,
- * then return the node otherwise return NULL.
- */
-static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
-{
-	/* Are we going downwards? Is this still not a leaf? */
-	if (!(elem->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
-		return NULL;
-
-	/* Are there still leaves in this branch? */
-	if (elem->next != NULL)
-		return NULL;
-
-	return elem->parent;
 }
 
 /* Prepare the configuration for display. */
@@ -429,53 +488,103 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 	if (config->dnode == NULL)
 		return;
 
-	lyd_schema_sort(config->dnode, 1);
-
 	/*
-	 * When "with-defaults" is used, call lyd_validate() only to create
-	 * default child nodes, ignoring any possible validation error. This
-	 * doesn't need to be done when displaying the running configuration
-	 * since it's always fully validated.
+	 * Call lyd_validate() only to create default child nodes, ignoring
+	 * any possible validation error. This doesn't need to be done when
+	 * displaying the running configuration since it's always fully
+	 * validated.
 	 */
-	if (with_defaults && config != running_config)
-		(void)lyd_validate(&config->dnode,
-				   LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
-				   ly_native_ctx);
+	if (config != running_config)
+		(void)lyd_validate_all(&config->dnode, ly_native_ctx,
+				       LYD_VALIDATE_NO_STATE, NULL);
 }
 
-void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
-			    bool with_defaults)
+static int lyd_node_cmp(const struct lyd_node **dnode1,
+			const struct lyd_node **dnode2)
 {
-	struct lyd_node *next, *child, *parent;
+	struct nb_node *nb_node = (*dnode1)->schema->priv;
 
-	LY_TREE_DFS_BEGIN (root, next, child) {
-		struct nb_node *nb_node;
+	return nb_node->cbs.cli_cmp(*dnode1, *dnode2);
+}
 
+static void show_dnode_children_cmds(struct vty *vty,
+				     const struct lyd_node *root,
+				     bool with_defaults)
+{
+	struct nb_node *nb_node, *sort_node = NULL;
+	struct listnode *listnode;
+	struct lyd_node *child;
+	struct list *sort_list;
+	void *data;
+
+	LY_LIST_FOR (lyd_child(root), child) {
 		nb_node = child->schema->priv;
-		if (!nb_node->cbs.cli_show)
-			goto next;
 
-		/* Skip default values. */
-		if (!with_defaults && yang_dnode_is_default_recursive(child))
-			goto next;
-
-		(*nb_node->cbs.cli_show)(vty, child, with_defaults);
-	next:
 		/*
-		 * When transiting upwards in the yang model we should
-		 * give the previous container/list node a chance to
-		 * print its close vty output (e.g. "!" or "end-family"
-		 * etc...).
+		 * We finished processing current list,
+		 * it's time to print the config.
 		 */
-		parent = ly_iter_next_up(child);
-		if (parent != NULL) {
-			nb_node = parent->schema->priv;
-			if (nb_node->cbs.cli_show_end)
-				(*nb_node->cbs.cli_show_end)(vty, parent);
+		if (sort_node && nb_node != sort_node) {
+			list_sort(sort_list,
+				  (int (*)(const void **,
+					   const void **))lyd_node_cmp);
+
+			for (ALL_LIST_ELEMENTS_RO(sort_list, listnode, data))
+				nb_cli_show_dnode_cmds(vty, data,
+						       with_defaults);
+
+			list_delete(&sort_list);
+			sort_node = NULL;
 		}
 
-		LY_TREE_DFS_END(root, next, child);
+		/*
+		 * If the config needs to be sorted,
+		 * then add the dnode to the sorting
+		 * list for later processing.
+		 */
+		if (nb_node && nb_node->cbs.cli_cmp) {
+			if (!sort_node) {
+				sort_node = nb_node;
+				sort_list = list_new();
+			}
+
+			listnode_add(sort_list, child);
+			continue;
+		}
+
+		nb_cli_show_dnode_cmds(vty, child, with_defaults);
 	}
+
+	if (sort_node) {
+		list_sort(sort_list,
+			  (int (*)(const void **, const void **))lyd_node_cmp);
+
+		for (ALL_LIST_ELEMENTS_RO(sort_list, listnode, data))
+			nb_cli_show_dnode_cmds(vty, data, with_defaults);
+
+		list_delete(&sort_list);
+		sort_node = NULL;
+	}
+}
+
+void nb_cli_show_dnode_cmds(struct vty *vty, const struct lyd_node *root,
+			    bool with_defaults)
+{
+	struct nb_node *nb_node;
+
+	if (!with_defaults && yang_dnode_is_default_recursive(root))
+		return;
+
+	nb_node = root->schema->priv;
+
+	if (nb_node && nb_node->cbs.cli_show)
+		(*nb_node->cbs.cli_show)(vty, root, with_defaults);
+
+	if (!(root->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
+		show_dnode_children_cmds(vty, root, with_defaults);
+
+	if (nb_node && nb_node->cbs.cli_show_end)
+		(*nb_node->cbs.cli_show_end)(vty, root);
 }
 
 static void nb_cli_show_config_cmds(struct vty *vty, struct nb_config *config,
@@ -486,10 +595,11 @@ static void nb_cli_show_config_cmds(struct vty *vty, struct nb_config *config,
 	vty_out(vty, "Configuration:\n");
 	vty_out(vty, "!\n");
 	vty_out(vty, "frr version %s\n", FRR_VER_SHORT);
-	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
+	vty_out(vty, "frr defaults %s\n", frr_defaults_profile());
 
-	LY_TREE_FOR (config->dnode, root)
+	LY_LIST_FOR (config->dnode, root) {
 		nb_cli_show_dnode_cmds(vty, root, with_defaults);
+	}
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "end\n");
@@ -514,11 +624,11 @@ static int nb_cli_show_config_libyang(struct vty *vty, LYD_FORMAT format,
 		return CMD_WARNING;
 	}
 
-	SET_FLAG(options, LYP_FORMAT | LYP_WITHSIBLINGS);
+	SET_FLAG(options, LYD_PRINT_WITHSIBLINGS);
 	if (with_defaults)
-		SET_FLAG(options, LYP_WD_ALL);
+		SET_FLAG(options, LYD_PRINT_WD_ALL);
 	else
-		SET_FLAG(options, LYP_WD_TRIM);
+		SET_FLAG(options, LYD_PRINT_WD_TRIM);
 
 	if (lyd_print_mem(&strp, dnode, format, options) == 0 && strp) {
 		vty_out(vty, "%s", strp);
@@ -565,6 +675,12 @@ static int nb_write_config(struct nb_config *config, enum nb_cfg_format format,
 	if (fd < 0) {
 		flog_warn(EC_LIB_SYSTEM_CALL, "%s: mkstemp() failed: %s",
 			  __func__, safe_strerror(errno));
+		return -1;
+	}
+	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
+		flog_warn(EC_LIB_SYSTEM_CALL,
+			  "%s: fchmod() failed: %s(%d):", __func__,
+			  safe_strerror(errno), errno);
 		return -1;
 	}
 
@@ -689,13 +805,18 @@ DEFPY (config_commit_check,
        "Commit changes into the running configuration\n"
        "Check if the configuration changes are valid\n")
 {
+	struct nb_context context = {};
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
-	ret = nb_candidate_validate(vty->candidate_config);
+	context.client = NB_CLIENT_CLI;
+	context.user = vty;
+	ret = nb_candidate_validate(&context, vty->candidate_config, errmsg,
+				    sizeof(errmsg));
 	if (ret != NB_OK) {
 		vty_out(vty,
 			"%% Failed to validate candidate configuration.\n\n");
-		vty_show_libyang_errors(vty, ly_native_ctx);
+		vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 
@@ -1244,7 +1365,7 @@ DEFPY (show_config_transaction,
 #endif /* HAVE_CONFIG_ROLLBACKS */
 }
 
-static int nb_cli_oper_data_cb(const struct lys_node *snode,
+static int nb_cli_oper_data_cb(const struct lysc_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg)
 {
@@ -1270,12 +1391,12 @@ static int nb_cli_oper_data_cb(const struct lys_node *snode,
 	} else
 		ly_ctx = ly_native_ctx;
 
-	ly_errno = 0;
-	dnode = lyd_new_path(dnode, ly_ctx, data->xpath, (void *)data->value, 0,
-			     LYD_PATH_OPT_UPDATE);
-	if (!dnode && ly_errno) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
-			  __func__);
+	LY_ERR err =
+		lyd_new_path(dnode, ly_ctx, data->xpath, (void *)data->value,
+			     LYD_NEW_PATH_UPDATE, &dnode);
+	if (err) {
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %s",
+			  __func__, data->xpath, ly_errmsg(ly_native_ctx));
 		goto error;
 	}
 
@@ -1294,6 +1415,7 @@ DEFPY (show_yang_operational_data,
          [{\
 	   format <json$json|xml$xml>\
 	   |translate WORD$translator_family\
+	   |with-config$with_config\
 	 }]",
        SHOW_STR
        "YANG information\n"
@@ -1303,13 +1425,16 @@ DEFPY (show_yang_operational_data,
        "JavaScript Object Notation\n"
        "Extensible Markup Language\n"
        "Translate operational data\n"
-       "YANG module translator\n")
+       "YANG module translator\n"
+       "Merge configuration data\n")
 {
 	LYD_FORMAT format;
 	struct yang_translator *translator = NULL;
 	struct ly_ctx *ly_ctx;
 	struct lyd_node *dnode;
 	char *strp;
+	uint32_t print_options = LYD_PRINT_WITHSIBLINGS;
+	int ret;
 
 	if (xml)
 		format = LYD_XML;
@@ -1330,20 +1455,33 @@ DEFPY (show_yang_operational_data,
 
 	/* Obtain data. */
 	dnode = yang_dnode_new(ly_ctx, false);
-	if (nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				 dnode)
-	    != NB_OK) {
-		vty_out(vty, "%% Failed to fetch operational data.\n");
+	ret = nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
+				   dnode);
+	if (ret != NB_OK) {
+		if (format == LYD_JSON)
+			vty_out(vty, "{}\n");
+		else {
+			/* embed ly_last_errmsg() when we get newer libyang */
+			vty_out(vty, "<!-- Not found -->\n");
+		}
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
-	lyd_validate(&dnode, LYD_OPT_GET, ly_ctx);
+
+	if (with_config && yang_dnode_exists(running_config->dnode, xpath)) {
+		struct lyd_node *config_dnode =
+			yang_dnode_get(running_config->dnode, xpath);
+		if (config_dnode != NULL) {
+			lyd_merge_tree(&dnode, yang_dnode_dup(config_dnode),
+				       LYD_MERGE_DESTRUCT);
+			print_options |= LYD_PRINT_WD_ALL;
+		}
+	}
+
+	(void)lyd_validate_all(&dnode, ly_ctx, 0, NULL);
 
 	/* Display the data. */
-	if (lyd_print_mem(&strp, dnode, format,
-			  LYP_FORMAT | LYP_WITHSIBLINGS | LYP_WD_ALL)
-		    != 0
-	    || !strp) {
+	if (lyd_print_mem(&strp, dnode, format, print_options) != 0 || !strp) {
 		vty_out(vty, "%% Failed to display operational data.\n");
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
@@ -1394,13 +1532,12 @@ DEFPY (show_yang_module,
 
 		snprintf(flags, sizeof(flags), "%c%c",
 			 module->implemented ? 'I' : ' ',
-			 (module->deviated == 1) ? 'D' : ' ');
+			 LY_ARRAY_COUNT(module->deviated_by) ? 'D' : ' ');
 
 		ttable_add_row(tt, "%s|%s|%s|%s|%s", module->name,
-			       (module->version == 2) ? "1.1" : "1.0",
-			       (module->rev_size > 0) ? module->rev[0].date
-						      : "-",
-			       flags, module->ns);
+			       (module->parsed->version == 2) ? "1.1" : "1.0",
+			       module->revision ? module->revision : "-", flags,
+			       module->ns);
 	}
 
 	/* Dump the generated table. */
@@ -1420,21 +1557,21 @@ DEFPY (show_yang_module,
 	return CMD_SUCCESS;
 }
 
-DEFPY (show_yang_module_detail,
-       show_yang_module_detail_cmd,
-       "show yang module\
+DEFPY(show_yang_module_detail, show_yang_module_detail_cmd,
+      "show yang module\
           [module-translator WORD$translator_family]\
-          WORD$module_name <summary|tree$tree|yang$yang|yin$yin>",
-       SHOW_STR
-       "YANG information\n"
-       "Show loaded modules\n"
-       "YANG module translator\n"
-       "YANG module translator\n"
-       "Module name\n"
-       "Display summary information about the module\n"
-       "Display module in the tree (RFC 8340) format\n"
-       "Display module in the YANG format\n"
-       "Display module in the YIN format\n")
+          WORD$module_name <compiled$compiled|summary|tree$tree|yang$yang|yin$yin>",
+      SHOW_STR
+      "YANG information\n"
+      "Show loaded modules\n"
+      "YANG module translator\n"
+      "YANG module translator\n"
+      "Module name\n"
+      "Display compiled module in YANG format\n"
+      "Display summary information about the module\n"
+      "Display module in the tree (RFC 8340) format\n"
+      "Display module in the YANG format\n"
+      "Display module in the YIN format\n")
 {
 	struct ly_ctx *ly_ctx;
 	struct yang_translator *translator = NULL;
@@ -1453,7 +1590,7 @@ DEFPY (show_yang_module_detail,
 	} else
 		ly_ctx = ly_native_ctx;
 
-	module = ly_ctx_get_module(ly_ctx, module_name, NULL, 0);
+	module = ly_ctx_get_module_latest(ly_ctx, module_name);
 	if (!module) {
 		vty_out(vty, "%% Module \"%s\" not found\n", module_name);
 		return CMD_WARNING;
@@ -1463,12 +1600,17 @@ DEFPY (show_yang_module_detail,
 		format = LYS_OUT_YANG;
 	else if (yin)
 		format = LYS_OUT_YIN;
+	else if (compiled)
+		format = LYS_OUT_YANG_COMPILED;
 	else if (tree)
 		format = LYS_OUT_TREE;
-	else
-		format = LYS_OUT_INFO;
+	else {
+		vty_out(vty,
+			"%% libyang v2 does not currently support summary\n");
+		return CMD_WARNING;
+	}
 
-	if (lys_print_mem(&strp, module, format, NULL, 0, 0) == 0) {
+	if (lys_print_mem(&strp, module, format, 0) == 0) {
 		vty_out(vty, "%s\n", strp);
 		free(strp);
 	} else {
@@ -1529,8 +1671,10 @@ DEFPY (show_yang_module_translator,
 static int nb_cli_rollback_configuration(struct vty *vty,
 					 uint32_t transaction_id)
 {
+	struct nb_context context = {};
 	struct nb_config *candidate;
 	char comment[80];
+	char errmsg[BUFSIZ] = {0};
 	int ret;
 
 	candidate = nb_db_transaction_load(transaction_id);
@@ -1543,13 +1687,18 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 	snprintf(comment, sizeof(comment), "Rollback to transaction %u",
 		 transaction_id);
 
-	ret = nb_candidate_commit(candidate, NB_CLIENT_CLI, vty, true, comment,
-				  NULL);
+	context.client = NB_CLIENT_CLI;
+	context.user = vty;
+	ret = nb_candidate_commit(context, candidate, true, comment, NULL,
+				  errmsg, sizeof(errmsg));
 	nb_config_free(candidate);
 	switch (ret) {
 	case NB_OK:
 		vty_out(vty,
 			"%% Configuration was successfully rolled back.\n\n");
+		/* Print warnings (if any). */
+		if (strlen(errmsg) > 0)
+			vty_out(vty, "%s\n", errmsg);
 		return CMD_SUCCESS;
 	case NB_ERR_NO_CHANGES:
 		vty_out(vty,
@@ -1557,7 +1706,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 		return CMD_WARNING;
 	default:
 		vty_out(vty, "%% Rollback failed.\n\n");
-		vty_out(vty, "Please check the logs for more details.\n");
+		vty_show_nb_errors(vty, ret, errmsg);
 		return CMD_WARNING;
 	}
 }
@@ -1673,24 +1822,29 @@ static int nb_debug_config_write(struct vty *vty)
 }
 
 static struct debug_callbacks nb_dbg_cbs = {.debug_set_all = nb_debug_set_all};
-static struct cmd_node nb_debug_node = {NORTHBOUND_DEBUG_NODE, "", 1};
+static struct cmd_node nb_debug_node = {
+	.name = "northbound debug",
+	.node = NORTHBOUND_DEBUG_NODE,
+	.prompt = "",
+	.config_write = nb_debug_config_write,
+};
 
 void nb_cli_install_default(int node)
 {
-	install_element(node, &show_config_candidate_section_cmd);
+	_install_element(node, &show_config_candidate_section_cmd);
 
 	if (frr_get_cli_mode() != FRR_CLI_TRANSACTIONAL)
 		return;
 
-	install_element(node, &config_commit_cmd);
-	install_element(node, &config_commit_comment_cmd);
-	install_element(node, &config_commit_check_cmd);
-	install_element(node, &config_update_cmd);
-	install_element(node, &config_discard_cmd);
-	install_element(node, &show_config_running_cmd);
-	install_element(node, &show_config_candidate_cmd);
-	install_element(node, &show_config_compare_cmd);
-	install_element(node, &show_config_transaction_cmd);
+	_install_element(node, &config_commit_cmd);
+	_install_element(node, &config_commit_comment_cmd);
+	_install_element(node, &config_commit_check_cmd);
+	_install_element(node, &config_update_cmd);
+	_install_element(node, &config_discard_cmd);
+	_install_element(node, &show_config_running_cmd);
+	_install_element(node, &show_config_candidate_cmd);
+	_install_element(node, &show_config_compare_cmd);
+	_install_element(node, &show_config_transaction_cmd);
 }
 
 /* YANG module autocomplete. */
@@ -1728,7 +1882,7 @@ static const struct cmd_variable_handler yang_var_handlers[] = {
 	 .completions = yang_translator_autocomplete},
 	{.completions = NULL}};
 
-void nb_cli_init(struct thread_master *tm)
+void nb_cli_init(struct event_loop *tm)
 {
 	master = tm;
 
@@ -1737,7 +1891,7 @@ void nb_cli_init(struct thread_master *tm)
 
 	debug_init(&nb_dbg_cbs);
 
-	install_node(&nb_debug_node, nb_debug_config_write);
+	install_node(&nb_debug_node);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 
@@ -1745,7 +1899,6 @@ void nb_cli_init(struct thread_master *tm)
 	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
 		install_element(ENABLE_NODE, &config_exclusive_cmd);
 		install_element(ENABLE_NODE, &config_private_cmd);
-		install_element(ENABLE_NODE, &show_config_running_cmd);
 		install_element(ENABLE_NODE,
 				&show_config_compare_without_candidate_cmd);
 		install_element(ENABLE_NODE, &show_config_transaction_cmd);
@@ -1758,6 +1911,7 @@ void nb_cli_init(struct thread_master *tm)
 	}
 
 	/* Other commands. */
+	install_element(ENABLE_NODE, &show_config_running_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_load_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_unload_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);

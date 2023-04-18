@@ -1,0 +1,210 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-bgp-rpki {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-bgp-rpki";
+  prefix frr-bgp-rpki;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR BGP RPKI.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  typedef transport-type {
+    type enumeration {
+      enum "TCP" {
+        value 1;
+        description
+          "Connection to server is TCP based.";
+      }
+      enum "SSH" {
+        value 2;
+        description
+          "Connection to server is SSH based.";
+      }
+    }
+  }
+
+  grouping bgp-rpki-timers {
+    container rpki-timers {
+      description
+        "RPKI timers config.";
+      leaf polling-time {
+        type uint32 {
+          range "1..86400";
+        }
+        units "seconds";
+        default "3600";
+        description
+          "Set the number of seconds the router waits until the
+           router asks the cache again for updated data.";
+      }
+
+      leaf expire-time {
+        type uint32 {
+          range "600..172800";
+        }
+        units "seconds";
+        default "7200";
+        description
+          "Set the expire interval.";
+      }
+
+      leaf retry-time {
+        type uint16 {
+          range "1..7200";
+        }
+        units "seconds";
+        default "600";
+        description
+          "Set the retry interval.";
+      }
+    }
+  }
+
+  grouping bgp-rpki-cache-server {
+    container rpki-cache-server {
+      description
+        "Add a cache server to the socket.";
+      list cache-list {
+        key "preference";
+        leaf preference {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Preference of the cache server.";
+        }
+
+        leaf cache-type {
+          type transport-type;
+          mandatory true;
+          description
+            "Specifies a transport method for the RPKI cache.";
+        }
+
+        choice server {
+          case ip-address {
+            leaf ip-address {
+              type inet:ip-address;
+              mandatory true;
+            }
+          }
+
+          case host-name {
+            leaf ip-host-address {
+              type inet:host;
+              mandatory true;
+            }
+          }
+        }
+
+        container transport {
+          container tcp {
+            when "../../cache-type = 'TCP'";
+            description
+              "TCP server details.";
+            leaf tcp-port {
+              type uint32;
+            }
+          }
+
+          container ssh {
+            when "../../cache-type = 'SSH'";
+            description
+              "SSH login details";
+            leaf ssh-port {
+              type uint32 {
+                range "1..65535";
+              }
+              description
+                "SSH port on which session gets opened.";
+            }
+
+            leaf user-name {
+              type string;
+              description
+                "SSH username to establish an SSH connection to the
+                 cache server.";
+            }
+
+            leaf private-key {
+              type string;
+              description
+                "Local path that includes the private key file of the router.";
+            }
+
+            leaf public-key {
+              type string;
+              description
+                "Local path that includes the public key file of the router.";
+            }
+
+            leaf server-public-ley {
+              type string;
+              description
+                "Server public key.";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf" {
+    container bgp-rpki {
+      description
+        "RPKI configuration parameters.";
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' it enables the RPKI.";
+      }
+
+      uses bgp-rpki-timers;
+
+      uses bgp-rpki-cache-server;
+    }
+  }
+}

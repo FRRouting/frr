@@ -1,0 +1,22 @@
+name: Add a conflict label if PR needs to rebase
+
+on:
+  push:
+  pull_request_target:
+    types: [synchronize]
+
+jobs:
+  conflicts:
+    if: github.repository == 'frrouting/frr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check if PRs need a rebase (have some conflicts)
+        uses: eps1lon/actions-label-merge-conflict@releases/2.x
+        with:
+          dirtyLabel: "conflicts"
+          removeOnDirtyLabel: "no_conflicts"
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          commentOnDirty: "This pull request has conflicts, please resolve those before we can evaluate the pull request."

@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* FIB SNMP.
  * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -36,7 +21,7 @@
 #include "vrf.h"
 #include "hook.h"
 #include "libfrr.h"
-#include "version.h"
+#include "lib/version.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -266,9 +251,9 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) < 0)
+	if (prefix_cmp(&(*np)->p, &np2->p) < 0)
 		return;
-	if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) > 0) {
+	if (prefix_cmp(&(*np)->p, &np2->p) > 0) {
 		*np = np2;
 		*re = re2;
 		return;
@@ -285,8 +270,8 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (in_addr_cmp((uint8_t *)&(*re)->ng->nexthop->gate.ipv4,
-			(uint8_t *)&re2->ng->nexthop->gate.ipv4)
+	if (in_addr_cmp((uint8_t *)&(*re)->nhe->nhg.nexthop->gate.ipv4,
+			(uint8_t *)&re2->nhe->nhg.nexthop->gate.ipv4)
 	    <= 0)
 		return;
 
@@ -371,9 +356,9 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 			if (!in_addr_cmp(&(*np)->p.u.prefix,
 					 (uint8_t *)&dest)) {
 				RNODE_FOREACH_RE (*np, *re) {
-					if (!in_addr_cmp((uint8_t *)&(*re)
-								 ->ng->nexthop
-								 ->gate.ipv4,
+					if (!in_addr_cmp((uint8_t *)&(*re)->nhe
+							 ->nhg.nexthop
+							 ->gate.ipv4,
 							 (uint8_t *)&nexthop))
 						if (proto
 						    == proto_trans((*re)->type))
@@ -406,8 +391,8 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 				    || ((policy == policy2) && (proto < proto2))
 				    || ((policy == policy2) && (proto == proto2)
 					&& (in_addr_cmp(
-						    (uint8_t *)&re2->ng->nexthop
-							    ->gate.ipv4,
+						    (uint8_t *)&re2->nhe
+						    ->nhg.nexthop->gate.ipv4,
 						    (uint8_t *)&nexthop)
 					    >= 0)))
 					check_replace(np2, re2, np, re);
@@ -432,7 +417,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	{
 		struct nexthop *nexthop;
 
-		nexthop = (*re)->ng->nexthop;
+		nexthop = (*re)->nhe->nhg.nexthop;
 		if (nexthop) {
 			pnt = (uint8_t *)&nexthop->gate.ipv4;
 			for (i = 0; i < 4; i++)
@@ -462,7 +447,7 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 	if (!np)
 		return NULL;
 
-	nexthop = re->ng->nexthop;
+	nexthop = re->nhe->nhg.nexthop;
 	if (!nexthop)
 		return NULL;
 
@@ -470,25 +455,20 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 	case IPFORWARDDEST:
 		*val_len = 4;
 		return &np->p.u.prefix;
-		break;
 	case IPFORWARDMASK:
 		masklen2ip(np->p.prefixlen, &netmask);
 		*val_len = 4;
 		return (uint8_t *)&netmask;
-		break;
 	case IPFORWARDPOLICY:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDNEXTHOP:
 		*val_len = 4;
 		return (uint8_t *)&nexthop->gate.ipv4;
-		break;
 	case IPFORWARDIFINDEX:
 		*val_len = sizeof(int);
 		return (uint8_t *)&nexthop->ifindex;
-		break;
 	case IPFORWARDTYPE:
 		if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
 			result = 3;
@@ -496,56 +476,45 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 			result = 4;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDPROTO:
 		result = proto_trans(re->type);
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDAGE:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDINFO:
 		resarr[0] = 0;
 		resarr[1] = 0;
 		*val_len = 2 * sizeof(int);
 		return (uint8_t *)resarr;
-		break;
 	case IPFORWARDNEXTHOPAS:
 		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC1:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC2:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC3:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC4:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	case IPFORWARDMETRIC5:
 		result = 0;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -563,12 +532,11 @@ static uint8_t *ipCidrTable(struct variable *v, oid objid[], size_t *objid_len,
 		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
 
-static int zebra_snmp_init(struct thread_master *tm)
+static int zebra_snmp_init(struct event_loop *tm)
 {
 	smux_init(tm);
 	REGISTER_MIB("mibII/ipforward", zebra_variables, variable, ipfw_oid);
@@ -583,4 +551,5 @@ static int zebra_snmp_module_init(void)
 
 FRR_MODULE_SETUP(.name = "zebra_snmp", .version = FRR_VERSION,
 		 .description = "zebra AgentX SNMP module",
-		 .init = zebra_snmp_module_init, )
+		 .init = zebra_snmp_module_init,
+);

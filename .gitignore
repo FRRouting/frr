@@ -28,10 +28,15 @@
 /aclocal.m4
 /libtool
 /libtool.orig
-/changelog-auto
+/test-driver
+/test-suite.log
 
 /Makefile
 /Makefile.in
+
+/symalyzer_report.html
+/jquery-3.4.1.min.js
+/jquery-3.4.1.min.js.tmp
 
 ### autoconf/automake subdir stuff
 
@@ -51,6 +56,18 @@
 *.pb-c.c
 *.pb.cc
 *_clippy.c
+*.bc
+*.ll
+*.cg.json
+*.cg.dot
+*.cg.svg
+*.xref
+
+### gcov outputs
+
+*.gcno
+*.gcov
+*.gcda
 
 ### dist
 
@@ -70,6 +87,7 @@
 {arch}
 build
 .cache
+.dir-locals.el
 .msg
 .rebase-*
 *~
@@ -92,3 +110,9 @@ compile_commands.json
 .dirstamp
 refix
 .vscode
+.kitchen
+.emacs.desktop*
+
+/test-suite.log
+pceplib/test/*.log
+pceplib/test/*.trs

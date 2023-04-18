@@ -1,0 +1,11 @@
+{
+  "neighbors":{
+    "6.6.6.6":[
+      {
+        "converged":"Full",
+        "ifaceAddress":"10.0.6.6",
+        "ifaceName":"eth-rt6:10.0.6.7"
+      }
+    ]
+  }
+}

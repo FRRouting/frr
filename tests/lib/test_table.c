@@ -1,26 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Routing table test
  * Copyright (C) 2012 OSR.
  *
  * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
-
+#include "printfrr.h"
 #include "prefix.h"
 #include "table.h"
 
@@ -38,7 +25,7 @@ typedef struct test_node_t_ {
 	char *prefix_str;
 } test_node_t;
 
-struct thread_master *master;
+struct event_loop *master;
 
 /*
  * add_node
@@ -104,7 +91,6 @@ static void add_nodes(struct route_table *table, ...)
 static void print_subtree(struct route_node *rn, const char *legend,
 			  int indent_level)
 {
-	char buf[PREFIX2STR_BUFFER];
 	int i;
 
 	/*
@@ -114,8 +100,7 @@ static void print_subtree(struct route_node *rn, const char *legend,
 		printf("  ");
 	}
 
-	prefix2str(&rn->p, buf, sizeof(buf));
-	printf("%s: %s", legend, buf);
+	printfrr("%s: %pFX", legend, &rn->p);
 	if (!rn->info) {
 		printf(" (internal)");
 	}
@@ -384,7 +369,7 @@ static void verify_prefix_iter_cmp(const char *p1, const char *p2,
 	assert(exp_result == result);
 
 	/*
-	 * Also check the reverse comparision.
+	 * Also check the reverse comparison.
 	 */
 	result = route_table_prefix_iter_cmp((struct prefix *)&p2_pfx,
 					     (struct prefix *)&p1_pfx);
@@ -400,7 +385,7 @@ static void verify_prefix_iter_cmp(const char *p1, const char *p2,
 /*
  * test_prefix_iter_cmp
  *
- * Tests comparision of prefixes according to order of iteration.
+ * Tests comparison of prefixes according to order of iteration.
  */
 static void test_prefix_iter_cmp(void)
 {

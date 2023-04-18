@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2016-2018  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -29,6 +18,7 @@
 #include "atomlist.h"
 #include "seqlock.h"
 #include "monotime.h"
+#include "printfrr.h"
 
 /*
  * maybe test:
@@ -40,18 +30,18 @@
 
 static struct seqlock sqlo;
 
-PREDECL_ATOMLIST(alist)
-PREDECL_ATOMSORT_UNIQ(asort)
+PREDECL_ATOMLIST(alist);
+PREDECL_ATOMSORT_UNIQ(asort);
 struct item {
 	uint64_t val1;
 	struct alist_item chain;
 	struct asort_item sortc;
 	uint64_t val2;
 };
-DECLARE_ATOMLIST(alist, struct item, chain)
+DECLARE_ATOMLIST(alist, struct item, chain);
 
 static int icmp(const struct item *a, const struct item *b);
-DECLARE_ATOMSORT_UNIQ(asort, struct item, sortc, icmp)
+DECLARE_ATOMSORT_UNIQ(asort, struct item, sortc, icmp);
 
 static int icmp(const struct item *a, const struct item *b)
 {
@@ -288,7 +278,7 @@ static void run_tr(struct testrun *tr)
 	size_t c = 0, s = 0, n = 0;
 	struct item *item, *prev, dummy;
 
-	printf("[%02u] %35s %s\n", seqlock_cur(&sqlo) >> 2, "", desc);
+	printfrr("[%02u] %35s %s\n", seqlock_cur(&sqlo) >> 2, "", desc);
 	fflush(stdout);
 
 	if (tr->prefill != NOCLEAR)
@@ -324,7 +314,7 @@ static void run_tr(struct testrun *tr)
 		}
 		assert(c == alist_count(&ahead));
 	}
-	printf("\033[1A[%02u] %9"PRId64"us c=%5zu s=%5zu n=%5zu %s\n",
+	printfrr("\033[1A[%02u] %9"PRId64"us c=%5zu s=%5zu n=%5zu %s\n",
 		sv >> 2, delta, c, s, n, desc);
 }
 
@@ -334,9 +324,9 @@ static void dump(const char *lbl)
 	struct item *item, *safe;
 	size_t ctr = 0;
 
-	printf("dumping %s:\n", lbl);
+	printfrr("dumping %s:\n", lbl);
 	frr_each_safe(alist, &ahead, item) {
-		printf("%s %3zu %p %3"PRIu64" %3"PRIu64"\n", lbl, ctr++,
+		printfrr("%s %3zu %p %3"PRIu64" %3"PRIu64"\n", lbl, ctr++,
 				(void *)item, item->val1, item->val2);
 	}
 }
@@ -362,12 +352,12 @@ static void basic_tests(void)
 	dump("");
 	alist_del(&ahead, &itm[1]);
 	dump("");
-	printf("POP: %p\n", alist_pop(&ahead));
+	printfrr("POP: %p\n", alist_pop(&ahead));
 	dump("");
-	printf("POP: %p\n", alist_pop(&ahead));
-	printf("POP: %p\n", alist_pop(&ahead));
-	printf("POP: %p\n", alist_pop(&ahead));
-	printf("POP: %p\n", alist_pop(&ahead));
+	printfrr("POP: %p\n", alist_pop(&ahead));
+	printfrr("POP: %p\n", alist_pop(&ahead));
+	printfrr("POP: %p\n", alist_pop(&ahead));
+	printfrr("POP: %p\n", alist_pop(&ahead));
 	dump("");
 }
 #else

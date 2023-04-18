@@ -1,33 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Monitor status of frr daemons and restart if necessary.
  *
  * Copyright (C) 2004  Andrew J. Schorr
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
-#include <thread.h>
+#include "frrevent.h"
 #include <log.h>
 #include <network.h>
 #include <sigevent.h>
 #include <lib/version.h>
 #include "command.h"
-#include "memory_vty.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "zlog_targets.h"
+#include "network.h"
+#include "printfrr.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -43,7 +32,7 @@
 #endif
 
 /* Macros to help randomize timers. */
-#define JITTER(X) ((random() % ((X)+1))-((X)/2))
+#define JITTER(X) ((frr_weak_random() % ((X)+1))-((X)/2))
 #define FUZZY(X) ((X)+JITTER((X)/20))
 
 #define DEFAULT_PERIOD		5
@@ -52,6 +41,7 @@
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
+#define DEFAULT_OPERATIONAL_TIMEOUT 60
 
 #define DEFAULT_RESTART_CMD	WATCHFRR_SH_PATH " restart %s"
 #define DEFAULT_START_CMD	WATCHFRR_SH_PATH " start %s"
@@ -59,24 +49,25 @@
 
 #define PING_TOKEN	"PING"
 
-DEFINE_MGROUP(WATCHFRR, "watchfrr")
-DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry")
+DEFINE_MGROUP(WATCHFRR, "watchfrr");
+DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry");
 
 /* Needs to be global, referenced somewhere inside libfrr. */
-struct thread_master *master;
+struct event_loop *master;
 
 static bool watch_only = false;
+const char *pathspace;
 
-typedef enum {
+enum restart_phase {
 	PHASE_NONE = 0,
 	PHASE_INIT,
 	PHASE_STOPS_PENDING,
 	PHASE_WAITING_DOWN,
 	PHASE_ZEBRA_RESTART_PENDING,
 	PHASE_WAITING_ZEBRA_UP
-} restart_phase_t;
+};
 
-static const char *phase_str[] = {
+static const char *const phase_str[] = {
 	"Idle",
 	"Startup",
 	"Stop jobs running",
@@ -95,20 +86,23 @@ struct restart_info {
 	pid_t pid;
 	struct timeval time;
 	long interval;
-	struct thread *t_kill;
+	struct event *t_kill;
 	int kills;
 };
 
 static struct global_state {
-	restart_phase_t phase;
-	struct thread *t_phase_hanging;
-	struct thread *t_startup_timeout;
+	enum restart_phase phase;
+	struct event *t_phase_hanging;
+	struct event *t_startup_timeout;
+	struct event *t_operational;
 	const char *vtydir;
 	long period;
 	long timeout;
 	long restart_timeout;
+	bool reading_configuration;
 	long min_restart_interval;
 	long max_restart_interval;
+	long operational_timeout;
 	struct daemon *daemons;
 	const char *restart_command;
 	const char *start_command;
@@ -128,35 +122,36 @@ static struct global_state {
 	.loglevel = DEFAULT_LOGLEVEL,
 	.min_restart_interval = DEFAULT_MIN_RESTART,
 	.max_restart_interval = DEFAULT_MAX_RESTART,
+	.operational_timeout = DEFAULT_OPERATIONAL_TIMEOUT,
 	.restart_command = DEFAULT_RESTART_CMD,
 	.start_command = DEFAULT_START_CMD,
 	.stop_command = DEFAULT_STOP_CMD,
 };
 
-typedef enum {
+enum daemon_state {
 	DAEMON_INIT,
 	DAEMON_DOWN,
 	DAEMON_CONNECTING,
 	DAEMON_UP,
 	DAEMON_UNRESPONSIVE
-} daemon_state_t;
+};
 
 #define IS_UP(DMN)                                                             \
 	(((DMN)->state == DAEMON_UP) || ((DMN)->state == DAEMON_UNRESPONSIVE))
 
-static const char *state_str[] = {
+static const char *const state_str[] = {
 	"Init", "Down", "Connecting", "Up", "Unresponsive",
 };
 
 struct daemon {
 	const char *name;
-	daemon_state_t state;
+	enum daemon_state state;
 	int fd;
 	struct timeval echo_sent;
 	unsigned int connect_tries;
-	struct thread *t_wakeup;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_wakeup;
+	struct event *t_read;
+	struct event *t_write;
 	struct daemon *next;
 	struct restart_info restart;
 
@@ -173,6 +168,8 @@ struct daemon {
 #define OPTION_MINRESTART 2000
 #define OPTION_MAXRESTART 2001
 #define OPTION_DRY        2002
+#define OPTION_NETNS      2003
+#define OPTION_MAXOPERATIONAL 2004
 
 static const struct option longopts[] = {
 	{"daemon", no_argument, NULL, 'd'},
@@ -187,14 +184,18 @@ static const struct option longopts[] = {
 	{"dry", no_argument, NULL, OPTION_DRY},
 	{"min-restart-interval", required_argument, NULL, OPTION_MINRESTART},
 	{"max-restart-interval", required_argument, NULL, OPTION_MAXRESTART},
+	{"operational-timeout", required_argument, NULL, OPTION_MAXOPERATIONAL},
 	{"pid-file", required_argument, NULL, 'p'},
 	{"blank-string", required_argument, NULL, 'b'},
+#ifdef GNU_LINUX
+	{"netns", optional_argument, NULL, OPTION_NETNS},
+#endif
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{NULL, 0, NULL, 0}};
 
 static int try_connect(struct daemon *dmn);
-static int wakeup_send_echo(struct thread *t_wakeup);
+static void wakeup_send_echo(struct event *t_wakeup);
 static void try_restart(struct daemon *dmn);
 static void phase_check(void);
 static void restart_done(struct daemon *dmn);
@@ -243,7 +244,12 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -d, --daemon	Run in daemon mode.  In this mode, error messages are sent\n\
 		to syslog instead of stdout.\n\
 -S, --statedir	Set the vty socket directory (default is %s)\n\
--l, --loglevel	Set the logging level (default is %d).\n\
+-N, --pathspace	Insert prefix into config & socket paths\n"
+#ifdef GNU_LINUX
+"    --netns	Create and/or use Linux network namespace.  If no name is\n"
+"		given, uses the value from `-N`.\n"
+#endif
+"-l, --loglevel	Set the logging level (default is %d).\n\
 		The value should range from %d (LOG_EMERG) to %d (LOG_DEBUG),\n\
 		but it can be set higher than %d if extra-verbose debugging\n\
 		messages are desired.\n\
@@ -253,6 +259,9 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
     --max-restart-interval\n\
 		Set the maximum seconds to wait between invocations of daemon\n\
 		restart commands (default is %d).\n\
+    --operational-timeout\n\
+                Set the time before systemd is notified that we are considered\n\
+                operational again after a daemon restart (default is %d).\n\
 -i, --interval	Set the status polling interval in seconds (default is %d)\n\
 -t, --timeout	Set the unresponsiveness timeout in seconds (default is %d)\n\
 -T, --restart-timeout\n\
@@ -284,10 +293,10 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n",
 		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
-		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT,
-		DEFAULT_RESTART_CMD, DEFAULT_START_CMD, DEFAULT_STOP_CMD,
-		frr_vtydir);
+		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART,
+		DEFAULT_OPERATIONAL_TIMEOUT, DEFAULT_PERIOD, DEFAULT_TIMEOUT,
+		DEFAULT_RESTART_TIMEOUT, DEFAULT_RESTART_CMD, DEFAULT_START_CMD,
+		DEFAULT_STOP_CMD, frr_vtydir);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -305,7 +314,7 @@ static pid_t run_background(char *shell_cmd)
 		/* Use separate process group so child processes can be killed
 		 * easily. */
 		if (setpgid(0, 0) < 0)
-			zlog_warn("warning: setpgid(0,0) failed: %s",
+			zlog_warn("setpgid(0,0) failed: %s",
 				  safe_strerror(errno));
 		{
 			char shell[] = "sh";
@@ -319,9 +328,8 @@ static pid_t run_background(char *shell_cmd)
 		}
 	default:
 		/* Parent process: we will reap the child later. */
-		flog_err_sys(EC_LIB_SYSTEM_CALL,
-			     "Forked background command [pid %d]: %s",
-			     (int)child, shell_cmd);
+		zlog_info("Forked background command [pid %d]: %s", (int)child,
+			  shell_cmd);
 		return child;
 	}
 }
@@ -339,23 +347,30 @@ static struct timeval *time_elapsed(struct timeval *result,
 	return result;
 }
 
-static int restart_kill(struct thread *t_kill)
+static void restart_kill(struct event *t_kill)
 {
-	struct restart_info *restart = THREAD_ARG(t_kill);
+	struct restart_info *restart = EVENT_ARG(t_kill);
 	struct timeval delay;
 
 	time_elapsed(&delay, &restart->time);
+
+	if (gs.reading_configuration) {
+		zlog_err(
+			"%s %s child process appears to still be reading configuration, delaying for another %lu time",
+			restart->what, restart->name, gs.restart_timeout);
+		event_add_timer(master, restart_kill, restart,
+				gs.restart_timeout, &restart->t_kill);
+		return;
+	}
+
 	zlog_warn(
-		"Warning: %s %s child process %d still running after "
-		"%ld seconds, sending signal %d",
+		"%s %s child process %d still running after %ld seconds, sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
 	restart->kills++;
-	restart->t_kill = NULL;
-	thread_add_timer(master, restart_kill, restart, gs.restart_timeout,
-			 &restart->t_kill);
-	return 0;
+	event_add_timer(master, restart_kill, restart, gs.restart_timeout,
+			&restart->t_kill);
 }
 
 static struct restart_info *find_child(pid_t child)
@@ -400,8 +415,8 @@ static void sigchild(void)
 		what = restart->what;
 		restart->pid = 0;
 		gs.numpids--;
-		thread_cancel(restart->t_kill);
-		restart->t_kill = NULL;
+		event_cancel(&restart->t_kill);
+
 		/* Update restart time to reflect the time the command
 		 * completed. */
 		gettimeofday(&restart->time, NULL);
@@ -414,7 +429,7 @@ static void sigchild(void)
 		what = "background";
 	}
 	if (WIFSTOPPED(status))
-		zlog_warn("warning: %s %s process %d is stopped", what, name,
+		zlog_warn("%s %s process %d is stopped", what, name,
 			  (int)child);
 	else if (WIFSIGNALED(status))
 		zlog_warn("%s %s process %d terminated due to signal %d", what,
@@ -460,12 +475,10 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 		return -1;
 	}
 
-#if defined HAVE_SYSTEMD
 	char buffer[512];
 
 	snprintf(buffer, sizeof(buffer), "restarting %s", restart->name);
 	systemd_send_status(buffer);
-#endif
 
 	/* Note: time_elapsed test must come before the force test, since we
 	   need
@@ -476,8 +489,7 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
-				"postponing %s %s: "
-				"elapsed time %ld < retry interval %ld",
+				"postponing %s %s: elapsed time %ld < retry interval %ld",
 				cmdtype, restart->name, (long)delay.tv_sec,
 				restart->interval);
 		return -1;
@@ -487,20 +499,20 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 	restart->kills = 0;
 	{
 		char cmd[strlen(command) + strlen(restart->name) + 1];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* user supplied command string has a %s for the daemon name */
 		snprintf(cmd, sizeof(cmd), command, restart->name);
+#pragma GCC diagnostic pop
 		if ((restart->pid = run_background(cmd)) > 0) {
-			restart->t_kill = NULL;
-			thread_add_timer(master, restart_kill, restart,
-					 gs.restart_timeout, &restart->t_kill);
+			event_add_timer(master, restart_kill, restart,
+					gs.restart_timeout, &restart->t_kill);
 			restart->what = cmdtype;
 			gs.numpids++;
 		} else
 			restart->pid = 0;
 	}
 
-#if defined HAVE_SYSTEMD
-	systemd_send_status("FRR Operational");
-#endif
 	/* Calculate the new restart interval. */
 	if (update_interval) {
 		if (delay.tv_sec > 2 * gs.max_restart_interval)
@@ -517,56 +529,54 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 #define SET_READ_HANDLER(DMN)                                                  \
 	do {                                                                   \
 		(DMN)->t_read = NULL;                                          \
-		thread_add_read(master, handle_read, (DMN), (DMN)->fd,         \
-				&(DMN)->t_read);                               \
+		event_add_read(master, handle_read, (DMN), (DMN)->fd,          \
+			       &(DMN)->t_read);                                \
 	} while (0);
 
 #define SET_WAKEUP_DOWN(DMN)                                                   \
 	do {                                                                   \
 		(DMN)->t_wakeup = NULL;                                        \
-		thread_add_timer_msec(master, wakeup_down, (DMN),              \
-				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
+		event_add_timer_msec(master, wakeup_down, (DMN),               \
+				     FUZZY(gs.period), &(DMN)->t_wakeup);      \
 	} while (0);
 
 #define SET_WAKEUP_UNRESPONSIVE(DMN)                                           \
 	do {                                                                   \
 		(DMN)->t_wakeup = NULL;                                        \
-		thread_add_timer_msec(master, wakeup_unresponsive, (DMN),      \
-				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
+		event_add_timer_msec(master, wakeup_unresponsive, (DMN),       \
+				     FUZZY(gs.period), &(DMN)->t_wakeup);      \
 	} while (0);
 
 #define SET_WAKEUP_ECHO(DMN)                                                   \
 	do {                                                                   \
 		(DMN)->t_wakeup = NULL;                                        \
-		thread_add_timer_msec(master, wakeup_send_echo, (DMN),         \
-				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
+		event_add_timer_msec(master, wakeup_send_echo, (DMN),          \
+				     FUZZY(gs.period), &(DMN)->t_wakeup);      \
 	} while (0);
 
-static int wakeup_down(struct thread *t_wakeup)
+static void wakeup_down(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 	if ((dmn->connect_tries > 1) && (dmn->state != DAEMON_UP))
 		try_restart(dmn);
-	return 0;
 }
 
-static int wakeup_init(struct thread *t_wakeup)
+static void wakeup_init(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
-		flog_err(EC_WATCHFRR_CONNECTION,
-			 "%s state -> down : initial connection attempt failed",
-			 dmn->name);
+		zlog_info(
+			"%s state -> down : initial connection attempt failed",
+			dmn->name);
 		dmn->state = DAEMON_DOWN;
 	}
 	phase_check();
-	return 0;
 }
 
 static void restart_done(struct daemon *dmn)
@@ -577,10 +587,15 @@ static void restart_done(struct daemon *dmn)
 			dmn->name, state_str[dmn->state]);
 		return;
 	}
-	if (dmn->t_wakeup)
-		THREAD_OFF(dmn->t_wakeup);
+	EVENT_OFF(dmn->t_wakeup);
+
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
+}
+
+static void daemon_restarting_operational(struct event *thread)
+{
+	systemd_send_status("FRR Operational");
 }
 
 static void daemon_down(struct daemon *dmn, const char *why)
@@ -597,17 +612,19 @@ static void daemon_down(struct daemon *dmn, const char *why)
 		close(dmn->fd);
 		dmn->fd = -1;
 	}
-	THREAD_OFF(dmn->t_read);
-	THREAD_OFF(dmn->t_write);
-	THREAD_OFF(dmn->t_wakeup);
+	EVENT_OFF(dmn->t_read);
+	EVENT_OFF(dmn->t_write);
+	EVENT_OFF(dmn->t_wakeup);
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
+
+	systemd_send_status("FRR partially operational");
 	phase_check();
 }
 
-static int handle_read(struct thread *t_read)
+static void handle_read(struct event *t_read)
 {
-	struct daemon *dmn = THREAD_ARG(t_read);
+	struct daemon *dmn = EVENT_ARG(t_read);
 	static const char resp[sizeof(PING_TOKEN) + 4] = PING_TOKEN "\n";
 	char buf[sizeof(resp) + 100];
 	ssize_t rc;
@@ -620,16 +637,16 @@ static int handle_read(struct thread *t_read)
 		if (ERRNO_IO_RETRY(errno)) {
 			/* Pretend it never happened. */
 			SET_READ_HANDLER(dmn);
-			return 0;
+			return;
 		}
 		snprintf(why, sizeof(why), "unexpected read error: %s",
 			 safe_strerror(errno));
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 	if (rc == 0) {
 		daemon_down(dmn, "read returned EOF");
-		return 0;
+		return;
 	}
 	if (!dmn->echo_sent.tv_sec) {
 		char why[sizeof(buf) + 100];
@@ -637,7 +654,7 @@ static int handle_read(struct thread *t_read)
 			 "unexpected read returns %d bytes: %.*s", (int)rc,
 			 (int)rc, buf);
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 
 	/* We are expecting an echo response: is there any chance that the
@@ -646,11 +663,10 @@ static int handle_read(struct thread *t_read)
 	if ((rc != sizeof(resp)) || memcmp(buf, resp, sizeof(resp))) {
 		char why[100 + sizeof(buf)];
 		snprintf(why, sizeof(why),
-			 "read returned bad echo response of %d bytes "
-			 "(expecting %u): %.*s",
+			 "read returned bad echo response of %d bytes (expecting %u): %.*s",
 			 (int)rc, (unsigned int)sizeof(resp), (int)rc, buf);
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 
 	time_elapsed(&delay, &dmn->echo_sent);
@@ -659,14 +675,12 @@ static int handle_read(struct thread *t_read)
 		if (delay.tv_sec < gs.timeout) {
 			dmn->state = DAEMON_UP;
 			zlog_warn(
-				"%s state -> up : echo response received after %ld.%06ld "
-				"seconds",
+				"%s state -> up : echo response received after %ld.%06ld seconds",
 				dmn->name, (long)delay.tv_sec,
 				(long)delay.tv_usec);
 		} else
 			zlog_warn(
-				"%s: slow echo response finally received after %ld.%06ld "
-				"seconds",
+				"%s: slow echo response finally received after %ld.%06ld seconds",
 				dmn->name, (long)delay.tv_sec,
 				(long)delay.tv_usec);
 	} else if (gs.loglevel > LOG_DEBUG + 1)
@@ -674,11 +688,8 @@ static int handle_read(struct thread *t_read)
 			   dmn->name, (long)delay.tv_sec, (long)delay.tv_usec);
 
 	SET_READ_HANDLER(dmn);
-	if (dmn->t_wakeup)
-		thread_cancel(dmn->t_wakeup);
+	event_cancel(&dmn->t_wakeup);
 	SET_WAKEUP_ECHO(dmn);
-
-	return 0;
 }
 
 /*
@@ -698,28 +709,25 @@ static void daemon_send_ready(int exitcode)
 		zlog_notice("all daemons up, doing startup-complete notify");
 	else if (gs.numdown < gs.numdaemons)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "startup did not complete within timeout"
-			 " (%d/%d daemons running)",
+			 "startup did not complete within timeout (%d/%d daemons running)",
 			 gs.numdaemons - gs.numdown, gs.numdaemons);
 	else {
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "all configured daemons failed to start"
-			 " -- exiting watchfrr");
+			 "all configured daemons failed to start -- exiting watchfrr");
 		exit(exitcode);
 
 	}
 
 	frr_detach();
 
-	snprintf(started, sizeof(started), "%s%s", frr_vtydir,
+	snprintf(started, sizeof(started), "%s/%s", frr_vtydir,
 		 "watchfrr.started");
 	fp = fopen(started, "w");
 	if (fp)
 		fclose(fp);
-#if defined HAVE_SYSTEMD
-	systemd_send_started(master, 0);
+
+	systemd_send_started(master);
 	systemd_send_status("FRR Operational");
-#endif
 	sent = 1;
 }
 
@@ -729,15 +737,22 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	gs.numdown--;
 	dmn->connect_tries = 0;
 	zlog_notice("%s state -> up : %s", dmn->name, why);
-	if (gs.numdown == 0)
+	if (gs.numdown == 0) {
 		daemon_send_ready(0);
+
+		EVENT_OFF(gs.t_operational);
+
+		event_add_timer(master, daemon_restarting_operational, NULL,
+				gs.operational_timeout, &gs.t_operational);
+	}
+
 	SET_WAKEUP_ECHO(dmn);
 	phase_check();
 }
 
-static int check_connect(struct thread *t_write)
+static void check_connect(struct event *t_write)
 {
-	struct daemon *dmn = THREAD_ARG(t_write);
+	struct daemon *dmn = EVENT_ARG(t_write);
 	int sockerr;
 	socklen_t reslen = sizeof(sockerr);
 
@@ -748,7 +763,7 @@ static int check_connect(struct thread *t_write)
 			  safe_strerror(errno));
 		daemon_down(dmn,
 			    "getsockopt failed checking connection success");
-		return 0;
+		return;
 	}
 	if ((reslen == sizeof(sockerr)) && sockerr) {
 		char why[100];
@@ -757,23 +772,21 @@ static int check_connect(struct thread *t_write)
 			"getsockopt reports that connection attempt failed: %s",
 			safe_strerror(sockerr));
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 
 	daemon_up(dmn, "delayed connect succeeded");
-	return 0;
 }
 
-static int wakeup_connect_hanging(struct thread *t_wakeup)
+static void wakeup_connect_hanging(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 	char why[100];
 
 	dmn->t_wakeup = NULL;
 	snprintf(why, sizeof(why),
 		 "connection attempt timed out after %ld seconds", gs.timeout);
 	daemon_down(dmn, why);
-	return 0;
 }
 
 /* Making connection to protocol daemon. */
@@ -787,7 +800,7 @@ static int try_connect(struct daemon *dmn)
 		zlog_debug("%s: attempting to connect", dmn->name);
 	dmn->connect_tries++;
 
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s.vty", gs.vtydir,
 		 dmn->name);
@@ -835,12 +848,10 @@ static int try_connect(struct daemon *dmn)
 			zlog_debug("%s: connection in progress", dmn->name);
 		dmn->state = DAEMON_CONNECTING;
 		dmn->fd = sock;
-		dmn->t_write = NULL;
-		thread_add_write(master, check_connect, dmn, dmn->fd,
-				 &dmn->t_write);
-		dmn->t_wakeup = NULL;
-		thread_add_timer(master, wakeup_connect_hanging, dmn,
-				 gs.timeout, &dmn->t_wakeup);
+		event_add_write(master, check_connect, dmn, dmn->fd,
+				&dmn->t_write);
+		event_add_timer(master, wakeup_connect_hanging, dmn, gs.timeout,
+				&dmn->t_wakeup);
 		SET_READ_HANDLER(dmn);
 		return 0;
 	}
@@ -851,24 +862,22 @@ static int try_connect(struct daemon *dmn)
 	return 1;
 }
 
-static int phase_hanging(struct thread *t_hanging)
+static void phase_hanging(struct event *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
 	flog_err(EC_WATCHFRR_CONNECTION,
 		 "Phase [%s] hanging for %ld seconds, aborting phased restart",
 		 phase_str[gs.phase], PHASE_TIMEOUT);
 	gs.phase = PHASE_NONE;
-	return 0;
 }
 
-static void set_phase(restart_phase_t new_phase)
+static void set_phase(enum restart_phase new_phase)
 {
 	gs.phase = new_phase;
-	if (gs.t_phase_hanging)
-		thread_cancel(gs.t_phase_hanging);
-	gs.t_phase_hanging = NULL;
-	thread_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
-			 &gs.t_phase_hanging);
+	event_cancel(&gs.t_phase_hanging);
+
+	event_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
+			&gs.t_phase_hanging);
 }
 
 static void phase_check(void)
@@ -903,6 +912,7 @@ static void phase_check(void)
 	case PHASE_WAITING_DOWN:
 		if (gs.numdown + IS_UP(gs.special) < gs.numdaemons)
 			break;
+		systemd_send_status("Phased Restart");
 		zlog_info("Phased restart: all routing daemons now down.");
 		run_job(&gs.special->restart, "restart", gs.restart_command, 1,
 			1);
@@ -912,6 +922,7 @@ static void phase_check(void)
 	case PHASE_ZEBRA_RESTART_PENDING:
 		if (gs.special->restart.pid)
 			break;
+		systemd_send_status("Zebra Restarting");
 		zlog_info("Phased restart: %s restart job completed.",
 			  gs.special->name);
 		set_phase(PHASE_WAITING_ZEBRA_UP);
@@ -921,16 +932,13 @@ static void phase_check(void)
 		if (!IS_UP(gs.special))
 			break;
 		zlog_info("Phased restart: %s is now up.", gs.special->name);
-		{
-			struct daemon *dmn;
-			for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-				if (dmn != gs.special)
-					run_job(&dmn->restart, "start",
-						gs.start_command, 1, 0);
-			}
+		for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+			if (dmn != gs.special)
+				run_job(&dmn->restart, "start",
+					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
-		THREAD_OFF(gs.t_phase_hanging);
+		EVENT_OFF(gs.t_phase_hanging);
 		zlog_notice("Phased global restart has completed.");
 		break;
 	}
@@ -948,8 +956,7 @@ static void try_restart(struct daemon *dmn)
 				1);
 		else
 			zlog_debug(
-				"%s: postponing restart attempt because master %s daemon "
-				"not up [%s], or phased restart in progress",
+				"%s: postponing restart attempt because master %s daemon not up [%s], or phased restart in progress",
 				dmn->name, gs.special->name,
 				state_str[gs.special->state]);
 		return;
@@ -958,8 +965,7 @@ static void try_restart(struct daemon *dmn)
 	if ((gs.phase != PHASE_NONE) || gs.numpids) {
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
-				"postponing phased global restart: restart already in "
-				"progress [%s], or outstanding child processes [%d]",
+				"postponing phased global restart: restart already in progress [%s], or outstanding child processes [%d]",
 				phase_str[gs.phase], gs.numpids);
 		return;
 	}
@@ -970,8 +976,7 @@ static void try_restart(struct daemon *dmn)
 		    < gs.special->restart.interval) {
 			if (gs.loglevel > LOG_DEBUG + 1)
 				zlog_debug(
-					"postponing phased global restart: "
-					"elapsed time %ld < retry interval %ld",
+					"postponing phased global restart: elapsed time %ld < retry interval %ld",
 					(long)delay.tv_sec,
 					gs.special->restart.interval);
 			return;
@@ -980,45 +985,41 @@ static void try_restart(struct daemon *dmn)
 	run_job(&gs.restart, "restart", gs.restart_command, 0, 1);
 }
 
-static int wakeup_unresponsive(struct thread *t_wakeup)
+static void wakeup_unresponsive(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			 "%s: no longer unresponsive (now %s), "
-			 "wakeup should have been cancelled!",
+			 "%s: no longer unresponsive (now %s), wakeup should have been cancelled!",
 			 dmn->name, state_str[dmn->state]);
 	else {
 		SET_WAKEUP_UNRESPONSIVE(dmn);
 		try_restart(dmn);
 	}
-	return 0;
 }
 
-static int wakeup_no_answer(struct thread *t_wakeup)
+static void wakeup_no_answer(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
 	if (dmn->ignore_timeout)
-		return 0;
+		return;
 	flog_err(EC_WATCHFRR_CONNECTION,
-		 "%s state -> unresponsive : no response yet to ping "
-		 "sent %ld seconds ago",
+		 "%s state -> unresponsive : no response yet to ping sent %ld seconds ago",
 		 dmn->name, gs.timeout);
 	SET_WAKEUP_UNRESPONSIVE(dmn);
 	try_restart(dmn);
-	return 0;
 }
 
-static int wakeup_send_echo(struct thread *t_wakeup)
+static void wakeup_send_echo(struct event *t_wakeup)
 {
 	static const char echocmd[] = "echo " PING_TOKEN;
 	ssize_t rc;
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (((rc = write(dmn->fd, echocmd, sizeof(echocmd))) < 0)
@@ -1030,11 +1031,9 @@ static int wakeup_send_echo(struct thread *t_wakeup)
 		daemon_down(dmn, why);
 	} else {
 		gettimeofday(&dmn->echo_sent, NULL);
-		dmn->t_wakeup = NULL;
-		thread_add_timer(master, wakeup_no_answer, dmn, gs.timeout,
-				 &dmn->t_wakeup);
+		event_add_timer(master, wakeup_no_answer, dmn, gs.timeout,
+				&dmn->t_wakeup);
 	}
-	return 0;
 }
 
 bool check_all_up(void)
@@ -1053,6 +1052,14 @@ void watchfrr_status(struct vty *vty)
 	struct timeval delay;
 
 	vty_out(vty, "watchfrr global phase: %s\n", phase_str[gs.phase]);
+	vty_out(vty, " Restart Command: %pSQq\n", gs.restart_command);
+	vty_out(vty, " Start Command: %pSQq\n", gs.start_command);
+	vty_out(vty, " Stop Command: %pSQq\n", gs.stop_command);
+	vty_out(vty, " Min Restart Interval: %ld\n", gs.min_restart_interval);
+	vty_out(vty, " Max Restart Interval: %ld\n", gs.max_restart_interval);
+	vty_out(vty, " Restart Timeout: %ld\n", gs.restart_timeout);
+	vty_out(vty, " Reading Configuration: %s\n",
+		gs.reading_configuration ? "yes" : "no");
 	if (gs.restart.pid)
 		vty_out(vty, "    global restart running, pid %ld\n",
 			(long)gs.restart.pid);
@@ -1066,8 +1073,7 @@ void watchfrr_status(struct vty *vty)
 		else if (dmn->state == DAEMON_DOWN &&
 			time_elapsed(&delay, &dmn->restart.time)->tv_sec
 				< dmn->restart.interval)
-			vty_out(vty, "      restarting in %jd seconds"
-				" (%jds backoff interval)\n",
+			vty_out(vty, "      restarting in %jd seconds (%jds backoff interval)\n",
 				(intmax_t)dmn->restart.interval
 					- (intmax_t)delay.tv_sec,
 				(intmax_t)dmn->restart.interval);
@@ -1084,6 +1090,9 @@ static void sigint(void)
 static int valid_command(const char *cmd)
 {
 	char *p;
+
+	if (cmd == NULL)
+		return 0;
 
 	return ((p = strchr(cmd, '%')) != NULL) && (*(p + 1) == 's')
 	       && !strchr(p + 1, '%');
@@ -1109,10 +1118,161 @@ static char *translate_blanks(const char *cmd, const char *blankstr)
 	return res;
 }
 
-static int startup_timeout(struct thread *t_wakeup)
+static void startup_timeout(struct event *t_wakeup)
 {
 	daemon_send_ready(1);
-	return 0;
+}
+
+#ifdef GNU_LINUX
+
+#include <sys/mount.h>
+#include <sched.h>
+
+#define NETNS_RUN_DIR "/var/run/netns"
+
+static void netns_create(int dirfd, const char *nsname)
+{
+	/* make /var/run/netns shared between mount namespaces
+	 * just like iproute2 sets it up
+	 */
+	if (mount("", NETNS_RUN_DIR, "none", MS_SHARED | MS_REC, NULL)) {
+		if (errno != EINVAL) {
+			perror("mount");
+			exit(1);
+		}
+
+		if (mount(NETNS_RUN_DIR, NETNS_RUN_DIR, "none",
+			  MS_BIND | MS_REC, NULL)) {
+			perror("mount");
+			exit(1);
+		}
+
+		if (mount("", NETNS_RUN_DIR, "none", MS_SHARED | MS_REC,
+			  NULL)) {
+			perror("mount");
+			exit(1);
+		}
+	}
+
+	/* need an empty file to mount on top of */
+	int nsfd = openat(dirfd, nsname, O_CREAT | O_RDONLY | O_EXCL, 0);
+
+	if (nsfd < 0) {
+		fprintf(stderr, "failed to create \"%s/%s\": %s\n",
+			NETNS_RUN_DIR, nsname, strerror(errno));
+		exit(1);
+	}
+	close(nsfd);
+
+	if (unshare(CLONE_NEWNET)) {
+		perror("unshare");
+		unlinkat(dirfd, nsname, 0);
+		exit(1);
+	}
+
+	char *dstpath = asprintfrr(MTYPE_TMP, "%s/%s", NETNS_RUN_DIR, nsname);
+
+	/* bind-mount so the namespace has a name and is persistent */
+	if (mount("/proc/self/ns/net", dstpath, "none", MS_BIND, NULL) < 0) {
+		fprintf(stderr, "failed to bind-mount netns to \"%s\": %s\n",
+			dstpath, strerror(errno));
+		unlinkat(dirfd, nsname, 0);
+		exit(1);
+	}
+
+	XFREE(MTYPE_TMP, dstpath);
+}
+
+static void netns_setup(const char *nsname)
+{
+	int dirfd, nsfd;
+
+	dirfd = open(NETNS_RUN_DIR, O_DIRECTORY | O_RDONLY);
+	if (dirfd < 0) {
+		if (errno == ENOTDIR) {
+			fprintf(stderr, "error: \"%s\" is not a directory!\n",
+				NETNS_RUN_DIR);
+			exit(1);
+		} else if (errno == ENOENT) {
+			if (mkdir(NETNS_RUN_DIR, 0755)) {
+				fprintf(stderr, "error: \"%s\": mkdir: %s\n",
+					NETNS_RUN_DIR, strerror(errno));
+				exit(1);
+			}
+			dirfd = open(NETNS_RUN_DIR, O_DIRECTORY | O_RDONLY);
+			if (dirfd < 0) {
+				fprintf(stderr, "error: \"%s\": opendir: %s\n",
+					NETNS_RUN_DIR, strerror(errno));
+				exit(1);
+			}
+		} else {
+			fprintf(stderr, "error: \"%s\": %s\n",
+				NETNS_RUN_DIR, strerror(errno));
+			exit(1);
+		}
+	}
+
+	nsfd = openat(dirfd, nsname, O_RDONLY);
+	if (nsfd < 0 && errno != ENOENT) {
+		fprintf(stderr, "error: \"%s/%s\": %s\n",
+			NETNS_RUN_DIR, nsname, strerror(errno));
+		exit(1);
+	}
+	if (nsfd < 0)
+		netns_create(dirfd, nsname);
+	else {
+		if (setns(nsfd, CLONE_NEWNET)) {
+			perror("setns");
+			exit(1);
+		}
+		close(nsfd);
+	}
+	close(dirfd);
+
+	/* make sure loopback is up... weird things happen otherwise.
+	 * ioctl is perfectly fine for this, don't need netlink...
+	 */
+	int sockfd;
+	struct ifreq ifr = { };
+
+	strlcpy(ifr.ifr_name, "lo", sizeof(ifr.ifr_name));
+
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		perror("socket");
+		exit(1);
+	}
+	if (ioctl(sockfd, SIOCGIFFLAGS, &ifr)) {
+		perror("ioctl(SIOCGIFFLAGS, \"lo\")");
+		exit(1);
+	}
+	if (!(ifr.ifr_flags & IFF_UP)) {
+		ifr.ifr_flags |= IFF_UP;
+		if (ioctl(sockfd, SIOCSIFFLAGS, &ifr)) {
+			perror("ioctl(SIOCSIFFLAGS, \"lo\")");
+			exit(1);
+		}
+	}
+	close(sockfd);
+}
+
+#else /* !GNU_LINUX */
+
+static void netns_setup(const char *nsname)
+{
+	fprintf(stderr, "network namespaces are only available on Linux\n");
+	exit(1);
+}
+#endif
+
+static void watchfrr_start_config(void)
+{
+	gs.reading_configuration = true;
+}
+
+static void watchfrr_end_config(void)
+{
+	gs.reading_configuration = false;
 }
 
 static void watchfrr_init(int argc, char **argv)
@@ -1122,8 +1282,8 @@ static void watchfrr_init(int argc, char **argv)
 	struct daemon *dmn, **add = &gs.daemons;
 	char alldaemons[512] = "", *p = alldaemons;
 
-	thread_add_timer_msec(master, startup_timeout, NULL, STARTUP_TIMEOUT,
-			      &gs.t_startup_timeout);
+	event_add_timer_msec(master, startup_timeout, NULL, STARTUP_TIMEOUT,
+			     &gs.t_startup_timeout);
 
 	for (i = optind; i < argc; i++) {
 		dmn = XCALLOC(MTYPE_WATCHFRR_DAEMON, sizeof(*dmn));
@@ -1133,9 +1293,8 @@ static void watchfrr_init(int argc, char **argv)
 		gs.numdaemons++;
 		gs.numdown++;
 		dmn->fd = -1;
-		dmn->t_wakeup = NULL;
-		thread_add_timer_msec(master, wakeup_init, dmn, 0,
-				      &dmn->t_wakeup);
+		event_add_timer_msec(master, wakeup_init, dmn, 0,
+				     &dmn->t_wakeup);
 		dmn->restart.interval = gs.min_restart_interval;
 		*add = dmn;
 		add = &dmn->next;
@@ -1170,7 +1329,7 @@ struct zebra_privs_t watchfrr_privs = {
 #endif
 };
 
-static struct quagga_signal_t watchfrr_signals[] = {
+static struct frr_signal_t watchfrr_signals[] = {
 	{
 		.signal = SIGINT,
 		.handler = sigint,
@@ -1196,7 +1355,8 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 		.signals = watchfrr_signals,
 		.n_signals = array_size(watchfrr_signals),
 
-		.privs = &watchfrr_privs, )
+		.privs = &watchfrr_privs,
+);
 
 #define DEPRECATED_OPTIONS "aAezR:"
 
@@ -1204,11 +1364,13 @@ int main(int argc, char **argv)
 {
 	int opt;
 	const char *blankstr = NULL;
+	const char *netns = NULL;
+	bool netns_en = false;
 
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
+	frr_opt_add("b:di:k:l:N:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1273,6 +1435,28 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 		} break;
+		case OPTION_MAXOPERATIONAL: {
+			char garbage[3];
+
+			if ((sscanf(optarg, "%ld%1s", &gs.operational_timeout,
+				    garbage) != 1) ||
+			    (gs.operational_timeout < 0)) {
+				fprintf(stderr,
+					"Invalid Operational_timeout argument: %s\n",
+					optarg);
+				frr_help_exit(1);
+			}
+		} break;
+		case OPTION_NETNS:
+			netns_en = true;
+			if (optarg && strchr(optarg, '/')) {
+				fprintf(stderr,
+					"invalid network namespace name \"%s\" (may not contain slashes)\n",
+					optarg);
+				frr_help_exit(1);
+			}
+			netns = optarg;
+			break;
 		case 'i': {
 			char garbage[3];
 			int period;
@@ -1364,18 +1548,36 @@ int main(int argc, char **argv)
 
 	gs.restart.interval = gs.min_restart_interval;
 
+	/* env variable for the processes that we start */
+	if (watchfrr_di.pathspace)
+		setenv("FRR_PATHSPACE", watchfrr_di.pathspace, 1);
+	else
+		unsetenv("FRR_PATHSPACE");
+
+	/*
+	 * when watchfrr_di.pathspace is read, if it is not specified
+	 * pathspace is NULL as expected
+	 */
+	pathspace = watchfrr_di.pathspace;
+
+	if (netns_en && !netns)
+		netns = watchfrr_di.pathspace;
+
+	if (netns_en && netns && netns[0])
+		netns_setup(netns);
+
 	master = frr_init();
 	watchfrr_error_init();
 	watchfrr_init(argc, argv);
+	cmd_init_config_callbacks(watchfrr_start_config, watchfrr_end_config);
 	watchfrr_vty_init();
 
 	frr_config_fork();
 
-	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 	if (watchfrr_di.daemon_mode)
-		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
+		zlog_syslog_set_prio_min(MIN(gs.loglevel, LOG_DEBUG));
 	else
-		zlog_set_level(ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
+		zlog_aux_init(NULL, MIN(gs.loglevel, LOG_DEBUG));
 
 	frr_run(master);
 

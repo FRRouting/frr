@@ -1,50 +1,19 @@
+// SPDX-License-Identifier: ISC AND BSD-2-Clause
 /* RB-tree */
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
  * Copyright (c) 2016 David Gwynne <dlg@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
+#include <string.h>
 #include "typerb.h"
 
 #define RB_BLACK	0
@@ -330,6 +299,7 @@ color:
 		rbe_remove_color(rbt, parent, child);
 
 	rbt->count--;
+	memset(old, 0, sizeof(*old));
 	return (old);
 }
 
@@ -377,12 +347,13 @@ struct typed_rb_entry *typed_rb_insert(struct rbt_tree *rbt,
 }
 
 /* Finds the node with the same key as elm */
-struct rb_entry *typed_rb_find(struct rbt_tree *rbt, const struct rb_entry *key,
+const struct rb_entry *typed_rb_find(const struct rbt_tree *rbt,
+		const struct rb_entry *key,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b))
 {
-	struct rb_entry *tmp = RBH_ROOT(rbt);
+	const struct rb_entry *tmp = RBH_ROOT(rbt);
 	int comp;
 
 	while (tmp != NULL) {
@@ -395,16 +366,16 @@ struct rb_entry *typed_rb_find(struct rbt_tree *rbt, const struct rb_entry *key,
 			return tmp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
-struct rb_entry *typed_rb_find_gteq(struct rbt_tree *rbt,
+const struct rb_entry *typed_rb_find_gteq(const struct rbt_tree *rbt,
 		const struct rb_entry *key,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b))
 {
-	struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
+	const struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
 	int comp;
 
 	while (tmp != NULL) {
@@ -421,13 +392,13 @@ struct rb_entry *typed_rb_find_gteq(struct rbt_tree *rbt,
 	return best;
 }
 
-struct rb_entry *typed_rb_find_lt(struct rbt_tree *rbt,
+const struct rb_entry *typed_rb_find_lt(const struct rbt_tree *rbt,
 		const struct rb_entry *key,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b))
 {
-	struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
+	const struct rb_entry *tmp = RBH_ROOT(rbt), *best = NULL;
 	int comp;
 
 	while (tmp != NULL) {
@@ -443,8 +414,10 @@ struct rb_entry *typed_rb_find_lt(struct rbt_tree *rbt,
 	return best;
 }
 
-struct rb_entry *typed_rb_next(struct rb_entry *rbe)
+struct rb_entry *typed_rb_next(const struct rb_entry *rbe_const)
 {
+	struct rb_entry *rbe = (struct rb_entry *)rbe_const;
+
 	if (RBE_RIGHT(rbe) != NULL) {
 		rbe = RBE_RIGHT(rbe);
 		while (RBE_LEFT(rbe) != NULL)
@@ -463,7 +436,29 @@ struct rb_entry *typed_rb_next(struct rb_entry *rbe)
 	return rbe;
 }
 
-struct rb_entry *typed_rb_min(struct rbt_tree *rbt)
+struct rb_entry *typed_rb_prev(const struct rb_entry *rbe_const)
+{
+	struct rb_entry *rbe = (struct rb_entry *)rbe_const;
+
+	if (RBE_LEFT(rbe)) {
+		rbe = RBE_LEFT(rbe);
+		while (RBE_RIGHT(rbe))
+			rbe = RBE_RIGHT(rbe);
+	} else {
+		if (RBE_PARENT(rbe) && (rbe == RBE_RIGHT(RBE_PARENT(rbe))))
+			rbe = RBE_PARENT(rbe);
+		else {
+			while (RBE_PARENT(rbe)
+			       && (rbe == RBE_LEFT(RBE_PARENT(rbe))))
+				rbe = RBE_PARENT(rbe);
+			rbe = RBE_PARENT(rbe);
+		}
+	}
+
+	return rbe;
+}
+
+struct rb_entry *typed_rb_min(const struct rbt_tree *rbt)
 {
 	struct rb_entry *rbe = RBH_ROOT(rbt);
 	struct rb_entry *parent = NULL;
@@ -474,4 +469,25 @@ struct rb_entry *typed_rb_min(struct rbt_tree *rbt)
 	}
 
 	return parent;
+}
+
+struct rb_entry *typed_rb_max(const struct rbt_tree *rbt)
+{
+	struct rb_entry *rbe = RBH_ROOT(rbt);
+	struct rb_entry *parent = NULL;
+
+	while (rbe != NULL) {
+		parent = rbe;
+		rbe = RBE_RIGHT(rbe);
+	}
+
+	return parent;
+}
+
+bool typed_rb_member(const struct typed_rb_root *rbt,
+		     const struct typed_rb_entry *rbe)
+{
+	while (rbe->rbt_parent)
+		rbe = rbe->rbt_parent;
+	return rbe == rbt->rbt_root;
 }

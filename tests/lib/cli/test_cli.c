@@ -1,22 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * CLI/command dummy handling tester
  *
  * Copyright (C) 2015 by David Lamparter,
  *                   for Open Source Routing / NetDEF, Inc.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -40,6 +27,8 @@ DUMMY_DEFUN(cmd12, "alt a A.B.C.D");
 DUMMY_DEFUN(cmd13, "alt a X:X::X:X");
 DUMMY_DEFUN(cmd14,
 	    "pat g {  foo A.B.C.D$foo|foo|bar   X:X::X:X$bar| baz } [final]");
+DUMMY_DEFUN(cmd15, "no pat g ![ WORD ]");
+DUMMY_DEFUN(cmd16, "[no] pat h {foo ![A.B.C.D$foo]|bar X:X::X:X$bar} final");
 
 #include "tests/lib/cli/test_cli_clippy.c"
 
@@ -47,12 +36,10 @@ DEFPY(magic_test, magic_test_cmd,
 	"magic (0-100) {ipv4net A.B.C.D/M|X:X::X:X$ipv6}",
 	"1\n2\n3\n4\n5\n")
 {
-	char buf[256];
 	vty_out(vty, "def: %s\n", self->string);
 	vty_out(vty, "num: %ld\n", magic);
-	vty_out(vty, "ipv4: %s\n", prefix2str(ipv4net, buf, sizeof(buf)));
-	vty_out(vty, "ipv6: %s\n",
-		inet_ntop(AF_INET6, &ipv6, buf, sizeof(buf)));
+	vty_out(vty, "ipv4: %pFX\n", ipv4net);
+	vty_out(vty, "ipv6: %pI6\n", &ipv6);
 	return CMD_SUCCESS;
 }
 
@@ -83,5 +70,7 @@ void test_init(int argc, char **argv)
 		install_element(ENABLE_NODE, &cmd13_cmd);
 	}
 	install_element(ENABLE_NODE, &cmd14_cmd);
+	install_element(ENABLE_NODE, &cmd15_cmd);
+	install_element(ENABLE_NODE, &cmd16_cmd);
 	install_element(ENABLE_NODE, &magic_test_cmd);
 }

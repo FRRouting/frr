@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2004 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6_ABR_H
@@ -56,20 +41,23 @@ struct ospf6_inter_router_lsa {
 	}
 
 #define OSPF6_ABR_RANGE_CLEAR_COST(range) (range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC)
+#define IS_OSPF6_ABR(o) ((o)->flag & OSPF6_FLAG_ABR)
 
-extern int ospf6_is_router_abr(struct ospf6 *o);
+extern bool ospf6_check_and_set_router_abr(struct ospf6 *o);
 
 extern void ospf6_abr_enable_area(struct ospf6_area *oa);
 extern void ospf6_abr_disable_area(struct ospf6_area *oa);
 
 extern int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 					       struct ospf6_area *area);
-extern void ospf6_abr_originate_summary(struct ospf6_route *route);
+extern void ospf6_abr_originate_summary(struct ospf6_route *route,
+					struct ospf6 *ospf6);
 extern void ospf6_abr_examin_summary(struct ospf6_lsa *lsa,
 				     struct ospf6_area *oa);
-extern void ospf6_abr_defaults_to_stub(struct ospf6 *);
-extern void ospf6_abr_examin_brouter(uint32_t router_id);
-extern void ospf6_abr_reimport(struct ospf6_area *oa);
+extern void ospf6_abr_defaults_to_stub(struct ospf6 *ospf6);
+extern void ospf6_abr_examin_brouter(uint32_t router_id,
+				     struct ospf6_route *route,
+				     struct ospf6 *ospf6);
 extern void ospf6_abr_range_reset_cost(struct ospf6 *ospf6);
 extern void ospf6_abr_prefix_resummarize(struct ospf6 *ospf6);
 
@@ -83,5 +71,10 @@ extern void ospf6_abr_old_path_update(struct ospf6_route *old_route,
 				      struct ospf6_route *route,
 				      struct ospf6_route_table *table);
 extern void ospf6_abr_init(void);
+extern void ospf6_abr_range_update(struct ospf6_route *range,
+				   struct ospf6 *ospf6);
+extern void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6);
+extern int ospf6_ls_origin_same(struct ospf6_path *o_path,
+				struct ospf6_path *r_path);
 
 #endif /*OSPF6_ABR_H*/

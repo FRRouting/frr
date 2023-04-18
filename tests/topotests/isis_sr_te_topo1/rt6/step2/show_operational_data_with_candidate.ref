@@ -1,0 +1,19 @@
+{
+  "frr-pathd:pathd": {
+    "srte": {
+      "policy": [
+        {
+          "color": 1,
+          "endpoint": "1.1.1.1",
+          "is-operational": true,
+          "candidate-path": [
+            {
+              "preference": 100,
+              "is-best-candidate-path": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

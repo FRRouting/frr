@@ -1,27 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * OSPF Neighbor functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_OSPF_NEIGHBOR_H
 #define _ZEBRA_OSPF_NEIGHBOR_H
 
+#include <ospfd/ospf_gr.h>
 #include <ospfd/ospf_packet.h>
 
 /* Neighbor Data Structure */
@@ -71,11 +57,11 @@ struct ospf_neighbor {
 	uint32_t v_ls_upd;
 
 	/* Threads. */
-	struct thread *t_inactivity;
-	struct thread *t_db_desc;
-	struct thread *t_ls_req;
-	struct thread *t_ls_upd;
-	struct thread *t_hello_reply;
+	struct event *t_inactivity;
+	struct event *t_db_desc;
+	struct event *t_ls_req;
+	struct event *t_ls_upd;
+	struct event *t_hello_reply;
 
 	/* NBMA configured neighbour */
 	struct ospf_nbr_nbma *nbr_nbma;
@@ -87,7 +73,10 @@ struct ospf_neighbor {
 	uint32_t state_change;		 /* NSM state change counter       */
 
 	/* BFD information */
-	void *bfd_info;
+	struct bfd_session_params *bfd_session;
+
+	/* ospf graceful restart HELPER info */
+	struct ospf_helper_info gr_helper_info;
 };
 
 /* Macros. */
@@ -113,5 +102,4 @@ extern struct ospf_neighbor *ospf_nbr_lookup_by_addr(struct route_table *,
 extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *,
 							 struct in_addr *);
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
-
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */

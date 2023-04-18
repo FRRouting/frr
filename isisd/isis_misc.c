@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * IS-IS Rout(e)ing protocol - isis_misc.h
  *                             Miscellanous routines
@@ -5,20 +6,6 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology
  *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,6 +16,7 @@
 #include "hash.h"
 #include "if.h"
 #include "command.h"
+#include "network.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -44,43 +32,11 @@
 #include "isisd/isis_dynhn.h"
 
 /* staticly assigned vars for printing purposes */
+static char sys_hostname[ISO_SYSID_STRLEN];
 struct in_addr new_prefix;
-/* len of xx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xx */
-/* + place for #0 termination */
-char isonet[51];
 /* len of xxYxxMxWxdxxhxxmxxs + place for #0 termination */
 char datestring[20];
 char nlpidstring[30];
-
-/*
- * This converts the isonet to its printable format
- */
-const char *isonet_print(const uint8_t *from, int len)
-{
-	int i = 0;
-	char *pos = isonet;
-
-	if (!from)
-		return "unknown";
-
-	while (i < len) {
-		if (i & 1) {
-			sprintf(pos, "%02x", *(from + i));
-			pos += 2;
-		} else {
-			if (i == (len - 1)) { /* No dot at the end of address */
-				sprintf(pos, "%02x", *(from + i));
-				pos += 2;
-			} else {
-				sprintf(pos, "%02x.", *(from + i));
-				pos += 3;
-			}
-		}
-		i++;
-	}
-	*(pos) = '\0';
-	return isonet;
-}
 
 /*
  * Returns 0 on error, length of buff on ok
@@ -189,7 +145,7 @@ const char *nlpid2str(uint8_t nlpid)
 	case NLPID_ESIS:
 		return "ES-IS";
 	default:
-		snprintf(buf, sizeof(buf), "%" PRIu8, nlpid);
+		snprintf(buf, sizeof(buf), "%hhu", nlpid);
 		return buf;
 	}
 }
@@ -201,16 +157,17 @@ const char *nlpid2str(uint8_t nlpid)
 
 char *nlpid2string(struct nlpids *nlpids)
 {
-	char *pos = nlpidstring;
 	int i;
+	char tbuf[256];
+	nlpidstring[0] = '\0';
 
 	for (i = 0; i < nlpids->count; i++) {
-		pos += sprintf(pos, "%s", nlpid2str(nlpids->nlpids[i]));
+		snprintf(tbuf, sizeof(tbuf), "%s",
+			 nlpid2str(nlpids->nlpids[i]));
+		strlcat(nlpidstring, tbuf, sizeof(nlpidstring));
 		if (nlpids->count - i > 1)
-			pos += sprintf(pos, ", ");
+			strlcat(nlpidstring, ", ", sizeof(nlpidstring));
 	}
-
-	*(pos) = '\0';
 
 	return nlpidstring;
 }
@@ -302,90 +259,62 @@ const char *syst2string(int type)
 	return NULL; /* not reached */
 }
 
-/*
- * Print functions - we print to static vars
- */
-const char *snpa_print(const uint8_t *from)
+const char *isis_hello_padding2string(int hello_padding_type)
 {
-	return isis_format_id(from, ISIS_SYS_ID_LEN);
-}
-
-const char *sysid_print(const uint8_t *from)
-{
-	return isis_format_id(from, ISIS_SYS_ID_LEN);
-}
-
-const char *rawlspid_print(const uint8_t *from)
-{
-	return isis_format_id(from, 8);
-}
-
-#define FORMAT_ID_SIZE sizeof("0000.0000.0000.00-00")
-const char *isis_format_id(const uint8_t *id, size_t len)
-{
-#define FORMAT_BUF_COUNT 4
-	static char buf_ring[FORMAT_BUF_COUNT][FORMAT_ID_SIZE];
-	static size_t cur_buf = 0;
-
-	char *rv;
-
-	cur_buf++;
-	if (cur_buf >= FORMAT_BUF_COUNT)
-		cur_buf = 0;
-
-	rv = buf_ring[cur_buf];
-
-	if (!id) {
-		snprintf(rv, FORMAT_ID_SIZE, "unknown");
-		return rv;
+	switch (hello_padding_type) {
+	case ISIS_HELLO_PADDING_DISABLED:
+		return "no";
+	case ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION:
+		return "during-adjacency-formation";
+	case ISIS_HELLO_PADDING_ALWAYS:
+		return "yes";
 	}
-
-	if (len < 6) {
-		snprintf(rv, FORMAT_ID_SIZE, "Short ID");
-		return rv;
-	}
-
-	snprintf(rv, FORMAT_ID_SIZE, "%02x%02x.%02x%02x.%02x%02x", id[0], id[1],
-		 id[2], id[3], id[4], id[5]);
-
-	if (len > 6)
-		snprintf(rv + 14, FORMAT_ID_SIZE - 14, ".%02x", id[6]);
-	if (len > 7)
-		snprintf(rv + 17, FORMAT_ID_SIZE - 17, "-%02x", id[7]);
-
-	return rv;
+	return NULL; /* not reached */
 }
 
 const char *time2string(uint32_t time)
 {
-	char *pos = datestring;
 	uint32_t rest;
+	char tbuf[32];
+	datestring[0] = '\0';
 
 	if (time == 0)
 		return "-";
 
-	if (time / SECS_PER_YEAR)
-		pos += sprintf(pos, "%uY", time / SECS_PER_YEAR);
+	if (time / SECS_PER_YEAR) {
+		snprintf(tbuf, sizeof(tbuf), "%uY", time / SECS_PER_YEAR);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = time % SECS_PER_YEAR;
-	if (rest / SECS_PER_MONTH)
-		pos += sprintf(pos, "%uM", rest / SECS_PER_MONTH);
+	if (rest / SECS_PER_MONTH) {
+		snprintf(tbuf, sizeof(tbuf), "%uM", rest / SECS_PER_MONTH);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_MONTH;
-	if (rest / SECS_PER_WEEK)
-		pos += sprintf(pos, "%uw", rest / SECS_PER_WEEK);
+	if (rest / SECS_PER_WEEK) {
+		snprintf(tbuf, sizeof(tbuf), "%uw", rest / SECS_PER_WEEK);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_WEEK;
-	if (rest / SECS_PER_DAY)
-		pos += sprintf(pos, "%ud", rest / SECS_PER_DAY);
+	if (rest / SECS_PER_DAY) {
+		snprintf(tbuf, sizeof(tbuf), "%ud", rest / SECS_PER_DAY);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_DAY;
-	if (rest / SECS_PER_HOUR)
-		pos += sprintf(pos, "%uh", rest / SECS_PER_HOUR);
+	if (rest / SECS_PER_HOUR) {
+		snprintf(tbuf, sizeof(tbuf), "%uh", rest / SECS_PER_HOUR);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_HOUR;
-	if (rest / SECS_PER_MINUTE)
-		pos += sprintf(pos, "%um", rest / SECS_PER_MINUTE);
+	if (rest / SECS_PER_MINUTE) {
+		snprintf(tbuf, sizeof(tbuf), "%um", rest / SECS_PER_MINUTE);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 	rest = rest % SECS_PER_MINUTE;
-	if (rest)
-		pos += sprintf(pos, "%us", rest);
-
-	*(pos) = 0;
+	if (rest) {
+		snprintf(tbuf, sizeof(tbuf), "%us", rest);
+		strlcat(datestring, tbuf, sizeof(datestring));
+	}
 
 	return datestring;
 }
@@ -413,7 +342,7 @@ unsigned long isis_jitter(unsigned long timer, unsigned long jitter)
 	 * most IS-IS timers are no longer than 16 bit
 	 */
 
-	j = 1 + (int)((RANDOM_SPREAD * random()) / (RAND_MAX + 1.0));
+	j = 1 + (int)((RANDOM_SPREAD * frr_weak_random()) / (RAND_MAX + 1.0));
 
 	k = timer - (timer * (100 - jitter)) / 100;
 
@@ -439,19 +368,25 @@ struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
 const char *print_sys_hostname(const uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
+	struct isis *isis = NULL;
+	struct listnode *node;
 
 	if (!sysid)
 		return "nullsysid";
 
 	/* For our system ID return our host name */
-	if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
-	dyn = dynhn_find_by_id(sysid);
-	if (dyn)
-		return dyn->hostname;
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		dyn = dynhn_find_by_id(isis, sysid);
+		if (dyn)
+			return dyn->hostname;
+	}
 
-	return sysid_print(sysid);
+	snprintfrr(sys_hostname, ISO_SYSID_STRLEN, "%pSY", sysid);
+	return sys_hostname;
 }
 
 /*
@@ -485,11 +420,11 @@ void zlog_dump_data(void *data, int len)
 
 		/* store hex str (for left side) */
 		snprintf(bytestr, sizeof(bytestr), "%02X ", *p);
-		strncat(hexstr, bytestr, sizeof(hexstr) - strlen(hexstr) - 1);
+		strlcat(hexstr, bytestr, sizeof(hexstr) - strlen(hexstr) - 1);
 
 		/* store char str (for right side) */
 		snprintf(bytestr, sizeof(bytestr), "%c", c);
-		strncat(charstr, bytestr,
+		strlcat(charstr, bytestr,
 			sizeof(charstr) - strlen(charstr) - 1);
 
 		if ((i % 16) == 0) {
@@ -500,9 +435,9 @@ void zlog_dump_data(void *data, int len)
 			charstr[0] = 0;
 		} else if ((i % 8) == 0) {
 			/* half line: add whitespaces */
-			strncat(hexstr, "  ",
+			strlcat(hexstr, "  ",
 				sizeof(hexstr) - strlen(hexstr) - 1);
-			strncat(charstr, " ",
+			strlcat(charstr, " ",
 				sizeof(charstr) - strlen(charstr) - 1);
 		}
 		p++; /* next byte */
@@ -537,6 +472,26 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 		XFREE(MTYPE_TMP, p);
 }
 
+char *log_uptime(time_t uptime, char *buf, size_t nbuf)
+{
+	struct tm *tm;
+	time_t difftime = time(NULL);
+	difftime -= uptime;
+	tm = gmtime(&difftime);
+
+	if (difftime < ONE_DAY_SECOND)
+		snprintf(buf, nbuf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
+			 tm->tm_sec);
+	else if (difftime < ONE_WEEK_SECOND)
+		snprintf(buf, nbuf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
+			 tm->tm_min);
+	else
+		snprintf(buf, nbuf, "%02dw%dd%02dh", tm->tm_yday / 7,
+			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+
+	return buf;
+}
+
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 {
 	char shortbuf[256];
@@ -562,19 +517,12 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 
 void vty_out_timestr(struct vty *vty, time_t uptime)
 {
-	struct tm *tm;
 	time_t difftime = time(NULL);
-	difftime -= uptime;
-	tm = gmtime(&difftime);
+	char buf[MONOTIME_STRLEN];
 
-	if (difftime < ONE_DAY_SECOND)
-		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			tm->tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			tm->tm_min);
-	else
-		vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-			tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
-	vty_out(vty, " ago");
+	difftime -= uptime;
+
+	frrtime_to_interval(difftime, buf, sizeof(buf));
+
+	vty_out(vty, "%s ago", buf);
 }

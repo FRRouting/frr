@@ -1,0 +1,134 @@
+********
+WATCHFRR
+********
+
+.. include:: defines.rst
+.. |DAEMON| replace:: watchfrr
+
+SYNOPSIS
+========
+|DAEMON| |synopsis-options-hv|
+
+|DAEMON| [option...] <daemon>...
+
+
+DESCRIPTION
+===========
+|DAEMON| is a watchdog program that monitors the status of supplied frr daemons and tries to restart them in case they become unresponsive or shut down.
+
+To determine whether a daemon is running, it tries to connect to the daemon's VTY UNIX stream socket, and send echo commands to ensure the daemon responds. When the daemon crashes, EOF is received from the socket, so that |DAEMON| can react immediately.
+
+In order to avoid restarting the daemons in quick succession, you can supply the -m and -M options to set the minimum and maximum delay between the restart commands. The minimum restart delay is recalculated each time a restart is attempted.  If the time since the last restart attempt exceeds twice the value of -M, the restart delay is set to the value of -m, otherwise the interval is doubled (but capped at the value of -M).
+
+OPTIONS
+=======
+
+.. option:: --dry
+
+   Run |DAEMON| in "dry-run" mode, only monitoring the specified daemons but not performing any start/stop/restart actions.
+
+.. option:: -d, --daemon
+
+   Run in daemon mode. When supplied, error messages are sent to Syslog instead of standard output (stdout).
+
+.. option:: -S <directory>, --statedir <directory>
+
+   Set the VTY socket directory (the default value is "/var/run/frr").
+
+.. option:: -N <name>, --pathspace <name>
+
+   Insert the given name into paths used by the FRR daemons.  This is appended
+   to the VTY socket directory and passed to the daemons which also add it to
+   their paths in /etc.
+
+.. option:: --netns[=<name>]
+
+   (Linux only.)  Switch network namespaces when starting watchfrr.  The name
+   defaults to the value passed with -N (which it should be used in conjunction
+   with.)  If the name is not specified, the option has no effect.
+
+   If the network namespace does not exist, it is created in a manner
+   compatible with iproute2.  Network namespaces are not removed by FRR, this
+   must be done with "ip netns delete".
+
+.. option:: -l <level>, --loglevel <level>
+
+   Set the logging level (the default value is "6"). The value should range from 0 (LOG_EMERG) to 7 (LOG_DEBUG), but higher number can be supplied if extra debugging messages are required.
+
+.. option:: --min-restart-interval <number>
+
+   Set the minimum number of seconds to wait between invocations of the daemon restart commands (the default value is "60").
+
+.. option:: --max-restart-interval <number>
+
+   Set the maximum number of seconds to wait between invocations of the daemon restart commands (the default value is "600").
+
+.. option:: -i <number>, --interval <number>
+
+   Set the status polling interval in seconds (the default value is "5").
+
+.. option:: -t <number>, --timeout <number>
+
+   Set the unresponsiveness timeout in seconds (the default value is "10").
+
+.. option:: -T <number>, --restart-timeout <number>
+
+   Set the restart (kill) timeout in seconds (the default value is "20"). If any background jobs are still running after this period has elapsed, they will be killed.
+
+.. option:: -p <filename>, --pid-file <filename>
+
+   Set the process identifier filename (the default value is "/var/run/frr/|DAEMON|.pid").
+
+.. option:: -b <string>, --blank-string <string>
+
+   When the supplied string is found in any of the command line option arguments (i.e., -r, -s, or -k), replace it with a space.
+
+   This is an ugly hack to circumvent problems with passing the command line arguments containing embedded spaces.
+
+.. option:: -v, --version
+
+   Display the version information and exit.
+
+.. option:: -h, --help
+
+   Display the usage information and exit.
+
+The following 3 options specify scripts that |DAEMON| uses to perform start/stop/restart actions. Reasonable default values are built into watchfrr, so the use of these options should no longer be necessary:
+
+.. option:: -s command, --start-command command
+
+  Supply a Bourne shell command to start a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
+
+.. option:: -k command, --kill-command command
+
+   Supply a Bourne shell command to stop a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
+
+.. option:: -r command, --restart command
+
+   Supply a Bourne shell command to restart a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
+
+PREVIOUS OPTIONS
+================
+Prior versions of |DAEMON| supported some additional options that no longer exist:::
+
+   -a, -A, -e, -R, -z
+
+The ``-a``, ``-A`` and ``-R`` options were used to select alternate monitoring modes that offered different patterns of restarting daemons. The "correct" mode (phased restart) is now the default. The -e and -z options used to disable some monitoring aspects, |DAEMON| now always has all monitoring features enabled.
+
+Removing these options should result in correct operation, if it does not please file a bug report.
+
+FILES
+=====
+
+|INSTALL_PREFIX_SBIN|/|DAEMON|
+   The default location of the |DAEMON| binary.
+
+|INSTALL_PREFIX_ETC|/|DAEMON|.conf
+   The default location of the |DAEMON| config file.
+
+$(PWD)/|DAEMON|.log
+   If the |DAEMON| process is configured to output logs to a file, then you
+   will find this file in the directory where you started |DAEMON|.
+
+.. include:: epilogue.rst
+

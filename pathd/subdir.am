@@ -1,0 +1,80 @@
+#
+# pathd
+#
+
+if PATHD
+noinst_LIBRARIES += pathd/libpath.a
+sbin_PROGRAMS += pathd/pathd
+vtysh_daemons += pathd
+# TODO add man page
+#man8 += $(MANBUILD)/pathd.8
+
+if PATHD_PCEP
+module_LTLIBRARIES += pathd/pathd_pcep.la
+endif
+
+endif
+
+pathd_libpath_a_SOURCES = \
+	pathd/path_cli.c \
+	pathd/path_debug.c \
+	pathd/path_errors.c \
+	pathd/path_nb.c \
+	pathd/path_nb_config.c \
+	pathd/path_nb_state.c \
+	pathd/path_ted.c \
+	pathd/path_zebra.c \
+	pathd/pathd.c \
+	# end
+
+clippy_scan += \
+	pathd/path_cli.c \
+	pathd/path_pcep_cli.c \
+	pathd/path_ted.c \
+	# end
+
+noinst_HEADERS += \
+	pathd/path_debug.h \
+	pathd/path_errors.h \
+	pathd/path_nb.h \
+	pathd/path_pcep.h \
+	pathd/path_pcep_cli.h \
+	pathd/path_pcep_controller.h \
+	pathd/path_pcep_debug.h \
+	pathd/path_pcep_lib.h \
+	pathd/path_pcep_config.h \
+	pathd/path_pcep_pcc.h \
+	pathd/path_ted.h \
+	pathd/path_zebra.h \
+	pathd/pathd.h \
+	# end
+
+pathd_pathd_SOURCES = \
+	pathd/path_main.c \
+	# end
+nodist_pathd_pathd_SOURCES = \
+	yang/frr-pathd.yang.c \
+	# end
+pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la -lm $(LIBCAP)
+
+pathd_pathd_pcep_la_SOURCES = \
+	pathd/path_pcep.c \
+	pathd/path_pcep_cli.c \
+	pathd/path_pcep_controller.c \
+	pathd/path_pcep_debug.c \
+	pathd/path_pcep_lib.c \
+	pathd/path_pcep_config.c \
+	pathd/path_pcep_pcc.c \
+	# end
+
+if PATHD_PCEP
+pathd_pathd_pcep_la_CPPFLAGS = -I./pceplib $(AM_CPPFLAGS)
+pathd_pathd_pcep_la_LIBADD = pceplib/libpcep_pcc.la
+else
+pathd_pathd_pcep_la_CPPFLAGS = $(AM_CPPFLAGS)
+pathd_pathd_pcep_la_LIBADD =
+endif
+
+
+#pathd_pathd_pcep_la_CFLAGS = $(AM_CFLAGS)
+pathd_pathd_pcep_la_LDFLAGS = $(MODULE_LDFLAGS)

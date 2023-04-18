@@ -22,7 +22,15 @@ sed -e '/^ip route 198.51.100.0\/28 127.0.0.1/ c ip route 198.51.100.64/28 127.0
 
 service frr reload
 
-vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.64/28 127.0.0.1'
+# wait for the new config to load
+for __t in $(seq 1 10); do
+	if vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.64/28 127.0.0.1'; then
+		break
+	fi
+	sleep "$__t"
+done
+
+# fail if the old config is still loaded
 if vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.0/28 127.0.0.1'; then
 	exit 1
 fi

@@ -1,20 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * clippy (CLI preparator in python) C pseudo-lexer
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* This is just enough of a lexer to make rough sense of a C source file.
@@ -66,6 +53,7 @@ int comment_link;
 char string_end;
 
 char *value;
+static const char *yyfilename;
 
 static void extendbuf(char **what, const char *arg)
 {
@@ -79,6 +67,8 @@ static void extendbuf(char **what, const char *arg)
 	}
 }
 #define extend(x) extendbuf(&value, x)
+
+#ifndef __clang_analyzer__
 
 %}
 
@@ -130,8 +120,17 @@ SPECIAL		[(),]
 					}
 				}
 <rstring>\\\n			/* ignore */
+<rstring>\n			{
+					fprintf(stderr,
+						"%s:%d: string continues past the end of the line\n",
+						yyfilename, yylineno);
+					free(value);
+					value = NULL;
+					BEGIN(INITIAL);
+					return STRING;
+				}
 <rstring>\\.			extend(yytext);
-<rstring>[^\\\"\']+		extend(yytext);
+<rstring>[^\\\"\'\n]+		extend(yytext);
 
 "DEFUN"				value = strdup(yytext); return DEFUNNY;
 "DEFUN_NOSH"			value = strdup(yytext); return DEFUNNY;
@@ -140,6 +139,8 @@ SPECIAL		[(),]
 "DEFPY_NOSH"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_ATTR"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_HIDDEN"			value = strdup(yytext); return DEFUNNY;
+"DEFPY_YANG"			value = strdup(yytext); return DEFUNNY;
+"DEFPY_YANG_NOSH"		value = strdup(yytext); return DEFUNNY;
 "ALIAS"				value = strdup(yytext); return DEFUNNY;
 "ALIAS_HIDDEN"			value = strdup(yytext); return DEFUNNY;
 "install_element"		value = strdup(yytext); return INSTALL;
@@ -154,6 +155,8 @@ SPECIAL		[(),]
 .				/* printf("-- '%s' in init\n", yytext); */ BEGIN(INITIAL); return yytext[0];
 
 %%
+
+#endif /* __clang_analyzer__ */
 
 static int yylex_clr(char **retbuf)
 {
@@ -214,6 +217,10 @@ static PyObject *get_args(const char *filename, int lineno)
 			if (tval[0] == ')')
 				depth--;
 		}
+		if (!tval)
+			return PyErr_Format(PyExc_ValueError,
+					"%s:%d: invalid token in DEFPY parameters",
+					filename, lineno);
 		if (!pyArg)
 			pyArg = PyList_New(0);
 		PyList_Append(pyArg, PyUnicode_FromString(tval));
@@ -238,6 +245,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	int token;
 	yyin = fd;
 	value = NULL;
+	yyfilename = filename;
 
 	PyObject *pyCont = PyDict_New();
 	PyObject *pyObj = PyList_New(0);
@@ -255,6 +263,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 			if (!pyArgs) {
 				free(tval);
 				Py_DECREF(pyCont);
+				yyfilename = NULL;
 				return NULL;
 			}
 			pyItem = PyDict_New();
@@ -283,5 +292,6 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	}
 	def_yylex_destroy();
 	fclose(fd);
+	yyfilename = NULL;
 	return pyCont;
 }

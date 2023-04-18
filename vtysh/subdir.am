@@ -4,9 +4,12 @@
 
 if VTYSH
 bin_PROGRAMS += vtysh/vtysh
-dist_examples_DATA += vtysh/vtysh.conf.sample
 man1 += $(MANBUILD)/vtysh.1
 endif
+
+clippy_scan += \
+	vtysh/vtysh.c \
+	# end
 
 vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_main.c \
@@ -17,7 +20,6 @@ vtysh_vtysh_SOURCES = \
 nodist_vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_cmd.c \
 	# end
-CLEANFILES += vtysh/vtysh_cmd.c
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \
@@ -26,10 +28,14 @@ noinst_HEADERS += \
 
 vtysh_vtysh_LDADD = lib/libfrr.la $(LIBCAP) $(LIBREADLINE) $(LIBS) $(LIBPAM)
 
-AM_V_EXTRACT = $(am__v_EXTRACT_$(V))
-am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))
-am__v_EXTRACT_0 = @echo "  EXTRACT " $@;
-am__v_EXTRACT_1 =
+EXTRA_DIST += vtysh/daemons.pl
 
-vtysh/vtysh_cmd.c: $(vtysh_scan) vtysh/extract.pl
-	$(AM_V_EXTRACT) vtysh/extract.pl $(vtysh_scan) > vtysh/vtysh_cmd.c
+BUILT_SOURCES += vtysh/vtysh_daemons.h
+
+# force vtysh_daemons.h
+$(vtysh_vtysh_OBJECTS): vtysh/vtysh_daemons.h
+
+CLEANFILES += vtysh/vtysh_daemons.h
+vtysh/vtysh_daemons.h:
+	@$(MKDIR_P) vtysh
+	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h

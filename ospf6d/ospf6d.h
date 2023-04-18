@@ -1,33 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF6D_H
 #define OSPF6D_H
 
 #include "libospf.h"
-#include "thread.h"
+#include "frrevent.h"
+#include "memory.h"
 
-#include "ospf6_memory.h"
+DECLARE_MGROUP(OSPF6D);
 
 /* global variables */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Historical for KAME.  */
 #ifndef IPV6_JOIN_GROUP
@@ -47,6 +33,10 @@ extern struct thread_master *master;
 
 #define MSG_OK    0
 #define MSG_NG    1
+
+#define OSPF6_SUCCESS 1
+#define OSPF6_FAILURE 0
+#define OSPF6_INVALID -1
 
 /* cast macro: XXX - these *must* die, ick ick. */
 #define OSPF6_PROCESS(x) ((struct ospf6 *) (x))
@@ -88,11 +78,30 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
-#define OSPF6_CMD_CHECK_RUNNING()                                              \
-	if (ospf6 == NULL) {                                                   \
-		vty_out(vty, "OSPFv3 is not running\n");                       \
-		return CMD_SUCCESS;                                            \
-	}
+#define OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6)                                \
+	do {                                                                   \
+		if (uj == false && all_vrf == false && ospf6 == NULL) {        \
+			vty_out(vty, "%% OSPFv3 instance not found\n");        \
+			return CMD_SUCCESS;                                    \
+		}                                                              \
+	} while (0)
+
+#define IS_OSPF6_ASBR(O) ((O)->flag & OSPF6_FLAG_ASBR)
+#define OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)            \
+	do {                                                                   \
+		if (argv_find(argv, argc, "vrf", &idx_vrf)) {                  \
+			vrf_name = argv[idx_vrf + 1]->arg;                     \
+			all_vrf = strmatch(vrf_name, "all");                   \
+		} else {                                                       \
+			vrf_name = VRF_DEFAULT_NAME;                           \
+		}                                                              \
+	} while (0)
+
+#define OSPF6_FALSE false
+#define OSPF6_TRUE true
+#define OSPF6_SUCCESS 1
+#define OSPF6_FAILURE 0
+#define OSPF6_INVALID -1
 
 extern struct zebra_privs_t ospf6d_privs;
 
@@ -100,6 +109,6 @@ extern struct zebra_privs_t ospf6d_privs;
 extern struct route_node *route_prev(struct route_node *node);
 
 extern void ospf6_debug(void);
-extern void ospf6_init(void);
+extern void ospf6_init(struct event_loop *master);
 
 #endif /* OSPF6D_H */

@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# SPDX-License-Identifier: GPL-2.0-or-later
 ##
 ## Scan a file of route-type definitions (see eg route_types.txt) and
 ## generate a corresponding header file with:
@@ -10,25 +11,10 @@
 ##
 ##
 ## Copyright (C) 2009 David Lamparter.
-## This file is part of GNU Zebra.
-##
-## GNU Zebra is free software; you can redistribute it and/or modify it
-## under the terms of the GNU General Public License as published by the
-## Free Software Foundation; either version 2, or (at your option) any
-## later version.
-##
-## GNU Zebra is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with GNU Zebra; see the file COPYING.  If not, write to the Free
-## Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
 ##
 
 use strict;
+use Getopt::Long;
 
 # input processing
 #
@@ -36,6 +22,11 @@ my @protos;
 my %protodetail;
 
 my %daemons;
+
+my @enabled;
+
+GetOptions ("enabled=s" => \@enabled);
+@enabled = split(/,/,join(',',@enabled));
 
 while (<STDIN>) {
 	# skip comments and empty lines
@@ -56,7 +47,7 @@ while (<STDIN>) {
 
 	# else: 8-field line
 	my @f = split(/,/, $_);
-	unless (@f == 8 || @f == 9) {
+	unless (@f == 9 || @f == 10) {
 		die "invalid input on route_types line $.\n";
 	}
 
@@ -74,7 +65,8 @@ while (<STDIN>) {
 		"ipv6" => int($f[5]),
 		"redist" => int($f[6]),
 		"shorthelp" => $f[7],
-		"restrict2" => $f[8],
+		"enabled" => $f[8],
+		"restrict2" => $f[9],
 	};
 	push @protos, $proto;
 	$daemons{$f[2]} = {
@@ -109,6 +101,7 @@ sub codelist {
 	my (@lines) = ();
 	my $str = "  \"Codes: ";
 	for my $p (@protos) {
+		next unless (grep $_ eq $protodetail{$p}->{"enabled"}, @enabled);
 		my $s = sprintf("%s - %s, ",
 			$protodetail{$p}->{"char"},
 			$protodetail{$p}->{"shorthelp"});
@@ -121,7 +114,10 @@ sub codelist {
 	}
 	$str =~ s/ $//;
 	push @lines, $str . "\\n\" \\\n";
-	push @lines, "  \"       > - selected route, * - FIB route, q - queued route, r - rejected route\\n\\n\"";
+	push @lines, "  \"       > - selected route, * - FIB route, q - queued, r - rejected, b - backup\\n\"";
+	push @lines, "  \"       t - trapped, o - offload failure\\n\\n\"";
+
+
 	return join("", @lines);
 }
 
@@ -138,6 +134,7 @@ sub collect {
 		next if ($protodetail{$p}->{"restrict2"} ne "" && 
 		         $protodetail{$p}->{"restrict2"} ne $daemon);
 		next if ($protodetail{$p}->{"redist"} eq 0);
+		next unless (grep $_ eq $protodetail{$p}->{"enabled"}, @enabled);
 		next unless (($ipv4 && $protodetail{$p}->{"ipv4"})
 			     || ($ipv6 && $protodetail{$p}->{"ipv6"}));
 		push @names, $protodetail{$p}->{"cname"};

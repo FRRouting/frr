@@ -1,0 +1,33 @@
+{
+  "prefix":"203.0.113.0\/30",
+  "paths":[
+    {
+      "multipath":true,
+      "peer":{
+        "peerId":"10.0.5.2",
+        "routerId":"10.0.5.2",
+        "type":"confed-external"
+      }
+    },
+    {
+      "multipath":true,
+      "bestpath":{
+        "overall":true,
+        "selectionReason":"Peer Type"
+      },
+      "peer":{
+        "peerId":"10.0.4.2",
+        "routerId":"10.0.4.2",
+        "type":"external"
+      }
+    },
+    {
+      "multipath":true,
+      "peer":{
+        "peerId":"10.0.1.2",
+        "routerId":"10.0.1.2",
+        "type":"confed-internal"
+      }
+    }
+  ]
+}

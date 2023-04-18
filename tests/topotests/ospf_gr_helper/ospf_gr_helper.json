@@ -1,0 +1,119 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 24
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32
+    },
+    "switches": {
+        "s1": {
+            "links": {
+                "r0": {
+                    "ipv4": "17.1.1.2/24",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 98
+                    }
+                },
+                "r1": {
+                    "ipv4": "17.1.1.1/24",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 99
+                    }
+                },
+                "r2": {
+                    "ipv4": "17.1.1.3/24",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                },
+                "r3": {
+                    "ipv4": "17.1.1.4/24",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                }
+            }
+        }
+    },
+    "routers": {
+        "r0": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf": {
+                "router_id": "100.1.1.0",
+                "neighbors": {
+                    "r1": {},
+                    "r2": {},
+                    "r3": {}
+                }
+            }
+        },
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf": {
+                "router_id": "1.1.1.1",
+                "neighbors": {
+                    "r0": {},
+                    "r2": {},
+                    "r3": {}
+                }
+            },
+            "opq_lsa_hex": "01005e00000570708bd051ef080045c0005cc18b0000015904f711010101e00000050204004801010101000000001e8d0000000000000000000000000001000102090300000001010101800000013bd1002c000100040000070800020001010000000003000411010101"
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf": {
+                "router_id": "100.1.1.2",
+                "neighbors": {
+                    "r1": {},
+                    "r0": {}
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf": {
+                "router_id": "100.1.1.3",
+                "neighbors": {
+                    "r0": {},
+                    "r1": {}
+                }
+            }
+        }
+    }
+}

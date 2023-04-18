@@ -29,7 +29,7 @@ uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r,
 		if (++p->next_request_id == 0)
 			p->next_request_id = 1;
 		r->cb = cb;
-		hash_get(p->reqid_hash, r, hash_alloc_intern);
+		(void)hash_get(p->reqid_hash, r, hash_alloc_intern);
 	}
 	return r->request_id;
 }

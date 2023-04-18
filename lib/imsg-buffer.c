@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: ISC
 /*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include <zebra.h>
@@ -30,10 +19,10 @@ struct ibuf *ibuf_open(size_t len)
 	struct ibuf *buf;
 
 	if ((buf = calloc(1, sizeof(struct ibuf))) == NULL)
-		return (NULL);
+		return NULL;
 	if ((buf->buf = malloc(len)) == NULL) {
 		free(buf);
-		return (NULL);
+		return NULL;
 	}
 	buf->size = buf->max = len;
 	buf->fd = -1;
@@ -46,10 +35,10 @@ struct ibuf *ibuf_dynamic(size_t len, size_t max)
 	struct ibuf *buf;
 
 	if (max < len)
-		return (NULL);
+		return NULL;
 
 	if ((buf = ibuf_open(len)) == NULL)
-		return (NULL);
+		return NULL;
 
 	if (max > 0)
 		buf->max = max;
@@ -64,27 +53,27 @@ static int ibuf_realloc(struct ibuf *buf, size_t len)
 	/* on static buffers max is eq size and so the following fails */
 	if (buf->wpos + len > buf->max) {
 		errno = ERANGE;
-		return (-1);
+		return -1;
 	}
 
 	b = realloc(buf->buf, buf->wpos + len);
 	if (b == NULL)
-		return (-1);
+		return -1;
 	buf->buf = b;
 	buf->size = buf->wpos + len;
 
-	return (0);
+	return 0;
 }
 
 int ibuf_add(struct ibuf *buf, const void *data, size_t len)
 {
 	if (buf->wpos + len > buf->size)
 		if (ibuf_realloc(buf, len) == -1)
-			return (-1);
+			return -1;
 
 	memcpy(buf->buf + buf->wpos, data, len);
 	buf->wpos += len;
-	return (0);
+	return 0;
 }
 
 void *ibuf_reserve(struct ibuf *buf, size_t len)
@@ -93,7 +82,7 @@ void *ibuf_reserve(struct ibuf *buf, size_t len)
 
 	if (buf->wpos + len > buf->size)
 		if (ibuf_realloc(buf, len) == -1)
-			return (NULL);
+			return NULL;
 
 	b = buf->buf + buf->wpos;
 	buf->wpos += len;
@@ -104,7 +93,7 @@ void *ibuf_seek(struct ibuf *buf, size_t pos, size_t len)
 {
 	/* only allowed to seek in already written parts */
 	if (pos + len > buf->wpos)
-		return (NULL);
+		return NULL;
 
 	return (buf->buf + pos);
 }
@@ -146,17 +135,17 @@ again:
 			goto again;
 		if (errno == ENOBUFS)
 			errno = EAGAIN;
-		return (-1);
+		return -1;
 	}
 
 	if (n == 0) { /* connection closed */
 		errno = 0;
-		return (0);
+		return 0;
 	}
 
 	msgbuf_drain(msgbuf, n);
 
-	return (1);
+	return 1;
 }
 
 void ibuf_free(struct ibuf *buf)
@@ -246,12 +235,12 @@ again:
 			goto again;
 		if (errno == ENOBUFS)
 			errno = EAGAIN;
-		return (-1);
+		return -1;
 	}
 
 	if (n == 0) { /* connection closed */
 		errno = 0;
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -265,7 +254,7 @@ again:
 
 	msgbuf_drain(msgbuf, n);
 
-	return (1);
+	return 1;
 }
 
 static void ibuf_enqueue(struct msgbuf *msgbuf, struct ibuf *buf)

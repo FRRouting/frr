@@ -1,0 +1,1369 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-bgp {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/bgp";
+  prefix frr-bgp;
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  include "frr-bgp-common";
+
+  include "frr-bgp-common-structure";
+
+  include "frr-bgp-common-multiprotocol";
+
+  include "frr-bgp-neighbor";
+
+  include "frr-bgp-peer-group";
+
+  include "frr-bgp-bmp";
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR bgpd daemon.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  identity bgp {
+    base frr-rt:routing-protocol;
+    description
+      "BGP protocol.";
+  }
+
+  grouping mp-afi-unicast-common {
+    uses global-group-use-multiple-paths;
+
+    uses global-redistribute;
+
+    uses admin-distance;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
+    container bgp {
+      when "../frr-rt:type = 'frr-bgp:bgp'" {
+        description
+          "BGP protocol augmentation of ietf-routing module
+           control-plane-protocol.";
+      }
+      presence "Enables configuration of BGP";
+      description
+        "Top-level configuration for the BGP router.";
+      container global {
+        description
+          "Global configuration for the BGP router.";
+        leaf local-as {
+          type inet:as-number;
+          mandatory true;
+          description
+            "Local autonomous system number of the router.  Uses
+             the 32-bit as-number type from the model in RFC 6991.";
+        }
+
+        uses frr-rt:router-id;
+
+        container confederation {
+          description
+            "Configuration options specifying parameters when the
+             local router is within an autonomous system which is
+             part of a BGP confederation.";
+          leaf identifier {
+            type inet:as-number;
+            description
+              "Confederation identifier for the autonomous system.";
+          }
+
+          leaf-list member-as {
+            type inet:as-number;
+            description
+              "Remote autonomous systems that are to be treated
+               as part of the local confederation.";
+          }
+        }
+
+        uses med-config;
+
+        uses route-reflector-config;
+
+        uses route-selection-options;
+
+        uses global-neighbor-config;
+
+        container graceful-restart {
+          description
+            "Parameters relating the graceful restart mechanism for
+             BGP.";
+          uses graceful-restart-config;
+        }
+
+        uses global-update-group-config;
+
+        uses global-config-timers;
+
+        uses global-bgp-config;
+
+        uses global-network-config;
+
+        uses global-graceful-shutdown;
+
+        uses global-bmp-config;
+
+        container afi-safis {
+          description
+            "List of address-families associated with the BGP
+             instance.";
+          list afi-safi {
+            key "afi-safi-name";
+            description
+              "AFI, SAFI configuration available for the
+               neighbour or group.";
+            uses mp-afi-safi-config;
+
+            uses mp-all-afi-safi-list-contents;
+          }
+        }
+      }
+
+      container neighbors {
+        description
+          "Configuration for BGP neighbors.";
+        list neighbor {
+          key "remote-address";
+          description
+            "List of BGP neighbors configured on the local system,
+             uniquely identified by remote IPv[46] address.";
+          leaf remote-address {
+            type inet:ip-address;
+            description
+              "The remote IP address of this entry's BGP peer.";
+          }
+
+          leaf local-interface {
+            type frr-interface:interface-ref {
+              require-instance false;
+            }
+            description
+              "Neighbor's interface name.";
+          }
+
+          leaf local-port {
+            type inet:port-number {
+              range "0..65535";
+            }
+            description
+              "Neighbor's BGP TCP port number.";
+          }
+
+          leaf peer-group {
+            type leafref {
+              path "../../../peer-groups/peer-group/peer-group-name";
+            }
+            description
+              "The peer-group with which this neighbor is associated.";
+          }
+
+          container neighbor-remote-as {
+            leaf remote-as-type {
+              type frr-bt:as-type;
+              mandatory true;
+              description
+                "Remote AS type.";
+            }
+
+            leaf remote-as {
+              when "../remote-as-type = 'as-specified'";
+              type inet:as-number;
+              description
+                "The remote autonomous system number received in
+                 the BGP OPEN message.";
+              reference
+                "RFC 4271";
+            }
+          }
+
+          uses neighbor-parameters;
+
+          uses structure-neighbor-group-capability-options;
+        }
+
+        list unnumbered-neighbor {
+          key "interface";
+          description
+            "List of BGP neighbors configured on the local system,
+             uniquely identified by interfaces.";
+          leaf interface {
+            type frr-interface:interface-ref {
+              require-instance false;
+            }
+            description
+              "The local interface of this entry's BGP peer.";
+          }
+
+          leaf v6only {
+            type boolean;
+            default "false";
+            description
+              "When set to 'true' it will create a neighbor with v6
+               link local only.";
+          }
+
+          leaf peer-group {
+            type leafref {
+              path "../../../peer-groups/peer-group/peer-group-name";
+            }
+            description
+              "The peer-group with which this neighbor is associated.";
+          }
+
+          uses neighbor-remote-as;
+
+          uses neighbor-parameters;
+
+          uses structure-neighbor-group-capability-options {
+            refine "frr-bgp:capability-options/extended-nexthop-capability" {
+              default "true";
+            }
+          }
+        }
+      }
+
+      container peer-groups {
+        description
+          "Configuration for BGP peer-groups.";
+        uses bgp-peer-group-list;
+      }
+    }
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-unicast" {
+    list network-config {
+      key "prefix";
+      description
+        "A list of network routes.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "IPv4 destination prefix.";
+      }
+
+      leaf backdoor {
+        type boolean;
+        default "false";
+        description
+          "Specify a BGP backdoor route.";
+      }
+
+      uses mp-afi-safi-network-config;
+    }
+
+    list aggregate-route {
+      key "prefix";
+      description
+        "A list of aggregated routes.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "IPv4 destination prefix.";
+      }
+
+      uses mp-afi-safi-agg-route-config;
+    }
+
+    list admin-distance-route {
+      key "prefix";
+      description
+        "A list of routes with a particular admin distance.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "IPv4 destination prefix.";
+      }
+
+      uses distance-per-route-config;
+    }
+
+    uses route-flap-dampening;
+
+    uses mp-afi-unicast-common;
+
+    uses global-filter-config;
+
+    uses global-afi-safi-vpn-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-unicast" {
+    list network-config {
+      key "prefix";
+      description
+        "A list of network routes.";
+      leaf prefix {
+        type inet:ipv6-prefix;
+        description
+          "IPv6 destination prefix.";
+      }
+
+      leaf backdoor {
+        type boolean;
+        default "false";
+        description
+          "Specify a BGP backdoor route.";
+      }
+
+      uses mp-afi-safi-network-config;
+    }
+
+    list aggregate-route {
+      key "prefix";
+      description
+        "A list of aggregated routes.";
+      leaf prefix {
+        type inet:ipv6-prefix;
+        description
+          "IPv6 destination prefix.";
+      }
+
+      uses mp-afi-safi-agg-route-config;
+    }
+
+    list admin-distance-route {
+      key "prefix";
+      description
+        "A list of routes with a particular admin distance.";
+      leaf prefix {
+        type inet:ipv6-prefix;
+        description
+          "IPv6 destination prefix.";
+      }
+
+      uses distance-per-route-config;
+    }
+
+    uses route-flap-dampening;
+
+    uses mp-afi-unicast-common;
+
+    uses global-filter-config;
+
+    uses global-afi-safi-vpn-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    uses global-group-use-multiple-paths;
+
+    uses route-flap-dampening;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    uses global-group-use-multiple-paths;
+
+    uses route-flap-dampening;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-multicast" {
+    list network-config {
+      key "prefix";
+      description
+        "A list of network routes.";
+      leaf prefix {
+        type frr-route-types:ipv4-multicast-group-prefix;
+        description
+          "IPv4 multicast destination prefix.";
+      }
+
+      leaf backdoor {
+        type boolean;
+        default "false";
+        description
+          "Specify a BGP backdoor route.";
+      }
+
+      uses mp-afi-safi-network-config;
+    }
+
+    list aggregate-route {
+      key "prefix";
+      description
+        "A list of aggregated routes.";
+      leaf prefix {
+        type frr-route-types:ipv4-multicast-group-prefix;
+        description
+          "IPv4 multicast destination prefix.";
+      }
+
+      uses mp-afi-safi-agg-route-config;
+    }
+
+    list admin-distance-route {
+      key "prefix";
+      description
+        "A list of routes with a particular admin distance.";
+      leaf prefix {
+        type frr-route-types:ipv4-multicast-group-prefix;
+        description
+          "IPv4 multicast destination prefix.";
+      }
+
+      uses distance-per-route-config;
+    }
+
+    uses admin-distance;
+
+    uses route-flap-dampening;
+
+    uses global-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv6-multicast" {
+    list network-config {
+      key "prefix";
+      description
+        "A list of network routes.";
+      leaf prefix {
+        type frr-route-types:ipv6-multicast-group-prefix;
+        description
+          "IPv6 multicast destination prefix.";
+      }
+
+      leaf backdoor {
+        type boolean;
+        default "false";
+        description
+          "Specify a BGP backdoor route.";
+      }
+
+      uses mp-afi-safi-network-config;
+    }
+
+    list aggregate-route {
+      key "prefix";
+      description
+        "A list of aggregated routes.";
+      leaf prefix {
+        type frr-route-types:ipv6-multicast-group-prefix;
+        description
+          "IPv6 multicast destination prefix.";
+      }
+
+      uses mp-afi-safi-agg-route-config;
+    }
+
+    list admin-distance-route {
+      key "prefix";
+      description
+        "A list of routes with a particular admin distance.";
+      leaf prefix {
+        type frr-route-types:ipv6-multicast-group-prefix;
+        description
+          "IPv6 multicast destination prefix.";
+      }
+
+      uses distance-per-route-config;
+    }
+
+    uses route-flap-dampening;
+
+    uses admin-distance;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/ipv4-flowspec" {
+    uses flow-spec-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    uses global-afi-safi-vpn-network-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    uses global-afi-safi-vpn-network-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast" {
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-multicast" {
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-unicast" {
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv6-multicast" {
+    uses bmp-afi-safi-common-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-unicast" {
+    leaf nexthop-local-unchanged {
+      type boolean;
+      default "false";
+      description
+        "Configure treatment of outgoing link-local nexthop attribute.
+         When set to 'true' it leaves link-local nexthop unchanged
+         for this peer.";
+    }
+
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-multicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-multicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+   }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/l2vpn-evpn" {
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-unicast" {
+    leaf nexthop-local-unchanged {
+      type boolean;
+      default "false";
+      description
+        "Configure treatment of outgoing link-local nexthop attribute.
+         When set to 'true' it leaves link-local nexthop unchanged
+         for this peer.";
+    }
+
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-multicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-multicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn" {
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-unicast" {
+    leaf nexthop-local-unchanged {
+      type boolean;
+      default "false";
+      description
+        "Configure treatment of outgoing link-local nexthop attribute.
+         When set to 'true' it leaves link-local nexthop unchanged
+         for this peer.";
+    }
+
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-multicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-multicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-labeled-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-labeled-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-default-originate-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-group-orf-capability;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv4-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
+    uses structure-neighbor-group-add-paths;
+
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-private-as;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-send-community;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/l2vpn-evpn" {
+    uses structure-neighbor-group-as-path-options;
+
+    uses structure-neighbor-group-attr-unchanged;
+
+    uses structure-neighbor-nexthop-self;
+
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+}

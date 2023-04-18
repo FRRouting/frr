@@ -1,0 +1,21 @@
+{
+  "r1-eth0":{
+    "name":"r1-eth0",
+    "state":"up",
+    "address":"192.168.100.1",
+    "flagMulticast":true,
+    "flagBroadcast":true,
+    "lanDelayEnabled":true,
+    "239.100.0.70":{
+      "*":{
+        "source":"*",
+        "group":"239.100.0.70",
+        "upTime":"--:--:--",
+        "expire":"--:--",
+        "prune":"--:--",
+        "channelJoinName":"NOINFO",
+        "protocolIgmp":1
+      }
+    }
+  }
+}

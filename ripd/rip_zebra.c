@@ -1,21 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* RIPd and zebra interface.
  * Copyright (C) 1997, 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -88,18 +73,16 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 
 	if (IS_RIP_DEBUG_ZEBRA) {
 		if (rip->ecmp)
-			zlog_debug("%s: %s/%d nexthops %d",
+			zlog_debug("%s: %pFX nexthops %d",
 				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
-				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen,
-				   count);
+				   &rp->p, count);
 		else
-			zlog_debug("%s: %s/%d",
+			zlog_debug("%s: %pFX",
 				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
-					   : "Delete from zebra",
-				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen);
+					   : "Delete from zebra", &rp->p);
 	}
 
 	rip->counters.route_changes++;
@@ -151,8 +134,8 @@ static int rip_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 void rip_redistribute_conf_update(struct rip *rip, int type)
 {
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
-			     0, rip->vrf->vrf_id);
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+				type, 0, rip->vrf->vrf_id);
 }
 
 void rip_redistribute_conf_delete(struct rip *rip, int type)
@@ -232,17 +215,21 @@ static void rip_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
-void rip_zclient_init(struct thread_master *master)
+zclient_handler *const rip_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = rip_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = rip_interface_address_delete,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = rip_interface_vrf_update,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = rip_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = rip_zebra_read_route,
+};
+
+void rip_zclient_init(struct event_loop *master)
 {
 	/* Set default value to the zebra client structure. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, rip_handlers,
+			      array_size(rip_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_RIP, 0, &ripd_privs);
 	zclient->zebra_connected = rip_zebra_connected;
-	zclient->interface_address_add = rip_interface_address_add;
-	zclient->interface_address_delete = rip_interface_address_delete;
-	zclient->interface_vrf_update = rip_interface_vrf_update;
-	zclient->redistribute_route_add = rip_zebra_read_route;
-	zclient->redistribute_route_del = rip_zebra_read_route;
 }
 
 void rip_zclient_stop(void)

@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _QUAGGA_BGP_RFAPI_CFG_H
@@ -24,7 +11,7 @@
 #include "lib/table.h"
 #include "lib/routemap.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "rfapi.h"
 
 struct rfapi_l2_group_cfg {
@@ -35,9 +22,9 @@ struct rfapi_l2_group_cfg {
 	struct ecommunity *rt_export_list;
 	void *rfp_cfg; /* rfp owned group config */
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(rfapi_l2_group_cfg)
+DECLARE_QOBJ_TYPE(rfapi_l2_group_cfg);
 
 typedef enum {
 	RFAPI_GROUP_CFG_NVE = 1,
@@ -108,9 +95,9 @@ struct rfapi_nve_group_cfg {
 	/* for VRF type groups */
 	uint32_t label;
 	struct rfapi_descriptor *rfd;
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(rfapi_nve_group_cfg)
+DECLARE_QOBJ_TYPE(rfapi_nve_group_cfg);
 
 struct rfapi_rfg_name {
 	struct rfapi_nve_group_cfg *rfg;

@@ -53,6 +53,10 @@ OPTIONS available for the vtysh command:
 
    When executing cli that does not invoke a vtysh shell, if an error ocurrs ignore it for purposes of return codes from vtysh.
 
+.. option:: -H, --histfile
+
+   Override the history file for vtysh commands. You can set ``vtysh -H /dev/null`` to turn logging of at all.
+
 .. option:: -u, --user
 
    Restrict access to configuration commands by preventing use of the "enable" command. This option provides the same limited "security" as password-protected telnet access. *This security should not be relied on in production environments.*
@@ -63,10 +67,23 @@ OPTIONS available for the vtysh command:
 
    Display a usage message on standard output and exit.
 
+.. option:: -t, --timestamp
+
+   Print a timestamp before going to shell or reading the configuration file.
+
+.. option:: --no-fork
+
+   When used in conjunction with ``-b``, prevents vtysh from forking children to handle configuring each target daemon.
+
+
 ENVIRONMENT VARIABLES
 =====================
 VTYSH_PAGER
    This should be the name of the pager to use. Default is more.
+
+VTYSH_HISTFILE
+   Override the history file for vtysh commands. Logging can be turned off using ``VTYSH_HISTFILE=/dev/null vtysh``.
+   Environment is preferred way to override the history file path over command line argument (-H/--histfile).
 
 FILES
 =====

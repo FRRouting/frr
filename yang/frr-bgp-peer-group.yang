@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: BSD-2-Clause
+submodule frr-bgp-peer-group {
+  yang-version 1.1;
+
+  belongs-to frr-bgp {
+    prefix "bgp";
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-bgp-types {
+    prefix frr-bt;
+  }
+
+  include "frr-bgp-common-structure";
+
+  include "frr-bgp-neighbor";
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This submodule contains general data definitions for use in BGP
+     peer group.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  grouping bgp-peer-group-base {
+    description
+      "Parameters related to a BGP group.";
+    leaf peer-group-name {
+      type string;
+      description
+        "Name of the BGP peer-group.";
+    }
+
+    leaf-list ipv4-listen-range {
+      type inet:ipv4-address;
+      description
+        "Configure BGP dynamic neighbors listen range.";
+    }
+
+    leaf-list ipv6-listen-range {
+      type inet:ipv6-address;
+      description
+        "Configure BGP dynamic neighbors listen range.";
+    }
+
+    uses neighbor-remote-as;
+
+    uses neighbor-parameters;
+
+    uses structure-neighbor-group-capability-options;
+  }
+
+  grouping bgp-peer-group-list {
+    description
+      "The list of BGP peer groups.";
+    list peer-group {
+      key "peer-group-name";
+      description
+        "List of BGP peer-groups configured on the local system -
+         uniquely identified by peer-group name.";
+      uses bgp-peer-group-base;
+    }
+  }
+}

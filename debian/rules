@@ -21,23 +21,26 @@ else
   CONF_RPKI=--disable-rpki
 endif
 
-ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
-  DH_WITH_SYSTEMD=systemd,
-  CONF_SYSTEMD=--enable-systemd=yes
+ifeq ($(filter pkg.frr.lua,$(DEB_BUILD_PROFILES)),)
+  CONF_LUA=--disable-scripting
 else
-  DH_WITH_SYSTEMD=
-  CONF_SYSTEMD=--enable-systemd=no
+  CONF_LUA=--enable-scripting
+endif
+
+ifeq ($(filter pkg.frr.nopim6d,$(DEB_BUILD_PROFILES)),)
+  CONF_PIM6=--enable-pim6d
+else
+  CONF_PIM6=--disable-pim6d
 endif
 
 export PYTHON=python3
 
 %:
-	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel
+	dh $@ -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
 	dh_auto_configure -- \
-		--enable-exampledir=/usr/share/doc/frr/examples/ \
 		--localstatedir=/var/run/frr \
 		--sbindir=/usr/lib/frr \
 		--sysconfdir=/etc/frr \
@@ -47,8 +50,9 @@ override_dh_auto_configure:
 		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
 		--disable-dependency-tracking \
 		\
-		$(CONF_SYSTEMD) \
 		$(CONF_RPKI) \
+		$(CONF_LUA) \
+		$(CONF_PIM6) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
@@ -72,12 +76,13 @@ override_dh_auto_install:
 
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr-reload.py
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/generate_support_bundle.py
+	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr_babeltrace.py
+	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/ospfclient.py
 
 # let dh_systemd_* and dh_installinit do their thing automatically
-ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
-	cp tools/frr.service debian/frr.service
-endif
-	cp tools/frrinit.sh debian/frr.init
+	cp build/tools/frr.service debian/frr.service
+	cp build/tools/frr@.service debian/frr@.service
+	cp build/tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 
 # install config files
@@ -85,18 +90,10 @@ endif
 	cp -r tools/etc/* debian/tmp/etc/
 	-rm debian/tmp/etc/frr/daemons.conf
 
-	sed -e 's#^!log file #!log file /var/log/frr/#' -i debian/tmp/usr/share/doc/frr/examples/*sample*
-
 # drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
 	-rm debian/tmp/usr/lib/frr/ssd
-
-# use installed js libraries
-	-rm -f debian/tmp/usr/share/doc/frr/html/_static/jquery.js
-	ln -s /usr/share/javascript/jquery/jquery.js debian/tmp/usr/share/doc/frr/html/_static/jquery.js
-	-rm -f debian/tmp/usr/share/doc/frr/html/_static/underscore.js
-	ln -s /usr/share/javascript/underscore/underscore.js debian/tmp/usr/share/doc/frr/html/_static/underscore.js
 
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
@@ -113,9 +110,15 @@ override_dh_makeshlibs:
 override_dh_missing:
 	dh_missing --fail-missing
 
+ifneq ($(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
+override_dh_auto_test:
+	true
+endif
+
 override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both
 # debian/changelog and config.version
 	if test -f Makefile; then make redistclean; fi
 	-rm -f debian/frr.init
 	-rm -f debian/frr.service
+	-rm -f debian/frr@.service
