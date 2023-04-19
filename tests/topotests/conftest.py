@@ -68,6 +68,12 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--pause-at-end",
+        action="store_true",
+        help="Pause before taking munet down",
+    )
+
+    parser.addoption(
         "--pause-on-error",
         action="store_true",
         help="Do not pause after (disables default when --shell or -vtysh given)",
@@ -78,6 +84,13 @@ def pytest_addoption(parser):
         dest="pause_on_error",
         action="store_false",
         help="Do not pause after (disables default when --shell or -vtysh given)",
+    )
+
+    parser.addoption(
+        "--pcap",
+        default="",
+        metavar="NET[,NET...]",
+        help="Comma-separated list of networks to capture packets on, or 'all'",
     )
 
     rundir_help = "directory for running in and log files"

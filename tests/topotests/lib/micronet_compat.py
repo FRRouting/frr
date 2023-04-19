@@ -377,6 +377,24 @@ ff02::2\tip6-allrouters
 
     def start(self):
         """Start the micronet topology."""
+        pcapopt = self.cfgopt.get_option_list("--pcap")
+        if "all" in pcapopt:
+            pcapopt = self.switches.keys()
+        for pcap in pcapopt:
+            if ":" in pcap:
+                host, intf = pcap.split(":")
+                pcap = f"{host}-{intf}"
+                host = self.hosts[host]
+            else:
+                host = self
+                intf = pcap
+            pcapfile = f"{self.rundir}/capture-{pcap}.pcap"
+            host.run_in_window(
+                f"tshark -s 9200 -i {intf} -P -w {pcapfile}",
+                background=True,
+                title=f"cap:{pcap}",
+            )
+
         self.logger.debug("%s: Starting (no-op).", self)
 
     def stop(self):

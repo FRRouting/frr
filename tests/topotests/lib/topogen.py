@@ -43,6 +43,7 @@ import lib.topolog as topolog
 from lib.micronet import Commander
 from lib.micronet_compat import Mininet
 from lib.topolog import logger
+from munet.testing.util import pause_test
 
 from lib import topotest
 
@@ -450,7 +451,18 @@ class Topogen(object):
         first is a simple kill with no sleep, the second will sleep if not
         killed and try with a different signal.
         """
+        pause = bool(self.net.cfgopt.get_option("--pause-at-end"))
+        pause = pause or bool(self.net.cfgopt.get_option("--pause"))
+        if pause:
+            try:
+                pause_test("Before MUNET delete")
+            except KeyboardInterrupt:
+                print("^C...continuing")
+            except Exception as error:
+                self.logger.error("\n...continuing after error: %s", error)
+
         logger.info("stopping topology: {}".format(self.modname))
+
         errors = ""
         for gear in self.gears.values():
             errors += gear.stop()
