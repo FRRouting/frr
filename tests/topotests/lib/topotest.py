@@ -1747,6 +1747,16 @@ class Router(Node):
                 os.path.join(self.daemondir, "bgpd") + " -v"
             ).split()[2]
             logger.info("{}: running version: {}".format(self.name, self.version))
+
+        logd_options = {}
+        for logd in g_pytest_config.get_option("--logd", []):
+            if "," in logd:
+                daemon, routers = logd.split(",", 1)
+                logd_options[daemon] = routers.split(",")
+            else:
+                daemon = logd
+                logd_options[daemon] = ["all"]
+
         # If `daemons` was specified then some upper API called us with
         # specific daemons, otherwise just use our own configuration.
         daemons_list = []
@@ -1757,6 +1767,8 @@ class Router(Node):
             for daemon in self.daemons:
                 if self.daemons[daemon] == 1:
                     daemons_list.append(daemon)
+
+        tail_log_files = []
 
         def start_daemon(daemon, extra_opts=None):
             daemon_opts = self.daemons_options.get(daemon, "")
@@ -1796,9 +1808,16 @@ class Router(Node):
                         daemon, self.logdir, self.name
                     )
 
-                cmdopt = "{} --command-log-always --log file:{}.log --log-level debug".format(
-                    daemon_opts, daemon
-                )
+                cmdopt = "{} --command-log-always ".format(daemon_opts)
+                cmdopt += "--log file:{}.log --log-level debug".format(daemon)
+
+                if daemon in logd_options:
+                    logdopt = logd_options[daemon]
+                    if "all" in logdopt or self.name in logdopt:
+                        tail_log_files.append(
+                            "{}/{}/{}.log".format(self.logdir, self.name, daemon)
+                        )
+
             if extra_opts:
                 cmdopt += " " + extra_opts
 
@@ -1892,6 +1911,14 @@ class Router(Node):
         # Update the permissions on the log files
         self.cmd("chown frr:frr -R {}/{}".format(self.logdir, self.name))
         self.cmd("chmod ug+rwX,o+r -R {}/{}".format(self.logdir, self.name))
+
+        if "frr" in logd_options:
+            logdopt = logd_options["frr"]
+            if "all" in logdopt or self.name in logdopt:
+                tail_log_files.append("{}/{}/frr.log".format(self.logdir, self.name))
+
+        for tailf in tail_log_files:
+            self.run_in_window("tail -f " + tailf, title=tailf, background=True)
 
         return ""
 

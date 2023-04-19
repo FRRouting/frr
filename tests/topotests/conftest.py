@@ -62,6 +62,16 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--logd",
+        action="append",
+        metavar="DAEMON[,ROUTER[,...]",
+        help=(
+            "Tail-F of DAEMON log file. Specify routers in comma-separated list after "
+            "daemon to limit to a subset of routers"
+        ),
+    )
+
+    parser.addoption(
         "--pause",
         action="store_true",
         help="Pause after each test",
