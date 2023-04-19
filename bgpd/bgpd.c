@@ -3654,9 +3654,9 @@ static void bgp_zclient_set_redist(afi_t afi, int type, unsigned short instance,
 					    instance);
 	} else {
 		if (set)
-			vrf_bitmap_set(zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_set(&zclient->redist[afi][type], vrf_id);
 		else
-			vrf_bitmap_unset(zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_unset(&zclient->redist[afi][type], vrf_id);
 	}
 }
 

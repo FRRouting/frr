@@ -154,11 +154,11 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		redist_on =
 			is_default_prefix4(&p)
 				? vrf_bitmap_check(
-					zclient->default_information[AFI_IP],
-					ospf->vrf_id)
-				: (zclient->mi_redist[AFI_IP][type].enabled
-				   || vrf_bitmap_check(
-					   zclient->redist[AFI_IP][type],
+					  &zclient->default_information[AFI_IP],
+					  ospf->vrf_id)
+				: (zclient->mi_redist[AFI_IP][type].enabled ||
+				   vrf_bitmap_check(
+					   &zclient->redist[AFI_IP][type],
 					   ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {

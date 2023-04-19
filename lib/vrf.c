@@ -384,54 +384,80 @@ static void vrf_hash_bitmap_free(void *data)
 	XFREE(MTYPE_VRF_BITMAP, bit);
 }
 
-vrf_bitmap_t vrf_bitmap_init(void)
+void vrf_bitmap_init(vrf_bitmap_t *pbmap)
 {
-	return hash_create_size(32, vrf_hash_bitmap_key, vrf_hash_bitmap_cmp,
-				"VRF BIT HASH");
+	*pbmap = NULL;
 }
 
-void vrf_bitmap_free(vrf_bitmap_t bmap)
+void vrf_bitmap_free(vrf_bitmap_t *pbmap)
 {
-	struct hash *vrf_hash = bmap;
+	struct hash *vrf_hash;
+
+	if (!*pbmap)
+		return;
+
+	vrf_hash = *pbmap;
 
 	hash_clean_and_free(&vrf_hash, vrf_hash_bitmap_free);
 }
 
-void vrf_bitmap_set(vrf_bitmap_t bmap, vrf_id_t vrf_id)
+void vrf_bitmap_set(vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
 {
 	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
-	struct hash *vrf_hash = bmap;
+	struct hash *vrf_hash;
 	struct vrf_bit_set *bit;
 
-	if (vrf_hash == NULL || vrf_id == VRF_UNKNOWN)
+	if (vrf_id == VRF_UNKNOWN)
 		return;
+
+	if (!*pbmap)
+		*pbmap = vrf_hash =
+			hash_create_size(2, vrf_hash_bitmap_key,
+					 vrf_hash_bitmap_cmp, "VRF BIT HASH");
+	else
+		vrf_hash = *pbmap;
 
 	bit = hash_get(vrf_hash, &lookup, vrf_hash_bitmap_alloc);
 	bit->set = true;
 }
 
-void vrf_bitmap_unset(vrf_bitmap_t bmap, vrf_id_t vrf_id)
+void vrf_bitmap_unset(vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
 {
 	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
-	struct hash *vrf_hash = bmap;
+	struct hash *vrf_hash;
 	struct vrf_bit_set *bit;
 
-	if (vrf_hash == NULL || vrf_id == VRF_UNKNOWN)
+	if (vrf_id == VRF_UNKNOWN)
 		return;
 
-	bit = hash_get(vrf_hash, &lookup, vrf_hash_bitmap_alloc);
+	/*
+	 * If the hash is not created then unsetting is unnecessary
+	 */
+	if (!*pbmap)
+		return;
+
+	vrf_hash = *pbmap;
+
+	/*
+	 * If we can't look it up, no need to unset it!
+	 */
+	bit = hash_lookup(vrf_hash, &lookup);
+	if (!bit)
+		return;
+
 	bit->set = false;
 }
 
-int vrf_bitmap_check(vrf_bitmap_t bmap, vrf_id_t vrf_id)
+int vrf_bitmap_check(vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
 {
 	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
-	struct hash *vrf_hash = bmap;
+	struct hash *vrf_hash;
 	struct vrf_bit_set *bit;
 
-	if (vrf_hash == NULL || vrf_id == VRF_UNKNOWN)
+	if (!*pbmap || vrf_id == VRF_UNKNOWN)
 		return 0;
 
+	vrf_hash = *pbmap;
 	bit = hash_lookup(vrf_hash, &lookup);
 	if (bit)
 		return bit->set;

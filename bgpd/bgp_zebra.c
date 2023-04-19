@@ -1911,7 +1911,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 
 		redist_add_instance(&zclient->mi_redist[afi][type], instance);
 	} else {
-		if (vrf_bitmap_check(zclient->redist[afi][type], bgp->vrf_id))
+		if (vrf_bitmap_check(&zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
 
 #ifdef ENABLE_BGP_VNC
@@ -1921,7 +1921,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 		}
 #endif
 
-		vrf_bitmap_set(zclient->redist[afi][type], bgp->vrf_id);
+		vrf_bitmap_set(&zclient->redist[afi][type], bgp->vrf_id);
 	}
 
 	/*
@@ -2042,9 +2042,9 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 			return CMD_WARNING;
 		redist_del_instance(&zclient->mi_redist[afi][type], instance);
 	} else {
-		if (!vrf_bitmap_check(zclient->redist[afi][type], bgp->vrf_id))
+		if (!vrf_bitmap_check(&zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
-		vrf_bitmap_unset(zclient->redist[afi][type], bgp->vrf_id);
+		vrf_bitmap_unset(&zclient->redist[afi][type], bgp->vrf_id);
 	}
 
 	if (bgp_install_info_to_zebra(bgp)) {

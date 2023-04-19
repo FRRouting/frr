@@ -60,7 +60,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 
-		if (!vrf_bitmap_check(client->redist_default[afi], vrf_id))
+		if (!vrf_bitmap_check(&client->redist_default[afi], vrf_id))
 			continue;
 
 		/* Lookup table.  */
@@ -151,11 +151,11 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 
 	/* If default route and redistributed */
 	if (is_default_prefix(&rn->p) &&
-	    vrf_bitmap_check(client->redist_default[afi], re->vrf_id))
+	    vrf_bitmap_check(&client->redist_default[afi], re->vrf_id))
 		return true;
 
 	/* If redistribute in enabled for zebra route all */
-	if (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id))
+	if (vrf_bitmap_check(&client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id))
 		return true;
 
 	/*
@@ -171,7 +171,7 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 	}
 
 	/* If redistribution is enabled for give route type. */
-	if (vrf_bitmap_check(client->redist[afi][re->type], re->vrf_id))
+	if (vrf_bitmap_check(&client->redist[afi][re->type], re->vrf_id))
 		return true;
 
 	return false;
@@ -331,14 +331,14 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 					   zvrf_id(zvrf), afi);
 		}
 	} else {
-		if (!vrf_bitmap_check(client->redist[afi][type],
+		if (!vrf_bitmap_check(&client->redist[afi][type],
 				      zvrf_id(zvrf))) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
 					"%s: setting vrf %s(%u) redist bitmap",
 					__func__, VRF_LOGNAME(zvrf->vrf),
 					zvrf_id(zvrf));
-			vrf_bitmap_set(client->redist[afi][type],
+			vrf_bitmap_set(&client->redist[afi][type],
 				       zvrf_id(zvrf));
 			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
 		}
@@ -387,7 +387,7 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	if (instance)
 		redist_del_instance(&client->mi_redist[afi][type], instance);
 	else
-		vrf_bitmap_unset(client->redist[afi][type], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->redist[afi][type], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -405,7 +405,7 @@ void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	vrf_bitmap_set(client->redist_default[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->redist_default[afi], zvrf_id(zvrf));
 	zebra_redistribute_default(client, zvrf_id(zvrf));
 
 stream_failure:
@@ -424,7 +424,7 @@ void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
 
 stream_failure:
 	return;

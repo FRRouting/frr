@@ -724,7 +724,7 @@ static int eigrpd_instance_redistribute_create(struct nb_cb_create_args *args)
 		else
 			vrfid = VRF_DEFAULT;
 
-		if (vrf_bitmap_check(zclient->redist[AFI_IP][proto], vrfid))
+		if (vrf_bitmap_check(&zclient->redist[AFI_IP][proto], vrfid))
 			return NB_ERR_INCONSISTENCY;
 		break;
 	case NB_EV_PREPARE:
