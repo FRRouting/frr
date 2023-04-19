@@ -66,6 +66,8 @@ class Node(LinuxNamespace):
             nkwargs["unet"] = kwargs["unet"]
         if "private_mounts" in kwargs:
             nkwargs["private_mounts"] = kwargs["private_mounts"]
+        if "logger" in kwargs:
+            nkwargs["logger"] = kwargs["logger"]
 
         # This is expected by newer munet CLI code
         self.config_dirname = ""
