@@ -402,6 +402,63 @@ environment.
 .. _screen: https://www.gnu.org/software/screen/
 .. _tmux: https://github.com/tmux/tmux/wiki
 
+Capturing Packets
+"""""""""""""""""
+
+One can view and capture packets on any of the networks or interfaces defined by
+the topotest by specifying the ``--pcap=NET|INTF|all[,NET|INTF,...]`` CLI option
+as shown in the examples below.
+
+.. code:: shell
+
+   # Capture on all networks in isis_topo1 test
+   sudo -E pytest isis_topo1 --pcap=all
+
+   # Capture on `sw1` network
+   sudo -E pytest isis_topo1 --pcap=sw1
+
+   # Capture on `sw1` network and on interface `eth0` on router `r2`
+   sudo -E pytest isis_topo1 --pcap=sw1,r2:r2-eth0
+
+For each capture a window is opened displaying a live summary of the captured
+packets. Additionally, the entire packet stream is captured in a pcap file in
+the tests log directory e.g.,::
+
+.. code:: console
+
+   $ sudo -E pytest isis_topo1 --pcap=sw1,r2:r2-eth0
+   ...
+   $ ls -l /tmp/topotests/isis_topo1.test_isis_topo1/
+   -rw------- 1 root root 45172 Apr 19 05:30 capture-r2-r2-eth0.pcap
+   -rw------- 1 root root 48412 Apr 19 05:30 capture-sw1.pcap
+   ...
+-
+Viewing Live Daemon Logs
+""""""""""""""""""""""""
+
+One can live view daemon or the frr logs in separate windows using the
+``--logd`` CLI option as shown below.
+
+.. code:: shell
+
+   # View `ripd` logs on all routers in test
+   sudo -E pytest rip_allow_ecmp --logd=ripd
+
+   # View `ripd` logs on all routers and `mgmtd` log on `r1`
+   sudo -E pytest rip_allow_ecmp --logd=ripd --logd=mgmtd,r1
+
+For each capture a window is opened displaying a live summary of the captured
+packets. Additionally, the entire packet stream is captured in a pcap file in
+the tests log directory e.g.,::
+
+When using a unified log file `frr.log` one substitutes `frr` for the daemon
+name in the ``--logd`` CLI option, e.g.,
+
+.. code:: shell
+
+   # View `frr` log on all routers in test
+   sudo -E pytest some_test_suite --logd=frr
+
 Spawning Debugging CLI, ``vtysh`` or Shells on Routers on Test Failure
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -421,12 +478,30 @@ the help command from within a CLI launched on error:
 
     test_bgp_multiview_topo1/test_bgp_routingTable> help
 
-    Commands:
-    help                       :: this help
-    sh [hosts] <shell-command> :: execute <shell-command> on <host>
-    term [hosts]               :: open shell terminals for hosts
-    vtysh [hosts]              :: open vtysh terminals for hosts
-    [hosts] <vtysh-command>    :: execute vtysh-command on hosts
+    Basic Commands:
+      cli   :: open a secondary CLI window
+      help  :: this help
+      hosts :: list hosts
+      quit  :: quit the cli
+
+      HOST can be a host or one of the following:
+        - '*' for all hosts
+        - '.' for the parent munet
+        - a regex specified between '/' (e.g., '/rtr.*/')
+
+    New Window Commands:
+      logd HOST [HOST ...] DAEMON   :: tail -f on the logfile of the given DAEMON for the given HOST[S]
+      pcap NETWORK  :: capture packets from NETWORK into file capture-NETWORK.pcap the command is run within a new window which also shows packet summaries. NETWORK can also be an interface specified as HOST:INTF. To capture inside the host namespace.
+      stderr HOST [HOST ...] DAEMON :: tail -f on the stderr of the given DAEMON for the given HOST[S]
+      stdlog HOST [HOST ...]        :: tail -f on the `frr.log` for the given HOST[S]
+      stdout HOST [HOST ...] DAEMON :: tail -f on the stdout of the given DAEMON for the given HOST[S]
+      term HOST [HOST ...]  :: open terminal[s] (TMUX or XTerm) on HOST[S], * for all
+      vtysh ROUTER [ROUTER ...]     ::
+      xterm HOST [HOST ...] :: open XTerm[s] on HOST[S], * for all
+    Inline Commands:
+      [ROUTER ...] COMMAND  :: execute vtysh COMMAND on the router[s]
+      [HOST ...] sh <SHELL-COMMAND> :: execute <SHELL-COMMAND> on hosts
+      [HOST ...] shi <INTERACTIVE-COMMAND>  :: execute <INTERACTIVE-COMMAND> on HOST[s]
 
     test_bgp_multiview_topo1/test_bgp_routingTable> r1 show int br
     ------ Host: r1 ------
