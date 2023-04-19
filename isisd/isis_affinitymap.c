@@ -20,6 +20,9 @@ static bool isis_affinity_map_check_use(const char *affmap_name)
 	struct affinity_map *map;
 	uint16_t pos;
 
+	if (!isis)
+		return false;
+
 	map = affinity_map_get(affmap_name);
 	pos = map->bit_position;
 
