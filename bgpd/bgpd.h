@@ -500,8 +500,10 @@ struct bgp {
 #define BGP_FLAG_HARD_ADMIN_RESET (1ULL << 31)
 /* Evaluate the AIGP attribute during the best path selection process */
 #define BGP_FLAG_COMPARE_AIGP (1ULL << 32)
-/* For BGP-LU, force local prefixes to use explicit-null label */
-#define BGP_FLAG_LU_EXPLICIT_NULL (1ULL << 33)
+/* For BGP-LU, force IPv4 local prefixes to use ipv4-explicit-null label */
+#define BGP_FLAG_LU_IPV4_EXPLICIT_NULL (1ULL << 33)
+/* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
+#define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.

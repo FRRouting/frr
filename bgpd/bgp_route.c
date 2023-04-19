@@ -3087,10 +3087,13 @@ static bool bgp_lu_need_null_label(struct bgp *bgp,
 need_null_label:
 	if (label == NULL)
 		return true;
-	if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL))
-		/* Disable PHP : explicit-null */
-		*label = afi == AFI_IP ? MPLS_LABEL_IPV4_EXPLICIT_NULL
-				       : MPLS_LABEL_IPV6_EXPLICIT_NULL;
+	/* Disable PHP : explicit-null */
+	if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_IPV4_EXPLICIT_NULL) &&
+	    afi == AFI_IP)
+		*label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
+	else if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_IPV6_EXPLICIT_NULL) &&
+		 afi == AFI_IP6)
+		*label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
 	else
 		/* Enforced PHP popping: implicit-null */
 		*label = MPLS_LABEL_IMPLICIT_NULL;
