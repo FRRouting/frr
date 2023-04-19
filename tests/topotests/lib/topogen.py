@@ -25,6 +25,7 @@ Basic usage instructions:
 * After running stop Mininet with: tgen.stop_topology()
 """
 
+import configparser
 import grp
 import inspect
 import json
@@ -37,11 +38,6 @@ import shlex
 import subprocess
 import sys
 from collections import OrderedDict
-
-if sys.version_info[0] > 2:
-    import configparser
-else:
-    import ConfigParser as configparser
 
 import lib.topolog as topolog
 from lib.micronet import Commander

@@ -12,18 +12,18 @@ import subprocess
 import sys
 import time
 
-import pytest
-
 import lib.fixtures
-from lib import topolog
+import pytest
 from lib.micronet_compat import Mininet
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import logger
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topotest import json_cmp_result
+from munet import cli
 from munet.base import Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
-from munet import cli
+
+from lib import topolog
 
 
 def pytest_addoption(parser):
