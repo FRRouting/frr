@@ -1698,6 +1698,7 @@ DEFUN (no_router_bgp,
 								[SAFI_UNICAST],
 					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
 				    (bgp == bgp_get_evpn() &&
+				     bgp->advertise_all_vni &&
 				     (CHECK_FLAG(
 					      tmp_bgp->af_flags[AFI_L2VPN]
 							       [SAFI_EVPN],
