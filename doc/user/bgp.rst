@@ -2939,6 +2939,15 @@ address-family:
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
+.. clicmd:: redistribute vrf VRFNAME
+
+   Copy all VRF routes from the VRF specified by "VRFNAME" to the current VRF, 
+   carrying all underlying attributes except for RD and RT. This is different 
+   from "import vrf VRFNAME" configuration which allows specifying the RD and RT 
+   for both the source and destination VRFs, and for the routes copied to the 
+   destination VRF, they can be exported to the VPN using the RD and RT of the 
+   destination VRF as VPN attributes.
+
 .. clicmd:: bgp retain route-target all
 
 It is possible to retain or not VPN prefixes that are not imported by local
