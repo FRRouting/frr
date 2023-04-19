@@ -49,6 +49,9 @@ static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 	struct flex_algo *fa;
 	bool changed;
 
+	if (!isis)
+		return;
+
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, area_node, area)) {
 		changed = false;
 		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, fa_node,
