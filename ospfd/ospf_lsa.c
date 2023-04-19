@@ -1975,6 +1975,9 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 	ei.nexthop = ext->header.adv_router;
 	ei.route_map_set.metric = -1;
 	ei.route_map_set.metric_type = -1;
+	ei.metric = DEFAULT_DEFAULT_METRIC;
+	ei.max_metric = OSPF_LS_INFINITY;
+	ei.min_metric = 0;
 	ei.tag = 0;
 	ei.instance = 0;
 

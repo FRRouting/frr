@@ -94,7 +94,7 @@ int ospf_route_map_set_compare(struct route_map_set_values *values1,
 struct external_info *
 ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		       struct prefix_ipv4 p, ifindex_t ifindex,
-		       struct in_addr nexthop, route_tag_t tag)
+		       struct in_addr nexthop, route_tag_t tag, uint32_t metric)
 {
 	struct external_info *new;
 	struct route_node *rn;
@@ -131,6 +131,9 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	new->tag = tag;
 	new->orig_tag = tag;
 	new->aggr_route = NULL;
+	new->metric = metric;
+	new->min_metric = 0;
+	new->max_metric = OSPF_LS_INFINITY;
 
 	/* we don't unlock rn from the get() because we're attaching the info */
 	if (rn)
@@ -138,9 +141,9 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug(
-			"Redistribute[%s][%u]: %pFX external info created, with NH %pI4",
+			"Redistribute[%s][%u]: %pFX external info created, with NH %pI4, metric:%u",
 			ospf_redist_string(type), ospf->vrf_id, &p,
-			&nexthop.s_addr);
+			&nexthop.s_addr, metric);
 	}
 	return new;
 }

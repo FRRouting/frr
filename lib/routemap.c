@@ -394,6 +394,40 @@ void route_map_no_set_metric_hook(int (*func)(struct route_map_index *index,
 {
 	rmap_match_set_hook.no_set_metric = func;
 }
+/* set min-metric */
+void route_map_set_min_metric_hook(int (*func)(struct route_map_index *index,
+					       const char *command,
+					       const char *arg, char *errmsg,
+					       size_t errmsg_len))
+{
+	rmap_match_set_hook.set_min_metric = func;
+}
+
+/* no set min-metric */
+void route_map_no_set_min_metric_hook(int (*func)(struct route_map_index *index,
+						  const char *command,
+						  const char *arg, char *errmsg,
+						  size_t errmsg_len))
+{
+	rmap_match_set_hook.no_set_min_metric = func;
+}
+/* set max-metric */
+void route_map_set_max_metric_hook(int (*func)(struct route_map_index *index,
+					       const char *command,
+					       const char *arg, char *errmsg,
+					       size_t errmsg_len))
+{
+	rmap_match_set_hook.set_max_metric = func;
+}
+
+/* no set max-metric */
+void route_map_no_set_max_metric_hook(int (*func)(struct route_map_index *index,
+						  const char *command,
+						  const char *arg, char *errmsg,
+						  size_t errmsg_len))
+{
+	rmap_match_set_hook.no_set_max_metric = func;
+}
 
 /* set tag */
 void route_map_set_tag_hook(int (*func)(struct route_map_index *index,

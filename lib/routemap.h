@@ -312,6 +312,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-route-map:ipv6-next-hop"))
 #define IS_SET_METRIC(A)                                                       \
 	(strmatch(A, "frr-route-map:set-metric"))
+#define IS_SET_MIN_METRIC(A) (strmatch(A, "frr-route-map:set-min-metric"))
+#define IS_SET_MAX_METRIC(A) (strmatch(A, "frr-route-map:set-max-metric"))
 #define IS_SET_TAG(A) (strmatch(A, "frr-route-map:set-tag"))
 #define IS_SET_SR_TE_COLOR(A)                                                  \
 	(strmatch(A, "frr-route-map:set-sr-te-color"))
@@ -684,6 +686,22 @@ extern void route_map_no_set_metric_hook(
 	int (*func)(struct route_map_index *index,
 		    const char *command, const char *arg,
 		    char *errmsg, size_t errmsg_len));
+/* set metric */
+extern void route_map_set_max_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* no set metric */
+extern void route_map_no_set_max_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* set metric */
+extern void route_map_set_min_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* no set metric */
+extern void route_map_no_set_min_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
 /* set tag */
 extern void route_map_set_tag_hook(int (*func)(struct route_map_index *index,
 					       const char *command,
@@ -920,6 +938,25 @@ struct route_map_match_set_hooks {
 	int (*no_set_metric)(struct route_map_index *index,
 			     const char *command, const char *arg,
 			     char *errmsg, size_t errmsg_len);
+	/* set min-metric */
+	int (*set_min_metric)(struct route_map_index *index,
+			      const char *command, const char *arg,
+			      char *errmsg, size_t errmsg_len);
+
+	/* no set min-metric */
+	int (*no_set_min_metric)(struct route_map_index *index,
+				 const char *command, const char *arg,
+				 char *errmsg, size_t errmsg_len);
+
+	/* set max-metric */
+	int (*set_max_metric)(struct route_map_index *index,
+			      const char *command, const char *arg,
+			      char *errmsg, size_t errmsg_len);
+
+	/* no set max-metric */
+	int (*no_set_max_metric)(struct route_map_index *index,
+				 const char *command, const char *arg,
+				 char *errmsg, size_t errmsg_len);
 
 	/* set tag */
 	int (*set_tag)(struct route_map_index *index,

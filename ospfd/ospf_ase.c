@@ -159,7 +159,9 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 
 	if (!IS_EXTERNAL_METRIC(al->e[0].tos)) {
 		if (IS_DEBUG_OSPF(lsa, LSA))
-			zlog_debug("Route[External]: type-1 created.");
+			zlog_debug(
+				"Route[External]: type-1 created, asbr cost:%d  metric:%d.",
+				asbr_route->cost, metric);
 		new->path_type = OSPF_PATH_TYPE1_EXTERNAL;
 		new->cost = asbr_route->cost + metric; /* X + Y */
 	} else {
