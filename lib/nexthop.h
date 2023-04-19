@@ -255,6 +255,9 @@ extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
 					      struct nexthop *rparent);
 
+/* Check nexthop of IFINDEX type */
+extern bool nexthop_is_ifindex_type(const struct nexthop *nh);
+
 /*
  * Parse one or more backup index values, as comma-separated numbers,
  * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
