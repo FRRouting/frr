@@ -9,13 +9,13 @@
 # Network Device Education Foundation, Inc. ("NetDEF")
 #
 
+import configparser
 import difflib
 import errno
 import functools
 import glob
 import json
 import os
-import pdb
 import platform
 import re
 import resource
@@ -24,22 +24,16 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from copy import deepcopy
 
 import lib.topolog as topolog
+from lib.micronet_compat import Node
 from lib.topolog import logger
 
-if sys.version_info[0] > 2:
-    import configparser
-    from collections.abc import Mapping
-else:
-    import ConfigParser as configparser
-    from collections import Mapping
-
 from lib import micronet
-from lib.micronet_compat import Node
 
-g_extra_config = {}
+g_pytest_config = None
 
 
 def get_logs_path(rundir):
@@ -1339,7 +1333,7 @@ class Router(Node):
         # specified, then attempt to generate an unique logdir.
         self.logdir = params.get("logdir")
         if self.logdir is None:
-            self.logdir = get_logs_path(g_extra_config["rundir"])
+            self.logdir = get_logs_path(g_pytest_config.getoption("--rundir"))
 
         if not params.get("logger"):
             # If logger is present topogen has already set this up
@@ -1532,7 +1526,7 @@ class Router(Node):
                 )
             except Exception as ex:
                 logger.error("%s can't remove IPs %s", self, str(ex))
-                # pdb.set_trace()
+                # breakpoint()
                 # assert False, "can't remove IPs %s" % str(ex)
 
     def checkCapability(self, daemon, param):
@@ -1598,10 +1592,7 @@ class Router(Node):
 
             if (daemon == "zebra") and (self.daemons["mgmtd"] == 0):
                 # Add mgmtd with zebra - if it exists
-                try:
-                    mgmtd_path = os.path.join(self.daemondir, "mgmtd")
-                except:
-                    pdb.set_trace()
+                mgmtd_path = os.path.join(self.daemondir, "mgmtd")
                 if os.path.isfile(mgmtd_path):
                     self.daemons["mgmtd"] = 1
                     self.daemons_options["mgmtd"] = ""
@@ -1609,11 +1600,7 @@ class Router(Node):
 
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
-                try:
-                    staticd_path = os.path.join(self.daemondir, "staticd")
-                except:
-                    pdb.set_trace()
-
+                staticd_path = os.path.join(self.daemondir, "staticd")
                 if os.path.isfile(staticd_path):
                     self.daemons["staticd"] = 1
                     self.daemons_options["staticd"] = ""
@@ -1688,8 +1675,7 @@ class Router(Node):
         # used
         self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
 
-        shell_routers = g_extra_config["shell"]
-        if "all" in shell_routers or self.name in shell_routers:
+        if g_pytest_config.name_in_option_list(self.name, "--shell"):
             self.run_in_window(os.getenv("SHELL", "bash"), title="sh-%s" % self.name)
 
         if self.daemons["eigrpd"] == 1:
@@ -1706,8 +1692,7 @@ class Router(Node):
 
         status = self.startRouterDaemons(tgen=tgen)
 
-        vtysh_routers = g_extra_config["vtysh"]
-        if "all" in vtysh_routers or self.name in vtysh_routers:
+        if g_pytest_config.name_in_option_list(self.name, "--vtysh"):
             self.run_in_window("vtysh", title="vt-%s" % self.name)
 
         if self.unified_config:
@@ -1727,13 +1712,13 @@ class Router(Node):
     def startRouterDaemons(self, daemons=None, tgen=None):
         "Starts FRR daemons for this router."
 
-        asan_abort = g_extra_config["asan_abort"]
-        gdb_breakpoints = g_extra_config["gdb_breakpoints"]
-        gdb_daemons = g_extra_config["gdb_daemons"]
-        gdb_routers = g_extra_config["gdb_routers"]
-        valgrind_extra = g_extra_config["valgrind_extra"]
-        valgrind_memleaks = g_extra_config["valgrind_memleaks"]
-        strace_daemons = g_extra_config["strace_daemons"]
+        asan_abort = bool(g_pytest_config.option.asan_abort)
+        gdb_breakpoints = g_pytest_config.get_option_list("--gdb-breakpoints")
+        gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
+        gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
+        valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
+        valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
+        strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
         # Get global bundle data
         if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
@@ -1757,7 +1742,7 @@ class Router(Node):
         self.reportCores = True
 
         # XXX: glue code forward ported from removed function.
-        if self.version == None:
+        if self.version is None:
             self.version = self.cmd(
                 os.path.join(self.daemondir, "bgpd") + " -v"
             ).split()[2]

@@ -43,7 +43,6 @@ import lib.topolog as topolog
 from lib.micronet import Commander
 from lib.micronet_compat import Mininet
 from lib.topolog import logger
-from lib.topotest import g_extra_config
 
 from lib import topotest
 
@@ -189,7 +188,7 @@ class Topogen(object):
         self._load_config()
 
         # Create new log directory
-        self.logdir = topotest.get_logs_path(g_extra_config["rundir"])
+        self.logdir = topotest.get_logs_path(topotest.g_pytest_config.option.rundir)
         subprocess.check_call(
             "mkdir -p {0} && chmod 1777 {0}".format(self.logdir), shell=True
         )
@@ -209,7 +208,7 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet(rundir=self.logdir)
+        self.net = Mininet(rundir=self.logdir, pytestconfig=topotest.g_pytest_config)
 
         # Adjust the parent namespace
         topotest.fix_netns_limits(self.net)
