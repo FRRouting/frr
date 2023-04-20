@@ -385,13 +385,23 @@ struct ls_vertex {
 	struct list *prefixes;		/* List of advertised prefix */
 };
 
+/* Link State Edge Key structure */
+struct ls_edge_key {
+	uint8_t family;
+	union {
+		struct in_addr addr;
+		struct in6_addr addr6;
+		uint64_t link_id;
+	} k;
+};
+
 /* Link State Edge structure */
 PREDECL_RBTREE_UNIQ(edges);
 struct ls_edge {
 	enum ls_type type;		/* Link State Type */
 	enum ls_status status;		/* Status of the Edge in the TED */
 	struct edges_item entry;	/* Entry in RB tree */
-	uint64_t key;			/* Unique Key identifier */
+	struct ls_edge_key key;		/* Unique Key identifier */
 	struct ls_attributes *attributes;	/* Link State attributes */
 	struct ls_vertex *source;	/* Pointer to the source Vertex */
 	struct ls_vertex *destination;	/* Pointer to the destination Vertex */
@@ -419,13 +429,25 @@ DECLARE_RBTREE_UNIQ(vertices, struct ls_vertex, entry, vertex_cmp);
 macro_inline int edge_cmp(const struct ls_edge *edge1,
 			  const struct ls_edge *edge2)
 {
-	return numcmp(edge1->key, edge2->key);
+	if (edge1->key.family != edge2->key.family)
+		return numcmp(edge1->key.family, edge2->key.family);
+
+	switch (edge1->key.family) {
+	case AF_INET:
+		return memcmp(&edge1->key.k.addr, &edge2->key.k.addr, 4);
+	case AF_INET6:
+		return memcmp(&edge1->key.k.addr6, &edge2->key.k.addr6, 16);
+	case AF_LOCAL:
+		return numcmp(edge1->key.k.link_id, edge2->key.k.link_id);
+	default:
+		return 0;
+	}
 }
 DECLARE_RBTREE_UNIQ(edges, struct ls_edge, entry, edge_cmp);
 
 /*
  * Prefix comparison are done to the host part so, 10.0.0.1/24
- * and 10.0.0.2/24 are considered come different
+ * and 10.0.0.2/24 are considered different
  */
 macro_inline int subnet_cmp(const struct ls_subnet *a,
 			    const struct ls_subnet *b)
@@ -622,7 +644,7 @@ extern void ls_edge_del_all(struct ls_ted *ted, struct ls_edge *edge);
  * @return	Edge if found, NULL otherwise
  */
 extern struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
-					   const uint64_t key);
+					   const struct ls_edge_key key);
 
 /**
  * Find Edge in the Link State Data Base by the source (local IPv4 or IPv6
