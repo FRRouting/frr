@@ -952,8 +952,6 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
 			uint32_t n)
 {
-	uint32_t i;
-
 	if (!bpi->extra) {
 		if (!n)
 			return true;
@@ -961,14 +959,9 @@ static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
 			return false;
 	}
 
-	if (n != bpi->extra->num_labels)
-		return false;
-
-	for (i = 0; i < n; ++i) {
-		if (label[i] != bpi->extra->label[i])
-			return false;
-	}
-	return true;
+	return bgp_labels_same((const mpls_label_t *)bpi->extra->label,
+			       bpi->extra->num_labels,
+			       (const mpls_label_t *)label, n);
 }
 
 /*
