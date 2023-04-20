@@ -41,6 +41,7 @@ from .exceptions import (
     TopotatoUnhandledArgs,
 )
 from .livescapy import LiveScapy
+from .generatorwrap import GeneratorWrapper, GeneratorChecks
 
 if typing.TYPE_CHECKING:
     from _pytest._code.code import ExceptionInfo, TracebackEntry
@@ -212,8 +213,9 @@ class TopotatoItem(nodes.Item):
         self.add_marker(pytest.mark.usefixtures(self._ifix_name))
         return self
 
-    @skiptrace
     @classmethod
+    @GeneratorWrapper.apply
+    @skiptrace
     def make(
         cls: Type["TopotatoItem"], *args, **kwargs
     ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], None]:
@@ -671,19 +673,20 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
         all_args["_"] = None
 
         args = {k: v for k, v in all_args.items() if k in argnames}
-        iterator = method(**args)
+        with GeneratorChecks():
+            iterator = method(**args)
 
-        tests = []
-        sendval = None
-        try:
-            while True:
-                value = iterator.send(sendval)
-                if value is not None:
-                    logger.debug("collect on: %r test: %r", self, value)
-                    tests.append(value)
-                sendval = (self, self.name)
-        except StopIteration:
-            pass
+            tests = []
+            sendval = None
+            try:
+                while True:
+                    value = iterator.send(sendval)
+                    if value is not None:
+                        logger.debug("collect on: %r test: %r", self, value)
+                        tests.append(value)
+                    sendval = (self, self.name)
+            except StopIteration:
+                pass
 
         return tests
 
