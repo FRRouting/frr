@@ -1631,6 +1631,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_DELETE:
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_STARTUP_STAGE:
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:

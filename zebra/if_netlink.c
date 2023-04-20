@@ -1340,6 +1340,7 @@ static ssize_t netlink_intf_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	case DPLANE_OP_TC_FILTER_ADD:
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
+	case DPLANE_OP_STARTUP_STAGE:
 		flog_err(
 			EC_ZEBRA_NHG_FIB_UPDATE,
 			"Context received for kernel interface update with incorrect OP code (%u)",

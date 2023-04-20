@@ -2182,6 +2182,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_ADD:
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
+	case DPLANE_OP_STARTUP_STAGE:
 		break;
 	}
 
@@ -4861,6 +4862,7 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_NONE:
+			case DPLANE_OP_STARTUP_STAGE:
 				break;
 
 			} /* Dispatch by op code */
