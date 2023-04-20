@@ -4031,17 +4031,24 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (has_valid_label)
 		assert(label != NULL);
 
-	/* Update overlay index of the attribute */
-	if (afi == AFI_L2VPN && evpn)
-		memcpy(&attr->evpn_overlay, evpn,
-		       sizeof(struct bgp_route_evpn));
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
-	if (!soft_reconfig
-	    && CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
-	    && peer != bgp->peer_self)
+	if (!soft_reconfig &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG) &&
+	    peer != bgp->peer_self) {
+		/*
+		 * If the trigger is not from soft_reconfig and if
+		 * PEER_FLAG_SOFT_RECONFIG is enabled for the peer, then attr
+		 * will not be interned. In which case, it is ok to update the
+		 * attr->evpn_overlay, so that, this can be stored in adj_in.
+		 */
+		if ((afi == AFI_L2VPN) && evpn) {
+			memcpy(&attr->evpn_overlay, evpn,
+			       sizeof(struct bgp_route_evpn));
+		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id);
+	}
 
 	/* Update permitted loop count */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
@@ -4169,6 +4176,15 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 	new_attr = *attr;
+	/*
+	 * If bgp_update is called with soft_reconfig set then
+	 * attr is interned. In this case, do not overwrite the
+	 * attr->evpn_overlay with evpn directly. Instead memcpy
+	 * evpn to new_atr.evpn_overlay before it is interned.
+	 */
+	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
+		memcpy(&new_attr.evpn_overlay, evpn,
+		       sizeof(struct bgp_route_evpn));
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
