@@ -296,8 +296,12 @@ def be_init(new_pg, exec_args):
             # No exec so we are the "child".
             new_process_group()
 
+        # Reap children as init process
+        vdebug("installing local handler for SIGCHLD")
+        signal.signal(signal.SIGCHLD, sig_sigchld)
+
         while True:
-            logging.info("parent: waiting to reap zombies")
+            logging.info("init: waiting to reap zombies")
             linux.pause()
         # NOTREACHED
 
