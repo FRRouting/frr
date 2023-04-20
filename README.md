@@ -112,6 +112,22 @@ Files should have a header consisting of the following things, in order:
 5. for tests: `from topotato.v1 import *`
 6. other imports
 
+
+Development Environment (VM)
+============
+
+Topotato has support for VM, it uses Vagrant to support those different environment:
+
+### Installation
+
+- Download Vagrant (https://developer.hashicorp.com/vagrant/downloads)
+- Ensure that the `vagrant` cli is ready. (type `vagrant` command)
+- Ubuntu Host
+  - Install virtualbox provider `sudo apt install virtualbox`
+  - Install vb-guest: `vagrant plugin install vagrant-vbguest`
+  - Do `vagrant up --provider virtualbox`
+
+
 TODO (for tests):
 
 - maybe `__topotato_version__ = 1234`?
