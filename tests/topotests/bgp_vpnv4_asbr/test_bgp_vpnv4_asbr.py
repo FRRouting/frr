@@ -572,6 +572,141 @@ def test_r3_prefixes_added_back():
     tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
 
 
+def test_r3_label_value_changed():
+    """
+    Change the per-vrf label value
+    Check on r2 that MPLS switching entry has been updated
+    Check the IP connectivity (h1,h2) and (h1,h3)
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+    logger.info(
+        "{}, changing the label value from 102 to 220 from r3".format(router.name)
+    )
+    router.vtysh_cmd(
+        "configure terminal\nrouter bgp 65501 vrf vrf1\naddress-family ipv4 unicast\nlabel vpn export 220\n"
+    )
+
+    router = tgen.gears["r2"]
+    logger.info(
+        "{}, checking that the 'show bgp ipv4 vpn' from r2 is updated with new label value".format(
+            router.name
+        )
+    )
+    for prefix in ("172.31.1.0/24", "172.31.2.0/24", "172.31.3.0/24"):
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_found, router, "ipv4", prefix, "444:3", label=220
+        )
+        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
+
+    vpnv4_checks = {
+        "172.31.1.0/24": "r1",
+        "172.31.2.0/24": "r1",
+        "172.31.3.0/24": "r1",
+    }
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+            router.name
+        )
+    )
+    check_show_bgp_vpn_ok(router, vpnv4_checks)
+
+    logger.info("h1, check that ping from h1 to (h2,h3) is ok")
+    check_ping("h1", "172.31.1.10", True, 20, 0.5)
+    check_ping("h1", "172.31.2.10", True, 20, 0.5)
+
+
+def test_unconfigure_mpls_l3vpn_multi_domain_switching():
+    """
+    Retrieve the list of MPLS entries used on r2
+    Unconfigure MPLS allocation upon next-hop change
+    Check that the MPLS entries are unconfigured
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r2"]
+    vpnv4_checks = {
+        "172.31.1.0/24": "r1",
+        "172.31.2.0/24": "r1",
+        "172.31.3.0/24": "r1",
+    }
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+            router.name
+        )
+    )
+    label_ip_entries = check_show_bgp_vpn_ok(router, vpnv4_checks)
+
+    logger.info(
+        "{}, unconfigure 'mpls bgp l3vpn-multi-domain-switching'".format(router.name)
+    )
+    for interface in ("r2-eth1", "r2-eth0"):
+        router.vtysh_cmd(
+            "configure terminal\ninterface {}\nno mpls bgp l3vpn-multi-domain-switching\n".format(
+                interface
+            )
+        )
+
+    for prefix, label in label_ip_entries.items():
+        logger.info(
+            "{}, check mpls entry for {} with in_label {} is not present'".format(
+                router.name, prefix, label
+            )
+        )
+        test_func = functools.partial(
+            check_show_mpls_table_entry_label_not_found, router, label
+        )
+        success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "r1, mpls entry for {} with in_label {} still present".format(
+            prefix, label
+        )
+
+    logger.info("h1, check that ping from h1 to (h2,h3) is nok")
+    check_ping("h1", "172.31.1.10", False, 3, 3)
+    check_ping("h1", "172.31.2.10", False, 3, 3)
+
+
+def test_reconfigure_mpls_l3vpn_multi_domain_switching():
+    """
+    Retrieve the list of MPLS entries used on r2
+    Unconfigure MPLS allocation upon next-hop change
+    Check that the MPLS entries are unconfigured
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r2"]
+    logger.info(
+        "{}, reconfigure 'mpls bgp l3vpn-multi-domain-switching'".format(router.name)
+    )
+    for interface in ("r2-eth1", "r2-eth0"):
+        router.vtysh_cmd(
+            "configure terminal\ninterface {}\nmpls bgp l3vpn-multi-domain-switching\n".format(
+                interface
+            )
+        )
+
+    vpnv4_checks = {
+        "172.31.1.0/24": "r1",
+        "172.31.2.0/24": "r1",
+        "172.31.3.0/24": "r1",
+    }
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+            router.name
+        )
+    )
+    check_show_bgp_vpn_ok(router, vpnv4_checks)
+
+    logger.info("h1, check that ping from h1 to (h2,h3) is ok")
+    check_ping("h1", "172.31.1.10", True, 20, 0.5)
+    check_ping("h1", "172.31.2.10", True, 20, 0.5)
+
+
 def test_unconfigure_nexthop_change_nexthop_self():
     """
     Get the list of labels advertised from r2 to r1
