@@ -1581,7 +1581,7 @@ static enum filter_type bgp_input_filter(struct peer *peer,
 
 done:
 	if (frrtrace_enabled(frr_bgp, input_filter)) {
-		char pfxprint[PREFIX2STR_BUFFER];
+		char pfxprint[PREFIX_STRLEN_EXTENDED];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
 		frrtrace(5, frr_bgp, input_filter, peer, pfxprint, afi, safi,
@@ -1638,7 +1638,7 @@ static enum filter_type bgp_output_filter(struct peer *peer,
 	}
 
 	if (frrtrace_enabled(frr_bgp, output_filter)) {
-		char pfxprint[PREFIX2STR_BUFFER];
+		char pfxprint[PREFIX_STRLEN_EXTENDED];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
 		frrtrace(5, frr_bgp, output_filter, peer, pfxprint, afi, safi,
@@ -2712,7 +2712,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	int paths_eq, do_mpath;
 	bool debug;
 	struct list mp_list;
-	char pfx_buf[PREFIX2STR_BUFFER] = {};
+	char pfx_buf[PREFIX_STRLEN_EXTENDED] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 
 	bgp_mp_list_init(&mp_list);
@@ -4167,7 +4167,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	int allowas_in = 0;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
-		char pfxprint[PREFIX2STR_BUFFER];
+		char pfxprint[PREFIX_STRLEN_EXTENDED];
 
 		prefix2str(p, pfxprint, sizeof(pfxprint));
 		frrtrace(6, frr_bgp, process_update, peer, pfxprint, addpath_id,
@@ -8773,7 +8773,7 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 				struct vty *vty, json_object *json, bool wide)
 {
 	int len = 0;
-	char buf[INET6_ADDRSTRLEN];
+	char buf[PREFIX_STRLEN_EXTENDED];
 
 	if (p->family == AF_INET) {
 		if (!json) {
