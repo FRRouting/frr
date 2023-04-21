@@ -783,6 +783,12 @@ struct thash_head {
 	struct thash_item **entries;
 	uint32_t count;
 
+	/* tabshift can be 0 if the hash table is empty and entries is NULL.
+	 * otherwise it will always be 2 or larger because it contains
+	 * the shift value *plus 1*.  This is a trick to make HASH_SIZE return
+	 * the correct value (with the >> 1) for tabshift == 0, without needing
+	 * a conditional branch.
+	 */
 	uint8_t tabshift;
 	uint8_t minshift, maxshift;
 };
@@ -791,8 +797,11 @@ struct thash_head {
 	((1U << (tabshift)) >> 1)
 #define HASH_SIZE(head) \
 	_HASH_SIZE((head).tabshift)
-#define _HASH_KEY(tabshift, val) \
-	((val) >> (33 - (tabshift)))
+#define _HASH_KEY(tabshift, val)                                               \
+	({                                                                     \
+		assume((tabshift) >= 2 && (tabshift) <= 33);                   \
+		(val) >> (33 - (tabshift));                                    \
+	})
 #define HASH_KEY(head, val) \
 	_HASH_KEY((head).tabshift, val)
 #define HASH_GROW_THRESHOLD(head) \
