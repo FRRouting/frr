@@ -2271,6 +2271,7 @@ void gm_ifp_update(struct interface *ifp)
 	if (!pim_ifp->mld) {
 		changed = true;
 		gm_start(ifp);
+		assume(pim_ifp->mld != NULL);
 	}
 
 	gm_ifp = pim_ifp->mld;
@@ -2405,6 +2406,8 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 	struct pim_interface *pim_ifp = (struct pim_interface *)ifp->info;
 	struct gm_if *gm_ifp = pim_ifp->mld;
 	bool querier;
+
+	assume(js_if || tt);
 
 	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
 
