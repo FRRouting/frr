@@ -7038,8 +7038,8 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 		bgp_static->label = label;
 		bgp_static->prd = prd;
 
-		if (rd_str)
-			bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP, rd_str);
+		bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP, rd_str);
+
 		if (rmap_str) {
 			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 			route_map_counter_decrement(bgp_static->rmap.map);
