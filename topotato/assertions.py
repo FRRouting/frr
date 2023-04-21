@@ -354,7 +354,7 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
 
         self._argtypes = []
         argspec = inspect.getfullargspec(self._pkt)
-        for arg in argspec.args:
+        for arg in argspec.args[:len(argspec.args) - len(argspec.defaults or ())]:
             if arg not in argspec.annotations:
                 raise TypeError(
                     "%r needs a type annotation for parameter %r" % (self._pkt, arg)
