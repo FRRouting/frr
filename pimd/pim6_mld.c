@@ -2471,6 +2471,19 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 
 		if (js) {
 			js_if = json_object_new_object();
+			/*
+			 * If we have js as true and detail as false
+			 * and if Coverity thinks that js_if is NULL
+			 * because of a failed call to new then
+			 * when we call gm_show_if_one below
+			 * the tt can be deref'ed and as such
+			 * FRR will crash.  But since we know
+			 * that json_object_new_object never fails
+			 * then let's tell Coverity that this assumption
+			 * is true.  I'm not worried about fast path
+			 * here at all.
+			 */
+			assert(js_if);
 			json_object_object_add(js_vrf, ifp->name, js_if);
 		}
 
