@@ -5380,8 +5380,7 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 		atomic_fetch_add_explicit(
 			&zdplane_info.dg_gre_set_errors, 1,
 			memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 		result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 	return result;
