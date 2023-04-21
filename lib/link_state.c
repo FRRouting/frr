@@ -951,7 +951,7 @@ struct ls_subnet *ls_find_subnet(struct ls_ted *ted, const struct prefix prefix)
 {
 	struct ls_subnet subnet = {};
 
-	subnet.key = prefix;
+	prefix_copy(&subnet.key, &prefix);
 	return subnets_find(&ted->subnets, &subnet);
 }
 
