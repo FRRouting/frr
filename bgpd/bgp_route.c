@@ -4623,10 +4623,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Nexthop reachability check - for unicast and
 		 * labeled-unicast.. */
-		if (((afi == AFI_IP || afi == AFI_IP6)
-		    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
-		    || (safi == SAFI_EVPN &&
-			bgp_evpn_is_prefix_nht_supported(p))) {
+		if (((afi == AFI_IP || afi == AFI_IP6) &&
+		     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
+		      safi == SAFI_MPLS_VPN)) ||
+		    (safi == SAFI_EVPN &&
+		     bgp_evpn_is_prefix_nht_supported(p))) {
 			if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 			    && peer->ttl == BGP_DEFAULT_TTL
 			    && !CHECK_FLAG(peer->flags,
@@ -4647,10 +4648,14 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi,
 						    safi, pi, NULL, connected,
 						    bgp_nht_param_prefix) ||
-			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
+			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
+				if (accept_own)
+					bgp_path_info_set_flag(
+						dest, pi, BGP_PATH_ACCEPT_OWN);
+
 				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_VALID);
-			else {
+			} else {
 				if (BGP_DEBUG(nht, NHT)) {
 					zlog_debug("%s(%pI4): NH unresolved",
 						   __func__,
@@ -4660,10 +4665,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 							 BGP_PATH_VALID);
 			}
 		} else {
-			if (accept_own)
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_ACCEPT_OWN);
-
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		}
 
@@ -4793,9 +4794,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	/* Nexthop reachability check. */
-	if (((afi == AFI_IP || afi == AFI_IP6)
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
-	    || (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
+	if (((afi == AFI_IP || afi == AFI_IP6) &&
+	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
+	      safi == SAFI_MPLS_VPN)) ||
+	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
 		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 		    && peer->ttl == BGP_DEFAULT_TTL
 		    && !CHECK_FLAG(peer->flags,
@@ -4810,18 +4812,19 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		if (bgp_find_or_add_nexthop(bgp, bgp, nh_afi, safi, new, NULL,
 					    connected, bgp_nht_param_prefix) ||
-		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
+		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
+			if (accept_own)
+				bgp_path_info_set_flag(dest, new,
+						       BGP_PATH_ACCEPT_OWN);
+
 			bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
-		else {
+		} else {
 			if (BGP_DEBUG(nht, NHT))
 				zlog_debug("%s(%pI4): NH unresolved", __func__,
 					   &attr_new->nexthop);
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
 	} else {
-		if (accept_own)
-			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
-
 		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
 	}
 
