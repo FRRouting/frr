@@ -20,6 +20,9 @@ static bool isis_affinity_map_check_use(const char *affmap_name)
 	struct affinity_map *map;
 	uint16_t pos;
 
+	if (!isis)
+		return false;
+
 	map = affinity_map_get(affmap_name);
 	pos = map->bit_position;
 
@@ -45,6 +48,9 @@ static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 	struct isis_area *area;
 	struct flex_algo *fa;
 	bool changed;
+
+	if (!isis)
+		return;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, area_node, area)) {
 		changed = false;

@@ -243,8 +243,6 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 {
 	bool ret;
 	struct isis_ext_subtlvs *subtlvs = reach->subtlvs;
-	uint8_t lspid_orig[ISIS_SYS_ID_LEN + 2];
-	uint8_t lspid_neigh[ISIS_SYS_ID_LEN + 2];
 	struct isis_router_cap_fad *fad;
 	struct isis_asla_subtlvs *asla;
 	struct listnode *node;
@@ -286,15 +284,11 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	if (link_admin_group && link_ext_admin_group) {
 		link_ext_admin_group_bitmap0 =
 			admin_group_get_offset(link_ext_admin_group, 0);
-		if (*link_admin_group != link_ext_admin_group_bitmap0) {
-			memcpy(lspid_orig, lsp->hdr.lsp_id,
-			       ISIS_SYS_ID_LEN + 2);
-			memcpy(lspid_neigh, reach->id, ISIS_SYS_ID_LEN + 2);
+		if (*link_admin_group != link_ext_admin_group_bitmap0)
 			zlog_warn(
-				"ISIS-SPF: LSP from %pLS neighbor %pLS. Admin-group 0x%08x differs from ext admin-group 0x%08x.",
-				lspid_orig, lspid_neigh, *link_admin_group,
+				"ISIS-SPF: LSP from %pPN neighbor %pPN. Admin-group 0x%08x differs from ext admin-group 0x%08x.",
+				lsp->hdr.lsp_id, reach->id, *link_admin_group,
 				link_ext_admin_group_bitmap0);
-		}
 	}
 
 	/*

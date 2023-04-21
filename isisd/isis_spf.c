@@ -2884,7 +2884,8 @@ static void show_isis_route_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_IPV4]
 							       [level - 1];
 
-				isis_print_spftree(vty, spftree);
+				if (!json)
+					isis_print_spftree(vty, spftree);
 
 				isis_print_routes(vty, spftree,
 						  json ? &json_val : NULL,
@@ -2905,7 +2906,8 @@ static void show_isis_route_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_IPV6]
 							       [level - 1];
 
-				isis_print_spftree(vty, spftree);
+				if (!json)
+					isis_print_spftree(vty, spftree);
 
 				isis_print_routes(vty, spftree,
 						  json ? &json_val : NULL,
@@ -2927,7 +2929,8 @@ static void show_isis_route_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_DSTSRC]
 							       [level - 1];
 
-				isis_print_spftree(vty, spftree);
+				if (!json)
+					isis_print_spftree(vty, spftree);
 				isis_print_routes(vty, spftree,
 						  json ? &json_val : NULL,
 						  prefix_sid, backup);

@@ -3144,7 +3144,7 @@ static void area_resign_level(struct isis_area *area, int level)
 		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
 					  fa)) {
 			data = fa->data;
-			if (data->spftree[level - 1]) {
+			if (data->spftree[tree][level - 1]) {
 				isis_spftree_del(
 					data->spftree[tree][level - 1]);
 				data->spftree[tree][level - 1] = NULL;
