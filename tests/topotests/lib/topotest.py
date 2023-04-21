@@ -469,32 +469,6 @@ def int2dpid(dpid):
         )
 
 
-def pid_exists(pid):
-    "Check whether pid exists in the current process table."
-
-    if pid <= 0:
-        return False
-    try:
-        os.waitpid(pid, os.WNOHANG)
-    except:
-        pass
-    try:
-        os.kill(pid, 0)
-    except OSError as err:
-        if err.errno == errno.ESRCH:
-            # ESRCH == No such process
-            return False
-        elif err.errno == errno.EPERM:
-            # EPERM clearly means there's a process to deny access to
-            return True
-        else:
-            # According to "man 2 kill" possible error values are
-            # (EINVAL, EPERM, ESRCH)
-            raise
-    else:
-        return True
-
-
 def get_textdiff(text1, text2, title1="", title2="", **opts):
     "Returns empty string if same or formatted diff"
 
@@ -1946,6 +1920,19 @@ class Router(Node):
 
         return ""
 
+    def pid_exists(self, pid):
+        if pid <= 0:
+            return False
+        try:
+            # If we are not using PID namespaces then we will be a parent of the pid,
+            # otherwise the init process of the PID namespace will have reaped the proc.
+            os.waitpid(pid, os.WNOHANG)
+        except Exception:
+            pass
+
+        rc, o, e = self.cmd_status("kill -0 " + str(pid), warn=False)
+        return rc == 0 or "No such process" not in e
+
     def killRouterDaemons(
         self, daemons, wait=True, assertOnError=True, minErrorVersion="5.1"
     ):
@@ -1965,15 +1952,15 @@ class Router(Node):
                     if re.search(r"%s" % daemon, d):
                         daemonpidfile = d.rstrip()
                         daemonpid = self.cmd("cat %s" % daemonpidfile).rstrip()
-                        if daemonpid.isdigit() and pid_exists(int(daemonpid)):
+                        if daemonpid.isdigit() and self.pid_exists(int(daemonpid)):
                             logger.debug(
                                 "{}: killing {}".format(
                                     self.name,
                                     os.path.basename(daemonpidfile.rsplit(".", 1)[0]),
                                 )
                             )
-                            os.kill(int(daemonpid), signal.SIGKILL)
-                            if pid_exists(int(daemonpid)):
+                            self.cmd_status("kill -KILL {}".format(daemonpid))
+                            if self.pid_exists(int(daemonpid)):
                                 numRunning += 1
                         while wait and numRunning > 0:
                             sleep(
@@ -1987,7 +1974,7 @@ class Router(Node):
                             for d in dmns[:-1]:
                                 if re.search(r"%s" % daemon, d):
                                     daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
-                                    if daemonpid.isdigit() and pid_exists(
+                                    if daemonpid.isdigit() and self.pid_exists(
                                         int(daemonpid)
                                     ):
                                         logger.info(
@@ -1998,8 +1985,10 @@ class Router(Node):
                                                 ),
                                             )
                                         )
-                                        os.kill(int(daemonpid), signal.SIGKILL)
-                                    if daemonpid.isdigit() and not pid_exists(
+                                        self.cmd_status(
+                                            "kill -KILL {}".format(daemonpid)
+                                        )
+                                    if daemonpid.isdigit() and not self.pid_exists(
                                         int(daemonpid)
                                     ):
                                         numRunning -= 1
