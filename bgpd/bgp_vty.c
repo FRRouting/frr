@@ -9292,9 +9292,24 @@ DEFPY (af_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!yes) {
-		/* implement me */
-		vty_out(vty, "It's not implemented\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		/* when SID is not set, do nothing */
+		if ((bgp->vpn_policy[afi].tovpn_sid_index == 0) &&
+		    !CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				BGP_VPN_POLICY_TOVPN_SID_AUTO))
+			return CMD_SUCCESS;
+
+		/* pre-change */
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+				   bgp_get_default(), bgp);
+		bgp->vpn_policy[afi].tovpn_sid_index = 0;
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_SID_AUTO);
+
+		/* post-change */
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+				    bgp_get_default(), bgp);
+
+		return CMD_SUCCESS;
 	}
 
 	if (bgp->tovpn_sid_index != 0 ||
@@ -9333,7 +9348,7 @@ DEFPY (af_sid_vpn_export,
 			zlog_debug("%s: auto sid alloc.", __func__);
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_SID_AUTO);
-	} else {
+	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
 			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
