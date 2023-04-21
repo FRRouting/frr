@@ -594,7 +594,7 @@ static void gm_sg_expiry_cancel(struct gm_sg *sg)
  * everything else is thrown into pkt for creation of state in pass 2
  */
 static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
-			       struct mld_v2_rec_hdr *rechdr)
+			       struct mld_v2_rec_hdr *rechdr, size_t n_src)
 {
 	/* NB: pkt->subscriber can be NULL here if the subscriber was not
 	 * previously seen!
@@ -603,7 +603,6 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 	struct gm_sg *grp;
 	struct gm_packet_sg *old_grp = NULL;
 	struct gm_packet_sg *item;
-	size_t n_src = ntohs(rechdr->n_src);
 	size_t j;
 	bool is_excl = false;
 
@@ -816,12 +815,23 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		return;
 	}
 
-	/* errors after this may at least partially process the packet */
-	gm_ifp->stats.rx_new_report++;
-
 	hdr = (struct mld_v2_report_hdr *)data;
 	data += sizeof(*hdr);
 	len -= sizeof(*hdr);
+
+	n_records = ntohs(hdr->n_records);
+	if (n_records > len / sizeof(struct mld_v2_rec_hdr)) {
+		/* note this is only an upper bound, records with source lists
+		 * are larger.  This is mostly here to make coverity happy.
+		 */
+		zlog_warn(log_pkt_src(
+			"malformed MLDv2 report (infeasible record count)"));
+		gm_ifp->stats.rx_drop_malformed++;
+		return;
+	}
+
+	/* errors after this may at least partially process the packet */
+	gm_ifp->stats.rx_new_report++;
 
 	/* can't have more *,G and S,G items than there is space for ipv6
 	 * addresses, so just use this to allocate temporary buffer
@@ -832,8 +842,6 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 	pkt->n_sg = max_entries;
 	pkt->iface = gm_ifp;
 	pkt->subscriber = gm_subscriber_findref(gm_ifp, pkt_src->sin6_addr);
-
-	n_records = ntohs(hdr->n_records);
 
 	/* validate & remove state in v2_pass1() */
 	for (i = 0; i < n_records; i++) {
@@ -872,7 +880,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		data += record_size;
 		len -= record_size;
 
-		gm_handle_v2_pass1(pkt, rechdr);
+		gm_handle_v2_pass1(pkt, rechdr, n_src);
 	}
 
 	if (!pkt->n_active) {
@@ -1496,6 +1504,15 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		gm_handle_q_group(gm_ifp, &timers, hdr->grp);
 		gm_ifp->stats.rx_query_new_group++;
 	} else {
+		/* this is checked above:
+		 * if (len >= sizeof(struct mld_v2_query_hdr)) {
+		 *   size_t src_space = ntohs(hdr->n_src) * sizeof(pim_addr);
+		 *   if (len < sizeof(struct mld_v2_query_hdr) + src_space) {
+		 */
+		assume(ntohs(hdr->n_src) <=
+		       (len - sizeof(struct mld_v2_query_hdr)) /
+			       sizeof(pim_addr));
+
 		gm_handle_q_groupsrc(gm_ifp, &timers, hdr->grp, hdr->srcs,
 				     ntohs(hdr->n_src));
 		gm_ifp->stats.rx_query_new_groupsrc++;
