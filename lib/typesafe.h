@@ -948,6 +948,8 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
 				  const type *item)                            \
 {                                                                              \
+	if (!h->hh.tabshift)                                                   \
+		return NULL;                                                   \
 	uint32_t hval = item->field.hi.hashval, hbits = HASH_KEY(h->hh, hval); \
 	const struct thash_item *hitem = h->hh.entries[hbits];                 \
 	while (hitem && hitem->hashval < hval)                                 \
