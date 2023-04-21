@@ -343,12 +343,13 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
 
     # pylint: disable=arguments-differ,protected-access
     @classmethod
-    def from_parent(cls, parent, name, link, pkt, **kwargs) -> "AssertPacket":  # type: ignore
+    def from_parent(cls, parent, name, link, pkt, expect_pkt=True, **kwargs) -> "AssertPacket":  # type: ignore
         name = "%s:%s/packet" % (name, link)
         self = cast(AssertPacket, super().from_parent(parent, name=name, **kwargs))
 
         self._link = link
         self._pkt = pkt
+        self._expect_pkt = expect_pkt
         self.matched = None
 
         self._argtypes = []
@@ -391,12 +392,18 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
             if self._pkt(*args):
                 self.matched = pkt
                 element.match_for.append(self)
+                if not self._expect_pkt:
+                    raise TopotatoPacketFail(
+                        "received an unexpected matching packet for:\n%s"
+                        % inspect.getsource(self._pkt)
+                    )
                 break
         else:
-            raise TopotatoPacketFail(
-                "did not receive a matching packet for:\n%s"
-                % inspect.getsource(self._pkt)
-            )
+            if self._expect_pkt:
+                raise TopotatoPacketFail(
+                    "did not receive a matching packet for:\n%s"
+                    % inspect.getsource(self._pkt)
+                )
 
 
 class AssertLog(TopotatoAssertion, TimedMixin):
