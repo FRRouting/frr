@@ -277,6 +277,39 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
 }
 
 static int
+parse_other_subtlv(const unsigned char *a, int alen)
+{
+    int type, len, i = 0;
+
+    while(i < alen) {
+        type = a[i];
+        if(type == SUBTLV_PAD1) {
+            i++;
+            continue;
+        }
+
+        if(i + 2 > alen)
+            goto fail;
+        len = a[i + 1];
+        if(i + 2 + len > alen)
+            goto fail;
+
+        if((type & 0x80) != 0) {
+            flog_err(EC_BABEL_PACKET,
+		      "Received unknown mandatory sub-TLV.");
+            return -1;
+        }
+
+        i += len + 2;
+    }
+    return 1;
+ fail:
+    flog_err(EC_BABEL_PACKET,
+		      "Received truncated sub-TLV.");
+    return -1;
+}
+
+static int
 network_address(int ae, const unsigned char *a, unsigned int len,
                 unsigned char *a_r)
 {
@@ -400,10 +433,16 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             DO_NTOHS(interval, message + 6);
             debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) from %s on %s.",
                    nonce, interval, format_address(from), ifp->name);
+            int rc = parse_other_subtlv(message + 8, len - 6);
+            if(rc < 0)
+                goto done;
             send_ack(neigh, nonce, interval);
         } else if(type == MESSAGE_ACK) {
             debugf(BABEL_DEBUG_COMMON,"Received ack from %s on %s.",
                    format_address(from), ifp->name);
+            int rc = parse_other_subtlv(message + 4, len - 2);
+            if(rc < 0)
+                goto done;
             /* Nothing right now */
         } else if(type == MESSAGE_HELLO) {
 		unsigned short seqno, interval, flags;
@@ -488,6 +527,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             have_router_id = 1;
             debugf(BABEL_DEBUG_COMMON,"Received router-id %s from %s on %s.",
                    format_eui64(router_id), format_address(from), ifp->name);
+            int rc = parse_other_subtlv(message + 12, len - 10);
+            if(rc < 0)
+                goto done;
         } else if(type == MESSAGE_NH) {
             unsigned char nh[16];
             int rc;
@@ -508,6 +550,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 memcpy(v6_nh, nh, 16);
                 have_v6_nh = 1;
             }
+            rc = parse_other_subtlv(message + rc + 4, len - rc -2);
+            if(rc < 0)
+                goto done;
         } else if(type == MESSAGE_UPDATE) {
             unsigned char prefix[16], *nh;
             unsigned char plen;
