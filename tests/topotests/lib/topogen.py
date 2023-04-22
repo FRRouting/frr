@@ -25,6 +25,7 @@ Basic usage instructions:
 * After running stop Mininet with: tgen.stop_topology()
 """
 
+import configparser
 import grp
 import inspect
 import json
@@ -38,16 +39,11 @@ import subprocess
 import sys
 from collections import OrderedDict
 
-if sys.version_info[0] > 2:
-    import configparser
-else:
-    import ConfigParser as configparser
-
 import lib.topolog as topolog
 from lib.micronet import Commander
 from lib.micronet_compat import Mininet
 from lib.topolog import logger
-from lib.topotest import g_extra_config
+from munet.testing.util import pause_test
 
 from lib import topotest
 
@@ -193,7 +189,7 @@ class Topogen(object):
         self._load_config()
 
         # Create new log directory
-        self.logdir = topotest.get_logs_path(g_extra_config["rundir"])
+        self.logdir = topotest.get_logs_path(topotest.g_pytest_config.option.rundir)
         subprocess.check_call(
             "mkdir -p {0} && chmod 1777 {0}".format(self.logdir), shell=True
         )
@@ -213,7 +209,7 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet(rundir=self.logdir)
+        self.net = Mininet(rundir=self.logdir, pytestconfig=topotest.g_pytest_config)
 
         # Adjust the parent namespace
         topotest.fix_netns_limits(self.net)
@@ -455,7 +451,18 @@ class Topogen(object):
         first is a simple kill with no sleep, the second will sleep if not
         killed and try with a different signal.
         """
+        pause = bool(self.net.cfgopt.get_option("--pause-at-end"))
+        pause = pause or bool(self.net.cfgopt.get_option("--pause"))
+        if pause:
+            try:
+                pause_test("Before MUNET delete")
+            except KeyboardInterrupt:
+                print("^C...continuing")
+            except Exception as error:
+                self.logger.error("\n...continuing after error: %s", error)
+
         logger.info("stopping topology: {}".format(self.modname))
+
         errors = ""
         for gear in self.gears.values():
             errors += gear.stop()

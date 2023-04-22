@@ -12,6 +12,49 @@ from munet import cli
 from munet.base import BaseMunet, LinuxNamespace
 
 
+def cli_opt_list(option_list):
+    if not option_list:
+        return []
+    if isinstance(option_list, str):
+        return [x for x in option_list.split(",") if x]
+    return [x for x in option_list if x]
+
+
+def name_in_cli_opt_str(name, option_list):
+    ol = cli_opt_list(option_list)
+    return name in ol or "all" in ol
+
+
+class ConfigOptionsProxy:
+    def __init__(self, pytestconfig=None):
+        if isinstance(pytestconfig, ConfigOptionsProxy):
+            self.config = pytestconfig.config
+        else:
+            self.config = pytestconfig
+        self.option = self.config.option
+
+    def getoption(self, opt, defval=None):
+        if not self.config:
+            return defval
+
+        value = self.config.getoption(opt)
+        if value is None:
+            return defval
+
+        return value
+
+    def get_option(self, opt, defval=None):
+        return self.getoption(opt, defval)
+
+    def get_option_list(self, opt):
+        value = self.get_option(opt, "")
+        return cli_opt_list(value)
+
+    def name_in_option_list(self, name, opt):
+        optlist = self.get_option_list(opt)
+        return "all" in optlist or name in optlist
+
+
 class Node(LinuxNamespace):
     """Node (mininet compat)."""
 
@@ -23,6 +66,8 @@ class Node(LinuxNamespace):
             nkwargs["unet"] = kwargs["unet"]
         if "private_mounts" in kwargs:
             nkwargs["private_mounts"] = kwargs["private_mounts"]
+        if "logger" in kwargs:
+            nkwargs["logger"] = kwargs["logger"]
 
         # This is expected by newer munet CLI code
         self.config_dirname = ""
@@ -120,7 +165,7 @@ class Mininet(BaseMunet):
 
     g_mnet_inst = None
 
-    def __init__(self, rundir=None):
+    def __init__(self, rundir=None, pytestconfig=None):
         """
         Create a Micronet.
         """
@@ -131,6 +176,8 @@ class Mininet(BaseMunet):
         self.configured_hosts = set()
         self.host_params = {}
         self.prefix_len = 8
+
+        self.cfgopt = ConfigOptionsProxy(pytestconfig)
 
         # SNMPd used to require this, which was set int he mininet shell
         # that all commands executed from. This is goofy default so let's not
@@ -268,12 +315,9 @@ ff02::2\tip6-allrouters
 
         cli.add_cli_config(self, cdict)
 
-        # shellopt = (
-        #     self.pytest_config.getoption("--shell") if self.pytest_config else None
-        # )
-        # shellopt = shellopt if shellopt is not None else ""
-        # if shellopt == "all" or "." in shellopt.split(","):
-        #     self.run_in_window("bash")
+        shellopt = self.cfgopt.get_option_list("--shell")
+        if "all" in shellopt or "." in shellopt:
+            self.run_in_window("bash")
 
         # This is expected by newer munet CLI code
         self.config_dirname = ""
@@ -335,6 +379,24 @@ ff02::2\tip6-allrouters
 
     def start(self):
         """Start the micronet topology."""
+        pcapopt = self.cfgopt.get_option_list("--pcap")
+        if "all" in pcapopt:
+            pcapopt = self.switches.keys()
+        for pcap in pcapopt:
+            if ":" in pcap:
+                host, intf = pcap.split(":")
+                pcap = f"{host}-{intf}"
+                host = self.hosts[host]
+            else:
+                host = self
+                intf = pcap
+            pcapfile = f"{self.rundir}/capture-{pcap}.pcap"
+            host.run_in_window(
+                f"tshark -s 9200 -i {intf} -P -w {pcapfile}",
+                background=True,
+                title=f"cap:{pcap}",
+            )
+
         self.logger.debug("%s: Starting (no-op).", self)
 
     def stop(self):

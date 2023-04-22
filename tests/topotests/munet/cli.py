@@ -24,8 +24,17 @@ import tempfile
 import termios
 import tty
 
-from . import linux
-from .config import list_to_dict_with_key
+
+try:
+    from . import linux
+    from .config import list_to_dict_with_key
+except ImportError:
+    # We cannot use relative imports and still run this module directly as a script, and
+    # there are some use cases where we want to run this file as a script.
+    sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+    import linux
+
+    from config import list_to_dict_with_key
 
 
 ENDMARKER = b"\x00END\x00"
@@ -609,7 +618,16 @@ async def doline(
         return True
 
     await run_command(
-        unet, outf, nline, execfmt, banner, hosts, toplevel, kinds, ns_only, interactive
+        unet,
+        outf,
+        nline,
+        execfmt,
+        banner,
+        hosts,
+        toplevel,
+        kinds,
+        ns_only,
+        interactive,
     )
 
     return True
@@ -657,10 +675,10 @@ async def cli_client(sockpath, prompt="munet> "):
 
 async def local_cli(unet, outf, prompt, histfile, background):
     """Implement the user-side CLI for local munet."""
-    if unet:
-        completer = Completer(unet)
-        readline.parse_and_bind("tab: complete")
-        readline.set_completer(completer.complete)
+    assert unet is not None
+    completer = Completer(unet)
+    readline.parse_and_bind("tab: complete")
+    readline.set_completer(completer.complete)
 
     print("\n--- Munet CLI Starting ---\n\n")
     while True:
@@ -668,8 +686,6 @@ async def local_cli(unet, outf, prompt, histfile, background):
             line = await async_input(prompt, histfile)
             if line is None:
                 return
-
-            assert unet is not None
 
             if not await doline(unet, line, outf, background):
                 return
@@ -706,10 +722,19 @@ async def cli_client_connected(unet, background, reader, writer):
             break
         line = line.decode("utf-8").strip()
 
-        # def writef(x):
-        #     writer.write(x.encode("utf-8"))
+        class EncodingFile:
+            """Wrap a writer to encode in utf-8."""
 
-        if not await doline(unet, line, writer, background, notty=True):
+            def __init__(self, writer):
+                self.writer = writer
+
+            def write(self, x):
+                self.writer.write(x.encode("utf-8"))
+
+            def flush(self):
+                self.writer.flush()
+
+        if not await doline(unet, line, EncodingFile(writer), background, notty=True):
             logging.debug("server closing cli connection")
             return
 
