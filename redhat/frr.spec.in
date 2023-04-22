@@ -793,7 +793,64 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri Mar 10 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Apr 20 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Thu Apr 20 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.1
+- Bug fixes:
+- bgpd
+-    Aggregate-address memory leak fix
+-    Bmp fix peer-up ports byte order
+-    Check 7 bytes for long-lived graceful-restart capability
+-    Copy the password from the previous peer on peer_xfer_config()
+-    Do not allow a `no router bgp xxx` when autoimport is happening
+-    Do not allow l3vni changes when shutting down
+-    Do not announce routes immediatelly on filter updates
+-    Do not call bgp_soft_reconfig_in() twice in a row on policy change
+-    Evpn-mh esi not active suppress ead-es route
+-    Fix crash for `show bgp ... neighbor received-routes detail|prefix`
+-    Fix debug output for route-map names when using a unsuppress-map
+-    Fix ecommunity parsing for as4
+-    Fix for ain->attr corruption during path update
+-    Increase buffer size used for dumping bgp to mrt files
+-    Limit flowspec to no attribute means a implicit withdrawal
+-    Prevent null pointer deref when outputting data
+- lib
+-    Fix clear route-map cmd using defpy
+-    Fix link state memory leak
+-    On bfd peer shutdown actually stop event
+- ospfd
+-    Cleanup some memory leaks on shutdown in ospf_apiserver.c
+-    Fix for vitual-link crash in signal handler
+-    Fix ospf_lsa memory leak
+-    Fix ospf_ti_lfa drop of an entire table
+-    Fix summary origination after range configuration
+-    Free up q_space in early return path
+-    Log adjacency changes with neighbor ip in addition to neighbor id
+- pbrd
+-    Fix mismatching in match src-dst
+- pim6d
+-    Fixing mroutes not created after disabling and enabling pimv6.
+- pimd
+-    Fix use after free issue for ifp's moving vrfs
+-    In_multicast needs host order
+-    Process no-forward bsm packet
+- ripd
+-    Fix malformed route-map
+-    Fix memory leak for ripd's route-map
+- staticd
+-    Tell bfd that we are shutting down
+- tools
+-    Fix missing remote-as configuration when reload
+-    Frr-reload fix list value not present
+-    Make check flag really work for reload
+-    Set correct directory of vtysh for frr-reload.py
+- zebra
+-    Add link_nsid to zebra interface
+-    Cleanup ctx leak on shutdown and turn off event
+-    Evpn mh sync mac install as inactive
+-    Fix for heap-use-after-free in evpn
+-    Fix race during shutdown
+-    Install directly connected route after interface flap
 
 * Fri Mar 10 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5
 - Major Highlights:
@@ -839,6 +896,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - bfdd:
 -    Fix broken FSM in active/passive modes
 - bgpd:
+-    Fix crash due to community aliases size
 -    Notification Message Support for BGP Graceful Restart (rfc8538)
 -    BGP Cease Notification Subcode For BFD
 -    Send Hold Timer for BGP (own implementation without an additional knob)
