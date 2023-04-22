@@ -48,6 +48,13 @@ static const unsigned char tlv_min_length[MESSAGE_MAX + 1] =
     [ MESSAGE_MH_REQUEST ] = 14,
 };
 
+/* Checks whether an AE exists or must be silently ignored */
+static bool
+known_ae(int ae)
+{
+    return ae <= 4;
+}
+
 /* Parse a network prefix, encoded in the somewhat baroque compressed
    representation used by Babel.  Return the number of bytes parsed. */
 static int
@@ -274,6 +281,62 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
         i += len + 2;
     }
     return ret;
+}
+
+static int
+parse_request_subtlv(int ae, const unsigned char *a, int alen,
+                     unsigned char *src_prefix, unsigned char *src_plen)
+{
+    int type, len, i = 0;
+    int have_src_prefix = 0;
+
+    while(i < alen) {
+        type = a[0];
+        if(type == SUBTLV_PAD1) {
+            i++;
+            continue;
+        }
+
+        if(i + 2 > alen)
+            goto fail;
+
+        len = a[i + 1];
+        if(i + 2 + len > alen)
+            goto fail;
+
+        if(type == SUBTLV_PADN) {
+            /* Nothing to do. */
+        } else if(type == SUBTLV_SOURCE_PREFIX) {
+            int rc;
+            if(len < 1)
+                goto fail;
+            if(a[i + 2] == 0)
+                goto fail;
+            if(have_src_prefix != 0)
+                goto fail;
+            rc = network_prefix(ae, a[i + 2], 0, a + i + 3, NULL,
+                                len - 1, src_prefix);
+            if(rc < 0)
+                goto fail;
+            if(ae==1)
+                *src_plen = a[i + 2] + 96;
+            else
+                *src_plen = a[i + 2];
+            have_src_prefix = 1;
+        } else {
+            debugf(BABEL_DEBUG_COMMON,"Received unknown%s Route Request sub-TLV %d.",
+                   ((type & 0x80) != 0) ? " mandatory" : "", type);
+            if((type & 0x80) != 0)
+                return -1;
+        }
+
+        i += len + 2;
+    }
+    return 1;
+
+ fail:
+    flog_err(EC_BABEL_PACKET, "Received truncated sub-TLV on Route Request.");
+    return -1;
 }
 
 static int
@@ -624,8 +687,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 				 interval, neigh, nh, channels,
 				 channels_len(channels));
 	} else if(type == MESSAGE_REQUEST) {
-            unsigned char prefix[16], plen;
-            int rc;
+            unsigned char prefix[16], src_prefix[16], plen, src_plen;
+            int rc, is_ss;
+            if(len < 2) goto fail;
+            if(!known_ae(message[2])) {
+                debugf(BABEL_DEBUG_COMMON,"Received request with unknown AE %d. Ignoring.",
+                       message[2]);
+                goto done;
+            }
             rc = network_prefix(message[2], message[3], 0,
                                 message + 4, NULL, len - 2, prefix);
             if(rc < 0) goto fail;
@@ -633,8 +702,26 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             debugf(BABEL_DEBUG_COMMON,"Received request for %s from %s on %s.",
                    message[2] == 0 ? "any" : format_prefix(prefix, plen),
                    format_address(from), ifp->name);
+            if(message[2] == 1) {
+                v4tov6(src_prefix, zeroes);
+                src_plen = 96;
+            } else {
+                memcpy(src_prefix, zeroes, 16);
+                src_plen = 0;
+            }
+            rc = parse_request_subtlv(message[2], message + 4 + rc,
+                                      len - 2 - rc, src_prefix, &src_plen);
+            if(rc < 0)
+                goto done;
+            is_ss = !is_default(src_prefix, src_plen);
             if(message[2] == 0) {
                 struct babel_interface *neigh_ifp =babel_get_if_nfo(neigh->ifp);
+                if(is_ss) {
+                    /* Wildcard requests don't carry a source prefix. */
+                    flog_err(EC_BABEL_PACKET,
+			      "Received source-specific wildcard request.");
+                    goto done;
+                }
                 /* If a neighbour is requesting a full route dump from us,
                    we might as well send it an IHU. */
                 send_ihu(neigh, NULL);
