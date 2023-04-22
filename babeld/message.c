@@ -32,6 +32,12 @@ static unsigned char *unicast_buffer = NULL;
 struct neighbour *unicast_neighbour = NULL;
 struct timeval unicast_flush_timeout = {0, 0};
 
+static bool
+known_ae(int ae)
+{
+    return ae <= 4;
+}
+
 /* Minimum TLV _body_ length for TLVs of particular types (0 = no limit). */
 static const unsigned char tlv_min_length[MESSAGE_MAX + 1] =
 {
@@ -275,6 +281,54 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
     }
     return ret;
 }
+
+static int
+parse_seqno_request_subtlv(int ae, const unsigned char *a, int alen,
+                           unsigned char *src_prefix, unsigned char *src_plen)
+{
+    int type, len, i = 0;
+
+    while(i < alen) {
+        type = a[0];
+        if(type == SUBTLV_PAD1) {
+            i++;
+            continue;
+        }
+
+        if(i + 2 > alen)
+            goto fail;
+        len = a[i + 1];
+        if(i + len + 2 > alen)
+            goto fail;
+
+        if(type == SUBTLV_PADN) {
+            /* Nothing to do. */
+        } else if(type == SUBTLV_SOURCE_PREFIX) {
+            int rc;
+            if(len < 1)
+                goto fail;
+            *src_plen = a[i + 2];
+            rc = network_prefix(ae, *src_plen, 0, a + i + 3, NULL,
+                                len - 1, src_prefix);
+            if(rc < 0)
+                goto fail;
+            if(ae==1)
+                (*src_plen) += 96;
+        } else {
+             debugf(BABEL_DEBUG_COMMON,"Received unknown%s Route Request sub-TLV %d.",
+                   ((type & 0x80) != 0) ? " mandatory" : "", type);
+            if((type & 0x80) != 0)
+                return -1;
+        }
+
+        i += len + 2;
+    }
+    return 1;
+ fail:
+    flog_err(EC_BABEL_PACKET, "Received truncated sub-TLV on Route Request.");
+    return -1;
+}
+
 
 static int
 network_address(int ae, const unsigned char *a, unsigned int len,
@@ -650,17 +704,38 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 send_update(neigh->ifp, 0, prefix, plen);
             }
         } else if(type == MESSAGE_MH_REQUEST) {
-            unsigned char prefix[16], plen;
+            unsigned char prefix[16], src_prefix[16], plen, src_plen;
             unsigned short seqno;
-            int rc;
+            int rc, is_ss;
+            if(len < 14) goto fail;
+            if(!known_ae(message[2])) {
+                debugf(BABEL_DEBUG_COMMON,"Received mh_request with unknown AE %d. Ignoring.",
+                       message[2]);
+                goto done;
+            }
             DO_NTOHS(seqno, message + 4);
             rc = network_prefix(message[2], message[3], 0,
                                 message + 16, NULL, len - 14, prefix);
             if(rc < 0) goto fail;
+             if(message[2] == 1) {
+                v4tov6(src_prefix, zeroes);
+                src_plen = 96;
+            } else {
+                memcpy(src_prefix, zeroes, 16);
+                src_plen = 0;
+            }
+            rc = parse_seqno_request_subtlv(message[2], message + 16 + rc,
+                                            len - 14 - rc, src_prefix,
+                                            &src_plen);
+            if(rc < 0)
+                goto done;
+            is_ss = !is_default(src_prefix, src_plen);
             plen = message[3] + (message[2] == 1 ? 96 : 0);
-            debugf(BABEL_DEBUG_COMMON,"Received request (%d) for %s from %s on %s (%s, %d).",
+            debugf(BABEL_DEBUG_COMMON,"Received request (%d) for %s%s%s from %s on %s (%s, %d).",
                    message[6],
                    format_prefix(prefix, plen),
+                   is_ss ? " src " : "",
+                   is_ss ? format_prefix(src_prefix, src_plen) : "",
                    format_address(from), ifp->name,
                    format_eui64(message + 8), seqno);
             handle_request(neigh, prefix, plen, message[6],
