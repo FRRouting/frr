@@ -58,9 +58,7 @@ struct mgmt_fe_client_adapter {
 	union sockunion conn_su;
 	struct event *conn_read_ev;
 	struct event *conn_write_ev;
-	struct event *conn_writes_on;
 	struct event *proc_msg_ev;
-	uint32_t flags;
 
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
@@ -76,8 +74,6 @@ struct mgmt_fe_client_adapter {
 
 	struct mgmt_fe_adapters_item list_linkage;
 };
-
-#define MGMTD_FE_ADAPTER_FLAGS_WRITES_OFF (1U << 0)
 
 DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 

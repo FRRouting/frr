@@ -480,23 +480,7 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 static inline void
 mgmt_be_adapter_sched_msg_write(struct mgmt_be_client_adapter *adapter)
 {
-	if (!CHECK_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_WRITES_OFF))
-		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_WRITE);
-}
-
-static inline void
-mgmt_be_adapter_writes_on(struct mgmt_be_client_adapter *adapter)
-{
-	MGMTD_BE_ADAPTER_DBG("Resume writing msgs for '%s'", adapter->name);
-	UNSET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_WRITES_OFF);
-	mgmt_be_adapter_sched_msg_write(adapter);
-}
-
-static inline void
-mgmt_be_adapter_writes_off(struct mgmt_be_client_adapter *adapter)
-{
-	SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_WRITES_OFF);
-	MGMTD_BE_ADAPTER_DBG("Pause writing msgs for '%s'", adapter->name);
+	mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_WRITE);
 }
 
 static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
@@ -642,22 +626,8 @@ static void mgmt_be_adapter_write(struct event *thread)
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
 		mgmt_be_adapter_disconnect(adapter);
-	else if (rv == MSW_SCHED_WRITES_OFF) {
-		mgmt_be_adapter_writes_off(adapter);
-		mgmt_be_adapter_register_event(adapter,
-					       MGMTD_BE_CONN_WRITES_ON);
-	} else
+	else
 		assert(rv == MSW_SCHED_NONE);
-}
-
-static void mgmt_be_adapter_resume_writes(struct event *thread)
-{
-	struct mgmt_be_client_adapter *adapter;
-
-	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
-	assert(adapter && adapter->conn_fd >= 0);
-
-	mgmt_be_adapter_writes_on(adapter);
 }
 
 static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
@@ -753,12 +723,6 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 				    mgmt_be_adapter_proc_msgbufs, adapter, &tv,
 				    &adapter->proc_msg_ev);
 		break;
-	case MGMTD_BE_CONN_WRITES_ON:
-		event_add_timer_msec(mgmt_be_adapter_tm,
-				      mgmt_be_adapter_resume_writes, adapter,
-				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
-				      &adapter->conn_writes_on);
-		break;
 	case MGMTD_BE_SERVER:
 	case MGMTD_BE_SCHED_CFG_PREPARE:
 	case MGMTD_BE_RESCHED_CFG_PREPARE:
@@ -784,7 +748,6 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 		EVENT_OFF((*adapter)->conn_init_ev);
 		EVENT_OFF((*adapter)->conn_read_ev);
 		EVENT_OFF((*adapter)->conn_write_ev);
-		EVENT_OFF((*adapter)->conn_writes_on);
 		EVENT_OFF((*adapter)->proc_msg_ev);
 		mgmt_msg_destroy(&(*adapter)->mstate);
 		XFREE(MTYPE_MGMTD_BE_ADPATER, *adapter);

@@ -356,24 +356,7 @@ mgmt_fe_cleanup_sessions(struct mgmt_fe_client_adapter *adapter)
 static inline void
 mgmt_fe_adapter_sched_msg_write(struct mgmt_fe_client_adapter *adapter)
 {
-	if (!CHECK_FLAG(adapter->flags, MGMTD_FE_ADAPTER_FLAGS_WRITES_OFF))
-		mgmt_fe_adapter_register_event(adapter,
-						 MGMTD_FE_CONN_WRITE);
-}
-
-static inline void
-mgmt_fe_adapter_writes_on(struct mgmt_fe_client_adapter *adapter)
-{
-	MGMTD_FE_ADAPTER_DBG("Resume writing msgs for '%s'", adapter->name);
-	UNSET_FLAG(adapter->flags, MGMTD_FE_ADAPTER_FLAGS_WRITES_OFF);
-	mgmt_fe_adapter_sched_msg_write(adapter);
-}
-
-static inline void
-mgmt_fe_adapter_writes_off(struct mgmt_fe_client_adapter *adapter)
-{
-	SET_FLAG(adapter->flags, MGMTD_FE_ADAPTER_FLAGS_WRITES_OFF);
-	MGMTD_FE_ADAPTER_DBG("Paused writing msgs for '%s'", adapter->name);
+	mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_WRITE);
 }
 
 static int
@@ -1460,22 +1443,8 @@ static void mgmt_fe_adapter_write(struct event *thread)
 		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
 		mgmt_fe_adapter_disconnect(adapter);
-	else if (rv == MSW_SCHED_WRITES_OFF) {
-		mgmt_fe_adapter_writes_off(adapter);
-		mgmt_fe_adapter_register_event(adapter,
-					       MGMTD_FE_CONN_WRITES_ON);
-	} else
+	else
 		assert(rv == MSW_SCHED_NONE);
-}
-
-static void mgmt_fe_adapter_resume_writes(struct event *thread)
-{
-	struct mgmt_fe_client_adapter *adapter;
-
-	adapter = (struct mgmt_fe_client_adapter *)EVENT_ARG(thread);
-	assert(adapter && adapter->conn_fd != -1);
-
-	mgmt_fe_adapter_writes_on(adapter);
 }
 
 static void
@@ -1500,12 +1469,6 @@ mgmt_fe_adapter_register_event(struct mgmt_fe_client_adapter *adapter,
 				    mgmt_fe_adapter_proc_msgbufs, adapter,
 				    &tv, &adapter->proc_msg_ev);
 		break;
-	case MGMTD_FE_CONN_WRITES_ON:
-		event_add_timer_msec(mgmt_fe_adapter_tm,
-				      mgmt_fe_adapter_resume_writes, adapter,
-				      MGMTD_FE_MSG_WRITE_DELAY_MSEC,
-				      &adapter->conn_writes_on);
-		break;
 	case MGMTD_FE_SERVER:
 		assert(!"mgmt_fe_adapter_post_event() called incorrectly");
 		break;
@@ -1528,7 +1491,6 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 		EVENT_OFF((*adapter)->conn_read_ev);
 		EVENT_OFF((*adapter)->conn_write_ev);
 		EVENT_OFF((*adapter)->proc_msg_ev);
-		EVENT_OFF((*adapter)->conn_writes_on);
 		mgmt_msg_destroy(&(*adapter)->mstate);
 		XFREE(MTYPE_MGMTD_FE_ADPATER, *adapter);
 	}

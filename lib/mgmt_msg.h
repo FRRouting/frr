@@ -41,7 +41,6 @@ enum mgmt_msg_rsched {
 enum mgmt_msg_wsched {
 	MSW_SCHED_NONE,	      /* no scheduling required */
 	MSW_SCHED_STREAM,     /* schedule writing */
-	MSW_SCHED_WRITES_OFF, /* toggle writes off */
 	MSW_DISCONNECT,	      /* disconnect and start reconnecting */
 };
 

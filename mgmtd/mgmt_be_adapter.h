@@ -47,7 +47,6 @@ struct mgmt_be_client_adapter {
 	struct event *conn_init_ev;
 	struct event *conn_read_ev;
 	struct event *conn_write_ev;
-	struct event *conn_writes_on;
 	struct event *proc_msg_ev;
 	uint32_t flags;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
@@ -71,8 +70,7 @@ struct mgmt_be_client_adapter {
 	struct mgmt_txn_badapters_item txn_list_linkage;
 };
 
-#define MGMTD_BE_ADAPTER_FLAGS_WRITES_OFF (1U << 0)
-#define MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED (1U << 1)
+#define MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED (1U << 0)
 
 DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 DECLARE_LIST(mgmt_txn_badapters, struct mgmt_be_client_adapter,

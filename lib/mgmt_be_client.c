@@ -104,9 +104,7 @@ struct mgmt_be_client_ctx {
 	struct event *conn_retry_tmr;
 	struct event *conn_read_ev;
 	struct event *conn_write_ev;
-	struct event *conn_writes_on;
 	struct event *msg_proc_ev;
-	uint32_t flags;
 
 	struct mgmt_msg_state mstate;
 
@@ -123,8 +121,6 @@ struct mgmt_be_client_ctx {
 	struct mgmt_be_txns_head txn_head;
 	struct mgmt_be_client_params client_params;
 };
-
-#define MGMTD_BE_CLIENT_FLAGS_WRITES_OFF (1U << 0)
 
 #define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
@@ -904,24 +900,7 @@ static void mgmt_be_client_read(struct event *thread)
 static inline void
 mgmt_be_client_sched_msg_write(struct mgmt_be_client_ctx *client_ctx)
 {
-	if (!CHECK_FLAG(client_ctx->flags, MGMTD_BE_CLIENT_FLAGS_WRITES_OFF))
-		mgmt_be_client_register_event(client_ctx,
-						 MGMTD_BE_CONN_WRITE);
-}
-
-static inline void
-mgmt_be_client_writes_on(struct mgmt_be_client_ctx *client_ctx)
-{
-	MGMTD_BE_CLIENT_DBG("Resume writing msgs");
-	UNSET_FLAG(client_ctx->flags, MGMTD_BE_CLIENT_FLAGS_WRITES_OFF);
-	mgmt_be_client_sched_msg_write(client_ctx);
-}
-
-static inline void
-mgmt_be_client_writes_off(struct mgmt_be_client_ctx *client_ctx)
-{
-	SET_FLAG(client_ctx->flags, MGMTD_BE_CLIENT_FLAGS_WRITES_OFF);
-	MGMTD_BE_CLIENT_DBG("Paused writing msgs");
+	mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_WRITE);
 }
 
 static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
@@ -952,22 +931,8 @@ static void mgmt_be_client_write(struct event *thread)
 		mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
 		mgmt_be_server_disconnect(client_ctx, true);
-	else if (rv == MSW_SCHED_WRITES_OFF) {
-		mgmt_be_client_writes_off(client_ctx);
-		mgmt_be_client_register_event(client_ctx,
-					      MGMTD_BE_CONN_WRITES_ON);
-	} else
+	else
 		assert(rv == MSW_SCHED_NONE);
-}
-
-static void mgmt_be_client_resume_writes(struct event *thread)
-{
-	struct mgmt_be_client_ctx *client_ctx;
-
-	client_ctx = (struct mgmt_be_client_ctx *)EVENT_ARG(thread);
-	assert(client_ctx && client_ctx->conn_fd != -1);
-
-	mgmt_be_client_writes_on(client_ctx);
 }
 
 static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
@@ -1045,12 +1010,6 @@ mgmt_be_client_register_event(struct mgmt_be_client_ctx *client_ctx,
 		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
 		event_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
 				    client_ctx, &tv, &client_ctx->msg_proc_ev);
-		break;
-	case MGMTD_BE_CONN_WRITES_ON:
-		event_add_timer_msec(client_ctx->tm,
-				      mgmt_be_client_resume_writes, client_ctx,
-				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
-				      &client_ctx->conn_writes_on);
 		break;
 	case MGMTD_BE_SERVER:
 	case MGMTD_BE_CONN_INIT:
@@ -1241,7 +1200,6 @@ void mgmt_be_client_lib_destroy(uintptr_t lib_hndl)
 	EVENT_OFF(client_ctx->conn_retry_tmr);
 	EVENT_OFF(client_ctx->conn_read_ev);
 	EVENT_OFF(client_ctx->conn_write_ev);
-	EVENT_OFF(client_ctx->conn_writes_on);
 	EVENT_OFF(client_ctx->msg_proc_ev);
 	mgmt_be_cleanup_all_txns(client_ctx);
 	mgmt_be_txns_fini(&client_ctx->txn_head);

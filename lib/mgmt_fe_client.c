@@ -48,9 +48,7 @@ struct mgmt_fe_client_ctx {
 	struct event *conn_retry_tmr;
 	struct event *conn_read_ev;
 	struct event *conn_write_ev;
-	struct event *conn_writes_on;
 	struct event *msg_proc_ev;
-	uint32_t flags;
 
 	struct mgmt_msg_state mstate;
 
@@ -58,8 +56,6 @@ struct mgmt_fe_client_ctx {
 
 	struct mgmt_sessions_head client_sessions;
 };
-
-#define MGMTD_FE_CLIENT_FLAGS_WRITES_OFF (1U << 0)
 
 #define FOREACH_SESSION_IN_LIST(client_ctx, session)                           \
 	frr_each_safe (mgmt_sessions, &(client_ctx)->client_sessions, (session))
@@ -131,24 +127,7 @@ mgmt_fe_server_disconnect(struct mgmt_fe_client_ctx *client_ctx,
 static inline void
 mgmt_fe_client_sched_msg_write(struct mgmt_fe_client_ctx *client_ctx)
 {
-	if (!CHECK_FLAG(client_ctx->flags, MGMTD_FE_CLIENT_FLAGS_WRITES_OFF))
-		mgmt_fe_client_register_event(client_ctx,
-						  MGMTD_FE_CONN_WRITE);
-}
-
-static inline void
-mgmt_fe_client_writes_on(struct mgmt_fe_client_ctx *client_ctx)
-{
-	MGMTD_FE_CLIENT_DBG("Resume writing msgs");
-	UNSET_FLAG(client_ctx->flags, MGMTD_FE_CLIENT_FLAGS_WRITES_OFF);
-	mgmt_fe_client_sched_msg_write(client_ctx);
-}
-
-static inline void
-mgmt_fe_client_writes_off(struct mgmt_fe_client_ctx *client_ctx)
-{
-	SET_FLAG(client_ctx->flags, MGMTD_FE_CLIENT_FLAGS_WRITES_OFF);
-	MGMTD_FE_CLIENT_DBG("Paused writing msgs");
+	mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_WRITE);
 }
 
 static int mgmt_fe_client_send_msg(struct mgmt_fe_client_ctx *client_ctx,
@@ -181,22 +160,8 @@ static void mgmt_fe_client_write(struct event *thread)
 		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
 		mgmt_fe_server_disconnect(client_ctx, true);
-	else if (rv == MSW_SCHED_WRITES_OFF) {
-		mgmt_fe_client_writes_off(client_ctx);
-		mgmt_fe_client_register_event(client_ctx,
-					      MGMTD_FE_CONN_WRITES_ON);
-	} else
+	else
 		assert(rv == MSW_SCHED_NONE);
-}
-
-static void mgmt_fe_client_resume_writes(struct event *thread)
-{
-	struct mgmt_fe_client_ctx *client_ctx;
-
-	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
-	assert(client_ctx && client_ctx->conn_fd != -1);
-
-	mgmt_fe_client_writes_on(client_ctx);
 }
 
 static int
@@ -751,12 +716,6 @@ mgmt_fe_client_register_event(struct mgmt_fe_client_ctx *client_ctx,
 				    mgmt_fe_client_proc_msgbufs, client_ctx,
 				    &tv, &client_ctx->msg_proc_ev);
 		break;
-	case MGMTD_FE_CONN_WRITES_ON:
-		event_add_timer_msec(
-			client_ctx->tm, mgmt_fe_client_resume_writes,
-			client_ctx, MGMTD_FE_MSG_WRITE_DELAY_MSEC,
-			&client_ctx->conn_writes_on);
-		break;
 	case MGMTD_FE_SERVER:
 		assert(!"mgmt_fe_client_ctx_post_event called incorrectly");
 		break;
@@ -1114,7 +1073,6 @@ void mgmt_fe_client_lib_destroy(uintptr_t lib_hndl)
 	EVENT_OFF(client_ctx->conn_retry_tmr);
 	EVENT_OFF(client_ctx->conn_read_ev);
 	EVENT_OFF(client_ctx->conn_write_ev);
-	EVENT_OFF(client_ctx->conn_writes_on);
 	EVENT_OFF(client_ctx->msg_proc_ev);
 	mgmt_msg_destroy(&client_ctx->mstate);
 }

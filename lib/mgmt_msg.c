@@ -251,7 +251,7 @@ enum mgmt_msg_wsched mgmt_msg_write(struct mgmt_msg_state *ms, int fd,
 			dbgtag,
 			"reached %zu buffer writes, pausing with %zu streams left",
 			ms->max_write_buf, ms->outq.count);
-		return MSW_SCHED_WRITES_OFF;
+		return MSW_SCHED_STREAM;
 	}
 	MGMT_MSG_DBG(dbgtag, "flushed all streams from output q");
 	return MSW_SCHED_NONE;
