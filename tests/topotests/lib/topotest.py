@@ -1055,7 +1055,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
 
     # No Address Sanitizer Error in Output. Now check for AddressSanitizer daemon file
     if logdir:
-        filepattern = logdir + "/" + router + "/" + component + ".asan.*"
+        filepattern = logdir + "/" + router + ".asan." + component + ".*"
         logger.debug(
             "Log check for %s on %s, pattern %s\n" % (component, router, filepattern)
         )
@@ -1272,7 +1272,8 @@ def fix_host_limits():
 def setup_node_tmpdir(logdir, name):
     # Cleanup old log, valgrind, and core files.
     subprocess.check_call(
-        "rm -rf {0}/{1}.valgrind.* {1}.*.asan {0}/{1}/".format(logdir, name), shell=True
+        "rm -rf {0}/{1}.valgrind.* {0}/{1}.asan.* {0}/{1}/".format(logdir, name),
+        shell=True,
     )
 
     # Setup the per node directory.
@@ -1771,8 +1772,8 @@ class Router(Node):
 
                 cmdenv = "ASAN_OPTIONS="
                 if asan_abort:
-                    cmdenv = "abort_on_error=1:"
-                cmdenv += "log_path={0}/{1}.{2}.asan ".format(
+                    cmdenv += "abort_on_error=1:"
+                cmdenv += "log_path={0}/{1}.asan.{2} ".format(
                     self.logdir, self.name, daemon
                 )
 
