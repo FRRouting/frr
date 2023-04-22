@@ -30,6 +30,7 @@ from copy import deepcopy
 import lib.topolog as topolog
 from lib.micronet_compat import Node
 from lib.topolog import logger
+from munet.base import Timeout
 
 from lib import micronet
 
@@ -1769,18 +1770,30 @@ class Router(Node):
                     daemons_list.append(daemon)
 
         tail_log_files = []
+        check_daemon_files = []
 
         def start_daemon(daemon, extra_opts=None):
             daemon_opts = self.daemons_options.get(daemon, "")
+
+            # get pid and vty filenames and remove the files
+            m = re.match(r"(.* |^)-n (\d+)( ?.*|$)", daemon_opts)
+            dfname = daemon if not m else "{}-{}".format(daemon, m.group(2))
+            runbase = "/var/run/{}/{}".format(self.routertype, dfname)
+            # If this is a new system bring-up remove the pid/vty files, otherwise
+            # do not since apparently presence of the pidfile impacts BGP GR
+            self.cmd_status("rm -f {0}.pid {0}.vty".format(runbase))
+
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
             if daemon == "snmpd":
                 binary = "/usr/sbin/snmpd"
                 cmdenv = ""
                 cmdopt = "{} -C -c /etc/frr/snmpd.conf -p ".format(
                     daemon_opts
-                ) + "/var/run/{}/snmpd.pid -x /etc/frr/agentx".format(self.routertype)
+                ) + "{}.pid -x /etc/frr/agentx".format(runbase)
+                # check_daemon_files.append(runbase + ".pid")
             else:
                 binary = os.path.join(self.daemondir, daemon)
+                check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
 
                 cmdenv = "ASAN_OPTIONS="
                 if asan_abort:
@@ -1844,8 +1857,6 @@ class Router(Node):
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
                 )
-                # Need better check for daemons running.
-                time.sleep(5)
             else:
                 if daemon != "snmpd":
                     cmdopt += " -d "
@@ -1904,9 +1915,22 @@ class Router(Node):
             start_daemon(daemon)
 
         # Check if daemons are running.
-        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
-        if re.search(r"No such file or directory", rundaemons):
-            return "Daemons are not running"
+        wait_time = 30 if (gdb_routers or gdb_daemons) else 10
+        timeout = Timeout(wait_time)
+        for remaining in timeout:
+            if not check_daemon_files:
+                break
+            check = check_daemon_files[0]
+            if self.path_exists(check):
+                check_daemon_files.pop(0)
+                continue
+            self.logger.debug("Waiting {}s for {} to appear".format(remaining, check))
+            time.sleep(0.5)
+
+        if check_daemon_files:
+            assert False, "Timeout({}) waiting for {} to appear on {}".format(
+                wait_time, check_daemon_files[0], self.name
+            )
 
         # Update the permissions on the log files
         self.cmd("chown frr:frr -R {}/{}".format(self.logdir, self.name))
