@@ -1976,9 +1976,9 @@ class LinuxNamespace(Commander, InterfaceMixin):
             if unet and unet.nsenter_fork:
                 assert not unet.unshare_inline
                 # Need child pid of p.pid
-                pgrep = roothost.get_exec_path("pgrep")
+                pgrep = unet.rootcmd.get_exec_path("pgrep")
                 # a sing fork was done
-                child_pid = roothost.cmd_raises([pgrep, "-o", "-P", str(p.pid)])
+                child_pid = unet.rootcmd.cmd_raises([pgrep, "-o", "-P", str(p.pid)])
                 self.pid = int(child_pid.strip())
                 self.logger.debug("%s: child of namespace process: %s", self, pid)
 
@@ -2172,10 +2172,9 @@ class LinuxNamespace(Commander, InterfaceMixin):
 
         # this will fail if running inside the namespace with PID
         if pid:
-            o = self.cmd_status_nsonly("ls -l /proc/1/ns")
+            o = self.cmd_nostatus_nsonly("ls -l /proc/1/ns")
         else:
-            o = self.cmd_nostatus_nsonly(cmd=shlex.split("/usr/bin/ls -l /proc/self"))
-            o = self.cmd_nostatus_nsonly(cmd=shlex.split("ls -l /proc/self/ns"))
+            o = self.cmd_nostatus_nsonly("ls -l /proc/self/ns")
 
         self.logger.debug("namespaces:\n %s", o)
 
@@ -2536,10 +2535,21 @@ class BaseMunet(LinuxNamespace):
 
         if not self.isolated:
             self.rootcmd = commander
+        elif not pid:
+            nsflags = (
+                f"--mount={self.proc_path / '1/ns/mnt'}",
+                f"--net={self.proc_path / '1/ns/net'}",
+                f"--uts={self.proc_path / '1/ns/uts'}",
+                # f"--ipc={self.proc_path / '1/ns/ipc'}",
+                # f"--time={self.proc_path / '1/ns/time'}",
+                # f"--cgroup={self.proc_path / '1/ns/cgroup'}",
+            )
+            self.rootcmd = SharedNamespace("root", pid=1, nsflags=nsflags)
         else:
             # XXX user
             nsflags = (
-                f"--pid={self.proc_path / '1/ns/pid_for_children'}",
+                # XXX Backing up PID namespace just doesn't work.
+                # f"--pid={self.proc_path / '1/ns/pid_for_children'}",
                 f"--mount={self.proc_path / '1/ns/mnt'}",
                 f"--net={self.proc_path / '1/ns/net'}",
                 f"--uts={self.proc_path / '1/ns/uts'}",
