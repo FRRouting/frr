@@ -11,8 +11,18 @@
 class PytestConfig:
     """Pytest config duck-type-compatible object using argprase args."""
 
+    class Namespace:
+        """A namespace defined by a dictionary of values."""
+
+        def __init__(self, args):
+            self.args = args
+
+        def __getattr__(self, attr):
+            return self.args[attr] if attr in self.args else None
+
     def __init__(self, args):
         self.args = vars(args)
+        self.option = PytestConfig.Namespace(self.args)
 
     def getoption(self, name, default=None, skip=False):
         assert not skip

@@ -423,37 +423,37 @@ class NodeMixin:
             stdout: file-like object with a ``name`` attribute, or a path to a file.
             stderr: file-like object with a ``name`` attribute, or a path to a file.
         """
-        if not self.unet or not self.unet.pytest_config:
+        if not self.unet:
             return
 
-        outopt = self.unet.pytest_config.getoption("--stdout")
+        outopt = self.unet.cfgopt.getoption("--stdout")
         outopt = outopt if outopt is not None else ""
         if outopt == "all" or self.name in outopt.split(","):
             outname = stdout.name if hasattr(stdout, "name") else stdout
             self.run_in_window(f"tail -F {outname}", title=f"O:{self.name}")
 
         if stderr:
-            erropt = self.unet.pytest_config.getoption("--stderr")
+            erropt = self.unet.cfgopt.getoption("--stderr")
             erropt = erropt if erropt is not None else ""
             if erropt == "all" or self.name in erropt.split(","):
                 errname = stderr.name if hasattr(stderr, "name") else stderr
                 self.run_in_window(f"tail -F {errname}", title=f"E:{self.name}")
 
     def pytest_hook_open_shell(self):
-        if not self.unet or not self.unet.pytest_config:
+        if not self.unet:
             return
 
         gdbcmd = self.config.get("gdb-cmd")
-        shellopt = self.unet.pytest_config.getoption("--gdb", "")
+        shellopt = self.unet.cfgopt.getoption("--gdb", "")
         should_gdb = gdbcmd and (shellopt == "all" or self.name in shellopt.split(","))
-        use_emacs = self.unet.pytest_config.getoption("--gdb-use-emacs", False)
+        use_emacs = self.unet.cfgopt.getoption("--gdb-use-emacs", False)
 
         if should_gdb and not use_emacs:
             cmds = self.config.get("gdb-target-cmds", [])
             for cmd in cmds:
                 gdbcmd += f" '-ex={cmd}'"
 
-            bps = self.unet.pytest_config.getoption("--gdb-breakpoints", "").split(",")
+            bps = self.unet.cfgopt.getoption("--gdb-breakpoints", "").split(",")
             for bp in bps:
                 gdbcmd += f" '-ex=b {bp}'"
 
@@ -497,7 +497,7 @@ class NodeMixin:
                     ]
                 )
 
-            bps = self.unet.pytest_config.getoption("--gdb-breakpoints", "").split(",")
+            bps = self.unet.cfgopt.getoption("--gdb-breakpoints", "").split(",")
             for bp in bps:
                 cmd = f"br {bp}"
                 self.cmd_raises(
@@ -520,8 +520,8 @@ class NodeMixin:
                 )
                 gdbcmd += f" '-ex={cmd}'"
 
-        shellopt = self.unet.pytest_config.getoption("--shell")
-        shellopt = shellopt if shellopt is not None else ""
+        shellopt = self.unet.cfgopt.getoption("--shell")
+        shellopt = shellopt if shellopt else ""
         if shellopt == "all" or self.name in shellopt.split(","):
             self.run_in_window("bash")
 
@@ -1968,7 +1968,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                     con.cmd_raises(f"ip -6 route add default via {switch.ip6_address}")
         con.cmd_raises("ip link set lo up")
 
-        if self.unet.pytest_config and self.unet.pytest_config.getoption("--coverage"):
+        if self.unet.cfgopt.getoption("--coverage"):
             con.cmd_raises("mount -t debugfs none /sys/kernel/debug")
 
     async def gather_coverage_data(self):
@@ -2402,7 +2402,6 @@ class Munet(BaseMunet):
         self,
         rundir=None,
         config=None,
-        pytestconfig=None,
         pid=True,
         logger=None,
         **kwargs,
@@ -2432,8 +2431,6 @@ class Munet(BaseMunet):
         else:
             self.config_pathname = ""
             self.config_dirname = ""
-
-        self.pytest_config = pytestconfig
 
         # Done in BaseMunet now
         # # We need some way to actually get back to the root namespace
@@ -2573,10 +2570,8 @@ ff02::2\tip6-allrouters
         #     # Let's hide podman details
         #     self.tmpfs_mount("/var/lib/containers/storage/overlay-containers")
 
-        shellopt = (
-            self.pytest_config.getoption("--shell") if self.pytest_config else None
-        )
-        shellopt = shellopt if shellopt is not None else ""
+        shellopt = self.cfgopt.getoption("--shell")
+        shellopt = shellopt if shellopt else ""
         if shellopt == "all" or "." in shellopt.split(","):
             self.run_in_window("bash")
 
@@ -2795,11 +2790,8 @@ ff02::2\tip6-allrouters
             x for x in hosts if hasattr(x, "has_ready_cmd") and x.has_ready_cmd()
         ]
 
-        if not self.pytest_config:
-            pcapopt = ""
-        else:
-            pcapopt = self.pytest_config.getoption("--pcap")
-            pcapopt = pcapopt if pcapopt else ""
+        pcapopt = self.cfgopt.getoption("--pcap")
+        pcapopt = pcapopt if pcapopt else ""
         if pcapopt == "all":
             pcapopt = self.switches.keys()
         if pcapopt:
@@ -2868,7 +2860,7 @@ ff02::2\tip6-allrouters
 
         self.logger.debug("%s: deleting.", self)
 
-        if self.pytest_config and self.pytest_config.getoption("--coverage"):
+        if self.cfgopt.getoption("--coverage"):
             nodes = (
                 x for x in self.hosts.values() if hasattr(x, "gather_coverage_data")
             )
@@ -2877,11 +2869,8 @@ ff02::2\tip6-allrouters
             except Exception as error:
                 logging.warning("Error gathering coverage data: %s", error)
 
-        if not self.pytest_config:
-            pause = False
-        else:
-            pause = bool(self.pytest_config.getoption("--pause-at-end"))
-            pause = pause or bool(self.pytest_config.getoption("--pause"))
+        pause = bool(self.cfgopt.getoption("--pause-at-end"))
+        pause = pause or bool(self.cfgopt.getoption("--pause"))
         if pause:
             try:
                 await async_pause_test("Before MUNET delete")
