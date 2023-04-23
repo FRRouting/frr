@@ -1963,8 +1963,12 @@ static void rip_read(struct event *t)
 		rip_response_process(packet, len, &from, ifc);
 		break;
 	case RIP_REQUEST:
-	case RIP_POLL:
 		rip_request_process(packet, len, &from, ifc);
+		break;
+	case RIP_POLL:
+		zlog_info("Obsolete command %s received",
+			  lookup_msg(rip_msg, packet->command, NULL));
+		rip_peer_bad_packet(rip, &from);
 		break;
 	case RIP_TRACEON:
 	case RIP_TRACEOFF:
