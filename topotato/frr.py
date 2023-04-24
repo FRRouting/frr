@@ -116,7 +116,7 @@ class FRRConfigs(dict):
     daemons.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld eigrpd".split())
     daemons.extend("pimd pim6d ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
 
-    daemons_integrated_only = frozenset("pim6d".split())
+    daemons_integrated_only = frozenset("pim6d staticd".split())
 
     @staticmethod
     @pytest.hookimpl()
