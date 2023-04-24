@@ -351,6 +351,22 @@ prefix_list_entry_lookup(struct prefix_list *plist, struct prefix *prefix,
 	return NULL;
 }
 
+static bool
+prefix_list_entry_lookup_prefix(struct prefix_list *plist,
+				struct prefix_list_entry *plist_entry)
+{
+	struct prefix_list_entry *pentry = NULL;
+
+	for (pentry = plist->head; pentry; pentry = pentry->next) {
+		if (pentry == plist_entry)
+			continue;
+		if (prefix_same(&pentry->prefix, &plist_entry->prefix))
+			return true;
+	}
+
+	return false;
+}
+
 static void trie_walk_affected(size_t validbits, struct pltrie_table *table,
 			       uint8_t byte, struct prefix_list_entry *object,
 			       void (*fn)(struct prefix_list_entry *object,
@@ -419,11 +435,15 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 
 
 void prefix_list_entry_delete(struct prefix_list *plist,
-			      struct prefix_list_entry *pentry,
-			      int update_list)
+			      struct prefix_list_entry *pentry, int update_list)
 {
+	bool duplicate = false;
+
 	if (plist == NULL || pentry == NULL)
 		return;
+
+	if (prefix_list_entry_lookup_prefix(plist, pentry))
+		duplicate = true;
 
 	prefix_list_trie_del(plist, pentry);
 
@@ -436,8 +456,10 @@ void prefix_list_entry_delete(struct prefix_list *plist,
 	else
 		plist->tail = pentry->prev;
 
-	route_map_notify_pentry_dependencies(plist->name, pentry,
-					     RMAP_EVENT_PLIST_DELETED);
+	if (!duplicate)
+		route_map_notify_pentry_dependencies(plist->name, pentry,
+						     RMAP_EVENT_PLIST_DELETED);
+
 	prefix_list_entry_free(pentry);
 
 	plist->count--;
@@ -572,10 +594,14 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 {
 	struct prefix_list *pl = ple->pl;
+	bool duplicate = false;
 
 	/* Not installed, nothing to do. */
 	if (!ple->installed)
 		return;
+
+	if (prefix_list_entry_lookup_prefix(pl, ple))
+		duplicate = true;
 
 	prefix_list_trie_del(pl, ple);
 
@@ -589,8 +615,9 @@ void prefix_list_entry_update_start(struct prefix_list_entry *ple)
 	else
 		pl->tail = ple->prev;
 
-	route_map_notify_pentry_dependencies(pl->name, ple,
-					     RMAP_EVENT_PLIST_DELETED);
+	if (!duplicate)
+		route_map_notify_pentry_dependencies(pl->name, ple,
+						     RMAP_EVENT_PLIST_DELETED);
 	pl->count--;
 
 	route_map_notify_dependencies(pl->name, RMAP_EVENT_PLIST_DELETED);
