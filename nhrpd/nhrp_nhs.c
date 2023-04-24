@@ -420,6 +420,7 @@ void nhrp_nhs_terminate(void)
 				       &nifp->afi[afi].nhslist_head, nhs)
 				nhrp_nhs_free(nifp, afi, nhs);
 		}
+		nhrp_peer_interface_del(ifp);
 	}
 }
 
