@@ -15,13 +15,14 @@ import time
 
 import lib.fixtures
 import pytest
-from lib.micronet_compat import ConfigOptionsProxy, Mininet
+from lib.micronet_compat import Mininet
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
 from lib.topotest import json_cmp_result
 from munet import cli
 from munet.base import Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
+from munet.config import ConfigOptionsProxy
 from munet.testing.util import pause_test
 
 from lib import topolog, topotest
