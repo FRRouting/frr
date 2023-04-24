@@ -338,10 +338,11 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
     _link: str
     _pkt: Any
     _argtypes: List[Type[Packet]]
+    _expect_pkt: bool
 
     matched: Optional[Any]
 
-    # pylint: disable=arguments-differ,protected-access
+    # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
     def from_parent(cls, parent, name, link, pkt, expect_pkt=True, **kwargs) -> "AssertPacket":  # type: ignore
         name = "%s:%s/packet" % (name, link)
@@ -354,7 +355,7 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
 
         self._argtypes = []
         argspec = inspect.getfullargspec(self._pkt)
-        for arg in argspec.args[:len(argspec.args) - len(argspec.defaults or ())]:
+        for arg in argspec.args[: len(argspec.args) - len(argspec.defaults or ())]:
             if arg not in argspec.annotations:
                 raise TypeError(
                     "%r needs a type annotation for parameter %r" % (self._pkt, arg)
