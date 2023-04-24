@@ -116,7 +116,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->last_route_change_time = -1;
 
-	pim->reg_sock = pim_reg_sock();
+	pim->reg_sock = pim_reg_sock(vrf);
 	if (pim->reg_sock < 0)
 		assert(0);
 

@@ -166,7 +166,7 @@ static inline int pim_setsockopt(int protocol, int fd, struct interface *ifp)
 }
 #endif
 
-int pim_reg_sock(void)
+int pim_reg_sock(struct vrf *vrf)
 {
 	int fd;
 	long flags;
@@ -185,6 +185,17 @@ int pim_reg_sock(void)
 		close(fd);
 		return PIM_SOCK_ERR_REUSE;
 	}
+
+#ifdef SO_BINDTODEVICE
+	if (vrf->vrf_id != VRF_DEFAULT &&
+	    setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, vrf->name,
+		       strlen(vrf->name))) {
+		zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
+			  safe_strerror(errno));
+		close(fd);
+		return -3;
+	}
+#endif
 
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags < 0) {
