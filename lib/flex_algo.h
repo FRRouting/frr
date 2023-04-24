@@ -107,6 +107,7 @@ struct flex_algos {
  */
 struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 				    flex_algo_releaser_t releaser);
+void flex_algos_free(struct flex_algos *flex_algos);
 struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 				  uint8_t algorithm, void *arg);
 struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,

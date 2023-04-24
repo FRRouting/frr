@@ -20,6 +20,9 @@
 DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO_DATABASE, "Flex-Algo database");
 DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO, "Flex-Algo algorithm information");
 
+static void _flex_algo_delete(struct flex_algos *flex_algos,
+			      struct flex_algo *fa);
+
 struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 				    flex_algo_releaser_t releaser)
 {
@@ -30,6 +33,17 @@ struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 	flex_algos->allocator = allocator;
 	flex_algos->releaser = releaser;
 	return flex_algos;
+}
+
+void flex_algos_free(struct flex_algos *flex_algos)
+{
+	struct listnode *node, *nnode;
+	struct flex_algo *fa;
+
+	for (ALL_LIST_ELEMENTS(flex_algos->flex_algos, node, nnode, fa))
+		_flex_algo_delete(flex_algos, fa);
+	list_delete(&flex_algos->flex_algos);
+	XFREE(MTYPE_FLEX_ALGO_DATABASE, flex_algos);
 }
 
 struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
