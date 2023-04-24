@@ -80,8 +80,8 @@ def pytest_addoption(parser):
         action="append",
         metavar="DAEMON[,ROUTER[,...]",
         help=(
-            "Tail-F of DAEMON log file. Specify routers in comma-separated list after "
-            "daemon to limit to a subset of routers"
+            "Tail-F the DAEMON log file on all or a subset of ROUTERs."
+            " Option can be given multiple times."
         ),
     )
 
@@ -115,6 +115,23 @@ def pytest_addoption(parser):
         default="",
         metavar="NET[,NET...]",
         help="Comma-separated list of networks to capture packets on, or 'all'",
+    )
+
+    parser.addoption(
+        "--perf",
+        action="append",
+        metavar="DAEMON[,ROUTER[,...]",
+        help=(
+            "Collect performance data from given DAEMON on all or a subset of ROUTERs."
+            " Option can be given multiple times."
+        ),
+    )
+
+    parser.addoption(
+        "--perf-options",
+        metavar="OPTS",
+        default="-g",
+        help="Options to pass to `perf record`.",
     )
 
     rundir_help = "directory for running in and log files"

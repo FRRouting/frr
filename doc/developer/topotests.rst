@@ -296,14 +296,14 @@ Execute single test
 .. code:: shell
 
    cd test_to_be_run
-   ./test_to_be_run.py
+   sudo -E pytest ./test_to_be_run.py
 
 For example, and assuming you are inside the frr directory:
 
 .. code:: shell
 
    cd tests/topotests/bgp_l3vpn_to_bgp_vrf
-   ./test_bgp_l3vpn_to_bgp_vrf.py
+   sudo -E pytest ./test_bgp_l3vpn_to_bgp_vrf.py
 
 For further options, refer to pytest documentation.
 
@@ -575,6 +575,27 @@ memleak detection is enabled.
 .. code:: shell
 
    sudo -E pytest --valgrind-memleaks all-protocol-startup
+
+Collecting Performance Data using perf(1)
+"""""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch any daemon under ``perf(1)`` to collect
+performance data. The daemon is run in non-daemon mode with ``perf record -g``.
+The ``perf.data`` file will be saved in the router specific directory under the
+tests run directoy.
+
+Here's an example of collecting performance data from ``mgmtd`` on router ``r1``
+during the config_timing test.
+
+.. code:: console
+
+   $ sudo -E pytest --perf=mgmtd,r1 config_timing
+   ...
+   $ find /tmp/topotests/ -name '*perf.data*'
+   /tmp/topotests/config_timing.test_config_timing/r1/perf.data
+
+To specify different arguments for ``perf record``, one can use the
+``--perf-options`` this will replace the ``-g`` used by default.
 
 .. _topotests_docker:
 

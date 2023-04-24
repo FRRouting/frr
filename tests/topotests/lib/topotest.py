@@ -1184,10 +1184,9 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 
 def fix_netns_limits(ns):
-
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1246,8 +1245,8 @@ def fix_host_limits():
     sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
 
     # Garbage Collection Settings for ARP and Neighbors
     sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
@@ -1289,7 +1288,6 @@ class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
     def __init__(self, name, *posargs, **params):
-
         # Backward compatibility:
         #   Load configuration defaults like topogen.
         self.config_defaults = configparser.ConfigParser(
@@ -1304,6 +1302,8 @@ class Router(Node):
         self.config_defaults.read(
             os.path.join(os.path.dirname(os.path.realpath(__file__)), "../pytest.ini")
         )
+
+        self.perf_daemons = {}
 
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
@@ -1724,6 +1724,16 @@ class Router(Node):
             ).split()[2]
             logger.info("{}: running version: {}".format(self.name, self.version))
 
+        perfds = {}
+        perf_options = g_pytest_config.get_option("--perf-options", "-g")
+        for perf in g_pytest_config.get_option("--perf", []):
+            if "," in perf:
+                daemon, routers = perf.split(",", 1)
+                perfds[daemon] = routers.split(",")
+            else:
+                daemon = perf
+                perfds[daemon] = ["all"]
+
         logd_options = {}
         for logd in g_pytest_config.get_option("--logd", []):
             if "," in logd:
@@ -1805,7 +1815,6 @@ class Router(Node):
                         tail_log_files.append(
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
-
             if extra_opts:
                 cmdopt += " " + extra_opts
 
@@ -1832,6 +1841,23 @@ class Router(Node):
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
                 )
+            elif daemon in perfds and (self.name in perfds[daemon] or "all" in perfds[daemon]):
+                cmdopt += rediropt
+                cmd = " ".join(["perf record {} --".format(perf_options), binary, cmdopt])
+                p = self.popen(cmd)
+                self.perf_daemons[daemon] = p
+                if p.poll() and p.returncode:
+                    self.logger.error(
+                        '%s: Failed to launch "%s" (%s) with perf using: %s',
+                        self,
+                        daemon,
+                        p.returncode,
+                        cmd,
+                    )
+                else:
+                    logger.debug(
+                        "%s: %s %s started with perf", self, self.routertype, daemon
+                    )
             else:
                 if daemon != "snmpd":
                     cmdopt += " -d "
