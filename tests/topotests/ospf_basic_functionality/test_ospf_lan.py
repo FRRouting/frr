@@ -489,7 +489,7 @@ def test_ospf_lan_tc2_p0(request):
                 "s1": {
                     "ospf": {
                         "priority": 98,
-                        "timerDeadSecs": 4,
+                        "timerDeadSecs": 10,
                         "area": "0.0.0.3",
                         "mcastMemberOspfDesignatedRouters": True,
                         "mcastMemberOspfAllRouters": True,
