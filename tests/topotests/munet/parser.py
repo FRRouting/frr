@@ -235,7 +235,7 @@ def load_kinds(args, search=None):
         if search is None:
             search = [cwd]
         with importlib.resources.path("munet", "kinds.yaml") as datapath:
-            search.append(str(datapath.parent))
+            search.insert(0, str(datapath.parent))
 
         configs = []
         if args_config:

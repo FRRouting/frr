@@ -59,7 +59,6 @@ class Node(LinuxNamespace):
     """Node (mininet compat)."""
 
     def __init__(self, name, rundir=None, **kwargs):
-
         nkwargs = {}
 
         if "unet" in kwargs:
@@ -176,8 +175,6 @@ class Mininet(BaseMunet):
         self.configured_hosts = set()
         self.host_params = {}
         self.prefix_len = 8
-
-        self.cfgopt = ConfigOptionsProxy(pytestconfig)
 
         # SNMPd used to require this, which was set int he mininet shell
         # that all commands executed from. This is goofy default so let's not

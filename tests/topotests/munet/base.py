@@ -26,6 +26,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Union
 
+from . import config as munet_config
 from . import linux
 
 
@@ -2493,7 +2494,15 @@ class Bridge(SharedNamespace, InterfaceMixin):
 class BaseMunet(LinuxNamespace):
     """Munet."""
 
-    def __init__(self, name="munet", isolated=True, pid=True, rundir=None, **kwargs):
+    def __init__(
+        self,
+        name="munet",
+        isolated=True,
+        pid=True,
+        rundir=None,
+        pytestconfig=None,
+        **kwargs,
+    ):
         """Create a Munet."""
         # logging.warning("BaseMunet: %s", name)
 
@@ -2561,6 +2570,8 @@ class BaseMunet(LinuxNamespace):
         global roothost  # pylint: disable=global-statement
 
         roothost = self.rootcmd
+
+        self.cfgopt = munet_config.ConfigOptionsProxy(pytestconfig)
 
         super().__init__(
             name, mount=True, net=isolated, uts=isolated, pid=pid, unet=None, **kwargs

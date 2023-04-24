@@ -5,6 +5,7 @@ Topotest conftest.py file.
 # pylint: disable=consider-using-f-string
 
 import glob
+import logging
 import os
 import re
 import resource
@@ -16,7 +17,7 @@ import lib.fixtures
 import pytest
 from lib.micronet_compat import ConfigOptionsProxy, Mininet
 from lib.topogen import diagnose_env, get_topogen
-from lib.topolog import logger
+from lib.topolog import get_test_logdir, logger
 from lib.topotest import json_cmp_result
 from munet import cli
 from munet.base import Commander, proc_error
@@ -24,6 +25,19 @@ from munet.cleanup import cleanup_current, cleanup_previous
 from munet.testing.util import pause_test
 
 from lib import topolog, topotest
+
+try:
+    # Used by munet native tests
+    from munet.testing.fixtures import event_loop, unet  # pylint: disable=all # noqa
+
+    @pytest.fixture(scope="module")
+    def rundir_module(pytestconfig):
+        d = os.path.join(pytestconfig.option.rundir, get_test_logdir())
+        logging.debug("rundir_module: test module rundir %s", d)
+        return d
+
+except (AttributeError, ImportError):
+    pass
 
 
 def pytest_addoption(parser):

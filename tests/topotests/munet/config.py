@@ -156,3 +156,57 @@ def merge_kind_config(kconf, config):
         if k not in new:
             new[k] = config[k]
     return new
+
+
+def cli_opt_list(option_list):
+    if not option_list:
+        return []
+    if isinstance(option_list, str):
+        return [x for x in option_list.split(",") if x]
+    return [x for x in option_list if x]
+
+
+def name_in_cli_opt_str(name, option_list):
+    ol = cli_opt_list(option_list)
+    return name in ol or "all" in ol
+
+
+class ConfigOptionsProxy:
+    """Proxy options object to fill in for any missing pytest config."""
+
+    class DefNoneObject:
+        """An object that returns None for any attribute access."""
+
+        def __getattr__(self, attr):
+            return None
+
+    def __init__(self, pytestconfig=None):
+        if isinstance(pytestconfig, ConfigOptionsProxy):
+            self.config = pytestconfig.config
+            self.option = self.config.option
+        else:
+            self.config = pytestconfig
+        if self.config:
+            self.option = self.config.option
+        else:
+            self.option = ConfigOptionsProxy.DefNoneObject()
+
+    def getoption(self, opt, defval=None):
+        if not self.config:
+            return defval
+
+        try:
+            return self.config.getoption(opt, default=defval)
+        except ValueError:
+            return defval
+
+    def get_option(self, opt, defval=None):
+        return self.getoption(opt, defval)
+
+    def get_option_list(self, opt):
+        value = self.get_option(opt, "")
+        return cli_opt_list(value)
+
+    def name_in_option_list(self, name, opt):
+        optlist = self.get_option_list(opt)
+        return "all" in optlist or name in optlist
