@@ -308,7 +308,9 @@ class TopotatoItem(nodes.Item):
         """
         testinst = self.getparent(TopotatoClass)
         if testinst.skipall:
-            raise TopotatoEarlierFailSkip() from testinst.skipall
+            raise TopotatoEarlierFailSkip(
+                testinst.skipall.topotato_node
+            ) from testinst.skipall
 
         self.session.config.hook.pytest_topotato_run(item=self, testfunc=self)
 
@@ -445,9 +447,11 @@ class InstanceStartup(TopotatoItem):
         try:
             self.parent.do_start(self)
         except TopotatoFail as e:
+            e.topotato_node = self
             self.parent.skipall = e
             raise
         except Exception as e:
+            e.topotato_node = self
             self.parent.skipall = e
             raise
 
