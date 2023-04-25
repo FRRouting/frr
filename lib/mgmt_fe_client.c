@@ -140,7 +140,7 @@ static int mgmt_fe_client_send_msg(struct mgmt_fe_client_ctx *client_ctx,
 	}
 
 	int rv = mgmt_msg_send_msg(
-		&client_ctx->mstate, fe_msg,
+		&client_ctx->mstate, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
 		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
 		MGMTD_DBG_FE_CLIENT_CHECK());
@@ -614,8 +614,8 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 	return 0;
 }
 
-static void mgmt_fe_client_process_msg(void *user_ctx, uint8_t *data,
-				       size_t len)
+static void mgmt_fe_client_process_msg(uint8_t version, void *user_ctx,
+				       uint8_t *data, size_t len)
 {
 	struct mgmt_fe_client_ctx *client_ctx = user_ctx;
 	Mgmtd__FeMessage *fe_msg;

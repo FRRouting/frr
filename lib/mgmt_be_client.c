@@ -853,8 +853,8 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 	return 0;
 }
 
-static void mgmt_be_client_process_msg(void *user_ctx, uint8_t *data,
-				       size_t len)
+static void mgmt_be_client_process_msg(uint8_t version, void *user_ctx,
+				       uint8_t *data, size_t len)
 {
 	struct mgmt_be_client_ctx *client_ctx = user_ctx;
 	Mgmtd__BeMessage *be_msg;
@@ -912,7 +912,7 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
 	}
 
 	int rv = mgmt_msg_send_msg(
-		&client_ctx->mstate, be_msg,
+		&client_ctx->mstate, MGMT_MSG_VERSION_PROTOBUF, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
 		(size_t(*)(void *, void *))mgmtd__be_message__pack,
 		MGMTD_DBG_BE_CLIENT_CHECK());

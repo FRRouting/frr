@@ -492,7 +492,7 @@ static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 	}
 
 	int rv = mgmt_msg_send_msg(
-		&adapter->mstate, be_msg,
+		&adapter->mstate, MGMT_MSG_VERSION_PROTOBUF, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
 		(size_t(*)(void *, void *))mgmtd__be_message__pack,
 		MGMT_DEBUG_BE_CHECK());
@@ -569,8 +569,8 @@ static int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
-static void mgmt_be_adapter_process_msg(void *user_ctx, uint8_t *data,
-					size_t len)
+static void mgmt_be_adapter_process_msg(uint8_t version, void *user_ctx,
+					uint8_t *data, size_t len)
 {
 	struct mgmt_be_client_adapter *adapter = user_ctx;
 	Mgmtd__BeMessage *be_msg;

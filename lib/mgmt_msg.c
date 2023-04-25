@@ -81,7 +81,7 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	left = stream_get_endp(ms->ins);
 	while (left > (long)sizeof(struct mgmt_msg_hdr)) {
 		mhdr = (struct mgmt_msg_hdr *)(STREAM_DATA(ms->ins) + total);
-		if (mhdr->marker != MGMT_MSG_MARKER) {
+		if (!MGMT_MSG_IS_MARKER(mhdr->marker)) {
 			MGMT_MSG_DBG(dbgtag, "recv corrupt buffer, disconnect");
 			return MSR_DISCONNECT;
 		}
@@ -127,8 +127,8 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
  *	true if more to process (so reschedule) else false
  */
 bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
-		       void (*handle_msg)(void *user, uint8_t *msg,
-					  size_t msglen),
+		       void (*handle_msg)(uint8_t version, void *user,
+					  uint8_t *msg, size_t msglen),
 		       void *user, bool debug)
 {
 	const char *dbgtag = debug ? ms->idtag : NULL;
@@ -153,10 +153,11 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 		     left -= mhdr->len, data += mhdr->len) {
 			mhdr = (struct mgmt_msg_hdr *)data;
 
-			assert(mhdr->marker == MGMT_MSG_MARKER);
+			assert(MGMT_MSG_IS_MARKER(mhdr->marker));
 			assert(left >= mhdr->len);
 
-			handle_msg(user, (uint8_t *)(mhdr + 1),
+			handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker), user,
+				   (uint8_t *)(mhdr + 1),
 				   mhdr->len - sizeof(struct mgmt_msg_hdr));
 			ms->nrxm++;
 			nproc++;
@@ -264,15 +265,19 @@ enum mgmt_msg_wsched mgmt_msg_write(struct mgmt_msg_state *ms, int fd,
  *
  * Args:
  *	ms: mgmt_msg_state for this process.
- *	fd: socket/file to read data from.
+ *	version: version of this message, will be given to receiving side.
+ *	msg: the message to be sent.
+ *	len: the length of the message.
+ *	packf: a function to pack the message.
  *	debug: true to enable debug logging.
  *
  * Returns:
  *      0 on success, otherwise -1 on failure. The only failure mode is if a
  *      the message exceeds the maximum message size configured on init.
  */
-int mgmt_msg_send_msg(struct mgmt_msg_state *ms, void *msg, size_t len,
-		      mgmt_msg_packf packf, bool debug)
+int mgmt_msg_send_msg(struct mgmt_msg_state *ms, uint8_t version, void *msg,
+		      size_t len, size_t (*packf)(void *msg, void *buf),
+		      bool debug)
 {
 	const char *dbgtag = debug ? ms->idtag : NULL;
 	struct mgmt_msg_hdr *mhdr;
@@ -308,12 +313,17 @@ int mgmt_msg_send_msg(struct mgmt_msg_state *ms, void *msg, size_t len,
 
 	/* We have a stream with space, pack the message into it. */
 	mhdr = (struct mgmt_msg_hdr *)(STREAM_DATA(s) + s->endp);
-	mhdr->marker = MGMT_MSG_MARKER;
+	mhdr->marker = MGMT_MSG_MARKER(version);
 	mhdr->len = mlen;
 	stream_forward_endp(s, sizeof(*mhdr));
 	endp = stream_get_endp(s);
 	dstbuf = STREAM_DATA(s) + endp;
-	n = packf(msg, dstbuf);
+	if (packf)
+		n = packf(msg, dstbuf);
+	else {
+		memcpy(dstbuf, msg, len);
+		n = len;
+	}
 	stream_set_endp(s, endp + n);
 	ms->ntxm++;
 

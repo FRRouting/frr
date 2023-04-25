@@ -10,7 +10,16 @@
 #include "stream.h"
 #include "frrevent.h"
 
-#define MGMT_MSG_MARKER (0x4D724B21u) /* ASCII - "MrK!"*/
+/*
+ * Messages on the stream start with a marker that encodes a version octet.
+ */
+#define MGMT_MSG_MARKER_PFX (0x23232300u) /* ASCII - "###\ooo"*/
+#define MGMT_MSG_IS_MARKER(x) (((x)&0xFFFFFF00u) == MGMT_MSG_MARKER_PFX)
+#define MGMT_MSG_MARKER(version) (MGMT_MSG_MARKER_PFX | (version))
+#define MGMT_MSG_MARKER_VERSION(x) (0xFF & (x))
+
+#define MGMT_MSG_VERSION_PROTOBUF 0
+#define MGMT_MSG_VERSION_NATIVE 1
 
 struct mgmt_msg_state {
 	struct stream *ins;
@@ -44,13 +53,6 @@ enum mgmt_msg_wsched {
 	MSW_DISCONNECT,	      /* disconnect and start reconnecting */
 };
 
-static inline uint8_t *msg_payload(struct mgmt_msg_hdr *mhdr)
-{
-	return (uint8_t *)(mhdr + 1);
-}
-
-typedef size_t (*mgmt_msg_packf)(void *msg, void *data);
-
 extern int mgmt_msg_connect(const char *path, size_t sendbuf, size_t recvbuf,
 			    const char *dbgtag);
 extern void mgmt_msg_destroy(struct mgmt_msg_state *ms);
@@ -58,13 +60,14 @@ extern void mgmt_msg_init(struct mgmt_msg_state *ms, size_t max_read_buf,
 			  size_t max_write_buf, size_t max_msg_sz,
 			  const char *idtag);
 extern bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
-			      void (*handle_msg)(void *user, uint8_t *msg,
-						 size_t msglen),
+			      void (*handle_msg)(uint8_t version, void *user,
+						 uint8_t *msg, size_t msglen),
 			      void *user, bool debug);
 extern enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 					  bool debug);
 extern size_t mgmt_msg_reset_writes(struct mgmt_msg_state *ms);
-extern int mgmt_msg_send_msg(struct mgmt_msg_state *ms, void *msg, size_t len,
+extern int mgmt_msg_send_msg(struct mgmt_msg_state *ms, uint8_t version,
+			     void *msg, size_t len,
 			     size_t (*packf)(void *msg, void *buf), bool debug);
 extern enum mgmt_msg_wsched mgmt_msg_write(struct mgmt_msg_state *ms, int fd,
 					   bool debug);

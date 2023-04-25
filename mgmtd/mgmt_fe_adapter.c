@@ -369,7 +369,7 @@ mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
 	}
 
 	int rv = mgmt_msg_send_msg(
-		&adapter->mstate, fe_msg,
+		&adapter->mstate, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
 		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
 		MGMT_DEBUG_FE_CHECK());
@@ -1387,8 +1387,8 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	return 0;
 }
 
-static void mgmt_fe_adapter_process_msg(void *user_ctx, uint8_t *data,
-					size_t len)
+static void mgmt_fe_adapter_process_msg(uint8_t version, void *user_ctx,
+					uint8_t *data, size_t len)
 {
 	struct mgmt_fe_client_adapter *adapter = user_ctx;
 	Mgmtd__FeMessage *fe_msg;
