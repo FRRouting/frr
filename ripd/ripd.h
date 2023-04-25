@@ -10,6 +10,7 @@
 #include "nexthop.h"
 #include "distribute.h"
 #include "memory.h"
+#include "bfd.h"
 
 /* RIP version number. */
 #define RIPv1                            1
@@ -182,6 +183,9 @@ struct rip {
 		/* RIP queries. */
 		long queries;
 	} counters;
+
+	/* Default BFD profile to use with BFD sessions. */
+	char *default_bfd_profile;
 };
 RB_HEAD(rip_instance_head, rip);
 RB_PROTOTYPE(rip_instance_head, rip, entry, rip_instance_compare)
@@ -265,6 +269,9 @@ struct rip_interface {
 	/* Parent routing instance. */
 	struct rip *rip;
 
+	/* Interface data from zebra. */
+	struct interface *ifp;
+
 	/* RIP is enabled on this interface. */
 	int enable_network;
 	int enable_interface;
@@ -318,12 +325,21 @@ struct rip_interface {
 
 	/* Passive interface. */
 	int passive;
+
+	/* BFD information. */
+	struct {
+		bool enabled;
+		char *profile;
+	} bfd;
 };
 
 /* RIP peer information. */
 struct rip_peer {
 	/* Parent routing instance. */
 	struct rip *rip;
+
+	/* Back-pointer to RIP interface. */
+	struct rip_interface *ri;
 
 	/* Peer address. */
 	struct in_addr addr;
@@ -343,6 +359,9 @@ struct rip_peer {
 
 	/* Timeout thread. */
 	struct event *t_timeout;
+
+	/* BFD information */
+	struct bfd_session_params *bfd_session;
 };
 
 struct rip_distance {
@@ -461,16 +480,20 @@ extern void rip_if_rmap_update_interface(struct interface *ifp);
 extern int rip_show_network_config(struct vty *vty, struct rip *rip);
 extern void rip_show_redistribute_config(struct vty *vty, struct rip *rip);
 
-extern void rip_peer_update(struct rip *rip, struct sockaddr_in *from,
-			    uint8_t version);
-extern void rip_peer_bad_route(struct rip *rip, struct sockaddr_in *from);
-extern void rip_peer_bad_packet(struct rip *rip, struct sockaddr_in *from);
+extern void rip_peer_free(struct rip_peer *peer);
+extern void rip_peer_update(struct rip *rip, struct rip_interface *ri,
+			    struct sockaddr_in *from, uint8_t version);
+extern void rip_peer_bad_route(struct rip *rip, struct rip_interface *ri,
+			       struct sockaddr_in *from);
+extern void rip_peer_bad_packet(struct rip *rip, struct rip_interface *ri,
+				struct sockaddr_in *from);
 extern void rip_peer_display(struct vty *vty, struct rip *rip);
 extern struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr);
 extern struct rip_peer *rip_peer_lookup_next(struct rip *rip,
 					     struct in_addr *addr);
 extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
 extern void rip_peer_list_del(void *arg);
+void rip_peer_delete_routes(const struct rip_peer *peer);
 
 extern void rip_info_free(struct rip_info *);
 extern struct rip *rip_info_get_instance(const struct rip_info *rinfo);

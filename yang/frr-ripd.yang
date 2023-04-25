@@ -13,6 +13,9 @@ module frr-ripd {
   import frr-if-rmap {
     prefix frr-if-rmap;
   }
+  import frr-bfdd {
+    prefix frr-bfdd;
+  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -376,6 +379,12 @@ module frr-ripd {
         }
       }
 
+      leaf default-bfd-profile {
+        description
+          "Use this BFD profile for all peers by default.";
+        type frr-bfdd:profile-ref;
+      }
+
       /*
        * Operational data.
        */
@@ -676,6 +685,24 @@ module frr-ripd {
           type string;
           description
             "Key-chain name.";
+        }
+      }
+
+      container bfd-monitoring {
+        presence
+          "Present if BFD is configured for RIP peers in this interface.";
+
+        leaf enable {
+          type boolean;
+          description
+            "Enable/disable BFD monitoring.";
+          default false;
+        }
+
+        leaf profile {
+          type frr-bfdd:profile-ref;
+          description
+            "BFD profile to use.";
         }
       }
     }

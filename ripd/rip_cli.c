@@ -582,6 +582,42 @@ void cli_show_rip_version(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-ripd:ripd/instance/default-bfd-profile
+ */
+DEFPY_YANG(rip_bfd_default_profile, rip_bfd_default_profile_cmd,
+	   "bfd default-profile BFDPROF$profile",
+	   "Bidirectional Forwarding Detection\n"
+	   "BFD default profile\n"
+	   "Profile name\n")
+{
+	nb_cli_enqueue_change(vty, "./default-bfd-profile", NB_OP_MODIFY,
+			      profile);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_rip_bfd_default_profile, no_rip_bfd_default_profile_cmd,
+	   "no bfd default-profile [BFDPROF]",
+	   NO_STR
+	   "Bidirectional Forwarding Detection\n"
+	   "BFD default profile\n"
+	   "Profile name\n")
+{
+	nb_cli_enqueue_change(vty, "./default-bfd-profile", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripd_instance_default_bfd_profile(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults)
+{
+	vty_out(vty, " bfd default-profile %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/split-horizon
  */
 DEFPY_YANG (ip_rip_split_horizon,
@@ -980,6 +1016,66 @@ void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/enable
+ */
+DEFPY_YANG(ip_rip_bfd, ip_rip_bfd_cmd, "[no] ip rip bfd",
+	   NO_STR IP_STR
+	   "Routing Information Protocol\n"
+	   "Enable BFD support\n")
+{
+	nb_cli_enqueue_change(vty, "./bfd-monitoring/enable", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+}
+
+void cli_show_ip_rip_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, " ip rip bfd\n");
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd/profile
+ */
+DEFPY_YANG(ip_rip_bfd_profile, ip_rip_bfd_profile_cmd,
+	   "[no] ip rip bfd profile BFDPROF$profile",
+	   NO_STR IP_STR
+	   "Routing Information Protocol\n"
+	   "Enable BFD support\n"
+	   "Use a pre-configured profile\n"
+	   "Profile name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile",
+				      NB_OP_MODIFY, profile);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+}
+
+DEFPY_YANG(no_ip_rip_bfd_profile, no_ip_rip_bfd_profile_cmd,
+	   "no ip rip bfd profile",
+	   NO_STR IP_STR
+	   "Routing Information Protocol\n"
+	   "Enable BFD support\n"
+	   "Use a pre-configured profile\n")
+{
+	nb_cli_enqueue_change(vty, "./bfd-monitoring/profile", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+}
+
+void cli_show_ip_rip_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " ip rip bfd profile %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
  * XPath: /frr-ripd:clear-rip-route
  */
 DEFPY_YANG (clear_ip_rip,
@@ -1078,6 +1174,8 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_timers_cmd);
 	install_element(RIP_NODE, &rip_version_cmd);
 	install_element(RIP_NODE, &no_rip_version_cmd);
+	install_element(RIP_NODE, &rip_bfd_default_profile_cmd);
+	install_element(RIP_NODE, &no_rip_bfd_default_profile_cmd);
 
 	install_element(INTERFACE_NODE, &ip_rip_split_horizon_cmd);
 	install_element(INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
@@ -1092,6 +1190,9 @@ void rip_cli_init(void)
 	install_element(INTERFACE_NODE, &ip_rip_authentication_key_chain_cmd);
 	install_element(INTERFACE_NODE,
 			&no_ip_rip_authentication_key_chain_cmd);
+	install_element(INTERFACE_NODE, &ip_rip_bfd_cmd);
+	install_element(INTERFACE_NODE, &ip_rip_bfd_profile_cmd);
+	install_element(INTERFACE_NODE, &no_ip_rip_bfd_profile_cmd);
 
 	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
 }
