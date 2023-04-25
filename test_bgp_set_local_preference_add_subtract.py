@@ -62,7 +62,7 @@ class Configs(FRRConfigs):
      neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} timers 3 10
      exit-address-family
     !
-    #%   elif router.name == 'r2'    
+    #%   elif router.name == 'r2'
     router bgp 65000
      no bgp ebgp-requires-policy
      no bgp network import-check
@@ -94,7 +94,7 @@ class Configs(FRRConfigs):
     route-map r1-out permit 10
      set local-preference -50
     route-map l3 permit 10
-     set local-preference -10 
+     set local-preference -10
     !
     #%   endif
     #% endblock

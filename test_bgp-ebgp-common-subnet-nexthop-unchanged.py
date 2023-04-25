@@ -40,7 +40,7 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r1'
     interface lo
-     ip address {{ routers.r1.lo_ip4[0] }} 
+     ip address {{ routers.r1.lo_ip4[0] }}
     !
     interface r1-eth0
     ip address {{ routers.r1.ifaces[0].ip4[0].ip }}
@@ -48,7 +48,7 @@ class Configs(FRRConfigs):
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding

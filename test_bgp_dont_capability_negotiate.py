@@ -51,17 +51,17 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r2'
     router bgp 65002
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} remote-as external
-      address-family ipv4 unicast
-        redistribute connected
-      exit-address-family
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} remote-as external
+     address-family ipv4 unicast
+      redistribute connected
+     exit-address-family
     !
     #%   elif router.name == 'r1'
     router bgp 65001
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as external
-      neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} dont-capability-negotiate
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as external
+     neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} dont-capability-negotiate
     !
     #%   endif
     #% endblock

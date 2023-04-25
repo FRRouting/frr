@@ -40,7 +40,7 @@ class Configs(FRRConfigs):
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -49,41 +49,40 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r1'
     router bgp 65001
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} remote-as 65002
-      neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} timers 3 10
-      address-family ipv4 unicast
-        neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} route-map prepend out
-        redistribute connected
-      exit-address-family
-      !
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} remote-as 65002
+     neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} timers 3 10
+     address-family ipv4 unicast
+      neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} route-map prepend out
+      redistribute connected
+     exit-address-family
     !
     route-map prepend permit 10
-      set as-path prepend 65003
+     set as-path prepend 65003
     !
     #%   elif router.name == 'r2'
     router bgp 65002
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} remote-as 65001
-      neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} timers 3 10
-      neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} solo
-      neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} remote-as 65003
-      neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} timers 3 10
-      neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} solo
-      neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} sender-as-path-loop-detection
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} remote-as 65001
+     neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} timers 3 10
+     neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} solo
+     neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} remote-as 65003
+     neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} timers 3 10
+     neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} solo
+     neighbor {{ routers.r3.iface_to('s1').ip4[0].ip }} sender-as-path-loop-detection
     !
     #%   elif router.name == 'r3'
     router bgp 65003
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} remote-as 65002
-      neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} timers 3 10
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} remote-as 65002
+     neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} timers 3 10
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class BGPSenderAspathLoopDetection(
