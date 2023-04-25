@@ -54,16 +54,16 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r2'
     router bgp 65001
-      no bgp ebgp-requires-policy
-      neighbor 192.168.255.1 remote-as 65000
-      neighbor 192.168.255.1 timers 3 10
+     no bgp ebgp-requires-policy
+     neighbor 192.168.255.1 remote-as 65000
+     neighbor 192.168.255.1 timers 3 10
     !
     #%   elif router.name == 'r1'
     router bgp 65000
-      bgp minimum-holdtime 20
-      neighbor 192.168.255.2 remote-as 65001
-      neighbor 192.168.255.2 timers 3 10
-      neighbor 192.168.255.2 timers connect 10
+     bgp minimum-holdtime 20
+     neighbor 192.168.255.2 remote-as 65001
+     neighbor 192.168.255.2 timers 3 10
+     neighbor 192.168.255.2 timers connect 10
     !
     #%   endif
     #% endblock

@@ -36,7 +36,7 @@ from typing import (
 )
 
 import pytest
-import jinja2
+from . import jinlinja
 
 from .defer import subprocess
 from .utils import deindent, get_dir, EnvcheckResult
@@ -51,6 +51,8 @@ if typing.TYPE_CHECKING:
 
 
 logger = logging.getLogger("topotato")
+
+jenv = jinlinja.InlineEnv()
 
 # TBD: might be more accessible to just put these in a templates/ dir
 _templates = {
@@ -73,18 +75,7 @@ _templates = {
     ),
 }
 
-
-def load_template(name):
-    return _templates.get(name)
-
-
-# the 'X'+'X' is to not break the extended syntax hilighting
-jenv = jinja2.Environment(
-    line_comment_prefix="#" + "#",
-    line_statement_prefix="#" + "%",
-    autoescape=False,
-    loader=jinja2.FunctionLoader(load_template),
-)
+jenv.register_templates(_templates.items())
 
 
 class FRRSetupError(EnvironmentError):
@@ -116,7 +107,7 @@ class FRRConfigs(dict):
     daemons.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld eigrpd".split())
     daemons.extend("pimd pim6d ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
 
-    daemons_integrated_only = frozenset("pim6d".split())
+    daemons_integrated_only = frozenset("pim6d staticd".split())
 
     @staticmethod
     @pytest.hookimpl()

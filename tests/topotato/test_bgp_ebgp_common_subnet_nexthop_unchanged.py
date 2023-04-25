@@ -51,7 +51,7 @@ class Configs(FRRConfigs):
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -60,7 +60,7 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r1'
     router bgp 65001
      no bgp ebgp-requires-policy
@@ -82,8 +82,8 @@ class Configs(FRRConfigs):
      neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} remote-as external
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class BGPEbgpCommonSubnetNexthopUnchanged(

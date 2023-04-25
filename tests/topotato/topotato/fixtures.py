@@ -62,6 +62,7 @@ def topology_fixture():
         fnwrap = functools.partial(fn, net)
         fnwrap()
 
+        net.auto_num()
         net.auto_ifnames()
         net.auto_ip4()
         net.auto_ip6()

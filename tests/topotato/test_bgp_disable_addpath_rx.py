@@ -52,7 +52,7 @@ class Configs(FRRConfigs):
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -61,7 +61,7 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r1'
     router bgp 65001
      timers 3 10
@@ -107,8 +107,8 @@ class Configs(FRRConfigs):
      exit-address-family
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class BGPDisableAddpathRx(TestBase, AutoFixture, topo=topology, configs=Configs):

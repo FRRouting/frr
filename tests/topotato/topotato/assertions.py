@@ -338,22 +338,24 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
     _link: str
     _pkt: Any
     _argtypes: List[Type[Packet]]
+    _expect_pkt: bool
 
     matched: Optional[Any]
 
-    # pylint: disable=arguments-differ,protected-access
+    # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
-    def from_parent(cls, parent, name, link, pkt, **kwargs) -> "AssertPacket":  # type: ignore
+    def from_parent(cls, parent, name, link, pkt, expect_pkt=True, **kwargs) -> "AssertPacket":  # type: ignore
         name = "%s:%s/packet" % (name, link)
         self = cast(AssertPacket, super().from_parent(parent, name=name, **kwargs))
 
         self._link = link
         self._pkt = pkt
+        self._expect_pkt = expect_pkt
         self.matched = None
 
         self._argtypes = []
         argspec = inspect.getfullargspec(self._pkt)
-        for arg in argspec.args:
+        for arg in argspec.args[: len(argspec.args) - len(argspec.defaults or ())]:
             if arg not in argspec.annotations:
                 raise TypeError(
                     "%r needs a type annotation for parameter %r" % (self._pkt, arg)
@@ -391,12 +393,18 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
             if self._pkt(*args):
                 self.matched = pkt
                 element.match_for.append(self)
+                if not self._expect_pkt:
+                    raise TopotatoPacketFail(
+                        "received an unexpected matching packet for:\n%s"
+                        % inspect.getsource(self._pkt)
+                    )
                 break
         else:
-            raise TopotatoPacketFail(
-                "did not receive a matching packet for:\n%s"
-                % inspect.getsource(self._pkt)
-            )
+            if self._expect_pkt:
+                raise TopotatoPacketFail(
+                    "did not receive a matching packet for:\n%s"
+                    % inspect.getsource(self._pkt)
+                )
 
 
 class AssertLog(TopotatoAssertion, TimedMixin):
