@@ -694,7 +694,9 @@ class Network:
                     continue
 
                 if n_e in explicit_used:
-                    raise ValueError(f"number {n_e} assigned to {i!r} already used for {explicit_used[n_e]}")
+                    raise ValueError(
+                        f"number {n_e} assigned to {i!r} already used for {explicit_used[n_e]}"
+                    )
 
                 explicit_used[n_e] = i
 
