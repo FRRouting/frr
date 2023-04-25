@@ -398,8 +398,7 @@ fail:
 
 void frrscript_delete(struct frrscript *fs)
 {
-	hash_clean(fs->lua_function_hash, lua_function_free);
-	hash_free(fs->lua_function_hash);
+	hash_clean_and_free(&fs->lua_function_hash, lua_function_free);
 	XFREE(MTYPE_SCRIPT, fs->name);
 	XFREE(MTYPE_SCRIPT, fs);
 }
@@ -417,8 +416,7 @@ void frrscript_init(const char *sd)
 
 void frrscript_fini(void)
 {
-	hash_clean(codec_hash, codec_free);
-	hash_free(codec_hash);
+	hash_clean_and_free(&codec_hash, codec_free);
 
 	frrscript_names_destroy();
 }

@@ -73,7 +73,7 @@ int nb_db_transaction_save(const struct nb_transaction *transaction,
 	if (!ss)
 		goto exit;
 
-	client_name = nb_client_name(transaction->context->client);
+	client_name = nb_client_name(transaction->context.client);
 	/*
 	 * Always record configurations in the XML format, save the default
 	 * values too, as this covers the case where defaults may change.

@@ -34,7 +34,7 @@
 #include "lib/sockopt.h"          /* for setsockopt_so_recvbuf, setsockopt... */
 #include "lib/sockunion.h"        /* for sockopt_reuseaddr, sockopt_reuseport */
 #include "lib/stream.h"           /* for STREAM_SIZE, stream (ptr only), ... */
-#include "lib/thread.h"           /* for thread (ptr only), THREAD_ARG, ... */
+#include "frrevent.h"                /* for thread (ptr only), EVENT_ARG, ... */
 #include "lib/vrf.h"              /* for vrf_info_lookup, VRF_DEFAULT */
 #include "lib/vty.h"              /* for vty_out, vty (ptr only) */
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
@@ -100,7 +100,7 @@ enum zserv_event {
 /*
  * Zebra server event driver for all client threads.
  *
- * This is essentially a wrapper around thread_add_event() that centralizes
+ * This is essentially a wrapper around event_add_event() that centralizes
  * those scheduling calls into one place.
  *
  * All calls to this function schedule an event on the pthread running the
@@ -118,7 +118,7 @@ static void zserv_client_event(struct zserv *client,
 /*
  * Zebra server event driver for the main thread.
  *
- * This is essentially a wrapper around thread_add_event() that centralizes
+ * This is essentially a wrapper around event_add_event() that centralizes
  * those scheduling calls into one place.
  *
  * All calls to this function schedule an event on Zebra's main pthread.
@@ -188,8 +188,8 @@ static void zserv_client_fail(struct zserv *client)
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
 
-	THREAD_OFF(client->t_read);
-	THREAD_OFF(client->t_write);
+	EVENT_OFF(client->t_read);
+	EVENT_OFF(client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLIENT_FAIL);
 }
 
@@ -213,9 +213,9 @@ static void zserv_client_fail(struct zserv *client)
  * allows us to expose information about input and output queues to the user in
  * terms of number of packets rather than size of data.
  */
-static void zserv_write(struct thread *thread)
+static void zserv_write(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 	struct stream *msg;
 	uint32_t wcmd = 0;
 	struct stream_fifo *cache;
@@ -306,9 +306,9 @@ zwrite_fail:
  *
  * Any failure in any of these actions is handled by terminating the client.
  */
-static void zserv_read(struct thread *thread)
+static void zserv_read(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 	int sock;
 	size_t already;
 	struct stream_fifo *cache;
@@ -321,7 +321,7 @@ static void zserv_read(struct thread *thread)
 					memory_order_relaxed);
 	cache = stream_fifo_new();
 	p2p = p2p_orig;
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	while (p2p) {
 		ssize_t nb;
@@ -462,12 +462,12 @@ static void zserv_client_event(struct zserv *client,
 {
 	switch (event) {
 	case ZSERV_CLIENT_READ:
-		thread_add_read(client->pthread->master, zserv_read, client,
-				client->sock, &client->t_read);
+		event_add_read(client->pthread->master, zserv_read, client,
+			       client->sock, &client->t_read);
 		break;
 	case ZSERV_CLIENT_WRITE:
-		thread_add_write(client->pthread->master, zserv_write, client,
-				 client->sock, &client->t_write);
+		event_add_write(client->pthread->master, zserv_write, client,
+				client->sock, &client->t_write);
 		break;
 	}
 }
@@ -491,9 +491,9 @@ static void zserv_client_event(struct zserv *client,
  * rely on the read thread to handle queuing this task enough times to process
  * everything on the input queue.
  */
-static void zserv_process_messages(struct thread *thread)
+static void zserv_process_messages(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
 	uint32_t p2p = zrouter.packets_to_process;
@@ -570,7 +570,7 @@ DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
  * - Free associated resources
  * - Free client structure
  *
- * This does *not* take any action on the struct thread * fields. These are
+ * This does *not* take any action on the struct event * fields. These are
  * managed by the owning pthread and any tasks associated with them must have
  * been stopped prior to invoking this function.
  */
@@ -670,9 +670,9 @@ void zserv_close_client(struct zserv *client)
 			zlog_debug("Closing client '%s'",
 				   zebra_route_string(client->proto));
 
-		thread_cancel_event(zrouter.master, client);
-		THREAD_OFF(client->t_cleanup);
-		THREAD_OFF(client->t_process);
+		event_cancel_event(zrouter.master, client);
+		EVENT_OFF(client->t_cleanup);
+		EVENT_OFF(client->t_process);
 
 		/* destroy pthread */
 		frr_pthread_destroy(client->pthread);
@@ -709,9 +709,9 @@ void zserv_close_client(struct zserv *client)
  * already have been closed and the thread will most likely have died, but its
  * resources still need to be cleaned up.
  */
-static void zserv_handle_client_fail(struct thread *thread)
+static void zserv_handle_client_fail(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 
 	zserv_close_client(client);
 }
@@ -831,9 +831,9 @@ void zserv_release_client(struct zserv *client)
 			 * main pthread.
 			 */
 			if (client->is_closed)
-				thread_add_event(zrouter.master,
-						 zserv_handle_client_fail,
-						 client, 0, &client->t_cleanup);
+				event_add_event(zrouter.master,
+						zserv_handle_client_fail,
+						client, 0, &client->t_cleanup);
 		}
 	}
 
@@ -846,14 +846,14 @@ void zserv_release_client(struct zserv *client)
 /*
  * Accept socket connection.
  */
-static void zserv_accept(struct thread *thread)
+static void zserv_accept(struct event *thread)
 {
 	int accept_sock;
 	int client_sock;
 	struct sockaddr_in client;
 	socklen_t len;
 
-	accept_sock = THREAD_FD(thread);
+	accept_sock = EVENT_FD(thread);
 
 	/* Reregister myself. */
 	zserv_event(NULL, ZSERV_ACCEPT);
@@ -953,16 +953,15 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 {
 	switch (event) {
 	case ZSERV_ACCEPT:
-		thread_add_read(zrouter.master, zserv_accept, NULL, zsock,
-				NULL);
+		event_add_read(zrouter.master, zserv_accept, NULL, zsock, NULL);
 		break;
 	case ZSERV_PROCESS_MESSAGES:
-		thread_add_event(zrouter.master, zserv_process_messages, client,
-				 0, &client->t_process);
+		event_add_event(zrouter.master, zserv_process_messages, client,
+				0, &client->t_process);
 		break;
 	case ZSERV_HANDLE_CLIENT_FAIL:
-		thread_add_event(zrouter.master, zserv_handle_client_fail,
-				 client, 0, &client->t_cleanup);
+		event_add_event(zrouter.master, zserv_handle_client_fail,
+				client, 0, &client->t_cleanup);
 	}
 }
 
@@ -1149,14 +1148,10 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 				if (info->t_stale_removal) {
 					vty_out(vty,
 						"Stale delete timer: %ld sec\n",
-						thread_timer_remain_second(
+						event_timer_remain_second(
 							info->t_stale_removal));
 				}
 			}
-			vty_out(vty, "Current AFI : %d\n", info->current_afi);
-			if (info->current_prefix)
-				vty_out(vty, "Current prefix : %pFX\n",
-					info->current_prefix);
 		}
 	}
 	vty_out(vty, "\n");

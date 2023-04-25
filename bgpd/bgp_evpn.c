@@ -674,11 +674,9 @@ struct bgp_dest *bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi,
 /*
  * Wrapper for node lookup in global table.
  */
-struct bgp_dest *
-bgp_evpn_global_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
-			    const struct prefix_evpn *evp,
-			    struct prefix_rd *prd,
-			    const struct bgp_path_info *local_pi)
+struct bgp_dest *bgp_evpn_global_node_lookup(
+	struct bgp_table *table, safi_t safi, const struct prefix_evpn *evp,
+	struct prefix_rd *prd, const struct bgp_path_info *local_pi)
 {
 	struct prefix_evpn global_p;
 
@@ -709,7 +707,7 @@ bgp_evpn_global_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
 
 		evp = &global_p;
 	}
-	return bgp_afi_node_lookup(table, afi, safi, (struct prefix *)evp, prd);
+	return bgp_safi_node_lookup(table, safi, (struct prefix *)evp, prd);
 }
 
 /*
@@ -1358,7 +1356,7 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 * L3VPN routes.
 	 */
 	global_dest = bgp_evpn_global_node_lookup(
-		bgp->rib[afi][safi], afi, safi,
+		bgp->rib[afi][safi], safi,
 		(const struct prefix_evpn *)bgp_dest_get_prefix(dest),
 		&vpn->prd, old_local);
 	if (global_dest) {
@@ -1515,14 +1513,9 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 	struct bgp_path_info *tmp_pi = NULL;
 
 	*route_changed = 0;
-	/* locate the local route entry if any */
-	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp_evpn->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			local_pi = tmp_pi;
-	}
+
+	/* See if this is an update of an existing route, or a new add. */
+	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest);
 
 	/*
 	 * create a new route entry if one doesn't exist.
@@ -1837,6 +1830,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	struct bgp_path_info *tmp_pi;
 	struct bgp_path_info *local_pi;
 	struct attr *attr_new;
+	struct attr local_attr;
 	mpls_label_t label[BGP_MAX_LABELS];
 	uint32_t num_labels = 1;
 	int route_change = 1;
@@ -1870,13 +1864,15 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		add_mac_mobility_to_attr(seq, attr);
 
 	if (!local_pi) {
-		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(attr);
+		local_attr = *attr;
 
 		/* Extract MAC mobility sequence number, if any. */
-		attr_new->mm_seqnum =
-			bgp_attr_mac_mobility_seqnum(attr_new, &sticky);
-		attr_new->sticky = sticky;
+		local_attr.mm_seqnum =
+			bgp_attr_mac_mobility_seqnum(&local_attr, &sticky);
+		local_attr.sticky = sticky;
+
+		/* Add (or update) attribute to hash. */
+		attr_new = bgp_attr_intern(&local_attr);
 
 		/* Create new route with its attribute. */
 		tmp_pi = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
@@ -1952,14 +1948,16 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
-			attr_new = bgp_attr_intern(attr);
+			local_attr = *attr;
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
 			/* Extract MAC mobility sequence number, if any. */
-			attr_new->mm_seqnum =
-				bgp_attr_mac_mobility_seqnum(attr_new, &sticky);
-			attr_new->sticky = sticky;
+			local_attr.mm_seqnum = bgp_attr_mac_mobility_seqnum(
+				&local_attr, &sticky);
+			local_attr.sticky = sticky;
+
+			attr_new = bgp_attr_intern(&local_attr);
 
 			/* Restore route, if needed. */
 			if (CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
@@ -2255,8 +2253,8 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp)
 		return 0;
 
 	/* locate the global route entry for this type-5 prefix */
-	dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[afi][safi], afi, safi,
-					   evp, &bgp_vrf->vrf_prd, NULL);
+	dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[afi][safi], safi, evp,
+					   &bgp_vrf->vrf_prd, NULL);
 	if (!dest)
 		return 0;
 
@@ -2292,8 +2290,8 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 * this table is a 2-level tree (RD-level + Prefix-level) similar to
 	 * L3VPN routes.
 	 */
-	global_dest = bgp_evpn_global_node_lookup(bgp->rib[afi][safi], afi,
-						  safi, p, &vpn->prd, NULL);
+	global_dest = bgp_evpn_global_node_lookup(bgp->rib[afi][safi], safi, p,
+						  &vpn->prd, NULL);
 	if (global_dest) {
 		/* Delete route entry in the global EVPN table. */
 		delete_evpn_route_entry(bgp, afi, safi, global_dest, &pi);
@@ -4312,8 +4310,8 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 
 	/* Remove type-3 route for this VNI from global table. */
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
-	global_dest = bgp_evpn_global_node_lookup(bgp->rib[afi][safi], afi,
-						  safi, &p, &vpn->prd, NULL);
+	global_dest = bgp_evpn_global_node_lookup(bgp->rib[afi][safi], safi, &p,
+						  &vpn->prd, NULL);
 	if (global_dest) {
 		/* Delete route entry in the global EVPN table. */
 		delete_evpn_route_entry(bgp, afi, safi, global_dest, &pi);
@@ -4517,9 +4515,9 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
 			   &label[0], num_labels, 0, &evpn);
 	else
-		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			     &label[0], num_labels, &evpn);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label[0],
+			     num_labels, &evpn);
 	goto done;
 
 fail:
@@ -4608,9 +4606,9 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
 			   0, 0, NULL);
 	else
-		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			     NULL, 0, NULL);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
+			     NULL);
 	return 0;
 }
 
@@ -4751,9 +4749,9 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 				peer->hostname, peer->bgp->vrf_id, &p,
 				attr_str);
 		}
-		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr, afi,
-			     safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			     &label, 1, &evpn);
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label, 1,
+			     &evpn);
 	}
 
 	return 0;
@@ -5676,7 +5674,7 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 }
 
 int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
-			struct bgp_nlri *packet, int withdraw)
+			struct bgp_nlri *packet, bool withdraw)
 {
 	uint8_t *pnt;
 	uint8_t *lim;
@@ -5923,6 +5921,8 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 	vpn->prd.prefixlen = 64;
 	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id, vpn->rd_id);
 	(void)str2prefix_rd(buf, &vpn->prd);
+	if (vpn->prd_pretty)
+		XFREE(MTYPE_BGP, vpn->prd_pretty);
 	UNSET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 }
 
@@ -6027,6 +6027,8 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	bf_release_index(bm->rd_idspace, vpn->rd_id);
 	hash_release(bgp->vni_svi_hash, vpn);
 	hash_release(bgp->vnihash, vpn);
+	if (vpn->prd_pretty)
+		XFREE(MTYPE_BGP, vpn->prd_pretty);
 	QOBJ_UNREG(vpn);
 	XFREE(MTYPE_BGP_EVPN, vpn);
 }
@@ -6228,6 +6230,14 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 			l3vni);
 		return -1;
 	}
+
+	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
+		flog_err(EC_BGP_NO_DFLT,
+			  "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down",
+			  l3vni);
+		return -1;
+	}
+
 	as = bgp_evpn->as;
 
 	/* if the BGP vrf instance doesn't exist - create one */
@@ -6238,13 +6248,14 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 
 		ret = bgp_get_vty(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
 				  vrf_id == VRF_DEFAULT
-				  ? BGP_INSTANCE_TYPE_DEFAULT
-				  : BGP_INSTANCE_TYPE_VRF);
+					  ? BGP_INSTANCE_TYPE_DEFAULT
+					  : BGP_INSTANCE_TYPE_VRF,
+				  NULL, ASNOTATION_UNDEFINED);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
-				 "BGP instance is already running; AS is %u",
-				 as);
+				 "BGP instance is already running; AS is %s",
+				 bgp_vrf->as_pretty);
 			return -1;
 		case BGP_ERR_INSTANCE_MISMATCH:
 			flog_err(EC_BGP_EVPN_INSTANCE_MISMATCH,
@@ -6366,6 +6377,13 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 			EC_BGP_NO_DFLT,
 			"Cannot process L3VNI %u Del - Could not find EVPN BGP instance",
 			l3vni);
+		return -1;
+	}
+
+	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
+		flog_err(EC_BGP_NO_DFLT,
+			  "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down",
+			  l3vni);
 		return -1;
 	}
 
@@ -6642,24 +6660,27 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		     (void (*)(struct hash_bucket *, void *))free_vni_entry,
 		     bgp);
 
-	hash_clean(bgp->import_rt_hash, (void (*)(void *))hash_import_rt_free);
-	hash_free(bgp->import_rt_hash);
-	bgp->import_rt_hash = NULL;
+	hash_clean_and_free(&bgp->import_rt_hash,
+			    (void (*)(void *))hash_import_rt_free);
 
-	hash_clean(bgp->vrf_import_rt_hash,
-		   (void (*)(void *))hash_vrf_import_rt_free);
-	hash_free(bgp->vrf_import_rt_hash);
-	bgp->vrf_import_rt_hash = NULL;
+	hash_clean_and_free(&bgp->vrf_import_rt_hash,
+			    (void (*)(void *))hash_vrf_import_rt_free);
 
-	hash_clean(bgp->vni_svi_hash, (void (*)(void *))hash_evpn_free);
-	hash_free(bgp->vni_svi_hash);
-	bgp->vni_svi_hash = NULL;
-	hash_free(bgp->vnihash);
-	bgp->vnihash = NULL;
+	hash_clean_and_free(&bgp->vni_svi_hash,
+			    (void (*)(void *))hash_evpn_free);
+
+	/*
+	 * Why is the vnihash freed at the top of this function and
+	 * then deleted here?
+	 */
+	hash_clean_and_free(&bgp->vnihash, NULL);
 
 	list_delete(&bgp->vrf_import_rtl);
 	list_delete(&bgp->vrf_export_rtl);
 	list_delete(&bgp->l2vnis);
+
+	if (bgp->vrf_prd_pretty)
+		XFREE(MTYPE_BGP, bgp->vrf_prd_pretty);
 }
 
 /*

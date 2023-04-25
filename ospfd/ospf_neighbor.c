@@ -11,7 +11,7 @@
 #include "prefix.h"
 #include "memory.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "table.h"
 #include "log.h"
@@ -125,17 +125,17 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	}
 
 	/* Cancel all timers. */
-	THREAD_OFF(nbr->t_inactivity);
-	THREAD_OFF(nbr->t_db_desc);
-	THREAD_OFF(nbr->t_ls_req);
-	THREAD_OFF(nbr->t_ls_upd);
+	EVENT_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_db_desc);
+	EVENT_OFF(nbr->t_ls_req);
+	EVENT_OFF(nbr->t_ls_upd);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
-	thread_cancel_event(master, nbr);
+	event_cancel_event(master, nbr);
 
 	bfd_sess_free(&nbr->bfd_session);
 
-	THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+	EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);
@@ -441,7 +441,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 				nbr->nbr_nbma = nbr_nbma;
 
 				if (nbr_nbma->t_poll)
-					THREAD_OFF(nbr_nbma->t_poll);
+					EVENT_OFF(nbr_nbma->t_poll);
 
 				nbr->state_change = nbr_nbma->state_change + 1;
 			}

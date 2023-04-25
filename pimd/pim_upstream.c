@@ -9,7 +9,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "plist.h"
@@ -166,10 +166,10 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 
 static void pim_upstream_timers_stop(struct pim_upstream *up)
 {
-	THREAD_OFF(up->t_ka_timer);
-	THREAD_OFF(up->t_rs_timer);
-	THREAD_OFF(up->t_msdp_reg_timer);
-	THREAD_OFF(up->t_join_timer);
+	EVENT_OFF(up->t_ka_timer);
+	EVENT_OFF(up->t_rs_timer);
+	EVENT_OFF(up->t_msdp_reg_timer);
+	EVENT_OFF(up->t_join_timer);
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -289,11 +289,11 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
-static void on_join_timer(struct thread *t)
+static void on_join_timer(struct event *t)
 {
 	struct pim_upstream *up;
 
-	up = THREAD_ARG(t);
+	up = EVENT_ARG(t);
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_PIM_TRACE)
@@ -323,11 +323,11 @@ static void join_timer_stop(struct pim_upstream *up)
 {
 	struct pim_neighbor *nbr = NULL;
 
-	THREAD_OFF(up->t_join_timer);
+	EVENT_OFF(up->t_join_timer);
 
 	if (up->rpf.source_nexthop.interface)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
@@ -341,7 +341,7 @@ void join_timer_start(struct pim_upstream *up)
 
 	if (up->rpf.source_nexthop.interface) {
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
@@ -353,9 +353,9 @@ void join_timer_start(struct pim_upstream *up)
 	if (nbr)
 		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
 	else {
-		THREAD_OFF(up->t_join_timer);
-		thread_add_timer(router->master, on_join_timer, up,
-				 router->t_periodic, &up->t_join_timer);
+		EVENT_OFF(up->t_join_timer);
+		event_add_timer(router->master, on_join_timer, up,
+				router->t_periodic, &up->t_join_timer);
 	}
 	pim_jp_agg_upstream_verification(up, true);
 }
@@ -370,7 +370,7 @@ void join_timer_start(struct pim_upstream *up)
 void pim_upstream_join_timer_restart(struct pim_upstream *up,
 				     struct pim_rpf *old)
 {
-	// THREAD_OFF(up->t_join_timer);
+	// EVENT_OFF(up->t_join_timer);
 	join_timer_start(up);
 }
 
@@ -382,9 +382,9 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 			   __func__, interval_msec, up->sg_str);
 	}
 
-	THREAD_OFF(up->t_join_timer);
-	thread_add_timer_msec(router->master, on_join_timer, up, interval_msec,
-			      &up->t_join_timer);
+	EVENT_OFF(up->t_join_timer);
+	event_add_timer_msec(router->master, on_join_timer, up, interval_msec,
+			     &up->t_join_timer);
 }
 
 void pim_update_suppress_timers(uint32_t suppress_time)
@@ -433,7 +433,8 @@ void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 	else {
 		/* Remove it from jp agg from the nbr for suppression */
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
+
 		if (nbr) {
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -485,7 +486,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		struct pim_neighbor *nbr;
 
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr);
+					up->rpf.rpf_addr, true);
+
 		if (nbr)
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -1359,7 +1361,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_instance *pim,
 			   up->sg_str);
 
 	/* stop reg-stop timer */
-	THREAD_OFF(up->t_rs_timer);
+	EVENT_OFF(up->t_rs_timer);
 	/* remove regiface from the OIL if it is there*/
 	pim_channel_del_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM, __func__);
@@ -1459,11 +1461,11 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 
 	return up;
 }
-static void pim_upstream_keep_alive_timer(struct thread *t)
+static void pim_upstream_keep_alive_timer(struct event *t)
 {
 	struct pim_upstream *up;
 
-	up = THREAD_ARG(t);
+	up = EVENT_ARG(t);
 
 	/* pull the stats and re-check */
 	if (pim_upstream_sg_running_proc(up))
@@ -1480,9 +1482,9 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 			zlog_debug("kat start on %s with no stream reference",
 				   up->sg_str);
 	}
-	THREAD_OFF(up->t_ka_timer);
-	thread_add_timer(router->master, pim_upstream_keep_alive_timer, up,
-			 time, &up->t_ka_timer);
+	EVENT_OFF(up->t_ka_timer);
+	event_add_timer(router->master, pim_upstream_keep_alive_timer, up, time,
+			&up->t_ka_timer);
 
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
@@ -1492,9 +1494,9 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 }
 
 /* MSDP on RP needs to know if a source is registerable to this RP */
-static void pim_upstream_msdp_reg_timer(struct thread *t)
+static void pim_upstream_msdp_reg_timer(struct event *t)
 {
-	struct pim_upstream *up = THREAD_ARG(t);
+	struct pim_upstream *up = EVENT_ARG(t);
 	struct pim_instance *pim = up->channel_oil->pim;
 
 	/* source is no longer active - pull the SA from MSDP's cache */
@@ -1503,9 +1505,9 @@ static void pim_upstream_msdp_reg_timer(struct thread *t)
 
 void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
 {
-	THREAD_OFF(up->t_msdp_reg_timer);
-	thread_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
-			 PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
+	EVENT_OFF(up->t_msdp_reg_timer);
+	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
+			PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
 
 	pim_msdp_sa_local_update(up);
 }
@@ -1678,12 +1680,12 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	return state_str;
 }
 
-static void pim_upstream_register_stop_timer(struct thread *t)
+static void pim_upstream_register_stop_timer(struct event *t)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 	struct pim_upstream *up;
-	up = THREAD_ARG(t);
+	up = EVENT_ARG(t);
 	pim = up->channel_oil->pim;
 
 	if (PIM_DEBUG_PIM_TRACE) {
@@ -1747,7 +1749,7 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 {
 	uint32_t time;
 
-	THREAD_OFF(up->t_rs_timer);
+	EVENT_OFF(up->t_rs_timer);
 
 	if (!null_register) {
 		uint32_t lower = (0.5 * router->register_suppress_time);
@@ -1766,8 +1768,8 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 			"%s: (S,G)=%s Starting upstream register stop timer %d",
 			__func__, up->sg_str, time);
 	}
-	thread_add_timer(router->master, pim_upstream_register_stop_timer, up,
-			 time, &up->t_rs_timer);
+	event_add_timer(router->master, pim_upstream_register_stop_timer, up,
+			time, &up->t_rs_timer);
 }
 
 int pim_upstream_inherited_olist_decide(struct pim_instance *pim,

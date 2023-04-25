@@ -15,7 +15,7 @@
 #include "lib/memory.h"
 #include "lib/log.h"
 #include "lib/skiplist.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "lib/stream.h"
 #include "lib/lib_errors.h"
 
@@ -127,7 +127,6 @@ void rfapiCheckRouteCount(void)
 			struct agg_node *rn;
 
 			int holddown_count = 0;
-			int local_count = 0;
 			int imported_count = 0;
 			int remote_count = 0;
 
@@ -146,9 +145,7 @@ void rfapiCheckRouteCount(void)
 						++holddown_count;
 
 					} else {
-						if (RFAPI_LOCAL_BI(bpi)) {
-							++local_count;
-						} else {
+						if (!RFAPI_LOCAL_BI(bpi)) {
 							if (RFAPI_DIRECT_IMPORT_BI(
 								    bpi)) {
 								++imported_count;
@@ -848,10 +845,10 @@ static void rfapiBgpInfoChainFree(struct bgp_path_info *bpi)
 		if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 		    && bpi->extra->vnc.import.timer) {
 			struct rfapi_withdraw *wcb =
-				THREAD_ARG(bpi->extra->vnc.import.timer);
+				EVENT_ARG(bpi->extra->vnc.import.timer);
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			THREAD_OFF(bpi->extra->vnc.import.timer);
+			EVENT_OFF(bpi->extra->vnc.import.timer);
 		}
 
 		next = bpi->next;
@@ -874,33 +871,39 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
 		struct agg_node *rn;
+		struct agg_table *at;
 
-		for (rn = agg_route_top(it->imported_vpn[afi]); rn;
-		     rn = agg_route_next(rn)) {
-			/*
-			 * Each route_node has:
-			 * aggregate: points to rfapi_it_extra with monitor
-			 * chain(s)
-			 * info: points to chain of bgp_path_info
-			 */
-			/* free bgp_path_info and its children */
-			rfapiBgpInfoChainFree(rn->info);
-			rn->info = NULL;
+		at = it->imported_vpn[afi];
+		if (at) {
+			for (rn = agg_route_top(at); rn;
+			     rn = agg_route_next(rn)) {
+				/*
+				 * Each route_node has:
+				 * aggregate: points to rfapi_it_extra with
+				 *     monitor chain(s)
+				 * info: points to chain of bgp_path_info
+				 */
+				/* free bgp_path_info and its children */
+				rfapiBgpInfoChainFree(rn->info);
+				rn->info = NULL;
 
-			rfapiMonitorExtraFlush(SAFI_MPLS_VPN, rn);
+				rfapiMonitorExtraFlush(SAFI_MPLS_VPN, rn);
+			}
+			agg_table_finish(at);
 		}
 
-		for (rn = agg_route_top(it->imported_encap[afi]); rn;
-		     rn = agg_route_next(rn)) {
-			/* free bgp_path_info and its children */
-			rfapiBgpInfoChainFree(rn->info);
-			rn->info = NULL;
+		if (at) {
+			at = it->imported_encap[afi];
+			for (rn = agg_route_top(at); rn;
+			     rn = agg_route_next(rn)) {
+				/* free bgp_path_info and its children */
+				rfapiBgpInfoChainFree(rn->info);
+				rn->info = NULL;
 
-			rfapiMonitorExtraFlush(SAFI_ENCAP, rn);
+				rfapiMonitorExtraFlush(SAFI_ENCAP, rn);
+			}
+			agg_table_finish(at);
 		}
-
-		agg_table_finish(it->imported_vpn[afi]);
-		agg_table_finish(it->imported_encap[afi]);
 	}
 	if (it->monitor_exterior_orphans) {
 		skiplist_free(it->monitor_exterior_orphans);
@@ -2082,7 +2085,7 @@ static void rfapiItBiIndexAdd(struct agg_node *rn, /* Import table VPN node */
 	assert(bpi);
 	assert(bpi->extra);
 
-	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRDP", __func__, bpi,
 			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX_W_ALLOC(rn);
@@ -2120,7 +2123,9 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 		char buf[RD_ADDRSTRLEN];
 		char buf_aux_pfx[PREFIX_STRLEN];
 
-		prefix_rd2str(&k->extra->vnc.import.rd, buf, sizeof(buf));
+		prefix_rd2str(
+			&k->extra->vnc.import.rd, buf, sizeof(buf),
+			bgp_get_asnotation(k->peer ? k->peer->bgp : NULL));
 		if (k->extra->vnc.import.aux_prefix.family) {
 			prefix2str(&k->extra->vnc.import.aux_prefix,
 				   buf_aux_pfx, sizeof(buf_aux_pfx));
@@ -2158,7 +2163,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 			strlcpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
 
 		vnc_zlog_debug_verbose(
-			"%s want prd=%pRD, peer=%p, aux_prefix=%s", __func__,
+			"%s want prd=%pRDP, peer=%p, aux_prefix=%s", __func__,
 			prd, peer, buf_aux_pfx);
 		rfapiItBiIndexDump(rn);
 	}
@@ -2174,7 +2179,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 		     bpi_result = bpi_result->next) {
 #ifdef DEBUG_BI_SEARCH
 			vnc_zlog_debug_verbose(
-				"%s: bpi has prd=%pRD, peer=%p", __func__,
+				"%s: bpi has prd=%pRDP, peer=%p", __func__,
 				&bpi_result->extra->vnc.import.rd,
 				bpi_result->peer);
 #endif
@@ -2238,7 +2243,7 @@ static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
 	struct skiplist *sl;
 	int rc;
 
-	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRDP", __func__, bpi,
 			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX(rn);
@@ -2335,30 +2340,37 @@ static void rfapiMonitorEncapDelete(struct bgp_path_info *vpn_bpi)
 }
 
 /*
- * quagga lib/thread.h says this must return int even though
- * it doesn't do anything with the return value
+ * Timer callback for withdraw
  */
-static void rfapiWithdrawTimerVPN(struct thread *t)
+static void rfapiWithdrawTimerVPN(struct event *t)
 {
-	struct rfapi_withdraw *wcb = THREAD_ARG(t);
+	struct rfapi_withdraw *wcb = EVENT_ARG(t);
 	struct bgp_path_info *bpi = wcb->info;
 	struct bgp *bgp = bgp_get_default();
 	const struct prefix *p;
 	struct rfapi_monitor_vpn *moved;
 	afi_t afi;
+	bool early_exit = false;
 
 	if (bgp == NULL) {
 		vnc_zlog_debug_verbose(
                    "%s: NULL BGP pointer, assume shutdown race condition!!!",
                    __func__);
-		return;
+		early_exit = true;
 	}
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
+	if (bgp && CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		vnc_zlog_debug_verbose(
 			"%s: BGP delete in progress, assume shutdown race condition!!!",
 			__func__);
+		early_exit = true;
+	}
+
+	/* This callback is responsible for the withdraw object's memory */
+	if (early_exit) {
+		XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 		return;
 	}
+
 	assert(wcb->node);
 	assert(bpi);
 	assert(wcb->import_table);
@@ -2639,9 +2651,9 @@ rfapiWithdrawEncapUpdateCachedUn(struct rfapi_import_table *import_table,
 	return 0;
 }
 
-static void rfapiWithdrawTimerEncap(struct thread *t)
+static void rfapiWithdrawTimerEncap(struct event *t)
 {
-	struct rfapi_withdraw *wcb = THREAD_ARG(t);
+	struct rfapi_withdraw *wcb = EVENT_ARG(t);
 	struct bgp_path_info *bpi = wcb->info;
 	int was_first_route = 0;
 	struct rfapi_monitor_encap *em;
@@ -2724,7 +2736,7 @@ static void
 rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 			  struct agg_node *rn, struct bgp_path_info *bpi,
 			  afi_t afi, safi_t safi,
-			  void (*timer_service_func)(struct thread *))
+			  void (*timer_service_func)(struct event *))
 {
 	uint32_t lifetime;
 	struct rfapi_withdraw *wcb;
@@ -2774,8 +2786,8 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	if (lifetime > UINT32_MAX / 1001) {
 		/* sub-optimal case, but will probably never happen */
 		bpi->extra->vnc.import.timer = NULL;
-		thread_add_timer(bm->master, timer_service_func, wcb, lifetime,
-				 &bpi->extra->vnc.import.timer);
+		event_add_timer(bm->master, timer_service_func, wcb, lifetime,
+				&bpi->extra->vnc.import.timer);
 	} else {
 		static uint32_t jitter;
 		uint32_t lifetime_msec;
@@ -2790,9 +2802,9 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 		lifetime_msec = (lifetime * 1000) + jitter;
 
 		bpi->extra->vnc.import.timer = NULL;
-		thread_add_timer_msec(bm->master, timer_service_func, wcb,
-				      lifetime_msec,
-				      &bpi->extra->vnc.import.timer);
+		event_add_timer_msec(bm->master, timer_service_func, wcb,
+				     lifetime_msec,
+				     &bpi->extra->vnc.import.timer);
 	}
 
 	/* re-sort route list (BGP_PATH_REMOVED routes are last) */
@@ -2816,7 +2828,7 @@ static void rfapiExpireEncapNow(struct rfapi_import_table *it,
 				struct agg_node *rn, struct bgp_path_info *bpi)
 {
 	struct rfapi_withdraw *wcb;
-	struct thread t;
+	struct event t;
 
 	/*
 	 * pretend we're an expiring timer
@@ -3061,12 +3073,11 @@ static void rfapiBgpInfoFilteredImportEncap(
 				 */
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 				    && bpi->extra->vnc.import.timer) {
-					struct rfapi_withdraw *wcb = THREAD_ARG(
+					struct rfapi_withdraw *wcb = EVENT_ARG(
 						bpi->extra->vnc.import.timer);
 
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					THREAD_OFF(
-						bpi->extra->vnc.import.timer);
+					EVENT_OFF(bpi->extra->vnc.import.timer);
 				}
 
 				if (action == FIF_ACTION_UPDATE) {
@@ -3079,7 +3090,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 					 * bpi
 					 */
 					struct rfapi_withdraw *wcb;
-					struct thread t;
+					struct event t;
 
 					/*
 					 * pretend we're an expiring timer
@@ -3154,10 +3165,10 @@ static void rfapiBgpInfoFilteredImportEncap(
 			__func__);
 		if (bpi->extra->vnc.import.timer) {
 			struct rfapi_withdraw *wcb =
-				THREAD_ARG(bpi->extra->vnc.import.timer);
+				EVENT_ARG(bpi->extra->vnc.import.timer);
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			THREAD_OFF(bpi->extra->vnc.import.timer);
+			EVENT_OFF(bpi->extra->vnc.import.timer);
 		}
 		rfapiExpireEncapNow(import_table, rn, bpi);
 	}
@@ -3290,7 +3301,7 @@ static void rfapiExpireVpnNow(struct rfapi_import_table *it,
 			      int lockoffset)
 {
 	struct rfapi_withdraw *wcb;
-	struct thread t;
+	struct event t;
 
 	/*
 	 * pretend we're an expiring timer
@@ -3514,12 +3525,11 @@ void rfapiBgpInfoFilteredImportVPN(
 				 */
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 				    && bpi->extra->vnc.import.timer) {
-					struct rfapi_withdraw *wcb = THREAD_ARG(
+					struct rfapi_withdraw *wcb = EVENT_ARG(
 						bpi->extra->vnc.import.timer);
 
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					THREAD_OFF(
-						bpi->extra->vnc.import.timer);
+					EVENT_OFF(bpi->extra->vnc.import.timer);
 
 					import_table->holddown_count[afi] -= 1;
 					RFAPI_UPDATE_ITABLE_COUNT(
@@ -3733,10 +3743,10 @@ void rfapiBgpInfoFilteredImportVPN(
 			__func__);
 		if (bpi->extra->vnc.import.timer) {
 			struct rfapi_withdraw *wcb =
-				THREAD_ARG(bpi->extra->vnc.import.timer);
+				EVENT_ARG(bpi->extra->vnc.import.timer);
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			THREAD_OFF(bpi->extra->vnc.import.timer);
+			EVENT_OFF(bpi->extra->vnc.import.timer);
 		}
 		rfapiExpireVpnNow(import_table, rn, bpi, 0);
 	}
@@ -4031,7 +4041,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 	struct agg_node *rn;
 	struct bgp_path_info *bpi;
 	struct agg_table *rt = NULL;
-	void (*timer_service_func)(struct thread *) = NULL;
+	void (*timer_service_func)(struct event *) = NULL;
 
 	assert(afi == AFI_IP || afi == AFI_IP6);
 
@@ -4251,10 +4261,7 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		h->resolve_nve_nexthop = NULL;
 	}
 
-	agg_table_finish(h->it_ce->imported_vpn[AFI_IP]);
-	agg_table_finish(h->it_ce->imported_vpn[AFI_IP6]);
-	agg_table_finish(h->it_ce->imported_encap[AFI_IP]);
-	agg_table_finish(h->it_ce->imported_encap[AFI_IP6]);
+	rfapiImportTableFlush(h->it_ce);
 
 	if (h->import_mac) {
 		struct rfapi_import_table *it;
@@ -4473,7 +4480,7 @@ static void rfapiDeleteRemotePrefixesIt(
 						continue;
 					if (bpi->extra->vnc.import.timer) {
 						struct rfapi_withdraw *wcb =
-							THREAD_ARG(
+							EVENT_ARG(
 								bpi->extra->vnc
 									.import
 									.timer);
@@ -4486,9 +4493,8 @@ static void rfapiDeleteRemotePrefixesIt(
 							afi, 1);
 						XFREE(MTYPE_RFAPI_WITHDRAW,
 						      wcb);
-						THREAD_OFF(
-							bpi->extra->vnc.import
-								.timer);
+						EVENT_OFF(bpi->extra->vnc.import
+								  .timer);
 					}
 				} else {
 					if (!delete_active)

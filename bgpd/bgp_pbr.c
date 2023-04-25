@@ -1014,7 +1014,7 @@ static void bgp_pbr_match_free(void *arg)
 			bpm->action = NULL;
 		}
 	}
-	hash_free(bpm->entry_hash);
+	hash_clean_and_free(&bpm->entry_hash, NULL);
 
 	XFREE(MTYPE_PBR_MATCH, bpm);
 }
@@ -1386,23 +1386,13 @@ struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 
 void bgp_pbr_cleanup(struct bgp *bgp)
 {
-	if (bgp->pbr_match_hash) {
-		hash_clean(bgp->pbr_match_hash, bgp_pbr_match_free);
-		hash_free(bgp->pbr_match_hash);
-		bgp->pbr_match_hash = NULL;
-	}
-	if (bgp->pbr_rule_hash) {
-		hash_clean(bgp->pbr_rule_hash, bgp_pbr_rule_free);
-		hash_free(bgp->pbr_rule_hash);
-		bgp->pbr_rule_hash = NULL;
-	}
-	if (bgp->pbr_action_hash) {
-		hash_clean(bgp->pbr_action_hash, bgp_pbr_action_free);
-		hash_free(bgp->pbr_action_hash);
-		bgp->pbr_action_hash = NULL;
-	}
+	hash_clean_and_free(&bgp->pbr_match_hash, bgp_pbr_match_free);
+	hash_clean_and_free(&bgp->pbr_rule_hash, bgp_pbr_rule_free);
+	hash_clean_and_free(&bgp->pbr_action_hash, bgp_pbr_action_free);
+
 	if (bgp->bgp_pbr_cfg == NULL)
 		return;
+
 	bgp_pbr_reset(bgp, AFI_IP);
 	bgp_pbr_reset(bgp, AFI_IP6);
 	XFREE(MTYPE_PBR, bgp->bgp_pbr_cfg);

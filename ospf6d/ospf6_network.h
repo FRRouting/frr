@@ -29,11 +29,11 @@ extern int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
 			listnode_add(oi->area->ospf6->oi_write_q, (oi));       \
 			(oi)->on_write_q = 1;                                  \
 		}                                                              \
-		if (list_was_empty                                             \
-		    && !list_isempty(oi->area->ospf6->oi_write_q))             \
-			thread_add_write(master, ospf6_write, oi->area->ospf6, \
-					 oi->area->ospf6->fd,                  \
-					 &oi->area->ospf6->t_write);           \
+		if (list_was_empty &&                                          \
+		    !list_isempty(oi->area->ospf6->oi_write_q))                \
+			event_add_write(master, ospf6_write, oi->area->ospf6,  \
+					oi->area->ospf6->fd,                   \
+					&oi->area->ospf6->t_write);            \
 	} while (0)
 
 #endif /* OSPF6_NETWORK_H */

@@ -645,7 +645,7 @@ static int zd_dpdk_init(void)
 	zd_dpdk_vty_init();
 
 	frr_with_privs (&zserv_privs) {
-		rc = rte_eal_init(ARRAY_SIZE(argv), argv);
+		rc = rte_eal_init(array_size(argv), argv);
 	}
 	if (rc < 0) {
 		zlog_warn("EAL init failed %s", rte_strerror(rte_errno));
@@ -694,7 +694,7 @@ static int zd_dpdk_finish(struct zebra_dplane_provider *prov, bool early)
 }
 
 
-static int zd_dpdk_plugin_init(struct thread_master *tm)
+static int zd_dpdk_plugin_init(struct event_loop *tm)
 {
 	int ret;
 

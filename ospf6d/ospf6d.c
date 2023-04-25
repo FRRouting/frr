@@ -5,7 +5,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
@@ -1375,7 +1375,7 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 }
 
 /* Install ospf related commands. */
-void ospf6_init(struct thread_master *master)
+void ospf6_init(struct event_loop *master)
 {
 	ospf6_top_init();
 	ospf6_area_init();

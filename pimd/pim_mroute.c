@@ -34,6 +34,8 @@
 #include "pim_msg.h"
 
 static void mroute_read_on(struct pim_instance *pim);
+static int pim_upstream_mroute_update(struct channel_oil *c_oil,
+				      const char *name);
 
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
@@ -145,22 +147,48 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_upstream *up;
-	struct pim_rpf *rpg;
 	pim_sgaddr sg;
+	bool desync = false;
 
-	rpg = pim_ifp ? RP(pim_ifp->pim, msg->msg_im_dst) : NULL;
-	/*
-	 * If the incoming interface is unknown OR
-	 * the Interface type is SSM we don't need to
-	 * do anything here
-	 */
-	if (!rpg || pim_rpf_addr_is_inaddr_any(rpg)) {
-		if (PIM_DEBUG_MROUTE_DETAIL)
+	memset(&sg, 0, sizeof(sg));
+	sg.src = msg->msg_im_src;
+	sg.grp = msg->msg_im_dst;
+
+
+	if (!pim_ifp || !pim_ifp->pim_enable) {
+		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s: Interface is not configured correctly to handle incoming packet: Could be !pim_ifp, !SM, !RP",
-				__func__);
-
+				"%s: %s on interface, dropping packet to %pSG",
+				ifp->name,
+				!pim_ifp ? "Multicast not enabled"
+					 : "PIM not enabled",
+				&sg);
 		return 0;
+	}
+
+	if (!pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
+		/* for ASM, check that we have enough information (i.e. path
+		 * to RP) to make a decision on what to do with this packet.
+		 *
+		 * for SSM, this is meaningless, everything is join-driven,
+		 * and for NOCACHE we need to install an empty OIL MFC entry
+		 * so the kernel doesn't keep nagging us.
+		 */
+		struct pim_rpf *rpg;
+
+		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
+		if (!rpg) {
+			if (PIM_DEBUG_MROUTE)
+				zlog_debug("%s: no RPF for packet to %pSG",
+					   ifp->name, &sg);
+			return 0;
+		}
+		if (pim_rpf_addr_is_inaddr_any(rpg)) {
+			if (PIM_DEBUG_MROUTE)
+				zlog_debug("%s: null RPF for packet to %pSG",
+					   ifp->name, &sg);
+			return 0;
+		}
 	}
 
 	/*
@@ -168,22 +196,21 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	 * us
 	 */
 	if (!pim_if_connected_to_source(ifp, msg->msg_im_src)) {
-		if (PIM_DEBUG_MROUTE_DETAIL)
+		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s: Received incoming packet that doesn't originate on our seg",
-				__func__);
+				"%s: incoming packet to %pSG from non-connected source",
+				ifp->name, &sg);
 		return 0;
 	}
 
-	memset(&sg, 0, sizeof(sg));
-	sg.src = msg->msg_im_src;
-	sg.grp = msg->msg_im_dst;
-
 	if (!(PIM_I_am_DR(pim_ifp))) {
+		/* unlike the other debug messages, this one is further in the
+		 * "normal operation" category and thus under _DETAIL
+		 */
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug(
-				"%s: Interface is not the DR blackholing incoming traffic for %pSG",
-				__func__, &sg);
+				"%s: not DR on interface, not forwarding traffic for %pSG",
+				ifp->name, &sg);
 
 		/*
 		 * We are not the DR, but we are still receiving packets
@@ -204,6 +231,12 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
 				      __func__);
+	if (up->channel_oil->installed) {
+		zlog_warn(
+			"%s: NOCACHE for %pSG, MFC entry disappeared - reinstalling",
+			ifp->name, &sg);
+		desync = true;
+	}
 
 	/*
 	 * I moved this debug till after the actual add because
@@ -227,6 +260,11 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
+	/* we just got NOCACHE from the kernel, so...  MFC is not in the
+	 * kernel for some reason or another.  Try installing again.
+	 */
+	if (desync)
+		pim_upstream_mroute_update(up->channel_oil, __func__);
 	return 0;
 }
 
@@ -729,7 +767,7 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 	return 0;
 }
 
-static void mroute_read(struct thread *t)
+static void mroute_read(struct event *t)
 {
 	struct pim_instance *pim;
 	static long long count;
@@ -737,7 +775,7 @@ static void mroute_read(struct thread *t)
 	int cont = 1;
 	int rd;
 	ifindex_t ifindex;
-	pim = THREAD_ARG(t);
+	pim = EVENT_ARG(t);
 
 	while (cont) {
 		rd = pim_socket_recvfromto(pim->mroute_socket, (uint8_t *)buf,
@@ -771,13 +809,13 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	thread_add_read(router->master, mroute_read, pim, pim->mroute_socket,
-			&pim->thread);
+	event_add_read(router->master, mroute_read, pim, pim->mroute_socket,
+		       &pim->thread);
 }
 
 static void mroute_read_off(struct pim_instance *pim)
 {
-	THREAD_OFF(pim->thread);
+	EVENT_OFF(pim->thread);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)

@@ -1006,7 +1006,7 @@ void dplane_provider_lock(struct zebra_dplane_provider *prov);
 void dplane_provider_unlock(struct zebra_dplane_provider *prov);
 
 /* Obtain thread_master for dataplane thread */
-struct thread_master *dplane_get_thread_master(void);
+struct event_loop *dplane_get_thread_master(void);
 
 /* Providers should (generally) limit number of updates per work cycle */
 int dplane_provider_get_work_limit(const struct zebra_dplane_provider *prov);

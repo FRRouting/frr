@@ -76,6 +76,7 @@ struct bgpevpn {
 
 	/* RD for this VNI. */
 	struct prefix_rd prd;
+	char *prd_pretty;
 
 	/* Route type 3 field */
 	struct in_addr originator_ip;
@@ -711,11 +712,9 @@ extern struct bgp_dest *
 bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi, safi_t safi,
 			 const struct prefix_evpn *evp, struct prefix_rd *prd,
 			 const struct bgp_path_info *local_pi);
-extern struct bgp_dest *
-bgp_evpn_global_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
-			    const struct prefix_evpn *evp,
-			    struct prefix_rd *prd,
-			    const struct bgp_path_info *local_pi);
+extern struct bgp_dest *bgp_evpn_global_node_lookup(
+	struct bgp_table *table, safi_t safi, const struct prefix_evpn *evp,
+	struct prefix_rd *prd, const struct bgp_path_info *local_pi);
 extern struct bgp_dest *
 bgp_evpn_vni_ip_node_get(struct bgp_table *const table,
 			 const struct prefix_evpn *evp,

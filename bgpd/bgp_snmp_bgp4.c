@@ -12,7 +12,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "smux.h"
 #include "filter.h"
 #include "hook.h"
@@ -791,7 +791,7 @@ int bgpTrapBackwardTransition(struct peer *peer)
 	return 0;
 }
 
-int bgp_snmp_bgp4_init(struct thread_master *tm)
+int bgp_snmp_bgp4_init(struct event_loop *tm)
 {
 	REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
 	return 0;

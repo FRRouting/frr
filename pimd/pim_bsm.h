@@ -59,7 +59,7 @@ struct bsm_scope {
 	struct bsm_frags_head bsm_frags[1];
 
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
-	struct thread *bs_timer;	/* Boot strap timer */
+	struct event *bs_timer;		/* Boot strap timer */
 };
 
 /* BSM packet (= fragment) - this is stored as list in bsm_frags inside scope
@@ -103,7 +103,7 @@ struct bsm_rpinfo {
 	uint16_t rp_holdtime;           /* RP holdtime - g2rp timer value */
 	pim_addr rp_address;		/* RP Address */
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
-	struct thread *g2rp_timer;      /* Run only for elected RP node */
+	struct event *g2rp_timer;	/* Run only for elected RP node */
 };
 
 extern int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *a,

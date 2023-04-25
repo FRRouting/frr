@@ -9,7 +9,7 @@
 
 #include "monotime.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "table.h"
 #include "vty.h"
@@ -190,7 +190,7 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-		THREAD_OFF(ldp_sync_info->t_holddown);
+		EVENT_OFF(ldp_sync_info->t_holddown);
 		ospf_if_recalculate_output_cost(ifp);
 	}
 }
@@ -241,7 +241,7 @@ void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		THREAD_OFF(ldp_sync_info->t_holddown);
+		EVENT_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 	}
@@ -305,7 +305,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	 */
 	ols_debug("%s: Removed from if %s", __func__, ifp->name);
 
-	THREAD_OFF(ldp_sync_info->t_holddown);
+	EVENT_OFF(ldp_sync_info->t_holddown);
 
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	ospf_if_recalculate_output_cost(ifp);
@@ -339,7 +339,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static void ospf_ldp_sync_holddown_timer(struct thread *thread)
+static void ospf_ldp_sync_holddown_timer(struct event *thread)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;
@@ -349,7 +349,7 @@ static void ospf_ldp_sync_holddown_timer(struct thread *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	ifp = THREAD_ARG(thread);
+	ifp = EVENT_ARG(thread);
 	params = IF_DEF_PARAMS(ifp);
 	if (params->ldp_sync_info) {
 		ldp_sync_info = params->ldp_sync_info;
@@ -383,9 +383,8 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 	ols_debug("%s: start holddown timer for %s time %d", __func__,
 		  ifp->name, ldp_sync_info->holddown);
 
-	thread_add_timer(master, ospf_ldp_sync_holddown_timer,
-			 ifp, ldp_sync_info->holddown,
-			 &ldp_sync_info->t_holddown);
+	event_add_timer(master, ospf_ldp_sync_holddown_timer, ifp,
+			ldp_sync_info->holddown, &ldp_sync_info->t_holddown);
 }
 
 /*
@@ -899,7 +898,7 @@ DEFPY (no_mpls_ldp_sync,
 	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-	THREAD_OFF(ldp_sync_info->t_holddown);
+	EVENT_OFF(ldp_sync_info->t_holddown);
 	ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;

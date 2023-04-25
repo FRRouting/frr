@@ -1255,7 +1255,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 }
 
 
-#include "thread.h"
+#include "frrevent.h"
 #include "zebra/zserv.h"
 
 /* For debug purpose. */
@@ -1281,7 +1281,7 @@ static void rtmsg_debug(struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-static void kernel_read(struct thread *thread)
+static void kernel_read(struct event *thread)
 {
 	int sock;
 	int nbytes;
@@ -1326,7 +1326,7 @@ static void kernel_read(struct thread *thread)
 	} buf;
 
 	/* Fetch routing socket. */
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	nbytes = read(sock, &buf, sizeof(buf));
 
@@ -1338,8 +1338,8 @@ static void kernel_read(struct thread *thread)
 			 * shortage and is not harmful for consistency of
 			 * reading the routing socket.  Ignore it.
 			 */
-			thread_add_read(zrouter.master, kernel_read, NULL, sock,
-					NULL);
+			event_add_read(zrouter.master, kernel_read, NULL, sock,
+				       NULL);
 			return;
 #else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
@@ -1362,7 +1362,7 @@ static void kernel_read(struct thread *thread)
 	if (nbytes == 0)
 		return;
 
-	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1465,7 +1465,7 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
 /* Exported interface function.  This function simply calls

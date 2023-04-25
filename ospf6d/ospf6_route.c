@@ -267,7 +267,8 @@ int ospf6_num_nexthops(struct list *nh_list)
 	return (listcount(nh_list));
 }
 
-void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
+void ospf6_add_nexthop(struct list *nh_list, int ifindex,
+		       const struct in6_addr *addr)
 {
 	struct ospf6_nexthop *nh;
 	struct ospf6_nexthop nh_match;

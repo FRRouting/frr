@@ -114,7 +114,7 @@ extern int ospf6_asbr_is_asbr(struct ospf6 *o);
 extern void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 					struct prefix *prefix,
 					unsigned int nexthop_num,
-					struct in6_addr *nexthop,
+					const struct in6_addr *nexthop,
 					route_tag_t tag, struct ospf6 *ospf6);
 extern void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 					   struct prefix *prefix,

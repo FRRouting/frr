@@ -72,7 +72,7 @@
     ],
     "edges":[
       {
-        "edge-id":167772161,
+        "edge-id":"10.0.0.1",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.1",
@@ -128,7 +128,7 @@
         ]
       },
       {
-        "edge-id":167772162,
+        "edge-id":"10.0.0.2",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.2",
@@ -181,7 +181,7 @@
         ]
       },
       {
-        "edge-id":167772417,
+        "edge-id":"10.0.1.1",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.1",
@@ -234,7 +234,7 @@
         ]
       },
       {
-        "edge-id":167772418,
+        "edge-id":"10.0.1.2",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.2",
@@ -287,7 +287,7 @@
         ]
       },
       {
-        "edge-id":167772929,
+        "edge-id":"10.0.3.1",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.3",
@@ -329,7 +329,7 @@
         }
       },
       {
-        "edge-id":167772930,
+        "edge-id":"10.0.3.2",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.2",
@@ -382,7 +382,7 @@
         ]
       },
       {
-        "edge-id":167773185,
+        "edge-id":"10.0.4.1",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.4",
@@ -435,7 +435,7 @@
         ]
       },
       {
-        "edge-id":167773186,
+        "edge-id":"10.0.4.2",
         "status":"Sync",
         "origin":"OSPFv2",
         "advertised-router":"10.0.255.2",

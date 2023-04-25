@@ -411,17 +411,17 @@ def test_ospf_nbrs(tgen):
                 "neighbors": {
                     "100.1.1.1": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.2": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.3": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                 }
@@ -434,17 +434,17 @@ def test_ospf_nbrs(tgen):
                 "neighbors": {
                     "100.1.1.0": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.2": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.3": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                 }
@@ -457,17 +457,17 @@ def test_ospf_nbrs(tgen):
                 "neighbors": {
                     "100.1.1.0": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.1": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.3": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                 }
@@ -480,17 +480,17 @@ def test_ospf_nbrs(tgen):
                 "neighbors": {
                     "100.1.1.0": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.1": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                     "100.1.1.2": [
                         {
-                            "state": "Full/DROther",
+                            "nbrState": "Full/DROther",
                         }
                     ],
                 }

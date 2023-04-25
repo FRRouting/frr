@@ -110,7 +110,7 @@ struct zebra_mlag_info {
 	struct frr_pthread *zebra_pth_mlag;
 
 	/* MLAG Thread context 'master' */
-	struct thread_master *th_master;
+	struct event_loop *th_master;
 
 	/*
 	 * Event for Initial MLAG Connection setup & Data Read
@@ -118,16 +118,16 @@ struct zebra_mlag_info {
 	 * so no issues.
 	 *
 	 */
-	struct thread *t_read;
+	struct event *t_read;
 	/* Event for MLAG write */
-	struct thread *t_write;
+	struct event *t_write;
 };
 
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
@@ -194,7 +194,7 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
-	struct thread *sweeper;
+	struct event *sweeper;
 
 	/*
 	 * The hash of nexthop groups associated with this router

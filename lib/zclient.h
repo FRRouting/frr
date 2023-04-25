@@ -290,7 +290,7 @@ typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* Privileges to change socket values */
 	struct zebra_privs_t *privs;
@@ -323,11 +323,11 @@ struct zclient {
 	struct buffer *wb;
 
 	/* Read and connect thread. */
-	struct thread *t_read;
-	struct thread *t_connect;
+	struct event *t_read;
+	struct event *t_connect;
 
 	/* Thread to write buffered data to zebra. */
-	struct thread *t_write;
+	struct event *t_write;
 
 	/* Redistribute information. */
 	uint8_t redist_default; /* clients protocol */
@@ -862,7 +862,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
-extern struct zclient *zclient_new(struct thread_master *m,
+extern struct zclient *zclient_new(struct event_loop *m,
 				   struct zclient_options *opt,
 				   zclient_handler *const *handlers,
 				   size_t n_handlers);
@@ -901,7 +901,7 @@ zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 
 extern enum zclient_send_status
 zclient_send_localsid(struct zclient *zclient, const struct in6_addr *sid,
-		      ifindex_t oif, enum seg6local_action_t action,
+		      vrf_id_t vrf_id, enum seg6local_action_t action,
 		      const struct seg6local_context *context);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);

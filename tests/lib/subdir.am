@@ -15,7 +15,7 @@ tests_lib_test_frrscript_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_frrscript_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_frrscript_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_frrscript_SOURCES = tests/lib/test_frrscript.c
-EXTRA_DIST += tests/lib/test_frrscript.py
+EXTRA_DIST += tests/lib/test_frrscript.py tests/lib/script1.lua
 
 
 ##############################################################################

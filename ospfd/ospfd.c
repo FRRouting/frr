@@ -5,7 +5,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "linklist.h"
@@ -385,8 +385,8 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
 	new->maxage_lsa = route_table_init();
 	new->t_maxage_walker = NULL;
-	thread_add_timer(master, ospf_lsa_maxage_walker, new,
-			 OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
+	event_add_timer(master, ospf_lsa_maxage_walker, new,
+			OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
 
 	/* Max paths initialization */
 	new->max_multipath = MULTIPATH_NUM;
@@ -398,8 +398,8 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
 	new->lsa_refresh_timer = OSPF_LS_REFRESH_TIME;
 	new->t_lsa_refresher = NULL;
-	thread_add_timer(master, ospf_lsa_refresh_walker, new,
-			 new->lsa_refresh_interval, &new->t_lsa_refresher);
+	event_add_timer(master, ospf_lsa_refresh_walker, new,
+			new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
 	new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1);
@@ -419,6 +419,10 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
+	new->intf_socket_enabled = true;
+
+	new->recv_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
+	new->send_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
 
 	return new;
 }
@@ -441,7 +445,7 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 		return new;
 	}
 
-	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
+	event_add_read(master, ospf_read, new, new->fd, &new->t_read);
 
 	new->oi_running = 1;
 	ospf_router_id_update(new);
@@ -451,6 +455,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	 * graceful restart or not.
 	 */
 	ospf_gr_nvm_read(new);
+
+	new->fr_configured = false;
 
 	return new;
 }
@@ -577,7 +583,7 @@ static struct ospf *ospf_lookup_by_name(const char *vrf_name)
 static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 {
 	ospf->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
-	THREAD_OFF(ospf->t_deferred_shutdown);
+	EVENT_OFF(ospf->t_deferred_shutdown);
 
 	ospf_finish_final(ospf);
 
@@ -594,9 +600,9 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 }
 
 /* Timer thread for G-R */
-static void ospf_deferred_shutdown_timer(struct thread *t)
+static void ospf_deferred_shutdown_timer(struct event *t)
 {
-	struct ospf *ospf = THREAD_ARG(t);
+	struct ospf *ospf = EVENT_ARG(t);
 
 	ospf_deferred_shutdown_finish(ospf);
 }
@@ -759,7 +765,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Clear static neighbors */
 	for (rn = route_top(ospf->nbr_nbma); rn; rn = route_next(rn))
 		if ((nbr_nbma = rn->info)) {
-			THREAD_OFF(nbr_nbma->t_poll);
+			EVENT_OFF(nbr_nbma->t_poll);
 
 			if (nbr_nbma->nbr) {
 				nbr_nbma->nbr->nbr_nbma = NULL;
@@ -795,22 +801,23 @@ static void ospf_finish_final(struct ospf *ospf)
 	}
 
 	/* Cancel all timers. */
-	THREAD_OFF(ospf->t_read);
-	THREAD_OFF(ospf->t_write);
-	THREAD_OFF(ospf->t_spf_calc);
-	THREAD_OFF(ospf->t_ase_calc);
-	THREAD_OFF(ospf->t_maxage);
-	THREAD_OFF(ospf->t_maxage_walker);
-	THREAD_OFF(ospf->t_abr_task);
-	THREAD_OFF(ospf->t_asbr_check);
-	THREAD_OFF(ospf->t_asbr_nssa_redist_update);
-	THREAD_OFF(ospf->t_distribute_update);
-	THREAD_OFF(ospf->t_lsa_refresher);
-	THREAD_OFF(ospf->t_opaque_lsa_self);
-	THREAD_OFF(ospf->t_sr_update);
-	THREAD_OFF(ospf->t_default_routemap_timer);
-	THREAD_OFF(ospf->t_external_aggr);
-	THREAD_OFF(ospf->gr_info.t_grace_period);
+	EVENT_OFF(ospf->t_read);
+	EVENT_OFF(ospf->t_write);
+	EVENT_OFF(ospf->t_spf_calc);
+	EVENT_OFF(ospf->t_ase_calc);
+	EVENT_OFF(ospf->t_maxage);
+	EVENT_OFF(ospf->t_maxage_walker);
+	EVENT_OFF(ospf->t_abr_task);
+	EVENT_OFF(ospf->t_abr_fr);
+	EVENT_OFF(ospf->t_asbr_check);
+	EVENT_OFF(ospf->t_asbr_nssa_redist_update);
+	EVENT_OFF(ospf->t_distribute_update);
+	EVENT_OFF(ospf->t_lsa_refresher);
+	EVENT_OFF(ospf->t_opaque_lsa_self);
+	EVENT_OFF(ospf->t_sr_update);
+	EVENT_OFF(ospf->t_default_routemap_timer);
+	EVENT_OFF(ospf->t_external_aggr);
+	EVENT_OFF(ospf->gr_info.t_grace_period);
 
 	LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
@@ -947,10 +954,20 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 	/* Self-originated LSAs initialize. */
 	new->router_lsa_self = NULL;
 
+	/* Initialize FR field */
+	new->fr_info.enabled = false;
+	new->fr_info.configured = false;
+	new->fr_info.state_changed = false;
+	new->fr_info.router_lsas_recv_dc_bit = 0;
+	new->fr_info.indication_lsa_self = NULL;
+	new->fr_info.area_ind_lsa_recvd = false;
+	new->fr_info.area_dc_clear = false;
+
 	ospf_opaque_type10_lsa_init(new);
 
 	new->oiflist = list_new();
 	new->ranges = route_table_init();
+	new->nssa_ranges = route_table_init();
 
 	if (area_id.s_addr == OSPF_AREA_BACKBONE)
 		ospf->backbone = new;
@@ -994,6 +1011,7 @@ static void ospf_area_free(struct ospf_area *area)
 	ospf_lsa_unlock(&area->router_lsa_self);
 
 	route_table_finish(area->ranges);
+	route_table_finish(area->nssa_ranges);
 	list_delete(&area->oiflist);
 
 	if (EXPORT_NAME(area))
@@ -1003,8 +1021,8 @@ static void ospf_area_free(struct ospf_area *area)
 		free(IMPORT_NAME(area));
 
 	/* Cancel timer. */
-	THREAD_OFF(area->t_stub_router);
-	THREAD_OFF(area->t_opaque_lsa_self);
+	EVENT_OFF(area->t_stub_router);
+	EVENT_OFF(area->t_opaque_lsa_self);
 
 	if (OSPF_IS_AREA_BACKBONE(area))
 		area->ospf->backbone = NULL;
@@ -1017,13 +1035,14 @@ void ospf_area_check_free(struct ospf *ospf, struct in_addr area_id)
 	struct ospf_area *area;
 
 	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area && listcount(area->oiflist) == 0 && area->ranges->top == NULL
-	    && !ospf_vl_count(ospf, area)
-	    && area->shortcut_configured == OSPF_SHORTCUT_DEFAULT
-	    && area->external_routing == OSPF_AREA_DEFAULT
-	    && area->no_summary == 0 && area->default_cost == 1
-	    && EXPORT_NAME(area) == NULL && IMPORT_NAME(area) == NULL
-	    && area->auth_type == OSPF_AUTH_NULL) {
+	if (area && listcount(area->oiflist) == 0 &&
+	    area->ranges->top == NULL && area->nssa_ranges->top == NULL &&
+	    !ospf_vl_count(ospf, area) &&
+	    area->shortcut_configured == OSPF_SHORTCUT_DEFAULT &&
+	    area->external_routing == OSPF_AREA_DEFAULT &&
+	    area->no_summary == 0 && area->default_cost == 1 &&
+	    EXPORT_NAME(area) == NULL && IMPORT_NAME(area) == NULL &&
+	    area->auth_type == OSPF_AUTH_NULL) {
 		listnode_delete(ospf->areas, area);
 		ospf_area_free(area);
 	}
@@ -1439,7 +1458,7 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 		}
 
 	/* remove update event */
-	THREAD_OFF(oi->t_ls_upd_event);
+	EVENT_OFF(oi->t_ls_upd_event);
 }
 
 void ospf_if_update(struct ospf *ospf, struct interface *ifp)
@@ -1689,7 +1708,7 @@ int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id)
 	return 1;
 }
 
-int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
+int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 {
 	struct ospf_area *area;
 
@@ -1697,22 +1716,14 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 	if (area == NULL)
 		return 0;
 
-	/* argc < 5 -> 'no area x nssa' */
-	if (argc < 5 && area->external_routing == OSPF_AREA_NSSA) {
-		ospf->anyNSSA--;
-		/* set NSSA area defaults */
-		area->no_summary = 0;
-		area->suppress_fa = 0;
-		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-		area->NSSATranslatorStabilityInterval =
-			OSPF_NSSA_TRANS_STABLE_DEFAULT;
-		ospf_area_type_set(area, OSPF_AREA_DEFAULT);
-	} else {
-		ospf_area_nssa_translator_role_set(ospf, area_id,
-						   OSPF_NSSA_ROLE_CANDIDATE);
-	}
-
+	ospf->anyNSSA--;
+	/* set NSSA area defaults */
+	area->no_summary = 0;
+	area->suppress_fa = 0;
+	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
+	ospf_area_type_set(area, OSPF_AREA_DEFAULT);
 	ospf_area_check_free(ospf, area_id);
 
 	return 1;
@@ -1768,6 +1779,51 @@ int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 	}
 
 	return 1;
+}
+
+void ospf_area_nssa_default_originate_set(struct ospf *ospf,
+					  struct in_addr area_id, int metric,
+					  int metric_type)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return;
+
+	if (!area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = true;
+		if (++ospf->nssa_default_import_check.refcnt == 1) {
+			ospf->nssa_default_import_check.status = false;
+			ospf_zebra_import_default_route(ospf, false);
+		}
+	}
+
+	area->nssa_default_originate.metric_value = metric;
+	area->nssa_default_originate.metric_type = metric_type;
+}
+
+void ospf_area_nssa_default_originate_unset(struct ospf *ospf,
+					    struct in_addr area_id)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return;
+
+	if (area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = false;
+		if (--ospf->nssa_default_import_check.refcnt == 0) {
+			ospf->nssa_default_import_check.status = false;
+			ospf_zebra_import_default_route(ospf, true);
+		}
+		area->nssa_default_originate.metric_value = -1;
+		area->nssa_default_originate.metric_type = -1;
+
+		if (!IS_OSPF_ABR(ospf))
+			ospf_abr_nssa_type7_defaults(ospf);
+	}
 }
 
 int ospf_area_export_list_set(struct ospf *ospf, struct ospf_area *area,
@@ -1847,9 +1903,9 @@ int ospf_timers_refresh_set(struct ospf *ospf, int interval)
 		    - (monotime(NULL) - ospf->lsa_refresher_started);
 
 	if (time_left > interval) {
-		THREAD_OFF(ospf->t_lsa_refresher);
-		thread_add_timer(master, ospf_lsa_refresh_walker, ospf,
-				 interval, &ospf->t_lsa_refresher);
+		EVENT_OFF(ospf->t_lsa_refresher);
+		event_add_timer(master, ospf_lsa_refresh_walker, ospf, interval,
+				&ospf->t_lsa_refresher);
 	}
 	ospf->lsa_refresh_interval = interval;
 
@@ -1864,11 +1920,11 @@ int ospf_timers_refresh_unset(struct ospf *ospf)
 		    - (monotime(NULL) - ospf->lsa_refresher_started);
 
 	if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT) {
-		THREAD_OFF(ospf->t_lsa_refresher);
+		EVENT_OFF(ospf->t_lsa_refresher);
 		ospf->t_lsa_refresher = NULL;
-		thread_add_timer(master, ospf_lsa_refresh_walker, ospf,
-				 OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
-				 &ospf->t_lsa_refresher);
+		event_add_timer(master, ospf_lsa_refresh_walker, ospf,
+				OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
+				&ospf->t_lsa_refresher);
 	}
 
 	ospf->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
@@ -1916,7 +1972,7 @@ static void ospf_nbr_nbma_delete(struct ospf *ospf,
 
 static void ospf_nbr_nbma_down(struct ospf_nbr_nbma *nbr_nbma)
 {
-	THREAD_OFF(nbr_nbma->t_poll);
+	EVENT_OFF(nbr_nbma->t_poll);
 
 	if (nbr_nbma->nbr) {
 		nbr_nbma->nbr->nbr_nbma = NULL;
@@ -2105,7 +2161,7 @@ int ospf_nbr_nbma_poll_interval_set(struct ospf *ospf, struct in_addr nbr_addr,
 	if (nbr_nbma->v_poll != interval) {
 		nbr_nbma->v_poll = interval;
 		if (nbr_nbma->oi && ospf_if_is_up(nbr_nbma->oi)) {
-			THREAD_OFF(nbr_nbma->t_poll);
+			EVENT_OFF(nbr_nbma->t_poll);
 			OSPF_POLL_TIMER_ON(nbr_nbma->t_poll, ospf_poll_timer,
 					   nbr_nbma->v_poll);
 		}
@@ -2128,7 +2184,33 @@ int ospf_nbr_nbma_poll_interval_unset(struct ospf *ospf, struct in_addr addr)
 	return 1;
 }
 
-void ospf_master_init(struct thread_master *master)
+/*
+ * Update socket bufsize(s), usually after config change
+ */
+void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
+			 uint32_t sendsize)
+{
+	enum ospf_sock_type_e type = OSPF_SOCK_NONE;
+
+	/* Figure out whether there's been a change */
+	if (recvsize != ospf->recv_sock_bufsize) {
+		type = OSPF_SOCK_RECV;
+		ospf->recv_sock_bufsize = recvsize;
+
+		if (sendsize != ospf->send_sock_bufsize) {
+			type = OSPF_SOCK_BOTH;
+			ospf->send_sock_bufsize = sendsize;
+		}
+	} else if (sendsize != ospf->send_sock_bufsize) {
+		type = OSPF_SOCK_SEND;
+		ospf->send_sock_bufsize = sendsize;
+	}
+
+	if (type != OSPF_SOCK_NONE)
+		ospf_sock_bufsize_update(ospf, ospf->fd, type);
+}
+
+void ospf_master_init(struct event_loop *master)
 {
 	memset(&ospf_master, 0, sizeof(ospf_master));
 
@@ -2235,8 +2317,8 @@ static int ospf_vrf_enable(struct vrf *vrf)
 			ret = ospf_sock_init(ospf);
 			if (ret < 0 || ospf->fd <= 0)
 				return 0;
-			thread_add_read(master, ospf_read, ospf, ospf->fd,
-					&ospf->t_read);
+			event_add_read(master, ospf_read, ospf, ospf->fd,
+				       &ospf->t_read);
 			ospf->oi_running = 1;
 			ospf_router_id_update(ospf);
 		}
@@ -2274,7 +2356,7 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: ospf old_vrf_id %d unlinked", __func__,
 				   old_vrf_id);
-		THREAD_OFF(ospf->t_read);
+		EVENT_OFF(ospf->t_read);
 		close(ospf->fd);
 		ospf->fd = -1;
 	}

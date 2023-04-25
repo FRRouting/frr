@@ -195,11 +195,12 @@ struct zebra_if {
 	struct list *mac_list;
 
 	/* Link fields - for sub-interfaces. */
+	ns_id_t link_nsid;
 	ifindex_t link_ifindex;
 	struct interface *link;
 
 	uint8_t speed_update_count;
-	struct thread *speed_update;
+	struct event *speed_update;
 
 	/*
 	 * Does this interface have a v6 to v4 ll neighbor entry
@@ -259,6 +260,8 @@ extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
+extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
+						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
 extern void if_unlink_per_ns(struct interface *);

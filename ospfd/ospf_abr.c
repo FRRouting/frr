@@ -7,7 +7,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"
@@ -54,6 +54,7 @@ static void ospf_area_range_free(struct ospf_area_range *range)
 }
 
 static void ospf_area_range_add(struct ospf_area *area,
+				struct route_table *ranges,
 				struct ospf_area_range *range)
 {
 	struct route_node *rn;
@@ -64,7 +65,7 @@ static void ospf_area_range_add(struct ospf_area *area,
 	p.prefix = range->addr;
 	apply_mask_ipv4(&p);
 
-	rn = route_node_get(area->ranges, (struct prefix *)&p);
+	rn = route_node_get(ranges, (struct prefix *)&p);
 	if (rn->info)
 		route_unlock_node(rn);
 	else
@@ -75,10 +76,12 @@ static void ospf_area_range_delete(struct ospf_area *area,
 				   struct route_node *rn)
 {
 	struct ospf_area_range *range = rn->info;
+	bool nssa = CHECK_FLAG(range->flags, OSPF_AREA_RANGE_NSSA);
 
-	if (range->specifics != 0)
+	if (ospf_area_range_active(range) &&
+	    CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE))
 		ospf_delete_discard_route(area->ospf, area->ospf->new_table,
-					  (struct prefix_ipv4 *)&rn->p);
+					  (struct prefix_ipv4 *)&rn->p, nssa);
 
 	ospf_area_range_free(range);
 	rn->info = NULL;
@@ -87,11 +90,12 @@ static void ospf_area_range_delete(struct ospf_area *area,
 }
 
 struct ospf_area_range *ospf_area_range_lookup(struct ospf_area *area,
+					       struct route_table *ranges,
 					       struct prefix_ipv4 *p)
 {
 	struct route_node *rn;
 
-	rn = route_node_lookup(area->ranges, (struct prefix *)p);
+	rn = route_node_lookup(ranges, (struct prefix *)p);
 	if (rn) {
 		route_unlock_node(rn);
 		return rn->info;
@@ -133,11 +137,12 @@ struct ospf_area_range *ospf_area_range_lookup_next(struct ospf_area *area,
 }
 
 static struct ospf_area_range *ospf_area_range_match(struct ospf_area *area,
+						     struct route_table *ranges,
 						     struct prefix_ipv4 *p)
 {
 	struct route_node *node;
 
-	node = route_node_match(area->ranges, (struct prefix *)p);
+	node = route_node_match(ranges, (struct prefix *)p);
 	if (node) {
 		route_unlock_node(node);
 		return node->info;
@@ -153,7 +158,7 @@ struct ospf_area_range *ospf_area_range_match_any(struct ospf *ospf,
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
-		if ((range = ospf_area_range_match(area, p)))
+		if ((range = ospf_area_range_match(area, area->ranges, p)))
 			return range;
 
 	return NULL;
@@ -169,17 +174,13 @@ static int ospf_area_actively_attached(struct ospf_area *area)
 	return area->act_ints;
 }
 
-int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
-			struct prefix_ipv4 *p, int advertise)
+int ospf_area_range_set(struct ospf *ospf, struct ospf_area *area,
+			struct route_table *ranges, struct prefix_ipv4 *p,
+			int advertise, bool nssa)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
 
-	area = ospf_area_get(ospf, area_id);
-	if (area == NULL)
-		return 0;
-
-	range = ospf_area_range_lookup(area, p);
+	range = ospf_area_range_lookup(area, ranges, p);
 	if (range != NULL) {
 		if (!CHECK_FLAG(advertise, OSPF_AREA_RANGE_ADVERTISE))
 			range->cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
@@ -190,7 +191,7 @@ int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
 			ospf_schedule_abr_task(ospf);
 	} else {
 		range = ospf_area_range_new(p);
-		ospf_area_range_add(area, range);
+		ospf_area_range_add(area, ranges, range);
 		ospf_schedule_abr_task(ospf);
 	}
 
@@ -201,20 +202,19 @@ int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
 		range->cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
 	}
 
+	if (nssa)
+		SET_FLAG(range->flags, OSPF_AREA_RANGE_NSSA);
+
 	return 1;
 }
 
-int ospf_area_range_cost_set(struct ospf *ospf, struct in_addr area_id,
-			     struct prefix_ipv4 *p, uint32_t cost)
+int ospf_area_range_cost_set(struct ospf *ospf, struct ospf_area *area,
+			     struct route_table *ranges, struct prefix_ipv4 *p,
+			     uint32_t cost)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
 
-	area = ospf_area_get(ospf, area_id);
-	if (area == NULL)
-		return 0;
-
-	range = ospf_area_range_lookup(area, p);
+	range = ospf_area_range_lookup(area, ranges, p);
 	if (range == NULL)
 		return 0;
 
@@ -227,17 +227,12 @@ int ospf_area_range_cost_set(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_unset(struct ospf *ospf, struct in_addr area_id,
-			  struct prefix_ipv4 *p)
+int ospf_area_range_unset(struct ospf *ospf, struct ospf_area *area,
+			  struct route_table *ranges, struct prefix_ipv4 *p)
 {
-	struct ospf_area *area;
 	struct route_node *rn;
 
-	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area == NULL)
-		return 0;
-
-	rn = route_node_lookup(area->ranges, (struct prefix *)p);
+	rn = route_node_lookup(ranges, (struct prefix *)p);
 	if (rn == NULL)
 		return 0;
 
@@ -249,14 +244,12 @@ int ospf_area_range_unset(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_substitute_set(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_substitute_set(struct ospf *ospf, struct ospf_area *area,
 				   struct prefix_ipv4 *p, struct prefix_ipv4 *s)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
 
-	area = ospf_area_get(ospf, area_id);
-	range = ospf_area_range_lookup(area, p);
+	range = ospf_area_range_lookup(area, area->ranges, p);
 
 	if (range != NULL) {
 		if (!CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE)
@@ -264,7 +257,7 @@ int ospf_area_range_substitute_set(struct ospf *ospf, struct in_addr area_id,
 			ospf_schedule_abr_task(ospf);
 	} else {
 		range = ospf_area_range_new(p);
-		ospf_area_range_add(area, range);
+		ospf_area_range_add(area, area->ranges, range);
 		ospf_schedule_abr_task(ospf);
 	}
 
@@ -276,17 +269,12 @@ int ospf_area_range_substitute_set(struct ospf *ospf, struct in_addr area_id,
 	return 1;
 }
 
-int ospf_area_range_substitute_unset(struct ospf *ospf, struct in_addr area_id,
+int ospf_area_range_substitute_unset(struct ospf *ospf, struct ospf_area *area,
 				     struct prefix_ipv4 *p)
 {
-	struct ospf_area *area;
 	struct ospf_area_range *range;
 
-	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area == NULL)
-		return 0;
-
-	range = ospf_area_range_lookup(area, p);
+	range = ospf_area_range_lookup(area, area->ranges, p);
 	if (range == NULL)
 		return 0;
 
@@ -538,8 +526,7 @@ void ospf_check_abr_status(struct ospf *ospf)
 }
 
 static void ospf_abr_update_aggregate(struct ospf_area_range *range,
-				      struct ospf_route * or,
-				      struct ospf_area *area)
+				      uint32_t cost, struct ospf_area *area)
 {
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Start", __func__);
@@ -557,20 +544,18 @@ static void ospf_abr_update_aggregate(struct ospf_area_range *range,
 
 		range->cost = range->cost_config;
 	} else {
-		if (range->specifics == 0) {
+		if (!ospf_area_range_active(range)) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("%s: use or->cost %d", __func__,
-					   or->cost);
+				zlog_debug("%s: use cost %d", __func__, cost);
 
-			range->cost = or->cost; /* 1st time get 1st cost */
+			range->cost = cost; /* 1st time get 1st cost */
 		}
 
-		if (or->cost > range->cost) {
+		if (cost > range->cost) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("%s: update to %d", __func__,
-						or->cost);
+				zlog_debug("%s: update to %d", __func__, cost);
 
-			range->cost = or->cost;
+			range->cost = cost;
 		}
 	}
 
@@ -605,6 +590,7 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 	struct ospf_lsa *old = NULL, *new = NULL;
 	struct as_external_lsa *ext7;
 	struct prefix_ipv4 p;
+	struct ospf_area_range *range;
 
 	if (!CHECK_FLAG(lsa->data->options, OSPF_OPTION_NP)) {
 		if (IS_DEBUG_OSPF_NSSA)
@@ -646,6 +632,18 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 		return 1;
 	}
 
+	range = ospf_area_range_match(area, area->nssa_ranges, &p);
+	if (range) {
+		if (IS_DEBUG_OSPF_NSSA)
+			zlog_debug("Suppressed by range %pI4/%u of area %pI4",
+				   &range->addr, range->masklen,
+				   &area->area_id);
+
+		ospf_abr_update_aggregate(range, GET_METRIC(ext7->e[0].metric),
+					  area);
+		return 1;
+	}
+
 	if (old && CHECK_FLAG(old->flags, OSPF_LSA_APPROVED)) {
 		if (IS_DEBUG_OSPF_NSSA)
 			zlog_debug(
@@ -675,17 +673,27 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 		}
 	}
 
-	/* Area where Aggregate testing will be inserted, just like summary
-	   advertisements */
-	/* ospf_abr_check_nssa_range (p_arg, lsa-> cost, lsa -> area); */
-
 	return 0;
 }
 
-static void ospf_abr_translate_nssa_range(struct prefix_ipv4 *p, uint32_t cost)
+static void ospf_abr_translate_nssa_range(struct ospf *ospf,
+					  struct prefix_ipv4 *p, uint32_t cost)
 {
-	/* The Type-7 is created from the aggregated prefix and forwarded
-	   for lsa installation and flooding... to be added... */
+	struct external_info ei = {};
+	struct ospf_lsa *lsa;
+
+	prefix_copy(&ei.p, p);
+	ei.type = ZEBRA_ROUTE_OSPF;
+	ei.route_map_set.metric = cost;
+	ei.route_map_set.metric_type = -1;
+
+	lsa = ospf_external_info_find_lsa(ospf, p);
+	if (lsa)
+		lsa = ospf_external_lsa_refresh(ospf, lsa, &ei,
+						LSA_REFRESH_FORCE, true);
+	else
+		lsa = ospf_external_lsa_originate(ospf, &ei);
+	SET_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT);
 }
 
 void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
@@ -892,9 +900,11 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 				zlog_debug(
 					"%s: this is intra-area route to %pFX",
 					__func__, p);
-			if ((range = ospf_area_range_match(or_area, p))
-			    && !ospf_area_is_transit(area))
-				ospf_abr_update_aggregate(range, or, area);
+			if ((range = ospf_area_range_match(
+				     or_area, or_area->ranges, p)) &&
+			    !ospf_area_is_transit(area))
+				ospf_abr_update_aggregate(range, or->cost,
+							  area);
 			else
 				ospf_abr_announce_network_to_area(p, or->cost,
 								  area);
@@ -1345,7 +1355,7 @@ static void ospf_abr_unapprove_summaries(struct ospf *ospf)
 		zlog_debug("%s: Stop", __func__);
 }
 
-static void ospf_abr_prepare_aggregates(struct ospf *ospf)
+static void ospf_abr_prepare_aggregates(struct ospf *ospf, bool nssa)
 {
 	struct listnode *node;
 	struct route_node *rn;
@@ -1356,7 +1366,14 @@ static void ospf_abr_prepare_aggregates(struct ospf *ospf)
 		zlog_debug("%s: Start", __func__);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
-		for (rn = route_top(area->ranges); rn; rn = route_next(rn))
+		struct route_table *ranges;
+
+		if (nssa)
+			ranges = area->nssa_ranges;
+		else
+			ranges = area->ranges;
+
+		for (rn = route_top(ranges); rn; rn = route_next(rn))
 			if ((range = rn->info) != NULL) {
 				range->cost = 0;
 				range->specifics = 0;
@@ -1409,7 +1426,7 @@ static void ospf_abr_announce_aggregates(struct ospf *ospf)
 					p.prefixlen = range->subst_masklen;
 				}
 
-				if (range->specifics) {
+				if (ospf_area_range_active(range)) {
 					if (IS_DEBUG_OSPF_EVENT)
 						zlog_debug("%s: active range",
 							   __func__);
@@ -1452,13 +1469,11 @@ static void ospf_abr_announce_aggregates(struct ospf *ospf)
 		zlog_debug("%s: Stop", __func__);
 }
 
-static void
-ospf_abr_send_nssa_aggregates(struct ospf *ospf) /* temporarily turned off */
+static void ospf_abr_send_nssa_aggregates(struct ospf *ospf)
 {
-	struct listnode *node;  /*, n; */
-	struct ospf_area *area; /*, *ar; */
+	struct listnode *node;
+	struct ospf_area *area;
 	struct route_node *rn;
-	struct ospf_area_range *range;
 	struct prefix_ipv4 p;
 
 	if (IS_DEBUG_OSPF_NSSA)
@@ -1472,20 +1487,13 @@ ospf_abr_send_nssa_aggregates(struct ospf *ospf) /* temporarily turned off */
 			zlog_debug("%s: looking at area %pI4", __func__,
 				   &area->area_id);
 
-		for (rn = route_top(area->ranges); rn; rn = route_next(rn)) {
-			if (rn->info == NULL)
-				continue;
+		for (rn = route_top(area->nssa_ranges); rn;
+		     rn = route_next(rn)) {
+			struct ospf_area_range *range;
 
 			range = rn->info;
-
-			if (!CHECK_FLAG(range->flags,
-					OSPF_AREA_RANGE_ADVERTISE)) {
-				if (IS_DEBUG_OSPF_NSSA)
-					zlog_debug(
-						"%s: discarding suppress-ranges",
-						__func__);
+			if (!range)
 				continue;
-			}
 
 			p.family = AF_INET;
 			p.prefix = range->addr;
@@ -1495,14 +1503,9 @@ ospf_abr_send_nssa_aggregates(struct ospf *ospf) /* temporarily turned off */
 				zlog_debug("%s: this is range: %pFX", __func__,
 					   &p);
 
-			if (CHECK_FLAG(range->flags,
-				       OSPF_AREA_RANGE_SUBSTITUTE)) {
-				p.family = AF_INET;
-				p.prefix = range->subst_addr;
-				p.prefixlen = range->subst_masklen;
-			}
-
-			if (range->specifics) {
+			if (ospf_area_range_active(range)
+			    && CHECK_FLAG(range->flags,
+					  OSPF_AREA_RANGE_ADVERTISE)) {
 				if (IS_DEBUG_OSPF_NSSA)
 					zlog_debug("%s: active range",
 						   __func__);
@@ -1512,7 +1515,8 @@ ospf_abr_send_nssa_aggregates(struct ospf *ospf) /* temporarily turned off */
 				 *  translate, Install (as Type-5), Approve, and
 				 * Flood
 				 */
-				ospf_abr_translate_nssa_range(&p, range->cost);
+				ospf_abr_translate_nssa_range(ospf, &p,
+							      range->cost);
 			}
 		} /* all area ranges*/
 	}	 /* all areas */
@@ -1557,6 +1561,330 @@ static void ospf_abr_announce_stub_defaults(struct ospf *ospf)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Stop", __func__);
+}
+
+/** @brief Function to check and generate indication
+ *	   LSA for area on which we received
+ *	   indication LSA flush.
+ *  @param Ospf instance.
+ *  @param Area on which indication lsa flush is to be generated.
+ *  @return Void.
+ */
+void ospf_generate_indication_lsa(struct ospf *ospf, struct ospf_area *area)
+{
+	bool area_fr_not_supp = false;
+
+	/* Check if you have any area which doesn't support
+	 * flood reduction.
+	 */
+
+	area_fr_not_supp = ospf_check_fr_enabled_all(ospf) ? false : true;
+
+	/* If any one of the area doestn't support FR, generate
+	 * indication LSA on behalf of that area.
+	 */
+
+	if (area_fr_not_supp && !area->fr_info.area_ind_lsa_recvd &&
+	    !area->fr_info.indication_lsa_self &&
+	    !area->fr_info.area_dc_clear) {
+
+		struct prefix_ipv4 p;
+		struct ospf_lsa *new;
+
+		p.family = AF_INET;
+		p.prefix = ospf->router_id;
+		p.prefixlen = IPV4_MAX_BITLEN;
+
+		new = ospf_summary_asbr_lsa_originate(&p, OSPF_LS_INFINITY,
+						      area);
+		if (!new) {
+			zlog_debug("%s: Indication lsa originate failed",
+				   __func__);
+			return;
+		}
+		/* save the indication lsa for that area */
+		area->fr_info.indication_lsa_self = new;
+	}
+}
+
+/** @brief Function to receive and process indication LSA
+ *	   flush from area.
+ *  @param lsa being flushed.
+ *  @return Void.
+ */
+void ospf_recv_indication_lsa_flush(struct ospf_lsa *lsa)
+{
+	if (!IS_LSA_SELF(lsa) && IS_LSA_MAXAGE(lsa) &&
+	    ospf_check_indication_lsa(lsa)) {
+		lsa->area->fr_info.area_ind_lsa_recvd = false;
+
+		OSPF_LOG_INFO("%s: Received an ind lsa: %pI4 area %pI4",
+			      __func__, &lsa->data->id, &lsa->area->area_id);
+
+		if (!IS_OSPF_ABR(lsa->area->ospf))
+			return;
+
+		/* If the LSA received is a indication LSA with maxage on
+		 * the network, then check and regenerate indication
+		 * LSA if any of our areas don't support flood reduction.
+		 */
+		ospf_generate_indication_lsa(lsa->area->ospf, lsa->area);
+	}
+}
+
+/** @brief Function to generate indication LSAs.
+ *  @param Ospf instance.
+ *  @param Area on behalf of which indication
+ *	   LSA is generated LSA.
+ *  @return Void.
+ */
+void ospf_abr_generate_indication_lsa(struct ospf *ospf,
+				      const struct ospf_area *area)
+{
+	struct ospf_lsa *new;
+	struct listnode *node;
+	struct ospf_area *o_area;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, o_area)) {
+		if (o_area == area)
+			continue;
+
+		if (o_area->fr_info.indication_lsa_self ||
+		    o_area->fr_info.area_ind_lsa_recvd ||
+		    o_area->fr_info.area_dc_clear) {
+			/* if the area has already received an
+			 * indication LSA or if area already has
+			 * LSAs with DC bit 0 other than
+			 * indication LSA then don't generate
+			 * indication LSA in those areas.
+			 */
+			OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+				       "Area %pI4 has LSAs with dc bit clear",
+				       &o_area->area_id);
+			continue;
+
+		} else {
+
+			struct prefix_ipv4 p;
+
+			p.family = AF_INET;
+			p.prefix = ospf->router_id;
+			p.prefixlen = IPV4_MAX_BITLEN;
+
+			new = ospf_summary_asbr_lsa_originate(
+				&p, OSPF_LS_INFINITY, o_area);
+			if (!new) {
+				zlog_debug(
+					"%s: Indication lsa originate Failed",
+					__func__);
+				return;
+			}
+			/* save the indication lsa for that area */
+			o_area->fr_info.indication_lsa_self = new;
+		}
+	}
+}
+
+/** @brief Flush the indication LSA from all the areas
+ *	   of ospf instance.
+ *  @param Ospf instance.
+ *  @return Void.
+ */
+void ospf_flush_indication_lsas(struct ospf *ospf)
+{
+	struct ospf_area *area;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+		if (area->fr_info.indication_lsa_self) {
+			OSPF_LOG_INFO(
+				"Flushing ind lsa: %pI4 area %pI4",
+				&area->fr_info.indication_lsa_self->data->id,
+				&area->area_id);
+			ospf_schedule_lsa_flush_area(
+				area, area->fr_info.indication_lsa_self);
+			area->fr_info.indication_lsa_self = NULL;
+		}
+	}
+}
+
+/** @brief Check if flood reduction is enabled on
+ *	   all the areas.
+ *  @param Ospf instance.
+ *  @return Void.
+ */
+bool ospf_check_fr_enabled_all(struct ospf *ospf)
+{
+	const struct ospf_area *area;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
+		if (!ospf_check_area_fr_enabled(area))
+			return false;
+
+	return true;
+}
+
+/** @brief Abr function to check conditions for generation
+ *	   of indication. LSAs/announcing non-DNA routers
+ *	   in the area.
+ *  @param thread
+ *  @return 0.
+ */
+static void ospf_abr_announce_non_dna_routers(struct event *thread)
+{
+	struct ospf_area *area;
+	struct listnode *node;
+	struct ospf *ospf = EVENT_ARG(thread);
+
+	EVENT_OFF(ospf->t_abr_fr);
+
+	if (!IS_OSPF_ABR(ospf))
+		return;
+
+	OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "%s(): Start", __func__);
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "%s: Area %pI4 FR enabled: %d", __func__,
+			       &area->area_id, area->fr_info.enabled);
+		OSPF_LOG_DEBUG(
+			IS_DEBUG_OSPF_EVENT,
+			"LSA with DC bit clear: %d Recived indication LSA: %d",
+			area->fr_info.area_dc_clear,
+			area->fr_info.area_ind_lsa_recvd);
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "FR state change: %d",
+			       area->fr_info.state_changed);
+		if (!OSPF_IS_AREA_BACKBONE(area) &&
+		    area->fr_info.area_dc_clear) {
+			/* rfc4136 rfc1793: Suppose if the abr is connected to
+			 * a regular non-backbone OSPF area, Furthermore if
+			 * the area has LSAs with the DC-bit clear, other
+			 * than indication-LSAs. Then originate indication-LSAs
+			 * into all other directly-connected "regular" areas,
+			 * including the backbone area.
+			 */
+			ospf_abr_generate_indication_lsa(ospf, area);
+		}
+
+		if (OSPF_IS_AREA_BACKBONE(area) &&
+		    (area->fr_info.area_dc_clear ||
+		     area->fr_info.area_ind_lsa_recvd)) {
+			/* rfc4136 rfc1793: Suppose if the abr is connected to
+			 * backbone OSPF area. Furthermore, if backbone has
+			 * LSAs with the DC-bit clear that are either
+			 * a) not indication-LSAs or indication-LSAs or
+			 * b) indication-LSAs that have been originated by
+			 *    other routers,
+			 * then originate indication-LSAs into all other
+			 * directly-connected "regular" non-backbone areas.
+			 */
+			ospf_abr_generate_indication_lsa(ospf, area);
+		}
+
+		if (area->fr_info.enabled && area->fr_info.state_changed &&
+		    area->fr_info.indication_lsa_self) {
+			/* Ospf area flood reduction state changed
+			 * area now supports flood reduction.
+			 * check if all other areas support flood reduction
+			 * if yes then flush indication LSAs generated in
+			 * all the areas.
+			 */
+			if (ospf_check_fr_enabled_all(ospf))
+				ospf_flush_indication_lsas(ospf);
+
+			area->fr_info.state_changed = false;
+		}
+
+		/* If previously we had generated indication lsa
+		 * but now area has lsas with dc bit set to 0
+		 * apart from indication lsa, we'll clear indication lsa
+		 */
+		if (area->fr_info.area_dc_clear &&
+		    area->fr_info.indication_lsa_self) {
+			ospf_schedule_lsa_flush_area(
+				area, area->fr_info.indication_lsa_self);
+			area->fr_info.indication_lsa_self = NULL;
+		}
+	}
+
+	OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "%s(): Stop", __func__);
+}
+
+static void ospf_abr_nssa_type7_default_create(struct ospf *ospf,
+					       struct ospf_area *area,
+					       struct ospf_lsa *lsa)
+{
+	struct external_info ei;
+
+	if (IS_DEBUG_OSPF_NSSA)
+		zlog_debug(
+			"Announcing Type-7 default route into NSSA area %pI4",
+			&area->area_id);
+
+	/* Prepare the extrenal_info for aggregator */
+	memset(&ei, 0, sizeof(struct external_info));
+	ei.p.family = AF_INET;
+	ei.p.prefixlen = 0;
+	ei.tag = 0;
+	ei.type = 0;
+	ei.instance = ospf->instance;
+
+	/* Compute default route type and metric. */
+	if (area->nssa_default_originate.metric_value != -1)
+		ei.route_map_set.metric =
+			area->nssa_default_originate.metric_value;
+	else
+		ei.route_map_set.metric = DEFAULT_DEFAULT_ALWAYS_METRIC;
+	if (area->nssa_default_originate.metric_type != -1)
+		ei.route_map_set.metric_type =
+			area->nssa_default_originate.metric_type;
+	else
+		ei.route_map_set.metric_type = DEFAULT_METRIC_TYPE;
+
+	if (!lsa)
+		ospf_nssa_lsa_originate(area, &ei);
+	else
+		ospf_nssa_lsa_refresh(area, lsa, &ei);
+}
+
+static void ospf_abr_nssa_type7_default_delete(struct ospf *ospf,
+					       struct ospf_area *area,
+					       struct ospf_lsa *lsa)
+{
+	if (lsa && !CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
+		if (IS_DEBUG_OSPF_NSSA)
+			zlog_debug(
+				"Withdrawing Type-7 default route from area %pI4",
+				&area->area_id);
+
+		ospf_ls_retransmit_delete_nbr_area(area, lsa);
+		ospf_refresher_unregister_lsa(ospf, lsa);
+		ospf_lsa_flush_area(lsa, area);
+	}
+}
+
+/* NSSA Type-7 default route. */
+void ospf_abr_nssa_type7_defaults(struct ospf *ospf)
+{
+	struct ospf_area *area;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+		struct in_addr id = {};
+		struct ospf_lsa *lsa;
+
+		lsa = ospf_lsdb_lookup_by_id(area->lsdb, OSPF_AS_NSSA_LSA, id,
+					     area->ospf->router_id);
+		if (area->external_routing == OSPF_AREA_NSSA
+		    && area->nssa_default_originate.enabled
+		    && (IS_OSPF_ABR(ospf)
+			|| (IS_OSPF_ASBR(ospf)
+			    && ospf->nssa_default_import_check.status)))
+			ospf_abr_nssa_type7_default_create(ospf, area, lsa);
+		else
+			ospf_abr_nssa_type7_default_delete(ospf, area, lsa);
+	}
 }
 
 static int ospf_abr_remove_unapproved_translates_apply(struct ospf *ospf,
@@ -1613,39 +1941,52 @@ static void ospf_abr_remove_unapproved_summaries(struct ospf *ospf)
 					ospf_lsa_flush_area(lsa, area);
 
 		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
-			if (ospf_lsa_is_self_originated(ospf, lsa))
-				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
-					ospf_lsa_flush_area(lsa, area);
+			if (ospf_lsa_is_self_originated(ospf, lsa) &&
+			    !CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED) &&
+			    /* Do not remove indication LSAs while
+			     * flushing unapproved summaries.
+			     */
+			    !ospf_check_indication_lsa(lsa))
+				ospf_lsa_flush_area(lsa, area);
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Stop", __func__);
 }
 
-static void ospf_abr_manage_discard_routes(struct ospf *ospf)
+static void ospf_abr_manage_discard_routes(struct ospf *ospf, bool nssa)
 {
 	struct listnode *node, *nnode;
 	struct route_node *rn;
 	struct ospf_area *area;
-	struct ospf_area_range *range;
 
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
-		for (rn = route_top(area->ranges); rn; rn = route_next(rn))
-			if ((range = rn->info) != NULL)
-				if (CHECK_FLAG(range->flags,
-					       OSPF_AREA_RANGE_ADVERTISE)) {
-					if (range->specifics)
-						ospf_add_discard_route(
-							ospf, ospf->new_table,
-							area,
-							(struct prefix_ipv4
-								 *)&rn->p);
-					else
-						ospf_delete_discard_route(
-							ospf, ospf->new_table,
-							(struct prefix_ipv4
-								 *)&rn->p);
-				}
+	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		struct route_table *ranges;
+
+		if (nssa)
+			ranges = area->nssa_ranges;
+		else
+			ranges = area->ranges;
+
+		for (rn = route_top(ranges); rn; rn = route_next(rn)) {
+			struct ospf_area_range *range;
+
+			range = rn->info;
+			if (!range)
+				continue;
+
+			if (ospf_area_range_active(range)
+			    && CHECK_FLAG(range->flags,
+					  OSPF_AREA_RANGE_ADVERTISE))
+				ospf_add_discard_route(
+					ospf, ospf->new_table, area,
+					(struct prefix_ipv4 *)&rn->p, nssa);
+			else
+				ospf_delete_discard_route(
+					ospf, ospf->new_table,
+					(struct prefix_ipv4 *)&rn->p, nssa);
+		}
+	}
 }
 
 /* This is the function taking care about ABR NSSA, i.e.  NSSA
@@ -1673,7 +2014,7 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf)
    For External Calculations, any NSSA areas use the Type-7 AREA-LSDB,
    any ABR-non-NSSA areas use the Type-5 GLOBAL-LSDB. */
 
-static void ospf_abr_nssa_task(struct ospf *ospf) /* called only if any_nssa */
+void ospf_abr_nssa_task(struct ospf *ospf) /* called only if any_nssa */
 {
 	if (ospf->gr_info.restart_in_progress)
 		return;
@@ -1700,7 +2041,7 @@ static void ospf_abr_nssa_task(struct ospf *ospf) /* called only if any_nssa */
 	/* RESET all Ranges in every Area, same as summaries */
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug("%s: NSSA initialize aggregates", __func__);
-	ospf_abr_prepare_aggregates(ospf); /*TURNED OFF just for now */
+	ospf_abr_prepare_aggregates(ospf, true);
 
 	/* For all NSSAs, Type-7s, translate to 5's, INSTALL/FLOOD, or
 	 *  Aggregate as Type-7
@@ -1731,7 +2072,7 @@ static void ospf_abr_nssa_task(struct ospf *ospf) /* called only if any_nssa */
 		zlog_debug("%s: remove unapproved translates", __func__);
 	ospf_abr_remove_unapproved_translates(ospf);
 
-	ospf_abr_manage_discard_routes(ospf); /* same as normal...discard */
+	ospf_abr_manage_discard_routes(ospf, true);
 
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug("%s: Stop", __func__);
@@ -1760,7 +2101,7 @@ void ospf_abr_task(struct ospf *ospf)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: prepare aggregates", __func__);
-	ospf_abr_prepare_aggregates(ospf);
+	ospf_abr_prepare_aggregates(ospf, false);
 
 	if (IS_OSPF_ABR(ospf)) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -1778,21 +2119,40 @@ void ospf_abr_task(struct ospf *ospf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: announce stub defaults", __func__);
 		ospf_abr_announce_stub_defaults(ospf);
+
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s: announce NSSA Type-7 defaults",
+				   __func__);
+		ospf_abr_nssa_type7_defaults(ospf);
+
+		if (ospf->fr_configured) {
+			OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+				       "%s(): announce non-DNArouters",
+				       __func__);
+			/*
+			 * Schedule indication lsa generation timer,
+			 * giving time for route synchronization in
+			 * all the routers.
+			 */
+			event_add_timer(master,
+					ospf_abr_announce_non_dna_routers, ospf,
+					OSPF_ABR_DNA_TIMER, &ospf->t_abr_fr);
+		}
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: remove unapproved summaries", __func__);
 	ospf_abr_remove_unapproved_summaries(ospf);
 
-	ospf_abr_manage_discard_routes(ospf);
+	ospf_abr_manage_discard_routes(ospf, false);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Stop", __func__);
 }
 
-static void ospf_abr_task_timer(struct thread *thread)
+static void ospf_abr_task_timer(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
 	ospf->t_abr_task = 0;
 
@@ -1811,6 +2171,6 @@ void ospf_schedule_abr_task(struct ospf *ospf)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Scheduling ABR task");
 
-	thread_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
-			 &ospf->t_abr_task);
+	event_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
+			&ospf->t_abr_task);
 }

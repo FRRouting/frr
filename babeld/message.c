@@ -414,18 +414,6 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 		DO_NTOHS(flags, message + 2);
 
 		/*
-		 * RFC 8966 4.6.5
-		 * All other bits MUST be sent as a 0 and silently
-		 * ignored on reception
-		 */
-		if (CHECK_FLAG(flags, ~BABEL_UNICAST_HELLO)) {
-			debugf(BABEL_DEBUG_COMMON,
-			       "Received Hello from %s on %s that does not have all 0's in the unused section of flags, ignoring",
-			       format_address(from), ifp->name);
-			continue;
-		}
-
-		/*
 		 * RFC 8966 Appendix F
 		 * TL;DR -> Please ignore Unicast hellos until FRR's
 		 * BABEL is brought up to date
@@ -434,7 +422,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		DO_NTOHS(seqno, message + 4);
@@ -452,7 +440,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
 			       format_address(from), ifp->name);
-			continue;
+			goto done;
 		}
 
 		changed = update_neighbour(neigh, seqno, interval);

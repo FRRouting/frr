@@ -5,7 +5,7 @@
 
 #include "zebra.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "nhrpd.h"
 
@@ -70,8 +70,10 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
 	hash_release(nifp->cache_hash, c);
-	THREAD_OFF(c->t_timeout);
-	THREAD_OFF(c->t_auth);
+	nhrp_peer_unref(c->cur.peer);
+	nhrp_peer_unref(c->new.peer);
+	EVENT_OFF(c->t_timeout);
+	EVENT_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
@@ -193,17 +195,17 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 			create ? nhrp_cache_alloc : NULL);
 }
 
-static void nhrp_cache_do_free(struct thread *t)
+static void nhrp_cache_do_free(struct event *t)
 {
-	struct nhrp_cache *c = THREAD_ARG(t);
+	struct nhrp_cache *c = EVENT_ARG(t);
 
 	c->t_timeout = NULL;
 	nhrp_cache_free(c);
 }
 
-static void nhrp_cache_do_timeout(struct thread *t)
+static void nhrp_cache_do_timeout(struct event *t)
 {
-	struct nhrp_cache *c = THREAD_ARG(t);
+	struct nhrp_cache *c = EVENT_ARG(t);
 
 	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
@@ -308,7 +310,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 
 static void nhrp_cache_reset_new(struct nhrp_cache *c)
 {
-	THREAD_OFF(c->t_auth);
+	EVENT_OFF(c->t_auth);
 	if (notifier_list_anywhere(&c->newpeer_notifier))
 		nhrp_peer_notify_del(c->new.peer, &c->newpeer_notifier);
 	nhrp_peer_unref(c->new.peer);
@@ -318,13 +320,13 @@ static void nhrp_cache_reset_new(struct nhrp_cache *c)
 
 static void nhrp_cache_update_timers(struct nhrp_cache *c)
 {
-	THREAD_OFF(c->t_timeout);
+	EVENT_OFF(c->t_timeout);
 
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:
 		if (!c->t_auth)
-			thread_add_timer_msec(master, nhrp_cache_do_free, c, 10,
-					      &c->t_timeout);
+			event_add_timer_msec(master, nhrp_cache_do_free, c, 10,
+					     &c->t_timeout);
 		break;
 	case NHRP_CACHE_INCOMPLETE:
 	case NHRP_CACHE_NEGATIVE:
@@ -335,9 +337,9 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 	case NHRP_CACHE_LOCAL:
 	case NHRP_CACHE_NUM_TYPES:
 		if (c->cur.expires)
-			thread_add_timer(master, nhrp_cache_do_timeout, c,
-					 c->cur.expires - monotime(NULL),
-					 &c->t_timeout);
+			event_add_timer(master, nhrp_cache_do_timeout, c,
+					c->cur.expires - monotime(NULL),
+					&c->t_timeout);
 		break;
 	}
 }
@@ -393,9 +395,9 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	nhrp_cache_update_timers(c);
 }
 
-static void nhrp_cache_do_auth_timeout(struct thread *t)
+static void nhrp_cache_do_auth_timeout(struct event *t)
 {
-	struct nhrp_cache *c = THREAD_ARG(t);
+	struct nhrp_cache *c = EVENT_ARG(t);
 	c->t_auth = NULL;
 	nhrp_cache_authorize_binding(&c->eventid, (void *)"timeout");
 }
@@ -411,8 +413,8 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
 		if (nhrp_peer_check(c->new.peer, 1)) {
 			evmgr_notify("authorize-binding", c,
 				     nhrp_cache_authorize_binding);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
-					 10, &c->t_auth);
+			event_add_timer(master, nhrp_cache_do_auth_timeout, c,
+					10, &c->t_auth);
 		}
 		break;
 	case NOTIFY_PEER_DOWN:
@@ -504,8 +506,8 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 					     nhrp_cache_newpeer_notifier);
 			nhrp_cache_newpeer_notifier(&c->newpeer_notifier,
 						    NOTIFY_PEER_UP);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
-					 60, &c->t_auth);
+			event_add_timer(master, nhrp_cache_do_auth_timeout, c,
+					60, &c->t_auth);
 		}
 	}
 	nhrp_cache_update_timers(c);

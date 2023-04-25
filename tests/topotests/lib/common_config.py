@@ -110,6 +110,7 @@ DEBUG_LOGS = {
         "debug zebra vxlan",
         "debug zebra nht",
     ],
+    "mgmt": [],
     "ospf": [
         "debug ospf event",
         "debug ospf ism",
@@ -450,6 +451,8 @@ def check_router_status(tgen):
             result = rnode.check_router_running()
             if result != "":
                 daemons = []
+                if "mgmtd" in result:
+                    daemons.append("mgmtd")
                 if "bgpd" in result:
                     daemons.append("bgpd")
                 if "zebra" in result:
@@ -489,7 +492,7 @@ def save_initial_config_on_routers(tgen):
     # Get all running configs in parallel
     procs = {}
     for rname in router_list:
-        logger.info("Fetching running config for router %s", rname)
+        logger.debug("Fetching running config for router %s", rname)
         procs[rname] = router_list[rname].popen(
             ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
             stdin=None,
@@ -545,7 +548,7 @@ def reset_config_on_routers(tgen, routerName=None):
     #
     procs = {}
     for rname in router_list:
-        logger.info("Fetching running config for router %s", rname)
+        logger.debug("Fetching running config for router %s", rname)
         procs[rname] = router_list[rname].popen(
             ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
             stdin=None,
@@ -567,7 +570,7 @@ def reset_config_on_routers(tgen, routerName=None):
     #
     procs = {}
     for rname in router_list:
-        logger.info(
+        logger.debug(
             "Generating delta for router %s to new configuration (gen %d)", rname, gen
         )
         procs[rname] = tgen.net.popen(
@@ -596,7 +599,7 @@ def reset_config_on_routers(tgen, routerName=None):
     #
     procs = {}
     for rname in router_list:
-        logger.info("Applying delta config on router %s", rname)
+        logger.debug("Applying delta config on router %s", rname)
 
         procs[rname] = router_list[rname].popen(
             ["/usr/bin/env", "vtysh", "-f", delta_fmt.format(rname, gen)],
@@ -608,7 +611,7 @@ def reset_config_on_routers(tgen, routerName=None):
         output, _ = p.communicate()
         vtysh_command = "vtysh -f {}".format(delta_fmt.format(rname, gen))
         if not p.returncode:
-            router_list[rname].logger.info(
+            router_list[rname].logger.debug(
                 '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(
                     vtysh_command, output
                 )
@@ -637,7 +640,7 @@ def reset_config_on_routers(tgen, routerName=None):
     if show_router_config:
         procs = {}
         for rname in router_list:
-            logger.info("Fetching running config for router %s", rname)
+            logger.debug("Fetching running config for router %s", rname)
             procs[rname] = router_list[rname].popen(
                 ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
                 stdin=None,
@@ -654,7 +657,7 @@ def reset_config_on_routers(tgen, routerName=None):
                     output,
                 )
             else:
-                logger.info(
+                logger.debug(
                     "Configuration on router %s after reset:\n%s", rname, output
                 )
 
@@ -739,7 +742,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
             frr_cfg_bkup = frr_cfg_bkup_fmt.format(rname)
             with open(frr_cfg_file, "r+") as cfg:
                 data = cfg.read()
-                logger.info(
+                logger.debug(
                     "Applying following configuration on router %s (gen: %d):\n%s",
                     rname,
                     gen,
@@ -772,7 +775,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
         frr_cfg_file = frr_cfg_file_fmt.format(rname)
         vtysh_command = "vtysh -f " + frr_cfg_file
         if not p.returncode:
-            router_list[rname].logger.info(
+            router_list[rname].logger.debug(
                 '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(
                     vtysh_command, output
                 )
@@ -818,7 +821,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
                     output,
                 )
             else:
-                logger.info("New configuration for router %s:\n%s", rname, output)
+                logger.debug("New configuration for router %s:\n%s", rname, output)
 
     logger.debug("Exiting API: load_config_to_routers")
     return not errors
@@ -954,10 +957,10 @@ def generate_support_bundle():
         bundle_procs[rname] = tgen.net[rname].popen(gen_sup_cmd, stdin=None)
 
     for rname, rnode in router_list.items():
-        logger.info("Waiting on support bundle for %s", rname)
+        logger.debug("Waiting on support bundle for %s", rname)
         output, error = bundle_procs[rname].communicate()
         if output:
-            logger.info(
+            logger.debug(
                 "Output from collecting support bundle for %s:\n%s", rname, output
             )
         if error:
@@ -1046,6 +1049,11 @@ def start_topology(tgen):
                 if "ospf6" in val:
                     feature.add("ospf6")
                     break
+
+        # Loading empty mgmtd.conf file to router, to start the mgmtd daemon
+        router.load_config(
+            TopoRouter.RD_MGMTD, "{}/{}/mgmtd.conf".format(tgen.logdir, rname)
+        )
 
         # Loading empty zebra.conf file to router, to start the zebra deamon
         router.load_config(
@@ -1226,15 +1234,15 @@ def add_interfaces_to_vlan(tgen, input_dict):
                         cmd = "ip link add link {} name {} type vlan id {}".format(
                             interface, vlan_intf, vlan
                         )
-                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+                        logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
                         result = rnode.run(cmd)
-                        logger.info("result %s", result)
+                        logger.debug("result %s", result)
 
                         # Bringing interface up
                         cmd = "ip link set {} up".format(vlan_intf)
-                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+                        logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
                         result = rnode.run(cmd)
-                        logger.info("result %s", result)
+                        logger.debug("result %s", result)
 
                         # Assigning IP address
                         ifaddr = ipaddress.ip_interface(
@@ -1246,9 +1254,9 @@ def add_interfaces_to_vlan(tgen, input_dict):
                         cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
                             ifaddr.version, vlan_intf, ifaddr
                         )
-                        logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+                        logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
                         result = rnode.run(cmd)
-                        logger.info("result %s", result)
+                        logger.debug("result %s", result)
 
 
 def tcpdump_capture_start(
@@ -1559,12 +1567,16 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             vrf["name"], vrf["id"]
                         )
 
-                        logger.info("[DUT: %s]: Running kernel cmd [%s]", c_router, cmd)
+                        logger.debug(
+                            "[DUT: %s]: Running kernel cmd [%s]", c_router, cmd
+                        )
                         rnode.run(cmd)
 
                         # Kernel cmd - Bring down VRF
                         cmd = "ip link set dev {} down".format(name)
-                        logger.info("[DUT: %s]: Running kernel cmd [%s]", c_router, cmd)
+                        logger.debug(
+                            "[DUT: %s]: Running kernel cmd [%s]", c_router, cmd
+                        )
                         rnode.run(cmd)
 
                     else:
@@ -1573,14 +1585,14 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             cmd = "ip link add {} type vrf table {}".format(
                                 name, table_id
                             )
-                            logger.info(
+                            logger.debug(
                                 "[DUT: %s]: Running kernel cmd " "[%s]", c_router, cmd
                             )
                             rnode.run(cmd)
 
                             # Kernel cmd - Bring up VRF
                             cmd = "ip link set dev {} up".format(name)
-                            logger.info(
+                            logger.debug(
                                 "[DUT: %s]: Running kernel " "cmd [%s]", c_router, cmd
                             )
                             rnode.run(cmd)
@@ -1608,7 +1620,7 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                                         interface_name, _vrf
                                     )
 
-                                    logger.info(
+                                    logger.debug(
                                         "[DUT: %s]: Running" " kernel cmd [%s]",
                                         c_router,
                                         cmd,
@@ -1675,7 +1687,7 @@ def create_interface_in_kernel(
     cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
         ifaddr.version, name, ifaddr
     )
-    logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
 
     if vrf:
@@ -1707,7 +1719,7 @@ def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False
         action = "down"
         cmd = "{} {} {}".format(cmd, intf_name, action)
 
-    logger.info("[DUT: %s]: Running command: %s", dut, cmd)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
 
 
@@ -1960,7 +1972,7 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             )
 
             if initial_wait > 0:
-                logger.info("Waiting for [%s]s as initial delay", initial_wait)
+                logger.debug("Waiting for [%s]s as initial delay", initial_wait)
                 sleep(initial_wait)
 
             invert_logic = not _expected
@@ -2019,13 +2031,13 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                         return saved_failure
 
                 if saved_failure:
-                    logger.info(
+                    logger.debug(
                         "RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
                         retry_sleep,
                         seconds_left,
                     )
                 else:
-                    logger.info(
+                    logger.debug(
                         "Sleeping %ds until next retry with %.1f retry time left",
                         retry_sleep,
                         seconds_left,
@@ -2590,7 +2602,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         nexthop = set_data.setdefault("nexthop", None)
                         origin = set_data.setdefault("origin", None)
                         ext_comm_list = set_data.setdefault("extcommunity", {})
-                        metrictype = set_data.setdefault("metric-type", {})
+                        metrictype = set_data.setdefault("metric-type", None)
 
                         # Local Preference
                         if local_preference:
@@ -3349,7 +3361,19 @@ def socat_send_mld_join(
 
         # Run socat command to send IGMP join
         logger.info("[DUT: {}]: Running command: [{}]".format(server, socat_cmd))
-        output = rnode.run("set +m; {} sleep 0.5".format(socat_cmd))
+        output = rnode.run("set +m; {} echo $!".format(socat_cmd))
+
+        # Check if socat join process is running
+        if output:
+            pid = output.split()[0]
+            rnode.run("touch /var/run/frr/socat_join.pid")
+            rnode.run("echo %s >> /var/run/frr/socat_join.pid" % pid)
+        else:
+            errormsg = "Socat join is not sent for {}. Error {}".format(
+                mld_group, output
+            )
+            logger.error(output)
+            return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
@@ -3407,7 +3431,7 @@ def socat_send_pim6_traffic(
         if multicast_hops:
             socat_cmd += "multicast-hops=255'"
 
-        socat_cmd += " &>{}/socat.logs &".format(tgen.logdir)
+        socat_cmd += " >{}/socat.logs &".format(tgen.logdir)
 
         # Run socat command to send pim6 traffic
         logger.info(
@@ -3427,7 +3451,20 @@ def socat_send_pim6_traffic(
             )
 
         rnode.run("chmod 755 {}".format(traffic_shell_script))
-        output = rnode.run("{} &> /dev/null".format(traffic_shell_script))
+        output = rnode.run("{} &>/dev/null & echo $!".format(traffic_shell_script))
+
+        # Check if socat traffic process is running
+        if output:
+            pid = output.split()[0]
+            rnode.run("touch /var/run/frr/socat_traffic.pid")
+            rnode.run("echo %s >> /var/run/frr/socat_traffic.pid" % pid)
+
+        else:
+            errormsg = "Socat traffic is not sent for {}. Error {}".format(
+                mld_group, output
+            )
+            logger.error(output)
+            return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
@@ -3457,18 +3494,30 @@ def kill_socat(tgen, dut=None, action=None):
         if dut is not None and router != dut:
             continue
 
+        traffic_shell_script = "{}/{}/traffic.sh".format(tgen.logdir, router)
+        pid_socat_join = rnode.run("cat /var/run/frr/socat_join.pid")
+        pid_socat_traffic = rnode.run("cat /var/run/frr/socat_traffic.pid")
         if action == "remove_mld_join":
-            cmd = "ps -ef | grep socat | grep UDP6-RECV | grep {}".format(router)
+            pids = pid_socat_join
         elif action == "remove_mld_traffic":
-            cmd = "ps -ef | grep socat | grep UDP6-SEND | grep {}".format(router)
+            pids = pid_socat_traffic
         else:
-            cmd = "ps -ef | grep socat".format(router)
+            pids = "\n".join([pid_socat_join, pid_socat_traffic])
 
-        awk_cmd = "awk -F' ' '{print $2}' | xargs kill -9 &>/dev/null &"
-        cmd = "{} | {}".format(cmd, awk_cmd)
+        if os.path.exists(traffic_shell_script):
+            cmd = (
+                "ps -ef | grep %s | awk -F' ' '{print $2}' | xargs kill -9"
+                % traffic_shell_script
+            )
+            logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+            rnode.run(cmd)
 
-        logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
-        rnode.run(cmd)
+        for pid in pids.split("\n"):
+            pid = pid.strip()
+            if pid.isdigit():
+                cmd = "set +m; kill -9 %s &> /dev/null" % pid
+                logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+                rnode.run(cmd)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 

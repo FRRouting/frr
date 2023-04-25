@@ -12,6 +12,7 @@
 #define _ZEBRA_ISIS_SPF_H
 
 #include "isisd/isis_lfa.h"
+#include "lib/json.h"
 
 struct isis_spftree;
 
@@ -37,16 +38,15 @@ struct isis_spf_adj {
 #define F_ISIS_SPF_ADJ_METRIC_INFINITY 0x04
 };
 
-struct isis_spftree *isis_spftree_new(struct isis_area *area,
-				      struct lspdb_head *lspdb,
-				      const uint8_t *sysid, int level,
-				      enum spf_tree_id tree_id,
-				      enum spf_type type, uint8_t flags);
+struct isis_spftree *
+isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
+		 const uint8_t *sysid, int level, enum spf_tree_id tree_id,
+		 enum spf_type type, uint8_t flags, uint8_t algorithm);
 struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
 					       struct isis_prefix_sid *psid);
 void isis_spf_invalidate_routes(struct isis_spftree *tree);
-void isis_spf_verify_routes(struct isis_area *area,
-			    struct isis_spftree **trees);
+void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees,
+			    int tree);
 void isis_spf_switchover_routes(struct isis_area *area,
 				struct isis_spftree **trees, int family,
 				union g_addr *nexthop_ip, ifindex_t ifindex,
@@ -63,7 +63,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line);
 void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree);
 void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
-		       bool prefix_sid, bool backup);
+		       json_object **json, bool prefix_sid, bool backup);
 void isis_spf_init(void);
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
 void isis_spf_print_json(struct isis_spftree *spftree,

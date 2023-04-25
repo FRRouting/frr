@@ -37,7 +37,7 @@
 #include "sockunion.h" /* for inet_aton() */
 #include "stream.h"
 #include "table.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "zclient.h"
 #include "sbuf.h"
@@ -457,11 +457,11 @@ int ospf_sr_local_block_release_label(mpls_label_t label)
  *
  * @return		1 on success
  */
-static void sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct event *start)
 {
 	struct ospf *ospf;
 
-	ospf = THREAD_ARG(start);
+	ospf = EVENT_ARG(start);
 
 	/* re-attempt to start SR & Label Manager connection */
 	ospf_sr_start(ospf);
@@ -496,8 +496,8 @@ static int ospf_sr_start(struct ospf *ospf)
 	if (!ospf_zebra_label_manager_ready())
 		if (ospf_zebra_label_manager_connect() < 0) {
 			/* Re-attempt to connect to Label Manager in 1 sec. */
-			thread_add_timer(master, sr_start_label_manager, ospf,
-					 1, &OspfSR.t_start_lm);
+			event_add_timer(master, sr_start_label_manager, ospf, 1,
+					&OspfSR.t_start_lm);
 			osr_debug("  |- Failed to start the Label Manager");
 			return -1;
 		}
@@ -565,7 +565,7 @@ static void ospf_sr_stop(void)
 	osr_debug("SR (%s): Stop Segment Routing", __func__);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	THREAD_OFF(OspfSR.t_start_lm);
+	EVENT_OFF(OspfSR.t_start_lm);
 
 	/* Release SRGB if active */
 	sr_global_block_delete();
@@ -639,10 +639,7 @@ void ospf_sr_term(void)
 	/* Stop Segment Routing */
 	ospf_sr_stop();
 
-	/* Clear SR Node Table */
-	if (OspfSR.neighbors)
-		hash_free(OspfSR.neighbors);
-
+	hash_clean_and_free(&OspfSR.neighbors, (void *)sr_node_del);
 }
 
 /*

@@ -9,7 +9,7 @@
 #include "prefix.h"
 #include "command.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 
 #include "ripd/ripd.h"
@@ -23,7 +23,7 @@ static struct rip_peer *rip_peer_new(void)
 
 static void rip_peer_free(struct rip_peer *peer)
 {
-	THREAD_OFF(peer->t_timeout);
+	EVENT_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIP_PEER, peer);
 }
 
@@ -52,11 +52,11 @@ struct rip_peer *rip_peer_lookup_next(struct rip *rip, struct in_addr *addr)
 }
 
 /* RIP peer is timeout. */
-static void rip_peer_timeout(struct thread *t)
+static void rip_peer_timeout(struct event *t)
 {
 	struct rip_peer *peer;
 
-	peer = THREAD_ARG(t);
+	peer = EVENT_ARG(t);
 	listnode_delete(peer->rip->peer_list, peer);
 	rip_peer_free(peer);
 }
@@ -69,7 +69,7 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 	peer = rip_peer_lookup(rip, addr);
 
 	if (peer) {
-		THREAD_OFF(peer->t_timeout);
+		EVENT_OFF(peer->t_timeout);
 	} else {
 		peer = rip_peer_new();
 		peer->rip = rip;
@@ -78,8 +78,8 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 	}
 
 	/* Update timeout thread. */
-	thread_add_timer(master, rip_peer_timeout, peer, RIP_PEER_TIMER_DEFAULT,
-			 &peer->t_timeout);
+	event_add_timer(master, rip_peer_timeout, peer, RIP_PEER_TIMER_DEFAULT,
+			&peer->t_timeout);
 
 	/* Last update time set. */
 	time(&peer->uptime);
@@ -136,7 +136,7 @@ void rip_peer_display(struct vty *vty, struct rip *rip)
 	char timebuf[RIP_UPTIME_LEN];
 
 	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
-		vty_out(vty, "    %-16pI4 %9d %9d %9d   %s\n",
+		vty_out(vty, "    %-17pI4 %9d %9d %9d %11s\n",
 			&peer->addr, peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIP_DISTANCE_DEFAULT,
 			rip_peer_uptime(peer, timebuf, RIP_UPTIME_LEN));

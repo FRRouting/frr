@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "linklist.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "plist.h"
 #include "filter.h"
 
@@ -515,11 +515,21 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			summary->path.origin.id =
 				ADV_ROUTER_IN_PREFIX(&route->prefix);
 		} else {
+			struct ospf6_lsa *old;
+
 			summary->path.origin.type =
 				htons(OSPF6_LSTYPE_INTER_PREFIX);
-			summary->path.origin.id = ospf6_new_ls_id(
-				summary->path.origin.type,
-				summary->path.origin.adv_router, area->lsdb);
+
+			/* Try to reuse LS-ID from previous running instance. */
+			old = ospf6_find_inter_prefix_lsa(area->ospf6, area,
+							  &route->prefix);
+			if (old)
+				summary->path.origin.id = old->header->id;
+			else
+				summary->path.origin.id = ospf6_new_ls_id(
+					summary->path.origin.type,
+					summary->path.origin.adv_router,
+					area->lsdb);
 		}
 		summary = ospf6_route_add(summary, summary_table);
 	} else {
@@ -1136,11 +1146,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		}
 
 		if (CHECK_FLAG(prefix_lsa->prefix.prefix_options,
-			       OSPF6_PREFIX_OPTION_NU)
-		    || CHECK_FLAG(prefix_lsa->prefix.prefix_options,
-				  OSPF6_PREFIX_OPTION_LA)) {
+			       OSPF6_PREFIX_OPTION_NU)) {
 			if (is_debug)
-				zlog_debug("Prefix has NU/LA bit set, ignore");
+				zlog_debug("Prefix has the NU bit set, ignore");
 			if (old)
 				ospf6_route_remove(old, table);
 			return;
@@ -1153,7 +1161,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (!OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_R)
 		    || !OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_V6)) {
 			if (is_debug)
-				zlog_debug("Prefix has NU/LA bit set, ignore");
+				zlog_debug(
+					"Router-LSA has the V6-bit or R-bit unset, ignore");
 			if (old)
 				ospf6_route_remove(old, table);
 

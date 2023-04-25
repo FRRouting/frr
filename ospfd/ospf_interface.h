@@ -121,6 +121,9 @@ struct ospf_if_info {
 		membership_counts[MEMBER_MAX]; /* multicast group refcnts */
 
 	uint32_t curr_mtu;
+
+	/* Per-interface write socket, configured via 'ospf' object */
+	int oii_fd;
 };
 
 struct ospf_interface;
@@ -228,12 +231,12 @@ struct ospf_interface {
 	uint32_t v_ls_ack; /* Delayed Link State Acknowledgment */
 
 	/* Threads. */
-	struct thread *t_hello;		  /* timer */
-	struct thread *t_wait;		  /* timer */
-	struct thread *t_ls_ack;	  /* timer */
-	struct thread *t_ls_ack_direct;   /* event */
-	struct thread *t_ls_upd_event;    /* event */
-	struct thread *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
+	struct event *t_hello;		 /* timer */
+	struct event *t_wait;		 /* timer */
+	struct event *t_ls_ack;		 /* timer */
+	struct event *t_ls_ack_direct;	 /* event */
+	struct event *t_ls_upd_event;	 /* event */
+	struct event *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
 
 	int on_write_q;
 

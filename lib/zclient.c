@@ -14,7 +14,7 @@
 #include "vrf_int.h"
 #include "if.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "zclient.h"
 #include "memory.h"
 #include "table.h"
@@ -51,7 +51,7 @@ socklen_t zclient_addr_len;
 static int zclient_debug;
 
 /* Allocate zclient structure. */
-struct zclient *zclient_new(struct thread_master *master,
+struct zclient *zclient_new(struct event_loop *master,
 			    struct zclient_options *opt,
 			    zclient_handler *const *handlers, size_t n_handlers)
 {
@@ -160,9 +160,9 @@ void zclient_stop(struct zclient *zclient)
 		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
-	THREAD_OFF(zclient->t_read);
-	THREAD_OFF(zclient->t_connect);
-	THREAD_OFF(zclient->t_write);
+	EVENT_OFF(zclient->t_read);
+	EVENT_OFF(zclient->t_connect);
+	EVENT_OFF(zclient->t_write);
 
 	/* Reset streams. */
 	stream_reset(zclient->ibuf);
@@ -249,9 +249,9 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 	return ZCLIENT_SEND_FAILURE;
 }
 
-static void zclient_flush_data(struct thread *thread)
+static void zclient_flush_data(struct event *thread)
 {
-	struct zclient *zclient = THREAD_ARG(thread);
+	struct zclient *zclient = EVENT_ARG(thread);
 
 	zclient->t_write = NULL;
 	if (zclient->sock < 0)
@@ -266,8 +266,8 @@ static void zclient_flush_data(struct thread *thread)
 		return;
 	case BUFFER_PENDING:
 		zclient->t_write = NULL;
-		thread_add_write(zclient->master, zclient_flush_data, zclient,
-				 zclient->sock, &zclient->t_write);
+		event_add_write(zclient->master, zclient_flush_data, zclient,
+				zclient->sock, &zclient->t_write);
 		break;
 	case BUFFER_EMPTY:
 		if (zclient->zebra_buffer_write_ready)
@@ -295,11 +295,11 @@ enum zclient_send_status zclient_send_message(struct zclient *zclient)
 			 __func__, zclient->sock);
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
-		THREAD_OFF(zclient->t_write);
+		EVENT_OFF(zclient->t_write);
 		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
-		thread_add_write(zclient->master, zclient_flush_data, zclient,
-				 zclient->sock, &zclient->t_write);
+		event_add_write(zclient->master, zclient_flush_data, zclient,
+				zclient->sock, &zclient->t_write);
 		return ZCLIENT_SEND_BUFFERED;
 	}
 
@@ -427,13 +427,18 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 }
 
 enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
-		const struct in6_addr *sid, ifindex_t oif,
+		const struct in6_addr *sid, vrf_id_t vrf_id,
 		enum seg6local_action_t action,
 		const struct seg6local_context *context)
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
 	struct zapi_nexthop *znh;
+	struct interface *ifp;
+
+	ifp = if_get_vrf_loopback(vrf_id);
+	if (ifp == NULL)
+		return ZCLIENT_SEND_FAILURE;
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
@@ -456,7 +461,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	memset(znh, 0, sizeof(*znh));
 
 	znh->type = NEXTHOP_TYPE_IFINDEX;
-	znh->ifindex = oif;
+	znh->ifindex = ifp->ifindex;
 	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 	znh->seg6local_action = action;
 	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
@@ -744,11 +749,11 @@ void zclient_init(struct zclient *zclient, int redist_default,
 
 /* This function is a wrapper function for calling zclient_start from
    timer or event thread. */
-static void zclient_connect(struct thread *t)
+static void zclient_connect(struct event *t)
 {
 	struct zclient *zclient;
 
-	zclient = THREAD_ARG(t);
+	zclient = EVENT_ARG(t);
 	zclient->t_connect = NULL;
 
 	if (zclient_debug)
@@ -4026,7 +4031,7 @@ static zclient_handler *const lib_handlers[] = {
 };
 
 /* Zebra client message read function. */
-static void zclient_read(struct thread *thread)
+static void zclient_read(struct event *thread)
 {
 	size_t already;
 	uint16_t length, command;
@@ -4035,7 +4040,7 @@ static void zclient_read(struct thread *thread)
 	struct zclient *zclient;
 
 	/* Get socket to zebra. */
-	zclient = THREAD_ARG(thread);
+	zclient = EVENT_ARG(thread);
 	zclient->t_read = NULL;
 
 	/* Read zebra header (if we don't have it already). */
@@ -4204,22 +4209,22 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
 	case ZCLIENT_SCHEDULE:
-		thread_add_event(zclient->master, zclient_connect, zclient, 0,
-				 &zclient->t_connect);
+		event_add_event(zclient->master, zclient_connect, zclient, 0,
+				&zclient->t_connect);
 		break;
 	case ZCLIENT_CONNECT:
 		if (zclient_debug)
 			zlog_debug(
 				"zclient connect failures: %d schedule interval is now %d",
 				zclient->fail, zclient->fail < 3 ? 10 : 60);
-		thread_add_timer(zclient->master, zclient_connect, zclient,
-				 zclient->fail < 3 ? 10 : 60,
-				 &zclient->t_connect);
+		event_add_timer(zclient->master, zclient_connect, zclient,
+				zclient->fail < 3 ? 10 : 60,
+				&zclient->t_connect);
 		break;
 	case ZCLIENT_READ:
 		zclient->t_read = NULL;
-		thread_add_read(zclient->master, zclient_read, zclient,
-				zclient->sock, &zclient->t_read);
+		event_add_read(zclient->master, zclient_read, zclient,
+			       zclient->sock, &zclient->t_read);
 		break;
 	}
 }
@@ -4293,6 +4298,8 @@ int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
 {
 
 	memset(api, 0, sizeof(*api));
+
+	api->safi = SAFI_UNICAST;
 
 	STREAM_GETL(s, api->cap);
 	switch (api->cap) {

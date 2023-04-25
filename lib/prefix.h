@@ -383,6 +383,7 @@ extern afi_t family2afi(int);
 extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
+extern const char *afi2str_lower(afi_t afi);
 
 static inline afi_t prefix_afi(union prefixconstptr pu)
 {
@@ -498,11 +499,8 @@ extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 /* NOTE: This routine expects the address argument in network byte order. */
 static inline bool ipv4_martian(const struct in_addr *addr)
 {
-	in_addr_t ip = ntohl(addr->s_addr);
-
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || !ipv4_unicast_valid(addr)) {
+	if (!ipv4_unicast_valid(addr))
 		return true;
-	}
 	return false;
 }
 
@@ -600,6 +598,14 @@ static inline bool ipv6_mcast_ssm(const struct in6_addr *addr)
 	return (bits & 0xfff0ffff) == 0xff300000;
 }
 
+static inline bool ipv6_mcast_reserved(const struct in6_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s6_addr32[0]);
+
+	/* ffx2::/16 */
+	return (bits & 0xff0fffff) == 0xff020000;
+}
+
 static inline uint8_t ipv4_mcast_scope(const struct in_addr *addr)
 {
 	uint32_t bits = ntohl(addr->s_addr);
@@ -644,7 +650,10 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
-#pragma FRR printfrr_ext "%pRD"  (struct prefix_rd *)
+#pragma FRR printfrr_ext "%pRDP"  (struct prefix_rd *)
+/* RD with AS4B with dot and dot+ format */
+#pragma FRR printfrr_ext "%pRDD"  (struct prefix_rd *)
+#pragma FRR printfrr_ext "%pRDE"  (struct prefix_rd *)
 
 #pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif

@@ -51,6 +51,8 @@
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
 
+#define DEBUG_CLEANUP 0
+
 struct ethaddr rfapi_ethaddr0 = {{0}};
 
 #define DEBUG_RFAPI_STR "RF API debugging/testing command\n"
@@ -363,7 +365,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
 	vnc_zlog_debug_verbose(
-		"%s: peer=%p, prefix=%pFX, prd=%pRD afi=%d, safi=%d bn=%p, bn->info=%p",
+		"%s: peer=%p, prefix=%pFX, prd=%pRDP afi=%d, safi=%d bn=%p, bn->info=%p",
 		__func__, peer, p, prd, afi, safi, bn,
 		(bn ? bgp_dest_get_bgp_path_info(bn) : NULL));
 
@@ -1053,7 +1055,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	bgp_process(bgp, bn, afi, safi);
 
 	vnc_zlog_debug_any(
-		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRD)",
+		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",
 		__func__, safi2str(safi), buf, bn, prd);
 
 done:
@@ -3677,11 +3679,36 @@ void rfapi_delete(struct bgp *bgp)
 {
 	extern void rfp_clear_vnc_nve_all(void); /* can't fix correctly yet */
 
+#if DEBUG_CLEANUP
+	zlog_debug("%s: bgp %p", __func__, bgp);
+#endif
+
 	/*
 	 * This clears queries and registered routes, and closes nves
 	 */
 	if (bgp->rfapi)
 		rfp_clear_vnc_nve_all();
+
+	/*
+	 * close any remaining descriptors
+	 */
+	struct rfapi *h = bgp->rfapi;
+
+	if (h && h->descriptors.count) {
+		struct listnode *node, *nnode;
+		struct rfapi_descriptor *rfd;
+#if DEBUG_CLEANUP
+		zlog_debug("%s: descriptor count %u", __func__,
+			   h->descriptors.count);
+#endif
+		for (ALL_LIST_ELEMENTS(&h->descriptors, node, nnode, rfd)) {
+#if DEBUG_CLEANUP
+			zlog_debug("%s: closing rfd %p", __func__, rfd);
+#endif
+			(void)rfapi_close(rfd);
+		}
+	}
+
 	bgp_rfapi_cfg_destroy(bgp, bgp->rfapi_cfg);
 	bgp->rfapi_cfg = NULL;
 	bgp_rfapi_destroy(bgp, bgp->rfapi);
@@ -3712,7 +3739,7 @@ int rfapi_set_autord_from_vn(struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 		memcpy(rd->val + 2, &vn->addr.v6.s6_addr32[3],
 		       4); /* low order 4 bytes */
 	}
-	vnc_zlog_debug_verbose("%s: auto-RD is set to %pRD", __func__, rd);
+	vnc_zlog_debug_verbose("%s: auto-RD is set to %pRDP", __func__, rd);
 	return 0;
 }
 

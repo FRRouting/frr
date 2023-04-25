@@ -36,8 +36,8 @@ void bfd_recvtimer_update(struct bfd_session *bs)
 
 	tv_normalize(&tv);
 
-	thread_add_timer_tv(master, bfd_recvtimer_cb, bs, &tv,
-			    &bs->recvtimer_ev);
+	event_add_timer_tv(master, bfd_recvtimer_cb, bs, &tv,
+			   &bs->recvtimer_ev);
 }
 
 void bfd_echo_recvtimer_update(struct bfd_session *bs)
@@ -54,8 +54,8 @@ void bfd_echo_recvtimer_update(struct bfd_session *bs)
 
 	tv_normalize(&tv);
 
-	thread_add_timer_tv(master, bfd_echo_recvtimer_cb, bs, &tv,
-			    &bs->echo_recvtimer_ev);
+	event_add_timer_tv(master, bfd_echo_recvtimer_cb, bs, &tv,
+			   &bs->echo_recvtimer_ev);
 }
 
 void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
@@ -72,7 +72,7 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 
 	tv_normalize(&tv);
 
-	thread_add_timer_tv(master, bfd_xmt_cb, bs, &tv, &bs->xmttimer_ev);
+	event_add_timer_tv(master, bfd_xmt_cb, bs, &tv, &bs->xmttimer_ev);
 }
 
 void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
@@ -89,26 +89,26 @@ void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 
 	tv_normalize(&tv);
 
-	thread_add_timer_tv(master, bfd_echo_xmt_cb, bs, &tv,
-			    &bs->echo_xmttimer_ev);
+	event_add_timer_tv(master, bfd_echo_xmt_cb, bs, &tv,
+			   &bs->echo_xmttimer_ev);
 }
 
 void bfd_recvtimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->recvtimer_ev);
+	EVENT_OFF(bs->recvtimer_ev);
 }
 
 void bfd_echo_recvtimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->echo_recvtimer_ev);
+	EVENT_OFF(bs->echo_recvtimer_ev);
 }
 
 void bfd_xmttimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->xmttimer_ev);
+	EVENT_OFF(bs->xmttimer_ev);
 }
 
 void bfd_echo_xmttimer_delete(struct bfd_session *bs)
 {
-	THREAD_OFF(bs->echo_xmttimer_ev);
+	EVENT_OFF(bs->echo_xmttimer_ev);
 }

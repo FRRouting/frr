@@ -266,6 +266,7 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 	case END_TKN:
 	case NEG_ONLY_TKN:
 	case WORD_TKN:
+	case ASNUM_TKN:
 		return true;
 	}
 
@@ -535,6 +536,7 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 	case MAC_PREFIX_TKN:
 	case END_TKN:
 	case VARIABLE_TKN:
+	case ASNUM_TKN:
 		color = "#ffffff";
 		break;
 	}

@@ -18,14 +18,14 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "buffer.h"
 
 #include <sys/types.h>
 
-#include "ospfd/ospfd.h" /* for "struct thread_master" */
+#include "ospfd/ospfd.h" /* for "struct event_loop" */
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_asbr.h"
@@ -166,9 +166,14 @@ void ospf_apiserver_term(void)
 	 * Free all client instances.  ospf_apiserver_free removes the node
 	 * from the list, so we examine the head of the list anew each time.
 	 */
-	while (apiserver_list
-	       && (apiserv = listgetdata(listhead(apiserver_list))) != NULL)
+	if (!apiserver_list)
+		return;
+
+	while (listcount(apiserver_list)) {
+		apiserv = listgetdata(listhead(apiserver_list));
+
 		ospf_apiserver_free(apiserv);
+	}
 
 	/* Free client list itself */
 	if (apiserver_list)
@@ -273,28 +278,28 @@ void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 {
 	switch (event) {
 	case OSPF_APISERVER_ACCEPT:
-		(void)thread_add_read(master, ospf_apiserver_accept, apiserv,
-				      fd, NULL);
+		(void)event_add_read(master, ospf_apiserver_accept, apiserv, fd,
+				     NULL);
 		break;
 	case OSPF_APISERVER_SYNC_READ:
 		apiserv->t_sync_read = NULL;
-		thread_add_read(master, ospf_apiserver_read, apiserv, fd,
-				&apiserv->t_sync_read);
+		event_add_read(master, ospf_apiserver_read, apiserv, fd,
+			       &apiserv->t_sync_read);
 		break;
 #ifdef USE_ASYNC_READ
 	case OSPF_APISERVER_ASYNC_READ:
 		apiserv->t_async_read = NULL;
-		thread_add_read(master, ospf_apiserver_read, apiserv, fd,
-				&apiserv->t_async_read);
+		event_add_read(master, ospf_apiserver_read, apiserv, fd,
+			       &apiserv->t_async_read);
 		break;
 #endif /* USE_ASYNC_READ */
 	case OSPF_APISERVER_SYNC_WRITE:
-		thread_add_write(master, ospf_apiserver_sync_write, apiserv, fd,
-				 &apiserv->t_sync_write);
+		event_add_write(master, ospf_apiserver_sync_write, apiserv, fd,
+				&apiserv->t_sync_write);
 		break;
 	case OSPF_APISERVER_ASYNC_WRITE:
-		thread_add_write(master, ospf_apiserver_async_write, apiserv,
-				 fd, &apiserv->t_async_write);
+		event_add_write(master, ospf_apiserver_async_write, apiserv, fd,
+				&apiserv->t_async_write);
 		break;
 	}
 }
@@ -307,12 +312,12 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	struct listnode *node;
 
 	/* Cancel read and write threads. */
-	THREAD_OFF(apiserv->t_sync_read);
+	EVENT_OFF(apiserv->t_sync_read);
 #ifdef USE_ASYNC_READ
-	THREAD_OFF(apiserv->t_async_read);
+	EVENT_OFF(apiserv->t_async_read);
 #endif /* USE_ASYNC_READ */
-	THREAD_OFF(apiserv->t_sync_write);
-	THREAD_OFF(apiserv->t_async_write);
+	EVENT_OFF(apiserv->t_sync_write);
+	EVENT_OFF(apiserv->t_async_write);
 
 	/* Unregister all opaque types that application registered
 	   and flush opaque LSAs if still in LSDB. */
@@ -323,6 +328,7 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 		ospf_apiserver_unregister_opaque_type(
 			apiserv, regtype->lsa_type, regtype->opaque_type);
 	}
+	list_delete(&apiserv->opaque_types);
 
 	/* Close connections to OSPFd. */
 	if (apiserv->fd_sync > 0) {
@@ -344,6 +350,8 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	/* Remove from the list of active clients. */
 	listnode_delete(apiserver_list, apiserv);
 
+	XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("API: Delete apiserv(%p), total#(%d)",
 			   (void *)apiserv, apiserver_list->count);
@@ -352,15 +360,15 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	XFREE(MTYPE_APISERVER, apiserv);
 }
 
-void ospf_apiserver_read(struct thread *thread)
+void ospf_apiserver_read(struct event *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
 	enum ospf_apiserver_event event;
 
-	apiserv = THREAD_ARG(thread);
-	fd = THREAD_FD(thread);
+	apiserv = EVENT_ARG(thread);
+	fd = EVENT_FD(thread);
 
 	if (fd == apiserv->fd_sync) {
 		event = OSPF_APISERVER_SYNC_READ;
@@ -411,16 +419,16 @@ void ospf_apiserver_read(struct thread *thread)
 	msg_free(msg);
 }
 
-void ospf_apiserver_sync_write(struct thread *thread)
+void ospf_apiserver_sync_write(struct event *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
 	int rc = -1;
 
-	apiserv = THREAD_ARG(thread);
+	apiserv = EVENT_ARG(thread);
 	assert(apiserv);
-	fd = THREAD_FD(thread);
+	fd = EVENT_FD(thread);
 
 	apiserv->t_sync_write = NULL;
 
@@ -471,16 +479,16 @@ out:
 }
 
 
-void ospf_apiserver_async_write(struct thread *thread)
+void ospf_apiserver_async_write(struct event *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
 	int rc = -1;
 
-	apiserv = THREAD_ARG(thread);
+	apiserv = EVENT_ARG(thread);
 	assert(apiserv);
-	fd = THREAD_FD(thread);
+	fd = EVENT_FD(thread);
 
 	apiserv->t_async_write = NULL;
 
@@ -569,7 +577,7 @@ int ospf_apiserver_serv_sock_family(unsigned short port, int family)
 
 /* Accept connection request from external applications. For each
    accepted connection allocate own connection instance. */
-void ospf_apiserver_accept(struct thread *thread)
+void ospf_apiserver_accept(struct event *thread)
 {
 	int accept_sock;
 	int new_sync_sock;
@@ -581,8 +589,8 @@ void ospf_apiserver_accept(struct thread *thread)
 	unsigned int peerlen;
 	int ret;
 
-	/* THREAD_ARG (thread) is NULL */
-	accept_sock = THREAD_FD(thread);
+	/* EVENT_ARG (thread) is NULL */
+	accept_sock = EVENT_FD(thread);
 
 	/* Keep hearing on socket for further connections. */
 	ospf_apiserver_event(OSPF_APISERVER_ACCEPT, accept_sock, NULL);
@@ -889,6 +897,7 @@ int ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserv,
 			/* Remove from list of registered opaque types */
 			listnode_delete(apiserv->opaque_types, regtype);
 
+			XFREE(MTYPE_APISERVER, regtype);
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"API: Del LSA-type(%d)/Opaque-type(%d) from apiserv(%p), total#(%d)",
@@ -2578,9 +2587,12 @@ static inline int cmp_route_nodes(struct route_node *orn,
 		return 1;
 	else if (!nrn)
 		return -1;
-	else if (orn->p.u.prefix4.s_addr < nrn->p.u.prefix4.s_addr)
+
+	uint32_t opn = ntohl(orn->p.u.prefix4.s_addr);
+	uint32_t npn = ntohl(nrn->p.u.prefix4.s_addr);
+	if (opn < npn)
 		return -1;
-	else if (orn->p.u.prefix4.s_addr > nrn->p.u.prefix4.s_addr)
+	else if (opn > npn)
 		return 1;
 	else
 		return 0;

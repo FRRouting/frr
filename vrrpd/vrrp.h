@@ -18,7 +18,7 @@
 #include "lib/northbound.h"
 #include "lib/privs.h"
 #include "lib/stream.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vty.h"
 
 /* Global definitions */
@@ -65,7 +65,7 @@ struct vrrp_defaults {
 extern struct vrrp_defaults vd;
 
 /* threadmaster */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* privileges */
 extern struct zebra_privs_t vrrp_privs;
@@ -193,10 +193,10 @@ struct vrrp_router {
 		uint32_t trans_cnt;
 	} stats;
 
-	struct thread *t_master_down_timer;
-	struct thread *t_adver_timer;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_master_down_timer;
+	struct event *t_adver_timer;
+	struct event *t_read;
+	struct event *t_write;
 };
 
 /*

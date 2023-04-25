@@ -196,7 +196,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 {
 	assert(ss);
 
-	THREAD_OFF(ss->t_sock_read);
+	EVENT_OFF(ss->t_sock_read);
 
 	if (close(ss->sock_fd)) {
 		zlog_warn(
@@ -286,11 +286,11 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 	return 0;
 }
 
-static void ssmpingd_sock_read(struct thread *t)
+static void ssmpingd_sock_read(struct event *t)
 {
 	struct ssmpingd_sock *ss;
 
-	ss = THREAD_ARG(t);
+	ss = EVENT_ARG(t);
 
 	ssmpingd_read_msg(ss);
 
@@ -300,8 +300,8 @@ static void ssmpingd_sock_read(struct thread *t)
 
 static void ssmpingd_read_on(struct ssmpingd_sock *ss)
 {
-	thread_add_read(router->master, ssmpingd_sock_read, ss, ss->sock_fd,
-			&ss->t_sock_read);
+	event_add_read(router->master, ssmpingd_sock_read, ss, ss->sock_fd,
+		       &ss->t_sock_read);
 }
 
 static struct ssmpingd_sock *ssmpingd_new(struct pim_instance *pim,

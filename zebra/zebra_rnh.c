@@ -13,7 +13,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -326,7 +326,7 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
 
 	*nht_exists = false;
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	if (!zvrf)
 		return;
 

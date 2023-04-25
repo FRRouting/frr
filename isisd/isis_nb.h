@@ -26,9 +26,13 @@ int isis_instance_attached_receive_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_modify(struct nb_cb_modify_args *args);
 int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args);
 int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args);
+int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
+int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args);
+int isis_instance_asla_legacy_flag_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
+int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_1_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_2_modify(
@@ -194,6 +198,7 @@ int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
 int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
 int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args);
+int isis_instance_log_pdu_drops_modify(struct nb_cb_modify_args *args);
 int isis_instance_mpls_te_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args);
@@ -246,6 +251,67 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_create(
+	struct nb_cb_create_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
+	struct nb_cb_pre_validate_args *args);
+void isis_instance_segment_routing_algorithm_prefix_sid_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_create(struct nb_cb_create_args *args);
+int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_advertise_definition_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_advertise_definition_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_include_any_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_include_any_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_include_all_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_include_all_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_exclude_any_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_exclude_any_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_prefix_metric_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_prefix_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_dplane_sr_mpls_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_dplane_sr_mpls_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_dplane_srv6_create(struct nb_cb_create_args *args);
+int isis_instance_flex_algo_dplane_srv6_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_dplane_ip_create(struct nb_cb_create_args *args);
+int isis_instance_flex_algo_dplane_ip_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_frr_disable_modify(struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_frr_disable_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_mapping_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_mapping_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_mapping_value_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_affinity_mapping_value_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
@@ -463,6 +529,9 @@ void cli_show_isis_overload(struct vty *vty, const struct lyd_node *dnode,
 void cli_show_isis_overload_on_startup(struct vty *vty,
 				       const struct lyd_node *dnode,
 				       bool show_defaults);
+void cli_show_advertise_high_metrics(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
 void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode,
@@ -473,6 +542,9 @@ void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_advertise_passive_only(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
 void cli_show_isis_spf_min_interval(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults);
@@ -486,6 +558,12 @@ void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_mpls_te(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_isis_admin_group_send_zero(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_isis_asla_legacy_flag(struct vty *vty,
+				    const struct lyd_node *dnode,
+				    bool show_defaults);
 void cli_show_isis_mpls_te_router_addr(struct vty *vty,
 				       const struct lyd_node *dnode,
 				       bool show_defaults);
@@ -529,6 +607,9 @@ void cli_show_isis_node_msd(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
+void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
 void cli_show_isis_frr_lfa_priority_limit(struct vty *vty,
 					  const struct lyd_node *dnode,
 					  bool show_defaults);
@@ -601,6 +682,8 @@ void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
 void cli_show_isis_log_adjacency(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
+void cli_show_isis_log_pdu_drops(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
 void cli_show_isis_mpls_ldp_sync(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
 void cli_show_isis_mpls_ldp_sync_holddown(struct vty *vty,
@@ -612,6 +695,9 @@ void cli_show_isis_mpls_if_ldp_sync(struct vty *vty,
 void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
 					     const struct lyd_node *dnode,
 					     bool show_defaults);
+void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
+			     bool show_defaults);
+void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode);
 
 /* Notifications. */
 void isis_notif_db_overload(const struct isis_area *area, bool overload);

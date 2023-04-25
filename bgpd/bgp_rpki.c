@@ -23,7 +23,7 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "filter.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -36,7 +36,6 @@
 #include "northbound_cli.h"
 
 #include "lib/network.h"
-#include "lib/thread.h"
 #include "rtrlib/rtrlib.h"
 #include "hook.h"
 #include "libfrr.h"
@@ -54,7 +53,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
-static struct thread *t_rpki_sync;
+static struct event *t_rpki_sync;
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -81,6 +80,7 @@ struct rpki_for_each_record_arg {
 	unsigned int *prefix_amount;
 	as_t as;
 	json_object *json;
+	enum asnotation_mode asnotation;
 };
 
 static int start(void);
@@ -105,7 +105,7 @@ static void rpki_delete_all_cache_nodes(void);
 static int add_tcp_cache(const char *host, const char *port,
 			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty,
-			 json_object *json);
+			 json_object *json, enum asnotation_mode asnotation);
 static bool is_synchronized(void);
 static bool is_running(void);
 static bool is_stopping(void);
@@ -270,7 +270,7 @@ static void rpki_delete_all_cache_nodes(void)
 }
 
 static void print_record(const struct pfx_record *record, struct vty *vty,
-			 json_object *json)
+			 json_object *json, enum asnotation_mode asnotation)
 {
 	char ip[INET6_ADDRSTRLEN];
 	json_object *json_record = NULL;
@@ -278,8 +278,10 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 
 	if (!json) {
-		vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
-			record->max_len, record->asn);
+		vty_out(vty, "%-40s   %3u - %3u   ", ip, record->min_len,
+			record->max_len);
+		vty_out(vty, ASN_FORMAT(asnotation), (as_t *)&record->asn);
+		vty_out(vty, "\n");
 	} else {
 		json_record = json_object_new_object();
 		json_object_string_add(json_record, "prefix", ip);
@@ -287,7 +289,7 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 				    record->min_len);
 		json_object_int_add(json_record, "prefixLenMax",
 				    record->max_len);
-		json_object_int_add(json_record, "asn", record->asn);
+		asn_asn2json(json_record, "asn", record->asn, asnotation);
 		json_object_array_add(json, json_record);
 	}
 }
@@ -299,7 +301,7 @@ static void print_record_by_asn(const struct pfx_record *record, void *data)
 
 	if (record->asn == arg->as) {
 		(*arg->prefix_amount)++;
-		print_record(record, vty, arg->json);
+		print_record(record, vty, arg->json, arg->asnotation);
 	}
 }
 
@@ -310,7 +312,7 @@ static void print_record_cb(const struct pfx_record *record, void *data)
 
 	(*arg->prefix_amount)++;
 
-	print_record(record, vty, arg->json);
+	print_record(record, vty, arg->json, arg->asnotation);
 }
 
 static struct rtr_mgr_group *get_groups(void)
@@ -379,9 +381,9 @@ struct rpki_revalidate_prefix {
 	safi_t safi;
 };
 
-static void rpki_revalidate_prefix(struct thread *thread)
+static void rpki_revalidate_prefix(struct event *thread)
 {
-	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
+	struct rpki_revalidate_prefix *rrp = EVENT_ARG(thread);
 	struct bgp_dest *match, *node;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
@@ -400,15 +402,15 @@ static void rpki_revalidate_prefix(struct thread *thread)
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
 }
 
-static void bgpd_sync_callback(struct thread *thread)
+static void bgpd_sync_callback(struct event *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
 	struct prefix prefix;
 	struct pfx_record rec;
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	event_add_read(bm->master, bgpd_sync_callback, NULL,
+		       rpki_sync_socket_bgpd, NULL);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
 		while (read(rpki_sync_socket_bgpd, &rec,
@@ -446,8 +448,8 @@ static void bgpd_sync_callback(struct thread *thread)
 			rrp->prefix = prefix;
 			rrp->afi = afi;
 			rrp->safi = safi;
-			thread_add_event(bm->master, rpki_revalidate_prefix,
-					 rrp, 0, &bgp->t_revalidate[afi][safi]);
+			event_add_event(bm->master, rpki_revalidate_prefix, rrp,
+					0, &bgp->t_revalidate[afi][safi]);
 		}
 	}
 }
@@ -487,9 +489,9 @@ struct rpki_revalidate_peer {
 	struct peer *peer;
 };
 
-static void bgp_rpki_revalidate_peer(struct thread *thread)
+static void bgp_rpki_revalidate_peer(struct event *thread)
 {
-	struct rpki_revalidate_peer *rvp = THREAD_ARG(thread);
+	struct rpki_revalidate_peer *rvp = EVENT_ARG(thread);
 
 	/*
 	 * Here's the expensive bit of gnomish deviousness
@@ -527,7 +529,7 @@ static void revalidate_all_routes(void)
 				rvp->afi = afi;
 				rvp->safi = safi;
 
-				thread_add_event(
+				event_add_event(
 					bm->master, bgp_rpki_revalidate_peer,
 					rvp, 0,
 					&peer->t_revalidate_all[afi][safi]);
@@ -578,8 +580,8 @@ static void rpki_init_sync_socket(void)
 	}
 
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	event_add_read(bm->master, bgpd_sync_callback, NULL,
+		       rpki_sync_socket_bgpd, NULL);
 
 	return;
 
@@ -589,7 +591,7 @@ err:
 
 }
 
-static int bgp_rpki_init(struct thread_master *master)
+static int bgp_rpki_init(struct event_loop *master)
 {
 	rpki_debug = false;
 	rtr_is_running = false;
@@ -629,13 +631,13 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void sync_expired(struct thread *thread)
+static void sync_expired(struct event *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
-		thread_add_timer(bm->master, sync_expired, NULL,
-				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
-				 &t_rpki_sync);
+		event_add_timer(bm->master, sync_expired, NULL,
+				BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
+				&t_rpki_sync);
 		return;
 	}
 
@@ -678,7 +680,7 @@ static int start(void)
 		return ERROR;
 	}
 
-	thread_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
+	event_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
@@ -691,7 +693,7 @@ static void stop(void)
 {
 	rtr_is_stopping = true;
 	if (is_running()) {
-		THREAD_OFF(t_rpki_sync);
+		EVENT_OFF(t_rpki_sync);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = false;
@@ -728,6 +730,7 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 	arg.vty = vty;
 	arg.as = as;
 	arg.json = NULL;
+	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
 		if (!json)
@@ -780,6 +783,7 @@ static void print_prefix_table(struct vty *vty, json_object *json)
 
 	arg.vty = vty;
 	arg.json = NULL;
+	arg.asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 
 	if (!group) {
 		if (!json)
@@ -1337,7 +1341,7 @@ DEFPY (show_rpki_prefix_table,
 
 DEFPY (show_rpki_as_number,
        show_rpki_as_number_cmd,
-       "show rpki as-number (1-4294967295)$by_asn [json$uj]",
+       "show rpki as-number ASNUM$by_asn [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup by ASN in prefix table\n"
@@ -1361,7 +1365,7 @@ DEFPY (show_rpki_as_number,
 
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
-       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn] [json$uj]",
+       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASNUM$asn] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup IP prefix and optionally ASN in prefix table\n"
@@ -1372,6 +1376,7 @@ DEFPY (show_rpki_prefix,
 {
 	json_object *json = NULL;
 	json_object *json_records = NULL;
+	enum asnotation_mode asnotation;
 
 	if (!is_synchronized()) {
 		if (!uj)
@@ -1397,8 +1402,8 @@ DEFPY (show_rpki_prefix,
 	enum pfxv_state result;
 
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
-				 asn, &addr, prefix->prefixlen, &result)
-	    != PFX_SUCCESS) {
+				 asn, &addr, prefix->prefixlen,
+				 &result) != PFX_SUCCESS) {
 		if (!json)
 			vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
@@ -1415,13 +1420,14 @@ DEFPY (show_rpki_prefix,
 		json_object_object_add(json, "prefixes", json_records);
 	}
 
+	asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 	for (size_t i = 0; i < match_count; ++i) {
 		const struct pfx_record *record = &matches[i];
 
-		if (record->max_len >= prefix->prefixlen
-		    && ((asn != 0 && (uint32_t)asn == record->asn)
-			|| asn == 0)) {
-			print_record(&matches[i], vty, json_records);
+		if (record->max_len >= prefix->prefixlen &&
+		    ((asn != 0 && (uint32_t)asn == record->asn) || asn == 0)) {
+			print_record(&matches[i], vty, json_records,
+				     asnotation);
 		}
 	}
 

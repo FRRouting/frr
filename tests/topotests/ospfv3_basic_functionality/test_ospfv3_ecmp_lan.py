@@ -128,7 +128,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -282,7 +282,7 @@ def test_ospfv3_lan_ecmp_tc18_p0(request):
     step("Verify that OSPF is up with 8 neighborship sessions.")
 
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -343,7 +343,7 @@ def test_ospfv3_lan_ecmp_tc18_p0(request):
 
     dut = "r0"
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -352,7 +352,7 @@ def test_ospfv3_lan_ecmp_tc18_p0(request):
 
     dut = "r2"
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "Testcase Failed \n Error:  {}".format(
         ospf_covergence
     )
 

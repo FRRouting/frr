@@ -540,6 +540,11 @@ DEFPY (interface_ipv6_mld_join,
 {
 	char xpath[XPATH_MAXLEN];
 
+	if (!IN6_IS_ADDR_MULTICAST(&group)) {
+		vty_out(vty, "Invalid Multicast Address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (source_str) {
 		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
 			vty_out(vty, "Bad source address %s\n", source_str);

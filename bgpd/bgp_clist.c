@@ -449,8 +449,12 @@ static char *community_str_get(struct community *com, int i)
 	comval = ntohl(comval);
 
 	switch (comval) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 	case COMMUNITY_INTERNET:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "internet");
+		zlog_warn("`internet` community is deprecated");
 		break;
 	case COMMUNITY_GSHUT:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "graceful-shutdown");

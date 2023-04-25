@@ -58,7 +58,7 @@ static void notify_status(struct path *path, bool not_changed);
 
 /* Module Functions */
 static int pcep_module_finish(void);
-static int pcep_module_late_init(struct thread_master *tm);
+static int pcep_module_late_init(struct event_loop *tm);
 static int pcep_module_init(void);
 
 /* ------------ Path Helper Functions ------------ */
@@ -310,7 +310,7 @@ int pathd_candidate_removed_handler(struct srte_candidate *candidate)
  * run before config load, so the CLI commands don't try to touch things that
  * aren't set up yet...
  */
-static int pcep_module_config_pre(struct thread_master *tm)
+static int pcep_module_config_pre(struct event_loop *tm)
 {
 	assert(pcep_g->fpt == NULL);
 	assert(pcep_g->master == NULL);
@@ -329,7 +329,7 @@ static int pcep_module_config_pre(struct thread_master *tm)
 	return 0;
 }
 
-static int pcep_module_late_init(struct thread_master *tm)
+static int pcep_module_late_init(struct event_loop *tm)
 {
 	hook_register(pathd_candidate_created, pathd_candidate_created_handler);
 	hook_register(pathd_candidate_updated, pathd_candidate_updated_handler);

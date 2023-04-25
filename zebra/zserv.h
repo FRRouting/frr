@@ -19,7 +19,7 @@
 #include "lib/vrf.h"          /* for vrf_bitmap_t */
 #include "lib/zclient.h"      /* for redist_proto */
 #include "lib/stream.h"       /* for stream, stream_fifo */
-#include "lib/thread.h"       /* for thread, thread_master */
+#include "frrevent.h"            /* for thread, thread_master */
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
@@ -51,9 +51,6 @@ struct client_gr_info {
 	/* VRF for which GR enabled */
 	vrf_id_t vrf_id;
 
-	/* AFI */
-	afi_t current_afi;
-
 	/* Stale time and GR cap */
 	uint32_t stale_removal_time;
 	enum zserv_client_capabilities capabilities;
@@ -64,13 +61,12 @@ struct client_gr_info {
 	bool stale_client;
 
 	/* Route sync and enable flags for AFI/SAFI */
-	bool af_enabled[AFI_MAX][SAFI_MAX];
-	bool route_sync[AFI_MAX][SAFI_MAX];
+	bool af_enabled[AFI_MAX];
+	bool route_sync[AFI_MAX];
 
 	/* Book keeping */
-	struct prefix *current_prefix;
 	void *stale_client_ptr;
-	struct thread *t_stale_removal;
+	struct event *t_stale_removal;
 
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
@@ -105,14 +101,14 @@ struct zserv {
 	struct buffer *wb;
 
 	/* Threads for read/write. */
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* Event for message processing, for the main pthread */
-	struct thread *t_process;
+	struct event *t_process;
 
 	/* Event for the main pthread */
-	struct thread *t_cleanup;
+	struct event *t_cleanup;
 
 	/* This client's redistribute flag. */
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
@@ -378,7 +374,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) void zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) void zebra_finalize(struct event *event);
 
 /*
  * Graceful restart functions.

@@ -51,9 +51,9 @@ DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
-static void if_zebra_speed_update(struct thread *thread)
+static void if_zebra_speed_update(struct event *thread)
 {
-	struct interface *ifp = THREAD_ARG(thread);
+	struct interface *ifp = EVENT_ARG(thread);
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;
@@ -96,9 +96,9 @@ static void if_zebra_speed_update(struct thread *thread)
 			return;
 
 		zif->speed_update_count++;
-		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp,
-				 SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
-		thread_ignore_late_timer(zif->speed_update);
+		event_add_timer(zrouter.master, if_zebra_speed_update, ifp,
+				SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
+		event_ignore_late_timer(zif->speed_update);
 	}
 }
 
@@ -137,6 +137,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_DATA_OFF;
 
+	zebra_if->link_nsid = NS_UNKNOWN;
+
 	zebra_if_nhg_dependents_init(zebra_if);
 
 	zebra_ptm_if_init(zebra_if);
@@ -161,9 +163,9 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * down upon startup.
 	 */
 	zebra_if->speed_update_count = 0;
-	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
-			 &zebra_if->speed_update);
-	thread_ignore_late_timer(zebra_if->speed_update);
+	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
+			&zebra_if->speed_update);
+	event_ignore_late_timer(zebra_if->speed_update);
 
 	return 0;
 }
@@ -223,7 +225,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
-		THREAD_OFF(zebra_if->speed_update);
+		EVENT_OFF(zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
 	}
@@ -303,6 +305,14 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 	}
 
 	return NULL;
+}
+
+struct interface *if_lookup_by_index_per_nsid(ns_id_t ns_id, uint32_t ifindex)
+{
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(ns_id);
+	return zns ? if_lookup_by_index_per_ns(zns, ifindex) : NULL;
 }
 
 const char *ifindex2ifname_per_ns(struct zebra_ns *zns, unsigned int ifindex)
@@ -991,7 +1001,6 @@ void if_up(struct interface *ifp, bool install_connected)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
-	struct zebra_vrf *zvrf = ifp->vrf->info;
 
 	zif = ifp->info;
 	zif->up_count++;
@@ -1024,8 +1033,7 @@ void if_up(struct interface *ifp, bool install_connected)
 		link_if = ifp;
 		zebra_vxlan_svi_up(ifp, link_if);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = if_lookup_by_index_per_ns(zvrf->zns,
-						    zif->link_ifindex);
+		link_if = zif->link;
 		if (link_if)
 			zebra_vxlan_svi_up(ifp, link_if);
 	} else if (IS_ZEBRA_IF_MACVLAN(ifp)) {
@@ -1038,9 +1046,9 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		zebra_evpn_mh_uplink_oper_update(zif);
 
-	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
-			 &zif->speed_update);
-	thread_ignore_late_timer(zif->speed_update);
+	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
+			&zif->speed_update);
+	event_ignore_late_timer(zif->speed_update);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1049,7 +1057,6 @@ void if_down(struct interface *ifp)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
-	struct zebra_vrf *zvrf = ifp->vrf->info;
 
 	zif = ifp->info;
 	zif->down_count++;
@@ -1068,8 +1075,7 @@ void if_down(struct interface *ifp)
 		link_if = ifp;
 		zebra_vxlan_svi_down(ifp, link_if);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = if_lookup_by_index_per_ns(zvrf->zns,
-						    zif->link_ifindex);
+		link_if = zif->link;
 		if (link_if)
 			zebra_vxlan_svi_down(ifp, link_if);
 	} else if (IS_ZEBRA_IF_MACVLAN(ifp)) {
@@ -1109,6 +1115,7 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 	if (IS_ZEBRA_IF_VETH(ifp))
 		return;
 	zif = (struct zebra_if *)ifp->info;
+	zif->link_nsid = ns_id;
 	zif->link_ifindex = link_ifindex;
 	zif->link = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
 					      link_ifindex);
@@ -1145,8 +1152,8 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 
 		/* update SVI linkages */
 		if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
-			zif->link = if_lookup_by_index_per_ns(
-				zns, zif->link_ifindex);
+			zif->link = if_lookup_by_index_per_nsid(
+				zif->link_nsid, zif->link_ifindex);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("interface %s/%d's lower fixup to %s/%d",
 						ifp->name, ifp->ifindex,

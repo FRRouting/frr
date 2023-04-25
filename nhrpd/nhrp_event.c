@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "zbuf.h"
 #include "log.h"
 #include "nhrpd.h"
@@ -20,19 +20,19 @@ const char *nhrp_event_socket_path;
 struct nhrp_reqid_pool nhrp_event_reqid;
 
 struct event_manager {
-	struct thread *t_reconnect, *t_read, *t_write;
+	struct event *t_reconnect, *t_read, *t_write;
 	struct zbuf ibuf;
 	struct zbuf_queue obuf;
 	int fd;
 	uint8_t ibuf_data[4 * 1024];
 };
 
-static void evmgr_reconnect(struct thread *t);
+static void evmgr_reconnect(struct event *t);
 
 static void evmgr_connection_error(struct event_manager *evmgr)
 {
-	THREAD_OFF(evmgr->t_read);
-	THREAD_OFF(evmgr->t_write);
+	EVENT_OFF(evmgr->t_read);
+	EVENT_OFF(evmgr->t_write);
 	zbuf_reset(&evmgr->ibuf);
 	zbufq_reset(&evmgr->obuf);
 
@@ -40,8 +40,8 @@ static void evmgr_connection_error(struct event_manager *evmgr)
 		close(evmgr->fd);
 	evmgr->fd = -1;
 	if (nhrp_event_socket_path)
-		thread_add_timer_msec(master, evmgr_reconnect, evmgr, 10,
-				      &evmgr->t_reconnect);
+		event_add_timer_msec(master, evmgr_reconnect, evmgr, 10,
+				     &evmgr->t_reconnect);
 }
 
 static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
@@ -74,9 +74,9 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 	}
 }
 
-static void evmgr_read(struct thread *t)
+static void evmgr_read(struct event *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct event_manager *evmgr = EVENT_ARG(t);
 	struct zbuf *ibuf = &evmgr->ibuf;
 	struct zbuf msg;
 
@@ -89,18 +89,18 @@ static void evmgr_read(struct thread *t)
 	while (zbuf_may_pull_until(ibuf, "\n\n", &msg))
 		evmgr_recv_message(evmgr, &msg);
 
-	thread_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
+	event_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
 }
 
-static void evmgr_write(struct thread *t)
+static void evmgr_write(struct event *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct event_manager *evmgr = EVENT_ARG(t);
 	int r;
 
 	r = zbufq_write(&evmgr->obuf, evmgr->fd);
 	if (r > 0) {
-		thread_add_write(master, evmgr_write, evmgr, evmgr->fd,
-				 &evmgr->t_write);
+		event_add_write(master, evmgr_write, evmgr, evmgr->fd,
+				&evmgr->t_write);
 	} else if (r < 0) {
 		evmgr_connection_error(evmgr);
 	}
@@ -175,13 +175,13 @@ static void evmgr_submit(struct event_manager *evmgr, struct zbuf *obuf)
 	zbuf_put(obuf, "\n", 1);
 	zbufq_queue(&evmgr->obuf, obuf);
 	if (evmgr->fd >= 0)
-		thread_add_write(master, evmgr_write, evmgr, evmgr->fd,
-				 &evmgr->t_write);
+		event_add_write(master, evmgr_write, evmgr, evmgr->fd,
+				&evmgr->t_write);
 }
 
-static void evmgr_reconnect(struct thread *t)
+static void evmgr_reconnect(struct event *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct event_manager *evmgr = EVENT_ARG(t);
 	int fd;
 
 	if (evmgr->fd >= 0 || !nhrp_event_socket_path)
@@ -192,14 +192,14 @@ static void evmgr_reconnect(struct thread *t)
 		zlog_warn("%s: failure connecting nhrp-event socket: %s",
 			  __func__, strerror(errno));
 		zbufq_reset(&evmgr->obuf);
-		thread_add_timer(master, evmgr_reconnect, evmgr, 10,
-				 &evmgr->t_reconnect);
+		event_add_timer(master, evmgr_reconnect, evmgr, 10,
+				&evmgr->t_reconnect);
 		return;
 	}
 
 	zlog_info("Connected to Event Manager");
 	evmgr->fd = fd;
-	thread_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
+	event_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
 }
 
 static struct event_manager evmgr_connection;
@@ -211,8 +211,8 @@ void evmgr_init(void)
 	evmgr->fd = -1;
 	zbuf_init(&evmgr->ibuf, evmgr->ibuf_data, sizeof(evmgr->ibuf_data), 0);
 	zbufq_init(&evmgr->obuf);
-	thread_add_timer_msec(master, evmgr_reconnect, evmgr, 10,
-			      &evmgr->t_reconnect);
+	event_add_timer_msec(master, evmgr_reconnect, evmgr, 10,
+			     &evmgr->t_reconnect);
 }
 
 void evmgr_set_socket(const char *socket)

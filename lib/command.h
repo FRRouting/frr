@@ -129,6 +129,7 @@ enum node_type {
 	LDP_L2VPN_NODE,		 /* LDP L2VPN node */
 	LDP_PSEUDOWIRE_NODE,     /* LDP Pseudowire node */
 	ISIS_NODE,		 /* ISIS protocol mode */
+	ISIS_FLEX_ALGO_NODE,    /* ISIS Flex Algo mode */
 	ACCESS_NODE,		 /* Access list node. */
 	PREFIX_NODE,		 /* Prefix list node. */
 	ACCESS_IPV6_NODE,	/* Access list node. */
@@ -391,7 +392,8 @@ struct cmd_node {
 #define DEBUG_STR "Debugging functions\n"
 #define UNDEBUG_STR "Disable debugging functions (see also 'debug')\n"
 #define ROUTER_STR "Enable a routing process\n"
-#define AS_STR "AS number\n"
+#define AS_STR                                                                 \
+	"AS number in plain  <1-4294967295> or dotted <0-65535>.<0-65535> format\n"
 #define MAC_STR "MAC address\n"
 #define MBGP_STR "MBGP information\n"
 #define MATCH_STR "Match values from routing table\n"
@@ -428,6 +430,11 @@ struct cmd_node {
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
+#define MGMTD_STR "Management Daemon (MGMTD) information\n"
+#define MGMTD_BE_ADAPTER_STR "MGMTD Backend Adapter information\n"
+#define MGMTD_FE_ADAPTER_STR "MGMTD Frontend Adapter information\n"
+#define MGMTD_TXN_STR "MGMTD Transaction information\n"
+#define MGMTD_DS_STR "MGMTD Datastore information\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"

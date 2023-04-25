@@ -18,13 +18,15 @@
 #include <regex.h>
 #endif /* HAVE_LIBPCRE2_POSIX */
 
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "sockunion.h"
 #include "qobj.h"
 #include "compiler.h"
 #include "northbound.h"
 #include "zlog_live.h"
+#include "libfrr.h"
+#include "mgmt_fe_client.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,11 +115,17 @@ struct vty {
 
 	/* Changes enqueued to be applied in the candidate configuration. */
 	size_t num_cfg_changes;
-	struct vty_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
+	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
 	/* XPath of the current node */
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];
+
+	/*
+	 * Keep track of how many SET_CFG requests has been sent so far that
+	 * has not been committed yet.
+	 */
+	size_t mgmt_num_pending_setcfg;
 
 	/* In configure mode. */
 	bool config;
@@ -134,12 +142,13 @@ struct vty {
 	/* Dynamic transaction information. */
 	bool pending_allowed;
 	bool pending_commit;
+	bool no_implicit_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
 
 	/* Confirmed-commit timeout and rollback configuration. */
-	struct thread *t_confirmed_commit_timeout;
+	struct event *t_confirmed_commit_timeout;
 	struct nb_config *confirmed_commit_rollback;
 
 	/* qobj object ID (replacement for "index") */
@@ -193,12 +202,12 @@ struct vty {
 	int lines;
 
 	/* Read and write thread. */
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* Timeout seconds and thread. */
 	unsigned long v_timeout;
-	struct thread *t_timeout;
+	struct event *t_timeout;
 
 	/* What address is this vty comming from. */
 	char address[SU_ADDRSTRLEN];
@@ -208,6 +217,12 @@ struct vty {
 	 * without any output. */
 	size_t frame_pos;
 	char frame[1024];
+
+	uintptr_t mgmt_session_id;
+	uint64_t mgmt_client_id;
+	uint64_t mgmt_req_id;
+	bool mgmt_req_pending;
+	bool mgmt_locked_candidate_ds;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -319,8 +334,10 @@ struct vty_arg {
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
 #endif
 
+extern struct nb_config *vty_mgmt_candidate_config;
+
 /* Prototypes. */
-extern void vty_init(struct thread_master *, bool do_command_logging);
+extern void vty_init(struct event_loop *m, bool do_command_logging);
 extern void vty_init_vtysh(void);
 extern void vty_terminate(void);
 extern void vty_reset(void);
@@ -344,7 +361,7 @@ extern bool vty_set_include(struct vty *vty, const char *regexp);
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
 extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
-
+extern void vty_json_empty(struct vty *vty);
 /* post fd to be passed to the vtysh client
  * fd is owned by the VTY code after this and will be closed when done
  */
@@ -352,6 +369,7 @@ extern void vty_pass_fd(struct vty *vty, int fd);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
+extern void vty_read_file(struct nb_config *config, FILE *confp);
 extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);
@@ -369,6 +387,29 @@ extern void vty_hello(struct vty *);
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
+
+extern void vty_init_mgmt_fe(void);
+extern bool vty_mgmt_fe_enabled(void);
+extern int vty_mgmt_send_config_data(struct vty *vty);
+extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
+				       bool abort);
+extern int vty_mgmt_send_get_config(struct vty *vty,
+				    Mgmtd__DatastoreId datastore,
+				    const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
+				  const char **xpath_list, int num_req);
+extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
+				    bool lock);
+extern void vty_mgmt_resume_response(struct vty *vty, bool success);
+
+static inline bool vty_needs_implicit_commit(struct vty *vty)
+{
+	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
+			? ((vty->pending_allowed || vty->no_implicit_commit)
+				   ? false
+				   : true)
+			: false);
+}
 
 #ifdef __cplusplus
 }

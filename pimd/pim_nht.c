@@ -307,12 +307,11 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (if_is_loopback(ifp) && if_is_loopback(src_ifp))
 				return true;
 
-			nbr = pim_neighbor_find(ifp, znh->nexthop_addr);
+			nbr = pim_neighbor_find(ifp, znh->nexthop_addr, true);
 			if (!nbr)
 				continue;
 
-			return znh->ifindex == src_ifp->ifindex &&
-			       (!pim_addr_cmp(znh->nexthop_addr, src_ip));
+			return znh->ifindex == src_ifp->ifindex;
 		}
 		return false;
 	}
@@ -373,12 +372,13 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			return true;
 
 		/* MRIB (IGP) may be pointing at a router where PIM is down */
-		nbr = pim_neighbor_find(ifp, nhaddr);
+
+		nbr = pim_neighbor_find(ifp, nhaddr, true);
+
 		if (!nbr)
 			continue;
 
-		return nh->ifindex == src_ifp->ifindex &&
-		       (!pim_addr_cmp(nhaddr, src_ip));
+		return nh->ifindex == src_ifp->ifindex;
 	}
 	return false;
 }
@@ -561,7 +561,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 							src)) {
 				nbr = pim_neighbor_find(
 					nexthop->interface,
-					nexthop->mrib_nexthop_addr);
+					nexthop->mrib_nexthop_addr, true);
 				if (!nbr
 				    && !if_is_loopback(nexthop->interface)) {
 					if (PIM_DEBUG_PIM_NHT)
@@ -603,7 +603,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 #else
 			pim_addr nhaddr = nh_node->gate.ipv6;
 #endif
-			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
+			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr, true);
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
@@ -724,27 +724,20 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	if (cmd == ZEBRA_NEXTHOP_UPDATE) {
-		rpf.rpf_addr = pim_addr_from_prefix(&match);
-		pnc = pim_nexthop_cache_find(pim, &rpf);
-		if (!pnc) {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
-					__func__, &rpf.rpf_addr);
-			return 0;
-		}
-	} else {
-		/*
-		 * We do not currently handle ZEBRA_IMPORT_CHECK_UPDATE
-		 */
+	rpf.rpf_addr = pim_addr_from_prefix(&match);
+	pnc = pim_nexthop_cache_find(pim, &rpf);
+	if (!pnc) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug(
+				"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
+				__func__, &rpf.rpf_addr);
 		return 0;
 	}
 
 	pnc->last_update = pim_time_monotonic_usec();
 
 	if (nhr.nexthop_num) {
-		pnc->nexthop_num = 0; // Only increment for pim enabled rpf.
+		pnc->nexthop_num = 0;
 
 		for (i = 0; i < nhr.nexthop_num; i++) {
 			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
@@ -862,7 +855,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				nhlist_tail = nexthop;
 				nhlist_head = nexthop;
 			}
-			// Only keep track of nexthops which are PIM enabled.
+
+			// Keep track of all nexthops, even PIM-disabled ones.
 			pnc->nexthop_num++;
 		}
 		/* Reset existing pnc->nexthop before assigning new list */
@@ -954,7 +948,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 					     pim->vrf->vrf_id);
 		if (ifps[i]) {
 			nbrs[i] = pim_neighbor_find(
-				ifps[i], nexthop_tab[i].nexthop_addr);
+				ifps[i], nexthop_tab[i].nexthop_addr, true);
+
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}

@@ -127,13 +127,14 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 {
 	struct ospf6_area *area;
 	struct listnode *onode, *anode;
+	struct ospf6_route *route;
 
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug("GR: exiting graceful restart: %s", reason);
 
 	ospf6->gr_info.restart_in_progress = false;
 	ospf6->gr_info.finishing_restart = true;
-	THREAD_OFF(ospf6->gr_info.t_grace_period);
+	EVENT_OFF(ospf6->gr_info.t_grace_period);
 
 	/* Record in non-volatile memory that the restart is complete. */
 	ospf6_gr_nvm_delete(ospf6);
@@ -148,8 +149,16 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 		 */
 		OSPF6_ROUTER_LSA_EXECUTE(area);
 
+		/*
+		 * Force reorigination of intra-area-prefix-LSAs to handle
+		 * areas without any full adjacency.
+		 */
+		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(area);
+
 		for (ALL_LIST_ELEMENTS_RO(area->if_list, anode, oi)) {
-			OSPF6_LINK_LSA_EXECUTE(oi);
+			/* Reoriginate Link-LSA. */
+			if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
+				OSPF6_LINK_LSA_EXECUTE(oi);
 
 			/*
 			 * 2) The router should reoriginate network-LSAs on all
@@ -159,6 +168,16 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 				OSPF6_NETWORK_LSA_EXECUTE(oi);
 		}
 	}
+
+	/*
+	 * While all self-originated NSSA and AS-external LSAs were already
+	 * learned from the helping neighbors, we need to reoriginate them in
+	 * order to ensure they will be refreshed periodically.
+	 */
+	for (route = ospf6_route_head(ospf6->external_table); route;
+	     route = ospf6_route_next(route))
+		ospf6_handle_external_lsa_origination(ospf6, route,
+						      &route->prefix);
 
 	/*
 	 * 3) The router reruns its OSPF routing calculations, this time
@@ -440,9 +459,9 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 }
 
 /* Handling of grace period expiry. */
-static void ospf6_gr_grace_period_expired(struct thread *thread)
+static void ospf6_gr_grace_period_expired(struct event *thread)
 {
-	struct ospf6 *ospf6 = THREAD_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(thread);
 
 	ospf6_gr_restart_exit(ospf6, "grace period has expired");
 }
@@ -573,9 +592,9 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 				zlog_debug(
 					"GR: remaining time until grace period expires: %lu(s)",
 					remaining_time);
-			thread_add_timer(master, ospf6_gr_grace_period_expired,
-					 ospf6, remaining_time,
-					 &ospf6->gr_info.t_grace_period);
+			event_add_timer(master, ospf6_gr_grace_period_expired,
+					ospf6, remaining_time,
+					&ospf6->gr_info.t_grace_period);
 		}
 	}
 

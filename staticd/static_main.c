@@ -8,7 +8,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "log.h"
 #include "memory.h"
@@ -26,6 +26,8 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 #include "static_nb.h"
+
+#include "mgmt_be_client.h"
 
 char backup_config_file[256];
 
@@ -49,7 +51,9 @@ struct zebra_privs_t static_privs = {
 struct option longopts[] = { { 0 } };
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
+
+uintptr_t mgmt_lib_hndl;
 
 static struct frr_daemon_info staticd_di;
 /* SIGHUP handler. */
@@ -63,6 +67,11 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+
+	/* Disable BFD events to avoid wasting processing. */
+	bfd_protocol_integration_set_shutdown(true);
+
+	mgmt_be_client_lib_destroy(mgmt_lib_hndl);
 
 	static_vrf_terminate();
 
@@ -97,6 +106,51 @@ struct frr_signal_t static_signals[] = {
 	},
 };
 
+static void static_mgmt_be_client_connect(uintptr_t lib_hndl,
+					  uintptr_t usr_data, bool connected)
+{
+	(void)usr_data;
+
+	assert(lib_hndl == mgmt_lib_hndl);
+
+	zlog_debug("Got %s %s MGMTD Backend Client Server",
+		   connected ? "connected" : "disconnected",
+		   connected ? "to" : "from");
+
+	if (connected)
+		(void)mgmt_be_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
+}
+
+#if 0
+static void
+static_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
+			struct mgmt_be_client_txn_ctx *txn_ctx,
+			bool destroyed)
+{
+	zlog_debug("Got Txn %s Notify from MGMTD server",
+		   destroyed ? "DESTROY" : "CREATE");
+
+	if (!destroyed) {
+		/*
+		 * TODO: Allocate and install a private scratchpad for this
+		 * transaction if required
+		 */
+	} else {
+		/*
+		 * TODO: Uninstall and deallocate the private scratchpad for
+		 * this transaction if installed earlier.
+		 */
+	}
+}
+#endif
+
+static struct mgmt_be_client_params mgmt_params = {
+	.name = "staticd",
+	.conn_retry_intvl_sec = 3,
+	.client_connect_notify = static_mgmt_be_client_connect,
+	.txn_notify = NULL, /* static_mgmt_txn_notify */
+};
+
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -107,6 +161,10 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 
 #define STATIC_VTY_PORT 2616
 
+/*
+ * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
+ * do this for us now
+ */
 FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.proghelp = "Implementation of STATIC.",
@@ -116,7 +174,8 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.privs = &static_privs, .yang_modules = staticd_yang_modules,
 		.n_yang_modules = array_size(staticd_yang_modules),
-);
+
+		.flags = FRR_NO_SPLIT_CONFIG);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -147,14 +206,21 @@ int main(int argc, char **argv, char **envp)
 	static_zebra_init();
 	static_vty_init();
 
+	/* Initialize MGMT backend functionalities */
+	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
+	assert(mgmt_lib_hndl);
+
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
 
 	routing_control_plane_protocols_register_vrf_dependency();
 
-	snprintf(backup_config_file, sizeof(backup_config_file),
-		 "%s/zebra.conf", frr_sysconfdir);
-	staticd_di.backup_config_file = backup_config_file;
+	/*
+	 * We set FRR_NO_SPLIT_CONFIG flag to avoid reading our config, but we
+	 * still need to write one if vtysh tells us to. Setting the host
+	 * config filename does this.
+	 */
+	host_config_set(config_default);
 
 	frr_config_fork();
 	frr_run(master);

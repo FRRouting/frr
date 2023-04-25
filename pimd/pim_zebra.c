@@ -55,6 +55,8 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	vrf_id_t new_vrf_id;
+	struct pim_instance *pim;
+	struct pim_interface *pim_ifp;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
 					      &new_vrf_id);
@@ -65,7 +67,19 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		zlog_debug("%s: %s updating from %u to %u", __func__, ifp->name,
 			   vrf_id, new_vrf_id);
 
+	pim = pim_get_pim_instance(new_vrf_id);
+	if (!pim)
+		return 0;
+
 	if_update_to_new_vrf(ifp, new_vrf_id);
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp)
+		return 0;
+
+	pim_ifp->pim->mcast_if_count--;
+	pim_ifp->pim = pim;
+	pim_ifp->pim->mcast_if_count++;
 
 	return 0;
 }
@@ -257,7 +271,8 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 		struct pim_neighbor *nbr;
 
 		nbr = pim_neighbor_find(old->source_nexthop.interface,
-					old->rpf_addr);
+					old->rpf_addr, true);
+
 		if (nbr)
 			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
@@ -384,9 +399,9 @@ void pim_scan_oil(struct pim_instance *pim)
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 }
 
-static void on_rpf_cache_refresh(struct thread *t)
+static void on_rpf_cache_refresh(struct event *t)
 {
-	struct pim_instance *pim = THREAD_ARG(t);
+	struct pim_instance *pim = EVENT_ARG(t);
 
 	/* update kernel multicast forwarding cache (MFC) */
 	pim_scan_oil(pim);
@@ -416,9 +431,9 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 			   router->rpf_cache_refresh_delay_msec);
 	}
 
-	thread_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
-			      router->rpf_cache_refresh_delay_msec,
-			      &pim->rpf_cache_refresher);
+	event_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
+			     router->rpf_cache_refresh_delay_msec,
+			     &pim->rpf_cache_refresher);
 }
 
 static void pim_zebra_connected(struct zclient *zclient)

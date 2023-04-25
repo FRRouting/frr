@@ -17,7 +17,7 @@
 #include "zclient.h"
 #include "command.h"
 #include "agg_table.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "vrf.h"
 #include "lib_errors.h"
@@ -155,7 +155,7 @@ static int ripng_if_down(struct interface *ifp)
 
 	ri = ifp->info;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 
 	ripng = ri->ripng;
 
@@ -301,7 +301,7 @@ void ripng_interface_clean(struct ripng *ripng)
 		ri->enable_interface = 0;
 		ri->running = 0;
 
-		THREAD_OFF(ri->t_wakeup);
+		EVENT_OFF(ri->t_wakeup);
 	}
 }
 
@@ -586,13 +586,13 @@ int ripng_enable_if_delete(struct ripng *ripng, const char *ifname)
 }
 
 /* Wake up interface. */
-static void ripng_interface_wakeup(struct thread *t)
+static void ripng_interface_wakeup(struct event *t)
 {
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
 	/* Get interface. */
-	ifp = THREAD_ARG(t);
+	ifp = EVENT_ARG(t);
 
 	ri = ifp->info;
 
@@ -698,8 +698,8 @@ void ripng_enable_apply(struct interface *ifp)
 		zlog_info("RIPng INTERFACE ON %s", ifp->name);
 
 		/* Add interface wake up thread. */
-		thread_add_timer(master, ripng_interface_wakeup, ifp, 1,
-				 &ri->t_wakeup);
+		event_add_timer(master, ripng_interface_wakeup, ifp, 1,
+				&ri->t_wakeup);
 
 		ripng_connect_set(ifp, 1);
 	} else {

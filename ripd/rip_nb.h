@@ -52,6 +52,18 @@ int ripd_instance_redistribute_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int ripd_instance_redistribute_metric_modify(struct nb_cb_modify_args *args);
 int ripd_instance_redistribute_metric_destroy(struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_create(
+	struct nb_cb_create_args *args);
+int ripd_instance_if_route_maps_if_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_in_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripd_instance_if_route_maps_if_route_map_in_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_out_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripd_instance_if_route_maps_if_route_map_out_route_map_destroy(
+	struct nb_cb_destroy_args *args);
 int ripd_instance_static_route_create(struct nb_cb_create_args *args);
 int ripd_instance_static_route_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_timers_flush_interval_modify(struct nb_cb_modify_args *args);
@@ -86,6 +98,37 @@ struct yang_data *ripd_instance_state_routes_route_prefix_get_elem(
 struct yang_data *ripd_instance_state_routes_route_next_hop_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
+const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
+	struct nb_cb_get_next_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_nh_type_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_protocol_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_rip_type_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_gateway_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_interface_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_from_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_tag_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_external_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args);

@@ -18,8 +18,7 @@
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
-extern void bgp_zebra_init(struct thread_master *master,
-			   unsigned short instance);
+extern void bgp_zebra_init(struct event_loop *master, unsigned short instance);
 extern void bgp_if_init(void);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
 extern uint32_t bgp_zebra_tm_get_id(void);
@@ -114,7 +113,8 @@ extern void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 extern void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 				afi_t afi, uint32_t table_id, bool announce);
 extern int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable);
-extern int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type);
+extern int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
+			    enum zserv_client_capabilities);
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);

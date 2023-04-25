@@ -131,11 +131,12 @@ DEFUN (no_ip_multicast_mode,
 }
 
 
-DEFUN (show_ip_rpf,
+DEFPY (show_ip_rpf,
        show_ip_rpf_cmd,
-       "show ip rpf [json]",
+       "show [ip$ip|ipv6$ipv6] rpf [json]",
        SHOW_STR
        IP_STR
+       IPV6_STR
        "Display RPF information for multicast source\n"
        JSON_STR)
 {
@@ -144,32 +145,46 @@ DEFUN (show_ip_rpf,
 		.multi = false,
 	};
 
-	return do_show_ip_route(vty, VRF_DEFAULT_NAME, AFI_IP, SAFI_MULTICAST,
-				false, uj, 0, NULL, false, 0, 0, 0, false,
-				&ctx);
+	return do_show_ip_route(vty, VRF_DEFAULT_NAME, ip ? AFI_IP : AFI_IP6,
+				SAFI_MULTICAST, false, uj, 0, NULL, false, 0, 0,
+				0, false, &ctx);
 }
 
-DEFUN (show_ip_rpf_addr,
+DEFPY (show_ip_rpf_addr,
        show_ip_rpf_addr_cmd,
-       "show ip rpf A.B.C.D",
+       "show ip rpf A.B.C.D$address",
        SHOW_STR
        IP_STR
        "Display RPF information for multicast source\n"
        "IP multicast source address (e.g. 10.0.0.0)\n")
 {
-	int idx_ipv4 = 3;
-	struct in_addr addr;
 	struct route_node *rn;
 	struct route_entry *re;
-	int ret;
 
-	ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-	if (ret == 0) {
-		vty_out(vty, "%% Malformed address\n");
-		return CMD_WARNING;
-	}
+	re = rib_match_multicast(AFI_IP, VRF_DEFAULT, (union g_addr *)&address,
+				 &rn);
 
-	re = rib_match_ipv4_multicast(VRF_DEFAULT, addr, &rn);
+	if (re)
+		vty_show_ip_route_detail(vty, rn, 1, false, false);
+	else
+		vty_out(vty, "%% No match for RPF lookup\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_rpf_addr,
+       show_ipv6_rpf_addr_cmd,
+       "show ipv6 rpf X:X::X:X$address",
+       SHOW_STR
+       IPV6_STR
+       "Display RPF information for multicast source\n"
+       "IPv6 multicast source address\n")
+{
+	struct route_node *rn;
+	struct route_entry *re;
+
+	re = rib_match_multicast(AFI_IP6, VRF_DEFAULT, (union g_addr *)&address,
+				 &rn);
 
 	if (re)
 		vty_show_ip_route_detail(vty, rn, 1, false, false);
@@ -551,7 +566,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (re->mtu)
 			vty_out(vty, ", mtu %u", re->mtu);
 		if (re->vrf_id != VRF_DEFAULT) {
-			zvrf = vrf_info_lookup(re->vrf_id);
+			zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 			vty_out(vty, ", vrf %s", zvrf_name(zvrf));
 		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
@@ -1164,12 +1179,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "type",
 				       zebra_route_string(nhe->type));
 		json_object_int_add(json, "refCount", nhe->refcnt);
-		if (thread_is_scheduled(nhe->timer))
+		if (event_is_scheduled(nhe->timer))
 			json_object_string_add(
 				json, "timeToDeletion",
-				thread_timer_to_hhmmss(time_left,
-						       sizeof(time_left),
-						       nhe->timer));
+				event_timer_to_hhmmss(time_left,
+						      sizeof(time_left),
+						      nhe->timer));
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
@@ -1178,11 +1193,11 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
 			zebra_route_string(nhe->type));
 		vty_out(vty, "     RefCnt: %u", nhe->refcnt);
-		if (thread_is_scheduled(nhe->timer))
+		if (event_is_scheduled(nhe->timer))
 			vty_out(vty, " Time to Deletion: %s",
-				thread_timer_to_hhmmss(time_left,
-						       sizeof(time_left),
-						       nhe->timer));
+				event_timer_to_hhmmss(time_left,
+						      sizeof(time_left),
+						      nhe->timer));
 		vty_out(vty, "\n");
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
@@ -2691,7 +2706,7 @@ DEFUN (default_vrf_vni_mapping,
 	struct zebra_vrf *zvrf = NULL;
 	int filter = 0;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (!zvrf)
 		return CMD_WARNING;
 
@@ -2730,7 +2745,7 @@ DEFUN (no_default_vrf_vni_mapping,
 	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 	struct zebra_vrf *zvrf = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (!zvrf)
 		return CMD_WARNING;
 
@@ -4576,6 +4591,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_ip_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);
+	install_element(VIEW_NODE, &show_ipv6_rpf_addr_cmd);
 
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);

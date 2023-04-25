@@ -27,10 +27,10 @@ struct pim_neighbor {
 	uint32_t dr_priority;
 	uint32_t generation_id;
 	struct list *prefix_list; /* list of struct prefix */
-	struct thread *t_expire_timer;
+	struct event *t_expire_timer;
 	struct interface *interface;
 
-	struct thread *jp_timer;
+	struct event *jp_timer;
 	struct list *upstream_jp_agg;
 	struct bfd_session_params *bfd_session;
 };
@@ -38,7 +38,7 @@ struct pim_neighbor {
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);
 void pim_neighbor_free(struct pim_neighbor *neigh);
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
-				       pim_addr source_addr);
+				       pim_addr source_addr, bool secondary);
 struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 						    struct prefix *src);
 struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp);

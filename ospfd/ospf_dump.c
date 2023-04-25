@@ -9,7 +9,7 @@
 #include "lib/bfd.h"
 #include "monotime.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "command.h"
 #include "stream.h"
@@ -133,13 +133,6 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 	return buf;
 }
 
-/* Display only the nbr state.*/
-void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
-{
-	snprintf(buf, size, "%s",
-		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
-}
-
 int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
 {
 	int state;
@@ -242,7 +235,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 	return buf;
 }
 
-const char *ospf_timer_dump(struct thread *t, char *buf, size_t size)
+const char *ospf_timer_dump(struct event *t, char *buf, size_t size)
 {
 	struct timeval result;
 	if (!t)

@@ -171,6 +171,11 @@ static void concat(test_, TYPE)(void)
 
 	ts_hash("init", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
 
+#if !IS_ATOMIC(REALTYPE)
+	assert(!list_member(&head, &itm[0]));
+	assert(!list_member(&head, &itm[1]));
+#endif
+
 #if IS_SORTED(REALTYPE)
 	prng = prng_new(0);
 	k = 0;

@@ -7,13 +7,13 @@
 #define OSPF6D_H
 
 #include "libospf.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 
 DECLARE_MGROUP(OSPF6D);
 
 /* global variables */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Historical for KAME.  */
 #ifndef IPV6_JOIN_GROUP
@@ -109,6 +109,6 @@ extern struct zebra_privs_t ospf6d_privs;
 extern struct route_node *route_prev(struct route_node *node);
 
 extern void ospf6_debug(void);
-extern void ospf6_init(struct thread_master *master);
+extern void ospf6_init(struct event_loop *master);
 
 #endif /* OSPF6D_H */

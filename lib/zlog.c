@@ -48,7 +48,7 @@
 #include "frrcu.h"
 #include "zlog.h"
 #include "libfrr_trace.h"
-#include "thread.h"
+#include "frrevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");
@@ -506,7 +506,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 
 static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 {
-	struct thread *tc = pthread_getspecific(thread_current);
+	struct event *tc = pthread_getspecific(thread_current);
 	const char *uid = xref->xref.xrefdata->uid;
 	bool found_thread = false;
 

@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "command.h"
 #include "vty.h"
@@ -62,7 +62,7 @@ struct zebra_privs_t ospf6d_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {

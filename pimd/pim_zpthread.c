@@ -133,7 +133,7 @@ static void pim_mlag_zebra_check_for_buffer_flush(uint32_t curr_msg_type,
  * Thsi thread reads the clients data from the Gloabl queue and encodes with
  * protobuf and pass on to the MLAG socket.
  */
-static void pim_mlag_zthread_handler(struct thread *event)
+static void pim_mlag_zthread_handler(struct event *event)
 {
 	struct stream *read_s;
 	uint32_t wr_count = 0;
@@ -209,8 +209,8 @@ int pim_mlag_signal_zpthread(void)
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(":%s: Scheduling PIM MLAG write Thread",
 				   __func__);
-		thread_add_event(router->master, pim_mlag_zthread_handler, NULL,
-				 0, &router->zpthread_mlag_write);
+		event_add_event(router->master, pim_mlag_zthread_handler, NULL,
+				0, &router->zpthread_mlag_write);
 	}
 	return (0);
 }

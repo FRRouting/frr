@@ -92,7 +92,7 @@ struct zebra_neigh {
 	/* Duplicate ip detection */
 	uint32_t dad_count;
 
-	struct thread *dad_ip_auto_recovery_timer;
+	struct event *dad_ip_auto_recovery_timer;
 
 	struct timeval detect_start_time;
 
@@ -101,7 +101,7 @@ struct zebra_neigh {
 	time_t uptime;
 
 	/* used for ageing out the PEER_ACTIVE flag */
-	struct thread *hold_timer;
+	struct event *hold_timer;
 };
 
 /*
@@ -158,7 +158,7 @@ static inline void zebra_evpn_neigh_stop_hold_timer(struct zebra_neigh *n)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold stop",
 			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
-	THREAD_OFF(n->hold_timer);
+	EVENT_OFF(n->hold_timer);
 }
 
 void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,

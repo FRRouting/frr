@@ -6,7 +6,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -26,7 +26,7 @@
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Privs info */
 extern struct zebra_privs_t sharp_privs;
@@ -790,7 +790,7 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 		   zclient->session_id, info.type);
 
 	if (info.type == LINK_STATE_UPDATE) {
-		lse = ls_stream2ted(sg.ted, s, false);
+		lse = ls_stream2ted(sg.ted, s, true);
 		if (lse) {
 			zlog_debug(" |- Got %s %s from Link State Database",
 				   status2txt[lse->status],

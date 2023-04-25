@@ -140,7 +140,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
  *    sizeof(*pkt)
  *
  * ip
- *    IP address that pkt will be transmitted from and too.
+ *    IP address that pkt will be transmitted from and to.
  *
  * Returns:
  *    Checksum in network byte order.
@@ -481,12 +481,6 @@ ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 
 	*ttl = ip->ttl;
 	if (*ttl != 254) {
-		/* Echo should be looped in peer's forwarding plane, but it also
-		 * comes up to BFD so silently drop it
-		 */
-		if (ip->daddr == ip->saddr)
-			return -1;
-
 		if (bglobal.debug_network)
 			zlog_debug("%s: invalid TTL: %u", __func__, *ttl);
 		return -1;
@@ -707,29 +701,29 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 {
 	if (sd == bvrf->bg_shop) {
-		THREAD_OFF(bvrf->bg_ev[0]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-				&bvrf->bg_ev[0]);
+		EVENT_OFF(bvrf->bg_ev[0]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+			       &bvrf->bg_ev[0]);
 	} else if (sd == bvrf->bg_mhop) {
-		THREAD_OFF(bvrf->bg_ev[1]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-				&bvrf->bg_ev[1]);
+		EVENT_OFF(bvrf->bg_ev[1]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+			       &bvrf->bg_ev[1]);
 	} else if (sd == bvrf->bg_shop6) {
-		THREAD_OFF(bvrf->bg_ev[2]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-				&bvrf->bg_ev[2]);
+		EVENT_OFF(bvrf->bg_ev[2]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+			       &bvrf->bg_ev[2]);
 	} else if (sd == bvrf->bg_mhop6) {
-		THREAD_OFF(bvrf->bg_ev[3]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-				&bvrf->bg_ev[3]);
+		EVENT_OFF(bvrf->bg_ev[3]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+			       &bvrf->bg_ev[3]);
 	} else if (sd == bvrf->bg_echo) {
-		THREAD_OFF(bvrf->bg_ev[4]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-				&bvrf->bg_ev[4]);
+		EVENT_OFF(bvrf->bg_ev[4]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+			       &bvrf->bg_ev[4]);
 	} else if (sd == bvrf->bg_echov6) {
-		THREAD_OFF(bvrf->bg_ev[5]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-				&bvrf->bg_ev[5]);
+		EVENT_OFF(bvrf->bg_ev[5]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+			       &bvrf->bg_ev[5]);
 	}
 }
 
@@ -774,9 +768,9 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
-void bfd_recv_cb(struct thread *t)
+void bfd_recv_cb(struct event *t)
 {
-	int sd = THREAD_FD(t);
+	int sd = EVENT_FD(t);
 	struct bfd_session *bfd;
 	struct bfd_pkt *cp;
 	bool is_mhop;
@@ -787,7 +781,7 @@ void bfd_recv_cb(struct thread *t)
 	struct sockaddr_any local, peer;
 	uint8_t msgbuf[1516];
 	struct interface *ifp = NULL;
-	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
+	struct bfd_vrf_global *bvrf = EVENT_ARG(t);
 
 	/* Schedule next read. */
 	bfd_sd_reschedule(bvrf, sd);

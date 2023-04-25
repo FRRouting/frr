@@ -250,6 +250,23 @@ void yang_snode_get_path(const struct lysc_node *snode,
 	}
 }
 
+struct lysc_node *yang_find_snode(struct ly_ctx *ly_ctx, const char *xpath,
+				  uint32_t options)
+{
+	struct lysc_node *snode;
+	struct ly_set *set;
+	LY_ERR err;
+
+	err = lys_find_xpath(ly_native_ctx, NULL, xpath, options, &set);
+	if (err || !set->count)
+		return NULL;
+
+	snode = set->snodes[0];
+	ly_set_free(set, NULL);
+
+	return snode;
+}
+
 struct lysc_node *yang_snode_real_parent(const struct lysc_node *snode)
 {
 	struct lysc_node *parent = snode->parent;
@@ -395,7 +412,12 @@ struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
 		xpath += 2;
 
 	if (lyd_find_xpath(dnode, xpath, &set)) {
-		assert(0); /* XXX replicates old libyang1 base code */
+		/*
+		 * Commenting out the below assert failure as it crashes mgmtd
+		 * when bad xpath is passed.
+		 *
+		 * assert(0);  XXX replicates old libyang1 base code
+		 */
 		goto exit;
 	}
 	if (set->count == 0)

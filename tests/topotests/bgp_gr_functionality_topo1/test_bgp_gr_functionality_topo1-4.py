@@ -763,6 +763,9 @@ def test_BGP_GR_TC_46_p1(request):
             tc_name, result
         )
 
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
     write_test_footer(tc_name)
 
 
@@ -1022,6 +1025,9 @@ def test_BGP_GR_TC_47_p1(request):
         ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
+
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
 
     write_test_footer(tc_name)
 
@@ -1299,6 +1305,9 @@ def test_BGP_GR_TC_48_p1(request):
         ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
+
+    # restart the daemon or we get warnings in the follow-on tests
+    start_router_daemons(tgen, "r1", ["bgpd"])
 
     write_test_footer(tc_name)
 

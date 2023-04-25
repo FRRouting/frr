@@ -13,7 +13,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -887,7 +887,7 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 	struct zebra_lsp *lsp;
 	struct zebra_nhlfe *oldbest, *newbest;
 	char buf[BUFSIZ], buf2[BUFSIZ];
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	enum zebra_dplane_result res;
 
 	lsp = (struct zebra_lsp *)data;
@@ -1028,7 +1028,7 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 	if (zebra_router_in_shutdown())
 		return;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	assert(zvrf);
 
 	lsp_table = zvrf->lsp_table;
@@ -1776,7 +1776,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 		/* Look for zebra LSP object */
-		zvrf = vrf_info_lookup(VRF_DEFAULT);
+		zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 		if (zvrf == NULL)
 			break;
 
@@ -2092,7 +2092,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_in_label(ctx));
 
 	/* Look for zebra LSP object */
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (zvrf == NULL)
 		return;
 
@@ -2467,7 +2467,7 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
  */
 static int zebra_mpls_cleanup_fecs_for_client(struct zserv *client)
 {
-	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	struct route_node *rn;
 	struct zebra_fec *fec;
 	struct listnode *node;
@@ -3730,14 +3730,20 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
-	if (!lsp_table)
+	if (!lsp_table) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	/* If entry is not present, exit. */
 	tmp_ile.in_label = label;
 	lsp = hash_lookup(lsp_table, &tmp_ile);
-	if (!lsp)
+	if (!lsp) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	if (use_json) {
 		json = lsp_json(lsp);
@@ -4052,10 +4058,8 @@ static void lsp_table_free(void *p)
 void zebra_mpls_close_tables(struct zebra_vrf *zvrf)
 {
 	hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
-	hash_clean(zvrf->lsp_table, lsp_table_free);
-	hash_free(zvrf->lsp_table);
-	hash_clean(zvrf->slsp_table, lsp_table_free);
-	hash_free(zvrf->slsp_table);
+	hash_clean_and_free(&zvrf->lsp_table, lsp_table_free);
+	hash_clean_and_free(&zvrf->slsp_table, lsp_table_free);
 	route_table_finish(zvrf->fec_table[AFI_IP]);
 	route_table_finish(zvrf->fec_table[AFI_IP6]);
 }

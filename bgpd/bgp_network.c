@@ -5,7 +5,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "sockunion.h"
 #include "sockopt.h"
 #include "memory.h"
@@ -338,12 +338,12 @@ static void bgp_socket_set_buffer_size(const int fd)
 }
 
 /* Accept bgp connection. */
-static void bgp_accept(struct thread *thread)
+static void bgp_accept(struct event *thread)
 {
 	int bgp_sock;
 	int accept_sock;
 	union sockunion su;
-	struct bgp_listener *listener = THREAD_ARG(thread);
+	struct bgp_listener *listener = EVENT_ARG(thread);
 	struct peer *peer;
 	struct peer *peer1;
 	char buf[SU_ADDRSTRLEN];
@@ -354,7 +354,7 @@ static void bgp_accept(struct thread *thread)
 	bgp = bgp_lookup_by_name(listener->name);
 
 	/* Register accept thread. */
-	accept_sock = THREAD_FD(thread);
+	accept_sock = EVENT_FD(thread);
 	if (accept_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "[Error] BGP accept socket fd is negative: %d",
@@ -362,8 +362,8 @@ static void bgp_accept(struct thread *thread)
 		return;
 	}
 
-	thread_add_read(bm->master, bgp_accept, listener, accept_sock,
-			&listener->thread);
+	event_add_read(bm->master, bgp_accept, listener, accept_sock,
+		       &listener->thread);
 
 	/* Accept client connection. */
 	bgp_sock = sockunion_accept(accept_sock, &su);
@@ -391,7 +391,7 @@ static void bgp_accept(struct thread *thread)
 				"[Error] accept() failed with error \"%s\" on BGP listener socket %d for BGP instance in VRF \"%s\"; refreshing socket",
 				safe_strerror(save_errno), accept_sock,
 				VRF_LOGNAME(vrf));
-			THREAD_OFF(listener->thread);
+			EVENT_OFF(listener->thread);
 		} else {
 			flog_err_sys(
 				EC_LIB_SOCKET,
@@ -436,7 +436,7 @@ static void bgp_accept(struct thread *thread)
 				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
 
 			bgp_fsm_change_status(peer1, Active);
-			THREAD_OFF(
+			EVENT_OFF(
 				peer1->t_start); /* created in peer_create() */
 
 			if (peer_active(peer1)) {
@@ -506,10 +506,16 @@ static void bgp_accept(struct thread *thread)
 	 * is shutdown.
 	 */
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
-				peer1->host);
+		if (bgp_debug_neighbor_events(peer1)) {
+			if (peer1->shut_during_cfg)
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to configuration being currently read in",
+					peer1->host);
+			else
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
+					peer1->host);
+		}
 		close(bgp_sock);
 		return;
 	}
@@ -538,7 +544,7 @@ static void bgp_accept(struct thread *thread)
 				peer1->host);
 
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
-			   peer1->as, peer1->as_type, NULL, false);
+			   peer1->as, peer1->as_type, NULL, false, NULL);
 
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
@@ -563,7 +569,7 @@ static void bgp_accept(struct thread *thread)
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
-	THREAD_OFF(peer->t_start); /* created in peer_create() */
+	EVENT_OFF(peer->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
@@ -753,6 +759,9 @@ int bgp_connect(struct peer *peer)
 					     ? IPV4_MAX_BITLEN
 					     : IPV6_MAX_BITLEN;
 
+		if (!BGP_PEER_SU_UNSPEC(peer))
+			bgp_md5_set(peer);
+
 		bgp_md5_set_connect(peer->fd, &peer->su, prefixlen,
 				    peer->password);
 	}
@@ -799,9 +808,12 @@ int bgp_getsockname(struct peer *peer)
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
-		flog_err(EC_BGP_NH_UPD,
-			 "%s: nexthop_set failed, resetting connection - intf %p",
-			 peer->host, peer->nexthop.ifp);
+		flog_err(
+			EC_BGP_NH_UPD,
+			"%s: nexthop_set failed, resetting connection - intf %s",
+			peer->host,
+			peer->nexthop.ifp ? peer->nexthop.ifp->name
+					  : "(Unknown)");
 		return -1;
 	}
 	return 0;
@@ -852,8 +864,8 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
-	thread_add_read(bm->master, bgp_accept, listener, sock,
-			&listener->thread);
+	event_add_read(bm->master, bgp_accept, listener, sock,
+		       &listener->thread);
 	listnode_add(bm->listen_sockets, listener);
 
 	return 0;
@@ -952,7 +964,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp == bgp) {
-			THREAD_OFF(listener->thread);
+			EVENT_OFF(listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
 			XFREE(MTYPE_BGP_LISTENER, listener->name);
@@ -974,7 +986,7 @@ void bgp_close(void)
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp)
 			continue;
-		THREAD_OFF(listener->thread);
+		EVENT_OFF(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
 		XFREE(MTYPE_BGP_LISTENER, listener->name);

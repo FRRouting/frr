@@ -11,7 +11,7 @@
 #include "prefix.h"
 #include "nexthop.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vrf.h"
 #include "zclient.h"
 #include "frr_pthread.h"
@@ -28,9 +28,9 @@ static size_t lp_ctr, lp_expect;
 static struct rusage lp_rusage;
 static struct vty *lp_vty;
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
-static void logpump_done(struct thread *thread)
+static void logpump_done(struct event *thread)
 {
 	double x;
 
@@ -105,7 +105,7 @@ static void *logpump_run(void *arg)
 	getrusage(RUSAGE_SELF, &lp_rusage);
 #endif
 
-	thread_add_timer_msec(master, logpump_done, NULL, 0, NULL);
+	event_add_timer_msec(master, logpump_done, NULL, 0, NULL);
 	return NULL;
 }
 

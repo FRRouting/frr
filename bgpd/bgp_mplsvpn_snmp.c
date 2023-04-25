@@ -12,7 +12,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "smux.h"
 #include "filter.h"
 #include "hook.h"
@@ -942,11 +942,13 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		if (CHECK_FLAG(l3vpn_bgp->vpn_policy[AFI_IP].flags,
 			       BGP_VPN_POLICY_TOVPN_RD_SET))
 			prefix_rd2str(&l3vpn_bgp->vpn_policy[AFI_IP].tovpn_rd,
-				      rd_buf, sizeof(rd_buf));
+				      rd_buf, sizeof(rd_buf),
+				      bgp_get_asnotation(l3vpn_bgp));
 		else if (CHECK_FLAG(l3vpn_bgp->vpn_policy[AFI_IP6].flags,
 				    BGP_VPN_POLICY_TOVPN_RD_SET))
 			prefix_rd2str(&l3vpn_bgp->vpn_policy[AFI_IP6].tovpn_rd,
-				      rd_buf, sizeof(rd_buf));
+				      rd_buf, sizeof(rd_buf),
+				      bgp_get_asnotation(l3vpn_bgp));
 
 		*var_len = strnlen(rd_buf, RD_ADDRSTRLEN);
 		return (uint8_t *)rd_buf;
@@ -1122,7 +1124,8 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 	struct bgp *l3vpn_bgp;
 	uint32_t rt_index = 0;
 	uint8_t rt_type = 0;
-	char *rt_b;
+	char *rt_b = NULL;
+	static char rt_b_str[BUFSIZ] = {};
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1154,14 +1157,16 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 				ECOMMUNITY_ROUTE_TARGET);
 			break;
 		default:
-			rt_b = NULL;
 			break;
 		}
-		if (rt_b)
+		if (rt_b) {
 			*var_len = strnlen(rt_b, ECOMMUNITY_STRLEN);
-		else
+			strlcpy(rt_b_str, rt_b, sizeof(rt_b_str));
+			XFREE(MTYPE_ECOMMUNITY_STR, rt_b);
+		} else {
 			*var_len = 0;
-		return (uint8_t *)rt_b;
+		}
+		return (uint8_t *)rt_b_str;
 	case MPLSL3VPNVRFRTDESCR:
 		/* since we dont have a description generate one */
 		memset(rt_description, 0, VRF_NAMSIZ + RT_PREAMBLE_SIZE);
@@ -1622,6 +1627,7 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 			}
 		} else
 			return SNMP_INTEGER(MPLSL3VPNVRFRTECIDRTYPEOTHER);
+		break;
 	case MPLSL3VPNVRFRTEINETCIDRPROTO:
 		switch (pi->type) {
 		case ZEBRA_ROUTE_CONNECT:

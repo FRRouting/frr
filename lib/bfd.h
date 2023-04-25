@@ -348,7 +348,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  * Initializes the BFD integration library. This function executes the
  * following actions:
  *
- * - Copy the `struct thread_master` pointer to use as "thread" to execute
+ * - Copy the `struct event_loop` pointer to use as "thread" to execute
  *   the BFD session parameters installation.
  * - Copy the `struct zclient` pointer to install its callbacks.
  * - Initializes internal data structures.
@@ -356,8 +356,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  * \param tm normally the daemon main thread event manager.
  * \param zc the zebra client of the daemon.
  */
-void bfd_protocol_integration_init(struct zclient *zc,
-				   struct thread_master *tm);
+void bfd_protocol_integration_init(struct zclient *zc, struct event_loop *tm);
 
 /**
  * BFD session registration arguments.

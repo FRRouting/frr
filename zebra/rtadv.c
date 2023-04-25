@@ -9,7 +9,7 @@
 
 #include "memory.h"
 #include "sockopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "if.h"
 #include "stream.h"
 #include "log.h"
@@ -475,9 +475,9 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
-static void rtadv_timer(struct thread *thread)
+static void rtadv_timer(struct event *thread)
 {
-	struct zebra_vrf *zvrf = THREAD_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(thread);
 	struct vrf *vrf;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -817,7 +817,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	return;
 }
 
-static void rtadv_read(struct thread *thread)
+static void rtadv_read(struct event *thread)
 {
 	int sock;
 	int len;
@@ -825,9 +825,9 @@ static void rtadv_read(struct thread *thread)
 	struct sockaddr_in6 from;
 	ifindex_t ifindex = 0;
 	int hoplimit = -1;
-	struct zebra_vrf *zvrf = THREAD_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(thread);
 
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 	zvrf->rtadv.ra_read = NULL;
 
 	/* Register myself. */
@@ -2800,26 +2800,26 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 
 	switch (event) {
 	case RTADV_START:
-		thread_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
-				&rtadv->ra_read);
-		thread_add_event(zrouter.master, rtadv_timer, zvrf, 0,
-				 &rtadv->ra_timer);
+		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
+			       &rtadv->ra_read);
+		event_add_event(zrouter.master, rtadv_timer, zvrf, 0,
+				&rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
-		THREAD_OFF(rtadv->ra_timer);
-		THREAD_OFF(rtadv->ra_read);
+		EVENT_OFF(rtadv->ra_timer);
+		EVENT_OFF(rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
-		thread_add_timer(zrouter.master, rtadv_timer, zvrf, val,
-				 &rtadv->ra_timer);
+		event_add_timer(zrouter.master, rtadv_timer, zvrf, val,
+				&rtadv->ra_timer);
 		break;
 	case RTADV_TIMER_MSEC:
-		thread_add_timer_msec(zrouter.master, rtadv_timer, zvrf, val,
-				      &rtadv->ra_timer);
+		event_add_timer_msec(zrouter.master, rtadv_timer, zvrf, val,
+				     &rtadv->ra_timer);
 		break;
 	case RTADV_READ:
-		thread_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
-				&rtadv->ra_read);
+		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
+			       &rtadv->ra_read);
 		break;
 	default:
 		break;

@@ -19,6 +19,7 @@ vtysh_daemons += fabricd
 endif
 
 noinst_HEADERS += \
+	isisd/isis_affinitymap.h \
 	isisd/isis_adjacency.h \
 	isisd/isis_bfd.h \
 	isisd/isis_circuit.h \
@@ -45,6 +46,7 @@ noinst_HEADERS += \
 	isisd/isis_spf.h \
 	isisd/isis_spf_private.h \
 	isisd/isis_sr.h \
+	isisd/isis_flex_algo.h \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_tx_queue.h \
@@ -55,6 +57,7 @@ noinst_HEADERS += \
 	# end
 
 LIBISIS_SOURCES = \
+	isisd/isis_affinitymap.c \
 	isisd/isis_adjacency.c \
 	isisd/isis_bfd.c \
 	isisd/isis_circuit.c \
@@ -76,6 +79,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_routemap.c \
 	isisd/isis_spf.c \
 	isisd/isis_sr.c \
+	isisd/isis_flex_algo.c \
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \

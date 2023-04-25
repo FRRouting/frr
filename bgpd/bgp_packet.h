@@ -42,37 +42,39 @@ DECLARE_HOOK(bgp_packet_send,
 	} while (0)
 
 /* Packet send and receive function prototypes. */
-extern void bgp_keepalive_send(struct peer *);
-extern void bgp_open_send(struct peer *);
-extern void bgp_notify_send(struct peer *, uint8_t, uint8_t);
-extern void bgp_notify_send_with_data(struct peer *, uint8_t, uint8_t,
-				      uint8_t *, size_t);
+extern void bgp_keepalive_send(struct peer *peer);
+extern void bgp_open_send(struct peer *peer);
+extern void bgp_notify_send(struct peer *peer, uint8_t code, uint8_t sub_code);
+extern void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
+				      uint8_t sub_code, uint8_t *data,
+				      size_t datalen);
 void bgp_notify_io_invalid(struct peer *peer, uint8_t code, uint8_t sub_code,
 			   uint8_t *data, size_t datalen);
 extern void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 				   uint8_t orf_type, uint8_t when_to_refresh,
 				   int remove, uint8_t subtype);
-extern void bgp_capability_send(struct peer *, afi_t, safi_t, int, int);
+extern void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
+				int capabilty_code, int action);
 
-extern int bgp_capability_receive(struct peer *, bgp_size_t);
+extern int bgp_capability_receive(struct peer *peer, bgp_size_t length);
 
-extern int bgp_nlri_parse(struct peer *, struct attr *, struct bgp_nlri *,
-			  int mp_withdraw);
+extern int bgp_nlri_parse(struct peer *peer, struct attr *attr,
+			  struct bgp_nlri *nlri, bool mp_withdraw);
 
-extern void bgp_update_restarted_peers(struct peer *);
-extern void bgp_update_implicit_eors(struct peer *);
-extern void bgp_check_update_delay(struct bgp *);
+extern void bgp_update_restarted_peers(struct peer *peer);
+extern void bgp_update_implicit_eors(struct peer *peer);
+extern void bgp_check_update_delay(struct bgp *peer);
 
 extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
 extern void bgp_packet_set_size(struct stream *s);
 
-extern void bgp_generate_updgrp_packets(struct thread *);
-extern void bgp_process_packet(struct thread *);
+extern void bgp_generate_updgrp_packets(struct event *event);
+extern void bgp_process_packet(struct event *event);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
 
 /* Task callback to handle socket error encountered in the io pthread */
-void bgp_packet_process_error(struct thread *thread);
+void bgp_packet_process_error(struct event *thread);
 extern struct bgp_notify
 bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify);
 extern bool bgp_has_graceful_restart_notification(struct peer *peer);

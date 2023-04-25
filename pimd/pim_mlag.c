@@ -921,7 +921,7 @@ int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static void pim_mlag_register_handler(struct thread *thread)
+static void pim_mlag_register_handler(struct event *thread)
 {
 	uint32_t bit_mask = 0;
 
@@ -952,11 +952,11 @@ void pim_mlag_register(void)
 
 	router->mlag_process_register = true;
 
-	thread_add_event(router->master, pim_mlag_register_handler, NULL, 0,
-			 NULL);
+	event_add_event(router->master, pim_mlag_register_handler, NULL, 0,
+			NULL);
 }
 
-static void pim_mlag_deregister_handler(struct thread *thread)
+static void pim_mlag_deregister_handler(struct event *thread)
 {
 	if (!zclient)
 		return;
@@ -980,8 +980,8 @@ void pim_mlag_deregister(void)
 
 	router->mlag_process_register = false;
 
-	thread_add_event(router->master, pim_mlag_deregister_handler, NULL, 0,
-			 NULL);
+	event_add_event(router->master, pim_mlag_deregister_handler, NULL, 0,
+			NULL);
 }
 
 void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)

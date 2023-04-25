@@ -33,10 +33,10 @@
 #include "frrscript.h"
 #include "systemd.h"
 
-DEFINE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
+DEFINE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
@@ -696,8 +696,8 @@ static void _err_print(const void *cookie, const char *errstr)
 	fprintf(stderr, "%s: %s\n", prefix, errstr);
 }
 
-static struct thread_master *master;
-struct thread_master *frr_init(void)
+static struct event_loop *master;
+struct event_loop *frr_init(void)
 {
 	struct option_chain *oc;
 	struct log_arg *log_arg;
@@ -769,7 +769,7 @@ struct thread_master *frr_init(void)
 
 	zprivs_init(di->privs);
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
 	hook_call(frr_early_init, master);
 
@@ -964,7 +964,7 @@ static void frr_daemonize(void)
  * to read the config in after thread execution starts, so that
  * we can match this behavior.
  */
-static void frr_config_read_in(struct thread *t)
+static void frr_config_read_in(struct event *t)
 {
 	hook_call(frr_config_pre, master);
 
@@ -992,7 +992,7 @@ static void frr_config_read_in(struct thread *t)
 		int ret;
 
 		context.client = NB_CLIENT_CLI;
-		ret = nb_candidate_commit(&context, vty_shared_candidate_config,
+		ret = nb_candidate_commit(context, vty_shared_candidate_config,
 					  true, "Read configuration file", NULL,
 					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
@@ -1015,8 +1015,8 @@ void frr_config_fork(void)
 			exit(0);
 		}
 
-		thread_add_event(master, frr_config_read_in, NULL, 0,
-				 &di->read_in);
+		event_add_event(master, frr_config_read_in, NULL, 0,
+				&di->read_in);
 	}
 
 	if (di->daemon_mode || di->terminal)
@@ -1095,9 +1095,9 @@ static void frr_terminal_close(int isexit)
 	}
 }
 
-static struct thread *daemon_ctl_thread = NULL;
+static struct event *daemon_ctl_thread = NULL;
 
-static void frr_daemon_ctl(struct thread *t)
+static void frr_daemon_ctl(struct event *t)
 {
 	char buf[1];
 	ssize_t nr;
@@ -1129,8 +1129,8 @@ static void frr_daemon_ctl(struct thread *t)
 	}
 
 out:
-	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
-			&daemon_ctl_thread);
+	event_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
+		       &daemon_ctl_thread);
 }
 
 void frr_detach(void)
@@ -1139,7 +1139,7 @@ void frr_detach(void)
 	frr_check_detach();
 }
 
-void frr_run(struct thread_master *master)
+void frr_run(struct event_loop *master)
 {
 	char instanceinfo[64] = "";
 
@@ -1158,8 +1158,8 @@ void frr_run(struct thread_master *master)
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
-			thread_add_read(master, frr_daemon_ctl, NULL,
-					daemon_ctl_sock, &daemon_ctl_thread);
+			event_add_read(master, frr_daemon_ctl, NULL,
+				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
@@ -1180,9 +1180,9 @@ void frr_run(struct thread_master *master)
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
 
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	struct event thread;
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 }
 
 void frr_early_fini(void)
@@ -1213,7 +1213,7 @@ void frr_fini(void)
 	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
-	thread_master_free(master);
+	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
 	zlog_fini();

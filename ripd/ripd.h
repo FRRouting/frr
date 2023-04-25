@@ -117,15 +117,15 @@ struct rip {
 	struct list *peer_list;
 
 	/* RIP threads. */
-	struct thread *t_read;
+	struct event *t_read;
 
 	/* Update and garbage timer. */
-	struct thread *t_update;
+	struct event *t_update;
 
 	/* Triggered update hack. */
 	int trigger;
-	struct thread *t_triggered_update;
-	struct thread *t_triggered_interval;
+	struct event *t_triggered_update;
+	struct event *t_triggered_interval;
 
 	/* RIP timer values. */
 	uint32_t update_time;
@@ -239,8 +239,8 @@ struct rip_info {
 	uint8_t flags;
 
 	/* Garbage collect timer. */
-	struct thread *t_timeout;
-	struct thread *t_garbage_collect;
+	struct event *t_timeout;
+	struct event *t_garbage_collect;
 
 	/* Route-map futures - this variables can be changed. */
 	struct in_addr nexthop_out;
@@ -309,7 +309,7 @@ struct rip_interface {
 	struct route_map *routemap[RIP_FILTER_MAX];
 
 	/* Wake up thread. */
-	struct thread *t_wakeup;
+	struct event *t_wakeup;
 
 	/* Interface statistics. */
 	int recv_badpackets;
@@ -342,7 +342,7 @@ struct rip_peer {
 	int recv_badroutes;
 
 	/* Timeout thread. */
-	struct thread *t_timeout;
+	struct event *t_timeout;
 };
 
 struct rip_distance {
@@ -387,7 +387,7 @@ enum rip_event {
 };
 
 /* Macro for timer turn on. */
-#define RIP_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
+#define RIP_TIMER_ON(T, F, V) event_add_timer(master, (F), rinfo, (V), &(T))
 
 #define RIP_OFFSET_LIST_IN  0
 #define RIP_OFFSET_LIST_OUT 1
@@ -418,7 +418,7 @@ extern void rip_if_init(void);
 extern void rip_route_map_init(void);
 extern void rip_zebra_vrf_register(struct vrf *vrf);
 extern void rip_zebra_vrf_deregister(struct vrf *vrf);
-extern void rip_zclient_init(struct thread_master *);
+extern void rip_zclient_init(struct event_loop *e);
 extern void rip_zclient_stop(void);
 extern int if_check_address(struct rip *rip, struct in_addr addr);
 extern struct rip *rip_lookup_by_vrf_id(vrf_id_t vrf_id);
@@ -509,7 +509,7 @@ extern struct zebra_privs_t ripd_privs;
 extern struct rip_instance_head rip_instances;
 
 /* Master thread structure. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));

@@ -28,6 +28,9 @@ struct bgp;
 	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
 		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 
+#define BGP_SELF_ORIG_CMD_STR       "self-originate"
+#define BGP_SELF_ORIG_HELP_STR      "Display only self-originated routes\n"
+
 #define SHOW_GR_HEADER \
 	"Codes: GR - Graceful Restart," \
 	" * -  Inheriting Global GR Config,\n" \
@@ -135,7 +138,8 @@ extern void bgp_vty_init(void);
 extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 extern int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
-		       enum bgp_instance_type inst_type);
+		       enum bgp_instance_type inst_type, const char *as_pretty,
+		       enum asnotation_mode asnotation);
 extern void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);

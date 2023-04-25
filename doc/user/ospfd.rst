@@ -310,6 +310,18 @@ To start OSPF process you have to specify the OSPF router.
    of packets to process before returning. The defult value of this parameter
    is 20.
 
+.. clicmd:: socket buffer <send | recv | all> (1-4000000000)
+
+   This command controls the ospf instance's socket buffer sizes. The
+   'no' form resets one or both values to the default.
+   
+.. clicmd:: no socket-per-interface
+
+   Ordinarily, ospfd uses a socket per interface for sending
+   packets. This command disables those per-interface sockets, and
+   causes ospfd to use a single socket per ospf instance for sending
+   and receiving packets.
+
 .. _ospf-area:
 
 Areas
@@ -325,7 +337,6 @@ Areas
    announced to other areas. This command can be used only in ABR and ONLY
    router-LSAs (Type-1) and network-LSAs (Type-2) (i.e. LSAs with scope area) can
    be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
-   Summarizing Type-7 AS-external-LSAs isn't supported yet by FRR.
 
    .. code-block:: frr
 
@@ -430,6 +441,31 @@ Areas
     area for this command to take effect. This feature causes routers that are
     configured not to advertise forwarding addresses into the backbone to direct
     forwarded traffic to the NSSA ABR translator.
+
+.. clicmd:: area A.B.C.D nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+.. clicmd:: area (0-4294967295) nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+   NSSA ABRs and ASBRs can be configured with the `default-information-originate`
+   option to originate a Type-7 default route into the NSSA area. In the case
+   of NSSA ASBRs, the origination of the default route is conditioned to the
+   existence of a default route in the RIB that wasn't learned via the OSPF
+   protocol.
+
+.. clicmd:: area A.B.C.D nssa range A.B.C.D/M [<not-advertise|cost (0-16777215)>]
+
+.. clicmd:: area (0-4294967295) nssa range A.B.C.D/M [<not-advertise|cost (0-16777215)>]
+
+    Summarize a group of external subnets into a single Type-7 LSA, which is
+    then translated to a Type-5 LSA and avertised to the backbone.
+    This command can only be used at the area boundary (NSSA ABR router).
+
+    By default, the metric of the summary route is calculated as the highest
+    metric among the summarized routes. The `cost` option, however, can be used
+    to set an explicit metric.
+
+    The `not-advertise` option, when present, prevents the summary route from
+    being advertised, effectively filtering the summarized routes.
 
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
@@ -794,37 +830,35 @@ Showing Information
 
 .. clicmd:: show ip ospf neighbor [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE [json]
 
 .. clicmd:: show ip ospf neighbor detail [json]
 
-.. clicmd:: show ip ospf neighbor A.B.C.D [detail] [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor A.B.C.D [detail] [json]
 
-.. clicmd:: show ip ospf neighbor INTERFACE detail [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] neighbor INTERFACE detail [json]
 
    Display lsa information of LSDB.
    Json o/p of this command covers base route information
    i.e all LSAs except opaque lsa info.
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] database [self-originate] [json]
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID adv-router ADV-ROUTER [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) adv-router ADV-ROUTER [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) LINK-STATE-ID self-originate [json]
-
-.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary) self-originate [json]
+   Show the OSPF database summary.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] database max-age [json]
 
-.. clicmd:: show ip ospf [vrf <NAME|all>] database self-originate [json]
+   Show all MaxAge LSAs present in the OSPF link-state database.
 
-   Show the OSPF database summary.
+.. clicmd:: show ip ospf [vrf <NAME|all>] database detail [LINK-STATE-ID] [adv-router A.B.C.D] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database detail [LINK-STATE-ID] [self-originate] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) [LINK-STATE-ID] [adv-router A.B.C.D] [json]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) [LINK-STATE-ID] [self-originate] [json]
+
+   Show detailed information about the OSPF link-state database.
 
 .. clicmd:: show ip ospf route [json]
 

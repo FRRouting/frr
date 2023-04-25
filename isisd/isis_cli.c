@@ -23,6 +23,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"
+#include "isisd/isis_flex_algo.h"
 
 #include "isisd/isis_cli_clippy.c"
 
@@ -437,6 +438,29 @@ void cli_show_isis_overload_on_startup(struct vty *vty,
 {
 	vty_out(vty, " set-overload-bit on-startup %s\n",
 		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/advertise-high-metrics
+ */
+DEFPY_YANG(advertise_high_metrics, advertise_high_metrics_cmd,
+	   "[no] advertise-high-metrics",
+	   NO_STR "Advertise high metric value on all interfaces\n")
+{
+	nb_cli_enqueue_change(vty, "./advertise-high-metrics", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_advertise_high_metrics(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " advertise-high-metrics\n");
+	else if (show_defaults)
+		vty_out(vty, " no advertise-high-metrics\n");
 }
 
 /*
@@ -892,6 +916,29 @@ void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/advertise-passive-only
+ */
+DEFPY_YANG(advertise_passive_only, advertise_passive_only_cmd,
+	   "[no] advertise-passive-only",
+	   NO_STR "Advertise prefixes of passive interfaces only\n")
+{
+	nb_cli_enqueue_change(vty, "./advertise-passive-only", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_advertise_passive_only(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " advertise-passive-only\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/spf/minimum-interval
  */
 DEFPY_YANG(spf_interval, spf_interval_cmd,
@@ -1078,6 +1125,53 @@ void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode,
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
 	vty_out(vty, " purge-originator\n");
+}
+
+
+/*
+ * XPath: /frr-isisd:isis/instance/admin-group-send-zero
+ */
+DEFPY_YANG(isis_admin_group_send_zero, isis_admin_group_send_zero_cmd,
+	   "[no] admin-group-send-zero",
+	   NO_STR
+	   "Allow sending the default admin-group value of 0x00000000.\n")
+{
+	nb_cli_enqueue_change(vty, "./admin-group-send-zero", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_admin_group_send_zero(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " admin-group-send-zero\n");
+}
+
+
+/*
+ * XPath: /frr-isisd:isis/instance/asla-legacy-flag
+ */
+DEFPY_HIDDEN(isis_asla_legacy_flag, isis_asla_legacy_flag_cmd,
+	     "[no] asla-legacy-flag",
+	     NO_STR "Set the legacy flag (aka. L-FLAG) in the ASLA Sub-TLV.\n")
+{
+	nb_cli_enqueue_change(vty, "./asla-legacy-flag", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_asla_legacy_flag(struct vty *vty,
+				    const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " asla-legacy-flag\n");
 }
 
 /*
@@ -1723,6 +1817,122 @@ void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+#ifndef FABRICD
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid
+ */
+DEFPY_YANG(
+	isis_sr_prefix_sid_algorithm, isis_sr_prefix_sid_algorithm_cmd,
+	"segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
+              algorithm (128-255)$algorithm\
+              <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
+              [<no-php-flag|explicit-null>$lh_behavior] [n-flag-clear$n_flag_clear]",
+	SR_STR
+	"Prefix SID\n"
+	"IPv4 Prefix\n"
+	"IPv6 Prefix\n"
+	"Algorithm Specific Prefix SID Configuration\n"
+	"Algorithm number\n"
+	"Specify the absolute value of Prefix Segment ID\n"
+	"The Prefix Segment ID value\n"
+	"Specify the index of Prefix Segment ID\n"
+	"The Prefix Segment ID index\n"
+	"Don't request Penultimate Hop Popping (PHP)\n"
+	"Upstream neighbor must replace prefix-sid with explicit null label\n"
+	"Not a node SID\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./sid-value-type", NB_OP_MODIFY, sid_type);
+	nb_cli_enqueue_change(vty, "./sid-value", NB_OP_MODIFY, sid_value_str);
+	if (lh_behavior) {
+		const char *value;
+
+		if (strmatch(lh_behavior, "no-php-flag"))
+			value = "no-php";
+		else if (strmatch(lh_behavior, "explicit-null"))
+			value = "explicit-null";
+		else
+			value = "php";
+
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      value);
+	} else
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      NULL);
+	nb_cli_enqueue_change(vty, "./n-flag-clear", NB_OP_MODIFY,
+			      n_flag_clear ? "true" : "false");
+
+	return nb_cli_apply_changes(
+		vty,
+		"./segment-routing/algorithm-prefix-sids/algorithm-prefix-sid[prefix='%s'][algo='%s']",
+		prefix_str, algorithm_str);
+}
+
+DEFPY_YANG(
+	no_isis_sr_prefix_algorithm_sid, no_isis_sr_prefix_sid_algorithm_cmd,
+	"no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
+              algorithm (128-255)$algorithm\
+              [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]\
+              [n-flag-clear]",
+	NO_STR SR_STR
+	"Prefix SID\n"
+	"IPv4 Prefix\n"
+	"IPv6 Prefix\n"
+	"Algorithm Specific Prefix SID Configuration\n"
+	"Algorithm number\n"
+	"Specify the absolute value of Prefix Segment ID\n"
+	"The Prefix Segment ID value\n"
+	"Specify the index of Prefix Segment ID\n"
+	"The Prefix Segment ID index\n"
+	"Don't request Penultimate Hop Popping (PHP)\n"
+	"Upstream neighbor must replace prefix-sid with explicit null label\n"
+	"Not a node SID\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(
+		vty,
+		"./segment-routing/algorithm-prefix-sids/algorithm-prefix-sid[prefix='%s'][algo='%s']",
+		prefix_str, algorithm_str);
+	return CMD_SUCCESS;
+}
+#endif /* ifndef FABRICD */
+
+void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const char *prefix;
+	const char *lh_behavior;
+	const char *sid_value_type;
+	const char *sid_value;
+	bool n_flag_clear;
+	uint32_t algorithm;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	sid_value_type = yang_dnode_get_string(dnode, "./sid-value-type");
+	sid_value = yang_dnode_get_string(dnode, "./sid-value");
+	algorithm = yang_dnode_get_uint32(dnode, "./algo");
+	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
+	n_flag_clear = yang_dnode_get_bool(dnode, "./n-flag-clear");
+
+	vty_out(vty, " segment-routing prefix %s", prefix);
+	vty_out(vty, " algorithm %u", algorithm);
+	if (strmatch(sid_value_type, "absolute"))
+		vty_out(vty, " absolute");
+	else
+		vty_out(vty, " index");
+	vty_out(vty, " %s", sid_value);
+
+	if (strmatch(lh_behavior, "no-php"))
+		vty_out(vty, " no-php-flag");
+	else if (strmatch(lh_behavior, "explicit-null"))
+		vty_out(vty, " explicit-null");
+	if (n_flag_clear)
+		vty_out(vty, " n-flag-clear");
+	vty_out(vty, "\n");
+}
 
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit
@@ -2216,15 +2426,22 @@ void cli_show_ip_isis_threeway_shake(struct vty *vty,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
  */
-DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd, "[no] isis hello padding",
-      NO_STR
-      "IS-IS routing protocol\n"
-      "Add padding to IS-IS hello packets\n"
-      "Pad hello packets\n")
+DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd,
+	   "[no] isis hello padding [during-adjacency-formation]$padding_type",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   "Type of padding for IS-IS hello packets\n"
+	   "Pad hello packets\n"
+	   "Add padding to hello packets during adjacency formation only.\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
-			      NB_OP_MODIFY, no ? "false" : "true");
-
+	if (no) {
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+				      NB_OP_MODIFY, "disabled");
+	} else {
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+				      NB_OP_MODIFY,
+				      padding_type ? padding_type : "always");
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2232,10 +2449,13 @@ void cli_show_ip_isis_hello_padding(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	int hello_padding_type = yang_dnode_get_enum(dnode, NULL);
+	if (hello_padding_type == ISIS_HELLO_PADDING_DISABLED)
 		vty_out(vty, " no");
-
-	vty_out(vty, " isis hello padding\n");
+	vty_out(vty, " isis hello padding");
+	if (hello_padding_type == ISIS_HELLO_PADDING_DURING_ADJACENCY_FORMATION)
+		vty_out(vty, " during-adjacency-formation");
+	vty_out(vty, "\n");
 }
 
 /*
@@ -2500,6 +2720,24 @@ void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " isis circuit-type level-1-2\n");
 		break;
 	}
+}
+
+static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
+		     const char *xpath, bool no, int start_idx)
+{
+	for (int i = start_idx; i < argc; i++)
+		nb_cli_enqueue_change(vty, xpath,
+				      no ? NB_OP_DESTROY : NB_OP_CREATE,
+				      argv[i]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = (struct vty *)arg;
+
+	vty_out(vty, " %s", yang_dnode_get_string(dnode, "."));
+	return YANG_ITER_CONTINUE;
 }
 
 /*
@@ -2970,6 +3208,26 @@ void cli_show_isis_log_adjacency(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/log-pdu-drops
+ */
+DEFPY_YANG(log_pdu_drops, log_pdu_drops_cmd, "[no] log-pdu-drops",
+	   NO_STR "Log any dropped PDUs\n")
+{
+	nb_cli_enqueue_change(vty, "./log-pdu-drops", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_log_pdu_drops(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " log-pdu-drops\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 DEFPY(isis_mpls_ldp_sync, isis_mpls_ldp_sync_cmd, "mpls ldp-sync",
@@ -3106,6 +3364,250 @@ void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
 		yang_dnode_get_string(dnode, NULL));
 }
 
+DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
+		"Flexible Algorithm\n"
+		"Flexible Algorithm Number\n")
+{
+	int ret;
+	char xpath[XPATH_MAXLEN + 37];
+
+	snprintf(xpath, sizeof(xpath),
+		 "%s/flex-algos/flex-algo[flex-algo='%ld']", VTY_CURR_XPATH,
+		 algorithm);
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	ret = nb_cli_apply_changes(
+		vty, "./flex-algos/flex-algo[flex-algo='%ld']", algorithm);
+	if (ret == CMD_SUCCESS)
+		VTY_PUSH_XPATH(ISIS_FLEX_ALGO_NODE, xpath);
+
+	return ret;
+}
+
+DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
+	   NO_STR
+	   "Flexible Algorithm\n"
+	   "Flexible Algorithm Number\n")
+{
+	char xpath[XPATH_MAXLEN + 37];
+
+	snprintf(xpath, sizeof(xpath),
+		 "%s/flex-algos/flex-algo[flex-algo='%ld']", VTY_CURR_XPATH,
+		 algorithm);
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath)) {
+		vty_out(vty, "ISIS flex-algo %ld isn't exist.\n", algorithm);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes_clear_pending(
+		vty, "./flex-algos/flex-algo[flex-algo='%ld']", algorithm);
+}
+
+DEFPY_YANG(advertise_definition, advertise_definition_cmd,
+	   "[no] advertise-definition",
+	   NO_STR "Advertise Local Flexible Algorithm\n")
+{
+	nb_cli_enqueue_change(vty, "./advertise-definition",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      no ? NULL : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(affinity_include_any, affinity_include_any_cmd,
+	   "[no] affinity include-any NAME...",
+	   NO_STR
+	   "Affinity configuration\n"
+	   "Any Include with\n"
+	   "Include NAME list\n")
+{
+	const char *xpath = "./affinity-include-anies/affinity-include-any";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
+}
+
+DEFPY_YANG(affinity_include_all, affinity_include_all_cmd,
+	   "[no] affinity include-all NAME...",
+	   NO_STR
+	   "Affinity configuration\n"
+	   "All Include with\n"
+	   "Include NAME list\n")
+{
+	const char *xpath = "./affinity-include-alls/affinity-include-all";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
+}
+
+DEFPY_YANG(affinity_exclude_any, affinity_exclude_any_cmd,
+	   "[no] affinity exclude-any NAME...",
+	   NO_STR
+	   "Affinity configuration\n"
+	   "Any Exclude with\n"
+	   "Exclude NAME list\n")
+{
+	const char *xpath = "./affinity-exclude-anies/affinity-exclude-any";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
+}
+
+DEFPY_YANG(prefix_metric, prefix_metric_cmd, "[no] prefix-metric",
+	   NO_STR "Use Flex-Algo Prefix Metric\n")
+{
+	nb_cli_enqueue_change(vty, "./prefix-metric",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(dplane_sr_mpls, dplane_sr_mpls_cmd, "[no] dataplane sr-mpls",
+	   NO_STR
+	   "Advertise and participate in the specified Data-Planes\n"
+	   "Advertise and participate in SR-MPLS data-plane\n")
+{
+	nb_cli_enqueue_change(vty, "./dplane-sr-mpls",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_HIDDEN(dplane_srv6, dplane_srv6_cmd, "[no] dataplane srv6",
+	     NO_STR
+	     "Advertise and participate in the specified Data-Planes\n"
+	     "Advertise and participate in SRv6 data-plane\n")
+{
+
+	nb_cli_enqueue_change(vty, "./dplane-srv6",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_HIDDEN(dplane_ip, dplane_ip_cmd, "[no] dataplane ip",
+	     NO_STR
+	     "Advertise and participate in the specified Data-Planes\n"
+	     "Advertise and participate in IP data-plane\n")
+{
+	nb_cli_enqueue_change(vty, "./dplane-ip",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(metric_type, metric_type_cmd,
+	   "[no] metric-type [igp$igp|te$te|delay$delay]",
+	   NO_STR
+	   "Metric-type used by flex-algo calculation\n"
+	   "Use IGP metric (default)\n"
+	   "Use Delay as metric\n"
+	   "Use Traffic Engineering metric\n")
+{
+	const char *type = NULL;
+
+	if (igp) {
+		type = "igp";
+	} else if (te) {
+		type = "te-default";
+	} else if (delay) {
+		type = "min-uni-link-delay";
+	} else {
+		vty_out(vty, "Error: unknown metric type\n");
+		return CMD_SUCCESS;
+	}
+
+	if (!igp)
+		vty_out(vty,
+			"Warning: this version can advertise a Flex-Algorithm Definition (FAD) with the %s metric.\n"
+			"However, participation in a Flex-Algorithm with such a metric is not yet supported.\n",
+			type);
+
+	nb_cli_enqueue_change(vty, "./metric-type",
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY,
+			      no ? NULL : type);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(priority, priority_cmd, "[no] priority (0-255)$priority",
+	   NO_STR
+	   "Flex-Algo definition priority\n"
+	   "Priority value\n")
+{
+	nb_cli_enqueue_change(vty, "./priority",
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY,
+			      no ? NULL : priority_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
+			     bool show_defaults)
+{
+	uint32_t algorithm;
+	enum flex_algo_metric_type metric_type;
+	uint32_t priority;
+	char type_str[10];
+
+	algorithm = yang_dnode_get_uint32(dnode, "./flex-algo");
+	vty_out(vty, " flex-algo %u\n", algorithm);
+
+	if (yang_dnode_exists(dnode, "./advertise-definition"))
+		vty_out(vty, "  advertise-definition\n");
+
+	if (yang_dnode_exists(dnode, "./dplane-sr-mpls"))
+		vty_out(vty, "  dataplane sr-mpls\n");
+	if (yang_dnode_exists(dnode, "./dplane-srv6"))
+		vty_out(vty, "  dataplane srv6\n");
+	if (yang_dnode_exists(dnode, "./dplane-ip"))
+		vty_out(vty, "  dataplane ip\n");
+
+	if (yang_dnode_exists(dnode, "./prefix-metric"))
+		vty_out(vty, "  prefix-metric\n");
+
+	if (yang_dnode_exists(dnode, "./metric-type")) {
+		metric_type = yang_dnode_get_enum(dnode, "./metric-type");
+		if (metric_type != MT_IGP) {
+			flex_algo_metric_type_print(type_str, sizeof(type_str),
+						    metric_type);
+			vty_out(vty, "  metric-type %s\n", type_str);
+		}
+	}
+
+	if (yang_dnode_exists(dnode, "./priority")) {
+		priority = yang_dnode_get_uint32(dnode, "./priority");
+		if (priority != FLEX_ALGO_PRIO_DEFAULT)
+			vty_out(vty, "  priority %u\n", priority);
+	}
+
+	if (yang_dnode_exists(dnode,
+			      "./affinity-include-alls/affinity-include-all")) {
+		vty_out(vty, "  affinity include-all");
+		yang_dnode_iterate(
+			ag_iter_cb, vty, dnode,
+			"./affinity-include-alls/affinity-include-all");
+		vty_out(vty, "\n");
+	}
+
+	if (yang_dnode_exists(
+		    dnode, "./affinity-include-anies/affinity-include-any")) {
+		vty_out(vty, "  affinity include-any");
+		yang_dnode_iterate(
+			ag_iter_cb, vty, dnode,
+			"./affinity-include-anies/affinity-include-any");
+		vty_out(vty, "\n");
+	}
+
+	if (yang_dnode_exists(
+		    dnode, "./affinity-exclude-anies/affinity-exclude-any")) {
+		vty_out(vty, "  affinity exclude-any");
+		yang_dnode_iterate(
+			ag_iter_cb, vty, dnode,
+			"./affinity-exclude-anies/affinity-exclude-any");
+		vty_out(vty, "\n");
+	}
+}
+
+void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, " !\n");
+}
+
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -3137,6 +3639,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &metric_style_cmd);
 	install_element(ISIS_NODE, &no_metric_style_cmd);
 
+	install_element(ISIS_NODE, &advertise_high_metrics_cmd);
+
 	install_element(ISIS_NODE, &area_passwd_cmd);
 	install_element(ISIS_NODE, &domain_passwd_cmd);
 	install_element(ISIS_NODE, &no_area_passwd_cmd);
@@ -3151,6 +3655,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_lsp_timers_cmd);
 	install_element(ISIS_NODE, &area_lsp_mtu_cmd);
 	install_element(ISIS_NODE, &no_area_lsp_mtu_cmd);
+	install_element(ISIS_NODE, &advertise_passive_only_cmd);
 
 	install_element(ISIS_NODE, &spf_interval_cmd);
 	install_element(ISIS_NODE, &no_spf_interval_cmd);
@@ -3160,6 +3665,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 
 	install_element(ISIS_NODE, &area_purge_originator_cmd);
+
+	install_element(ISIS_NODE, &isis_admin_group_send_zero_cmd);
+	install_element(ISIS_NODE, &isis_asla_legacy_flag_cmd);
 
 	install_element(ISIS_NODE, &isis_mpls_te_on_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
@@ -3184,6 +3692,10 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &isis_sr_prefix_sid_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_prefix_sid_cmd);
+#ifndef FABRICD
+	install_element(ISIS_NODE, &isis_sr_prefix_sid_algorithm_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_prefix_sid_algorithm_cmd);
+#endif /* ifndef FABRICD */
 	install_element(ISIS_NODE, &isis_frr_lfa_priority_limit_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_tiebreaker_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_load_sharing_cmd);
@@ -3231,6 +3743,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_ti_lfa_cmd);
 
 	install_element(ISIS_NODE, &log_adj_changes_cmd);
+	install_element(ISIS_NODE, &log_pdu_drops_cmd);
 
 	install_element(ISIS_NODE, &isis_mpls_ldp_sync_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_ldp_sync_cmd);
@@ -3239,6 +3752,19 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_cmd);
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_holddown_cmd);
 	install_element(INTERFACE_NODE, &no_isis_mpls_if_ldp_sync_holddown_cmd);
+
+	install_element(ISIS_NODE, &flex_algo_cmd);
+	install_element(ISIS_NODE, &no_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &advertise_definition_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_any_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_all_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &affinity_exclude_any_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &dplane_sr_mpls_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &dplane_srv6_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &dplane_ip_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &prefix_metric_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &metric_type_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &priority_cmd);
 }
 
 #endif /* ifndef FABRICD */

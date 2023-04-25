@@ -123,6 +123,23 @@ afi_t family2afi(int family)
 	return 0;
 }
 
+const char *afi2str_lower(afi_t afi)
+{
+	switch (afi) {
+	case AFI_IP:
+		return "ipv4";
+	case AFI_IP6:
+		return "ipv6";
+	case AFI_L2VPN:
+		return "l2vpn";
+	case AFI_MAX:
+	case AFI_UNSPEC:
+		return "bad-value";
+	}
+
+	assert(!"Reached end of function we should never reach");
+}
+
 const char *afi2str(afi_t afi)
 {
 	switch (afi) {
@@ -1382,7 +1399,7 @@ bool ipv4_unicast_valid(const struct in_addr *addr)
 	if (IPV4_CLASS_D(ip))
 		return false;
 
-	if (IPV4_CLASS_E(ip)) {
+	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_E(ip)) {
 		if (cmd_allow_reserved_ranges_get())
 			return true;
 		else
@@ -1431,9 +1448,11 @@ int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to)
 	switch (addr->route_type) {
 	case BGP_EVPN_MAC_IP_ROUTE:
 		if (IS_IPADDR_V4(&addr->macip_addr.ip))
-			ipaddr2prefix(&addr->macip_addr.ip, 32, to);
+			ipaddr2prefix(&addr->macip_addr.ip, IPV4_MAX_BITLEN,
+				      to);
 		else if (IS_IPADDR_V6(&addr->macip_addr.ip))
-			ipaddr2prefix(&addr->macip_addr.ip, 128, to);
+			ipaddr2prefix(&addr->macip_addr.ip, IPV6_MAX_BITLEN,
+				      to);
 		else
 			return -1; /* mac only? */
 

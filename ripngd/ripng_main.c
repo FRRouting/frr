@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "prefix.h"
 #include "if.h"
@@ -48,7 +48,7 @@ struct zebra_privs_t ripngd_privs = {
 
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info ripngd_di;
 

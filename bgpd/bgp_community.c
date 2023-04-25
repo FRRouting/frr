@@ -168,7 +168,6 @@ struct community *community_uniq_sort(struct community *com)
 
    For Well-known communities value, below keyword is used.
 
-   0x0             "internet"
    0xFFFF0000      "graceful-shutdown"
    0xFFFF0001      "accept-own"
    0xFFFF0002      "route-filter-translated-v4"
@@ -229,8 +228,12 @@ static void set_community_string(struct community *com, bool make_json,
 		comval = ntohl(comval);
 
 		switch (comval) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		case COMMUNITY_INTERNET:
 			len += strlen(" internet");
+			zlog_warn("`internet` community is deprecated");
 			break;
 		case COMMUNITY_GSHUT:
 			len += strlen(" graceful-shutdown");
@@ -295,6 +298,9 @@ static void set_community_string(struct community *com, bool make_json,
 			strlcat(str, " ", len);
 
 		switch (comval) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		case COMMUNITY_INTERNET:
 			strlcat(str, "internet", len);
 			if (make_json) {
@@ -303,6 +309,7 @@ static void set_community_string(struct community *com, bool make_json,
 				json_object_array_add(json_community_list,
 						      json_string);
 			}
+			zlog_warn("`internet` community is deprecated");
 			break;
 		case COMMUNITY_GSHUT:
 			strlcat(str, "graceful-shutdown", len);
@@ -673,10 +680,14 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 
 	/* Well known community string check. */
 	if (isalpha((unsigned char)*p)) {
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		if (strncmp(p, "internet", strlen("internet")) == 0) {
 			*val = COMMUNITY_INTERNET;
 			*token = community_token_no_export;
 			p += strlen("internet");
+			zlog_warn("`internet` community is deprecated");
 			return p;
 		}
 		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown"))
@@ -908,9 +919,7 @@ static void community_hash_free(void *data)
 
 void community_finish(void)
 {
-	hash_clean(comhash, community_hash_free);
-	hash_free(comhash);
-	comhash = NULL;
+	hash_clean_and_free(&comhash, community_hash_free);
 }
 
 static struct community *bgp_aggr_community_lookup(

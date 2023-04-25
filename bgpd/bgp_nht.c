@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "zclient.h"
 #include "stream.h"
@@ -37,7 +37,7 @@ extern struct zclient *zclient;
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
-static void bgp_nht_ifp_initial(struct thread *thread);
+static void bgp_nht_ifp_initial(struct event *thread);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -324,7 +324,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * Gather the ifindex for if up/down events to be
 		 * tagged into this fun
 		 */
-		if (afi == AFI_IP6 &&
+		if (afi == AFI_IP6 && peer->conf_if &&
 		    IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr)) {
 			ifindex = peer->su.sin6.sin6_scope_id;
 			if (ifindex == 0) {
@@ -756,10 +756,10 @@ void bgp_nht_ifp_down(struct interface *ifp)
 	bgp_nht_ifp_handle(ifp, false);
 }
 
-static void bgp_nht_ifp_initial(struct thread *thread)
+static void bgp_nht_ifp_initial(struct event *thread)
 {
-	ifindex_t ifindex = THREAD_VAL(thread);
-	struct bgp *bgp = THREAD_ARG(thread);
+	ifindex_t ifindex = EVENT_VAL(thread);
+	struct bgp *bgp = EVENT_ARG(thread);
 	struct interface *ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
 
 	if (!ifp)
@@ -811,8 +811,8 @@ void bgp_nht_interface_events(struct peer *peer)
 		return;
 
 	if (bnc->ifindex)
-		thread_add_event(bm->master, bgp_nht_ifp_initial, bnc->bgp,
-				 bnc->ifindex, NULL);
+		event_add_event(bm->master, bgp_nht_ifp_initial, bnc->bgp,
+				bnc->ifindex, NULL);
 }
 
 void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
@@ -1190,14 +1190,20 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {
-			if (dest->pdest)
-				zlog_debug(
-					"... eval path %d/%d %pBD RD %pRD %s flags 0x%x",
-					afi, safi, dest,
+
+			if (dest->pdest) {
+				char rd_buf[RD_ADDRSTRLEN];
+
+				prefix_rd2str(
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest),
+					rd_buf, sizeof(rd_buf),
+					bgp_get_asnotation(bnc->bgp));
+				zlog_debug(
+					"... eval path %d/%d %pBD RD %s %s flags 0x%x",
+					afi, safi, dest, rd_buf,
 					bgp_path->name_pretty, path->flags);
-			else
+			} else
 				zlog_debug(
 					"... eval path %d/%d %pBD %s flags 0x%x",
 					afi, safi, dest, bgp_path->name_pretty,

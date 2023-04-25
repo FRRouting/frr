@@ -12,7 +12,7 @@
 #include <zebra.h>
 
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "command.h"
@@ -101,12 +101,9 @@ static void sync_init(struct update_subgroup *subgrp,
 static void sync_delete(struct update_subgroup *subgrp)
 {
 	XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
-	if (subgrp->hash) {
-		hash_clean(subgrp->hash,
-			   (void (*)(void *))bgp_advertise_attr_free);
-		hash_free(subgrp->hash);
-	}
-	subgrp->hash = NULL;
+	hash_clean_and_free(&subgrp->hash,
+			    (void (*)(void *))bgp_advertise_attr_free);
+
 	if (subgrp->work)
 		stream_free(subgrp->work);
 	subgrp->work = NULL;
@@ -317,11 +314,16 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	const struct update_group *updgrp;
 	const struct peer *peer;
 	const struct bgp_filter *filter;
-	uint32_t flags;
+	uint64_t flags;
 	uint32_t key;
 	afi_t afi;
 	safi_t safi;
 
+	/*
+	 * IF YOU ADD AN ADDITION TO THE HASH KEY TO ENSURE
+	 * THAT THE UPDATE GROUP CALCULATION IS CORRECT THEN
+	 * PLEASE ADD IT TO THE DEBUG OUTPUT TOO AT THE BOTTOM
+	 */
 #define SEED1 999331
 #define SEED2 2147483647
 
@@ -436,6 +438,10 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
 	}
 
+	/*
+	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
+	 * STATEMENT STAYS UP TO DATE
+	 */
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(
 			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %ju",
@@ -457,7 +463,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			ROUTE_MAP_OUT_NAME(filter) ? ROUTE_MAP_OUT_NAME(filter)
 						   : "(NONE)");
 		zlog_debug(
-			"%pBP Update Group Hash: dlist out: %s plist out: %s aslist out: %s usmap out: %s advmap: %s",
+			"%pBP Update Group Hash: dlist out: %s plist out: %s aslist out: %s usmap out: %s advmap: %s %d",
 			peer,
 			DISTRIBUTE_OUT_NAME(filter)
 				? DISTRIBUTE_OUT_NAME(filter)
@@ -472,7 +478,8 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				? UNSUPPRESS_MAP_NAME(filter)
 				: "(NONE)",
 			ADVERTISE_MAP_NAME(filter) ? ADVERTISE_MAP_NAME(filter)
-						   : "(NONE)");
+						   : "(NONE)",
+			filter->advmap.update_type);
 		zlog_debug(
 			"%pBP Update Group Hash: default rmap: %s shared network and afi active network: %d",
 			peer,
@@ -490,6 +497,13 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				   PEER_CAP_ORF_PREFIX_SM_OLD_RCV),
 			(intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
 					     PEER_FLAG_MAX_PREFIX_OUT));
+		zlog_debug(
+			"%pBP Update Group Hash: local role: %u AIGP: %d SOO: %s",
+			peer, peer->local_role,
+			!!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP),
+			peer->soo[afi][safi]
+				? ecommunity_str(peer->soo[afi][safi])
+				: "(NONE)");
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;
@@ -501,8 +515,8 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	const struct update_group *grp2;
 	const struct peer *pe1;
 	const struct peer *pe2;
-	uint32_t flags1;
-	uint32_t flags2;
+	uint64_t flags1;
+	uint64_t flags2;
 	const struct bgp_filter *fl1;
 	const struct bgp_filter *fl2;
 	afi_t afi;
@@ -1085,8 +1099,8 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 	if (subgrp->update_group)
 		UPDGRP_INCR_STAT(subgrp->update_group, subgrps_deleted);
 
-	THREAD_OFF(subgrp->t_merge_check);
-	THREAD_OFF(subgrp->t_coalesce);
+	EVENT_OFF(subgrp->t_merge_check);
+	EVENT_OFF(subgrp->t_coalesce);
 
 	bpacket_queue_cleanup(SUBGRP_PKTQ(subgrp));
 	subgroup_clear_table(subgrp);
@@ -1404,11 +1418,11 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static void update_subgroup_merge_check_thread_cb(struct thread *thread)
+static void update_subgroup_merge_check_thread_cb(struct event *thread)
 {
 	struct update_subgroup *subgrp;
 
-	subgrp = THREAD_ARG(thread);
+	subgrp = EVENT_ARG(thread);
 
 	subgrp->t_merge_check = NULL;
 
@@ -1435,8 +1449,8 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 		return false;
 
 	subgrp->t_merge_check = NULL;
-	thread_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
-			      subgrp, 0, &subgrp->t_merge_check);
+	event_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
+			     subgrp, 0, &subgrp->t_merge_check);
 
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
@@ -1947,15 +1961,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 	}
 
 	updgrp = update_group_find(paf);
-	if (!updgrp) {
+	if (!updgrp)
 		updgrp = update_group_create(paf);
-		if (!updgrp) {
-			flog_err(EC_BGP_UPDGRP_CREATE,
-				 "couldn't create update group for peer %s",
-				 paf->peer->host);
-			return;
-		}
-	}
 
 	old_subgrp = paf->subgroup;
 
@@ -1978,11 +1985,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 	}
 
 	subgrp = update_subgroup_find(updgrp, paf);
-	if (!subgrp) {
+	if (!subgrp)
 		subgrp = update_subgroup_create(updgrp);
-		if (!subgrp)
-			return;
-	}
 
 	update_subgroup_add_peer(subgrp, paf, 1);
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
@@ -2093,15 +2097,15 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-void update_group_refresh_default_originate_route_map(struct thread *thread)
+void update_group_refresh_default_originate_route_map(struct event *thread)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
 
-	bgp = THREAD_ARG(thread);
+	bgp = EVENT_ARG(thread);
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
-	THREAD_OFF(bgp->t_rmap_def_originate_eval);
+	EVENT_OFF(bgp->t_rmap_def_originate_eval);
 	bgp_unlock(bgp);
 }
 
@@ -2201,7 +2205,7 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 */
 	SUBGRP_FOREACH_PEER (subgrp, paf)
 		if (peer_established(paf->peer))
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				bm->master, bgp_generate_updgrp_packets,
 				paf->peer, 0,
 				&paf->peer->t_generate_updgrp_packets);

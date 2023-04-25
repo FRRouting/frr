@@ -136,17 +136,15 @@ extern unsigned long term_debug_ospf_client_api;
 extern char *ospf_lsa_type_str[];
 
 /* Prototypes. */
-extern const char *ospf_area_name_string(struct ospf_area *);
-extern const char *ospf_area_desc_string(struct ospf_area *);
-extern const char *ospf_if_name_string(struct ospf_interface *);
+extern const char *ospf_area_name_string(struct ospf_area *area);
+extern const char *ospf_area_desc_string(struct ospf_area *area);
+extern const char *ospf_if_name_string(struct ospf_interface *oip);
 extern int ospf_nbr_ism_state(struct ospf_neighbor *nbr);
-extern void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf,
-				   size_t size);
 extern void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
 				       size_t size);
-extern const char *ospf_timer_dump(struct thread *, char *, size_t);
-extern const char *ospf_timeval_dump(struct timeval *, char *, size_t);
-extern void ospf_packet_dump(struct stream *);
+extern const char *ospf_timer_dump(struct event *e, char *buf, size_t size);
+extern const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size);
+extern void ospf_packet_dump(struct stream *s);
 extern void ospf_debug_init(void);
 
 /* Appropriate buffer size to use with ospf_timer_dump and ospf_timeval_dump: */

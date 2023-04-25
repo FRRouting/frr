@@ -49,19 +49,6 @@ char *vtysh_pager_name = NULL;
 /* VTY should add timestamp */
 bool vtysh_add_timestamp;
 
-/* VTY shell client structure */
-struct vtysh_client {
-	int fd;
-	const char *name;
-	int flag;
-	char path[MAXPATHLEN];
-	struct vtysh_client *next;
-
-	struct thread *log_reader;
-	int log_fd;
-	uint32_t lost_msgs;
-};
-
 static bool stderr_tty;
 static bool stderr_stdout_same;
 
@@ -119,7 +106,12 @@ static void vtysh_pager_envdef(bool fallback)
 
 /* --- */
 
+/*
+ * When updating this array, remember to change the array size here and in
+ * vtysh.h
+ */
 struct vtysh_client vtysh_client[] = {
+	{.name = "mgmtd", .flag = VTYSH_MGMTD},
 	{.name = "zebra", .flag = VTYSH_ZEBRA},
 	{.name = "ripd", .flag = VTYSH_RIPD},
 	{.name = "ripngd", .flag = VTYSH_RIPNGD},
@@ -1183,6 +1175,13 @@ static struct cmd_node isis_node = {
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
+
+static struct cmd_node isis_flex_algo_node = {
+	.name = "isis-flex-algo",
+	.node = ISIS_FLEX_ALGO_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-flex-algo)# ",
+};
 #endif /* HAVE_ISISD */
 
 #ifdef HAVE_FABRICD
@@ -1673,10 +1672,14 @@ DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
+	"router bgp [ASNUM [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
-	"View/VRF name\n")
+	"View/VRF name\n"
+	"Force the AS notation output\n"
+	"use 'AA.BB' format for AS 4 byte values\n"
+	"use 'AA.BB' format for all AS values\n"
+	"use plain format for all AS values\n")
 {
 	vty->node = BGP_NODE;
 	return CMD_SUCCESS;
@@ -2097,6 +2100,14 @@ DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd,
 	"ISO Routing area tag\n" VRF_CMD_HELP_STR)
 {
 	vty->node = ISIS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ISISD, isis_flex_algo, isis_flex_algo_cmd, "flex-algo (128-255)",
+	"Flexible Algorithm\n"
+	"Flexible Algorithm Number\n")
+{
+	vty->node = ISIS_FLEX_ALGO_NODE;
 	return CMD_SUCCESS;
 }
 #endif /* HAVE_ISISD */
@@ -2579,6 +2590,18 @@ DEFUNSH(VTYSH_ISISD, vtysh_exit_isisd, vtysh_exit_isisd_cmd, "exit",
 
 DEFUNSH(VTYSH_ISISD, vtysh_quit_isisd, vtysh_quit_isisd_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_isisd(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_ISISD, vtysh_exit_isis_flex_algo, vtysh_exit_isis_flex_algo_cmd,
+	"exit", "Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_ISISD, vtysh_quit_isis_flex_algo, vtysh_quit_isis_flex_algo_cmd,
+	"quit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_isisd(self, vty, argc, argv);
 }
@@ -3540,7 +3563,7 @@ DEFUN (vtysh_copy_to_running,
 	int ret;
 	const char *fname = argv[1]->arg;
 
-	ret = vtysh_read_config(fname, true);
+	ret = vtysh_apply_config(fname, true, false);
 
 	/* Return to enable mode - the 'read_config' api leaves us up a level */
 	vtysh_execute_no_pager("enable");
@@ -3723,9 +3746,9 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 		text + textpos);
 }
 
-static void vtysh_log_read(struct thread *thread)
+static void vtysh_log_read(struct event *thread)
 {
-	struct vtysh_client *vclient = THREAD_ARG(thread);
+	struct vtysh_client *vclient = EVENT_ARG(thread);
 	struct {
 		struct zlog_live_hdr hdr;
 		char text[4096];
@@ -3733,8 +3756,8 @@ static void vtysh_log_read(struct thread *thread)
 	const char *text;
 	ssize_t ret;
 
-	thread_add_read(master, vtysh_log_read, vclient, vclient->log_fd,
-			&vclient->log_reader);
+	event_add_read(master, vtysh_log_read, vclient, vclient->log_fd,
+		       &vclient->log_reader);
 
 	ret = recv(vclient->log_fd, &buf, sizeof(buf), 0);
 
@@ -3764,7 +3787,7 @@ static void vtysh_log_read(struct thread *thread)
 				"log monitor connection closed unexpectedly");
 		buf.hdr.textlen = strlen(buf.text);
 
-		THREAD_OFF(vclient->log_reader);
+		EVENT_OFF(vclient->log_reader);
 		close(vclient->log_fd);
 		vclient->log_fd = -1;
 
@@ -3830,9 +3853,9 @@ DEFPY (vtysh_terminal_monitor,
 			if (fd != -1) {
 				set_nonblocking(fd);
 				vclient->log_fd = fd;
-				thread_add_read(master, vtysh_log_read, vclient,
-						vclient->log_fd,
-						&vclient->log_reader);
+				event_add_read(master, vtysh_log_read, vclient,
+					       vclient->log_fd,
+					       &vclient->log_reader);
 			}
 			if (ret != CMD_SUCCESS) {
 				vty_out(vty, "%% failed to enable logs on %s\n",
@@ -3886,7 +3909,7 @@ DEFPY (no_vtysh_terminal_monitor,
 			 * a close notification...
 			 */
 			if (vclient->log_fd != -1) {
-				THREAD_OFF(vclient->log_reader);
+				EVENT_OFF(vclient->log_reader);
 
 				close(vclient->log_fd);
 				vclient->log_fd = -1;
@@ -4706,6 +4729,12 @@ void vtysh_init_vty(void)
 	install_element(ISIS_NODE, &vtysh_exit_isisd_cmd);
 	install_element(ISIS_NODE, &vtysh_quit_isisd_cmd);
 	install_element(ISIS_NODE, &vtysh_end_all_cmd);
+
+	install_node(&isis_flex_algo_node);
+	install_element(ISIS_NODE, &isis_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_exit_isis_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_quit_isis_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_ISISD */
 
 	/* fabricd */

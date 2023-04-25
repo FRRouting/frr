@@ -1,0 +1,6 @@
+zebra=1
+staticd=1
+vtysh_enable=1
+watchfrr_enable=1
+zebra_options="-d -F traditional --log=file:/var/log/frr/zebra.log"
+staticd_options="-d -F traditional --log=file:/var/log/frr/staticd.log"

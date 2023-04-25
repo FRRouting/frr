@@ -47,9 +47,7 @@ void pim_rp_list_hash_clean(void *data)
 
 	list_delete(&pnc->rp_list);
 
-	hash_clean(pnc->upstream_hash, NULL);
-	hash_free(pnc->upstream_hash);
-	pnc->upstream_hash = NULL;
+	hash_clean_and_free(&pnc->upstream_hash, NULL);
 	if (pnc->nexthop)
 		nexthops_free(pnc->nexthop);
 
@@ -1065,6 +1063,14 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 
 	if (rp_info) {
 		pim_addr nht_p;
+
+		if (pim_addr_is_any(rp_info->rp.rpf_addr)) {
+			if (PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug(
+					"%s: Skipping NHT Register since RP is not configured for the group %pPA",
+					__func__, &group);
+			return &rp_info->rp;
+		}
 
 		/* Register addr with Zebra NHT */
 		nht_p = rp_info->rp.rpf_addr;

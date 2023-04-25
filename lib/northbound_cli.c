@@ -29,7 +29,7 @@ struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
-static struct thread_master *master;
+static struct event_loop *master;
 
 static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
@@ -46,7 +46,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, vty->candidate_config, true, NULL,
+	ret = nb_candidate_commit(context, vty->candidate_config, true, NULL,
 				  NULL, errmsg, sizeof(errmsg));
 	switch (ret) {
 	case NB_OK:
@@ -120,7 +120,7 @@ static int nb_cli_schedule_command(struct vty *vty)
 void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 			   enum nb_operation operation, const char *value)
 {
-	struct vty_cfg_change *change;
+	struct nb_cfg_change *change;
 
 	if (vty->num_cfg_changes == VTY_MAXCFGCHANGES) {
 		/* Not expected to happen. */
@@ -141,79 +141,21 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 					 bool clear_pending)
 {
 	bool error = false;
-
-	if (xpath_base == NULL)
-		xpath_base = "";
+	char buf[BUFSIZ];
 
 	VTY_CHECK_XPATH;
 
-	/* Edit candidate configuration. */
-	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
-		struct vty_cfg_change *change = &vty->cfg_changes[i];
-		struct nb_node *nb_node;
-		char xpath[XPATH_MAXLEN];
-		struct yang_data *data;
-		int ret;
-
-		/* Handle relative XPaths. */
-		memset(xpath, 0, sizeof(xpath));
-		if (vty->xpath_index > 0
-		    && (xpath_base[0] == '.' || change->xpath[0] == '.'))
-			strlcpy(xpath, VTY_CURR_XPATH, sizeof(xpath));
-		if (xpath_base[0]) {
-			if (xpath_base[0] == '.')
-				strlcat(xpath, xpath_base + 1, sizeof(xpath));
-			else
-				strlcat(xpath, xpath_base, sizeof(xpath));
-		}
-		if (change->xpath[0] == '.')
-			strlcat(xpath, change->xpath + 1, sizeof(xpath));
-		else
-			strlcpy(xpath, change->xpath, sizeof(xpath));
-
-		/* Find the northbound node associated to the data path. */
-		nb_node = nb_node_find(xpath);
-		if (!nb_node) {
-			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-				  "%s: unknown data path: %s", __func__, xpath);
-			error = true;
-			continue;
-		}
-
-		/* If the value is not set, get the default if it exists. */
-		if (change->value == NULL)
-			change->value = yang_snode_get_default(nb_node->snode);
-		data = yang_data_new(xpath, change->value);
-
-		/*
-		 * Ignore "not found" errors when editing the candidate
-		 * configuration.
-		 */
-		ret = nb_candidate_edit(vty->candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
-		yang_data_free(data);
-		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
-			flog_warn(
-				EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-				"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
-				__func__, nb_operation_name(change->operation),
-				xpath);
-			error = true;
-			continue;
-		}
-	}
-
+	nb_candidate_edit_config_changes(
+		vty->candidate_config, vty->cfg_changes, vty->num_cfg_changes,
+		xpath_base, VTY_CURR_XPATH, vty->xpath_index, buf, sizeof(buf),
+		&error);
 	if (error) {
-		char buf[BUFSIZ];
-
 		/*
 		 * Failure to edit the candidate configuration should never
 		 * happen in practice, unless there's a bug in the code. When
 		 * that happens, log the error but otherwise ignore it.
 		 */
-		vty_out(vty, "%% Failed to edit configuration.\n\n");
-		vty_out(vty, "%s",
-			yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
+		vty_out(vty, "%s", buf);
 	}
 
 	/*
@@ -241,6 +183,8 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
 	char xpath_base[XPATH_MAXLEN] = {};
+	bool implicit_commit;
+	int ret;
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -250,6 +194,17 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
 		va_end(ap);
 	}
+
+	if (vty_mgmt_fe_enabled()) {
+		VTY_CHECK_XPATH;
+
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
+	}
+
 	return nb_cli_apply_changes_internal(vty, xpath_base, false);
 }
 
@@ -257,6 +212,8 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 				       const char *xpath_base_fmt, ...)
 {
 	char xpath_base[XPATH_MAXLEN] = {};
+	bool implicit_commit;
+	int ret;
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -266,6 +223,17 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
 		va_end(ap);
 	}
+
+	if (vty_mgmt_fe_enabled()) {
+		VTY_CHECK_XPATH;
+
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
+	}
+
 	return nb_cli_apply_changes_internal(vty, xpath_base, true);
 }
 
@@ -297,7 +265,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
 
 void nb_cli_confirmed_commit_clean(struct vty *vty)
 {
-	thread_cancel(&vty->t_confirmed_commit_timeout);
+	event_cancel(&vty->t_confirmed_commit_timeout);
 	nb_config_free(vty->confirmed_commit_rollback);
 	vty->confirmed_commit_rollback = NULL;
 }
@@ -313,7 +281,7 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
 	ret = nb_candidate_commit(
-		&context, vty->confirmed_commit_rollback, true,
+		context, vty->confirmed_commit_rollback, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
 		&transaction_id, errmsg, sizeof(errmsg));
 	if (ret == NB_OK) {
@@ -332,9 +300,9 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static void nb_cli_confirmed_commit_timeout(struct thread *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *thread)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	/* XXX: broadcast this message to all logged-in users? */
 	vty_out(vty,
@@ -360,11 +328,10 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
 				confirmed_timeout);
 
-			thread_cancel(&vty->t_confirmed_commit_timeout);
-			thread_add_timer(master,
-					 nb_cli_confirmed_commit_timeout, vty,
-					 confirmed_timeout * 60,
-					 &vty->t_confirmed_commit_timeout);
+			event_cancel(&vty->t_confirmed_commit_timeout);
+			event_add_timer(master, nb_cli_confirmed_commit_timeout,
+					vty, confirmed_timeout * 60,
+					&vty->t_confirmed_commit_timeout);
 		} else {
 			/* Accept commit confirmation. */
 			vty_out(vty, "%% Commit complete.\n\n");
@@ -387,16 +354,15 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
 		vty->t_confirmed_commit_timeout = NULL;
-		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
-				 confirmed_timeout * 60,
-				 &vty->t_confirmed_commit_timeout);
+		event_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
+				confirmed_timeout * 60,
+				&vty->t_confirmed_commit_timeout);
 	}
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, vty->candidate_config, true,
-				  comment, &transaction_id, errmsg,
-				  sizeof(errmsg));
+	ret = nb_candidate_commit(context, vty->candidate_config, true, comment,
+				  &transaction_id, errmsg, sizeof(errmsg));
 
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
@@ -1468,6 +1434,7 @@ DEFPY (show_yang_operational_data,
 	struct lyd_node *dnode;
 	char *strp;
 	uint32_t print_options = LYD_PRINT_WITHSIBLINGS;
+	int ret;
 
 	if (xml)
 		format = LYD_XML;
@@ -1488,10 +1455,15 @@ DEFPY (show_yang_operational_data,
 
 	/* Obtain data. */
 	dnode = yang_dnode_new(ly_ctx, false);
-	if (nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				 dnode)
-	    != NB_OK) {
-		vty_out(vty, "%% Failed to fetch operational data.\n");
+	ret = nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
+				   dnode);
+	if (ret != NB_OK) {
+		if (format == LYD_JSON)
+			vty_out(vty, "{}\n");
+		else {
+			/* embed ly_last_errmsg() when we get newer libyang */
+			vty_out(vty, "<!-- Not found -->\n");
+		}
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
@@ -1717,7 +1689,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 
 	context.client = NB_CLIENT_CLI;
 	context.user = vty;
-	ret = nb_candidate_commit(&context, candidate, true, comment, NULL,
+	ret = nb_candidate_commit(context, candidate, true, comment, NULL,
 				  errmsg, sizeof(errmsg));
 	nb_config_free(candidate);
 	switch (ret) {
@@ -1910,7 +1882,7 @@ static const struct cmd_variable_handler yang_var_handlers[] = {
 	 .completions = yang_translator_autocomplete},
 	{.completions = NULL}};
 
-void nb_cli_init(struct thread_master *tm)
+void nb_cli_init(struct event_loop *tm)
 {
 	master = tm;
 

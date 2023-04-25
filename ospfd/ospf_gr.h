@@ -90,7 +90,7 @@ struct ospf_helper_info {
 	 * helper until this timer until
 	 * this timer expires.
 	 */
-	struct thread *t_grace_timer;
+	struct event *t_grace_timer;
 
 	/* Helper status */
 	uint32_t gr_helper_status;

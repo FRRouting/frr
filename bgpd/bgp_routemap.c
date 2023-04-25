@@ -213,7 +213,7 @@ static void *route_aspath_compile(const char *arg)
 {
 	struct aspath *aspath;
 
-	aspath = aspath_str2aspath(arg);
+	aspath = aspath_str2aspath(arg, bgp_get_asnotation(NULL));
 	if (!aspath)
 		return NULL;
 	return aspath;
@@ -461,7 +461,8 @@ route_match_ip_address(void *rule, const struct prefix *prefix, void *object)
 	if (prefix->family == AF_INET) {
 		alist = access_list_lookup(AFI_IP, (char *)rule);
 		if (alist == NULL) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -521,7 +522,8 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
 		if (alist == NULL) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -581,7 +583,8 @@ route_match_ip_route_source(void *rule, const struct prefix *pfx, void *object)
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
 		if (alist == NULL) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -676,7 +679,7 @@ route_match_address_prefix_list(void *rule, afi_t afi,
 
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
@@ -737,7 +740,8 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
 		if (plist == NULL) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -786,7 +790,8 @@ route_match_ipv6_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 
 		plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 		if (!plist) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -891,7 +896,8 @@ route_match_ip_route_source_prefix_list(void *rule, const struct prefix *prefix,
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
 		if (plist == NULL) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -956,7 +962,7 @@ route_match_mac_address(void *rule, const struct prefix *prefix, void *object)
 
 	alist = access_list_lookup(AFI_L2VPN, (char *)rule);
 	if (alist == NULL) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
@@ -964,7 +970,7 @@ route_match_mac_address(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 	if (prefix->u.prefix_evpn.route_type != BGP_EVPN_MAC_IP_ROUTE) {
-		if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
 			zlog_debug(
 				"%s: Prefix %pFX is not a EVPN MAC IP ROUTE defaulting to NO_MATCH",
 				__func__, prefix);
@@ -3242,7 +3248,8 @@ route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
 	if (prefix->family == AF_INET6) {
 		alist = access_list_lookup(AFI_IP6, (char *)rule);
 		if (alist == NULL) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -3299,7 +3306,8 @@ route_match_ipv6_next_hop(void *rule, const struct prefix *prefix, void *object)
 
 		alist = access_list_lookup(AFI_IP6, (char *)rule);
 		if (!alist) {
-			if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+			if (unlikely(CHECK_FLAG(rmap_debug,
+						DEBUG_ROUTEMAP_DETAIL)))
 				zlog_debug(
 					"%s: Access-List Specified: %s does not exist defaulting to NO_MATCH",
 					__func__, (char *)rule);
@@ -3631,17 +3639,29 @@ route_set_ipv6_nexthop_local(void *rule, const struct prefix *p, void *object)
 {
 	struct in6_addr *address;
 	struct bgp_path_info *path;
+	struct bgp_dest *dest;
+	struct bgp_table *table = NULL;
 
 	/* Fetch routemap's rule information. */
 	address = rule;
 	path = object;
+	dest = path->net;
+
+	if (!dest)
+		return RMAP_OKAY;
+
+	table = bgp_dest_table(dest);
+	if (!table)
+		return RMAP_OKAY;
 
 	/* Set next hop value. */
 	path->attr->mp_nexthop_local = *address;
 
 	/* Set nexthop length. */
-	if (path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
-	    path->attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+	if (table->safi == SAFI_MPLS_VPN || table->safi == SAFI_ENCAP ||
+	    table->safi == SAFI_EVPN)
+		path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL;
+	else
 		path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 
 	SET_FLAG(path->attr->rmap_change_flags,
@@ -4254,8 +4274,8 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 						inet_ntop(bn_p->family,
 							  &bn_p->u.prefix, buf,
 							  sizeof(buf)));
-				bgp_aggregate_route(bgp, bn_p, afi, safi,
-						    aggregate);
+				(void)bgp_aggregate_route(bgp, bn_p, afi, safi,
+							  aggregate);
 			}
 		}
 	}
@@ -4332,7 +4352,7 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	vpn_policy_routemap_event(rmap_name);
 }
 
-void bgp_route_map_update_timer(struct thread *thread)
+void bgp_route_map_update_timer(struct event *thread)
 {
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 }
@@ -4345,13 +4365,12 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 	/* If new update is received before the current timer timed out,
 	 * turn it off and start a new timer.
 	 */
-	THREAD_OFF(bm->t_rmap_update);
+	EVENT_OFF(bm->t_rmap_update);
 
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (bm->rmap_update_timer) {
-		thread_add_timer(bm->master, bgp_route_map_update_timer,
-				 NULL, bm->rmap_update_timer,
-				 &bm->t_rmap_update);
+		event_add_timer(bm->master, bgp_route_map_update_timer, NULL,
+				bm->rmap_update_timer, &bm->t_rmap_update);
 
 		/* Signal the groups that a route-map update event has
 		 * started */
@@ -5500,7 +5519,7 @@ DEFUN_YANG (set_ip_nexthop_unchanged,
 
 DEFUN_YANG (set_distance,
 	    set_distance_cmd,
-	    "set distance (0-255)",
+	    "set distance (1-255)",
 	    SET_STR
 	    "BGP Administrative Distance to use\n"
 	    "Distance value\n")
@@ -5519,7 +5538,7 @@ DEFUN_YANG (set_distance,
 
 DEFUN_YANG (no_set_distance,
 	    no_set_distance_cmd,
-	    "no set distance [(0-255)]",
+	    "no set distance [(1-255)]",
 	    NO_STR SET_STR
 	    "BGP Administrative Distance to use\n"
 	    "Distance value\n")
@@ -5663,15 +5682,16 @@ DEFUN_YANG (no_set_label_index,
 
 DEFUN_YANG (set_aspath_prepend_asn,
 	    set_aspath_prepend_asn_cmd,
-	    "set as-path prepend (1-4294967295)...",
+	    "set as-path prepend ASNUM...",
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    "AS number\n")
+	    AS_STR)
 {
 	int idx_asn = 3;
 	int ret;
 	char *str;
+	struct aspath *aspath;
 
 	str = argv_concat(argv, argc, idx_asn);
 
@@ -5679,6 +5699,12 @@ DEFUN_YANG (set_aspath_prepend_asn,
 		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
 	char xpath_value[XPATH_MAXLEN];
 
+	aspath = route_aspath_compile(str);
+	if (!aspath) {
+		vty_out(vty, "%% Invalid AS path value %s\n", str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	route_aspath_free(aspath);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:prepend-as-path", xpath);
@@ -5713,16 +5739,22 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 
 DEFPY_YANG (set_aspath_replace_asn,
 	    set_aspath_replace_asn_cmd,
-	    "set as-path replace <any|(1-4294967295)>$replace",
+	    "set as-path replace <any|ASNUM>$replace",
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Replace AS number to local AS number\n"
 	    "Replace any AS number to local AS number\n"
-	    "Replace a specific AS number to local AS number\n")
+	    "Replace a specific AS number in plain or dotted format to local AS number\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
 	char xpath_value[XPATH_MAXLEN];
+	as_t as_value;
+
+	if (!strmatch(replace, "any") && !asn_str2asn(replace, &as_value)) {
+		vty_out(vty, "%% Invalid AS value %s\n", replace);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
@@ -5733,13 +5765,13 @@ DEFPY_YANG (set_aspath_replace_asn,
 
 DEFPY_YANG (no_set_aspath_replace_asn,
 	    no_set_aspath_replace_asn_cmd,
-	    "no set as-path replace [<any|(1-4294967295)>]",
+	    "no set as-path replace [<any|ASNUM>]",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Replace AS number to local AS number\n"
 	    "Replace any AS number to local AS number\n"
-	    "Replace a specific AS number to local AS number\n")
+	    "Replace a specific AS number in plain or dotted format to local AS number\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-replace']";
@@ -5750,12 +5782,12 @@ DEFPY_YANG (no_set_aspath_replace_asn,
 
 DEFUN_YANG (no_set_aspath_prepend,
 	    no_set_aspath_prepend_cmd,
-	    "no set as-path prepend [(1-4294967295)]",
+	    "no set as-path prepend [ASNUM]",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    "AS number\n")
+	    AS_STR)
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-prepend']";
@@ -5783,15 +5815,16 @@ DEFUN_YANG (no_set_aspath_prepend_lastas,
 
 DEFUN_YANG (set_aspath_exclude,
 	    set_aspath_exclude_cmd,
-	    "set as-path exclude (1-4294967295)...",
+	    "set as-path exclude ASNUM...",
 	    SET_STR
 	    "Transform BGP AS-path attribute\n"
 	    "Exclude from the as-path\n"
-	    "AS number\n")
+	    AS_STR)
 {
 	int idx_asn = 3;
 	int ret;
 	char *str;
+	struct aspath *aspath;
 
 	str = argv_concat(argv, argc, idx_asn);
 
@@ -5799,6 +5832,12 @@ DEFUN_YANG (set_aspath_exclude,
 		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
 	char xpath_value[XPATH_MAXLEN];
 
+	aspath = route_aspath_compile(str);
+	if (!aspath) {
+		vty_out(vty, "%% Invalid AS path value %s\n", str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	route_aspath_free(aspath);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
@@ -5810,7 +5849,7 @@ DEFUN_YANG (set_aspath_exclude,
 
 DEFUN_YANG (no_set_aspath_exclude,
 	    no_set_aspath_exclude_cmd,
-	    "no set as-path exclude (1-4294967295)...",
+	    "no set as-path exclude ASNUM...",
 	    NO_STR
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
@@ -5870,9 +5909,14 @@ DEFUN_YANG (set_community,
 		else
 			first = 1;
 
+#if CONFDATE > 20230801
+CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
+#endif
 		if (strncmp(argv[i]->arg, "internet", strlen(argv[i]->arg))
 		    == 0) {
 			buffer_putstr(b, "internet");
+			vty_out(vty, "%% `internet` community is deprecated\n");
+			zlog_warn("`internet` community is deprecated");
 			continue;
 		}
 		if (strncmp(argv[i]->arg, "local-AS", strlen(argv[i]->arg))
@@ -6496,11 +6540,11 @@ DEFPY_YANG (no_set_aigp_metric,
 
 DEFUN_YANG (set_aggregator_as,
 	    set_aggregator_as_cmd,
-	    "set aggregator as (1-4294967295) A.B.C.D",
+	    "set aggregator as ASNUM A.B.C.D",
 	    SET_STR
 	    "BGP aggregator attribute\n"
 	    "AS number of aggregator\n"
-	    "AS number\n"
+	    AS_STR
 	    "IP address of aggregator\n")
 {
 	int idx_number = 3;
@@ -6509,6 +6553,12 @@ DEFUN_YANG (set_aggregator_as,
 	char xpath_addr[XPATH_MAXLEN];
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:aggregator']";
+	as_t as_value;
+
+	if (!asn_str2asn(argv[idx_number]->arg, &as_value)) {
+		vty_out(vty, "%% Invalid AS value %s\n", argv[idx_number]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
@@ -6531,12 +6581,12 @@ DEFUN_YANG (set_aggregator_as,
 
 DEFUN_YANG (no_set_aggregator_as,
 	    no_set_aggregator_as_cmd,
-	    "no set aggregator as [(1-4294967295) A.B.C.D]",
+	    "no set aggregator as [ASNUM A.B.C.D]",
 	    NO_STR
 	    SET_STR
 	    "BGP aggregator attribute\n"
 	    "AS number of aggregator\n"
-	    "AS number\n"
+	    AS_STR
 	    "IP address of aggregator\n")
 {
 	const char *xpath =

@@ -6,7 +6,7 @@
  */
 
 #include <zebra.h>
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "workqueue.h"
 #include "linklist.h"
@@ -59,8 +59,7 @@ static void work_queue_item_remove(struct work_queue *wq,
 }
 
 /* create new work queue */
-struct work_queue *work_queue_new(struct thread_master *m,
-				  const char *queue_name)
+struct work_queue *work_queue_new(struct event_loop *m, const char *queue_name)
 {
 	struct work_queue *new;
 
@@ -78,7 +77,7 @@ struct work_queue *work_queue_new(struct thread_master *m,
 
 	/* Default values, can be overridden by caller */
 	new->spec.hold = WORK_QUEUE_DEFAULT_HOLD;
-	new->spec.yield = THREAD_YIELD_TIME_SLOT;
+	new->spec.yield = EVENT_YIELD_TIME_SLOT;
 	new->spec.retry = WORK_QUEUE_DEFAULT_RETRY;
 
 	return new;
@@ -88,7 +87,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 {
 	struct work_queue *wq = *wqp;
 
-	THREAD_OFF(wq->thread);
+	EVENT_OFF(wq->thread);
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -106,29 +105,29 @@ void work_queue_free_and_null(struct work_queue **wqp)
 
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
-	return thread_is_scheduled(wq->thread);
+	return event_is_scheduled(wq->thread);
 }
 
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
 	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) &&
-	    !thread_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
+	    !event_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
 		if (delay > 0) {
-			thread_add_timer_msec(wq->master, work_queue_run, wq,
-					      delay, &wq->thread);
-			thread_ignore_late_timer(wq->thread);
+			event_add_timer_msec(wq->master, work_queue_run, wq,
+					     delay, &wq->thread);
+			event_ignore_late_timer(wq->thread);
 		} else
-			thread_add_event(wq->master, work_queue_run, wq, 0,
-					 &wq->thread);
+			event_add_event(wq->master, work_queue_run, wq, 0,
+					&wq->thread);
 
 		/* set thread yield time, if needed */
-		if (thread_is_scheduled(wq->thread) &&
-		    wq->spec.yield != THREAD_YIELD_TIME_SLOT)
-			thread_set_yield_time(wq->thread, wq->spec.yield);
+		if (event_is_scheduled(wq->thread) &&
+		    wq->spec.yield != EVENT_YIELD_TIME_SLOT)
+			event_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;
 	} else
 		return 0;
@@ -198,7 +197,7 @@ void workqueue_cmd_init(void)
  */
 void work_queue_plug(struct work_queue *wq)
 {
-	THREAD_OFF(wq->thread);
+	EVENT_OFF(wq->thread);
 
 	UNSET_FLAG(wq->flags, WQ_UNPLUGGED);
 }
@@ -218,7 +217,7 @@ void work_queue_unplug(struct work_queue *wq)
  * will reschedule itself if required,
  * otherwise work_queue_item_add
  */
-void work_queue_run(struct thread *thread)
+void work_queue_run(struct event *thread)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
@@ -226,7 +225,7 @@ void work_queue_run(struct thread *thread)
 	unsigned int cycles = 0;
 	char yielded = 0;
 
-	wq = THREAD_ARG(thread);
+	wq = EVENT_ARG(thread);
 
 	assert(wq);
 
@@ -311,8 +310,8 @@ void work_queue_run(struct thread *thread)
 		cycles++;
 
 		/* test if we should yield */
-		if (!(cycles % wq->cycles.granularity)
-		    && thread_should_yield(thread)) {
+		if (!(cycles % wq->cycles.granularity) &&
+		    event_should_yield(thread)) {
 			yielded = 1;
 			goto stats;
 		}
