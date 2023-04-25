@@ -1218,6 +1218,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:extcommunity-rt"));
+	} else if (IS_SET_EXTCOMMUNITY_NT(action)) {
+		vty_out(vty, " set extcommunity nt %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:extcommunity-nt"));
 	} else if (IS_SET_EXTCOMMUNITY_SOO(action)) {
 		vty_out(vty, " set extcommunity soo %s\n",
 			yang_dnode_get_string(

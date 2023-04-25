@@ -2584,11 +2584,19 @@ BGP Extended Communities in Route Map
 
 .. clicmd:: set extcommunity rt EXTCOMMUNITY
 
-   This command set Route Target value.
+   This command sets Route Target value.
+
+.. clicmd:: set extcommunity nt EXTCOMMUNITY
+
+   This command sets Node Target value.
+
+   If the receiving BGP router supports Node Target Extended Communities,
+   it will install the route with the community that contains it's own
+   local BGP Identifier. Otherwise, it's not installed.
 
 .. clicmd:: set extcommunity soo EXTCOMMUNITY
 
-   This command set Site of Origin value.
+   This command sets Site of Origin value.
 
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 

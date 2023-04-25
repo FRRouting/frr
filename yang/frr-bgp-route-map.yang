@@ -186,6 +186,12 @@ module frr-bgp-route-map {
       "Set BGP extended community attribute";
   }
 
+  identity set-extcommunity-nt {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
+  }
+
   identity set-extcommunity-soo {
     base frr-route-map:rmap-set-type;
     description
@@ -783,6 +789,17 @@ module frr-bgp-route-map {
         type string;
         description
           "Set BGP ext-community route-target attribute";
+      }
+    }
+
+    case extcommunity-nt {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
+      description
+        "Value of the ext-community";
+      leaf extcommunity-nt {
+        type string;
+        description
+          "Set BGP ext-community node-target attribute";
       }
     }
 
