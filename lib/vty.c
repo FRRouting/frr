@@ -3409,8 +3409,8 @@ static enum mgmt_result vty_mgmt_get_data_result_notified(
 		return MGMTD_INTERNAL_ERROR;
 	}
 
-	VTY_DBG("GET_DATA request for client 0x%" PRIx64 " req-id %" PRIu64
-		" was successfull!",
+	VTY_DBG("GET_DATA request succeeded, client 0x%" PRIx64
+		" req-id %" PRIu64,
 		client_id, req_id);
 
 	if (req_id != mgmt_last_req_id) {
@@ -3468,10 +3468,8 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 		ret = mgmt_fe_lock_ds(mgmt_lib_hndl, vty->mgmt_session_id,
 				      vty->mgmt_req_id, ds_id, lock);
 		if (ret != MGMTD_SUCCESS) {
-			zlog_err(
-				"Failed to send %sLOCK-DS-REQ to MGMTD for req-id %"
-				PRIu64 ".",
-				lock ? "" : "UN", vty->mgmt_req_id);
+			zlog_err("Failed sending %sLOCK-DS-REQ req-id %" PRIu64,
+				 lock ? "" : "UN", vty->mgmt_req_id);
 			vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!\n",
 				lock ? "" : "UN");
 			return -1;
@@ -3570,10 +3568,8 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 			MGMTD_DS_CANDIDATE, MGMTD_DS_RUNNING, validate_only,
 			abort);
 		if (ret != MGMTD_SUCCESS) {
-			zlog_err(
-				"Failed to send COMMIT-REQ to MGMTD for req-id %"
-				PRIu64 ".",
-				vty->mgmt_req_id);
+			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64,
+				 vty->mgmt_req_id);
 			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");
 			return -1;
 		}
