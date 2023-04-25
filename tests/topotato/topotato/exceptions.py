@@ -5,6 +5,7 @@
 Exceptions for use in topotato pytest integration
 """
 
+import typing
 from typing import Optional
 import attr
 
@@ -14,6 +15,8 @@ from _pytest._code import ExceptionInfo
 from _pytest._code.code import TerminalRepr
 from _pytest._io import TerminalWriter
 
+if typing.TYPE_CHECKING:
+    from .base import TopotatoItem
 
 # actual test failures
 
@@ -121,6 +124,20 @@ class TopotatoEarlierFailSkip(TopotatoSkipped):
     """
     Earlier test failed & caused skip of remaining tests
     """
+
+    failed_node: "TopotatoItem"
+
+    def __init__(self, failed_node, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.failed_node = failed_node
+
+    def __str__(self):
+        sub_id = self.failed_node.nodeid.removeprefix(self.failed_node.parent.nodeid)
+        try:
+            cause = self.__cause__.__class__.__name__
+        except AttributeError:
+            cause = "???"
+        return f"{cause} in {sub_id}"
 
 
 # test coding errors

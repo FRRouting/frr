@@ -49,13 +49,20 @@ def addr2iface(addr: AnyAddress, plen: int) -> AnyInterface:
 
 lo4_net = ipaddress.IPv4Interface("10.255.0.0/24")
 lo6_net = ipaddress.IPv6Interface("fd00::/64")
-lan4_net = lambda n: addr2net(
-    ipaddress.IPv4Address("10.0.0.0") + (100 + n) * 2**16, 16
-)
-lan6_net = lambda n: addr2net(ipaddress.IPv6Address("fdbc::") + n * 2**96, 64)
-p2p_ip4 = lambda g, a, b: addr2iface(
-    ipaddress.IPv4Address("10.0.0.0") + g * 2**16 + a * 2**8 + b, 16
-)
+
+
+def lan4_net(n):
+    return addr2net(ipaddress.IPv4Address("10.0.0.0") + (100 + n) * 2**16, 16)
+
+
+def lan6_net(n):
+    return addr2net(ipaddress.IPv6Address("fdbc::") + n * 2**96, 64)
+
+
+def p2p_ip4(g, a, b):
+    return addr2iface(
+        ipaddress.IPv4Address("10.0.0.0") + g * 2**16 + a * 2**8 + b, 16
+    )
 
 
 class IPPrefixListBase(list):
@@ -122,6 +129,13 @@ class IPPrefixNetworkList(IPPrefixListBase):
 
 
 num_re = re.compile(r"[0-9]+")
+name_order = {
+    "dut": -3,
+    "r": -2,
+    "rt": -1,
+    # not listed: 0
+    "h": 1,
+}
 
 
 def name_to_tuple(name: str) -> Sequence[Union[str, int]]:
@@ -132,9 +146,12 @@ def name_to_tuple(name: str) -> Sequence[Union[str, int]]:
     """
     strs = num_re.split(name)
     nums = [int(i) for i in num_re.findall(name)] + [0]
-    return tuple(
+    key: List[Union[str, int]] = []
+    key.append(name_order.get(strs[0], 0))
+    key.extend(
         cast(List[Union[str, int]], list(chain.from_iterable(zip(strs, nums)))[:-1])
     )
+    return tuple(key)
 
 
 class NOMNode:
@@ -157,15 +174,26 @@ class NOMLinked(NOMNode, metaclass=abc.ABCMeta):
     ifaces: List["LinkIface"]
 
     sortkey: Tuple[Any]
-    num: int
+    num_default: int
+    num_explicit: Optional[int]
     dotname: str
 
     def __init__(self, network):
         super().__init__(network)
         self.ifaces = []
+        self.num_default = -1
+        self.num_explicit = None
 
     def __lt__(self, other):
         return self.sortkey < other.sortkey
+
+    def _num_get(self) -> int:
+        return self.num_explicit or self.num_default
+
+    def _num_set(self, val: int):
+        self.num_explicit = val
+
+    num = property(_num_get, _num_set)
 
     def add_iface(self, iface):
         self.ifaces.append(iface)
@@ -486,7 +514,7 @@ class LinkIface(NOMNode):
             macparts = [int(p, 16) for p in self.macaddr.split(":")]
             macparts[0] ^= 0x02
             macparts[3:3] = [0xFF, 0xFE]
-            eui_int = sum([j << (8 * i) for i, j in enumerate(reversed(macparts))])
+            eui_int = sum(j << (8 * i) for i, j in enumerate(reversed(macparts)))
 
             for net in self.other.endpoint.ip6:
                 addr = net[eui_int]
@@ -624,12 +652,12 @@ class Network:
         for routerp in parse.routers:
             self.router(routerp.name, True)
         for i, router in enumerate(sorted(self.routers.values())):
-            router.num = i + 1
+            router.num_default = i + 1
 
         for lanp in parse.lans:
             self.lan(lanp.name, True)
         for i, lan in enumerate(sorted(self.lans.values())):
-            lan.num = i + 1
+            lan.num_default = i + 1
 
         def topo_rtr_or_lan(item):
             if isinstance(item, Topology.Router):
@@ -649,6 +677,37 @@ class Network:
                 link.parallel_num = i
                 link.global_num = j
                 j += 1
+
+    def auto_num(self):
+        def do_auto(items: Dict[str, NOMLinked]):
+            if not items:
+                return
+
+            explicit_used: Dict[int, NOMLinked] = {}
+            implicit_used: Dict[int, NOMLinked] = {}
+
+            for i in items.values():
+                n_e = i.num_explicit
+                if n_e is None:
+                    assert i.num_default not in implicit_used
+                    implicit_used[i.num_default] = i
+                    continue
+
+                if n_e in explicit_used:
+                    raise ValueError(
+                        f"number {n_e} assigned to {i!r} already used for {explicit_used[n_e]}"
+                    )
+
+                explicit_used[n_e] = i
+
+            last_used = max(explicit_used.keys() | implicit_used.keys())
+            reassign = explicit_used.keys() & implicit_used.keys()
+
+            for new_num, old_num in enumerate(sorted(reassign), last_used + 1):
+                implicit_used[old_num].num_default = new_num
+
+        do_auto(self.routers)
+        do_auto(self.lans)
 
     def auto_ifnames(self):
         for r in self.routers.values():
@@ -722,6 +781,7 @@ def test():
     net = Network()
     net.load_parse(topo)
 
+    net.auto_num()
     net.auto_ifnames()
     net.auto_ip4()
     net.auto_ip6()

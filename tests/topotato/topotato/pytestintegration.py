@@ -52,13 +52,6 @@ def pytest_addhooks(pluginmanager):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--run-topology",
-        action="store_const",
-        const=True,
-        default=None,
-        help="run a test topology",
-    )
-    parser.addoption(
         "--show-configs",
         action="store_const",
         const=True,
@@ -244,37 +237,3 @@ def pytest_collection(session):
 
         session.items = []
         return
-
-    if session.config.getoption("--run-topology"):
-        starters = []
-        for item in session.items:
-            if not isinstance(item, TopotatoItem):
-                continue
-            if item.name != "startup":
-                continue
-            starters.append(item)
-
-        sys.stdout.write("\navailable topologies:\n")
-        for item in starters:
-            sys.stdout.write("    %s\n" % (item.nodeid))
-        sys.stdout.write("\n")
-
-        if len(starters) == 1:
-            starters[0].parent.setup()
-            starters[0].setup()
-            starters[0].runtest()
-
-            instance = starters[0].instance
-            sys.stdout.write(
-                "topology running, tempdir: %s, switch ns pid: %d\n"
-                % (instance.tempdir.name, instance.switch_ns.pid)
-            )
-            for n, r in instance.routers.items():
-                sys.stdout.write("    %-20s pid: %d\n" % (n, r.pid))
-
-            sys.stdout.write(
-                "\nTo enter a namespace, use:\n    nsenter -a -t <pid> /bin/bash\n\nPress Ctrl+C (or kill the pytest process) to shut down the topology.\n\n"
-            )
-            signal.pause()
-
-        session.items = []

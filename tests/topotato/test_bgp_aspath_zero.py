@@ -31,7 +31,7 @@ class Configs(FRRConfigs):
     #% block main
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -40,16 +40,16 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r1'
     router bgp 65534
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.peer1.ifaces[0].ip4[0].ip }} remote-as 65001
-      neighbor {{ routers.peer1.ifaces[0].ip4[0].ip }} timers 3 10
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.peer1.ifaces[0].ip4[0].ip }} remote-as 65001
+     neighbor {{ routers.peer1.ifaces[0].ip4[0].ip }} timers 3 10
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class BGPAggregatorZero(TestBase, AutoFixture, topo=topology, configs=Configs):

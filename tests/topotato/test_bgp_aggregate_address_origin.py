@@ -57,20 +57,20 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r2'
     router bgp 65001
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} remote-as 65000
-      neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} timers 3 10
-      exit-address-family
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} remote-as 65000
+     neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} timers 3 10
+     exit-address-family
     !
     #%   elif router.name == 'r1'
     router bgp 65000
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as 65001
-      neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
-      address-family ipv4 unicast
-        redistribute connected
-        aggregate-address 172.16.255.0/24 origin igp
-      exit-address-family
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as 65001
+     neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
+     address-family ipv4 unicast
+      redistribute connected
+      aggregate-address 172.16.255.0/24 origin igp
+     exit-address-family
     !
     #%   endif
     #% endblock

@@ -18,10 +18,10 @@ from typing import Any, Callable, Dict
 
 import pytest
 from . import toponom
+from .base import TopotatoItem
 from .utils import LockedFile, AtomicPublishFile, deindent
 
 if typing.TYPE_CHECKING:
-    from .base import TopotatoItem
     from .frr import FRRNetworkInstance
 
 
@@ -65,6 +65,35 @@ class Interactive:
             default=None,
             help="set identifier for this topotato run (for potatool)",
         )
+        parser.addoption(
+            "--run-topology",
+            action="store_const",
+            const=True,
+            default=None,
+            help="run a test topology",
+        )
+
+    @staticmethod
+    @pytest.hookimpl(hookwrapper=True, trylast=True)
+    def pytest_collection(session):
+        _ = yield
+
+        if session.config.getoption("--run-topology"):
+            sys.stdout.write("\navailable topologies:\n")
+
+            allitems = session.items
+            session.items = []
+            for item in allitems:
+                if isinstance(item, TopotatoItem) and item.name == "startup":
+                    sys.stdout.write(f"    {item.parent.nodeid}\n")
+                    session.items.append(item)
+
+            sys.stdout.write("\n")
+            if len(session.items) != 1:
+                sys.stdout.write(
+                    "  More than one topology selected.  Please choose one.\n"
+                )
+                session.items = []
 
     @pytest.hookimpl()
     @classmethod
@@ -143,6 +172,21 @@ class Interactive:
                 state["rundirs"][name] = rundir
 
         self._post(state)
+
+    @staticmethod
+    @pytest.hookimpl(hookwrapper=True, tryfirst=True)
+    def pytest_runtest_call(item):
+        # self = item.session.stash[_interactive_session]
+        self = item.session.interactive_session
+
+        _ = yield
+        if item.session.config.getoption("--run-topology"):
+            tw = item.session.config.get_terminal_writer()
+            tw.line("")
+            tw.sep("═", "paused (--run-topology)", bold=True, purple=True)
+
+            # pylint: disable=protected-access
+            self._topotato_stop(item)
 
     @staticmethod
     def show_diagram(net: toponom.Network, out):
@@ -239,23 +283,29 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
         tw.line("")
         tw.sep("^", "paused on failure", bold=True, purple=True)
 
+        context = {
+            "__excinfo__": excinfo,
+        }
+        if codeloc is not None:
+            context.update(codeloc.frame.f_locals)
+
+        self._topotato_stop(item, context)
+
+    def _topotato_stop(self, item, context=None):
         capman = item.config.pluginmanager.getplugin("capturemanager")
         if capman:
             capwhat = capman.is_capturing()
             if capwhat:
                 capman.suspend(in_=True)
 
-        try:
-            context = {
-                "__item__": item,
-                "__excinfo__": excinfo,
-            }
-            if hasattr(item, "instance"):
-                context["_instance"] = item.instance
-                self.show_instance_for_stop(item.instance)
-            if codeloc is not None:
-                context.update(codeloc.frame.f_locals)
+        context = context or {}
+        context["__item__"] = item
 
+        if hasattr(item, "instance"):
+            context["_instance"] = item.instance
+            self.show_instance_for_stop(item.instance)
+
+        try:
             code.interact(local=context, banner="")
         finally:
             if capman:

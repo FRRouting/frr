@@ -29,7 +29,7 @@ class Configs(FRRConfigs):
     #% block main
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -38,18 +38,18 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r1'
     router bgp 65534
-      no bgp ebgp-requires-policy
-      neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as 65001
-      neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
-      neighbor {{ routers.r3.ifaces[0].ip4[0].ip }} remote-as 65002
-      neighbor {{ routers.r3.ifaces[0].ip4[0].ip }} timers 3 10
+     no bgp ebgp-requires-policy
+     neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as 65001
+     neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
+     neighbor {{ routers.r3.ifaces[0].ip4[0].ip }} remote-as 65002
+     neighbor {{ routers.r3.ifaces[0].ip4[0].ip }} timers 3 10
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 class ExaBGPDemo(TestBase, AutoFixture, topo=topology, configs=Configs):
 
@@ -58,8 +58,8 @@ class ExaBGPDemo(TestBase, AutoFixture, topo=topology, configs=Configs):
 
         configuration = """
 neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} {
-    router-id {{ routers.r2.ifaces[0].ip4[0].ip }}; 
-    local-address {{ routers.r2.ifaces[0].ip4[0].ip }}; 
+    router-id {{ routers.r2.ifaces[0].ip4[0].ip }};
+    local-address {{ routers.r2.ifaces[0].ip4[0].ip }};
     local-as 65001;
     peer-as 65534;
 }
@@ -69,8 +69,8 @@ neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} {
 
         configuration2 = """
 neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} {
-    router-id {{ routers.r3.ifaces[0].ip4[0].ip }}; 
-    local-address {{ routers.r3.ifaces[0].ip4[0].ip }}; 
+    router-id {{ routers.r3.ifaces[0].ip4[0].ip }};
+    local-address {{ routers.r3.ifaces[0].ip4[0].ip }};
     local-as 65002;
     peer-as 65534;
 }
