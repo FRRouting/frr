@@ -196,8 +196,10 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, input_dict, lan=True)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Configure DR priority 100 on R0 and clear ospf neighbors "
-         "on all the routers.")
+    step(
+        "Configure DR priority 100 on R0 and clear ospf neighbors "
+        "on all the routers."
+    )
 
     input_dict = {
         "r0": {
@@ -233,8 +235,10 @@ def test_ospf_lan_tc1_p0(request):
     result = verify_ospf_neighbor(tgen, topo, dut, input_dict, lan=True)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Configure DR priority 150 on R0 and clear ospf neighbors "
-         "on all the routers.")
+    step(
+        "Configure DR priority 150 on R0 and clear ospf neighbors "
+        "on all the routers."
+    )
 
     input_dict = {
         "r0": {
