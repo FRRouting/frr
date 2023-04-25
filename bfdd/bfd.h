@@ -32,6 +32,11 @@ DECLARE_MGROUP(BFDD);
 DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
 
+/* bfd Authentication Type. */
+#define BFD_AUTH_NULL 0
+#define BFD_AUTH_SIMPLE 1
+#define BFD_AUTH_CRYPTOGRAPHIC 2
+
 struct bfd_timers {
 	uint32_t desired_min_tx;
 	uint32_t required_min_rx;
@@ -59,6 +64,15 @@ struct bfd_pkt {
 	struct bfd_discrs discrs;
 	struct bfd_timers timers;
 };
+
+/*
+ * Format of authentification.
+ */
+struct bfd_auth {
+	uint8_t type;
+	uint8_t length;
+};
+
 
 /*
  * Format of Echo packet.
