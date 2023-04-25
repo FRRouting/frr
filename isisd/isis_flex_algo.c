@@ -70,6 +70,7 @@ void isis_flex_algo_data_free(void *voiddata)
 			if (data->spftree[tree][level - 1])
 				isis_spftree_del(
 					data->spftree[tree][level - 1]);
+	XFREE(MTYPE_FLEX_ALGO, data);
 }
 
 static struct isis_router_cap_fad *
