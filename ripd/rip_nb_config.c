@@ -525,7 +525,7 @@ int ripd_instance_non_passive_interface_create(struct nb_cb_create_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
-	return rip_passive_nondefault_unset(rip, ifname);
+	return rip_passive_nondefault_set(rip, ifname);
 }
 
 int ripd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
@@ -539,7 +539,7 @@ int ripd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
-	return rip_passive_nondefault_set(rip, ifname);
+	return rip_passive_nondefault_unset(rip, ifname);
 }
 
 /*
