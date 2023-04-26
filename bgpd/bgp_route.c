@@ -14277,7 +14277,6 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			for (ain = dest->adj_in; ain; ain = ain->next) {
 				if (ain->peer != peer)
 					continue;
-
 				show_adj_route_header(vty, peer, table, header1,
 						      header2, json, json_scode,
 						      json_ocode, wide, detail);
@@ -14328,9 +14327,23 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					if (use_json)
 						json_net =
 							json_object_new_object();
+
+					struct bgp_path_info bpi;
+					struct bgp_dest buildit = *dest;
+					struct bgp_dest *pass_in;
+
+					if (route_filtered ||
+					    ret == RMAP_DENY) {
+						bpi.attr = &attr;
+						bpi.peer = peer;
+						buildit.info = &bpi;
+
+						pass_in = &buildit;
+					} else
+						pass_in = dest;
 					bgp_show_path_info(
-						NULL /* prefix_rd */, dest, vty,
-						bgp, afi, safi, json_net,
+						NULL, pass_in, vty, bgp, afi,
+						safi, json_net,
 						BGP_PATH_SHOW_ALL, &display,
 						RPKI_NOT_BEING_USED);
 					if (use_json)
