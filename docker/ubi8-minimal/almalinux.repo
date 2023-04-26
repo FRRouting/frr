@@ -1,0 +1,23 @@
+[AlmaLinux - baseos]
+name=AlmaLinux $releasever - BaseOS
+mirrorlist=https://mirrors.almalinux.org/mirrorlist/$releasever/baseos
+# baseurl=https://repo.almalinux.org/almalinux/$releasever/BaseOS/$basearch/os/
+enabled=1
+gpgcheck=1
+countme=1
+
+[AlmaLinux - appstream]
+name=AlmaLinux $releasever - AppStream
+mirrorlist=https://mirrors.almalinux.org/mirrorlist/$releasever/appstream
+# baseurl=https://repo.almalinux.org/almalinux/$releasever/AppStream/$basearch/os/
+enabled=1
+gpgcheck=1
+countme=1
+
+[AlmaLinux - powertools]
+name=AlmaLinux $releasever - PowerTools
+mirrorlist=https://mirrors.almalinux.org/mirrorlist/$releasever/powertools
+# baseurl=https://repo.almalinux.org/almalinux/$releasever/PowerTools/$basearch/os/
+enabled=1
+gpgcheck=1
+countme=1

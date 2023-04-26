@@ -111,9 +111,7 @@ def ospf_unconfigure_suppress_fa(router_name, area):
 
     tgen = get_topogen()
     router = tgen.gears[router_name]
-    router.vtysh_cmd(
-        "conf t\nrouter ospf\nno area {} nssa suppress-fa\nexit\n".format(area)
-    )
+    router.vtysh_cmd("conf t\nrouter ospf\narea {} nssa\nexit\n".format(area))
 
 
 def ospf_get_lsa_type5(router_name):

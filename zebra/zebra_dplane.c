@@ -3745,6 +3745,11 @@ dplane_route_update_internal(struct route_node *rn,
 						 NEXTHOP_FLAG_FIB);
 			}
 
+			if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && re &&
+			    (old_re != re) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
 			dplane_ctx_free(&ctx);
 			return ZEBRA_DPLANE_REQUEST_SUCCESS;
 		}
@@ -5375,8 +5380,7 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 		atomic_fetch_add_explicit(
 			&zdplane_info.dg_gre_set_errors, 1,
 			memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 		result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 	return result;
@@ -6852,10 +6856,6 @@ void zebra_dplane_shutdown(void)
 	/* Stop dplane thread, if it's running */
 
 	zdplane_info.dg_run = false;
-
-	if (zdplane_info.dg_t_update)
-		event_cancel_async(zdplane_info.dg_t_update->master,
-				   &zdplane_info.dg_t_update, NULL);
 
 	frr_pthread_stop(zdplane_info.dg_pthread, NULL);
 

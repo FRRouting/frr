@@ -57,7 +57,17 @@ static void sr_adj_sid_del(struct sr_adjacency *sra);
 static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 					    const struct sr_prefix_cfg *b)
 {
-	return prefix_cmp(&a->prefix, &b->prefix);
+	int ret;
+
+	ret = prefix_cmp(&a->prefix, &b->prefix);
+	if (ret != 0)
+		return ret;
+
+	ret = a->algorithm - b->algorithm;
+	if (ret != 0)
+		return ret;
+
+	return 0;
 }
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
 		    sr_prefix_sid_cfg_compare);
@@ -331,7 +341,8 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
  * @return	  Newly added Prefix-SID configuration structure
  */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
-					     const struct prefix *prefix)
+					     const struct prefix *prefix,
+					     uint8_t algorithm)
 {
 	struct sr_prefix_cfg *pcfg;
 	struct interface *ifp;
@@ -341,6 +352,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	pcfg = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*pcfg));
 	pcfg->prefix = *prefix;
 	pcfg->area = area;
+	pcfg->algorithm = algorithm;
 
 	/* Pull defaults from the YANG module. */
 	pcfg->sid_type = yang_get_default_enum(
@@ -386,11 +398,13 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
  * @return	  Configured Prefix-SID structure if found, NULL otherwise
  */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
-					      union prefixconstptr prefix)
+					      union prefixconstptr prefix,
+					      uint8_t algorithm)
 {
 	struct sr_prefix_cfg pcfg = {};
 
 	prefix_copy(&pcfg.prefix, prefix.p);
+	pcfg.algorithm = algorithm;
 	return srdb_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
 }
 
@@ -405,7 +419,7 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 			       struct isis_prefix_sid *psid)
 {
 	/* Set SID algorithm. */
-	psid->algorithm = SR_ALGORITHM_SPF;
+	psid->algorithm = pcfg->algorithm;
 
 	/* Set SID flags. */
 	psid->flags = 0;
@@ -917,10 +931,12 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
  */
 static int sr_if_new_hook(struct interface *ifp)
 {
+	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
 	struct listnode *node;
+	bool need_lsp_regenerate = false;
 
 	/* Get corresponding circuit */
 	circuit = circuit_scan_by_ifp(ifp);
@@ -937,17 +953,23 @@ static int sr_if_new_hook(struct interface *ifp)
 	 * configuration before receiving interface information from zebra.
 	 */
 	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
-		struct sr_prefix_cfg *pcfg;
 
-		pcfg = isis_sr_cfg_prefix_find(area, connected->address);
-		if (!pcfg)
-			continue;
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			pcfgs[i] = isis_sr_cfg_prefix_find(
+				area, connected->address, i);
 
-		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)) {
-			pcfg->node_sid = true;
-			lsp_regenerate_schedule(area, area->is_type, 0);
+			if (!pcfgs[i])
+				continue;
+
+			if (sr_prefix_is_node_sid(ifp, &pcfgs[i]->prefix)) {
+				pcfgs[i]->node_sid = true;
+				need_lsp_regenerate = true;
+			}
 		}
 	}
+
+	if (need_lsp_regenerate)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
 }
@@ -998,10 +1020,12 @@ char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
  * @param area	IS-IS area
  * @param level	IS-IS level
  */
-static void show_node(struct vty *vty, struct isis_area *area, int level)
+static void show_node(struct vty *vty, struct isis_area *area, int level,
+		      uint8_t algo)
 {
 	struct isis_lsp *lsp;
 	struct ttable *tt;
+	char buf[128];
 
 	vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
 
@@ -1021,15 +1045,24 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 		cap = lsp->tlvs->router_cap;
 		if (!cap)
 			continue;
+		if (cap->algo[algo] == SR_ALGORITHM_UNSET)
+			continue;
 
-		ttable_add_row(
-			tt, "%s|%u - %u|%u - %u|%s|%u",
-			sysid_print(lsp->hdr.lsp_id), cap->srgb.lower_bound,
-			cap->srgb.lower_bound + cap->srgb.range_size - 1,
-			cap->srlb.lower_bound,
-			cap->srlb.lower_bound + cap->srlb.range_size - 1,
-			cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
-			cap->msd);
+		if (cap->algo[algo] == SR_ALGORITHM_SPF)
+			snprintf(buf, sizeof(buf), "SPF");
+		else if (cap->algo[algo] == SR_ALGORITHM_STRICT_SPF)
+			snprintf(buf, sizeof(buf), "S-SPF");
+#ifndef FABRICD
+		else
+			snprintf(buf, sizeof(buf), "Flex-Algo %d", algo);
+#endif /* ifndef FABRICD */
+
+		ttable_add_row(tt, "%pSY|%u - %u|%u - %u|%s|%u",
+			       lsp->hdr.lsp_id, cap->srgb.lower_bound,
+			       cap->srgb.lower_bound + cap->srgb.range_size - 1,
+			       cap->srlb.lower_bound,
+			       cap->srlb.lower_bound + cap->srlb.range_size - 1,
+			       buf, cap->msd);
 	}
 
 	/* Dump the generated table. */
@@ -1044,15 +1077,31 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
-      "show " PROTO_NAME " segment-routing node",
-      SHOW_STR
-      PROTO_HELP
+      "show " PROTO_NAME
+      " segment-routing node"
+#ifndef FABRICD
+      " [algorithm (128-255)]"
+#endif /* ifndef FABRICD */
+      ,
+      SHOW_STR PROTO_HELP
       "Segment-Routing\n"
-      "Segment-Routing node\n")
+      "Segment-Routing node\n"
+#ifndef FABRICD
+      "Show Flex-algo nodes\n"
+      "Algorithm number\n"
+#endif /* ifndef FABRICD */
+)
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
+	uint8_t algorithm = SR_ALGORITHM_SPF;
 	struct isis *isis;
+#ifndef FABRICD
+	int idx = 0;
+
+	if (argv_find(argv, argc, "algorithm", &idx))
+		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+#endif /* ifndef FABRICD */
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
@@ -1064,7 +1113,7 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++)
-				show_node(vty, area, level);
+				show_node(vty, area, level, algorithm);
 		}
 	}
 

@@ -3070,7 +3070,9 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
  * the IMPLICIT_NULL label. This is pretty specialized: it's only called
  * in a path where we basically _know_ this is a BGP-LU route.
  */
-static bool bgp_lu_need_imp_null(const struct bgp_path_info *new_select)
+static bool bgp_lu_need_null_label(struct bgp *bgp,
+				   const struct bgp_path_info *new_select,
+				   afi_t afi, mpls_label_t *label)
 {
 	/* Certain types get imp null; so do paths where the nexthop is
 	 * not labeled.
@@ -3078,13 +3080,22 @@ static bool bgp_lu_need_imp_null(const struct bgp_path_info *new_select)
 	if (new_select->sub_type == BGP_ROUTE_STATIC
 	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
 	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
-		return true;
-	else if (new_select->extra == NULL ||
-		 !bgp_is_valid_label(&new_select->extra->label[0]))
-		/* TODO -- should be configurable? */
-		return true;
-	else
+		goto need_null_label;
+	else if (new_select->extra &&
+		 bgp_is_valid_label(&new_select->extra->label[0]))
 		return false;
+need_null_label:
+	if (label == NULL)
+		return true;
+	if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_EXPLICIT_NULL))
+		/* Disable PHP : explicit-null */
+		*label = afi == AFI_IP ? MPLS_LABEL_IPV4_EXPLICIT_NULL
+				       : MPLS_LABEL_IPV6_EXPLICIT_NULL;
+	else
+		/* Enforced PHP popping: implicit-null */
+		*label = MPLS_LABEL_IMPLICIT_NULL;
+
+	return true;
 }
 
 /*
@@ -3113,6 +3124,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
 	int debug = 0;
+	mpls_label_t mpls_label_null;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		if (dest)
@@ -3167,7 +3179,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 * Right now, since we only deal with per-prefix labels, it is not
 	 * necessary to do this upon changes to best path. Exceptions:
 	 * - label index has changed -> recalculate resulting label
-	 * - path_info sub_type changed -> switch to/from implicit-null
+	 * - path_info sub_type changed -> switch to/from null label value
 	 * - no valid label (due to removed static label binding) -> get new one
 	 */
 	if (bgp->allocate_mpls_labels[afi][safi]) {
@@ -3176,11 +3188,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			    || bgp_label_index_differs(new_select, old_select)
 			    || new_select->sub_type != old_select->sub_type
 			    || !bgp_is_valid_label(&dest->local_label)) {
-				/* Enforced penultimate hop popping:
-				 * implicit-null for local routes, aggregate
-				 * and redistributed routes
+				/* control label imposition for local routes,
+				 * aggregate and redistributed routes
 				 */
-				if (bgp_lu_need_imp_null(new_select)) {
+				mpls_label_null = MPLS_LABEL_IMPLICIT_NULL;
+				if (bgp_lu_need_null_label(bgp, new_select, afi,
+							   &mpls_label_null)) {
 					if (CHECK_FLAG(
 						    dest->flags,
 						    BGP_NODE_REGISTERED_FOR_LABEL)
@@ -3189,8 +3202,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 						    BGP_NODE_LABEL_REQUESTED))
 						bgp_unregister_for_label(dest);
 					dest->local_label = mpls_lse_encode(
-						MPLS_LABEL_IMPLICIT_NULL, 0, 0,
-						1);
+						mpls_label_null, 0, 0, 1);
 					bgp_set_valid_label(&dest->local_label);
 				} else
 					bgp_register_for_label(dest,
@@ -4053,17 +4065,24 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (has_valid_label)
 		assert(label != NULL);
 
-	/* Update overlay index of the attribute */
-	if (afi == AFI_L2VPN && evpn)
-		memcpy(&attr->evpn_overlay, evpn,
-		       sizeof(struct bgp_route_evpn));
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
-	if (!soft_reconfig
-	    && CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
-	    && peer != bgp->peer_self)
+	if (!soft_reconfig &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG) &&
+	    peer != bgp->peer_self) {
+		/*
+		 * If the trigger is not from soft_reconfig and if
+		 * PEER_FLAG_SOFT_RECONFIG is enabled for the peer, then attr
+		 * will not be interned. In which case, it is ok to update the
+		 * attr->evpn_overlay, so that, this can be stored in adj_in.
+		 */
+		if ((afi == AFI_L2VPN) && evpn) {
+			memcpy(&attr->evpn_overlay, evpn,
+			       sizeof(struct bgp_route_evpn));
+		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id);
+	}
 
 	/* Update permitted loop count */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
@@ -4154,6 +4173,21 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+	/* If the route has Node Target Extended Communities, check
+	 * if it's allowed to be installed locally.
+	 */
+	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+
+		if (ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_IP,
+				      ECOMMUNITY_NODE_TARGET) &&
+		    !ecommunity_node_target_match(ecomm, &peer->local_id)) {
+			reason =
+				"Node-Target Extended Communities do not contain own BGP Identifier;";
+			goto filtered;
+		}
+	}
+
 	/* RFC 8212 to prevent route leaks.
 	 * This specification intends to improve this situation by requiring the
 	 * explicit configuration of both BGP Import and Export Policies for any
@@ -4191,6 +4225,15 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 	new_attr = *attr;
+	/*
+	 * If bgp_update is called with soft_reconfig set then
+	 * attr is interned. In this case, do not overwrite the
+	 * attr->evpn_overlay with evpn directly. Instead memcpy
+	 * evpn to new_atr.evpn_overlay before it is interned.
+	 */
+	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
+		memcpy(&new_attr.evpn_overlay, evpn,
+		       sizeof(struct bgp_route_evpn));
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
@@ -7010,8 +7053,8 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 		bgp_static->label = label;
 		bgp_static->prd = prd;
 
-		if (rd_str)
-			bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP, rd_str);
+		bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP, rd_str);
+
 		if (rmap_str) {
 			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 			route_map_counter_decrement(bgp_static->rmap.map);
@@ -11603,9 +11646,28 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					vty_out(vty, ",\"%pFX\": ", dest_p);
 			}
 
+			/* This is used for 'json detail' vty keywords.
+			 *
+			 * In plain 'json' the per-prefix header is encoded
+			 * as a standalone dictionary in the first json_paths
+			 * array element:
+			 * "<prefix>": [{header}, {path-1}, {path-N}]
+			 * (which is confusing and borderline broken)
+			 *
+			 * For 'json detail' this changes the value
+			 * of each prefix-key to be a dictionary where each
+			 * header item has its own key, and json_paths is
+			 * tucked under the "paths" key:
+			 * "<prefix>": {
+			 *   "<header-key-1>": <header-val-1>,
+			 *   "<header-key-N>": <header-val-N>,
+			 *   "paths": [{path-1}, {path-N}]
+			 * }
+			 */
 			if (json_detail_header && json_paths != NULL) {
 				const struct prefix_rd *prd;
 
+				/* Start per-prefix dictionary */
 				vty_out(vty, "{\n");
 
 				prd = bgp_rd_from_dest(dest, safi);
@@ -11630,6 +11692,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			 */
 			vty_json_no_pretty(vty, json_paths);
 
+			/* End per-prefix dictionary */
 			if (json_detail_header_used)
 				vty_out(vty, "} ");
 
@@ -11872,12 +11935,14 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty,
 				"BGP routing table entry for %s%s%pFX, version %" PRIu64
 				"\n",
-				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
+				(((safi == SAFI_MPLS_VPN ||
+				   safi == SAFI_ENCAP) &&
+				  prd)
 					 ? prefix_rd2str(prd, buf1,
 							 sizeof(buf1),
 							 bgp->asnotation)
 					 : ""),
-				safi == SAFI_MPLS_VPN ? ":" : "", p,
+				safi == SAFI_MPLS_VPN && prd ? ":" : "", p,
 				dest->version);
 
 		} else {

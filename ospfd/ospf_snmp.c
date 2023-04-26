@@ -1112,7 +1112,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 		oid2in_addr(offset, IN_ADDR_SIZE, range_net);
 		p.prefix = *range_net;
 
-		return ospf_area_range_lookup(area, &p);
+		return ospf_area_range_lookup(area, area->ranges, &p);
 	} else {
 		/* Set OID offset for Area ID. */
 		offset = name + v->namelen;

@@ -132,8 +132,11 @@ lib_interface_state_isis_adjacencies_adjacency_neighbor_sysid_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct isis_adjacency *adj = args->list_entry;
+	char xpath_value[ISO_SYSID_STRLEN];
 
-	return yang_data_new_string(args->xpath, sysid_print(adj->sysid));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pSY", adj->sysid);
+
+	return yang_data_new_string(args->xpath, xpath_value);
 }
 
 /*
@@ -158,8 +161,11 @@ lib_interface_state_isis_adjacencies_adjacency_neighbor_snpa_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	const struct isis_adjacency *adj = args->list_entry;
+	char xpath_value[ISO_SYSID_STRLEN];
 
-	return yang_data_new_string(args->xpath, snpa_print(adj->snpa));
+	snprintfrr(xpath_value, ISO_SYSID_STRLEN, "%pSY", adj->snpa);
+
+	return yang_data_new_string(args->xpath, xpath_value);
 }
 
 /*

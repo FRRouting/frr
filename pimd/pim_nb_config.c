@@ -71,12 +71,19 @@ static void pim_if_membership_clear(struct interface *ifp)
 static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
+#if PIM_IPV == 4
 	struct listnode *grpnode;
 	struct gm_group *grp;
-
+#else
+	struct gm_if *gm_ifp;
+	struct gm_sg *sg, *sg_start;
+#endif
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
+#if PIM_IPV == 6
+	gm_ifp = pim_ifp->mld;
+#endif
 
 	if (!pim_ifp->pim_enable)
 		return;
@@ -90,6 +97,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 	pim_ifchannel_membership_clear(ifp);
 
+#if PIM_IPV == 4
 	/*
 	 * Then restore PIM (S,G) membership from all IGMPv3 (S,G) entries on
 	 * the interface
@@ -116,6 +124,16 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 		} /* scan group sources */
 	}	 /* scan igmp groups */
+#else
+	sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		if (!in6_multicast_nofwd(&sg->sgaddr.grp)) {
+			pim_ifchannel_local_membership_add(
+				ifp, &sg->sgaddr, false /*is_vxlan*/);
+		}
+	}
+#endif
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
@@ -2880,10 +2898,9 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 int lib_interface_gmp_address_family_static_group_create(
 	struct nb_cb_create_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	int result;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
@@ -2899,33 +2916,40 @@ int lib_interface_gmp_address_family_static_group_create(
 			return NB_ERR_VALIDATION;
 		}
 
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
-		if (pim_is_group_224_0_0_0_24(group_addr.ip._v4_addr)) {
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+#if PIM_IPV == 4
+		if (pim_is_group_224_0_0_0_24(group_addr)) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"Groups within 224.0.0.0/24 are reserved and cannot be joined");
 			return NB_ERR_VALIDATION;
 		}
+#else
+		if (ipv6_mcast_reserved(&group_addr)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Groups within ffx2::/16 are reserved and cannot be joined");
+			return NB_ERR_VALIDATION;
+		}
+#endif
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
-
-		result = pim_if_igmp_join_add(ifp, group_addr.ip._v4_addr,
-				source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+		result = pim_if_gm_join_add(ifp, group_addr, source_addr);
 		if (result) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "Failure joining IGMP group");
+				 "Failure joining " GM " group");
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
@@ -2933,8 +2957,8 @@ int lib_interface_gmp_address_family_static_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	int result;
 
 	switch (args->event) {
@@ -2944,22 +2968,17 @@ int lib_interface_gmp_address_family_static_group_destroy(
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
-
-		result = pim_if_igmp_join_del(ifp, group_addr.ip._v4_addr,
-				source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+		result = pim_if_gm_join_del(ifp, group_addr, source_addr);
 
 		if (result) {
-			char src_str[INET_ADDRSTRLEN];
-			char grp_str[INET_ADDRSTRLEN];
-
-			ipaddr2str(&source_addr, src_str, sizeof(src_str));
-			ipaddr2str(&group_addr, grp_str, sizeof(grp_str));
-
 			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure leaving IGMP group %s %s on interface %s: %d",
-				 src_str, grp_str, ifp->name, result);
+				 "%% Failure leaving " GM
+				 " group %pPAs %pPAs on interface %s: %d",
+				 &source_addr, &group_addr, ifp->name, result);
 
 			return NB_ERR_INCONSISTENCY;
 		}

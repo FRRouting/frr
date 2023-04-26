@@ -33,6 +33,7 @@ lib_libfrr_la_SOURCES = \
 	lib/filter.c \
 	lib/filter_cli.c \
 	lib/filter_nb.c \
+	lib/flex_algo.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frrscript.c \
@@ -47,6 +48,7 @@ lib_libfrr_la_SOURCES = \
 	lib/if_rmap.c \
 	lib/imsg-buffer.c \
 	lib/imsg.c \
+	lib/iso.c \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
@@ -98,6 +100,7 @@ lib_libfrr_la_SOURCES = \
 	lib/sockopt.c \
 	lib/sockunion.c \
 	lib/spf_backoff.c \
+	lib/segment_routing.c \
 	lib/srcdest_table.c \
 	lib/stream.c \
 	lib/strformat.c \
@@ -135,6 +138,7 @@ lib_libfrr_la_SOURCES = \
 nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-affinity-map.yang.c \
 	yang/frr-filter.yang.c \
+	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
@@ -173,6 +177,7 @@ clippy_scan += \
 	lib/affinitymap_cli.c \
 	lib/if.c \
 	lib/filter_cli.c \
+	lib/if_rmap.c \
 	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
@@ -208,6 +213,7 @@ pkginclude_HEADERS += \
 	lib/distribute.h \
 	lib/ferr.h \
 	lib/filter.h \
+	lib/flex_algo.h \
 	lib/freebsd-queue.h \
 	lib/frrlua.h \
 	lib/frrscript.h \
@@ -224,6 +230,7 @@ pkginclude_HEADERS += \
 	lib/if_rmap.h \
 	lib/imsg.h \
 	lib/ipaddr.h \
+	lib/iso.h \
 	lib/jhash.h \
 	lib/json.h \
 	lib/keychain.h \
@@ -279,6 +286,7 @@ pkginclude_HEADERS += \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
+	lib/segment_routing.h \
 	lib/srcdest_table.h \
 	lib/srte.h \
 	lib/stream.h \

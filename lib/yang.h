@@ -210,6 +210,27 @@ extern void yang_snode_get_path(const struct lysc_node *snode,
 				enum yang_path_type type, char *xpath,
 				size_t xpath_len);
 
+
+/*
+ * Find libyang schema node for the given xpath. Uses `lys_find_xpath`,
+ * returning only the first of a set of nodes -- normally there should only
+ * be one.
+ *
+ * ly_ctx
+ *    libyang context to operate on.
+ *
+ * xpath
+ *    XPath expression (absolute or relative) to find the schema node for.
+ *
+ * options
+ *    Libyang findxpathoptions value (see lys_find_xpath).
+ *
+ * Returns:
+ *    The libyang schema node if found, or NULL if not found.
+ */
+extern struct lysc_node *yang_find_snode(struct ly_ctx *ly_ctx,
+					 const char *xpath, uint32_t options);
+
 /*
  * Find first parent schema node which is a presence-container or a list
  * (non-presence containers are ignored).

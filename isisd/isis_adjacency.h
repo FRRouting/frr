@@ -69,7 +69,7 @@ struct isis_adjacency {
 	struct isis_dis_record dis_record[DIS_RECORDS * ISIS_LEVELS];
 	enum isis_adj_state adj_state;    /* adjacencyState */
 	enum isis_adj_usage adj_usage;    /* adjacencyUsage */
-	struct area_addr *area_addresses; /* areaAdressesOfNeighbour */
+	struct iso_address *area_addresses; /* areaAdressesOfNeighbour */
 	unsigned int area_address_count;
 	struct nlpids nlpids; /* protocols spoken ... */
 	struct in_addr *ipv4_addresses;

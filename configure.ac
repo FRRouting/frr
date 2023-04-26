@@ -299,14 +299,20 @@ if test "$enable_scripting" = "yes"; then
    AX_LUA_HEADERS([], [
      AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
    ])
-   AX_LUA_LIBS([
+   PKG_CHECK_MODULES([LUA], [lua5.3], [
      AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-     LIBS="$LIBS $LUA_LIB"
+     LIBS="$LIBS $LUA_LIBS"
      SCRIPTING=true
    ], [
-     SCRIPTING=false
-     AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
-   ])
+      AX_LUA_LIBS([
+        AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+        LIBS="$LIBS $LUA_LIB"
+        SCRIPTING=true
+      ], [
+        SCRIPTING=false
+        AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
+      ])
+    ])
 fi
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make

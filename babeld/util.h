@@ -122,10 +122,11 @@ extern const unsigned char v4prefix[16];
 #define BABEL_DEBUG_ROUTE       (1 << 5)
 #define BABEL_DEBUG_ALL         (0xFFFF)
 
-#define debugf(level, ...) \
-do { \
-if(UNLIKELY(debug & level)) zlog_debug(__VA_ARGS__);     \
-} while(0)
+#define debugf(level, ...)                                                     \
+	do {                                                                   \
+		if (unlikely(debug & level))                                   \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
 
 #endif /* NO_DEBUG */
 

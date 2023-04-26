@@ -288,6 +288,17 @@ def test_converge_protocols():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
+    # We need loopback to have a link local so it always is the
+    # "selected" router for fe80::/64 when we static compare below.
+    print("Adding link-local to loopback for stable results")
+    cmd = (
+        "mac=`cat /sys/class/net/lo/address`; echo lo: $mac;"
+        " [ -z \"$mac\" ] && continue; IFS=':'; set $mac; unset IFS;"
+        " ip address add dev lo scope link"
+        " fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64"
+    )
+    net["r1"].cmd_raises(cmd)
+
     print("\n\n** Waiting for protocols convergence")
     print("******************************************\n")
 

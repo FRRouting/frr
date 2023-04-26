@@ -51,7 +51,8 @@ def config_macvlan(tgen, r_str, device, macvlan):
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    topodef = {"s1": ("r1", "r1", "r1", "r1", "r1", "r1", "r1", "r1")}
+    # 8 links to 8 switches on r1
+    topodef = {"s{}".format(x): ("r1",) for x in range(1, 9)}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 

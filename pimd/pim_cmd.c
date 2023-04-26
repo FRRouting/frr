@@ -67,7 +67,7 @@ static struct cmd_node debug_node = {
 };
 
 static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
-				      const int argc, int *idx)
+				      const int argc, int *idx, bool uj)
 {
 	struct vrf *vrf;
 
@@ -76,9 +76,13 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 	else
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
-	if (!vrf)
-		vty_out(vty, "Specified VRF: %s does not exist\n",
-			argv[*idx]->arg);
+	if (!vrf) {
+		if (uj)
+			vty_json_empty(vty);
+		else
+			vty_out(vty, "Specified VRF: %s does not exist\n",
+				argv[*idx]->arg);
+	}
 
 	return vrf;
 }
@@ -822,19 +826,172 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
-static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
+static void igmp_source_json_helper(struct gm_source *src,
+				    json_object *json_sources, char *source_str,
+				    char *mmss, char *uptime)
+{
+	json_object *json_source = NULL;
+
+	json_source = json_object_new_object();
+	if (!json_source)
+		return;
+
+	json_object_string_add(json_source, "source", source_str);
+	json_object_string_add(json_source, "timer", mmss);
+	json_object_boolean_add(json_source, "forwarded",
+				IGMP_SOURCE_TEST_FORWARDING(src->source_flags));
+	json_object_string_add(json_source, "uptime", uptime);
+	json_object_array_add(json_sources, json_source);
+}
+
+static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
+			     json_object *json, struct gm_group *grp,
+			     time_t now, bool detail)
+{
+	json_object *json_iface = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
+	char group_str[INET_ADDRSTRLEN];
+	char hhmmss[PIM_TIME_STRLEN];
+	char uptime[PIM_TIME_STRLEN];
+
+	pim_inet4_dump("<group?>", grp->group_addr, group_str,
+		       sizeof(group_str));
+	pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss), grp->t_group_timer);
+	pim_time_uptime(uptime, sizeof(uptime), now - grp->group_creation);
+
+	if (uj) {
+		json_object_object_get_ex(json, ifp->name, &json_iface);
+		if (!json_iface) {
+			json_iface = json_object_new_object();
+			if (!json_iface)
+				return;
+			json_object_pim_ifp_add(json_iface, ifp);
+			json_object_object_add(json, ifp->name, json_iface);
+			json_groups = json_object_new_array();
+			if (!json_groups)
+				return;
+			json_object_object_add(json_iface, "groups",
+					       json_groups);
+		}
+
+		json_object_object_get_ex(json_iface, "groups", &json_groups);
+		if (json_groups) {
+			json_group = json_object_new_object();
+			if (!json_group)
+				return;
+
+			json_object_string_add(json_group, "group", group_str);
+			if (grp->igmp_version == IGMP_DEFAULT_VERSION)
+				json_object_string_add(
+					json_group, "mode",
+					grp->group_filtermode_isexcl
+						? "EXCLUDE"
+						: "INCLUDE");
+
+			json_object_string_add(json_group, "timer", hhmmss);
+			json_object_int_add(
+				json_group, "sourcesCount",
+				grp->group_source_list
+					? listcount(grp->group_source_list)
+					: 0);
+			json_object_int_add(json_group, "version",
+					    grp->igmp_version);
+			json_object_string_add(json_group, "uptime", uptime);
+			json_object_array_add(json_groups, json_group);
+
+			if (detail) {
+				struct listnode *srcnode;
+				struct gm_source *src;
+				json_object *json_sources = NULL;
+
+				json_sources = json_object_new_array();
+				if (!json_sources)
+					return;
+
+				json_object_object_add(json_group, "sources",
+						       json_sources);
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     grp->group_source_list, srcnode,
+					     src)) {
+					char source_str[INET_ADDRSTRLEN];
+					char mmss[PIM_TIME_STRLEN];
+					char src_uptime[PIM_TIME_STRLEN];
+
+					pim_inet4_dump(
+						"<source?>", src->source_addr,
+						source_str, sizeof(source_str));
+					pim_time_timer_to_mmss(
+						mmss, sizeof(mmss),
+						src->t_source_timer);
+					pim_time_uptime(
+						src_uptime, sizeof(src_uptime),
+						now - src->source_creation);
+
+					igmp_source_json_helper(
+						src, json_sources, source_str,
+						mmss, src_uptime);
+				}
+			}
+		}
+	} else {
+		if (detail) {
+			struct listnode *srcnode;
+			struct gm_source *src;
+
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src)) {
+				char source_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<source?>", src->source_addr,
+					       source_str, sizeof(source_str));
+
+				vty_out(vty,
+					"%-16s %-15s %4s %8s %-15s %d %8s\n",
+					ifp->name, group_str,
+					grp->igmp_version == 3
+						? (grp->group_filtermode_isexcl
+							   ? "EXCL"
+							   : "INCL")
+						: "----",
+					hhmmss, source_str, grp->igmp_version,
+					uptime);
+			}
+			return;
+		}
+
+		vty_out(vty, "%-16s %-15s %4s %8s %4d %d %8s\n", ifp->name,
+			group_str,
+			grp->igmp_version == 3
+				? (grp->group_filtermode_isexcl ? "EXCL"
+								: "INCL")
+				: "----",
+			hhmmss,
+			grp->group_source_list
+				? listcount(grp->group_source_list)
+				: 0,
+			grp->igmp_version, uptime);
+	}
+}
+
+static void igmp_show_groups_interface_single(struct pim_instance *pim,
+					      struct vty *vty, bool uj,
+					      const char *ifname,
+					      const char *grp_str, bool detail)
 {
 	struct interface *ifp;
 	time_t now;
 	json_object *json = NULL;
-	json_object *json_iface = NULL;
-	json_object *json_group = NULL;
-	json_object *json_groups = NULL;
+	struct pim_interface *pim_ifp = NULL;
+	struct gm_group *grp;
 
 	now = pim_time_monotonic_sec();
 
 	if (uj) {
 		json = json_object_new_object();
+		if (!json)
+			return;
 		json_object_int_add(json, "totalGroups", pim->gm_group_count);
 		json_object_int_add(json, "watermarkLimit",
 				    pim->gm_watermark_limit);
@@ -843,8 +1000,87 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_out(vty, "Watermark warn limit(%s): %u\n",
 			pim->gm_watermark_limit ? "Set" : "Not Set",
 			pim->gm_watermark_limit);
-		vty_out(vty,
-			"Interface        Group           Mode Timer    Srcs V Uptime  \n");
+
+		if (!detail)
+			vty_out(vty,
+				"Interface        Group           Mode Timer    Srcs V Uptime\n");
+		else
+			vty_out(vty,
+				"Interface        Group           Mode Timer    Source          V Uptime\n");
+	}
+
+	ifp = if_lookup_by_name(ifname, pim->vrf->vrf_id);
+	if (!ifp) {
+		if (uj)
+			vty_json(vty, json);
+		return;
+	}
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp) {
+		if (uj)
+			vty_json(vty, json);
+		return;
+	}
+
+	if (grp_str) {
+		struct in_addr group_addr;
+		struct gm_sock *igmp;
+
+		if (inet_pton(AF_INET, grp_str, &group_addr) == 1) {
+			igmp = pim_igmp_sock_lookup_ifaddr(
+				pim_ifp->gm_socket_list,
+				pim_ifp->primary_address);
+			if (igmp) {
+				grp = find_group_by_addr(igmp, group_addr);
+				if (grp)
+					igmp_group_print(ifp, vty, uj, json,
+							 grp, now, detail);
+			}
+		}
+	} else {
+		struct listnode *grpnode;
+
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode, grp))
+			igmp_group_print(ifp, vty, uj, json, grp, now, detail);
+	}
+
+	if (uj) {
+		if (detail)
+			vty_json_no_pretty(vty, json);
+		else
+			vty_json(vty, json);
+	}
+}
+
+static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj,
+			     const char *grp_str, bool detail)
+{
+	struct interface *ifp;
+	time_t now;
+	json_object *json = NULL;
+
+	now = pim_time_monotonic_sec();
+
+	if (uj) {
+		json = json_object_new_object();
+		if (!json)
+			return;
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->gm_watermark_limit);
+	} else {
+		vty_out(vty, "Total IGMP groups: %u\n", pim->gm_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->gm_watermark_limit ? "Set" : "Not Set",
+			pim->gm_watermark_limit);
+		if (!detail)
+			vty_out(vty,
+				"Interface        Group           Mode Timer    Srcs V Uptime\n");
+		else
+			vty_out(vty,
+				"Interface        Group           Mode Timer    Source          V Uptime\n");
 	}
 
 	/* scan interfaces */
@@ -856,78 +1092,38 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 		if (!pim_ifp)
 			continue;
 
-		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
-					  grp)) {
-			char group_str[INET_ADDRSTRLEN];
-			char hhmmss[10];
-			char uptime[10];
+		if (grp_str) {
+			struct in_addr group_addr;
+			struct gm_sock *igmp;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
-			pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss),
-						 grp->t_group_timer);
-			pim_time_uptime(uptime, sizeof(uptime),
-					now - grp->group_creation);
-
-			if (uj) {
-				json_object_object_get_ex(json, ifp->name,
-							  &json_iface);
-
-				if (!json_iface) {
-					json_iface = json_object_new_object();
-					json_object_pim_ifp_add(json_iface,
-								ifp);
-					json_object_object_add(json, ifp->name,
-							       json_iface);
-					json_groups = json_object_new_array();
-					json_object_object_add(json_iface,
-							       "groups",
-							       json_groups);
+			if (inet_pton(AF_INET, grp_str, &group_addr) == 1) {
+				igmp = pim_igmp_sock_lookup_ifaddr(
+					pim_ifp->gm_socket_list,
+					pim_ifp->primary_address);
+				if (igmp) {
+					grp = find_group_by_addr(igmp,
+								 group_addr);
+					if (grp)
+						igmp_group_print(ifp, vty, uj,
+								 json, grp, now,
+								 detail);
 				}
-
-				json_group = json_object_new_object();
-				json_object_string_add(json_group, "group",
-						       group_str);
-
-				if (grp->igmp_version == 3)
-					json_object_string_add(
-						json_group, "mode",
-						grp->group_filtermode_isexcl
-							? "EXCLUDE"
-							: "INCLUDE");
-
-				json_object_string_add(json_group, "timer",
-						       hhmmss);
-				json_object_int_add(
-					json_group, "sourcesCount",
-					grp->group_source_list ? listcount(
-						grp->group_source_list)
-							       : 0);
-				json_object_int_add(json_group, "version",
-						    grp->igmp_version);
-				json_object_string_add(json_group, "uptime",
-						       uptime);
-				json_object_array_add(json_groups, json_group);
-			} else {
-				vty_out(vty, "%-16s %-15s %4s %8s %4d %d %8s\n",
-					ifp->name, group_str,
-					grp->igmp_version == 3
-						? (grp->group_filtermode_isexcl
-							   ? "EXCL"
-							   : "INCL")
-						: "----",
-					hhmmss,
-					grp->group_source_list ? listcount(
-						grp->group_source_list)
-							       : 0,
-					grp->igmp_version, uptime);
 			}
-		} /* scan igmp groups */
-	}	  /* scan interfaces */
+		} else {
+			/* scan igmp groups */
+			for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list,
+						  grpnode, grp))
+				igmp_group_print(ifp, vty, uj, json, grp, now,
+						 detail);
+		}
+	} /* scan interfaces */
 
-	if (uj)
-		vty_json(vty, json);
+	if (uj) {
+		if (detail)
+			vty_json_no_pretty(vty, json);
+		else
+			vty_json(vty, json);
+	}
 }
 
 static void igmp_show_group_retransmission(struct pim_instance *pim,
@@ -981,24 +1177,175 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 	}	  /* scan interfaces */
 }
 
+static void igmp_sources_print(struct interface *ifp, char *group_str,
+			       struct gm_source *src, time_t now,
+			       json_object *json, struct vty *vty, bool uj)
+{
+	json_object *json_iface = NULL;
+	json_object *json_group = NULL;
+	json_object *json_sources = NULL;
+	char source_str[INET_ADDRSTRLEN];
+	char mmss[PIM_TIME_STRLEN];
+	char uptime[PIM_TIME_STRLEN];
+
+	pim_inet4_dump("<source?>", src->source_addr, source_str,
+		       sizeof(source_str));
+	pim_time_timer_to_mmss(mmss, sizeof(mmss), src->t_source_timer);
+	pim_time_uptime(uptime, sizeof(uptime), now - src->source_creation);
+
+	if (uj) {
+		json_object_object_get_ex(json, ifp->name, &json_iface);
+		if (!json_iface) {
+			json_iface = json_object_new_object();
+			if (!json_iface)
+				return;
+			json_object_string_add(json_iface, "name", ifp->name);
+			json_object_object_add(json, ifp->name, json_iface);
+		}
+
+		json_object_object_get_ex(json_iface, group_str, &json_group);
+		if (!json_group) {
+			json_group = json_object_new_object();
+			if (!json_group)
+				return;
+			json_object_string_add(json_group, "group", group_str);
+			json_object_object_add(json_iface, group_str,
+					       json_group);
+			json_sources = json_object_new_array();
+			if (!json_sources)
+				return;
+			json_object_object_add(json_group, "sources",
+					       json_sources);
+		}
+
+		json_object_object_get_ex(json_group, "sources", &json_sources);
+		if (json_sources)
+			igmp_source_json_helper(src, json_sources, source_str,
+						mmss, uptime);
+	} else {
+		vty_out(vty, "%-16s %-15s %-15s %5s %3s %8s\n", ifp->name,
+			group_str, source_str, mmss,
+			IGMP_SOURCE_TEST_FORWARDING(src->source_flags) ? "Y"
+								       : "N",
+			uptime);
+	}
+}
+
+static void igmp_show_sources_interface_single(struct pim_instance *pim,
+					       struct vty *vty, bool uj,
+					       const char *ifname,
+					       const char *grp_str)
+{
+	struct interface *ifp;
+	time_t now;
+	json_object *json = NULL;
+	struct pim_interface *pim_ifp;
+	struct gm_group *grp;
+
+	now = pim_time_monotonic_sec();
+
+	if (uj) {
+		json = json_object_new_object();
+		if (!json)
+			return;
+	} else {
+		vty_out(vty,
+			"Interface        Group           Source          Timer Fwd Uptime  \n");
+	}
+
+	ifp = if_lookup_by_name(ifname, pim->vrf->vrf_id);
+	if (!ifp) {
+		if (uj)
+			vty_json(vty, json);
+		return;
+	}
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp) {
+		if (uj)
+			vty_json(vty, json);
+		return;
+	}
+
+	if (grp_str) {
+		struct in_addr group_addr;
+		struct gm_sock *igmp;
+		struct listnode *srcnode;
+		struct gm_source *src;
+		char group_str[INET_ADDRSTRLEN];
+		int res;
+
+		res = inet_pton(AF_INET, grp_str, &group_addr);
+		if (res <= 0) {
+			if (uj)
+				vty_json(vty, json);
+			return;
+		}
+
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
+						   pim_ifp->primary_address);
+		if (!igmp) {
+			if (uj)
+				vty_json(vty, json);
+			return;
+		}
+
+		grp = find_group_by_addr(igmp, group_addr);
+		if (!grp) {
+			if (uj)
+				vty_json(vty, json);
+			return;
+		}
+		pim_inet4_dump("<group?>", grp->group_addr, group_str,
+			       sizeof(group_str));
+
+		/* scan group sources */
+		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src))
+			igmp_sources_print(ifp, group_str, src, now, json, vty,
+					   uj);
+	} else {
+		struct listnode *grpnode;
+
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
+					  grp)) {
+			char group_str[INET_ADDRSTRLEN];
+			struct listnode *srcnode;
+			struct gm_source *src;
+
+			pim_inet4_dump("<group?>", grp->group_addr, group_str,
+				       sizeof(group_str));
+
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src))
+				igmp_sources_print(ifp, group_str, src, now,
+						   json, vty, uj);
+
+		} /* scan igmp groups */
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
 static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 			      bool uj)
 {
 	struct interface *ifp;
 	time_t now;
 	json_object *json = NULL;
-	json_object *json_iface = NULL;
-	json_object *json_group = NULL;
-	json_object *json_source = NULL;
-	json_object *json_sources = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (uj)
+	if (uj) {
 		json = json_object_new_object();
-	else
+		if (!json)
+			return;
+	} else {
 		vty_out(vty,
-			"Interface        Group           Source          Timer Fwd Uptime  \n");
+			"Interface        Group           Source          Timer Fwd Uptime\n");
+	}
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -1021,82 +1368,12 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  srcnode, src)) {
-				char source_str[INET_ADDRSTRLEN];
-				char mmss[10];
-				char uptime[10];
-
-				pim_inet4_dump("<source?>", src->source_addr,
-					       source_str, sizeof(source_str));
-
-				pim_time_timer_to_mmss(mmss, sizeof(mmss),
-						       src->t_source_timer);
-
-				pim_time_uptime(uptime, sizeof(uptime),
-						now - src->source_creation);
-
-				if (uj) {
-					json_object_object_get_ex(
-						json, ifp->name, &json_iface);
-					if (!json_iface) {
-						json_iface =
-							json_object_new_object();
-						json_object_string_add(
-							json_iface, "name",
-							ifp->name);
-						json_object_object_add(
-							json, ifp->name,
-							json_iface);
-					}
-					json_object_object_get_ex(json_iface,
-								  group_str,
-								  &json_group);
-
-					if (!json_group) {
-						json_group =
-							json_object_new_object();
-						json_object_string_add(
-							json_group, "group",
-							group_str);
-						json_object_object_add(
-							json_iface, group_str,
-							json_group);
-						json_sources =
-							json_object_new_array();
-						json_object_object_add(
-							json_group, "sources",
-							json_sources);
-					}
-					json_source = json_object_new_object();
-					json_object_string_add(json_source,
-							       "source",
-							       source_str);
-					json_object_string_add(json_source,
-							       "timer", mmss);
-					json_object_boolean_add(
-						json_source, "forwarded",
-						IGMP_SOURCE_TEST_FORWARDING(
-							src->source_flags));
-					json_object_string_add(
-						json_source, "uptime", uptime);
-					json_object_array_add(json_sources,
-							      json_source);
-
-				} else {
-					vty_out(vty,
-						"%-16s %-15s %-15s %5s %3s %8s\n",
-						ifp->name, group_str,
-						source_str, mmss,
-						IGMP_SOURCE_TEST_FORWARDING(
-							src->source_flags)
-							? "Y"
-							: "N",
-						uptime);
-				}
-
-			} /* scan group sources */
+						  srcnode, src))
+				igmp_sources_print(ifp, group_str, src, now,
+						   json, vty, uj);
 		}	 /* scan igmp groups */
 	}		  /* scan interfaces */
+
 	if (uj)
 		vty_json(vty, json);
 }
@@ -1227,7 +1504,7 @@ DEFUN (clear_ip_interfaces,
        VRF_CMD_HELP_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1247,7 +1524,7 @@ DEFUN (clear_ip_igmp_interfaces,
        "Reset IGMP interfaces\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1355,7 +1632,7 @@ DEFUN (clear_ip_pim_bsr_db,
        "Reset pim bsr data\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1378,8 +1655,8 @@ DEFUN (show_ip_igmp_interface,
        JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1444,8 +1721,8 @@ DEFUN (show_ip_igmp_join,
        JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1487,39 +1764,47 @@ DEFUN (show_ip_igmp_join_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_igmp_groups,
-       show_ip_igmp_groups_cmd,
-       "show ip igmp [vrf NAME] groups [json]",
-       SHOW_STR
-       IP_STR
-       IGMP_STR
-       VRF_CMD_HELP_STR
-       IGMP_GROUP_STR
-       JSON_STR)
+DEFPY(show_ip_igmp_groups,
+      show_ip_igmp_groups_cmd,
+      "show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail$detail] [json$json]",
+      SHOW_STR
+      IP_STR
+      IGMP_STR
+      VRF_CMD_HELP_STR
+      IGMP_GROUP_STR
+      "Interface name\n"
+      "Group address\n"
+      "Detailed Information\n"
+      JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, !!json);
 
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_groups(vrf->info, vty, uj);
+	if (ifname)
+		igmp_show_groups_interface_single(vrf->info, vty, !!json,
+						  ifname, grp_str, !!detail);
+	else
+		igmp_show_groups(vrf->info, vty, !!json, NULL, !!detail);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_igmp_groups_vrf_all,
-       show_ip_igmp_groups_vrf_all_cmd,
-       "show ip igmp vrf all groups [json]",
-       SHOW_STR
-       IP_STR
-       IGMP_STR
-       VRF_CMD_HELP_STR
-       IGMP_GROUP_STR
-       JSON_STR)
+DEFPY(show_ip_igmp_groups_vrf_all,
+      show_ip_igmp_groups_vrf_all_cmd,
+      "show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]",
+      SHOW_STR
+      IP_STR
+      IGMP_STR
+      VRF_CMD_HELP_STR
+      IGMP_GROUP_STR
+      "Group address\n"
+      "Detailed Information\n"
+      JSON_STR)
 {
-	bool uj = use_json(argc, argv);
+	bool uj = !!json;
 	struct vrf *vrf;
 	bool first = true;
 
@@ -1533,7 +1818,7 @@ DEFUN (show_ip_igmp_groups_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		igmp_show_groups(vrf->info, vty, uj);
+		igmp_show_groups(vrf->info, vty, uj, grp_str, !!detail);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
@@ -1552,7 +1837,7 @@ DEFUN (show_ip_igmp_groups_retransmissions,
        "IGMP group retransmissions\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1562,23 +1847,29 @@ DEFUN (show_ip_igmp_groups_retransmissions,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_igmp_sources,
-       show_ip_igmp_sources_cmd,
-       "show ip igmp [vrf NAME] sources [json]",
-       SHOW_STR
-       IP_STR
-       IGMP_STR
-       VRF_CMD_HELP_STR
-       IGMP_SOURCE_STR
-       JSON_STR)
+DEFPY(show_ip_igmp_sources,
+      show_ip_igmp_sources_cmd,
+      "show ip igmp [vrf NAME$vrf_name] sources [INTERFACE$ifname [GROUP$grp_str]] [json$json]",
+      SHOW_STR
+      IP_STR
+      IGMP_STR
+      VRF_CMD_HELP_STR
+      IGMP_SOURCE_STR
+      "Interface name\n"
+      "Group address\n"
+      JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, !!json);
 
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_sources(vrf->info, vty, use_json(argc, argv));
+	if (ifname)
+		igmp_show_sources_interface_single(vrf->info, vty, !!json,
+						   ifname, grp_str);
+	else
+		igmp_show_sources(vrf->info, vty, !!json);
 
 	return CMD_SUCCESS;
 }
@@ -1594,7 +1885,7 @@ DEFUN (show_ip_igmp_sources_retransmissions,
        "IGMP source retransmissions\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1617,8 +1908,8 @@ DEFUN (show_ip_igmp_statistics,
        JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1746,7 +2037,7 @@ DEFUN (show_ip_pim_assert,
        "PIM interface assert\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1766,7 +2057,7 @@ DEFUN (show_ip_pim_assert_internal,
        "PIM interface internal assert state\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1786,7 +2077,7 @@ DEFUN (show_ip_pim_assert_metric,
        "PIM interface assert metric\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -1806,7 +2097,7 @@ DEFUN (show_ip_pim_assert_winner_metric,
        "PIM interface assert winner metric\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -2125,8 +2416,8 @@ DEFUN(show_ip_pim_mlag_up, show_ip_pim_mlag_up_cmd,
 	const char *src_or_group = NULL;
 	const char *group = NULL;
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf || !vrf->info) {
 		vty_out(vty, "%s: VRF or Info missing\n", __func__);
@@ -2598,7 +2889,7 @@ DEFUN (show_ip_rib,
        "Unicast address\n")
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 	struct in_addr addr;
 	const char *addr_str;
 	struct pim_nexthop nexthop;
@@ -2686,7 +2977,7 @@ DEFUN (show_ip_ssmpingd,
        VRF_CMD_HELP_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -3141,8 +3432,8 @@ DEFUN (show_ip_pim_ssm_range,
        JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -3192,8 +3483,8 @@ DEFUN (show_ip_pim_group_type,
        JSON_STR)
 {
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -5086,7 +5377,7 @@ DEFUN (show_ip_msdp_mesh_group,
 	bool uj = use_json(argc, argv);
 	int idx = 2;
 	struct pim_msdp_mg *mg;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 	struct pim_instance *pim;
 	struct json_object *json = NULL;
 
@@ -5322,7 +5613,7 @@ DEFUN (show_ip_msdp_peer_detail,
 {
 	bool uj = use_json(argc, argv);
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -5562,7 +5853,7 @@ DEFUN (show_ip_msdp_sa_detail,
 {
 	bool uj = use_json(argc, argv);
 	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -5677,7 +5968,7 @@ DEFUN (show_ip_msdp_sa_sg,
 	struct vrf *vrf;
 	int idx = 2;
 
-	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -5947,7 +6238,7 @@ DEFUN (show_ip_pim_vxlan_sg,
 	struct vrf *vrf;
 	int idx = 2;
 
-	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -6007,7 +6298,7 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 	struct vrf *vrf;
 	int idx = 2;
 
-	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
 
 	if (!vrf)
 		return CMD_WARNING;

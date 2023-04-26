@@ -419,6 +419,10 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
+	new->intf_socket_enabled = true;
+
+	new->recv_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
+	new->send_sock_bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
 
 	return new;
 }
@@ -963,6 +967,7 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 
 	new->oiflist = list_new();
 	new->ranges = route_table_init();
+	new->nssa_ranges = route_table_init();
 
 	if (area_id.s_addr == OSPF_AREA_BACKBONE)
 		ospf->backbone = new;
@@ -1006,6 +1011,7 @@ static void ospf_area_free(struct ospf_area *area)
 	ospf_lsa_unlock(&area->router_lsa_self);
 
 	route_table_finish(area->ranges);
+	route_table_finish(area->nssa_ranges);
 	list_delete(&area->oiflist);
 
 	if (EXPORT_NAME(area))
@@ -1029,13 +1035,14 @@ void ospf_area_check_free(struct ospf *ospf, struct in_addr area_id)
 	struct ospf_area *area;
 
 	area = ospf_area_lookup_by_area_id(ospf, area_id);
-	if (area && listcount(area->oiflist) == 0 && area->ranges->top == NULL
-	    && !ospf_vl_count(ospf, area)
-	    && area->shortcut_configured == OSPF_SHORTCUT_DEFAULT
-	    && area->external_routing == OSPF_AREA_DEFAULT
-	    && area->no_summary == 0 && area->default_cost == 1
-	    && EXPORT_NAME(area) == NULL && IMPORT_NAME(area) == NULL
-	    && area->auth_type == OSPF_AUTH_NULL) {
+	if (area && listcount(area->oiflist) == 0 &&
+	    area->ranges->top == NULL && area->nssa_ranges->top == NULL &&
+	    !ospf_vl_count(ospf, area) &&
+	    area->shortcut_configured == OSPF_SHORTCUT_DEFAULT &&
+	    area->external_routing == OSPF_AREA_DEFAULT &&
+	    area->no_summary == 0 && area->default_cost == 1 &&
+	    EXPORT_NAME(area) == NULL && IMPORT_NAME(area) == NULL &&
+	    area->auth_type == OSPF_AUTH_NULL) {
 		listnode_delete(ospf->areas, area);
 		ospf_area_free(area);
 	}
@@ -1701,7 +1708,7 @@ int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id)
 	return 1;
 }
 
-int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
+int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 {
 	struct ospf_area *area;
 
@@ -1709,22 +1716,14 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 	if (area == NULL)
 		return 0;
 
-	/* argc < 5 -> 'no area x nssa' */
-	if (argc < 5 && area->external_routing == OSPF_AREA_NSSA) {
-		ospf->anyNSSA--;
-		/* set NSSA area defaults */
-		area->no_summary = 0;
-		area->suppress_fa = 0;
-		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-		area->NSSATranslatorStabilityInterval =
-			OSPF_NSSA_TRANS_STABLE_DEFAULT;
-		ospf_area_type_set(area, OSPF_AREA_DEFAULT);
-	} else {
-		ospf_area_nssa_translator_role_set(ospf, area_id,
-						   OSPF_NSSA_ROLE_CANDIDATE);
-	}
-
+	ospf->anyNSSA--;
+	/* set NSSA area defaults */
+	area->no_summary = 0;
+	area->suppress_fa = 0;
+	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
+	ospf_area_type_set(area, OSPF_AREA_DEFAULT);
 	ospf_area_check_free(ospf, area_id);
 
 	return 1;
@@ -1780,6 +1779,51 @@ int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 	}
 
 	return 1;
+}
+
+void ospf_area_nssa_default_originate_set(struct ospf *ospf,
+					  struct in_addr area_id, int metric,
+					  int metric_type)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return;
+
+	if (!area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = true;
+		if (++ospf->nssa_default_import_check.refcnt == 1) {
+			ospf->nssa_default_import_check.status = false;
+			ospf_zebra_import_default_route(ospf, false);
+		}
+	}
+
+	area->nssa_default_originate.metric_value = metric;
+	area->nssa_default_originate.metric_type = metric_type;
+}
+
+void ospf_area_nssa_default_originate_unset(struct ospf *ospf,
+					    struct in_addr area_id)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (area == NULL)
+		return;
+
+	if (area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = false;
+		if (--ospf->nssa_default_import_check.refcnt == 0) {
+			ospf->nssa_default_import_check.status = false;
+			ospf_zebra_import_default_route(ospf, true);
+		}
+		area->nssa_default_originate.metric_value = -1;
+		area->nssa_default_originate.metric_type = -1;
+
+		if (!IS_OSPF_ABR(ospf))
+			ospf_abr_nssa_type7_defaults(ospf);
+	}
 }
 
 int ospf_area_export_list_set(struct ospf *ospf, struct ospf_area *area,
@@ -2138,6 +2182,32 @@ int ospf_nbr_nbma_poll_interval_unset(struct ospf *ospf, struct in_addr addr)
 		nbr_nbma->v_poll = OSPF_POLL_INTERVAL_DEFAULT;
 
 	return 1;
+}
+
+/*
+ * Update socket bufsize(s), usually after config change
+ */
+void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
+			 uint32_t sendsize)
+{
+	enum ospf_sock_type_e type = OSPF_SOCK_NONE;
+
+	/* Figure out whether there's been a change */
+	if (recvsize != ospf->recv_sock_bufsize) {
+		type = OSPF_SOCK_RECV;
+		ospf->recv_sock_bufsize = recvsize;
+
+		if (sendsize != ospf->send_sock_bufsize) {
+			type = OSPF_SOCK_BOTH;
+			ospf->send_sock_bufsize = sendsize;
+		}
+	} else if (sendsize != ospf->send_sock_bufsize) {
+		type = OSPF_SOCK_SEND;
+		ospf->send_sock_bufsize = sendsize;
+	}
+
+	if (type != OSPF_SOCK_NONE)
+		ospf_sock_bufsize_update(ospf, ospf->fd, type);
 }
 
 void ospf_master_init(struct event_loop *master)

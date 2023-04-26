@@ -798,12 +798,9 @@ static struct ospf_lsa *ospf_router_info_lsa_new(struct ospf_area *area)
 	/* Now, create an OSPF LSA instance. */
 	new = ospf_lsa_new_and_data(length);
 
+	/* Routing Information is only supported for default VRF */
+	new->vrf_id = VRF_DEFAULT;
 	new->area = area;
-
-	if (new->area && new->area->ospf)
-		new->vrf_id = new->area->ospf->vrf_id;
-	else
-		new->vrf_id = VRF_DEFAULT;
 
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
@@ -817,7 +814,6 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 	struct ospf_lsa *new;
 	struct ospf *top;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* Sanity Check */
 	if (OspfRI.scope == OSPF_OPAQUE_AREA_LSA) {
@@ -830,13 +826,12 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 	new = ospf_router_info_lsa_new(NULL);
-	new->vrf_id = VRF_DEFAULT;
 	top = (struct ospf *)arg;
 
 	/* Check ospf info */
 	if (top == NULL) {
 		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+			   __func__, VRF_DEFAULT);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -874,7 +869,6 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 	struct ospf *top;
 	struct ospf_ri_area_info *ai = NULL;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* Sanity Check */
 	if (OspfRI.scope == OSPF_OPAQUE_AS_LSA) {
@@ -893,19 +887,18 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 			__func__);
 		return rc;
 	}
-	if (ai->area->ospf) {
-		vrf_id = ai->area->ospf->vrf_id;
+
+	if (ai->area->ospf)
 		top = ai->area->ospf;
-	} else {
-		top = ospf_lookup_by_vrf_id(vrf_id);
-	}
+	else
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
 	new = ospf_router_info_lsa_new(ai->area);
-	new->vrf_id = vrf_id;
 
 	/* Check ospf info */
 	if (top == NULL) {
 		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+			   __func__, VRF_DEFAULT);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -1039,10 +1032,9 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 		new = ospf_router_info_lsa_new(ai->area);
 		new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-		new->vrf_id = lsa->vrf_id;
 		/* Install this LSA into LSDB. */
 		/* Given "lsa" will be freed in the next function. */
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "RI (%s): ospf_lsa_install() ?", __func__);
@@ -1062,10 +1054,9 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
 		new = ospf_router_info_lsa_new(NULL);
 		new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-		new->vrf_id = lsa->vrf_id;
 		/* Install this LSA into LSDB. */
 		/* Given "lsa" will be freed in the next function. */
-		top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "RI (%s): ospf_lsa_install() ?", __func__);
@@ -1676,9 +1667,17 @@ DEFUN (router_info,
 {
 	int idx_mode = 1;
 	uint8_t scope;
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	if (OspfRI.enabled)
 		return CMD_SUCCESS;
+
+	/* Check that the OSPF is using default VRF */
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"Router Information is only supported in default VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Check and get Area value if present */
 	if (strncmp(argv[idx_mode]->arg, "as", 2) == 0)

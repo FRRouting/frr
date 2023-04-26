@@ -52,6 +52,18 @@ int ripd_instance_redistribute_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int ripd_instance_redistribute_metric_modify(struct nb_cb_modify_args *args);
 int ripd_instance_redistribute_metric_destroy(struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_create(
+	struct nb_cb_create_args *args);
+int ripd_instance_if_route_maps_if_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_in_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripd_instance_if_route_maps_if_route_map_in_route_map_destroy(
+	struct nb_cb_destroy_args *args);
+int ripd_instance_if_route_maps_if_route_map_out_route_map_modify(
+	struct nb_cb_modify_args *args);
+int ripd_instance_if_route_maps_if_route_map_out_route_map_destroy(
+	struct nb_cb_destroy_args *args);
 int ripd_instance_static_route_create(struct nb_cb_create_args *args);
 int ripd_instance_static_route_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_timers_flush_interval_modify(struct nb_cb_modify_args *args);
@@ -60,6 +72,8 @@ int ripd_instance_timers_holddown_interval_modify(
 int ripd_instance_timers_update_interval_modify(struct nb_cb_modify_args *args);
 int ripd_instance_version_receive_modify(struct nb_cb_modify_args *args);
 int ripd_instance_version_send_modify(struct nb_cb_modify_args *args);
+int ripd_instance_default_bfd_profile_modify(struct nb_cb_modify_args *args);
+int ripd_instance_default_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 const void *ripd_instance_state_neighbors_neighbor_get_next(
 	struct nb_cb_get_next_args *args);
 int ripd_instance_state_neighbors_neighbor_get_keys(
@@ -89,6 +103,37 @@ struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args);
+const void *ripd_instance_state_routes_route_nexthops_nexthop_get_next(
+	struct nb_cb_get_next_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_nh_type_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_protocol_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_rip_type_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_gateway_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_interface_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_from_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_tag_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_external_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
 int clear_rip_route_rpc(struct nb_cb_rpc_args *args);
 int lib_interface_rip_split_horizon_modify(struct nb_cb_modify_args *args);
 int lib_interface_rip_v2_broadcast_modify(struct nb_cb_modify_args *args);
@@ -108,6 +153,12 @@ int lib_interface_rip_authentication_key_chain_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_rip_authentication_key_chain_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_rip_bfd_create(struct nb_cb_create_args *args);
+int lib_interface_rip_bfd_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_rip_bfd_enable_modify(struct nb_cb_modify_args *args);
+int lib_interface_rip_bfd_enable_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_rip_bfd_profile_modify(struct nb_cb_modify_args *args);
+int lib_interface_rip_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 
 /* Optional 'apply_finish' callbacks. */
 void ripd_instance_redistribute_apply_finish(
@@ -163,6 +214,9 @@ void cli_show_ip_rip_receive_version(struct vty *vty,
 				     bool show_defaults);
 void cli_show_ip_rip_send_version(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
+void cli_show_ripd_instance_default_bfd_profile(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults);
 void cli_show_ip_rip_authentication_scheme(struct vty *vty,
 					   const struct lyd_node *dnode,
 					   bool show_defaults);
@@ -172,6 +226,10 @@ void cli_show_ip_rip_authentication_string(struct vty *vty,
 void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
 					      const struct lyd_node *dnode,
 					      bool show_defaults);
+void cli_show_ip_rip_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+void cli_show_ip_rip_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
 
 /* Notifications. */
 extern void ripd_notif_send_auth_type_failure(const char *ifname);

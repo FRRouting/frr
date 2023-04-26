@@ -10,6 +10,8 @@
 
 #include "command.h"
 #include "json.h"
+#include "northbound_cli.h"
+
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -386,12 +388,15 @@ static struct cmd_node debug_node = {
 	.config_write = config_write_mgmt_debug,
 };
 
-static int config_write_mgmt_debug(struct vty *vty)
+static int config_write_mgmt_debug_helper(struct vty *vty, bool config)
 {
 	int n = mgmt_debug_be + mgmt_debug_fe + mgmt_debug_ds + mgmt_debug_txn;
+
 	if (!n)
 		return 0;
-	if (n == 4) {
+
+	if (config && mgmt_debug_be && mgmt_debug_fe && mgmt_debug_ds &&
+	    mgmt_debug_txn) {
 		vty_out(vty, "debug mgmt all\n");
 		return 0;
 	}
@@ -411,12 +416,26 @@ static int config_write_mgmt_debug(struct vty *vty)
 	return 0;
 }
 
-DEFPY(debug_mgmt,
-      debug_mgmt_cmd,
+static int config_write_mgmt_debug(struct vty *vty)
+{
+	return config_write_mgmt_debug_helper(vty, true);
+}
+
+DEFUN_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
+	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
+{
+	vty_out(vty, "MGMT debugging status:\n");
+
+	config_write_mgmt_debug_helper(vty, false);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_mgmt, debug_mgmt_cmd,
       "[no$no] debug mgmt <all$all|{backend$be|datastore$ds|frontend$fe|transaction$txn}>",
-      NO_STR
-      DEBUG_STR
-      MGMTD_STR
+      NO_STR DEBUG_STR MGMTD_STR
       "All debug\n"
       "Back-end debug\n"
       "Datastore debug\n"
@@ -424,6 +443,7 @@ DEFPY(debug_mgmt,
       "Transaction debug\n")
 {
 	bool set = !no;
+
 	if (all)
 		be = fe = ds = txn = set ? all : NULL;
 
@@ -439,6 +459,33 @@ DEFPY(debug_mgmt,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Analog of `frr_config_read_in()`, instead of our config file though we loop
+ * over all daemons that have transitioned to mgmtd, loading their configs
+ */
+static int mgmt_config_pre_hook(struct event_loop *loop)
+{
+	FILE *confp;
+	char *p;
+
+	for (uint i = 0; i < mgmt_daemons_count; i++) {
+		p = asprintfrr(MTYPE_TMP, "%s/%s.conf", frr_sysconfdir,
+			       mgmt_daemons[i]);
+		confp = fopen(p, "r");
+		if (confp == NULL) {
+			if (errno != ENOENT)
+				zlog_err("%s: couldn't read config file %s: %s",
+					 __func__, p, safe_strerror(errno));
+		} else {
+			zlog_info("mgmtd: reading daemon config from %s", p);
+			vty_read_file(vty_shared_candidate_config, confp);
+			fclose(confp);
+		}
+		XFREE(MTYPE_TMP, p);
+	}
+	return 0;
+}
+
 void mgmt_vty_init(void)
 {
 	/*
@@ -451,6 +498,8 @@ void mgmt_vty_init(void)
 	extern void static_vty_init(void);
 	static_vty_init();
 #endif
+
+	hook_register(frr_config_pre, mgmt_config_pre_hook);
 
 	install_node(&debug_node);
 
@@ -478,6 +527,8 @@ void mgmt_vty_init(void)
 	/* Enable view */
 	install_element(ENABLE_NODE, &mgmt_performance_measurement_cmd);
 	install_element(ENABLE_NODE, &mgmt_reset_performance_stats_cmd);
+
+	install_element(ENABLE_NODE, &show_debugging_mgmt_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

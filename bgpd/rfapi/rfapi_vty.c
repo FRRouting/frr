@@ -4888,6 +4888,7 @@ static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
 	clear_vnc_prefix(&cda);
 	vty_out(vty, "Cleared %u out of %d prefixes.\n", cda.pfx_count,
 		start_count);
+	print_cleared_stats(&cda); /* frees lists in cda */
 	return CMD_SUCCESS;
 }
 

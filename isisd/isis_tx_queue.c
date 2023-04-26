@@ -126,12 +126,12 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 		return;
 
 	if (IS_DEBUG_TX_QUEUE) {
-		zlog_debug("Add LSP %s to %s queue as %s LSP. (From %s %s:%d)",
-			   rawlspid_print(lsp->hdr.lsp_id),
-			   queue->circuit->interface->name,
-			   (type == TX_LSP_CIRCUIT_SCOPED) ?
-			   "circuit scoped" : "regular",
-			   func, file, line);
+		zlog_debug(
+			"Add LSP %pLS to %s queue as %s LSP. (From %s %s:%d)",
+			lsp->hdr.lsp_id, queue->circuit->interface->name,
+			(type == TX_LSP_CIRCUIT_SCOPED) ? "circuit scoped"
+							: "regular",
+			func, file, line);
 	}
 
 	struct isis_tx_queue_entry *e = tx_queue_find(queue, lsp);
@@ -164,9 +164,8 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 		return;
 
 	if (IS_DEBUG_TX_QUEUE) {
-		zlog_debug("Remove LSP %s from %s queue. (From %s %s:%d)",
-			   rawlspid_print(lsp->hdr.lsp_id),
-			   queue->circuit->interface->name,
+		zlog_debug("Remove LSP %pLS from %s queue. (From %s %s:%d)",
+			   lsp->hdr.lsp_id, queue->circuit->interface->name,
 			   func, file, line);
 	}
 

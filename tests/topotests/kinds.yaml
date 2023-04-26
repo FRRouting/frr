@@ -1,0 +1,30 @@
+version: 1
+kinds:
+  - name: frr
+    cmd: |
+      chown frr:frr -R /var/run/frr
+      chown frr:frr -R /var/log/frr
+      /usr/lib/frr/frrinit.sh start
+      tail -F /var/log/frr/frr.log
+    cleanup-cmd: |
+      /usr/lib/frr/frrinit.sh stop
+    volumes:
+      - "./%NAME%:/etc/frr"
+      - "%RUNDIR%/var.log.frr:/var/log/frr"
+      - "%RUNDIR%/var.run.frr:/var/run/frr"
+    cap-add:
+      - SYS_ADMIN
+      - AUDIT_WRITE
+    merge: ["volumes"]
+cli:
+  commands:
+    - name: ""
+      exec: "vtysh -c '{}'"
+      format: "[ROUTER ...] COMMAND"
+      help: "execute vtysh COMMAND on the router[s]"
+      kinds: ["frr"]
+    - name: "vtysh"
+      exec: "/usr/bin/vtysh"
+      format: "vtysh ROUTER [ROUTER ...]"
+      new-window: true
+      kinds: ["frr"]

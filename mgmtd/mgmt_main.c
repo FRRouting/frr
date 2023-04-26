@@ -17,6 +17,13 @@
 #include "routing_nb.h"
 
 
+char const *const mgmt_daemons[] = {
+#ifdef HAVE_STATICD
+	"staticd",
+#endif
+};
+uint mgmt_daemons_count = array_size(mgmt_daemons);
+
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},

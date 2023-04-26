@@ -2584,11 +2584,19 @@ BGP Extended Communities in Route Map
 
 .. clicmd:: set extcommunity rt EXTCOMMUNITY
 
-   This command set Route Target value.
+   This command sets Route Target value.
+
+.. clicmd:: set extcommunity nt EXTCOMMUNITY
+
+   This command sets Node Target value.
+
+   If the receiving BGP router supports Node Target Extended Communities,
+   it will install the route with the community that contains it's own
+   local BGP Identifier. Otherwise, it's not installed.
 
 .. clicmd:: set extcommunity soo EXTCOMMUNITY
 
-   This command set Site of Origin value.
+   This command sets Site of Origin value.
 
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
@@ -2766,6 +2774,17 @@ happened automatically if local-role is set.
    If ``strict-mode`` is set, your neighbor must send you Capability with the
    value of his role (by setting local-role on his side). Otherwise, a Role
    Mismatch Notification will be sent.
+
+Labeled unicast
+---------------
+
+*bgpd* supports labeled information, as per :rfc:`3107`.
+
+.. clicmd:: bgp labeled-unicast explicit-null
+
+By default, locally advertised prefixes use the `implicit-null` label to
+encode in the outgoing NLRI. The following command uses the `explicit-null`
+label value for all the BGP instances.
 
 .. _bgp-l3vpn-vrfs:
 

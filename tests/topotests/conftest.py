@@ -1,27 +1,44 @@
+# -*- coding: utf-8 eval: (blacken-mode 1) -*-
 """
 Topotest conftest.py file.
 """
 # pylint: disable=consider-using-f-string
 
 import glob
+import logging
 import os
-import pdb
 import re
+import resource
 import subprocess
 import sys
 import time
-import resource
 
-import pytest
 import lib.fixtures
-from lib import topolog
-from lib.micronet import Commander, proc_error
-from lib.micronet_cli import cli
-from lib.micronet_compat import Mininet, cleanup_current, cleanup_previous
+import pytest
+from lib.micronet_compat import Mininet
 from lib.topogen import diagnose_env, get_topogen
-from lib.topolog import logger
-from lib.topotest import g_extra_config as topotest_extra_config
+from lib.topolog import get_test_logdir, logger
 from lib.topotest import json_cmp_result
+from munet import cli
+from munet.base import Commander, proc_error
+from munet.cleanup import cleanup_current, cleanup_previous
+from munet.config import ConfigOptionsProxy
+from munet.testing.util import pause_test
+
+from lib import topolog, topotest
+
+try:
+    # Used by munet native tests
+    from munet.testing.fixtures import event_loop, unet  # pylint: disable=all # noqa
+
+    @pytest.fixture(scope="module")
+    def rundir_module(pytestconfig):
+        d = os.path.join(pytestconfig.option.rundir, get_test_logdir())
+        logging.debug("rundir_module: test module rundir %s", d)
+        return d
+
+except (AttributeError, ImportError):
+    pass
 
 
 def pytest_addoption(parser):
@@ -60,9 +77,25 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--logd",
+        action="append",
+        metavar="DAEMON[,ROUTER[,...]",
+        help=(
+            "Tail-F the DAEMON log file on all or a subset of ROUTERs."
+            " Option can be given multiple times."
+        ),
+    )
+
+    parser.addoption(
         "--pause",
         action="store_true",
         help="Pause after each test",
+    )
+
+    parser.addoption(
+        "--pause-at-end",
+        action="store_true",
+        help="Pause before taking munet down",
     )
 
     parser.addoption(
@@ -76,6 +109,30 @@ def pytest_addoption(parser):
         dest="pause_on_error",
         action="store_false",
         help="Do not pause after (disables default when --shell or -vtysh given)",
+    )
+
+    parser.addoption(
+        "--pcap",
+        default="",
+        metavar="NET[,NET...]",
+        help="Comma-separated list of networks to capture packets on, or 'all'",
+    )
+
+    parser.addoption(
+        "--perf",
+        action="append",
+        metavar="DAEMON[,ROUTER[,...]",
+        help=(
+            "Collect performance data from given DAEMON on all or a subset of ROUTERs."
+            " Option can be given multiple times."
+        ),
+    )
+
+    parser.addoption(
+        "--perf-options",
+        metavar="OPTS",
+        default="-g",
+        help="Options to pass to `perf record`.",
     )
 
     rundir_help = "directory for running in and log files"
@@ -133,7 +190,7 @@ def pytest_addoption(parser):
 
 
 def check_for_memleaks():
-    assert topotest_extra_config["valgrind_memleaks"]
+    assert topotest.g_pytest_config.option.valgrind_memleaks
 
     leaks = []
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
@@ -177,16 +234,15 @@ def check_for_memleaks():
 
 @pytest.fixture(autouse=True, scope="module")
 def module_check_memtest(request):
-    del request  # disable unused warning
     yield
-    if topotest_extra_config["valgrind_memleaks"]:
+    if request.config.option.valgrind_memleaks:
         if get_topogen() is not None:
             check_for_memleaks()
 
 
 def pytest_runtest_logstart(nodeid, location):
     # location is (filename, lineno, testname)
-    topolog.logstart(nodeid, location, topotest_extra_config["rundir"])
+    topolog.logstart(nodeid, location, topotest.g_pytest_config.option.rundir)
 
 
 def pytest_runtest_logfinish(nodeid, location):
@@ -197,10 +253,9 @@ def pytest_runtest_logfinish(nodeid, location):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item: pytest.Item) -> None:
     "Hook the function that is called to execute the test."
-    del item  # disable unused warning
 
     # For topology only run the CLI then exit
-    if topotest_extra_config["topology_only"]:
+    if item.config.option.topology_only:
         get_topogen().cli()
         pytest.exit("exiting after --topology-only")
 
@@ -208,7 +263,7 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     yield
 
     # Check for leaks if requested
-    if topotest_extra_config["valgrind_memleaks"]:
+    if item.config.option.valgrind_memleaks:
         check_for_memleaks()
 
 
@@ -231,6 +286,7 @@ def pytest_configure(config):
     """
     Assert that the environment is correctly configured, and get extra config.
     """
+    topotest.g_pytest_config = ConfigOptionsProxy(config)
 
     if config.getoption("--collect-only"):
         return
@@ -252,11 +308,13 @@ def pytest_configure(config):
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------
 
-    rundir = config.getoption("--rundir")
+    rundir = config.option.rundir
     if not rundir:
         rundir = config.getini("rundir")
     if not rundir:
         rundir = "/tmp/topotests"
+    config.option.rundir = rundir
+
     if not config.getoption("--junitxml"):
         config.option.xmlpath = os.path.join(rundir, "topotests.xml")
     xmlpath = config.option.xmlpath
@@ -268,8 +326,6 @@ def pytest_configure(config):
         commander = Commander("pytest")
         mv_path = commander.get_exec_path("mv")
         commander.cmd_status([mv_path, xmlpath, xmlpath + suffix])
-
-    topotest_extra_config["rundir"] = rundir
 
     # Set the log_file (exec) to inside the rundir if not specified
     if not config.getoption("--log-file") and not config.getini("log_file"):
@@ -300,69 +356,19 @@ def pytest_configure(config):
         elif b and not is_xdist and not have_windows:
             pytest.exit("{} use requires byobu/TMUX/SCREEN/XTerm".format(feature))
 
-    # ---------------------------------------
-    # Record our options in global dictionary
-    # ---------------------------------------
+    #
+    # Check for window capability if given options that require window
+    #
+    assert_feature_windows(config.option.gdb_routers, "GDB")
+    assert_feature_windows(config.option.gdb_daemons, "GDB")
+    assert_feature_windows(config.option.cli_on_error, "--cli-on-error")
+    assert_feature_windows(config.option.shell, "--shell")
+    assert_feature_windows(config.option.shell_on_error, "--shell-on-error")
+    assert_feature_windows(config.option.vtysh, "--vtysh")
+    assert_feature_windows(config.option.vtysh_on_error, "--vtysh-on-error")
 
-    topotest_extra_config["rundir"] = rundir
-
-    asan_abort = config.getoption("--asan-abort")
-    topotest_extra_config["asan_abort"] = asan_abort
-
-    gdb_routers = config.getoption("--gdb-routers")
-    gdb_routers = gdb_routers.split(",") if gdb_routers else []
-    topotest_extra_config["gdb_routers"] = gdb_routers
-
-    gdb_daemons = config.getoption("--gdb-daemons")
-    gdb_daemons = gdb_daemons.split(",") if gdb_daemons else []
-    topotest_extra_config["gdb_daemons"] = gdb_daemons
-    assert_feature_windows(gdb_routers or gdb_daemons, "GDB")
-
-    gdb_breakpoints = config.getoption("--gdb-breakpoints")
-    gdb_breakpoints = gdb_breakpoints.split(",") if gdb_breakpoints else []
-    topotest_extra_config["gdb_breakpoints"] = gdb_breakpoints
-
-    cli_on_error = config.getoption("--cli-on-error")
-    topotest_extra_config["cli_on_error"] = cli_on_error
-    assert_feature_windows(cli_on_error, "--cli-on-error")
-
-    shell = config.getoption("--shell")
-    topotest_extra_config["shell"] = shell.split(",") if shell else []
-    assert_feature_windows(shell, "--shell")
-
-    strace = config.getoption("--strace-daemons")
-    topotest_extra_config["strace_daemons"] = strace.split(",") if strace else []
-
-    shell_on_error = config.getoption("--shell-on-error")
-    topotest_extra_config["shell_on_error"] = shell_on_error
-    assert_feature_windows(shell_on_error, "--shell-on-error")
-
-    topotest_extra_config["valgrind_extra"] = config.getoption("--valgrind-extra")
-    topotest_extra_config["valgrind_memleaks"] = config.getoption("--valgrind-memleaks")
-
-    vtysh = config.getoption("--vtysh")
-    topotest_extra_config["vtysh"] = vtysh.split(",") if vtysh else []
-    assert_feature_windows(vtysh, "--vtysh")
-
-    vtysh_on_error = config.getoption("--vtysh-on-error")
-    topotest_extra_config["vtysh_on_error"] = vtysh_on_error
-    assert_feature_windows(vtysh_on_error, "--vtysh-on-error")
-
-    pause_on_error = vtysh or shell or config.getoption("--pause-on-error")
-    if config.getoption("--no-pause-on-error"):
-        pause_on_error = False
-
-    topotest_extra_config["pause_on_error"] = pause_on_error
-    assert_feature_windows(pause_on_error, "--pause-on-error")
-
-    pause = config.getoption("--pause")
-    topotest_extra_config["pause"] = pause
-    assert_feature_windows(pause, "--pause")
-
-    topology_only = config.getoption("--topology-only")
-    if topology_only and is_xdist:
+    if config.option.topology_only and is_xdist:
         pytest.exit("Cannot use --topology-only with distributed test mode")
-    topotest_extra_config["topology_only"] = topology_only
 
     # Check environment now that we have config
     if not diagnose_env(rundir):
@@ -428,10 +434,7 @@ def pytest_runtest_makereport(item, call):
             # We want to pause, if requested, on any error not just test cases
             # (e.g., call.when == "setup")
             if not pause:
-                pause = (
-                    topotest_extra_config["pause_on_error"]
-                    or topotest_extra_config["pause"]
-                )
+                pause = item.config.option.pause_on_error or item.config.option.pause
 
             # (topogen) Set topology error to avoid advancing in the test.
             tgen = get_topogen()  # pylint: disable=redefined-outer-name
@@ -443,9 +446,9 @@ def pytest_runtest_makereport(item, call):
     isatty = sys.stdout.isatty()
     error_cmd = None
 
-    if error and topotest_extra_config["vtysh_on_error"]:
+    if error and item.config.option.vtysh_on_error:
         error_cmd = commander.get_exec_path(["vtysh"])
-    elif error and topotest_extra_config["shell_on_error"]:
+    elif error and item.config.option.shell_on_error:
         error_cmd = os.getenv("SHELL", commander.get_exec_path(["bash"]))
 
     if error_cmd:
@@ -497,31 +500,16 @@ def pytest_runtest_makereport(item, call):
             if p.wait():
                 logger.warning("xterm proc failed: %s:", proc_error(p, o, e))
 
-    if error and topotest_extra_config["cli_on_error"]:
+    if error and item.config.option.cli_on_error:
         # Really would like something better than using this global here.
         # Not all tests use topogen though so get_topogen() won't work.
         if Mininet.g_mnet_inst:
-            cli(Mininet.g_mnet_inst, title=title, background=False)
+            cli.cli(Mininet.g_mnet_inst, title=title, background=False)
         else:
             logger.error("Could not launch CLI b/c no mininet exists yet")
 
-    while pause and isatty:
-        try:
-            user = raw_input(
-                'PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: '
-            )
-        except NameError:
-            user = input('PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: ')
-        user = user.strip()
-
-        if user == "cli":
-            cli(Mininet.g_mnet_inst)
-        elif user == "pdb":
-            pdb.set_trace()  # pylint: disable=forgotten-debug-statement
-        elif user:
-            print('Unrecognized input: "%s"' % user)
-        else:
-            break
+    if pause and isatty:
+        pause_test()
 
 
 #

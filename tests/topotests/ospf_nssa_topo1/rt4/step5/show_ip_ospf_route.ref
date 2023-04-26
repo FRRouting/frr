@@ -1,0 +1,126 @@
+{
+  "0.0.0.0\/0":{
+    "routeType":"N IA",
+    "cost":11,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "1.1.1.1\/32":{
+    "routeType":"N IA",
+    "cost":20,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "2.2.2.2\/32":{
+    "routeType":"N IA",
+    "cost":10,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "3.3.3.3\/32":{
+    "routeType":"N",
+    "cost":20,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "4.4.4.4\/32":{
+    "routeType":"N",
+    "cost":0,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":" ",
+        "directlyAttachedTo":"lo"
+      }
+    ]
+  },
+  "10.0.1.0\/24":{
+    "routeType":"N IA",
+    "cost":20,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "10.0.2.0\/24":{
+    "routeType":"N",
+    "cost":20,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "10.0.3.0\/24":{
+    "routeType":"N",
+    "cost":10,
+    "area":"0.0.0.1",
+    "nexthops":[
+      {
+        "ip":" ",
+        "directlyAttachedTo":"eth-rt2"
+      }
+    ]
+  },
+  "2.2.2.2":{
+    "routeType":"R ",
+    "cost":10,
+    "area":"0.0.0.1",
+    "routerType":"abr",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "3.3.3.3":{
+    "routeType":"R ",
+    "cost":20,
+    "area":"0.0.0.1",
+    "routerType":"asbr",
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  },
+  "172.16.1.0\/24":{
+    "routeType":"N E2",
+    "cost":10,
+    "type2cost":20,
+    "tag":0,
+    "nexthops":[
+      {
+        "ip":"10.0.3.2",
+        "via":"eth-rt2"
+      }
+    ]
+  }
+}

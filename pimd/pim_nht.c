@@ -724,27 +724,20 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	if (cmd == ZEBRA_NEXTHOP_UPDATE) {
-		rpf.rpf_addr = pim_addr_from_prefix(&match);
-		pnc = pim_nexthop_cache_find(pim, &rpf);
-		if (!pnc) {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
-					__func__, &rpf.rpf_addr);
-			return 0;
-		}
-	} else {
-		/*
-		 * We do not currently handle ZEBRA_IMPORT_CHECK_UPDATE
-		 */
+	rpf.rpf_addr = pim_addr_from_prefix(&match);
+	pnc = pim_nexthop_cache_find(pim, &rpf);
+	if (!pnc) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug(
+				"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
+				__func__, &rpf.rpf_addr);
 		return 0;
 	}
 
 	pnc->last_update = pim_time_monotonic_usec();
 
 	if (nhr.nexthop_num) {
-		pnc->nexthop_num = 0; // Only increment for pim enabled rpf.
+		pnc->nexthop_num = 0;
 
 		for (i = 0; i < nhr.nexthop_num; i++) {
 			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
@@ -862,7 +855,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				nhlist_tail = nexthop;
 				nhlist_head = nexthop;
 			}
-			// Only keep track of nexthops which are PIM enabled.
+
+			// Keep track of all nexthops, even PIM-disabled ones.
 			pnc->nexthop_num++;
 		}
 		/* Reset existing pnc->nexthop before assigning new list */

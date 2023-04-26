@@ -62,6 +62,8 @@ struct mgmt_master {
 };
 
 extern struct mgmt_master *mm;
+extern char const *const mgmt_daemons[];
+extern uint mgmt_daemons_count;
 
 /* Inline functions */
 static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)

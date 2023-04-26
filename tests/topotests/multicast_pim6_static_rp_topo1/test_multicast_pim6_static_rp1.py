@@ -172,6 +172,9 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
     tgen = get_topogen()
 
+    # Clean up socat
+    kill_socat(tgen)
+
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 

@@ -64,7 +64,12 @@ DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 DEFINE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
 
 
-/* Meta Q's specific names */
+/*
+ * Meta Q's specific names
+ *
+ * If you add something here ensure that you
+ * change MQ_SIZE as well over in rib.h
+ */
 enum meta_queue_indexes {
 	META_QUEUE_NHG,
 	META_QUEUE_EVPN,
@@ -76,6 +81,7 @@ enum meta_queue_indexes {
 	META_QUEUE_NOTBGP,
 	META_QUEUE_BGP,
 	META_QUEUE_OTHER,
+	META_QUEUE_GR_RUN,
 };
 
 /* Each route type's string and default distance value. */
@@ -250,6 +256,8 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 		return "BGP Routes";
 	case META_QUEUE_OTHER:
 		return "Other Routes";
+	case META_QUEUE_GR_RUN:
+		return "Graceful Restart";
 	}
 
 	return "Unknown";
@@ -3089,6 +3097,23 @@ static void process_subq_early_route(struct listnode *lnode)
 		process_subq_early_route_add(ere);
 }
 
+struct meta_q_gr_run {
+	afi_t afi;
+	vrf_id_t vrf_id;
+	uint8_t proto;
+	uint8_t instance;
+};
+
+static void process_subq_gr_run(struct listnode *lnode)
+{
+	struct meta_q_gr_run *gr_run = listgetdata(lnode);
+
+	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto,
+				gr_run->instance);
+
+	XFREE(MTYPE_WQ_WRAPPER, gr_run);
+}
+
 /*
  * Examine the specified subqueue; process one entry and return 1 if
  * there is a node, return 0 otherwise.
@@ -3121,6 +3146,9 @@ static unsigned int process_subq(struct list *subq,
 	case META_QUEUE_BGP:
 	case META_QUEUE_OTHER:
 		process_subq_route(lnode, qindex);
+		break;
+	case META_QUEUE_GR_RUN:
+		process_subq_gr_run(lnode);
 		break;
 	}
 
@@ -3727,6 +3755,23 @@ static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 	}
 }
 
+static void rib_meta_queue_gr_run_free(struct meta_queue *mq, struct list *l,
+				       struct zebra_vrf *zvrf)
+{
+	struct meta_q_gr_run *gr_run;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(l, node, nnode, gr_run)) {
+		if (zvrf && zvrf->vrf->vrf_id != gr_run->vrf_id)
+			continue;
+
+		XFREE(MTYPE_WQ_WRAPPER, gr_run);
+		node->data = NULL;
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
 void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 {
 	enum meta_queue_indexes i;
@@ -3753,6 +3798,9 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 		case META_QUEUE_BGP:
 		case META_QUEUE_OTHER:
 			rib_meta_queue_free(mq, mq->subq[i], zvrf);
+			break;
+		case META_QUEUE_GR_RUN:
+			rib_meta_queue_gr_run_free(mq, mq->subq[i], zvrf);
 			break;
 		}
 		if (!zvrf)
@@ -4094,6 +4142,17 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	zlog_debug("%s: dump complete", straddr);
 }
 
+static int rib_meta_queue_gr_run_add(struct meta_queue *mq, void *data)
+{
+	listnode_add(mq->subq[META_QUEUE_GR_RUN], data);
+	mq->size++;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("Graceful Run adding");
+
+	return 0;
+}
+
 static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 {
 	struct zebra_early_route *ere = data;
@@ -4108,6 +4167,20 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 			subqueue2str(META_QUEUE_EARLY_ROUTE));
 
 	return 0;
+}
+
+int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance)
+{
+	struct meta_q_gr_run *gr_run;
+
+	gr_run = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(*gr_run));
+
+	gr_run->afi = afi;
+	gr_run->proto = proto;
+	gr_run->vrf_id = vrf_id;
+	gr_run->instance = instance;
+
+	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
 }
 
 struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
@@ -4410,12 +4483,31 @@ static void rib_update_handler(struct event *thread)
  */
 static struct event *t_rib_update_threads[RIB_UPDATE_MAX];
 
+void rib_update_finish(void)
+{
+	int i;
+
+	for (i = RIB_UPDATE_KERNEL; i < RIB_UPDATE_MAX; i++) {
+		if (event_is_scheduled(t_rib_update_threads[i])) {
+			struct rib_update_ctx *ctx;
+
+			ctx = EVENT_ARG(t_rib_update_threads[i]);
+
+			rib_update_ctx_fini(&ctx);
+			EVENT_OFF(t_rib_update_threads[i]);
+		}
+	}
+}
+
 /* Schedule a RIB update event for all vrfs */
 void rib_update(enum rib_update_event event)
 {
 	struct rib_update_ctx *ctx;
 
 	if (event_is_scheduled(t_rib_update_threads[event]))
+		return;
+
+	if (zebra_router_in_shutdown())
 		return;
 
 	ctx = rib_update_ctx_init(0, event);

@@ -1961,15 +1961,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 	}
 
 	updgrp = update_group_find(paf);
-	if (!updgrp) {
+	if (!updgrp)
 		updgrp = update_group_create(paf);
-		if (!updgrp) {
-			flog_err(EC_BGP_UPDGRP_CREATE,
-				 "couldn't create update group for peer %s",
-				 paf->peer->host);
-			return;
-		}
-	}
 
 	old_subgrp = paf->subgroup;
 
@@ -1992,11 +1985,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 	}
 
 	subgrp = update_subgroup_find(updgrp, paf);
-	if (!subgrp) {
+	if (!subgrp)
 		subgrp = update_subgroup_create(updgrp);
-		if (!subgrp)
-			return;
-	}
 
 	update_subgroup_add_peer(subgrp, paf, 1);
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))

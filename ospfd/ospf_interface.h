@@ -121,6 +121,9 @@ struct ospf_if_info {
 		membership_counts[MEMBER_MAX]; /* multicast group refcnts */
 
 	uint32_t curr_mtu;
+
+	/* Per-interface write socket, configured via 'ospf' object */
+	int oii_fd;
 };
 
 struct ospf_interface;
