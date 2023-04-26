@@ -16,6 +16,7 @@ test_isis_sr_flex_algo_topo2.py:
 
 [+] Flex-Algos 140 metric-type te
 [+] Flex-Algos 141 metric-type delay
+[+] Flex-Algos 141 metric-type te - prefix-metric flags enabled
 
 The purpose of this test is to verify that the alternate metrics
 (te metric and delay == min delay) are used when calculating an
@@ -136,6 +137,10 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
+        if rname == "rt0":
+            router.load_config(
+                TopoRouter.RD_STATIC, os.path.join(CWD, "{}/staticd.conf".format(rname))
+            )
         if rname in ["rt0", "rt9"]:
             router.load_config(
                 TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
@@ -224,21 +229,39 @@ def generate_route_tables():
 
 
 def test_route_tables_step1():
-    logger.info("Test (step 1)")
+    logger.info("Test route tables (step 1)")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     for r in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
         rt = "rt" + r
-        for algo in ["140", "141"]:
+        for algo in ["140", "141", "142"]:
             cmd = "show isis route algo " + algo + " json"
             fn = rt + "/step1/route-" + algo + ".json"
             check_rib(rt, cmd, fn)
 
 
+def test_external_prefix_step1():
+    logger.info("Test external prefix (step 1)")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    expected = """
+  Extended IP Reachability: 10.44.0.0/24 (Metric: 25)
+    Subtlvs:
+      Prefix attribute flags: 0x80 External (X): 1
+      Flex Algo Prefix-Metric Algorithm: 142, Metric: 25
+"""
+
+    output = tgen.gears["rt9"].vtysh_cmd("show isis database detail rt0")
+
+    assert expected in output, "External Prefix 10.44.0.0/24 TLV is incorrect"
+
+
 def test_route_tables_prune_link_step2():
-    logger.info("Test (step 2)")
+    logger.info("Test route table after a link shutdown (step 2)")
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -264,7 +287,7 @@ def test_route_tables_prune_link_step2():
     time.sleep(5)
     for r in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
         rt = "rt" + r
-        for algo in ["140", "141"]:
+        for algo in ["140", "141", "142"]:
             cmd = "show isis route algo " + algo + " json"
             fn = rt + "/step2/route-" + algo + ".json"
             check_rib(rt, cmd, fn)
