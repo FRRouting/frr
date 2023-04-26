@@ -1,0 +1,112 @@
+[
+  {
+    "area": "1",
+    "level-1": {
+      "area": "1",
+      "ipv4": [
+        {
+          "Prefix": "1.1.1.1/32",
+          "Metric": 5110,
+          "Interface": "eth-rt4",
+          "Nexthop": "10.34.0.4",
+          "Label(s)": "21421"
+        },
+        {
+          "Prefix": "2.2.2.2/32",
+          "Metric": 5010,
+          "Interface": "eth-rt2",
+          "Nexthop": "10.23.0.2",
+          "Label(s)": "implicit-null"
+        },
+        {
+          "Prefix": "3.3.3.3/32",
+          "Metric": 0,
+          "Interface": "-",
+          "Nexthop": "-",
+          "Label(s)": "-"
+        },
+        {
+          "Prefix": "4.4.4.4/32",
+          "Metric": 5010,
+          "Interface": "eth-rt4",
+          "Nexthop": "10.34.0.4",
+          "Label(s)": "implicit-null"
+        },
+        {
+          "Prefix": "5.5.5.5/32",
+          "Metric": 10110,
+          "Interface": "eth-rt4",
+          "Nexthop": "10.34.0.4",
+          "Label(s)": "21425"
+        },
+        {
+          "Prefix": "5.5.5.5/32",
+          "Metric": 10110,
+          "Interface": "eth-rt7",
+          "Nexthop": "10.37.0.7",
+          "Label(s)": "21425"
+        },
+        {
+          "Prefix": "6.6.6.6/32",
+          "Metric": 10010,
+          "Interface": "eth-rt2",
+          "Nexthop": "10.23.0.2",
+          "Label(s)": "21426"
+        },
+        {
+          "Prefix": "6.6.6.6/32",
+          "Metric": 10010,
+          "Interface": "eth-rt7",
+          "Nexthop": "10.37.0.7",
+          "Label(s)": "21426"
+        },
+        {
+          "Prefix": "7.7.7.7/32",
+          "Metric": 5010,
+          "Interface": "eth-rt7",
+          "Nexthop": "10.37.0.7",
+          "Label(s)": "implicit-null"
+        },
+        {
+          "Prefix": "8.8.8.8/32",
+          "Metric": 5110,
+          "Interface": "eth-rt4",
+          "Nexthop": "10.34.0.4",
+          "Label(s)": "21428"
+        },
+        {
+          "Prefix": "8.8.8.8/32",
+          "Metric": 5110,
+          "Interface": "eth-rt7",
+          "Nexthop": "10.37.0.7",
+          "Label(s)": "21428"
+        },
+        {
+          "Prefix": "9.9.9.9/32",
+          "Metric": 5010,
+          "Interface": "eth-rt9",
+          "Nexthop": "10.39.0.9",
+          "Label(s)": "implicit-null"
+        },
+        {
+          "Prefix": "10.10.10.10/32",
+          "Metric": 5210,
+          "Interface": "eth-rt4",
+          "Nexthop": "10.34.0.4",
+          "Label(s)": "21420"
+        },
+        {
+          "Prefix": "10.44.0.0/24",
+          "Metric": 5225,
+          "Interface": "eth-rt4",
+          "Nexthop": "10.34.0.4",
+          "Label(s)": "-"
+        }
+      ]
+    },
+    "level-2": {
+      "area": "1"
+    },
+    "vrf_id": 0
+  }
+]
