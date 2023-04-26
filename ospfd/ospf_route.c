@@ -686,7 +686,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	}
 	if (rn->info)
 		ospf_route_free(rn->info);
-	
+
 	rn->info = or ;
 
 	if (IS_DEBUG_OSPF_EVENT)
