@@ -9,6 +9,7 @@
 #ifndef _FRR_MGMTD_H
 #define _FRR_MGMTD_H
 
+#include "debug.h"
 #include "vrf.h"
 #include "defaults.h"
 #include "stream.h"
@@ -23,10 +24,15 @@
 #define MGMTD_SOCKET_BUF_SIZE 65535
 #define MGMTD_MAX_COMMIT_LIST 10
 
-extern bool mgmt_debug_be;
-extern bool mgmt_debug_fe;
-extern bool mgmt_debug_ds;
-extern bool mgmt_debug_txn;
+extern struct debug mgmt_debug_be;
+extern struct debug mgmt_debug_ds;
+extern struct debug mgmt_debug_fe;
+extern struct debug mgmt_debug_txn;
+
+#define MGMT_DEBUG_BE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL)
+#define MGMT_DEBUG_DS_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_ds, DEBUG_MODE_ALL)
+#define MGMT_DEBUG_FE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)
+#define MGMT_DEBUG_TXN_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_tx, DEBUG_MODE_ALL)
 
 struct mgmt_txn_ctx;
 

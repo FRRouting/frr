@@ -13,20 +13,10 @@
 #include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_BE_SRVR_DBG(fmt, ...)                                         \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_BE_SRVR_ERR(fmt, ...)                                         \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
 #define MGMTD_BE_SRVR_DBG(fmt, ...)                                            \
-	do {                                                                   \
-		if (mgmt_debug_be)                                             \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
-	} while (0)
+	DEBUGD(&mgmt_debug_be, "%s:" fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_BE_SRVR_ERR(fmt, ...)                                         \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
 
 static int mgmt_be_listen_fd = -1;
 static struct event_loop *mgmt_be_listen_tm;

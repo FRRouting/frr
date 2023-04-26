@@ -14,20 +14,10 @@
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_txn.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_TXN_DBG(fmt, ...)                                               \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_TXN_ERR(fmt, ...)                                               \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
 #define MGMTD_TXN_DBG(fmt, ...)                                                \
-	do {                                                                   \
-		if (mgmt_debug_txn)                                            \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
-	} while (0)
-#define MGMTD_TXN_ERR(fmt, ...)                                               \
+	DEBUGD(&mgmt_debug_txn, "%s:" fmt, __func__, ##__VA_ARGS__)
+#define MGMTD_TXN_ERR(fmt, ...)                                                \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
 
 #define MGMTD_TXN_LOCK(txn) mgmt_txn_lock(txn, __FILE__, __LINE__)
 #define MGMTD_TXN_UNLOCK(txn) mgmt_txn_unlock(txn, __FILE__, __LINE__)

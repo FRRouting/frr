@@ -18,20 +18,10 @@
 #include "mgmt_be_client.h"
 #include "mgmtd/mgmt_be_adapter.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_BE_ADAPTER_DBG(fmt, ...)                                        \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_BE_ADAPTER_ERR(fmt, ...)                                        \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_BE_ADAPTER_DBG(fmt, ...)                                        \
-	do {                                                                  \
-		if (mgmt_debug_be)                                            \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);      \
-	} while (0)
+#define MGMTD_BE_ADAPTER_DBG(fmt, ...)                                         \
+	DEBUGD(&mgmt_debug_be, "%s:" fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_BE_ADAPTER_ERR(fmt, ...)                                        \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
 
 #define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
 	frr_each_safe (mgmt_be_adapters, &mgmt_be_adapters, (adapter))
@@ -521,7 +511,7 @@ static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 		&adapter->mstate, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
 		(size_t(*)(void *, void *))mgmtd__be_message__pack,
-		mgmt_debug_be);
+		MGMT_DEBUG_BE_CHECK());
 	mgmt_be_adapter_sched_msg_write(adapter);
 	return rv;
 }
@@ -619,7 +609,7 @@ static void mgmt_be_adapter_proc_msgbufs(struct event *thread)
 	struct mgmt_be_client_adapter *adapter = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_be_adapter_process_msg,
-			      adapter, mgmt_debug_be))
+			      adapter, MGMT_DEBUG_BE_CHECK()))
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_PROC_MSG);
 }
 
@@ -630,7 +620,8 @@ static void mgmt_be_adapter_read(struct event *thread)
 
 	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
 
-	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd, mgmt_debug_be);
+	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd,
+			   MGMT_DEBUG_BE_CHECK());
 	if (rv == MSR_DISCONNECT) {
 		mgmt_be_adapter_disconnect(adapter);
 		return;
@@ -645,7 +636,8 @@ static void mgmt_be_adapter_write(struct event *thread)
 	struct mgmt_be_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
-	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd, mgmt_debug_be);
+	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd,
+			    MGMT_DEBUG_BE_CHECK());
 	if (rv == MSW_SCHED_STREAM)
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)

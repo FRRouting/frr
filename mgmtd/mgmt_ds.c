@@ -15,20 +15,10 @@
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_DS_ERR(fmt, ...)                                                 \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_DS_DBG(fmt, ...)                                                 \
-	do {                                                                   \
-		if (mgmt_debug_ds)                                             \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
-	} while (0)
+	DEBUGD(&mgmt_debug_ds, "%s:" fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_DS_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
 
 struct mgmt_ds_ctx {
 	Mgmtd__DatastoreId ds_id;

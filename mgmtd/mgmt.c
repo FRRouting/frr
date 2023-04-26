@@ -7,6 +7,7 @@
  */
 
 #include <zebra.h>
+#include "debug.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -16,10 +17,10 @@
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
-bool mgmt_debug_be;
-bool mgmt_debug_fe;
-bool mgmt_debug_ds;
-bool mgmt_debug_txn;
+struct debug mgmt_debug_be = {.desc = "Management backend adapater"};
+struct debug mgmt_debug_ds = {.desc = "Management datastore"};
+struct debug mgmt_debug_fe = {.desc = "Management frontend adapater"};
+struct debug mgmt_debug_txn = {.desc = "Management transaction"};
 
 /* MGMTD process wide configuration.  */
 static struct mgmt_master mgmt_master;

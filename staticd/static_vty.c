@@ -13,6 +13,7 @@
 #include "nexthop.h"
 #include "table.h"
 #include "srcdest_table.h"
+#include "mgmt_be_client.h"
 #include "mpls.h"
 #include "northbound.h"
 #include "libfrr.h"
@@ -1553,4 +1554,6 @@ void static_vty_init(void)
 
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+
+	mgmt_be_client_lib_vty_init();
 }
