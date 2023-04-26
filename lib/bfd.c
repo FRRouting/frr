@@ -523,7 +523,7 @@ static void _bfd_sess_send(struct event *t)
 			bfd_sess_addresses(bsp, &family, &src, &dst);
 			if (family == AF_INET)
 				zlog_debug("LIB-BFD: %s %s BFD src %pI4 dst %pI4",
-					   buf, family2str(family), &src, &dst);
+					   buf, family2str(family), (in_addr_t *)&src, (in_addr_t *)&dst);
 			else
 				zlog_debug("LIB-BFD: %s %s BFD src %pI6 dst %pI6",
 					   buf, family2str(family), &src, &dst);
