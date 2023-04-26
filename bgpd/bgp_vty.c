@@ -2894,10 +2894,20 @@ DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
 	else
 		label_mode = BGP_FLAG_LU_IPV4_EXPLICIT_NULL |
 			     BGP_FLAG_LU_IPV6_EXPLICIT_NULL;
-	if (no)
+
+	if (no) {
 		UNSET_FLAG(bgp->flags, label_mode);
-	else
+		if (CHECK_FLAG(label_mode, BGP_FLAG_LU_IPV4_EXPLICIT_NULL))
+			bgp_zebra_label_set_to_imp_null(bgp, AFI_IP);
+		if (CHECK_FLAG(label_mode, BGP_FLAG_LU_IPV6_EXPLICIT_NULL))
+			bgp_zebra_label_set_to_imp_null(bgp, AFI_IP6);
+	} else {
 		SET_FLAG(bgp->flags, label_mode);
+		if (CHECK_FLAG(label_mode, BGP_FLAG_LU_IPV4_EXPLICIT_NULL))
+			bgp_zebra_label_set_to_exp_null(bgp, AFI_IP);
+		if (CHECK_FLAG(label_mode, BGP_FLAG_LU_IPV6_EXPLICIT_NULL))
+			bgp_zebra_label_set_to_exp_null(bgp, AFI_IP6);
+	}
 	return CMD_SUCCESS;
 }
 
