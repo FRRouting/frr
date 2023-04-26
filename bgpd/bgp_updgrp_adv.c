@@ -486,9 +486,10 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
 	 */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
-	    && !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
-	    && adj->attr_hash == attr_hash) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
+	    !CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+	    adj->attr_hash == attr_hash) {
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
 			char attr_str[BUFSIZ] = {0};
 
