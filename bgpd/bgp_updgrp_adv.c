@@ -577,6 +577,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * Do not suppress BGP UPDATES for route-refresh.
 	 */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
+	    !CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED) &&
 	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
 	    adj->attr_hash == attr_hash &&
 	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL,
