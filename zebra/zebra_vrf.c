@@ -377,7 +377,7 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 }
 
 /*
-Pending: create an efficient table_id (in a tree/hash) based lookup)
+ * Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
 vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 {
