@@ -1468,6 +1468,14 @@ static void routing_socket(struct zebra_ns *zns)
 	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
+void interface_list_second(struct zebra_ns *zns)
+{
+}
+
+void interface_list_tunneldump(struct zebra_ns *zns)
+{
+}
+
 /* Exported interface function.  This function simply calls
    routing_socket (). */
 void kernel_init(struct zebra_ns *zns)

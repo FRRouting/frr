@@ -398,7 +398,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWLINK:
 		return netlink_link_change(h, ns_id, startup);
 	case RTM_DELLINK:
-		return netlink_link_change(h, ns_id, startup);
+		return 0;
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -474,6 +474,7 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
+		return netlink_link_change(h, ns_id, startup);
 
 	default:
 		break;
@@ -1169,7 +1170,6 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					h->nlmsg_type, h->nlmsg_len,
 					h->nlmsg_seq, h->nlmsg_pid);
 
-
 			/*
 			 * Ignore messages that maybe sent from
 			 * other actors besides the kernel
@@ -1778,17 +1778,11 @@ void kernel_init(struct zebra_ns *zns)
 	 * groups are added further below after SOL_NETLINK is verified to
 	 * exist.
 	 */
-	groups = RTMGRP_LINK                   |
-			RTMGRP_IPV4_ROUTE              |
-			RTMGRP_IPV4_IFADDR             |
-			RTMGRP_IPV6_ROUTE              |
-			RTMGRP_IPV6_IFADDR             |
-			RTMGRP_IPV4_MROUTE             |
-			RTMGRP_NEIGH                   |
-			((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
-			((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
-			((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1))   |
-			((uint32_t) 1 << (RTNLGRP_TC - 1));
+	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
+		 RTMGRP_NEIGH | ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
+		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) |
+		 ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1)) |
+		 ((uint32_t)1 << (RTNLGRP_TC - 1));
 
 	dplane_groups = (RTMGRP_LINK            |
 			 RTMGRP_IPV4_IFADDR     |

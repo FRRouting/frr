@@ -4862,7 +4862,9 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_NONE:
+				break;
 			case DPLANE_OP_STARTUP_STAGE:
+				zebra_ns_startup_continue(ctx);
 				break;
 
 			} /* Dispatch by op code */

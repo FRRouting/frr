@@ -244,7 +244,7 @@ void zebra_l2if_update_bond(struct interface *ifp, bool add)
  * map slaves (if any) to the bridge.
  */
 void zebra_l2_bridge_add_update(struct interface *ifp,
-				struct zebra_l2info_bridge *bridge_info)
+				const struct zebra_l2info_bridge *bridge_info)
 {
 	struct zebra_if *zif;
 	struct zebra_l2_bridge_if *br;
@@ -283,7 +283,7 @@ void zebra_l2if_update_bridge(struct interface *ifp, uint8_t chgflags)
  * VLAN Id and this cannot change.
  */
 void zebra_l2_vlanif_update(struct interface *ifp,
-			    struct zebra_l2info_vlan *vlan_info)
+			    const struct zebra_l2info_vlan *vlan_info)
 {
 	struct zebra_if *zif;
 
@@ -300,7 +300,7 @@ void zebra_l2_vlanif_update(struct interface *ifp,
  * clients about GRE information.
  */
 void zebra_l2_greif_add_update(struct interface *ifp,
-			       struct zebra_l2info_gre *gre_info, int add)
+			       const struct zebra_l2info_gre *gre_info, int add)
 {
 	struct zebra_if *zif;
 	struct in_addr old_vtep_ip;
@@ -327,7 +327,8 @@ void zebra_l2_greif_add_update(struct interface *ifp,
  * IP and VLAN mapping, but the latter is handled separately.
  */
 void zebra_l2_vxlanif_add_update(struct interface *ifp,
-				 struct zebra_l2info_vxlan *vxlan_info, int add)
+				 const struct zebra_l2info_vxlan *vxlan_info,
+				 int add)
 {
 	struct zebra_if *zif;
 	uint16_t chgflags = 0;
