@@ -17,14 +17,15 @@
 
 #include "flex_algo.h"
 
-DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO, "Flex-Algo Definition");
+DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO_DATABASE, "Flex-Algo database");
+DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO, "Flex-Algo algorithm information");
 
 struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 				    flex_algo_releaser_t releaser)
 {
 	struct flex_algos *flex_algos;
 
-	flex_algos = XCALLOC(MTYPE_FLEX_ALGO, sizeof(*flex_algos));
+	flex_algos = XCALLOC(MTYPE_FLEX_ALGO_DATABASE, sizeof(*flex_algos));
 	flex_algos->flex_algos = list_new();
 	flex_algos->allocator = allocator;
 	flex_algos->releaser = releaser;
