@@ -63,7 +63,6 @@
 #include "zebra/zebra_trace.h"
 
 extern struct zebra_privs_t zserv_privs;
-uint8_t frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
@@ -920,9 +919,7 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 
 static bool is_if_protodown_reason_only_frr(uint32_t rc_bitfield)
 {
-	/* This shouldn't be possible */
-	assert(frr_protodown_r_bit < 32);
-	return (rc_bitfield == (((uint32_t)1) << frr_protodown_r_bit));
+	return (rc_bitfield == (((uint32_t)1) << if_netlink_get_frr_protodown_r_bit()));
 }
 
 /*
@@ -2393,9 +2390,10 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 		return -1;
 
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
-		      (1 << frr_protodown_r_bit));
+		      (1 << if_netlink_get_frr_protodown_r_bit()));
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
-		      ((int)pd_reason_val) << frr_protodown_r_bit);
+		      ((int)pd_reason_val)
+			      << if_netlink_get_frr_protodown_r_bit());
 
 	nl_attr_nest_end(&req->n, nest_protodown_reason);
 
@@ -2418,37 +2416,6 @@ void interface_list(struct zebra_ns *zns)
 	netlink_nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
-}
-
-void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
-{
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"Protodown reason bit index changed: bit-index %u -> bit-index %u",
-			frr_protodown_r_bit, bit);
-
-	frr_protodown_r_bit = bit;
-}
-
-void if_netlink_unset_frr_protodown_r_bit(void)
-{
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"Protodown reason bit index changed: bit-index %u -> bit-index %u",
-			frr_protodown_r_bit, FRR_PROTODOWN_REASON_DEFAULT_BIT);
-
-	frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
-}
-
-
-bool if_netlink_frr_protodown_r_bit_is_set(void)
-{
-	return (frr_protodown_r_bit != FRR_PROTODOWN_REASON_DEFAULT_BIT);
-}
-
-uint8_t if_netlink_get_frr_protodown_r_bit(void)
-{
-	return frr_protodown_r_bit;
 }
 
 /**
