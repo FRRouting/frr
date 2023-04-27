@@ -393,14 +393,14 @@ static void _isis_spftree_del(struct isis_spftree *spftree)
 	isis_vertex_queue_free(&spftree->paths);
 	isis_route_table_info_free(spftree->route_table->info);
 	isis_route_table_info_free(spftree->route_table_backup->info);
+	route_table_finish(spftree->route_table);
+	route_table_finish(spftree->route_table_backup);
 }
 
 void isis_spftree_del(struct isis_spftree *spftree)
 {
 	_isis_spftree_del(spftree);
 
-	route_table_finish(spftree->route_table);
-	route_table_finish(spftree->route_table_backup);
 	spftree->route_table = NULL;
 
 	XFREE(MTYPE_ISIS_SPFTREE, spftree);
