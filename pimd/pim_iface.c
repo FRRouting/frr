@@ -956,7 +956,7 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 }
 
 /*
-  pim_if_add_vif() uses ifindex as vif_index
+  pim_if_add_vif() uses ifindex as mroute_vif_index
 
   see also pim_if_find_vifindex_by_ifindex()
  */
