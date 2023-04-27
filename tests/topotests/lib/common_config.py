@@ -243,7 +243,6 @@ def run_frr_cmd(rnode, cmd, isjson=False):
 
 
 def apply_raw_config(tgen, input_dict):
-
     """
     API to configure raw configuration on device. This can be used for any cli
     which has not been implemented in JSON.
@@ -447,7 +446,6 @@ def check_router_status(tgen):
     try:
         router_list = tgen.routers()
         for router, rnode in router_list.items():
-
             result = rnode.check_router_running()
             if result != "":
                 daemons = []
@@ -1914,7 +1912,6 @@ def interface_status(tgen, topo, input_dict):
         rlist = []
 
         for router in input_dict.keys():
-
             interface_list = input_dict[router]["interface_list"]
             status = input_dict[router].setdefault("status", "up")
             for intf in interface_list:
@@ -2529,7 +2526,6 @@ def create_route_maps(tgen, input_dict, build=False):
                 continue
             rmap_data = []
             for rmap_name, rmap_value in input_dict[router]["route_maps"].items():
-
                 for rmap_dict in rmap_value:
                     del_action = rmap_dict.setdefault("delete", False)
 
@@ -3002,7 +2998,6 @@ def addKernelRoute(
         group_addr_range = [group_addr_range]
 
     for grp_addr in group_addr_range:
-
         addr_type = validate_ip_address(grp_addr)
         if addr_type == "ipv4":
             if next_hop is not None:
@@ -3193,7 +3188,6 @@ def configure_brctl(tgen, topo, input_dict):
 
         if "brctl" in input_dict[dut]:
             for brctl_dict in input_dict[dut]["brctl"]:
-
                 brctl_names = brctl_dict.setdefault("brctl_name", [])
                 addvxlans = brctl_dict.setdefault("addvxlan", [])
                 stp_values = brctl_dict.setdefault("stp", [])
@@ -3203,7 +3197,6 @@ def configure_brctl(tgen, topo, input_dict):
                 for brctl_name, vxlan, vrf, stp in zip(
                     brctl_names, addvxlans, vrfs, stp_values
                 ):
-
                     ip_cmd_list = []
                     cmd = "ip link add name {} type bridge stp_state {}".format(
                         brctl_name, stp
@@ -3470,6 +3463,86 @@ def socat_send_pim6_traffic(
     return True
 
 
+def socat_send_ssm_join(
+    tgen,
+    server,
+    protocol_option,
+    ssm_groups,
+    send_from_intf_ip,
+    source_addr,
+    port=12345,
+    reuseaddr=True,
+):
+    """
+    API to send MLD join using SOCAT tool
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `server`: iperf server, from where IGMP join would be sent
+    * `protocol_option`: Protocol options, ex: UDP-RECV
+    * `ssm_groups`: IGMP group for which join has to be sent
+    * `send_from_intf_ip`: Interface IP, default is None
+    * `source_addr`: Source address
+    * `port`: Port to be used, default is 12345
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[server]
+    socat_args = "socat -u "
+
+    # UDP4/TCP4/UDP6/UDP6-RECV/UDP6-SEND
+    if protocol_option:
+        socat_args += "{}".format(protocol_option)
+
+    if port:
+        socat_args += ":{},".format(port)
+
+    if reuseaddr:
+        socat_args += "{},".format("reuseaddr")
+
+    # Group address range to cover
+    if ssm_groups:
+        if not isinstance(ssm_groups, list):
+            ssm_groups = [ssm_groups]
+
+    for ssm_group in ssm_groups:
+        socat_cmd = socat_args
+        join_option = "ip-add-source-membership"
+
+        socat_cmd += "{}={}:{}:{}".format(
+            join_option, ssm_group, send_from_intf_ip, source_addr
+        )
+
+        socat_cmd += " STDOUT"
+
+        socat_cmd += " &>{}/socat.logs &".format(tgen.logdir)
+
+        # Run socat command to send IGMP join
+        logger.info("[DUT: {}]: Running command: [{}]".format(server, socat_cmd))
+        output = rnode.run("set +m; {} echo $!".format(socat_cmd))
+
+        # Check if socat join process is running
+        if output:
+            pid = output.split()[0]
+            rnode.run("touch /var/run/frr/socat_ssm_join.pid")
+            rnode.run("echo %s >> /var/run/frr/socat_ssm_join.pid" % pid)
+        else:
+            errormsg = "Socat SSM join is not sent for {}. Error {}".format(
+                ssm_group, output
+            )
+            logger.error(output)
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
 def kill_socat(tgen, dut=None, action=None):
     """
     Killing socat process if running for any router in topology
@@ -3478,9 +3551,9 @@ def kill_socat(tgen, dut=None, action=None):
     -----------
     * `tgen`  : Topogen object
     * `dut`   : Any iperf hostname to send igmp prune
-    * `action`: to kill mld join using socat
-                to kill mld traffic using socat
-
+    * `action`: [remove_mld_join]to kill mld join using socat
+                [remove_ssm_join]to kill ssm join using socat
+                [remove_mld_traffic]to kill mld traffic using socat
     Usage:
     ------
     kill_socat(tgen, dut ="i6", action="remove_mld_join")
@@ -3495,14 +3568,22 @@ def kill_socat(tgen, dut=None, action=None):
             continue
 
         traffic_shell_script = "{}/{}/traffic.sh".format(tgen.logdir, router)
-        pid_socat_join = rnode.run("cat /var/run/frr/socat_join.pid")
-        pid_socat_traffic = rnode.run("cat /var/run/frr/socat_traffic.pid")
+        ls_output = rnode.run("ls /var/run/frr/")
+        pids = pid_socat_join = pid_socat_ssm_join = pid_socat_traffic = ""
         if action == "remove_mld_join":
-            pids = pid_socat_join
+            if "socat_join.pid" in ls_output:
+                pid_socat_join = rnode.run("cat /var/run/frr/socat_join.pid")
+                pids = pid_socat_join
         elif action == "remove_mld_traffic":
-            pids = pid_socat_traffic
+            if "socat_traffic.pid" in ls_output:
+                pid_socat_traffic = rnode.run("cat /var/run/frr/socat_traffic.pid")
+                pids = pid_socat_traffic
+        elif action == "remove_ssm_join":
+            if "socat_ssm_join.pid" in ls_output:
+                pid_socat_ssm_join = rnode.run("cat /var/run/frr/socat_ssm_join.pid")
+                pids = pid_socat_ssm_join
         else:
-            pids = "\n".join([pid_socat_join, pid_socat_traffic])
+            pids = "\n".join([pid_socat_join, pid_socat_ssm_join, pid_socat_traffic])
 
         if os.path.exists(traffic_shell_script):
             cmd = (
@@ -3614,7 +3695,6 @@ def verify_rib(
 
                 for static_route in static_routes:
                     if "vrf" in static_route and static_route["vrf"] is not None:
-
                         logger.info(
                             "[DUT: {}]: Verifying routes for VRF:"
                             " {}".format(router, static_route["vrf"])
@@ -4053,7 +4133,6 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None, protocol=
 
                 for static_route in static_routes:
                     if "vrf" in static_route and static_route["vrf"] is not None:
-
                         logger.info(
                             "[DUT: {}]: Verifying routes for VRF:"
                             " {}".format(router, static_route["vrf"])

@@ -593,7 +593,6 @@ def find_rp_details(tgen, topo):
     topo_data = topo["routers"]
 
     for router in router_list.keys():
-
         if "pim" not in topo_data[router]:
             continue
 
@@ -1495,7 +1494,6 @@ def verify_mroutes(
                             and data["outboundInterface"] in oil
                         ):
                             if return_uptime:
-
                                 uptime_dict[grp_addr][src_address] = data["upTime"]
 
                             logger.info(
@@ -1551,6 +1549,188 @@ def verify_mroutes(
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True if return_uptime == False else uptime_dict
+
+
+def verify_mroutes_immediately(
+    tgen, dut, src_address, group_addresses, iif, oil, addr_type="ipv4"
+):
+    """
+    This API is to verify ip mroutes and make sure (*, G)/(S, G)
+    received immediately by running "show ip/ipv6 mroute" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `src_address`: source address
+    * `group_addresses`: IGMP group address
+    * `iif`: Incoming interface
+    * `oil`: Outgoing interface
+
+    Usage
+    -----
+    dut = "r1"
+    group_address = "225.1.1.1"
+    result = verify_mroutes(tgen, dut, src_address, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    if not isinstance(group_addresses, list):
+        group_addresses = [group_addresses]
+
+    if not isinstance(iif, list) and iif != "none":
+        iif = [iif]
+
+    if not isinstance(oil, list) and oil != "none":
+        oil = [oil]
+
+    for grp in group_addresses:
+        addr_type = validate_ip_address(grp)
+
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
+
+    logger.info("[DUT: %s]: Verifying ip mroutes", dut)
+    show_ip_mroute_json = run_frr_cmd(
+        rnode, "show {} mroute json".format(ip_cmd), isjson=True
+    )
+
+    if bool(show_ip_mroute_json) == False:
+        error_msg = "[DUT %s]: mroutes are not present or flushed out !!" % (dut)
+        return error_msg
+
+    for grp_addr in group_addresses:
+        if grp_addr not in show_ip_mroute_json:
+            errormsg = "[DUT %s]: Verifying (%s, %s) mroute," "[FAILED]!! " % (
+                dut,
+                src_address,
+                grp_addr,
+            )
+            return errormsg
+
+        group_addr_json = show_ip_mroute_json[grp_addr]
+
+        if src_address not in group_addr_json:
+            errormsg = "[DUT %s]: Verifying (%s, %s) mroute," "[FAILED]!! " % (
+                dut,
+                src_address,
+                grp_addr,
+            )
+            return errormsg
+
+        mroutes = group_addr_json[src_address]
+
+        if mroutes["installed"] != 0:
+            if "oil" not in mroutes:
+                if oil == "none" and mroutes["iif"] in iif:
+                    logger.info(
+                        "[DUT %s]: Verifying (%s, %s) mroute,"
+                        " [PASSED]!!  Found Expected: "
+                        "(iif: %s, oil: %s, installed: (%s,%s))",
+                        dut,
+                        src_address,
+                        grp_addr,
+                        mroutes["iif"],
+                        oil,
+                        src_address,
+                        grp_addr,
+                    )
+                else:
+                    errormsg = (
+                        "[DUT %s]: Verifying (%s, %s) mroute,"
+                        " [FAILED]!! "
+                        "Expected: (oil: %s, installed:"
+                        " (%s,%s)) Found: ( oil: none, "
+                        "installed: (%s,%s))"
+                        % (
+                            dut,
+                            src_address,
+                            grp_addr,
+                            oil,
+                            src_address,
+                            grp_addr,
+                            src_address,
+                            grp_addr,
+                        )
+                    )
+
+                    return errormsg
+
+            else:
+                found = False
+                for route, data in mroutes["oil"].items():
+                    if route in oil and route != "pimreg":
+                        if (
+                            data["source"] == src_address
+                            and data["group"] == grp_addr
+                            and data["inboundInterface"] in iif
+                            and data["outboundInterface"] in oil
+                        ):
+                            logger.info(
+                                "[DUT %s]: Verifying (%s, %s)"
+                                " mroute, [PASSED]!!  "
+                                "Found Expected: "
+                                "(iif: %s, oil: %s, installed:"
+                                " (%s,%s)",
+                                dut,
+                                src_address,
+                                grp_addr,
+                                data["inboundInterface"],
+                                data["outboundInterface"],
+                                data["source"],
+                                data["group"],
+                            )
+                            found = True
+                            break
+                    else:
+                        continue
+
+                if not found:
+                    errormsg = (
+                        "[DUT %s]: Verifying (%s, %s)"
+                        " mroute [FAILED]!! "
+                        "Expected in: (iif: %s, oil: %s,"
+                        " installed: (%s,%s)) Found: "
+                        "(iif: %s, oil: %s, "
+                        "installed: (%s,%s))"
+                        % (
+                            dut,
+                            src_address,
+                            grp_addr,
+                            iif,
+                            oil,
+                            src_address,
+                            grp_addr,
+                            data["inboundInterface"],
+                            data["outboundInterface"],
+                            data["source"],
+                            data["group"],
+                        )
+                    )
+                    return errormsg
+
+        else:
+            errormsg = "[DUT %s]: mroute (%s,%s) is not installed" % (
+                dut,
+                src_address,
+                grp_addr,
+            )
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
 
 @retry(retry_timeout=60, diag_pct=0)
@@ -1917,7 +2097,6 @@ def get_pim_interface_traffic(tgen, input_dict):
             for intf, data in input_dict[dut].items():
                 interface_json = show_pim_intf_traffic_json[intf]
                 for state in data:
-
                     # Verify Tx/Rx
                     if state in interface_json:
                         output_dict[dut][state] = interface_json[state]
@@ -1990,7 +2169,6 @@ def get_pim6_interface_traffic(tgen, input_dict):
             for intf, data in input_dict[dut].items():
                 interface_json = show_pim_intf_traffic_json[intf]
                 for state in data:
-
                     # Verify Tx/Rx
                     if state in interface_json:
                         output_dict[dut][state] = interface_json[state]
@@ -3007,7 +3185,6 @@ def verify_pim_upstream_rpf(
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     if "pim" in topo["routers"][dut]:
-
         logger.info("[DUT: %s]: Verifying ip pim upstream rpf:", dut)
 
         rnode = tgen.routers()[dut]
@@ -3245,7 +3422,6 @@ def verify_pim_join(
 
         grp_addr = grp_addr.split("/")[0]
         for source, data in interface_json[grp_addr].items():
-
             # Verify pim join
             if pim_join:
                 if data["group"] == grp_addr and data["channelJoinName"] == "JOIN":
@@ -3338,7 +3514,6 @@ def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
         rnode = tgen.routers()[dut]
 
         for interface, data in input_dict[dut]["igmp"]["interfaces"].items():
-
             statistics = False
             report = False
             if "statistics" in input_dict[dut]["igmp"]["interfaces"][interface]["igmp"]:
@@ -3623,7 +3798,6 @@ def verify_pim_config(tgen, input_dict, expected=True):
         rnode = tgen.routers()[dut]
 
         for interface, data in input_dict[dut]["pim"]["interfaces"].items():
-
             logger.info("[DUT: %s]: Verifying PIM interface %s detail:", dut, interface)
 
             show_ip_igmp_intf_json = run_frr_cmd(
@@ -3772,7 +3946,6 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=Tr
                     elif (
                         interface_json["pktsIn"] != 0 and interface_json["bytesIn"] != 0
                     ):
-
                         traffic_dict[traffic_type][interface][
                             "pktsIn"
                         ] = interface_json["pktsIn"]
@@ -3836,7 +4009,6 @@ def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=Tr
                         interface_json["pktsOut"] != 0
                         and interface_json["bytesOut"] != 0
                     ):
-
                         traffic_dict[traffic_type][interface][
                             "pktsOut"
                         ] = interface_json["pktsOut"]
@@ -4232,7 +4404,6 @@ def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
         group_addresses = [group_addresses]
 
     if interface not in show_ip_local_igmp_json:
-
         errormsg = (
             "[DUT %s]: Verifying local IGMP group received"
             " from interface %s [FAILED]!! " % (dut, interface)
@@ -4319,7 +4490,6 @@ def verify_pim_interface_traffic(tgen, input_dict, return_stats=True, addr_type=
         for intf, data in input_dict[dut].items():
             interface_json = show_pim_intf_traffic_json[intf]
             for state in data:
-
                 # Verify Tx/Rx
                 if state in interface_json:
                     output_dict[dut][state] = interface_json[state]
@@ -4525,7 +4695,6 @@ def verify_mld_config(tgen, input_dict, stats_return=False, expected=True):
     for dut in input_dict.keys():
         rnode = tgen.routers()[dut]
         for interface, data in input_dict[dut]["mld"]["interfaces"].items():
-
             statistics = False
             report = False
             if "statistics" in input_dict[dut]["mld"]["interfaces"][interface]["mld"]:
@@ -5040,7 +5209,6 @@ def verify_pim6_config(tgen, input_dict, expected=True):
         rnode = tgen.routers()[dut]
 
         for interface, data in input_dict[dut]["pim6"]["interfaces"].items():
-
             logger.info(
                 "[DUT: %s]: Verifying PIM6 interface %s detail:", dut, interface
             )
@@ -5158,7 +5326,6 @@ def verify_local_mld_groups(tgen, dut, interface, group_addresses):
         group_addresses = [group_addresses]
 
     if interface not in show_ipv6_local_mld_json["default"]:
-
         errormsg = (
             "[DUT %s]: Verifying local MLD group received"
             " from interface %s [FAILED]!! " % (dut, interface)
