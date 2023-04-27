@@ -4050,6 +4050,32 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 	return true;
 }
 
+/* Called to check if the incoming l3vpn path entry
+ * has mpls label information
+ */
+bool bgp_mplsvpn_path_can_be_advertised(struct bgp_path_info *pi)
+{
+	if (pi->attr && pi->attr->srv6_l3vpn)
+		/* srv6 sid */
+		return true;
+
+	if (pi->attr &&
+	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) &&
+	    pi->attr->label_index != BGP_INVALID_LABEL_INDEX)
+		/* prefix_sid attribute */
+		return true;
+
+	if (!pi->extra || !bgp_is_valid_label(&pi->extra->label[0]))
+		/* invalid MPLS label */
+		return false;
+
+	if (pi->extra->label[0] == MPLS_LABEL_NONE)
+		/* none label */
+		return false;
+
+	return true;
+}
+
 mpls_label_t bgp_mplsvpn_nh_label_bind_get_label(struct bgp_path_info *pi)
 {
 	mpls_label_t label;

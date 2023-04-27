@@ -2150,6 +2150,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 					   p);
 			return false;
 		}
+	} else if (safi == SAFI_MPLS_VPN &&
+		   !bgp_mplsvpn_path_can_be_advertised(pi)) {
+		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " %pFX is filtered - no valid label",
+				   subgrp->update_group->id, subgrp->id, p);
+		return false;
 	}
 
 	/* Do not send back route to sender. */
