@@ -28,7 +28,8 @@ struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 {
 	struct flex_algos *flex_algos;
 
-	flex_algos = XCALLOC(MTYPE_FLEX_ALGO_DATABASE, sizeof(*flex_algos));
+	flex_algos =
+		XCALLOC(MTYPE_FLEX_ALGO_DATABASE, sizeof(struct flex_algos));
 	flex_algos->flex_algos = list_new();
 	flex_algos->allocator = allocator;
 	flex_algos->releaser = releaser;
@@ -51,7 +52,7 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 {
 	struct flex_algo *fa;
 
-	fa = XCALLOC(MTYPE_FLEX_ALGO, sizeof(*fa));
+	fa = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct flex_algo));
 	fa->algorithm = algorithm;
 	if (flex_algos->allocator)
 		fa->data = flex_algos->allocator(arg);

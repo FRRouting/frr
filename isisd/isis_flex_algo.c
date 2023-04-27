@@ -45,7 +45,7 @@ void *isis_flex_algo_data_alloc(void *voidarg)
 	struct isis_flex_algo_alloc_arg *arg = voidarg;
 	struct isis_flex_algo_data *data;
 
-	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(*data));
+	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct isis_flex_algo_data));
 
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
