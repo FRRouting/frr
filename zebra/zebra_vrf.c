@@ -376,6 +376,33 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 	return zvrf;
 }
 
+/*
+Pending: create an efficient table_id (in a tree/hash) based lookup)
+ */
+vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		if (zvrf == NULL)
+			continue;
+		/* case vrf with netns : match the netnsid */
+		if (vrf_is_backend_netns()) {
+			if (ns_id == zvrf_id(zvrf))
+				return zvrf_id(zvrf);
+		} else {
+			/* VRF is VRF_BACKEND_VRF_LITE */
+			if (zvrf->table_id != table_id)
+				continue;
+			return zvrf_id(zvrf);
+		}
+	}
+
+	return VRF_DEFAULT;
+}
+
 /* Lookup VRF by identifier.  */
 struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id)
 {

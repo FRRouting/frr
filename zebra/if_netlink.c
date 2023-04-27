@@ -325,7 +325,8 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		if (!vrf_lookup_by_id((vrf_id_t)ifi->ifi_index)) {
 			vrf_id_t exist_id;
 
-			exist_id = vrf_lookup_by_table(nl_table_id, ns_id);
+			exist_id =
+				zebra_vrf_lookup_by_table(nl_table_id, ns_id);
 			if (exist_id != VRF_DEFAULT) {
 				vrf = vrf_lookup_by_id(exist_id);
 
