@@ -48,6 +48,19 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 	return fa;
 }
 
+static void _flex_algo_delete(struct flex_algos *flex_algos,
+			      struct flex_algo *fa)
+{
+	if (flex_algos->releaser)
+		flex_algos->releaser(fa->data);
+	admin_group_term(&fa->admin_group_exclude_any);
+	admin_group_term(&fa->admin_group_include_any);
+	admin_group_term(&fa->admin_group_include_all);
+	listnode_delete(flex_algos->flex_algos, fa);
+	XFREE(MTYPE_FLEX_ALGO, fa);
+}
+
+
 void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm)
 {
 	struct listnode *node, *nnode;
@@ -56,14 +69,7 @@ void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm)
 	for (ALL_LIST_ELEMENTS(flex_algos->flex_algos, node, nnode, fa)) {
 		if (fa->algorithm != algorithm)
 			continue;
-		if (flex_algos->releaser)
-			flex_algos->releaser(fa->data);
-		admin_group_term(&fa->admin_group_exclude_any);
-		admin_group_term(&fa->admin_group_include_any);
-		admin_group_term(&fa->admin_group_include_all);
-		listnode_delete(flex_algos->flex_algos, fa);
-		XFREE(MTYPE_FLEX_ALGO, fa);
-		return;
+		_flex_algo_delete(flex_algos, fa);
 	}
 }
 
