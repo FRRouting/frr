@@ -2780,7 +2780,7 @@ Labeled unicast
 
 *bgpd* supports labeled information, as per :rfc:`3107`.
 
-.. clicmd:: bgp labeled-unicast explicit-null
+.. clicmd:: bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>
 
 By default, locally advertised prefixes use the `implicit-null` label to
 encode in the outgoing NLRI. The following command uses the `explicit-null`
