@@ -83,6 +83,11 @@ struct flex_algo {
 #define FLEX_ALGO_IP 0x04
 	uint8_t dataplanes;
 
+	/* True if the Algorithm is locally enabled (ie. a definition has been
+	 * found and is supported).
+	 */
+	bool state;
+
 	/*
 	 * This property can be freely extended among different routing
 	 * protocols. Since Flex-Algo is an IGP protocol agnostic, both IS-IS
@@ -118,4 +123,8 @@ bool flex_algo_id_valid(uint16_t algorithm);
 char *flex_algo_metric_type_print(char *type_str, size_t sz,
 				  enum flex_algo_metric_type metric_type);
 
+bool flex_algo_get_state(struct flex_algos *flex_algos, uint8_t algorithm);
+
+void flex_algo_set_state(struct flex_algos *flex_algos, uint8_t algorithm,
+			 bool state);
 #endif /* _FRR_FLEX_ALGO_H */

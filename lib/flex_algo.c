@@ -140,3 +140,24 @@ char *flex_algo_metric_type_print(char *type_str, size_t sz,
 	}
 	return type_str;
 }
+
+bool flex_algo_get_state(struct flex_algos *flex_algos, uint8_t algorithm)
+{
+	struct flex_algo *fa = flex_algo_lookup(flex_algos, algorithm);
+
+	if (!fa)
+		return false;
+
+	return fa->state;
+}
+
+void flex_algo_set_state(struct flex_algos *flex_algos, uint8_t algorithm,
+			 bool state)
+{
+	struct flex_algo *fa = flex_algo_lookup(flex_algos, algorithm);
+
+	if (!fa)
+		return;
+
+	fa->state = state;
+}
