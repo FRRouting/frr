@@ -79,6 +79,12 @@ bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2)
 		return false;
 	if (fa1->metric_type != fa2->metric_type)
 		return false;
+	if (fa1->exclude_srlg != fa2->exclude_srlg)
+		return false;
+	if (fa1->flags != fa2->flags)
+		return false;
+	if (fa1->unsupported_subtlv != fa2->unsupported_subtlv)
+		return false;
 
 	if (!admin_group_cmp(&fa1->admin_group_exclude_any,
 			     &fa2->admin_group_exclude_any))
