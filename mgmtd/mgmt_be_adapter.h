@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 
 #ifndef _FRR_MGMTD_BE_ADAPTER_H_
@@ -41,20 +42,16 @@ PREDECL_LIST(mgmt_be_adapters);
 PREDECL_LIST(mgmt_txn_badapters);
 
 struct mgmt_be_client_adapter {
-	enum mgmt_be_client_id id;
-	int conn_fd;
-	union sockunion conn_su;
+	struct msg_conn conn;
+	struct mgmt_msg_state mstate;
+
 	struct event *conn_init_ev;
-	struct event *conn_read_ev;
-	struct event *conn_write_ev;
-	struct event *proc_msg_ev;
+
+	enum mgmt_be_client_id id;
 	uint32_t flags;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 	uint8_t num_xpath_reg;
 	char xpath_reg[MGMTD_MAX_NUM_XPATH_REG][MGMTD_MAX_XPATH_LEN];
-
-	/* IO streams for read and write */
-	struct mgmt_msg_state mstate;
 
 	int refcount;
 
@@ -90,7 +87,7 @@ struct mgmt_be_client_subscr_info {
 };
 
 /* Initialise backend adapter module. */
-extern int mgmt_be_adapter_init(struct event_loop *tm);
+extern void mgmt_be_adapter_init(struct event_loop *tm);
 
 /* Destroy the backend adapter module. */
 extern void mgmt_be_adapter_destroy(void);
@@ -102,8 +99,8 @@ extern void mgmt_be_adapter_lock(struct mgmt_be_client_adapter *adapter);
 extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter);
 
 /* Create backend adapter. */
-extern struct mgmt_be_client_adapter *
-mgmt_be_create_adapter(int conn_fd, union sockunion *su);
+extern struct msg_conn *mgmt_be_create_adapter(int conn_fd,
+					       union sockunion *su);
 
 /* Fetch backend adapter given an adapter name. */
 extern struct mgmt_be_client_adapter *

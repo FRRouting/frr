@@ -9,11 +9,9 @@
 #include <zebra.h>
 #include "debug.h"
 #include "mgmtd/mgmt.h"
-#include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
-#include "mgmtd/mgmt_fe_server.h"
-#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
@@ -42,12 +40,6 @@ void mgmt_master_init(struct event_loop *master, const int buffer_size)
 void mgmt_init(void)
 {
 
-	/*
-	 * Allocates some vital data structures used by peer commands in
-	 * vty_init
-	 */
-	vty_init_mgmt_fe();
-
 	/* Initialize datastores */
 	mgmt_ds_init(mm);
 
@@ -61,13 +53,13 @@ void mgmt_init(void)
 	mgmt_be_adapter_init(mm->master);
 
 	/* Initialize the MGMTD Frontend Adapter Module */
-	mgmt_fe_adapter_init(mm->master, mm);
+	mgmt_fe_adapter_init(mm->master);
 
-	/* Start the MGMTD Backend Server for clients to connect */
-	mgmt_be_server_init(mm->master);
-
-	/* Start the MGMTD Frontend Server for clients to connect */
-	mgmt_fe_server_init(mm->master);
+	/*
+	 * Allocates some vital data structures used by peer commands in
+	 * vty_init
+	 */
+	vty_init_mgmt_fe();
 
 	/* MGMTD VTY commands installation. */
 	mgmt_vty_init();
@@ -75,9 +67,7 @@ void mgmt_init(void)
 
 void mgmt_terminate(void)
 {
-	mgmt_fe_server_destroy();
 	mgmt_fe_adapter_destroy();
-	mgmt_be_server_destroy();
 	mgmt_be_adapter_destroy();
 	mgmt_txn_destroy();
 	mgmt_history_destroy();

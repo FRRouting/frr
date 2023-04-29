@@ -7,8 +7,11 @@
 #ifndef _MGMT_MSG_H
 #define _MGMT_MSG_H
 
+#include "memory.h"
 #include "stream.h"
 #include "frrevent.h"
+
+DECLARE_MTYPE(MSG_CONN);
 
 /*
  * Messages on the stream start with a marker that encodes a version octet.
@@ -92,6 +95,7 @@ struct msg_conn {
 	int (*notify_disconnect)(struct msg_conn *conn);
 	void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
 			   struct msg_conn *conn);
+	void *user;
 	bool is_client;
 	bool debug;
 };
@@ -144,12 +148,46 @@ extern void msg_client_init(struct msg_client *client, struct event_loop *tm,
 /*
  * Server-side Connections
  */
+#define MGMTD_MAX_CONN 32
 
-extern void mgmt_msg_server_accept_init(
-	struct msg_conn *client, struct event_loop *tm, int fd,
-	int (*notify_disconnect)(struct msg_conn *conn),
-	void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
-			   struct msg_conn *conn),
-	size_t max_read, size_t max_write, size_t max_size, const char *idtag);
+struct msg_server {
+	int fd;
+	struct event_loop *loop;
+	struct event *listen_ev;
+	const char *sopath;
+	const char *idtag;
+	struct msg_conn *(*create)(int fd, union sockunion *su);
+	struct debug *debug;
+};
+
+extern int msg_server_init(struct msg_server *server, const char *sopath,
+			   struct event_loop *loop,
+			   struct msg_conn *(*create)(int fd,
+						      union sockunion *su),
+			   const char *idtag, struct debug *debug);
+extern void msg_server_cleanup(struct msg_server *server);
+
+/*
+ * `notify_disconnect` is not called when the user `msg_conn_cleanup` is
+ * called for a client which is currently connected. The socket is closed
+ * but there is no notification.
+ */
+struct msg_conn *
+msg_server_conn_create(struct event_loop *tm, int fd,
+		       int (*notify_disconnect)(struct msg_conn *conn),
+		       void (*handle_msg)(uint8_t version, uint8_t *data,
+					  size_t len, struct msg_conn *conn),
+		       size_t max_read, size_t max_write, size_t max_size,
+		       void *user, const char *idtag);
+
+extern void msg_server_conn_delete(struct msg_conn *conn);
+
+extern void
+msg_conn_accept_init(struct msg_conn *conn, struct event_loop *tm, int fd,
+		     int (*notify_disconnect)(struct msg_conn *conn),
+		     void (*handle_msg)(uint8_t version, uint8_t *data,
+					size_t len, struct msg_conn *conn),
+		     size_t max_read, size_t max_write, size_t max_size,
+		     const char *idtag);
 
 #endif /* _MGMT_MSG_H */

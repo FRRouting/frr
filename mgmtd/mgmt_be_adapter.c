@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -92,11 +93,14 @@ static const struct mgmt_be_xpath_map_reg xpath_static_map_reg[] = {
 };
 
 #define MGMTD_BE_MAX_NUM_XPATH_MAP 256
+
+/* We really want to have a better ADT than one with O(n) comparisons */
 static struct mgmt_be_xpath_regexp_map
 	mgmt_xpath_map[MGMTD_BE_MAX_NUM_XPATH_MAP];
 static int mgmt_num_xpath_maps;
 
-static struct event_loop *mgmt_be_adapter_tm;
+static struct event_loop *mgmt_loop;
+static struct msg_server mgmt_be_server = {.fd = -1};
 
 static struct mgmt_be_adapters_head mgmt_be_adapters;
 
@@ -105,8 +109,7 @@ static struct mgmt_be_client_adapter
 
 /* Forward declarations */
 static void
-mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
-			       enum mgmt_be_event event);
+mgmt_be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 
 static struct mgmt_be_client_adapter *
 mgmt_be_find_adapter_by_fd(int conn_fd)
@@ -114,7 +117,7 @@ mgmt_be_find_adapter_by_fd(int conn_fd)
 	struct mgmt_be_client_adapter *adapter;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		if (adapter->conn_fd == conn_fd)
+		if (adapter->conn.fd == conn_fd)
 			return adapter;
 	}
 
@@ -309,26 +312,27 @@ static int mgmt_be_eval_regexp_match(const char *xpath_regexp,
 	return match_len;
 }
 
-static void mgmt_be_adapter_disconnect(struct mgmt_be_client_adapter *adapter)
+static int mgmt_be_adapter_notify_disconnect(struct msg_conn *conn)
 {
-	if (adapter->conn_fd >= 0) {
-		close(adapter->conn_fd);
-		adapter->conn_fd = -1;
-	}
+	struct mgmt_be_client_adapter *adapter =
+		container_of(conn, struct mgmt_be_client_adapter, conn);
 
 	/*
-	 * Notify about client disconnect for appropriate cleanup
+	 * Notify about disconnect for appropriate cleanup
 	 */
 	mgmt_txn_notify_be_adapter_conn(adapter, false);
-
 	if (adapter->id < MGMTD_BE_CLIENT_ID_MAX) {
 		mgmt_be_adapters_by_id[adapter->id] = NULL;
 		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
 	}
 
+	/* remove from list */
 	mgmt_be_adapters_del(&mgmt_be_adapters, adapter);
 
+	/* XXX do we expect this to free? if so then just free it :( */
 	mgmt_be_adapter_unlock(&adapter);
+
+	return 0;
 }
 
 static void
@@ -344,8 +348,8 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 			 */
 			MGMTD_BE_ADAPTER_DBG(
 				"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)!",
-				adapter->name, adapter->conn_fd, old->conn_fd);
-			mgmt_be_adapter_disconnect(old);
+				adapter->name, adapter->conn.fd, old->conn.fd);
+			msg_conn_disconnect(&old->conn, false);
 		}
 	}
 }
@@ -377,7 +381,9 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 				MGMTD_BE_ADAPTER_ERR(
 					"Unable to resolve adapter '%s' to a valid ID. Disconnecting!",
 					adapter->name);
-				mgmt_be_adapter_disconnect(adapter);
+				msg_conn_disconnect(&adapter->conn, false);
+				zlog_err("XXX different from original code");
+				break;
 			}
 			mgmt_be_adapters_by_id[adapter->id] = adapter;
 			mgmt_be_adapter_cleanup_old_conn(adapter);
@@ -477,27 +483,13 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	return 0;
 }
 
-static inline void
-mgmt_be_adapter_sched_msg_write(struct mgmt_be_client_adapter *adapter)
-{
-	mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_WRITE);
-}
-
 static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 				    Mgmtd__BeMessage *be_msg)
 {
-	if (adapter->conn_fd == -1) {
-		MGMTD_BE_ADAPTER_DBG("can't send message on closed connection");
-		return -1;
-	}
-
-	int rv = mgmt_msg_send_msg(
-		&adapter->mstate, MGMT_MSG_VERSION_PROTOBUF, be_msg,
+	return msg_conn_send_msg(
+		&adapter->conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
-		(size_t(*)(void *, void *))mgmtd__be_message__pack,
-		MGMT_DEBUG_BE_CHECK());
-	mgmt_be_adapter_sched_msg_write(adapter);
-	return rv;
+		(size_t(*)(void *, void *))mgmtd__be_message__pack);
 }
 
 static int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
@@ -570,11 +562,12 @@ static int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 }
 
 static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
-					size_t len, void *user_ctx)
+					size_t len, struct msg_conn *conn)
 {
-	struct mgmt_be_client_adapter *adapter = user_ctx;
+	struct mgmt_be_client_adapter *adapter;
 	Mgmtd__BeMessage *be_msg;
 
+	adapter = container_of(conn, struct mgmt_be_client_adapter, conn);
 	be_msg = mgmtd__be_message__unpack(NULL, len, data);
 	if (!be_msg) {
 		MGMTD_BE_ADAPTER_DBG(
@@ -586,48 +579,6 @@ static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 			     len, be_msg->message_case, adapter->name);
 	(void)mgmt_be_adapter_handle_msg(adapter, be_msg);
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
-}
-
-static void mgmt_be_adapter_proc_msgbufs(struct event *thread)
-{
-	struct mgmt_be_client_adapter *adapter = EVENT_ARG(thread);
-
-	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_be_adapter_process_msg,
-			      adapter, MGMT_DEBUG_BE_CHECK()))
-		mgmt_be_adapter_register_event(adapter, MGMTD_BE_PROC_MSG);
-}
-
-static void mgmt_be_adapter_read(struct event *thread)
-{
-	struct mgmt_be_client_adapter *adapter;
-	enum mgmt_msg_rsched rv;
-
-	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
-
-	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd,
-			   MGMT_DEBUG_BE_CHECK());
-	if (rv == MSR_DISCONNECT) {
-		mgmt_be_adapter_disconnect(adapter);
-		return;
-	}
-	if (rv == MSR_SCHED_BOTH)
-		mgmt_be_adapter_register_event(adapter, MGMTD_BE_PROC_MSG);
-	mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_READ);
-}
-
-static void mgmt_be_adapter_write(struct event *thread)
-{
-	struct mgmt_be_client_adapter *adapter = EVENT_ARG(thread);
-	enum mgmt_msg_wsched rv;
-
-	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd,
-			    MGMT_DEBUG_BE_CHECK());
-	if (rv == MSW_SCHED_STREAM)
-		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_WRITE);
-	else if (rv == MSW_DISCONNECT)
-		mgmt_be_adapter_disconnect(adapter);
-	else
-		assert(rv == MSW_SCHED_NONE);
 }
 
 static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
@@ -657,12 +608,15 @@ static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
 	nb_config_diff_created(node, seq, root);
 }
 
+/*
+ * Initialize a BE client over a new connection
+ */
 static void mgmt_be_adapter_conn_init(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 
 	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
-	assert(adapter && adapter->conn_fd >= 0);
+	assert(adapter && adapter->conn.fd >= 0);
 
 	/*
 	 * Check first if the current session can run a CONFIG
@@ -670,7 +624,8 @@ static void mgmt_be_adapter_conn_init(struct event *thread)
 	 * from another session is already in progress.
 	 */
 	if (mgmt_config_txn_in_progress() != MGMTD_SESSION_ID_NONE) {
-		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_INIT);
+		zlog_err("XXX txn in progress, retry init");
+		mgmt_be_adapter_sched_init_event(adapter);
 		return;
 	}
 
@@ -682,55 +637,21 @@ static void mgmt_be_adapter_conn_init(struct event *thread)
 	 * That should also take care of destroying the adapter.
 	 */
 	if (mgmt_txn_notify_be_adapter_conn(adapter, true) != 0) {
-		mgmt_be_adapter_disconnect(adapter);
+		zlog_err("XXX notify be adapter conn fail");
+		msg_conn_disconnect(&adapter->conn, false);
 		adapter = NULL;
 	}
 }
 
+/*
+ * Schedule the initialization of the BE client connection.
+ */
 static void
-mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
-				enum mgmt_be_event event)
+mgmt_be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter)
 {
-	struct timeval tv = {0};
-
-	switch (event) {
-	case MGMTD_BE_CONN_INIT:
-		event_add_timer_msec(mgmt_be_adapter_tm,
-				      mgmt_be_adapter_conn_init, adapter,
-				      MGMTD_BE_CONN_INIT_DELAY_MSEC,
-				      &adapter->conn_init_ev);
-		break;
-	case MGMTD_BE_CONN_READ:
-		event_add_read(mgmt_be_adapter_tm, mgmt_be_adapter_read,
-				adapter, adapter->conn_fd, &adapter->conn_read_ev);
-		break;
-	case MGMTD_BE_CONN_WRITE:
-		if (adapter->conn_write_ev)
-			MGMTD_BE_ADAPTER_DBG(
-				"write ready notify already set for client %s",
-				adapter->name);
-		else
-			MGMTD_BE_ADAPTER_DBG(
-				"scheduling write ready notify for client %s",
-				adapter->name);
-		event_add_write(mgmt_be_adapter_tm, mgmt_be_adapter_write,
-				 adapter, adapter->conn_fd, &adapter->conn_write_ev);
-		assert(adapter->conn_write_ev);
-		break;
-	case MGMTD_BE_PROC_MSG:
-		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
-		event_add_timer_tv(mgmt_be_adapter_tm,
-				    mgmt_be_adapter_proc_msgbufs, adapter, &tv,
-				    &adapter->proc_msg_ev);
-		break;
-	case MGMTD_BE_SERVER:
-	case MGMTD_BE_SCHED_CFG_PREPARE:
-	case MGMTD_BE_RESCHED_CFG_PREPARE:
-	case MGMTD_BE_SCHED_CFG_APPLY:
-	case MGMTD_BE_RESCHED_CFG_APPLY:
-		assert(!"mgmt_be_adapter_post_event() called incorrectly");
-		break;
-	}
+	event_add_timer_msec(mgmt_loop, mgmt_be_adapter_conn_init, adapter,
+			     MGMTD_BE_CONN_INIT_DELAY_MSEC,
+			     &adapter->conn_init_ev);
 }
 
 void mgmt_be_adapter_lock(struct mgmt_be_client_adapter *adapter)
@@ -740,44 +661,55 @@ void mgmt_be_adapter_lock(struct mgmt_be_client_adapter *adapter)
 
 extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 {
-	assert(*adapter && (*adapter)->refcount);
+	struct mgmt_be_client_adapter *a = *adapter;
+	assert(a && a->refcount);
 
-	(*adapter)->refcount--;
-	if (!(*adapter)->refcount) {
-		mgmt_be_adapters_del(&mgmt_be_adapters, *adapter);
-		EVENT_OFF((*adapter)->conn_init_ev);
-		EVENT_OFF((*adapter)->conn_read_ev);
-		EVENT_OFF((*adapter)->conn_write_ev);
-		EVENT_OFF((*adapter)->proc_msg_ev);
-		mgmt_msg_destroy(&(*adapter)->mstate);
-		XFREE(MTYPE_MGMTD_BE_ADPATER, *adapter);
+	if (!--a->refcount) {
+		mgmt_be_adapters_del(&mgmt_be_adapters, a);
+		EVENT_OFF(a->conn_init_ev);
+		msg_conn_cleanup(&a->conn);
+		XFREE(MTYPE_MGMTD_BE_ADPATER, a);
 	}
 
 	*adapter = NULL;
 }
 
-int mgmt_be_adapter_init(struct event_loop *tm)
+/*
+ * Initialize the BE adapter module
+ */
+void mgmt_be_adapter_init(struct event_loop *tm)
 {
-	if (!mgmt_be_adapter_tm) {
-		mgmt_be_adapter_tm = tm;
-		memset(mgmt_xpath_map, 0, sizeof(mgmt_xpath_map));
-		mgmt_num_xpath_maps = 0;
-		memset(mgmt_be_adapters_by_id, 0,
-		       sizeof(mgmt_be_adapters_by_id));
-		mgmt_be_adapters_init(&mgmt_be_adapters);
-		mgmt_be_xpath_map_init();
-	}
+	assert(!mgmt_loop);
+	mgmt_loop = tm;
 
-	return 0;
+	memset(mgmt_xpath_map, 0, sizeof(mgmt_xpath_map));
+	mgmt_num_xpath_maps = 0;
+	memset(mgmt_be_adapters_by_id, 0, sizeof(mgmt_be_adapters_by_id));
+
+	mgmt_be_adapters_init(&mgmt_be_adapters);
+	mgmt_be_xpath_map_init();
+
+	if (msg_server_init(&mgmt_be_server, MGMTD_BE_SERVER_PATH, tm,
+			    mgmt_be_create_adapter, "backend",
+			    &mgmt_debug_be)) {
+		zlog_err("cannot initialize backend server");
+		exit(1);
+	}
 }
 
+/*
+ * Destroy the BE adapter module
+ */
 void mgmt_be_adapter_destroy(void)
 {
+	msg_server_cleanup(&mgmt_be_server);
 	mgmt_be_cleanup_adapters();
 }
 
-struct mgmt_be_client_adapter *
-mgmt_be_create_adapter(int conn_fd, union sockunion *from)
+/*
+ * The server accepted a new connection
+ */
+struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 {
 	struct mgmt_be_client_adapter *adapter = NULL;
 
@@ -785,36 +717,29 @@ mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 	if (!adapter) {
 		adapter = XCALLOC(MTYPE_MGMTD_BE_ADPATER,
 				sizeof(struct mgmt_be_client_adapter));
-		assert(adapter);
-
-		adapter->conn_fd = conn_fd;
 		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
-		memcpy(&adapter->conn_su, from, sizeof(adapter->conn_su));
 		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
-			 adapter->conn_fd);
-		mgmt_msg_init(&adapter->mstate, MGMTD_BE_MAX_NUM_MSG_PROC,
-			      MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN,
-			      "BE-adapter");
+			 conn_fd);
+
 		mgmt_be_adapter_lock(adapter);
-
-		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_READ);
 		mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
-
 		RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
+
+		msg_conn_accept_init(&adapter->conn, mgmt_loop, conn_fd,
+				     mgmt_be_adapter_notify_disconnect,
+				     mgmt_be_adapter_process_msg,
+				     MGMTD_BE_MAX_NUM_MSG_PROC,
+				     MGMTD_BE_MAX_NUM_MSG_WRITE,
+				     MGMTD_BE_MSG_MAX_LEN, "BE-adapter");
 
 		MGMTD_BE_ADAPTER_DBG("Added new MGMTD Backend adapter '%s'",
 				      adapter->name);
 	}
 
-	/* Make client socket non-blocking.  */
-	set_nonblocking(adapter->conn_fd);
-	setsockopt_so_sendbuf(adapter->conn_fd, MGMTD_SOCKET_BE_SEND_BUF_SIZE);
-	setsockopt_so_recvbuf(adapter->conn_fd, MGMTD_SOCKET_BE_RECV_BUF_SIZE);
-
 	/* Trigger resync of config with the new adapter */
-	mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_INIT);
+	mgmt_be_adapter_sched_init_event(adapter);
 
-	return adapter;
+	return adapter->conn;
 }
 
 struct mgmt_be_client_adapter *
@@ -953,7 +878,7 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
 		vty_out(vty, "  Client: \t\t\t%s\n", adapter->name);
-		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adapter->conn_fd);
+		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adapter->conn.fd);
 		vty_out(vty, "    Client-Id: \t\t\t%d\n", adapter->id);
 		vty_out(vty, "    Ref-Count: \t\t\t%u\n", adapter->refcount);
 		vty_out(vty, "    Msg-Recvd: \t\t\t%" PRIu64 "\n",

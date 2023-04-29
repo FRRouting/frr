@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 
 #ifndef _FRR_MGMTD_FE_ADAPTER_H_
@@ -54,19 +55,11 @@ PREDECL_LIST(mgmt_fe_sessions);
 PREDECL_LIST(mgmt_fe_adapters);
 
 struct mgmt_fe_client_adapter {
-	int conn_fd;
-	union sockunion conn_su;
-	struct event *conn_read_ev;
-	struct event *conn_write_ev;
-	struct event *proc_msg_ev;
-
+	struct msg_conn conn;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
 	/* List of sessions created and being maintained for this client. */
 	struct mgmt_fe_sessions_head fe_sessions;
-
-	/* IO streams for read and write */
-	struct mgmt_msg_state mstate;
 
 	int refcount;
 	struct mgmt_commit_stats cmt_stats;
@@ -78,7 +71,7 @@ struct mgmt_fe_client_adapter {
 DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 
 /* Initialise frontend adapter module */
-extern int mgmt_fe_adapter_init(struct event_loop *tm, struct mgmt_master *cm);
+extern void mgmt_fe_adapter_init(struct event_loop *tm);
 
 /* Destroy frontend adapter module */
 extern void mgmt_fe_adapter_destroy(void);
@@ -91,8 +84,8 @@ extern void
 mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter);
 
 /* Create frontend adapter */
-extern struct mgmt_fe_client_adapter *
-mgmt_fe_create_adapter(int conn_fd, union sockunion *su);
+extern struct msg_conn *mgmt_fe_create_adapter(int conn_fd,
+					       union sockunion *su);
 
 /* Fetch frontend adapter given a name */
 extern struct mgmt_fe_client_adapter *

@@ -278,6 +278,7 @@ int main(int argc, char **argv)
 		 "%s/zebra.conf", frr_sysconfdir);
 	mgmtd_di.backup_config_file = backup_config_file;
 
+	/* this will queue a read configs event */
 	frr_config_fork();
 
 	frr_run(mm->master);

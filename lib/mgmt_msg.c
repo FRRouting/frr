@@ -7,6 +7,7 @@
  * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 #include <zebra.h>
+#include "debug.h"
 #include "network.h"
 #include "sockopt.h"
 #include "stream.h"
@@ -23,6 +24,8 @@
 
 #define MGMT_MSG_ERR(ms, fmt, ...)                                             \
 	zlog_err("%s: %s: " fmt, (ms)->idtag, __func__, ##__VA_ARGS__)
+
+DEFINE_MTYPE(LIB, MSG_CONN, "msg connection state");
 
 /**
  * Read data from a socket into streams containing 1 or more full msgs headed by
@@ -641,17 +644,128 @@ void msg_client_cleanup(struct msg_client *client)
 	msg_conn_cleanup(&client->conn);
 }
 
+
+/*
+ * Server-side connections
+ */
+
+static void msg_server_accept(struct event *event)
+{
+	struct msg_server *server = EVENT_ARG(event);
+	int fd;
+	union sockunion su;
+
+	if (server->fd < 0)
+		return;
+
+	/* We continue hearing server listen socket. */
+	event_add_read(server->loop, msg_server_accept, server, server->fd,
+		       &server->listen_ev);
+
+	memset(&su, 0, sizeof(union sockunion));
+
+	/* We can handle IPv4 or IPv6 socket. */
+	fd = sockunion_accept(server->fd, &su);
+	if (fd < 0) {
+		zlog_err("Failed to accept %s client connection: %s",
+			 server->idtag, safe_strerror(errno));
+		return;
+	}
+	set_nonblocking(fd);
+	set_cloexec(fd);
+
+	DEBUGD(server->debug, "Accepted new %s connection", server->idtag);
+
+	server->create(fd, &su);
+}
+
+int msg_server_init(struct msg_server *server, const char *sopath,
+		    struct event_loop *loop,
+		    struct msg_conn *(*create)(int fd, union sockunion *su),
+		    const char *idtag, struct debug *debug)
+{
+	int ret;
+	int sock;
+	struct sockaddr_un addr;
+	mode_t old_mask;
+
+	memset(server, 0, sizeof(*server));
+	server->fd = -1;
+
+	sock = socket(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+	if (sock < 0) {
+		zlog_err("Failed to create %s server socket: %s", server->idtag,
+			 safe_strerror(errno));
+		goto fail;
+	}
+
+	addr.sun_family = AF_UNIX,
+	strlcpy(addr.sun_path, sopath, sizeof(addr.sun_path));
+	unlink(addr.sun_path);
+	old_mask = umask(0077);
+	ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
+	if (ret < 0) {
+		zlog_err("Failed to bind %s server socket to '%s': %s",
+			 server->idtag, addr.sun_path, safe_strerror(errno));
+		umask(old_mask);
+		goto fail;
+	}
+	umask(old_mask);
+
+	ret = listen(sock, MGMTD_MAX_CONN);
+	if (ret < 0) {
+		zlog_err("Failed to listen on %s server socket: %s",
+			 server->idtag, safe_strerror(errno));
+		goto fail;
+	}
+
+	server->fd = sock;
+	server->loop = loop;
+	server->sopath = strdup(sopath);
+	server->idtag = strdup(idtag);
+	server->create = create;
+	server->debug = debug;
+
+	event_add_read(server->loop, msg_server_accept, server, server->fd,
+		       &server->listen_ev);
+
+
+	DEBUGD(debug, "Started %s server, listening on %s", idtag, sopath);
+	return 0;
+
+fail:
+	if (sock >= 0)
+		close(sock);
+	server->fd = -1;
+	return -1;
+}
+
+void msg_server_cleanup(struct msg_server *server)
+{
+	DEBUGD(server->debug, "Closing %s server", server->idtag);
+
+	if (server->listen_ev)
+		EVENT_OFF(server->listen_ev);
+	if (server->fd >= 0)
+		close(server->fd);
+	free((char *)server->sopath);
+	free((char *)server->idtag);
+
+	memset(server, 0, sizeof(*server));
+	server->fd = -1;
+}
+
 /*
  * Initialize and start reading from the accepted socket
  *
  *     notify_connect - only called for disconnect i.e., connected == false
  */
-void mgmt_msg_server_accept_init(
-	struct msg_conn *conn, struct event_loop *tm, int fd,
-	int (*notify_disconnect)(struct msg_conn *conn),
-	void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
-			   struct msg_conn *conn),
-	size_t max_read, size_t max_write, size_t max_size, const char *idtag)
+void msg_conn_accept_init(struct msg_conn *conn, struct event_loop *tm, int fd,
+			  int (*notify_disconnect)(struct msg_conn *conn),
+			  void (*handle_msg)(uint8_t version, uint8_t *data,
+					     size_t len, struct msg_conn *conn),
+			  size_t max_read, size_t max_write, size_t max_size,
+			  const char *idtag)
 {
 	conn->loop = tm;
 	conn->fd = fd;
@@ -668,4 +782,28 @@ void mgmt_msg_server_accept_init(
 	set_nonblocking(conn->fd);
 	setsockopt_so_sendbuf(conn->fd, MSG_CONN_SEND_BUF_SIZE);
 	setsockopt_so_recvbuf(conn->fd, MSG_CONN_RECV_BUF_SIZE);
+}
+
+struct msg_conn *
+msg_server_conn_create(struct event_loop *tm, int fd,
+		       int (*notify_disconnect)(struct msg_conn *conn),
+		       void (*handle_msg)(uint8_t version, uint8_t *data,
+					  size_t len, struct msg_conn *conn),
+		       size_t max_read, size_t max_write, size_t max_size,
+		       void *user, const char *idtag)
+{
+	struct msg_conn *conn = XMALLOC(MTYPE_MSG_CONN, sizeof(*conn));
+	memset(conn, 0, sizeof(*conn));
+	msg_conn_accept_init(conn, tm, fd, notify_disconnect, handle_msg,
+			     max_read, max_write, max_size, idtag);
+	conn->user = user;
+	return conn;
+}
+
+void msg_server_conn_delete(struct msg_conn *conn)
+{
+	if (!conn)
+		return;
+	msg_conn_cleanup(conn);
+	XFREE(MTYPE_MSG_CONN, conn);
 }

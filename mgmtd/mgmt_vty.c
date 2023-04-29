@@ -13,9 +13,7 @@
 #include "northbound_cli.h"
 
 #include "mgmtd/mgmt.h"
-#include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
-#include "mgmtd/mgmt_fe_server.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
 #include "mgmtd/mgmt_history.h"

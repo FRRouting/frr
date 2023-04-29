@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -52,8 +53,8 @@ DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
 #define FOREACH_SESSION_IN_LIST(adapter, session)                              \
 	frr_each_safe (mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
 
-static struct event_loop *mgmt_fe_adapter_tm;
-static struct mgmt_master *mgmt_fe_adapter_mm;
+static struct event_loop *mgmt_loop;
+static struct msg_server mgmt_fe_server = {.fd = -1};
 
 static struct mgmt_fe_adapters_head mgmt_fe_adapters;
 
@@ -61,11 +62,6 @@ static struct hash *mgmt_fe_sessions;
 static uint64_t mgmt_fe_next_session_id;
 
 /* Forward declarations */
-static void
-mgmt_fe_adapter_register_event(struct mgmt_fe_client_adapter *adapter,
-				 enum mgmt_fe_event event);
-static void
-mgmt_fe_adapter_disconnect(struct mgmt_fe_client_adapter *adapter);
 static void
 mgmt_fe_session_register_event(struct mgmt_fe_session_ctx *session,
 				   enum mgmt_session_event event);
@@ -163,7 +159,7 @@ mgmt_fe_session_cfg_txn_cleanup(struct mgmt_fe_session_ctx *session)
 	mgmt_ds_copy_dss(mm->running_ds, mm->candidate_ds, false);
 
 	for (ds_id = 0; ds_id < MGMTD_DS_MAX_ID; ds_id++) {
-		ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm, ds_id);
+		ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
 		if (ds_ctx) {
 			if (session->ds_locked_implict[ds_id])
 				mgmt_fe_session_unlock_ds(
@@ -185,7 +181,7 @@ mgmt_fe_session_show_txn_cleanup(struct mgmt_fe_session_ctx *session)
 	struct mgmt_ds_ctx *ds_ctx;
 
 	for (ds_id = 0; ds_id < MGMTD_DS_MAX_ID; ds_id++) {
-		ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm, ds_id);
+		ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
 		if (ds_ctx) {
 			mgmt_fe_session_unlock_ds(ds_id, ds_ctx, session,
 						      false, true);
@@ -237,11 +233,9 @@ static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **session)
 	if ((*session)->adapter) {
 		mgmt_fe_session_cfg_txn_cleanup((*session));
 		mgmt_fe_session_show_txn_cleanup((*session));
-		mgmt_fe_session_unlock_ds(MGMTD_DS_CANDIDATE,
-					  mgmt_fe_adapter_mm->candidate_ds,
+		mgmt_fe_session_unlock_ds(MGMTD_DS_CANDIDATE, mm->candidate_ds,
 					  *session, true, true);
-		mgmt_fe_session_unlock_ds(MGMTD_DS_RUNNING,
-					  mgmt_fe_adapter_mm->running_ds,
+		mgmt_fe_session_unlock_ds(MGMTD_DS_RUNNING, mm->running_ds,
 					  *session, true, true);
 
 		mgmt_fe_sessions_del(&(*session)->adapter->fe_sessions,
@@ -353,28 +347,13 @@ mgmt_fe_cleanup_sessions(struct mgmt_fe_client_adapter *adapter)
 		mgmt_fe_cleanup_session(&session);
 }
 
-static inline void
-mgmt_fe_adapter_sched_msg_write(struct mgmt_fe_client_adapter *adapter)
+static int mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
+				    Mgmtd__FeMessage *fe_msg)
 {
-	mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_WRITE);
-}
-
-static int
-mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
-			     Mgmtd__FeMessage *fe_msg)
-{
-	if (adapter->conn_fd == -1) {
-		MGMTD_FE_ADAPTER_DBG("can't send message on closed connection");
-		return -1;
-	}
-
-	int rv = mgmt_msg_send_msg(
-		&adapter->mstate, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
+	return msg_conn_send_msg(
+		&adapter->conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
-		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
-		MGMT_DEBUG_FE_CHECK());
-	mgmt_fe_adapter_sched_msg_write(adapter);
-	return rv;
+		(size_t(*)(void *, void *))mgmtd__fe_message__pack);
 }
 
 static int
@@ -630,14 +609,12 @@ mgmt_fe_session_register_event(struct mgmt_fe_session_ctx *session,
 
 	switch (event) {
 	case MGMTD_FE_SESSION_CFG_TXN_CLNUP:
-		event_add_timer_tv(mgmt_fe_adapter_tm,
-				    mgmt_fe_session_cfg_txn_clnup, session,
-				    &tv, &session->proc_cfg_txn_clnp);
+		event_add_timer_tv(mgmt_loop, mgmt_fe_session_cfg_txn_clnup,
+				   session, &tv, &session->proc_cfg_txn_clnp);
 		break;
 	case MGMTD_FE_SESSION_SHOW_TXN_CLNUP:
-		event_add_timer_tv(mgmt_fe_adapter_tm,
-				    mgmt_fe_session_show_txn_clnup, session,
-				    &tv, &session->proc_show_txn_clnp);
+		event_add_timer_tv(mgmt_loop, mgmt_fe_session_show_txn_clnup,
+				   session, &tv, &session->proc_show_txn_clnp);
 		break;
 	}
 }
@@ -648,7 +625,7 @@ mgmt_fe_find_adapter_by_fd(int conn_fd)
 	struct mgmt_fe_client_adapter *adapter;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		if (adapter->conn_fd == conn_fd)
+		if (adapter->conn.fd == conn_fd)
 			return adapter;
 	}
 
@@ -668,19 +645,24 @@ mgmt_fe_find_adapter_by_name(const char *name)
 	return NULL;
 }
 
-static void mgmt_fe_adapter_disconnect(struct mgmt_fe_client_adapter *adapter)
+
+static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
 {
-	if (adapter->conn_fd >= 0) {
-		close(adapter->conn_fd);
-		adapter->conn_fd = -1;
-	}
+	struct mgmt_fe_client_adapter *adapter;
+
+	adapter = container_of(conn, struct mgmt_fe_client_adapter, conn);
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
 	mgmt_fe_cleanup_sessions(adapter);
 	mgmt_fe_sessions_fini(&adapter->fe_sessions);
+
+	/* remove from list */
 	mgmt_fe_adapters_del(&mgmt_fe_adapters, adapter);
 
+	/* XXX do we expect this to free? if so then just free it :( */
 	mgmt_fe_adapter_unlock(&adapter);
+
+	return 0;
 }
 
 static void
@@ -696,8 +678,8 @@ mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 			 */
 			MGMTD_FE_ADAPTER_DBG(
 				"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)!",
-				adapter->name, adapter->conn_fd, old->conn_fd);
-			mgmt_fe_adapter_disconnect(old);
+				adapter->name, adapter->conn.fd, old->conn.fd);
+			msg_conn_disconnect(&old->conn, false);
 		}
 	}
 }
@@ -732,8 +714,7 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 		return -1;
 	}
 
-	ds_ctx =
-		mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm, lockds_req->ds_id);
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, lockds_req->ds_id);
 	if (!ds_ctx) {
 		mgmt_fe_send_lockds_reply(
 			session, lockds_req->ds_id, lockds_req->req_id,
@@ -805,8 +786,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	/*
 	 * Get the DS handle.
 	 */
-	ds_ctx =
-		mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm, setcfg_req->ds_id);
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, setcfg_req->ds_id);
 	if (!ds_ctx) {
 		mgmt_fe_send_setcfg_reply(
 			session, setcfg_req->ds_id, setcfg_req->req_id, false,
@@ -888,8 +868,8 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 
 	dst_ds_ctx = 0;
 	if (setcfg_req->implicit_commit) {
-		dst_ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm,
-						     setcfg_req->commit_ds_id);
+		dst_ds_ctx =
+			mgmt_ds_get_ctx_by_id(mm, setcfg_req->commit_ds_id);
 		if (!dst_ds_ctx) {
 			mgmt_fe_send_setcfg_reply(
 				session, setcfg_req->ds_id, setcfg_req->req_id,
@@ -940,8 +920,7 @@ mgmt_fe_session_handle_getcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	/*
 	 * Get the DS handle.
 	 */
-	ds_ctx =
-		mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm, getcfg_req->ds_id);
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, getcfg_req->ds_id);
 	if (!ds_ctx) {
 		mgmt_fe_send_getcfg_reply(session, getcfg_req->ds_id,
 					      getcfg_req->req_id, false, NULL,
@@ -1045,8 +1024,7 @@ mgmt_fe_session_handle_getdata_req_msg(struct mgmt_fe_session_ctx *session,
 	/*
 	 * Get the DS handle.
 	 */
-	ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm,
-					 getdata_req->ds_id);
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, getdata_req->ds_id);
 	if (!ds_ctx) {
 		mgmt_fe_send_getdata_reply(session, getdata_req->ds_id,
 					       getdata_req->req_id, false, NULL,
@@ -1140,8 +1118,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/*
 	 * Get the source DS handle.
 	 */
-	src_ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm,
-					     commcfg_req->src_ds_id);
+	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, commcfg_req->src_ds_id);
 	if (!src_ds_ctx) {
 		mgmt_fe_send_commitcfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
@@ -1154,8 +1131,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/*
 	 * Get the destination DS handle.
 	 */
-	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mgmt_fe_adapter_mm,
-					     commcfg_req->dst_ds_id);
+	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, commcfg_req->dst_ds_id);
 	if (!dst_ds_ctx) {
 		mgmt_fe_send_commitcfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
@@ -1388,11 +1364,12 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 }
 
 static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
-					size_t len, void *user_ctx)
+					size_t len, struct msg_conn *conn)
 {
-	struct mgmt_fe_client_adapter *adapter = user_ctx;
+	struct mgmt_fe_client_adapter *adapter;
 	Mgmtd__FeMessage *fe_msg;
 
+	adapter = container_of(conn, struct mgmt_fe_client_adapter, conn);
 	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
 	if (!fe_msg) {
 		MGMTD_FE_ADAPTER_DBG(
@@ -1407,74 +1384,6 @@ static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
 }
 
-static void mgmt_fe_adapter_proc_msgbufs(struct event *thread)
-{
-	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
-
-	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_fe_adapter_process_msg,
-			      adapter, MGMT_DEBUG_FE_CHECK()))
-		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_PROC_MSG);
-}
-
-static void mgmt_fe_adapter_read(struct event *thread)
-{
-	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
-	enum mgmt_msg_rsched rv;
-
-	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd,
-			   MGMT_DEBUG_FE_CHECK());
-	if (rv == MSR_DISCONNECT) {
-		mgmt_fe_adapter_disconnect(adapter);
-		return;
-	}
-	if (rv == MSR_SCHED_BOTH)
-		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_PROC_MSG);
-	mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_READ);
-}
-
-static void mgmt_fe_adapter_write(struct event *thread)
-{
-	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
-	enum mgmt_msg_wsched rv;
-
-	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd,
-			    MGMT_DEBUG_FE_CHECK());
-	if (rv == MSW_SCHED_STREAM)
-		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_WRITE);
-	else if (rv == MSW_DISCONNECT)
-		mgmt_fe_adapter_disconnect(adapter);
-	else
-		assert(rv == MSW_SCHED_NONE);
-}
-
-static void
-mgmt_fe_adapter_register_event(struct mgmt_fe_client_adapter *adapter,
-				 enum mgmt_fe_event event)
-{
-	struct timeval tv = {0};
-
-	switch (event) {
-	case MGMTD_FE_CONN_READ:
-		event_add_read(mgmt_fe_adapter_tm, mgmt_fe_adapter_read,
-				adapter, adapter->conn_fd, &adapter->conn_read_ev);
-		break;
-	case MGMTD_FE_CONN_WRITE:
-		event_add_write(mgmt_fe_adapter_tm,
-				 mgmt_fe_adapter_write, adapter,
-				 adapter->conn_fd, &adapter->conn_write_ev);
-		break;
-	case MGMTD_FE_PROC_MSG:
-		tv.tv_usec = MGMTD_FE_MSG_PROC_DELAY_USEC;
-		event_add_timer_tv(mgmt_fe_adapter_tm,
-				    mgmt_fe_adapter_proc_msgbufs, adapter,
-				    &tv, &adapter->proc_msg_ev);
-		break;
-	case MGMTD_FE_SERVER:
-		assert(!"mgmt_fe_adapter_post_event() called incorrectly");
-		break;
-	}
-}
-
 void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)
 {
 	adapter->refcount++;
@@ -1483,45 +1392,54 @@ void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)
 extern void
 mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 {
-	assert(*adapter && (*adapter)->refcount);
+	struct mgmt_fe_client_adapter *a = *adapter;
+	assert(a && a->refcount);
 
-	(*adapter)->refcount--;
-	if (!(*adapter)->refcount) {
-		mgmt_fe_adapters_del(&mgmt_fe_adapters, *adapter);
-		EVENT_OFF((*adapter)->conn_read_ev);
-		EVENT_OFF((*adapter)->conn_write_ev);
-		EVENT_OFF((*adapter)->proc_msg_ev);
-		mgmt_msg_destroy(&(*adapter)->mstate);
-		XFREE(MTYPE_MGMTD_FE_ADPATER, *adapter);
+	if (!--a->refcount) {
+		mgmt_fe_adapters_del(&mgmt_fe_adapters, a);
+		msg_conn_cleanup(&a->conn);
+		XFREE(MTYPE_MGMTD_BE_ADPATER, a);
 	}
-
 	*adapter = NULL;
 }
 
-int mgmt_fe_adapter_init(struct event_loop *tm, struct mgmt_master *mm)
+/*
+ * Initialize the FE adapter module
+ */
+void mgmt_fe_adapter_init(struct event_loop *tm)
 {
-	if (!mgmt_fe_adapter_tm) {
-		mgmt_fe_adapter_tm = tm;
-		mgmt_fe_adapter_mm = mm;
-		mgmt_fe_adapters_init(&mgmt_fe_adapters);
+	assert(!mgmt_loop);
+	mgmt_loop = tm;
 
-		assert(!mgmt_fe_sessions);
-		mgmt_fe_sessions = hash_create(mgmt_fe_session_hash_key,
-					       mgmt_fe_session_hash_cmp,
-					       "MGMT Frontend Sessions");
+	mgmt_fe_adapters_init(&mgmt_fe_adapters);
+
+	assert(!mgmt_fe_sessions);
+	mgmt_fe_sessions =
+		hash_create(mgmt_fe_session_hash_key, mgmt_fe_session_hash_cmp,
+			    "MGMT Frontend Sessions");
+
+	if (msg_server_init(&mgmt_fe_server, MGMTD_FE_SERVER_PATH, tm,
+			    mgmt_fe_create_adapter, "frontend",
+			    &mgmt_debug_fe)) {
+		zlog_err("cannot initialize frontend server");
+		exit(1);
 	}
-
-	return 0;
 }
 
+/*
+ * Destroy the FE adapter module
+ */
 void mgmt_fe_adapter_destroy(void)
 {
+	msg_server_cleanup(&mgmt_fe_server);
 	mgmt_fe_cleanup_adapters();
 	mgmt_fe_session_hash_destroy();
 }
 
-struct mgmt_fe_client_adapter *
-mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
+/*
+ * The server accepted a new connection
+ */
+struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 {
 	struct mgmt_fe_client_adapter *adapter = NULL;
 
@@ -1529,35 +1447,26 @@ mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 	if (!adapter) {
 		adapter = XCALLOC(MTYPE_MGMTD_FE_ADPATER,
 				sizeof(struct mgmt_fe_client_adapter));
-		assert(adapter);
-
-		adapter->conn_fd = conn_fd;
-		memcpy(&adapter->conn_su, from, sizeof(adapter->conn_su));
 		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
-			 adapter->conn_fd);
+			 conn_fd);
+
 		mgmt_fe_sessions_init(&adapter->fe_sessions);
-
-		mgmt_msg_init(&adapter->mstate, MGMTD_FE_MAX_NUM_MSG_PROC,
-			      MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
-			      "FE-adapter");
 		mgmt_fe_adapter_lock(adapter);
-
-		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_READ);
 		mgmt_fe_adapters_add_tail(&mgmt_fe_adapters, adapter);
+
+		msg_conn_accept_init(&adapter->conn, mgmt_loop, conn_fd,
+				     mgmt_fe_adapter_notify_disconnect,
+				     mgmt_fe_adapter_process_msg,
+				     MGMTD_FE_MAX_NUM_MSG_PROC,
+				     MGMTD_FE_MAX_NUM_MSG_WRITE,
+				     MGMTD_FE_MSG_MAX_LEN, "FE-adapter");
 
 		adapter->setcfg_stats.min_tm = ULONG_MAX;
 		adapter->cmt_stats.min_tm = ULONG_MAX;
 		MGMTD_FE_ADAPTER_DBG("Added new MGMTD Frontend adapter '%s'",
 				       adapter->name);
 	}
-
-	/* Make client socket non-blocking.  */
-	set_nonblocking(adapter->conn_fd);
-	setsockopt_so_sendbuf(adapter->conn_fd,
-			      MGMTD_SOCKET_FE_SEND_BUF_SIZE);
-	setsockopt_so_recvbuf(adapter->conn_fd,
-			      MGMTD_SOCKET_FE_RECV_BUF_SIZE);
-	return adapter;
+	return adapter->conn;
 }
 
 struct mgmt_fe_client_adapter *mgmt_fe_get_adapter(const char *name)
@@ -1793,7 +1702,7 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
 		vty_out(vty, "  Client: \t\t\t\t%s\n", adapter->name);
-		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn_fd);
+		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn.fd);
 		if (detail) {
 			mgmt_fe_adapter_setcfg_stats_write(vty, adapter);
 			mgmt_fe_adapter_cmt_stats_write(vty, adapter);
@@ -1827,13 +1736,13 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "    Total-Sessions: \t\t\t%d\n",
 			(int)mgmt_fe_sessions_count(&adapter->fe_sessions));
 		vty_out(vty, "    Msg-Recvd: \t\t\t\t%" PRIu64 "\n",
-			adapter->mstate.nrxm);
+			adapter->conn.mstate.nrxm);
 		vty_out(vty, "    Bytes-Recvd: \t\t\t%" PRIu64 "\n",
-			adapter->mstate.nrxb);
+			adapter->conn.mstate.nrxb);
 		vty_out(vty, "    Msg-Sent: \t\t\t\t%" PRIu64 "\n",
-			adapter->mstate.ntxm);
+			adapter->conn.mstate.ntxm);
 		vty_out(vty, "    Bytes-Sent: \t\t\t%" PRIu64 "\n",
-			adapter->mstate.ntxb);
+			adapter->conn.mstate.ntxb);
 	}
 	vty_out(vty, "  Total: %d\n",
 		(int)mgmt_fe_adapters_count(&mgmt_fe_adapters));
