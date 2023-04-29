@@ -3703,7 +3703,7 @@ void vty_terminate(void)
 	struct vty_serv *vtyserv;
 
 	if (mgmt_lib_hndl) {
-		mgmt_fe_client_lib_destroy(mgmt_lib_hndl);
+		mgmt_fe_client_lib_destroy();
 		mgmt_lib_hndl = 0;
 	}
 

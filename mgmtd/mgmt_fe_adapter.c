@@ -1387,8 +1387,8 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	return 0;
 }
 
-static void mgmt_fe_adapter_process_msg(uint8_t version, void *user_ctx,
-					uint8_t *data, size_t len)
+static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
+					size_t len, void *user_ctx)
 {
 	struct mgmt_fe_client_adapter *adapter = user_ctx;
 	Mgmtd__FeMessage *fe_msg;

@@ -569,8 +569,8 @@ static int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
-static void mgmt_be_adapter_process_msg(uint8_t version, void *user_ctx,
-					uint8_t *data, size_t len)
+static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
+					size_t len, void *user_ctx)
 {
 	struct mgmt_be_client_adapter *adapter = user_ctx;
 	Mgmtd__BeMessage *be_msg;

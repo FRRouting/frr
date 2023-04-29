@@ -71,7 +71,7 @@ static void sigint(void)
 	/* Disable BFD events to avoid wasting processing. */
 	bfd_protocol_integration_set_shutdown(true);
 
-	mgmt_be_client_lib_destroy(mgmt_lib_hndl);
+	mgmt_be_client_lib_destroy();
 
 	static_vrf_terminate();
 
@@ -208,7 +208,6 @@ int main(int argc, char **argv, char **envp)
 
 	/* Initialize MGMT backend functionalities */
 	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
-	assert(mgmt_lib_hndl);
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

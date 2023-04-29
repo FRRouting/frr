@@ -351,7 +351,7 @@ mgmt_fe_register_yang_notify(uintptr_t lib_hndl, uintptr_t session_id,
 /*
  * Destroy library and cleanup everything.
  */
-extern void mgmt_fe_client_lib_destroy(uintptr_t lib_hndl);
+extern void mgmt_fe_client_lib_destroy(void);
 
 #ifdef __cplusplus
 }

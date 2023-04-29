@@ -7,6 +7,7 @@
 
 #include <zebra.h>
 #include "debug.h"
+#include "compiler.h"
 #include "libfrr.h"
 #include "mgmtd/mgmt.h"
 #include "mgmt_be_client.h"
@@ -99,14 +100,7 @@ DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 	frr_each_safe (mgmt_be_batches, &(txn)->apply_cfgs, (batch))
 
 struct mgmt_be_client_ctx {
-	int conn_fd;
-	struct event_loop *tm;
-	struct event *conn_retry_tmr;
-	struct event *conn_read_ev;
-	struct event *conn_write_ev;
-	struct event *msg_proc_ev;
-
-	struct mgmt_msg_state mstate;
+	struct msg_client client;
 
 	struct nb_config *candidate_config;
 	struct nb_config *running_config;
@@ -128,8 +122,7 @@ struct mgmt_be_client_ctx {
 struct debug mgmt_dbg_be_client = {0, "Management backend client operations"};
 
 static struct mgmt_be_client_ctx mgmt_be_client_ctx = {
-	.conn_fd = -1,
-};
+	.client = {.conn = {.fd = -1}}};
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 #ifdef HAVE_STATICD
@@ -138,35 +131,13 @@ const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
 
-/* Forward declarations */
-static void
-mgmt_be_client_register_event(struct mgmt_be_client_ctx *client_ctx,
-				 enum mgmt_be_event event);
-static void
-mgmt_be_client_schedule_conn_retry(struct mgmt_be_client_ctx *client_ctx,
-				      unsigned long intvl_secs);
 static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
-				      Mgmtd__BeMessage *be_msg);
-
-static void
-mgmt_be_server_disconnect(struct mgmt_be_client_ctx *client_ctx,
-			     bool reconnect)
+				   Mgmtd__BeMessage *be_msg)
 {
-	/* Notify client through registered callback (if any) */
-	if (client_ctx->client_params.client_connect_notify)
-		(void)(*client_ctx->client_params.client_connect_notify)(
-			(uintptr_t)client_ctx,
-			client_ctx->client_params.user_data, false);
-
-	if (client_ctx->conn_fd != -1) {
-		close(client_ctx->conn_fd);
-		client_ctx->conn_fd = -1;
-	}
-
-	if (reconnect)
-		mgmt_be_client_schedule_conn_retry(
-			client_ctx,
-			client_ctx->client_params.conn_retry_intvl_sec);
+	return msg_conn_send_msg(
+		&client_ctx->client.conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
+		mgmtd__be_message__get_packed_size(be_msg),
+		(size_t(*)(void *, void *))mgmtd__be_message__pack);
 }
 
 static struct mgmt_be_batch_ctx *
@@ -853,11 +824,15 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 	return 0;
 }
 
-static void mgmt_be_client_process_msg(uint8_t version, void *user_ctx,
-				       uint8_t *data, size_t len)
+static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
+				       size_t len, struct msg_conn *conn)
 {
-	struct mgmt_be_client_ctx *client_ctx = user_ctx;
+	struct mgmt_be_client_ctx *client_ctx;
+	struct msg_client *client;
 	Mgmtd__BeMessage *be_msg;
+
+	client = container_of(conn, struct msg_client, conn);
+	client_ctx = container_of(client, struct mgmt_be_client_ctx, client);
 
 	be_msg = mgmtd__be_message__unpack(NULL, len, data);
 	if (!be_msg) {
@@ -870,69 +845,6 @@ static void mgmt_be_client_process_msg(uint8_t version, void *user_ctx,
 		be_msg->message_case, be_msg->message_case);
 	(void)mgmt_be_client_handle_msg(client_ctx, be_msg);
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
-}
-
-static void mgmt_be_client_proc_msgbufs(struct event *thread)
-{
-	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
-
-	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_be_client_process_msg,
-			      client_ctx, MGMTD_DBG_BE_CLIENT_CHECK()))
-		mgmt_be_client_register_event(client_ctx, MGMTD_BE_PROC_MSG);
-}
-
-static void mgmt_be_client_read(struct event *thread)
-{
-	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
-	enum mgmt_msg_rsched rv;
-
-	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
-			   MGMTD_DBG_BE_CLIENT_CHECK());
-	if (rv == MSR_DISCONNECT) {
-		mgmt_be_server_disconnect(client_ctx, true);
-		return;
-	}
-	if (rv == MSR_SCHED_BOTH)
-		mgmt_be_client_register_event(client_ctx, MGMTD_BE_PROC_MSG);
-	mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_READ);
-}
-
-static inline void
-mgmt_be_client_sched_msg_write(struct mgmt_be_client_ctx *client_ctx)
-{
-	mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_WRITE);
-}
-
-static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
-				   Mgmtd__BeMessage *be_msg)
-{
-	if (client_ctx->conn_fd == -1) {
-		MGMTD_BE_CLIENT_DBG("can't send message on closed connection");
-		return -1;
-	}
-
-	int rv = mgmt_msg_send_msg(
-		&client_ctx->mstate, MGMT_MSG_VERSION_PROTOBUF, be_msg,
-		mgmtd__be_message__get_packed_size(be_msg),
-		(size_t(*)(void *, void *))mgmtd__be_message__pack,
-		MGMTD_DBG_BE_CLIENT_CHECK());
-	mgmt_be_client_sched_msg_write(client_ctx);
-	return rv;
-}
-
-static void mgmt_be_client_write(struct event *thread)
-{
-	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
-	enum mgmt_msg_wsched rv;
-
-	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
-			    MGMTD_DBG_BE_CLIENT_CHECK());
-	if (rv == MSW_SCHED_STREAM)
-		mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_WRITE);
-	else if (rv == MSW_DISCONNECT)
-		mgmt_be_server_disconnect(client_ctx, true);
-	else
-		assert(rv == MSW_SCHED_NONE);
 }
 
 static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
@@ -958,80 +870,37 @@ static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
 
-static void mgmt_be_server_connect(struct mgmt_be_client_ctx *client_ctx)
+static int _notify_conenct_disconnect(struct msg_client *client, bool connected)
 {
-	const char *dbgtag = MGMTD_DBG_BE_CLIENT_CHECK() ? "BE-client" : NULL;
+	struct mgmt_be_client_ctx *client_ctx =
+		container_of(client, struct mgmt_be_client_ctx, client);
+	int ret;
 
-	assert(client_ctx->conn_fd == -1);
-	client_ctx->conn_fd = mgmt_msg_connect(
-		MGMTD_BE_SERVER_PATH, MGMTD_SOCKET_BE_SEND_BUF_SIZE,
-		MGMTD_SOCKET_BE_RECV_BUF_SIZE, dbgtag);
-
-	/* Send SUBSCRIBE_REQ message */
-	if (client_ctx->conn_fd == -1 ||
-	    mgmt_be_send_subscr_req(client_ctx, false, 0, NULL) != 0) {
-		mgmt_be_server_disconnect(client_ctx, true);
-		return;
+	if (connected) {
+		assert(client->conn.fd != -1);
+		ret = mgmt_be_send_subscr_req(client_ctx, false, 0, NULL);
+		if (ret)
+			return ret;
 	}
 
-	/* Start reading from the socket */
-	mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_READ);
-
-	/* Notify client through registered callback (if any) */
+	/* Notify BE client through registered callback (if any) */
 	if (client_ctx->client_params.client_connect_notify)
 		(void)(*client_ctx->client_params.client_connect_notify)(
 			(uintptr_t)client_ctx,
-			client_ctx->client_params.user_data, true);
+			client_ctx->client_params.user_data, connected);
+	return 0;
 }
 
-static void mgmt_be_client_conn_timeout(struct event *thread)
+static int mgmt_be_client_notify_conenct(struct msg_client *client)
 {
-	mgmt_be_server_connect(EVENT_ARG(thread));
+	return _notify_conenct_disconnect(client, true);
 }
 
-static void
-mgmt_be_client_register_event(struct mgmt_be_client_ctx *client_ctx,
-				 enum mgmt_be_event event)
+static int mgmt_be_client_notify_disconenct(struct msg_conn *conn)
 {
-	struct timeval tv = {0};
+	struct msg_client *client = container_of(conn, struct msg_client, conn);
 
-	switch (event) {
-	case MGMTD_BE_CONN_READ:
-		event_add_read(client_ctx->tm, mgmt_be_client_read,
-				client_ctx, client_ctx->conn_fd,
-				&client_ctx->conn_read_ev);
-		break;
-	case MGMTD_BE_CONN_WRITE:
-		event_add_write(client_ctx->tm, mgmt_be_client_write,
-				 client_ctx, client_ctx->conn_fd,
-				 &client_ctx->conn_write_ev);
-		break;
-	case MGMTD_BE_PROC_MSG:
-		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
-		event_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
-				    client_ctx, &tv, &client_ctx->msg_proc_ev);
-		break;
-	case MGMTD_BE_SERVER:
-	case MGMTD_BE_CONN_INIT:
-	case MGMTD_BE_SCHED_CFG_PREPARE:
-	case MGMTD_BE_RESCHED_CFG_PREPARE:
-	case MGMTD_BE_SCHED_CFG_APPLY:
-	case MGMTD_BE_RESCHED_CFG_APPLY:
-		assert(!"mgmt_be_client_post_event() called incorrectly");
-		break;
-	}
-}
-
-static void
-mgmt_be_client_schedule_conn_retry(struct mgmt_be_client_ctx *client_ctx,
-				      unsigned long intvl_secs)
-{
-	MGMTD_BE_CLIENT_DBG(
-		"Scheduling MGMTD Backend server connection retry after %lu seconds",
-		intvl_secs);
-	event_add_timer(client_ctx->tm, mgmt_be_client_conn_timeout,
-			 (void *)client_ctx, intvl_secs,
-			 &client_ctx->conn_retry_tmr);
+	return _notify_conenct_disconnect(client, false);
 }
 
 DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
@@ -1082,29 +951,22 @@ static struct cmd_node mgmt_dbg_node = {
 uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
 				  struct event_loop *master_thread)
 {
-	assert(master_thread && params && strlen(params->name)
-	       && !mgmt_be_client_ctx.tm);
+	/* Don't call twice */
+	assert(!mgmt_be_client_ctx.client.conn.loop);
 
-	mgmt_be_client_ctx.tm = master_thread;
+	/* Only call after frr_init() */
+	assert(running_config);
 
-	if (!running_config)
-		assert(!"MGMTD Be Client lib_init() after frr_init() only!");
 	mgmt_be_client_ctx.running_config = running_config;
 	mgmt_be_client_ctx.candidate_config = nb_config_new(NULL);
-
-	memcpy(&mgmt_be_client_ctx.client_params, params,
-	       sizeof(mgmt_be_client_ctx.client_params));
-	if (!mgmt_be_client_ctx.client_params.conn_retry_intvl_sec)
-		mgmt_be_client_ctx.client_params.conn_retry_intvl_sec =
-			MGMTD_BE_DEFAULT_CONN_RETRY_INTVL_SEC;
-
+	mgmt_be_client_ctx.client_params = *params;
 	mgmt_be_txns_init(&mgmt_be_client_ctx.txn_head);
-	mgmt_msg_init(&mgmt_be_client_ctx.mstate, MGMTD_BE_MAX_NUM_MSG_PROC,
-		      MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN,
-		      "BE-client");
-
-	/* Start trying to connect to MGMTD backend server immediately */
-	mgmt_be_client_schedule_conn_retry(&mgmt_be_client_ctx, 1);
+	msg_client_init(&mgmt_be_client_ctx.client, master_thread,
+			MGMTD_BE_SERVER_PATH, mgmt_be_client_notify_conenct,
+			mgmt_be_client_notify_disconenct,
+			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
+			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN,
+			"BE-client", MGMTD_DBG_BE_CLIENT_CHECK());
 
 	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", params->name);
 
@@ -1183,24 +1045,16 @@ enum mgmt_result mgmt_be_send_yang_notify(uintptr_t lib_hndl,
 /*
  * Destroy library and cleanup everything.
  */
-void mgmt_be_client_lib_destroy(uintptr_t lib_hndl)
+void mgmt_be_client_lib_destroy(void)
 {
-	struct mgmt_be_client_ctx *client_ctx;
-
-	client_ctx = (struct mgmt_be_client_ctx *)lib_hndl;
-	assert(client_ctx);
+	struct mgmt_be_client_ctx *client_ctx = &mgmt_be_client_ctx;
 
 	MGMTD_BE_CLIENT_DBG("Destroying MGMTD Backend Client '%s'",
 			    client_ctx->client_params.name);
 
-	mgmt_be_server_disconnect(client_ctx, false);
-
-	mgmt_msg_destroy(&client_ctx->mstate);
-
-	EVENT_OFF(client_ctx->conn_retry_tmr);
-	EVENT_OFF(client_ctx->conn_read_ev);
-	EVENT_OFF(client_ctx->conn_write_ev);
-	EVENT_OFF(client_ctx->msg_proc_ev);
+	msg_client_cleanup(&client_ctx->client);
 	mgmt_be_cleanup_all_txns(client_ctx);
 	mgmt_be_txns_fini(&client_ctx->txn_head);
+
+	memset(client_ctx, 0, sizeof(*client_ctx));
 }

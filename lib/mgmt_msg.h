@@ -21,6 +21,7 @@
 #define MGMT_MSG_VERSION_PROTOBUF 0
 #define MGMT_MSG_VERSION_NATIVE 1
 
+
 struct mgmt_msg_state {
 	struct stream *ins;
 	struct stream *outs;
@@ -53,15 +54,14 @@ enum mgmt_msg_wsched {
 	MSW_DISCONNECT,	      /* disconnect and start reconnecting */
 };
 
+struct msg_conn;
+
+
 extern int mgmt_msg_connect(const char *path, size_t sendbuf, size_t recvbuf,
 			    const char *dbgtag);
-extern void mgmt_msg_destroy(struct mgmt_msg_state *ms);
-extern void mgmt_msg_init(struct mgmt_msg_state *ms, size_t max_read_buf,
-			  size_t max_write_buf, size_t max_msg_sz,
-			  const char *idtag);
 extern bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
-			      void (*handle_msg)(uint8_t version, void *user,
-						 uint8_t *msg, size_t msglen),
+			      void (*handle_msg)(uint8_t version, uint8_t *msg,
+						 size_t msglen, void *user),
 			      void *user, bool debug);
 extern enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 					  bool debug);
@@ -71,5 +71,85 @@ extern int mgmt_msg_send_msg(struct mgmt_msg_state *ms, uint8_t version,
 			     size_t (*packf)(void *msg, void *buf), bool debug);
 extern enum mgmt_msg_wsched mgmt_msg_write(struct mgmt_msg_state *ms, int fd,
 					   bool debug);
+
+extern void mgmt_msg_destroy(struct mgmt_msg_state *state);
+
+extern void mgmt_msg_init(struct mgmt_msg_state *ms, size_t max_read_buf,
+			  size_t max_write_buf, size_t max_msg_sz,
+			  const char *idtag);
+
+/*
+ * Connections
+ */
+
+struct msg_conn {
+	int fd;
+	struct mgmt_msg_state mstate;
+	struct event_loop *loop;
+	struct event *read_ev;
+	struct event *write_ev;
+	struct event *proc_msg_ev;
+	int (*notify_disconnect)(struct msg_conn *conn);
+	void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
+			   struct msg_conn *conn);
+	bool is_client;
+	bool debug;
+};
+
+
+/*
+ * `notify_disconnect` is not called when `msg_conn_cleanup` is called for a
+ * msg_conn which is currently connected. The socket is closed but there is no
+ * notification.
+ */
+extern void msg_conn_cleanup(struct msg_conn *conn);
+extern void msg_conn_disconnect(struct msg_conn *conn, bool reconnect);
+extern int msg_conn_send_msg(struct msg_conn *client, uint8_t version,
+			     void *msg, size_t mlen,
+			     size_t (*packf)(void *, void *));
+
+/*
+ * Client-side Connections
+ */
+
+struct msg_client {
+	struct msg_conn conn;
+	struct event *conn_retry_tmr;
+	char *sopath;
+	int (*notify_connect)(struct msg_client *client);
+};
+
+/*
+ * `notify_disconnect` is not called when `msg_client_cleanup` is called for a
+ * msg_client which is currently connected. The socket is closed but there is no
+ * notification.
+ */
+extern void msg_client_cleanup(struct msg_client *client);
+
+/*
+ * `notify_disconnect` is not called when the user `msg_client_cleanup` is
+ * called for a client which is currently connected. The socket is closed
+ * but there is no notification.
+ */
+extern void msg_client_init(struct msg_client *client, struct event_loop *tm,
+			    const char *sopath,
+			    int (*notify_connect)(struct msg_client *client),
+			    int (*notify_disconnect)(struct msg_conn *client),
+			    void (*handle_msg)(uint8_t version, uint8_t *data,
+					       size_t len,
+					       struct msg_conn *client),
+			    size_t max_read_buf, size_t max_write_buf,
+			    size_t max_msg_sz, const char *idtag, bool debug);
+
+/*
+ * Server-side Connections
+ */
+
+extern void mgmt_msg_server_accept_init(
+	struct msg_conn *client, struct event_loop *tm, int fd,
+	int (*notify_disconnect)(struct msg_conn *conn),
+	void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
+			   struct msg_conn *conn),
+	size_t max_read, size_t max_write, size_t max_size, const char *idtag);
 
 #endif /* _MGMT_MSG_H */

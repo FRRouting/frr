@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include "compiler.h"
 #include "debug.h"
 #include "memory.h"
 #include "libfrr.h"
@@ -43,17 +44,8 @@ DECLARE_LIST(mgmt_sessions, struct mgmt_fe_client_session, list_linkage);
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_SESSION, "MGMTD Frontend session");
 
 struct mgmt_fe_client_ctx {
-	int conn_fd;
-	struct event_loop *tm;
-	struct event *conn_retry_tmr;
-	struct event *conn_read_ev;
-	struct event *conn_write_ev;
-	struct event *msg_proc_ev;
-
-	struct mgmt_msg_state mstate;
-
+	struct msg_client client;
 	struct mgmt_fe_client_params client_params;
-
 	struct mgmt_sessions_head client_sessions;
 };
 
@@ -63,15 +55,7 @@ struct mgmt_fe_client_ctx {
 struct debug mgmt_dbg_fe_client = {0, "Management frontend client operations"};
 
 static struct mgmt_fe_client_ctx mgmt_fe_client_ctx = {
-	.conn_fd = -1,
-};
-
-/* Forward declarations */
-static void
-mgmt_fe_client_register_event(struct mgmt_fe_client_ctx *client_ctx,
-				  enum mgmt_fe_event event);
-static void mgmt_fe_client_schedule_conn_retry(
-	struct mgmt_fe_client_ctx *client_ctx, unsigned long intvl_secs);
+	.client = {.conn = {.fd = -1}}};
 
 static struct mgmt_fe_client_session *
 mgmt_fe_find_session_by_client_id(struct mgmt_fe_client_ctx *client_ctx,
@@ -109,59 +93,13 @@ mgmt_fe_find_session_by_session_id(struct mgmt_fe_client_ctx *client_ctx,
 	return NULL;
 }
 
-static void
-mgmt_fe_server_disconnect(struct mgmt_fe_client_ctx *client_ctx,
-			      bool reconnect)
-{
-	if (client_ctx->conn_fd != -1) {
-		close(client_ctx->conn_fd);
-		client_ctx->conn_fd = -1;
-	}
-
-	if (reconnect)
-		mgmt_fe_client_schedule_conn_retry(
-			client_ctx,
-			client_ctx->client_params.conn_retry_intvl_sec);
-}
-
-static inline void
-mgmt_fe_client_sched_msg_write(struct mgmt_fe_client_ctx *client_ctx)
-{
-	mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_WRITE);
-}
-
 static int mgmt_fe_client_send_msg(struct mgmt_fe_client_ctx *client_ctx,
 				   Mgmtd__FeMessage *fe_msg)
 {
-	/* users current expect this to fail here */
-	if (client_ctx->conn_fd == -1) {
-		MGMTD_FE_CLIENT_DBG("can't send message on closed connection");
-		return -1;
-	}
-
-	int rv = mgmt_msg_send_msg(
-		&client_ctx->mstate, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
+	return msg_conn_send_msg(
+		&client_ctx->client.conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
-		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
-		MGMTD_DBG_FE_CLIENT_CHECK());
-	mgmt_fe_client_sched_msg_write(client_ctx);
-	return rv;
-}
-
-static void mgmt_fe_client_write(struct event *thread)
-{
-	struct mgmt_fe_client_ctx *client_ctx;
-	enum mgmt_msg_wsched rv;
-
-	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
-	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
-			    MGMTD_DBG_FE_CLIENT_CHECK());
-	if (rv == MSW_SCHED_STREAM)
-		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_WRITE);
-	else if (rv == MSW_DISCONNECT)
-		mgmt_fe_server_disconnect(client_ctx, true);
-	else
-		assert(rv == MSW_SCHED_NONE);
+		(size_t(*)(void *, void *))mgmtd__fe_message__pack);
 }
 
 static int
@@ -614,11 +552,15 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 	return 0;
 }
 
-static void mgmt_fe_client_process_msg(uint8_t version, void *user_ctx,
-				       uint8_t *data, size_t len)
+static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
+				       size_t len, struct msg_conn *conn)
 {
-	struct mgmt_fe_client_ctx *client_ctx = user_ctx;
+	struct mgmt_fe_client_ctx *client_ctx;
+	struct msg_client *client;
 	Mgmtd__FeMessage *fe_msg;
+
+	client = container_of(conn, struct msg_client, conn);
+	client_ctx = container_of(client, struct mgmt_fe_client_ctx, client);
 
 	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
 	if (!fe_msg) {
@@ -633,105 +575,38 @@ static void mgmt_fe_client_process_msg(uint8_t version, void *user_ctx,
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
 }
 
-static void mgmt_fe_client_proc_msgbufs(struct event *thread)
+static int _notify_connect_disconnect(struct msg_client *client, bool connected)
 {
-	struct mgmt_fe_client_ctx *client_ctx;
-
-	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
-	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_fe_client_process_msg,
-			      client_ctx, MGMTD_DBG_FE_CLIENT_CHECK()))
-		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_PROC_MSG);
-}
-
-static void mgmt_fe_client_read(struct event *thread)
-{
-	struct mgmt_fe_client_ctx *client_ctx;
-	enum mgmt_msg_rsched rv;
-
-	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
-
-	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
-			   MGMTD_DBG_FE_CLIENT_CHECK());
-	if (rv == MSR_DISCONNECT) {
-		mgmt_fe_server_disconnect(client_ctx, true);
-		return;
-	}
-	if (rv == MSR_SCHED_BOTH)
-		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_PROC_MSG);
-	mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_READ);
-}
-
-static void mgmt_fe_server_connect(struct mgmt_fe_client_ctx *client_ctx)
-{
-	const char *dbgtag = MGMTD_DBG_FE_CLIENT_CHECK() ? "FE-client" : NULL;
-
-	assert(client_ctx->conn_fd == -1);
-	client_ctx->conn_fd = mgmt_msg_connect(
-		MGMTD_FE_SERVER_PATH, MGMTD_SOCKET_FE_SEND_BUF_SIZE,
-		MGMTD_SOCKET_FE_RECV_BUF_SIZE, dbgtag);
+	struct mgmt_fe_client_ctx *client_ctx =
+		container_of(client, struct mgmt_fe_client_ctx, client);
+	int ret;
 
 	/* Send REGISTER_REQ message */
-	if (client_ctx->conn_fd == -1 ||
-	    mgmt_fe_send_register_req(client_ctx) != 0) {
-		mgmt_fe_server_disconnect(client_ctx, true);
-		return;
+	if (connected) {
+		if ((ret = mgmt_fe_send_register_req(client_ctx)) != 0)
+			return ret;
 	}
 
-	/* Start reading from the socket */
-	mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_READ);
-
-	/* Notify client through registered callback (if any) */
+	/* Notify FE client through registered callback (if any). */
 	if (client_ctx->client_params.client_connect_notify)
 		(void)(*client_ctx->client_params.client_connect_notify)(
 			(uintptr_t)client_ctx,
-			client_ctx->client_params.user_data, true);
+			client_ctx->client_params.user_data, connected);
+	return 0;
 }
 
-
-static void mgmt_fe_client_conn_timeout(struct event *thread)
+static int mgmt_fe_client_notify_connect(struct msg_client *client)
 {
-	mgmt_fe_server_connect(EVENT_ARG(thread));
+	return _notify_connect_disconnect(client, true);
 }
 
-static void
-mgmt_fe_client_register_event(struct mgmt_fe_client_ctx *client_ctx,
-				  enum mgmt_fe_event event)
+static int mgmt_fe_client_notify_disconnect(struct msg_conn *conn)
 {
-	struct timeval tv = {0};
+	struct msg_client *client = container_of(conn, struct msg_client, conn);
 
-	switch (event) {
-	case MGMTD_FE_CONN_READ:
-		event_add_read(client_ctx->tm, mgmt_fe_client_read,
-				client_ctx, client_ctx->conn_fd,
-				&client_ctx->conn_read_ev);
-		break;
-	case MGMTD_FE_CONN_WRITE:
-		event_add_write(client_ctx->tm, mgmt_fe_client_write,
-				 client_ctx, client_ctx->conn_fd,
-				 &client_ctx->conn_write_ev);
-		break;
-	case MGMTD_FE_PROC_MSG:
-		tv.tv_usec = MGMTD_FE_MSG_PROC_DELAY_USEC;
-		event_add_timer_tv(client_ctx->tm,
-				    mgmt_fe_client_proc_msgbufs, client_ctx,
-				    &tv, &client_ctx->msg_proc_ev);
-		break;
-	case MGMTD_FE_SERVER:
-		assert(!"mgmt_fe_client_ctx_post_event called incorrectly");
-		break;
-	}
+	return _notify_connect_disconnect(client, false);
 }
 
-static void mgmt_fe_client_schedule_conn_retry(
-	struct mgmt_fe_client_ctx *client_ctx, unsigned long intvl_secs)
-{
-	MGMTD_FE_CLIENT_DBG(
-		"Scheduling MGMTD Frontend server connection retry after %lu seconds",
-		intvl_secs);
-	event_add_timer(client_ctx->tm, mgmt_fe_client_conn_timeout,
-			 (void *)client_ctx, intvl_secs,
-			 &client_ctx->conn_retry_tmr);
-}
 
 DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
       "[no] debug mgmt client frontend",
@@ -781,24 +656,19 @@ static struct cmd_node mgmt_dbg_node = {
 uintptr_t mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
 				  struct event_loop *master_thread)
 {
-	assert(master_thread && params && strlen(params->name)
-	       && !mgmt_fe_client_ctx.tm);
+	/* Don't call twice */
+	assert(!mgmt_fe_client_ctx.client.conn.loop);
 
-	mgmt_fe_client_ctx.tm = master_thread;
-	memcpy(&mgmt_fe_client_ctx.client_params, params,
-	       sizeof(mgmt_fe_client_ctx.client_params));
-	if (!mgmt_fe_client_ctx.client_params.conn_retry_intvl_sec)
-		mgmt_fe_client_ctx.client_params.conn_retry_intvl_sec =
-			MGMTD_FE_DEFAULT_CONN_RETRY_INTVL_SEC;
-
-	mgmt_msg_init(&mgmt_fe_client_ctx.mstate, MGMTD_FE_MAX_NUM_MSG_PROC,
-		      MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
-		      "FE-client");
+	mgmt_fe_client_ctx.client_params = *params;
 
 	mgmt_sessions_init(&mgmt_fe_client_ctx.client_sessions);
 
-	/* Start trying to connect to MGMTD frontend server immediately */
-	mgmt_fe_client_schedule_conn_retry(&mgmt_fe_client_ctx, 1);
+	msg_client_init(&mgmt_fe_client_ctx.client, master_thread,
+			MGMTD_FE_SERVER_PATH, mgmt_fe_client_notify_connect,
+			mgmt_fe_client_notify_disconnect,
+			mgmt_fe_client_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
+			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
+			"FE-client", MGMTD_DBG_FE_CLIENT_CHECK());
 
 	MGMTD_FE_CLIENT_DBG("Initialized client '%s'", params->name);
 
@@ -1056,23 +926,14 @@ mgmt_fe_register_yang_notify(uintptr_t lib_hndl, uintptr_t session_id,
 /*
  * Destroy library and cleanup everything.
  */
-void mgmt_fe_client_lib_destroy(uintptr_t lib_hndl)
+void mgmt_fe_client_lib_destroy(void)
 {
-	struct mgmt_fe_client_ctx *client_ctx;
-
-	client_ctx = (struct mgmt_fe_client_ctx *)lib_hndl;
-	assert(client_ctx);
+	struct mgmt_fe_client_ctx *client_ctx = &mgmt_fe_client_ctx;
 
 	MGMTD_FE_CLIENT_DBG("Destroying MGMTD Frontend Client '%s'",
 			      client_ctx->client_params.name);
 
-	mgmt_fe_server_disconnect(client_ctx, false);
-
-	mgmt_fe_destroy_client_sessions(lib_hndl);
-
-	EVENT_OFF(client_ctx->conn_retry_tmr);
-	EVENT_OFF(client_ctx->conn_read_ev);
-	EVENT_OFF(client_ctx->conn_write_ev);
-	EVENT_OFF(client_ctx->msg_proc_ev);
-	mgmt_msg_destroy(&client_ctx->mstate);
+	mgmt_fe_destroy_client_sessions((uintptr_t)client_ctx);
+	msg_client_cleanup(&client_ctx->client);
+	memset(client_ctx, 0, sizeof(*client_ctx));
 }
