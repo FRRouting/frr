@@ -117,7 +117,7 @@ mgmt_be_find_adapter_by_fd(int conn_fd)
 	struct mgmt_be_client_adapter *adapter;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		if (adapter->conn.fd == conn_fd)
+		if (adapter->conn->fd == conn_fd)
 			return adapter;
 	}
 
@@ -314,8 +314,7 @@ static int mgmt_be_eval_regexp_match(const char *xpath_regexp,
 
 static int mgmt_be_adapter_notify_disconnect(struct msg_conn *conn)
 {
-	struct mgmt_be_client_adapter *adapter =
-		container_of(conn, struct mgmt_be_client_adapter, conn);
+	struct mgmt_be_client_adapter *adapter = conn->user;
 
 	/*
 	 * Notify about disconnect for appropriate cleanup
@@ -348,8 +347,10 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 			 */
 			MGMTD_BE_ADAPTER_DBG(
 				"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)!",
-				adapter->name, adapter->conn.fd, old->conn.fd);
-			msg_conn_disconnect(&old->conn, false);
+				adapter->name, adapter->conn->fd,
+				old->conn->fd);
+			/* this will/should delete old */
+			msg_conn_disconnect(old->conn, false);
 		}
 	}
 }
@@ -381,7 +382,8 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 				MGMTD_BE_ADAPTER_ERR(
 					"Unable to resolve adapter '%s' to a valid ID. Disconnecting!",
 					adapter->name);
-				msg_conn_disconnect(&adapter->conn, false);
+				/* this will/should delete old */
+				msg_conn_disconnect(adapter->conn, false);
 				zlog_err("XXX different from original code");
 				break;
 			}
@@ -487,7 +489,7 @@ static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 				    Mgmtd__BeMessage *be_msg)
 {
 	return msg_conn_send_msg(
-		&adapter->conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
+		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
 		(size_t(*)(void *, void *))mgmtd__be_message__pack);
 }
@@ -564,11 +566,9 @@ static int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 					size_t len, struct msg_conn *conn)
 {
-	struct mgmt_be_client_adapter *adapter;
-	Mgmtd__BeMessage *be_msg;
+	struct mgmt_be_client_adapter *adapter = conn->user;
+	Mgmtd__BeMessage *be_msg = mgmtd__be_message__unpack(NULL, len, data);
 
-	adapter = container_of(conn, struct mgmt_be_client_adapter, conn);
-	be_msg = mgmtd__be_message__unpack(NULL, len, data);
 	if (!be_msg) {
 		MGMTD_BE_ADAPTER_DBG(
 			"Failed to decode %zu bytes for adapter: %s", len,
@@ -616,7 +616,7 @@ static void mgmt_be_adapter_conn_init(struct event *thread)
 	struct mgmt_be_client_adapter *adapter;
 
 	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
-	assert(adapter && adapter->conn.fd >= 0);
+	assert(adapter && adapter->conn->fd >= 0);
 
 	/*
 	 * Check first if the current session can run a CONFIG
@@ -638,7 +638,7 @@ static void mgmt_be_adapter_conn_init(struct event *thread)
 	 */
 	if (mgmt_txn_notify_be_adapter_conn(adapter, true) != 0) {
 		zlog_err("XXX notify be adapter conn fail");
-		msg_conn_disconnect(&adapter->conn, false);
+		msg_conn_disconnect(adapter->conn, false);
 		adapter = NULL;
 	}
 }
@@ -667,7 +667,7 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 	if (!--a->refcount) {
 		mgmt_be_adapters_del(&mgmt_be_adapters, a);
 		EVENT_OFF(a->conn_init_ev);
-		msg_conn_cleanup(&a->conn);
+		msg_server_conn_delete(a->conn);
 		XFREE(MTYPE_MGMTD_BE_ADPATER, a);
 	}
 
@@ -725,7 +725,7 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 		mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
 		RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
 
-		msg_conn_accept_init(&adapter->conn, mgmt_loop, conn_fd,
+		msg_conn_accept_init(adapter->conn, mgmt_loop, conn_fd,
 				     mgmt_be_adapter_notify_disconnect,
 				     mgmt_be_adapter_process_msg,
 				     MGMTD_BE_MAX_NUM_MSG_PROC,
@@ -878,17 +878,17 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
 		vty_out(vty, "  Client: \t\t\t%s\n", adapter->name);
-		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adapter->conn.fd);
+		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adapter->conn->fd);
 		vty_out(vty, "    Client-Id: \t\t\t%d\n", adapter->id);
 		vty_out(vty, "    Ref-Count: \t\t\t%u\n", adapter->refcount);
 		vty_out(vty, "    Msg-Recvd: \t\t\t%" PRIu64 "\n",
-			adapter->mstate.nrxm);
+			adapter->conn->mstate.nrxm);
 		vty_out(vty, "    Bytes-Recvd: \t\t%" PRIu64 "\n",
-			adapter->mstate.nrxb);
+			adapter->conn->mstate.nrxb);
 		vty_out(vty, "    Msg-Sent: \t\t\t%" PRIu64 "\n",
-			adapter->mstate.ntxm);
+			adapter->conn->mstate.ntxm);
 		vty_out(vty, "    Bytes-Sent: \t\t%" PRIu64 "\n",
-			adapter->mstate.ntxb);
+			adapter->conn->mstate.ntxb);
 	}
 	vty_out(vty, "  Total: %d\n",
 		(int)mgmt_be_adapters_count(&mgmt_be_adapters));

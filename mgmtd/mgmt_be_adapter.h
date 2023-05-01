@@ -42,8 +42,7 @@ PREDECL_LIST(mgmt_be_adapters);
 PREDECL_LIST(mgmt_txn_badapters);
 
 struct mgmt_be_client_adapter {
-	struct msg_conn conn;
-	struct mgmt_msg_state mstate;
+	struct msg_conn *conn;
 
 	struct event *conn_init_ev;
 

@@ -55,7 +55,7 @@ PREDECL_LIST(mgmt_fe_sessions);
 PREDECL_LIST(mgmt_fe_adapters);
 
 struct mgmt_fe_client_adapter {
-	struct msg_conn conn;
+	struct msg_conn *conn;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
 	/* List of sessions created and being maintained for this client. */

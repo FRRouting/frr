@@ -351,7 +351,7 @@ static int mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
 				    Mgmtd__FeMessage *fe_msg)
 {
 	return msg_conn_send_msg(
-		&adapter->conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
+		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
 		(size_t(*)(void *, void *))mgmtd__fe_message__pack);
 }
@@ -625,7 +625,7 @@ mgmt_fe_find_adapter_by_fd(int conn_fd)
 	struct mgmt_fe_client_adapter *adapter;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		if (adapter->conn.fd == conn_fd)
+		if (adapter->conn->fd == conn_fd)
 			return adapter;
 	}
 
@@ -648,9 +648,7 @@ mgmt_fe_find_adapter_by_name(const char *name)
 
 static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
 {
-	struct mgmt_fe_client_adapter *adapter;
-
-	adapter = container_of(conn, struct mgmt_fe_client_adapter, conn);
+	struct mgmt_fe_client_adapter *adapter = conn->user;
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
 	mgmt_fe_cleanup_sessions(adapter);
@@ -678,8 +676,9 @@ mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 			 */
 			MGMTD_FE_ADAPTER_DBG(
 				"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)!",
-				adapter->name, adapter->conn.fd, old->conn.fd);
-			msg_conn_disconnect(&old->conn, false);
+				adapter->name, adapter->conn->fd,
+				old->conn->fd);
+			msg_conn_disconnect(old->conn, false);
 		}
 	}
 }
@@ -1366,11 +1365,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 					size_t len, struct msg_conn *conn)
 {
-	struct mgmt_fe_client_adapter *adapter;
-	Mgmtd__FeMessage *fe_msg;
+	struct mgmt_fe_client_adapter *adapter = conn->user;
+	Mgmtd__FeMessage *fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
 
-	adapter = container_of(conn, struct mgmt_fe_client_adapter, conn);
-	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
 	if (!fe_msg) {
 		MGMTD_FE_ADAPTER_DBG(
 			"Failed to decode %zu bytes for adapter: %s", len,
@@ -1397,8 +1394,8 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 
 	if (!--a->refcount) {
 		mgmt_fe_adapters_del(&mgmt_fe_adapters, a);
-		msg_conn_cleanup(&a->conn);
-		XFREE(MTYPE_MGMTD_BE_ADPATER, a);
+		msg_server_conn_delete(a->conn);
+		XFREE(MTYPE_MGMTD_FE_ADPATER, a);
 	}
 	*adapter = NULL;
 }
@@ -1454,12 +1451,11 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 		mgmt_fe_adapter_lock(adapter);
 		mgmt_fe_adapters_add_tail(&mgmt_fe_adapters, adapter);
 
-		msg_conn_accept_init(&adapter->conn, mgmt_loop, conn_fd,
-				     mgmt_fe_adapter_notify_disconnect,
-				     mgmt_fe_adapter_process_msg,
-				     MGMTD_FE_MAX_NUM_MSG_PROC,
-				     MGMTD_FE_MAX_NUM_MSG_WRITE,
-				     MGMTD_FE_MSG_MAX_LEN, "FE-adapter");
+		adapter->conn = msg_server_conn_create(
+			mgmt_loop, conn_fd, mgmt_fe_adapter_notify_disconnect,
+			mgmt_fe_adapter_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
+			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
+			adapter, "FE-adapter");
 
 		adapter->setcfg_stats.min_tm = ULONG_MAX;
 		adapter->cmt_stats.min_tm = ULONG_MAX;
@@ -1702,7 +1698,7 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
 		vty_out(vty, "  Client: \t\t\t\t%s\n", adapter->name);
-		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn.fd);
+		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn->fd);
 		if (detail) {
 			mgmt_fe_adapter_setcfg_stats_write(vty, adapter);
 			mgmt_fe_adapter_cmt_stats_write(vty, adapter);
@@ -1736,13 +1732,13 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "    Total-Sessions: \t\t\t%d\n",
 			(int)mgmt_fe_sessions_count(&adapter->fe_sessions));
 		vty_out(vty, "    Msg-Recvd: \t\t\t\t%" PRIu64 "\n",
-			adapter->conn.mstate.nrxm);
+			adapter->conn->mstate.nrxm);
 		vty_out(vty, "    Bytes-Recvd: \t\t\t%" PRIu64 "\n",
-			adapter->conn.mstate.nrxb);
+			adapter->conn->mstate.nrxb);
 		vty_out(vty, "    Msg-Sent: \t\t\t\t%" PRIu64 "\n",
-			adapter->conn.mstate.ntxm);
+			adapter->conn->mstate.ntxm);
 		vty_out(vty, "    Bytes-Sent: \t\t\t%" PRIu64 "\n",
-			adapter->conn.mstate.ntxb);
+			adapter->conn->mstate.ntxb);
 	}
 	vty_out(vty, "  Total: %d\n",
 		(int)mgmt_fe_adapters_count(&mgmt_fe_adapters));
