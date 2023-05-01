@@ -403,10 +403,23 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		zlog_debug("Updating attribute based on script's values");
 
 		uint32_t locpref = 0;
+		uint32_t med = 0;
 
-		path->attr->med = newattr.med;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+			med = path->attr->med;
+		if (med != newattr.med) {
+			path->attr->med = newattr.med;
+			SET_FLAG(path->attr->flag,
+				 ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+		}
 
-		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+		path->attr->aspath = newattr.aspath;
+
+		path->attr->nh_ifindex = newattr.nh_ifindex;
+
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 			locpref = path->attr->local_pref;
 		if (locpref != newattr.local_pref) {
 			SET_FLAG(path->attr->flag,
