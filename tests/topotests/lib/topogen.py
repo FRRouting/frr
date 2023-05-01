@@ -236,7 +236,6 @@ class Topogen(object):
                 self.add_topology_from_dict(topodef)
 
     def add_topology_from_dict(self, topodef):
-
         keylist = (
             topodef.keys()
             if isinstance(topodef, OrderedDict)
@@ -869,7 +868,7 @@ class TopoRouter(TopoGear):
                             "conf t",
                             "log file {}.log debug".format(daemon),
                             "log commands",
-                            "log timestamp precision 3",
+                            "log timestamp precision 6",
                         ]
                     ),
                     daemon=daemon,
@@ -919,7 +918,7 @@ class TopoRouter(TopoGear):
                             "conf t",
                             "log file {}.log debug".format(daemon),
                             "log commands",
-                            "log timestamp precision 3",
+                            "log timestamp precision 6",
                         ]
                     ),
                     daemon=daemon,
@@ -1203,6 +1202,7 @@ class TopoExaBGP(TopoHost):
 #
 # Diagnostic function
 #
+
 
 # Disable linter branch warning. It is expected to have these here.
 # pylint: disable=R0912
