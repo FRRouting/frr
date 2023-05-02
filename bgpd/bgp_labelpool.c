@@ -843,6 +843,16 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 				vty_out(vty, "%-18s         %u\n", "nexthop",
 					lcb->label);
 			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+				json_object_int_add(json_elem, "label",
+						    lcb->label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "l3vpn-bind",
+					lcb->label);
+			break;
 		}
 	}
 	if (uj)
@@ -941,6 +951,15 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 				vty_out(vty, "%-18s         %u\n", "nexthop",
 					label);
 			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+				json_object_int_add(json_elem, "label", label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "l3vpn-bind",
+					label);
+			break;
 		}
 	}
 	if (uj)
@@ -1019,6 +1038,13 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 						       "nexthop");
 			else
 				vty_out(vty, "Nexthop\n");
+			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj)
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+			else
+				vty_out(vty, "L3VPN-BIND\n");
 			break;
 		}
 	}
