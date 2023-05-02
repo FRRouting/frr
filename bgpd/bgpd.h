@@ -331,6 +331,9 @@ struct as_confed {
 	char *as_pretty;
 };
 
+struct bgp_mplsvpn_nh_label_bind_cache;
+PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -577,6 +580,9 @@ struct bgp {
 	/* Tree for next-hop lookup cache. */
 	struct bgp_label_per_nexthop_cache_head
 		mpls_labels_per_nexthop[AFI_MAX];
+
+	/* Tree for mplsvpn next-hop label bind cache */
+	struct bgp_mplsvpn_nh_label_bind_cache_head mplsvpn_nh_label_bind;
 
 	/* Allocate hash entries to store policy routing information
 	 * The hash are used to host pbr rules somewhere.
