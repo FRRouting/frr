@@ -9183,6 +9183,63 @@ ALIAS (af_rd_vpn_export,
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n")
 
+DEFPY(af_label_vpn_export_allocation_mode,
+      af_label_vpn_export_allocation_mode_cmd,
+      "[no$no] label vpn export allocation-mode <per-vrf$label_per_vrf|per-nexthop$label_per_nh>",
+      NO_STR
+      "label value for VRF\n"
+      "Between current address-family and vpn\n"
+      "For routes leaked from current address-family to vpn\n"
+      "Label allocation mode\n"
+      "Allocate one label for all BGP updates of the VRF\n"
+      "Allocate a label per connected next-hop in the VRF\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi;
+	bool old_per_nexthop, new_per_nexthop;
+
+	afi = vpn_policy_getafi(vty, bgp, false);
+
+	old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	if (no) {
+		if (old_per_nexthop == false && label_per_nh)
+			return CMD_ERR_NO_MATCH;
+		if (old_per_nexthop == true && label_per_vrf)
+			return CMD_ERR_NO_MATCH;
+		new_per_nexthop = false;
+	} else {
+		if (label_per_nh)
+			new_per_nexthop = true;
+		else
+			new_per_nexthop = false;
+	}
+
+	/* no change */
+	if (old_per_nexthop == new_per_nexthop)
+		return CMD_SUCCESS;
+
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			   bgp);
+
+	if (new_per_nexthop)
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+	else
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(),
+			    bgp);
+
+	hook_call(bgp_snmp_update_last_changed, bgp);
+	return CMD_SUCCESS;
+}
+
 DEFPY (af_label_vpn_export,
        af_label_vpn_export_cmd,
        "[no] label vpn export <(0-1048575)$label_val|auto$label_auto>",
@@ -17300,6 +17357,12 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
+		vty_out(vty,
+			"%*slabel vpn export allocation-mode per-nexthop\n",
+			indent, "");
+
 	tovpn_sid_index = bgp->vpn_policy[afi].tovpn_sid_index;
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
@@ -20473,6 +20536,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_rd_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_label_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_label_vpn_export_cmd);
+	install_element(BGP_IPV4_NODE,
+			&af_label_vpn_export_allocation_mode_cmd);
+	install_element(BGP_IPV6_NODE,
+			&af_label_vpn_export_allocation_mode_cmd);
 	install_element(BGP_IPV4_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_rt_vpn_imexport_cmd);
