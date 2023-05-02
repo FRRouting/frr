@@ -108,16 +108,4 @@ extern void mgmt_master_init(struct event_loop *master, const int buffer_size);
 extern void mgmt_init(void);
 extern void mgmt_vty_init(void);
 
-static inline char *mgmt_realtime_to_string(struct timeval *tv, char *buf,
-					    size_t sz)
-{
-	struct tm tm;
-	size_t n;
-
-	localtime_r((const time_t *)&tv->tv_sec, &tm);
-	n = strftime(buf, sz, "%Y-%m-%dT%H:%M:%S", &tm);
-	snprintf(&buf[n], sz - n, ",%06u000", (unsigned int)tv->tv_usec);
-	return buf;
-}
-
 #endif /* _FRR_MGMTD_H */

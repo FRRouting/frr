@@ -1714,7 +1714,7 @@ static void
 mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
 				    struct mgmt_fe_client_adapter *adapter)
 {
-	char buf[100] = {0};
+	char buf[MGMT_LONG_TIME_MAX_LEN];
 
 	if (!mm->perf_stats_en)
 		return;
@@ -1795,7 +1795,7 @@ static void
 mgmt_fe_adapter_setcfg_stats_write(struct vty *vty,
 				       struct mgmt_fe_client_adapter *adapter)
 {
-	char buf[100] = {0};
+	char buf[MGMT_LONG_TIME_MAX_LEN];
 
 	if (!mm->perf_stats_en)
 		return;
