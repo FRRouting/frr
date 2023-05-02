@@ -39,6 +39,9 @@
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
+DEFINE_MTYPE_STATIC(BGPD, MPLSVPN_NH_LABEL_BIND_CACHE,
+		    "BGP MPLSVPN nexthop label bind cache");
+
 /*
  * Definitions and external declarations.
  */
@@ -3902,4 +3905,62 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 			}
 		}
 	}
+}
+
+/* The nexthops values are compared to
+ * find in the tree the appropriate cache entry
+ */
+int bgp_mplsvpn_nh_label_bind_cmp(
+	const struct bgp_mplsvpn_nh_label_bind_cache *a,
+	const struct bgp_mplsvpn_nh_label_bind_cache *b)
+{
+	if (prefix_cmp(&a->nexthop, &b->nexthop))
+		return 1;
+	if (a->orig_label > b->orig_label)
+		return 1;
+	if (a->orig_label < b->orig_label)
+		return -1;
+	return 0;
+}
+
+void bgp_mplsvpn_nh_label_bind_free(
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc)
+{
+	if (bmnc->new_label != MPLS_INVALID_LABEL)
+		bgp_lp_release(LP_TYPE_BGP_L3VPN_BIND, bmnc, bmnc->new_label);
+	bgp_mplsvpn_nh_label_bind_cache_del(
+		&bmnc->bgp_vpn->mplsvpn_nh_label_bind, bmnc);
+	XFREE(MTYPE_MPLSVPN_NH_LABEL_BIND_CACHE, bmnc);
+}
+
+struct bgp_mplsvpn_nh_label_bind_cache *
+bgp_mplsvpn_nh_label_bind_new(struct bgp_mplsvpn_nh_label_bind_cache_head *tree,
+			      struct prefix *p, mpls_label_t orig_label)
+{
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
+
+	bmnc = XCALLOC(MTYPE_MPLSVPN_NH_LABEL_BIND_CACHE,
+		       sizeof(struct bgp_mplsvpn_nh_label_bind_cache));
+	bmnc->new_label = MPLS_INVALID_LABEL;
+	prefix_copy(&bmnc->nexthop, p);
+	bmnc->orig_label = orig_label;
+
+	LIST_INIT(&(bmnc->paths));
+	bgp_mplsvpn_nh_label_bind_cache_add(tree, bmnc);
+
+	return bmnc;
+}
+
+struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
+	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
+	mpls_label_t orig_label)
+{
+	struct bgp_mplsvpn_nh_label_bind_cache bmnc = {0};
+
+	if (!tree)
+		return NULL;
+	prefix_copy(&bmnc.nexthop, p);
+	bmnc.orig_label = orig_label;
+
+	return bgp_mplsvpn_nh_label_bind_cache_find(tree, &bmnc);
 }
