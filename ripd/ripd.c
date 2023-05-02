@@ -1171,6 +1171,12 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			continue;
 		}
 
+		if (packet->version == RIPv1 && rte->tag != 0) {
+			zlog_warn("RIPv1 reserved field is nonzero: %d",
+				  ntohs(rte->tag));
+			continue;
+		}
+
 		/* - is the destination address valid (e.g., unicast; not net 0
 		   or 127) */
 		if (!rip_destination_check(rte->prefix)) {
