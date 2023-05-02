@@ -31,6 +31,8 @@
 #include "jhash.h"
 #include "hook.h"
 #include "lib_errors.h"
+#include "mgmt_be_client.h"
+#include "mgmt_fe_client.h"
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
@@ -2438,6 +2440,8 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+	mgmt_debug_be_client_show_debug(vty);
+	mgmt_debug_fe_client_show_debug(vty);
 }
 
 void install_default(enum node_type node)

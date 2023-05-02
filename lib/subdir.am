@@ -179,6 +179,8 @@ clippy_scan += \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
 	lib/log_vty.c \
+	lib/mgmt_be_client.c \
+	lib/mgmt_fe_client.c \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
 	lib/plist.c \

@@ -364,3 +364,46 @@ MGMT Show commands
 .. clicmd:: show mgmt commit-history
 
     This command dumps details of upto last 10 commits handled by MGMTd.
+
+
+MGMT Daemon debug commands
+==========================
+
+The following debug commands enable debugging within the management daemon:
+
+.. clicmd:: [no] debug mgmt backend
+
+   Enable[/Disable] debugging messages related to backend operations within the
+   management daemon.
+
+.. clicmd:: [no] debug mgmt datastore
+
+   Enable[/Disable] debugging messages related to YANG datastore operations
+   within the management daemon.
+
+.. clicmd:: [no] debug mgmt frontend
+
+   Enable[/Disable] debugging messages related to frontend operations within the
+   management daemon.
+
+.. clicmd:: [no] debug mgmt transaction
+
+   Enable[/Disable] debugging messages related to transactions within the
+   management daemon.
+
+
+MGMT Client debug commands
+==========================
+
+The following debug commands enable debugging within the management front and
+backend clients:
+
+.. clicmd:: [no] debug mgmt client backend
+
+   Enable[/Disable] debugging messages related to backend operations inside the
+   backend mgmtd clients.
+
+.. clicmd:: [no] debug mgmt client frontend
+
+   Enable[/Disable] debugging messages related to frontend operations inside the
+   frontend mgmtd clients.

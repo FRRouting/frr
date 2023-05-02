@@ -192,6 +192,20 @@ extern uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
 					 struct event_loop *master_thread);
 
 /*
+ * Initialize library vty (adds debug support).
+ *
+ * This call should be added to your component when enabling other vty code to
+ * enable mgmtd client debugs. When adding, one needs to also add a their
+ * component in `xref2vtysh.py` as well.
+ */
+extern void mgmt_be_client_lib_vty_init(void);
+
+/*
+ * Print enabled debugging commands.
+ */
+extern void mgmt_debug_be_client_show_debug(struct vty *vty);
+
+/*
  * Subscribe with MGMTD for one or more YANG subtree(s).
  *
  * lib_hndl
