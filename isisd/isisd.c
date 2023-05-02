@@ -520,6 +520,10 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_invalidate_routes(area, area->is_type);
 	isis_area_verify_routes(area);
 
+#ifndef FABRICD
+	flex_algos_free(area->flex_algos);
+#endif /* ifndef FABRICD */
+
 	isis_sr_area_term(area);
 
 	isis_mpls_te_term(area);
