@@ -1191,8 +1191,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					rcap_fad = NULL;
 
 				if (!isis_flex_algo_elected_supported_local_fad(
-					    fa->algorithm, area, &rcap_fad))
+					    fa->algorithm, area, &rcap_fad)) {
+					fa->state = false;
 					continue;
+				}
+				fa->state = true;
 				lsp_debug("ISIS (%s):   SR Algorithm %u",
 					  area->area_tag, fa->algorithm);
 				rcap->algo[fa->algorithm] = fa->algorithm;

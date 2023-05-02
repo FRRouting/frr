@@ -1886,8 +1886,8 @@ void isis_run_spf(struct isis_spftree *spftree)
 	 * Flexible-Algorithm.
 	 */
 	if (flex_algo_id_valid(spftree->algorithm) &&
-	    !isis_flex_algo_elected_supported(spftree->algorithm,
-					      spftree->area)) {
+	    !flex_algo_get_state(spftree->area->flex_algos,
+				 spftree->algorithm)) {
 		if (!CHECK_FLAG(spftree->flags, F_SPFTREE_DISABLED)) {
 			isis_spftree_clear(spftree);
 			SET_FLAG(spftree->flags, F_SPFTREE_DISABLED);

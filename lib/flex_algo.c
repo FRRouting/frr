@@ -79,6 +79,12 @@ bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2)
 		return false;
 	if (fa1->metric_type != fa2->metric_type)
 		return false;
+	if (fa1->exclude_srlg != fa2->exclude_srlg)
+		return false;
+	if (fa1->flags != fa2->flags)
+		return false;
+	if (fa1->unsupported_subtlv != fa2->unsupported_subtlv)
+		return false;
 
 	if (!admin_group_cmp(&fa1->admin_group_exclude_any,
 			     &fa2->admin_group_exclude_any))
@@ -139,4 +145,25 @@ char *flex_algo_metric_type_print(char *type_str, size_t sz,
 		break;
 	}
 	return type_str;
+}
+
+bool flex_algo_get_state(struct flex_algos *flex_algos, uint8_t algorithm)
+{
+	struct flex_algo *fa = flex_algo_lookup(flex_algos, algorithm);
+
+	if (!fa)
+		return false;
+
+	return fa->state;
+}
+
+void flex_algo_set_state(struct flex_algos *flex_algos, uint8_t algorithm,
+			 bool state)
+{
+	struct flex_algo *fa = flex_algo_lookup(flex_algos, algorithm);
+
+	if (!fa)
+		return;
+
+	fa->state = state;
 }
