@@ -4161,3 +4161,85 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 				bmnc, ZEBRA_MPLS_LABELS_REPLACE);
 	}
 }
+
+static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
+						    struct bgp *bgp,
+						    bool detail)
+{
+	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
+	struct bgp_mplsvpn_nh_label_bind_cache *iter;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *dest;
+	struct bgp_path_info *path;
+	struct bgp *bgp_path;
+	struct bgp_table *table;
+	time_t tbuf;
+
+	vty_out(vty, "Current BGP mpls-vpn nexthop label bind cache, %s\n",
+		bgp->name_pretty);
+
+	tree = &bgp->mplsvpn_nh_label_bind;
+	frr_each (bgp_mplsvpn_nh_label_bind_cache, tree, iter) {
+		if (iter->nexthop.family == AF_INET)
+			vty_out(vty, " %pI4", &iter->nexthop.u.prefix4);
+		else
+			vty_out(vty, " %pI6", &iter->nexthop.u.prefix6);
+		vty_out(vty, ", label %u, local label %u #paths %u\n",
+			iter->orig_label, iter->new_label, iter->path_count);
+		if (iter->nh)
+			vty_out(vty, "  interface %s\n",
+				ifindex2ifname(iter->nh->ifindex,
+					       iter->nh->vrf_id));
+		tbuf = time(NULL) - (monotime(NULL) - iter->last_update);
+		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+		if (!detail)
+			continue;
+		vty_out(vty, "  Paths:\n");
+		LIST_FOREACH (path, &(iter->paths),
+			      mplsvpn.bmnc.nh_label_bind_thread) {
+			dest = path->net;
+			table = bgp_dest_table(dest);
+			assert(dest && table);
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			safi = table->safi;
+			bgp_path = table->bgp;
+
+			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n", afi,
+				safi, dest, bgp_path->name_pretty, path->flags);
+		}
+	}
+}
+
+
+DEFUN(show_bgp_mplsvpn_nh_label_bind, show_bgp_mplsvpn_nh_label_bind_cmd,
+      "show bgp [<view|vrf> VIEWVRFNAME] mplsvpn-nh-label-bind [detail]",
+      SHOW_STR BGP_STR BGP_INSTANCE_HELP_STR
+      "BGP mplsvpn nexthop label binding entries\n"
+      "Show detailed information\n")
+{
+	int idx = 0;
+	char *vrf = NULL;
+	struct bgp *bgp;
+	bool detail = false;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[++idx]->arg;
+		bgp = bgp_lookup_by_name(vrf);
+	} else
+		bgp = bgp_get_default();
+
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	show_bgp_mplsvpn_nh_label_bind_internal(vty, bgp, detail);
+	return CMD_SUCCESS;
+}
+
+void bgp_mplsvpn_nexthop_init(void)
+{
+	install_element(VIEW_NODE, &show_bgp_mplsvpn_nh_label_bind_cmd);
+}
