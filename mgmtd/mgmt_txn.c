@@ -2020,7 +2020,6 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 
 		txn->session_id = session_id;
 		txn->type = type;
-		mgmt_txn_badapters_init(&txn->be_adapters);
 		mgmt_txns_add_tail(&mgmt_txn_mm->txn_list, txn);
 		mgmt_txn_reqs_init(&txn->set_cfg_reqs);
 		mgmt_txn_reqs_init(&txn->get_cfg_reqs);
@@ -2461,6 +2460,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		 * has failed.
 		 */
 		FOREACH_TXN_IN_LIST (mgmt_txn_mm, txn) {
+			/* XXX why is this config only? */
 			if (txn->type == MGMTD_TXN_TYPE_CONFIG) {
 				cmtcfg_req = txn->commit_cfg_req
 						     ? &txn->commit_cfg_req

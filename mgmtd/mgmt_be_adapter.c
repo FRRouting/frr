@@ -316,7 +316,6 @@ static void mgmt_be_adapter_delete(struct mgmt_be_client_adapter *adapter)
 		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
 	}
 
-
 	assert(adapter->refcount == 1);
 	mgmt_be_adapter_unlock(&adapter);
 }

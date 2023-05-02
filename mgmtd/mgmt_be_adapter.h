@@ -63,14 +63,11 @@ struct mgmt_be_client_adapter {
 	struct nb_config_cbs cfg_chgs;
 
 	struct mgmt_be_adapters_item list_linkage;
-	struct mgmt_txn_badapters_item txn_list_linkage;
 };
 
 #define MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED (1U << 0)
 
 DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
-DECLARE_LIST(mgmt_txn_badapters, struct mgmt_be_client_adapter,
-	     txn_list_linkage);
 
 union mgmt_be_xpath_subscr_info {
 	uint8_t subscribed;
