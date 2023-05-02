@@ -390,5 +390,6 @@ bgp_mplsvpn_nh_label_bind_new(struct bgp_mplsvpn_nh_label_bind_cache_head *tree,
 struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
 	mpls_label_t orig_label);
+void bgp_mplsvpn_nexthop_init(void);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
