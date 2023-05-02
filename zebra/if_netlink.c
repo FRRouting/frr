@@ -2323,8 +2323,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zlog_debug("RTM_DELLINK for %s(%u)", name,
 				   ifp->ifindex);
 
-		UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
-
 		if (IS_ZEBRA_IF_BOND(ifp))
 			zebra_l2if_update_bond(ifp, false);
 		if (IS_ZEBRA_IF_BOND_SLAVE(ifp))

@@ -800,6 +800,8 @@ void if_delete_update(struct interface **pifp)
 	if (ifp->vrf->vrf_id && !vrf_is_backend_netns())
 		if_handle_vrf_change(ifp, VRF_DEFAULT);
 
+	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+
 	/* Reset some zebra interface params to default values. */
 	zif = ifp->info;
 	if (zif) {
@@ -839,6 +841,9 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Send out notification on interface VRF change. */
 	/* This is to issue an UPDATE or a DELETE, as appropriate. */
 	zebra_interface_vrf_update_del(ifp, vrf_id);
+
+	if (if_is_vrf(ifp))
+		return;
 
 	/* update VRF */
 	if_update_to_new_vrf(ifp, vrf_id);
