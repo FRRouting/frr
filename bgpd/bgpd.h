@@ -810,6 +810,8 @@ DECLARE_QOBJ_TYPE(bgp);
 
 struct bgp_interface {
 #define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
+/* L3VPN multi domain switching */
+#define BGP_INTERFACE_MPLS_L3VPN_SWITCHING (1 << 1)
 	uint32_t flags;
 };
 
