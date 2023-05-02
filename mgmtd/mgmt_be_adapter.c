@@ -137,15 +137,6 @@ mgmt_be_find_adapter_by_name(const char *name)
 	return NULL;
 }
 
-static void
-mgmt_be_cleanup_adapters(void)
-{
-	struct mgmt_be_client_adapter *adapter;
-
-	FOREACH_ADAPTER_IN_LIST (adapter)
-		mgmt_be_adapter_unlock(&adapter);
-}
-
 static void mgmt_be_xpath_map_init(void)
 {
 	int indx, num_xpath_maps;
@@ -312,9 +303,9 @@ static int mgmt_be_eval_regexp_match(const char *xpath_regexp,
 	return match_len;
 }
 
-static int mgmt_be_adapter_notify_disconnect(struct msg_conn *conn)
+static void mgmt_be_adapter_delete(struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_be_client_adapter *adapter = conn->user;
+	MGMTD_BE_ADAPTER_DBG("deleting client adapter '%s'", adapter->name);
 
 	/*
 	 * Notify about disconnect for appropriate cleanup
@@ -325,11 +316,19 @@ static int mgmt_be_adapter_notify_disconnect(struct msg_conn *conn)
 		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
 	}
 
-	/* remove from list */
-	mgmt_be_adapters_del(&mgmt_be_adapters, adapter);
 
-	/* XXX do we expect this to free? if so then just free it :( */
+	assert(adapter->refcount == 1);
 	mgmt_be_adapter_unlock(&adapter);
+}
+
+static int mgmt_be_adapter_notify_disconnect(struct msg_conn *conn)
+{
+	struct mgmt_be_client_adapter *adapter = conn->user;
+
+	MGMTD_BE_ADAPTER_DBG("notify disconnect for client adapter '%s'",
+			     adapter->name);
+
+	mgmt_be_adapter_delete(adapter);
 
 	return 0;
 }
@@ -702,8 +701,12 @@ void mgmt_be_adapter_init(struct event_loop *tm)
  */
 void mgmt_be_adapter_destroy(void)
 {
+	struct mgmt_be_client_adapter *adapter;
+
 	msg_server_cleanup(&mgmt_be_server);
-	mgmt_be_cleanup_adapters();
+	FOREACH_ADAPTER_IN_LIST (adapter) {
+		mgmt_be_adapter_delete(adapter);
+	}
 }
 
 /*
@@ -713,28 +716,26 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 {
 	struct mgmt_be_client_adapter *adapter = NULL;
 
-	adapter = mgmt_be_find_adapter_by_fd(conn_fd);
-	if (!adapter) {
-		adapter = XCALLOC(MTYPE_MGMTD_BE_ADPATER,
-				sizeof(struct mgmt_be_client_adapter));
-		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
-		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
-			 conn_fd);
+	assert(!mgmt_be_find_adapter_by_fd(conn_fd));
 
-		mgmt_be_adapter_lock(adapter);
-		mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
-		RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
+	adapter = XCALLOC(MTYPE_MGMTD_BE_ADPATER,
+			  sizeof(struct mgmt_be_client_adapter));
+	adapter->id = MGMTD_BE_CLIENT_ID_MAX;
+	snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
+		 conn_fd);
 
-		msg_conn_accept_init(adapter->conn, mgmt_loop, conn_fd,
-				     mgmt_be_adapter_notify_disconnect,
-				     mgmt_be_adapter_process_msg,
-				     MGMTD_BE_MAX_NUM_MSG_PROC,
-				     MGMTD_BE_MAX_NUM_MSG_WRITE,
-				     MGMTD_BE_MSG_MAX_LEN, "BE-adapter");
+	mgmt_be_adapter_lock(adapter);
+	mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
+	RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
 
-		MGMTD_BE_ADAPTER_DBG("Added new MGMTD Backend adapter '%s'",
-				      adapter->name);
-	}
+	adapter->conn = msg_server_conn_create(
+		mgmt_loop, conn_fd, mgmt_be_adapter_notify_disconnect,
+		mgmt_be_adapter_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
+		MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, adapter,
+		"BE-adapter");
+
+	MGMTD_BE_ADAPTER_DBG("Added new MGMTD Backend adapter '%s'",
+			     adapter->name);
 
 	/* Trigger resync of config with the new adapter */
 	mgmt_be_adapter_sched_init_event(adapter);
