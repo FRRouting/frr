@@ -1110,9 +1110,10 @@ void rip_interface_sync(struct interface *ifp)
 	struct rip_interface *ri;
 
 	ri = ifp->info;
-	ri->ifp = ifp;
-	if (ri)
+	if (ri) {
 		ri->rip = ifp->vrf->info;
+		ri->ifp = ifp;
+	}
 }
 
 /* Called when interface structure allocated. */
