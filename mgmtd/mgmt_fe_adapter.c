@@ -240,6 +240,7 @@ static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **session)
 
 		mgmt_fe_sessions_del(&(*session)->adapter->fe_sessions,
 				     *session);
+		assert((*session)->adapter->refcount > 1);
 		mgmt_fe_adapter_unlock(&(*session)->adapter);
 	}
 
@@ -276,24 +277,6 @@ static bool mgmt_fe_session_hash_cmp(const void *d1, const void *d2)
 	const struct mgmt_fe_session_ctx *session2 = d2;
 
 	return (session1->session_id == session2->session_id);
-}
-
-static void mgmt_fe_session_hash_free(void *data)
-{
-	struct mgmt_fe_session_ctx *session = data;
-
-	mgmt_fe_cleanup_session(&session);
-}
-
-static void mgmt_fe_session_hash_destroy(void)
-{
-	if (mgmt_fe_sessions == NULL)
-		return;
-
-	hash_clean(mgmt_fe_sessions,
-		   mgmt_fe_session_hash_free);
-	hash_free(mgmt_fe_sessions);
-	mgmt_fe_sessions = NULL;
 }
 
 static inline struct mgmt_fe_session_ctx *
@@ -336,15 +319,6 @@ mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 	hash_get(mgmt_fe_sessions, session, hash_alloc_intern);
 
 	return session;
-}
-
-static void
-mgmt_fe_cleanup_sessions(struct mgmt_fe_client_adapter *adapter)
-{
-	struct mgmt_fe_session_ctx *session;
-
-	FOREACH_SESSION_IN_LIST (adapter, session)
-		mgmt_fe_cleanup_session(&session);
 }
 
 static int mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
@@ -645,24 +619,36 @@ mgmt_fe_find_adapter_by_name(const char *name)
 	return NULL;
 }
 
+static void mgmt_fe_adapter_delete(struct mgmt_fe_client_adapter *adapter)
+{
+	struct mgmt_fe_session_ctx *session;
+	MGMTD_FE_ADAPTER_DBG("deleting client adapter '%s'", adapter->name);
+
+	/* TODO: notify about client disconnect for appropriate cleanup */
+	FOREACH_SESSION_IN_LIST (adapter, session)
+		mgmt_fe_cleanup_session(&session);
+	mgmt_fe_sessions_fini(&adapter->fe_sessions);
+
+	assert(adapter->refcount == 1);
+	mgmt_fe_adapter_unlock(&adapter);
+}
 
 static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
 {
 	struct mgmt_fe_client_adapter *adapter = conn->user;
 
-	/* TODO: notify about client disconnect for appropriate cleanup */
-	mgmt_fe_cleanup_sessions(adapter);
-	mgmt_fe_sessions_fini(&adapter->fe_sessions);
+	MGMTD_FE_ADAPTER_DBG("notify disconnect for client adapter '%s'",
+			     adapter->name);
 
-	/* remove from list */
-	mgmt_fe_adapters_del(&mgmt_fe_adapters, adapter);
-
-	/* XXX do we expect this to free? if so then just free it :( */
-	mgmt_fe_adapter_unlock(&adapter);
+	mgmt_fe_adapter_delete(adapter);
 
 	return 0;
 }
 
+/*
+ * XXX chopps: get rid of this, we should have deleted sessions when there was a
+ * disconnect
+ */
 static void
 mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 {
@@ -680,17 +666,6 @@ mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 				old->conn->fd);
 			msg_conn_disconnect(old->conn, false);
 		}
-	}
-}
-
-static void
-mgmt_fe_cleanup_adapters(void)
-{
-	struct mgmt_fe_client_adapter *adapter;
-
-	FOREACH_ADAPTER_IN_LIST (adapter) {
-		mgmt_fe_cleanup_sessions(adapter);
-		mgmt_fe_adapter_unlock(&adapter);
 	}
 }
 
@@ -1423,14 +1398,32 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 	}
 }
 
+static void mgmt_fe_abort_if_session(void *data)
+{
+	struct mgmt_fe_session_ctx *session = data;
+
+	MGMTD_FE_ADAPTER_ERR("found orphaned session id %" PRIu64
+			     " client id %" PRIu64 " adapter %s",
+			     session->session_id, session->client_id,
+			     session->adapter ? session->adapter->name
+					      : "NULL");
+	abort();
+}
+
 /*
  * Destroy the FE adapter module
  */
 void mgmt_fe_adapter_destroy(void)
 {
+	struct mgmt_fe_client_adapter *adapter;
+
 	msg_server_cleanup(&mgmt_fe_server);
-	mgmt_fe_cleanup_adapters();
-	mgmt_fe_session_hash_destroy();
+
+	/* Deleting the adapters will delete all the sessions */
+	FOREACH_ADAPTER_IN_LIST (adapter)
+		mgmt_fe_adapter_delete(adapter);
+
+	hash_clean_and_free(&mgmt_fe_sessions, mgmt_fe_abort_if_session);
 }
 
 /*
