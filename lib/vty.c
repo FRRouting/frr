@@ -125,8 +125,8 @@ static int no_password_check = 0;
 /* Integrated configuration file path */
 static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
-static bool do_log_commands;
-static bool do_log_commands_perm;
+bool vty_log_commands;
+static bool vty_log_commands_perm;
 
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
@@ -508,7 +508,7 @@ static int vty_command(struct vty *vty, char *buf)
 	/*
 	 * Log non empty command lines
 	 */
-	if (do_log_commands &&
+	if (vty_log_commands &&
 	    strncmp(buf, "echo PING", strlen("echo PING")) != 0)
 		cp = buf;
 	if (cp != NULL) {
@@ -3160,15 +3160,15 @@ DEFPY (log_commands,
        "Log all commands\n")
 {
 	if (no) {
-		if (do_log_commands_perm) {
+		if (vty_log_commands_perm) {
 			vty_out(vty,
 				"Daemon started with permanent logging turned on for commands, ignoring\n");
 			return CMD_WARNING;
 		}
 
-		do_log_commands = false;
+		vty_log_commands = false;
 	} else
-		do_log_commands = true;
+		vty_log_commands = true;
 
 	return CMD_SUCCESS;
 }
@@ -3196,7 +3196,7 @@ static int vty_config_write(struct vty *vty)
 
 	vty_endframe(vty, "exit\n");
 
-	if (do_log_commands)
+	if (vty_log_commands)
 		vty_out(vty, "log commands\n");
 
 	vty_out(vty, "!\n");
@@ -3677,8 +3677,8 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(CONFIG_NODE, &log_commands_cmd);
 
 	if (do_command_logging) {
-		do_log_commands = true;
-		do_log_commands_perm = true;
+		vty_log_commands = true;
+		vty_log_commands_perm = true;
 	}
 
 	install_element(ENABLE_NODE, &terminal_monitor_cmd);

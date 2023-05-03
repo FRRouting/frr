@@ -335,6 +335,7 @@ struct vty_arg {
 #endif
 
 extern struct nb_config *vty_mgmt_candidate_config;
+extern bool vty_log_commands;
 
 /* Prototypes. */
 extern void vty_init(struct event_loop *m, bool do_command_logging);

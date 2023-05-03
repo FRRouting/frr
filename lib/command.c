@@ -1303,6 +1303,14 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		++(*line_num);
 
+		if (vty_log_commands) {
+			int len = strlen(vty->buf);
+
+			/* now log the command */
+			zlog_notice("config-from-file# %.*s", len ? len - 1 : 0,
+				    vty->buf);
+		}
+
 		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
