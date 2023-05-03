@@ -25,8 +25,6 @@
 #include "ripd/rip_interface.h"
 #include "ripd/rip_bfd.h"
 
-DEFINE_MTYPE_STATIC(RIPD, RIP_BFD_PROFILE, "RIP BFD profile name");
-
 /*
  * XPath: /frr-ripd:ripd/instance
  */

@@ -13,6 +13,8 @@
 #include "ripd/rip_bfd.h"
 #include "ripd/rip_debug.h"
 
+DEFINE_MTYPE(RIPD, RIP_BFD_PROFILE, "RIP BFD profile name");
+
 extern struct zclient *zclient;
 
 static const char *rip_bfd_interface_profile(struct rip_interface *ri)

@@ -9,6 +9,8 @@
 
 #include "frrevent.h"
 
+DECLARE_MTYPE(RIP_BFD_PROFILE);
+
 struct rip;
 struct rip_interface;
 struct rip_peer;
