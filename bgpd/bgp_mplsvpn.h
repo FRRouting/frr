@@ -31,7 +31,6 @@
 #define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH 20
 
 extern void bgp_mplsvpn_init(void);
-extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
 extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
 extern uint32_t decode_label(mpls_label_t *);
 extern void encode_label(mpls_label_t, mpls_label_t *);

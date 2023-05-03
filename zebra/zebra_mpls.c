@@ -97,8 +97,8 @@ static struct zebra_nhlfe *nhlfe_find(struct nhlfe_list_head *list,
 static struct zebra_nhlfe *
 nhlfe_add(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
 	  enum nexthop_types_t gtype, const union g_addr *gate,
-	  ifindex_t ifindex, vrf_id_t vrf_id, uint8_t num_labels,
-	  const mpls_label_t *labels, bool is_backup);
+	  ifindex_t ifindex, uint8_t num_labels, const mpls_label_t *labels,
+	  bool is_backup);
 static int nhlfe_del(struct zebra_nhlfe *nhlfe);
 static void nhlfe_free(struct zebra_nhlfe *nhlfe);
 static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
@@ -212,11 +212,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			changed++;
 		} else {
 			/* Add LSP entry to this nexthop */
-			nhlfe = nhlfe_add(
-				lsp, lsp_type, nexthop->type, &nexthop->gate,
-				nexthop->ifindex, nexthop->vrf_id,
-				nexthop->nh_label->num_labels,
-				nexthop->nh_label->label, false /*backup*/);
+			nhlfe = nhlfe_add(lsp, lsp_type, nexthop->type,
+					  &nexthop->gate, nexthop->ifindex,
+					  nexthop->nh_label->num_labels,
+					  nexthop->nh_label->label,
+					  false /*backup*/);
 			if (!nhlfe)
 				return -1;
 
@@ -1236,7 +1236,6 @@ static int nhlfe_nhop_match(struct zebra_nhlfe *nhlfe,
 
 /*
  * Locate NHLFE that matches with passed info.
- * TODO: handle vrf_id if vrf backend is netns based
  */
 static struct zebra_nhlfe *nhlfe_find(struct nhlfe_list_head *list,
 				      enum lsp_types_t lsp_type,
@@ -1262,8 +1261,7 @@ static struct zebra_nhlfe *nhlfe_find(struct nhlfe_list_head *list,
 static struct zebra_nhlfe *
 nhlfe_alloc(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
 	    enum nexthop_types_t gtype, const union g_addr *gate,
-	    ifindex_t ifindex, vrf_id_t vrf_id, uint8_t num_labels,
-	    const mpls_label_t *labels)
+	    ifindex_t ifindex, uint8_t num_labels, const mpls_label_t *labels)
 {
 	struct zebra_nhlfe *nhlfe;
 	struct nexthop *nexthop;
@@ -1280,7 +1278,7 @@ nhlfe_alloc(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
 
 	nexthop_add_labels(nexthop, lsp_type, num_labels, labels);
 
-	nexthop->vrf_id = vrf_id;
+	nexthop->vrf_id = VRF_DEFAULT;
 	nexthop->type = gtype;
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1315,20 +1313,29 @@ nhlfe_alloc(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
  * Add primary or backup NHLFE. Base entry must have been created and
  * duplicate check done.
  */
-static struct zebra_nhlfe *
-nhlfe_add(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
-	  enum nexthop_types_t gtype, const union g_addr *gate,
-	  ifindex_t ifindex, vrf_id_t vrf_id, uint8_t num_labels,
-	  const mpls_label_t *labels, bool is_backup)
+static struct zebra_nhlfe *nhlfe_add(struct zebra_lsp *lsp,
+				     enum lsp_types_t lsp_type,
+				     enum nexthop_types_t gtype,
+				     const union g_addr *gate,
+				     ifindex_t ifindex, uint8_t num_labels,
+				     const mpls_label_t *labels, bool is_backup)
 {
 	struct zebra_nhlfe *nhlfe;
 
 	if (!lsp)
 		return NULL;
 
+	/* Must have labels */
+	if (num_labels == 0 || labels == NULL) {
+		if (IS_ZEBRA_DEBUG_MPLS)
+			zlog_debug("%s: invalid nexthop: no labels", __func__);
+
+		return NULL;
+	}
+
 	/* Allocate new object */
-	nhlfe = nhlfe_alloc(lsp, lsp_type, gtype, gate, ifindex, vrf_id,
-			    num_labels, labels);
+	nhlfe = nhlfe_alloc(lsp, lsp_type, gtype, gate, ifindex, num_labels,
+			    labels);
 
 	if (!nhlfe)
 		return NULL;
@@ -1503,18 +1510,16 @@ static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 
 	json_nhlfe = json_object_new_object();
 	json_object_string_add(json_nhlfe, "type", nhlfe_type2str(nhlfe->type));
-	if (nexthop->nh_label) {
-		json_object_int_add(json_nhlfe, "outLabel",
-				    nexthop->nh_label->label[0]);
-		json_label_stack = json_object_new_array();
-		json_object_object_add(json_nhlfe, "outLabelStack",
-				       json_label_stack);
-		for (i = 0; i < nexthop->nh_label->num_labels; i++)
-			json_object_array_add(
-				json_label_stack,
-				json_object_new_int(
-					nexthop->nh_label->label[i]));
-	}
+	json_object_int_add(json_nhlfe, "outLabel",
+			    nexthop->nh_label->label[0]);
+
+	json_label_stack = json_object_new_array();
+	json_object_object_add(json_nhlfe, "outLabelStack", json_label_stack);
+	for (i = 0; i < nexthop->nh_label->num_labels; i++)
+		json_object_array_add(
+			json_label_stack,
+			json_object_new_int(nexthop->nh_label->label[i]));
+
 	json_object_int_add(json_nhlfe, "distance", nhlfe->distance);
 
 	if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
@@ -1525,10 +1530,6 @@ static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		json_object_string_addf(json_nhlfe, "nexthop", "%pI4",
 					&nexthop->gate.ipv4);
-		if (nexthop->ifindex)
-			json_object_string_add(json_nhlfe, "interface",
-					       ifindex2ifname(nexthop->ifindex,
-							      nexthop->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -2241,8 +2242,8 @@ zebra_mpls_lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
 			 const mpls_label_t *out_labels)
 {
 	/* Just a public pass-through to the internal implementation */
-	return nhlfe_add(lsp, lsp_type, gtype, gate, ifindex, VRF_DEFAULT,
-			 num_labels, out_labels, false /*backup*/);
+	return nhlfe_add(lsp, lsp_type, gtype, gate, ifindex, num_labels,
+			 out_labels, false /*backup*/);
 }
 
 /*
@@ -2256,8 +2257,8 @@ struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nhlfe(
 	uint8_t num_labels, const mpls_label_t *out_labels)
 {
 	/* Just a public pass-through to the internal implementation */
-	return nhlfe_add(lsp, lsp_type, gtype, gate, ifindex, VRF_DEFAULT,
-			 num_labels, out_labels, true);
+	return nhlfe_add(lsp, lsp_type, gtype, gate, ifindex, num_labels,
+			 out_labels, true);
 }
 
 /*
@@ -2269,10 +2270,12 @@ struct zebra_nhlfe *zebra_mpls_lsp_add_nh(struct zebra_lsp *lsp,
 {
 	struct zebra_nhlfe *nhlfe;
 
-	nhlfe = nhlfe_add(
-		lsp, lsp_type, nh->type, &nh->gate, nh->ifindex, nh->vrf_id,
-		nh->nh_label ? nh->nh_label->num_labels : 0,
-		nh->nh_label ? nh->nh_label->label : NULL, false /*backup*/);
+	if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
+		return NULL;
+
+	nhlfe = nhlfe_add(lsp, lsp_type, nh->type, &nh->gate, nh->ifindex,
+			  nh->nh_label->num_labels, nh->nh_label->label,
+			  false /*backup*/);
 
 	return nhlfe;
 }
@@ -2287,10 +2290,12 @@ struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nh(struct zebra_lsp *lsp,
 {
 	struct zebra_nhlfe *nhlfe;
 
-	nhlfe = nhlfe_add(lsp, lsp_type, nh->type, &nh->gate, nh->ifindex,
-			  nh->vrf_id,
-			  nh->nh_label ? nh->nh_label->num_labels : 0,
-			  nh->nh_label ? nh->nh_label->label : NULL, true);
+	if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
+		return NULL;
+
+	nhlfe = nhlfe_add(lsp, lsp_type, nh->type, &nh->gate,
+				 nh->ifindex, nh->nh_label->num_labels,
+				 nh->nh_label->label, true);
 
 	return nhlfe;
 }
@@ -3108,7 +3113,7 @@ static struct zebra_nhlfe *
 lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 	      uint8_t num_out_labels, const mpls_label_t *out_labels,
 	      enum nexthop_types_t gtype, const union g_addr *gate,
-	      ifindex_t ifindex, vrf_id_t vrf_id, bool is_backup)
+	      ifindex_t ifindex, bool is_backup)
 {
 	struct zebra_nhlfe *nhlfe;
 	char buf[MPLS_LABEL_STRLEN];
@@ -3128,18 +3133,13 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 		struct nexthop *nh = nhlfe->nexthop;
 
 		assert(nh);
+		assert(nh->nh_label);
 
 		/* Clear deleted flag (in case it was set) */
 		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
-
-		if (!nh->nh_label || num_out_labels == 0)
-			/* No change */
-			return nhlfe;
-
-		if (nh->nh_label &&
-		    nh->nh_label->num_labels == num_out_labels &&
-		    !memcmp(nh->nh_label->label, out_labels,
-			    sizeof(mpls_label_t) * num_out_labels))
+		if (nh->nh_label->num_labels == num_out_labels
+		    && !memcmp(nh->nh_label->label, out_labels,
+			       sizeof(mpls_label_t) * num_out_labels))
 			/* No change */
 			return nhlfe;
 
@@ -3160,7 +3160,7 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 		}
 
 		/* Update out label(s), trigger processing. */
-		if (nh->nh_label && nh->nh_label->num_labels == num_out_labels)
+		if (nh->nh_label->num_labels == num_out_labels)
 			memcpy(nh->nh_label->label, out_labels,
 			       sizeof(mpls_label_t) * num_out_labels);
 		else {
@@ -3170,7 +3170,7 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 		}
 	} else {
 		/* Add LSP entry to this nexthop */
-		nhlfe = nhlfe_add(lsp, type, gtype, gate, ifindex, vrf_id,
+		nhlfe = nhlfe_add(lsp, type, gtype, gate, ifindex,
 				  num_out_labels, out_labels, is_backup);
 		if (!nhlfe)
 			return NULL;
@@ -3179,11 +3179,8 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 			char buf2[MPLS_LABEL_STRLEN];
 
 			nhlfe2str(nhlfe, buf, sizeof(buf));
-			if (num_out_labels)
-				mpls_label2str(num_out_labels, out_labels, buf2,
-					       sizeof(buf2), 0, 0);
-			else
-				snprintf(buf2, sizeof(buf2), "-");
+			mpls_label2str(num_out_labels, out_labels, buf2,
+				       sizeof(buf2), 0, 0);
 
 			zlog_debug("Add LSP in-label %u type %d %snexthop %s out-label(s) %s",
 				   lsp->ile.in_label, type, backup_str, buf,
@@ -3202,8 +3199,6 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 /*
  * Install an LSP and forwarding entry; used primarily
  * from vrf zapi message processing.
- * TODO: handle vrf_id parameter when mpls API extends to interface or SRTE
- * changes
  */
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
@@ -3225,7 +3220,7 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
 
 	nhlfe = lsp_add_nhlfe(lsp, type, num_out_labels, out_labels, gtype,
-			      gate, ifindex, VRF_DEFAULT, false /*backup*/);
+			      gate, ifindex, false /*backup*/);
 	if (nhlfe == NULL)
 		return -1;
 
@@ -3244,8 +3239,8 @@ static int lsp_znh_install(struct zebra_lsp *lsp, enum lsp_types_t type,
 {
 	struct zebra_nhlfe *nhlfe;
 
-	nhlfe = lsp_add_nhlfe(lsp, type, znh->label_num, znh->labels, znh->type,
-			      &znh->gate, znh->ifindex, znh->vrf_id,
+	nhlfe = lsp_add_nhlfe(lsp, type, znh->label_num, znh->labels,
+			      znh->type, &znh->gate, znh->ifindex,
 			      false /*backup*/);
 	if (nhlfe == NULL)
 		return -1;
@@ -3282,9 +3277,9 @@ static int lsp_backup_znh_install(struct zebra_lsp *lsp, enum lsp_types_t type,
 {
 	struct zebra_nhlfe *nhlfe;
 
-	nhlfe = lsp_add_nhlfe(lsp, type, znh->label_num, znh->labels, znh->type,
-			      &znh->gate, znh->ifindex, znh->vrf_id,
-			      true /*backup*/);
+	nhlfe = lsp_add_nhlfe(lsp, type, znh->label_num,
+			      znh->labels, znh->type, &znh->gate,
+			      znh->ifindex, true /*backup*/);
 	if (nhlfe == NULL) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug("%s: unable to add backup nhlfe, label: %u",
@@ -3615,8 +3610,8 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 
 	} else {
 		/* Add static LSP entry to this nexthop */
-		nhlfe = nhlfe_add(lsp, ZEBRA_LSP_STATIC, gtype, gate, ifindex,
-				  VRF_DEFAULT, 1, &out_label, false /*backup*/);
+		nhlfe = nhlfe_add(lsp, ZEBRA_LSP_STATIC, gtype, gate,
+				  ifindex, 1, &out_label, false /*backup*/);
 		if (!nhlfe)
 			return -1;
 
@@ -3825,8 +3820,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					break;
 				}
 
-				if (nexthop->type != NEXTHOP_TYPE_IFINDEX &&
-				    nexthop->nh_label)
+				if (nexthop->type != NEXTHOP_TYPE_IFINDEX)
 					out_label_str = mpls_label2str(
 						nexthop->nh_label->num_labels,
 						&nexthop->nh_label->label[0],
