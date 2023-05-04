@@ -256,10 +256,15 @@ mgmt_fe_find_session_by_client_id(struct mgmt_fe_client_adapter *adapter,
 	struct mgmt_fe_session_ctx *session;
 
 	FOREACH_SESSION_IN_LIST (adapter, session) {
-		if (session->client_id == client_id)
+		if (session->client_id == client_id) {
+			MGMTD_FE_ADAPTER_DBG("Found session-id %" PRIu64
+					     " using client-id %" PRIu64,
+					     session->session_id, client_id);
 			return session;
+		}
 	}
-
+	MGMTD_FE_ADAPTER_DBG("Session not found using client-id %" PRIu64,
+			     client_id);
 	return NULL;
 }
 
@@ -416,7 +421,7 @@ static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
 	fe_msg.setcfg_reply = &setcfg_reply;
 
 	MGMTD_FE_ADAPTER_DBG(
-		"Sending SET_CONFIG_REPLY message to MGMTD Frontend client '%s'",
+		"Sending SETCFG_REPLY message to MGMTD Frontend client '%s'",
 		session->adapter->name);
 
 	if (implicit_commit) {
@@ -676,7 +681,7 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 	struct mgmt_ds_ctx *ds_ctx;
 
 	/*
-	 * Next check first if the SET_CONFIG_REQ is for Candidate DS
+	 * Next check first if the SETCFG_REQ is for Candidate DS
 	 * or not. Report failure if its not. MGMTD currently only
 	 * supports editing the Candidate DS.
 	 */
@@ -745,7 +750,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 		gettimeofday(&session->adapter->setcfg_stats.last_start, NULL);
 
 	/*
-	 * Next check first if the SET_CONFIG_REQ is for Candidate DS
+	 * Next check first if the SETCFG_REQ is for Candidate DS
 	 * or not. Report failure if its not. MGMTD currently only
 	 * supports editing the Candidate DS.
 	 */
@@ -903,7 +908,7 @@ mgmt_fe_session_handle_getcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	}
 
 	/*
-	 * Next check first if the SET_CONFIG_REQ is for Candidate DS
+	 * Next check first if the GETCFG_REQ is for Candidate DS
 	 * or not. Report failure if its not. MGMTD currently only
 	 * supports editing the Candidate DS.
 	 */
@@ -1116,7 +1121,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	}
 
 	/*
-	 * Next check first if the SET_CONFIG_REQ is for Candidate DS
+	 * Next check first if the COMMCFG_REQ is for Candidate DS
 	 * or not. Report failure if its not. MGMTD currently only
 	 * supports editing the Candidate DS.
 	 */
@@ -1144,8 +1149,8 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 				"Failed to create a Configuration session!");
 			return 0;
 		}
-		MGMTD_FE_ADAPTER_DBG("Created txn %" PRIu64
-				     " for session %" PRIu64
+		MGMTD_FE_ADAPTER_DBG("Created txn-id: %" PRIu64
+				     " for session-id %" PRIu64
 				     " for COMMIT-CFG-REQ",
 				     session->cfg_txn_id, session->session_id);
 	}
@@ -1202,8 +1207,8 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	 */
 	switch ((int)fe_msg->message_case) {
 	case MGMTD__FE_MESSAGE__MESSAGE_REGISTER_REQ:
-		MGMTD_FE_ADAPTER_DBG("Got Register Req Msg from '%s'",
-				       fe_msg->register_req->client_name);
+		MGMTD_FE_ADAPTER_DBG("Got REGISTER_REQ from '%s'",
+				     fe_msg->register_req->client_name);
 
 		if (strlen(fe_msg->register_req->client_name)) {
 			strlcpy(adapter->name,
@@ -1217,9 +1222,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		    && fe_msg->session_req->id_case
 			== MGMTD__FE_SESSION_REQ__ID_CLIENT_CONN_ID) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Got Session Create Req Msg for client-id %llu from '%s'",
-				(unsigned long long)
-					fe_msg->session_req->client_conn_id,
+				"Got SESSION_REQ (create) for client-id %" PRIu64
+				" from '%s'",
+				fe_msg->session_req->client_conn_id,
 				adapter->name);
 
 			session = mgmt_fe_create_session(
@@ -1231,10 +1236,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 			&& fe_msg->session_req->id_case
 				== MGMTD__FE_SESSION_REQ__ID_SESSION_ID) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Got Session Destroy Req Msg for session-id %llu from '%s'",
-				(unsigned long long)
-					fe_msg->session_req->session_id,
-				adapter->name);
+				"Got SESSION_REQ (destroy) for session-id %" PRIu64
+				"from '%s'",
+				fe_msg->session_req->session_id, adapter->name);
 
 			session = mgmt_session_id2ctx(
 				fe_msg->session_req->session_id);
@@ -1247,11 +1251,11 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->lockds_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got %sockDS Req Msg for DS:%d for session-id %llx from '%s'",
-			fe_msg->lockds_req->lock ? "L" : "Unl",
+			"Got %sLOCKDS_REQ for DS:%d for session-id %" PRIu64
+			" from '%s'",
+			fe_msg->lockds_req->lock ? "" : "UN",
 			fe_msg->lockds_req->ds_id,
-			(unsigned long long)fe_msg->lockds_req->session_id,
-			adapter->name);
+			fe_msg->lockds_req->session_id, adapter->name);
 		mgmt_fe_session_handle_lockds_req_msg(
 			session, fe_msg->lockds_req);
 		break;
@@ -1260,12 +1264,12 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 				fe_msg->setcfg_req->session_id);
 		session->adapter->setcfg_stats.set_cfg_count++;
 		MGMTD_FE_ADAPTER_DBG(
-			"Got Set Config Req Msg (%d Xpaths, Implicit:%c) on DS:%d for session-id %llu from '%s'",
+			"Got SETCFG_REQ (%d Xpaths, Implicit:%c) on DS:%d for session-id %" PRIu64
+			" from '%s'",
 			(int)fe_msg->setcfg_req->n_data,
-			fe_msg->setcfg_req->implicit_commit ? 'T':'F',
+			fe_msg->setcfg_req->implicit_commit ? 'T' : 'F',
 			fe_msg->setcfg_req->ds_id,
-			(unsigned long long)fe_msg->setcfg_req->session_id,
-			adapter->name);
+			fe_msg->setcfg_req->session_id, adapter->name);
 
 		mgmt_fe_session_handle_setcfg_req_msg(
 			session, fe_msg->setcfg_req);
@@ -1274,12 +1278,12 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->commcfg_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got Commit Config Req Msg for src-DS:%d dst-DS:%d (Abort:%c) on session-id %llu from '%s'",
+			"Got COMMCFG_REQ for src-DS:%d dst-DS:%d (Abort:%c) on session-id %" PRIu64
+			" from '%s'",
 			fe_msg->commcfg_req->src_ds_id,
 			fe_msg->commcfg_req->dst_ds_id,
-			fe_msg->commcfg_req->abort ? 'T':'F',
-			(unsigned long long)fe_msg->commcfg_req->session_id,
-			adapter->name);
+			fe_msg->commcfg_req->abort ? 'T' : 'F',
+			fe_msg->commcfg_req->session_id, adapter->name);
 		mgmt_fe_session_handle_commit_config_req_msg(
 			session, fe_msg->commcfg_req);
 		break;
@@ -1287,11 +1291,11 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->getcfg_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got Get-Config Req Msg for DS:%d (xpaths: %d) on session-id %llu from '%s'",
+			"Got GETCFG_REQ for DS:%d (xpaths: %d) on session-id %" PRIu64
+			" from '%s'",
 			fe_msg->getcfg_req->ds_id,
 			(int)fe_msg->getcfg_req->n_data,
-			(unsigned long long)fe_msg->getcfg_req->session_id,
-			adapter->name);
+			fe_msg->getcfg_req->session_id, adapter->name);
 		mgmt_fe_session_handle_getcfg_req_msg(
 			session, fe_msg->getcfg_req);
 		break;
@@ -1299,16 +1303,19 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->getdata_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got Get-Data Req Msg for DS:%d (xpaths: %d) on session-id %llu from '%s'",
+			"Got GETDATA_REQ for DS:%d (xpaths: %d) on session-id %" PRIu64
+			" from '%s'",
 			fe_msg->getdata_req->ds_id,
 			(int)fe_msg->getdata_req->n_data,
-			(unsigned long long)fe_msg->getdata_req->session_id,
-			adapter->name);
+			fe_msg->getdata_req->session_id, adapter->name);
 		mgmt_fe_session_handle_getdata_req_msg(
 			session, fe_msg->getdata_req);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_NOTIFY_DATA_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ:
+		MGMTD_FE_ADAPTER_ERR(
+			"Got unhandled message of type %u from '%s'",
+			fe_msg->message_case, adapter->name);
 		/*
 		 * TODO: Add handling code in future.
 		 */
@@ -1361,8 +1368,7 @@ void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)
 	adapter->refcount++;
 }
 
-extern void
-mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
+extern void mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 {
 	struct mgmt_fe_client_adapter *a = *adapter;
 	assert(a && a->refcount);

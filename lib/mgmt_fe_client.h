@@ -202,9 +202,9 @@ extern enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
  * Returns:
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
-extern enum mgmt_result
-mgmt_fe_lock_ds(uintptr_t lib_hndl, uintptr_t session_id, uint64_t req_id,
-		    Mgmtd__DatastoreId ds_id, bool lock_ds);
+extern enum mgmt_result mgmt_fe_lock_ds(uintptr_t lib_hndl, uint64_t session_id,
+					uint64_t req_id,
+					Mgmtd__DatastoreId ds_id, bool lock_ds);
 
 /*
  * Send SET_CONFIG_REQ to MGMTD for one or more config data(s).
@@ -237,10 +237,10 @@ mgmt_fe_lock_ds(uintptr_t lib_hndl, uintptr_t session_id, uint64_t req_id,
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
 extern enum mgmt_result
-mgmt_fe_set_config_data(uintptr_t lib_hndl, uintptr_t session_id,
-			    uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			    Mgmtd__YangCfgDataReq **config_req, int num_req,
-			    bool implicit_commit, Mgmtd__DatastoreId dst_ds_id);
+mgmt_fe_set_config_data(uintptr_t lib_hndl, uint64_t session_id,
+			uint64_t req_id, Mgmtd__DatastoreId ds_id,
+			Mgmtd__YangCfgDataReq **config_req, int num_req,
+			bool implicit_commit, Mgmtd__DatastoreId dst_ds_id);
 
 /*
  * Send SET_COMMMIT_REQ to MGMTD for one or more config data(s).
@@ -270,10 +270,10 @@ mgmt_fe_set_config_data(uintptr_t lib_hndl, uintptr_t session_id,
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
 extern enum mgmt_result
-mgmt_fe_commit_config_data(uintptr_t lib_hndl, uintptr_t session_id,
-			       uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-			       Mgmtd__DatastoreId dst_ds_id, bool validate_only,
-			       bool abort);
+mgmt_fe_commit_config_data(uintptr_t lib_hndl, uint64_t session_id,
+			   uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+			   Mgmtd__DatastoreId dst_ds_id, bool validate_only,
+			   bool abort);
 
 /*
  * Send GET_CONFIG_REQ to MGMTD for one or more config data item(s).
@@ -300,9 +300,9 @@ mgmt_fe_commit_config_data(uintptr_t lib_hndl, uintptr_t session_id,
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
 extern enum mgmt_result
-mgmt_fe_get_config_data(uintptr_t lib_hndl, uintptr_t session_id,
-			    uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			    Mgmtd__YangGetDataReq **data_req, int num_reqs);
+mgmt_fe_get_config_data(uintptr_t lib_hndl, uint64_t session_id,
+			uint64_t req_id, Mgmtd__DatastoreId ds_id,
+			Mgmtd__YangGetDataReq **data_req, int num_reqs);
 
 /*
  * Send GET_DATA_REQ to MGMTD for one or more data item(s).
@@ -310,10 +310,11 @@ mgmt_fe_get_config_data(uintptr_t lib_hndl, uintptr_t session_id,
  * Similar to get config request but supports getting data
  * from operational ds aka backend clients directly.
  */
-extern enum mgmt_result
-mgmt_fe_get_data(uintptr_t lib_hndl, uintptr_t session_id, uint64_t req_id,
-		     Mgmtd__DatastoreId ds_id, Mgmtd__YangGetDataReq **data_req,
-		     int num_reqs);
+extern enum mgmt_result mgmt_fe_get_data(uintptr_t lib_hndl,
+					 uint64_t session_id, uint64_t req_id,
+					 Mgmtd__DatastoreId ds_id,
+					 Mgmtd__YangGetDataReq **data_req,
+					 int num_reqs);
 
 /*
  * Send NOTIFY_REGISTER_REQ to MGMTD daemon.
@@ -343,10 +344,10 @@ mgmt_fe_get_data(uintptr_t lib_hndl, uintptr_t session_id, uint64_t req_id,
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
 extern enum mgmt_result
-mgmt_fe_register_yang_notify(uintptr_t lib_hndl, uintptr_t session_id,
-				 uint64_t req_id, Mgmtd__DatastoreId ds_id,
-				 bool register_req,
-				 Mgmtd__YangDataXPath **data_req, int num_reqs);
+mgmt_fe_register_yang_notify(uintptr_t lib_hndl, uint64_t session_id,
+			     uint64_t req_id, Mgmtd__DatastoreId ds_id,
+			     bool register_req, Mgmtd__YangDataXPath **data_req,
+			     int num_reqs);
 
 /*
  * Destroy library and cleanup everything.

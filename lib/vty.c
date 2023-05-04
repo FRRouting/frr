@@ -1633,6 +1633,8 @@ struct vty *vty_new(void)
 	new->pass_fd = -1;
 
 	if (mgmt_lib_hndl) {
+		if (!mgmt_client_id_next)
+			mgmt_client_id_next++;
 		new->mgmt_client_id = mgmt_client_id_next++;
 		if (mgmt_fe_create_client_session(
 			    mgmt_lib_hndl, new->mgmt_client_id,

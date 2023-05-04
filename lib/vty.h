@@ -218,8 +218,8 @@ struct vty {
 	size_t frame_pos;
 	char frame[1024];
 
-	uintptr_t mgmt_session_id;
-	uint64_t mgmt_client_id;
+	uint64_t mgmt_session_id; /* FE adapter identifies session w/ this */
+	uint64_t mgmt_client_id;  /* FE vty client identifies w/ this ID */
 	uint64_t mgmt_req_id;
 	bool mgmt_req_pending;
 	bool mgmt_locked_candidate_ds;
