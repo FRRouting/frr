@@ -193,7 +193,22 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 static int pim_vrf_disable(struct vrf *vrf)
 {
-	/* Note: This is a callback, the VRF will be deleted by the caller. */
+	struct interface *ifp;
+	char pimreg_name[INTERFACE_NAMSIZ];
+
+	snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
+		 vrf->data.l.table_id);
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		if (!ifp->info)
+			continue;
+
+		if (strmatch(ifp->name, pimreg_name)) {
+			if_delete(&ifp);
+			break;
+		}
+	}
+
 	return 0;
 }
 
