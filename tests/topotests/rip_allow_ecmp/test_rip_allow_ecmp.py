@@ -103,11 +103,13 @@ def test_rip_allow_ecmp():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "Can't see 10.10.10.1/32 as multipath in `show ip rip`"
 
-    def _show_routes():
+    def _show_routes(nh_num):
         output = json.loads(r1.vtysh_cmd("show ip route json"))
         expected = {
             "10.10.10.1/32": [
                 {
+                    "internalNextHopNum": nh_num,
+                    "internalNextHopActiveNum": nh_num,
                     "nexthops": [
                         {
                             "ip": "192.168.1.2",
@@ -117,15 +119,15 @@ def test_rip_allow_ecmp():
                             "ip": "192.168.1.3",
                             "active": True,
                         },
-                    ]
+                    ],
                 }
             ]
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_show_routes)
+    test_func = functools.partial(_show_routes, 4)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, "Can't see 10.10.10.1/32 as multipath in `show ip route`"
+    assert result is None, "Can't see 10.10.10.1/32 as multipath (4) in `show ip route`"
 
     step(
         "Configure allow-ecmp 2, ECMP group routes SHOULD have next-hops with the lowest IPs"
@@ -143,6 +145,10 @@ def test_rip_allow_ecmp():
     assert (
         result is None
     ), "Can't see 10.10.10.1/32 as ECMP with the lowest next-hop IPs"
+
+    test_func = functools.partial(_show_routes, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "Can't see 10.10.10.1/32 as multipath (2) in `show ip route`"
 
 
 if __name__ == "__main__":
