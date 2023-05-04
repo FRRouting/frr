@@ -1223,6 +1223,14 @@ static int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t,
 {
 	struct nlsock *nl;
 
+	/* Don't try to lookup already closed session */
+	if (dp_info->sock < 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"netlink_talk_info: invalid sock fd %d , sendmsg failed",
+				dp_info->sock);
+		return -1;
+	}
 	nl = kernel_netlink_nlsock_lookup(dp_info->sock);
 	n->nlmsg_seq = dp_info->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
