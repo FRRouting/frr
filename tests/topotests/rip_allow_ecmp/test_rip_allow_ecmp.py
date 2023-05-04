@@ -21,12 +21,13 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import step
 
 pytestmark = [pytest.mark.ripd]
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2", "r3")}
+    topodef = {"s1": ("r1", "r2", "r3", "r4", "r5")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -125,6 +126,23 @@ def test_rip_allow_ecmp():
     test_func = functools.partial(_show_routes)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "Can't see 10.10.10.1/32 as multipath in `show ip route`"
+
+    step(
+        "Configure allow-ecmp 2, ECMP group routes SHOULD have next-hops with the lowest IPs"
+    )
+    r1.vtysh_cmd(
+        """
+    configure terminal
+        router rip
+            allow-ecmp 2
+    """
+    )
+
+    test_func = functools.partial(_show_rip_routes)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert (
+        result is None
+    ), "Can't see 10.10.10.1/32 as ECMP with the lowest next-hop IPs"
 
 
 if __name__ == "__main__":
