@@ -25,6 +25,7 @@
 #include "zebra/connected.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_bfd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
@@ -457,7 +458,7 @@ static void rip_interface_reset(struct rip_interface *ri)
 	ri->sent_updates = 0;
 
 	ri->passive = 0;
-	XFREE(MTYPE_TMP, ri->bfd.profile);
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
 
 	rip_interface_clean(ri);
 }
@@ -1110,9 +1111,10 @@ void rip_interface_sync(struct interface *ifp)
 	struct rip_interface *ri;
 
 	ri = ifp->info;
-	ri->ifp = ifp;
-	if (ri)
+	if (ri) {
 		ri->rip = ifp->vrf->info;
+		ri->ifp = ifp;
+	}
 }
 
 /* Called when interface structure allocated. */
