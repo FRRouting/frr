@@ -28,12 +28,9 @@
 	for ((id) = MGMTD_DS_NONE; (id) < MGMTD_DS_MAX_ID; (id)++)
 
 #define MGMTD_MAX_COMMIT_LIST 10
-#define MGMTD_MD5_HASH_LEN 16
-#define MGMTD_MD5_HASH_STR_HEX_LEN 33
 
 #define MGMTD_COMMIT_FILE_PATH DAEMON_DB_DIR "/commit-%s.json"
 #define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
-#define MGMTD_COMMIT_TIME_STR_LEN 100
 
 extern struct nb_config *running_config;
 
