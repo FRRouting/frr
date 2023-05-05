@@ -94,15 +94,17 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
-#if PIM_IPV == 6
-	gm_ifp = pim_ifp->mld;
-#endif
 
 	if (!pim_ifp->pim_enable)
 		return;
 	if (!pim_ifp->gm_enable)
 		return;
 
+#if PIM_IPV == 6
+	gm_ifp = pim_ifp->mld;
+	if (!gm_ifp)
+		return;
+#endif
 	/*
 	 * First clear off membership from all PIM (S,G) entries on the
 	 * interface
