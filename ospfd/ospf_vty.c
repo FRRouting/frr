@@ -3943,16 +3943,15 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 		/* Interface name is specified. */
 		ifp = if_lookup_by_name(intf_name, ospf->vrf_id);
 		if (ifp == NULL) {
-			if (use_json)
+			if (use_json) {
 				json_object_boolean_true_add(json_vrf,
 							     "noSuchIface");
-			else
+				json_object_free(json_interface);
+			} else
 				vty_out(vty, "No such interface name\n");
 		} else {
-			if (use_json) {
+			if (use_json)
 				json_interface_sub = json_object_new_object();
-				json_interface = json_object_new_object();
-			}
 
 			show_ip_ospf_interface_sub(
 				vty, ospf, ifp, json_interface_sub, use_json);
