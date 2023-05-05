@@ -19,6 +19,7 @@ from typing import (
     List,
     Optional,
     TypeVar,
+    Type,
 )
 
 
@@ -104,7 +105,7 @@ class GeneratorChecks:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
+        exc_type: Optional[Type[BaseException]],
         exc_value: Optional[BaseException],
         tb: Optional[TracebackType],
     ):
