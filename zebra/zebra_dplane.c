@@ -5303,8 +5303,10 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 
 	ctx = dplane_ctx_alloc();
 
-	if (!ifp)
-		return result;
+	if (!ifp) {
+		ret = EINVAL;
+		goto done;
+	}
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
 		zlog_debug("init dplane ctx %s: if %s link %s%s",
@@ -5316,8 +5318,11 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
-	if (!zns)
-		return result;
+	if (!zns) {
+		ret = EINVAL;
+		goto done;
+	}
+
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	dplane_ctx_set_ifname(ctx, ifp->name);
@@ -5336,6 +5341,7 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	/* Enqueue context for processing */
 	ret = dplane_update_enqueue(ctx);
 
+done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_gre_set_in, 1,
 				  memory_order_relaxed);
