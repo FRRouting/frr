@@ -92,11 +92,14 @@ struct msg_conn {
 	struct event *read_ev;
 	struct event *write_ev;
 	struct event *proc_msg_ev;
+	struct msg_conn *remote_conn;
 	int (*notify_disconnect)(struct msg_conn *conn);
 	void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
 			   struct msg_conn *conn);
 	void *user;
+	uint short_circuit_depth;
 	bool is_client;
+	bool is_short_circuit;
 	bool debug;
 };
 
@@ -110,7 +113,8 @@ extern void msg_conn_cleanup(struct msg_conn *conn);
 extern void msg_conn_disconnect(struct msg_conn *conn, bool reconnect);
 extern int msg_conn_send_msg(struct msg_conn *client, uint8_t version,
 			     void *msg, size_t mlen,
-			     size_t (*packf)(void *, void *));
+			     size_t (*packf)(void *, void *),
+			     bool short_circuit_ok);
 
 /*
  * Client-side Connections
@@ -121,6 +125,7 @@ struct msg_client {
 	struct event *conn_retry_tmr;
 	char *sopath;
 	int (*notify_connect)(struct msg_client *client);
+	bool short_circuit_ok;
 };
 
 /*
@@ -135,23 +140,26 @@ extern void msg_client_cleanup(struct msg_client *client);
  * called for a client which is currently connected. The socket is closed
  * but there is no notification.
  */
-extern void msg_client_init(struct msg_client *client, struct event_loop *tm,
-			    const char *sopath,
-			    int (*notify_connect)(struct msg_client *client),
-			    int (*notify_disconnect)(struct msg_conn *client),
-			    void (*handle_msg)(uint8_t version, uint8_t *data,
-					       size_t len,
-					       struct msg_conn *client),
-			    size_t max_read_buf, size_t max_write_buf,
-			    size_t max_msg_sz, const char *idtag, bool debug);
+extern void
+msg_client_init(struct msg_client *client, struct event_loop *tm,
+		const char *sopath,
+		int (*notify_connect)(struct msg_client *client),
+		int (*notify_disconnect)(struct msg_conn *client),
+		void (*handle_msg)(uint8_t version, uint8_t *data, size_t len,
+				   struct msg_conn *client),
+		size_t max_read_buf, size_t max_write_buf, size_t max_msg_sz,
+		bool short_circuit_ok, const char *idtag, bool debug);
 
 /*
  * Server-side Connections
  */
 #define MGMTD_MAX_CONN 32
 
+PREDECL_LIST(msg_server_list);
+
 struct msg_server {
 	int fd;
+	struct msg_server_list_item link;
 	struct event_loop *loop;
 	struct event *listen_ev;
 	const char *sopath;

@@ -98,12 +98,14 @@ mgmt_fe_find_session_by_session_id(struct mgmt_fe_client_ctx *client_ctx,
 }
 
 static int mgmt_fe_client_send_msg(struct mgmt_fe_client_ctx *client_ctx,
-				   Mgmtd__FeMessage *fe_msg)
+				   Mgmtd__FeMessage *fe_msg,
+				   bool short_circuit_ok)
 {
 	return msg_conn_send_msg(
 		&client_ctx->client.conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
-		(size_t(*)(void *, void *))mgmtd__fe_message__pack);
+		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
+		short_circuit_ok);
 }
 
 static int mgmt_fe_send_register_req(struct mgmt_fe_client_ctx *client_ctx)
@@ -121,7 +123,7 @@ static int mgmt_fe_send_register_req(struct mgmt_fe_client_ctx *client_ctx)
 	MGMTD_FE_CLIENT_DBG(
 		"Sending REGISTER_REQ message to MGMTD Frontend server");
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, true);
 }
 
 static int mgmt_fe_send_session_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -130,15 +132,18 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client_ctx *client_ctx,
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeSessionReq sess_req;
+	bool scok;
 
 	mgmtd__fe_session_req__init(&sess_req);
 	sess_req.create = create;
 	if (create) {
 		sess_req.id_case = MGMTD__FE_SESSION_REQ__ID_CLIENT_CONN_ID;
 		sess_req.client_conn_id = session->client_id;
+		scok = true;
 	} else {
 		sess_req.id_case = MGMTD__FE_SESSION_REQ__ID_SESSION_ID;
 		sess_req.session_id = session->session_id;
+		scok = false;
 	}
 
 	mgmtd__fe_message__init(&fe_msg);
@@ -149,7 +154,7 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client_ctx *client_ctx,
 		"Sending SESSION_REQ %s message for client-id %" PRIu64,
 		create ? "create" : "destroy", session->client_id);
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, scok);
 }
 
 static int mgmt_fe_send_lockds_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -174,7 +179,7 @@ static int mgmt_fe_send_lockds_req(struct mgmt_fe_client_ctx *client_ctx,
 		"Sending %sLOCK_REQ message for Ds:%d session-id %" PRIu64,
 		lock ? "" : "UN", ds_id, session_id);
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, false);
 }
 
 static int mgmt_fe_send_setcfg_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -206,7 +211,7 @@ static int mgmt_fe_send_setcfg_req(struct mgmt_fe_client_ctx *client_ctx,
 		" (#xpaths:%d)",
 		ds_id, session_id, num_data_reqs);
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, false);
 }
 
 static int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -235,7 +240,7 @@ static int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client_ctx *client_ctx,
 		"Sending COMMIT_CONFIG_REQ message for Src-Ds:%d, Dst-Ds:%d session-id %" PRIu64,
 		src_ds_id, dest_ds_id, session_id);
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, false);
 }
 
 static int mgmt_fe_send_getcfg_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -264,7 +269,7 @@ static int mgmt_fe_send_getcfg_req(struct mgmt_fe_client_ctx *client_ctx,
 		" (#xpaths:%d)",
 		ds_id, session_id, num_data_reqs);
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, false);
 }
 
 static int mgmt_fe_send_getdata_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -293,7 +298,7 @@ static int mgmt_fe_send_getdata_req(struct mgmt_fe_client_ctx *client_ctx,
 		" (#xpaths:%d)",
 		ds_id, session_id, num_data_reqs);
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, false);
 }
 
 static int mgmt_fe_send_regnotify_req(struct mgmt_fe_client_ctx *client_ctx,
@@ -318,7 +323,7 @@ static int mgmt_fe_send_regnotify_req(struct mgmt_fe_client_ctx *client_ctx,
 	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ;
 	fe_msg.regnotify_req = &regntfy_req;
 
-	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
+	return mgmt_fe_client_send_msg(client_ctx, &fe_msg, false);
 }
 
 static int mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
@@ -640,7 +645,7 @@ uintptr_t mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
 			MGMTD_FE_SERVER_PATH, mgmt_fe_client_notify_connect,
 			mgmt_fe_client_notify_disconnect,
 			mgmt_fe_client_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
-			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN,
+			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN, false,
 			"FE-client", MGMTD_DBG_FE_CLIENT_CHECK());
 
 	MGMTD_FE_CLIENT_DBG("Initialized client '%s'", params->name);

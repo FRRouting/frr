@@ -327,12 +327,14 @@ mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 }
 
 static int mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
-				    Mgmtd__FeMessage *fe_msg)
+				    Mgmtd__FeMessage *fe_msg,
+				    bool short_circuit_ok)
 {
 	return msg_conn_send_msg(
 		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
-		(size_t(*)(void *, void *))mgmtd__fe_message__pack);
+		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
+		short_circuit_ok);
 }
 
 static int
@@ -360,7 +362,7 @@ mgmt_fe_send_session_reply(struct mgmt_fe_client_adapter *adapter,
 		"Sending SESSION_REPLY message to MGMTD Frontend client '%s'",
 		adapter->name);
 
-	return mgmt_fe_adapter_send_msg(adapter, &fe_msg);
+	return mgmt_fe_adapter_send_msg(adapter, &fe_msg, true);
 }
 
 static int mgmt_fe_send_lockds_reply(struct mgmt_fe_session_ctx *session,
@@ -390,7 +392,7 @@ static int mgmt_fe_send_lockds_reply(struct mgmt_fe_session_ctx *session,
 		"Sending LOCK_DS_REPLY message to MGMTD Frontend client '%s'",
 		session->adapter->name);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
+	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
@@ -436,7 +438,7 @@ static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
 		gettimeofday(&session->adapter->setcfg_stats.last_end, NULL);
 	mgmt_fe_adapter_compute_set_cfg_timers(&session->adapter->setcfg_stats);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
+	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static int mgmt_fe_send_commitcfg_reply(
@@ -482,7 +484,7 @@ static int mgmt_fe_send_commitcfg_reply(
 	if (mm->perf_stats_en)
 		gettimeofday(&session->adapter->cmt_stats.last_end, NULL);
 	mgmt_fe_session_compute_commit_timers(&session->adapter->cmt_stats);
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
+	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static int mgmt_fe_send_getcfg_reply(struct mgmt_fe_session_ctx *session,
@@ -520,7 +522,7 @@ static int mgmt_fe_send_getcfg_reply(struct mgmt_fe_session_ctx *session,
 		mgmt_fe_session_register_event(
 			session, MGMTD_FE_SESSION_SHOW_TXN_CLNUP);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
+	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static int mgmt_fe_send_getdata_reply(struct mgmt_fe_session_ctx *session,
@@ -558,7 +560,7 @@ static int mgmt_fe_send_getdata_reply(struct mgmt_fe_session_ctx *session,
 		mgmt_fe_session_register_event(
 			session, MGMTD_FE_SESSION_SHOW_TXN_CLNUP);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
+	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)

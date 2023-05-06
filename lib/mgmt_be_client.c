@@ -138,7 +138,7 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
 	return msg_conn_send_msg(
 		&client_ctx->client.conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
-		(size_t(*)(void *, void *))mgmtd__be_message__pack);
+		(size_t(*)(void *, void *))mgmtd__be_message__pack, false);
 }
 
 static struct mgmt_be_batch_ctx *
@@ -966,7 +966,7 @@ uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
 			MGMTD_BE_SERVER_PATH, mgmt_be_client_notify_conenct,
 			mgmt_be_client_notify_disconenct,
 			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
-			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN,
+			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, false,
 			"BE-client", MGMTD_DBG_BE_CLIENT_CHECK());
 
 	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", params->name);

@@ -489,7 +489,7 @@ static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 	return msg_conn_send_msg(
 		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
-		(size_t(*)(void *, void *))mgmtd__be_message__pack);
+		(size_t(*)(void *, void *))mgmtd__be_message__pack, false);
 }
 
 static int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
