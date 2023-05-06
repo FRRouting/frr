@@ -645,7 +645,7 @@ uintptr_t mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
 			MGMTD_FE_SERVER_PATH, mgmt_fe_client_notify_connect,
 			mgmt_fe_client_notify_disconnect,
 			mgmt_fe_client_process_msg, MGMTD_FE_MAX_NUM_MSG_PROC,
-			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN, false,
+			MGMTD_FE_MAX_NUM_MSG_WRITE, MGMTD_FE_MSG_MAX_LEN, true,
 			"FE-client", MGMTD_DBG_FE_CLIENT_CHECK());
 
 	MGMTD_FE_CLIENT_DBG("Initialized client '%s'", params->name);
@@ -683,11 +683,12 @@ enum mgmt_result mgmt_fe_create_client_session(uintptr_t lib_hndl,
 	session->client_ctx = client_ctx;
 	session->session_id = 0;
 
+	mgmt_sessions_add_tail(&client_ctx->client_sessions, session);
+
 	if (mgmt_fe_send_session_req(client_ctx, session, true) != 0) {
 		XFREE(MTYPE_MGMTD_FE_SESSION, session);
 		return MGMTD_INTERNAL_ERROR;
 	}
-	mgmt_sessions_add_tail(&client_ctx->client_sessions, session);
 
 	return MGMTD_SUCCESS;
 }

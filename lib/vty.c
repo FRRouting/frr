@@ -146,7 +146,9 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 	header[3] = ret;
 	buffer_put(vty->obuf, header, 4);
 
-	if (!vty->t_write && (vtysh_flush(vty) < 0))
+	/* XXX this is crashing */
+	// if (!vty->t_write && (vtysh_flush(vty) < 0))
+	if (!vty->t_write)
 		/* Try to flush results; exit if a write
 		 * error occurs.
 		 */
@@ -3492,6 +3494,17 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	size_t indx;
 	int cnt;
 	bool implicit_commit = false;
+
+	if (mgmt_lib_hndl && vty->mgmt_client_id && !vty->mgmt_session_id) {
+		/*
+		 * We are connected to mgmtd but we do not yet have an
+		 * established session. this means we need to send any changes
+		 * made during this "down-time" to all backend clients when this
+		 * FE client finishes coming up.
+		 */
+		MGMTD_FE_CLIENT_DBG("skipping as no session exists");
+		return 0;
+	}
 
 	if (mgmt_lib_hndl && vty->mgmt_session_id) {
 		cnt = 0;
