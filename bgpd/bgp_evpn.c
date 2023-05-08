@@ -2735,43 +2735,59 @@ static int bgp_evpn_mcast_grp_change(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 /*
- * There is a tunnel endpoint IP address change for this VNI, delete
- * prior type-3 route (if needed) and update.
+ * If there is a tunnel endpoint IP address (VTEP-IP) change for this VNI.
+     - Deletes tip_hash entry for old VTEP-IP
+     - Adds tip_hash entry/refcount for new VTEP-IP
+     - Deletes prior type-3 route for L2VNI (if needed)
+     - Updates originator_ip
  * Note: Route re-advertisement happens elsewhere after other processing
  * other changes.
  */
-static void handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
+static void handle_tunnel_ip_change(struct bgp *bgp_vrf, struct bgp *bgp_evpn,
+				    struct bgpevpn *vpn,
 				    struct in_addr originator_ip)
 {
 	struct prefix_evpn p;
+	struct in_addr old_vtep_ip;
 
-	if (IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
+	if (bgp_vrf) /* L3VNI */
+		old_vtep_ip = bgp_vrf->originator_ip;
+	else /* L2VNI */
+		old_vtep_ip = vpn->originator_ip;
+
+	/* TIP didn't change, nothing to do */
+	if (IPV4_ADDR_SAME(&old_vtep_ip, &originator_ip))
 		return;
 
-	/* If VNI is not live, we only need to update the originator ip */
-	if (!is_vni_live(vpn)) {
+	/* If L2VNI is not live, we only need to update the originator_ip.
+	 * L3VNIs are updated immediately, so we can't bail out early.
+	 */
+	if (!bgp_vrf && !is_vni_live(vpn)) {
 		vpn->originator_ip = originator_ip;
 		return;
 	}
 
 	/* Update the tunnel-ip hash */
-	bgp_tip_del(bgp, &vpn->originator_ip);
-	if (bgp_tip_add(bgp, &originator_ip))
+	bgp_tip_del(bgp_evpn, &old_vtep_ip);
+	if (bgp_tip_add(bgp_evpn, &originator_ip))
 		/* The originator_ip was not already present in the
 		 * bgp martian next-hop table as a tunnel-ip, so we
 		 * need to go back and filter routes matching the new
 		 * martian next-hop.
 		 */
-		bgp_filter_evpn_routes_upon_martian_nh_change(bgp);
+		bgp_filter_evpn_routes_upon_martian_nh_change(bgp_evpn);
 
-	/* Need to withdraw type-3 route as the originator IP is part
-	 * of the key.
-	 */
-	build_evpn_type3_prefix(&p, vpn->originator_ip);
-	delete_evpn_route(bgp, vpn, &p);
+	if (!bgp_vrf) {
+		/* Need to withdraw type-3 route as the originator IP is part
+		 * of the key.
+		 */
+		build_evpn_type3_prefix(&p, vpn->originator_ip);
+		delete_evpn_route(bgp_evpn, vpn, &p);
 
-	/* Update the tunnel IP and re-advertise all routes for this VNI. */
-	vpn->originator_ip = originator_ip;
+		vpn->originator_ip = originator_ip;
+	} else
+		bgp_vrf->originator_ip = originator_ip;
+
 	return;
 }
 
@@ -6401,9 +6417,13 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 
 	/* associate the vrf with l3vni and related parameters */
 	bgp_vrf->l3vni = l3vni;
-	bgp_vrf->originator_ip = originator_ip;
 	bgp_vrf->l3vni_svi_ifindex = svi_ifindex;
 	bgp_vrf->evpn_info->is_anycast_mac = is_anycast_mac;
+
+	/* Update tip_hash of the EVPN underlay BGP instance (bgp_evpn)
+	 * if the VTEP-IP (originator_ip) has changed
+	 */
+	handle_tunnel_ip_change(bgp_vrf, bgp_evpn, vpn, originator_ip);
 
 	/* copy anycast MAC from VRR MAC */
 	memcpy(&bgp_vrf->rmac, vrr_rmac, ETH_ALEN);
@@ -6529,6 +6549,11 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	/* delete/withdraw all type-5 routes */
 	delete_withdraw_vrf_routes(bgp_vrf);
 
+	/* Tunnel is no longer active.
+	 * Delete VTEP-IP from EVPN underlay's tip_hash.
+	 */
+	bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
+
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
 
@@ -6593,8 +6618,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	bgp_evpn_unlink_from_vni_svi_hash(bgp, vpn);
 
 	vpn->svi_ifindex = 0;
-	/*
-	 * tunnel is no longer active, del tunnel ip address from tip_hash
+	/* Tunnel is no longer active.
+	 * Delete VTEP-IP from EVPN underlay's tip_hash.
 	 */
 	bgp_tip_del(bgp, &vpn->originator_ip);
 
@@ -6690,7 +6715,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		/* If tunnel endpoint IP has changed, update (and delete prior
 		 * type-3 route, if needed.)
 		 */
-		handle_tunnel_ip_change(bgp, vpn, originator_ip);
+		handle_tunnel_ip_change(NULL, bgp, vpn, originator_ip);
 
 		/* Update all routes with new endpoint IP and/or export RT
 		 * for VRFs
@@ -6710,7 +6735,9 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* Mark as "live" */
 	SET_FLAG(vpn->flags, VNI_FLAG_LIVE);
 
-	/* tunnel is now active, add tunnel-ip to db */
+	/* Tunnel is newly active.
+	 * Add TIP to tip_hash of the EVPN underlay instance (bgp_get_evpn()).
+	 */
 	if (bgp_tip_add(bgp, &originator_ip))
 		/* The originator_ip was not already present in the
 		 * bgp martian next-hop table as a tunnel-ip, so we
