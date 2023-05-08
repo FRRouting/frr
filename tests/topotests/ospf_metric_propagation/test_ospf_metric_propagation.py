@@ -220,10 +220,10 @@ def test_link_1_2_down():
         pytest.skip("skipped because of router(s) failure")
 
     tgen.net["r2"].cmd("ip link set dev r2-eth1 down")
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
     tgen.net["r2"].cmd("ip link set dev r2-eth2 down")
-    # ospf dead-interval is set to 30 seconds, wait 35 seconds to clear the neighbor
-    sleep(35)
     tgen.net["r2"].cmd("ip link set dev r2-eth2 up")
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 up")
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-3.json".format(CWD)
@@ -244,11 +244,11 @@ def test_link_1_2_3_down():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    tgen.net["r3"].cmd("ip link set dev r3-eth0 down")
     tgen.net["r3"].cmd("ip link set dev r3-eth1 down")
-    # ospf dead-interval is set to 30 seconds, wait 35 seconds to clear the neighbor
-    sleep(35)
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
+    tgen.net["r3"].cmd("ip link set dev r3-eth0 down")
     tgen.net["r3"].cmd("ip link set dev r3-eth0 up")
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 up")
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-4.json".format(CWD)
