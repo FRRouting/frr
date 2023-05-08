@@ -1495,7 +1495,7 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_PREFIX_SID] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
-	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -4834,7 +4834,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		 */
 		uint8_t attr_len = BGP_AIGP_TLV_METRIC_LEN;
 
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
 		stream_put_bgp_aigp_tlv_metric(s, bpi);
