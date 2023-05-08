@@ -362,10 +362,11 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct vrf_route_target *l3rt;
+	struct bgp *bgp_evpn = NULL;
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
-	char buf2[ETHER_ADDR_STRLEN];
 
+	bgp_evpn = bgp_get_evpn();
 	json_import_rtl = json_export_rtl = 0;
 
 	if (json) {
@@ -379,19 +380,26 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 					&bgp_vrf->vrf_prd);
 		json_object_string_addf(json, "originatorIp", "%pI4",
 					&bgp_vrf->originator_ip);
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			ecom_str = ecommunity_ecom2str(
+				bgp_evpn->evpn_info->soo,
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			json_object_string_add(json, "siteOfOrigin", ecom_str);
+			ecommunity_strfree(&ecom_str);
+		}
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
 		json_object_string_add(json, "advertiseSviMacIp", "n/a");
-		json_object_string_add(json, "advertisePip",
-				       bgp_vrf->evpn_info->advertise_pip ?
-				       "Enabled" : "Disabled");
-		json_object_string_addf(json, "sysIP", "%pI4",
-					&bgp_vrf->evpn_info->pip_ip);
-		json_object_string_add(json, "sysMac",
-				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
-					       buf2, sizeof(buf2)));
-		json_object_string_add(json, "rmac",
-				prefix_mac2str(&bgp_vrf->rmac,
-					       buf2, sizeof(buf2)));
+		if (bgp_vrf && bgp_vrf->evpn_info) {
+			json_object_string_add(json, "advertisePip",
+					       bgp_vrf->evpn_info->advertise_pip
+						       ? "Enabled"
+						       : "Disabled");
+			json_object_string_addf(json, "sysIP", "%pI4",
+						&bgp_vrf->evpn_info->pip_ip);
+			json_object_string_addf(json, "sysMac", "%pEA",
+						&bgp_vrf->evpn_info->pip_rmac);
+		}
+		json_object_string_addf(json, "rmac", "%pEA", &bgp_vrf->rmac);
 	} else {
 		vty_out(vty, "VNI: %d", bgp_vrf->l3vni);
 		vty_out(vty, " (known to the kernel)");
@@ -406,18 +414,26 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		vty_out(vty, "\n");
 		vty_out(vty, "  Originator IP: %pI4\n",
 			&bgp_vrf->originator_ip);
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			ecom_str = ecommunity_ecom2str(
+				bgp_evpn->evpn_info->soo,
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			vty_out(vty, "  MAC-VRF Site-of-Origin: %s\n",
+				ecom_str);
+			ecommunity_strfree(&ecom_str);
+		}
 		vty_out(vty, "  Advertise-gw-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
-		vty_out(vty, "  Advertise-pip: %s\n",
-			bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
-		vty_out(vty, "  System-IP: %pI4\n",
-			&bgp_vrf->evpn_info->pip_ip);
-		vty_out(vty, "  System-MAC: %s\n",
-				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
-					       buf2, sizeof(buf2)));
-		vty_out(vty, "  Router-MAC: %s\n",
-				prefix_mac2str(&bgp_vrf->rmac,
-					       buf2, sizeof(buf2)));
+		if (bgp_vrf && bgp_vrf->evpn_info) {
+			vty_out(vty, "  Advertise-pip: %s\n",
+				bgp_vrf->evpn_info->advertise_pip ? "Yes"
+								  : "No");
+			vty_out(vty, "  System-IP: %pI4\n",
+				&bgp_vrf->evpn_info->pip_ip);
+			vty_out(vty, "  System-MAC: %pEA\n",
+				&bgp_vrf->evpn_info->pip_rmac);
+		}
+		vty_out(vty, "  Router-MAC: %pEA\n", &bgp_vrf->rmac);
 	}
 
 	if (!json)
@@ -433,7 +449,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		else
 			vty_out(vty, "    %s\n", ecom_str);
 
-		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_strfree(&ecom_str);
 	}
 
 	if (json)
@@ -451,7 +467,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		else
 			vty_out(vty, "    %s\n", ecom_str);
 
-		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_strfree(&ecom_str);
 	}
 
 	if (json)
@@ -484,6 +500,13 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 					&vpn->originator_ip);
 		json_object_string_addf(json, "mcastGroup", "%pI4",
 					&vpn->mcast_grp);
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			ecom_str = ecommunity_ecom2str(
+				bgp_evpn->evpn_info->soo,
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			json_object_string_add(json, "siteOfOrigin", ecom_str);
+			ecommunity_strfree(&ecom_str);
+		}
 		/* per vni knob is enabled -- Enabled
 		 * Global knob is enabled  -- Active
 		 * default  -- Disabled
@@ -525,6 +548,14 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		vty_out(vty, "\n");
 		vty_out(vty, "  Originator IP: %pI4\n", &vpn->originator_ip);
 		vty_out(vty, "  Mcast group: %pI4\n", &vpn->mcast_grp);
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			ecom_str = ecommunity_ecom2str(
+				bgp_evpn->evpn_info->soo,
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			vty_out(vty, "  MAC-VRF Site-of-Origin: %s\n",
+				ecom_str);
+			ecommunity_strfree(&ecom_str);
+		}
 		if (!vpn->advertise_gw_macip &&
 		    bgp_evpn && bgp_evpn->advertise_gw_macip)
 			vty_out(vty, "  Advertise-gw-macip : %s\n",
@@ -562,7 +593,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		else
 			vty_out(vty, "    %s\n", ecom_str);
 
-		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_strfree(&ecom_str);
 	}
 
 	if (json)
@@ -580,7 +611,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		else
 			vty_out(vty, "    %s\n", ecom_str);
 
-		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_strfree(&ecom_str);
 	}
 
 	if (json)
@@ -981,9 +1012,12 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct vrf_route_target *l3rt;
+	struct bgp *bgp_evpn;
 
 	if (!bgp->l3vni)
 		return;
+
+	bgp_evpn = bgp_get_evpn();
 
 	if (json) {
 		json_vni = json_object_new_object();
@@ -1041,7 +1075,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " %-25s", rt_buf);
 		}
 
-		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_strfree(&ecom_str);
 
 		/* If there are multiple import RTs we break here and show only
 		 * one */
@@ -1069,12 +1103,19 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " %-25s", rt_buf);
 		}
 
-		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_strfree(&ecom_str);
 
 		/* If there are multiple export RTs we break here and show only
 		 * one */
 		if (!json) {
-			vty_out(vty, "%-37s", vrf_id_to_name(bgp->vrf_id));
+			if (bgp_evpn && bgp_evpn->evpn_info) {
+				ecom_str = ecommunity_ecom2str(
+					bgp_evpn->evpn_info->soo,
+					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				vty_out(vty, " %-25s", ecom_str);
+				ecommunity_strfree(&ecom_str);
+			}
+			vty_out(vty, " %-37s", vrf_id_to_name(bgp->vrf_id));
 			break;
 		}
 	}
@@ -1083,11 +1124,18 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		char vni_str[VNI_STR_LEN];
 
 		json_object_object_add(json_vni, "exportRTs", json_export_rtl);
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			ecom_str = ecommunity_ecom2str(
+				bgp_evpn->evpn_info->soo,
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			json_object_string_add(json_vni, "siteOfOrigin",
+					       ecom_str);
+			ecommunity_strfree(&ecom_str);
+		}
 		snprintf(vni_str, sizeof(vni_str), "%u", bgp->l3vni);
 		json_object_object_add(json, vni_str, json_vni);
-	} else {
+	} else
 		vty_out(vty, "\n");
-	}
 }
 
 static void show_vni_entry(struct hash_bucket *bucket, void *args[])
@@ -1213,7 +1261,14 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 		/* If there are multiple export RTs we break here and show only
 		 * one */
 		if (!json) {
-			vty_out(vty, "%-37s",
+			if (bgp_evpn && bgp_evpn->evpn_info) {
+				ecom_str = ecommunity_ecom2str(
+					bgp_evpn->evpn_info->soo,
+					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				vty_out(vty, " %-25s", ecom_str);
+				ecommunity_strfree(&ecom_str);
+			}
+			vty_out(vty, " %-37s",
 				vrf_id_to_name(vpn->tenant_vrf_id));
 			break;
 		}
@@ -1223,11 +1278,18 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 		char vni_str[VNI_STR_LEN];
 
 		json_object_object_add(json_vni, "exportRTs", json_export_rtl);
+		if (bgp_evpn && bgp_evpn->evpn_info) {
+			ecom_str = ecommunity_ecom2str(
+				bgp_evpn->evpn_info->soo,
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			json_object_string_add(json_vni, "siteOfOrigin",
+					       ecom_str);
+			ecommunity_strfree(&ecom_str);
+		}
 		snprintf(vni_str, sizeof(vni_str), "%u", vpn->vni);
 		json_object_object_add(json, vni_str, json_vni);
-	} else {
+	} else
 		vty_out(vty, "\n");
-	}
 }
 
 static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
@@ -3276,8 +3338,9 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
 
 	if (!json) {
 		vty_out(vty, "Flags: * - Kernel\n");
-		vty_out(vty, "  %-10s %-4s %-21s %-25s %-25s %-37s\n", "VNI",
-			"Type", "RD", "Import RT", "Export RT", "Tenant VRF");
+		vty_out(vty, "  %-10s %-4s %-21s %-25s %-25s %-25s %-37s\n",
+			"VNI", "Type", "RD", "Import RT", "Export RT",
+			"MAC-VRF Site-of-Origin", "Tenant VRF");
 	}
 
 	/* print all L2 VNIS */
