@@ -4,7 +4,6 @@
       "prefix":"10.0.94.0/24",
       "prefixLen":24,
       "protocol":"bgp",
-      "vrfId":9,
       "vrfName":"green",
       "selected":true,
       "destSelected":true,
