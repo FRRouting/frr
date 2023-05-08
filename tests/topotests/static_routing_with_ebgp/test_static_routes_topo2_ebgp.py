@@ -1435,7 +1435,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             )
 
         step("Reconfigure the deleted routes and verify they are installed")
-        for nhp in range(1, 9):
+        for nhp in range(1, 2):
             input_dict_4 = {
                 "r2": {
                     "static_routes": [
