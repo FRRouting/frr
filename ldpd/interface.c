@@ -138,14 +138,13 @@ void
 if_update_info(struct iface *iface, struct kif *kif)
 {
 	/* get type */
-	if (kif->flags & IFF_POINTOPOINT)
+	if (CHECK_FLAG(kif->flags, IFF_POINTOPOINT))
 		iface->type = IF_TYPE_POINTOPOINT;
-	if (kif->flags & IFF_BROADCAST &&
-	    kif->flags & IFF_MULTICAST)
+	if (CHECK_FLAG(kif->flags, IFF_BROADCAST) &&
+	    CHECK_FLAG(kif->flags, IFF_MULTICAST))
 		iface->type = IF_TYPE_BROADCAST;
 
-	if (ldpd_process == PROC_LDP_ENGINE && iface->operative &&
-	    !kif->operative)
+	if (ldpd_process == PROC_LDP_ENGINE && iface->operative && !kif->operative)
 		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_SHUTDOWN);
 
 	/* get index and flags */
@@ -276,8 +275,7 @@ if_start(struct iface *iface, int af)
 	struct iface_af		*ia;
 	struct timeval		 now;
 
-	log_debug("%s: %s address-family %s", __func__, iface->name,
-	    af_name(af));
+	log_debug("%s: %s address-family %s", __func__, iface->name, af_name(af));
 
 	ia = iface_af_get(iface, af);
 
@@ -560,8 +558,7 @@ if_join_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
 	struct in_addr		 if_addr;
 
-	log_debug("%s: interface %s addr %pI4", __func__, iface->name,
-	    addr);
+	log_debug("%s: interface %s addr %pI4", __func__, iface->name, addr);
 
 	if_addr.s_addr = if_get_ipv4_addr(iface);
 
@@ -579,8 +576,7 @@ if_leave_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
 	struct in_addr		 if_addr;
 
-	log_debug("%s: interface %s addr %pI4", __func__, iface->name,
-	    addr);
+	log_debug("%s: interface %s addr %pI4", __func__, iface->name, addr);
 
 	if_addr.s_addr = if_get_ipv4_addr(iface);
 
