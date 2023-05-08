@@ -1765,3 +1765,18 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 
 	return new;
 }
+
+bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo)
+{
+	if (ecom && soo) {
+		if ((ecommunity_lookup(ecom, ECOMMUNITY_ENCODE_AS,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecom, ECOMMUNITY_ENCODE_AS4,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecom, ECOMMUNITY_ENCODE_IP,
+				       ECOMMUNITY_SITE_ORIGIN)) &&
+		    ecommunity_include(ecom, soo))
+			return true;
+	}
+	return false;
+}

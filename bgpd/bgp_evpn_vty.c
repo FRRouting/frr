@@ -3923,6 +3923,58 @@ DEFPY(bgp_evpn_advertise_svi_ip_vni,
 	return CMD_SUCCESS;
 }
 
+DEFPY(macvrf_soo_global, macvrf_soo_global_cmd,
+      "mac-vrf soo ASN:NN_OR_IP-ADDRESS:NN$soo",
+      "EVPN MAC-VRF\n"
+      "Site-of-Origin extended community\n"
+      "VPN extended community\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct ecommunity *ecomm_soo;
+
+	if (!bgp || !bgp_evpn || !bgp_evpn->evpn_info)
+		return CMD_WARNING;
+
+	if (bgp != bgp_evpn) {
+		vty_out(vty,
+			"%% Please configure MAC-VRF SoO in the EVPN underlay: %s\n",
+			bgp_evpn->name_pretty);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
+	if (!ecomm_soo) {
+		vty_out(vty, "%% Malformed SoO extended community\n");
+		return CMD_WARNING;
+	}
+	ecommunity_str(ecomm_soo);
+
+	bgp_evpn_handle_global_macvrf_soo_change(bgp_evpn, ecomm_soo);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_macvrf_soo_global, no_macvrf_soo_global_cmd,
+      "no mac-vrf soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
+      NO_STR
+      "EVPN MAC-VRF\n"
+      "Site-of-Origin extended community\n"
+      "VPN extended community\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
+	if (!bgp || !bgp_evpn || !bgp_evpn->evpn_info)
+		return CMD_WARNING;
+
+	if (bgp_evpn)
+		bgp_evpn_handle_global_macvrf_soo_change(bgp_evpn,
+							 NULL /* new_soo */);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_HIDDEN (bgp_evpn_advertise_vni_subnet,
 	      bgp_evpn_advertise_vni_subnet_cmd,
 	      "advertise-subnet",
@@ -7158,6 +7210,15 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->evpn_info->advertise_svi_macip)
 		vty_out(vty, "  advertise-svi-ip\n");
 
+	if (bgp->evpn_info->soo) {
+		char *ecom_str;
+
+		ecom_str = ecommunity_ecom2str(bgp->evpn_info->soo,
+					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		vty_out(vty, "  mac-vrf soo %s\n", ecom_str);
+		ecommunity_strfree(&ecom_str);
+	}
+
 	if (bgp->resolve_overlay_index)
 		vty_out(vty, "  enable-resolve-overlay-index\n");
 
@@ -7390,6 +7451,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
+	install_element(BGP_EVPN_NODE, &macvrf_soo_global_cmd);
+	install_element(BGP_EVPN_NODE, &no_macvrf_soo_global_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);

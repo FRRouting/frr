@@ -360,6 +360,8 @@ extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
 						    uint64_t cum_bw,
 						    bool disable_ieee_floating);
 
+extern bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo);
+
 static inline void ecommunity_strip_rts(struct ecommunity *ecom)
 {
 	uint8_t subtype = ECOMMUNITY_ROUTE_TARGET;
