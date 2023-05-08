@@ -41,6 +41,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_packet.h"
 
 /*
  * Definitions and external declarations.
@@ -2688,6 +2689,21 @@ int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	return 0;
 }
 
+/* Update Type-2/3 Routes for L2VNI.
+ * Called by hash_iterate()
+ */
+static void update_routes_for_vni_hash(struct hash_bucket *bucket,
+				       struct bgp *bgp)
+{
+	struct bgpevpn *vpn;
+
+	if (!bucket)
+		return;
+
+	vpn = (struct bgpevpn *)bucket->data;
+	update_routes_for_vni(bgp, vpn);
+}
+
 /*
  * Delete (and withdraw) local routes for specified VNI from the global
  * table and per-VNI table. After this, remove all other routes from
@@ -3530,19 +3546,12 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 	return 0;
 }
 
-static bool route_matches_macvrf_soo(struct bgp_path_info *pi,
-				     const struct prefix_evpn *evp)
+static bool bgp_evpn_route_matches_macvrf_soo(struct bgp_path_info *pi,
+					      const struct prefix_evpn *evp)
 {
 	struct bgp *bgp_evpn = bgp_get_evpn();
-	struct attr *attr = pi->attr;
-	struct ecommunity *ecom, *macvrf_soo;
-
-	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
-		return false;
-
-	ecom = attr->ecommunity;
-	if (!ecom || !ecom->size)
-		return false;
+	struct ecommunity *macvrf_soo;
+	bool ret = false;
 
 	if (!bgp_evpn->evpn_info)
 		return false;
@@ -3556,23 +3565,20 @@ static bool route_matches_macvrf_soo(struct bgp_path_info *pi,
 		return false;
 
 	macvrf_soo = bgp_evpn->evpn_info->soo;
+	ret = route_matches_soo(pi, macvrf_soo);
 
-	/* Fail import check if route is carrying the MAC-VRF SoO */
-	if (soo_in_ecom(ecom, macvrf_soo)) {
-		if (bgp_debug_zebra(NULL)) {
-			char *ecom_str;
+	if (ret && bgp_debug_zebra(NULL)) {
+		char *ecom_str;
 
-			ecom_str = ecommunity_ecom2str(
-				macvrf_soo, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			zlog_debug(
-				"import of evpn prefix %pFX skipped, local mac-vrf soo %s",
-				evp, ecom_str);
-			ecommunity_strfree(&ecom_str);
-		}
-		return true;
+		ecom_str = ecommunity_ecom2str(macvrf_soo,
+					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		zlog_debug(
+			"import of evpn prefix %pFX skipped, local mac-vrf soo %s",
+			evp, ecom_str);
+		ecommunity_strfree(&ecom_str);
 	}
 
-	return false;
+	return ret;
 }
 
 /* This API will scan evpn routes for checking attribute's rmac
@@ -3662,7 +3668,7 @@ int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 		/* don't import hosts that are locally attached */
 		if (install && (bgp_evpn_skip_vrf_import_of_local_es(
 					bgp_vrf, evp, pi, install) ||
-				route_matches_macvrf_soo(pi, evp)))
+				bgp_evpn_route_matches_macvrf_soo(pi, evp)))
 			return 0;
 
 		if (install)
@@ -3795,7 +3801,8 @@ static int install_uninstall_routes_for_vni(struct bgp *bgp,
 					continue;
 
 				if (install) {
-					if (route_matches_macvrf_soo(pi, evp))
+					if (bgp_evpn_route_matches_macvrf_soo(
+						    pi, evp))
 						continue;
 
 					ret = install_evpn_route_entry(bgp, vpn,
@@ -4027,7 +4034,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 	/* Filter routes carrying a Site-of-Origin that matches our
 	 * local MAC-VRF SoO.
 	 */
-	if (import && route_matches_macvrf_soo(pi, evp))
+	if (import && bgp_evpn_route_matches_macvrf_soo(pi, evp))
 		return 0;
 
 	/* An EVPN route belongs to a VNI or a VRF or an ESI based on the RTs
@@ -5577,65 +5584,44 @@ void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 		update_advertise_vni_routes(bgp, vpn);
 }
 
-/*
+/* "mac-vrf soo" vty handler
  * Handle change to the global MAC-VRF Site-of-Origin:
  *   - Unimport routes with new SoO from VNI/VRF
  *   - Import routes with old SoO into VNI/VRF
  *   - Update SoO on local VNI routes + re-advertise
  */
-static void bgp_evpn_update_vni_macvrf_soo(struct hash_bucket *bucket,
-					   struct bgp *bgp)
-{
-	struct bgpevpn *vpn;
-
-	if (bucket) {
-		/* L2VNI */
-		vpn = (struct bgpevpn *)bucket->data;
-		if (is_vni_live(vpn)) {
-			/* TODO: handle updates more gracefully */
-			bgp_evpn_uninstall_routes(bgp, vpn);
-			bgp_evpn_install_routes(bgp, vpn);
-			update_routes_for_vni(bgp, vpn);
-		}
-	} else {
-		/* L3VNI */
-		if (is_l3vni_live(bgp)) {
-			/* TODO: handle updates more gracefully */
-			uninstall_routes_for_vrf(bgp);
-			install_routes_for_vrf(bgp);
-		}
-	}
-}
-
-/* global "mac-vrf soo" vty handler */
 void bgp_evpn_handle_global_macvrf_soo_change(struct bgp *bgp,
 					      struct ecommunity *new_soo)
 {
 	struct ecommunity *old_soo;
-	struct listnode *node, *nnode;
-	struct bgp *tmp_bgp_vrf;
 
 	old_soo = bgp->evpn_info->soo;
 
-	/* cleanup and bail out if old/new soo are the same */
+	/* cleanup and bail out if old_soo == new_soo */
 	if (ecommunity_match(old_soo, new_soo)) {
 		ecommunity_free(&new_soo);
 		return;
 	}
 
-	/* clear old soo + set new soo */
-	ecommunity_free(&bgp->evpn_info->soo);
+	/* set new_soo */
 	bgp->evpn_info->soo = new_soo;
 
-	/* walk L2VNIs */
+	/* Unimport routes matching the new_soo */
+	bgp_filter_evpn_routes_upon_martian_change(bgp, BGP_MARTIAN_SOO);
+
+	/* Reimport routes with old_soo and !new_soo.
+	 */
+	bgp_reimport_evpn_routes_upon_martian_change(
+		bgp, BGP_MARTIAN_SOO, (void *)old_soo, (void *)new_soo);
+
+	/* Update locally originated routes for all L2VNIs */
 	hash_iterate(bgp->vnihash,
 		     (void (*)(struct hash_bucket *,
-			       void *))bgp_evpn_update_vni_macvrf_soo,
+			       void *))update_routes_for_vni_hash,
 		     bgp);
 
-	/* walk L3VNIs */
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, tmp_bgp_vrf))
-		bgp_evpn_update_vni_macvrf_soo(NULL, tmp_bgp_vrf);
+	/* clear old_soo */
+	ecommunity_free(&old_soo);
 }
 
 /*
@@ -6205,7 +6191,84 @@ int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	return install_uninstall_evpn_route(bgp, afi, safi, p, pi, 0);
 }
 
-/* Filter learned (!local) EVPN routes carrying attributes pointing to "self".
+/* Refresh previously-discarded EVPN routes carrying "self" MAC-VRF SoO.
+ * Walk global EVPN rib + import remote routes with old_soo && !new_soo.
+ */
+void bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
+						     struct ecommunity *old_soo,
+						     struct ecommunity *new_soo)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *rd_dest, *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+
+	afi = AFI_L2VPN;
+	safi = SAFI_EVPN;
+
+	/* EVPN routes are a 2-level table: outer=prefix_rd, inner=prefix_evpn.
+	 * A remote route could have any RD, so we need to walk them all.
+	 */
+	for (rd_dest = bgp_table_top(bgp->rib[afi][safi]); rd_dest;
+	     rd_dest = bgp_route_next(rd_dest)) {
+		table = bgp_dest_get_bgp_table_info(rd_dest);
+		if (!table)
+			continue;
+
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			const struct prefix *p;
+			struct prefix_evpn *evp;
+
+			p = bgp_dest_get_prefix(dest);
+			evp = (struct prefix_evpn *)p;
+
+			/* On export we only add MAC-VRF SoO to RT-2/3, so we
+			 * can skip evaluation of other RTs.
+			 */
+			if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE &&
+			    evp->prefix.route_type != BGP_EVPN_IMET_ROUTE)
+				continue;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				bool old_soo_fnd = false;
+				bool new_soo_fnd = false;
+
+				/* Only consider routes learned from peers */
+				if (!(pi->type == ZEBRA_ROUTE_BGP &&
+				      pi->sub_type == BGP_ROUTE_NORMAL))
+					continue;
+
+				if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+					continue;
+
+				old_soo_fnd = route_matches_soo(pi, old_soo);
+				new_soo_fnd = route_matches_soo(pi, new_soo);
+
+				if (old_soo_fnd && !new_soo_fnd) {
+					if (bgp_debug_update(pi->peer, p, NULL,
+							     1)) {
+						char attr_str[BUFSIZ] = {0};
+
+						bgp_dump_attr(pi->attr,
+							      attr_str, BUFSIZ);
+
+						zlog_debug(
+							"mac-vrf soo changed: evaluating reimport of prefix %pBD with attr %s",
+							dest, attr_str);
+					}
+
+					bgp_evpn_import_route(bgp, afi, safi, p,
+							      pi);
+				}
+			}
+		}
+	}
+}
+
+/* Filter learned (!local) EVPN routes carrying "self" attributes.
  * Walk the Global EVPN loc-rib unimporting martian routes from the appropriate
  * L2VNIs (MAC-VRFs) / L3VNIs (IP-VRFs), and deleting them from the Global
  * loc-rib when applicable (based on martian_type).
@@ -6234,9 +6297,11 @@ void bgp_filter_evpn_routes_upon_martian_change(
 	struct bgp_dest *rd_dest, *dest;
 	struct bgp_table *table;
 	struct bgp_path_info *pi;
+	struct ecommunity *macvrf_soo;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
+	macvrf_soo = bgp->evpn_info->soo;
 
 	/* EVPN routes are a 2-level table: outer=prefix_rd, inner=prefix_evpn.
 	 * A remote route could have any RD, so we need to walk them all.
@@ -6269,8 +6334,8 @@ void bgp_filter_evpn_routes_upon_martian_change(
 						pi->sub_type, pi->attr, dest);
 					break;
 				case BGP_MARTIAN_SOO:
-					affected = route_matches_macvrf_soo(
-						pi, (struct prefix_evpn *)p);
+					affected = route_matches_soo(
+						pi, macvrf_soo);
 					break;
 				case BGP_MARTIAN_IF_IP:
 				case BGP_MARTIAN_IF_MAC:
@@ -6314,6 +6379,88 @@ void bgp_filter_evpn_routes_upon_martian_change(
 							       safi);
 				}
 			}
+		}
+	}
+}
+
+/* Refresh previously-discarded EVPN routes carrying "self" attributes.
+ * This function is the handler for deleted martian entries, which is triggered
+ * by events occurring on the local system,
+ * e.g.
+ * - Del MAC-VRF Site-of-Origin
+ *   + bgp_evpn_handle_global_macvrf_soo_change
+ * This will likely be extended in the future to cover these events too:
+ * - Del VTEP-IP
+ *   + bgp_zebra_process_local_vni
+ *   + bgp_zebra_process_local_l3vni
+ * - Del Interface IP
+ *   + bgp_interface_address_delete
+ * - Del Interface MAC
+ *   + bgp_ifp_down
+ *   + bgp_ifp_destroy
+ * - Del RMAC
+ *   + bgp_zebra_process_local_l3vni
+ */
+void bgp_reimport_evpn_routes_upon_martian_change(
+	struct bgp *bgp, enum bgp_martian_type martian_type, void *old_martian,
+	void *new_martian)
+{
+	struct listnode *node;
+	struct peer *peer;
+	safi_t safi;
+	afi_t afi;
+	struct ecommunity *old_soo, *new_soo;
+
+	afi = AFI_L2VPN;
+	safi = SAFI_EVPN;
+
+	/* Self-SoO routes are held in the global EVPN loc-rib, so we can
+	 * reimport routes w/o triggering soft-reconfig/route-refresh.
+	 */
+	if (martian_type == BGP_MARTIAN_SOO) {
+		old_soo = (struct ecommunity *)old_martian;
+		new_soo = (struct ecommunity *)new_martian;
+
+		/* If !old_soo, then we can skip the reimport because we
+		 * wouldn't have filtered anything via the self-SoO import check
+		 */
+		if (old_martian)
+			bgp_reimport_evpn_routes_upon_macvrf_soo_change(
+				bgp, old_soo, new_soo);
+
+		return;
+	}
+
+	/* Self-TIP/IP/MAC/RMAC routes are deleted from the global EVPN
+	 * loc-rib, so we need to re-learn the routes via soft-reconfig/
+	 * route-refresh.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+			continue;
+
+		if (peer->status != Established)
+			continue;
+
+		if (CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_SOFT_RECONFIG)) {
+			if (bgp_debug_update(peer, NULL, NULL, 1))
+				zlog_debug(
+					"Processing EVPN Martian/%s change on peer %s (inbound, soft-reconfig)",
+					bgp_martian_type2str(martian_type),
+					peer->host);
+
+			bgp_soft_reconfig_in(peer, afi, safi);
+		} else {
+			if (bgp_debug_update(peer, NULL, NULL, 1))
+				zlog_debug(
+					"Processing EVPN Martian/%s change on peer %s",
+					bgp_martian_type2str(martian_type),
+					peer->host);
+			bgp_route_refresh_send(peer, afi, safi, 0,
+					       REFRESH_IMMEDIATE, 0,
+					       BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 }
