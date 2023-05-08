@@ -25,7 +25,6 @@
           "fib":true,
           "ip":"10.0.10.5",
           "afi":"ipv4",
-          "interfaceIndex":6,
           "interfaceName":"r1-eth1",
           "vrf":"blue",
           "active":true,
