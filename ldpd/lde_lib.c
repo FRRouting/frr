@@ -17,17 +17,16 @@
 #include "mpls.h"
 
 static __inline int	 fec_compare(const struct fec *, const struct fec *);
-static int		 lde_nbr_is_nexthop(struct fec_node *,
-			    struct lde_nbr *);
-static void		 fec_free(void *);
-static struct fec_node	*fec_add(struct fec *fec);
-static struct fec_nh	*fec_nh_add(struct fec_node *, int, union ldpd_addr *,
+static int	 lde_nbr_is_nexthop(struct fec_node *, struct lde_nbr *);
+static void	 fec_free(void *);
+static struct fec_node	 *fec_add(struct fec *fec);
+static struct fec_nh	 *fec_nh_add(struct fec_node *, int, union ldpd_addr *,
 			    ifindex_t, uint8_t, unsigned short);
-static void		 fec_nh_del(struct fec_nh *);
+static void	 fec_nh_del(struct fec_nh *);
 
 RB_GENERATE(fec_tree, fec, entry, fec_compare)
 
-struct fec_tree		 ft = RB_INITIALIZER(&ft);
+struct fec_tree	 ft = RB_INITIALIZER(&ft);
 struct event *gc_timer;
 
 /* FEC tree functions */
@@ -869,8 +868,7 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 				continue;
 
 			/* LWd.9: check if previously sent a label mapping */
-			me = (struct lde_map *)fec_find(&lnbr->sent_map,
-			    &fn->fec);
+			me = (struct lde_map *)fec_find(&lnbr->sent_map, &fn->fec);
 
 			/*
 			 * LWd.10: does label sent to peer "map" to withdraw
@@ -909,8 +907,7 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 			switch (f->type) {
 			case FEC_TYPE_IPV4:
 			case FEC_TYPE_IPV6:
-				if (!lde_address_find(ln, fnh->af,
-				    &fnh->nexthop))
+				if (!lde_address_find(ln, fnh->af, &fnh->nexthop))
 					continue;
 				break;
 			case FEC_TYPE_PWID:
