@@ -180,6 +180,8 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV4_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV4_NODE;
+		case SAFI_RTC:
+			return BGP_RTC_NODE;
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -200,6 +202,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			return BGP_VPNV6_NODE;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV6_NODE;
+		case SAFI_RTC:
 		case SAFI_UNSPEC:
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -235,6 +238,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 			return "IPv4 Encap";
 		if (safi == SAFI_FLOWSPEC)
 			return "IPv4 Flowspec";
+		if (safi == SAFI_RTC)
+			return "IPv4 RT-Constraint";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "IPv6 Unicast";
@@ -277,6 +282,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 			return "ipv4Encap";
 		if (safi == SAFI_FLOWSPEC)
 			return "ipv4Flowspec";
+		if (safi == SAFI_RTC)
+			return "ipv4Rtc";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "ipv6Unicast";
@@ -416,6 +423,9 @@ safi_t bgp_node_safi(struct vty *vty)
 	case BGP_FLOWSPECV6_NODE:
 		safi = SAFI_FLOWSPEC;
 		break;
+	case BGP_RTC_NODE:
+		safi = SAFI_RTC;
+		break;
 	default:
 		safi = SAFI_UNICAST;
 		break;
@@ -480,6 +490,8 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_LABELED_UNICAST;
 	else if (strmatch(safi_str, "flowspec"))
 		safi = SAFI_FLOWSPEC;
+	else if (strmatch(safi_str, "rt-constraint"))
+		safi = SAFI_RTC;
 	return safi;
 }
 
@@ -546,6 +558,8 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv4-labeled-unicast";
 		case SAFI_FLOWSPEC:
 			return "ipv4-flowspec";
+		case SAFI_RTC:
+			return "rt-constraint";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -566,6 +580,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 			return "ipv6-labeled-unicast";
 		case SAFI_FLOWSPEC:
 			return "ipv6-flowspec";
+		case SAFI_RTC:
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -581,6 +596,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_MPLS_VPN:
 		case SAFI_ENCAP:
 		case SAFI_LABELED_UNICAST:
+		case SAFI_RTC:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -19406,6 +19422,8 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_frame(vty, "ipv4 encap");
 		else if (safi == SAFI_FLOWSPEC)
 			vty_frame(vty, "ipv4 flowspec");
+		if (safi == SAFI_RTC)
+			vty_frame(vty, "ipv4 rt-constraint");
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			vty_frame(vty, "ipv6 unicast");
