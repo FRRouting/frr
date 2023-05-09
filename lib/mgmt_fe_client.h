@@ -114,6 +114,17 @@ struct mgmt_fe_client_params {
 		Mgmtd__YangData **yang_data, size_t num_data);
 };
 
+extern struct debug mgmt_dbg_fe_client;
+
+#define MGMTD_FE_CLIENT_DBG(fmt, ...)                                          \
+	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s:" fmt, __func__,            \
+	       ##__VA_ARGS__)
+#define MGMTD_FE_CLIENT_ERR(fmt, ...)                                          \
+	zlog_err("FE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define MGMTD_DBG_FE_CLIENT_CHECK()                                            \
+	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
+
+
 /***************************************************************
  * API prototypes
  ***************************************************************/

@@ -10,6 +10,7 @@
 
 #include "command.h"
 #include "json.h"
+#include "network.h"
 #include "northbound_cli.h"
 
 #include "mgmtd/mgmt.h"
@@ -19,6 +20,8 @@
 #include "mgmtd/mgmt_history.h"
 
 #include "mgmtd/mgmt_vty_clippy.c"
+
+extern struct frr_daemon_info *mgmt_daemon_info;
 
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
@@ -452,6 +455,16 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 }
 
 /*
+ * We need an event driven file reader for reading in config files.
+ */
+
+static void mgmt_config_read_in(struct event *event)
+{
+	mgmt_vty_read_configs();
+}
+
+#if 0
+/*
  * Analog of `frr_config_read_in()`, instead of our config file though we loop
  * over all daemons that have transitioned to mgmtd, loading their configs
  */
@@ -477,6 +490,7 @@ static int mgmt_config_pre_hook(struct event_loop *loop)
 	}
 	return 0;
 }
+#endif
 
 void mgmt_vty_init(void)
 {
@@ -491,7 +505,10 @@ void mgmt_vty_init(void)
 	static_vty_init();
 #endif
 
-	hook_register(frr_config_pre, mgmt_config_pre_hook);
+	// hook_register(frr_config_pre, mgmt_config_pre_hook);
+
+	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
+			&mgmt_daemon_info->read_in);
 
 	install_node(&debug_node);
 

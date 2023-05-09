@@ -19,14 +19,6 @@
 
 #include "lib/mgmt_fe_client_clippy.c"
 
-#define MGMTD_FE_CLIENT_DBG(fmt, ...)                                          \
-	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s:" fmt, __func__,            \
-	       ##__VA_ARGS__)
-#define MGMTD_FE_CLIENT_ERR(fmt, ...)                                          \
-	zlog_err("FE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#define MGMTD_DBG_FE_CLIENT_CHECK()                                            \
-	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
-
 struct mgmt_fe_client_ctx;
 
 PREDECL_LIST(mgmt_sessions);

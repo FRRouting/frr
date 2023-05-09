@@ -21,6 +21,7 @@
 #endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
 
+#include "debug.h"
 #include "linklist.h"
 #include "frrevent.h"
 #include "buffer.h"
@@ -128,6 +129,13 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 bool vty_log_commands;
 static bool vty_log_commands_perm;
 
+char const *const mgmt_daemons[] = {
+#ifdef HAVE_STATICD
+	"staticd",
+#endif
+};
+uint mgmt_daemons_count = array_size(mgmt_daemons);
+
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
@@ -143,21 +151,26 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 		ret = CMD_WARNING_CONFIG_FAILED;
 
 	vty->mgmt_req_pending = false;
-	header[3] = ret;
-	buffer_put(vty->obuf, header, 4);
 
-	/* XXX this is crashing */
-	// if (!vty->t_write && (vtysh_flush(vty) < 0))
-	if (!vty->t_write)
-		/* Try to flush results; exit if a write
-		 * error occurs.
-		 */
-		return;
+	MGMTD_FE_CLIENT_DBG("resuming: %s:", success ? "succeeded" : "failed");
+
+	if (vty->type != VTY_FILE) {
+		header[3] = ret;
+		buffer_put(vty->obuf, header, 4);
+		if (!vty->t_write && (vtysh_flush(vty) < 0)) {
+			zlog_err("failed to vtysh_flush");
+			/* Try to flush results; exit if a write error occurs */
+			return;
+		}
+	}
 
 	if (vty->status == VTY_CLOSE)
 		vty_close(vty);
-	else
+	else if (vty->type != VTY_FILE)
 		vty_event(VTYSH_READ, vty);
+	else
+		/* should we assert here? */
+		zlog_err("mgmtd: unexpected resume while reading config file");
 }
 
 void vty_frame(struct vty *vty, const char *format, ...)
@@ -2177,6 +2190,79 @@ void vty_pass_fd(struct vty *vty, int fd)
 	vty->pass_fd = fd;
 }
 
+bool mgmt_vty_read_configs(void)
+{
+	char path[PATH_MAX];
+	struct vty *vty;
+	FILE *confp;
+	uint line_num = 0;
+	uint count = 0;
+
+	vty = vty_new();
+	vty->wfd = STDERR_FILENO;
+	vty->type = VTY_FILE;
+	vty->node = CONFIG_NODE;
+	vty->config = true;
+	vty->candidate_config = vty_shared_candidate_config;
+	vty->mgmt_locked_candidate_ds = true;
+	mgmt_candidate_ds_wr_locked = true;
+
+	for (uint index = 0; index < mgmt_daemons_count; index++) {
+		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
+			 mgmt_daemons[index]);
+
+		confp = vty_open_config(path, config_default);
+		if (!confp)
+			continue;
+
+		MGMTD_FE_CLIENT_DBG("mgmtd: reading config file %s", path);
+
+		/* Execute configuration file */
+		line_num = 0;
+		(void)config_from_file(vty, confp, &line_num);
+		count++;
+	}
+
+	MGMTD_FE_CLIENT_DBG(
+		"mgmtd: done with daemon configs, checking mgmtd config");
+
+	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
+	confp = vty_open_config(path, config_default);
+	if (!confp) {
+		char *orig;
+
+		MGMTD_FE_CLIENT_DBG("mgmtd: no mgmtd config file %s", path);
+
+		snprintf(path, sizeof(path), "%s/zebra.conf", frr_sysconfdir);
+		orig = XSTRDUP(MTYPE_TMP, host_config_get());
+
+		zlog_info("mgmtd: trying backup config file: %s", path);
+		confp = vty_open_config(path, config_default);
+
+		host_config_set(path);
+		XFREE(MTYPE_TMP, orig);
+	}
+
+	if (confp) {
+		line_num = 0;
+		(void)config_from_file(vty, confp, &line_num);
+		count++;
+	}
+
+	if (!count) {
+		MGMTD_FE_CLIENT_DBG("mgmtd: read no config files");
+		vty_close(vty);
+	} else {
+		MGMTD_FE_CLIENT_DBG("mgmtd: done reading all config files");
+		vty_read_file_finish(vty, vty->candidate_config);
+	}
+
+	vty->mgmt_locked_candidate_ds = false;
+	mgmt_candidate_ds_wr_locked = false;
+
+	return true;
+}
+
 static void vtysh_read(struct event *thread)
 {
 	int ret;
@@ -2323,6 +2409,8 @@ void vty_close(struct vty *vty)
 	int i;
 	bool was_stdio = false;
 
+	vty->status = VTY_CLOSE;
+
 	if (mgmt_lib_hndl) {
 		mgmt_fe_destroy_client_session(mgmt_lib_hndl,
 					       vty->mgmt_client_id);
@@ -2359,7 +2447,7 @@ void vty_close(struct vty *vty)
 	if (vty->fd != -1) {
 		if (vty->type == VTY_SHELL_SERV)
 			vtys_del(vtysh_sessions, vty);
-		else
+		else if (vty->type == VTY_TERM)
 			vtys_del(vty_sessions, vty);
 	}
 
@@ -2413,10 +2501,7 @@ static void vty_timeout(struct event *thread)
 /* Read up configuration file from file_name. */
 void vty_read_file(struct nb_config *config, FILE *confp)
 {
-	int ret;
 	struct vty *vty;
-	struct vty_error *ve;
-	struct listnode *node;
 	unsigned int line_num = 0;
 
 	vty = vty_new();
@@ -2439,16 +2524,30 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	}
 
 	/* Execute configuration file */
-	ret = config_from_file(vty, confp, &line_num);
+	(void)config_from_file(vty, confp, &line_num);
+
+	vty_read_file_finish(vty, config);
+}
+
+void vty_read_file_finish(struct vty *vty, struct nb_config *config)
+{
+	struct vty_error *ve;
+	struct listnode *node;
 
 	/* Flush any previous errors before printing messages below */
 	buffer_flush_all(vty->obuf, vty->wfd);
 
-	if (!((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO))) {
+	for (ALL_LIST_ELEMENTS_RO(vty->error, node, ve)) {
 		const char *message = NULL;
 		char *nl;
 
-		switch (ret) {
+		switch (ve->cmd_ret) {
+		case CMD_SUCCESS:
+			message = "Command succeeded";
+			break;
+		case CMD_ERR_NOTHING_TODO:
+			message = "Nothing to do";
+			break;
 		case CMD_ERR_AMBIGUOUS:
 			message = "Ambiguous command";
 			break;
@@ -2473,13 +2572,11 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 			break;
 		}
 
-		for (ALL_LIST_ELEMENTS_RO(vty->error, node, ve)) {
-			nl = strchr(ve->error_buf, '\n');
-			if (nl)
-				*nl = '\0';
-			flog_err(EC_LIB_VTY, "%s on config line %u: %s",
-				 message, ve->line_num, ve->error_buf);
-		}
+		nl = strchr(ve->error_buf, '\n');
+		if (nl)
+			*nl = '\0';
+		flog_err(EC_LIB_VTY, "%s on config line %u: %s", message,
+			 ve->line_num, ve->error_buf);
 	}
 
 	/*
@@ -2489,6 +2586,7 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	if (config == NULL) {
 		struct nb_context context = {};
 		char errmsg[BUFSIZ] = {0};
+		int ret;
 
 		context.client = NB_CLIENT_CLI;
 		context.user = vty;
@@ -2559,15 +2657,12 @@ static FILE *vty_use_backup_config(const char *fullpath)
 	return ret;
 }
 
-/* Read up configuration file from file_name. */
-bool vty_read_config(struct nb_config *config, const char *config_file,
-		     char *config_default_dir)
+FILE *vty_open_config(const char *config_file, char *config_default_dir)
 {
 	char cwd[MAXPATHLEN];
 	FILE *confp = NULL;
 	const char *fullpath;
 	char *tmp = NULL;
-	bool read_success = false;
 
 	/* If -f flag specified. */
 	if (config_file != NULL) {
@@ -2631,7 +2726,7 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 		if (strstr(config_default_dir, "vtysh") == NULL) {
 			ret = stat(integrate_default, &conf_stat);
 			if (ret >= 0) {
-				read_success = true;
+				// read_success = true;
 				goto tmp_free_and_out;
 			}
 		}
@@ -2659,42 +2754,29 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 			fullpath = config_default_dir;
 	}
 
-	vty_read_file(config, confp);
-	read_success = true;
-
-	fclose(confp);
-
 	host_config_set(fullpath);
 
 tmp_free_and_out:
 	XFREE(MTYPE_TMP, tmp);
 
-	return read_success;
+	return confp;
 }
 
-static void update_xpath(struct vty *vty, const char *oldpath,
-			 const char *newpath)
+
+bool vty_read_config(struct nb_config *config, const char *config_file,
+		     char *config_default_dir)
 {
-	int i;
+	FILE *confp;
 
-	for (i = 0; i < vty->xpath_index; i++) {
-		if (!frrstr_startswith(vty->xpath[i], oldpath))
-			break;
+	confp = vty_open_config(config_file, config_default_dir);
+	if (!confp)
+		return false;
 
-		char *tmp = frrstr_replace(vty->xpath[i], oldpath, newpath);
-		strlcpy(vty->xpath[i], tmp, sizeof(vty->xpath[0]));
-		XFREE(MTYPE_TMP, tmp);
-	}
-}
+	vty_read_file(config, confp);
 
-void vty_update_xpath(const char *oldpath, const char *newpath)
-{
-	struct vty *vty;
+	fclose(confp);
 
-	frr_each (vtys, vtysh_sessions, vty)
-		update_xpath(vty, oldpath, newpath);
-	frr_each (vtys, vty_sessions, vty)
-		update_xpath(vty, oldpath, newpath);
+	return true;
 }
 
 int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
@@ -2772,8 +2854,12 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
-	if (vty_mgmt_fe_enabled() && mgmt_candidate_ds_wr_locked &&
-	    vty->mgmt_locked_candidate_ds) {
+	/*
+	 * If we are not reading config file and we are mgmtd FE and we are
+	 * locked then unlock.
+	 */
+	if (vty->type != VTY_FILE && vty_mgmt_fe_enabled() &&
+	    mgmt_candidate_ds_wr_locked && vty->mgmt_locked_candidate_ds) {
 		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false) !=
 		    0) {
 			vty_out(vty, "Not able to unlock candidate DS\n");
@@ -2808,6 +2894,16 @@ int vty_config_node_exit(struct vty *vty)
 	}
 
 	vty->config = false;
+
+	/*
+	 * If this is a config file and we are dropping out of config end
+	 * parsing.
+	 */
+	if (vty->type == VTY_FILE && vty->status != VTY_CLOSE) {
+		vty_out(vty, "exit from config node while reading config file");
+		vty->status = VTY_CLOSE;
+	}
+
 	return 1;
 }
 
