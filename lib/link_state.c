@@ -502,7 +502,6 @@ void ls_vertex_del(struct ls_ted *ted, struct ls_vertex *vertex)
 	/* Then remove Vertex from Link State Data Base and free memory */
 	vertices_del(&ted->vertices, vertex);
 	XFREE(MTYPE_LS_DB, vertex);
-	vertex = NULL;
 }
 
 void ls_vertex_del_all(struct ls_ted *ted, struct ls_vertex *vertex)
@@ -952,7 +951,7 @@ struct ls_subnet *ls_find_subnet(struct ls_ted *ted, const struct prefix prefix)
 {
 	struct ls_subnet subnet = {};
 
-	subnet.key = prefix;
+	prefix_copy(&subnet.key, &prefix);
 	return subnets_find(&ted->subnets, &subnet);
 }
 
@@ -1752,9 +1751,10 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 	case LS_MSG_EVENT_DELETE:
 		vertex = ls_find_vertex_by_id(ted, node->adv);
 		if (vertex) {
-			if (delete)
+			if (delete) {
 				ls_vertex_del_all(ted, vertex);
-			else
+				vertex = NULL;
+			} else
 				vertex->status = DELETE;
 		}
 		break;
@@ -1831,9 +1831,10 @@ struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 	case LS_MSG_EVENT_DELETE:
 		subnet = ls_find_subnet(ted, pref->pref);
 		if (subnet) {
-			if (delete)
+			if (delete) {
 				ls_subnet_del_all(ted, subnet);
-			else
+				subnet = NULL;
+			} else
 				subnet->status = DELETE;
 		}
 		break;
