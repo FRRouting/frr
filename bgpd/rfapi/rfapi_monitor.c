@@ -237,6 +237,7 @@ void rfapiMonitorExtraFlush(safi_t safi, struct agg_node *rn)
 	case SAFI_EVPN:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_RTC:
 	case SAFI_MAX:
 		assert(0);
 	}
@@ -305,6 +306,7 @@ void rfapiMonitorExtraPrune(safi_t safi, struct agg_node *rn)
 	case SAFI_EVPN:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_RTC:
 	case SAFI_MAX:
 		assert(0);
 	}

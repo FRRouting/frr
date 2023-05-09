@@ -12882,6 +12882,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_RTC:
 	case SAFI_MAX:
 		return NULL;
 	}
