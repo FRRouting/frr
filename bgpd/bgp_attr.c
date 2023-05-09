@@ -4163,6 +4163,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	switch (nh_afi) {
 	case AFI_IP:
 		switch (safi) {
+		case SAFI_RTC:
+			/* TODO */
+			break;
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4196,6 +4199,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		break;
 	case AFI_IP6:
 		switch (safi) {
+		case SAFI_RTC:
+			/* TODO */
+			break;
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4298,6 +4304,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put_labeled_prefix(s, p, label, addpath_capable,
 					  addpath_tx_id);
 		break;
+	case SAFI_RTC:
+		/* TODO */
+		break;
 	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
@@ -4323,6 +4332,9 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		assert(!"Attempting to figure size for a SAFI_UNSPEC/SAFI_MAX this is a DEV ESCAPE");
+		break;
+	case SAFI_RTC:
+		/* TODO */
 		break;
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
