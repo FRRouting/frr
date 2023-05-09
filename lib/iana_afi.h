@@ -39,6 +39,7 @@ typedef enum {
 	IANA_SAFI_LINKSTATE = 71,     /* BGP-LS RFC 7752 */
 	IANA_SAFI_LINKSTATE_VPN = 72, /* BGP-LS RFC 7752 */
 	IANA_SAFI_MPLS_VPN = 128,
+	IANA_SAFI_RTC = 132, /* BGP-RTC RFC 4684 */
 	IANA_SAFI_FLOWSPEC = 133
 } iana_safi_t;
 
@@ -105,6 +106,8 @@ static inline safi_t safi_iana2int(iana_safi_t safi)
 		return SAFI_LINKSTATE;
 	case IANA_SAFI_LINKSTATE_VPN:
 		return SAFI_LINKSTATE_VPN;
+	case IANA_SAFI_RTC:
+		return SAFI_RTC;
 	case IANA_SAFI_RESERVED:
 		return SAFI_MAX;
 	}
@@ -133,6 +136,8 @@ static inline iana_safi_t safi_int2iana(safi_t safi)
 		return IANA_SAFI_LINKSTATE;
 	case SAFI_LINKSTATE_VPN:
 		return IANA_SAFI_LINKSTATE_VPN;
+	case SAFI_RTC:
+		return IANA_SAFI_RTC;
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return IANA_SAFI_RESERVED;

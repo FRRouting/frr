@@ -203,6 +203,8 @@ const char *safi2str(safi_t safi)
 		return "link-state";
 	case SAFI_LINKSTATE_VPN:
 		return "link-state-vpn";
+	case SAFI_RTC:
+		return "rtc";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";

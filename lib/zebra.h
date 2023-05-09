@@ -262,7 +262,8 @@ typedef enum {
 	SAFI_FLOWSPEC = 7,
 	SAFI_LINKSTATE = 8,	/* BGP-LS RFC 7752 */
 	SAFI_LINKSTATE_VPN = 9, /* BGP-LS RFC 7752 */
-	SAFI_MAX = 10,
+	SAFI_RTC = 10,		/* BGP-RTC RFC 4684 */
+	SAFI_MAX = 11,
 } safi_t;
 
 #define FOREACH_AFI_SAFI(afi, safi)                                            \

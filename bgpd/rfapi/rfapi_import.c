@@ -219,6 +219,7 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 		case SAFI_FLOWSPEC:
 		case SAFI_LINKSTATE:
 		case SAFI_LINKSTATE_VPN:
+		case SAFI_RTC:
 		case SAFI_MAX:
 			assert(!"Passed in safi should be impossible");
 		}
@@ -3807,6 +3808,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	case SAFI_FLOWSPEC:
 	case SAFI_LINKSTATE:
 	case SAFI_LINKSTATE_VPN:
+	case SAFI_RTC:
 	case SAFI_MAX:
 		/* not expected */
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad safi %d", __func__, safi);
@@ -4053,6 +4055,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 	case SAFI_FLOWSPEC:
 	case SAFI_LINKSTATE:
 	case SAFI_LINKSTATE_VPN:
+	case SAFI_RTC:
 	case SAFI_MAX:
 		/* Suppress uninitialized variable warning */
 		rt = NULL;

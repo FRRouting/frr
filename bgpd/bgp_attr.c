@@ -4304,6 +4304,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	switch (nh_afi) {
 	case AFI_IP:
 		switch (safi) {
+		case SAFI_RTC:
+			/* TODO */
+			break;
 		case SAFI_LINKSTATE:
 		case SAFI_LINKSTATE_VPN:
 		case SAFI_UNICAST:
@@ -4341,6 +4344,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		switch (safi) {
 		case SAFI_LINKSTATE:
 		case SAFI_LINKSTATE_VPN:
+		case SAFI_RTC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4463,6 +4467,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
+	case SAFI_RTC:
+		/* TODO */
+		break;
 	}
 }
 
@@ -4480,6 +4487,9 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 	case SAFI_LINKSTATE_VPN:
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
+		break;
+	case SAFI_RTC:
+		/* TODO */
 		break;
 	case SAFI_MPLS_VPN:
 		size += 88;
