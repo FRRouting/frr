@@ -36,6 +36,12 @@ struct bgp;
 	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
 		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 
+#define BGP_SAFI_NO_EVPN_CMD_STR                                                                   \
+	"<unicast|multicast|vpn|labeled-unicast|flowspec|link-state|rtfilter>"
+#define BGP_SAFI_NO_EVPN_HELP_STR                                                                  \
+	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
+		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
+
 #define BGP_SELF_ORIG_CMD_STR       "self-originate"
 #define BGP_SELF_ORIG_HELP_STR      "Display only self-originated routes\n"
 

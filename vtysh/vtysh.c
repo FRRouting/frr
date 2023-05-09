@@ -1489,6 +1489,13 @@ static struct cmd_node bgp_ls_node = {
 	.prompt = "%s(config-router-af-ls)# ",
 };
 
+static struct cmd_node bgp_rtc_node = {
+	.name = "bgp rtfilter",
+	.node = BGP_RTC_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af-rtfilter)# ",
+};
+
 static struct cmd_node bgp_vnc_defaults_node = {
 	.name = "bgp vnc defaults",
 	.node = BGP_VNC_DEFAULTS_NODE,
@@ -1841,6 +1848,16 @@ DEFUNSH(VTYSH_BGPD, address_family_linkstate, address_family_linkstate_cmd,
 	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_LS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_rtc,
+	address_family_rtc_cmd, "address-family ipv4 rtfilter",
+	"Enter Address Family command mode\n"
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_RTC_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2586,6 +2603,7 @@ DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	    || vty->node == BGP_EVPN_NODE
 	    || vty->node == BGP_FLOWSPECV4_NODE
 	    || vty->node == BGP_FLOWSPECV6_NODE
+	    || vty->node == BGP_RTC_NODE
 	    || vty->node == BGP_LS_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
@@ -4918,6 +4936,8 @@ void vtysh_init_vty(void)
 	install_node(&srv6_sid_format_usid_f3216_node);
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
 
+	install_node(&bgp_rtc_node);
+
 	/* 6WIND internal features */
 
 	install_node(&trackerfile_node);
@@ -5046,6 +5066,12 @@ void vtysh_init_vty(void)
 	install_element(BGP_LS_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_LS_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_LS_NODE, &exit_address_family_cmd);
+
+	install_element(BGP_NODE, &address_family_rtc_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_RTC_NODE, &exit_address_family_cmd);
 
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);
