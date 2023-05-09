@@ -2009,6 +2009,24 @@ Capability Negotiation
    Override the result of Capability Negotiation with local configuration.
    Ignore remote peer's capability value.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: neighbor PEER capability software-version
+
+   Send the software version in the BGP OPEN message to the neighbor. This is
+   very useful in environments with a large amount of peers with different
+   versions of FRR or any other vendor.
+
+   Disabled by default.
+
+.. clicmd:: neighbor PEER aigp
+
+   Send and receive AIGP attribute for this neighbor. This is valid only for
+   eBGP neighbors.
+
+   Disabled by default. iBGP neighbors have this option enabled implicitly.
+
+>>>>>>> 05dbe6445 (doc: Add `neighbor aigp` command for BGP)
 .. _bgp-as-path-access-lists:
 
 AS Path Access Lists
