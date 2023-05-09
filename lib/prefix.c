@@ -184,6 +184,8 @@ const char *safi2str(safi_t safi)
 		return "bgp-ls";
 	case SAFI_UNREACH:
 		return "unreachability";
+	case SAFI_RTC:
+		return "rtc";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";
