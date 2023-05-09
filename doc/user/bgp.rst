@@ -2032,6 +2032,13 @@ Capability Negotiation
 
    Disabled by default.
 
+.. clicmd:: neighbor PEER aigp
+
+   Send and receive AIGP attribute for this neighbor. This is valid only for
+   eBGP neighbors.
+
+   Disabled by default. iBGP neighbors have this option enabled implicitly.
+
 .. _bgp-as-path-access-lists:
 
 AS Path Access Lists
