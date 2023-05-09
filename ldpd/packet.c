@@ -15,13 +15,12 @@
 
 #include "sockopt.h"
 
-static struct iface		*disc_find_iface(unsigned int, int,
-				    union ldpd_addr *);
+static struct iface *disc_find_iface(unsigned int, int, union ldpd_addr *);
 static void session_read(struct event *thread);
 static void session_write(struct event *thread);
-static ssize_t			 session_get_pdu(struct ibuf_read *, char **);
-static void			 tcp_close(struct tcp_conn *);
-static struct pending_conn	*pending_conn_new(int, int, union ldpd_addr *);
+static ssize_t session_get_pdu(struct ibuf_read *, char **);
+static void tcp_close(struct tcp_conn *);
+static struct pending_conn *pending_conn_new(int, int, union ldpd_addr *);
 static void pending_conn_timeout(struct event *thread);
 
 int
@@ -144,8 +143,7 @@ void disc_recv_packet(struct event *thread)
 
 	if ((r = recvmsg(fd, &m, 0)) == -1) {
 		if (errno != EAGAIN && errno != EINTR)
-			log_debug("%s: read error: %s", __func__,
-			    strerror(errno));
+			log_debug("%s: read error: %s", __func__, strerror(errno));
 		return;
 	}
 
@@ -154,10 +152,10 @@ void disc_recv_packet(struct event *thread)
 	multicast = (m.msg_flags & MSG_MCAST) ? 1 : 0;
 #else
 	multicast = 0;
-	for (cmsg = CMSG_FIRSTHDR(&m); cmsg != NULL;
-	    cmsg = CMSG_NXTHDR(&m, cmsg)) {
+	for (cmsg = CMSG_FIRSTHDR(&m); cmsg != NULL; cmsg = CMSG_NXTHDR(&m, cmsg)) {
 #if defined(HAVE_IP_PKTINFO)
-		if (af == AF_INET && cmsg->cmsg_level == IPPROTO_IP &&
+		if (af == AF_INET &&
+		    cmsg->cmsg_level == IPPROTO_IP &&
 		    cmsg->cmsg_type == IP_PKTINFO) {
 			struct in_pktinfo	*pktinfo;
 
@@ -167,7 +165,8 @@ void disc_recv_packet(struct event *thread)
 			break;
 		}
 #elif defined(HAVE_IP_RECVDSTADDR)
-		if (af == AF_INET && cmsg->cmsg_level == IPPROTO_IP &&
+		if (af == AF_INET &&
+		    cmsg->cmsg_level == IPPROTO_IP &&
 		    cmsg->cmsg_type == IP_RECVDSTADDR) {
 			struct in_addr		*addr;
 
@@ -179,7 +178,8 @@ void disc_recv_packet(struct event *thread)
 #else
 #error "Unsupported socket API"
 #endif
-		if (af == AF_INET6 && cmsg->cmsg_level == IPPROTO_IPV6 &&
+		if (af == AF_INET6 &&
+		    cmsg->cmsg_level == IPPROTO_IPV6 &&
 		    cmsg->cmsg_type == IPV6_PKTINFO) {
 			struct in6_pktinfo	*pktinfo;
 
@@ -191,8 +191,7 @@ void disc_recv_packet(struct event *thread)
 	}
 #endif /* MSG_MCAST */
 	if (bad_addr(af, &src)) {
-		log_debug("%s: invalid source address: %s", __func__,
-		    log_addr(af, &src));
+		log_debug("%s: invalid source address: %s", __func__, log_addr(af, &src));
 		return;
 	}
 	ifindex = getsockopt_ifindex(af, &m);
@@ -207,8 +206,7 @@ void disc_recv_packet(struct event *thread)
 	/* check packet size */
 	len = (uint16_t)r;
 	if (len < (LDP_HDR_SIZE + LDP_MSG_SIZE) || len > LDP_MAX_LEN) {
-		log_debug("%s: bad packet size, source %s", __func__,
-		    log_addr(af, &src));
+		log_debug("%s: bad packet size, source %s", __func__, log_addr(af, &src));
 		return;
 	}
 
@@ -309,10 +307,8 @@ void session_accept(struct event *thread)
 		 */
 		if (errno == ENFILE || errno == EMFILE) {
 			accept_pause();
-		} else if (errno != EWOULDBLOCK && errno != EINTR &&
-		    errno != ECONNABORTED)
-			log_debug("%s: accept error: %s", __func__,
-			    strerror(errno));
+		} else if (errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED)
+			log_debug("%s: accept error: %s", __func__, strerror(errno));
 		return;
 	}
 	sock_set_nonblock(newfd);
@@ -445,15 +441,13 @@ static void session_read(struct event *thread)
 			max_pdu_len = nbr->max_pdu_len;
 		else
 			max_pdu_len = LDP_MAX_LEN;
-		if (pdu_len < (LDP_HDR_PDU_LEN + LDP_MSG_SIZE) ||
-		    pdu_len > max_pdu_len) {
+		if (pdu_len < (LDP_HDR_PDU_LEN + LDP_MSG_SIZE) || pdu_len > max_pdu_len) {
 			session_shutdown(nbr, S_BAD_PDU_LEN, 0, 0);
 			free(buf);
 			return;
 		}
 		pdu_len -= LDP_HDR_PDU_LEN;
-		if (ldp_hdr->lsr_id != nbr->id.s_addr ||
-		    ldp_hdr->lspace_id != 0) {
+		if (ldp_hdr->lsr_id != nbr->id.s_addr || ldp_hdr->lspace_id != 0) {
 			session_shutdown(nbr, S_BAD_LDP_ID, 0, 0);
 			free(buf);
 			return;
@@ -469,10 +463,8 @@ static void session_read(struct event *thread)
 			msg = (struct ldp_msg *)pdu;
 			type = ntohs(msg->type);
 			msg_len = ntohs(msg->length);
-			if (msg_len < LDP_MSG_LEN ||
-			    (msg_len + LDP_MSG_DEAD_LEN) > pdu_len) {
-				session_shutdown(nbr, S_BAD_MSG_LEN, msg->id,
-				    msg->type);
+			if (msg_len < LDP_MSG_LEN || (msg_len + LDP_MSG_DEAD_LEN) > pdu_len) {
+				session_shutdown(nbr, S_BAD_MSG_LEN, msg->id, msg->type);
 				free(buf);
 				return;
 			}
@@ -484,8 +476,7 @@ static void session_read(struct event *thread)
 			case MSG_TYPE_INIT:
 				if ((nbr->state != NBR_STA_INITIAL) &&
 				    (nbr->state != NBR_STA_OPENSENT)) {
-					session_shutdown(nbr, S_SHUTDOWN,
-					    msg->id, msg->type);
+					session_shutdown(nbr, S_SHUTDOWN, msg->id, msg->type);
 					free(buf);
 					return;
 				}
@@ -493,8 +484,7 @@ static void session_read(struct event *thread)
 			case MSG_TYPE_KEEPALIVE:
 				if ((nbr->state == NBR_STA_INITIAL) ||
 				    (nbr->state == NBR_STA_OPENSENT)) {
-					session_shutdown(nbr, S_SHUTDOWN,
-					    msg->id, msg->type);
+					session_shutdown(nbr, S_SHUTDOWN, msg->id, msg->type);
 					free(buf);
 					return;
 				}
@@ -503,8 +493,7 @@ static void session_read(struct event *thread)
 				break;
 			default:
 				if (nbr->state != NBR_STA_OPER) {
-					session_shutdown(nbr, S_SHUTDOWN,
-					    msg->id, msg->type);
+					session_shutdown(nbr, S_SHUTDOWN, msg->id, msg->type);
 					free(buf);
 					return;
 				}
@@ -534,16 +523,14 @@ static void session_read(struct event *thread)
 			case MSG_TYPE_LABELWITHDRAW:
 			case MSG_TYPE_LABELRELEASE:
 			case MSG_TYPE_LABELABORTREQ:
-				ret = recv_labelmessage(nbr, pdu, msg_size,
-				    type);
+				ret = recv_labelmessage(nbr, pdu, msg_size, type);
 				break;
 			default:
 				log_debug("%s: unknown LDP message from nbr %pI4",
 				    __func__, &nbr->id);
 				if (!(ntohs(msg->type) & UNKNOWN_FLAG)) {
 					nbr->stats.unknown_msg++;
-					send_notification(nbr->tcp,
-					    S_UNKNOWN_MSG, msg->id, msg->type);
+					send_notification(nbr->tcp, S_UNKNOWN_MSG, msg->id, msg->type);
 				}
 				/* ignore the message */
 				ret = 0;
@@ -664,8 +651,7 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 void
 session_close(struct nbr *nbr)
 {
-	log_debug("%s: closing session with lsr-id %pI4", __func__,
-	    &nbr->id);
+	log_debug("%s: closing session with lsr-id %pI4", __func__, &nbr->id);
 
 	ldp_sync_fsm_nbr_event(nbr, LDP_SYNC_EVT_SESSION_CLOSE);
 
@@ -788,8 +774,7 @@ pending_conn_find(int af, union ldpd_addr *addr)
 	struct pending_conn	*pconn;
 
 	TAILQ_FOREACH(pconn, &global.pending_conns, entry)
-		if (af == pconn->af &&
-		    ldp_addrcmp(af, addr, &pconn->addr) == 0)
+		if (af == pconn->af && ldp_addrcmp(af, addr, &pconn->addr) == 0)
 			return (pconn);
 
 	return (NULL);
