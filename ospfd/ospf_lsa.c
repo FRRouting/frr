@@ -603,7 +603,8 @@ static int lsa_link_loopback_set(struct stream **s, struct ospf_interface *oi)
 
 	mask.s_addr = 0xffffffff;
 	id.s_addr = oi->address->u.prefix4.s_addr;
-	return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+	return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
+			     oi->output_cost);
 }
 
 /* Describe Virtual Link. */
