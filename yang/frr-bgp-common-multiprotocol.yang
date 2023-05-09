@@ -250,5 +250,15 @@ submodule frr-bgp-common-multiprotocol {
       description
         "IPv6 unreachability (SAFI_UNREACH) configuration options.";
     }
+
+    container ipv4-rtc {
+      when "derived-from-or-self(../afi-safi-name, 'frr-rt:ipv4-rtc')" {
+        description
+          "Include this container for ipv4-rtc specific
+           configuration.";
+      }
+      description
+        "IPv4 RTC configuration options.";
+    }
   }
 }
