@@ -14941,35 +14941,42 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 			RPKI_NOT_BEING_USED);
 }
 
-DEFUN (show_ip_bgp_flowspec_routes_detailed,
-       show_ip_bgp_flowspec_routes_detailed_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" flowspec] detail [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       "SAFI Flowspec\n"
-       "Detailed information on flowspec entries\n"
-       JSON_STR)
+/*
+ * Used for "detailed" output for cmds like show bgp <afi> <safi> (or)
+ * show bgp <vrf> (or) show bgp <vrf> <afi> <safi>
+ */
+DEFPY(show_ip_bgp_vrf_afi_safi_routes_detailed,
+      show_ip_bgp_vrf_afi_safi_routes_detailed_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME$vrf_name] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] detail [json$uj]",
+      SHOW_STR
+      IP_STR
+      BGP_STR
+      BGP_INSTANCE_HELP_STR
+      BGP_AFI_HELP_STR
+      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Detailed information\n"
+      JSON_STR)
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0;
-	bool uj = use_json(argc, argv);
 	uint16_t show_flags = BGP_SHOW_OPT_ROUTES_DETAIL;
 
-	if (uj) {
-		argc--;
+	if (uj)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
-	}
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, uj);
 	if (!idx)
 		return CMD_WARNING;
+	/* 'vrf all' case to iterate all vrfs & show output per vrf instance */
+	if (vrf_name && strmatch(vrf_name, "all")) {
+		bgp_show_all_instances_routes_vty(vty, afi, safi, show_flags);
+		return CMD_SUCCESS;
+	}
 
+	/* All other cases except vrf all */
 	return bgp_show(vty, bgp, afi, safi, bgp_show_type_detail, NULL,
 			show_flags, RPKI_NOT_BEING_USED);
 }
@@ -16085,8 +16092,9 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_cmd);
 
-	/* show bgp ipv4 flowspec detailed */
-	install_element(VIEW_NODE, &show_ip_bgp_flowspec_routes_detailed_cmd);
+	/* show bgp vrf <afi> <safi> detailed */
+	install_element(VIEW_NODE,
+			&show_ip_bgp_vrf_afi_safi_routes_detailed_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_listeners_cmd);
 	install_element(VIEW_NODE, &show_bgp_peerhash_cmd);
