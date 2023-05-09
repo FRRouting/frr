@@ -2120,14 +2120,21 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 			lsa->data->type, &lsa->data->id);
 
 	/*
-	 * Since these LSA entries are not yet installed into corresponding
-	 * LSDB, just flush them without calling ospf_ls_maxage() afterward.
+	 * Install the stale LSA into the Link State Database, add it to the
+	 * MaxAge list, and flush it from the OSPF routing domain. For other
+	 * LSA types, the installation is done in the refresh function. It is
+	 * done inline here since the opaque refresh function is dynamically
+	 * registered when opaque LSAs are originated (which is not the case
+	 * for stale LSAs).
 	 */
 	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	ospf_lsa_install(
+		top, (lsa->data->type == OSPF_OPAQUE_LINK_LSA) ? nbr->oi : NULL,
+		lsa);
+	ospf_lsa_maxage(top, lsa);
+
 	switch (lsa->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:
-		ospf_flood_through_area(nbr->oi->area, NULL /*inbr*/, lsa);
-		break;
 	case OSPF_OPAQUE_AREA_LSA:
 		ospf_flood_through_area(nbr->oi->area, NULL /*inbr*/, lsa);
 		break;
@@ -2139,7 +2146,6 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 			  __func__, lsa->data->type);
 		return;
 	}
-	ospf_lsa_discard(lsa); /* List "lsas" will be deleted by caller. */
 }
 
 /*------------------------------------------------------------------------*
