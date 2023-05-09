@@ -13329,11 +13329,11 @@ DEFUN (show_ip_bgp_l2vpn_evpn_statistics,
 /* BGP route print out function without JSON */
 DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
-      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      " [" BGP_SAFI_NO_EVPN_CMD_STR
       "]]\
          statistics [json]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
-	      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_SAFI_NO_EVPN_HELP_STR
       "BGP RIB advertisement statistics\n" JSON_STR)
 {
 	afi_t afi = AFI_IP6;
@@ -13799,6 +13799,60 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 			vty_out(vty, "}\n");
 	}
 	return CMD_SUCCESS;
+}
+
+/* BGP route print out function */
+DEFPY (show_ip_bgp_rtc, show_ip_bgp_rtc_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] ipv4 rt-constraint\
+          [all$all]\
+          [version (1-4294967295)\
+          |detail-routes$detail_routes\
+          ] [json$uj [detail$detail_json] | wide$wide]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR
+	  BGP_AF_STR
+	  BGP_AF_MODIFIER_STR
+      "Display the entries for all address families\n"
+      "Display prefixes with matching version numbers\n"
+      "Version number and above\n"
+      "Display detailed version of all routes\n"
+      JSON_STR
+      "Display detailed version of JSON output\n"
+      "Increase table width for longer prefixes\n")
+{
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_RTC;
+	enum bgp_show_type sh_type = bgp_show_type_normal;
+	void *output_arg = NULL;
+	struct bgp *bgp = NULL;
+	int idx = 0;
+	uint16_t show_flags = 0;
+	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
+
+	if (uj) {
+		argc--;
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	}
+
+	if (detail_json)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
+
+	if (detail_routes)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
+
+	if (wide)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi, &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
+
+	/* Display prefixes with matching version numbers */
+	if (argv_find(argv, argc, "version", &idx)) {
+		sh_type = bgp_show_type_prefix_version;
+		output_arg = argv[idx + 1]->arg;
+	}
+
+	return bgp_show(vty, bgp, afi, safi, sh_type, output_arg, show_flags, rpki_target_state);
 }
 
 DEFUN (show_ip_bgp_route,
@@ -15385,13 +15439,13 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
        show_ip_bgp_instance_neighbor_bestpath_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] neighbors <A.B.C.D|X:X::X:X|WORD> bestpath-routes [detail$detail] [json$uj | wide$wide]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] neighbors <A.B.C.D|X:X::X:X|WORD> bestpath-routes [detail$detail] [json$uj | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_NO_EVPN_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -15439,13 +15493,13 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
       SHOW_STR
       IP_STR
       BGP_STR
       BGP_INSTANCE_HELP_STR
       BGP_AFI_HELP_STR
-      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_SAFI_NO_EVPN_HELP_STR
       "Display the entries for all address families\n"
       "Detailed information on TCP and BGP neighbor connections\n"
       "Neighbor to display information about\n"
@@ -15691,13 +15745,13 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
  */
 DEFPY(show_ip_bgp_vrf_afi_safi_routes_detailed,
       show_ip_bgp_vrf_afi_safi_routes_detailed_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME$vrf_name] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] detail [json$uj]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME$vrf_name] ["BGP_AFI_CMD_STR" ["BGP_SAFI_NO_EVPN_CMD_STR"]] detail [json$uj]",
       SHOW_STR
       IP_STR
       BGP_STR
       BGP_INSTANCE_HELP_STR
       BGP_AFI_HELP_STR
-      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_SAFI_NO_EVPN_HELP_STR
       "Detailed information\n"
       JSON_STR)
 {
@@ -15727,13 +15781,13 @@ DEFPY(show_ip_bgp_vrf_afi_safi_routes_detailed,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_NO_EVPN_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_NO_EVPN_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -16768,6 +16822,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_rtc_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);
