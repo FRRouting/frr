@@ -4614,6 +4614,21 @@ static void rib_process_dplane_results(struct thread *thread)
 	struct dplane_ctx_list_head ctxlist;
 	bool shut_p = false;
 
+#ifdef HAVE_SCRIPTING
+	char *script_name =
+		frrscript_names_get_script_name(ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
+
+	int ret = 1;
+	struct frrscript *fs = NULL;
+
+	if (script_name) {
+		fs = frrscript_new(script_name);
+		if (fs)
+			ret = frrscript_load(fs, ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					     NULL);
+	}
+#endif /* HAVE_SCRIPTING */
+
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
 	do {
@@ -4647,24 +4662,7 @@ static void rib_process_dplane_results(struct thread *thread)
 			continue;
 		}
 
-#ifdef HAVE_SCRIPTING
-		char *script_name = frrscript_names_get_script_name(
-			ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
-
-		int ret = 1;
-		struct frrscript *fs;
-
-		if (script_name) {
-			fs = frrscript_new(script_name);
-			if (fs)
-				ret = frrscript_load(
-					fs, ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
-					NULL);
-		}
-#endif /* HAVE_SCRIPTING */
-
 		while (ctx) {
-
 #ifdef HAVE_SCRIPTING
 			if (ret == 0)
 				frrscript_call(fs,
@@ -4779,6 +4777,11 @@ static void rib_process_dplane_results(struct thread *thread)
 		}
 
 	} while (1);
+
+#ifdef HAVE_SCRIPTING
+	if (fs)
+		frrscript_delete(fs);
+#endif
 }
 
 /*
