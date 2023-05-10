@@ -84,8 +84,8 @@ SUMMARY = {"ipv4": ["11.0.0.0/8", "12.0.0.0/8", "11.0.0.0/24"]}
 """
 TOPOOLOGY =
       Please view in a fixed-width font such as Courier.
-      +---+  A0       +---+
-      +R1 +------------+R2 |
+      +---+  A0        +---+
+      |R1 +------------+R2 |
       +-+-+-           +--++
         |  --        --  |
         |    -- A0 --    |
@@ -94,8 +94,8 @@ TOPOOLOGY =
         |    --    --    |
         |  --        --  |
       +-+-+-            +-+-+
-      +R0 +-------------+R3 |
-      +---+     A0     +---+
+      |R0 +-------------+R3 |
+      +---+     A0      +---+
 
 TESTCASES =
 1. OSPF summarisation functionality.
@@ -1519,7 +1519,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     step("Repeat steps 1 to 10 of summarisation in non Back bone area.")
     reset_config_on_routers(tgen)
 
-    step("Change the area id on the interface on R0")
+    step("Change the area id on the interface on R0 to R1 from 0.0.0.0 to 0.0.0.1")
     input_dict = {
         "r0": {
             "links": {
@@ -1549,7 +1549,7 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = create_interfaces_cfg(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Change the area id on the interface  ")
+    step("Change the area id on the interface on R1 to R0 from 0.0.0.0 to 0.0.0.1")
     input_dict = {
         "r1": {
             "links": {
