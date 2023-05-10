@@ -1241,9 +1241,13 @@ class Commander:  # pylint: disable=R0904
                 # XXX not appropriate for ssh
                 cmd = ["sudo", "-Eu", os.environ["SUDO_USER"]] + cmd
 
-            if not isinstance(nscmd, str):
-                nscmd = shlex.join(nscmd)
-            cmd.append(nscmd)
+            if title:
+                cmd.append("-t")
+                cmd.append(title)
+
+            if isinstance(nscmd, str):
+                nscmd = shlex.split(nscmd)
+            cmd.extend(nscmd)
         elif "DISPLAY" in os.environ:
             cmd = [get_exec_path_host("xterm")]
             if "SUDO_USER" in os.environ:
