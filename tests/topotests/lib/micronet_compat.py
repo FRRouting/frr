@@ -273,7 +273,7 @@ ff02::2\tip6-allrouters
 
         shellopt = self.cfgopt.get_option_list("--shell")
         if "all" in shellopt or "." in shellopt:
-            self.run_in_window("bash")
+            self.run_in_window("bash", title="munet")
 
         # This is expected by newer munet CLI code
         self.config_dirname = ""
