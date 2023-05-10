@@ -648,6 +648,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		} else {
 			zlog_warn("VRF %s: Nbr %s: Negotiation failed",
 				  on->ospf6_if->interface->vrf->name, on->name);
+			event_add_event(master, seqnumber_mismatch, on, 0,
+					NULL);
 			return;
 		}
 	/* fall through to exchange */
