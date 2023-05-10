@@ -1996,6 +1996,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
 	bool nh_reset = false;
 	uint64_t cum_bw;
+	mpls_label_t label;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2081,7 +2082,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If it's labeled safi, make sure the route has a valid label. */
 	if (safi == SAFI_LABELED_UNICAST) {
-		mpls_label_t label = bgp_adv_label(dest, pi, peer, afi, safi);
+		label = bgp_adv_label(dest, pi, peer, afi, safi);
 		if (!bgp_is_valid_label(&label)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug("u%" PRIu64 ":s%" PRIu64
@@ -2092,6 +2093,17 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
+	if (safi == SAFI_MPLS_VPN) {
+		label = bgp_mplsvpn_adv_label(pi, peer, afi, safi);
+		if (!bgp_is_valid_label(&label)) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " %pFX is filtered - no label",
+					   subgrp->update_group->id, subgrp->id,
+					   p);
+			return false;
+		}
+	}
 	/* Do not send back route to sender. */
 	if (onlypeer && from == onlypeer) {
 		return false;
