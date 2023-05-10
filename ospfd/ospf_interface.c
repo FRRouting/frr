@@ -115,6 +115,9 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 			cost = 1;
 		else if (cost > 65535)
 			cost = 65535;
+
+		if (if_is_loopback(oi->ifp))
+			cost = 0;
 	}
 
 	return cost;
