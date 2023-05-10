@@ -2009,6 +2009,13 @@ Capability Negotiation
    Override the result of Capability Negotiation with local configuration.
    Ignore remote peer's capability value.
 
+.. clicmd:: neighbor PEER aigp
+
+   Send and receive AIGP attribute for this neighbor. This is valid only for
+   eBGP neighbors.
+
+   Disabled by default. iBGP neighbors have this option enabled implicitly.
+
 .. _bgp-as-path-access-lists:
 
 AS Path Access Lists
