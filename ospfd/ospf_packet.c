@@ -2031,7 +2031,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (current == NULL) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"LSA[%s]: Previously originated Opaque-LSA,not found in the LSDB.",
+						"LSA[%s]: Previously originated Opaque-LSA, not found in the LSDB.",
 						dump_lsa_key(lsa));
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
