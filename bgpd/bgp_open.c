@@ -1490,6 +1490,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		    && !peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
 		    && !peer->afc_nego[AFI_IP][SAFI_ENCAP]
 		    && !peer->afc_nego[AFI_IP][SAFI_FLOWSPEC]
+			&& !peer->afc_nego[AFI_IP][SAFI_RTC]
 		    && !peer->afc_nego[AFI_IP6][SAFI_UNICAST]
 		    && !peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
 		    && !peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
