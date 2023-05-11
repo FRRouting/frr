@@ -977,7 +977,7 @@ def test_ospf_type5_summary_tc42_p0(request):
 
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
 
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     ospf_summ_r1 = {
         "r0": {
             "ospf": {"summary-address": [{"prefix": ip_net.split("/")[0], "mask": "8"}]}
@@ -1578,6 +1578,10 @@ def test_ospf_type5_summary_tc45_p0(request):
 
     result = create_interfaces_cfg(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    # clear neighbor state on both routers to avoid stale state
+    tgen.net["r0"].cmd("clear ip ospf neighbor")
+    tgen.net["r1"].cmd("clear ip ospf neighbor")
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
     assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(

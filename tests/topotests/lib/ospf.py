@@ -302,7 +302,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
     # ospf gr information
     gr_data = ospf_data.setdefault("graceful-restart", {})
     if gr_data:
-
         if "opaque" in gr_data and gr_data["opaque"]:
             cmd = "capability opaque"
             if gr_data.setdefault("delete", False):
@@ -729,8 +728,10 @@ def verify_ospf_neighbor(
                 try:
                     nh_state = show_ospf_json[nbr_rid][0]["nbrState"].split("/")[0]
                 except KeyError:
-                    errormsg = "[DUT: {}] missing OSPF neighbor {} with router-id {}".format(
-                        router, ospf_nbr, nbr_rid
+                    errormsg = (
+                        "[DUT: {}] missing OSPF neighbor {} with router-id {}".format(
+                            router, ospf_nbr, nbr_rid
+                        )
                     )
                     return errormsg
 
@@ -844,7 +845,6 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                     return errormsg
 
             for ospf_nbr, nbr_data in ospf_nbr_list.items():
-
                 try:
                     data_ip = data_rid = topo["routers"][ospf_nbr]["ospf6"]["router_id"]
                 except KeyError:
@@ -915,7 +915,6 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                         return errormsg
                 continue
     else:
-
         for router, rnode in tgen.routers().items():
             if "ospf6" not in topo["routers"][router]:
                 continue
@@ -969,8 +968,10 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                     nh_state = get_index_val.get(neighbor_ip)["state"]
                     intf_state = get_index_val.get(neighbor_ip)["ifState"]
                 except TypeError:
-                    errormsg = "[DUT: {}] missing OSPF neighbor {} with router-id {}".format(
-                        router, ospf_nbr, nbr_rid
+                    errormsg = (
+                        "[DUT: {}] missing OSPF neighbor {} with router-id {}".format(
+                            router, ospf_nbr, nbr_rid
+                        )
                     )
                     return errormsg
 
@@ -1762,7 +1763,6 @@ def verify_ospf6_rib(
                             continue
 
                         if st_rt in ospf_rib_json:
-
                             st_found = True
                             found_routes.append(st_rt)
 
