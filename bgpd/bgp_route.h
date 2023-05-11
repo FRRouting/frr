@@ -712,6 +712,8 @@ extern struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 struct prefix_rd *prd);
 extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
 extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
+extern bool bgp_path_info_nexthop_changed(struct bgp_path_info *pi,
+					  struct peer *to, afi_t afi);
 extern struct bgp_path_info *
 bgp_get_imported_bpi_ultimate(struct bgp_path_info *info);
 extern void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi);
