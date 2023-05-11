@@ -325,9 +325,13 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
 
+extern bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi);
 extern int
 bgp_mplsvpn_nh_label_bind_cmp(const struct bgp_mplsvpn_nh_label_bind_cache *a,
 			      const struct bgp_mplsvpn_nh_label_bind_cache *b);
+extern void bgp_mplsvpn_path_nh_label_bind_unlink(struct bgp_path_info *pi);
+extern void bgp_mplsvpn_nh_label_bind_register_local_label(
+	struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi);
 
 /* used to bind a local label to the (label, nexthop) values
  * from an incoming BGP mplsvpn update
@@ -365,6 +369,8 @@ struct bgp_mplsvpn_nh_label_bind_cache {
 	LIST_HEAD(mplsvpn_nh_label_bind_path_lists, bgp_path_info) paths;
 
 	time_t last_update;
+
+	bool allocation_in_progress;
 };
 
 DECLARE_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache,

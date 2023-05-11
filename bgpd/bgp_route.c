@@ -3149,6 +3149,60 @@ static void bgp_lu_handle_label_allocation(struct bgp *bgp,
 	}
 }
 
+static struct interface *
+bgp_label_get_resolved_nh_iface(const struct bgp_path_info *pi)
+{
+	struct nexthop *nh;
+
+	if (pi->nexthop == NULL || pi->nexthop->nexthop == NULL ||
+	    !CHECK_FLAG(pi->nexthop->flags, BGP_NEXTHOP_VALID))
+		/* next-hop is not valid */
+		return NULL;
+
+	nh = pi->nexthop->nexthop;
+	if (nh->ifindex == IFINDEX_INTERNAL &&
+	    nh->type != NEXTHOP_TYPE_IPV4_IFINDEX &&
+	    nh->type != NEXTHOP_TYPE_IPV6_IFINDEX)
+		/* next-hop does not contain valid interface */
+		return NULL;
+
+	return if_lookup_by_index(nh->ifindex, nh->vrf_id);
+}
+
+static void
+bgp_mplsvpn_handle_label_allocation(struct bgp *bgp, struct bgp_dest *dest,
+				    struct bgp_path_info *new_select,
+				    struct bgp_path_info *old_select, afi_t afi)
+{
+	struct interface *ifp;
+	struct bgp_interface *bgp_ifp;
+
+	if (bgp->allocate_mpls_labels[afi][SAFI_MPLS_VPN] && new_select) {
+		ifp = bgp_label_get_resolved_nh_iface(new_select);
+		if (ifp)
+			bgp_ifp = (struct bgp_interface *)(ifp->info);
+		else
+			bgp_ifp = NULL;
+		if (bgp_ifp &&
+		    CHECK_FLAG(bgp_ifp->flags,
+			       BGP_INTERFACE_MPLS_L3VPN_SWITCHING) &&
+		    bgp_mplsvpn_path_uses_valid_mpls_label(new_select) &&
+		    new_select->sub_type != BGP_ROUTE_IMPORTED &&
+		    new_select->sub_type != BGP_ROUTE_STATIC)
+			bgp_mplsvpn_nh_label_bind_register_local_label(
+				bgp, dest, new_select);
+		else
+			bgp_mplsvpn_path_nh_label_bind_unlink(new_select);
+	} else {
+		if (new_select)
+			/* no mpls vpn allocation */
+			bgp_mplsvpn_path_nh_label_bind_unlink(new_select);
+		else if (old_select)
+			/* unlink old selection if any */
+			bgp_mplsvpn_path_nh_label_bind_unlink(old_select);
+	}
+}
+
 /*
  * old_select = The old best path
  * new_select = the new best path
@@ -3231,6 +3285,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		 */
 		bgp_lu_handle_label_allocation(bgp, dest, new_select,
 					       old_select, afi);
+	else if (safi == SAFI_MPLS_VPN)
+		/* mpls vpn path:
+		 * Do we need to allocate or free labels?
+		 */
+		bgp_mplsvpn_handle_label_allocation(bgp, dest, new_select,
+						    old_select, afi);
 
 	if (debug)
 		zlog_debug(
