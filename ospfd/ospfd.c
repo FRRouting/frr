@@ -255,6 +255,21 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 	ospf->inst_shutdown = 0;
 }
 
+void ospf_end_config_startup(void)
+{
+	struct vrf *vrf;
+	struct ospf *ospf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ospf = vrf->info;
+
+		if (!ospf)
+			continue;
+
+		ospf_process_refresh_data(ospf, true);
+	}
+}
+
 void ospf_router_id_update(struct ospf *ospf)
 {
 	ospf_process_refresh_data(ospf, false);
@@ -482,6 +497,9 @@ static int ospf_is_ready(struct ospf *ospf)
 {
 	/* OSPF must be on and Router-ID must be configured. */
 	if (!ospf || ospf->router_id.s_addr == INADDR_ANY)
+		return 0;
+
+	if (om->config_being_read_in)
 		return 0;
 
 	return 1;

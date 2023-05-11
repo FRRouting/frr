@@ -793,6 +793,7 @@ extern void ospf_interface_area_set(struct ospf *ospf, struct interface *ifp);
 extern void ospf_interface_area_unset(struct ospf *ospf, struct interface *ifp);
 
 extern void ospf_route_map_init(void);
+extern void ospf_end_config_startup(void);
 
 extern void ospf_master_init(struct event_loop *master);
 extern void ospf_vrf_init(void);

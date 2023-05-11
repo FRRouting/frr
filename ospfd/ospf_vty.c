@@ -13121,6 +13121,8 @@ static void ospf_end_config_cb(void)
 		zlog_debug("%s: Config end read in", __func__);
 
 	om->config_being_read_in = false;
+
+	ospf_end_config_startup();
 }
 
 /* Install OSPF related vty commands. */
