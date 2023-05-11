@@ -3931,6 +3931,12 @@ int bgp_mplsvpn_nh_label_bind_cmp(
 void bgp_mplsvpn_nh_label_bind_free(
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc)
 {
+	if (bmnc->allocation_in_progress) {
+		bmnc->allocation_in_progress = false;
+		bgp_mplsvpn_nh_label_bind_cache_del(
+			&bmnc->bgp_vpn->mplsvpn_nh_label_bind, bmnc);
+		return;
+	}
 	if (bmnc->new_label != MPLS_INVALID_LABEL)
 		bgp_lp_release(LP_TYPE_BGP_L3VPN_BIND, bmnc, bmnc->new_label);
 	bgp_mplsvpn_nh_label_bind_cache_del(
@@ -3968,4 +3974,121 @@ struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
 	bmnc.orig_label = orig_label;
 
 	return bgp_mplsvpn_nh_label_bind_cache_find(tree, &bmnc);
+}
+
+/* Called to check if the incoming l3vpn path entry
+ * has mpls label information
+ */
+bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
+{
+	if (pi->attr && pi->attr->srv6_l3vpn)
+		/* srv6 sid */
+		return false;
+
+	if (pi->attr &&
+	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) &&
+	    pi->attr->label_index != BGP_INVALID_LABEL_INDEX)
+		/* prefix_sid attribute */
+		return false;
+
+	if (!pi->extra || !bgp_is_valid_label(&pi->extra->label[0]))
+		/* invalid MPLS label */
+		return false;
+	return true;
+}
+
+/* Called upon reception of a ZAPI Message from zebra, about
+ * a new available label.
+ */
+static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
+							void *context,
+							bool allocated)
+{
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc = context;
+
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: label=%u, allocated=%d, nexthop=%pFX, label %u",
+			   __func__, label, allocated, &bmnc->nexthop,
+			   bmnc->orig_label);
+	if (allocated)
+		/* update the entry with the new label */
+		bmnc->new_label = label;
+	else
+		/*
+		 * previously-allocated label is now invalid
+		 * eg: zebra deallocated the labels and notifies it
+		 */
+		bmnc->new_label = MPLS_INVALID_LABEL;
+
+	if (!bmnc->allocation_in_progress) {
+		bgp_mplsvpn_nh_label_bind_free(bmnc);
+		return 0;
+	}
+	bmnc->allocation_in_progress = false;
+
+	/* Create MPLS entry with new_label */
+	/* Trigger BGP process to re-advertise updates */
+	return 0;
+}
+
+void bgp_mplsvpn_path_nh_label_bind_unlink(struct bgp_path_info *pi)
+{
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
+
+	if (!pi)
+		return;
+
+	if (!CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND))
+		return;
+
+	bmnc = pi->mplsvpn.bmnc.nh_label_bind_cache;
+
+	if (!bmnc)
+		return;
+
+	LIST_REMOVE(pi, mplsvpn.bmnc.nh_label_bind_thread);
+	pi->mplsvpn.bmnc.nh_label_bind_cache->path_count--;
+	pi->mplsvpn.bmnc.nh_label_bind_cache = NULL;
+	SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND);
+
+	if (LIST_EMPTY(&(bmnc->paths)))
+		bgp_mplsvpn_nh_label_bind_free(bmnc);
+}
+
+void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
+						    struct bgp_dest *dest,
+						    struct bgp_path_info *pi)
+{
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
+	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
+
+	tree = &bgp->mplsvpn_nh_label_bind;
+	bmnc = bgp_mplsvpn_nh_label_bind_find(
+		tree, &pi->nexthop->prefix, decode_label(&pi->extra->label[0]));
+	if (!bmnc) {
+		bmnc = bgp_mplsvpn_nh_label_bind_new(
+			tree, &pi->nexthop->prefix,
+			decode_label(&pi->extra->label[0]));
+		bmnc->bgp_vpn = bgp;
+		bmnc->allocation_in_progress = true;
+		bgp_lp_get(LP_TYPE_BGP_L3VPN_BIND, bmnc,
+			   bgp_mplsvpn_nh_label_bind_get_local_label_cb);
+	}
+
+	if (pi->mplsvpn.bmnc.nh_label_bind_cache == bmnc)
+		/* no change */
+		return;
+
+	bgp_mplsvpn_path_nh_label_bind_unlink(pi);
+	if (bmnc) {
+		/* updates NHT pi list reference */
+		LIST_INSERT_HEAD(&(bmnc->paths), pi,
+				 mplsvpn.bmnc.nh_label_bind_thread);
+		pi->mplsvpn.bmnc.nh_label_bind_cache = bmnc;
+		pi->mplsvpn.bmnc.nh_label_bind_cache->path_count++;
+		SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND);
+		bmnc->last_update = monotime(NULL);
+	}
+
+	/* Add or update the selected nexthop */
 }

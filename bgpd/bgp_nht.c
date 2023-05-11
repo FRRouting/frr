@@ -151,6 +151,7 @@ void bgp_unlink_nexthop(struct bgp_path_info *path)
 	struct bgp_nexthop_cache *bnc = path->nexthop;
 
 	bgp_mplsvpn_path_nh_label_unlink(path);
+	bgp_mplsvpn_path_nh_label_bind_unlink(path);
 
 	if (!bnc)
 		return;
