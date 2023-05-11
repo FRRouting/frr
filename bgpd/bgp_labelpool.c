@@ -1730,7 +1730,7 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
 					     blnc->label, blnc->nh->ifindex,
 					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
-					     &blnc->nexthop);
+					     &blnc->nexthop, 0, NULL);
 		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
 	}
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);

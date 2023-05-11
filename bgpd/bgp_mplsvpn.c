@@ -1390,9 +1390,10 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 
 	/* update paths */
 	if (blnc->label != MPLS_INVALID_LABEL)
-		bgp_zebra_send_nexthop_label(
-			ZEBRA_MPLS_LABELS_ADD, blnc->label, blnc->nh->ifindex,
-			blnc->nh->vrf_id, ZEBRA_LSP_BGP, &blnc->nexthop);
+		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_ADD, blnc->label,
+					     blnc->nh->ifindex,
+					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
+					     &blnc->nexthop, 0, NULL);
 
 	LIST_FOREACH (pi, &(blnc->paths), mplsvpn.blnc.label_nh_thread) {
 		if (!pi->net)
@@ -1486,7 +1487,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 			bgp_zebra_send_nexthop_label(
 				ZEBRA_MPLS_LABELS_REPLACE, blnc->label,
 				bnc->nexthop->ifindex, bnc->nexthop->vrf_id,
-				ZEBRA_LSP_BGP, &blnc->nexthop);
+				ZEBRA_LSP_BGP, &blnc->nexthop, 0, NULL);
 		}
 	}
 
@@ -3885,6 +3886,68 @@ int bgp_mplsvpn_nh_label_bind_cmp(
 	return 0;
 }
 
+static void bgp_mplsvpn_nh_label_bind_send_nexthop_label(
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc, int cmd)
+{
+	struct prefix pfx_nh, *p = NULL;
+	uint32_t num_labels = 0, lsp_num_labels;
+	mpls_label_t label[MPLS_MAX_LABELS];
+	struct nexthop *nh;
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	uint32_t i;
+
+	if (bmnc->nh == NULL)
+		return;
+	nh = bmnc->nh;
+	switch (nh->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		p = &bmnc->nexthop;
+		label[num_labels] = bmnc->orig_label;
+		num_labels += 1;
+		ifindex = nh->ifindex;
+		vrf_id = nh->vrf_id;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (nh->type == NEXTHOP_TYPE_IPV4 ||
+		    nh->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+			pfx_nh.family = AF_INET;
+			pfx_nh.prefixlen = IPV4_MAX_BITLEN;
+			IPV4_ADDR_COPY(&pfx_nh.u.prefix4, &nh->gate.ipv4);
+		} else {
+			pfx_nh.family = AF_INET6;
+			pfx_nh.prefixlen = IPV6_MAX_BITLEN;
+			IPV6_ADDR_COPY(&pfx_nh.u.prefix6, &nh->gate.ipv6);
+		}
+		p = &pfx_nh;
+		if (nh->nh_label) {
+			if (nh->nh_label->num_labels >
+			    MPLS_MAX_LABELS - num_labels)
+				lsp_num_labels = MPLS_MAX_LABELS - num_labels;
+			else
+				lsp_num_labels = nh->nh_label->num_labels;
+			for (i = 0; i < lsp_num_labels; i++)
+				label[num_labels + i] = nh->nh_label->label[i];
+			num_labels += lsp_num_labels;
+		}
+		label[num_labels] = bmnc->orig_label;
+		num_labels += 1;
+		if (nh->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+		    nh->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+			ifindex = nh->ifindex;
+			vrf_id = nh->vrf_id;
+		}
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		return;
+	}
+	bgp_zebra_send_nexthop_label(cmd, bmnc->new_label, ifindex, vrf_id,
+				     ZEBRA_LSP_BGP, p, num_labels, &label[0]);
+}
+
 void bgp_mplsvpn_nh_label_bind_free(
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc)
 {
@@ -3894,8 +3957,11 @@ void bgp_mplsvpn_nh_label_bind_free(
 			&bmnc->bgp_vpn->mplsvpn_nh_label_bind, bmnc);
 		return;
 	}
-	if (bmnc->new_label != MPLS_INVALID_LABEL)
+	if (bmnc->new_label != MPLS_INVALID_LABEL) {
+		bgp_mplsvpn_nh_label_bind_send_nexthop_label(
+			bmnc, ZEBRA_MPLS_LABELS_DELETE);
 		bgp_lp_release(LP_TYPE_BGP_L3VPN_BIND, bmnc, bmnc->new_label);
+	}
 	bgp_mplsvpn_nh_label_bind_cache_del(
 		&bmnc->bgp_vpn->mplsvpn_nh_label_bind, bmnc);
 	XFREE(MTYPE_MPLSVPN_NH_LABEL_BIND_CACHE, bmnc);
@@ -4003,7 +4069,14 @@ static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
 	}
 	bmnc->allocation_in_progress = false;
 
-	/* Create MPLS entry with new_label */
+	if (bmnc->new_label != MPLS_INVALID_LABEL)
+		/*
+		 * Create the LSP : <local_label -> bmnc->orig_label,
+		 * via bmnc->prefix, interface bnc->nexthop->ifindex
+		 */
+		bgp_mplsvpn_nh_label_bind_send_nexthop_label(
+			bmnc, ZEBRA_MPLS_LABELS_ADD);
+
 	LIST_FOREACH (pi, &(bmnc->paths), mplsvpn.bmnc.nh_label_bind_thread) {
 		/* we can advertise it */
 		if (!pi->net)
@@ -4078,4 +4151,13 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 	}
 
 	/* Add or update the selected nexthop */
+	if (!bmnc->nh)
+		bmnc->nh = nexthop_dup(pi->nexthop->nexthop, NULL);
+	else if (!nexthop_same(pi->nexthop->nexthop, bmnc->nh)) {
+		nexthop_free(bmnc->nh);
+		bmnc->nh = nexthop_dup(pi->nexthop->nexthop, NULL);
+		if (bmnc->new_label != MPLS_INVALID_LABEL)
+			bgp_mplsvpn_nh_label_bind_send_nexthop_label(
+				bmnc, ZEBRA_MPLS_LABELS_REPLACE);
+	}
 }

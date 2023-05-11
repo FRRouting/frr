@@ -349,6 +349,9 @@ struct bgp_mplsvpn_nh_label_bind_cache {
 	struct prefix nexthop;
 	mpls_label_t orig_label;
 
+	/* resolved interface for the paths */
+	struct nexthop *nh;
+
 	/* number of mplsvpn path */
 	unsigned int path_count;
 
