@@ -432,6 +432,8 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	} else if (sg->tib_joined && !new_join) {
 		tib_sg_gm_prune(gm_ifp->pim, sg->sgaddr, gm_ifp->ifp, &sg->oil);
 
+		/* Detach sg channel oil */
+		pim_channel_oil_del(sg->oil, __func__);
 		sg->oil = NULL;
 		sg->tib_joined = false;
 	}
