@@ -74,6 +74,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_source_vrf_destroy,
 			}
 		},
+	    {
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:source-protocol",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_destroy,
+			}
+		},
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:peer-ipv4-address",
 			.cbs = {

@@ -30,6 +30,10 @@ int lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_m
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_probability_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_probability_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_source_vrf_modify(struct nb_cb_modify_args *args);
