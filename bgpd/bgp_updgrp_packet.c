@@ -789,6 +789,29 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 						      safi);
 				label_pnt = &label;
 				num_labels = 1;
+			} else if (safi == SAFI_MPLS_VPN && path &&
+				   CHECK_FLAG(path->flags,
+					      BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+				   path->mplsvpn.bmnc.nh_label_bind_cache &&
+				   path->peer && path->peer != peer &&
+				   path->sub_type != BGP_ROUTE_IMPORTED &&
+				   path->sub_type != BGP_ROUTE_STATIC &&
+				   bgp_mplsvpn_path_uses_valid_mpls_label(
+					   path) &&
+				   bgp_path_info_nexthop_changed(path, peer,
+								 afi)) {
+				/* Redistributed mpls vpn route between distinct
+				 * peers from 'pi->peer' to 'to',
+				 * and an mpls label is used in this path,
+				 * and there is a nh label bind entry,
+				 * then get appropriate mpls local label. When
+				 * called here, 'get_label()' returns a valid
+				 * label.
+				 */
+				label = bgp_mplsvpn_nh_label_bind_get_label(
+					path);
+				label_pnt = &label;
+				num_labels = 1;
 			} else if (path && path->extra) {
 				label_pnt = &path->extra->label[0];
 				num_labels = path->extra->num_labels;

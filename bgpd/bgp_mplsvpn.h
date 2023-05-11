@@ -332,6 +332,7 @@ bgp_mplsvpn_nh_label_bind_cmp(const struct bgp_mplsvpn_nh_label_bind_cache *a,
 extern void bgp_mplsvpn_path_nh_label_bind_unlink(struct bgp_path_info *pi);
 extern void bgp_mplsvpn_nh_label_bind_register_local_label(
 	struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi);
+mpls_label_t bgp_mplsvpn_nh_label_bind_get_label(struct bgp_path_info *pi);
 
 /* used to bind a local label to the (label, nexthop) values
  * from an incoming BGP mplsvpn update

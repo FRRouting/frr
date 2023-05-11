@@ -298,6 +298,29 @@ struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path)
 	return path;
 }
 
+bool bgp_path_info_nexthop_changed(struct bgp_path_info *pi, struct peer *to,
+				   afi_t afi)
+{
+	if (pi->peer->sort == BGP_PEER_IBGP && to->sort == BGP_PEER_IBGP &&
+	    !CHECK_FLAG(to->af_flags[afi][SAFI_MPLS_VPN],
+			PEER_FLAG_FORCE_NEXTHOP_SELF))
+		/* IBGP RR with no nexthop self force configured */
+		return false;
+
+	if (to->sort == BGP_PEER_IBGP &&
+	    !CHECK_FLAG(to->af_flags[afi][SAFI_MPLS_VPN],
+			PEER_FLAG_NEXTHOP_SELF))
+		/* IBGP RR with no nexthop self configured */
+		return false;
+
+	if (CHECK_FLAG(to->af_flags[afi][SAFI_MPLS_VPN],
+		       PEER_FLAG_NEXTHOP_UNCHANGED))
+		/* IBGP or EBGP with nexthop attribute unchanged */
+		return false;
+
+	return true;
+}
+
 /* This function sets flag BGP_NODE_SELECT_DEFER based on condition */
 static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 {
@@ -1996,6 +2019,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
 	bool nh_reset = false;
 	uint64_t cum_bw;
+	mpls_label_t label;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2081,13 +2105,36 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If it's labeled safi, make sure the route has a valid label. */
 	if (safi == SAFI_LABELED_UNICAST) {
-		mpls_label_t label = bgp_adv_label(dest, pi, peer, afi, safi);
+		label = bgp_adv_label(dest, pi, peer, afi, safi);
 		if (!bgp_is_valid_label(&label)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug("u%" PRIu64 ":s%" PRIu64
 					   " %pFX is filtered - no label (%p)",
 					   subgrp->update_group->id, subgrp->id,
 					   p, &label);
+			return false;
+		}
+	} else if (safi == SAFI_MPLS_VPN &&
+		   CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+		   pi->mplsvpn.bmnc.nh_label_bind_cache && from && peer &&
+		   pi->peer != peer && pi->sub_type != BGP_ROUTE_IMPORTED &&
+		   pi->sub_type != BGP_ROUTE_STATIC &&
+		   bgp_mplsvpn_path_uses_valid_mpls_label(pi) &&
+		   bgp_path_info_nexthop_changed(pi, peer, afi)) {
+		/* Redistributed mpls vpn route between distinct
+		 * peers from 'pi->peer' to 'to',
+		 * and an mpls label is used in this path,
+		 * and there is a nh label bind entry,
+		 * then get appropriate mpls local label
+		 * and check its validity
+		 */
+		label = bgp_mplsvpn_nh_label_bind_get_label(pi);
+		if (!bgp_is_valid_label(&label)) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " %pFX is filtered - no valid label",
+					   subgrp->update_group->id, subgrp->id,
+					   p);
 			return false;
 		}
 	}

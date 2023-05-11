@@ -3997,6 +3997,24 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 	return true;
 }
 
+mpls_label_t bgp_mplsvpn_nh_label_bind_get_label(struct bgp_path_info *pi)
+{
+	mpls_label_t label;
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
+
+	bmnc = pi->mplsvpn.bmnc.nh_label_bind_cache;
+	if (!bmnc || bmnc->new_label == MPLS_INVALID_LABEL)
+		/* allocation in progress
+		 * or path not eligible for local label
+		 */
+		return MPLS_INVALID_LABEL;
+
+	label = mpls_lse_encode(bmnc->new_label, 0, 0, 1);
+	bgp_set_valid_label(&label);
+
+	return label;
+}
+
 /* Called upon reception of a ZAPI Message from zebra, about
  * a new available label.
  */
@@ -4005,6 +4023,8 @@ static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
 							bool allocated)
 {
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc = context;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: label=%u, allocated=%d, nexthop=%pFX, label %u",
@@ -4027,7 +4047,17 @@ static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
 	bmnc->allocation_in_progress = false;
 
 	/* Create MPLS entry with new_label */
-	/* Trigger BGP process to re-advertise updates */
+	LIST_FOREACH (pi, &(bmnc->paths), mplsvpn.bmnc.nh_label_bind_thread) {
+		/* we can advertise it */
+		if (!pi->net)
+			continue;
+		table = bgp_dest_table(pi->net);
+		if (!table)
+			continue;
+		SET_FLAG(pi->net->flags, BGP_NODE_LABEL_CHANGED);
+		bgp_process(table->bgp, pi->net, table->afi, table->safi);
+	}
+
 	return 0;
 }
 
