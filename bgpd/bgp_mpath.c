@@ -336,6 +336,27 @@ static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
 	prev->mp_next = mpath;
 
 	SET_FLAG(path->flags, BGP_PATH_MULTIPATH);
+	if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP))
+		UNSET_FLAG(path->flags, BGP_PATH_BACKUP);
+}
+
+
+/*
+ * bgp_mpath_is_primary_path
+ *
+ * Return true if a 'current' path is a primary route like 'best'
+ */
+bool bgp_mpath_is_primary_path(struct bgp_path_info *current,
+			       struct bgp_path_info *best)
+{
+	struct bgp_path_info *mpath = bgp_path_info_mpath_first(best);
+
+	while (mpath) {
+		if (mpath == current)
+			return true;
+		mpath = bgp_path_info_mpath_next(mpath);
+	};
+	return false;
 }
 
 /*

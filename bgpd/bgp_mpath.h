@@ -62,6 +62,9 @@ extern void
 bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 				     struct bgp_path_info *old_best);
 
+/* return True if the 'current' path is part of primary routes */
+bool bgp_mpath_is_primary_path(struct bgp_path_info *current,
+			       struct bgp_path_info *best);
 /* Unlink and free multipath information associated with a bgp_path_info */
 extern void bgp_path_info_mpath_dequeue(struct bgp_path_info *path);
 extern void bgp_path_info_mpath_free(struct bgp_path_info_mpath **mpath);

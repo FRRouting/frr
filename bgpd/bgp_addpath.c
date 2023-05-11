@@ -515,3 +515,18 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *bn, afi_t afi,
 		idalloc_drain_pool(alloc, pool_ptr);
 	}
 }
+
+void bgp_addpath_configure_backup_paths(struct bgp *bgp, afi_t afi, safi_t safi,
+					bool set)
+{
+	if (!!CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP) ==
+	    set)
+		return;
+
+	if (set)
+		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP);
+	else
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP);
+
+	bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
+}
