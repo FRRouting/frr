@@ -212,7 +212,7 @@ Route Map Match Command
 
 .. clicmd:: match source-protocol PROTOCOL_NAME
 
-  This is a ZEBRA specific match command.  Matches the
+  This is a ZEBRA and BGP specific match command.  Matches the
   originating protocol specified.
 
 .. clicmd:: match source-instance NUMBER

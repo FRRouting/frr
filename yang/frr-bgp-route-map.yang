@@ -23,6 +23,10 @@ module frr-bgp-route-map {
     prefix rt-types;
   }
 
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
   organization
     "Free Range Routing";
   contact
@@ -166,6 +170,12 @@ module frr-bgp-route-map {
     base frr-route-map:rmap-match-type;
     description
       "Match IPv6 next hop address";
+  }
+
+  identity source-protocol {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match protocol via which the route was learnt";
   }
 
   identity distance {
@@ -757,6 +767,13 @@ module frr-bgp-route-map {
         type inet:ipv6-address;
         description
           "IPv6 address";
+      }
+    }
+
+    case source-protocol {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:source-protocol')";
+      leaf source-protocol {
+        type frr-route-types:frr-route-types;
       }
     }
   }

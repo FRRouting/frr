@@ -872,6 +872,46 @@ static const struct route_map_rule_cmd
 	route_match_ip_next_hop_type_free
 };
 
+/* `match source-protocol` */
+static enum route_map_cmd_result_t
+route_match_source_protocol(void *rule, const struct prefix *prefix,
+			    void *object)
+{
+	struct bgp_path_info *path = object;
+	int *protocol = rule;
+
+	if (!path)
+		return RMAP_NOMATCH;
+
+	if (path->type == *protocol)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_source_protocol_compile(const char *arg)
+{
+	int *protocol;
+
+	protocol = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*protocol));
+	*protocol = proto_name2num(arg);
+
+	return protocol;
+}
+
+static void route_match_source_protocol_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_match_source_protocol_cmd = {
+	"source-protocol",
+	route_match_source_protocol,
+	route_match_source_protocol_compile,
+	route_match_source_protocol_free
+};
+
+
 /* `match ip route-source prefix-list PREFIX_LIST' */
 
 static enum route_map_cmd_result_t
@@ -7177,6 +7217,42 @@ DEFPY_YANG (match_rpki_extcommunity,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (match_source_protocol,
+            match_source_protocol_cmd,
+	    "match source-protocol " FRR_REDIST_STR_ZEBRA "$proto",
+	    MATCH_STR
+	    "Match protocol via which the route was learnt\n"
+	    FRR_REDIST_HELP_STR_ZEBRA)
+{
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:source-protocol']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:source-protocol",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, proto);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_match_source_protocol,
+            no_match_source_protocol_cmd,
+	    "no match source-protocol [" FRR_REDIST_STR_ZEBRA "]",
+	    NO_STR
+	    MATCH_STR
+	    "Match protocol via which the route was learnt\n"
+	    FRR_REDIST_HELP_STR_ZEBRA)
+{
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:source-protocol']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /* Initialization of route map. */
 void bgp_route_map_init(void)
 {
@@ -7252,6 +7328,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_next_hop_type_cmd);
+	route_map_install_match(&route_match_source_protocol_cmd);
 	route_map_install_match(&route_match_ip_route_source_prefix_list_cmd);
 	route_map_install_match(&route_match_aspath_cmd);
 	route_map_install_match(&route_match_community_cmd);
@@ -7441,6 +7518,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &match_rpki_extcommunity_cmd);
+	install_element(RMAP_NODE, &match_source_protocol_cmd);
+	install_element(RMAP_NODE, &no_match_source_protocol_cmd);
 #ifdef HAVE_SCRIPTING
 	install_element(RMAP_NODE, &match_script_cmd);
 #endif

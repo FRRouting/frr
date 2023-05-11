@@ -259,6 +259,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-zebra-route-map:ipv4-next-hop-prefix-length"))
 #define IS_MATCH_SRC_PROTO(C)                                                  \
 	(strmatch(C, "frr-zebra-route-map:source-protocol"))
+#define IS_MATCH_BGP_SRC_PROTO(C)                                              \
+	(strmatch(C, "frr-bgp-route-map:source-protocol"))
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
