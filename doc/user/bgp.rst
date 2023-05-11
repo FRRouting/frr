@@ -441,6 +441,11 @@ Route Selection
    ecmp value.  This value can also be set in ipv4/ipv6 unicast/labeled
    unicast to only affect those particular afi/safi's.
 
+.. clicmd:: addpath path-selection backup
+
+   Enable the backup route support used for best second path routes
+   calculation.
+
 .. _bgp-distance:
 
 Administrative Distance Metrics
@@ -3842,7 +3847,7 @@ When default route is present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/3
    BGP table version is 20, local router ID is 203.0.113.1, vrf id 0
    Default local pref 100, local AS 2
    Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
+                  i internal, r RIB-failure, S Stale, R Removed, b backup
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
    RPKI validation codes: V valid, I invalid, N Not found
@@ -3872,7 +3877,7 @@ When default route is present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2.1/3
    BGP table version is 20, local router ID is 203.0.113.1, vrf id 0
    Default local pref 100, local AS 2
    Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-               i internal, r RIB-failure, S Stale, R Removed
+               i internal, r RIB-failure, S Stale, R Removed, b backup
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
    RPKI validation codes: V valid, I invalid, N Not found
@@ -3891,7 +3896,7 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    BGP table version is 21, local router ID is 203.0.113.1, vrf id 0
    Default local pref 100, local AS 2
    Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
+                  i internal, r RIB-failure, S Stale, R Removed, b backup
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
    RPKI validation codes: V valid, I invalid, N Not found
@@ -3921,7 +3926,7 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    BGP table version is 21, local router ID is 203.0.113.1, vrf id 0
    Default local pref 100, local AS 2
    Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
-                  i internal, r RIB-failure, S Stale, R Removed
+                  i internal, r RIB-failure, S Stale, R Removed, b backup
    Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
    Origin codes:  i - IGP, e - EGP, ? - incomplete
    RPKI validation codes: V valid, I invalid, N Not found

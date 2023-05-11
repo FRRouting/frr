@@ -98,7 +98,7 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 	safi_t safi = SAFI_EVPN;
 	struct bgp_path_info *old_select; /* old best */
 	struct bgp_path_info *new_select; /* new best */
-	struct bgp_path_info_pair old_and_new;
+	struct bgp_path_info_pair old_and_new = { 0 };
 
 	/* Compute the best path. */
 	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,

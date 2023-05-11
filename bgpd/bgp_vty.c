@@ -2654,6 +2654,26 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 	}
 }
 
+/* addpath Maximum-paths configuration */
+DEFPY(bgp_addpath_path_selection_backup, bgp_addpath_path_selection_backup_cmd,
+      "[no] addpath path-selection backup",
+      NO_STR
+      "addpath option\n"
+      "Select path-selection mode\n"
+      "Consider non best path as backup paths\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		bgp_addpath_configure_backup_paths(bgp, bgp_node_afi(vty),
+						   bgp_node_safi(vty), false);
+	else
+		bgp_addpath_configure_backup_paths(bgp, bgp_node_afi(vty),
+						   bgp_node_safi(vty), true);
+
+	return CMD_SUCCESS;
+}
+
 /* BGP timers.  */
 
 DEFUN (bgp_timers,
@@ -18865,6 +18885,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	bgp_config_write_redistribute(vty, bgp, afi, safi);
 
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_ADDPATH_BACKUP))
+		vty_out(vty, "  addpath path-selection backup\n");
+
 	/* BGP flag dampening. */
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
 		bgp_config_write_damp(vty, afi, safi);
@@ -20672,6 +20695,16 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_disable_addpath_rx_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_disable_addpath_rx_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_disable_addpath_rx_cmd);
+
+	/* "addpath selection" commands. */
+	install_element(BGP_IPV4_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_IPV4M_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_IPV4L_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_IPV6M_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_VPNV4_NODE, &bgp_addpath_path_selection_backup_cmd);
+	install_element(BGP_VPNV6_NODE, &bgp_addpath_path_selection_backup_cmd);
 
 	/* "neighbor addpath-tx-all-paths" commands.*/
 	install_element(BGP_NODE, &neighbor_addpath_tx_all_paths_hidden_cmd);

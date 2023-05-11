@@ -101,6 +101,7 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 	struct bgp_path_info *pi = NULL;
 	uint16_t paths_count = 0;
 	uint16_t paths_limit = peer->addpath_paths_limit[afi][safi].receive;
+	struct bgp_path_info_pair pi_and_exist = { 0 };
 
 	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
 		paths_limit =
@@ -119,8 +120,9 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 
 				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 					continue;
-
-				if (bgp_path_info_cmp(peer->bgp, pi, exist,
+				pi_and_exist.new = pi;
+				pi_and_exist.old = exist;
+				if (bgp_path_info_cmp(peer->bgp, &pi_and_exist,
 						      &paths_eq, NULL, 0,
 						      pfx_buf, afi, safi,
 						      &reason))
