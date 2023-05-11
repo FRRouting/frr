@@ -707,9 +707,40 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 				     struct interface *ifp, bool up)
 {
 	struct bgp_nexthop_cache *bnc;
+	struct nexthop *nhop;
+	uint8_t other_nh_count;
+	bool nhop_found;
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
-		if (bnc->ifindex_ipv6_ll != ifp->ifindex)
+		other_nh_count = 0;
+		nhop_found = bnc->ifindex_ipv6_ll == ifp->ifindex;
+		for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
+			if (nhop->ifindex == bnc->ifindex_ipv6_ll)
+				continue;
+
+			if (nhop->ifindex != ifp->ifindex) {
+				other_nh_count++;
+				continue;
+			}
+			if (nhop->vrf_id != ifp->vrf->vrf_id) {
+				other_nh_count++;
+				continue;
+			}
+			nhop_found = true;
+		}
+
+		if (!nhop_found)
+			/* The event interface does not match the nexthop cache
+			 * entry */
+			continue;
+
+		if (!up && other_nh_count > 0)
+			/* Down event ignored in case of multiple next-hop
+			 * interfaces. The other might interfaces might be still
+			 * up. The cases where all interfaces are down or a bnc
+			 * is invalid are processed by a separate zebra rnh
+			 * messages.
+			 */
 			continue;
 
 		bnc->last_update = monotime(NULL);
