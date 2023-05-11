@@ -86,6 +86,8 @@ struct ospf_master {
 	/* Various OSPF global configuration. */
 	uint8_t options;
 #define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
+
+	bool config_being_read_in;
 };
 
 struct ospf_redist {

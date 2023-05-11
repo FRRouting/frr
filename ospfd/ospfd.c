@@ -2217,6 +2217,8 @@ void ospf_master_init(struct event_loop *master)
 	om = &ospf_master;
 	om->ospf = list_new();
 	om->master = master;
+
+	om->config_being_read_in = false;
 }
 
 /* Link OSPF instance to VRF. */

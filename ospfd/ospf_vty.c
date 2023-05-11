@@ -13107,9 +13107,27 @@ void ospf_vty_clear_init(void)
 }
 
 
+static void ospf_start_config_cb(void)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Config start read in", __func__);
+
+	om->config_being_read_in = true;
+}
+
+static void ospf_end_config_cb(void)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: Config end read in", __func__);
+
+	om->config_being_read_in = false;
+}
+
 /* Install OSPF related vty commands. */
 void ospf_vty_init(void)
 {
+	cmd_init_config_callbacks(ospf_start_config_cb, ospf_end_config_cb);
+
 	/* Install ospf top node. */
 	install_node(&ospf_node);
 
