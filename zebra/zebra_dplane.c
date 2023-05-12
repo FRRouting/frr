@@ -5774,6 +5774,21 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				  memory_order_relaxed);
 }
 
+static struct zebra_dplane_ctx *
+dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	ctx = dplane_ctx_list_pop(&(prov->dp_ctx_out_list));
+	if (!ctx)
+		return NULL;
+
+	atomic_fetch_sub_explicit(&(prov->dp_out_queued), 1,
+				  memory_order_relaxed);
+
+	return ctx;
+}
+
 /*
  * Accessor for provider object
  */
@@ -6805,7 +6820,7 @@ static void dplane_thread_loop(struct thread *event)
 		dplane_provider_lock(prov);
 
 		while (counter < limit) {
-			ctx = dplane_ctx_list_pop(&(prov->dp_ctx_out_list));
+			ctx = dplane_provider_dequeue_out_ctx(prov);
 			if (ctx) {
 				dplane_ctx_list_add_tail(&work_list, ctx);
 				counter++;
