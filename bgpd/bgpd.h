@@ -202,7 +202,7 @@ struct vpn_policy {
 
 	/* should be mpls_label_t? */
 	uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
-	uint32_t tovpn_zebra_vrf_label_last_sent;
+	uint32_t tovpn_zebra_vrf_label_to_send;
 	char *tovpn_rd_pretty;
 	struct prefix_rd tovpn_rd;
 	struct prefix tovpn_nexthop; /* unset => set to 0 */
@@ -211,6 +211,7 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
 #define BGP_VPN_POLICY_TOVPN_SID_AUTO          (1 << 3)
+#define BGP_VPN_POLICY_TOVPN_LABEL_TO_SEND (1 << 4)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
