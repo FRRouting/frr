@@ -86,7 +86,7 @@ OSPF also uses the Hello protocol to propagate certain state between routers
 sharing a link, for example:
 
 - Hello protocol configured state, such as the dead-interval.
-- Router priority, for DR/BDR election.
+- Router priority, for :abbr:`DR (Designated Router)`/:abbr:`BDR (Backup Designated Router)` election.
 - DR/BDR election results.
 - Any optional capabilities supported by each router.
 
