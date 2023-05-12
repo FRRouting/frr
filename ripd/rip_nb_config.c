@@ -99,9 +99,13 @@ int ripd_instance_allow_ecmp_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	rip->ecmp = yang_dnode_get_bool(args->dnode, NULL);
-	if (!rip->ecmp)
+	rip->ecmp = yang_dnode_get_uint8(args->dnode, NULL);
+	if (!rip->ecmp) {
 		rip_ecmp_disable(rip);
+		return NB_OK;
+	}
+
+	rip_ecmp_change(rip);
 
 	return NB_OK;
 }

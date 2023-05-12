@@ -156,7 +156,10 @@ struct rip_info *rip_ecmp_add(struct rip *rip, struct rip_info *rinfo_new)
 {
 	struct route_node *rp = rinfo_new->rp;
 	struct rip_info *rinfo = NULL;
+	struct rip_info *rinfo_exist = NULL;
 	struct list *list = NULL;
+	struct listnode *node = NULL;
+	struct listnode *nnode = NULL;
 
 	if (rp->info == NULL)
 		rp->info = list_new();
@@ -167,6 +170,33 @@ struct rip_info *rip_ecmp_add(struct rip *rip, struct rip_info *rinfo_new)
 	if (listcount(list) && !rip->ecmp)
 		return NULL;
 
+	/* Add or replace an existing ECMP path with lower neighbor IP */
+	if (listcount(list) && listcount(list) >= rip->ecmp) {
+		struct rip_info *from_highest = NULL;
+
+		/* Find the rip_info struct that has the highest nexthop IP */
+		for (ALL_LIST_ELEMENTS(list, node, nnode, rinfo_exist))
+			if (!from_highest ||
+			    (from_highest &&
+			     IPV4_ADDR_CMP(&rinfo_exist->from,
+					   &from_highest->from) > 0)) {
+				from_highest = rinfo_exist;
+			}
+
+		/* If we have a route in ECMP group, delete the old
+		 * one that has a higher next-hop address. Lower IP is
+		 * preferred.
+		 */
+		if (rip->ecmp > 1 && from_highest &&
+		    IPV4_ADDR_CMP(&from_highest->from, &rinfo_new->from) > 0) {
+			rip_ecmp_delete(rip, from_highest);
+			goto add_or_replace;
+		}
+
+		return NULL;
+	}
+
+add_or_replace:
 	rinfo = rip_info_new();
 	memcpy(rinfo, rinfo_new, sizeof(struct rip_info));
 	listnode_add(list, rinfo);
@@ -2632,6 +2662,36 @@ struct rip *rip_lookup_by_vrf_name(const char *vrf_name)
 	return RB_FIND(rip_instance_head, &rip_instances, &rip);
 }
 
+/* Update ECMP routes to zebra when `allow-ecmp` changed. */
+void rip_ecmp_change(struct rip *rip)
+{
+	struct route_node *rp;
+	struct rip_info *rinfo;
+	struct list *list;
+	struct listnode *node, *nextnode;
+
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+		if (list && listcount(list) > 1) {
+			while (listcount(list) > rip->ecmp) {
+				struct rip_info *from_highest = NULL;
+
+				for (ALL_LIST_ELEMENTS(list, node, nextnode,
+						       rinfo)) {
+					if (!from_highest ||
+					    (from_highest &&
+					     IPV4_ADDR_CMP(
+						     &rinfo->from,
+						     &from_highest->from) > 0))
+						from_highest = rinfo;
+				}
+
+				rip_ecmp_delete(rip, from_highest);
+			}
+		}
+	}
+}
+
 /* Create new RIP instance and set it to global variable. */
 struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 {
@@ -2641,7 +2701,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip->vrf_name = XSTRDUP(MTYPE_RIP_VRF_NAME, vrf_name);
 
 	/* Set initial value. */
-	rip->ecmp = yang_get_default_bool("%s/allow-ecmp", RIP_INSTANCE);
+	rip->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIP_INSTANCE);
 	rip->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIP_INSTANCE);
 	rip->distance =

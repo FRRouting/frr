@@ -20,6 +20,7 @@
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 /* Send ECMP routes to zebra. */
 static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
@@ -30,7 +31,7 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 	struct zapi_nexthop *api_nh;
 	struct listnode *listnode = NULL;
 	struct rip_info *rinfo = NULL;
-	int count = 0;
+	uint32_t count = 0;
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = rip->vrf->vrf_id;
@@ -39,7 +40,7 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-		if (count >= MULTIPATH_NUM)
+		if (count >= zebra_ecmp_count)
 			break;
 		api_nh = &api.nexthops[count];
 		api_nh->vrf_id = rip->vrf->vrf_id;
@@ -227,6 +228,11 @@ zclient_handler *const rip_handlers[] = {
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = rip_zebra_read_route,
 };
 
+static void rip_zebra_capabilities(struct zclient_capabilities *cap)
+{
+	zebra_ecmp_count = MIN(cap->ecmp, zebra_ecmp_count);
+}
+
 void rip_zclient_init(struct event_loop *master)
 {
 	/* Set default value to the zebra client structure. */
@@ -234,6 +240,7 @@ void rip_zclient_init(struct event_loop *master)
 			      array_size(rip_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_RIP, 0, &ripd_privs);
 	zclient->zebra_connected = rip_zebra_connected;
+	zclient->zebra_capabilities = rip_zebra_capabilities;
 }
 
 void rip_zclient_stop(void)
