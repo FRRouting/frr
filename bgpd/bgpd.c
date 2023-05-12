@@ -3355,6 +3355,11 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		SET_FLAG(bgp->af_flags[afi][SAFI_MPLS_VPN],
 			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		bgp_label_per_nexthop_cache_init(
+			&bgp->mpls_labels_per_nexthop[afi]);
+
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
 
@@ -8251,6 +8256,8 @@ void bgp_init(unsigned short instance)
 	bgp_bfd_init(bm->master);
 
 	bgp_lp_vty_init();
+
+	bgp_label_per_nexthop_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }

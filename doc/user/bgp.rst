@@ -2897,6 +2897,13 @@ address-family:
    extended community values as described in
    :ref:`bgp-extended-communities-attribute`.
 
+.. clicmd:: label vpn export allocation-mode per-vrf|per-nexthop
+
+   Select how labels are allocated in the given VRF. By default, the `per-vrf`
+   mode is selected, and one label is used for all prefixes from the VRF. The
+   `per-nexthop` will use a unique label for all prefixes that are reachable
+   via the same nexthop.
+
 .. clicmd:: label vpn export (0..1048575)|auto
 
    Enables an MPLS label to be attached to a route exported from the current

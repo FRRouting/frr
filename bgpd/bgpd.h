@@ -211,6 +211,7 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
 #define BGP_VPN_POLICY_TOVPN_SID_AUTO          (1 << 3)
+#define BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP (1 << 4)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -572,6 +573,10 @@ struct bgp {
 
 	/* Allocate MPLS labels */
 	uint8_t allocate_mpls_labels[AFI_MAX][SAFI_MAX];
+
+	/* Tree for next-hop lookup cache. */
+	struct bgp_label_per_nexthop_cache_head
+		mpls_labels_per_nexthop[AFI_MAX];
 
 	/* Allocate hash entries to store policy routing information
 	 * The hash are used to host pbr rules somewhere.
