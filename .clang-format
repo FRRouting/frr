@@ -11,6 +11,7 @@ AllowShortFunctionsOnASingleLine: false
 IndentCaseLabels: false
 AlignEscapedNewlinesLeft: false
 AlignTrailingComments: true
+AlignConsecutiveMacros: AcrossComments
 AllowAllParametersOfDeclarationOnNextLine: false
 AlignAfterOpenBracket: true
 SpaceAfterCStyleCast: false
