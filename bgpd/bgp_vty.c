@@ -2876,52 +2876,6 @@ DEFPY(bgp_enforce_first_as,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bgp_lu_uses_explicit_null, bgp_lu_uses_explicit_null_cmd,
-      "[no] bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>$value",
-      NO_STR BGP_STR
-      "BGP Labeled-unicast options\n"
-      "Use explicit-null label values for all local prefixes\n"
-      "Use the IPv4 explicit-null label value for IPv4 local prefixes\n"
-      "Use the IPv6 explicit-null label value for IPv6 local prefixes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	safi_t safi = SAFI_LABELED_UNICAST;
-	bool afi4 = false;
-	bool afi6 = false;
-
-
-	if (strmatch(value, "ipv4-explicit-null"))
-		afi4 = true;
-	else if (strmatch(value, "ipv6-explicit-null"))
-		afi6 = true;
-	else {
-		afi4 = true;
-		afi6 = true;
-	}
-
-
-	if (no) {
-		if (afi4 && CHECK_FLAG(bgp->af_flags[AFI_IP][safi], BGP_LU_EXPLICIT_NULL)) {
-			UNSET_FLAG(bgp->af_flags[AFI_IP][safi], BGP_LU_EXPLICIT_NULL);
-			bgp_zebra_label_set_to_imp_null(bgp, AFI_IP);
-		}
-		if (afi6 && CHECK_FLAG(bgp->af_flags[AFI_IP6][safi], BGP_LU_EXPLICIT_NULL)) {
-			UNSET_FLAG(bgp->af_flags[AFI_IP6][safi], BGP_LU_EXPLICIT_NULL);
-			bgp_zebra_label_set_to_imp_null(bgp, AFI_IP6);
-		}
-	} else {
-		if (afi4 && !CHECK_FLAG(bgp->af_flags[AFI_IP][safi], BGP_LU_EXPLICIT_NULL)) {
-			SET_FLAG(bgp->af_flags[AFI_IP][safi], BGP_LU_EXPLICIT_NULL);
-			bgp_zebra_label_set_to_exp_null(bgp, AFI_IP);
-		}
-		if (afi6 && !CHECK_FLAG(bgp->af_flags[AFI_IP6][safi], BGP_LU_EXPLICIT_NULL)) {
-			SET_FLAG(bgp->af_flags[AFI_IP6][safi], BGP_LU_EXPLICIT_NULL);
-			bgp_zebra_label_set_to_exp_null(bgp, AFI_IP6);
-		}
-	}
-	return CMD_SUCCESS;
-}
-
 DEFUN(bgp_suppress_duplicates, bgp_suppress_duplicates_cmd,
       "bgp suppress-duplicates",
       BGP_STR
@@ -20607,9 +20561,6 @@ void bgp_vty_init(void)
 
 	/* bgp enforce-first-as */
 	install_element(BGP_NODE, &bgp_enforce_first_as_cmd);
-
-	/* bgp labeled-unicast explicit-null */
-	install_element(BGP_NODE, &bgp_lu_uses_explicit_null_cmd);
 
 	/* bgp suppress-duplicates */
 	install_element(BGP_NODE, &bgp_suppress_duplicates_cmd);
