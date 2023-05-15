@@ -2967,6 +2967,14 @@ by issuing the following command under the interface configuration context.
 This configuration will install VPN prefixes originated from an e-bgp session,
 and with the next-hop directly connected.
 
+.. clicmd:: mpls bgp l3vpn-multi-domain-switching
+
+Redistribute labeled L3VPN routes from AS to neighboring AS (RFC-4364 option
+B, or within the same AS when the iBGP peer uses ``next-hop-self`` to rewrite
+the next-hop attribute). The labeled L3VPN routes received on this interface are
+re-advertised with local labels and an MPLS table swap entry is set to bind
+the local label to the received label.
+
 .. _bgp-l3vpn-srv6:
 
 L3VPN SRv6
