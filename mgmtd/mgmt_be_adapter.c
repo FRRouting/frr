@@ -393,13 +393,13 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	switch ((int)be_msg->message_case) {
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
 		MGMTD_BE_ADAPTER_DBG(
-			"Got Subscribe Req Msg from '%s' to %sregister %u xpaths",
+			"Got SUBSCR_REQ from '%s' to %sregister %zu xpaths",
 			be_msg->subscr_req->client_name,
-			!be_msg->subscr_req->subscribe_xpaths
-					&& be_msg->subscr_req->n_xpath_reg
+			!be_msg->subscr_req->subscribe_xpaths &&
+					be_msg->subscr_req->n_xpath_reg
 				? "de"
 				: "",
-			(uint32_t)be_msg->subscr_req->n_xpath_reg);
+			be_msg->subscr_req->n_xpath_reg);
 
 		if (strlen(be_msg->subscr_req->client_name)) {
 			strlcpy(adapter->name, be_msg->subscr_req->client_name,
@@ -429,10 +429,10 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
-			"Got %s TXN_REPLY Msg for Txn-Id 0x%llx from '%s' with '%s'",
+			"Got %s TXN_REPLY from '%s' txn-id %" PRIx64
+			" with '%s'",
 			be_msg->txn_reply->create ? "Create" : "Delete",
-			(unsigned long long)be_msg->txn_reply->txn_id,
-			adapter->name,
+			adapter->name, be_msg->txn_reply->txn_id,
 			be_msg->txn_reply->success ? "success" : "failure");
 		/*
 		 * Forward the TXN_REPLY to txn module.
@@ -444,10 +444,10 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
-			"Got CFGDATA_REPLY Msg from '%s' for Txn-Id 0x%llx Batch-Id 0x%llx with Err:'%s'",
-			adapter->name,
-			(unsigned long long)be_msg->cfg_data_reply->txn_id,
-			(unsigned long long)be_msg->cfg_data_reply->batch_id,
+			"Got CFGDATA_REPLY from '%s' txn-id %" PRIx64
+			" batch-id %" PRIu64 " err:'%s'",
+			adapter->name, be_msg->cfg_data_reply->txn_id,
+			be_msg->cfg_data_reply->batch_id,
 			be_msg->cfg_data_reply->error_if_any
 				? be_msg->cfg_data_reply->error_if_any
 				: "None");
@@ -462,19 +462,15 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
-			"Got %s CFG_APPLY_REPLY Msg from '%s' for Txn-Id 0x%llx for %d batches (Id 0x%llx-0x%llx),  Err:'%s'",
+			"Got %s CFG_APPLY_REPLY from '%s' txn-id %" PRIx64
+			" for %zu batches id %" PRIu64 "-%" PRIu64 " err:'%s'",
 			be_msg->cfg_apply_reply->success ? "successful"
-							    : "failed",
-			adapter->name,
-			(unsigned long long)
-				be_msg->cfg_apply_reply->txn_id,
-			(int)be_msg->cfg_apply_reply->n_batch_ids,
-			(unsigned long long)
-				be_msg->cfg_apply_reply->batch_ids[0],
-			(unsigned long long)be_msg->cfg_apply_reply
-				->batch_ids[be_msg->cfg_apply_reply
-						    ->n_batch_ids
-					    - 1],
+							 : "failed",
+			adapter->name, be_msg->cfg_apply_reply->txn_id,
+			be_msg->cfg_apply_reply->n_batch_ids,
+			be_msg->cfg_apply_reply->batch_ids[0],
+			be_msg->cfg_apply_reply->batch_ids
+				[be_msg->cfg_apply_reply->n_batch_ids - 1],
 			be_msg->cfg_apply_reply->error_if_any
 				? be_msg->cfg_apply_reply->error_if_any
 				: "None");
@@ -535,9 +531,8 @@ static int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ;
 	be_msg.txn_req = &txn_req;
 
-	MGMTD_BE_ADAPTER_DBG(
-		"Sending TXN_REQ message to Backend client '%s' for Txn-Id %llx",
-		adapter->name, (unsigned long long)txn_id);
+	MGMTD_BE_ADAPTER_DBG("Sending TXN_REQ to '%s' txn-id: %" PRIu64,
+			     adapter->name, txn_id);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
@@ -563,9 +558,9 @@ mgmt_be_send_cfgdata_create_req(struct mgmt_be_client_adapter *adapter,
 	be_msg.cfg_data_req = &cfgdata_req;
 
 	MGMTD_BE_ADAPTER_DBG(
-		"Sending CFGDATA_CREATE_REQ message to Backend client '%s' for Txn-Id %llx, Batch-Id: %llx",
-		adapter->name, (unsigned long long)txn_id,
-		(unsigned long long)batch_id);
+		"Sending CFGDATA_CREATE_REQ to '%s' txn-id: %" PRIu64
+		" batch-id: %" PRIu64,
+		adapter->name, txn_id, batch_id);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
@@ -583,9 +578,8 @@ static int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ;
 	be_msg.cfg_apply_req = &apply_req;
 
-	MGMTD_BE_ADAPTER_DBG(
-		"Sending CFG_APPLY_REQ message to Backend client '%s' for Txn-Id 0x%llx",
-		adapter->name, (unsigned long long)txn_id);
+	MGMTD_BE_ADAPTER_DBG("Sending CFG_APPLY_REQ to '%s' txn-id: %" PRIu64,
+			     adapter->name, txn_id);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
@@ -608,9 +602,9 @@ static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
-					char *xpath, struct lyd_node *node,
-					struct nb_node *nb_node, void *ctx)
+static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx, char *xpath,
+				     struct lyd_node *node,
+				     struct nb_node *nb_node, void *ctx)
 {
 	struct mgmt_be_client_subscr_info subscr_info;
 	struct mgmt_be_get_adapter_config_params *parms;
@@ -862,7 +856,7 @@ int mgmt_be_get_subscr_info_for_xpath(
 		root_xp = true;
 	}
 
-	MGMTD_BE_ADAPTER_DBG("XPATH: %s", xpath);
+	MGMTD_BE_ADAPTER_DBG("XPATH: '%s'", xpath);
 	for (indx = 0; indx < mgmt_num_xpath_maps; indx++) {
 		/*
 		 * For Xpaths: '/' and '/ *' all xpath maps should match

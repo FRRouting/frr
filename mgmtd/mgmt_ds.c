@@ -339,7 +339,7 @@ static int mgmt_walk_ds_nodes(
 		*num_nodes = 0;
 	}
 
-	MGMTD_DS_DBG(" -- START: Base: %s", base_xpath);
+	MGMTD_DS_DBG(" -- START: Base: '%s'", base_xpath);
 
 	if (!base_dnode)
 		base_dnode = yang_dnode_get(

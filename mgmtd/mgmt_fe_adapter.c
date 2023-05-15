@@ -74,15 +74,18 @@ mgmt_fe_session_write_lock_ds(Mgmtd__DatastoreId ds_id,
 	if (!session->ds_write_locked[ds_id]) {
 		if (mgmt_ds_write_lock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to lock the DS %u for Sessn: %p from %s!",
-				ds_id, session, session->adapter->name);
+				"Failed to lock the DS %u for session-id: %" PRIu64
+				" from %s!",
+				ds_id, session->session_id,
+				session->adapter->name);
 			return -1;
 		}
 
 		session->ds_write_locked[ds_id] = true;
 		MGMTD_FE_ADAPTER_DBG(
-			"Write-Locked the DS %u for Sessn: %p from %s!", ds_id,
-			session, session->adapter->name);
+			"Write-Locked the DS %u for session-id: %" PRIu64
+			" from %s",
+			ds_id, session->session_id, session->adapter->name);
 	}
 
 	return 0;
@@ -96,15 +99,18 @@ mgmt_fe_session_read_lock_ds(Mgmtd__DatastoreId ds_id,
 	if (!session->ds_read_locked[ds_id]) {
 		if (mgmt_ds_read_lock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to lock the DS %u for Sessn: %p from %s!",
-				ds_id, session, session->adapter->name);
+				"Failed to lock the DS %u for session-is: %" PRIu64
+				" from %s",
+				ds_id, session->session_id,
+				session->adapter->name);
 			return -1;
 		}
 
 		session->ds_read_locked[ds_id] = true;
 		MGMTD_FE_ADAPTER_DBG(
-			"Read-Locked the DS %u for Sessn: %p from %s!", ds_id,
-			session, session->adapter->name);
+			"Read-Locked the DS %u for session-id: %" PRIu64
+			" from %s",
+			ds_id, session->session_id, session->adapter->name);
 	}
 
 	return 0;
@@ -120,27 +126,33 @@ static int mgmt_fe_session_unlock_ds(Mgmtd__DatastoreId ds_id,
 		session->ds_locked_implict[ds_id] = false;
 		if (mgmt_ds_unlock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to unlock the DS %u taken earlier by Sessn: %p from %s!",
-				ds_id, session, session->adapter->name);
+				"Failed to unlock the DS %u taken earlier by session-id: %" PRIu64
+				" from %s",
+				ds_id, session->session_id,
+				session->adapter->name);
 			return -1;
 		}
 
 		MGMTD_FE_ADAPTER_DBG(
-			"Unlocked DS %u write-locked earlier by Sessn: %p from %s",
-			ds_id, session, session->adapter->name);
+			"Unlocked DS %u write-locked earlier by session-id: %" PRIu64
+			" from %s",
+			ds_id, session->session_id, session->adapter->name);
 	} else if (unlock_read && session->ds_read_locked[ds_id]) {
 		session->ds_read_locked[ds_id] = false;
 		session->ds_locked_implict[ds_id] = false;
 		if (mgmt_ds_unlock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to unlock the DS %u taken earlier by Sessn: %p from %s!",
-				ds_id, session, session->adapter->name);
+				"Failed to unlock the DS %u taken earlier by session-id: %" PRIu64
+				" from %s",
+				ds_id, session->session_id,
+				session->adapter->name);
 			return -1;
 		}
 
 		MGMTD_FE_ADAPTER_DBG(
-			"Unlocked DS %u read-locked earlier by Sessn: %p from %s",
-			ds_id, session, session->adapter->name);
+			"Unlocked DS %u read-locked earlier by session-id: %" PRIu64
+			" from %s",
+			ds_id, session->session_id, session->adapter->name);
 	}
 
 	return 0;
@@ -734,8 +746,10 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 					   true, NULL)
 	    != 0) {
 		MGMTD_FE_ADAPTER_DBG(
-			"Failed to send LOCK_DS_REPLY for DS %u Sessn: %p from %s",
-			lockds_req->ds_id, session, session->adapter->name);
+			"Failed to send LOCK_DS_REPLY for DS %u session-id: %" PRIu64
+			" from %s",
+			lockds_req->ds_id, session->session_id,
+			session->adapter->name);
 	}
 
 	return 0;
@@ -825,13 +839,14 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 			goto mgmt_fe_sess_handle_setcfg_req_failed;
 		}
 
-		MGMTD_FE_ADAPTER_DBG(
-			"Created new Config Txn 0x%llx for session %p",
-			(unsigned long long)session->cfg_txn_id, session);
+		MGMTD_FE_ADAPTER_DBG("Created new Config txn-id: %" PRIu64
+				     " for session-id %" PRIu64,
+				     session->cfg_txn_id, session->session_id);
 	} else {
-		MGMTD_FE_ADAPTER_DBG(
-			"Config Txn 0x%llx for session %p already created",
-			(unsigned long long)session->cfg_txn_id, session);
+		MGMTD_FE_ADAPTER_ERR("Config txn-id: %" PRIu64
+				     " for session-id: %" PRIu64
+				     " already created",
+				     session->cfg_txn_id, session->session_id);
 
 		if (setcfg_req->implicit_commit) {
 			/*
@@ -958,13 +973,14 @@ mgmt_fe_session_handle_getcfg_req_msg(struct mgmt_fe_session_ctx *session,
 			goto mgmt_fe_sess_handle_getcfg_req_failed;
 		}
 
-		MGMTD_FE_ADAPTER_DBG(
-			"Created new Show Txn 0x%llx for session %p",
-			(unsigned long long)session->txn_id, session);
+		MGMTD_FE_ADAPTER_DBG("Created new show txn-id: %" PRIu64
+				     " for session-id: %" PRIu64,
+				     session->txn_id, session->session_id);
 	} else {
-		MGMTD_FE_ADAPTER_DBG(
-			"Show Txn 0x%llx for session %p already created",
-			(unsigned long long)session->txn_id, session);
+		MGMTD_FE_ADAPTER_DBG("Show txn-id: %" PRIu64
+				     " for session-id: %" PRIu64
+				     " already created",
+				     session->txn_id, session->session_id);
 	}
 
 	/*
@@ -1048,13 +1064,13 @@ mgmt_fe_session_handle_getdata_req_msg(struct mgmt_fe_session_ctx *session,
 			goto mgmt_fe_sess_handle_getdata_req_failed;
 		}
 
-		MGMTD_FE_ADAPTER_DBG(
-			"Created new Show Txn 0x%llx for session %p",
-			(unsigned long long)session->txn_id, session);
+		MGMTD_FE_ADAPTER_DBG("Created new Show Txn %" PRIu64
+				     " for session %" PRIu64,
+				     session->txn_id, session->session_id);
 	} else {
-		MGMTD_FE_ADAPTER_DBG(
-			"Show Txn 0x%llx for session %p already created",
-			(unsigned long long)session->txn_id, session);
+		MGMTD_FE_ADAPTER_DBG("Show txn-id: %" PRIu64
+				     " for session %" PRIu64 " already created",
+				     session->txn_id, session->session_id);
 	}
 
 	/*
@@ -1483,9 +1499,9 @@ int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
 	if (!session || session->cfg_txn_id != txn_id) {
 		if (session)
 			MGMTD_FE_ADAPTER_ERR(
-				"Txn_id doesnot match, session txn is 0x%llx, current txn 0x%llx",
-				(unsigned long long)session->cfg_txn_id,
-				(unsigned long long)txn_id);
+				"txn-id doesn't match, session txn-id is %" PRIu64
+				" current txnid: %" PRIu64,
+				session->cfg_txn_id, txn_id);
 		return -1;
 	}
 
@@ -1707,10 +1723,10 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "    Sessions\n");
 		FOREACH_SESSION_IN_LIST (adapter, session) {
 			vty_out(vty, "      Session: \t\t\t\t%p\n", session);
-			vty_out(vty, "        Client-Id: \t\t\t%llu\n",
-				(unsigned long long)session->client_id);
-			vty_out(vty, "        Session-Id: \t\t\t%llx\n",
-				(unsigned long long)session->session_id);
+			vty_out(vty, "        Client-Id: \t\t\t%" PRIu64 "\n",
+				session->client_id);
+			vty_out(vty, "        Session-Id: \t\t\t%" PRIu64 "\n",
+				session->session_id);
 			vty_out(vty, "        DS-Locks:\n");
 			FOREACH_MGMTD_DS_ID (ds_id) {
 				if (session->ds_write_locked[ds_id]

@@ -169,8 +169,9 @@ mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn, uint64_t batch_id)
 		batch->batch_id = batch_id;
 		mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
 
-		MGMTD_BE_CLIENT_DBG("Added new batch 0x%llx to transaction",
-				    (unsigned long long)batch_id);
+		MGMTD_BE_CLIENT_DBG("Added new batch-id: %" PRIu64
+				    " to transaction",
+				    batch_id);
 	}
 
 	return batch;
@@ -246,8 +247,7 @@ mgmt_be_txn_create(struct mgmt_be_client_ctx *client_ctx,
 		mgmt_be_batches_init(&txn->apply_cfgs);
 		mgmt_be_txns_add_tail(&client_ctx->txn_head, txn);
 
-		MGMTD_BE_CLIENT_DBG("Added new transaction 0x%llx",
-				    (unsigned long long)txn_id);
+		MGMTD_BE_CLIENT_DBG("Added new txn-id: %" PRIu64, txn_id);
 	}
 
 	return txn;
@@ -316,9 +316,7 @@ static int mgmt_be_send_txn_reply(struct mgmt_be_client_ctx *client_ctx,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY;
 	be_msg.txn_reply = &txn_reply;
 
-	MGMTD_BE_CLIENT_DBG(
-		"Sending TXN_REPLY message to MGMTD for txn 0x%llx",
-		(unsigned long long)txn_id);
+	MGMTD_BE_CLIENT_DBG("Sending TXN_REPLY txn-id %" PRIu64, txn_id);
 
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
@@ -336,14 +334,12 @@ static int mgmt_be_process_txn_req(struct mgmt_be_client_ctx *client_ctx,
 			 * Should not happen under any circumstances.
 			 */
 			MGMTD_BE_CLIENT_ERR(
-				"Transaction 0x%llx already exists!!!",
-				(unsigned long long)txn_id);
+				"txn-id: %" PRIu64 " already exists", txn_id);
 			mgmt_be_send_txn_reply(client_ctx, txn_id, create,
 						   false);
 		}
 
-		MGMTD_BE_CLIENT_DBG("Created new transaction 0x%llx",
-				     (unsigned long long)txn_id);
+		MGMTD_BE_CLIENT_DBG("Created new txn-id %" PRIu64, txn_id);
 		txn = mgmt_be_txn_create(client_ctx, txn_id);
 
 		if (client_ctx->client_params.txn_notify)
@@ -358,12 +354,11 @@ static int mgmt_be_process_txn_req(struct mgmt_be_client_ctx *client_ctx,
 			 * Transaction with same txn-id does not exists.
 			 * Return sucess anyways.
 			 */
-			MGMTD_BE_CLIENT_DBG(
-				"Transaction to delete 0x%llx does NOT exists!!!",
-				(unsigned long long)txn_id);
+			MGMTD_BE_CLIENT_DBG("txn-id: %" PRIu64
+					    " for delete does NOT exists",
+					    txn_id);
 		} else {
-			MGMTD_BE_CLIENT_DBG("Delete transaction 0x%llx",
-					     (unsigned long long)txn_id);
+			MGMTD_BE_CLIENT_DBG("Delete txn-id: %" PRIu64, txn_id);
 			mgmt_be_txn_delete(client_ctx, &txn);
 		}
 	}
@@ -392,9 +387,9 @@ mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client_ctx *client_ctx,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY;
 	be_msg.cfg_data_reply = &cfgdata_reply;
 
-	MGMTD_BE_CLIENT_DBG(
-		"Sending CFGDATA_CREATE_REPLY message to MGMTD for txn 0x%llx batch 0x%llx",
-		(unsigned long long)txn_id, (unsigned long long)batch_id);
+	MGMTD_BE_CLIENT_DBG("Sending CFGDATA_CREATE_REPLY txn-id: %" PRIu64
+			    " batch-id: %" PRIu64,
+			    txn_id, batch_id);
 
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
@@ -406,8 +401,8 @@ static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 	assert(txn && txn->client_ctx);
 	if (txn->nb_txn) {
 		MGMTD_BE_CLIENT_ERR(
-			"Aborting configurations after prep for Txn 0x%llx",
-			(unsigned long long)txn->txn_id);
+			"Aborting configs after prep for txn-id: %" PRIu64,
+			txn->txn_id);
 		nb_candidate_commit_abort(txn->nb_txn, errmsg, sizeof(errmsg));
 		txn->nb_txn = 0;
 	}
@@ -419,8 +414,8 @@ static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 	 * does that work?
 	 */
 	MGMTD_BE_CLIENT_DBG(
-		"Reset candidate configurations after abort of Txn 0x%llx",
-		(unsigned long long)txn->txn_id);
+		"Reset candidate configurations after abort of txn-id: %" PRIu64,
+		txn->txn_id);
 	nb_config_replace(txn->client_ctx->candidate_config,
 			  txn->client_ctx->running_config, true);
 }
@@ -470,10 +465,10 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 			if (error) {
 				err_buf[sizeof(err_buf) - 1] = 0;
 				MGMTD_BE_CLIENT_ERR(
-					"Failed to update configs for Txn %llx Batch %llx to Candidate! Err: '%s'",
-					(unsigned long long)txn->txn_id,
-					(unsigned long long)batch->batch_id,
-					err_buf);
+					"Failed to update configs for txn-id: %" PRIu64
+					" batch-id: %" PRIu64
+					" to candidate, err: '%s'",
+					txn->txn_id, batch->batch_id, err_buf);
 				return -1;
 			}
 			gettimeofday(&edit_nb_cfg_end, NULL);
@@ -512,21 +507,20 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 		err_buf[sizeof(err_buf) - 1] = 0;
 		if (err == NB_ERR_VALIDATION)
 			MGMTD_BE_CLIENT_ERR(
-				"Failed to validate configs for Txn %llx %u Batches! Err: '%s'",
-				(unsigned long long)txn->txn_id,
-				(uint32_t)num_processed, err_buf);
+				"Failed to validate configs txn-id: %" PRIu64
+				" %zu batches, err: '%s'",
+				txn->txn_id, num_processed, err_buf);
 		else
 			MGMTD_BE_CLIENT_ERR(
-				"Failed to prepare configs for Txn %llx, %u Batches! Err: '%s'",
-				(unsigned long long)txn->txn_id,
-				(uint32_t)num_processed, err_buf);
+				"Failed to prepare configs for txn-id: %" PRIu64
+				" %zu batches, err: '%s'",
+				txn->txn_id, num_processed, err_buf);
 		error = true;
 		SET_FLAG(txn->flags, MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED);
 	} else
-		MGMTD_BE_CLIENT_DBG(
-			"Prepared configs for Txn %llx, %u Batches! successfully!",
-			(unsigned long long)txn->txn_id,
-			(uint32_t)num_processed);
+		MGMTD_BE_CLIENT_DBG("Prepared configs for txn-id: %" PRIu64
+				    " %zu batches",
+				    txn->txn_id, num_processed);
 
 	gettimeofday(&prep_nb_cfg_end, NULL);
 	prep_nb_cfg_tm = timeval_elapsed(prep_nb_cfg_end, prep_nb_cfg_start);
@@ -582,10 +576,9 @@ mgmt_be_update_setcfg_in_batch(struct mgmt_be_client_ctx *client_ctx,
 
 	txn_req = &batch->txn_req;
 	txn_req->event = MGMTD_BE_TXN_PROC_SETCFG;
-	MGMTD_BE_CLIENT_DBG(
-		"Created Set-Config request for batch 0x%llx, txn id 0x%llx, cfg-items:%d",
-		(unsigned long long)batch_id, (unsigned long long)txn->txn_id,
-		num_req);
+	MGMTD_BE_CLIENT_DBG("Created SETCFG request for batch-id: %" PRIu64
+			    " txn-id: %" PRIu64 " cfg-items:%d",
+			    batch_id, txn->txn_id, num_req);
 
 	txn_req->req.set_cfg.num_cfg_changes = num_req;
 	for (index = 0; index < num_req; index++) {
@@ -628,9 +621,9 @@ mgmt_be_process_cfgdata_req(struct mgmt_be_client_ctx *client_ctx,
 
 	txn = mgmt_be_find_txn_by_id(client_ctx, txn_id);
 	if (!txn) {
-		MGMTD_BE_CLIENT_ERR(
-			"Invalid txn-id 0x%llx provided from MGMTD server",
-			(unsigned long long)txn_id);
+		MGMTD_BE_CLIENT_ERR("Invalid txn-id: %" PRIu64
+				    " from MGMTD server",
+				    txn_id);
 		mgmt_be_send_cfgdata_create_reply(
 			client_ctx, txn_id, batch_id, false,
 			"Transaction context not created yet");
@@ -669,12 +662,11 @@ static int mgmt_be_send_apply_reply(struct mgmt_be_client_ctx *client_ctx,
 	be_msg.cfg_apply_reply = &apply_reply;
 
 	MGMTD_BE_CLIENT_DBG(
-		"Sending CFG_APPLY_REPLY message to MGMTD for txn 0x%llx, %d batches [0x%llx - 0x%llx]",
-		(unsigned long long)txn_id, (int)num_batch_ids,
-		success && num_batch_ids ?
-			(unsigned long long)batch_ids[0] : 0,
-		success && num_batch_ids ?
-		(unsigned long long)batch_ids[num_batch_ids - 1] : 0);
+		"Sending CFG_APPLY_REPLY txn-id %" PRIu64
+		" %zu batch ids %" PRIu64 " - %" PRIu64,
+		txn_id, num_batch_ids,
+		success && num_batch_ids ? batch_ids[0] : 0,
+		success && num_batch_ids ? batch_ids[num_batch_ids - 1] : 0);
 
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
@@ -772,15 +764,24 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 	 */
 	switch ((int)be_msg->message_case) {
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
-		MGMTD_BE_CLIENT_DBG("Subscribe Reply Msg from mgmt, status %u",
-				     be_msg->subscr_reply->success);
+		MGMTD_BE_CLIENT_DBG("Got SUBSCR_REPLY success %u",
+				    be_msg->subscr_reply->success);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
+		MGMTD_BE_CLIENT_DBG("Got TXN_REQ %s txn-id: %" PRIu64,
+				    be_msg->txn_req->create ? "Create"
+							    : "Delete",
+				    be_msg->txn_req->txn_id);
 		mgmt_be_process_txn_req(client_ctx,
 					    be_msg->txn_req->txn_id,
 					    be_msg->txn_req->create);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
+		MGMTD_BE_CLIENT_DBG("Got CFG_DATA_REQ txn-id: %" PRIu64
+				    " batch-id: %" PRIu64 " end-of-data %u",
+				    be_msg->cfg_data_req->txn_id,
+				    be_msg->cfg_data_req->batch_id,
+				    be_msg->cfg_data_req->end_of_data);
 		mgmt_be_process_cfgdata_req(
 			client_ctx, be_msg->cfg_data_req->txn_id,
 			be_msg->cfg_data_req->batch_id,
@@ -789,6 +790,8 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 			be_msg->cfg_data_req->end_of_data);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
+		MGMTD_BE_CLIENT_DBG("Got CFG_APPLY_REQ txn-id: %" PRIu64,
+				    be_msg->cfg_data_req->txn_id);
 		mgmt_be_process_cfg_apply(
 			client_ctx, (uint64_t)be_msg->cfg_apply_req->txn_id);
 		break;
@@ -796,6 +799,8 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REQ:
+		MGMTD_BE_CLIENT_ERR("Got unhandled message type %u",
+				    be_msg->message_case);
 		/*
 		 * TODO: Add handling code in future.
 		 */
@@ -867,6 +872,11 @@ static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
 	mgmtd__be_message__init(&be_msg);
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ;
 	be_msg.subscr_req = &subscr_req;
+
+	MGMTD_FE_CLIENT_DBG(
+		"Sending SUBSCR_REQ name: %s subscr_xpaths: %u num_xpaths: %zu",
+		subscr_req.client_name, subscr_req.subscribe_xpaths,
+		subscr_req.n_xpath_reg);
 
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
