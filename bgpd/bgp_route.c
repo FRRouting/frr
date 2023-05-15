@@ -4664,7 +4664,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 							 BGP_PATH_VALID);
 			}
 		} else {
-			if (accept_own)
+			if (safi == SAFI_MPLS_VPN && accept_own)
 				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_ACCEPT_OWN);
 
@@ -4823,7 +4823,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
 	} else {
-		if (accept_own)
+		if (safi == SAFI_MPLS_VPN && accept_own)
 			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
 
 		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
