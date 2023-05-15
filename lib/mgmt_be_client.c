@@ -993,6 +993,9 @@ enum mgmt_result mgmt_be_subscribe_yang_data(uintptr_t lib_hndl,
 {
 	struct mgmt_be_client_ctx *client_ctx;
 
+	if (!num_reg_xpaths)
+		return MGMTD_SUCCESS;
+
 	client_ctx = (struct mgmt_be_client_ctx *)lib_hndl;
 	if (!client_ctx)
 		return MGMTD_INVALID_PARAM;
@@ -1013,6 +1016,9 @@ enum mgmt_result mgmt_be_unsubscribe_yang_data(uintptr_t lib_hndl,
 						  int num_reg_xpaths)
 {
 	struct mgmt_be_client_ctx *client_ctx;
+
+	if (!num_reg_xpaths)
+		return MGMTD_SUCCESS;
 
 	client_ctx = (struct mgmt_be_client_ctx *)lib_hndl;
 	if (!client_ctx)

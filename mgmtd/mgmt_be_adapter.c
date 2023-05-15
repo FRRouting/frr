@@ -416,6 +416,9 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			}
 			mgmt_be_adapters_by_id[adapter->id] = adapter;
 			mgmt_be_adapter_cleanup_old_conn(adapter);
+
+			/* schedule INIT sequence now that it is registered */
+			mgmt_be_adapter_sched_init_event(adapter);
 		}
 
 		if (be_msg->subscr_req->n_xpath_reg)
@@ -762,8 +765,10 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 	MGMTD_BE_ADAPTER_DBG("Added new MGMTD Backend adapter '%s'",
 			     adapter->name);
 
+#if 0 /* wait until we receive the SUBSCR_REQ registration with name */
 	/* Trigger resync of config with the new adapter */
 	mgmt_be_adapter_sched_init_event(adapter);
+#endif
 
 	return adapter->conn;
 }
