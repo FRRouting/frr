@@ -166,9 +166,15 @@ static struct vertex_parent *vertex_parent_new(struct vertex *v, int backlink,
 
 static void vertex_parent_free(struct vertex_parent *p)
 {
-	vertex_nexthop_free(p->local_nexthop);
-	vertex_nexthop_free(p->nexthop);
-	XFREE(MTYPE_OSPF_VERTEX_PARENT, p);
+	if (p->nexthop) {
+		vertex_nexthop_free(p->nexthop);
+		p->nexthop = NULL;
+			if (p->local_nexthop) {
+			vertex_nexthop_free(p->local_nexthop);
+			p->local_nexthop = NULL;
+			XFREE(MTYPE_OSPF_VERTEX_PARENT, p);
+		}
+	}
 }
 
 int vertex_parent_cmp(void *aa, void *bb)
