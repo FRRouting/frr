@@ -312,36 +312,28 @@ struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx)
 }
 
 static int mgmt_walk_ds_nodes(
-	struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
+	struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
 	struct lyd_node *base_dnode,
-	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx, char *xpath,
-				     struct lyd_node *node,
+	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
+				     const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
-	void *ctx, char *xpaths[], int *num_nodes, bool childs_as_well,
-	bool alloc_xp_copy)
+	void *ctx)
 {
-	uint32_t indx;
-	char *xpath, *xpath_buf, *iter_xp;
-	int ret, num_left = 0, num_found = 0;
+	/* this is 1k per recursion... */
+	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *dnode;
 	struct nb_node *nbnode;
-	bool alloc_xp = false;
+	int ret = 0;
 
-	if (xpaths)
-		assert(num_nodes);
+	assert(mgmt_ds_node_iter_fn);
 
-	if (num_nodes && !*num_nodes)
-		return 0;
-
-	if (num_nodes) {
-		num_left = *num_nodes;
-		MGMTD_DS_DBG(" -- START: num_left:%d", num_left);
-		*num_nodes = 0;
-	}
-
-	MGMTD_DS_DBG(" -- START: Base: '%s'", base_xpath);
+	MGMTD_DS_DBG(" -- START: base xpath: '%s'", base_xpath);
 
 	if (!base_dnode)
+		/*
+		 * This function only returns the first node of a possible set
+		 * of matches issuing a warning if more than 1 matches
+		 */
 		base_dnode = yang_dnode_get(
 			ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
 					   : ds_ctx->root.dnode_root,
@@ -349,111 +341,42 @@ static int mgmt_walk_ds_nodes(
 	if (!base_dnode)
 		return -1;
 
-	if (mgmt_ds_node_iter_fn) {
-		/*
-		 * In case the caller is interested in getting a copy
-		 * of the xpath for themselves (by setting
-		 * 'alloc_xp_copy' to 'true') we make a copy for the
-		 * caller and pass it. Else we pass the original xpath
-		 * buffer.
-		 *
-		 * NOTE: In such case caller will have to take care of
-		 * the copy later.
-		 */
-		iter_xp = alloc_xp_copy ? strdup(base_xpath) : base_xpath;
+	MGMTD_DS_DBG("           search base schema: '%s'",
+		     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
+			       sizeof(xpath)));
 
-		nbnode = (struct nb_node *)base_dnode->schema->priv;
-		(*mgmt_ds_node_iter_fn)(ds_ctx, iter_xp, base_dnode, nbnode,
-					ctx);
-	}
-
-	if (num_nodes) {
-		(*num_nodes)++;
-		num_left--;
-	}
+	nbnode = (struct nb_node *)base_dnode->schema->priv;
+	(*mgmt_ds_node_iter_fn)(ds_ctx, base_xpath, base_dnode, nbnode, ctx);
 
 	/*
-	 * If the base_xpath points to a leaf node, or we don't need to
-	 * visit any children we can skip the tree walk.
+	 * If the base_xpath points to a leaf node we can skip the tree walk.
 	 */
-	if (!childs_as_well || base_dnode->schema->nodetype & LYD_NODE_TERM)
+	if (base_dnode->schema->nodetype & LYD_NODE_TERM)
 		return 0;
 
-	indx = 0;
+	/*
+	 * at this point the xpath matched this container node (or some parent
+	 * and we're wildcard descending now) so by walking it's children we
+	 * continue to change the meaning of an xpath regex to rather be a
+	 * prefix matching path
+	 */
+
 	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
 		assert(dnode->schema && dnode->schema->priv);
 
-		xpath = NULL;
-		if (xpaths) {
-			if (!xpaths[*num_nodes]) {
-				alloc_xp = true;
-				xpaths[*num_nodes] =
-					(char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			}
-			xpath = lyd_path(dnode, LYD_PATH_STD,
-					 xpaths[*num_nodes],
-					 MGMTD_MAX_XPATH_LEN);
-		} else {
-			alloc_xp = true;
-			xpath_buf = (char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			(void) lyd_path(dnode, LYD_PATH_STD, xpath_buf,
-					 MGMTD_MAX_XPATH_LEN);
-			xpath = xpath_buf;
-		}
+		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
 
-		assert(xpath);
-		MGMTD_DS_DBG(" -- XPATH: %s", xpath);
-
-		if (num_nodes)
-			num_found = num_left;
+		MGMTD_DS_DBG(" -- Child xpath: %s", xpath);
 
 		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, dnode,
-					 mgmt_ds_node_iter_fn, ctx,
-					 xpaths ? &xpaths[*num_nodes] : NULL,
-					 num_nodes ? &num_found : NULL,
-					 childs_as_well, alloc_xp_copy);
-
-		if (num_nodes) {
-			num_left -= num_found;
-			(*num_nodes) += num_found;
-		}
-
-		if (alloc_xp)
-			free(xpath);
-
+					 mgmt_ds_node_iter_fn, ctx);
 		if (ret != 0)
 			break;
-
-		indx++;
 	}
 
+	MGMTD_DS_DBG(" -- END: base xpath: '%s'", base_xpath);
 
-	if (num_nodes) {
-		MGMTD_DS_DBG(" -- END: *num_nodes:%d, num_left:%d", *num_nodes,
-			     num_left);
-	}
-
-	return 0;
-}
-
-int mgmt_ds_lookup_data_nodes(struct mgmt_ds_ctx *ds_ctx, const char *xpath,
-			      char *dxpaths[], int *num_nodes,
-			      bool get_childs_as_well, bool alloc_xp_copy)
-{
-	char base_xpath[MGMTD_MAX_XPATH_LEN];
-
-	if (!ds_ctx || !num_nodes)
-		return -1;
-
-	if (xpath[0] == '.' && xpath[1] == '/')
-		xpath += 2;
-
-	strlcpy(base_xpath, xpath, sizeof(base_xpath));
-	mgmt_remove_trailing_separator(base_xpath, '/');
-
-	return (mgmt_walk_ds_nodes(ds_ctx, base_xpath, NULL, NULL, NULL,
-				   dxpaths, num_nodes, get_childs_as_well,
-				   alloc_xp_copy));
+	return ret;
 }
 
 struct lyd_node *mgmt_ds_find_data_node_by_xpath(struct mgmt_ds_ctx *ds_ctx,
@@ -534,13 +457,13 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 	return 0;
 }
 
-int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
+int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
 		      void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
-						   char *xpath,
+						   const char *xpath,
 						   struct lyd_node *node,
 						   struct nb_node *nb_node,
 						   void *ctx),
-		      void *ctx, bool alloc_xp_copy)
+		      void *ctx)
 {
 	int ret = 0;
 	char xpath[MGMTD_MAX_XPATH_LEN];
@@ -550,14 +473,19 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
 	if (!ds_ctx)
 		return -1;
 
-	mgmt_remove_trailing_separator(base_xpath, '/');
-
 	strlcpy(xpath, base_xpath, sizeof(xpath));
+	mgmt_remove_trailing_separator(xpath, '/');
+
+	/*
+	 * mgmt_ds_iter_data is the only user of mgmt_walk_ds_nodes other than
+	 * mgmt_walk_ds_nodes itself, so we can modify the API if we would like.
+	 * Oper-state should be kept in mind though for the prefix walk
+	 */
 
 	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_ctx->ds_id);
 
 	/* If the base_xpath is empty then crawl the sibblings */
-	if (xpath[0] == '\0') {
+	if (xpath[0] == 0) {
 		base_dnode = ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
 						: ds_ctx->root.dnode_root;
 
@@ -569,14 +497,12 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
 			base_dnode = base_dnode->prev;
 
 		LY_LIST_FOR (base_dnode, node) {
-			ret = mgmt_walk_ds_nodes(
-				ds_ctx, xpath, node, mgmt_ds_node_iter_fn,
-				ctx, NULL, NULL, true, alloc_xp_copy);
+			ret = mgmt_walk_ds_nodes(ds_ctx, xpath, node,
+						 mgmt_ds_node_iter_fn, ctx);
 		}
 	} else
 		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, base_dnode,
-					 mgmt_ds_node_iter_fn, ctx, NULL, NULL,
-					 true, alloc_xp_copy);
+					 mgmt_ds_node_iter_fn, ctx);
 
 	return ret;
 }

@@ -1743,10 +1743,10 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 }
 
 static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
-						  char *xpath,
-						  struct lyd_node *node,
-						  struct nb_node *nb_node,
-						  void *ctx)
+						 const char *xpath,
+						 struct lyd_node *node,
+						 struct nb_node *nb_node,
+						 void *ctx)
 {
 	struct mgmt_txn_req *txn_req;
 	struct mgmt_get_data_req *get_req;
@@ -1756,10 +1756,10 @@ static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
 
 	txn_req = (struct mgmt_txn_req *)ctx;
 	if (!txn_req)
-		goto mgmtd_ignore_get_cfg_reply_data;
+		return;
 
 	if (!(node->schema->nodetype & LYD_NODE_TERM))
-		goto mgmtd_ignore_get_cfg_reply_data;
+		return;
 
 	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG
 	       || txn_req->req_event == MGMTD_TXN_PROC_GETDATA);
@@ -1771,7 +1771,7 @@ static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
 	data_value = &get_reply->reply_value[get_reply->num_reply];
 
 	mgmt_yang_data_init(data);
-	data->xpath = xpath;
+	data->xpath = strdup(xpath);
 	mgmt_yang_data_value_init(data_value);
 	data_value->value_case = MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
 	data_value->encoded_str_val = (char *)lyd_get_value(node);
@@ -1784,12 +1784,6 @@ static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
 
 	if (get_reply->num_reply == MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH)
 		mgmt_txn_send_getcfg_reply_data(txn_req, get_req);
-
-	return;
-
-mgmtd_ignore_get_cfg_reply_data:
-	if (xpath)
-		free(xpath);
 }
 
 static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
@@ -1824,10 +1818,14 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 		MGMTD_TXN_DBG("Trying to get all data under '%s'",
 			       get_data->xpaths[indx]);
 		mgmt_init_get_data_reply(get_reply);
+		/*
+		 * mgmt_ds_iter_data works on path prefixes, but the user may
+		 * want to also use an xpath regexp we need to add this
+		 * functionality.
+		 */
 		if (mgmt_ds_iter_data(get_data->ds_ctx, get_data->xpaths[indx],
 				      mgmt_txn_iter_and_send_get_cfg_reply,
-				      (void *)txn_req, true)
-		    == -1) {
+				      (void *)txn_req) == -1) {
 			MGMTD_TXN_DBG("Invalid Xpath '%s",
 				       get_data->xpaths[indx]);
 			mgmt_fe_send_get_cfg_reply(

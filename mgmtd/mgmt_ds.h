@@ -218,39 +218,6 @@ extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
 extern struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Lookup YANG data nodes.
- *
- * ds_ctx
- *    Datastore context.
- *
- * xpath
- *    YANG base xpath.
- *
- * dxpaths
- *    Out param - array of YANG data xpaths.
- *
- * num_nodes
- *    In-out param - number of YANG data xpaths.
- *    Note - Caller should init this to the size of the array
- *    provided in dxpaths.
- *    On return this will have the actual number of xpaths
- *    being returned.
- *
- * get_childs_as_well
- *    TRUE if child nodes needs to be fetched as well, FALSE otherwise.
- *
- * alloc_xp_copy
- *    TRUE if the caller is interested in getting a copy of the xpath.
- *
- * Returns:
- *    0 on success, -1 on failure.
- */
-extern int mgmt_ds_lookup_data_nodes(struct mgmt_ds_ctx *ds_ctx,
-				     const char *xpath, char *dxpaths[],
-				     int *num_nodes, bool get_childs_as_well,
-				     bool alloc_xp_copy);
-
-/*
  * Find YANG data node given a datastore handle YANG xpath.
  */
 extern struct lyd_node *
@@ -281,18 +248,15 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
  *    be passed to the iterator function provided in
  *    'iter_fn'.
  *
- * alloc_xp_copy
- *    TRUE if the caller is interested in getting a copy of the xpath.
- *
  * Returns:
  *    0 on success, -1 on failure.
  */
 extern int mgmt_ds_iter_data(
-	struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
-	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx, char *xpath,
-				     struct lyd_node *node,
+	struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
+	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
+				     const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
-	void *ctx, bool alloc_xp_copy);
+	void *ctx);
 
 /*
  * Load config to datastore from a file.

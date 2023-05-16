@@ -602,8 +602,8 @@ static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx, char *xpath,
-				     struct lyd_node *node,
+static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
+				     const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx)
 {
 	struct mgmt_be_client_subscr_info subscr_info;
@@ -784,19 +784,24 @@ int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 				  struct mgmt_ds_ctx *ds_ctx,
 				  struct nb_config_cbs **cfg_chgs)
 {
-	char base_xpath[] = "/";
 	struct mgmt_be_get_adapter_config_params parms;
 
 	assert(cfg_chgs);
 
+	/*
+	 * TODO: we should be consider making this an assertable condition and
+	 * guaranteeing it be true when this function is called. B/c what is
+	 * going to happen if there are some changes being sent, and we don't
+	 * gather a new snapshot, what new changes that came after the previous
+	 * snapshot will then be lost?
+	 */
 	if (RB_EMPTY(nb_config_cbs, &adapter->cfg_chgs)) {
 		parms.adapter = adapter;
 		parms.cfg_chgs = &adapter->cfg_chgs;
 		parms.seq = 0;
 
-		mgmt_ds_iter_data(ds_ctx, base_xpath,
-				  mgmt_be_iter_and_get_cfg, (void *)&parms,
-				  false);
+		mgmt_ds_iter_data(ds_ctx, "", mgmt_be_iter_and_get_cfg,
+				  (void *)&parms);
 	}
 
 	*cfg_chgs = &adapter->cfg_chgs;
