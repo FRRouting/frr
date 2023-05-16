@@ -635,6 +635,19 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
+.. clicmd:: ip ospf graceful-restart hello-delay (1-1800)
+
+   Set the length of time during which Grace-LSAs are sent at 1-second intervals
+   while coming back up after an unplanned outage. During this time, no hello
+   packets are sent.
+
+   A higher hello delay will increase the chance that all neighbors are notified
+   about the ongoing graceful restart before receiving a hello packet (which is
+   crucial for the graceful restart to succeed). The hello delay shouldn't be set
+   too high, however, otherwise the adjacencies might time out. As a best practice,
+   it's recommended to set the hello delay and hello interval with the same values.
+   The default value is 10 seconds.
+
 .. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
@@ -769,6 +782,10 @@ Graceful Restart
 
    To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
    EXEC-level command needs to be issued before restarting the ospfd daemon.
+
+   When Graceful Restart is enabled and the ospfd daemon crashes or is killed
+   abruptely (e.g. SIGKILL), it will attempt an unplanned Graceful Restart once
+   it restarts.
 
 .. clicmd:: graceful-restart helper enable [A.B.C.D]
 

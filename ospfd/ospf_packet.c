@@ -4040,9 +4040,8 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 	return ospf_packet_new(size - sizeof(struct ip));
 }
 
-static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
-				   struct list *update, struct in_addr addr,
-				   int send_lsupd_now)
+void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
+			    struct in_addr addr, int send_lsupd_now)
 {
 	struct ospf_packet *op;
 	uint16_t length = OSPF_HEADER_SIZE;

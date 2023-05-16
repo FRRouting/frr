@@ -72,6 +72,9 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, v_wait);  /* Router Dead Interval */
 	bool is_v_wait_set;                  /* Check for Dead Interval set */
 
+	/* GR Hello Delay Interval */
+	DECLARE_IF_PARAM(uint16_t, v_gr_hello_delay);
+
 	/* MTU mismatch check (see RFC2328, chap 10.6) */
 	DECLARE_IF_PARAM(uint8_t, mtu_ignore);
 
@@ -213,6 +216,14 @@ struct ospf_interface {
 
 	/* List of configured NBMA neighbor. */
 	struct list *nbr_nbma;
+
+	/* Graceful-Restart data. */
+	struct {
+		struct {
+			uint16_t elapsed_seconds;
+			struct event *t_grace_send;
+		} hello_delay;
+	} gr;
 
 	/* self-originated LSAs. */
 	struct ospf_lsa *network_lsa_self; /* network-LSA. */

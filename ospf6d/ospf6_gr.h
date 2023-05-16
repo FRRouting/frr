@@ -155,9 +155,15 @@ extern int config_write_ospf6_gr(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 
+extern void ospf6_gr_iface_send_grace_lsa(struct event *thread);
+extern void ospf6_gr_restart_enter(struct ospf6 *ospf6,
+				   enum ospf6_gr_restart_reason reason,
+				   int timestamp);
 extern void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf,
 					    struct ospf6_area *area);
 extern void ospf6_gr_nvm_read(struct ospf6 *ospf);
+extern void ospf6_gr_nvm_delete(struct ospf6 *ospf6);
+extern void ospf6_gr_unplanned_start_interface(struct ospf6_interface *oi);
 extern void ospf6_gr_init(void);
 
 #endif /* OSPF6_GR_H */
