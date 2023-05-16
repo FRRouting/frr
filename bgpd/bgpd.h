@@ -1119,7 +1119,6 @@ struct peer {
 
 	/* BGP peer group.  */
 	struct peer_group *group;
-	uint64_t version[AFI_MAX][SAFI_MAX];
 
 	/* BGP peer_af structures, per configured AF on this peer */
 	struct peer_af *peer_af_array[BGP_AF_MAX];
