@@ -755,6 +755,11 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 	return 0;
 }
 
+/*
+ * TODO: this function has too many conditionals relating to complex error
+ * conditions. It needs to be simplified and these complex error conditions
+ * probably need to just disconnect the client with a suitably loud log message.
+ */
 static int
 mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 					  Mgmtd__FeSetConfigReq *setcfg_req)
@@ -796,8 +801,8 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 		 * from another session is already in progress.
 		 */
 		cfg_session_id = mgmt_config_txn_in_progress();
-		if (cfg_session_id != MGMTD_SESSION_ID_NONE
-		   && cfg_session_id != session->session_id) {
+		if (cfg_session_id != MGMTD_SESSION_ID_NONE) {
+			assert(cfg_session_id != session->session_id);
 			mgmt_fe_send_setcfg_reply(
 				session, setcfg_req->ds_id, setcfg_req->req_id,
 				false,
@@ -811,6 +816,10 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 		 * Try taking write-lock on the requested DS (if not already).
 		 */
 		if (!session->ds_write_locked[setcfg_req->ds_id]) {
+			MGMTD_FE_ADAPTER_ERR(
+				"SETCFG_REQ on session-id: %" PRIu64
+				" without obtaining lock",
+				session->session_id);
 			if (mgmt_fe_session_write_lock_ds(setcfg_req->ds_id,
 							      ds_ctx, session)
 			    != 0) {
