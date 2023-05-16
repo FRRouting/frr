@@ -3866,3 +3866,19 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 		}
 	}
 }
+
+void free_bgp_srv6_resources(void)
+{
+	struct listnode *next;
+	struct bgp *bgp;
+	struct bgp *bgp_default = bgp_get_default();
+
+	assert(bgp_default);
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		delete_vrf_tovpn_sid(bgp_default, bgp, AFI_IP6);
+	}
+}

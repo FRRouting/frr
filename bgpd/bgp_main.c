@@ -344,6 +344,7 @@ static void bgp_vrf_init(void)
 
 static void bgp_vrf_terminate(void)
 {
+	free_bgp_srv6_resources();
 	vrf_terminate();
 }
 
