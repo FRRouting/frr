@@ -129,9 +129,13 @@ int ripngd_instance_allow_ecmp_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
-	ripng->ecmp = yang_dnode_get_bool(args->dnode, NULL);
-	if (!ripng->ecmp)
+	ripng->ecmp = yang_dnode_get_uint8(args->dnode, NULL);
+	if (!ripng->ecmp) {
 		ripng_ecmp_disable(ripng);
+		return NB_OK;
+	}
+
+	ripng_ecmp_change(ripng);
 
 	return NB_OK;
 }

@@ -130,7 +130,7 @@ struct ripng {
 	struct event *t_triggered_interval;
 
 	/* RIPng ECMP flag */
-	bool ecmp;
+	uint8_t ecmp;
 
 	/* RIPng redistribute configuration. */
 	struct {
@@ -429,6 +429,7 @@ extern struct ripng_info *ripng_ecmp_replace(struct ripng *ripng,
 					     struct ripng_info *rinfo);
 extern struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 					    struct ripng_info *rinfo);
+extern void ripng_ecmp_change(struct ripng *ripng);
 
 extern void ripng_vrf_init(void);
 extern void ripng_vrf_terminate(void);
