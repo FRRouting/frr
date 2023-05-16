@@ -48,11 +48,11 @@
                          {
                              "ip":"192:2::12",
                              "afi":"ipv6",
-                             "scope":"global"
+                             "scope":"global",
+                             "used":true
                          },
                          {
-                             "scope": "link-local",
-                             "used":true
+                             "scope": "link-local"
                          }
                      ]
                  }
@@ -69,7 +69,8 @@
                          {
                              "ip":"192:168::255:13",
                              "afi":"ipv6",
-                             "scope": "global"
+                             "scope": "global",
+                             "used":true
                          },
                          {
                              "scope": "link-local"
@@ -123,7 +124,8 @@
                          {
                              "ip":"192:2::11",
                              "afi":"ipv6",
-                             "scope":"global"
+                             "scope":"global",
+                             "used":true
                          }
                      ]
                  }
@@ -140,7 +142,8 @@
                          {
                              "ip":"192:2::11",
                              "afi":"ipv6",
-                             "scope":"global"
+                             "scope":"global",
+                             "used":true
                          }
                      ]
                  }
