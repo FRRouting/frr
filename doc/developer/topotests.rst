@@ -22,10 +22,8 @@ Installing Topotest Requirements
 
 .. code:: shell
 
-   apt-get install gdb
-   apt-get install iproute2
-   apt-get install net-tools
-   apt-get install python3-pip
+   apt-get install gdb iproute2 net-tools python3-pip \
+      iputils-ping valgrind
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4'
    python3 -m pip install 'pytest-xdist>=2.3.0'
@@ -119,6 +117,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-pim6d \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
@@ -310,32 +309,6 @@ For further options, refer to pytest documentation.
 Test will set exit code which can be used with ``git bisect``.
 
 For the simulated topology, see the description in the python file.
-
-StdErr log from daemos after exit
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To enable the reporting of any messages seen on StdErr after the daemons exit,
-the following env variable can be set::
-
-   export TOPOTESTS_CHECK_STDERR=Yes
-
-(The value doesn't matter at this time. The check is whether the env
-variable exists or not.) There is no pass/fail on this reporting; the
-Output will be reported to the console.
-
-Collect Memory Leak Information
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-FRR processes can report unfreed memory allocations upon exit. To
-enable the reporting of memory leaks, define an environment variable
-``TOPOTESTS_CHECK_MEMLEAK`` with the file prefix, i.e.::
-
-   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
-
-This will enable the check and output to console and the writing of
-the information to files with the given prefix (followed by testname),
-ie :file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
-of a memory leak.
 
 Running Topotests with AddressSanitizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -561,6 +534,48 @@ Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
           --gdb-daemons=bgpd,zebra \
           --gdb-breakpoints=nb_config_diff \
           all-protocol-startup
+
+Reporting Memleaks with FRR Memory Statistics
+"""""""""""""""""""""""""""""""""""""""""""""
+
+FRR reports all allocated FRR memory objects on exit to standard error.
+Topotest can be run to report such output as errors in order to check for
+memleaks in FRR memory allocations. Specifying the CLI argument
+``--memleaks`` will enable reporting FRR-based memory allocations at exit as errors.
+
+.. code:: shell
+
+   sudo -E pytest --memleaks all-protocol-startup
+
+
+StdErr log from daemos after exit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When running with ``--memleaks``, to enable the reporting of other,
+non-memory related, messages seen on StdErr after the daemons exit,
+the following env variable can be set::
+
+   export TOPOTESTS_CHECK_STDERR=Yes
+
+(The value doesn't matter at this time. The check is whether the env
+variable exists or not.) There is no pass/fail on this reporting; the
+Output will be reported to the console.
+
+Collect Memory Leak Information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When running with ``--memleaks``, FRR processes report unfreed memory
+allocations upon exit. To enable also reporting of memory leaks to a specific
+location, define an environment variable ``TOPOTESTS_CHECK_MEMLEAK`` with the
+file prefix, i.e.:
+
+   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
+
+For tests that support the TOPOTESTS_CHECK_MEMLEAK environment variable, this
+will enable output to the information to files with the given prefix (followed
+by testname), e.g.,:
+file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
+of a memory leak.
 
 Detecting Memleaks with Valgrind
 """"""""""""""""""""""""""""""""

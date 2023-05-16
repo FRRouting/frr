@@ -198,6 +198,12 @@ def test_error_messages_daemons():
     if fatal_error != "":
         pytest.skip(fatal_error)
 
+    if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:
+        print(
+            "SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n"
+        )
+        pytest.skip("Skipping test for Stderr output")
+
     print("\n\n** Check for error messages in daemons")
     print("******************************************\n")
 
