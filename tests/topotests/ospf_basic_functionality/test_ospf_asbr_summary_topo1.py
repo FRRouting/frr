@@ -1579,10 +1579,6 @@ def test_ospf_type5_summary_tc45_p0(request):
     result = create_interfaces_cfg(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    # clear neighbor state on both routers to avoid stale state
-    tgen.net["r0"].cmd("clear ip ospf neighbor")
-    tgen.net["r1"].cmd("clear ip ospf neighbor")
-
     ospf_covergence = verify_ospf_neighbor(tgen, topo)
     assert ospf_covergence is True, "setup_module :Failed \n Error  {}".format(
         ospf_covergence
