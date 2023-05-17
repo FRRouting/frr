@@ -353,6 +353,35 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 	}
 }
 
+
+static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
+				    Mgmtd__BeMessage *be_msg)
+{
+	return msg_conn_send_msg(
+		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
+		mgmtd__be_message__get_packed_size(be_msg),
+		(size_t(*)(void *, void *))mgmtd__be_message__pack, false);
+}
+
+static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
+				     bool success)
+{
+	Mgmtd__BeMessage be_msg;
+	Mgmtd__BeSubscribeReply reply;
+
+	mgmtd__be_subscribe_reply__init(&reply);
+	reply.success = success;
+
+	mgmtd__be_message__init(&be_msg);
+	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
+	be_msg.subscr_reply = &reply;
+
+	MGMTD_FE_CLIENT_DBG("Sending SUBSCR_REPLY client: %s sucess: %u",
+			    adapter->name, success);
+
+	return mgmt_be_adapter_send_msg(adapter, &be_msg);
+}
+
 static int
 mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			      Mgmtd__BeMessage *be_msg)
@@ -388,6 +417,12 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			mgmt_be_adapters_by_id[adapter->id] = adapter;
 			mgmt_be_adapter_cleanup_old_conn(adapter);
 		}
+
+		if (be_msg->subscr_req->n_xpath_reg)
+			/* we aren't handling dynamic xpaths yet */
+			mgmt_be_send_subscr_reply(adapter, false);
+		else
+			mgmt_be_send_subscr_reply(adapter, true);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
@@ -481,15 +516,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	}
 
 	return 0;
-}
-
-static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
-				    Mgmtd__BeMessage *be_msg)
-{
-	return msg_conn_send_msg(
-		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
-		mgmtd__be_message__get_packed_size(be_msg),
-		(size_t(*)(void *, void *))mgmtd__be_message__pack, false);
 }
 
 static int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
