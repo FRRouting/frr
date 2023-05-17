@@ -1527,6 +1527,9 @@ class Router(Node):
         """
 
         # Unfortunately this API allowsfor source to not exist for any and all routers.
+        if source is None:
+            source = f"{daemon}.conf"
+
         if source:
             head, tail = os.path.split(source)
             if not head and not self.path_exists(tail):
@@ -1558,7 +1561,7 @@ class Router(Node):
                     self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
                 self.cmd_raises("cp {} {}".format(source, conf_file))
 
-            if not self.unified_config or daemon == "frr":
+            if not (self.unified_config or daemon == "frr"):
                 self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
                 self.cmd_raises("chmod 664 {}".format(conf_file))
 
@@ -1952,7 +1955,7 @@ class Router(Node):
                 tail_log_files.append("{}/{}/frr.log".format(self.logdir, self.name))
 
         for tailf in tail_log_files:
-            self.run_in_window("tail -f " + tailf, title=tailf, background=True)
+            self.run_in_window("tail -n10000 -F " + tailf, title=tailf, background=True)
 
         return ""
 
