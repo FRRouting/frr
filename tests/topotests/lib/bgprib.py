@@ -25,6 +25,7 @@ from lib.lutil import luCommand, luResult, LUtil
 import json
 import re
 
+
 # gpz: get rib in json form and compare against desired routes
 class BgpRib:
     def log(self, str):

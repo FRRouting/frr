@@ -206,7 +206,6 @@ def build_topo_from_json(tgen, topo=None):
             for destRouterLink, data in sorted(
                 topo["switches"][curSwitch]["links"].items()
             ):
-
                 # Loopback interfaces
                 if "dst_node" in data:
                     destRouter = data["dst_node"]
@@ -220,7 +219,6 @@ def build_topo_from_json(tgen, topo=None):
                     destRouter = destRouterLink
 
                 if destRouter in listAllRouters:
-
                     topo["routers"][destRouter]["links"][curSwitch] = deepcopy(
                         topo["switches"][curSwitch]["links"][destRouterLink]
                     )
@@ -398,7 +396,7 @@ def setup_module_from_json(testfile, json_file=None):
     tgen = create_tgen_from_json(testfile, json_file)
 
     # Start routers (and their daemons)
-    start_topology(tgen, topo_daemons(tgen))
+    start_topology(tgen)
 
     # Configure routers
     build_config_from_json(tgen)
