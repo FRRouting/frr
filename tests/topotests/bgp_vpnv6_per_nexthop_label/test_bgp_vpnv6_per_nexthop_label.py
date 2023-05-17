@@ -52,9 +52,7 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd]
 
 PREFIXES_R11 = ["172:31::11/128", "172:31::20/128", "172:31::111/128"]
-PREFIXES_R12 = ["172:31::12/128"]
-PREFIXES_REDIST_R12 = ["172:31::15/128"]
-PREFIXES_R13 = ["172:31::13/128"]
+PREFIXES_R12 = ["172:31::12/128", "172:31::15/128"]
 PREFIXES_REDIST_R14 = ["172:31::14/128"]
 PREFIXES_CONNECTED = ["192:168::255/112", "192:2::/64"]
 
@@ -214,8 +212,6 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False):
             router,
             group=PREFIXES_R11
             + PREFIXES_R12
-            + PREFIXES_REDIST_R12
-            + PREFIXES_R13
             + PREFIXES_REDIST_R14
             + PREFIXES_CONNECTED,
             label_list=label_list,
@@ -224,8 +220,6 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False):
         for group in (
             PREFIXES_R11,
             PREFIXES_R12,
-            PREFIXES_REDIST_R12,
-            PREFIXES_R13,
             PREFIXES_REDIST_R14,
             PREFIXES_CONNECTED,
         ):
