@@ -17,13 +17,23 @@ Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 Instructions are the same for all setups (i.e. ExaBGP is only used for
 BGP tests).
 
+Tshark is only required if you enable any packet captures on test runs.
+
+Valgrind is only required if you enable valgrind on test runs.
+
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
-   apt-get install gdb iproute2 net-tools python3-pip \
-      iputils-ping valgrind
+   apt-get install \
+       gdb \
+       iproute2 \
+       net-tools \
+       python3-pip \
+       iputils-ping \
+       tshark \
+       valgrind
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4'
    python3 -m pip install 'pytest-xdist>=2.3.0'
