@@ -435,4 +435,6 @@ extern void ripng_vrf_init(void);
 extern void ripng_vrf_terminate(void);
 extern void ripng_cli_init(void);
 
+extern uint32_t zebra_ecmp_count;
+
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */
