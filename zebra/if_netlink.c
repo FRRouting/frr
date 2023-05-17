@@ -279,8 +279,6 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_VETH;
 	else if (strcmp(kind, "bond") == 0)
 		*zif_type = ZEBRA_IF_BOND;
-	else if (strcmp(kind, "bond_slave") == 0)
-		*zif_type = ZEBRA_IF_BOND_SLAVE;
 	else if (strcmp(kind, "gre") == 0)
 		*zif_type = ZEBRA_IF_GRE;
 }
@@ -1120,10 +1118,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (linkinfo[IFLA_INFO_SLAVE_KIND])
 			slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
 
-		if ((slave_kind != NULL) && strcmp(slave_kind, "bond") == 0)
-			netlink_determine_zebra_iftype("bond_slave", &zif_type);
-		else
-			netlink_determine_zebra_iftype(kind, &zif_type);
+		netlink_determine_zebra_iftype(kind, &zif_type);
 	}
 
 	/* If VRF, create the VRF structure itself. */

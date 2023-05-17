@@ -1697,9 +1697,6 @@ static const char *zebra_ziftype_2str(enum zebra_iftype zif_type)
 	case ZEBRA_IF_BOND:
 		return "bond";
 
-	case ZEBRA_IF_BOND_SLAVE:
-		return "bond_slave";
-
 	case ZEBRA_IF_MACVLAN:
 		return "macvlan";
 
