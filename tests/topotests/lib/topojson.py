@@ -316,6 +316,7 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
     func_dict = OrderedDict(
         [
             ("vrfs", create_vrf_cfg),
+            ("ospf", create_router_ospf),
             ("links", create_interfaces_cfg),
             ("static_routes", create_static_routes),
             ("prefix_lists", create_prefix_lists),
@@ -325,7 +326,6 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
             ("igmp", create_igmp_config),
             ("mld", create_mld_config),
             ("bgp", create_router_bgp),
-            ("ospf", create_router_ospf),
         ]
     )
 
