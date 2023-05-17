@@ -1428,10 +1428,6 @@ def ospfv3_type5_summary_tc45_p0(request):
     result = create_interfaces_cfg(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    # restart interface state machine on both routers to avoid stale state
-    tgen.net["r0"].cmd("clear ipv6 ospf6 interface")
-    tgen.net["r1"].cmd("clear ipv6 ospf6 interface")
-
     ospf_covergence = verify_ospf6_neighbor(tgen, topo)
     assert ospf_covergence is True, "Testcase {} :Failed \n Error: {}".format(
         tc_name, ospf_covergence
