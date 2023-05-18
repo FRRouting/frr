@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include "debug.h"
 #include "memory.h"
 #include "libfrr.h"
 #include "mgmt_fe_client.h"
@@ -15,20 +16,14 @@
 #include "stream.h"
 #include "sockopt.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_FE_CLIENT_DBG(fmt, ...)                                        \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_FE_CLIENT_ERR(fmt, ...)                                        \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_FE_CLIENT_DBG(fmt, ...)                                        \
-	do {                                                                 \
-		if (mgmt_debug_fe_client)                                    \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);     \
-	} while (0)
-#define MGMTD_FE_CLIENT_ERR(fmt, ...)                                        \
+#include "lib/mgmt_fe_client_clippy.c"
+
+#define MGMTD_FE_CLIENT_DBG(fmt, ...)                                          \
+	DEBUGD(&mgmt_dbg_fe_client, "%s:" fmt, __func__, ##__VA_ARGS__)
+#define MGMTD_FE_CLIENT_ERR(fmt, ...)                                          \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
+#define MGMTD_DBG_FE_CLIENT_CHECK()                                            \
+	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
 
 struct mgmt_fe_client_ctx;
 
@@ -69,7 +64,7 @@ struct mgmt_fe_client_ctx {
 #define FOREACH_SESSION_IN_LIST(client_ctx, session)                           \
 	frr_each_safe (mgmt_sessions, &(client_ctx)->client_sessions, (session))
 
-static bool mgmt_debug_fe_client;
+struct debug mgmt_dbg_fe_client = {0, "Management frontend client operations"};
 
 static struct mgmt_fe_client_ctx mgmt_fe_client_ctx = {
 	.conn_fd = -1,
@@ -109,8 +104,8 @@ mgmt_fe_find_session_by_session_id(struct mgmt_fe_client_ctx *client_ctx,
 	FOREACH_SESSION_IN_LIST (client_ctx, session) {
 		if (session->session_id == session_id) {
 			MGMTD_FE_CLIENT_DBG(
-				"Found session %p for session-id %llu.", session,
-				(unsigned long long)session_id);
+				"Found session %p for session-id %llu.",
+				session, (unsigned long long)session_id);
 			return session;
 		}
 	}
@@ -169,7 +164,7 @@ static int mgmt_fe_client_send_msg(struct mgmt_fe_client_ctx *client_ctx,
 		&client_ctx->mstate, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
 		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
-		mgmt_debug_fe_client);
+		MGMTD_DBG_FE_CLIENT_CHECK());
 	mgmt_fe_client_sched_msg_write(client_ctx);
 	return rv;
 }
@@ -181,7 +176,7 @@ static void mgmt_fe_client_write(struct event *thread)
 
 	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
-			    mgmt_debug_fe_client);
+			    MGMTD_DBG_FE_CLIENT_CHECK());
 	if (rv == MSW_SCHED_STREAM)
 		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
@@ -274,7 +269,8 @@ mgmt_fe_send_lockds_req(struct mgmt_fe_client_ctx *client_ctx,
 
 	MGMTD_FE_CLIENT_DBG(
 		"Sending %sLOCK_REQ message for Ds:%d session %llu to MGMTD Frontend server",
-		lock ? "" : "UN", ds_id, (unsigned long long)session->client_id);
+		lock ? "" : "UN", ds_id,
+		(unsigned long long)session->client_id);
 
 	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
 }
@@ -310,12 +306,12 @@ mgmt_fe_send_setcfg_req(struct mgmt_fe_client_ctx *client_ctx,
 	return mgmt_fe_client_send_msg(client_ctx, &fe_msg);
 }
 
-static int
-mgmt_fe_send_commitcfg_req(struct mgmt_fe_client_ctx *client_ctx,
-			       struct mgmt_fe_client_session *session,
-			       uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-			       Mgmtd__DatastoreId dest_ds_id, bool validate_only,
-			       bool abort)
+static int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client_ctx *client_ctx,
+				      struct mgmt_fe_client_session *session,
+				      uint64_t req_id,
+				      Mgmtd__DatastoreId src_ds_id,
+				      Mgmtd__DatastoreId dest_ds_id,
+				      bool validate_only, bool abort)
 {
 	(void)req_id;
 	Mgmtd__FeMessage fe_msg;
@@ -450,15 +446,17 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 			if (session && fe_msg->session_reply->success) {
 				MGMTD_FE_CLIENT_DBG(
 					"Session Create for client-id %llu successful.",
-					(unsigned long long)fe_msg
-						->session_reply->client_conn_id);
+					(unsigned long long)
+						fe_msg->session_reply
+							->client_conn_id);
 				session->session_id =
 					fe_msg->session_reply->session_id;
 			} else {
 				MGMTD_FE_CLIENT_ERR(
 					"Session Create for client-id %llu failed.",
-					(unsigned long long)fe_msg
-						->session_reply->client_conn_id);
+					(unsigned long long)
+						fe_msg->session_reply
+							->client_conn_id);
 			}
 		} else if (!fe_msg->session_reply->create) {
 			MGMTD_FE_CLIENT_DBG(
@@ -676,7 +674,7 @@ static void mgmt_fe_client_proc_msgbufs(struct event *thread)
 
 	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_fe_client_process_msg,
-			      client_ctx, mgmt_debug_fe_client))
+			      client_ctx, MGMTD_DBG_FE_CLIENT_CHECK()))
 		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_PROC_MSG);
 }
 
@@ -688,7 +686,7 @@ static void mgmt_fe_client_read(struct event *thread)
 	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 
 	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
-			   mgmt_debug_fe_client);
+			   MGMTD_DBG_FE_CLIENT_CHECK());
 	if (rv == MSR_DISCONNECT) {
 		mgmt_fe_server_disconnect(client_ctx, true);
 		return;
@@ -700,7 +698,7 @@ static void mgmt_fe_client_read(struct event *thread)
 
 static void mgmt_fe_server_connect(struct mgmt_fe_client_ctx *client_ctx)
 {
-	const char *dbgtag = mgmt_debug_fe_client ? "FE-client" : NULL;
+	const char *dbgtag = MGMTD_DBG_FE_CLIENT_CHECK() ? "FE-client" : NULL;
 
 	assert(client_ctx->conn_fd == -1);
 	client_ctx->conn_fd = mgmt_msg_connect(
@@ -776,6 +774,48 @@ static void mgmt_fe_client_schedule_conn_retry(
 			 &client_ctx->conn_retry_tmr);
 }
 
+DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
+      "[no] debug mgmt client frontend",
+      NO_STR DEBUG_STR MGMTD_STR
+      "client\n"
+      "frontend\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	DEBUG_MODE_SET(&mgmt_dbg_fe_client, mode, !no);
+
+	return CMD_SUCCESS;
+}
+
+static void mgmt_debug_client_fe_set_all(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&mgmt_dbg_fe_client, flags, set);
+}
+
+static int mgmt_debug_fe_client_config_write(struct vty *vty)
+{
+	if (DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_CONF))
+		vty_out(vty, "debug mgmt client frontend\n");
+
+	return CMD_SUCCESS;
+}
+
+void mgmt_debug_fe_client_show_debug(struct vty *vty)
+{
+	if (MGMTD_DBG_FE_CLIENT_CHECK())
+		vty_out(vty, "debug mgmt client frontend\n");
+}
+
+static struct debug_callbacks mgmt_dbg_fe_client_cbs = {
+	.debug_set_all = mgmt_debug_client_fe_set_all};
+
+static struct cmd_node mgmt_dbg_node = {
+	.name = "mgmt client frontend",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = mgmt_debug_fe_client_config_write,
+};
+
 /*
  * Initialize library and try connecting with MGMTD.
  */
@@ -804,6 +844,14 @@ uintptr_t mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
 	MGMTD_FE_CLIENT_DBG("Initialized client '%s'", params->name);
 
 	return (uintptr_t)&mgmt_fe_client_ctx;
+}
+
+void mgmt_fe_client_lib_vty_init(void)
+{
+	debug_init(&mgmt_dbg_fe_client_cbs);
+	install_node(&mgmt_dbg_node);
+	install_element(ENABLE_NODE, &debug_mgmt_client_fe_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_client_fe_cmd);
 }
 
 /*

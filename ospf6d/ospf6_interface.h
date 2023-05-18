@@ -74,6 +74,15 @@ struct ospf6_interface {
 	uint16_t dead_interval;
 	uint32_t rxmt_interval;
 
+	/* Graceful-Restart data. */
+	struct {
+		struct {
+			uint16_t interval;
+			uint16_t elapsed_seconds;
+			struct event *t_grace_send;
+		} hello_delay;
+	} gr;
+
 	uint32_t state_change;
 
 	/* Cost */

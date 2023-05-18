@@ -20,6 +20,7 @@
 #include "log.h"
 #include "route_opaque.h"
 #include "lib/bfd.h"
+#include "lib/lib_errors.h"
 #include "nexthop.h"
 
 #include "ospfd/ospfd.h"
@@ -955,8 +956,8 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		type_str = "always";
 		ospf->redistribute++;
 		ospf_external_add(ospf, DEFAULT_ROUTE, 0);
-		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
-				       0);
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop, 0,
+				       DEFAULT_DEFAULT_METRIC);
 		break;
 	}
 
@@ -1251,12 +1252,18 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 
 int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
 {
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_CAPABILITIES,
 				    stale_time);
 }
 
 int ospf_zebra_gr_disable(struct ospf *ospf)
 {
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("Zebra disable GR");
+
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
@@ -1302,9 +1309,11 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %pFX",
-			   __func__, zserv_command_string(cmd),
-			   zebra_route_string(api.type), vrf_id, &api.prefix);
+		zlog_debug(
+			"%s: cmd %s from client %s: vrf_id %d, p %pFX, metric %d",
+			__func__, zserv_command_string(cmd),
+			zebra_route_string(api.type), vrf_id, &api.prefix,
+			api.metric);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
@@ -1331,7 +1340,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							  p);
 
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
-					    ifindex, nexthop, api.tag);
+					    ifindex, nexthop, api.tag,
+					    api.metric);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
@@ -1470,6 +1480,61 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
+{
+	struct prefix prefix = {};
+	int command;
+
+	if (zclient->sock < 0) {
+		if (IS_DEBUG_OSPF(zebra, ZEBRA))
+			zlog_debug("  Not connected to Zebra");
+		return;
+	}
+
+	prefix.family = AF_INET;
+	prefix.prefixlen = 0;
+
+	if (unreg)
+		command = ZEBRA_NEXTHOP_UNREGISTER;
+	else
+		command = ZEBRA_NEXTHOP_REGISTER;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA))
+		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
+			   zserv_command_string(command), &prefix,
+			   ospf->vrf_id);
+
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
+			     true, ospf->vrf_id) == ZCLIENT_SEND_FAILURE)
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_send_rnh() failed",
+			 __func__);
+}
+
+static int ospf_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
+{
+	struct ospf *ospf;
+	struct zapi_route nhr;
+	struct prefix matched;
+
+	ospf = ospf_lookup_by_vrf_id(vrf_id);
+	if (ospf == NULL || !IS_OSPF_ASBR(ospf))
+		return 0;
+
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
+		zlog_err("%s[%u]: Failure to decode route", __func__,
+			 ospf->vrf_id);
+		return -1;
+	}
+
+	if (matched.family != AF_INET || matched.prefixlen != 0 ||
+	    nhr.type == ZEBRA_ROUTE_OSPF)
+		return 0;
+
+	ospf->nssa_default_import_check.status = !!nhr.nexthop_num;
+	ospf_abr_nssa_type7_defaults(ospf);
+
+	return 0;
+}
 
 int ospf_distribute_list_out_set(struct ospf *ospf, int type, const char *name)
 {
@@ -2061,10 +2126,20 @@ int ospf_zebra_label_manager_connect(void)
 
 static void ospf_zebra_connected(struct zclient *zclient)
 {
+	struct ospf *ospf;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->gr_info.restart_support)
+			continue;
+		(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
+	}
 }
 
 /*
@@ -2132,6 +2207,7 @@ static zclient_handler *const ospf_handlers[] = {
 
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
+	[ZEBRA_NEXTHOP_UPDATE] = ospf_zebra_import_check_update,
 
 	[ZEBRA_OPAQUE_MESSAGE] = ospf_opaque_msg_handler,
 

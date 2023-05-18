@@ -6,29 +6,25 @@
  */
 
 #include <zebra.h>
+#include "debug.h"
 #include "libfrr.h"
 #include "mgmtd/mgmt.h"
 #include "mgmt_be_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_pb.h"
 #include "network.h"
+#include "northbound.h"
 #include "stream.h"
 #include "sockopt.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                         \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                         \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                         \
-	do {                                                                   \
-		if (mgmt_debug_be_client)                                     \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);         \
-	} while (0)
-#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                         \
+#include "lib/mgmt_be_client_clippy.c"
+
+#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
+	DEBUGD(&mgmt_dbg_be_client, "%s:" fmt, __func__, ##__VA_ARGS__)
+#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
+#define MGMTD_DBG_BE_CLIENT_CHECK()                                            \
+	DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL)
 
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH,
 		    "MGMTD backend transaction batch data");
@@ -118,8 +114,6 @@ struct mgmt_be_client_ctx {
 	struct nb_config *candidate_config;
 	struct nb_config *running_config;
 
-	unsigned long num_batch_find;
-	unsigned long avg_batch_find_tm;
 	unsigned long num_edit_nb_cfg;
 	unsigned long avg_edit_nb_cfg_tm;
 	unsigned long num_prep_nb_cfg;
@@ -136,7 +130,7 @@ struct mgmt_be_client_ctx {
 #define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
-static bool mgmt_debug_be_client;
+struct debug mgmt_dbg_be_client = {0, "Management backend client operations"};
 
 static struct mgmt_be_client_ctx mgmt_be_client_ctx = {
 	.conn_fd = -1,
@@ -479,7 +473,6 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	bool error;
 	char err_buf[BUFSIZ];
 	size_t num_processed;
-	bool debug_be = mgmt_debug_be_client;
 	int err;
 
 	assert(txn && txn->client_ctx);
@@ -499,8 +492,8 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 			 * interested in validating it.
 			 */
 			error = false;
-			if (debug_be)
-				gettimeofday(&edit_nb_cfg_start, NULL);
+
+			gettimeofday(&edit_nb_cfg_start, NULL);
 			nb_candidate_edit_config_changes(
 				client_ctx->candidate_config,
 				txn_req->req.set_cfg.cfg_changes,
@@ -516,16 +509,14 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 					err_buf);
 				return -1;
 			}
-			if (debug_be) {
-				gettimeofday(&edit_nb_cfg_end, NULL);
-				edit_nb_cfg_tm = timeval_elapsed(
-					edit_nb_cfg_end, edit_nb_cfg_start);
-				client_ctx->avg_edit_nb_cfg_tm =
-					((client_ctx->avg_edit_nb_cfg_tm
-					  * client_ctx->num_edit_nb_cfg)
-					 + edit_nb_cfg_tm)
-					/ (client_ctx->num_edit_nb_cfg + 1);
-			}
+			gettimeofday(&edit_nb_cfg_end, NULL);
+			edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end,
+							 edit_nb_cfg_start);
+			client_ctx->avg_edit_nb_cfg_tm =
+				((client_ctx->avg_edit_nb_cfg_tm *
+				  client_ctx->num_edit_nb_cfg) +
+				 edit_nb_cfg_tm) /
+				(client_ctx->num_edit_nb_cfg + 1);
 			client_ctx->num_edit_nb_cfg++;
 		}
 
@@ -540,8 +531,8 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	 */
 	nb_ctx.client = NB_CLIENT_CLI;
 	nb_ctx.user = (void *)client_ctx->client_params.user_data;
-	if (debug_be)
-		gettimeofday(&prep_nb_cfg_start, NULL);
+
+	gettimeofday(&prep_nb_cfg_start, NULL);
 	err = nb_candidate_commit_prepare(nb_ctx, client_ctx->candidate_config,
 					  "MGMTD Backend Txn", &txn->nb_txn,
 #ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
@@ -569,16 +560,13 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 			"Prepared configs for Txn %llx, %u Batches! successfully!",
 			(unsigned long long)txn->txn_id,
 			(uint32_t)num_processed);
-	if (debug_be) {
-		gettimeofday(&prep_nb_cfg_end, NULL);
-		prep_nb_cfg_tm =
-			timeval_elapsed(prep_nb_cfg_end, prep_nb_cfg_start);
-		client_ctx->avg_prep_nb_cfg_tm =
-			((client_ctx->avg_prep_nb_cfg_tm
-			  * client_ctx->num_prep_nb_cfg)
-			 + prep_nb_cfg_tm)
-			/ (client_ctx->num_prep_nb_cfg + 1);
-	}
+
+	gettimeofday(&prep_nb_cfg_end, NULL);
+	prep_nb_cfg_tm = timeval_elapsed(prep_nb_cfg_end, prep_nb_cfg_start);
+	client_ctx->avg_prep_nb_cfg_tm = ((client_ctx->avg_prep_nb_cfg_tm *
+					   client_ctx->num_prep_nb_cfg) +
+					  prep_nb_cfg_tm) /
+					 (client_ctx->num_prep_nb_cfg + 1);
 	client_ctx->num_prep_nb_cfg++;
 
 	FOREACH_BE_TXN_BATCH_IN_LIST (txn, batch) {
@@ -593,11 +581,10 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 		}
 	}
 
-	if (debug_be)
-		MGMTD_BE_CLIENT_DBG(
-			"Avg-nb-edit-duration %lu uSec, nb-prep-duration %lu (avg: %lu) uSec, batch size %u",
-			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
-			client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
+	MGMTD_BE_CLIENT_DBG(
+		"Avg-nb-edit-duration %lu uSec, nb-prep-duration %lu (avg: %lu) uSec, batch size %u",
+		client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
+		client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
 
 	if (error)
 		mgmt_be_txn_cfg_abort(txn);
@@ -735,7 +722,6 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	char err_buf[BUFSIZ];
 	size_t num_processed;
 	static uint64_t batch_ids[MGMTD_BE_MAX_BATCH_IDS_IN_REQ];
-	bool debug_be = mgmt_debug_be_client;
 
 	assert(txn && txn->client_ctx);
 	client_ctx = txn->client_ctx;
@@ -746,20 +732,16 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	/*
 	 * Now apply all the batches we have applied in one go.
 	 */
-	if (debug_be)
-		gettimeofday(&apply_nb_cfg_start, NULL);
+	gettimeofday(&apply_nb_cfg_start, NULL);
 	(void)nb_candidate_commit_apply(txn->nb_txn, true, &txn->nb_txn_id,
 					err_buf, sizeof(err_buf) - 1);
-	if (debug_be) {
-		gettimeofday(&apply_nb_cfg_end, NULL);
-		apply_nb_cfg_tm =
-			timeval_elapsed(apply_nb_cfg_end, apply_nb_cfg_start);
-		client_ctx->avg_apply_nb_cfg_tm =
-			((client_ctx->avg_apply_nb_cfg_tm
-			  * client_ctx->num_apply_nb_cfg)
-			 + apply_nb_cfg_tm)
-			/ (client_ctx->num_apply_nb_cfg + 1);
-	}
+	gettimeofday(&apply_nb_cfg_end, NULL);
+
+	apply_nb_cfg_tm = timeval_elapsed(apply_nb_cfg_end, apply_nb_cfg_start);
+	client_ctx->avg_apply_nb_cfg_tm = ((client_ctx->avg_apply_nb_cfg_tm *
+					    client_ctx->num_apply_nb_cfg) +
+					   apply_nb_cfg_tm) /
+					  (client_ctx->num_apply_nb_cfg + 1);
 	client_ctx->num_apply_nb_cfg++;
 	txn->nb_txn = NULL;
 
@@ -788,10 +770,8 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	mgmt_be_send_apply_reply(client_ctx, txn->txn_id, batch_ids,
 				    num_processed, true, NULL);
 
-	if (debug_be)
-		MGMTD_BE_CLIENT_DBG("Nb-apply-duration %lu (avg: %lu) uSec",
-				     apply_nb_cfg_tm,
-				     client_ctx->avg_apply_nb_cfg_tm);
+	MGMTD_BE_CLIENT_DBG("Nb-apply-duration %lu (avg: %lu) uSec",
+			    apply_nb_cfg_tm, client_ctx->avg_apply_nb_cfg_tm);
 
 	return 0;
 }
@@ -902,7 +882,7 @@ static void mgmt_be_client_proc_msgbufs(struct event *thread)
 	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_be_client_process_msg,
-			      client_ctx, mgmt_debug_be_client))
+			      client_ctx, MGMTD_DBG_BE_CLIENT_CHECK()))
 		mgmt_be_client_register_event(client_ctx, MGMTD_BE_PROC_MSG);
 }
 
@@ -912,7 +892,7 @@ static void mgmt_be_client_read(struct event *thread)
 	enum mgmt_msg_rsched rv;
 
 	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
-			   mgmt_debug_be_client);
+			   MGMTD_DBG_BE_CLIENT_CHECK());
 	if (rv == MSR_DISCONNECT) {
 		mgmt_be_server_disconnect(client_ctx, true);
 		return;
@@ -957,7 +937,7 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
 		&client_ctx->mstate, be_msg,
 		mgmtd__be_message__get_packed_size(be_msg),
 		(size_t(*)(void *, void *))mgmtd__be_message__pack,
-		mgmt_debug_be_client);
+		MGMTD_DBG_BE_CLIENT_CHECK());
 	mgmt_be_client_sched_msg_write(client_ctx);
 	return rv;
 }
@@ -968,7 +948,7 @@ static void mgmt_be_client_write(struct event *thread)
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
-			    mgmt_debug_be_client);
+			    MGMTD_DBG_BE_CLIENT_CHECK());
 	if (rv == MSW_SCHED_STREAM)
 		mgmt_be_client_register_event(client_ctx, MGMTD_BE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
@@ -1016,7 +996,7 @@ static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
 
 static void mgmt_be_server_connect(struct mgmt_be_client_ctx *client_ctx)
 {
-	const char *dbgtag = mgmt_debug_be_client ? "BE-client" : NULL;
+	const char *dbgtag = MGMTD_DBG_BE_CLIENT_CHECK() ? "BE-client" : NULL;
 
 	assert(client_ctx->conn_fd == -1);
 	client_ctx->conn_fd = mgmt_msg_connect(
@@ -1096,7 +1076,47 @@ mgmt_be_client_schedule_conn_retry(struct mgmt_be_client_ctx *client_ctx,
 			 &client_ctx->conn_retry_tmr);
 }
 
-extern struct nb_config *running_config;
+DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
+      "[no] debug mgmt client backend",
+      NO_STR DEBUG_STR MGMTD_STR
+      "client\n"
+      "backend\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	DEBUG_MODE_SET(&mgmt_dbg_be_client, mode, !no);
+
+	return CMD_SUCCESS;
+}
+
+static void mgmt_debug_client_be_set_all(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&mgmt_dbg_be_client, flags, set);
+}
+
+static int mgmt_debug_be_client_config_write(struct vty *vty)
+{
+	if (DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_CONF))
+		vty_out(vty, "debug mgmt client frontend\n");
+
+	return 1;
+}
+
+void mgmt_debug_be_client_show_debug(struct vty *vty)
+{
+	if (MGMTD_DBG_BE_CLIENT_CHECK())
+		vty_out(vty, "debug mgmt client backend\n");
+}
+
+static struct debug_callbacks mgmt_dbg_be_client_cbs = {
+	.debug_set_all = mgmt_debug_client_be_set_all};
+
+static struct cmd_node mgmt_dbg_node = {
+	.name = "mgmt backend client",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = mgmt_debug_be_client_config_write,
+};
 
 /*
  * Initialize library and try connecting with MGMTD.
@@ -1132,6 +1152,16 @@ uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
 
 	return (uintptr_t)&mgmt_be_client_ctx;
 }
+
+
+void mgmt_be_client_lib_vty_init(void)
+{
+	debug_init(&mgmt_dbg_be_client_cbs);
+	install_node(&mgmt_dbg_node);
+	install_element(ENABLE_NODE, &debug_mgmt_client_be_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_client_be_cmd);
+}
+
 
 /*
  * Subscribe with MGMTD for one or more YANG subtree(s).

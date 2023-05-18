@@ -46,7 +46,7 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 	/*
 	 * We need to create the VRF table for the pim mroute_socket
 	 */
-	if (pim->vrf->vrf_id != VRF_DEFAULT) {
+	if (enable && pim->vrf->vrf_id != VRF_DEFAULT) {
 		frr_with_privs (&pimd_privs) {
 
 			data = pim->vrf->data.l.table_id;

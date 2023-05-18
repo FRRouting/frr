@@ -104,6 +104,12 @@ void uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src);
 int daemonise(void);
 extern const unsigned char v4prefix[16];
 
+static inline bool
+is_default(const unsigned char *prefix, int plen)
+{
+    return plen == 0 || (plen == 96 && v4mapped(prefix));
+}
+
 /* If debugging is disabled, we want to avoid calling format_address
    for every omitted debugging message.  So debug is a macro.  But
    vararg macros are not portable. */
@@ -122,10 +128,11 @@ extern const unsigned char v4prefix[16];
 #define BABEL_DEBUG_ROUTE       (1 << 5)
 #define BABEL_DEBUG_ALL         (0xFFFF)
 
-#define debugf(level, ...) \
-do { \
-if(UNLIKELY(debug & level)) zlog_debug(__VA_ARGS__);     \
-} while(0)
+#define debugf(level, ...)                                                     \
+	do {                                                                   \
+		if (unlikely(debug & level))                                   \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
 
 #endif /* NO_DEBUG */
 

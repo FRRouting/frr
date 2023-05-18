@@ -127,7 +127,6 @@ void rfapiCheckRouteCount(void)
 			struct agg_node *rn;
 
 			int holddown_count = 0;
-			int local_count = 0;
 			int imported_count = 0;
 			int remote_count = 0;
 
@@ -146,9 +145,7 @@ void rfapiCheckRouteCount(void)
 						++holddown_count;
 
 					} else {
-						if (RFAPI_LOCAL_BI(bpi)) {
-							++local_count;
-						} else {
+						if (!RFAPI_LOCAL_BI(bpi)) {
 							if (RFAPI_DIRECT_IMPORT_BI(
 								    bpi)) {
 								++imported_count;

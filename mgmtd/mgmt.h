@@ -9,6 +9,7 @@
 #ifndef _FRR_MGMTD_H
 #define _FRR_MGMTD_H
 
+#include "debug.h"
 #include "vrf.h"
 #include "defaults.h"
 #include "stream.h"
@@ -23,10 +24,15 @@
 #define MGMTD_SOCKET_BUF_SIZE 65535
 #define MGMTD_MAX_COMMIT_LIST 10
 
-extern bool mgmt_debug_be;
-extern bool mgmt_debug_fe;
-extern bool mgmt_debug_ds;
-extern bool mgmt_debug_txn;
+extern struct debug mgmt_debug_be;
+extern struct debug mgmt_debug_ds;
+extern struct debug mgmt_debug_fe;
+extern struct debug mgmt_debug_txn;
+
+#define MGMT_DEBUG_BE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL)
+#define MGMT_DEBUG_DS_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_ds, DEBUG_MODE_ALL)
+#define MGMT_DEBUG_FE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)
+#define MGMT_DEBUG_TXN_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_tx, DEBUG_MODE_ALL)
 
 struct mgmt_txn_ctx;
 
@@ -62,6 +68,8 @@ struct mgmt_master {
 };
 
 extern struct mgmt_master *mm;
+extern char const *const mgmt_daemons[];
+extern uint mgmt_daemons_count;
 
 /* Inline functions */
 static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
@@ -99,17 +107,5 @@ extern void mgmt_master_init(struct event_loop *master, const int buffer_size);
 
 extern void mgmt_init(void);
 extern void mgmt_vty_init(void);
-
-static inline char *mgmt_realtime_to_string(struct timeval *tv, char *buf,
-					    size_t sz)
-{
-	struct tm tm;
-	size_t n;
-
-	localtime_r((const time_t *)&tv->tv_sec, &tm);
-	n = strftime(buf, sz, "%Y-%m-%dT%H:%M:%S", &tm);
-	snprintf(&buf[n], sz - n, ",%06u000", (unsigned int)tv->tv_usec);
-	return buf;
-}
 
 #endif /* _FRR_MGMTD_H */

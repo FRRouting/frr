@@ -537,7 +537,8 @@ Programming Languages, Tools and Libraries
 ==========================================
 
 The core of FRR is written in C (gcc or clang supported) and makes
-use of GNU compiler extensions. A few non-essential scripts are
+use of GNU compiler extensions. Additionally, the CLI generation
+tool, `clippy`, requires Python. A few other non-essential scripts are
 implemented in Perl and Python. FRR requires the following tools
 to build distribution packages: automake, autoconf, texinfo, libtool and
 gawk and various libraries (i.e. libpam and libjson-c).

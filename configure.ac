@@ -299,14 +299,20 @@ if test "$enable_scripting" = "yes"; then
    AX_LUA_HEADERS([], [
      AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
    ])
-   AX_LUA_LIBS([
+   PKG_CHECK_MODULES([LUA], [lua5.3], [
      AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-     LIBS="$LIBS $LUA_LIB"
+     LIBS="$LIBS $LUA_LIBS"
      SCRIPTING=true
    ], [
-     SCRIPTING=false
-     AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
-   ])
+      AX_LUA_LIBS([
+        AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+        LIBS="$LIBS $LUA_LIB"
+        SCRIPTING=true
+      ], [
+        SCRIPTING=false
+        AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
+      ])
+    ])
 fi
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
@@ -685,6 +691,8 @@ AC_ARG_ENABLE([ospfapi],
 AC_ARG_ENABLE([ospfclient],
   AS_HELP_STRING([--disable-ospfclient], [do not build OSPFAPI client for OSPFAPI,
                           (this is the default if --disable-ospfapi is set)]))
+AC_ARG_WITH([log_timestamp_precision],
+  AS_HELP_STRING([--with-log-timestamp-precision=ARG], [set startup log timestamp precision, ARG must be 0-12]))
 AC_ARG_ENABLE([multipath],
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_WITH([service_timeout],
@@ -956,8 +964,19 @@ esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
 
-AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
+case "${with_log_timestamp_precision}" in
+[[0-9]|1[012]])
+;;
+"")
+;;
+*)
+AC_MSG_FAILURE([Please specify a number from 0-12 for log precision ARG])
+;;
+esac
+with_log_timestamp_precision=${with_log_timestamp_precision:-0}
+AC_DEFINE_UNQUOTED([LOG_TIMESTAMP_PRECISION], [${with_log_timestamp_precision}], [Startup zlog timestamp precision])
 
+AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
 
 TIMEOUT_MIN=2
 case "${with_service_timeout}" in

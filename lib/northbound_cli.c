@@ -1434,6 +1434,7 @@ DEFPY (show_yang_operational_data,
 	struct lyd_node *dnode;
 	char *strp;
 	uint32_t print_options = LYD_PRINT_WITHSIBLINGS;
+	int ret;
 
 	if (xml)
 		format = LYD_XML;
@@ -1454,10 +1455,15 @@ DEFPY (show_yang_operational_data,
 
 	/* Obtain data. */
 	dnode = yang_dnode_new(ly_ctx, false);
-	if (nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				 dnode)
-	    != NB_OK) {
-		vty_out(vty, "%% Failed to fetch operational data.\n");
+	ret = nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
+				   dnode);
+	if (ret != NB_OK) {
+		if (format == LYD_JSON)
+			vty_out(vty, "{}\n");
+		else {
+			/* embed ly_last_errmsg() when we get newer libyang */
+			vty_out(vty, "<!-- Not found -->\n");
+		}
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}

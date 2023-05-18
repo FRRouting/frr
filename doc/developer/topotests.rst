@@ -17,15 +17,23 @@ Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 Instructions are the same for all setups (i.e. ExaBGP is only used for
 BGP tests).
 
+Tshark is only required if you enable any packet captures on test runs.
+
+Valgrind is only required if you enable valgrind on test runs.
+
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
-   apt-get install gdb
-   apt-get install iproute2
-   apt-get install net-tools
-   apt-get install python3-pip
+   apt-get install \
+       gdb \
+       iproute2 \
+       net-tools \
+       python3-pip \
+       iputils-ping \
+       tshark \
+       valgrind
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4'
    python3 -m pip install 'pytest-xdist>=2.3.0'
@@ -119,6 +127,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-pim6d \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
@@ -296,46 +305,20 @@ Execute single test
 .. code:: shell
 
    cd test_to_be_run
-   ./test_to_be_run.py
+   sudo -E pytest ./test_to_be_run.py
 
 For example, and assuming you are inside the frr directory:
 
 .. code:: shell
 
    cd tests/topotests/bgp_l3vpn_to_bgp_vrf
-   ./test_bgp_l3vpn_to_bgp_vrf.py
+   sudo -E pytest ./test_bgp_l3vpn_to_bgp_vrf.py
 
 For further options, refer to pytest documentation.
 
 Test will set exit code which can be used with ``git bisect``.
 
 For the simulated topology, see the description in the python file.
-
-StdErr log from daemos after exit
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To enable the reporting of any messages seen on StdErr after the daemons exit,
-the following env variable can be set::
-
-   export TOPOTESTS_CHECK_STDERR=Yes
-
-(The value doesn't matter at this time. The check is whether the env
-variable exists or not.) There is no pass/fail on this reporting; the
-Output will be reported to the console.
-
-Collect Memory Leak Information
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-FRR processes can report unfreed memory allocations upon exit. To
-enable the reporting of memory leaks, define an environment variable
-``TOPOTESTS_CHECK_MEMLEAK`` with the file prefix, i.e.::
-
-   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
-
-This will enable the check and output to console and the writing of
-the information to files with the given prefix (followed by testname),
-ie :file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
-of a memory leak.
 
 Running Topotests with AddressSanitizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -402,6 +385,63 @@ environment.
 .. _screen: https://www.gnu.org/software/screen/
 .. _tmux: https://github.com/tmux/tmux/wiki
 
+Capturing Packets
+"""""""""""""""""
+
+One can view and capture packets on any of the networks or interfaces defined by
+the topotest by specifying the ``--pcap=NET|INTF|all[,NET|INTF,...]`` CLI option
+as shown in the examples below.
+
+.. code:: shell
+
+   # Capture on all networks in isis_topo1 test
+   sudo -E pytest isis_topo1 --pcap=all
+
+   # Capture on `sw1` network
+   sudo -E pytest isis_topo1 --pcap=sw1
+
+   # Capture on `sw1` network and on interface `eth0` on router `r2`
+   sudo -E pytest isis_topo1 --pcap=sw1,r2:r2-eth0
+
+For each capture a window is opened displaying a live summary of the captured
+packets. Additionally, the entire packet stream is captured in a pcap file in
+the tests log directory e.g.,::
+
+.. code:: console
+
+   $ sudo -E pytest isis_topo1 --pcap=sw1,r2:r2-eth0
+   ...
+   $ ls -l /tmp/topotests/isis_topo1.test_isis_topo1/
+   -rw------- 1 root root 45172 Apr 19 05:30 capture-r2-r2-eth0.pcap
+   -rw------- 1 root root 48412 Apr 19 05:30 capture-sw1.pcap
+   ...
+-
+Viewing Live Daemon Logs
+""""""""""""""""""""""""
+
+One can live view daemon or the frr logs in separate windows using the
+``--logd`` CLI option as shown below.
+
+.. code:: shell
+
+   # View `ripd` logs on all routers in test
+   sudo -E pytest rip_allow_ecmp --logd=ripd
+
+   # View `ripd` logs on all routers and `mgmtd` log on `r1`
+   sudo -E pytest rip_allow_ecmp --logd=ripd --logd=mgmtd,r1
+
+For each capture a window is opened displaying a live summary of the captured
+packets. Additionally, the entire packet stream is captured in a pcap file in
+the tests log directory e.g.,::
+
+When using a unified log file `frr.log` one substitutes `frr` for the daemon
+name in the ``--logd`` CLI option, e.g.,
+
+.. code:: shell
+
+   # View `frr` log on all routers in test
+   sudo -E pytest some_test_suite --logd=frr
+
 Spawning Debugging CLI, ``vtysh`` or Shells on Routers on Test Failure
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -421,12 +461,30 @@ the help command from within a CLI launched on error:
 
     test_bgp_multiview_topo1/test_bgp_routingTable> help
 
-    Commands:
-    help                       :: this help
-    sh [hosts] <shell-command> :: execute <shell-command> on <host>
-    term [hosts]               :: open shell terminals for hosts
-    vtysh [hosts]              :: open vtysh terminals for hosts
-    [hosts] <vtysh-command>    :: execute vtysh-command on hosts
+    Basic Commands:
+      cli   :: open a secondary CLI window
+      help  :: this help
+      hosts :: list hosts
+      quit  :: quit the cli
+
+      HOST can be a host or one of the following:
+        - '*' for all hosts
+        - '.' for the parent munet
+        - a regex specified between '/' (e.g., '/rtr.*/')
+
+    New Window Commands:
+      logd HOST [HOST ...] DAEMON   :: tail -f on the logfile of the given DAEMON for the given HOST[S]
+      pcap NETWORK  :: capture packets from NETWORK into file capture-NETWORK.pcap the command is run within a new window which also shows packet summaries. NETWORK can also be an interface specified as HOST:INTF. To capture inside the host namespace.
+      stderr HOST [HOST ...] DAEMON :: tail -f on the stderr of the given DAEMON for the given HOST[S]
+      stdlog HOST [HOST ...]        :: tail -f on the `frr.log` for the given HOST[S]
+      stdout HOST [HOST ...] DAEMON :: tail -f on the stdout of the given DAEMON for the given HOST[S]
+      term HOST [HOST ...]  :: open terminal[s] (TMUX or XTerm) on HOST[S], * for all
+      vtysh ROUTER [ROUTER ...]     ::
+      xterm HOST [HOST ...] :: open XTerm[s] on HOST[S], * for all
+    Inline Commands:
+      [ROUTER ...] COMMAND  :: execute vtysh COMMAND on the router[s]
+      [HOST ...] sh <SHELL-COMMAND> :: execute <SHELL-COMMAND> on hosts
+      [HOST ...] shi <INTERACTIVE-COMMAND>  :: execute <INTERACTIVE-COMMAND> on HOST[s]
 
     test_bgp_multiview_topo1/test_bgp_routingTable> r1 show int br
     ------ Host: r1 ------
@@ -487,6 +545,48 @@ Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
           --gdb-breakpoints=nb_config_diff \
           all-protocol-startup
 
+Reporting Memleaks with FRR Memory Statistics
+"""""""""""""""""""""""""""""""""""""""""""""
+
+FRR reports all allocated FRR memory objects on exit to standard error.
+Topotest can be run to report such output as errors in order to check for
+memleaks in FRR memory allocations. Specifying the CLI argument
+``--memleaks`` will enable reporting FRR-based memory allocations at exit as errors.
+
+.. code:: shell
+
+   sudo -E pytest --memleaks all-protocol-startup
+
+
+StdErr log from daemos after exit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When running with ``--memleaks``, to enable the reporting of other,
+non-memory related, messages seen on StdErr after the daemons exit,
+the following env variable can be set::
+
+   export TOPOTESTS_CHECK_STDERR=Yes
+
+(The value doesn't matter at this time. The check is whether the env
+variable exists or not.) There is no pass/fail on this reporting; the
+Output will be reported to the console.
+
+Collect Memory Leak Information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When running with ``--memleaks``, FRR processes report unfreed memory
+allocations upon exit. To enable also reporting of memory leaks to a specific
+location, define an environment variable ``TOPOTESTS_CHECK_MEMLEAK`` with the
+file prefix, i.e.:
+
+   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
+
+For tests that support the TOPOTESTS_CHECK_MEMLEAK environment variable, this
+will enable output to the information to files with the given prefix (followed
+by testname), e.g.,:
+file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
+of a memory leak.
+
 Detecting Memleaks with Valgrind
 """"""""""""""""""""""""""""""""
 
@@ -500,6 +600,27 @@ memleak detection is enabled.
 .. code:: shell
 
    sudo -E pytest --valgrind-memleaks all-protocol-startup
+
+Collecting Performance Data using perf(1)
+"""""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch any daemon under ``perf(1)`` to collect
+performance data. The daemon is run in non-daemon mode with ``perf record -g``.
+The ``perf.data`` file will be saved in the router specific directory under the
+tests run directoy.
+
+Here's an example of collecting performance data from ``mgmtd`` on router ``r1``
+during the config_timing test.
+
+.. code:: console
+
+   $ sudo -E pytest --perf=mgmtd,r1 config_timing
+   ...
+   $ find /tmp/topotests/ -name '*perf.data*'
+   /tmp/topotests/config_timing.test_config_timing/r1/perf.data
+
+To specify different arguments for ``perf record``, one can use the
+``--perf-options`` this will replace the ``-g`` used by default.
 
 .. _topotests_docker:
 

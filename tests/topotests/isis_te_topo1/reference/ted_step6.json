@@ -50,7 +50,7 @@
     ],
     "edges":[
       {
-        "edge-id":1,
+        "edge-id":"2001:db8::1",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -94,7 +94,7 @@
         }
       },
       {
-        "edge-id":2,
+        "edge-id":"2001:db8::2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -134,7 +134,7 @@
         }
       },
       {
-        "edge-id":65537,
+        "edge-id":"2001:db8:1::1:1",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -175,7 +175,7 @@
         }
       },
       {
-        "edge-id":65538,
+        "edge-id":"2001:db8:1::1:2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -216,7 +216,7 @@
         }
       },
       {
-        "edge-id":196610,
+        "edge-id":"2001:db8:3::3:2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -257,7 +257,7 @@
         }
       },
       {
-        "edge-id":196611,
+        "edge-id":"2001:db8:3::3:3",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -299,7 +299,7 @@
         }
       },
       {
-        "edge-id":196612,
+        "edge-id":"2001:db8:5::3:4",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0004",
@@ -347,7 +347,7 @@
         ]
       },
       {
-        "edge-id":262147,
+        "edge-id":"2001:db8:5::4:3",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -390,7 +390,7 @@
         }
       },
       {
-        "edge-id":167772161,
+        "edge-id":"10.0.0.1",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -434,7 +434,7 @@
         }
       },
       {
-        "edge-id":167772162,
+        "edge-id":"10.0.0.2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -475,7 +475,7 @@
         }
       },
       {
-        "edge-id":167772417,
+        "edge-id":"10.0.1.1",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -516,7 +516,7 @@
         }
       },
       {
-        "edge-id":167772418,
+        "edge-id":"10.0.1.2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -557,7 +557,7 @@
         }
       },
       {
-        "edge-id":167772930,
+        "edge-id":"10.0.3.2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -598,7 +598,7 @@
         }
       },
       {
-        "edge-id":167772931,
+        "edge-id":"10.0.3.3",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -640,7 +640,7 @@
         }
       },
       {
-        "edge-id":167773186,
+        "edge-id":"10.0.4.2",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -683,7 +683,7 @@
         }
       },
       {
-        "edge-id":167773188,
+        "edge-id":"10.0.4.4",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0004",

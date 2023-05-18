@@ -19,20 +19,10 @@
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define MGMTD_FE_ADAPTER_DBG(fmt, ...)                                       \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_FE_ADAPTER_ERR(fmt, ...)                                       \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_FE_ADAPTER_DBG(fmt, ...)                                       \
-	do {                                                                 \
-		if (mgmt_debug_fe)                                           \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);     \
-	} while (0)
+#define MGMTD_FE_ADAPTER_DBG(fmt, ...)                                         \
+	DEBUGD(&mgmt_debug_fe, "%s:" fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_FE_ADAPTER_ERR(fmt, ...)                                       \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
 
 #define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
 	frr_each_safe (mgmt_fe_adapters, &mgmt_fe_adapters, (adapter))
@@ -399,7 +389,7 @@ mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
 		&adapter->mstate, fe_msg,
 		mgmtd__fe_message__get_packed_size(fe_msg),
 		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
-		mgmt_debug_fe);
+		MGMT_DEBUG_FE_CHECK());
 	mgmt_fe_adapter_sched_msg_write(adapter);
 	return rv;
 }
@@ -495,7 +485,8 @@ static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
 
 	if (implicit_commit) {
 		if (mm->perf_stats_en)
-			gettimeofday(&session->adapter->cmt_stats.last_end, NULL);
+			gettimeofday(&session->adapter->cmt_stats.last_end,
+				     NULL);
 		mgmt_fe_session_compute_commit_timers(
 			&session->adapter->cmt_stats);
 	}
@@ -715,8 +706,8 @@ mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 	struct mgmt_fe_client_adapter *old;
 
 	FOREACH_ADAPTER_IN_LIST (old) {
-		if (old != adapter
-		    && !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
+		if (old != adapter &&
+		    !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
 			/*
 			 * We have a Zombie lingering around
 			 */
@@ -1109,8 +1100,8 @@ mgmt_fe_session_handle_getdata_req_msg(struct mgmt_fe_session_ctx *session,
 						  MGMTD_TXN_TYPE_SHOW);
 		if (session->txn_id == MGMTD_SESSION_ID_NONE) {
 			mgmt_fe_send_getdata_reply(
-				session, getdata_req->ds_id, getdata_req->req_id,
-				false, NULL,
+				session, getdata_req->ds_id,
+				getdata_req->req_id, false, NULL,
 				"Failed to create a Show transaction!");
 			goto mgmt_fe_sess_handle_getdata_req_failed;
 		}
@@ -1438,7 +1429,7 @@ static void mgmt_fe_adapter_proc_msgbufs(struct event *thread)
 	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_fe_adapter_process_msg,
-			      adapter, mgmt_debug_fe))
+			      adapter, MGMT_DEBUG_FE_CHECK()))
 		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_PROC_MSG);
 }
 
@@ -1447,7 +1438,8 @@ static void mgmt_fe_adapter_read(struct event *thread)
 	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_rsched rv;
 
-	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd, mgmt_debug_fe);
+	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd,
+			   MGMT_DEBUG_FE_CHECK());
 	if (rv == MSR_DISCONNECT) {
 		mgmt_fe_adapter_disconnect(adapter);
 		return;
@@ -1462,7 +1454,8 @@ static void mgmt_fe_adapter_write(struct event *thread)
 	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
-	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd, mgmt_debug_fe);
+	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd,
+			    MGMT_DEBUG_FE_CHECK());
 	if (rv == MSW_SCHED_STREAM)
 		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_WRITE);
 	else if (rv == MSW_DISCONNECT)
@@ -1721,7 +1714,7 @@ static void
 mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
 				    struct mgmt_fe_client_adapter *adapter)
 {
-	char buf[100] = {0};
+	char buf[MGMT_LONG_TIME_MAX_LEN];
 
 	if (!mm->perf_stats_en)
 		return;
@@ -1780,8 +1773,8 @@ mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
 					sizeof(buf)));
 			vty_out(vty, "        Apply-Config Start: \t\t%s\n",
 				mgmt_realtime_to_string(
-					&adapter->cmt_stats.apply_cfg_start, buf,
-					sizeof(buf)));
+					&adapter->cmt_stats.apply_cfg_start,
+					buf, sizeof(buf)));
 			vty_out(vty, "        Apply-Config End: \t\t%s\n",
 				mgmt_realtime_to_string(
 					&adapter->cmt_stats.apply_cfg_end, buf,
@@ -1802,7 +1795,7 @@ static void
 mgmt_fe_adapter_setcfg_stats_write(struct vty *vty,
 				       struct mgmt_fe_client_adapter *adapter)
 {
-	char buf[100] = {0};
+	char buf[MGMT_LONG_TIME_MAX_LEN];
 
 	if (!mm->perf_stats_en)
 		return;
@@ -1818,8 +1811,9 @@ mgmt_fe_adapter_setcfg_stats_write(struct vty *vty,
 			adapter->setcfg_stats.avg_tm);
 		vty_out(vty, "    Last-Set-Cfg-Details:\n");
 		vty_out(vty, "      Set-Cfg Start: \t\t\t%s\n",
-			mgmt_realtime_to_string(&adapter->setcfg_stats.last_start,
-						buf, sizeof(buf)));
+			mgmt_realtime_to_string(
+				&adapter->setcfg_stats.last_start, buf,
+				sizeof(buf)));
 		vty_out(vty, "      Set-Cfg End: \t\t\t%s\n",
 			mgmt_realtime_to_string(&adapter->setcfg_stats.last_end,
 						buf, sizeof(buf)));
@@ -1894,9 +1888,11 @@ void mgmt_fe_adapter_reset_perf_stats(struct vty *vty)
 	struct mgmt_fe_session_ctx *session;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		memset(&adapter->setcfg_stats, 0, sizeof(adapter->setcfg_stats));
+		memset(&adapter->setcfg_stats, 0,
+		       sizeof(adapter->setcfg_stats));
 		FOREACH_SESSION_IN_LIST (adapter, session) {
-			memset(&adapter->cmt_stats, 0, sizeof(adapter->cmt_stats));
+			memset(&adapter->cmt_stats, 0,
+			       sizeof(adapter->cmt_stats));
 		}
 	}
 }

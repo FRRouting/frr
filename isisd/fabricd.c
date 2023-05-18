@@ -207,10 +207,10 @@ struct fabricd *fabricd_new(struct isis_area *area)
 	rv->area = area;
 	rv->initial_sync_state = FABRICD_SYNC_PENDING;
 
-	rv->spftree =
-		isis_spftree_new(area, &area->lspdb[IS_LEVEL_2 - 1],
-				 area->isis->sysid, ISIS_LEVEL2, SPFTREE_IPV4,
-				 SPF_TYPE_FORWARD, F_SPFTREE_HOPCOUNT_METRIC);
+	rv->spftree = isis_spftree_new(
+		area, &area->lspdb[IS_LEVEL_2 - 1], area->isis->sysid,
+		ISIS_LEVEL2, SPFTREE_IPV4, SPF_TYPE_FORWARD,
+		F_SPFTREE_HOPCOUNT_METRIC, SR_ALGORITHM_SPF);
 	rv->neighbors = skiplist_new(0, neighbor_entry_list_cmp,
 				     neighbor_entry_del_void);
 	rv->neighbors_neighbors = hash_create(neighbor_entry_hash_key,
@@ -273,8 +273,8 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 
 	if (IS_DEBUG_ADJ_PACKETS)
 		zlog_debug(
-			"OpenFabric: Started initial synchronization with %s on %s",
-			sysid_print(circuit->u.p2p.neighbor->sysid),
+			"OpenFabric: Started initial synchronization with %pSY on %s",
+			circuit->u.p2p.neighbor->sysid,
 			circuit->interface->name);
 }
 
@@ -359,7 +359,9 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 		return ISIS_TIER_UNDEFINED;
 	}
 
-	zlog_info("OpenFabric: Found %s as furthest t0 from local system, dist == %u", rawlspid_print(furthest_t0->N.id), furthest_t0->d_N);
+	zlog_info(
+		"OpenFabric: Found %pLS as furthest t0 from local system, dist == %u",
+		furthest_t0->N.id, furthest_t0->d_N);
 
 	struct isis_spftree *remote_tree =
 		isis_run_hopcount_spf(area, furthest_t0->N.id, NULL);
@@ -372,8 +374,9 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 		isis_spftree_del(remote_tree);
 		return ISIS_TIER_UNDEFINED;
 	} else {
-		zlog_info("OpenFabric: Found %s as furthest from remote dist == %u", rawlspid_print(furthest_from_remote->N.id),
-			  furthest_from_remote->d_N);
+		zlog_info(
+			"OpenFabric: Found %pLS as furthest from remote dist == %u",
+			furthest_from_remote->N.id, furthest_from_remote->d_N);
 	}
 
 	int64_t tier = furthest_from_remote->d_N - furthest_t0->d_N;

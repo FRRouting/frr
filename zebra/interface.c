@@ -137,6 +137,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_DATA_OFF;
 
+	zebra_if->link_nsid = NS_UNKNOWN;
+
 	zebra_if_nhg_dependents_init(zebra_if);
 
 	zebra_ptm_if_init(zebra_if);
@@ -303,6 +305,14 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 	}
 
 	return NULL;
+}
+
+struct interface *if_lookup_by_index_per_nsid(ns_id_t ns_id, uint32_t ifindex)
+{
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(ns_id);
+	return zns ? if_lookup_by_index_per_ns(zns, ifindex) : NULL;
 }
 
 const char *ifindex2ifname_per_ns(struct zebra_ns *zns, unsigned int ifindex)
@@ -790,6 +800,8 @@ void if_delete_update(struct interface **pifp)
 	if (ifp->vrf->vrf_id && !vrf_is_backend_netns())
 		if_handle_vrf_change(ifp, VRF_DEFAULT);
 
+	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+
 	/* Reset some zebra interface params to default values. */
 	zif = ifp->info;
 	if (zif) {
@@ -829,6 +841,9 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Send out notification on interface VRF change. */
 	/* This is to issue an UPDATE or a DELETE, as appropriate. */
 	zebra_interface_vrf_update_del(ifp, vrf_id);
+
+	if (if_is_vrf(ifp))
+		return;
 
 	/* update VRF */
 	if_update_to_new_vrf(ifp, vrf_id);
@@ -991,7 +1006,6 @@ void if_up(struct interface *ifp, bool install_connected)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
-	struct zebra_vrf *zvrf = ifp->vrf->info;
 
 	zif = ifp->info;
 	zif->up_count++;
@@ -1024,8 +1038,7 @@ void if_up(struct interface *ifp, bool install_connected)
 		link_if = ifp;
 		zebra_vxlan_svi_up(ifp, link_if);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = if_lookup_by_index_per_ns(zvrf->zns,
-						    zif->link_ifindex);
+		link_if = zif->link;
 		if (link_if)
 			zebra_vxlan_svi_up(ifp, link_if);
 	} else if (IS_ZEBRA_IF_MACVLAN(ifp)) {
@@ -1049,7 +1062,6 @@ void if_down(struct interface *ifp)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
-	struct zebra_vrf *zvrf = ifp->vrf->info;
 
 	zif = ifp->info;
 	zif->down_count++;
@@ -1068,8 +1080,7 @@ void if_down(struct interface *ifp)
 		link_if = ifp;
 		zebra_vxlan_svi_down(ifp, link_if);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = if_lookup_by_index_per_ns(zvrf->zns,
-						    zif->link_ifindex);
+		link_if = zif->link;
 		if (link_if)
 			zebra_vxlan_svi_down(ifp, link_if);
 	} else if (IS_ZEBRA_IF_MACVLAN(ifp)) {
@@ -1109,6 +1120,7 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 	if (IS_ZEBRA_IF_VETH(ifp))
 		return;
 	zif = (struct zebra_if *)ifp->info;
+	zif->link_nsid = ns_id;
 	zif->link_ifindex = link_ifindex;
 	zif->link = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
 					      link_ifindex);
@@ -1145,8 +1157,8 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 
 		/* update SVI linkages */
 		if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
-			zif->link = if_lookup_by_index_per_ns(
-				zns, zif->link_ifindex);
+			zif->link = if_lookup_by_index_per_nsid(
+				zif->link_nsid, zif->link_ifindex);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("interface %s/%d's lower fixup to %s/%d",
 						ifp->name, ifp->ifindex,

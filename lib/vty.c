@@ -73,6 +73,13 @@ static bool mgmt_candidate_ds_wr_locked;
 static uint64_t mgmt_client_id_next;
 static uint64_t mgmt_last_req_id = UINT64_MAX;
 
+static bool vty_debug;
+#define VTY_DBG(fmt, ...)                                                      \
+	do {                                                                   \
+		if (vty_debug)                                                 \
+			zlog_debug(fmt, ##__VA_ARGS__);                        \
+	} while (0)
+
 PREDECL_DLIST(vtyservs);
 
 struct vty_serv {
@@ -118,8 +125,8 @@ static int no_password_check = 0;
 /* Integrated configuration file path */
 static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
-static bool do_log_commands;
-static bool do_log_commands_perm;
+bool vty_log_commands;
+static bool vty_log_commands_perm;
 
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
@@ -501,7 +508,7 @@ static int vty_command(struct vty *vty, char *buf)
 	/*
 	 * Log non empty command lines
 	 */
-	if (do_log_commands &&
+	if (vty_log_commands &&
 	    strncmp(buf, "echo PING", strlen("echo PING")) != 0)
 		cp = buf;
 	if (cp != NULL) {
@@ -2400,7 +2407,7 @@ static void vty_timeout(struct event *thread)
 }
 
 /* Read up configuration file from file_name. */
-static void vty_read_file(struct nb_config *config, FILE *confp)
+void vty_read_file(struct nb_config *config, FILE *confp)
 {
 	int ret;
 	struct vty *vty;
@@ -3153,15 +3160,15 @@ DEFPY (log_commands,
        "Log all commands\n")
 {
 	if (no) {
-		if (do_log_commands_perm) {
+		if (vty_log_commands_perm) {
 			vty_out(vty,
 				"Daemon started with permanent logging turned on for commands, ignoring\n");
 			return CMD_WARNING;
 		}
 
-		do_log_commands = false;
+		vty_log_commands = false;
 	} else
-		do_log_commands = true;
+		vty_log_commands = true;
 
 	return CMD_SUCCESS;
 }
@@ -3189,7 +3196,7 @@ static int vty_config_write(struct vty *vty)
 
 	vty_endframe(vty, "exit\n");
 
-	if (do_log_commands)
+	if (vty_log_commands)
 		vty_out(vty, "log commands\n");
 
 	vty_out(vty, "!\n");
@@ -3273,9 +3280,9 @@ void vty_init_vtysh(void)
 static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
 				      bool connected)
 {
-	zlog_err("%sGot %sconnected %s MGMTD Frontend Server",
-		 !connected ? "ERROR: " : "", !connected ? "dis: " : "",
-		 !connected ? "from" : "to");
+	VTY_DBG("%sGot %sconnected %s MGMTD Frontend Server",
+		!connected ? "ERROR: " : "", !connected ? "dis: " : "",
+		!connected ? "from" : "to");
 
 	mgmt_fe_connected = connected;
 
@@ -3295,15 +3302,13 @@ static void vty_mgmt_session_created(uintptr_t lib_hndl, uintptr_t usr_data,
 	vty = (struct vty *)session_ctx;
 
 	if (!success) {
-		zlog_err("%s session for client %llu failed!",
-			 create ? "Creating" : "Destroying",
-			 (unsigned long long)client_id);
+		zlog_err("%s session for client %" PRIu64 " failed!",
+			 create ? "Creating" : "Destroying", client_id);
 		return;
 	}
 
-	zlog_err("%s session for client %llu successfully!",
-		 create ? "Created" : "Destroyed",
-		 (unsigned long long)client_id);
+	VTY_DBG("%s session for client %" PRIu64 " successfully",
+		create ? "Created" : "Destroyed", client_id);
 	if (create)
 		vty->mgmt_session_id = session_id;
 }
@@ -3320,13 +3325,13 @@ static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
 	vty = (struct vty *)session_ctx;
 
 	if (!success) {
-		zlog_err("%socking for DS %u failed! Err: '%s'",
+		zlog_err("%socking for DS %u failed, Err: '%s'",
 			 lock_ds ? "L" : "Unl", ds_id, errmsg_if_any);
-		vty_out(vty, "ERROR: %socking for DS %u failed! Err: '%s'\n",
+		vty_out(vty, "ERROR: %socking for DS %u failed, Err: '%s'\n",
 			lock_ds ? "L" : "Unl", ds_id, errmsg_if_any);
 	} else {
-		zlog_err("%socked DS %u successfully!", lock_ds ? "L" : "Unl",
-			 ds_id);
+		VTY_DBG("%socked DS %u successfully", lock_ds ? "L" : "Unl",
+			ds_id);
 	}
 
 	vty_mgmt_resume_response(vty, success);
@@ -3342,17 +3347,15 @@ static void vty_mgmt_set_config_result_notified(
 	vty = (struct vty *)session_ctx;
 
 	if (!success) {
-		zlog_err(
-			"SET_CONFIG request for client 0x%llx failed! Error: '%s'",
-			(unsigned long long)client_id,
-			errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: SET_CONFIG request failed! Error: %s\n",
+		zlog_err("SET_CONFIG request for client 0x%" PRIx64
+			 " failed, Error: '%s'",
+			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: SET_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
-		zlog_err(
-			"SET_CONFIG request for client 0x%llx req-id %llu was successfull!",
-			(unsigned long long)client_id,
-			(unsigned long long)req_id);
+		VTY_DBG("SET_CONFIG request for client 0x%" PRIx64
+			" req-id %" PRIu64 " was successfull",
+			client_id, req_id);
 	}
 
 	vty_mgmt_resume_response(vty, success);
@@ -3369,17 +3372,15 @@ static void vty_mgmt_commit_config_result_notified(
 	vty = (struct vty *)session_ctx;
 
 	if (!success) {
-		zlog_err(
-			"COMMIT_CONFIG request for client 0x%llx failed! Error: '%s'",
-			(unsigned long long)client_id,
-			errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: COMMIT_CONFIG request failed! Error: %s\n",
+		zlog_err("COMMIT_CONFIG request for client 0x%" PRIx64
+			 " failed, Error: '%s'",
+			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: COMMIT_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
-		zlog_err(
-			"COMMIT_CONFIG request for client 0x%llx req-id %llu was successfull!",
-			(unsigned long long)client_id,
-			(unsigned long long)req_id);
+		VTY_DBG("COMMIT_CONFIG request for client 0x%" PRIx64
+			" req-id %" PRIu64 " was successfull",
+			client_id, req_id);
 		if (errmsg_if_any)
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
 	}
@@ -3399,19 +3400,18 @@ static enum mgmt_result vty_mgmt_get_data_result_notified(
 	vty = (struct vty *)session_ctx;
 
 	if (!success) {
-		zlog_err(
-			"GET_DATA request for client 0x%llx failed! Error: '%s'",
-			(unsigned long long)client_id,
-			errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: GET_DATA request failed! Error: %s\n",
+		zlog_err("GET_DATA request for client 0x%" PRIx64
+			 " failed, Error: '%s'",
+			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: GET_DATA request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_mgmt_resume_response(vty, success);
 		return MGMTD_INTERNAL_ERROR;
 	}
 
-	zlog_debug(
-		"GET_DATA request for client 0x%llx req-id %llu was successfull!",
-		(unsigned long long)client_id, (unsigned long long)req_id);
+	VTY_DBG("GET_DATA request succeeded, client 0x%" PRIx64
+		" req-id %" PRIu64,
+		client_id, req_id);
 
 	if (req_id != mgmt_last_req_id) {
 		mgmt_last_req_id = req_id;
@@ -3468,11 +3468,9 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 		ret = mgmt_fe_lock_ds(mgmt_lib_hndl, vty->mgmt_session_id,
 				      vty->mgmt_req_id, ds_id, lock);
 		if (ret != MGMTD_SUCCESS) {
-			zlog_err(
-				"Failed to send %sLOCK-DS-REQ to MGMTD for req-id %llu.",
-				lock ? "" : "UN",
-				(unsigned long long)vty->mgmt_req_id);
-			vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!",
+			zlog_err("Failed sending %sLOCK-DS-REQ req-id %" PRIu64,
+				 lock ? "" : "UN", vty->mgmt_req_id);
+			vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!\n",
 				lock ? "" : "UN");
 			return -1;
 		}
@@ -3549,6 +3547,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 				   MGMTD_DS_RUNNING) != MGMTD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to MGMTD!!",
 				 (int)indx);
+			vty_out(vty, "Failed to send SETCFG-REQ to MGMTD!\n");
 			return -1;
 		}
 
@@ -3569,10 +3568,9 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 			MGMTD_DS_CANDIDATE, MGMTD_DS_RUNNING, validate_only,
 			abort);
 		if (ret != MGMTD_SUCCESS) {
-			zlog_err(
-				"Failed to send COMMIT-REQ to MGMTD for req-id %llu.",
-				(unsigned long long)vty->mgmt_req_id);
-			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!");
+			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64,
+				 vty->mgmt_req_id);
+			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");
 			return -1;
 		}
 
@@ -3608,9 +3606,11 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 				      num_req);
 
 	if (ret != MGMTD_SUCCESS) {
-		zlog_err("Failed to send GET-CONFIG to MGMTD for req-id %llu.",
-			 (unsigned long long)vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-CONFIG to MGMTD!");
+		zlog_err(
+			"Failed to send GET-CONFIG to MGMTD for req-id %" PRIu64
+			".",
+			vty->mgmt_req_id);
+		vty_out(vty, "Failed to send GET-CONFIG to MGMTD!\n");
 		return -1;
 	}
 
@@ -3643,9 +3643,10 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 			       vty->mgmt_req_id, datastore, getreq, num_req);
 
 	if (ret != MGMTD_SUCCESS) {
-		zlog_err("Failed to send GET-DATA to MGMTD for req-id %llu.",
-			 (unsigned long long)vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-DATA to MGMTD!");
+		zlog_err("Failed to send GET-DATA to MGMTD for req-id %" PRIu64
+			 ".",
+			 vty->mgmt_req_id);
+		vty_out(vty, "Failed to send GET-DATA to MGMTD!\n");
 		return -1;
 	}
 
@@ -3676,8 +3677,8 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(CONFIG_NODE, &log_commands_cmd);
 
 	if (do_command_logging) {
-		do_log_commands = true;
-		do_log_commands_perm = true;
+		vty_log_commands = true;
+		vty_log_commands_perm = true;
 	}
 
 	install_element(ENABLE_NODE, &terminal_monitor_cmd);

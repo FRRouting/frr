@@ -20,6 +20,9 @@ extern "C" {
 #define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
+#define frr_each_const(prefix, head, item)                                     \
+	for (item = prefix##_const_first(head); item;                          \
+	     item = prefix##_const_next(head, item))
 #define frr_each_safe(prefix, head, item)                                      \
 	for (typeof(prefix##_next_safe(head, NULL)) prefix##_safe =            \
 			prefix##_next_safe(head,                               \
@@ -780,6 +783,12 @@ struct thash_head {
 	struct thash_item **entries;
 	uint32_t count;
 
+	/* tabshift can be 0 if the hash table is empty and entries is NULL.
+	 * otherwise it will always be 2 or larger because it contains
+	 * the shift value *plus 1*.  This is a trick to make HASH_SIZE return
+	 * the correct value (with the >> 1) for tabshift == 0, without needing
+	 * a conditional branch.
+	 */
 	uint8_t tabshift;
 	uint8_t minshift, maxshift;
 };
@@ -788,8 +797,11 @@ struct thash_head {
 	((1U << (tabshift)) >> 1)
 #define HASH_SIZE(head) \
 	_HASH_SIZE((head).tabshift)
-#define _HASH_KEY(tabshift, val) \
-	((val) >> (33 - (tabshift)))
+#define _HASH_KEY(tabshift, val)                                               \
+	({                                                                     \
+		assume((tabshift) >= 2 && (tabshift) <= 33);                   \
+		(val) >> (33 - (tabshift));                                    \
+	})
 #define HASH_KEY(head, val) \
 	_HASH_KEY((head).tabshift, val)
 #define HASH_GROW_THRESHOLD(head) \
@@ -936,6 +948,8 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
 				  const type *item)                            \
 {                                                                              \
+	if (!h->hh.tabshift)                                                   \
+		return NULL;                                                   \
 	uint32_t hval = item->field.hi.hashval, hbits = HASH_KEY(h->hh, hval); \
 	const struct thash_item *hitem = h->hh.entries[hbits];                 \
 	while (hitem && hitem->hashval < hval)                                 \

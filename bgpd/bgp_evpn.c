@@ -577,7 +577,7 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl,
 
 	if (bgp->advertise_autort_rfc8365)
 		vni |= EVPN_AUTORT_VXLAN;
-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 
 	ecomadd = ecommunity_new();
 	ecommunity_add_val(ecomadd, &eval, false, false);
@@ -1513,14 +1513,9 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 	struct bgp_path_info *tmp_pi = NULL;
 
 	*route_changed = 0;
-	/* locate the local route entry if any */
-	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp_evpn->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			local_pi = tmp_pi;
-	}
+
+	/* See if this is an update of an existing route, or a new add. */
+	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest);
 
 	/*
 	 * create a new route entry if one doesn't exist.
@@ -5168,7 +5163,7 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
 	if (bgp->advertise_autort_rfc8365)
 		vni |= EVPN_AUTORT_VXLAN;
 
-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 
 	ecom_auto = ecommunity_new();
 	ecommunity_add_val(ecom_auto, &eval, false, false);
@@ -5679,7 +5674,7 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 }
 
 int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
-			struct bgp_nlri *packet, int withdraw)
+			struct bgp_nlri *packet, bool withdraw)
 {
 	uint8_t *pnt;
 	uint8_t *lim;
@@ -6235,6 +6230,14 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 			l3vni);
 		return -1;
 	}
+
+	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
+		flog_err(EC_BGP_NO_DFLT,
+			  "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down",
+			  l3vni);
+		return -1;
+	}
+
 	as = bgp_evpn->as;
 
 	/* if the BGP vrf instance doesn't exist - create one */
@@ -6374,6 +6377,13 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 			EC_BGP_NO_DFLT,
 			"Cannot process L3VNI %u Del - Could not find EVPN BGP instance",
 			l3vni);
+		return -1;
+	}
+
+	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
+		flog_err(EC_BGP_NO_DFLT,
+			  "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down",
+			  l3vni);
 		return -1;
 	}
 

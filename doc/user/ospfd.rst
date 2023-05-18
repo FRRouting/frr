@@ -310,6 +310,18 @@ To start OSPF process you have to specify the OSPF router.
    of packets to process before returning. The defult value of this parameter
    is 20.
 
+.. clicmd:: socket buffer <send | recv | all> (1-4000000000)
+
+   This command controls the ospf instance's socket buffer sizes. The
+   'no' form resets one or both values to the default.
+   
+.. clicmd:: no socket-per-interface
+
+   Ordinarily, ospfd uses a socket per interface for sending
+   packets. This command disables those per-interface sockets, and
+   causes ospfd to use a single socket per ospf instance for sending
+   and receiving packets.
+
 .. _ospf-area:
 
 Areas
@@ -325,7 +337,6 @@ Areas
    announced to other areas. This command can be used only in ABR and ONLY
    router-LSAs (Type-1) and network-LSAs (Type-2) (i.e. LSAs with scope area) can
    be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
-   Summarizing Type-7 AS-external-LSAs isn't supported yet by FRR.
 
    .. code-block:: frr
 
@@ -430,6 +441,31 @@ Areas
     area for this command to take effect. This feature causes routers that are
     configured not to advertise forwarding addresses into the backbone to direct
     forwarded traffic to the NSSA ABR translator.
+
+.. clicmd:: area A.B.C.D nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+.. clicmd:: area (0-4294967295) nssa default-information-originate [metric-type (1-2)] [metric (0-16777214)]
+
+   NSSA ABRs and ASBRs can be configured with the `default-information-originate`
+   option to originate a Type-7 default route into the NSSA area. In the case
+   of NSSA ASBRs, the origination of the default route is conditioned to the
+   existence of a default route in the RIB that wasn't learned via the OSPF
+   protocol.
+
+.. clicmd:: area A.B.C.D nssa range A.B.C.D/M [<not-advertise|cost (0-16777215)>]
+
+.. clicmd:: area (0-4294967295) nssa range A.B.C.D/M [<not-advertise|cost (0-16777215)>]
+
+    Summarize a group of external subnets into a single Type-7 LSA, which is
+    then translated to a Type-5 LSA and avertised to the backbone.
+    This command can only be used at the area boundary (NSSA ABR router).
+
+    By default, the metric of the summary route is calculated as the highest
+    metric among the summarized routes. The `cost` option, however, can be used
+    to set an explicit metric.
+
+    The `not-advertise` option, when present, prevents the summary route from
+    being advertised, effectively filtering the summarized routes.
 
 .. clicmd:: area A.B.C.D default-cost (0-16777215)
 
@@ -599,6 +635,19 @@ Interfaces
    :clicmd:`ip ospf dead-interval minimal hello-multiplier (2-20)` is also
    specified for the interface.
 
+.. clicmd:: ip ospf graceful-restart hello-delay (1-1800)
+
+   Set the length of time during which Grace-LSAs are sent at 1-second intervals
+   while coming back up after an unplanned outage. During this time, no hello
+   packets are sent.
+
+   A higher hello delay will increase the chance that all neighbors are notified
+   about the ongoing graceful restart before receiving a hello packet (which is
+   crucial for the graceful restart to succeed). The hello delay shouldn't be set
+   too high, however, otherwise the adjacencies might time out. As a best practice,
+   it's recommended to set the hello delay and hello interval with the same values.
+   The default value is 10 seconds.
+
 .. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
@@ -733,6 +782,10 @@ Graceful Restart
 
    To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
    EXEC-level command needs to be issued before restarting the ospfd daemon.
+
+   When Graceful Restart is enabled and the ospfd daemon crashes or is killed
+   abruptely (e.g. SIGKILL), it will attempt an unplanned Graceful Restart once
+   it restarts.
 
 .. clicmd:: graceful-restart helper enable [A.B.C.D]
 

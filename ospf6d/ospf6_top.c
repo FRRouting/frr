@@ -455,6 +455,13 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	if (ospf6->router_id == 0)
 		ospf6_router_id_update(ospf6, true);
 	ospf6_add(ospf6);
+
+	/*
+	 * Read from non-volatile memory whether this instance is performing a
+	 * graceful restart or not.
+	 */
+	ospf6_gr_nvm_read(ospf6);
+
 	if (ospf6->vrf_id != VRF_UNKNOWN) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
 		FOR_ALL_INTERFACES (vrf, ifp) {
@@ -464,12 +471,6 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	}
 	if (ospf6->fd < 0)
 		return ospf6;
-
-	/*
-	 * Read from non-volatile memory whether this instance is performing a
-	 * graceful restart or not.
-	 */
-	ospf6_gr_nvm_read(ospf6);
 
 	event_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 		       &ospf6->t_ospf6_receive);
@@ -490,6 +491,7 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_gr_helper_deinit(o);
 	if (!o->gr_info.prepare_in_progress)
 		ospf6_flush_self_originated_lsas_now(o);
+	XFREE(MTYPE_TMP, o->gr_info.exit_reason);
 	ospf6_disable(o);
 	ospf6_del(o);
 
@@ -693,6 +695,9 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
 	if (ospf6 == NULL)
 		vty_out(vty, "OSPFv3 is not configured\n");
 	else {
+		if (ospf6->gr_info.restart_support)
+			ospf6_gr_nvm_delete(ospf6);
+
 		ospf6_delete(ospf6);
 		ospf6 = NULL;
 	}

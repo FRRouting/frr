@@ -10,6 +10,8 @@
 
 #include "command.h"
 #include "json.h"
+#include "northbound_cli.h"
+
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -378,7 +380,7 @@ DEFPY(mgmt_rollback,
 	return CMD_SUCCESS;
 }
 
-static int config_write_mgmt_debug(struct vty *vty);
+int config_write_mgmt_debug(struct vty *vty);
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -386,24 +388,25 @@ static struct cmd_node debug_node = {
 	.config_write = config_write_mgmt_debug,
 };
 
-static int config_write_mgmt_debug(struct vty *vty)
+static int write_mgmt_debug_helper(struct vty *vty, bool config)
 {
-	int n = mgmt_debug_be + mgmt_debug_fe + mgmt_debug_ds + mgmt_debug_txn;
-	if (!n)
+	uint32_t mode = config ? DEBUG_MODE_CONF : DEBUG_MODE_ALL;
+	bool be = DEBUG_MODE_CHECK(&mgmt_debug_be, mode);
+	bool ds = DEBUG_MODE_CHECK(&mgmt_debug_ds, mode);
+	bool fe = DEBUG_MODE_CHECK(&mgmt_debug_fe, mode);
+	bool txn = DEBUG_MODE_CHECK(&mgmt_debug_txn, mode);
+
+	if (!(be || ds || fe || txn))
 		return 0;
-	if (n == 4) {
-		vty_out(vty, "debug mgmt all\n");
-		return 0;
-	}
 
 	vty_out(vty, "debug mgmt");
-	if (mgmt_debug_be)
+	if (be)
 		vty_out(vty, " backend");
-	if (mgmt_debug_ds)
+	if (ds)
 		vty_out(vty, " datastore");
-	if (mgmt_debug_fe)
+	if (fe)
 		vty_out(vty, " frontend");
-	if (mgmt_debug_txn)
+	if (txn)
 		vty_out(vty, " transaction");
 
 	vty_out(vty, "\n");
@@ -411,32 +414,70 @@ static int config_write_mgmt_debug(struct vty *vty)
 	return 0;
 }
 
-DEFPY(debug_mgmt,
-      debug_mgmt_cmd,
-      "[no$no] debug mgmt <all$all|{backend$be|datastore$ds|frontend$fe|transaction$txn}>",
-      NO_STR
-      DEBUG_STR
-      MGMTD_STR
-      "All debug\n"
-      "Back-end debug\n"
-      "Datastore debug\n"
-      "Front-end debug\n"
-      "Transaction debug\n")
+int config_write_mgmt_debug(struct vty *vty)
 {
-	bool set = !no;
-	if (all)
-		be = fe = ds = txn = set ? all : NULL;
+	return write_mgmt_debug_helper(vty, true);
+}
 
-	if (be)
-		mgmt_debug_be = set;
-	if (ds)
-		mgmt_debug_ds = set;
-	if (fe)
-		mgmt_debug_fe = set;
-	if (txn)
-		mgmt_debug_txn = set;
+DEFPY_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
+	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
+{
+	vty_out(vty, "MGMT debugging status:\n");
+
+	write_mgmt_debug_helper(vty, false);
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
+}
+
+DEFPY(debug_mgmt, debug_mgmt_cmd,
+      "[no$no] debug mgmt {backend$be|datastore$ds|frontend$fe|transaction$txn}",
+      NO_STR DEBUG_STR MGMTD_STR
+      "Backend debug\n"
+      "Datastore debug\n"
+      "Frontend debug\n"
+      "Transaction debug\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	if (be)
+		DEBUG_MODE_SET(&mgmt_debug_be, mode, !no);
+	if (ds)
+		DEBUG_MODE_SET(&mgmt_debug_ds, mode, !no);
+	if (fe)
+		DEBUG_MODE_SET(&mgmt_debug_fe, mode, !no);
+	if (txn)
+		DEBUG_MODE_SET(&mgmt_debug_txn, mode, !no);
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * Analog of `frr_config_read_in()`, instead of our config file though we loop
+ * over all daemons that have transitioned to mgmtd, loading their configs
+ */
+static int mgmt_config_pre_hook(struct event_loop *loop)
+{
+	FILE *confp;
+	char *p;
+
+	for (uint i = 0; i < mgmt_daemons_count; i++) {
+		p = asprintfrr(MTYPE_TMP, "%s/%s.conf", frr_sysconfdir,
+			       mgmt_daemons[i]);
+		confp = fopen(p, "r");
+		if (confp == NULL) {
+			if (errno != ENOENT)
+				zlog_err("%s: couldn't read config file %s: %s",
+					 __func__, p, safe_strerror(errno));
+		} else {
+			zlog_info("mgmtd: reading daemon config from %s", p);
+			vty_read_file(vty_shared_candidate_config, confp);
+			fclose(confp);
+		}
+		XFREE(MTYPE_TMP, p);
+	}
+	return 0;
 }
 
 void mgmt_vty_init(void)
@@ -451,6 +492,8 @@ void mgmt_vty_init(void)
 	extern void static_vty_init(void);
 	static_vty_init();
 #endif
+
+	hook_register(frr_config_pre, mgmt_config_pre_hook);
 
 	install_node(&debug_node);
 
@@ -479,6 +522,9 @@ void mgmt_vty_init(void)
 	install_element(ENABLE_NODE, &mgmt_performance_measurement_cmd);
 	install_element(ENABLE_NODE, &mgmt_reset_performance_stats_cmd);
 
+	install_element(ENABLE_NODE, &show_debugging_mgmt_cmd);
+
+	mgmt_fe_client_lib_vty_init();
 	/*
 	 * TODO: Register and handlers for auto-completion here.
 	 */

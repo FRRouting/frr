@@ -1071,7 +1071,8 @@ void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn)
 			continue;
 
 		/* Update EAD-ES */
-		bgp_evpn_ead_es_route_update(bgp, es);
+		if (bgp_evpn_local_es_is_active(es))
+			bgp_evpn_ead_es_route_update(bgp, es);
 
 		/* Update EAD-EVI */
 		if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI)) {
@@ -2457,6 +2458,7 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 {
 	json_object *json_vtep_entry;
 	json_object *json_flags;
+	char alg_buf[EVPN_DF_ALG_STR_LEN];
 
 	json_vtep_entry = json_object_new_object();
 
@@ -2473,8 +2475,10 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR) {
 			json_object_int_add(json_vtep_entry, "dfPreference",
 					    es_vtep->df_pref);
-			json_object_int_add(json_vtep_entry, "dfAlgorithm",
-					    es_vtep->df_pref);
+			json_object_string_add(
+				json_vtep_entry, "dfAlgorithm",
+				evpn_es_df_alg2str(es_vtep->df_alg, alg_buf,
+						   sizeof(alg_buf)));
 		}
 	}
 
@@ -2608,6 +2612,9 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				    listcount(es->macip_global_path_list));
 		json_object_int_add(json, "inconsistentVniVtepCount",
 				es->incons_evi_vtep_cnt);
+		if (es->flags & BGP_EVPNES_LOCAL)
+			json_object_int_add(json, "localEsDfPreference",
+					    es->df_pref);
 		if (listcount(es->es_vtep_list)) {
 			json_vteps = json_object_new_array();
 			for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node,

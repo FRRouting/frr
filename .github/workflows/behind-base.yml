@@ -1,0 +1,28 @@
+name: Add rebase label if the branch is > 50 commits behind
+
+on:
+  pull_request_target:
+    types: [synchronize, opened, reopened, labeled, unlabeled]
+
+jobs:
+  behind:
+    if: github.repository == 'frrouting/frr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Set custom variables
+        id: vars
+        run: |
+          echo "behind_by=$(git log --oneline origin/${{ github.base_ref }} ^${{ github.event.pull_request.head.sha }} | wc -l)" >> $GITHUB_OUTPUT
+      - name: Add rebase label if needed
+        if: ${{ steps.vars.outputs.behind_by > 50 }}
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: rebase

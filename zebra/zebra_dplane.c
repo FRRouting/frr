@@ -3745,6 +3745,11 @@ dplane_route_update_internal(struct route_node *rn,
 						 NEXTHOP_FLAG_FIB);
 			}
 
+			if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && re &&
+			    (old_re != re) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
 			dplane_ctx_free(&ctx);
 			return ZEBRA_DPLANE_REQUEST_SUCCESS;
 		}
@@ -3780,18 +3785,12 @@ tc_qdisc_update_internal(enum dplane_op_e op,
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
 
-	if (!ctx) {
-		ret = ENOMEM;
-		goto done;
-	}
-
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_tc_qdisc_init(ctx, op, qdisc);
 
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
 
-done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_tcs_in, 1,
 				  memory_order_relaxed);
@@ -3817,18 +3816,12 @@ tc_class_update_internal(enum dplane_op_e op, struct zebra_tc_class *class)
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
 
-	if (!ctx) {
-		ret = ENOMEM;
-		goto done;
-	}
-
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_tc_class_init(ctx, op, class);
 
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
 
-done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_tcs_in, 1,
 				  memory_order_relaxed);
@@ -3854,18 +3847,12 @@ tc_filter_update_internal(enum dplane_op_e op, struct zebra_tc_filter *filter)
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
 
-	if (!ctx) {
-		ret = ENOMEM;
-		goto done;
-	}
-
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_tc_filter_init(ctx, op, filter);
 
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
 
-done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_tcs_in, 1,
 				  memory_order_relaxed);
@@ -3938,16 +3925,11 @@ dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
-	if (!ctx) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	ret = dplane_ctx_nexthop_init(ctx, op, nhe);
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
 
-done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in, 1,
 				  memory_order_relaxed);
@@ -4078,8 +4060,6 @@ dplane_route_notif_update(struct route_node *rn,
 		goto done;
 
 	new_ctx = dplane_ctx_alloc();
-	if (new_ctx == NULL)
-		goto done;
 
 	/* Init context with info from zebra data structs */
 	dplane_ctx_route_init(new_ctx, op, rn, re);
@@ -4211,10 +4191,6 @@ dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
-	if (ctx == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	/* Copy info from zebra LSP */
 	ret = dplane_ctx_lsp_init(ctx, op, lsp);
@@ -4584,16 +4560,11 @@ dplane_intf_update_internal(const struct interface *ifp, enum dplane_op_e op)
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
-	if (!ctx) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	ret = dplane_ctx_intf_init(ctx, op, ifp);
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
 
-done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1,
 				  memory_order_relaxed);
@@ -5332,8 +5303,10 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 
 	ctx = dplane_ctx_alloc();
 
-	if (!ifp)
-		return result;
+	if (!ifp) {
+		ret = EINVAL;
+		goto done;
+	}
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
 		zlog_debug("init dplane ctx %s: if %s link %s%s",
@@ -5345,8 +5318,11 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
-	if (!zns)
-		return result;
+	if (!zns) {
+		ret = EINVAL;
+		goto done;
+	}
+
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	dplane_ctx_set_ifname(ctx, ifp->name);
@@ -5365,6 +5341,7 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	/* Enqueue context for processing */
 	ret = dplane_update_enqueue(ctx);
 
+done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_gre_set_in, 1,
 				  memory_order_relaxed);
@@ -5375,8 +5352,7 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 		atomic_fetch_add_explicit(
 			&zdplane_info.dg_gre_set_errors, 1,
 			memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 		result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 	return result;
@@ -5758,6 +5734,21 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 
 	atomic_fetch_add_explicit(&(prov->dp_out_counter), 1,
 				  memory_order_relaxed);
+}
+
+static struct zebra_dplane_ctx *
+dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	ctx = dplane_ctx_list_pop(&(prov->dp_ctx_out_list));
+	if (!ctx)
+		return NULL;
+
+	atomic_fetch_sub_explicit(&(prov->dp_out_queued), 1,
+				  memory_order_relaxed);
+
+	return ctx;
 }
 
 /*
@@ -6787,7 +6778,7 @@ static void dplane_thread_loop(struct event *event)
 		dplane_provider_lock(prov);
 
 		while (counter < limit) {
-			ctx = dplane_ctx_list_pop(&(prov->dp_ctx_out_list));
+			ctx = dplane_provider_dequeue_out_ctx(prov);
 			if (ctx) {
 				dplane_ctx_list_add_tail(&work_list, ctx);
 				counter++;
@@ -6852,10 +6843,6 @@ void zebra_dplane_shutdown(void)
 	/* Stop dplane thread, if it's running */
 
 	zdplane_info.dg_run = false;
-
-	if (zdplane_info.dg_t_update)
-		event_cancel_async(zdplane_info.dg_t_update->master,
-				   &zdplane_info.dg_t_update, NULL);
 
 	frr_pthread_stop(zdplane_info.dg_pthread, NULL);
 

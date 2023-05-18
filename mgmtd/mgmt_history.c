@@ -18,8 +18,8 @@
 struct mgmt_cmt_info_t {
 	struct mgmt_cmt_infos_item cmts;
 
-	char cmtid_str[MGMTD_MD5_HASH_STR_HEX_LEN];
-	char time_str[MGMTD_COMMIT_TIME_STR_LEN];
+	char cmtid_str[MGMT_SHORT_TIME_MAX_LEN];
+	char time_str[MGMT_LONG_TIME_MAX_LEN];
 	char cmt_json_file[PATH_MAX];
 };
 
@@ -33,7 +33,7 @@ DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
  * The only instance of VTY session that has triggered an ongoing
  * config rollback operation.
  */
-static struct vty *rollback_vty = NULL;
+static struct vty *rollback_vty;
 
 static bool mgmt_history_record_exists(char *file_path)
 {
@@ -54,36 +54,30 @@ static void mgmt_history_remove_file(char *name)
 		zlog_err("Old commit info deletion failed");
 }
 
-static void mgmt_history_hash(const char *input_str, char *hash)
+static struct mgmt_cmt_info_t *mgmt_history_new_cmt_info(void)
 {
-	int i;
-	unsigned char digest[MGMTD_MD5_HASH_LEN];
-	MD5_CTX ctx;
+	struct mgmt_cmt_info_t *new;
+	struct timespec tv;
+	struct tm tm;
 
-	memset(&ctx, 0, sizeof(ctx));
-	MD5Init(&ctx);
-	MD5Update(&ctx, input_str, strlen(input_str));
-	MD5Final(digest, &ctx);
+	new = XCALLOC(MTYPE_MGMTD_CMT_INFO, sizeof(struct mgmt_cmt_info_t));
 
-	for (i = 0; i < MGMTD_MD5_HASH_LEN; i++)
-		snprintf(&hash[i * 2], MGMTD_MD5_HASH_STR_HEX_LEN, "%02x",
-			 (unsigned int)digest[i]);
+	clock_gettime(CLOCK_REALTIME, &tv);
+	localtime_r(&tv.tv_sec, &tm);
+
+	mgmt_time_to_string(&tv, true, new->time_str, sizeof(new->time_str));
+	mgmt_time_to_string(&tv, false, new->cmtid_str, sizeof(new->cmtid_str));
+	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file),
+		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
+
+	return new;
 }
 
 static struct mgmt_cmt_info_t *mgmt_history_create_cmt_rec(void)
 {
-	struct mgmt_cmt_info_t *new;
+	struct mgmt_cmt_info_t *new = mgmt_history_new_cmt_info();
 	struct mgmt_cmt_info_t *cmt_info;
 	struct mgmt_cmt_info_t *last_cmt_info = NULL;
-	struct timeval cmt_recd_tv;
-
-	new = XCALLOC(MTYPE_MGMTD_CMT_INFO, sizeof(struct mgmt_cmt_info_t));
-	gettimeofday(&cmt_recd_tv, NULL);
-	mgmt_realtime_to_string(&cmt_recd_tv, new->time_str,
-				sizeof(new->time_str));
-	mgmt_history_hash(new->time_str, new->cmtid_str);
-	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file),
-		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
 
 	if (mgmt_cmt_infos_count(&mm->cmts) == MGMTD_MAX_COMMIT_LIST) {
 		FOREACH_CMT_REC (mm, cmt_info)
@@ -100,13 +94,13 @@ static struct mgmt_cmt_info_t *mgmt_history_create_cmt_rec(void)
 	return new;
 }
 
-static struct mgmt_cmt_info_t *mgmt_history_find_cmt_record(const char *cmtid_str)
+static struct mgmt_cmt_info_t *
+mgmt_history_find_cmt_record(const char *cmtid_str)
 {
 	struct mgmt_cmt_info_t *cmt_info;
 
 	FOREACH_CMT_REC (mm, cmt_info) {
-		if (strncmp(cmt_info->cmtid_str, cmtid_str,
-			    MGMTD_MD5_HASH_STR_HEX_LEN) == 0)
+		if (strcmp(cmt_info->cmtid_str, cmtid_str) == 0)
 			return cmt_info;
 	}
 
@@ -129,7 +123,8 @@ static bool mgmt_history_read_cmt_record_index(void)
 
 	while ((fread(&cmt_info, sizeof(cmt_info), 1, fp)) > 0) {
 		if (cnt < MGMTD_MAX_COMMIT_LIST) {
-			if (!mgmt_history_record_exists(cmt_info.cmt_json_file)) {
+			if (!mgmt_history_record_exists(
+				    cmt_info.cmt_json_file)) {
 				zlog_err(
 					"Commit record present in index_file, but commit file %s missing",
 					cmt_info.cmt_json_file);
@@ -280,9 +275,9 @@ int mgmt_history_rollback_by_id(struct vty *vty, const char *cmtid_str)
 	}
 
 	FOREACH_CMT_REC (mm, cmt_info) {
-		if (strncmp(cmt_info->cmtid_str, cmtid_str,
-			    MGMTD_MD5_HASH_STR_HEX_LEN) == 0) {
-			ret = mgmt_history_rollback_to_cmt(vty, cmt_info, false);
+		if (strcmp(cmt_info->cmtid_str, cmtid_str) == 0) {
+			ret = mgmt_history_rollback_to_cmt(vty, cmt_info,
+							   false);
 			return ret;
 		}
 
@@ -321,7 +316,8 @@ int mgmt_history_rollback_n(struct vty *vty, int num_cmts)
 
 	FOREACH_CMT_REC (mm, cmt_info) {
 		if (cnt == num_cmts) {
-			ret = mgmt_history_rollback_to_cmt(vty, cmt_info, false);
+			ret = mgmt_history_rollback_to_cmt(vty, cmt_info,
+							   false);
 			return ret;
 		}
 
@@ -345,9 +341,9 @@ void show_mgmt_cmt_history(struct vty *vty)
 	int slno = 0;
 
 	vty_out(vty, "Last 10 commit history:\n");
-	vty_out(vty, "  Sl.No\tCommit-ID(HEX)\t\t\t  Commit-Record-Time\n");
+	vty_out(vty, "Slot Commit-ID               Commit-Record-Time\n");
 	FOREACH_CMT_REC (mm, cmt_info) {
-		vty_out(vty, "  %d\t%s  %s\n", slno, cmt_info->cmtid_str,
+		vty_out(vty, "%4d %23s %s\n", slno, cmt_info->cmtid_str,
 			cmt_info->time_str);
 		slno++;
 	}
@@ -356,6 +352,7 @@ void show_mgmt_cmt_history(struct vty *vty)
 void mgmt_history_new_record(struct mgmt_ds_ctx *ds_ctx)
 {
 	struct mgmt_cmt_info_t *cmt_info = mgmt_history_create_cmt_rec();
+
 	mgmt_ds_dump_ds_to_file(cmt_info->cmt_json_file, ds_ctx);
 	mgmt_history_dump_cmt_record_index();
 }

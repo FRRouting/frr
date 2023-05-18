@@ -239,12 +239,18 @@ static int ospf6_zebra_gr_update(struct ospf6 *ospf6, int command,
 
 int ospf6_zebra_gr_enable(struct ospf6 *ospf6, uint32_t stale_time)
 {
+	if (IS_DEBUG_OSPF6_GR)
+		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_CAPABILITIES,
 				     stale_time);
 }
 
 int ospf6_zebra_gr_disable(struct ospf6 *ospf6)
 {
+	if (IS_DEBUG_OSPF6_GR)
+		zlog_debug("Zebra disable GR");
+
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
@@ -735,10 +741,20 @@ uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or,
 
 static void ospf6_zebra_connected(struct zclient *zclient)
 {
+	struct ospf6 *ospf6;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (!ospf6->gr_info.restart_support)
+			continue;
+		(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
+	}
 }
 
 static zclient_handler *const ospf6_handlers[] = {

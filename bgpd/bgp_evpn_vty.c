@@ -4305,7 +4305,7 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
 	struct bgp *bgp_evpn = NULL;
 
-	if (EVPN_ENABLED(bgp_vrf)) {
+	if (!bgp_vrf || EVPN_ENABLED(bgp_vrf)) {
 		vty_out(vty,
 			"This command is supported under L3VNI BGP EVPN VRF\n");
 		return CMD_WARNING_CONFIG_FAILED;

@@ -159,6 +159,11 @@ RIP Configuration
    If `poisoned-reverse` is also set, the router sends the poisoned routes
    with highest metric back to the sending router.
 
+.. clicmd:: allow-ecmp [1-MULTIPATH_NUM]
+
+   Control how many ECMP paths RIP can inject for the same prefix. If specified
+   without a number, a maximum is taken (compiled with ``--enable-multipath``).
+
 .. _rip-version-control:
 
 RIP Version Control

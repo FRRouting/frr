@@ -159,7 +159,9 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 
 	if (!IS_EXTERNAL_METRIC(al->e[0].tos)) {
 		if (IS_DEBUG_OSPF(lsa, LSA))
-			zlog_debug("Route[External]: type-1 created.");
+			zlog_debug(
+				"Route[External]: type-1 created, asbr cost:%d  metric:%d.",
+				asbr_route->cost, metric);
 		new->path_type = OSPF_PATH_TYPE1_EXTERNAL;
 		new->cost = asbr_route->cost + metric; /* X + Y */
 	} else {
@@ -613,6 +615,7 @@ static void ospf_ase_calculate_timer(struct event *t)
 	 */
 	if (ospf->gr_info.finishing_restart) {
 		ospf_zebra_gr_disable(ospf);
+		ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
 		ospf->gr_info.finishing_restart = false;
 	}
 }

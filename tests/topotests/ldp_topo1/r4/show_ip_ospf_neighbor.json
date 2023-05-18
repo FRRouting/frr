@@ -2,22 +2,22 @@
   "neighbors": {
     "2.2.2.2": [
       {
-        "dbSummaryCounter": 0,
-        "retransmitCounter": 0,
-        "priority": 1,
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
         "converged": "Full",
-        "address": "10.0.2.2",
-        "requestCounter": 0
+        "ifaceAddress": "10.0.2.2",
+        "linkStateRequestListCounter": 0
       }
     ],
     "3.3.3.3": [
       {
-        "dbSummaryCounter": 0,
-        "retransmitCounter": 0,
-        "priority": 1,
+        "databaseSummaryListCounter": 0,
+        "linkStateRetransmissionListCounter": 0,
+        "nbrPriority": 1,
         "converged": "Full",
-        "address": "10.0.2.3",
-        "requestCounter": 0
+        "ifaceAddress": "10.0.2.3",
+        "linkStateRequestListCounter": 0
       }
     ]
   }

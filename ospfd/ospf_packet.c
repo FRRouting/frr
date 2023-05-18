@@ -618,7 +618,7 @@ static void ospf_write(struct event *thread)
 	struct msghdr msg;
 	struct iovec iov[2];
 	uint8_t type;
-	int ret;
+	int ret, fd;
 	int flags = 0;
 	struct listnode *node;
 #ifdef WANT_OSPF_WRITE_FRAGMENT
@@ -633,11 +633,12 @@ static void ospf_write(struct event *thread)
 	struct cmsghdr *cm = (struct cmsghdr *)cmsgbuf;
 	struct in_pktinfo *pi;
 #endif
+	fd = ospf->fd;
 
-	if (ospf->fd < 0 || ospf->oi_running == 0) {
+	if (fd < 0 || ospf->oi_running == 0) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s failed to send, fd %d, instance %u",
-				   __func__, ospf->fd, ospf->oi_running);
+				   __func__, fd, ospf->oi_running);
 		return;
 	}
 
@@ -657,6 +658,15 @@ static void ospf_write(struct event *thread)
 		/* convenience - max OSPF data per packet */
 		maxdatasize = oi->ifp->mtu - sizeof(struct ip);
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
+
+		/* Reset socket fd to use. */
+		fd = ospf->fd;
+
+		/* Check for per-interface socket */
+		if (ospf->intf_socket_enabled &&
+		    (IF_OSPF_IF_INFO(oi->ifp))->oii_fd > 0)
+			fd = (IF_OSPF_IF_INFO(oi->ifp))->oii_fd;
+
 		/* Get one packet from queue. */
 		op = ospf_fifo_head(oi->obuf);
 		assert(op);
@@ -664,8 +674,7 @@ static void ospf_write(struct event *thread)
 
 		if (op->dst.s_addr == htonl(OSPF_ALLSPFROUTERS)
 		    || op->dst.s_addr == htonl(OSPF_ALLDROUTERS))
-			ospf_if_ipmulticast(ospf, oi->address,
-					    oi->ifp->ifindex);
+			ospf_if_ipmulticast(fd, oi->address, oi->ifp->ifindex);
 
 		/* Rewrite the md5 signature & update the seq */
 		ospf_make_md5_digest(oi, op);
@@ -760,13 +769,13 @@ static void ospf_write(struct event *thread)
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 		if (op->length > maxdatasize)
-			ospf_write_frags(ospf->fd, op, &iph, &msg, maxdatasize,
+			ospf_write_frags(fd, op, &iph, &msg, maxdatasize,
 					 oi->ifp->mtu, flags, type);
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
 		/* send final fragment (could be first) */
 		sockopt_iphdrincl_swab_htosys(&iph);
-		ret = sendmsg(ospf->fd, &msg, flags);
+		ret = sendmsg(fd, &msg, flags);
 		sockopt_iphdrincl_swab_systoh(&iph);
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
@@ -2022,7 +2031,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (current == NULL) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"LSA[%s]: Previously originated Opaque-LSA,not found in the LSDB.",
+						"LSA[%s]: Previously originated Opaque-LSA, not found in the LSDB.",
 						dump_lsa_key(lsa));
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
@@ -4031,9 +4040,8 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 	return ospf_packet_new(size - sizeof(struct ip));
 }
 
-static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
-				   struct list *update, struct in_addr addr,
-				   int send_lsupd_now)
+void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
+			    struct in_addr addr, int send_lsupd_now)
 {
 	struct ospf_packet *op;
 	uint16_t length = OSPF_HEADER_SIZE;

@@ -40,6 +40,7 @@
 #define DEBUG_PENDING_DELETE_ROUTE	0
 #define DEBUG_NHL			0
 #define DEBUG_RIB_SL_RD                 0
+#define DEBUG_CLEANUP 0
 
 /* forward decl */
 #if DEBUG_NHL
@@ -116,7 +117,6 @@ void rfapiRibCheckCounts(
 	struct bgp *bgp = bgp_get_default();
 
 	uint32_t t_pfx_active = 0;
-	uint32_t t_pfx_deleted = 0;
 
 	uint32_t t_ri_active = 0;
 	uint32_t t_ri_deleted = 0;
@@ -131,7 +131,6 @@ void rfapiRibCheckCounts(
 
 		afi_t afi;
 		uint32_t pfx_active = 0;
-		uint32_t pfx_deleted = 0;
 
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
@@ -156,8 +155,6 @@ void rfapiRibCheckCounts(
 				if (dsl) {
 					ri_deleted = skiplist_count(dsl);
 					t_ri_deleted += ri_deleted;
-					++pfx_deleted;
-					++t_pfx_deleted;
 				}
 			}
 			for (rn = agg_route_top(rfd->rib_pending[afi]); rn;
@@ -331,6 +328,11 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
 			      sizeof(struct rfapi_rib_tcb));
 	}
+#if DEBUG_CLEANUP
+	zlog_debug("%s: rfd %p, rn %p, ri %p, tcb %p", __func__, rfd, rn, ri,
+		   tcb);
+#endif
+
 	tcb->rfd = rfd;
 	tcb->ri = ri;
 	tcb->rn = rn;
@@ -510,6 +512,16 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 							    NULL,
 							    (void **)&ri)) {
 
+						if (ri->timer) {
+							struct rfapi_rib_tcb
+								*tcb;
+
+							tcb = EVENT_ARG(
+								ri->timer);
+							EVENT_OFF(ri->timer);
+							XFREE(MTYPE_RFAPI_RECENT_DELETE,
+							      tcb);
+						}
 						rfapi_info_free(ri);
 						skiplist_delete_first(
 							(struct skiplist *)
@@ -559,6 +571,9 @@ void rfapiRibFree(struct rfapi_descriptor *rfd)
 {
 	afi_t afi;
 
+#if DEBUG_CLEANUP
+	zlog_debug("%s: rfd %p", __func__, rfd);
+#endif
 
 	/*
 	 * NB rfd is typically detached from master list, so is not included
@@ -2303,10 +2318,6 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 	int printedheader = 0;
 	int routes_total = 0;
 	int nhs_total = 0;
-	int prefixes_total = 0;
-	int prefixes_displayed = 0;
-	int nves_total = 0;
-	int nves_with_routes = 0;
 	int nves_displayed = 0;
 	int routes_displayed = 0;
 	int nhs_displayed = 0;
@@ -2325,10 +2336,6 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 
 		int printednve = 0;
 		afi_t afi;
-
-		++nves_total;
-		if (rfd->rib_prefix_count)
-			++nves_with_routes;
 
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
@@ -2355,13 +2362,10 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 
 				routes_total++;
 				nhs_total += skiplist_count(sl);
-				++prefixes_total;
 
 				if (pfx_match && !prefix_match(pfx_match, p)
 				    && !prefix_match(p, pfx_match))
 					continue;
-
-				++prefixes_displayed;
 
 				if (!printedheader) {
 					++printedheader;

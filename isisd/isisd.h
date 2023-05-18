@@ -24,6 +24,7 @@
 #include "isis_lfa.h"
 #include "qobj.h"
 #include "ldp_sync.h"
+#include "iso.h"
 
 DECLARE_MGROUP(ISISD);
 
@@ -87,7 +88,7 @@ struct isis {
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
-	struct area_addr *man_area_addrs; /* manualAreaAddresses */
+	struct iso_address *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
 	struct event *t_dync_clean; /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
@@ -162,6 +163,10 @@ struct isis_area {
 	/* do we support new style metrics?  */
 	char newmetric;
 	char oldmetric;
+	/* Allow sending the default admin-group value of 0x00000000. */
+	bool admin_group_send_zero;
+	/* Set the legacy flag (aka. L-FLAG) in the ASLA Sub-TLV */
+	bool asla_legacy_flag;
 	/* identifies the routing instance   */
 	char *area_tag;
 	/* area addresses for this area      */
@@ -195,6 +200,8 @@ struct isis_area {
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;
+	/* logging pdu drops? */
+	uint8_t log_pdu_drops;
 	/* multi topology settings */
 	struct list *mt_settings;
 	/* MPLS-TE settings */
@@ -217,6 +224,10 @@ struct isis_area {
 	size_t tilfa_protected_links[ISIS_LEVELS];
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
+#ifndef FABRICD
+	/* Flex-Algo */
+	struct flex_algos *flex_algos;
+#endif /* ifndef FABRICD */
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
@@ -232,6 +243,7 @@ struct isis_area {
 
 	pdu_counter_t pdu_tx_counters;
 	pdu_counter_t pdu_rx_counters;
+	pdu_counter_t pdu_drop_counters;
 	uint64_t lsp_rxmt_count;
 
 	/* Area counters */

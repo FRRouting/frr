@@ -822,11 +822,6 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 	const char *vty_newline;
 
 	int printedheader = 0;
-
-	int nves_total = 0;
-	int nves_with_queries = 0;
-	int nves_displayed = 0;
-
 	int queries_total = 0;
 	int queries_displayed = 0;
 
@@ -850,15 +845,9 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 		struct agg_node *rn;
 		int printedquerier = 0;
 
-
-		++nves_total;
-
-		if (rfd->mon
-		    || (rfd->mon_eth && skiplist_count(rfd->mon_eth))) {
-			++nves_with_queries;
-		} else {
+		if (!rfd->mon &&
+		    !(rfd->mon_eth && skiplist_count(rfd->mon_eth)))
 			continue;
-		}
 
 		/*
 		 * IP Queries
@@ -904,8 +893,6 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 					fp(out, "%-15s %-15s", buf_vn, buf_un);
 					printedquerier = 1;
-
-					++nves_displayed;
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
@@ -978,8 +965,6 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 					fp(out, "%-15s %-15s", buf_vn, buf_un);
 					printedquerier = 1;
-
-					++nves_displayed;
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
@@ -4903,6 +4888,7 @@ static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
 	clear_vnc_prefix(&cda);
 	vty_out(vty, "Cleared %u out of %d prefixes.\n", cda.pfx_count,
 		start_count);
+	print_cleared_stats(&cda); /* frees lists in cda */
 	return CMD_SUCCESS;
 }
 

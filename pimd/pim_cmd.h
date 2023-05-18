@@ -60,4 +60,5 @@
 
 void pim_cmd_init(void);
 
+#define PIM_TIME_STRLEN 10
 #endif /* PIM_CMD_H */

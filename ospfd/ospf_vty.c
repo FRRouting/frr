@@ -35,12 +35,11 @@
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
-/*#include "ospfd/ospf_routemap.h" */
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_ldp_sync.h"
-
+#include "ospfd/ospf_network.h"
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
@@ -233,9 +232,12 @@ DEFUN (no_router_ospf,
 		return CMD_NOT_MY_INSTANCE;
 
 	ospf = ospf_lookup(instance, vrf_name);
-	if (ospf)
+	if (ospf) {
+		if (ospf->gr_info.restart_support)
+			ospf_gr_nvm_delete(ospf);
+
 		ospf_finish(ospf);
-	else
+	} else
 		ret = CMD_WARNING_CONFIG_FAILED;
 
 	return ret;
@@ -611,6 +613,7 @@ DEFUN (ospf_area_range,
        "Advertised metric for this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	int idx_cost = 6;
@@ -622,12 +625,14 @@ DEFUN (ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_set(ospf, area, area->ranges, &p,
+			    OSPF_AREA_RANGE_ADVERTISE, false);
 	if (argc > 5) {
 		cost = strtoul(argv[idx_cost]->arg, NULL, 10);
-		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+		ospf_area_range_cost_set(ospf, area, area->ranges, &p, cost);
 	}
 
 	return CMD_SUCCESS;
@@ -647,6 +652,7 @@ DEFUN (ospf_area_range_cost,
        "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	int idx = 4;
@@ -658,19 +664,20 @@ DEFUN (ospf_area_range_cost,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
 
+	ospf_area_range_set(ospf, area, area->ranges, &p,
+			    OSPF_AREA_RANGE_ADVERTISE, false);
 	if (argv_find(argv, argc, "cost", &idx)) {
 		cost = strtoul(argv[idx + 1]->arg, NULL, 10);
-		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+		ospf_area_range_cost_set(ospf, area, area->ranges, &p, cost);
 	}
 
 	idx = 4;
 	if (argv_find(argv, argc, "substitute", &idx)) {
 		str2prefix_ipv4(argv[idx + 1]->arg, &s);
-		ospf_area_range_substitute_set(ospf, area_id, &p, &s);
+		ospf_area_range_substitute_set(ospf, area, &p, &s);
 	}
 
 	return CMD_SUCCESS;
@@ -687,6 +694,7 @@ DEFUN (ospf_area_range_not_advertise,
        "DoNotAdvertise this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
 	struct prefix_ipv4 p;
@@ -696,10 +704,11 @@ DEFUN (ospf_area_range_not_advertise,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_set(ospf, area_id, &p, 0);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_range_substitute_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_set(ospf, area, area->ranges, &p, 0, false);
+	ospf_area_range_substitute_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
@@ -721,6 +730,7 @@ DEFUN (no_ospf_area_range,
        "DoNotAdvertise this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 2;
 	int idx_ipv4_prefixlen = 4;
 	struct prefix_ipv4 p;
@@ -730,7 +740,10 @@ DEFUN (no_ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_unset(ospf, area, area->ranges, &p);
 
 	return CMD_SUCCESS;
 }
@@ -748,6 +761,7 @@ DEFUN (no_ospf_area_range_substitute,
        "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
 	int idx_ipv4_number = 2;
 	int idx_ipv4_prefixlen = 4;
 	int idx_ipv4_prefixlen_2 = 6;
@@ -759,7 +773,10 @@ DEFUN (no_ospf_area_range_substitute,
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
 
-	ospf_area_range_substitute_unset(ospf, area_id, &p);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	ospf_area_range_substitute_unset(ospf, area, &p);
 
 	return CMD_SUCCESS;
 }
@@ -1433,15 +1450,35 @@ DEFUN (no_ospf_area_stub_no_summary,
 	return CMD_SUCCESS;
 }
 
-static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
-				      struct cmd_token **argv, int cfg_nosum,
-				      int nosum)
+DEFPY (ospf_area_nssa,
+       ospf_area_nssa_cmd,
+       "area <A.B.C.D|(0-4294967295)>$area_str nssa\
+         [{\
+	   <translate-candidate|translate-never|translate-always>$translator_role\
+	   |default-information-originate$dflt_originate [{metric (0-16777214)$mval|metric-type (1-2)$mtype}]\
+	   |no-summary$no_summary\
+	   |suppress-fa$suppress_fa\
+	 }]",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configure NSSA-ABR for translate election (default)\n"
+       "Configure NSSA-ABR to never translate\n"
+       "Configure NSSA-ABR to always translate\n"
+       "Originate Type 7 default into NSSA area\n"
+       "OSPF default metric\n"
+       "OSPF metric\n"
+       "OSPF metric type for default routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
+       "Do not inject inter-area routes into nssa\n"
+       "Suppress forwarding address\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct in_addr area_id;
 	int ret, format;
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, argv[1]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, area_str);
 
 	ret = ospf_area_nssa_set(ospf, area_id);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
@@ -1452,14 +1489,14 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (argc > 3) {
-		if (strncmp(argv[3]->text, "translate-c", 11) == 0)
+	if (translator_role) {
+		if (strncmp(translator_role, "translate-c", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_CANDIDATE);
-		else if (strncmp(argv[3]->text, "translate-n", 11) == 0)
+		else if (strncmp(translator_role, "translate-n", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_NEVER);
-		else if (strncmp(argv[3]->text, "translate-a", 11) == 0)
+		else if (strncmp(translator_role, "translate-a", 11) == 0)
 			ospf_area_nssa_translator_role_set(
 				ospf, area_id, OSPF_NSSA_ROLE_ALWAYS);
 	} else {
@@ -1467,12 +1504,27 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 						   OSPF_NSSA_ROLE_CANDIDATE);
 	}
 
-	if (cfg_nosum) {
-		if (nosum)
-			ospf_area_no_summary_set(ospf, area_id);
-		else
-			ospf_area_no_summary_unset(ospf, area_id);
-	}
+	if (dflt_originate) {
+		int metric_type = DEFAULT_METRIC_TYPE;
+
+		if (mval_str == NULL)
+			mval = -1;
+		if (mtype_str)
+			(void)str2metric_type(mtype_str, &metric_type);
+		ospf_area_nssa_default_originate_set(ospf, area_id, mval,
+						     metric_type);
+	} else
+		ospf_area_nssa_default_originate_unset(ospf, area_id);
+
+	if (no_summary)
+		ospf_area_nssa_no_summary_set(ospf, area_id);
+	else
+		ospf_area_no_summary_unset(ospf, area_id);
+
+	if (suppress_fa)
+		ospf_area_nssa_suppress_fa_set(ospf, area_id);
+	else
+		ospf_area_nssa_suppress_fa_unset(ospf, area_id);
 
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
@@ -1482,141 +1534,15 @@ static int ospf_area_nssa_cmd_handler(struct vty *vty, int argc,
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (ospf_area_nssa_translate,
-       ospf_area_nssa_translate_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa <translate-candidate|translate-never|translate-always>",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Configure NSSA-ABR for translate election (default)\n"
-       "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n")
-{
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
-}
-
-DEFUN (ospf_area_nssa,
-       ospf_area_nssa_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n")
-{
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
-}
-
-DEFUN(ospf_area_nssa_suppress_fa, ospf_area_nssa_suppress_fa_cmd,
-      "area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
-      "OSPF area parameters\n"
-      "OSPF area ID in IP address format\n"
-      "OSPF area ID as a decimal value\n"
-      "Configure OSPF area as nssa\n"
-      "Suppress forwarding address\n")
-{
-	int idx_ipv4_number = 1;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_suppress_fa_set(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_ospf_area_nssa_suppress_fa, no_ospf_area_nssa_suppress_fa_cmd,
-      "no area <A.B.C.D|(0-4294967295)> nssa suppress-fa",
-      NO_STR
-      "OSPF area parameters\n"
-      "OSPF area ID in IP address format\n"
-      "OSPF area ID as a decimal value\n"
-      "Configure OSPF area as nssa\n"
-      "Suppress forwarding address\n")
-{
-	int idx_ipv4_number = 2;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ospf_area_nssa_no_summary,
-       ospf_area_nssa_no_summary_cmd,
-       "area <A.B.C.D|(0-4294967295)> nssa no-summary",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Do not inject inter-area routes into nssa\n")
-{
-	int idx_ipv4_number = 1;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_nssa_no_summary_set(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_area_nssa_no_summary,
-       no_ospf_area_nssa_no_summary_cmd,
-       "no area <A.B.C.D|(0-4294967295)> nssa no-summary",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Do not inject inter-area routes into nssa\n")
-{
-	int idx_ipv4_number = 2;
-	struct in_addr area_id;
-	int format;
-
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	VTY_GET_OSPF_AREA_ID_NO_BB("nssa", area_id, format,
-				   argv[idx_ipv4_number]->arg);
-
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
-	ospf_area_no_summary_unset(ospf, area_id);
-
-	ospf_schedule_abr_task(ospf);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_area_nssa,
+DEFPY (no_ospf_area_nssa,
        no_ospf_area_nssa_cmd,
-       "no area <A.B.C.D|(0-4294967295)> nssa [<translate-candidate|translate-never|translate-always>]",
+       "no area <A.B.C.D|(0-4294967295)>$area_str nssa\
+         [{\
+	   <translate-candidate|translate-never|translate-always>\
+	   |default-information-originate [{metric (0-16777214)|metric-type (1-2)}]\
+	   |no-summary\
+	   |suppress-fa\
+	 }]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1624,25 +1550,108 @@ DEFUN (no_ospf_area_nssa,
        "Configure OSPF area as nssa\n"
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n")
+       "Configure NSSA-ABR to always translate\n"
+       "Originate Type 7 default into NSSA area\n"
+       "OSPF default metric\n"
+       "OSPF metric\n"
+       "OSPF metric type for default routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
+       "Do not inject inter-area routes into nssa\n"
+       "Suppress forwarding address\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 2;
 	struct in_addr area_id;
 	int format;
 
-	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format,
-				   argv[idx_ipv4_number]->arg);
+	VTY_GET_OSPF_AREA_ID_NO_BB("NSSA", area_id, format, area_str);
 
 	/* Flush the NSSA LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_NSSA_LSA);
-	ospf_area_nssa_unset(ospf, area_id, argc);
+	ospf_area_no_summary_unset(ospf, area_id);
+	ospf_area_nssa_default_originate_unset(ospf, area_id);
+	ospf_area_nssa_suppress_fa_unset(ospf, area_id);
+	ospf_area_nssa_unset(ospf, area_id);
 
 	ospf_schedule_abr_task(ospf);
 
 	return CMD_SUCCESS;
 }
 
+DEFPY (ospf_area_nssa_range,
+       ospf_area_nssa_range_cmd,
+       "area <A.B.C.D|(0-4294967295)>$area_str nssa range A.B.C.D/M$prefix [<not-advertise$not_adv|cost (0-16777215)$cost>]",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configured address range\n"
+       "Specify IPv4 prefix\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
+	struct in_addr area_id;
+	int format;
+	int advertise = 0;
+
+	VTY_GET_OSPF_AREA_ID(area_id, format, area_str);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	if (area->external_routing != OSPF_AREA_NSSA) {
+		vty_out(vty, "%% First configure %s as an NSSA area\n",
+			area_str);
+		return CMD_WARNING;
+	}
+
+	if (!not_adv)
+		advertise = OSPF_AREA_RANGE_ADVERTISE;
+
+	ospf_area_range_set(ospf, area, area->nssa_ranges,
+			    (struct prefix_ipv4 *)prefix, advertise, true);
+	if (cost_str)
+		ospf_area_range_cost_set(ospf, area, area->nssa_ranges,
+					 (struct prefix_ipv4 *)prefix, cost);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_ospf_area_nssa_range,
+       no_ospf_area_nssa_range_cmd,
+       "no area <A.B.C.D|(0-4294967295)>$area_str nssa range A.B.C.D/M$prefix [<not-advertise|cost (0-16777215)>]",
+       NO_STR
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n"
+       "Configured address range\n"
+       "Specify IPv4 prefix\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct ospf_area *area;
+	struct in_addr area_id;
+	int format;
+
+	VTY_GET_OSPF_AREA_ID(area_id, format, area_str);
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, format);
+
+	if (area->external_routing != OSPF_AREA_NSSA) {
+		vty_out(vty, "%% First configure %s as an NSSA area\n",
+			area_str);
+		return CMD_WARNING;
+	}
+
+	ospf_area_range_unset(ospf, area, area->nssa_ranges,
+			      (struct prefix_ipv4 *)prefix);
+
+	return CMD_SUCCESS;
+}
 
 DEFUN (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
@@ -3396,6 +3405,23 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	/* show LDP-Sync status */
 	ospf_ldp_sync_show_info(vty, ospf, json_vrf, json ? 1 : 0);
 
+	/* Socket buffer sizes */
+	if (json) {
+		if (ospf->recv_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			json_object_int_add(json_vrf, "recvSockBufsize",
+					    ospf->recv_sock_bufsize);
+		if (ospf->send_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			json_object_int_add(json_vrf, "sendSockBufsize",
+					    ospf->send_sock_bufsize);
+	} else {
+		if (ospf->recv_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			vty_out(vty, " Receive socket bufsize: %u\n",
+				ospf->recv_sock_bufsize);
+		if (ospf->send_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE)
+			vty_out(vty, " Send socket bufsize: %u\n",
+				ospf->send_sock_bufsize);
+	}
+
 	/* Show each area status. */
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		show_ip_ospf_area(vty, area, json_areas, json ? 1 : 0);
@@ -3594,6 +3620,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 	struct ospf_neighbor *nbr;
 	struct route_node *rn;
 	uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
+	struct ospf_if_params *params;
 
 	/* Is interface up? */
 	if (use_json) {
@@ -3913,6 +3940,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
 
+
+		params = IF_DEF_PARAMS(ifp);
+		if (params &&
+		    OSPF_IF_PARAM_CONFIGURED(params, v_gr_hello_delay)) {
+			if (use_json) {
+				json_object_int_add(json_interface_sub,
+						    "grHelloDelaySecs",
+						    params->v_gr_hello_delay);
+			} else
+				vty_out(vty,
+					"  Graceful Restart hello delay: %us\n",
+					params->v_gr_hello_delay);
+		}
+
 		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
 
 		/* OSPF Authentication information */
@@ -3973,16 +4014,15 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 		/* Interface name is specified. */
 		ifp = if_lookup_by_name(intf_name, ospf->vrf_id);
 		if (ifp == NULL) {
-			if (use_json)
+			if (use_json) {
 				json_object_boolean_true_add(json_vrf,
 							     "noSuchIface");
-			else
+				json_object_free(json_interface);
+			} else
 				vty_out(vty, "No such interface name\n");
 		} else {
-			if (use_json) {
+			if (use_json)
 				json_interface_sub = json_object_new_object();
-				json_interface = json_object_new_object();
-			}
 
 			show_ip_ospf_interface_sub(
 				vty, ospf, ifp, json_interface_sub, use_json);
@@ -4407,15 +4447,10 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 		json_neighbor = json_object_new_object();
 
 		ospf_nbr_ism_state_message(nbr, msgbuf, sizeof(msgbuf));
-#if CONFDATE > 20230321
-		CPP_NOTICE(
-			"Remove show_ip_ospf_neighbor_sub() JSON keys: priority, state, deadTimeMsecs, address, retransmitCounter, requestCounter, dbSummaryCounter")
-#endif
-		json_object_int_add(json_neighbor, "priority", nbr->priority);
-		json_object_string_add(json_neighbor, "state", msgbuf);
+		json_object_string_add(json_neighbor, "nbrState", msgbuf);
+
 		json_object_int_add(json_neighbor, "nbrPriority",
 				    nbr->priority);
-		json_object_string_add(json_neighbor, "nbrState", msgbuf);
 
 		json_object_string_add(
 			json_neighbor, "converged",
@@ -4432,8 +4467,6 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 				     1000LL;
 			json_object_int_add(json_neighbor, "upTimeInMsec",
 					    time_val);
-			json_object_int_add(json_neighbor, "deadTimeMsecs",
-					    time_store);
 			json_object_int_add(json_neighbor,
 					    "routerDeadIntervalTimerDueMsec",
 					    time_store);
@@ -4452,24 +4485,16 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 					       "routerDeadIntervalTimerDueMsec",
 					       "inactive");
 		}
-		json_object_string_addf(json_neighbor, "address", "%pI4",
-					&nbr->src);
 		json_object_string_addf(json_neighbor, "ifaceAddress", "%pI4",
 					&nbr->src);
 		json_object_string_add(json_neighbor, "ifaceName",
 				       IF_NAME(nbr->oi));
-		json_object_int_add(json_neighbor, "retransmitCounter",
-				    ospf_ls_retransmit_count(nbr));
 		json_object_int_add(json_neighbor,
 				    "linkStateRetransmissionListCounter",
 				    ospf_ls_retransmit_count(nbr));
-		json_object_int_add(json_neighbor, "requestCounter",
-				    ospf_ls_request_count(nbr));
 		json_object_int_add(json_neighbor,
 				    "linkStateRequestListCounter",
 				    ospf_ls_request_count(nbr));
-		json_object_int_add(json_neighbor, "dbSummaryCounter",
-				    ospf_db_summary_count(nbr));
 		json_object_int_add(json_neighbor, "databaseSummaryListCounter",
 				    ospf_db_summary_count(nbr));
 
@@ -5065,6 +5090,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 	json_object *json_neigh = NULL, *json_neigh_array = NULL;
 	char neigh_str[INET_ADDRSTRLEN] = {0};
 	char neigh_state[16] = {0};
+	struct ospf_neighbor *nbr_dr, *nbr_bdr;
 
 	if (use_json) {
 		if (prev_nbr &&
@@ -5192,19 +5218,38 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		}
 	}
 
-	/* Show Designated Rotuer ID. */
-	if (use_json)
-		json_object_string_addf(json_neigh, "routerDesignatedId",
-					"%pI4", &nbr->d_router);
-	else
-		vty_out(vty, "    DR is %pI4,", &nbr->d_router);
+	/* Show Designated Router ID. */
+	if (DR(oi).s_addr == INADDR_ANY) {
+		if (!use_json)
+			vty_out(vty,
+				"  No designated router on this network\n");
+	} else {
+		nbr_dr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
+		if (nbr_dr) {
+			if (use_json)
+				json_object_string_addf(
+					json_neigh, "routerDesignatedId",
+					"%pI4", &nbr_dr->router_id);
+			else
+				vty_out(vty, "    DR is %pI4,",
+					&nbr_dr->router_id);
+		}
+	}
 
-	/* Show Backup Designated Rotuer ID. */
-	if (use_json)
-		json_object_string_addf(json_neigh, "routerDesignatedBackupId",
-					"%pI4", &nbr->bd_router);
-	else
-		vty_out(vty, " BDR is %pI4\n", &nbr->bd_router);
+	/* Show Backup Designated Router ID. */
+	nbr_bdr = ospf_nbr_lookup_by_addr(oi->nbrs, &BDR(oi));
+	if (nbr_bdr == NULL) {
+		if (!use_json)
+			vty_out(vty,
+				"  No backup designated router on this network\n");
+	} else {
+		if (use_json)
+			json_object_string_addf(json_neigh,
+						"routerDesignatedBackupId",
+						"%pI4", &nbr_bdr->router_id);
+		else
+			vty_out(vty, " BDR is %pI4\n", &nbr_bdr->router_id);
+	}
 
 	/* Show options. */
 	if (use_json) {
@@ -8612,6 +8657,59 @@ DEFUN_HIDDEN (no_ospf_retransmit_interval,
 	return no_ip_ospf_retransmit_interval(self, vty, argc, argv);
 }
 
+DEFPY (ip_ospf_gr_hdelay,
+       ip_ospf_gr_hdelay_cmd,
+       "ip ospf graceful-restart hello-delay (1-1800)",
+       IP_STR
+       "OSPF interface commands\n"
+       "Graceful Restart parameters\n"
+       "Delay the sending of the first hello packets.\n"
+       "Delay in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	/* Note: new or updated value won't affect ongoing graceful restart. */
+	SET_IF_PARAM(params, v_gr_hello_delay);
+	params->v_gr_hello_delay = hello_delay;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_ip_ospf_gr_hdelay,
+       no_ip_ospf_gr_hdelay_cmd,
+       "no ip ospf graceful-restart hello-delay [(1-1800)]",
+       NO_STR
+       IP_STR
+       "OSPF interface commands\n"
+       "Graceful Restart parameters\n"
+       "Delay the sending of the first hello packets.\n"
+       "Delay in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+	UNSET_IF_PARAM(params, v_gr_hello_delay);
+	params->v_gr_hello_delay = OSPF_HELLO_DELAY_DEFAULT;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi;
+
+		oi = rn->info;
+		if (!oi)
+			continue;
+
+		oi->gr.hello_delay.elapsed_seconds = 0;
+		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (ip_ospf_transmit_delay,
        ip_ospf_transmit_delay_addr_cmd,
        "ip ospf transmit-delay (1-65535) [A.B.C.D]",
@@ -10053,8 +10151,17 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 		json_object_string_add(json_vrf, "strictLsaCheck",
 				       (ospf->strict_lsa_check) ? "Enabled"
 								: "Disabled");
+#if CONFDATE > 20240401
+		CPP_NOTICE("Remove deprecated json key: restartSupoort")
+#endif
 		json_object_string_add(
 			json_vrf, "restartSupoort",
+			(ospf->only_planned_restart)
+				? "Planned Restart only"
+				: "Planned and Unplanned Restarts");
+
+		json_object_string_add(
+			json_vrf, "restartSupport",
 			(ospf->only_planned_restart)
 				? "Planned Restart only"
 				: "Planned and Unplanned Restarts");
@@ -11795,6 +11902,15 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* Hello Graceful-Restart Delay print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params,
+						     v_gr_hello_delay) &&
+			    params->v_gr_hello_delay !=
+				    OSPF_HELLO_DELAY_DEFAULT)
+				vty_out(vty,
+					" ip ospf graceful-restart hello-delay %u\n",
+					params->v_gr_hello_delay);
+
 			/* Router Priority print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, priority)
 			    && params->priority
@@ -11981,29 +12097,62 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 					vty_out(vty, " no-summary\n");
 				vty_out(vty, "\n");
 			} else if (area->external_routing == OSPF_AREA_NSSA) {
+				vty_out(vty, " area %s nssa", buf);
+
 				switch (area->NSSATranslatorRole) {
 				case OSPF_NSSA_ROLE_NEVER:
-					vty_out(vty,
-						" area %s nssa translate-never\n",
-						buf);
+					vty_out(vty, " translate-never");
 					break;
 				case OSPF_NSSA_ROLE_ALWAYS:
-					vty_out(vty,
-						" area %s nssa translate-always\n",
-						buf);
+					vty_out(vty, " translate-always");
 					break;
 				case OSPF_NSSA_ROLE_CANDIDATE:
-					vty_out(vty, " area %s nssa \n", buf);
 					break;
 				}
+
+				if (area->nssa_default_originate.enabled) {
+					vty_out(vty,
+						" default-information-originate");
+					if (area->nssa_default_originate
+						    .metric_value != -1)
+						vty_out(vty, " metric %d",
+							area->nssa_default_originate
+								.metric_value);
+					if (area->nssa_default_originate
+						    .metric_type !=
+					    DEFAULT_METRIC_TYPE)
+						vty_out(vty, " metric-type 1");
+				}
+
 				if (area->no_summary)
-					vty_out(vty,
-						" area %s nssa no-summary\n",
-						buf);
+					vty_out(vty, " no-summary");
 				if (area->suppress_fa)
-					vty_out(vty,
-						" area %s nssa suppress-fa\n",
-						buf);
+					vty_out(vty, " suppress-fa");
+				vty_out(vty, "\n");
+
+				for (rn1 = route_top(area->nssa_ranges); rn1;
+				     rn1 = route_next(rn1)) {
+					struct ospf_area_range *range;
+
+					range = rn1->info;
+					if (!range)
+						continue;
+
+					vty_out(vty, " area %s nssa range %pFX",
+						buf, &rn1->p);
+
+					if (range->cost_config !=
+					    OSPF_AREA_RANGE_COST_UNSPEC)
+						vty_out(vty, " cost %u",
+							range->cost_config);
+
+					if (!CHECK_FLAG(
+						    range->flags,
+						    OSPF_AREA_RANGE_ADVERTISE))
+						vty_out(vty, " not-advertise");
+
+					vty_out(vty, "\n");
+				}
 			}
 
 			if (area->default_cost != 1)
@@ -12434,6 +12583,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->fr_configured)
 		vty_out(vty, " flood-reduction\n");
 
+	if (!ospf->intf_socket_enabled)
+		vty_out(vty, " no socket-per-interface\n");
+
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
 
@@ -12489,6 +12641,22 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 
 	/* LDP-Sync print */
 	ospf_ldp_sync_write_config(vty, ospf);
+
+	/* Socket buffer sizes */
+	if (ospf->recv_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE) {
+		if (ospf->send_sock_bufsize == ospf->recv_sock_bufsize)
+			vty_out(vty, " socket buffer all %u\n",
+				ospf->recv_sock_bufsize);
+		else
+			vty_out(vty, " socket buffer recv %u\n",
+				ospf->recv_sock_bufsize);
+	}
+
+	if (ospf->send_sock_bufsize != OSPF_DEFAULT_SOCK_BUFSIZE &&
+	    ospf->send_sock_bufsize != ospf->recv_sock_bufsize)
+		vty_out(vty, " socket buffer send %u\n",
+			ospf->send_sock_bufsize);
+
 
 	vty_out(vty, "exit\n");
 
@@ -12946,6 +13114,71 @@ DEFPY(no_flood_reduction_area, no_flood_reduction_area_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(ospf_socket_bufsizes,
+      ospf_socket_bufsizes_cmd,
+      "[no] socket buffer <send$send_val | recv$recv_val | all$all_val> \
+	  ![(1-4000000000)$bufsize]",
+      NO_STR
+      "Socket parameters\n"
+      "Buffer size configuration\n"
+      "Send buffer size\n"
+      "Receive buffer size\n"
+      "Both send and receive buffer sizes\n"
+      "Buffer size, in bytes\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	uint32_t recvsz, sendsz;
+
+	if (no)
+		bufsize = OSPF_DEFAULT_SOCK_BUFSIZE;
+
+	if (all_val) {
+		recvsz = bufsize;
+		sendsz = bufsize;
+	} else if (send_val) {
+		sendsz = bufsize;
+		recvsz = ospf->recv_sock_bufsize;
+	} else if (recv_val) {
+		recvsz = bufsize;
+		sendsz = ospf->send_sock_bufsize;
+	} else
+		return CMD_SUCCESS;
+
+	/* React to a change by modifying existing sockets */
+	ospf_update_bufsize(ospf, recvsz, sendsz);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (per_intf_socket,
+       per_intf_socket_cmd,
+       "[no] socket-per-interface",
+       NO_STR
+       "Use write socket per interface\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct listnode *node;
+	struct ospf_interface *oi;
+
+	if (no) {
+		if (ospf->intf_socket_enabled) {
+			ospf->intf_socket_enabled = false;
+
+			/* Iterate and close any sockets */
+			for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+				ospf_ifp_sock_close(oi->ifp);
+		}
+	} else if (!ospf->intf_socket_enabled) {
+		ospf->intf_socket_enabled = true;
+
+		/* Iterate and open sockets */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
+			ospf_ifp_sock_init(oi->ifp);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13029,12 +13262,9 @@ void ospf_vty_init(void)
 
 	/* "area nssa" commands. */
 	install_element(OSPF_NODE, &ospf_area_nssa_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_translate_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
-	install_element(OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
-	install_element(OSPF_NODE, &ospf_area_nssa_suppress_fa_cmd);
-	install_element(OSPF_NODE, &no_ospf_area_nssa_suppress_fa_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_nssa_cmd);
+	install_element(OSPF_NODE, &ospf_area_nssa_range_cmd);
+	install_element(OSPF_NODE, &no_ospf_area_nssa_range_cmd);
 
 	install_element(OSPF_NODE, &ospf_area_default_cost_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_default_cost_cmd);
@@ -13111,6 +13341,9 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_flood_reduction_cmd);
 	install_element(OSPF_NODE, &flood_reduction_area_cmd);
 	install_element(OSPF_NODE, &no_flood_reduction_area_cmd);
+
+	install_element(OSPF_NODE, &ospf_socket_bufsizes_cmd);
+	install_element(OSPF_NODE, &per_intf_socket_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

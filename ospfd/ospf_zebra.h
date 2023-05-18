@@ -69,6 +69,7 @@ extern int ospf_redistribute_set(struct ospf *, struct ospf_redist *, int,
 				 unsigned short, int, int);
 extern int ospf_redistribute_unset(struct ospf *, int, unsigned short);
 extern int ospf_redistribute_default_set(struct ospf *, int, int, int);
+extern void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg);
 extern int ospf_distribute_list_out_set(struct ospf *, int, const char *);
 extern int ospf_distribute_list_out_unset(struct ospf *, int, const char *);
 extern void ospf_routemap_set(struct ospf_redist *, const char *);

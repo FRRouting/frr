@@ -88,7 +88,7 @@ static struct c_path *cpath_copy(struct c_path *dest, const struct c_path *src)
  *
  * @param path	Constrained Path structure to be deleted
  */
-static void cpath_del(struct c_path *path)
+void cpath_del(struct c_path *path)
 {
 	if (!path)
 		return;

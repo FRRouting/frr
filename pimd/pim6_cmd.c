@@ -539,11 +539,8 @@ DEFPY (interface_ipv6_mld_join,
        "Source address\n")
 {
 	char xpath[XPATH_MAXLEN];
-	struct ipaddr group_addr = {0};
 
-	(void)str2ipaddr(group_str, &group_addr);
-
-	if (!IN6_IS_ADDR_MULTICAST(&group_addr)) {
+	if (!IN6_IS_ADDR_MULTICAST(&group)) {
 		vty_out(vty, "Invalid Multicast Address\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}

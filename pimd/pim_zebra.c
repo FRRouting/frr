@@ -68,6 +68,8 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 			   vrf_id, new_vrf_id);
 
 	pim = pim_get_pim_instance(new_vrf_id);
+	if (!pim)
+		return 0;
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
 

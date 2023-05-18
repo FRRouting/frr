@@ -133,7 +133,7 @@ def test_static_timing():
             delta = (datetime.datetime.now() - tstamp).total_seconds()
             tot_delta += delta
 
-            router.logger.info(
+            router.logger.debug(
                 "\nvtysh command => {}\nvtysh output <= {}\nin {}s".format(
                     load_command, output, delta
                 )
@@ -152,7 +152,7 @@ def test_static_timing():
 
     # Number of static routes
     router = tgen.gears["r1"]
-    output = router.run("vtysh -h | grep address-sanitizer")
+    output = router.net.cmd_legacy("vtysh -h | grep address-sanitizer", warn=False)
     if output == "":
         logger.info("No Address Sanitizer, generating 10000 routes")
         prefix_count = 10000

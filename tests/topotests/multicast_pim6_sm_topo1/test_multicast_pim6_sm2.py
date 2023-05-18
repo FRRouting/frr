@@ -53,6 +53,7 @@ from lib.common_config import (
     socat_send_mld_join,
     socat_send_pim6_traffic,
     get_frr_ipv6_linklocal,
+    kill_socat,
 )
 from lib.bgp import create_router_bgp
 from lib.pim import (
@@ -149,10 +150,6 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, tgen.json_topo)
 
-    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
-    global app_helper
-    app_helper = McastTesterHelper(tgen)
-
     logger.info("Running setup_module() done")
 
 
@@ -163,7 +160,8 @@ def teardown_module():
 
     tgen = get_topogen()
 
-    app_helper.cleanup()
+    # Clean up socat
+    kill_socat(tgen)
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()

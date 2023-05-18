@@ -834,6 +834,13 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 						      peer->bgp->vrf_id);
 	}
 
+	/* Handle peerings via loopbacks. For instance, peer between
+	 * 127.0.0.1 and 127.0.0.2. In short, allow peering with self
+	 * via 127.0.0.0/8.
+	 */
+	if (!ifp && cmd_allow_reserved_ranges_get())
+		ifp = if_get_vrf_loopback(peer->bgp->vrf_id);
+
 	if (!ifp) {
 		/*
 		 * BGP views do not currently get proper data
@@ -3903,4 +3910,33 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
 	return srv6_manager_release_locator_chunk(zclient, name);
+}
+
+void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
+				  ifindex_t ifindex, vrf_id_t vrf_id,
+				  enum lsp_types_t ltype, struct prefix *p)
+{
+	struct zapi_labels zl = {};
+	struct zapi_nexthop *znh;
+
+	zl.type = ltype;
+	zl.local_label = label;
+	zl.nexthop_num = 1;
+	znh = &zl.nexthops[0];
+	if (p->family == AF_INET)
+		IPV4_ADDR_COPY(&znh->gate.ipv4, &p->u.prefix4);
+	else
+		IPV6_ADDR_COPY(&znh->gate.ipv6, &p->u.prefix6);
+	if (ifindex == IFINDEX_INTERNAL)
+		znh->type = (p->family == AF_INET) ? NEXTHOP_TYPE_IPV4
+						   : NEXTHOP_TYPE_IPV6;
+	else
+		znh->type = (p->family == AF_INET) ? NEXTHOP_TYPE_IPV4_IFINDEX
+						   : NEXTHOP_TYPE_IPV6_IFINDEX;
+	znh->ifindex = ifindex;
+	znh->vrf_id = vrf_id;
+	znh->label_num = 0;
+
+	/* vrf_id is DEFAULT_VRF */
+	zebra_send_mpls_labels(zclient, cmd, &zl);
 }

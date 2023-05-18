@@ -217,8 +217,8 @@ void isis_event_auth_failure(char *area_tag, const char *error_string,
 			     uint8_t *sysid)
 {
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) Authentication failure %s from %s",
-			   area_tag, error_string, sysid_print(sysid));
+		zlog_debug("ISIS-Evt (%s) Authentication failure %s from %pSY",
+			   area_tag, error_string, sysid);
 
 	return;
 }

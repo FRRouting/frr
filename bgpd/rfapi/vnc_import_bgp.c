@@ -1986,8 +1986,6 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
 
-		int count = 0; /* debugging */
-
 		vnc_zlog_debug_verbose(
 			"%s: has exterior monitor; ext src: %p", __func__,
 			RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
@@ -2010,9 +2008,6 @@ void vnc_import_bgp_exterior_add_route_interior(
 			struct prefix_rd *prd;
 			struct attr new_attr;
 			uint32_t label = 0;
-
-
-			++count; /* debugging */
 
 			assert(bpi_exterior);
 			assert(pfx_exterior);

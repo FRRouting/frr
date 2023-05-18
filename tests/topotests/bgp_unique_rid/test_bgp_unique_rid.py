@@ -847,8 +847,6 @@ def test_bgp_unique_rid_chaos4_p2():
         for intf in topo["routers"][rtr]["links"].keys():
             topo1["routers"][rtr]["links"][intf].pop("ipv4")
             topo1["routers"][rtr]["links"][intf].pop("ipv6")
-            if intf is "lo":
-                topo1["routers"][rtr]["links"][intf].pop("ipv4")
 
     build_config_from_json(tgen, topo1, save_bkup=False)
 
