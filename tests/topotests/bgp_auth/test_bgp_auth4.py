@@ -157,8 +157,8 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
-        router.load_config(TopoRouter.RD_OSPF)
-        router.load_config(TopoRouter.RD_BGP)
+        router.load_config(TopoRouter.RD_OSPF, "")
+        router.load_config(TopoRouter.RD_BGP, "")
 
     # After copying the configurations, this function loads configured daemons.
     tgen.start_router()
