@@ -36,18 +36,18 @@ from typing import (
 )
 
 import pytest
-from . import jinlinja
+from .. import jinlinja
 
-from .defer import subprocess
-from .utils import deindent, get_dir, EnvcheckResult
-from .timeline import Timeline, MiniPollee, TimedElement
+from ..defer import subprocess
+from ..utils import deindent, get_dir, EnvcheckResult
+from ..timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
-from .exceptions import TopotatoDaemonCrash
-from .pcapng import Context
-from .osdep import NetworkInstance
+from ..exceptions import TopotatoDaemonCrash
+from ..pcapng import Context
+from ..osdep import NetworkInstance
 
 if typing.TYPE_CHECKING:
-    from . import toponom
+    from .. import toponom
 
 
 logger = logging.getLogger("topotato")

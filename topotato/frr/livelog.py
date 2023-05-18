@@ -13,11 +13,11 @@ from collections import namedtuple
 import typing
 from typing import Dict, Generator, Optional, Set, Tuple
 
-from .timeline import MiniPollee, TimedElement, FrameworkEvent
-from .pcapng import JournalExport, Context
+from ..timeline import MiniPollee, TimedElement, FrameworkEvent
+from ..pcapng import JournalExport, Context
 
 if typing.TYPE_CHECKING:
-    from .frr import FRRNetworkInstance
+    from . import FRRNetworkInstance
 
 
 # pylint: disable=too-many-instance-attributes
