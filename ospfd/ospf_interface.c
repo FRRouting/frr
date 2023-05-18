@@ -545,6 +545,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	oip->is_v_wait_set = false;
 
 	oip->ptp_dmvpn = 0;
+	oip->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
 
 	return oip;
 }

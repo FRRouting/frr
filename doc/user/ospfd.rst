@@ -648,7 +648,7 @@ Interfaces
    it's recommended to set the hello delay and hello interval with the same values.
    The default value is 10 seconds.
 
-.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn])
+.. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint [delay-reflood]|point-to-point [dmvpn])
 
    When configuring a point-to-point network on an interface and the interface
    has a /32 address associated with then OSPF will treat the interface
@@ -659,6 +659,13 @@ Interfaces
    When used in a DMVPN network at a spoke, this OSPF will be configured in
    point-to-point, but the HUB will be a point-to-multipoint. To make this
    topology work, specify the optional 'dmvpn' parameter at the spoke.
+
+   When the network is configured as point-to-multipoint and `delay-reflood`
+   is specified, LSAs received on the interface from neighbors on the
+   interface will not be flooded back out on the interface immediately.
+   Rather, they will be added to the neighbor's link state retransmission
+   list and only sent to the neighbor if the neighbor doesn't acknowledge
+   the LSA prior to the link state retransmission timer expiring.
 
    Set explicitly network type for specified interface.
 

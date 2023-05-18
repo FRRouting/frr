@@ -109,6 +109,9 @@ struct ospf_if_params {
 
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
+
+	/* point-to-multipoint delayed reflooding configuration */
+	bool p2mp_delay_reflood;
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -176,6 +179,9 @@ struct ospf_interface {
 
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
+
+	/* point-to-multipoint delayed reflooding */
+	bool p2mp_delay_reflood;
 
 	/* State of Interface State Machine. */
 	uint8_t state;
