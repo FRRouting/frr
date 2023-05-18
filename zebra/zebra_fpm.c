@@ -2049,6 +2049,8 @@ static int zfpm_fini(void)
 	zfpm_stop_stats_timer();
 
 	hook_unregister(rib_update, zfpm_trigger_update);
+	hook_unregister(zebra_rmac_update, zfpm_trigger_rmac_update);
+
 	return 0;
 }
 
