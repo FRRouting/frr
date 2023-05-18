@@ -1185,7 +1185,7 @@ struct ptm_process {
 TAILQ_HEAD(ppqueue, ptm_process) ppqueue;
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_PTM_BFD_PROCESS,
-		    "PTM BFD process registration table.");
+		    "PTM BFD process reg table");
 
 /*
  * Prototypes.
