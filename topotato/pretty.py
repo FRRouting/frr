@@ -26,7 +26,6 @@ from . import base, assertions
 from .defer import subprocess
 from .utils import exec_find, deindent, get_dir
 from .scapy import ScapySend
-from .timeline import TimedElement
 from .pcapng import Sink, SectionHeader
 
 
@@ -201,8 +200,14 @@ class PrettyInstance(list):
             "ts_start": getattr(topotatocls, "started_ts", None),
             "items": [],
             "macmap": self.instance.network.macmap(),
-            "configs": self.instance.configs,
+            "configs": {},
         }
+
+        for rtrname, rtr in self.instance.routers.items():
+            configs = getattr(rtr, "configs", {})
+            config = configs.get(rtrname, {})
+            if config:
+                data["configs"][rtrname] = config
 
         items = []
         prevfunc = None

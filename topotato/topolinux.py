@@ -329,10 +329,13 @@ class NetworkInstance:
     def tempfile(self, name):
         return os.path.join(self.tempdir.name, name)
 
+    def make(self, name):
+        return self.RouterNS(self, name)
+
     def prepare(self):
         self.switch_ns = self.SwitchyNS(self, "switch-ns")
         for r in self.network.routers.values():
-            self.routers[r.name] = self.RouterNS(self, r.name)
+            self.routers[r.name] = self.make(r.name)
         return self
 
     # pylint: disable=too-many-branches

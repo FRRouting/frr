@@ -44,7 +44,7 @@ from ..timeline import Timeline, MiniPollee, TimedElement
 from .livelog import LiveLog
 from ..exceptions import TopotatoDaemonCrash
 from ..pcapng import Context
-from ..osdep import NetworkInstance
+from ..network import TopotatoNetwork
 
 if typing.TYPE_CHECKING:
     from .. import toponom
@@ -476,210 +476,198 @@ class VtyshPoll(MiniPollee):
                 self.send_cmd()
 
 
-class FRRNetworkInstance(NetworkInstance):
+class FRRRouterNS(TopotatoNetwork.RouterNS):
     """
-    Main network representation & interface, adding the FRR bits to NetworkInstance
-
-    SwitchNS is not specialized here, nothing FRR in there.
+    Add a bunch of FRR daemons on top of an (OS-dependent) RouterNS
     """
 
-    # pylint: disable=too-many-ancestors
-    class RouterNS(NetworkInstance.RouterNS):
-        """
-        Add a bunch of FRR daemons on top of an (OS-dependent) RouterNS
-        """
+    instance: TopotatoNetwork
+    logfiles: Dict[str, str]
+    pids: Dict[str, int]
+    rundir: Optional[str]
+    rtrcfg: Dict[str, str]
+    livelogs: Dict[str, LiveLog]
 
-        instance: "FRRNetworkInstance"
-        logfiles: Dict[str, str]
-        pids: Dict[str, int]
-        rundir: Optional[str]
-        rtrcfg: Dict[str, str]
-        livelogs: Dict[str, LiveLog]
+    def __init__(self, instance: TopotatoNetwork, name: str, configs: FRRConfigs):
+        super().__init__(instance, name)
+        self.configs = configs
+        self.logfiles = {}
+        self.livelogs = {}
+        self.pids = {}
+        self.rundir = None
+        self.rtrcfg = {}
 
-        def __init__(self, instance: "FRRNetworkInstance", name: str):
-            super().__init__(instance, name)
-            self.logfiles = {}
-            self.livelogs = {}
-            self.pids = {}
-            self.rundir = None
-            self.rtrcfg = {}
+    def _getlogfd(self, daemon):
+        if daemon not in self.livelogs:
+            self.livelogs[daemon] = LiveLog(self, daemon)
+            self.instance.timeline.install(self.livelogs[daemon])
+        return self.livelogs[daemon].wrfd
 
-        def _getlogfd(self, daemon):
-            if daemon not in self.livelogs:
-                self.livelogs[daemon] = LiveLog(self, daemon)
-                self.instance.timeline.install(self.livelogs[daemon])
-            return self.livelogs[daemon].wrfd
+    def xrefs(self):
+        return FRRConfigs.xrefs
 
-        def xrefs(self):
-            return FRRConfigs.xrefs
+    def start(self):
+        super().start()
 
-        def start(self):
-            super().start()
+        frrcred = self.configs.frrcred
 
-            frrcred = self.instance.configs.frrcred
+        self.rundir = rundir = self.tempfile("run")
+        os.mkdir(rundir)
+        os.chown(rundir, frrcred.pw_uid, frrcred.pw_gid)
+        self.rundir = rundir
+        # bit of a hack
+        self.check_call(["mount", "--bind", rundir, "/var/run"])
 
-            self.rundir = rundir = self.tempfile("run")
-            os.mkdir(rundir)
-            os.chown(rundir, frrcred.pw_uid, frrcred.pw_gid)
-            self.rundir = rundir
-            # bit of a hack
-            self.check_call(["mount", "--bind", rundir, "/var/run"])
+        self.rtrcfg = self.configs.get(self.name, {})
 
-            self.rtrcfg = self.instance.configs.get(self.name, {})
-
-            for daemon in FRRConfigs.daemons:
-                if daemon not in self.rtrcfg:
-                    continue
-                self.logfiles[daemon] = self.tempfile("%s.log" % daemon)
-                self.start_daemon(daemon)
-
-        def start_daemon(self, daemon: str):
-            frrpath = self.instance.configs.frrpath
-            binmap = self.instance.configs.binmap
-
-            use_integrated = daemon in FRRConfigs.daemons_integrated_only
-
-            if use_integrated:
-                cfgpath = self.tempfile("integrated-" + daemon + ".conf")
-            else:
-                cfgpath = self.tempfile(daemon + ".conf")
-            with open(cfgpath, "w", encoding="utf-8") as fd:
-                fd.write(self.rtrcfg[daemon])
-
-            assert self.rundir is not None
-
-            logfd = self._getlogfd(daemon)
-
-            execpath = os.path.join(frrpath, binmap[daemon])
-            cmdline = []
-
-            cmdline.extend(
-                [
-                    execpath,
-                    "-d",
-                ]
-            )
-            if not use_integrated:
-                cmdline.extend(
-                    [
-                        "-f",
-                        cfgpath,
-                    ]
-                )
-            cmdline.extend(
-                [
-                    "--log",
-                    "file:%s" % self.logfiles[daemon],
-                    "--log",
-                    "monitor:%d" % logfd.fileno(),
-                    "--log-level",
-                    "debug",
-                    "--vty_socket",
-                    self.rundir,
-                    "-i",
-                    "%s/%s.pid" % (self.rundir, daemon),
-                ]
-            )
-            try:
-                self.check_call(cmdline, pass_fds=[logfd.fileno()])
-            except subprocess.CalledProcessError as e:
-                raise TopotatoDaemonCrash(
-                    daemon=daemon, router=self.name, cmdline=shlex.join(cmdline)
-                ) from e
-
-            # want record-priority & timestamp precision...
-            pid, _, _ = self.vtysh_polled(
-                self.instance.timeline,
-                daemon,
-                "enable\nconfigure\nlog file %s\ndebug memstats-at-exit\nend\nclear log cmdline-targets"
-                % self.logfiles[daemon],
-            )
-            self.pids[daemon] = pid
-
-            if use_integrated:
-                self.vtysh(["-d", daemon, "-f", cfgpath])
-
-        def restart(self, daemon: str):
-            pidfile = "%s/%s.pid" % (self.rundir, daemon)
-            with open(pidfile, "r", encoding="utf-8") as fd:
-                pid = int(fd.read())
-            self.check_call(["kill", "-TERM", str(pid)])
-            for _ in range(0, 5):
-                try:
-                    self.check_call(["kill", "-TERM", str(pid)])
-                except subprocess.CalledProcessError:
-                    break
-                self.instance.timeline.sleep(0.1)
-
+        for daemon in FRRConfigs.daemons:
+            if daemon not in self.rtrcfg:
+                continue
+            self.logfiles[daemon] = self.tempfile("%s.log" % daemon)
             self.start_daemon(daemon)
 
-        def end_prep(self):
-            for livelog in self.livelogs.values():
-                livelog.close_prep()
+    def start_daemon(self, daemon: str):
+        frrpath = self.configs.frrpath
+        binmap = self.configs.binmap
 
-            for daemon, pid in list(reversed(self.pids.items())):
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                    # stagger SIGTERM signals a tiiiiny bit
-                    self.instance.timeline.sleep(0.01)
-                except ProcessLookupError:
-                    del self.pids[daemon]
-                    # FIXME: log something
+        use_integrated = daemon in FRRConfigs.daemons_integrated_only
 
-            super().end_prep()
+        if use_integrated:
+            cfgpath = self.tempfile("integrated-" + daemon + ".conf")
+        else:
+            cfgpath = self.tempfile(daemon + ".conf")
+        with open(cfgpath, "w", encoding="utf-8") as fd:
+            fd.write(self.rtrcfg[daemon])
 
-        def end(self):
-            livelogs = self.livelogs.values()
+        assert self.rundir is not None
 
-            # TODO: move this to instance level
-            self.instance.timeline.sleep(1.0, final=livelogs)
+        logfd = self._getlogfd(daemon)
 
-            for livelog in self.livelogs.values():
-                livelog.close()
+        execpath = os.path.join(frrpath, binmap[daemon])
+        cmdline = []
 
-            super().end()
-
-        def vtysh(self, args):
-            frrpath = self.instance.configs.frrpath
-            execpath = os.path.join(frrpath, "vtysh/vtysh")
-            return self.popen(
-                [execpath] + ["--vty_socket", self.rundir] + args,
-                stdout=subprocess.PIPE,
+        cmdline.extend(
+            [
+                execpath,
+                "-d",
+            ]
+        )
+        if not use_integrated:
+            cmdline.extend(
+                [
+                    "-f",
+                    cfgpath,
+                ]
             )
+        cmdline.extend(
+            [
+                "--log",
+                "file:%s" % self.logfiles[daemon],
+                "--log",
+                "monitor:%d" % logfd.fileno(),
+                "--log-level",
+                "debug",
+                "--vty_socket",
+                self.rundir,
+                "-i",
+                "%s/%s.pid" % (self.rundir, daemon),
+            ]
+        )
+        try:
+            self.check_call(cmdline, pass_fds=[logfd.fileno()])
+        except subprocess.CalledProcessError as e:
+            raise TopotatoDaemonCrash(
+                daemon=daemon, router=self.name, cmdline=shlex.join(cmdline)
+            ) from e
 
-        def vtysh_polled(self, timeline: Timeline, daemon, cmds, timeout=5.0):
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-            fn = self.tempfile("run/%s.vty" % (daemon))
+        # want record-priority & timestamp precision...
+        pid, _, _ = self.vtysh_polled(
+            self.instance.timeline,
+            daemon,
+            "enable\nconfigure\nlog file %s\ndebug memstats-at-exit\nend\nclear log cmdline-targets"
+            % self.logfiles[daemon],
+        )
+        self.pids[daemon] = pid
 
-            sock.connect(fn)
-            peercred = sock.getsockopt(
-                socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3I")
-            )
-            pid, _, _ = struct.unpack("3I", peercred)
+        if use_integrated:
+            self.vtysh(["-d", daemon, "-f", cfgpath])
 
-            cmds = [c.strip() for c in cmds.splitlines() if c.strip() != ""]
+    def restart(self, daemon: str):
+        pidfile = "%s/%s.pid" % (self.rundir, daemon)
+        with open(pidfile, "r", encoding="utf-8") as fd:
+            pid = int(fd.read())
+        self.check_call(["kill", "-TERM", str(pid)])
+        for _ in range(0, 5):
+            try:
+                self.check_call(["kill", "-TERM", str(pid)])
+            except subprocess.CalledProcessError:
+                break
+            self.instance.timeline.sleep(0.1)
 
-            # TODO: refactor
-            vpoll = VtyshPoll(self.name, daemon, sock, cmds)
+        self.start_daemon(daemon)
 
-            output = []
-            retcode = None
+    def end_prep(self):
+        for livelog in self.livelogs.values():
+            livelog.close_prep()
 
-            with timeline.with_pollee(vpoll) as poller:
-                vpoll.send_cmd()
+        for daemon, pid in list(reversed(self.pids.items())):
+            try:
+                os.kill(pid, signal.SIGTERM)
+                # stagger SIGTERM signals a tiiiiny bit
+                self.instance.timeline.sleep(0.01)
+            except ProcessLookupError:
+                del self.pids[daemon]
+                # FIXME: log something
 
-                end = time.time() + timeout
-                for event in poller.run_iter(end):
-                    if not isinstance(event, TimedVtysh):
-                        continue
-                    output.append(event)
-                    retcode = event.retcode
-                    if event.last:
-                        break
+        super().end_prep()
 
-            return (pid, output, retcode)
+    def end(self):
+        livelogs = self.livelogs.values()
 
-    def __init__(self, network: "toponom.Network", configs: FRRConfigs):
-        super().__init__(network)
-        self.configs = configs
-        self.timeline = Timeline()
+        # TODO: move this to instance level
+        self.instance.timeline.sleep(1.0, final=livelogs)
+
+        for livelog in self.livelogs.values():
+            livelog.close()
+
+        super().end()
+
+    def vtysh(self, args):
+        frrpath = self.configs.frrpath
+        execpath = os.path.join(frrpath, "vtysh/vtysh")
+        return self.popen(
+            [execpath] + ["--vty_socket", self.rundir] + args,
+            stdout=subprocess.PIPE,
+        )
+
+    def vtysh_polled(self, timeline: Timeline, daemon, cmds, timeout=5.0):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+        fn = self.tempfile("run/%s.vty" % (daemon))
+
+        sock.connect(fn)
+        peercred = sock.getsockopt(
+            socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3I")
+        )
+        pid, _, _ = struct.unpack("3I", peercred)
+
+        cmds = [c.strip() for c in cmds.splitlines() if c.strip() != ""]
+
+        # TODO: refactor
+        vpoll = VtyshPoll(self.name, daemon, sock, cmds)
+
+        output = []
+        retcode = None
+
+        with timeline.with_pollee(vpoll) as poller:
+            vpoll.send_cmd()
+
+            end = time.time() + timeout
+            for event in poller.run_iter(end):
+                if not isinstance(event, TimedVtysh):
+                    continue
+                output.append(event)
+                retcode = event.retcode
+                if event.last:
+                    break
+
+        return (pid, output, retcode)

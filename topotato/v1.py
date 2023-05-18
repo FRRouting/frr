@@ -18,7 +18,6 @@ from .fixtures import (
     AutoFixture,
 )
 from .frr import (
-    FRRNetworkInstance,
     FRRConfigs,
 )
 from .utils import (

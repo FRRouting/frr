@@ -139,6 +139,8 @@ def pytest_collection(session):
 
     if session.config.getoption("--show-configs"):
         sys.stdout.write("\navailable configs:\n")
+
+        # TODO: refactor for FRRNetworkInstance removal / FRRConfigs rework
         for item in topologies():
             name = item.parent.nodeid
 
@@ -158,6 +160,7 @@ def pytest_collection(session):
         which = session.config.getoption("--show-config")
         path = which.split("/")
 
+        # TODO: refactor for FRRNetworkInstance removal / FRRConfigs rework
         for item in topologies():
             name = item.parent.nodeid
             if path[0] != name:

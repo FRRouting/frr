@@ -263,7 +263,7 @@ Topotato test methods are marked with the :py:func:`topotatofunc` decorator::
 These methods are executed in the order they occur in the python source in.
 Aside from the topology being (optionally) passed as ``topo``, the names of
 systems/routers defined in the topology are filled in with their runtime
-:py:class:`FRRNetworkInstance.RouterNS` instances.
+:py:class:`FRRRouterNS` instances.
 
 Topotato test methods are run in a two-step process.  **The test method, being
 a generator, prepares and yields test items in the first stage.  Topotato then

@@ -46,7 +46,7 @@ from .generatorwrap import GeneratorWrapper, GeneratorChecks
 if typing.TYPE_CHECKING:
     from _pytest._code.code import ExceptionInfo, TracebackEntry
 
-    from .frr import FRRNetworkInstance
+    from .network import TopotatoNetwork
     from .timeline import Timeline
 
 logger = logging.getLogger("topotato")
@@ -144,7 +144,7 @@ class TopotatoItem(nodes.Item):
     instance of WhateverTestClass defined in test_something.py
     """
 
-    instance: "FRRNetworkInstance"
+    instance: "TopotatoNetwork"
     """
     Running network instance this item belongs to.
     """
@@ -488,7 +488,7 @@ class TestBase:
     doesn't need to be direct, i.e. further subclassing is possible.
     """
 
-    instancefn: ClassVar[Callable[..., "FRRNetworkInstance"]]
+    instancefn: ClassVar[Callable[..., "TopotatoNetwork"]]
     """
     TBD (rework in progress)
     """
@@ -710,7 +710,7 @@ class TopotatoClass(_pytest.python.Class):
 
     starting_ts: float
     started_ts: float
-    netinst: "FRRNetworkInstance"
+    netinst: "TopotatoNetwork"
 
     # pylint: disable=protected-access
     @classmethod
@@ -783,8 +783,10 @@ class TopotatoClass(_pytest.python.Class):
         for rtr in netinst.network.routers.keys():
             router = netinst.routers[rtr]
 
-            for daemon in netinst.configs.daemons:
-                if not netinst.configs.want_daemon(rtr, daemon):
+            if not hasattr(rtr, "configs"):
+                continue
+            for daemon in rtr.configs.daemons:
+                if not rtr.configs.want_daemon(rtr, daemon):
                     continue
 
                 try:

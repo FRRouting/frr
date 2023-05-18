@@ -6,12 +6,12 @@ Topotato topology/config fixtures
 """
 
 import sys
-import inspect
 import functools
 
 from .parse import Topology
 from .toponom import Network
-from .frr import FRRNetworkInstance
+from .network import TopotatoNetwork
+from .frr import FRRRouterNS
 
 
 # this is * imported for all tests
@@ -126,7 +126,13 @@ class AutoFixture:
         @staticmethod
         def auto_instance(request):
             cfg_inst = request.getfixturevalue(cfix_name)
-            return FRRNetworkInstance(cfg_inst.topology, cfg_inst).prepare()
+            net_inst = TopotatoNetwork(cfg_inst.topology)
+
+            for rtrname in cfg_inst.topology.routers.keys():
+                net_inst.router_factories[rtrname] = lambda name: FRRRouterNS(
+                    net_inst, name, cfg_inst
+                )
+            return net_inst.prepare()
 
         auto_instance.__name__ = ifix_name
         auto_instance.__module__ = cls.__module__

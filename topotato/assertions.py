@@ -275,7 +275,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
                 elif isinstance(self._compare, str):
                     text = deindent(text, trim=True)
                     result = text_rich_cmp(
-                        self.instance.configs,
+                        router.configs,
                         self._rtr.name,
                         text,
                         self._compare,

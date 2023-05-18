@@ -22,7 +22,7 @@ from .base import TopotatoItem
 from .utils import LockedFile, AtomicPublishFile, deindent
 
 if typing.TYPE_CHECKING:
-    from .frr import FRRNetworkInstance
+    from .network import TopotatoNetwork
 
 
 taskbasedir = "/tmp/topotato-%s" % os.uname().nodename
@@ -159,17 +159,20 @@ class Interactive:
         }
         instance = getattr(item, "instance", None)
         if instance:
-            state["frrpath"] = instance.configs.frrpath
-
             nom = pickle.dumps(instance.network)
             state["nom"] = binascii.b2a_base64(nom, newline=False).decode("ASCII")
 
             state["rundirs"] = {}
+            state["frrpaths"] = {}
+
             for name, rtr in instance.routers.items():
                 rundir = getattr(rtr, "rundir", None)
-                if rundir is None:
-                    continue
-                state["rundirs"][name] = rundir
+                if rundir is not None:
+                    state["rundirs"][name] = rundir
+
+                configs = getattr(rtr, "configs", None)
+                if configs is not None:
+                    state["frrpaths"][name] = configs.frrpath
 
         self._post(state)
 
@@ -256,7 +259,7 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
 """
         )
 
-    def show_instance_for_stop(self, instance: "FRRNetworkInstance"):
+    def show_instance_for_stop(self, instance: "TopotatoNetwork"):
         network: toponom.Network = instance.network
 
         self.show_diagram(network, sys.stdout)
