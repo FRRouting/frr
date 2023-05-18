@@ -390,6 +390,18 @@ and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
 installation prefix and other directories may be changed using the following
 options to the configuration script.
 
+.. option:: --enable-ccls
+
+   Enable the creation of a :file:`.ccls` file in the top level source
+   directory.
+
+   Some development environments (e.g., LSP server within emacs, et al.) can
+   utilize :clicmd:`ccls` to provide highly sophisticated IDE features (e.g.,
+   semantically accurate jump-to definition/reference, and even code
+   refactoring). The `--enable-ccls` causes :file:`configure` to generate a
+   configuration for the :clicmd:`ccls` command, based on the configured
+   FRR build environment.
+
 .. option:: --prefix <prefix>
 
    Install architecture-independent files in `prefix` [/usr/local].
