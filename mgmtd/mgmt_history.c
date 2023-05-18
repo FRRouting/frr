@@ -35,23 +35,18 @@ DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
  */
 static struct vty *rollback_vty;
 
-static bool mgmt_history_record_exists(char *file_path)
+static bool file_exists(const char *path)
 {
-	int exist;
-
-	exist = access(file_path, F_OK);
-	if (exist == 0)
-		return true;
-	else
-		return false;
+	return !access(path, F_OK);
 }
 
-static void mgmt_history_remove_file(char *name)
+static void remove_file(const char *path)
 {
-	if (remove(name) == 0)
-		zlog_debug("Old commit info deletion succeeded");
-	else
-		zlog_err("Old commit info deletion failed");
+	if (!file_exists(path))
+		return;
+	if (unlink(path))
+		zlog_err("Failed to remove commit history file %s: %s", path,
+			 safe_strerror(errno));
 }
 
 static struct mgmt_cmt_info_t *mgmt_history_new_cmt_info(void)
@@ -84,7 +79,7 @@ static struct mgmt_cmt_info_t *mgmt_history_create_cmt_rec(void)
 			last_cmt_info = cmt_info;
 
 		if (last_cmt_info) {
-			mgmt_history_remove_file(last_cmt_info->cmt_json_file);
+			remove_file(last_cmt_info->cmt_json_file);
 			mgmt_cmt_infos_del(&mm->cmts, last_cmt_info);
 			XFREE(MTYPE_MGMTD_CMT_INFO, last_cmt_info);
 		}
@@ -114,20 +109,21 @@ static bool mgmt_history_read_cmt_record_index(void)
 	struct mgmt_cmt_info_t *new;
 	int cnt = 0;
 
+	if (!file_exists(MGMTD_COMMIT_FILE_PATH))
+		return false;
+
 	fp = fopen(MGMTD_COMMIT_INDEX_FILE_NAME, "rb");
 	if (!fp) {
-		zlog_err("Failed to open file %s rb mode",
-			 MGMTD_COMMIT_INDEX_FILE_NAME);
+		zlog_err("Failed to open commit history %s for reading: %s",
+			 MGMTD_COMMIT_INDEX_FILE_NAME, safe_strerror(errno));
 		return false;
 	}
 
 	while ((fread(&cmt_info, sizeof(cmt_info), 1, fp)) > 0) {
 		if (cnt < MGMTD_MAX_COMMIT_LIST) {
-			if (!mgmt_history_record_exists(
-				    cmt_info.cmt_json_file)) {
-				zlog_err(
-					"Commit record present in index_file, but commit file %s missing",
-					cmt_info.cmt_json_file);
+			if (!file_exists(cmt_info.cmt_json_file)) {
+				zlog_err("Commit in index, but file %s missing",
+					 cmt_info.cmt_json_file);
 				continue;
 			}
 
@@ -136,8 +132,9 @@ static bool mgmt_history_read_cmt_record_index(void)
 			memcpy(new, &cmt_info, sizeof(struct mgmt_cmt_info_t));
 			mgmt_cmt_infos_add_tail(&mm->cmts, new);
 		} else {
-			zlog_err("More records found in index file %s",
-				 MGMTD_COMMIT_INDEX_FILE_NAME);
+			zlog_warn(
+				"More records found in commit history file %s than expected",
+				MGMTD_COMMIT_INDEX_FILE_NAME);
 			fclose(fp);
 			return false;
 		}
@@ -157,11 +154,10 @@ static bool mgmt_history_dump_cmt_record_index(void)
 	struct mgmt_cmt_info_t cmt_info_set[10];
 	int cnt = 0;
 
-	mgmt_history_remove_file((char *)MGMTD_COMMIT_INDEX_FILE_NAME);
-	fp = fopen(MGMTD_COMMIT_INDEX_FILE_NAME, "ab");
+	fp = fopen(MGMTD_COMMIT_INDEX_FILE_NAME, "wb");
 	if (!fp) {
-		zlog_err("Failed to open file %s ab mode",
-			 MGMTD_COMMIT_INDEX_FILE_NAME);
+		zlog_err("Failed to open commit history %s for writing: %s",
+			 MGMTD_COMMIT_INDEX_FILE_NAME, safe_strerror(errno));
 		return false;
 	}
 
@@ -179,11 +175,11 @@ static bool mgmt_history_dump_cmt_record_index(void)
 	ret = fwrite(&cmt_info_set, sizeof(struct mgmt_cmt_info_t), cnt, fp);
 	fclose(fp);
 	if (ret != cnt) {
-		zlog_err("Write record failed");
+		zlog_err("Failed to write full commit history, removing file");
+		remove_file(MGMTD_COMMIT_INDEX_FILE_NAME);
 		return false;
-	} else {
-		return true;
 	}
+	return true;
 }
 
 static int mgmt_history_rollback_to_cmt(struct vty *vty,
@@ -281,7 +277,7 @@ int mgmt_history_rollback_by_id(struct vty *vty, const char *cmtid_str)
 			return ret;
 		}
 
-		mgmt_history_remove_file(cmt_info->cmt_json_file);
+		remove_file(cmt_info->cmt_json_file);
 		mgmt_cmt_infos_del(&mm->cmts, cmt_info);
 		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
@@ -322,7 +318,7 @@ int mgmt_history_rollback_n(struct vty *vty, int num_cmts)
 		}
 
 		cnt++;
-		mgmt_history_remove_file(cmt_info->cmt_json_file);
+		remove_file(cmt_info->cmt_json_file);
 		mgmt_cmt_infos_del(&mm->cmts, cmt_info);
 		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
