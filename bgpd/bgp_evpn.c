@@ -3271,6 +3271,9 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bgp_aggregate_decrement(bgp_vrf, bgp_dest_get_prefix(dest), pi, afi,
 				safi);
 
+	/* Force deletion */
+	SET_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR);
+
 	/* Mark entry for deletion */
 	bgp_path_info_delete(dest, pi);
 

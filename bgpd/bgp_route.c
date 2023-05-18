@@ -3227,10 +3227,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
 	 */
-	if (old_select && old_select == new_select
-	    && !CHECK_FLAG(dest->flags, BGP_NODE_USER_CLEAR)
-	    && !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
-	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
+	if (old_select && old_select == new_select &&
+	    !CHECK_FLAG(dest->flags, BGP_NODE_USER_CLEAR) &&
+	    !CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR) &&
+	    !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED) &&
+	    !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		if (bgp_zebra_has_route_changed(old_select)) {
 #ifdef ENABLE_BGP_VNC
 			vnc_import_bgp_add_route(bgp, p, old_select);
@@ -3283,6 +3284,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set
 	 */
 	UNSET_FLAG(dest->flags, BGP_NODE_USER_CLEAR);
+
+	/* If the process wants to force deletion this flag will be set
+	 */
+	UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR);
 
 	/* bestpath has changed; bump version */
 	if (old_select || new_select) {
