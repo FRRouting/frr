@@ -26,9 +26,8 @@
 #define MGMTD_DBG_BE_CLIENT_CHECK()                                            \
 	DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL)
 
-DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH,
-		    "MGMTD backend transaction batch data");
-DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_TXN, "MGMTD backend transaction data");
+DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH, "backend transaction batch data");
+DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_TXN, "backend transaction data");
 
 enum mgmt_be_txn_event {
 	MGMTD_BE_TXN_PROC_SETCFG = 1,
