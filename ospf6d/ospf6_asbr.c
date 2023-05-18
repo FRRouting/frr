@@ -2907,8 +2907,9 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 		UNSET_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED);
 
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: Don't originate the summary address,It is configured to not-advertise.",
-				__func__);
+			zlog_debug(
+					"%s: Don't originate the summary address,It is configured to not-advertise.",
+					__func__);
 		return;
 	}
 
@@ -2969,8 +2970,8 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	if (lsa && prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug(
-				"%s: Route prefix is same as aggr so no need to re-originate LSA(%pFX)",
-				__PRETTY_FUNCTION__, &aggr->p);
+					"%s: Route prefix is same as aggr so no need to re-originate LSA(%pFX)",
+					__PRETTY_FUNCTION__, &aggr->p);
 
 		aggr->id = info->id;
 		info->id = 0;
