@@ -361,6 +361,7 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 				client_ctx, fe_msg->session_req->session_id);
 		}
 
+		/* The session state may be deleted by the callback */
 		if (session && session->client_ctx &&
 		    session->client_ctx->client_params.client_session_notify)
 			(*session->client_ctx->client_params
@@ -549,12 +550,39 @@ static int _notify_connect_disconnect(struct msg_client *client, bool connected)
 {
 	struct mgmt_fe_client_ctx *client_ctx =
 		container_of(client, struct mgmt_fe_client_ctx, client);
+	struct mgmt_fe_client_session *session;
 	int ret;
 
 	/* Send REGISTER_REQ message */
 	if (connected) {
 		if ((ret = mgmt_fe_send_register_req(client_ctx)) != 0)
 			return ret;
+	}
+
+	/* Walk list of sessions for this FE client deleting them */
+	if (!connected && mgmt_sessions_count(&client_ctx->client_sessions)) {
+		MGMTD_FE_CLIENT_DBG("Cleaning up existing sessions");
+
+		FOREACH_SESSION_IN_LIST (client_ctx, session) {
+			assert(session->client_ctx);
+
+			/* unlink from list first this avoids double free */
+			mgmt_sessions_del(&client_ctx->client_sessions,
+					  session);
+
+			/* notify FE client the session is being deleted */
+			if (session->client_ctx->client_params
+				    .client_session_notify) {
+				(*session->client_ctx->client_params
+					  .client_session_notify)(
+					(uintptr_t)client_ctx,
+					client_ctx->client_params.user_data,
+					session->client_id, false, true,
+					session->session_id, session->user_ctx);
+			}
+
+			XFREE(MTYPE_MGMTD_FE_SESSION, session);
+		}
 	}
 
 	/* Notify FE client through registered callback (if any). */
@@ -653,6 +681,14 @@ void mgmt_fe_client_lib_vty_init(void)
 	install_element(CONFIG_NODE, &debug_mgmt_client_fe_cmd);
 }
 
+uint mgmt_fe_client_session_count(uintptr_t lib_hndl)
+{
+	struct mgmt_fe_client_ctx *client_ctx =
+		(struct mgmt_fe_client_ctx *)lib_hndl;
+
+	return mgmt_sessions_count(&client_ctx->client_sessions);
+}
+
 /*
  * Create a new Session for a Frontend Client connection.
  */
@@ -705,8 +741,8 @@ enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
 	if (session->session_id &&
 	    mgmt_fe_send_session_req(client_ctx, session, false) != 0)
 		MGMTD_FE_CLIENT_ERR(
-			"Failed to send session destroy request for the session-id %lu",
-			(unsigned long)session->session_id);
+			"Failed to send session destroy request for the session-id %" PRIu64,
+			session->session_id);
 
 	mgmt_sessions_del(&client_ctx->client_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);

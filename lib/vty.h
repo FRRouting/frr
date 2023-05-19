@@ -226,6 +226,9 @@ struct vty {
 	uint64_t mgmt_session_id; /* FE adapter identifies session w/ this */
 	uint64_t mgmt_client_id;  /* FE vty client identifies w/ this ID */
 	uint64_t mgmt_req_id;
+	/* set when we have sent mgmtd a *REQ command in response to some vty
+	 * CLI command and we are waiting on the reply so we can respond to the
+	 * vty user. */
 	bool mgmt_req_pending;
 	bool mgmt_locked_candidate_ds;
 };
@@ -401,7 +404,7 @@ extern void vty_stdio_close(void);
 
 extern void vty_init_mgmt_fe(void);
 extern bool vty_mgmt_fe_enabled(void);
-extern bool vty_mgmt_should_process_cli_changes(struct vty *vty);
+extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
 
 extern bool mgmt_vty_read_configs(void);
 extern int vty_mgmt_send_config_data(struct vty *vty);

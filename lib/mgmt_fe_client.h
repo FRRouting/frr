@@ -365,6 +365,11 @@ mgmt_fe_register_yang_notify(uintptr_t lib_hndl, uint64_t session_id,
  */
 extern void mgmt_fe_client_lib_destroy(void);
 
+/*
+ * Get count of open sessions.
+ */
+extern uint mgmt_fe_client_session_count(uintptr_t lib_hndl);
+
 #ifdef __cplusplus
 }
 #endif
