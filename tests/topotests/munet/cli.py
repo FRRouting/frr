@@ -93,7 +93,7 @@ def spawn(unet, host, cmd, iow, ns_only):
             elif master_fd in r:
                 o = os.read(master_fd, 10240)
                 if o:
-                    iow.write(o.decode("utf-8"))
+                    iow.write(o.decode("utf-8", "ignore"))
                     iow.flush()
     finally:
         # restore tty settings back
