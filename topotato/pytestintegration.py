@@ -19,7 +19,7 @@ import pytest
 from . import hooks
 from .utils import EnvcheckResult
 from .base import TopotatoItem
-from .frr import FRRConfigs
+from .frr import FRRSetup
 from .toponom import LAN
 from .interactive import Interactive
 from .pretty import PrettySession
@@ -45,7 +45,7 @@ def pytest_addhooks(pluginmanager):
     pluginmanager.add_hookspecs(hooks)
     pluginmanager.register(NetworkInstance)
     pluginmanager.register(TopotatoItem)
-    pluginmanager.register(FRRConfigs)
+    pluginmanager.register(FRRSetup)
     pluginmanager.register(PrettySession)
     pluginmanager.register(Interactive)
 

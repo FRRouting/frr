@@ -106,7 +106,7 @@ class AutoFixture:
 
         def auto_config(request):
             topo_inst = request.getfixturevalue(topo_name)
-            config = configs(topo_inst)
+            config = configs(topo_inst, request.session.frr)
             config.generate()
             return config
 

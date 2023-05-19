@@ -24,6 +24,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     Generator,
     List,
     Literal,
@@ -82,32 +83,73 @@ class FRRSetupError(EnvironmentError):
     pass
 
 
-class FRRConfigs(dict):
+class FRRSetup:
     """
-    set of config files for an FRR setup
+    Encapsulation of an FRR build.
 
-    this is a subclass of dict, keyed by router name, and has another level
-    of dicts for the daemons, i.e.  frrconfig['r1']['zebra']
+    This grabs all the necessary information about the FRR build to use,
+    generally given with ``--frr-builddir`` on the pytest command line.  In
+    theory multiple instances of this can exist, but for the time being there
+    is only one, and you can find it in pytest's session object as
+    ``session.frr``.
     """
 
-    daemons: ClassVar[List[str]]
-    binmap: ClassVar[Dict[str, str]]
-    makevars: ClassVar[Mapping[str, str]]
-    frrcred: ClassVar[Any]
-    xrefs: ClassVar[Optional[Dict[Any, Any]]] = None
+    daemons_all: ClassVar[List[str]] = []
+    """
+    List of FRR daemons topotato knows about.  The daemons available are a
+    subset of this, determined by reading ``Makefile`` from the FRR build.
+    """
+    daemons_all.extend("zebra staticd".split())
+    daemons_all.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld".split())
+    daemons_all.extend("eigrpd pimd pim6d ldpd nhrpd sharpd pathd pbrd".split())
+    daemons_all.extend("bfdd vrrpd".split())
 
-    frrpath: ClassVar[str]
-    srcpath: ClassVar[str]
+    daemons_integrated_only: ClassVar[FrozenSet[str]] = frozenset(
+        "pim6d staticd".split()
+    )
+    """
+    Daemons that don't have their config loaded with ``-f`` on startup
+    """
+
+    frrpath: str
+    """
+    Path to the build directory (note this is not an install in e.g. /usr)
+    """
+    srcpath: str
+    """
+    Path to sources, same as :py:attr:`frrpath` except for out-of-tree builds.
+    """
+
+    daemons: List[str]
+    """
+    Which daemons are available in this build, in order of startup.
+    """
+    binmap: Dict[str, str]
+    """
+    Daemon name to executable mapping
+    """
+    makevars: Mapping[str, str]
+    """
+    All the variables defined in ``Makefile``, to look up how the build was
+    configured.
+    """
+    frrcred: pwd.struct_passwd
+    """
+    UID/GID that FRR was configured at build time to run under.
+    """
+    xrefs: Optional[Dict[Any, Any]] = None
+    """
+    xrefs (Log message / CLI / ...) for this FRR build.
+    """
+
     confpath = "/etc/frr"
+    """
+    Configuration path FRR was configured at build time for.
 
-    # will be overridden by init, but necessary when running separate tests
-    # directly outside of pytest, e.g. to just dump the configs
-    daemons = []
-    daemons.extend("zebra staticd".split())
-    daemons.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld eigrpd".split())
-    daemons.extend("pimd pim6d ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
-
-    daemons_integrated_only = frozenset("pim6d staticd".split())
+    Note while daemon config paths can be overridden at daemon start,
+    ``vtysh.conf`` is always in this location (since it has PAM config, which
+    is mildly security relevant.)
+    """
 
     @staticmethod
     @pytest.hookimpl()
@@ -125,103 +167,128 @@ class FRRConfigs(dict):
             default="../frr",
         )
 
-    # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     @classmethod
     @pytest.hookimpl()
     def pytest_topotato_envcheck(cls, session, result: EnvcheckResult):
-        """
-        grab some setup information about a FRR build from frrpath
-
-        among other things, this figures out which daemons are even available
-        """
         frrpath = get_dir(session, "--frr-builddir", "frr_builddir")
-        cls.frrpath = frrpath = os.path.abspath(frrpath)
+
+        session.frr = cls(frrpath, result)
+
+    def __init__(self, frrpath: str, result: EnvcheckResult):
+        """
+        Grab setup information about a FRR build from frrpath.
+
+        Fills in all the fields on this instance.
+        """
+        self.frrpath = os.path.abspath(frrpath)
 
         logger.debug("FRR build directory: %r", frrpath)
+
+        self._source_locate()
+        self._env_check(result)
+        self._daemons_setup(result)
+        self._xrefs_load()
+
+    def _source_locate(self):
         try:
-            with open(os.path.join(frrpath, "Makefile"), encoding="utf-8") as fd:
+            with open(os.path.join(self.frrpath, "Makefile"), encoding="utf-8") as fd:
                 makefile = fd.read()
         except FileNotFoundError as exc:
             raise FRRSetupError(
                 "%r does not seem to be a FRR build directory, did you run ./configure && make?"
-                % frrpath
+                % self.frrpath
             ) from exc
 
         srcdirm = re.search(r"^top_srcdir\s*=\s*(.*)$", makefile, re.M)
         if srcdirm is None:
             raise FRRSetupError("cannot identify source directory for %r")
 
-        cls.srcpath = srcdir = os.path.abspath(os.path.join(frrpath, srcdirm.group(1)))
-        logger.debug("FRR source directory: %r", srcdir)
+        self.srcpath = os.path.abspath(os.path.join(self.frrpath, srcdirm.group(1)))
+        logger.debug("FRR source directory: %r", self.srcpath)
 
         oldpath = sys.path[:]
-        sys.path.append(os.path.join(srcdir, "python"))
+        sys.path.append(os.path.join(self.srcpath, "python"))
         makevarmod = importlib.import_module("makevars")
         sys.path = oldpath
 
-        cls.makevars = makevarmod.MakeReVars(makefile)  # type: ignore
+        self.makevars = makevarmod.MakeReVars(makefile)  # type: ignore
 
+    def _env_check(self, result: EnvcheckResult):
         try:
-            cls.frrcred = pwd.getpwnam(cls.makevars["enable_user"])
+            self.frrcred = pwd.getpwnam(self.makevars["enable_user"])
         except KeyError as e:
             result.error("FRR configured to use a non-existing user (%r)" % e)
 
-        if cls.makevars["sysconfdir"] != cls.confpath:
+        if self.makevars["sysconfdir"] != self.confpath:
             result.error(
                 "FRR configured with --sysconfdir=%r, must be %r for topotato"
-                % (cls.makevars["sysconfdir"], cls.confpath)
+                % (self.makevars["sysconfdir"], self.confpath)
             )
-        if not os.path.isdir(cls.confpath):
+        if not os.path.isdir(self.confpath):
             result.error(
                 "FRR config directory %r does not exist or is not a directory"
-                % cls.confpath
+                % self.confpath
             )
 
-        in_topotato = set(cls.daemons)
-        cls.daemons = list(sorted(cls.makevars["vtysh_daemons"].split()))
-        missing = set(cls.daemons) - in_topotato
+    def _daemons_setup(self, result: EnvcheckResult):
+        in_topotato = set(self.daemons_all)
+        self.daemons = list(sorted(self.makevars["vtysh_daemons"].split()))
+        missing = set(self.daemons) - in_topotato
         for daemon in missing:
             logger.warning(
                 "daemon %s missing from FRRConfigs.daemons, please add!", daemon
             )
 
         # this determines startup order
-        cls.daemons.remove("zebra")
-        cls.daemons.remove("staticd")
-        cls.daemons.insert(0, "zebra")
-        cls.daemons.insert(1, "staticd")
+        self.daemons.remove("zebra")
+        self.daemons.remove("staticd")
+        self.daemons.insert(0, "zebra")
+        self.daemons.insert(1, "staticd")
 
-        logger.info("FRR daemons: %s", ", ".join(cls.daemons))
+        logger.info("FRR daemons: %s", ", ".join(self.daemons))
 
         notbuilt = set()
-        cls.binmap = {}
+        self.binmap = {}
         buildprogs = []
-        buildprogs.extend(cls.makevars["sbin_PROGRAMS"].split())
-        buildprogs.extend(cls.makevars["noinst_PROGRAMS"].split())
+        buildprogs.extend(self.makevars["sbin_PROGRAMS"].split())
+        buildprogs.extend(self.makevars["noinst_PROGRAMS"].split())
         for name in buildprogs:
             _, daemon = name.rsplit("/", 1)
-            if daemon not in cls.daemons:
+            if daemon not in self.daemons:
                 logger.debug("ignoring target %r", name)
             else:
                 logger.debug("%s => %s", daemon, name)
-                if not os.path.exists(os.path.join(frrpath, name)):
+                if not os.path.exists(os.path.join(self.frrpath, name)):
                     result.warning("daemon %r enabled but not built?" % daemon)
                     notbuilt.add(daemon)
                 else:
-                    cls.binmap[daemon] = name
+                    self.binmap[daemon] = name
 
-        disabled = set(cls.daemons) - set(cls.binmap.keys()) - notbuilt
+        disabled = set(self.daemons) - set(self.binmap.keys()) - notbuilt
         for daemon in sorted(disabled):
             result.warning("daemon %r not enabled in configure, skipping" % daemon)
 
-        xrefpath = os.path.join(frrpath, "frr.xref")
+    def _xrefs_load(self):
+        xrefpath = os.path.join(self.frrpath, "frr.xref")
         if os.path.exists(xrefpath):
             with open(xrefpath, "r", encoding="utf-8") as fd:
-                cls.xrefs = json.load(fd)
+                self.xrefs = json.load(fd)
 
-    def __init__(self, topology: "toponom.Network"):
+
+class FRRConfigs(dict):
+    """
+    set of config files for an FRR setup
+
+    this is a subclass of dict, keyed by router name, and has another level
+    of dicts for the daemons, i.e.  frrconfig['r1']['zebra']
+    """
+
+    def __init__(self, topology: "toponom.Network", frr: FRRSetup):
         super().__init__()
         self.topology = topology
+
+        self.frr = frr
+        self.daemons = frr.daemons
 
     @dataclass
     class TemplateUtils:
@@ -326,6 +393,7 @@ class FRRConfigs(dict):
         """
         cls.templates = {}
         cls.daemon_rtrs = {}
+        cls.daemons = FRRSetup.daemons_all
 
         for daemon in cls.daemons:
             if not hasattr(cls, daemon):
@@ -504,12 +572,12 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
         return self.livelogs[daemon].wrfd
 
     def xrefs(self):
-        return FRRConfigs.xrefs
+        return self.configs.frr.xrefs
 
     def start(self):
         super().start()
 
-        frrcred = self.configs.frrcred
+        frrcred = self.configs.frr.frrcred
 
         self.rundir = rundir = self.tempfile("run")
         os.mkdir(rundir)
@@ -520,17 +588,17 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
 
         self.rtrcfg = self.configs.get(self.name, {})
 
-        for daemon in FRRConfigs.daemons:
+        for daemon in self.configs.daemons:
             if daemon not in self.rtrcfg:
                 continue
             self.logfiles[daemon] = self.tempfile("%s.log" % daemon)
             self.start_daemon(daemon)
 
     def start_daemon(self, daemon: str):
-        frrpath = self.configs.frrpath
-        binmap = self.configs.binmap
+        frrpath = self.configs.frr.frrpath
+        binmap = self.configs.frr.binmap
 
-        use_integrated = daemon in FRRConfigs.daemons_integrated_only
+        use_integrated = daemon in self.configs.frr.daemons_integrated_only
 
         if use_integrated:
             cfgpath = self.tempfile("integrated-" + daemon + ".conf")
@@ -633,7 +701,7 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
         super().end()
 
     def vtysh(self, args):
-        frrpath = self.configs.frrpath
+        frrpath = self.configs.frr.frrpath
         execpath = os.path.join(frrpath, "vtysh/vtysh")
         return self.popen(
             [execpath] + ["--vty_socket", self.rundir] + args,

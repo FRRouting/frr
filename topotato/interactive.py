@@ -172,7 +172,7 @@ class Interactive:
 
                 configs = getattr(rtr, "configs", None)
                 if configs is not None:
-                    state["frrpaths"][name] = configs.frrpath
+                    state["frrpaths"][name] = configs.frr.frrpath
 
         self._post(state)
 
