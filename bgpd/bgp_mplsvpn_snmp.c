@@ -581,6 +581,7 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 	bool new_active = false;
 	oid trap;
 	struct index_oid trap_index[2];
+	const char *vrf_name;
 
 	if (!is_bgp_vrf_mplsvpn(bgp) || bgp->snmp_stats == NULL
 	    || !bgp_mplsvpn_notif_enable)
@@ -596,14 +597,18 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 		else
 			trap = MPLSL3VPNDOWN;
 
+		if (bgp->name)
+			vrf_name = bgp->name;
+		else
+			vrf_name = VRF_DEFAULT_NAME;
 		/*
 		 * first index vrf_name + ifindex
 		 * second index vrf_name
 		 */
-		trap_index[1].indexlen = strnlen(bgp->name, VRF_NAMSIZ);
-		oid_copy_str(trap_index[0].indexname, bgp->name,
+		trap_index[1].indexlen = strnlen(vrf_name, VRF_NAMSIZ);
+		oid_copy_str(trap_index[0].indexname, vrf_name,
 			     trap_index[1].indexlen);
-		oid_copy_str(trap_index[1].indexname, bgp->name,
+		oid_copy_str(trap_index[1].indexname, vrf_name,
 			     trap_index[1].indexlen);
 		trap_index[0].indexlen =
 			trap_index[1].indexlen + sizeof(ifindex_t);
