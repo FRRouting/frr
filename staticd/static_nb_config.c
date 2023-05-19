@@ -136,11 +136,11 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
 		if (ifname != NULL) {
-			if (strcasecmp(ifname, "Null0") == 0
-			    || strcasecmp(ifname, "reject") == 0
-			    || strcasecmp(ifname, "blackhole") == 0) {
-				snprintf(args->errmsg, args->errmsg_len,
-					"%s: Nexthop interface name can not be from reserved keywords(Null0, reject, blackhole)",
+			if (strcasecmp(ifname, "reject") == 0 ||
+			    strcasecmp(ifname, "blackhole") == 0) {
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"%s: Nexthop interface name can not be from reserved keywords(reject, blackhole)",
 					ifname);
 				return NB_ERR_VALIDATION;
 			}
