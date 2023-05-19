@@ -542,7 +542,7 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
 						   void *ctx),
 		      void *ctx, bool alloc_xp_copy)
 {
-	int ret;
+	int ret = 0;
 	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
