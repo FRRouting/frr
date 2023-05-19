@@ -7418,7 +7418,7 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 
 	asnotation = bgp_get_asnotation(NULL);
 
-	if (!ae)
+	if (!aspath)
 		ae = aspath_empty(asnotation);
 
 	if (!pi)
