@@ -216,7 +216,10 @@ FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
 		.signals = mgmt_signals, .n_signals = array_size(mgmt_signals),
 
 		.privs = &mgmt_privs, .yang_modules = mgmt_yang_modules,
-		.n_yang_modules = array_size(mgmt_yang_modules));
+		.n_yang_modules = array_size(mgmt_yang_modules),
+
+		/* avoid libfrr trying to read our config file for us */
+		.flags = FRR_MANUAL_VTY_START);
 
 #define DEPRECATED_OPTIONS ""
 

@@ -1036,7 +1036,7 @@ void frr_config_fork(void)
 	zlog_tls_buffer_init();
 }
 
-static void frr_vty_serv(void)
+void frr_vty_serv_start(void)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -1058,7 +1058,15 @@ static void frr_vty_serv(void)
 		di->vty_path = vtypath_default;
 	}
 
-	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
+	vty_serv_start(di->vty_addr, di->vty_port, di->vty_path);
+}
+
+void frr_vty_serv_stop(void)
+{
+	vty_serv_stop();
+
+	if (di->vty_path)
+		unlink(di->vty_path);
 }
 
 static void frr_check_detach(void)
@@ -1155,7 +1163,8 @@ void frr_run(struct event_loop *master)
 {
 	char instanceinfo[64] = "";
 
-	frr_vty_serv();
+	if (!(di->flags & FRR_MANUAL_VTY_START))
+		frr_vty_serv_start();
 
 	if (di->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",

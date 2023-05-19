@@ -2374,7 +2374,7 @@ static void vtysh_write(struct event *thread)
 #endif /* VTYSH */
 
 /* Determine address family to bind. */
-void vty_serv_sock(const char *addr, unsigned short port, const char *path)
+void vty_serv_start(const char *addr, unsigned short port, const char *path)
 {
 	/* If port is set to 0, do not listen on TCP/IP at all! */
 	if (port)
@@ -2383,6 +2383,20 @@ void vty_serv_sock(const char *addr, unsigned short port, const char *path)
 #ifdef VTYSH
 	vty_serv_un(path);
 #endif /* VTYSH */
+}
+
+void vty_serv_stop(void)
+{
+	struct vty_serv *vtyserv;
+
+	while ((vtyserv = vtyservs_pop(vty_servs))) {
+		EVENT_OFF(vtyserv->t_accept);
+		close(vtyserv->sock);
+		XFREE(MTYPE_VTY_SERV, vtyserv);
+	}
+
+	vtyservs_fini(vty_servs);
+	vtyservs_init(vty_servs);
 }
 
 static void vty_error_delete(void *arg)
@@ -3393,13 +3407,10 @@ static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
 	mgmt_fe_connected = connected;
 
 	/* Start or stop listening for vty connections */
-	if (connected) {
-		zlog_info("mgmtd: starting vty servers");
+	if (connected)
 		frr_vty_serv_start();
-	} else {
-		zlog_info("mgmtd: stopping vty servers");
+	else
 		frr_vty_serv_stop();
-	}
 }
 
 /*
@@ -3849,7 +3860,6 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 void vty_terminate(void)
 {
 	struct vty *vty;
-	struct vty_serv *vtyserv;
 
 	if (mgmt_lib_hndl) {
 		mgmt_fe_client_lib_destroy();
@@ -3875,12 +3885,5 @@ void vty_terminate(void)
 	vtys_fini(vtysh_sessions);
 	vtys_init(vtysh_sessions);
 
-	while ((vtyserv = vtyservs_pop(vty_servs))) {
-		EVENT_OFF(vtyserv->t_accept);
-		close(vtyserv->sock);
-		XFREE(MTYPE_VTY_SERV, vtyserv);
-	}
-
-	vtyservs_fini(vty_servs);
-	vtyservs_init(vty_servs);
+	vty_serv_stop();
 }

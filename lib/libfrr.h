@@ -39,6 +39,11 @@ extern "C" {
  * Does nothing if -d isn't used.
  */
 #define FRR_DETACH_LATER	(1 << 6)
+/* If FRR_MANUAL_VTY_START is used, frr_run() will not automatically start
+ * listening on for vty connection (either TCP or Unix socket based). The daemon
+ * is responsible for calling frr_vty_serv() itself.
+ */
+#define FRR_MANUAL_VTY_START (1 << 7)
 
 PREDECL_DLIST(log_args);
 struct log_arg {
@@ -150,6 +155,8 @@ extern void frr_config_fork(void);
 
 extern void frr_run(struct event_loop *master);
 extern void frr_detach(void);
+extern void frr_vty_serv_start(void);
+extern void frr_vty_serv_stop(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			     const char *path);
