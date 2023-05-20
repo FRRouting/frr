@@ -69,17 +69,20 @@ struct mgmt_be_client_adapter {
 
 DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 
-union mgmt_be_xpath_subscr_info {
-	uint8_t subscribed;
-	struct {
-		uint8_t validate_config : 1;
-		uint8_t notify_config : 1;
-		uint8_t own_oper_data : 1;
-	};
-};
+/*
+ * MGMT_SUBSCR_xxx - flags for subscription types for xpaths registrations
+ *
+ * MGMT_SUBSCR_VALIDATE_CFG :: the client should be asked to validate config
+ * MGMT_SUBSCR_NOTIFY_CFG :: the client should be notified of config changes
+ * MGMT_SUBSCR_OPER_OWN :: the client owns the given oeprational state
+ */
+#define MGMT_SUBSCR_VALIDATE_CFG	0x1
+#define MGMT_SUBSCR_NOTIFY_CFG	0x2
+#define MGMT_SUBSCR_OPER_OWN	0x4
+#define MGMT_SUBSCR_ALL	       	0x7
 
 struct mgmt_be_client_subscr_info {
-	union mgmt_be_xpath_subscr_info xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
+	uint xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
 };
 
 /* Initialise backend adapter module. */
@@ -194,11 +197,17 @@ extern void mgmt_be_adapter_status_write(struct vty *vty);
  */
 extern void mgmt_be_xpath_register_write(struct vty *vty);
 
-/*
- * Maps a YANG dtata Xpath to one or more
- * backend clients that should be contacted for various purposes.
+/**
+ * Lookup the clients which are subscribed to a given `xpath`
+ * and the way they are subscribed.
+ *
+ * Args:
+ *     xpath - the xpath to check for subscription information.
+ *     subscr_info - An array of uint indexed by client id
+ *                   each eleemnt holds the subscription info
+ *                   for that client.
  */
-extern int mgmt_be_get_subscr_info_for_xpath(
+extern void mgmt_be_get_subscr_info_for_xpath(
 	const char *xpath, struct mgmt_be_client_subscr_info *subscr_info);
 
 /*

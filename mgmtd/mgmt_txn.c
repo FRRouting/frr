@@ -81,8 +81,7 @@ struct mgmt_txn_be_cfg_batch {
 	uint64_t batch_id;
 	enum mgmt_be_client_id be_id;
 	struct mgmt_be_client_adapter *be_adapter;
-	union mgmt_be_xpath_subscr_info
-		xp_subscr[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
+	uint xp_subscr[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangCfgDataReq cfg_data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangCfgDataReq * cfg_datap[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangData data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
@@ -532,14 +531,13 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			 * Send TXN_DELETE to cleanup state for this
 			 * transaction on backend
 			 */
-			if ((*txn_req)->req.commit_cfg.curr_phase
-				    >= MGMTD_COMMIT_PHASE_TXN_CREATE
-			    && (*txn_req)->req.commit_cfg.curr_phase
-				       < MGMTD_COMMIT_PHASE_TXN_DELETE
-			    && (*txn_req)
-				       ->req.commit_cfg.subscr_info
-				       .xpath_subscr[id]
-				       .subscribed) {
+			if ((*txn_req)->req.commit_cfg.curr_phase >=
+				    MGMTD_COMMIT_PHASE_TXN_CREATE &&
+			    (*txn_req)->req.commit_cfg.curr_phase <
+				    MGMTD_COMMIT_PHASE_TXN_DELETE &&
+			    (*txn_req)
+				    ->req.commit_cfg.subscr_info
+				    .xpath_subscr[id]) {
 				adapter = mgmt_be_get_adapter_by_id(id);
 				if (adapter)
 					mgmt_txn_send_be_txn_delete(
@@ -916,7 +914,7 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	 * Check if all clients has moved to next phase or not.
 	 */
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscribed &&
+		if (cmtcfg_req->subscr_info.xpath_subscr[id] &&
 		    mgmt_txn_batches_count(&cmtcfg_req->curr_batches[id])) {
 			/*
 			 * There's atleast once client who hasn't moved to
@@ -1034,22 +1032,15 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		MGMTD_TXN_DBG("XPATH: %s, Value: '%s'", xpath,
 			       value ? value : "NIL");
 
-		if (mgmt_be_get_subscr_info_for_xpath(xpath, &subscr_info)
-		    != 0) {
-			snprintf(err_buf, sizeof(err_buf),
-				 "No backend module found for XPATH: '%s",
-				 xpath);
-			(void)mgmt_txn_send_commit_cfg_reply(
-				txn_req->txn, MGMTD_INTERNAL_ERROR, err_buf);
-			goto mgmt_txn_create_config_batches_failed;
-		}
+		mgmt_be_get_subscr_info_for_xpath(xpath, &subscr_info);
 
 		xpath_len = strlen(xpath) + 1;
 		value_len = strlen(value) + 1;
 		found_validator = false;
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
-			if (!subscr_info.xpath_subscr[id].validate_config
-			    && !subscr_info.xpath_subscr[id].notify_config)
+			if (!(subscr_info.xpath_subscr[id] &
+			      (MGMT_SUBSCR_VALIDATE_CFG |
+			       MGMT_SUBSCR_NOTIFY_CFG)))
 				continue;
 
 			adapter = mgmt_be_get_adapter_by_id(id);
@@ -1103,19 +1094,21 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				.encoded_str_val = value;
 			value = NULL;
 
-			if (subscr_info.xpath_subscr[id].validate_config)
+			if (subscr_info.xpath_subscr[id] &
+			    MGMT_SUBSCR_VALIDATE_CFG)
 				found_validator = true;
 
-			cmtcfg_req->subscr_info.xpath_subscr[id].subscribed |=
-				subscr_info.xpath_subscr[id].subscribed;
-			MGMTD_TXN_DBG(
-				" -- %s, {V:%d, N:%d}, batch-id: %" PRIu64
-				" item:%d",
-				adapter->name,
-				subscr_info.xpath_subscr[id].validate_config,
-				subscr_info.xpath_subscr[id].notify_config,
-				cfg_btch->batch_id,
-				(int)cfg_btch->num_cfg_data);
+			cmtcfg_req->subscr_info.xpath_subscr[id] |=
+				subscr_info.xpath_subscr[id];
+			MGMTD_TXN_DBG(" -- %s, {V:%d, N:%d}, batch-id: %" PRIu64
+				      " item:%d",
+				      adapter->name,
+				      (subscr_info.xpath_subscr[id] &
+				       MGMT_SUBSCR_VALIDATE_CFG) != 0,
+				      (subscr_info.xpath_subscr[id] &
+				       MGMT_SUBSCR_NOTIFY_CFG) != 0,
+				      cfg_btch->batch_id,
+				      (int)cfg_btch->num_cfg_data);
 
 			cfg_btch->num_cfg_data++;
 			num_chgs++;
@@ -1350,7 +1343,7 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscribed) {
+		if (cmtcfg_req->subscr_info.xpath_subscr[id]) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (mgmt_be_create_txn(adapter, txn->txn_id)
 			    != 0) {
@@ -1398,7 +1391,7 @@ mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	assert(cmtcfg_req->subscr_info.xpath_subscr[adapter->id].subscribed);
+	assert(cmtcfg_req->subscr_info.xpath_subscr[adapter->id]);
 
 	indx = 0;
 	num_batches =
@@ -1451,7 +1444,7 @@ mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	if (cmtcfg_req->subscr_info.xpath_subscr[adapter->id].subscribed) {
+	if (cmtcfg_req->subscr_info.xpath_subscr[adapter->id]) {
 		adapter = mgmt_be_get_adapter_by_id(adapter->id);
 		(void)mgmt_be_destroy_txn(adapter, txn->txn_id);
 
@@ -1519,7 +1512,8 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	}
 
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].notify_config) {
+		if (cmtcfg_req->subscr_info.xpath_subscr[id] &
+		    MGMT_SUBSCR_NOTIFY_CFG) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				return -1;
@@ -2489,10 +2483,9 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 						     ? &txn->commit_cfg_req
 								->req.commit_cfg
 						     : NULL;
-				if (cmtcfg_req
-				    && cmtcfg_req->subscr_info
-					       .xpath_subscr[adapter->id]
-					       .subscribed) {
+				if (cmtcfg_req &&
+				    cmtcfg_req->subscr_info
+					    .xpath_subscr[adapter->id]) {
 					mgmt_txn_send_commit_cfg_reply(
 						txn, MGMTD_INTERNAL_ERROR,
 						"Backend daemon disconnected while processing commit!");

@@ -19,14 +19,15 @@
 
 DEFINE_MGROUP(MGMTD, "mgmt");
 DEFINE_MTYPE(MGMTD, MGMTD, "instance");
+DEFINE_MTYPE(MGMTD, MGMTD_XPATH, "xpath regex");
 DEFINE_MTYPE(MGMTD, MGMTD_BE_ADPATER, "backend adapter");
-DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "Frontend adapter");
-DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "Frontend Client Session");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN, "Trnsction");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_REQ, "Trnsction Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_SETCFG_REQ, "Trnsction Set-Config Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "Trnsction Commit-Config Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "Trnsction Get-Data Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "Trnsction Get-Data Replies");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "Trnsction Gonfig Batches");
-DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "info for tracking commits");
+DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "frontend adapter");
+DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "frontend session");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN, "txn");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_REQ, "txn request");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_SETCFG_REQ, "txn set-config requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "txn get-data requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "txn get-data replies");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "txn config batches");
+DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");
