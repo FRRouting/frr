@@ -522,6 +522,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			json_object_string_add(json, "advertiseGatewayMacip",
 					       "Disabled");
 		if (!vpn->advertise_svi_macip && bgp_evpn &&
+		    bgp_evpn->evpn_info &&
 		    bgp_evpn->evpn_info->advertise_svi_macip)
 			json_object_string_add(json, "advertiseSviMacIp",
 					       "Active");
@@ -567,6 +568,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			vty_out(vty, "  Advertise-gw-macip : %s\n",
 				"Disabled");
 		if (!vpn->advertise_svi_macip && bgp_evpn &&
+		    bgp_evpn->evpn_info &&
 		    bgp_evpn->evpn_info->advertise_svi_macip)
 			vty_out(vty, "  Advertise-svi-macip : %s\n",
 				"Active");
