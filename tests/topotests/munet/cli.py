@@ -281,7 +281,6 @@ async def async_input(prompt, histfile):
 
 
 def make_help_str(unet):
-
     w = sorted([x if x else "" for x in unet.cli_in_window_cmds])
     ww = unet.cli_in_window_cmds
     u = sorted([x if x else "" for x in unet.cli_run_cmds])
@@ -516,7 +515,6 @@ class Completer:
 async def doline(
     unet, line, outf, background=False, notty=False
 ):  # pylint: disable=R0911
-
     line = line.strip()
     m = re.fullmatch(r"^(\S+)(?:\s+(.*))?$", line)
     if not m:
@@ -670,7 +668,7 @@ async def cli_client(sockpath, prompt="munet> "):
         rb = rb[: -len(ENDMARKER)]
 
         # Write the output
-        sys.stdout.write(rb.decode("utf-8"))
+        sys.stdout.write(rb.decode("utf-8", "ignore"))
 
 
 async def local_cli(unet, outf, prompt, histfile, background):
@@ -729,7 +727,7 @@ async def cli_client_connected(unet, background, reader, writer):
                 self.writer = writer
 
             def write(self, x):
-                self.writer.write(x.encode("utf-8"))
+                self.writer.write(x.encode("utf-8", "ignore"))
 
             def flush(self):
                 self.writer.flush()
