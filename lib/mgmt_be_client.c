@@ -1072,6 +1072,7 @@ void mgmt_be_client_lib_destroy(void)
 	msg_client_cleanup(&client_ctx->client);
 	mgmt_be_cleanup_all_txns(client_ctx);
 	mgmt_be_txns_fini(&client_ctx->txn_head);
+	nb_config_free(client_ctx->candidate_config);
 
 	memset(client_ctx, 0, sizeof(*client_ctx));
 }

@@ -1090,8 +1090,8 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				&cfg_btch->data[cfg_btch->num_cfg_data]);
 			cfg_btch->cfg_data[cfg_btch->num_cfg_data].data =
 				&cfg_btch->data[cfg_btch->num_cfg_data];
-			cfg_btch->data[cfg_btch->num_cfg_data].xpath = xpath;
-			xpath = NULL;
+			cfg_btch->data[cfg_btch->num_cfg_data].xpath =
+				strdup(xpath);
 
 			mgmt_yang_data_value_init(
 				&cfg_btch->value[cfg_btch->num_cfg_data]);
@@ -1127,6 +1127,9 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				 xpath);
 			MGMTD_TXN_ERR("***** %s", err_buf);
 		}
+
+		free(xpath);
+		xpath = NULL;
 	}
 
 	cmtcfg_req->cmt_stats->last_batch_cnt = num_chgs;

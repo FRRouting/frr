@@ -2472,6 +2472,7 @@ void vty_close(struct vty *vty)
 	if (vty->fd == STDIN_FILENO)
 		was_stdio = true;
 
+	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
 	XFREE(MTYPE_VTY, vty->buf);
 
 	if (vty->error) {
