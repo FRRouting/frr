@@ -2190,6 +2190,7 @@ bool mgmt_vty_read_configs(void)
 	FILE *confp;
 	uint line_num = 0;
 	uint count = 0;
+	uint index;
 
 	vty = vty_new();
 	vty->wfd = STDERR_FILENO;
@@ -2201,7 +2202,8 @@ bool mgmt_vty_read_configs(void)
 	vty->mgmt_locked_candidate_ds = true;
 	mgmt_candidate_ds_wr_locked = true;
 
-	for (uint index = 0; index < mgmt_daemons_count; index++) {
+
+	for (index = 0; index < array_size(mgmt_daemons); index++) {
 		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
 			 mgmt_daemons[index]);
 
