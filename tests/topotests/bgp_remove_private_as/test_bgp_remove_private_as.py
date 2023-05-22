@@ -409,8 +409,6 @@ def test_bgp_remove_private_as():
         # the old flag after each iteration so we only test the flags we expect.
         _change_remove_type(rmv_type, "del")
 
-    return True
-
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
