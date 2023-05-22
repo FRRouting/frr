@@ -161,6 +161,8 @@ def main():
             logging.critical('No "/tmp/topotests" directory to save')
             sys.exit(1)
         subprocess.run(["mv", "/tmp/topotests", args.results])
+        if "SUDO_USER" in os.environ:
+            subprocess.run(["chown", "-R", os.environ["SUDO_USER"], args.results])
         # # Old location for results
         # if os.path.exists("/tmp/topotests.xml", args.results):
         #     subprocess.run(["mv", "/tmp/topotests.xml", args.results])
