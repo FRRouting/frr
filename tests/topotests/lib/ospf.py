@@ -337,6 +337,7 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
 
+    config_data.append("exit")
     logger.debug("Exiting lib API: create_ospf_global()")
 
     return config_data

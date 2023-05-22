@@ -529,6 +529,7 @@ def __create_bgp_unicast_neighbor(
 
             config_data.extend(neigh_addr_data)
 
+    config_data.append("exit")
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 

@@ -2186,6 +2186,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_data += _create_interfaces_ospf_cfg(
                         "ospf6", c_data, data, ospf_keywords + ["area"]
                     )
+                interface_data.append("exit")
             if interface_data:
                 interface_data_dict[c_router] = interface_data
 
