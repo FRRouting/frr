@@ -897,7 +897,7 @@ void bfd_recv_cb(struct thread *t)
 	/*
 	 * We may have a situation where received packet is on wrong vrf
 	 */
-	if (bfd && bfd->vrf && bfd->vrf != bvrf->vrf) {
+	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
 		return;
