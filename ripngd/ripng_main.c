@@ -32,6 +32,8 @@ struct option longopts[] = {{0}};
 /* ripngd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
+
 struct zebra_privs_t ripngd_privs = {
 #if defined(FRR_USER)
 	.user = FRR_USER,
