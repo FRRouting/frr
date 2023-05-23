@@ -9,7 +9,7 @@ build and manage a Traffic Engineering Database for the various FRR daemons.
 This API has been designed for several use cases:
 
 - BGP Link State (BGP-LS): where BGP protocol need to collect the link state
-  information from the routing daemons (IS-IS and/or OSPF) to implement RFC7572
+  information from the routing daemons (IS-IS and/or OSPF) to implement RFC7752
 - Path Computation Element (PCE): where path computation algorithms are based
   on Traffic Engineering Database
 - ReSerVation Protocol (RSVP): where signaling need to know the Traffic
