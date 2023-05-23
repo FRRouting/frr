@@ -340,7 +340,7 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
     result = load_config_to_routers(tgen, routers, save_bkup)
     if not result:
         logger.info("build_config_from_json: failed to configure topology")
-        pytest.exit(1)
+        assert False
 
     logger.info(
         "Built config now clearing ospf neighbors as that router-id might not be what is used"

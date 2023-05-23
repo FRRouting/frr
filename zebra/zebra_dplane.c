@@ -3799,8 +3799,7 @@ tc_qdisc_update_internal(enum dplane_op_e op,
 	} else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
@@ -3830,8 +3829,7 @@ tc_class_update_internal(enum dplane_op_e op, struct zebra_tc_class *class)
 	} else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
@@ -3861,8 +3859,7 @@ tc_filter_update_internal(enum dplane_op_e op, struct zebra_tc_filter *filter)
 	} else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
@@ -4230,8 +4227,7 @@ done:
 	else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_lsp_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 	return result;
 }
