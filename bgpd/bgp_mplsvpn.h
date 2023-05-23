@@ -47,6 +47,9 @@ extern void vpn_leak_from_vrf_update(struct bgp *to_bgp, struct bgp *from_bgp,
 
 extern void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp, struct bgp *from_bgp,
 				       struct bgp_path_info *path_vrf);
+extern void vrf_leak_from_vrf_update(struct bgp *to_vrf,   /* to */
+				     struct bgp *from_vrf, /* from */
+				     struct bgp_path_info *path_vrf);
 
 extern void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp,
 					   struct bgp *from_bgp, afi_t afi);
@@ -324,5 +327,11 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
+extern void vrf_leak_from_vrf_withdraw_all(struct bgp *to_vrf,
+					   struct bgp *from_vrf, afi_t afi);
+extern void vrf_leak_from_vrf_update_all(struct bgp *to_vrf,
+					 struct bgp *from_vrf, afi_t afi);
+extern void vrf_leak_from_vrf_withdraw(struct bgp *to_vrf, struct bgp *from_vrf,
+				       struct bgp_path_info *path_vrf);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
