@@ -2477,7 +2477,8 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		 * has failed.
 		 */
 		FOREACH_TXN_IN_LIST (mgmt_txn_mm, txn) {
-			/* XXX why is this config only? */
+			/* TODO: update with operational state when that is
+			 * completed */
 			if (txn->type == MGMTD_TXN_TYPE_CONFIG) {
 				cmtcfg_req = txn->commit_cfg_req
 						     ? &txn->commit_cfg_req

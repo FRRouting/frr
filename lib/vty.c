@@ -2734,10 +2734,8 @@ FILE *vty_open_config(const char *config_file, char *config_default_dir)
 
 		if (strstr(config_default_dir, "vtysh") == NULL) {
 			ret = stat(integrate_default, &conf_stat);
-			if (ret >= 0) {
-				// read_success = true;
+			if (ret >= 0)
 				goto tmp_free_and_out;
-			}
 		}
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");

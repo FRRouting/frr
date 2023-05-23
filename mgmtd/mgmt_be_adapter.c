@@ -790,11 +790,6 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 	MGMTD_BE_ADAPTER_DBG("Added new MGMTD Backend adapter '%s'",
 			     adapter->name);
 
-#if 0 /* wait until we receive the SUBSCR_REQ registration with name */
-	/* Trigger resync of config with the new adapter */
-	mgmt_be_adapter_sched_init_event(adapter);
-#endif
-
 	return adapter->conn;
 }
 
@@ -820,7 +815,7 @@ int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 	assert(cfg_chgs);
 
 	/*
-	 * TODO: we should be consider making this an assertable condition and
+	 * TODO: we should consider making this an assertable condition and
 	 * guaranteeing it be true when this function is called. B/c what is
 	 * going to happen if there are some changes being sent, and we don't
 	 * gather a new snapshot, what new changes that came after the previous

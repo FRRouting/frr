@@ -76,10 +76,10 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
  * MGMT_SUBSCR_NOTIFY_CFG :: the client should be notified of config changes
  * MGMT_SUBSCR_OPER_OWN :: the client owns the given oeprational state
  */
-#define MGMT_SUBSCR_VALIDATE_CFG	0x1
-#define MGMT_SUBSCR_NOTIFY_CFG	0x2
-#define MGMT_SUBSCR_OPER_OWN	0x4
-#define MGMT_SUBSCR_ALL	       	0x7
+#define MGMT_SUBSCR_VALIDATE_CFG 0x1
+#define MGMT_SUBSCR_NOTIFY_CFG 0x2
+#define MGMT_SUBSCR_OPER_OWN 0x4
+#define MGMT_SUBSCR_ALL 0x7
 
 struct mgmt_be_client_subscr_info {
 	uint xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
