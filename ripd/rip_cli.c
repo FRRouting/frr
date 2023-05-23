@@ -91,11 +91,11 @@ DEFUN_YANG (rip_allow_ecmp,
        "Allow Equal Cost MultiPath\n"
        "Number of paths\n")
 {
-	int idx_number = 1;
+	int idx_number = 0;
 	char mpaths[3] = {};
 	uint32_t paths = MULTIPATH_NUM;
 
-	if (argv[idx_number])
+	if (argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx_number))
 		paths = strtol(argv[idx_number]->arg, NULL, 10);
 	snprintf(mpaths, sizeof(mpaths), "%u", paths);
 
