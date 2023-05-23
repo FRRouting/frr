@@ -539,4 +539,6 @@ DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));
 
 extern void rip_ecmp_change(struct rip *rip);
 
+extern uint32_t zebra_ecmp_count;
+
 #endif /* _ZEBRA_RIP_H */

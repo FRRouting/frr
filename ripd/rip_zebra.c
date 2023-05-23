@@ -20,7 +20,6 @@
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
-uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 /* Send ECMP routes to zebra. */
 static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
