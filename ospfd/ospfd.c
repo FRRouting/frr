@@ -1113,6 +1113,7 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	   skip network type setting. */
 	oi->type = IF_DEF_PARAMS(co->ifp)->type;
 	oi->ptp_dmvpn = IF_DEF_PARAMS(co->ifp)->ptp_dmvpn;
+	oi->p2mp_delay_reflood = IF_DEF_PARAMS(co->ifp)->p2mp_delay_reflood;
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);

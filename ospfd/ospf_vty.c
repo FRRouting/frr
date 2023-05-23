@@ -3958,6 +3958,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+			if (use_json)
+				json_object_boolean_add(json_interface_sub,
+							"p2mpDelayReflood",
+							oi->p2mp_delay_reflood);
+			else
+				vty_out(vty,
+					"  %sDelay reflooding LSAs received on P2MP interface\n",
+					oi->p2mp_delay_reflood ? "" : "Don't ");
+		}
 	}
 }
 
@@ -8308,13 +8318,17 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
 }
 
 DEFUN(ip_ospf_network, ip_ospf_network_cmd,
-      "ip ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point [dmvpn]>",
+      "ip ospf network <broadcast|"
+      "non-broadcast|"
+      "point-to-multipoint [delay-reflood]|"
+      "point-to-point [dmvpn]>",
       "IP Information\n"
       "OSPF interface commands\n"
       "Network type\n"
       "Specify OSPF broadcast multi-access network\n"
       "Specify OSPF NBMA network\n"
       "Specify OSPF point-to-multipoint network\n"
+      "Specify OSPF delayed reflooding of LSAs received on P2MP interface\n"
       "Specify OSPF point-to-point network\n"
       "Specify OSPF point-to-point DMVPN network\n")
 {
@@ -8322,6 +8336,7 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 	int idx = 0;
 	int old_type = IF_DEF_PARAMS(ifp)->type;
 	uint8_t old_ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
+	uint8_t old_p2mp_delay_reflood = IF_DEF_PARAMS(ifp)->p2mp_delay_reflood;
 	struct route_node *rn;
 
 	if (old_type == OSPF_IFTYPE_LOOPBACK) {
@@ -8331,21 +8346,26 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 	}
 
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
+	IF_DEF_PARAMS(ifp)->p2mp_delay_reflood =
+		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
 
 	if (argv_find(argv, argc, "broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_BROADCAST;
 	else if (argv_find(argv, argc, "non-broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_NBMA;
-	else if (argv_find(argv, argc, "point-to-multipoint", &idx))
+	else if (argv_find(argv, argc, "point-to-multipoint", &idx)) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
-	else if (argv_find(argv, argc, "point-to-point", &idx)) {
+		if (argv_find(argv, argc, "delay-reflood", &idx))
+			IF_DEF_PARAMS(ifp)->p2mp_delay_reflood = true;
+	} else if (argv_find(argv, argc, "point-to-point", &idx)) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOPOINT;
 		if (argv_find(argv, argc, "dmvpn", &idx))
 			IF_DEF_PARAMS(ifp)->ptp_dmvpn = 1;
 	}
 
-	if (IF_DEF_PARAMS(ifp)->type == old_type
-	    && IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn)
+	if (IF_DEF_PARAMS(ifp)->type == old_type &&
+	    IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn &&
+	    IF_DEF_PARAMS(ifp)->p2mp_delay_reflood == old_p2mp_delay_reflood)
 		return CMD_SUCCESS;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
@@ -8357,10 +8377,19 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 			continue;
 
 		oi->type = IF_DEF_PARAMS(ifp)->type;
+		oi->ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
+		oi->p2mp_delay_reflood = IF_DEF_PARAMS(ifp)->p2mp_delay_reflood;
 
-		if (oi->state > ISM_Down) {
-			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
-			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+		/*
+		 * The OSPF interface only needs to be flapped if the network
+		 * type or DMVPN parameter changes.
+		 */
+		if (IF_DEF_PARAMS(ifp)->type != old_type ||
+		    IF_DEF_PARAMS(ifp)->ptp_dmvpn != old_ptp_dmvpn) {
+			if (oi->state > ISM_Down) {
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+			}
 		}
 	}
 
@@ -8398,6 +8427,8 @@ DEFUN (no_ip_ospf_network,
 
 	IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
+	IF_DEF_PARAMS(ifp)->p2mp_delay_reflood =
+		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
 
 	if (IF_DEF_PARAMS(ifp)->type == old_type)
 		return CMD_SUCCESS;
@@ -8409,6 +8440,8 @@ DEFUN (no_ip_ospf_network,
 			continue;
 
 		oi->type = IF_DEF_PARAMS(ifp)->type;
+		oi->ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
+		oi->p2mp_delay_reflood = IF_DEF_PARAMS(ifp)->p2mp_delay_reflood;
 
 		if (oi->state > ISM_Down) {
 			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
@@ -11817,6 +11850,10 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 						    == OSPF_IFTYPE_POINTOPOINT
 					    && params->ptp_dmvpn)
 						vty_out(vty, " dmvpn");
+					if (params->type ==
+						    OSPF_IFTYPE_POINTOMULTIPOINT &&
+					    params->p2mp_delay_reflood)
+						vty_out(vty, " delay-reflood");
 					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %pI4",
 							&rn->p.u.prefix4);
