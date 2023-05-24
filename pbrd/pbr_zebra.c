@@ -4,8 +4,7 @@
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
  * Portions:
- *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
- *		    Approved for Public Release; Distribution Unlimited 21-1402
+ *		Copyright (c) 2021 The MITRE Corporation.
  */
 #include <zebra.h>
 

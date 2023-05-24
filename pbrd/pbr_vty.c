@@ -4,8 +4,7 @@
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
  * Portions:
- *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
- *		    Approved for Public Release; Distribution Unlimited 21-1402
+ *		Copyright (c) 2021 The MITRE Corporation.
  */
 #include <zebra.h>
 
@@ -30,9 +29,8 @@
 
 DEFPY(pbr_map_match_pcp, pbr_map_match_pcp_cmd, "[no] match pcp <(0-7)$pcp>",
       NO_STR
-      "match the rest of the command\n"
-      "match based on 802.1p Priority Code Point (PCP) value\n"
-      "a valid value in range 0..7 \n")
+      "Match the rest of the command\n"
+      "Match based on 802.1p Priority Code Point (PCP) value\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
@@ -48,9 +46,8 @@ DEFPY(pbr_map_match_pcp, pbr_map_match_pcp_cmd, "[no] match pcp <(0-7)$pcp>",
 DEFPY(pbr_map_match_vlan_id, pbr_map_match_vlan_id_cmd,
       "[no] match vlan <(1-4094)$vlan_id>",
       NO_STR
-      "match the rest of the command\n"
-      "match based on VLAN ID\n"
-      "a valid value in range 1..4094\n")
+      "Match the rest of the command\n"
+      "Match based on VLAN ID\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
@@ -71,27 +68,27 @@ DEFPY(pbr_map_match_vlan_id, pbr_map_match_vlan_id_cmd,
 }
 
 DEFPY(pbr_map_match_vlan_tag, pbr_map_match_vlan_tag_cmd,
-      "[no] match vlan ![<tagged|untagged|untagged-or-zero>$tag_type]",
+      "[no] match vlan [<tagged|untagged|untagged-or-zero>$tag_type]",
       NO_STR
-      "match the rest of the command\n"
-      "match based on VLAN tagging\n"
-      "match all tagged frames\n"
-      "match all untagged frames\n"
-      "match untagged frames, or tagged frames with id zero\n")
+      "Match the rest of the command\n"
+      "Match based on VLAN tagging\n"
+      "Match all tagged frames\n"
+      "Match all untagged frames\n"
+      "Match untagged frames, or tagged frames with id zero\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
 		return CMD_WARNING;
 
-	if (!no) {
-		if (strcmp(tag_type, "tagged") == 0) {
+    if (!no) {
+        if (strmatch(tag_type, "tagged")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_MAP_VLAN_TAGGED);
-		} else if (strcmp(tag_type, "untagged") == 0) {
+        } else if (strmatch(tag_type, "untagged")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_MAP_VLAN_UNTAGGED);
-		} else if (strcmp(tag_type, "untagged-or-zero") == 0) {
+        } else if (strmatch(tag_type, "untagged-or-zero")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_MAP_VLAN_UNTAGGED_0);
 		}
@@ -638,9 +635,9 @@ DEFPY(no_pbr_map_nexthop_group, no_pbr_map_nexthop_group_cmd,
 DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
       "set nexthop\
         <\
-		    <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
-			|INTERFACE$intf\
-		>\
+	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
+	  |INTERFACE$intf\
+	>\
         [nexthop-vrf NAME$vrf_name]",
       "Set for the PBR-MAP\n"
       "Specify one of the nexthops in this map\n"
@@ -765,9 +762,9 @@ done:
 DEFPY(no_pbr_map_nexthop, no_pbr_map_nexthop_cmd,
       "no set nexthop\
         [<\
-		    <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
-			|INTERFACE$intf\
-		>\
+	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
+	  |INTERFACE$intf\
+	>\
         [nexthop-vrf NAME$vrf_name]]",
       NO_STR
       "Set for the PBR-MAP\n"
@@ -960,12 +957,6 @@ static void vty_show_pbrms(struct vty *vty,
 			pbrms->installed ? "yes" : "no",
 			pbrms->reason ? rbuf : "Valid");
 
-    /* match clauses first */
-
-	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
-		vty_out(vty, "        Match DSCP %u\n",
-			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
-
 	if (pbrms->ip_proto) {
 		struct protoent *p;
 
@@ -981,6 +972,10 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "        SRC Port Match: %u\n", pbrms->src_prt);
 	if (pbrms->dst_prt)
 		vty_out(vty, "        DST Port Match: %u\n", pbrms->dst_prt);
+
+	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
+		vty_out(vty, "        Match DSCP %u\n",
+			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
 	if (pbrms->dsfield & PBR_DSFIELD_ECN)
 		vty_out(vty, "        ECN Match: %u\n",
 			pbrms->dsfield & PBR_DSFIELD_ECN);
@@ -988,8 +983,8 @@ static void vty_show_pbrms(struct vty *vty,
 	    vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
 	if (pbrms->match_pcp != 0)
 		vty_out(vty, "        PCP Match: %d\n", pbrms->match_pcp);
-
-	if (pbrms->match_vlan_id != 0)
+    
+    if (pbrms->match_vlan_id != 0)
 		vty_out(vty, "        Match VLAN ID: %u\n",
 			pbrms->match_vlan_id);
 	if (pbrms->match_vlan_flags == PBR_MAP_VLAN_TAGGED)
@@ -1402,7 +1397,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 
 	if ((pbrms->match_vlan_id)
 	    && (pbrms->match_vlan_flags == PBR_MAP_VLAN_NO_WILD))
-		vty_out(vty, " match vlan %u\n", pbrms->match_vlan_id);
+	    vty_out(vty, " match vlan %u\n", pbrms->match_vlan_id);
 	if (pbrms->match_vlan_flags == PBR_MAP_VLAN_TAGGED)
 		vty_out(vty, " match vlan tagged\n");
 	if (pbrms->match_vlan_flags == PBR_MAP_VLAN_UNTAGGED)
@@ -1513,7 +1508,7 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_match_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_queue_id_cmd);
-	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
+    install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);

@@ -4,8 +4,7 @@
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
  * Portions:
- *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
- *			Approved for Public Release; Distribution Unlimited 21-1402
+ *		Copyright (c) 2021 The MITRE Corporation.
  */
 #include <zebra.h>
 
@@ -108,8 +107,6 @@ void pbr_set_match_clause_for_pcp(struct pbr_map_sequence *pbrms, uint8_t pcp)
 {
 	if (pbrms) {
 		pbrms->match_pcp = pcp;
-		zlog_info("setting pbrms->match_pcp = %u ", pbrms->match_pcp);
-
 		pbr_map_check(pbrms, true);
 	}
 }
@@ -317,7 +314,7 @@ static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
 		DEBUGD(&pbr_dbg_map, "    Seq %u uses vrf %s (%u), updating map",
 		       pbrms->seqno, vrf_name, pbr_vrf_id(pbr_vrf));
 
-		pbr_map_check(pbrms, false);
+        pbr_map_check(pbrms, false);
 	}
 }
 
@@ -551,7 +548,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
         
 		pbrms->match_vlan_id = 0;
 		pbrms->match_vlan_flags = 0;
-		pbrms->match_pcp = 0;
+        pbrms->match_pcp = 0;
 
 		pbrms->action_vlan_id = 0;
 		pbrms->action_vlan_flags = 0;
@@ -625,7 +622,7 @@ static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
         && !pbrms->match_pcp && !pbrms->action_pcp && !pbrms->match_vlan_id
 	    && !pbrms->match_vlan_flags && !pbrms->action_vlan_id
 	    && !pbrms->action_vlan_flags
-	    && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
+        && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 

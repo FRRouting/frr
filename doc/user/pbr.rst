@@ -5,7 +5,7 @@ PBR
 ***
 
 :abbr:`PBR` is Policy Based Routing.  This implementation supports a very simple
-interface to allow admins to influence routing on their router.  At this point in 
+interface to allow admins to influence routing on their router.  At this point in
 time, this implementation will only work on Linux. Note that some
 functionality (VLAN matching, packet mangling) is not supported by the default
 Linux kernel provider.
@@ -114,8 +114,8 @@ end destination.
 
    When a incoming packet matches the specified ip protocol, take the
    packet and forward according to the nexthops specified. Protocols are
-   queried from the protocols database (`/etc/protocols`; see `man 5
-   protocols`).
+   queried from the protocols database (``/etc/protocols``; see ``man 5
+   protocols``).
 
 .. clicmd:: match mark (1-4294967295)
 

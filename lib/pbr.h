@@ -2,8 +2,7 @@
 /* Policy Based Routing (PBR) main header
  * Copyright (C) 2018 6WIND
  * Portions:
- *      Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
- *		    Approved for Public Release; Distribution Unlimited 21-1402
+ *      Copyright (c) 2021 The MITRE Corporation.
  */
 
 #ifndef _PBR_H
@@ -29,19 +28,19 @@ extern "C" {
  */
 struct pbr_filter {
 	uint32_t filter_bm; /* not encoded by zapi */
-#define PBR_FILTER_SRC_IP		    (1 << 0)
-#define PBR_FILTER_DST_IP		    (1 << 1)
-#define PBR_FILTER_SRC_PORT		    (1 << 2)
-#define PBR_FILTER_DST_PORT		    (1 << 3)
-#define PBR_FILTER_FWMARK		    (1 << 4)
-#define PBR_FILTER_PROTO		    (1 << 5)
-#define PBR_FILTER_SRC_PORT_RANGE	(1 << 6)
-#define PBR_FILTER_DST_PORT_RANGE	(1 << 7)
-#define PBR_FILTER_DSFIELD          (1 << 8)
-#define PBR_FILTER_IP_PROTOCOL      (1 << 9)
-#define PBR_FILTER_PCP              (1 << 10)
-#define PBR_FILTER_VLAN_FLAGS       (1 << 11)
-#define PBR_FILTER_VLAN_ID          (1 << 12)
+#define PBR_FILTER_SRC_IP (1 << 0)
+#define PBR_FILTER_DST_IP (1 << 1)
+#define PBR_FILTER_SRC_PORT (1 << 2)
+#define PBR_FILTER_DST_PORT (1 << 3)
+#define PBR_FILTER_FWMARK (1 << 4)
+#define PBR_FILTER_PROTO (1 << 5)
+#define PBR_FILTER_SRC_PORT_RANGE (1 << 6)
+#define PBR_FILTER_DST_PORT_RANGE (1 << 7)
+#define PBR_FILTER_DSFIELD (1 << 8)
+#define PBR_FILTER_IP_PROTOCOL (1 << 9)
+#define PBR_FILTER_PCP (1 << 10)
+#define PBR_FILTER_VLAN_FLAGS (1 << 11)
+#define PBR_FILTER_VLAN_ID (1 << 12)
 
 #define PBR_DSFIELD_DSCP (0xfc) /* Upper 6 bits of DS field: DSCP */
 #define PBR_DSFIELD_ECN (0x03)	/* Lower 2 bits of DS field: BCN */

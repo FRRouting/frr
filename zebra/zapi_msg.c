@@ -5,8 +5,7 @@
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
- *   Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
- *	    Approved for Public Release; Distribution Unlimited 21-1402
+ *   Copyright (c) 2021 The MITRE Corporation.
  */
 
 #include <zebra.h>
