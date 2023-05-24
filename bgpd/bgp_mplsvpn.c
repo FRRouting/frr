@@ -1417,9 +1417,10 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
  *  - else allocate a new per label nexthop cache entry and request a
  *    label to zebra. Return MPLS_INVALID_LABEL
  */
-static mpls_label_t _vpn_leak_from_vrf_get_per_nexthop_label(
-	struct bgp_path_info *pi, struct bgp *to_bgp, struct bgp *from_bgp,
-	afi_t afi, safi_t safi)
+static mpls_label_t
+_vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
+					 struct bgp *to_bgp,
+					 struct bgp *from_bgp, afi_t afi)
 {
 	struct bgp_nexthop_cache *bnc = pi->nexthop;
 	struct bgp_label_per_nexthop_cache *blnc;
@@ -1502,9 +1503,10 @@ static mpls_label_t _vpn_leak_from_vrf_get_per_nexthop_label(
  * - return the per VRF label when the per nexthop label is not supported
  * Otherwise, find or request a per label nexthop.
  */
-static mpls_label_t vpn_leak_from_vrf_get_per_nexthop_label(
-	afi_t afi, safi_t safi, struct bgp_path_info *pi, struct bgp *from_bgp,
-	struct bgp *to_bgp)
+static mpls_label_t
+vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
+					struct bgp *from_bgp,
+					struct bgp *to_bgp)
 {
 	struct bgp_path_info *bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
 	struct bgp *bgp_nexthop = NULL;
@@ -1562,8 +1564,8 @@ static mpls_label_t vpn_leak_from_vrf_get_per_nexthop_label(
 		bgp_nexthop = from_bgp;
 
 	nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
-	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi, safi,
-					   pi, NULL, 0, NULL);
+	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi,
+					   SAFI_UNICAST, pi, NULL, 0, NULL);
 
 	if (!nh_valid && is_bgp_static_route &&
 	    !CHECK_FLAG(from_bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
@@ -1599,7 +1601,7 @@ static mpls_label_t vpn_leak_from_vrf_get_per_nexthop_label(
 	}
 
 	return _vpn_leak_from_vrf_get_per_nexthop_label(pi, to_bgp, from_bgp,
-							afi, safi);
+							afi);
 }
 
 /* cf vnc_import_bgp_add_route_mode_nvegroup() and add_vnc_route() */
@@ -1798,7 +1800,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
 		/* per nexthop label mode */
 		label_val = vpn_leak_from_vrf_get_per_nexthop_label(
-			afi, safi, path_vrf, from_bgp, to_bgp);
+			afi, path_vrf, from_bgp, to_bgp);
 	else
 		/* per VRF label mode */
 		label_val = from_bgp->vpn_policy[afi].tovpn_label;
