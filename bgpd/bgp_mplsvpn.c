@@ -1354,14 +1354,18 @@ void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi)
 	if (!pi)
 		return;
 
-	blnc = pi->label_nexthop_cache;
+	if (!CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_LABEL_NH))
+		return;
+
+	blnc = pi->mplsvpn.blnc.label_nexthop_cache;
 
 	if (!blnc)
 		return;
 
-	LIST_REMOVE(pi, label_nh_thread);
-	pi->label_nexthop_cache->path_count--;
-	pi->label_nexthop_cache = NULL;
+	LIST_REMOVE(pi, mplsvpn.blnc.label_nh_thread);
+	pi->mplsvpn.blnc.label_nexthop_cache->path_count--;
+	pi->mplsvpn.blnc.label_nexthop_cache = NULL;
+	UNSET_FLAG(pi->flags, BGP_PATH_MPLSVPN_LABEL_NH);
 
 	if (LIST_EMPTY(&(blnc->paths)))
 		bgp_label_per_nexthop_free(blnc);
@@ -1403,7 +1407,7 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 			ZEBRA_MPLS_LABELS_ADD, blnc->label, blnc->nh->ifindex,
 			blnc->nh->vrf_id, ZEBRA_LSP_BGP, &blnc->nexthop);
 
-	LIST_FOREACH (pi, &(blnc->paths), label_nh_thread) {
+	LIST_FOREACH (pi, &(blnc->paths), mplsvpn.blnc.label_nh_thread) {
 		if (!pi->net)
 			continue;
 		table = bgp_dest_table(pi->net);
@@ -1470,7 +1474,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 			   bgp_mplsvpn_get_label_per_nexthop_cb);
 	}
 
-	if (pi->label_nexthop_cache == blnc)
+	if (pi->mplsvpn.blnc.label_nexthop_cache == blnc)
 		/* no change */
 		return blnc->label;
 
@@ -1479,9 +1483,10 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 	bgp_mplsvpn_path_nh_label_unlink(pi);
 
 	/* updates NHT pi list reference */
-	LIST_INSERT_HEAD(&(blnc->paths), pi, label_nh_thread);
-	pi->label_nexthop_cache = blnc;
-	pi->label_nexthop_cache->path_count++;
+	LIST_INSERT_HEAD(&(blnc->paths), pi, mplsvpn.blnc.label_nh_thread);
+	pi->mplsvpn.blnc.label_nexthop_cache = blnc;
+	pi->mplsvpn.blnc.label_nexthop_cache->path_count++;
+        SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_LABEL_NH);
 	blnc->last_update = monotime(NULL);
 
 	/* then add or update the selected nexthop */

@@ -246,6 +246,14 @@ struct bgp_path_info_extra {
 	struct bgp_path_mh_info *mh_info;
 };
 
+struct bgp_mplsvpn_label_nh {
+	/* For nexthop per label linked list */
+	LIST_ENTRY(bgp_path_info) label_nh_thread;
+
+	/* Back pointer to the bgp label per nexthop structure */
+	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+};
+
 struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
@@ -298,6 +306,7 @@ struct bgp_path_info {
 #define BGP_PATH_ANNC_NH_SELF (1 << 14)
 #define BGP_PATH_LINK_BW_CHG (1 << 15)
 #define BGP_PATH_ACCEPT_OWN (1 << 16)
+#define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -320,11 +329,9 @@ struct bgp_path_info {
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
 
-	/* For nexthop per label linked list */
-	LIST_ENTRY(bgp_path_info) label_nh_thread;
-
-	/* Back pointer to the bgp label per nexthop structure */
-	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+	union {
+		struct bgp_mplsvpn_label_nh blnc;
+	} mplsvpn;
 };
 
 /* Structure used in BGP path selection */
