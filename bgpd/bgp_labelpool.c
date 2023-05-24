@@ -1147,7 +1147,8 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");
-		LIST_FOREACH (path, &(iter->paths), label_nh_thread) {
+		LIST_FOREACH (path, &(iter->paths),
+			      mplsvpn.blnc.label_nh_thread) {
 			dest = path->net;
 			table = bgp_dest_table(dest);
 			assert(dest && table);
