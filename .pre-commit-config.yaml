@@ -1,0 +1,30 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: local
+    hooks:
+    -   id: black
+        name: black
+        entry: black
+        language: system
+        types:
+        -   python
+        files: ^(topotato|selftests)/.*\.py$
+
+    -   id: pylint
+        name: pylint
+        entry: pylint --persistent=n --score=n --disable=fixme
+        language: system
+        types:
+        -   python
+        files: ^topotato/.*\.py$
+
+    -   id: mypy
+        name: mypy
+        entry: mypy -p topotato
+        language: system
+        types:
+        -   python
+        require_serial: true
+        pass_filenames: false
+        files: ^topotato/.*\.py$
