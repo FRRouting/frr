@@ -1100,7 +1100,7 @@ def _sysctl_atleast(commander, variable, min_value):
         else:
             valstr = str(min_value)
         logger.debug("Increasing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"'.format(variable, valstr))
 
 
 def _sysctl_assure(commander, variable, value):
