@@ -140,6 +140,7 @@ class Interactive:
         )
 
         # FIXME
+        # pylint: disable=import-outside-toplevel
         from .nswrap import LinuxNamespace
 
         LinuxNamespace.taskdir = taskdir
