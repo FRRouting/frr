@@ -208,6 +208,7 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	e->damp_info = NULL;
 	if (e->parent) {
 		struct bgp_path_info *bpi = (struct bgp_path_info *)e->parent;
+		unsigned refcount = 0;
 
 		if (bpi->net) {
 			/* FIXME: since multiple e may have the same e->parent
@@ -218,16 +219,15 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 			 * freed as well (because bpi->net was holding the
 			 * last reference to bpi) => write after free!
 			 */
-			unsigned refcount;
 
 			bpi = bgp_path_info_lock(bpi);
 			refcount = bgp_dest_get_lock_count(bpi->net) - 1;
 			bgp_dest_unlock_node((struct bgp_dest *)bpi->net);
-			if (!refcount)
-				bpi->net = NULL;
 			bgp_path_info_unlock(bpi);
 		}
 		bgp_path_info_unlock(e->parent);
+		if (bpi->net && !refcount)
+			bpi->net = NULL;
 		e->parent = NULL;
 	}
 
