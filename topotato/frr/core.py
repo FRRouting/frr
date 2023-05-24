@@ -573,7 +573,8 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
         self.pids[daemon] = pid
 
         if use_integrated:
-            self.vtysh(["-d", daemon, "-f", cfgpath])
+            # FIXME: do something with the output
+            self._vtysh(["-d", daemon, "-f", cfgpath]).communicate()
 
     def restart(self, daemon: str):
         pidfile = "%s/%s.pid" % (self.rundir, daemon)
@@ -615,7 +616,9 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
 
         super().end()
 
-    def vtysh(self, args):
+    def _vtysh(self, args: List[str]) -> subprocess.Popen:
+        assert self.rundir is not None
+
         frrpath = self.configs.frr.frrpath
         execpath = os.path.join(frrpath, "vtysh/vtysh")
         return self.popen(
@@ -623,7 +626,28 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
             stdout=subprocess.PIPE,
         )
 
+    def vtysh_exec(self, timeline: Timeline, cmds, timeout=5.0):
+        cmds = [c.strip() for c in cmds.splitlines() if c.strip() != ""]
+
+        args: List[str] = []
+        for cmd in cmds:
+            args.extend(("-c", cmd))
+
+        proc = self._vtysh(args)
+        output, _ = proc.communicate(timeout=timeout)
+        output = output.decode("UTF-8")
+
+        timed = TimedVtysh(
+            time.time(), self.name, "vtysh", cmds, proc.returncode, output, True
+        )
+        timeline.append(timed)
+
+        return (None, [timed], proc.returncode)
+
     def vtysh_polled(self, timeline: Timeline, daemon, cmds, timeout=5.0):
+        if daemon == "vtysh":
+            return self.vtysh_exec(timeline, cmds, timeout)
+
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
         fn = self.tempfile("run/%s.vty" % (daemon))
 
