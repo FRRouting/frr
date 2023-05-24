@@ -3941,8 +3941,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		if (params &&
 		    OSPF_IF_PARAM_CONFIGURED(params, v_gr_hello_delay)) {
 			if (use_json) {
-				json_object_int_add(json_interface_sub,
-						    "grHelloDelaySecs",
+				json_object_int_add(json_oi, "grHelloDelaySecs",
 						    params->v_gr_hello_delay);
 			} else
 				vty_out(vty,
@@ -3956,7 +3955,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 			if (use_json)
-				json_object_boolean_add(json_interface_sub,
+				json_object_boolean_add(json_oi,
 							"p2mpDelayReflood",
 							oi->p2mp_delay_reflood);
 			else
