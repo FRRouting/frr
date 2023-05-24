@@ -3203,7 +3203,14 @@ int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 	evpn_show_all_routes(vty, bgp, type, json, detail);
 
 	if (use_json)
-		vty_json(vty, json);
+		/*
+		 * We are using no_pretty here because under extremely high
+		 * settings (lots of routes with many different paths) this can
+		 * save several minutes of output when FRR is run on older cpu's
+		 * or more underperforming routers out there. So for route
+		 * scale, we need to use no_pretty json.
+		 */
+		vty_json_no_pretty(vty, json);
 	return CMD_SUCCESS;
 }
 

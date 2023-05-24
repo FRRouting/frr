@@ -12962,6 +12962,15 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 							get_afi_safi_str(afi,
 									 safi,
 									 true));
+
+						/* Adding 'routes' key to make
+						 * the json output format valid
+						 * for evpn
+						 */
+						if (safi == SAFI_EVPN)
+							vty_out(vty,
+								"\"routes\":");
+
 					} else
 						vty_out(vty,
 							"\nFor address family: %s\n",
