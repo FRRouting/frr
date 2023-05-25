@@ -69,16 +69,21 @@ class FRRSetup:
     List of FRR daemons topotato knows about.  The daemons available are a
     subset of this, determined by reading ``Makefile`` from the FRR build.
     """
-    daemons_all.extend("zebra staticd".split())
+    daemons_all.extend("zebra staticd mgmtd".split())
     daemons_all.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld".split())
     daemons_all.extend("eigrpd pimd pim6d ldpd nhrpd sharpd pathd pbrd".split())
     daemons_all.extend("bfdd vrrpd".split())
 
     daemons_integrated_only: ClassVar[FrozenSet[str]] = frozenset(
-        "pim6d staticd".split()
+        "pim6d staticd mgmtd".split()
     )
     """
     Daemons that don't have their config loaded with ``-f`` on startup
+    """
+
+    daemons_mgmtd: ClassVar[FrozenSet[str]] = frozenset("staticd".split())
+    """
+    Daemons that get their config through mgmtd.
     """
 
     frrpath: str
@@ -214,6 +219,9 @@ class FRRSetup:
         self.daemons.remove("staticd")
         self.daemons.insert(0, "zebra")
         self.daemons.insert(1, "staticd")
+        if "mgmtd" in self.daemons:
+            self.daemons.remove("mgmtd")
+            self.daemons.insert(1, "mgmtd")
 
         logger.info("FRR daemons: %s", ", ".join(self.daemons))
 
@@ -312,10 +320,18 @@ class FRRConfigs(dict):
         cls.daemon_rtrs = {}
         cls.daemons = FRRSetup.daemons_all
 
-        for daemon in cls.daemons:
-            if not hasattr(cls, daemon):
-                continue
-            text = deindent(getattr(cls, daemon))
+        empty_cfg = """
+        #% extends "boilerplate.conf"
+        #% block main
+        #% endblock
+        """
+
+        daemons = set(daemon for daemon in FRRSetup.daemons_all if hasattr(cls, daemon))
+        if daemons & FRRSetup.daemons_mgmtd and "mgmtd" not in daemons:
+            daemons.add("mgmtd")
+
+        for daemon in daemons:
+            text = deindent(getattr(cls, daemon, empty_cfg))
 
             cls.templates[daemon] = jenv.from_string(text)
             cls.daemon_rtrs[daemon] = getattr(cls, "%s_routers" % daemon, None)
@@ -589,6 +605,8 @@ class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
         if use_integrated:
             # FIXME: do something with the output
             self._vtysh(["-d", daemon, "-f", cfgpath]).communicate()
+            if daemon in self.frr.daemons_mgmtd and "mgmtd" in self.frr.daemons:
+                self._vtysh(["-d", "mgmtd", "-f", cfgpath]).communicate()
 
     def start_post(self, timeline, failed: List[Tuple[str, str]]):
         for daemon in self.configs.daemons:
