@@ -12,7 +12,7 @@ import attr
 from _pytest.outcomes import Exit, Failed, Skipped
 
 from _pytest._code import ExceptionInfo
-from _pytest._code.code import TerminalRepr
+from _pytest._code.code import TerminalRepr, ReprFileLocation
 from _pytest._io import TerminalWriter
 
 if typing.TYPE_CHECKING:
@@ -77,6 +77,13 @@ class TopotatoDaemonCrash(TopotatoFail):
     @attr.s(eq=False, auto_attribs=True)
     class TopotatoRepr(TerminalRepr):
         excinfo: ExceptionInfo
+
+        @property
+        def reprcrash(self) -> "ReprFileLocation":
+            exconly = self.excinfo.exconly(tryshort=True)
+            entry = self.excinfo.traceback.getcrashentry()
+            path, lineno = entry.frame.code.raw.co_filename, entry.lineno
+            return ReprFileLocation(path, lineno + 1, exconly)
 
         def toterminal(self, tw: TerminalWriter) -> None:
             exc = self.excinfo.value

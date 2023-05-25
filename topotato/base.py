@@ -786,7 +786,13 @@ class TopotatoClass(_pytest.python.Class):
 
         if len(failed) > 0:
             netinst.timeline.sleep(0)
-            raise TopotatoDaemonCrash(None, repr(failed))  # FIXME
+            if len(failed) == 1:
+                router, daemon = failed[0]
+                raise TopotatoDaemonCrash(daemon=daemon, router=router)
+
+            routers = ",".join(set(i[0] for i in failed))
+            daemons = ",".join(set(i[1] for i in failed))
+            raise TopotatoDaemonCrash(daemon=daemons, router=routers)
 
         self.started_ts = time.time()
 
