@@ -196,13 +196,15 @@ Analyze Test Results (``analyze.py``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By default router and execution logs are saved in ``/tmp/topotests`` and an XML
-results file is saved in ``/tmp/topotests.xml``. An analysis tool ``analyze.py``
-is provided to archive and analyze these results after the run completes.
+results file is saved in ``/tmp/topotests/topotests.xml``. An analysis tool
+``analyze.py`` is provided to archive and analyze these results after the run
+completes.
 
 After the test run completes one should pick an archive directory to store the
 results in and pass this value to ``analyze.py``. On first execution the results
-are copied to that directory from ``/tmp``, and subsequent runs use that
-directory for analyzing the results. Below is an example of this which also
+are moved to that directory from ``/tmp/topotests``. Subsequent runs of
+``analyze.py`` with the same args will use that directories contents for instead
+of copying any new results from ``/tmp``. Below is an example of this which also
 shows the default behavior which is to display all failed and errored tests in
 the run.
 
@@ -214,7 +216,7 @@ the run.
    bgp_gr_functionality_topo2/test_bgp_gr_functionality_topo2.py::test_BGP_GR_10_p2
    bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_routingTable
 
-Here we see that 4 tests have failed. We an dig deeper by displaying the
+Here we see that 4 tests have failed. We can dig deeper by displaying the
 captured logs and errors. First let's redisplay the results enumerated by adding
 the ``-E`` flag
 
@@ -249,9 +251,11 @@ the number of the test we are interested in along with ``--errmsg`` option.
 
      assert False
 
-Now to look at the full text of the error for a failed test we use ``-T N``
-where N is the number of the test we are interested in along with ``--errtext``
-option.
+Now to look at the error text for a failed test we can use ``-T RANGES`` where
+``RANGES`` can be a number (e.g., ``5``), a range (e.g., ``0-10``), or a comma
+separated list numbers and ranges (e.g., ``5,10-20,30``) of the test cases we
+are interested in along with ``--errtext`` option. In the example below we'll
+select the first failed test case.
 
 .. code:: shell
 
@@ -277,8 +281,8 @@ option.
                   [...]
 
 To look at the full capture for a test including the stdout and stderr which
-includes full debug logs, just use the ``-T N`` option without the ``--errmsg``
-or ``--errtext`` options.
+includes full debug logs, use ``--full`` option, or specify a ``-T RANGES`` without
+specifying ``--errmsg`` or ``--errtext``.
 
 .. code:: shell
 
@@ -297,6 +301,46 @@ or ``--errtext`` options.
     2021-08-09 02:57:27,636 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
     --------------------------------- Captured Out ---------------------------------
     system-err: --------------------------------- Captured Err ---------------------------------
+
+Filtered results
+""""""""""""""""
+
+There are 4 types of test results, [e]rrored, [f]ailed, [p]assed, and
+[s]kipped. One can select the set of results to show with the ``-S`` or
+``--select`` flags along with the letters for each type (i.e., ``-S efps``
+would select all results). By default ``analyze.py`` will use ``-S ef`` (i.e.,
+[e]rrors and [f]ailures) unless the ``--search`` filter is given in which case
+the default is to search all results (i.e., ``-S efps``).
+
+One can find all results which contain a ``REGEXP``. To filter results using a
+regular expression use the ``--search REGEXP`` option. In this case, by default,
+all result types will be searched for a match against the given ``REGEXP``. If a
+test result output contains a match it is selected into the set of results to show.
+
+An example of using ``--search`` would be to search all tests results for some
+log message, perhaps a warning or error.
+
+Using XML Results File from CI
+""""""""""""""""""""""""""""""
+
+``analyze.py`` actually only needs the ``topotests.xml`` file to run. This is
+very useful for analyzing a CI run failure where one only need download the
+``topotests.xml`` artifact from the run and then pass that to ``analyze.py``
+with the ``-r`` or ``--results`` option.
+
+For local runs if you wish to simply copy the ``topotests.xml`` file (leaving
+the log files where they are), you can pass the ``-a`` (or ``--save-xml``)
+instead of the ``-A`` (or ``-save``) options.
+
+Analyze Results from a Container Run
+""""""""""""""""""""""""""""""""""""
+
+``analyze.py`` can also be used with ``docker`` or ``podman`` containers.
+Everything works exactly as with a host run except that you specify the name of
+the container, or the container-id, using the `-C` or ``--container`` option.
+``analyze.py`` will then use the results inside that containers
+``/tmp/topotests`` directory. It will extract and save those results when you
+pass the ``-A`` or ``-a`` options just as withe host results.
 
 
 Execute single test
