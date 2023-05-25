@@ -123,6 +123,7 @@ class AutoFixture:
 
         ifix_name = f"{cls.__name__.lower()}_instance"
 
+        # pylint: disable=abstract-class-instantiated
         @staticmethod
         def auto_instance(request):
             cfg_inst = request.getfixturevalue(cfix_name)

@@ -204,8 +204,7 @@ class PrettyInstance(list):
         }
 
         for rtrname, rtr in self.instance.routers.items():
-            configs = getattr(rtr, "configs", {})
-            config = configs.get(rtrname, {})
+            config = rtr.report_state()
             if config:
                 data["configs"][rtrname] = config
 

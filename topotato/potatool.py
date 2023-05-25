@@ -358,14 +358,17 @@ class PotatoolSession(WatchedSession):
         return self._run(router, ["ip"] + args)
 
     def _vtysh(self, router, args):
-        frrpaths = self.state.get("frrpaths", {})
-        if not frrpaths:
+        if "routers" not in self.state:
             raise CLIError("session not fully initialized")
-        frrpath = frrpaths.get(router.name)
+        router_state = self.state["routers"].get(router.name)
+        if router_state is None:
+            raise CLIError(f"no state available for {router.name}")
+
+        frrpath = router_state.get("frrpath")
         if not frrpath:
             raise CLIError(f"router {router.name} is not running FRR")
-        rundirs = self.state.get("rundirs", {})
-        if router.name not in rundirs:
+        rundir = router_state.get("rundir")
+        if not rundir:
             raise CLIError(f"no vtysh directory for router {router.name}")
 
         return self._run(
@@ -373,7 +376,7 @@ class PotatoolSession(WatchedSession):
             [
                 os.path.join(frrpath, "vtysh/vtysh"),
                 "--vty_socket",
-                rundirs[router.name],
+                rundir,
             ]
             + args,
         )

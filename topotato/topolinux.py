@@ -31,6 +31,7 @@ from .defer import subprocess
 from .utils import exec_find, EnvcheckResult
 from .nswrap import LinuxNamespace
 from .toponom import LAN, LinkIface, Network
+from . import topobase
 
 
 _logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def proc_write(path: str, value: str):
     ]
 
 
-class NetworkInstance:
+class NetworkInstance(topobase.NetworkInstance):
     """
     represent a test setup with all its routers & switches
     """
@@ -92,7 +93,7 @@ class NetworkInstance:
             if cur is None:
                 result.error("%s is required to run on Linux systems", name)
 
-    class BaseNS(LinuxNamespace):
+    class BaseNS(LinuxNamespace, topobase.BaseNS):
         """
         a netns with some extra functions for topotato
         """
@@ -184,7 +185,7 @@ class NetworkInstance:
                 stderr=sys.stdout,
             )
 
-    class SwitchyNS(BaseNS):
+    class SwitchyNS(BaseNS, topobase.SwitchyNS):
         """
         namespace used for switching between the various routers
 
@@ -227,7 +228,7 @@ class NetworkInstance:
 
             self.check_call(["/bin/sh", "-e", "-c", "; ".join(calls)])
 
-    class RouterNS(BaseNS):
+    class RouterNS(BaseNS, topobase.RouterNS):
         """
         a (FRR) router namespace.  maybe change the name.
 
@@ -316,9 +317,7 @@ class NetworkInstance:
     scapys: Dict[str, scapy.config.conf.L2socket]
 
     def __init__(self, network: Network):
-        self.network = network
-        self.switch_ns = None
-        self.routers = {}
+        super().__init__(network)
         self.bridges = []
 
         # pylint: disable=consider-using-with
@@ -328,15 +327,6 @@ class NetworkInstance:
 
     def tempfile(self, name):
         return os.path.join(self.tempdir.name, name)
-
-    def make(self, name):
-        return self.RouterNS(self, name)
-
-    def prepare(self):
-        self.switch_ns = self.SwitchyNS(self, "switch-ns")
-        for r in self.network.routers.values():
-            self.routers[r.name] = self.make(r.name)
-        return self
 
     # pylint: disable=too-many-branches
     def start(self):

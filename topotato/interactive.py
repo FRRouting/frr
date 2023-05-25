@@ -163,17 +163,10 @@ class Interactive:
             nom = pickle.dumps(instance.network)
             state["nom"] = binascii.b2a_base64(nom, newline=False).decode("ASCII")
 
-            state["rundirs"] = {}
-            state["frrpaths"] = {}
+            state["routers"] = {}
 
             for name, rtr in instance.routers.items():
-                rundir = getattr(rtr, "rundir", None)
-                if rundir is not None:
-                    state["rundirs"][name] = rundir
-
-                configs = getattr(rtr, "configs", None)
-                if configs is not None:
-                    state["frrpaths"][name] = configs.frr.frrpath
+                state["routers"][name] = rtr.interactive_state()
 
         self._post(state)
 

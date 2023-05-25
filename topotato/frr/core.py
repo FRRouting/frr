@@ -27,6 +27,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Tuple,
 )
 
 import pytest
@@ -38,6 +39,7 @@ from .livelog import LiveLog
 from ..exceptions import TopotatoDaemonCrash
 from ..pcapng import Context
 from ..network import TopotatoNetwork
+from ..topobase import CallableNS
 from .templating import TemplateUtils, jenv
 
 if typing.TYPE_CHECKING:
@@ -459,12 +461,13 @@ class VtyshPoll(MiniPollee):
                 self.send_cmd()
 
 
-class FRRRouterNS(TopotatoNetwork.RouterNS):
+class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
     """
     Add a bunch of FRR daemons on top of an (OS-dependent) RouterNS
     """
 
     instance: TopotatoNetwork
+    frr: FRRSetup
     logfiles: Dict[str, str]
     pids: Dict[str, int]
     rundir: Optional[str]
@@ -474,6 +477,7 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
     def __init__(self, instance: TopotatoNetwork, name: str, configs: FRRConfigs):
         super().__init__(instance, name)
         self.configs = configs
+        self.frr = configs.frr
         self.logfiles = {}
         self.livelogs = {}
         self.pids = {}
@@ -486,13 +490,23 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
             self.instance.timeline.install(self.livelogs[daemon])
         return self.livelogs[daemon].wrfd
 
+    def interactive_state(self) -> Dict[str, Any]:
+        return {
+            "rundir": self.rundir,
+            "frrpath": self.frr.frrpath,
+        }
+
+    def report_state(self) -> Dict[str, Any]:
+        # TODO: merge interactive_state / report_state?
+        return self.rtrcfg
+
     def xrefs(self):
-        return self.configs.frr.xrefs
+        return self.frr.xrefs
 
     def start(self):
         super().start()
 
-        frrcred = self.configs.frr.frrcred
+        frrcred = self.frr.frrcred
 
         self.rundir = rundir = self.tempfile("run")
         os.mkdir(rundir)
@@ -510,10 +524,10 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
             self.start_daemon(daemon)
 
     def start_daemon(self, daemon: str):
-        frrpath = self.configs.frr.frrpath
-        binmap = self.configs.frr.binmap
+        frrpath = self.frr.frrpath
+        binmap = self.frr.binmap
 
-        use_integrated = daemon in self.configs.frr.daemons_integrated_only
+        use_integrated = daemon in self.frr.daemons_integrated_only
 
         if use_integrated:
             cfgpath = self.tempfile("integrated-" + daemon + ".conf")
@@ -576,6 +590,22 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
             # FIXME: do something with the output
             self._vtysh(["-d", daemon, "-f", cfgpath]).communicate()
 
+    def start_post(self, timeline, failed: List[Tuple[str, str]]):
+        for daemon in self.configs.daemons:
+            if not self.configs.want_daemon(self.name, daemon):
+                continue
+
+            try:
+                _, _, rc = self.vtysh_polled(timeline, daemon, "show version")
+            except ConnectionRefusedError:
+                failed.append((self.name, daemon))
+                return
+            except FileNotFoundError:
+                failed.append((self.name, daemon))
+                return
+            if rc != 0:
+                failed.append((self.name, daemon))
+
     def restart(self, daemon: str):
         pidfile = "%s/%s.pid" % (self.rundir, daemon)
         with open(pidfile, "r", encoding="utf-8") as fd:
@@ -619,7 +649,7 @@ class FRRRouterNS(TopotatoNetwork.RouterNS):
     def _vtysh(self, args: List[str]) -> subprocess.Popen:
         assert self.rundir is not None
 
-        frrpath = self.configs.frr.frrpath
+        frrpath = self.frr.frrpath
         execpath = os.path.join(frrpath, "vtysh/vtysh")
         return self.popen(
             [execpath] + ["--vty_socket", self.rundir] + args,

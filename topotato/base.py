@@ -782,21 +782,7 @@ class TopotatoClass(_pytest.python.Class):
         failed = []
         for rtr in netinst.network.routers.keys():
             router = netinst.routers[rtr]
-
-            if not hasattr(rtr, "configs"):
-                continue
-            for daemon in rtr.configs.daemons:
-                if not rtr.configs.want_daemon(rtr, daemon):
-                    continue
-
-                try:
-                    _, _, rc = router.vtysh_polled(
-                        netinst.timeline, daemon, "show version"
-                    )
-                except ConnectionRefusedError:
-                    failed.append((rtr, daemon))
-                if rc != 0:
-                    failed.append((rtr, daemon))
+            router.start_post(netinst.timeline, failed)
 
         if len(failed) > 0:
             netinst.timeline.sleep(0)
