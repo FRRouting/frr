@@ -39,7 +39,7 @@ def topology(topo):
 
 
 class Configs(FRRConfigs):
-    zebra_rtrs = ["r1", "r2", "r3"]
+    zebra_routers = ["r1", "r2", "r3"]
     zebra = """
     #% extends "boilerplate.conf"
     #%   for iface in router.ifaces
@@ -48,7 +48,7 @@ class Configs(FRRConfigs):
     #%   endfor
     """
 
-    ripd_rtrs = ["r1", "r2", "r3"]
+    ripd_routers = ["r1", "r2", "r3"]
     ripd = """
     #% extends "boilerplate.conf"
     #% block main
@@ -74,7 +74,7 @@ class Configs(FRRConfigs):
     #% endblock
     """
 
-    staticd_rtrs = ["r3"]
+    staticd_routers = ["r3"]
     staticd = """
     #% extends "boilerplate.conf"
     #% block main
@@ -107,7 +107,7 @@ class RIPBasic(TestBase, AutoFixture, topo=topology, configs=Configs):
                 r1-stub3
               Routing Information Sources:
                 Gateway          BadPackets BadRoutes  Distance Last Update
-                193.1.1.2                0         0       120   $$[0-9:]+$$
+                193.1.1.2                 0         0       120    $$[0-9:]+$$
               Distance: (default is 120)
         """
         yield from AssertVtysh.make(
@@ -131,8 +131,8 @@ class RIPBasic(TestBase, AutoFixture, topo=topology, configs=Configs):
                 193.1.2.0/24
               Routing Information Sources:
                 Gateway          BadPackets BadRoutes  Distance Last Update
-                193.1.1.1                0         0       120   $$[0-9:]+$$
-                193.1.2.3                0         0       120   $$[0-9:]+$$
+                193.1.1.1                 0         0       120    $$[0-9:]+$$
+                193.1.2.3                 0         0       120    $$[0-9:]+$$
               Distance: (default is 120)
         """
         yield from AssertVtysh.make(
@@ -154,7 +154,7 @@ class RIPBasic(TestBase, AutoFixture, topo=topology, configs=Configs):
                 193.1.2.0/24
               Routing Information Sources:
                 Gateway          BadPackets BadRoutes  Distance Last Update
-                193.1.2.2                0         0       120   $$[0-9:]+$$
+                193.1.2.2                 0         0       120    $$[0-9:]+$$
               Distance: (default is 120)
         """
         yield from AssertVtysh.make(
