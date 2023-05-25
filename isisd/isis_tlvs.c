@@ -135,6 +135,9 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 	init_item_list(&ext->lan_sid);
 	ext->aslas = list_new();
 
+	init_item_list(&ext->srv6_endx_sid);
+	init_item_list(&ext->srv6_lan_endx_sid);
+
 	admin_group_init(&ext->ext_admin_group);
 
 	return ext;
@@ -165,6 +168,18 @@ void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext)
 	list_delete(&ext->aslas);
 
 	admin_group_term(&ext->ext_admin_group);
+
+	/* First, free SRv6 End.X SID and SRv6 LAN End.X SID list if needed */
+	for (item = ext->srv6_endx_sid.head; item; item = next_item) {
+		next_item = item->next;
+		isis_free_subsubtlvs(((struct isis_srv6_endx_sid_subtlv *)item)->subsubtlvs);
+		XFREE(MTYPE_ISIS_SUBTLV, item);
+	}
+	for (item = ext->srv6_lan_endx_sid.head; item; item = next_item) {
+		next_item = item->next;
+		isis_free_subsubtlvs(((struct isis_srv6_lan_endx_sid_subtlv *)item)->subsubtlvs);
+		XFREE(MTYPE_ISIS_SUBTLV, item);
+	}
 
 	XFREE(MTYPE_ISIS_SUBTLV, ext);
 }

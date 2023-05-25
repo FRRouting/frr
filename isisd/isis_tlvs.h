@@ -639,6 +639,8 @@ enum ext_subsubtlv_types {
 #define EXT_AVA_BW		0x080000
 #define EXT_USE_BW		0x100000
 #define EXT_EXTEND_ADM_GRP 0x200000
+#define EXT_SRV6_ENDX_SID 0x400000
+#define EXT_SRV6_LAN_ENDX_SID 0x800000
 
 /*
  * This structure groups all Extended IS Reachability subTLVs.
@@ -688,6 +690,10 @@ struct isis_ext_subtlvs {
 	struct isis_item_list lan_sid;
 
 	struct list *aslas;
+
+	/* SRv6 End.X & LAN End.X SID */
+	struct isis_item_list srv6_endx_sid;
+	struct isis_item_list srv6_lan_endx_sid;
 };
 
 /* RFC 8919 */
