@@ -813,7 +813,8 @@ extern void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp);
 
 extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       struct bgp_path_info *selected,
-					       struct bgp_dest *dest,
+					       struct bgp_dest *dest, afi_t afi,
+					       safi_t safi,
 					       uint32_t addpath_tx_id);
 
 extern bool subgroup_announce_check(struct bgp_dest *dest,

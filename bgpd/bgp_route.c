@@ -2894,20 +2894,16 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
  */
 void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					struct bgp_path_info *selected,
-					struct bgp_dest *dest,
-					uint32_t addpath_tx_id)
+					struct bgp_dest *dest, afi_t afi,
+					safi_t safi, uint32_t addpath_tx_id)
 {
 	const struct prefix *p;
 	struct peer *onlypeer;
 	struct attr attr;
-	afi_t afi;
-	safi_t safi;
 	struct bgp *bgp;
 	bool advertise;
 
 	p = bgp_dest_get_prefix(dest);
-	afi = SUBGRP_AFI(subgrp);
-	safi = SUBGRP_SAFI(subgrp);
 	bgp = SUBGRP_INST(subgrp);
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
