@@ -219,6 +219,11 @@ struct isis_srv6_end_sid_subtlv {
 	struct isis_subsubtlvs *subsubtlvs;
 };
 
+/* SRv6 End.X SID and SRv6 LAN End.X SID sub-TLVs flags */
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG	0x20
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG	0x40
+#define EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG	0x80
+
 /* SRv6 End.X SID Sub-TLV as per RFC 9352 section #8.1 */
 struct isis_srv6_endx_sid_subtlv {
 	struct isis_srv6_endx_sid_subtlv *next;
