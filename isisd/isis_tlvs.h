@@ -232,6 +232,20 @@ struct isis_srv6_endx_sid_subtlv {
 	struct isis_subsubtlvs *subsubtlvs;
 };
 
+/* SRv6 End.X SID Sub-TLV as per RFC 9352 section #8.2 */
+struct isis_srv6_lan_endx_sid_subtlv {
+	struct isis_srv6_lan_endx_sid_subtlv *next;
+
+	uint8_t neighbor_id[ISIS_SYS_ID_LEN];
+	uint8_t flags;
+	uint8_t algorithm;
+	uint8_t weight;
+	enum srv6_endpoint_behavior_codepoint behavior;
+	struct in6_addr sid;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
+
 /* RFC 9352 section 7.1 */
 struct isis_srv6_locator_tlv {
 	struct isis_srv6_locator_tlv *next;
