@@ -3292,7 +3292,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			event_add_timer(
 				bm->master,
 				update_group_refresh_default_originate_route_map,
-				bgp, RMAP_DEFAULT_ORIGINATE_EVAL_TIMER,
+				bgp, bgp->rmap_def_originate_eval_timer,
 				&bgp->t_rmap_def_originate_eval);
 	}
 
