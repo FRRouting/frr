@@ -893,6 +893,7 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 #else
 	int v4_addrs = 0;
 	int v6_addrs = 0;
+	struct connected *promote_ifc = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		switch (ifc->address->family) {
@@ -906,13 +907,22 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 			continue;
 		}
 
-		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
-			continue;
-
 		if (ifc->address->family != PIM_AF)
 			continue;
 
+		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)) {
+			promote_ifc = ifc;
+			continue;
+		}
+
 		return pim_addr_from_prefix(ifc->address);
+	}
+
+
+	/* Promote the new primary address. */
+	if (v4_addrs && promote_ifc) {
+		UNSET_FLAG(promote_ifc->flags, ZEBRA_IFA_SECONDARY);
+		return pim_addr_from_prefix(promote_ifc->address);
 	}
 
 	/*
