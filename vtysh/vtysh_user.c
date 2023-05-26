@@ -57,7 +57,7 @@ static struct pam_conv conv = {PAM_CONV_FUNC, NULL};
 
 static int vtysh_pam(const char *user)
 {
-	int ret;
+	int ret, second_ret;
 	pam_handle_t *pamh = NULL;
 
 	/* Start PAM. */
@@ -71,15 +71,18 @@ static int vtysh_pam(const char *user)
 		fprintf(stderr, "vtysh_pam: Failure to initialize pam: %s(%d)",
 			pam_strerror(pamh, ret), ret);
 
-	if (pam_acct_mgmt(pamh, 0) != PAM_SUCCESS)
+	second_ret = pam_acct_mgmt(pamh, 0);
+	if (second_ret != PAM_SUCCESS)
 		fprintf(stderr, "%s: Failed in account validation: %s(%d)",
-			__func__, pam_strerror(pamh, ret), ret);
+			__func__, pam_strerror(pamh, second_ret), second_ret);
 
 	/* close Linux-PAM */
-	if (pam_end(pamh, ret) != PAM_SUCCESS) {
+	second_ret = pam_end(pamh, ret);
+	if (second_ret != PAM_SUCCESS) {
 		pamh = NULL;
-		fprintf(stderr, "vtysh_pam: failed to release authenticator: %s(%d)\n",
-			pam_strerror(pamh, ret), ret);
+		fprintf(stderr,
+			"vtysh_pam: failed to release authenticator: %s(%d)\n",
+			pam_strerror(pamh, second_ret), second_ret);
 		exit(1);
 	}
 
