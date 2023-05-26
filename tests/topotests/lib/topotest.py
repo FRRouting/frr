@@ -1527,9 +1527,11 @@ class Router(Node):
         """
 
         # Unfortunately this API allowsfor source to not exist for any and all routers.
-        if source is None:
+        source_was_none = source is None
+        if source_was_none:
             source = f"{daemon}.conf"
 
+        # "" to avoid loading a default config which is present in router dir
         if source:
             head, tail = os.path.split(source)
             if not head and not self.path_exists(tail):
@@ -1550,18 +1552,40 @@ class Router(Node):
             if param is not None:
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
-            if source is None or not os.path.exists(source):
+            if source and not os.path.exists(source):
+                logger.warn(
+                    "missing config '%s' for '%s' creating empty file '%s'",
+                    self.name,
+                    source,
+                    conf_file,
+                )
                 if daemon == "frr" or not self.unified_config:
                     self.cmd_raises("rm -f " + conf_file)
                     self.cmd_raises("touch " + conf_file)
-            else:
+                    self.cmd_raises(
+                        "chown {0}:{0} {1}".format(self.routertype, conf_file)
+                    )
+                    self.cmd_raises("chmod 664 {}".format(conf_file))
+            elif source:
                 # copy zebra.conf to mgmtd folder, which can be used during startup
-                if daemon == "zebra":
+                if daemon == "zebra" and not self.unified_config:
                     conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
+                    logger.debug(
+                        "copying '%s' as '%s' on '%s'",
+                        source,
+                        conf_file_mgmt,
+                        self.name,
+                    )
                     self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
-                self.cmd_raises("cp {} {}".format(source, conf_file))
+                    self.cmd_raises(
+                        "chown {0}:{0} {1}".format(self.routertype, conf_file_mgmt)
+                    )
+                    self.cmd_raises("chmod 664 {}".format(conf_file_mgmt))
 
-            if not (self.unified_config or daemon == "frr"):
+                logger.debug(
+                    "copying '%s' as '%s' on '%s'", source, conf_file, self.name
+                )
+                self.cmd_raises("cp {} {}".format(source, conf_file))
                 self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
                 self.cmd_raises("chmod 664 {}".format(conf_file))
 
@@ -1588,7 +1612,8 @@ class Router(Node):
 
         else:
             logger.warning("No daemon {} known".format(daemon))
-        # print "Daemons after:", self.daemons
+
+        return source if os.path.exists(source) else ""
 
     def runInWindow(self, cmd, title=None):
         return self.run_in_window(cmd, title)

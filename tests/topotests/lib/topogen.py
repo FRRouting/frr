@@ -798,23 +798,23 @@ class TopoRouter(TopoGear):
         Start the daemons in the list
         If daemons is None, try to infer daemons from the config file
         """
-        self.load_config(self.RD_FRR, source)
+        source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
             # Always add zebra
-            self.load_config(self.RD_ZEBRA)
+            self.load_config(self.RD_ZEBRA, "")
             for daemon in self.RD:
                 # This will not work for all daemons
                 daemonstr = self.RD.get(daemon).rstrip("d")
                 if daemonstr == "pim":
-                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
+                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source_path)
                 else:
-                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
+                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source_path)
                 result = self.run(grep_cmd, warn=False).strip()
                 if result:
-                    self.load_config(daemon)
+                    self.load_config(daemon, "")
         else:
             for daemon in daemons:
-                self.load_config(daemon)
+                self.load_config(daemon, "")
 
     def load_config(self, daemon, source=None, param=None):
         """Loads daemon configuration from the specified source
@@ -833,7 +833,7 @@ class TopoRouter(TopoGear):
         """
         daemonstr = self.RD.get(daemon)
         self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
-        self.net.loadConf(daemonstr, source, param)
+        return self.net.loadConf(daemonstr, source, param)
 
     def check_router_running(self):
         """
