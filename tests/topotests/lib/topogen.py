@@ -84,7 +84,7 @@ def get_exabgp_cmd(commander=None):
     """Return the command to use for ExaBGP version < 4."""
 
     if commander is None:
-        commander = Commander("topogen")
+        commander = Commander("exabgp", logger=logging.getLogger("exabgp"))
 
     def exacmd_version_ok(exacmd):
         logger.debug("checking %s for exabgp < version 4", exacmd)
@@ -107,7 +107,7 @@ def get_exabgp_cmd(commander=None):
         exacmd = py2_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
             return exacmd
-    py2_path = commander.get_exec_path("python")
+        py2_path = commander.get_exec_path("python")
     if py2_path:
         exacmd = py2_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
@@ -209,7 +209,11 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet(rundir=self.logdir, pytestconfig=topotest.g_pytest_config)
+        self.net = Mininet(
+            rundir=self.logdir,
+            pytestconfig=topotest.g_pytest_config,
+            logger=topolog.get_logger("mu", log_level="debug"),
+        )
 
         # Adjust the parent namespace
         topotest.fix_netns_limits(self.net)
@@ -1090,8 +1094,9 @@ class TopoSwitch(TopoGear):
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
+        logger = topolog.get_logger(name, log_level="debug")
         super(TopoSwitch, self).__init__(tgen, name, **params)
-        tgen.net.add_switch(name)
+        tgen.net.add_switch(name, logger=logger)
 
     def __str__(self):
         gear = super(TopoSwitch, self).__str__()
