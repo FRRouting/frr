@@ -1553,7 +1553,7 @@ class Router(Node):
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source and not os.path.exists(source):
-                logger.warn(
+                logger.warning(
                     "missing config '%s' for '%s' creating empty file '%s'",
                     self.name,
                     source,
