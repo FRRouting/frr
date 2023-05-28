@@ -5,11 +5,12 @@
 #
 # Copyright (c) 2023, LabN Consulting, L.L.C.
 #
+
 """
-Test static route startup functionality
+Verify large set of routes present when staticd (backend client) is started after it's
+startup config is present during launch.
 """
 
-import datetime
 import logging
 import os
 
@@ -23,7 +24,6 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 
 # pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 pytestmark = [pytest.mark.staticd]
-
 
 track = Timeout(0)
 ROUTE_COUNT = 2500
@@ -51,7 +51,8 @@ def tgen(request):
     tgen.gears["r1"].load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
     tgen.gears["r1"].load_config(TopoRouter.RD_MGMTD, confpath)
 
-    track.started_on = datetime.datetime.now()
+    # Explicit disable staticd now..
+    tgen.gears["r1"].net.daemons["staticd"] = 0
 
     tgen.start_router()
     yield tgen
@@ -64,15 +65,18 @@ def test_staticd_latestart(tgen):
 
     r1 = tgen.routers()["r1"]
 
-    step(f"Verifying {ROUTE_COUNT} startup routes are present")
-
     check_vtysh_up(r1)
     logging.info("r1: vtysh connected after %ss", track.elapsed())
 
-    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=20)
-    assert result is None
-    logging.info("r1: first route installed after %ss", track.elapsed())
+    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=20, expected=False)
+    assert result is not None, "first route present and should not be"
+    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=20, expected=False)
+    assert result is not None, "last route present and should not be"
 
+    step("Starting staticd")
+    r1.startDaemons(["staticd"])
+
+    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=60)
+    assert result is None, "first route not present and should be"
     result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=20)
-    assert result is None
-    logging.info("r1: last route installed after %ss", track.elapsed())
+    assert result is None, "last route not present and should be"
