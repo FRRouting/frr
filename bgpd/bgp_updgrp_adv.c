@@ -114,8 +114,9 @@ static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 		}
 
 		if (!pi) {
-			subgroup_process_announce_selected(
-				subgrp, NULL, ctx->dest, adj->addpath_tx_id);
+			subgroup_process_announce_selected(subgrp, NULL,
+							   ctx->dest, afi, safi,
+							   adj->addpath_tx_id);
 		}
 	}
 }
@@ -161,7 +162,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 						continue;
 
 					subgroup_process_announce_selected(
-						subgrp, pi, ctx->dest,
+						subgrp, pi, ctx->dest, afi,
+						safi,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&pi->tx_addpath));
@@ -173,7 +175,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				 */
 				if (ctx->pi)
 					subgroup_process_announce_selected(
-						subgrp, ctx->pi, ctx->dest,
+						subgrp, ctx->pi, ctx->dest, afi,
+						safi,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&ctx->pi->tx_addpath));
@@ -182,7 +185,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			else {
 				if (ctx->pi) {
 					subgroup_process_announce_selected(
-						subgrp, ctx->pi, ctx->dest,
+						subgrp, ctx->pi, ctx->dest, afi,
+						safi,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&ctx->pi->tx_addpath));
@@ -196,7 +200,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 						if (adj->subgroup == subgrp) {
 							subgroup_process_announce_selected(
 								subgrp, NULL,
-								ctx->dest,
+								ctx->dest, afi,
+								safi,
 								adj->addpath_tx_id);
 						}
 					}
@@ -653,19 +658,15 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *ri;
-	struct attr attr;
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 	safi_t safi_rib;
 	bool addpath_capable;
-	struct bgp *bgp;
-	bool advertise;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
-	bgp = SUBGRP_INST(subgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (safi == SAFI_LABELED_UNICAST)
@@ -685,55 +686,27 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
-
-		/* Check if the route can be advertised */
-		advertise = bgp_check_advertise(bgp, dest);
-
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 
 			if (!bgp_check_selected(ri, peer, addpath_capable, afi,
 						safi_rib))
 				continue;
 
-			if (subgroup_announce_check(dest, ri, subgrp, dest_p,
-						    &attr, NULL)) {
-				/* Check if route can be advertised */
-				if (advertise) {
-					if (!bgp_check_withdrawal(bgp, dest)) {
-						struct attr *adv_attr =
-							bgp_attr_intern(&attr);
+			/* If default originate is enabled for
+			 * the peer, do not send explicit
+			 * withdraw. This will prevent deletion
+			 * of default route advertised through
+			 * default originate
+			 */
+			if (CHECK_FLAG(peer->af_flags[afi][safi],
+				       PEER_FLAG_DEFAULT_ORIGINATE) &&
+			    is_default_prefix(bgp_dest_get_prefix(dest)))
+				break;
 
-						bgp_adj_out_set_subgroup(
-							dest, subgrp, adv_attr,
-							ri);
-					} else
-						bgp_adj_out_unset_subgroup(
-							dest, subgrp, 1,
-							bgp_addpath_id_for_peer(
-								peer, afi,
-								safi_rib,
-								&ri->tx_addpath));
-				}
-			} else {
-				/* If default originate is enabled for
-				 * the peer, do not send explicit
-				 * withdraw. This will prevent deletion
-				 * of default route advertised through
-				 * default originate
-				 */
-				if (CHECK_FLAG(peer->af_flags[afi][safi],
-					       PEER_FLAG_DEFAULT_ORIGINATE) &&
-				    is_default_prefix(
-					    bgp_dest_get_prefix(dest)))
-					break;
-
-				bgp_adj_out_unset_subgroup(
-					dest, subgrp, 1,
-					bgp_addpath_id_for_peer(
-						peer, afi, safi_rib,
-						&ri->tx_addpath));
-			}
+			subgroup_process_announce_selected(
+				subgrp, ri, dest, afi, safi_rib,
+				bgp_addpath_id_for_peer(peer, afi, safi_rib,
+							&ri->tx_addpath));
 		}
 	}
 	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
