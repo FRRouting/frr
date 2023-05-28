@@ -2434,8 +2434,12 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 		vty->candidate_config = nb_config_new(NULL);
 	}
 
+	cmd_execute(vty, "XFRR_start_configuration", NULL, 0);
+
 	/* Execute configuration file */
 	ret = config_from_file(vty, confp, &line_num);
+
+	cmd_execute(vty, "XFRR_end_configuration", NULL, 0);
 
 	/* Flush any previous errors before printing messages below */
 	buffer_flush_all(vty->obuf, vty->wfd);
@@ -2767,6 +2771,8 @@ void vty_config_exit(struct vty *vty)
 int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
+
+	cmd_xfrr_end_config(vty);
 
 	if (vty_mgmt_fe_enabled() && mgmt_candidate_ds_wr_locked &&
 	    vty->mgmt_locked_candidate_ds) {

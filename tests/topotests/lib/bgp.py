@@ -5187,7 +5187,9 @@ def verify_rib_default_route(
 
 
 @retry(retry_timeout=5)
-def verify_fib_default_route(tgen, topo, dut, routes, expected_nexthop):
+def verify_fib_default_route(
+    tgen, topo, dut, routes, expected_nexthop, expect_both=True
+):
     """
     API to verify the the 'Default route" in FIB
 
@@ -5261,13 +5263,15 @@ def verify_fib_default_route(tgen, topo, dut, routes, expected_nexthop):
             )
             return False
 
-    if is_ipv4_default_route_found and is_ipv6_default_route_found:
-        return True
+    if expect_both:
+        if is_ipv4_default_route_found and is_ipv6_default_route_found:
+            return True
     else:
-        logger.error(
-            "Default Route for ipv4 and ipv6 address family is not found in FIB "
-        )
-        return False
+        if is_ipv4_default_route_found or is_ipv6_default_route_found:
+            return True
+
+    logger.error("Default Route for ipv4 and ipv6 address family is not found in FIB ")
+    return False
 
 
 @retry(retry_timeout=5)
