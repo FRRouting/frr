@@ -200,6 +200,7 @@ static void if_nhg_dependents_release(const struct interface *ifp)
 static int if_zebra_delete_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
+	struct zebra_l2info_bond *bond;
 
 	if (ifp->info) {
 		zebra_if = ifp->info;
@@ -216,6 +217,10 @@ static int if_zebra_delete_hook(struct interface *ifp)
 			route_table_finish(zebra_if->ipv4_subnets);
 
 		rtadv_if_fini(zebra_if);
+
+		bond = &zebra_if->bond_info;
+		if (bond && bond->mbr_zifs)
+			list_delete(&bond->mbr_zifs);
 
 		zebra_l2_bridge_if_cleanup(ifp);
 		zebra_evpn_if_cleanup(zebra_if);
