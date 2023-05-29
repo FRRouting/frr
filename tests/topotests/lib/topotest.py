@@ -988,7 +988,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         )
         if addressSanitizerLog:
             # Find Calling Test. Could be multiple steps back
-            testframe = sys._current_frames().values()[0]
+            testframe = list(sys._current_frames().values())[0]
             level = 0
             while level < 10:
                 test = os.path.splitext(
