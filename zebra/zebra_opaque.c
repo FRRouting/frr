@@ -381,9 +381,9 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 
 			if (CHECK_FLAG(info.flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
 
-				if (client->proto != info.proto ||
-				    client->instance != info.instance ||
-				    client->session_id != info.session_id)
+				if (client->proto != info.dest_proto ||
+				    client->instance != info.dest_instance ||
+				    client->session_id != info.dest_session_id)
 					continue;
 
 				if (IS_ZEBRA_DEBUG_RECV &&

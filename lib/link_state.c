@@ -1138,31 +1138,13 @@ int ls_unregister(struct zclient *zclient, bool server)
 
 int ls_request_sync(struct zclient *zclient)
 {
-	struct stream *s;
-	uint16_t flags = 0;
-
 	/* Check buffer size */
 	if (STREAM_SIZE(zclient->obuf)
 	    < (ZEBRA_HEADER_SIZE + 3 * sizeof(uint32_t)))
 		return -1;
 
-	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Set type and flags */
-	stream_putl(s, LINK_STATE_SYNC);
-	stream_putw(s, flags);
-	/* Send destination client info */
-	stream_putc(s, zclient->redist_default);
-	stream_putw(s, zclient->instance);
-	stream_putl(s, zclient->session_id);
-
-	/* Put length into the header at the start of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
+	/* No data with this message */
+	return zclient_send_opaque(zclient, LINK_STATE_SYNC, NULL, 0);
 }
 
 static struct ls_node *ls_parse_node(struct stream *s)
@@ -1623,23 +1605,15 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + sizeof(msg)))
 		return -1;
 
+	/* Init the message, then encode the data inline. */
+	if (dst == NULL)
+		zapi_opaque_init(zclient, LINK_STATE_UPDATE, flags);
+	else
+		zapi_opaque_unicast_init(zclient, LINK_STATE_UPDATE, flags,
+					 dst->proto, dst->instance,
+					 dst->session_id);
+
 	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Set sub-type, flags and destination for unicast message */
-	stream_putl(s, LINK_STATE_UPDATE);
-	if (dst != NULL) {
-		SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
-		stream_putw(s, flags);
-		/* Send destination client info */
-		stream_putc(s, dst->proto);
-		stream_putw(s, dst->instance);
-		stream_putl(s, dst->session_id);
-	} else {
-		stream_putw(s, flags);
-	}
 
 	/* Format Link State message */
 	if (ls_format_msg(s, msg) < 0) {

@@ -3824,6 +3824,53 @@ enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
 }
 
 /*
+ * Init/header setup for opaque zapi messages
+ */
+enum zclient_send_status zapi_opaque_init(struct zclient *zclient,
+					  uint32_t type, uint16_t flags)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Source daemon identifiers */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
+ * Init, header setup for opaque unicast messages.
+ */
+enum zclient_send_status
+zapi_opaque_unicast_init(struct zclient *zclient, uint32_t type, uint16_t flags,
+			 uint8_t proto, uint16_t instance, uint32_t session_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+
+	/* Common init */
+	zapi_opaque_init(zclient, type, flags | ZAPI_OPAQUE_FLAG_UNICAST);
+
+	/* Send destination client info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
  * Send an OPAQUE message, contents opaque to zebra. The message header
  * is a message subtype.
  */
@@ -3840,16 +3887,12 @@ enum zclient_send_status zclient_send_opaque(struct zclient *zclient,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
-	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Send sub-type and flags */
-	stream_putl(s, type);
-	stream_putw(s, flags);
+	zapi_opaque_init(zclient, type, flags);
 
 	/* Send opaque data */
-	stream_write(s, data, datasize);
+	if (datasize > 0)
+		stream_write(s, data, datasize);
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3876,22 +3919,14 @@ zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
-	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Send sub-type and flags */
-	SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
-	stream_putl(s, type);
-	stream_putw(s, flags);
-
-	/* Send destination client info */
-	stream_putc(s, proto);
-	stream_putw(s, instance);
-	stream_putl(s, session_id);
+	/* Common init */
+	zapi_opaque_unicast_init(zclient, type, flags, proto, instance,
+				 session_id);
 
 	/* Send opaque data */
-	stream_write(s, data, datasize);
+	if (datasize > 0)
+		stream_write(s, data, datasize);
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3910,11 +3945,16 @@ int zclient_opaque_decode(struct stream *s, struct zapi_opaque_msg *info)
 	STREAM_GETL(s, info->type);
 	STREAM_GETW(s, info->flags);
 
-	/* Decode unicast client info if present */
+	/* Decode sending daemon info */
+	STREAM_GETC(s, info->src_proto);
+	STREAM_GETW(s, info->src_instance);
+	STREAM_GETL(s, info->src_session_id);
+
+	/* Decode unicast destination info, if present */
 	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
-		STREAM_GETC(s, info->proto);
-		STREAM_GETW(s, info->instance);
-		STREAM_GETL(s, info->session_id);
+		STREAM_GETC(s, info->dest_proto);
+		STREAM_GETW(s, info->dest_instance);
+		STREAM_GETL(s, info->dest_session_id);
 	}
 
 	info->len = STREAM_READABLE(s);
