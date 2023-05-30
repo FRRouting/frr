@@ -169,7 +169,7 @@ extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 extern void ospf_gr_iface_send_grace_lsa(struct event *thread);
 extern void ospf_gr_restart_enter(struct ospf *ospf,
 				  enum ospf_gr_restart_reason reason,
-				  int timestamp);
+				  time_t timestamp);
 extern void ospf_gr_check_lsdb_consistency(struct ospf *ospf,
 						  struct ospf_area *area);
 extern void ospf_gr_check_adjs(struct ospf *ospf);

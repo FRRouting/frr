@@ -239,7 +239,8 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 
 /* Enter the Graceful Restart mode. */
 void ospf6_gr_restart_enter(struct ospf6 *ospf6,
-			    enum ospf6_gr_restart_reason reason, int timestamp)
+			    enum ospf6_gr_restart_reason reason,
+			    time_t timestamp)
 {
 	unsigned long remaining_time;
 
