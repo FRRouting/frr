@@ -1467,13 +1467,12 @@ static mpls_label_t _vpn_leak_from_vrf_get_per_nexthop_label(
 	/* Unlink from any existing nexthop cache. Free the entry if unused.
 	 */
 	bgp_mplsvpn_path_nh_label_unlink(pi);
-	if (blnc) {
-		/* updates NHT pi list reference */
-		LIST_INSERT_HEAD(&(blnc->paths), pi, label_nh_thread);
-		pi->label_nexthop_cache = blnc;
-		pi->label_nexthop_cache->path_count++;
-		blnc->last_update = monotime(NULL);
-	}
+
+	/* updates NHT pi list reference */
+	LIST_INSERT_HEAD(&(blnc->paths), pi, label_nh_thread);
+	pi->label_nexthop_cache = blnc;
+	pi->label_nexthop_cache->path_count++;
+	blnc->last_update = monotime(NULL);
 
 	/* then add or update the selected nexthop */
 	if (!blnc->nh)
