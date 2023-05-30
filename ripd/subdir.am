@@ -48,6 +48,7 @@ noinst_HEADERS += \
 ripd_ripd_LDADD = lib/libfrr.la $(LIBCAP)
 nodist_ripd_ripd_SOURCES = \
 	yang/frr-ripd.yang.c \
+	yang/frr-bfdd.yang.c \
 	# end
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c
