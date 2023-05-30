@@ -5755,6 +5755,11 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						    BGP_INSTANCE_TYPE_DEFAULT)
 						vpn_leak_to_vrf_withdraw(pi);
 
+					if (SAFI_MPLS_VPN == safi
+					    && peer->bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+						vpn_leak_to_vrf_withdraw(peer->bgp, pi);
+					}
+
 					bgp_rib_remove(rm, pi, peer, afi, safi);
 					break;
 				}
