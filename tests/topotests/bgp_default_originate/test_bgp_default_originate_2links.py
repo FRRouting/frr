@@ -26,6 +26,7 @@ from time import sleep
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
+from lib import topotest
 
 from lib.bgp import (
     verify_bgp_convergence,
@@ -1559,8 +1560,14 @@ def test_verify_default_originate_with_2way_ecmp_p2(request):
     step("Ping R1 configure IPv4 and IPv6 loopback address from R2")
     pingaddr = topo["routers"]["r1"]["links"]["lo"]["ipv4"].split("/")[0]
     router = tgen.gears["r2"]
-    output = router.run("ping -c 4 -w 4 {}".format(pingaddr))
-    assert " 0% packet loss" in output, "Ping R1->R2  FAILED"
+
+    def ping_router():
+        output = router.run("ping -c 4 -w 4 {}".format(pingaddr))
+        logger.info(output)
+        if " 0% packet loss" not in output:
+            return False
+
+    _, res = topotest.run_and_expect(ping_router, None, count=10, wait=1)
     logger.info("Ping from R1 to R2 ... success")
 
     step("Shuting up the active route")

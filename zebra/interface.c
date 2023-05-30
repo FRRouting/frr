@@ -267,6 +267,9 @@ struct interface *if_link_per_ns(struct zebra_ns *ns, struct interface *ifp)
 /* Delete a VRF. This is called in vrf_terminate(). */
 void if_unlink_per_ns(struct interface *ifp)
 {
+	if (!ifp->node)
+		return;
+
 	ifp->node->info = NULL;
 	route_unlock_node(ifp->node);
 	ifp->node = NULL;
