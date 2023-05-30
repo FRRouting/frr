@@ -899,15 +899,13 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 		}
 	}
 
-	if (str) {
-		if (style == COMMUNITY_LIST_STANDARD)
-			com = community_str2com(str);
-		else
-			regex = bgp_regcomp(str);
+	if (style == COMMUNITY_LIST_STANDARD)
+		com = community_str2com(str);
+	else
+		regex = bgp_regcomp(str);
 
-		if (!com && !regex)
-			return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-	}
+	if (!com && !regex)
+		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
 
 	entry = community_entry_new();
 	entry->direct = direct;

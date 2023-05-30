@@ -20663,6 +20663,7 @@ DEFUN (community_list_standard,
 	argv_find(argv, argc, "AA:NN", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
+	assert(str);
 	int ret = community_list_set(bgp_clist, cl_name_or_number, str, seq,
 				     direct, style);
 
@@ -20775,6 +20776,7 @@ DEFUN (community_list_expanded_all,
 	argv_find(argv, argc, "AA:NN", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
+	assert(str);
 	int ret = community_list_set(bgp_clist, cl_name_or_number, str, seq,
 				     direct, style);
 
