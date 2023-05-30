@@ -507,8 +507,6 @@ static void zserv_process_messages(struct event *thread)
 			stream_fifo_push(cache, msg);
 		}
 
-		msg = NULL;
-
 		/* Need to reschedule processing work if there are still
 		 * packets in the fifo.
 		 */
