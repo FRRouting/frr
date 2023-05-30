@@ -9199,6 +9199,8 @@ DEFPY(af_label_vpn_export_allocation_mode,
 	bool old_per_nexthop, new_per_nexthop;
 
 	afi = vpn_policy_getafi(vty, bgp, false);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
 				       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
