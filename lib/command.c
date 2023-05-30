@@ -1283,6 +1283,7 @@ int command_config_read_one_line(struct vty *vty,
 
 		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
 		ve->line_num = line_num;
+		ve->cmd_ret = ret;
 		if (!vty->error)
 			vty->error = list_new();
 

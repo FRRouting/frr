@@ -195,8 +195,11 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		va_end(ap);
 	}
 
-	if (vty_mgmt_fe_enabled()) {
+	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
+
+		if (vty->type == VTY_FILE)
+			return CMD_SUCCESS;
 
 		implicit_commit = vty_needs_implicit_commit(vty);
 		ret = vty_mgmt_send_config_data(vty);
@@ -224,7 +227,7 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		va_end(ap);
 	}
 
-	if (vty_mgmt_fe_enabled()) {
+	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
 
 		implicit_commit = vty_needs_implicit_commit(vty);

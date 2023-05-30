@@ -71,7 +71,7 @@ static void sigint(void)
 	/* Disable BFD events to avoid wasting processing. */
 	bfd_protocol_integration_set_shutdown(true);
 
-	mgmt_be_client_lib_destroy(mgmt_lib_hndl);
+	mgmt_be_client_lib_destroy();
 
 	static_vrf_terminate();
 
@@ -106,6 +106,7 @@ struct frr_signal_t static_signals[] = {
 	},
 };
 
+#if 0
 static void static_mgmt_be_client_connect(uintptr_t lib_hndl,
 					  uintptr_t usr_data, bool connected)
 {
@@ -117,11 +118,11 @@ static void static_mgmt_be_client_connect(uintptr_t lib_hndl,
 		   connected ? "connected" : "disconnected",
 		   connected ? "to" : "from");
 
+	/* unless we are subscribing to xpaths we don't need to do this */
 	if (connected)
 		(void)mgmt_be_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
 }
 
-#if 0
 static void
 static_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
 			struct mgmt_be_client_txn_ctx *txn_ctx,
@@ -147,8 +148,12 @@ static_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
 static struct mgmt_be_client_params mgmt_params = {
 	.name = "staticd",
 	.conn_retry_intvl_sec = 3,
-	.client_connect_notify = static_mgmt_be_client_connect,
-	.txn_notify = NULL, /* static_mgmt_txn_notify */
+	/*
+	 * instead of a connect routine maybe just put xpaths to subcribe to
+	 * here
+	 */
+	.client_connect_notify = NULL, /* static_mgmt_be_client_connect, */
+	.txn_notify = NULL,	    /* static_mgmt_txn_notify */
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
@@ -208,7 +213,6 @@ int main(int argc, char **argv, char **envp)
 
 	/* Initialize MGMT backend functionalities */
 	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
-	assert(mgmt_lib_hndl);
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

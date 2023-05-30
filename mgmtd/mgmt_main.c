@@ -17,20 +17,12 @@
 #include "routing_nb.h"
 
 
-char const *const mgmt_daemons[] = {
-#ifdef HAVE_STATICD
-	"staticd",
-#endif
-};
-uint mgmt_daemons_count = array_size(mgmt_daemons);
-
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"no_zebra", no_argument, NULL, 'Z'},
 	{"socket_size", required_argument, NULL, 's'},
-	{0}
-};
+	{0}};
 
 static void mgmt_exit(int);
 static void mgmt_vrf_terminate(void);
@@ -201,8 +193,11 @@ static void mgmt_vrf_terminate(void)
  * all individual Backend clients.
  */
 static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
-	&frr_filter_info,  &frr_interface_info, &frr_route_map_info,
-	&frr_routing_info, &frr_vrf_info,
+	&frr_filter_info,
+	&frr_interface_info,
+	&frr_route_map_info,
+	&frr_routing_info,
+	&frr_vrf_info,
 /*
  * YANG module info supported by backend clients get added here.
  * NOTE: Always set .ignore_cbs true for to avoid validating
@@ -222,9 +217,13 @@ FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
 
 		.privs = &mgmt_privs, .yang_modules = mgmt_yang_modules,
 		.n_yang_modules = array_size(mgmt_yang_modules),
-);
+
+		/* avoid libfrr trying to read our config file for us */
+		.flags = FRR_MANUAL_VTY_START);
 
 #define DEPRECATED_OPTIONS ""
+
+struct frr_daemon_info *mgmt_daemon_info = &mgmtd_di;
 
 /* Main routine of mgmt. Treatment of argument and start mgmt finite
  * state machine is handled at here.
@@ -278,6 +277,7 @@ int main(int argc, char **argv)
 		 "%s/zebra.conf", frr_sysconfdir);
 	mgmtd_di.backup_config_file = backup_config_file;
 
+	/* this will queue a read configs event */
 	frr_config_fork();
 
 	frr_run(mm->master);

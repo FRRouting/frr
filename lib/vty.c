@@ -21,6 +21,7 @@
 #endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
 
+#include "debug.h"
 #include "linklist.h"
 #include "frrevent.h"
 #include "buffer.h"
@@ -73,13 +74,6 @@ static bool mgmt_candidate_ds_wr_locked;
 static uint64_t mgmt_client_id_next;
 static uint64_t mgmt_last_req_id = UINT64_MAX;
 
-static bool vty_debug;
-#define VTY_DBG(fmt, ...)                                                      \
-	do {                                                                   \
-		if (vty_debug)                                                 \
-			zlog_debug(fmt, ##__VA_ARGS__);                        \
-	} while (0)
-
 PREDECL_DLIST(vtyservs);
 
 struct vty_serv {
@@ -128,6 +122,13 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 bool vty_log_commands;
 static bool vty_log_commands_perm;
 
+char const *const mgmt_daemons[] = {
+#ifdef HAVE_STATICD
+	"staticd",
+#endif
+};
+uint mgmt_daemons_count = array_size(mgmt_daemons);
+
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
@@ -143,19 +144,26 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 		ret = CMD_WARNING_CONFIG_FAILED;
 
 	vty->mgmt_req_pending = false;
-	header[3] = ret;
-	buffer_put(vty->obuf, header, 4);
 
-	if (!vty->t_write && (vtysh_flush(vty) < 0))
-		/* Try to flush results; exit if a write
-		 * error occurs.
-		 */
-		return;
+	MGMTD_FE_CLIENT_DBG("resuming: %s:", success ? "succeeded" : "failed");
+
+	if (vty->type != VTY_FILE) {
+		header[3] = ret;
+		buffer_put(vty->obuf, header, 4);
+		if (!vty->t_write && (vtysh_flush(vty) < 0)) {
+			zlog_err("failed to vtysh_flush");
+			/* Try to flush results; exit if a write error occurs */
+			return;
+		}
+	}
 
 	if (vty->status == VTY_CLOSE)
 		vty_close(vty);
-	else
+	else if (vty->type != VTY_FILE)
 		vty_event(VTYSH_READ, vty);
+	else
+		/* should we assert here? */
+		zlog_err("mgmtd: unexpected resume while reading config file");
 }
 
 void vty_frame(struct vty *vty, const char *format, ...)
@@ -1633,6 +1641,8 @@ struct vty *vty_new(void)
 	new->pass_fd = -1;
 
 	if (mgmt_lib_hndl) {
+		if (!mgmt_client_id_next)
+			mgmt_client_id_next++;
 		new->mgmt_client_id = mgmt_client_id_next++;
 		if (mgmt_fe_create_client_session(
 			    mgmt_lib_hndl, new->mgmt_client_id,
@@ -2173,6 +2183,80 @@ void vty_pass_fd(struct vty *vty, int fd)
 	vty->pass_fd = fd;
 }
 
+bool mgmt_vty_read_configs(void)
+{
+	char path[PATH_MAX];
+	struct vty *vty;
+	FILE *confp;
+	uint line_num = 0;
+	uint count = 0;
+	uint index;
+
+	vty = vty_new();
+	vty->wfd = STDERR_FILENO;
+	vty->type = VTY_FILE;
+	vty->node = CONFIG_NODE;
+	vty->config = true;
+	vty->pending_allowed = true;
+	vty->candidate_config = vty_shared_candidate_config;
+	vty->mgmt_locked_candidate_ds = true;
+	mgmt_candidate_ds_wr_locked = true;
+
+
+	for (index = 0; index < array_size(mgmt_daemons); index++) {
+		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
+			 mgmt_daemons[index]);
+
+		confp = vty_open_config(path, config_default);
+		if (!confp)
+			continue;
+
+		zlog_info("mgmtd: reading config file: %s", path);
+
+		/* Execute configuration file */
+		line_num = 0;
+		(void)config_from_file(vty, confp, &line_num);
+		count++;
+	}
+
+	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
+	confp = vty_open_config(path, config_default);
+	if (!confp) {
+		char *orig;
+
+		snprintf(path, sizeof(path), "%s/zebra.conf", frr_sysconfdir);
+		orig = XSTRDUP(MTYPE_TMP, host_config_get());
+
+		zlog_info("mgmtd: trying backup config file: %s", path);
+		confp = vty_open_config(path, config_default);
+
+		host_config_set(path);
+		XFREE(MTYPE_TMP, orig);
+	}
+
+	if (confp) {
+		zlog_info("mgmtd: reading config file: %s", path);
+
+		line_num = 0;
+		(void)config_from_file(vty, confp, &line_num);
+		count++;
+	}
+
+	vty->pending_allowed = false;
+
+	vty->mgmt_locked_candidate_ds = false;
+	mgmt_candidate_ds_wr_locked = false;
+
+	if (!count)
+		vty_close(vty);
+	else
+		vty_read_file_finish(vty, NULL);
+
+	zlog_info("mgmtd: finished reading config files");
+
+	return true;
+}
+
 static void vtysh_read(struct event *thread)
 {
 	int ret;
@@ -2292,7 +2376,7 @@ static void vtysh_write(struct event *thread)
 #endif /* VTYSH */
 
 /* Determine address family to bind. */
-void vty_serv_sock(const char *addr, unsigned short port, const char *path)
+void vty_serv_start(const char *addr, unsigned short port, const char *path)
 {
 	/* If port is set to 0, do not listen on TCP/IP at all! */
 	if (port)
@@ -2301,6 +2385,20 @@ void vty_serv_sock(const char *addr, unsigned short port, const char *path)
 #ifdef VTYSH
 	vty_serv_un(path);
 #endif /* VTYSH */
+}
+
+void vty_serv_stop(void)
+{
+	struct vty_serv *vtyserv;
+
+	while ((vtyserv = vtyservs_pop(vty_servs))) {
+		EVENT_OFF(vtyserv->t_accept);
+		close(vtyserv->sock);
+		XFREE(MTYPE_VTY_SERV, vtyserv);
+	}
+
+	vtyservs_fini(vty_servs);
+	vtyservs_init(vty_servs);
 }
 
 static void vty_error_delete(void *arg)
@@ -2319,7 +2417,9 @@ void vty_close(struct vty *vty)
 	int i;
 	bool was_stdio = false;
 
-	if (mgmt_lib_hndl) {
+	vty->status = VTY_CLOSE;
+
+	if (mgmt_lib_hndl && vty->mgmt_session_id) {
 		mgmt_fe_destroy_client_session(mgmt_lib_hndl,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
@@ -2355,7 +2455,7 @@ void vty_close(struct vty *vty)
 	if (vty->fd != -1) {
 		if (vty->type == VTY_SHELL_SERV)
 			vtys_del(vtysh_sessions, vty);
-		else
+		else if (vty->type == VTY_TERM)
 			vtys_del(vty_sessions, vty);
 	}
 
@@ -2374,6 +2474,7 @@ void vty_close(struct vty *vty)
 	if (vty->fd == STDIN_FILENO)
 		was_stdio = true;
 
+	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
 	XFREE(MTYPE_VTY, vty->buf);
 
 	if (vty->error) {
@@ -2409,10 +2510,7 @@ static void vty_timeout(struct event *thread)
 /* Read up configuration file from file_name. */
 void vty_read_file(struct nb_config *config, FILE *confp)
 {
-	int ret;
 	struct vty *vty;
-	struct vty_error *ve;
-	struct listnode *node;
 	unsigned int line_num = 0;
 
 	vty = vty_new();
@@ -2435,16 +2533,30 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	}
 
 	/* Execute configuration file */
-	ret = config_from_file(vty, confp, &line_num);
+	(void)config_from_file(vty, confp, &line_num);
+
+	vty_read_file_finish(vty, config);
+}
+
+void vty_read_file_finish(struct vty *vty, struct nb_config *config)
+{
+	struct vty_error *ve;
+	struct listnode *node;
 
 	/* Flush any previous errors before printing messages below */
 	buffer_flush_all(vty->obuf, vty->wfd);
 
-	if (!((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO))) {
+	for (ALL_LIST_ELEMENTS_RO(vty->error, node, ve)) {
 		const char *message = NULL;
 		char *nl;
 
-		switch (ret) {
+		switch (ve->cmd_ret) {
+		case CMD_SUCCESS:
+			message = "Command succeeded";
+			break;
+		case CMD_ERR_NOTHING_TODO:
+			message = "Nothing to do";
+			break;
 		case CMD_ERR_AMBIGUOUS:
 			message = "Ambiguous command";
 			break;
@@ -2469,13 +2581,11 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 			break;
 		}
 
-		for (ALL_LIST_ELEMENTS_RO(vty->error, node, ve)) {
-			nl = strchr(ve->error_buf, '\n');
-			if (nl)
-				*nl = '\0';
-			flog_err(EC_LIB_VTY, "%s on config line %u: %s",
-				 message, ve->line_num, ve->error_buf);
-		}
+		nl = strchr(ve->error_buf, '\n');
+		if (nl)
+			*nl = '\0';
+		flog_err(EC_LIB_VTY, "%s on config line %u: %s", message,
+			 ve->line_num, ve->error_buf);
 	}
 
 	/*
@@ -2485,6 +2595,7 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	if (config == NULL) {
 		struct nb_context context = {};
 		char errmsg[BUFSIZ] = {0};
+		int ret;
 
 		context.client = NB_CLIENT_CLI;
 		context.user = vty;
@@ -2555,15 +2666,12 @@ static FILE *vty_use_backup_config(const char *fullpath)
 	return ret;
 }
 
-/* Read up configuration file from file_name. */
-bool vty_read_config(struct nb_config *config, const char *config_file,
-		     char *config_default_dir)
+FILE *vty_open_config(const char *config_file, char *config_default_dir)
 {
 	char cwd[MAXPATHLEN];
 	FILE *confp = NULL;
 	const char *fullpath;
 	char *tmp = NULL;
-	bool read_success = false;
 
 	/* If -f flag specified. */
 	if (config_file != NULL) {
@@ -2626,10 +2734,8 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 
 		if (strstr(config_default_dir, "vtysh") == NULL) {
 			ret = stat(integrate_default, &conf_stat);
-			if (ret >= 0) {
-				read_success = true;
+			if (ret >= 0)
 				goto tmp_free_and_out;
-			}
 		}
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");
@@ -2655,42 +2761,29 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 			fullpath = config_default_dir;
 	}
 
-	vty_read_file(config, confp);
-	read_success = true;
-
-	fclose(confp);
-
 	host_config_set(fullpath);
 
 tmp_free_and_out:
 	XFREE(MTYPE_TMP, tmp);
 
-	return read_success;
+	return confp;
 }
 
-static void update_xpath(struct vty *vty, const char *oldpath,
-			 const char *newpath)
+
+bool vty_read_config(struct nb_config *config, const char *config_file,
+		     char *config_default_dir)
 {
-	int i;
+	FILE *confp;
 
-	for (i = 0; i < vty->xpath_index; i++) {
-		if (!frrstr_startswith(vty->xpath[i], oldpath))
-			break;
+	confp = vty_open_config(config_file, config_default_dir);
+	if (!confp)
+		return false;
 
-		char *tmp = frrstr_replace(vty->xpath[i], oldpath, newpath);
-		strlcpy(vty->xpath[i], tmp, sizeof(vty->xpath[0]));
-		XFREE(MTYPE_TMP, tmp);
-	}
-}
+	vty_read_file(config, confp);
 
-void vty_update_xpath(const char *oldpath, const char *newpath)
-{
-	struct vty *vty;
+	fclose(confp);
 
-	frr_each (vtys, vtysh_sessions, vty)
-		update_xpath(vty, oldpath, newpath);
-	frr_each (vtys, vty_sessions, vty)
-		update_xpath(vty, oldpath, newpath);
+	return true;
 }
 
 int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
@@ -2768,8 +2861,12 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
-	if (vty_mgmt_fe_enabled() && mgmt_candidate_ds_wr_locked &&
-	    vty->mgmt_locked_candidate_ds) {
+	/*
+	 * If we are not reading config file and we are mgmtd FE and we are
+	 * locked then unlock.
+	 */
+	if (vty->type != VTY_FILE && vty_mgmt_fe_enabled() &&
+	    mgmt_candidate_ds_wr_locked && vty->mgmt_locked_candidate_ds) {
 		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false) !=
 		    0) {
 			vty_out(vty, "Not able to unlock candidate DS\n");
@@ -2804,6 +2901,16 @@ int vty_config_node_exit(struct vty *vty)
 	}
 
 	vty->config = false;
+
+	/*
+	 * If this is a config file and we are dropping out of config end
+	 * parsing.
+	 */
+	if (vty->type == VTY_FILE && vty->status != VTY_CLOSE) {
+		vty_out(vty, "exit from config node while reading config file");
+		vty->status = VTY_CLOSE;
+	}
+
 	return 1;
 }
 
@@ -3277,25 +3384,43 @@ void vty_init_vtysh(void)
 	/* currently nothing to do, but likely to have future use */
 }
 
+
+/*
+ * These functions allow for CLI handling to be placed inside daemons; however,
+ * currently they are only used by mgmtd, with mgmtd having each daemons CLI
+ * functionality linked into it. This design choice was taken for efficiency.
+ */
+
 static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
 				      bool connected)
 {
-	VTY_DBG("%sGot %sconnected %s MGMTD Frontend Server",
-		!connected ? "ERROR: " : "", !connected ? "dis: " : "",
-		!connected ? "from" : "to");
+	MGMTD_FE_CLIENT_DBG("Got %sconnected %s MGMTD Frontend Server",
+			    !connected ? "dis: " : "",
+			    !connected ? "from" : "to");
+
+	/*
+	 * We should not have any sessions for connecting or disconnecting case.
+	 * The  fe client library will delete all session on disconnect before
+	 * calling us.
+	 */
+	assert(mgmt_fe_client_session_count(lib_hndl) == 0);
 
 	mgmt_fe_connected = connected;
 
-	/*
-	 * TODO: Setup or teardown front-end sessions for existing
-	 * VTY connections.
-	 */
+	/* Start or stop listening for vty connections */
+	if (connected)
+		frr_vty_serv_start();
+	else
+		frr_vty_serv_stop();
 }
 
-static void vty_mgmt_session_created(uintptr_t lib_hndl, uintptr_t usr_data,
-				     uint64_t client_id, bool create,
-				     bool success, uintptr_t session_id,
-				     uintptr_t session_ctx)
+/*
+ * A session has successfully been created for a vty.
+ */
+static void vty_mgmt_session_notify(uintptr_t lib_hndl, uintptr_t usr_data,
+				    uint64_t client_id, bool create,
+				    bool success, uintptr_t session_id,
+				    uintptr_t session_ctx)
 {
 	struct vty *vty;
 
@@ -3307,10 +3432,16 @@ static void vty_mgmt_session_created(uintptr_t lib_hndl, uintptr_t usr_data,
 		return;
 	}
 
-	VTY_DBG("%s session for client %" PRIu64 " successfully",
-		create ? "Created" : "Destroyed", client_id);
-	if (create)
+	MGMTD_FE_CLIENT_DBG("%s session for client %" PRIu64 " successfully",
+			    create ? "Created" : "Destroyed", client_id);
+
+	if (create) {
+		assert(session_id != 0);
 		vty->mgmt_session_id = session_id;
+	} else {
+		vty->mgmt_session_id = 0;
+		vty_close(vty);
+	}
 }
 
 static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
@@ -3330,8 +3461,8 @@ static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
 		vty_out(vty, "ERROR: %socking for DS %u failed, Err: '%s'\n",
 			lock_ds ? "L" : "Unl", ds_id, errmsg_if_any);
 	} else {
-		VTY_DBG("%socked DS %u successfully", lock_ds ? "L" : "Unl",
-			ds_id);
+		MGMTD_FE_CLIENT_DBG("%socked DS %u successfully",
+				    lock_ds ? "L" : "Unl", ds_id);
 	}
 
 	vty_mgmt_resume_response(vty, success);
@@ -3353,9 +3484,9 @@ static void vty_mgmt_set_config_result_notified(
 		vty_out(vty, "ERROR: SET_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
-		VTY_DBG("SET_CONFIG request for client 0x%" PRIx64
-			" req-id %" PRIu64 " was successfull",
-			client_id, req_id);
+		MGMTD_FE_CLIENT_DBG("SET_CONFIG request for client 0x%" PRIx64
+				    " req-id %" PRIu64 " was successfull",
+				    client_id, req_id);
 	}
 
 	vty_mgmt_resume_response(vty, success);
@@ -3378,7 +3509,8 @@ static void vty_mgmt_commit_config_result_notified(
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
-		VTY_DBG("COMMIT_CONFIG request for client 0x%" PRIx64
+		MGMTD_FE_CLIENT_DBG(
+			"COMMIT_CONFIG request for client 0x%" PRIx64
 			" req-id %" PRIu64 " was successfull",
 			client_id, req_id);
 		if (errmsg_if_any)
@@ -3409,9 +3541,9 @@ static enum mgmt_result vty_mgmt_get_data_result_notified(
 		return MGMTD_INTERNAL_ERROR;
 	}
 
-	VTY_DBG("GET_DATA request succeeded, client 0x%" PRIx64
-		" req-id %" PRIu64,
-		client_id, req_id);
+	MGMTD_FE_CLIENT_DBG("GET_DATA request succeeded, client 0x%" PRIx64
+			    " req-id %" PRIu64,
+			    client_id, req_id);
 
 	if (req_id != mgmt_last_req_id) {
 		mgmt_last_req_id = req_id;
@@ -3432,7 +3564,7 @@ static enum mgmt_result vty_mgmt_get_data_result_notified(
 
 static struct mgmt_fe_client_params client_params = {
 	.client_connect_notify = vty_mgmt_server_connected,
-	.client_session_notify = vty_mgmt_session_created,
+	.client_session_notify = vty_mgmt_session_notify,
 	.lock_ds_notify = vty_mgmt_ds_lock_notified,
 	.set_config_notify = vty_mgmt_set_config_result_notified,
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
@@ -3455,7 +3587,12 @@ void vty_init_mgmt_fe(void)
 
 bool vty_mgmt_fe_enabled(void)
 {
-	return mgmt_lib_hndl && mgmt_fe_connected ? true : false;
+	return mgmt_lib_hndl && mgmt_fe_connected;
+}
+
+bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty)
+{
+	return vty->type != VTY_FILE && vty_mgmt_fe_enabled();
 }
 
 int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
@@ -3490,6 +3627,30 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	size_t indx;
 	int cnt;
 	bool implicit_commit = false;
+
+	if (vty->type == VTY_FILE) {
+		/*
+		 * if this is a config file read we will not send any of the
+		 * changes until we are done reading the file and have modified
+		 * the local candidate DS.
+		 */
+		assert(vty->mgmt_locked_candidate_ds);
+		/* no-one else should be sending data right now */
+		assert(!vty->mgmt_num_pending_setcfg);
+		return 0;
+	}
+
+
+	if (mgmt_lib_hndl && vty->mgmt_client_id && !vty->mgmt_session_id) {
+		/*
+		 * We are connected to mgmtd but we do not yet have an
+		 * established session. this means we need to send any changes
+		 * made during this "down-time" to all backend clients when this
+		 * FE client finishes coming up.
+		 */
+		MGMTD_FE_CLIENT_DBG("skipping as no session exists");
+		return 0;
+	}
 
 	if (mgmt_lib_hndl && vty->mgmt_session_id) {
 		cnt = 0;
@@ -3700,10 +3861,9 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 void vty_terminate(void)
 {
 	struct vty *vty;
-	struct vty_serv *vtyserv;
 
 	if (mgmt_lib_hndl) {
-		mgmt_fe_client_lib_destroy(mgmt_lib_hndl);
+		mgmt_fe_client_lib_destroy();
 		mgmt_lib_hndl = 0;
 	}
 
@@ -3726,12 +3886,5 @@ void vty_terminate(void)
 	vtys_fini(vtysh_sessions);
 	vtys_init(vtysh_sessions);
 
-	while ((vtyserv = vtyservs_pop(vty_servs))) {
-		EVENT_OFF(vtyserv->t_accept);
-		close(vtyserv->sock);
-		XFREE(MTYPE_VTY_SERV, vtyserv);
-	}
-
-	vtyservs_fini(vty_servs);
-	vtyservs_init(vty_servs);
+	vty_serv_stop();
 }

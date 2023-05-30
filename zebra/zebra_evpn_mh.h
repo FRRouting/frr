@@ -344,6 +344,8 @@ extern void zebra_evpn_if_es_print(struct vty *vty, json_object *json,
 				   struct zebra_if *zif);
 extern struct zebra_evpn_access_bd *
 zebra_evpn_acc_vl_find(vlanid_t vid, struct interface *br_if);
+struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find_index(vlanid_t vid, ifindex_t bridge_ifindex);
 extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid,
 				       struct interface *br_if);
 extern void zebra_evpn_es_cleanup(void);

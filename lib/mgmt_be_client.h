@@ -265,7 +265,7 @@ enum mgmt_result mgmt_be_unsubscribe_yang_data(uintptr_t lib_hndl,
 /*
  * Destroy library and cleanup everything.
  */
-extern void mgmt_be_client_lib_destroy(uintptr_t lib_hndl);
+extern void mgmt_be_client_lib_destroy(void);
 
 #ifdef __cplusplus
 }
