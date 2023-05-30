@@ -1262,6 +1262,8 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct isis_area *area;
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
+	struct isis_srv6_sid *sid;
+	struct srv6_adjacency *sra;
 
 	/* Decode the received zebra message */
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
@@ -1279,6 +1281,28 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		if (strncmp(area->srv6db.config.srv6_locator_name, loc.name,
 			    sizeof(area->srv6db.config.srv6_locator_name)) != 0)
 			continue;
+
+		/* Delete SRv6 SIDs */
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode,
+				       sid)) {
+
+			sr_debug(
+				"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
+				area->srv6db.config.srv6_locator_name,
+				&sid->sid, area->area_tag);
+
+			/* Uninstall the SRv6 SID from the forwarding plane
+			 * through Zebra */
+			isis_zebra_srv6_sid_uninstall(area, sid);
+
+			listnode_delete(area->srv6db.srv6_sids, sid);
+			isis_srv6_sid_free(sid);
+		}
+
+		/* Uninstall all local Adjacency-SIDs. */
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode,
+				       sra))
+			srv6_endx_sid_del(sra);
 
 		/* Free the SRv6 locator chunks */
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node,
