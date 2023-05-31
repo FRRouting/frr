@@ -483,6 +483,13 @@ extern uint8_t route_distance(int type);
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
+/*
+ * rib_find_rn_from_ctx
+ *
+ * Returns a lock increased route_node for the appropriate
+ * table and prefix specified by the context.  Developer
+ * should unlock the node when done.
+ */
 extern struct route_node *
 rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx);
 

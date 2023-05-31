@@ -812,11 +812,17 @@ int zsend_route_notify_owner(const struct route_node *rn,
 int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				 enum zapi_route_notify_owner note)
 {
-	return (route_notify_internal(
-		rib_find_rn_from_ctx(ctx), dplane_ctx_get_type(ctx),
-		dplane_ctx_get_instance(ctx), dplane_ctx_get_vrf(ctx),
-		dplane_ctx_get_table(ctx), note, dplane_ctx_get_afi(ctx),
-		dplane_ctx_get_safi(ctx)));
+	int result;
+	struct route_node *rn = rib_find_rn_from_ctx(ctx);
+
+	result = route_notify_internal(
+		rn, dplane_ctx_get_type(ctx), dplane_ctx_get_instance(ctx),
+		dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx), note,
+		dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx));
+
+	route_unlock_node(rn);
+
+	return result;
 }
 
 static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
