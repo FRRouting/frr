@@ -136,7 +136,7 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	//if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Router-ID[OLD:%pI4]: Update",
 			   &ospf->router_id);
 
@@ -156,7 +156,7 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 	else
 		router_id = ospf->router_id_zebra;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	//if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Router-ID[OLD:%pI4]: Update to %pI4",
 			   &ospf->router_id, &router_id);
 
@@ -187,7 +187,7 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		ospf_flush_self_originated_lsas_now(ospf);
 
 		ospf->router_id = router_id;
-		if (IS_DEBUG_OSPF_EVENT)
+		//if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("Router-ID[NEW:%pI4]: Update",
 				   &ospf->router_id);
 
