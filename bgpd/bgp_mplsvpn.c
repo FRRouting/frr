@@ -1068,8 +1068,8 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		/* Routes from network statement */
 		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
 			nh_valid = bgp_find_or_add_nexthop(
-				to_bgp, bgp_nexthop, afi, safi, bpi_ultimate,
-				NULL, 0, p);
+				to_bgp, bgp_nexthop, afi, SAFI_UNICAST,
+				bpi_ultimate, NULL, 0, p);
 		else
 			nh_valid = true;
 	} else
