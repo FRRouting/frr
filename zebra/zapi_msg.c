@@ -3982,8 +3982,7 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 		hdr.length -= ZEBRA_HEADER_SIZE;
 
 		/* Before checking for a handler function, check for
-		 * special messages that are handled in another module;
-		 * we'll treat these as opaque.
+		 * special messages that are handled the 'opaque zapi' module.
 		 */
 		if (zebra_opaque_handles_msgid(hdr.command)) {
 			/* Reset message buffer */
