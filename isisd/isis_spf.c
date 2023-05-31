@@ -1843,6 +1843,9 @@ void isis_run_spf(struct isis_spftree *spftree)
 	struct timeval time_end;
 	struct isis_mt_router_info *mt_router_info;
 	uint16_t mtid = 0;
+#ifndef FABRICD
+	bool flex_algo_enabled;
+#endif /* ifndef FABRICD */
 
 	/* Get time that can't roll backwards. */
 	monotime(&time_start);
@@ -1885,16 +1888,27 @@ void isis_run_spf(struct isis_spftree *spftree)
 	 * not supported by the node, it MUST stop participating in such
 	 * Flexible-Algorithm.
 	 */
-	if (flex_algo_id_valid(spftree->algorithm) &&
-	    !flex_algo_get_state(spftree->area->flex_algos,
-				 spftree->algorithm)) {
-		if (!CHECK_FLAG(spftree->flags, F_SPFTREE_DISABLED)) {
-			isis_spftree_clear(spftree);
-			SET_FLAG(spftree->flags, F_SPFTREE_DISABLED);
+	if (flex_algo_id_valid(spftree->algorithm)) {
+		flex_algo_enabled = isis_flex_algo_elected_supported(
+			spftree->algorithm, spftree->area);
+		if (flex_algo_enabled !=
+		    flex_algo_get_state(spftree->area->flex_algos,
+					spftree->algorithm)) {
+			/* actual state is inconsistent with local LSP */
 			lsp_regenerate_schedule(spftree->area,
 						spftree->area->is_type, 0);
+			goto out;
 		}
-		goto out;
+		if (!flex_algo_enabled) {
+			if (!CHECK_FLAG(spftree->flags, F_SPFTREE_DISABLED)) {
+				isis_spftree_clear(spftree);
+				SET_FLAG(spftree->flags, F_SPFTREE_DISABLED);
+				lsp_regenerate_schedule(spftree->area,
+							spftree->area->is_type,
+							0);
+			}
+			goto out;
+		}
 	}
 #endif /* ifndef FABRICD */
 
