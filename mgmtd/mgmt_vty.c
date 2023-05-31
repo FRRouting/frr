@@ -454,43 +454,10 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 	return CMD_SUCCESS;
 }
 
-/*
- * We need an event driven file reader for reading in config files.
- */
-
 static void mgmt_config_read_in(struct event *event)
 {
 	mgmt_vty_read_configs();
 }
-
-#if 0
-/*
- * Analog of `frr_config_read_in()`, instead of our config file though we loop
- * over all daemons that have transitioned to mgmtd, loading their configs
- */
-static int mgmt_config_pre_hook(struct event_loop *loop)
-{
-	FILE *confp;
-	char *p;
-
-	for (uint i = 0; i < mgmt_daemons_count; i++) {
-		p = asprintfrr(MTYPE_TMP, "%s/%s.conf", frr_sysconfdir,
-			       mgmt_daemons[i]);
-		confp = fopen(p, "r");
-		if (confp == NULL) {
-			if (errno != ENOENT)
-				zlog_err("%s: couldn't read config file %s: %s",
-					 __func__, p, safe_strerror(errno));
-		} else {
-			zlog_info("mgmtd: reading daemon config from %s", p);
-			vty_read_file(vty_shared_candidate_config, confp);
-			fclose(confp);
-		}
-		XFREE(MTYPE_TMP, p);
-	}
-	return 0;
-}
-#endif
 
 void mgmt_vty_init(void)
 {
@@ -504,8 +471,6 @@ void mgmt_vty_init(void)
 	extern void static_vty_init(void);
 	static_vty_init();
 #endif
-
-	// hook_register(frr_config_pre, mgmt_config_pre_hook);
 
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
 			&mgmt_daemon_info->read_in);

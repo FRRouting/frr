@@ -49,20 +49,22 @@ void mgmt_init(void)
 	/* Initialize MGMTD Transaction module */
 	mgmt_txn_init(mm, mm->master);
 
-	/* Initialize the MGMTD Backend Adapter Module */
-	mgmt_be_adapter_init(mm->master);
-
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_fe_adapter_init(mm->master);
 
-	/*
-	 * Allocates some vital data structures used by peer commands in
-	 * vty_init
-	 */
+	/* Initialize the CLI frontend client */
 	vty_init_mgmt_fe();
 
 	/* MGMTD VTY commands installation. */
 	mgmt_vty_init();
+
+	/*
+	 * Initialize the MGMTD Backend Adapter Module
+	 *
+	 * We do this after the FE stuff so that we always read our config file
+	 * prior to any BE connection.
+	 */
+	mgmt_be_adapter_init(mm->master);
 }
 
 void mgmt_terminate(void)
