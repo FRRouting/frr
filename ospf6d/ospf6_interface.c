@@ -516,7 +516,6 @@ static int ospf6_interface_state_change(uint8_t next_state,
 		OSPF6_NETWORK_LSA_EXECUTE(oi);
 		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
-		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
 	} else if (prev_state == OSPF6_INTERFACE_DR
 		   || next_state == OSPF6_INTERFACE_DR) {
 		OSPF6_NETWORK_LSA_SCHEDULE(oi);
