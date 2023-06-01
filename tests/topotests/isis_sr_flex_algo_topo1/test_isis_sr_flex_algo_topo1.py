@@ -112,8 +112,12 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
-        router.load_config( TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname)))
-        router.load_config( TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+        )
     tgen.start_router()
 
 
@@ -180,9 +184,13 @@ def router_compare_output(rname, command, reference):
     tgen = get_topogen()
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_output_cmp, tgen.gears[rname], command, reference)
+    test_func = partial(
+        topotest.router_output_cmp, tgen.gears[rname], command, reference
+    )
     result, diff = topotest.run_and_expect(test_func, "", count=120, wait=0.5)
-    assertmsg = '{} command "{}" output mismatches the expected result:\n{}'.format(rname, command, diff)
+    assertmsg = '{} command "{}" output mismatches the expected result:\n{}'.format(
+        rname, command, diff
+    )
     assert result, assertmsg
 
 
@@ -203,11 +211,11 @@ def test_step1_mpls_lfib():
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][1]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][1]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][1]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][1]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -234,17 +242,18 @@ def test_step2_mpls_lfib():
          router isis 1
           flex-algo 203
            no advertise-definition
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][2]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][2]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][2]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][2]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -271,17 +280,18 @@ def test_step3_mpls_lfib():
          router isis 1
           flex-algo 203
            no advertise-definition
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][3]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][3]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][3]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][3]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -308,17 +318,18 @@ def test_step4_mpls_lfib():
          router isis 1
           flex-algo 203
            advertise-definition
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][4]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][4]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][4]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][4]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -346,17 +357,18 @@ def test_step5_mpls_lfib():
          router isis 1
           flex-algo 203
            advertise-definition
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][5]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][5]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][5]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][5]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -387,17 +399,18 @@ def test_step6_mpls_lfib():
              router isis 1
               flex-algo 203
                no dataplane sr-mpls
-            """)
+            """
+        )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][6]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][6]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][6]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][6]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -427,17 +440,19 @@ def test_step7_mpls_lfib():
             configure terminal
              router isis 1
               no flex-algo 203
-            """)
+            """
+        )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][7]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][7]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][7]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][7]["show_mpls_table.ref"]
+        )
+
 
 #
 # Step 8
@@ -467,7 +482,8 @@ def test_step8_mpls_lfib():
            advertise-definition
            affinity exclude-any green
            dataplane sr-mpls
-        """)
+        """
+    )
 
     tgen.gears["rt2"].vtysh_cmd(
         """
@@ -477,7 +493,8 @@ def test_step8_mpls_lfib():
            advertise-definition
            affinity exclude-any green
            dataplane sr-mpls
-        """)
+        """
+    )
 
     tgen.gears["rt3"].vtysh_cmd(
         """
@@ -485,17 +502,18 @@ def test_step8_mpls_lfib():
          router isis 1
           flex-algo 203
           dataplane sr-mpls
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][8]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][8]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][8]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][8]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -521,17 +539,18 @@ def test_step9_mpls_lfib():
          router isis 1
           no segment-routing prefix 1.1.1.1/32 algorithm 203 index 301
           no segment-routing prefix 2001:db8:1000::1/128 algorithm 203 index 1301
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][9]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][9]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][9]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][9]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -557,17 +576,18 @@ def test_step10_mpls_lfib():
          router isis 1
           segment-routing prefix 1.1.1.1/32 algorithm 203 index 301
           segment-routing prefix 2001:db8:1000::1/128 algorithm 203 index 1301
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][10]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][10]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][10]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][10]["show_mpls_table.ref"]
+        )
 
 
 #
@@ -592,17 +612,18 @@ def test_step11_mpls_lfib():
          router isis 1
           segment-routing prefix 1.1.1.1/32 algorithm 203 index 311
           segment-routing prefix 2001:db8:1000::1/128 algorithm 203 index 1311
-        """)
+        """
+    )
 
     # For Developers
     # tgen.mininet_cli()
     for rname in ["rt1", "rt2", "rt3"]:
         router_compare_output(
-            rname, "show isis flex-algo",
-            outputs[rname][11]["show_isis_flex_algo.ref"])
+            rname, "show isis flex-algo", outputs[rname][11]["show_isis_flex_algo.ref"]
+        )
         router_compare_json_output(
-            rname, "show mpls table json",
-            outputs[rname][11]["show_mpls_table.ref"])
+            rname, "show mpls table json", outputs[rname][11]["show_mpls_table.ref"]
+        )
 
 
 if __name__ == "__main__":
