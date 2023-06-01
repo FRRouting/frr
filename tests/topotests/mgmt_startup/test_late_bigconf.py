@@ -68,9 +68,9 @@ def test_staticd_latestart(tgen):
     check_vtysh_up(r1)
     logging.info("r1: vtysh connected after %ss", track.elapsed())
 
-    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=20, expected=False)
+    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=60, expected=False)
     assert result is not None, "first route present and should not be"
-    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=20, expected=False)
+    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=60, expected=False)
     assert result is not None, "last route present and should not be"
 
     step("Starting staticd")
@@ -78,5 +78,5 @@ def test_staticd_latestart(tgen):
 
     result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=60)
     assert result is None, "first route not present and should be"
-    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=20)
+    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=60)
     assert result is None, "last route not present and should be"

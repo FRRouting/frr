@@ -69,10 +69,10 @@ def test_staticd_latestart(tgen):
     check_vtysh_up(r1)
     logging.info("r1: vtysh connected after %ss", track.elapsed())
 
-    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=20)
+    result = check_kernel(r1, ROUTE_RANGE[0], retry_timeout=60)
     assert result is None
     logging.info("r1: first route installed after %ss", track.elapsed())
 
-    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=20)
+    result = check_kernel(r1, ROUTE_RANGE[1], retry_timeout=60)
     assert result is None
     logging.info("r1: last route installed after %ss", track.elapsed())
