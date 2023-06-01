@@ -147,32 +147,6 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	return 1;
 }
 
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	pim_ifp->pim_enable = false;
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	 * pim_sock_delete() removes all neighbors from
-	 * pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
-
-	if (!pim_ifp->gm_enable) {
-		pim_if_addr_del_all(ifp);
-		pim_if_delete(ifp);
-	}
-
-	return 1;
-}
-
 static int interface_pim_use_src_cmd_worker(struct interface *ifp,
 		pim_addr source_addr, char *errmsg, size_t errmsg_len)
 {
@@ -1559,12 +1533,7 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		if (!pim_cmd_interface_delete(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Unable to delete interface information %s",
-				 ifp->name);
-			return NB_ERR_INCONSISTENCY;
-		}
+		pim_pim_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -1612,11 +1581,7 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			if (!pim_cmd_interface_delete(ifp)) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "Unable to delete interface information");
-				return NB_ERR_INCONSISTENCY;
-			}
+			pim_pim_interface_delete(ifp);
 		}
 		break;
 	}
