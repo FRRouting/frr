@@ -38,6 +38,7 @@ import sys
 import pytest
 import json
 import tempfile
+from copy import deepcopy
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -130,6 +131,30 @@ def setup_testcase(msg):
     return tgen
 
 
+def router_json_cmp_exact_filter(router, cmd, expected):
+    output = router.vtysh_cmd(cmd)
+    logger.info("{}: {}\n{}".format(router.name, cmd, output))
+
+    json_output = json.loads(output)
+    router_output = deepcopy(json_output)
+
+    # filter out dynamic data from "show mpls table"
+    for label, data in json_output.items():
+        if "1500" in label:
+            # filter out SR local labels
+            router_output.pop(label)
+            continue
+        nexthops = data.get("nexthops", [])
+        for i in range(len(nexthops)):
+            if "fe80::" in nexthops[i].get("nexthop"):
+                router_output.get(label).get("nexthops")[i].pop("nexthop")
+            elif "." in nexthops[i].get("nexthop"):
+                # IPv4, just checking the nexthop
+                router_output.get(label).get("nexthops")[i].pop("interface")
+
+    return topotest.json_cmp(router_output, expected, exact=True)
+
+
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
 
@@ -139,7 +164,9 @@ def router_compare_json_output(rname, command, reference):
     expected = json.loads(reference)
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
+    test_func = partial(
+        router_json_cmp_exact_filter, tgen.gears[rname], command, expected
+    )
     _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
