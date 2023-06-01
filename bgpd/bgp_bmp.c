@@ -910,7 +910,8 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags,
 
 static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 				 struct peer *peer, struct attr *attr,
-				 afi_t afi, safi_t safi)
+				 afi_t afi, safi_t safi, mpls_label_t *label,
+				 uint32_t num_labels)
 {
 	struct bpacket_attr_vec_arr vecarr;
 	struct stream *s;
@@ -946,8 +947,8 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 				&vecarr, attr);
-		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, NULL, 0, 0, 0,
-					 attr);
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
+					 num_labels, 0, 0, attr);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 		total_attr_len += stream_get_endp(s) - p1;
 	}
@@ -1002,7 +1003,8 @@ static struct stream *bmp_withdraw(const struct prefix *p,
 static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 			uint8_t peer_type_flag, const struct prefix *p,
 			struct prefix_rd *prd, struct attr *attr, afi_t afi,
-			safi_t safi, time_t uptime)
+			safi_t safi, time_t uptime, mpls_label_t *label,
+			uint32_t num_labels)
 {
 	struct stream *hdr, *msg;
 	struct timeval tv = { .tv_sec = uptime, .tv_usec = 0 };
@@ -1019,7 +1021,8 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 	monotime_to_realtime(&tv, &uptime_real);
 	if (attr)
-		msg = bmp_update(p, prd, peer, attr, afi, safi);
+		msg = bmp_update(p, prd, peer, attr, afi, safi, label,
+				 num_labels);
 	else
 		msg = bmp_withdraw(p, prd, afi, safi);
 
@@ -1219,18 +1222,24 @@ afibreak:
 		bmp_monitor(bmp, bpi->peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE,
 			    bn_p, prd, bpi->attr, afi, safi,
 			    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
-					      : (time_t)(-1L));
+					      : (time_t)(-1L),
+			    bpi->extra ? bpi->extra->label : NULL,
+			    bpi->extra ? bpi->extra->num_labels : 0);
 	}
 
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_VALID) &&
 	    CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_POSTPOLICY))
 		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L,
 			    BMP_PEER_TYPE_GLOBAL_INSTANCE, bn_p, prd, bpi->attr,
-			    afi, safi, bpi->uptime);
+			    afi, safi, bpi->uptime,
+			    bpi->extra ? bpi->extra->label : NULL,
+			    bpi->extra ? bpi->extra->num_labels : 0);
 
 	if (adjin)
+		/* TODO: set label here when adjin supports labels */
 		bmp_monitor(bmp, adjin->peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
-			    bn_p, prd, adjin->attr, afi, safi, adjin->uptime);
+			    bn_p, prd, adjin->attr, afi, safi, adjin->uptime,
+			    NULL, 0);
 
 	if (bn)
 		bgp_dest_unlock_node(bn);
@@ -1343,7 +1352,9 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 		    bpi ? bpi->attr : NULL, afi, safi,
 		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
-				      : (time_t)(-1L));
+				      : (time_t)(-1L),
+		    (bpi && bpi->extra) ? bpi->extra->label : NULL,
+		    (bpi && bpi->extra) ? bpi->extra->num_labels : 0);
 	written = true;
 
 out:
@@ -1416,7 +1427,9 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L,
 			    BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
 			    bpi ? bpi->attr : NULL, afi, safi,
-			    bpi ? bpi->uptime : monotime(NULL));
+			    bpi ? bpi->uptime : monotime(NULL),
+			    (bpi && bpi->extra) ? bpi->extra->label : NULL,
+			    (bpi && bpi->extra) ? bpi->extra->num_labels : 0);
 		written = true;
 	}
 
@@ -1428,9 +1441,10 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 			if (adjin->peer == peer)
 				break;
 		}
+		/* TODO: set label here when adjin supports labels */
 		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
 			    &bqe->p, prd, adjin ? adjin->attr : NULL, afi, safi,
-			    adjin ? adjin->uptime : monotime(NULL));
+			    adjin ? adjin->uptime : monotime(NULL), NULL, 0);
 		written = true;
 	}
 
