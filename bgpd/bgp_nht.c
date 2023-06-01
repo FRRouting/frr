@@ -468,10 +468,12 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra &&
 		 pi->extra->num_labels && !bnc->is_evpn_gwip_nexthop)
 		return bgp_isvalid_nexthop_for_mpls(bnc, pi);
-	else if (safi == SAFI_MPLS_VPN)
+	else if (safi == SAFI_MPLS_VPN && pi &&
+		 pi->sub_type != BGP_ROUTE_IMPORTED)
 		/* avoid not redistributing mpls vpn routes */
 		return 1;
 	else
+		/* mpls-vpn routes with BGP_ROUTE_IMPORTED subtype */
 		return (bgp_isvalid_nexthop(bnc));
 }
 
@@ -1210,10 +1212,12 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			bnc_is_valid_nexthop =
 				bgp_isvalid_nexthop_for_mpls(bnc, path) ? true
 									: false;
-		} else if (safi == SAFI_MPLS_VPN) {
+		} else if (safi == SAFI_MPLS_VPN &&
+			   path->sub_type != BGP_ROUTE_IMPORTED) {
 			/* avoid not redistributing mpls vpn routes */
 			bnc_is_valid_nexthop = true;
 		} else {
+			/* mpls-vpn routes with BGP_ROUTE_IMPORTED subtype */
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,
 				    path->sub_type, path->attr, dest)) {
