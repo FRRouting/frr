@@ -1799,3 +1799,24 @@ void pim_pim_interface_delete(struct interface *ifp)
 		pim_if_delete(ifp);
 	}
 }
+
+void pim_gm_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return;
+
+	pim_ifp->gm_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+#if PIM_IPV == 4
+	igmp_sock_delete_all(ifp);
+#else
+	gm_ifp_teardown(ifp);
+#endif
+
+	if (!pim_ifp->pim_enable)
+		pim_if_delete(ifp);
+}
