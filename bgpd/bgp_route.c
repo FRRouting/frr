@@ -4746,7 +4746,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * labeled-unicast.. */
 		if (((afi == AFI_IP || afi == AFI_IP6) &&
 		     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
-		      safi == SAFI_MPLS_VPN)) ||
+		      (safi == SAFI_MPLS_VPN &&
+		       pi->sub_type != BGP_ROUTE_IMPORTED))) ||
 		    (safi == SAFI_EVPN &&
 		     bgp_evpn_is_prefix_nht_supported(p))) {
 			if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
@@ -4786,6 +4787,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 							 BGP_PATH_VALID);
 			}
 		} else {
+			/* case mpls-vpn routes with accept-own community
+			 * (which have the BGP_ROUTE_IMPORTED subtype)
+			 * case other afi/safi not supporting nexthop tracking
+			 */
+			if (accept_own)
+				bgp_path_info_set_flag(dest, pi,
+						       BGP_PATH_ACCEPT_OWN);
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		}
 
@@ -4917,7 +4925,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Nexthop reachability check. */
 	if (((afi == AFI_IP || afi == AFI_IP6) &&
 	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
-	      safi == SAFI_MPLS_VPN)) ||
+	      (safi == SAFI_MPLS_VPN &&
+	       new->sub_type != BGP_ROUTE_IMPORTED))) ||
 	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
 		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 		    && peer->ttl == BGP_DEFAULT_TTL
@@ -4946,6 +4955,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
 	} else {
+		/* case mpls-vpn routes with accept-own community
+		 * (which have the BGP_ROUTE_IMPORTED subtype)
+		 * case other afi/safi not supporting nexthop tracking
+		 */
+		if (accept_own)
+			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
 		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
 	}
 
