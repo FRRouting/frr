@@ -1022,7 +1022,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			(void)mgmt_txn_send_commit_cfg_reply(
 				txn_req->txn, MGMTD_INTERNAL_ERROR,
 				"Internal error! Could not get Xpath from Ds node!");
-			goto mgmt_txn_create_config_batches_failed;
+			return -1;
 		}
 
 		value = (char *)lyd_get_value(chg->cb.dnode);
@@ -1130,18 +1130,11 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		(void)mgmt_txn_send_commit_cfg_reply(
 			txn_req->txn, MGMTD_NO_CFG_CHANGES,
 			"No changes found to commit!");
-		goto mgmt_txn_create_config_batches_failed;
+		return -1;
 	}
 
 	cmtcfg_req->next_phase = MGMTD_COMMIT_PHASE_TXN_CREATE;
 	return 0;
-
-mgmt_txn_create_config_batches_failed:
-
-	if (xpath)
-		free(xpath);
-
-	return -1;
 }
 
 static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
