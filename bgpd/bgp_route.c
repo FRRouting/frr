@@ -2116,7 +2116,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	} else if (safi == SAFI_MPLS_VPN &&
 		   CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
-		   pi->mplsvpn.bmnc.nh_label_bind_cache && from && peer &&
+		   pi->mplsvpn.bmnc.nh_label_bind_cache && peer &&
 		   pi->peer != peer && pi->sub_type != BGP_ROUTE_IMPORTED &&
 		   pi->sub_type != BGP_ROUTE_STATIC &&
 		   bgp_mplsvpn_path_uses_valid_mpls_label(pi) &&
