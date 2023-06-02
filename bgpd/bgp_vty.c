@@ -20863,16 +20863,13 @@ static const char *community_list_config_str(struct community_entry *entry)
 {
 	const char *str;
 
-	if (entry->any)
-		str = "";
-	else {
-		if (entry->style == COMMUNITY_LIST_STANDARD)
-			str = community_str(entry->u.com, false, false);
-		else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
-			str = lcommunity_str(entry->u.lcom, false, false);
-		else
-			str = entry->config;
-	}
+	if (entry->style == COMMUNITY_LIST_STANDARD)
+		str = community_str(entry->u.com, false, false);
+	else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
+		str = lcommunity_str(entry->u.lcom, false, false);
+	else
+		str = entry->config;
+
 	return str;
 }
 
@@ -20895,13 +20892,8 @@ static void community_list_show(struct vty *vty, struct community_list *list)
 						: "expanded",
 					list->name);
 		}
-		if (entry->any)
-			vty_out(vty, "    %s\n",
-				community_direct_str(entry->direct));
-		else
-			vty_out(vty, "    %s %s\n",
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
+		vty_out(vty, "    %s %s\n", community_direct_str(entry->direct),
+			community_list_config_str(entry));
 	}
 }
 
@@ -21260,13 +21252,8 @@ static void lcommunity_list_show(struct vty *vty, struct community_list *list)
 						: "expanded",
 					list->name);
 		}
-		if (entry->any)
-			vty_out(vty, "    %s\n",
-				community_direct_str(entry->direct));
-		else
-			vty_out(vty, "    %s %s\n",
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
+		vty_out(vty, "    %s %s\n", community_direct_str(entry->direct),
+			community_list_config_str(entry));
 	}
 }
 
@@ -21562,13 +21549,8 @@ static void extcommunity_list_show(struct vty *vty, struct community_list *list)
 						: "expanded",
 					list->name);
 		}
-		if (entry->any)
-			vty_out(vty, "    %s\n",
-				community_direct_str(entry->direct));
-		else
-			vty_out(vty, "    %s %s\n",
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
+		vty_out(vty, "    %s %s\n", community_direct_str(entry->direct),
+			community_list_config_str(entry));
 	}
 }
 
