@@ -842,9 +842,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			eigrp_fsm_event(&fsm_msg);
 		}
 
-		/* NULL the pointer */
-		dest_addr = NULL;
-
 		/* delete processed prefix from list */
 		listnode_delete(prefixes, pe);
 
