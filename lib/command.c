@@ -742,9 +742,13 @@ char *cmd_variable_comp2str(vector comps, unsigned short cols)
 		char *item = vector_slot(comps, j);
 		itemlen = strlen(item);
 
-		if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
-			buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
+		size_t next_sz = cs + itemlen + AUTOCOMP_INDENT + 3;
 
+		if (next_sz > bsz) {
+			/* Make sure the buf size is large enough */
+			bsz = next_sz;
+			buf = XREALLOC(MTYPE_TMP, buf, bsz);
+		}
 		if (lc + itemlen + 1 >= cols) {
 			cs += snprintf(&buf[cs], bsz - cs, "\n%*s",
 				       AUTOCOMP_INDENT, "");
