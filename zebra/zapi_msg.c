@@ -3213,13 +3213,13 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETC(s, zpr.rule.filter.dsfield);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 
-	    STREAM_GETC(s, zpr.rule.filter.pcp);
+		STREAM_GETC(s, zpr.rule.filter.pcp);
 		STREAM_GETW(s, zpr.rule.action.pcp);
 		STREAM_GETW(s, zpr.rule.filter.vlan_id);
 		STREAM_GETW(s, zpr.rule.filter.vlan_flags);
 		STREAM_GETW(s, zpr.rule.action.vlan_id);
 		STREAM_GETW(s, zpr.rule.action.vlan_flags);
-	    STREAM_GETL(s, zpr.rule.action.queue_id);
+		STREAM_GETL(s, zpr.rule.action.queue_id);
 
 		STREAM_GETL(s, zpr.rule.action.table);
 		STREAM_GET(ifname, s, INTERFACE_NAMSIZ);

@@ -160,22 +160,21 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 
 	rule = arg;
 	key = jhash_3words(rule->rule.seq, rule->rule.priority,
-	            rule->rule.action.table,
-	            prefix_hash_key(&rule->rule.filter.src_ip));
+			   rule->rule.action.table,
+			   prefix_hash_key(&rule->rule.filter.src_ip));
 
 	key = jhash_3words(rule->rule.filter.fwmark, rule->vrf_id,
-	            rule->rule.filter.ip_proto, key);
+			   rule->rule.filter.ip_proto, key);
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
 
-    key = jhash_3words(rule->rule.filter.pcp,
-                rule->rule.filter.vlan_id,
-                rule->rule.filter.vlan_flags, key);
+	key = jhash_3words(rule->rule.filter.pcp, rule->rule.filter.vlan_id,
+			   rule->rule.filter.vlan_flags, key);
 
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
 			    prefix_hash_key(&rule->rule.filter.dst_ip),
-                jhash_1word(rule->rule.unique, key));
+			    jhash_1word(rule->rule.unique, key));
 }
 
 bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)

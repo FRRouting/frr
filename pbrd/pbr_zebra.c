@@ -538,7 +538,7 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, pbrms->dst_prt);
 	stream_putc(s, pbrms->dsfield);
 	stream_putl(s, pbrms->mark);
-    /* PCP */
+	/* PCP */
 	stream_putc(s, pbrms->match_pcp);
 	stream_putw(s, pbrms->action_pcp);
 	/* VLAN */
@@ -547,9 +547,9 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 
 	stream_putw(s, pbrms->action_vlan_id);
 	stream_putw(s, pbrms->action_vlan_flags);
-    stream_putl(s, pbrms->action_queue_id);
+	stream_putl(s, pbrms->action_queue_id);
 
-    /* if the user does not use the command "set vrf name |unchanged"
+	/* if the user does not use the command "set vrf name |unchanged"
 	 * then pbr_encode_pbr_map_sequence_vrf will not be called
 	 */
 

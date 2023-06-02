@@ -44,7 +44,7 @@ struct pbr_filter {
 
 #define PBR_DSFIELD_DSCP (0xfc) /* Upper 6 bits of DS field: DSCP */
 #define PBR_DSFIELD_ECN (0x03)	/* Lower 2 bits of DS field: BCN */
-#define PBR_PCP (0x07)	        /* 3-bit value 0..7 for prioritization*/
+#define PBR_PCP (0x07)		/* 3-bit value 0..7 for prioritization*/
 
 	/* Source and Destination IP address with masks */
 	struct prefix src_ip;
@@ -54,7 +54,7 @@ struct pbr_filter {
 	uint16_t src_port;
 	uint16_t dst_port;
 
-    /* Filter by VLAN and prioritization */
+	/* Filter by VLAN and prioritization */
 	uint8_t pcp;
 	uint16_t vlan_id;
 	uint16_t vlan_flags;

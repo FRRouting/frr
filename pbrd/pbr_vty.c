@@ -81,14 +81,14 @@ DEFPY(pbr_map_match_vlan_tag, pbr_map_match_vlan_tag_cmd,
 	if (!pbrms)
 		return CMD_WARNING;
 
-    if (!no) {
-        if (strmatch(tag_type, "tagged")) {
+	if (!no) {
+		if (strmatch(tag_type, "tagged")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_MAP_VLAN_TAGGED);
-        } else if (strmatch(tag_type, "untagged")) {
+		} else if (strmatch(tag_type, "untagged")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_MAP_VLAN_UNTAGGED);
-        } else if (strmatch(tag_type, "untagged-or-zero")) {
+		} else if (strmatch(tag_type, "untagged-or-zero")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_MAP_VLAN_UNTAGGED_0);
 		}
@@ -980,11 +980,11 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "        ECN Match: %u\n",
 			pbrms->dsfield & PBR_DSFIELD_ECN);
 	if (pbrms->mark)
-	    vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
+		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
 	if (pbrms->match_pcp != 0)
 		vty_out(vty, "        PCP Match: %d\n", pbrms->match_pcp);
-    
-    if (pbrms->match_vlan_id != 0)
+
+	if (pbrms->match_vlan_id != 0)
 		vty_out(vty, "        Match VLAN ID: %u\n",
 			pbrms->match_vlan_id);
 	if (pbrms->match_vlan_flags == PBR_MAP_VLAN_TAGGED)
@@ -1392,12 +1392,12 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 
 	if (pbrms->mark)
 		vty_out(vty, " match mark %u\n", pbrms->mark);
-    if (pbrms->match_pcp)
+	if (pbrms->match_pcp)
 		vty_out(vty, " match pcp %d\n", pbrms->match_pcp);
 
-	if ((pbrms->match_vlan_id)
-	    && (pbrms->match_vlan_flags == PBR_MAP_VLAN_NO_WILD))
-	    vty_out(vty, " match vlan %u\n", pbrms->match_vlan_id);
+	if ((pbrms->match_vlan_id) &&
+	    (pbrms->match_vlan_flags == PBR_MAP_VLAN_NO_WILD))
+		vty_out(vty, " match vlan %u\n", pbrms->match_vlan_id);
 	if (pbrms->match_vlan_flags == PBR_MAP_VLAN_TAGGED)
 		vty_out(vty, " match vlan tagged\n");
 	if (pbrms->match_vlan_flags == PBR_MAP_VLAN_UNTAGGED)
@@ -1503,12 +1503,12 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dscp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_ecn_cmd);
-    install_element(PBRMAP_NODE, &pbr_map_match_vlan_id_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_vlan_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_vlan_tag_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_queue_id_cmd);
-    install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);

@@ -314,7 +314,7 @@ static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
 		DEBUGD(&pbr_dbg_map, "    Seq %u uses vrf %s (%u), updating map",
 		       pbrms->seqno, vrf_name, pbr_vrf_id(pbr_vrf));
 
-        pbr_map_check(pbrms, false);
+		pbr_map_check(pbrms, false);
 	}
 }
 
@@ -506,7 +506,7 @@ uint8_t pbr_map_decode_dscp_enum(const char *name)
 
 struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 {
-    struct pbr_map *pbrm = NULL;
+	struct pbr_map *pbrm = NULL;
 	struct pbr_map_sequence *pbrms = NULL;
 	struct listnode *node = NULL;
 
@@ -545,10 +545,10 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->seqno = seqno;
 		pbrms->ruleno = pbr_nht_get_next_rule(seqno);
 		pbrms->parent = pbrm;
-        
+
 		pbrms->match_vlan_id = 0;
 		pbrms->match_vlan_flags = 0;
-        pbrms->match_pcp = 0;
+		pbrms->match_pcp = 0;
 
 		pbrms->action_vlan_id = 0;
 		pbrms->action_vlan_flags = 0;
@@ -618,11 +618,11 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield
-        && !pbrms->match_pcp && !pbrms->action_pcp && !pbrms->match_vlan_id
-	    && !pbrms->match_vlan_flags && !pbrms->action_vlan_id
-	    && !pbrms->action_vlan_flags
-        && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield &&
+	    !pbrms->match_pcp && !pbrms->action_pcp && !pbrms->match_vlan_id &&
+	    !pbrms->match_vlan_flags && !pbrms->action_vlan_id &&
+	    !pbrms->action_vlan_flags &&
+	    pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 
