@@ -1122,7 +1122,6 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		}
 
 		free(xpath);
-		xpath = NULL;
 	}
 
 	cmtcfg_req->cmt_stats->last_batch_cnt = num_chgs;
@@ -2542,7 +2541,7 @@ int mgmt_txn_notify_be_cfgdata_reply(
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
-	struct mgmt_commit_cfg_req *cmtcfg_req = NULL;
+	struct mgmt_commit_cfg_req *cmtcfg_req;
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG)
