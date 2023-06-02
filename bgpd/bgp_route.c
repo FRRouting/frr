@@ -4747,7 +4747,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (((afi == AFI_IP || afi == AFI_IP6) &&
 		     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
 		      (safi == SAFI_MPLS_VPN &&
-		       pi->sub_type != BGP_ROUTE_IMPORTED))) ||
+		       pi->sub_type == BGP_ROUTE_NORMAL))) ||
 		    (safi == SAFI_EVPN &&
 		     bgp_evpn_is_prefix_nht_supported(p))) {
 			if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
@@ -4925,8 +4925,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Nexthop reachability check. */
 	if (((afi == AFI_IP || afi == AFI_IP6) &&
 	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
-	      (safi == SAFI_MPLS_VPN &&
-	       new->sub_type != BGP_ROUTE_IMPORTED))) ||
+	      (safi == SAFI_MPLS_VPN && new->sub_type == BGP_ROUTE_NORMAL))) ||
 	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
 		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 		    && peer->ttl == BGP_DEFAULT_TTL
