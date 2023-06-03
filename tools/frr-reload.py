@@ -1559,10 +1559,8 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
-            # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
-            elif running_ctx_keys[0].startswith("interface") or running_ctx_keys[
-                0
-            ].startswith("vrf"):
+            # We cannot do 'no vrf' in FRR, and so deal with it
+            elif running_ctx_keys[0].startswith("vrf"):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
