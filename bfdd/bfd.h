@@ -93,7 +93,7 @@ struct bfd_echo_pkt {
 
 
 /* Macros for manipulating control packets */
-#define BFD_VERMASK 0x03
+#define BFD_VERMASK 0x07
 #define BFD_DIAGMASK 0x1F
 #define BFD_GETVER(diag) ((diag >> 5) & BFD_VERMASK)
 #define BFD_SETVER(diag, val) ((diag) |= (val & BFD_VERMASK) << 5)
