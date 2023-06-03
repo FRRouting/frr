@@ -1011,6 +1011,107 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 				 ifp->ifindex, action, NULL);
 }
 
+void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct seg6local_context ctx = {};
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+	struct interface *ifp;
+	struct isis_circuit *circuit = sra->adj->circuit;
+	struct isis_area *area = circuit->area;
+
+	if (!sra)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): setting adjacency SID %pI6", area->area_tag,
+		 &sra->sid);
+
+	switch (sra->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		prefixlen = IPV6_MAX_BITLEN;
+		ctx.nh6 = sra->nexthop;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		prefixlen = sra->locator->block_bits_length +
+			    sra->locator->node_bits_length +
+			    sra->locator->function_bits_length;
+		ctx.nh6 = sra->nexthop;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
+				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		ctx.flv.lcblock_len = sra->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sra->locator->node_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	default:
+		zlog_err(
+			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
+			area->area_tag, sra->behavior);
+		return;
+	}
+
+	ifp = sra->adj->circuit->interface;
+
+	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sra->sid, prefixlen,
+				 ifp->ifindex, action, &ctx);
+}
+
+void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct interface *ifp;
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+	struct isis_circuit *circuit = sra->adj->circuit;
+	struct isis_area *area = circuit->area;
+
+	if (!sra)
+		return;
+
+	switch (sra->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+		prefixlen = IPV6_MAX_BITLEN;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		prefixlen = sra->locator->block_bits_length +
+			    sra->locator->node_bits_length +
+			    sra->locator->function_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	default:
+		zlog_err(
+			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
+			area->area_tag, sra->behavior);
+		return;
+	}
+
+	ifp = sra->adj->circuit->interface;
+
+	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
+		 &sra->sid);
+
+	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen,
+				 ifp->ifindex, action, NULL);
+}
+
 /**
  * Callback to process an SRv6 locator chunk received from SRv6 Manager (zebra).
  *
