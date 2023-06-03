@@ -118,6 +118,8 @@ isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
 static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
 				   struct sbuf *buf, struct json_object *json,
 				   int indent);
+static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				struct stream *s);
 
 /* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
 static const char *isis_mtid2str_fake(uint16_t mtid)
@@ -1338,6 +1340,89 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				stream_put3(s, lan->sid);
 			else
 				stream_putl(s, lan->sid);
+		}
+	}
+	/* SRv6 End.X SID as per RFC9352 section #8.1 */
+	if (IS_SUBTLV(exts, EXT_SRV6_ENDX_SID)) {
+		struct isis_srv6_endx_sid_subtlv *adj;
+		size_t subtlv_len;
+		size_t subtlv_len_pos;
+
+		for (adj = (struct isis_srv6_endx_sid_subtlv *)
+				   exts->srv6_endx_sid.head;
+		     adj; adj = adj->next) {
+			stream_putc(s, ISIS_SUBTLV_SRV6_ENDX_SID);
+
+			subtlv_len_pos = stream_get_endp(s);
+			stream_putc(s, 0); /* length will be filled later */
+
+			stream_putc(s, adj->flags);
+			stream_putc(s, adj->algorithm);
+			stream_putc(s, adj->weight);
+			stream_putw(s, adj->behavior);
+			stream_put(s, &adj->sid, IPV6_MAX_BYTELEN);
+
+			if (adj->subsubtlvs) {
+				/* Pack Sub-Sub-TLVs */
+				if (isis_pack_subsubtlvs(adj->subsubtlvs, s))
+					return 1;
+			} else {
+				/* No Sub-Sub-TLVs */
+				if (STREAM_WRITEABLE(s) < 1) {
+					*min_len =
+						ISIS_SUBTLV_SRV6_ENDX_SID_SIZE;
+					return 1;
+				}
+
+				/* Put 0 as Sub-Sub-TLV length, because we have
+				 * no Sub-Sub-TLVs  */
+				stream_putc(s, 0);
+			}
+
+			subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+			stream_putc_at(s, subtlv_len_pos, subtlv_len);
+		}
+	}
+	/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
+	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
+		struct isis_srv6_lan_endx_sid_subtlv *lan;
+		size_t subtlv_len;
+		size_t subtlv_len_pos;
+
+		for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+				   exts->srv6_lan_endx_sid.head;
+		     lan; lan = lan->next) {
+			stream_putc(s, ISIS_SUBTLV_SRV6_LAN_ENDX_SID);
+
+			subtlv_len_pos = stream_get_endp(s);
+			stream_putc(s, 0); /* length will be filled later */
+
+			stream_put(s, lan->neighbor_id, 6);
+			stream_putc(s, lan->flags);
+			stream_putc(s, lan->algorithm);
+			stream_putc(s, lan->weight);
+			stream_putw(s, lan->behavior);
+			stream_put(s, &lan->sid, IPV6_MAX_BYTELEN);
+
+			if (lan->subsubtlvs) {
+				/* Pack Sub-Sub-TLVs */
+				if (isis_pack_subsubtlvs(lan->subsubtlvs, s))
+					return 1;
+			} else {
+				/* No Sub-Sub-TLVs */
+				if (STREAM_WRITEABLE(s) < 1) {
+					*min_len =
+						ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE;
+					return 1;
+				}
+
+				/* Put 0 as Sub-Sub-TLV length, because we have
+				 * no Sub-Sub-TLVs  */
+				stream_putc(s, 0);
+			}
+
+			subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+			stream_putc_at(s, subtlv_len_pos, subtlv_len);
 		}
 	}
 
