@@ -1971,6 +1971,18 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 		       struct list *new_fragment_arg);
 #define pack_items(...) pack_items_(ISIS_MT_IPV4_UNICAST, __VA_ARGS__)
 
+/* Functions related to Sub-Sub-TLVs in general */
+
+struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
+{
+	struct isis_subsubtlvs *result;
+
+	result = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*result));
+	result->context = context;
+
+	return result;
+}
+
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)

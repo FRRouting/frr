@@ -693,6 +693,7 @@ int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 		   size_t len_pointer, bool pad, bool is_lsp);
 void isis_free_tlvs(struct isis_tlvs *tlvs);
 struct isis_tlvs *isis_alloc_tlvs(void);
+struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context);
 int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 		     struct isis_tlvs **dest, const char **error_log);
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json);
