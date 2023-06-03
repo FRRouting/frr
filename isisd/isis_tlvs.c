@@ -2209,9 +2209,21 @@ static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
 	stream_putw(s, sid->behavior);
 	stream_put(s, &sid->sid, IPV6_MAX_BYTELEN);
 
-	/* Put 0 as Sub-Sub-TLV length, because we don't support any Sub-Sub-TLV
-	 * at this time */
-	stream_putc(s, 0);
+	if (sid->subsubtlvs) {
+		/* Pack Sub-Sub-TLVs */
+		if (isis_pack_subsubtlvs(sid->subsubtlvs, s))
+			return 1;
+	} else {
+		/* No Sub-Sub-TLVs */
+		if (STREAM_WRITEABLE(s) < 1) {
+			*min_len = 20;
+			return 1;
+		}
+
+		/* Put 0 as Sub-Sub-TLV length, because we have no Sub-Sub-TLVs
+		 */
+		stream_putc(s, 0);
+	}
 
 	return 0;
 }
