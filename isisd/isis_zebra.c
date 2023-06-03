@@ -1126,6 +1126,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *c;
 	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
 	struct isis_srv6_sid *sid;
+	struct isis_adjacency *adj;
 	enum srv6_endpoint_behavior_codepoint behavior;
 	bool allocated = false;
 
@@ -1180,6 +1181,12 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 		/* Store the SID */
 		listnode_add(area->srv6db.srv6_sids, sid);
+
+		/* Create SRv6 End.X SIDs from existing IS-IS Adjacencies */
+		for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
+			if (adj->ll_ipv6_count > 0)
+				srv6_endx_sid_add(adj);
+		}
 
 		/* Regenerate LSPs to advertise the new locator and the SID */
 		lsp_regenerate_schedule(area, area->is_type, 0);

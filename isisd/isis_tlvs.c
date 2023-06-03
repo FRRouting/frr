@@ -7913,6 +7913,44 @@ void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 		UNSET_SUBTLV(exts, EXT_LAN_ADJ_SID);
 }
 
+/* Add IS-IS SRv6 End.X SID subTLVs */
+void isis_tlvs_add_srv6_endx_sid(struct isis_ext_subtlvs *exts,
+				 struct isis_srv6_endx_sid_subtlv *adj)
+{
+	append_item(&exts->srv6_endx_sid, (struct isis_item *)adj);
+	SET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
+}
+
+/* Delete IS-IS SRv6 End.X SID subTLVs */
+void isis_tlvs_del_srv6_endx_sid(struct isis_ext_subtlvs *exts,
+				 struct isis_srv6_endx_sid_subtlv *adj)
+{
+	isis_free_subsubtlvs(adj->subsubtlvs);
+	delete_item(&exts->srv6_endx_sid, (struct isis_item *)adj);
+	XFREE(MTYPE_ISIS_SUBTLV, adj);
+	if (exts->srv6_endx_sid.count == 0)
+		UNSET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
+}
+
+/* Add IS-IS SRv6 LAN End.X SID subTLVs */
+void isis_tlvs_add_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
+				     struct isis_srv6_lan_endx_sid_subtlv *lan)
+{
+	append_item(&exts->srv6_lan_endx_sid, (struct isis_item *)lan);
+	SET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
+}
+
+/* Delete IS-IS SRv6 LAN End.X SID subTLVs */
+void isis_tlvs_del_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
+				     struct isis_srv6_lan_endx_sid_subtlv *lan)
+{
+	isis_free_subsubtlvs(lan->subsubtlvs);
+	delete_item(&exts->srv6_lan_endx_sid, (struct isis_item *)lan);
+	XFREE(MTYPE_ISIS_SUBTLV, lan);
+	if (exts->srv6_lan_endx_sid.count == 0)
+		UNSET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
+}
+
 void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
 				  struct isis_asla_subtlvs *asla)
 {

@@ -120,6 +120,9 @@ struct isis_srv6_db {
 	/* List of SRv6 SIDs allocated by the IS-IS instance */
 	struct list *srv6_sids;
 
+	/* List of SRv6 End.X SIDs allocated by the IS-IS instance */
+	struct list *srv6_endx_sids;
+
 	/* Area SRv6 configuration. */
 	struct {
 		/* Administrative status of SRv6 */
@@ -163,5 +166,13 @@ void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
 void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
+
+void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
+			      struct list *nexthops);
+void srv6_endx_sid_add(struct isis_adjacency *adj);
+void srv6_endx_sid_del(struct srv6_adjacency *sra);
+struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
+					       enum srv6_adj_type type);
+void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);
 
 #endif /* _FRR_ISIS_SRV6_H */
