@@ -69,6 +69,48 @@ struct isis_srv6_locator {
 	struct list *srv6_sid;
 };
 
+/* SRv6 Adjacency-SID type */
+enum srv6_adj_type {
+	ISIS_SRV6_ADJ_NORMAL = 0,
+	ISIS_SRV6_LAN_BACKUP,
+};
+
+/* SRv6 Adjacency. */
+struct srv6_adjacency {
+	/* Adjacency type */
+	enum srv6_adj_type type;
+
+	/* SID flags */
+	uint8_t flags;
+
+	/* SID value */
+	struct in6_addr sid;
+
+	/* Endpoint behavior bound to the SID */
+	enum srv6_endpoint_behavior_codepoint behavior;
+
+	/* SRv6 SID structure */
+	struct isis_srv6_sid_structure structure;
+
+	/* Parent SRv6 locator */
+	struct srv6_locator_chunk *locator;
+
+	/* Adjacency-SID nexthop information */
+	struct in6_addr nexthop;
+
+	/* End.X SID TI-LFA backup nexthops */
+	struct list *backup_nexthops;
+
+	/* SRv6 (LAN) End.X SID Sub-TLV */
+	union {
+		struct isis_srv6_endx_sid_subtlv *endx_sid;
+		struct isis_srv6_lan_endx_sid_subtlv *lendx_sid;
+	} u;
+
+	/* Back pointer to IS-IS adjacency. */
+	struct isis_adjacency *adj;
+};
+
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
 
