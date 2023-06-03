@@ -5238,6 +5238,14 @@ top:
 		stream_putw(s, mtid);
 	}
 
+	/* The SRv6 Locator TLV (RFC 9352 section #7.1) starts with the MTID
+	 * field */
+	if (context == ISIS_CONTEXT_LSP && type == ISIS_TLV_SRV6_LOCATOR) {
+		if (STREAM_WRITEABLE(s) < 2)
+			goto too_long;
+		stream_putw(s, mtid);
+	}
+
 	if (context == ISIS_CONTEXT_LSP && type == ISIS_TLV_OLDSTYLE_REACH) {
 		if (STREAM_WRITEABLE(s) < 1)
 			goto too_long;
