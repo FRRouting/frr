@@ -901,6 +901,156 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					lan->neighbor_id);
 			}
 	}
+	/* SRv6 End.X SID as per RFC9352 section #8.1 */
+	if (IS_SUBTLV(exts, EXT_SRV6_ENDX_SID)) {
+		struct isis_srv6_endx_sid_subtlv *adj;
+
+		if (json) {
+			struct json_object *arr_adj_json, *flags_json;
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "srv6-endx-sid",
+					       arr_adj_json);
+			for (adj = (struct isis_srv6_endx_sid_subtlv *)
+					   exts->srv6_endx_sid.head;
+			     adj; adj = adj->next) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
+					   &adj->sid);
+				flags_json = json_object_new_object();
+				json_object_string_addf(flags_json, "sid",
+							"%pI6", &adj->sid);
+				json_object_string_add(
+					flags_json, "algorithm",
+					sr_algorithm_string(adj->algorithm));
+				json_object_int_add(flags_json, "weight",
+						    adj->weight);
+				json_object_string_add(
+					flags_json, "behavior",
+					seg6local_action2str(adj->behavior));
+				json_object_string_add(
+					flags_json, "flag-b",
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+						? "1"
+						: "0");
+				json_object_string_add(
+					flags_json, "flag-s",
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+						? "1"
+						: "0");
+				json_object_string_add(
+					flags_json, "flag-p",
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+						? "1"
+						: "0");
+				json_object_array_add(arr_adj_json, flags_json);
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs,
+							       NULL, json,
+							       indent + 4);
+			}
+		} else
+			for (adj = (struct isis_srv6_endx_sid_subtlv *)
+					   exts->srv6_endx_sid.head;
+			     adj; adj = adj->next) {
+				sbuf_push(
+					buf, indent,
+					"SRv6 End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c\n",
+					&adj->sid,
+					sr_algorithm_string(adj->algorithm),
+					adj->weight,
+					seg6local_action2str(adj->behavior),
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+						? '1'
+						: '0',
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+						? '1'
+						: '0',
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+						? '1'
+						: '0');
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs,
+							       buf, NULL,
+							       indent + 4);
+			}
+	}
+	/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
+	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
+		struct isis_srv6_lan_endx_sid_subtlv *lan;
+		if (json) {
+			struct json_object *arr_adj_json, *flags_json;
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "srv6-lan-endx-sid",
+					       arr_adj_json);
+			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+					   exts->srv6_lan_endx_sid.head;
+			     lan; lan = lan->next) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
+					   &lan->sid);
+				flags_json = json_object_new_object();
+				json_object_string_addf(flags_json, "sid",
+							"%pI6", &lan->sid);
+				json_object_int_add(flags_json, "weight",
+						    lan->weight);
+				json_object_string_add(
+					flags_json, "algorithm",
+					sr_algorithm_string(lan->algorithm));
+				json_object_int_add(flags_json, "weight",
+						    lan->weight);
+				json_object_string_add(
+					flags_json, "behavior",
+					seg6local_action2str(lan->behavior));
+				json_object_string_add(
+					flags_json, "flag-b",
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+						? "1"
+						: "0");
+				json_object_string_add(
+					flags_json, "flag-s",
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+						? "1"
+						: "0");
+				json_object_string_add(
+					flags_json, "flag-p",
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+						? "1"
+						: "0");
+				json_object_string_addf(flags_json,
+							"neighbor-id", "%pSY",
+							lan->neighbor_id);
+				json_object_array_add(arr_adj_json, flags_json);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs,
+							       NULL, json,
+							       indent + 4);
+			}
+		} else
+			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+					   exts->srv6_lan_endx_sid.head;
+			     lan; lan = lan->next) {
+				sbuf_push(
+					buf, indent,
+					"SRv6 Lan End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c "
+					"Neighbor-ID: %pSY\n",
+					&lan->sid,
+					sr_algorithm_string(lan->algorithm),
+					lan->weight,
+					seg6local_action2str(lan->behavior),
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+						? '1'
+						: '0',
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+						? '1'
+						: '0',
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+						? '1'
+						: '0',
+					lan->neighbor_id);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs,
+							       buf, NULL,
+							       indent + 4);
+			}
+	}
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
 		format_item_asla_subtlvs(asla, buf, indent);
 }
