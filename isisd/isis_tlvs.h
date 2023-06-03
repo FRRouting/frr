@@ -22,6 +22,7 @@
 #include "lib/srv6.h"
 
 DECLARE_MTYPE(ISIS_SUBTLV);
+DECLARE_MTYPE(ISIS_SUBSUBTLV);
 
 struct lspdb_head;
 struct sr_prefix_cfg;
