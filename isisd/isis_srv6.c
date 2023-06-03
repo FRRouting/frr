@@ -180,9 +180,13 @@ static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
 {
 	struct listnode *node;
 	struct isis_srv6_sid *s;
+	struct srv6_adjacency *sra;
 
 	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, s))
 		if (sid_same(&s->sid, sid))
+			return true;
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_endx_sids, node, sra))
+		if (sid_same(&sra->sid, sid))
 			return true;
 	return false;
 }
