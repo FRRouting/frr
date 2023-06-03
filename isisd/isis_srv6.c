@@ -702,6 +702,7 @@ void isis_srv6_area_init(struct isis_area *area)
 
 	/* Initialize SRv6 Data Base */
 	memset(srv6db, 0, sizeof(*srv6db));
+	srv6db->srv6_endx_sids = list_new();
 
 	/* Pull defaults from the YANG module */
 	srv6db->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SRV6);
@@ -727,10 +728,17 @@ void isis_srv6_area_init(struct isis_area *area)
 void isis_srv6_area_term(struct isis_area *area)
 {
 	struct isis_srv6_db *srv6db = &area->srv6db;
+	struct srv6_adjacency *sra;
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
 
 	sr_debug("ISIS-SRv6 (%s): Terminate SRv6", area->area_tag);
+
+	/* Uninstall all local SRv6 End.X SIDs */
+	if (area->srv6db.config.enabled)
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode,
+				       sra))
+			srv6_endx_sid_del(sra);
 
 	/* Free SRv6 Locator chunks list */
 	for (ALL_LIST_ELEMENTS(srv6db->srv6_locator_chunks, node, nnode, chunk))
@@ -739,6 +747,7 @@ void isis_srv6_area_term(struct isis_area *area)
 
 	/* Free SRv6 SIDs list */
 	list_delete(&srv6db->srv6_sids);
+	list_delete(&srv6db->srv6_endx_sids);
 }
 
 /**
