@@ -5378,7 +5378,8 @@ static int unpack_tlv_with_items(enum isis_tlv_context context,
 	tlv_start = stream_get_getp(s);
 	tlv_pos = 0;
 
-	if (context == ISIS_CONTEXT_LSP && IS_COMPAT_MT_TLV(tlv_type)) {
+	if (context == ISIS_CONTEXT_LSP &&
+	    (IS_COMPAT_MT_TLV(tlv_type) || tlv_type == ISIS_TLV_SRV6_LOCATOR)) {
 		if (tlv_len < 2) {
 			sbuf_push(log, indent,
 				  "TLV is too short to contain MTID\n");
