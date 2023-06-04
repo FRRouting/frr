@@ -68,7 +68,7 @@ enum vty_event {
 
 struct nb_config *vty_mgmt_candidate_config;
 
-static uintptr_t mgmt_lib_hndl;
+static struct mgmt_fe_client *mgmt_fe_client;
 static bool mgmt_fe_connected;
 static bool mgmt_candidate_ds_wr_locked;
 static uint64_t mgmt_client_id_next;
@@ -1640,12 +1640,12 @@ struct vty *vty_new(void)
 	new->max = VTY_BUFSIZ;
 	new->pass_fd = -1;
 
-	if (mgmt_lib_hndl) {
+	if (mgmt_fe_client) {
 		if (!mgmt_client_id_next)
 			mgmt_client_id_next++;
 		new->mgmt_client_id = mgmt_client_id_next++;
 		if (mgmt_fe_create_client_session(
-			    mgmt_lib_hndl, new->mgmt_client_id,
+			    mgmt_fe_client, new->mgmt_client_id,
 			    (uintptr_t) new) != MGMTD_SUCCESS)
 			zlog_err(
 				"Failed to open a MGMTD Frontend session for VTY session %p!!",
@@ -2419,8 +2419,8 @@ void vty_close(struct vty *vty)
 
 	vty->status = VTY_CLOSE;
 
-	if (mgmt_lib_hndl && vty->mgmt_session_id) {
-		mgmt_fe_destroy_client_session(mgmt_lib_hndl,
+	if (mgmt_fe_client && vty->mgmt_session_id) {
+		mgmt_fe_destroy_client_session(mgmt_fe_client,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
 	}
@@ -3391,8 +3391,8 @@ void vty_init_vtysh(void)
  * functionality linked into it. This design choice was taken for efficiency.
  */
 
-static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
-				      bool connected)
+static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
+				      uintptr_t usr_data, bool connected)
 {
 	MGMTD_FE_CLIENT_DBG("Got %sconnected %s MGMTD Frontend Server",
 			    !connected ? "dis: " : "",
@@ -3403,7 +3403,7 @@ static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
 	 * The  fe client library will delete all session on disconnect before
 	 * calling us.
 	 */
-	assert(mgmt_fe_client_session_count(lib_hndl) == 0);
+	assert(mgmt_fe_client_session_count(client) == 0);
 
 	mgmt_fe_connected = connected;
 
@@ -3417,10 +3417,10 @@ static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
 /*
  * A session has successfully been created for a vty.
  */
-static void vty_mgmt_session_notify(uintptr_t lib_hndl, uintptr_t usr_data,
-				    uint64_t client_id, bool create,
-				    bool success, uintptr_t session_id,
-				    uintptr_t session_ctx)
+static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
+				    uintptr_t usr_data, uint64_t client_id,
+				    bool create, bool success,
+				    uintptr_t session_id, uintptr_t session_ctx)
 {
 	struct vty *vty;
 
@@ -3444,8 +3444,9 @@ static void vty_mgmt_session_notify(uintptr_t lib_hndl, uintptr_t usr_data,
 	}
 }
 
-static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
-				      uint64_t client_id, uintptr_t session_id,
+static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
+				      uintptr_t usr_data, uint64_t client_id,
+				      uintptr_t session_id,
 				      uintptr_t session_ctx, uint64_t req_id,
 				      bool lock_ds, bool success,
 				      Mgmtd__DatastoreId ds_id,
@@ -3469,7 +3470,7 @@ static void vty_mgmt_ds_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
 }
 
 static void vty_mgmt_set_config_result_notified(
-	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
+	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
 	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
 	bool success, Mgmtd__DatastoreId ds_id, char *errmsg_if_any)
 {
@@ -3493,7 +3494,7 @@ static void vty_mgmt_set_config_result_notified(
 }
 
 static void vty_mgmt_commit_config_result_notified(
-	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
+	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
 	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
 	bool success, Mgmtd__DatastoreId src_ds_id,
 	Mgmtd__DatastoreId dst_ds_id, bool validate_only, char *errmsg_if_any)
@@ -3520,8 +3521,8 @@ static void vty_mgmt_commit_config_result_notified(
 	vty_mgmt_resume_response(vty, success);
 }
 
-static enum mgmt_result vty_mgmt_get_data_result_notified(
-	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
+static int vty_mgmt_get_data_result_notified(
+	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
 	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
 	bool success, Mgmtd__DatastoreId ds_id, Mgmtd__YangData **yang_data,
 	size_t num_data, int next_key, char *errmsg_if_any)
@@ -3538,7 +3539,7 @@ static enum mgmt_result vty_mgmt_get_data_result_notified(
 		vty_out(vty, "ERROR: GET_DATA request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_mgmt_resume_response(vty, success);
-		return MGMTD_INTERNAL_ERROR;
+		return -1;
 	}
 
 	MGMTD_FE_CLIENT_DBG("GET_DATA request succeeded, client 0x%" PRIx64
@@ -3559,10 +3560,10 @@ static enum mgmt_result vty_mgmt_get_data_result_notified(
 		vty_mgmt_resume_response(vty, success);
 	}
 
-	return MGMTD_SUCCESS;
+	return 0;
 }
 
-static struct mgmt_fe_client_params client_params = {
+static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.client_connect_notify = vty_mgmt_server_connected,
 	.client_session_notify = vty_mgmt_session_notify,
 	.lock_ds_notify = vty_mgmt_ds_lock_notified,
@@ -3573,21 +3574,19 @@ static struct mgmt_fe_client_params client_params = {
 
 void vty_init_mgmt_fe(void)
 {
-	if (!vty_master) {
-		zlog_err("Always call vty_mgmt_init_fe() after vty_init()!!");
-		return;
-	}
+	char name[40];
 
-	assert(!mgmt_lib_hndl);
-	snprintf(client_params.name, sizeof(client_params.name), "%s-%lld",
-		 frr_get_progname(), (long long)getpid());
-	mgmt_lib_hndl = mgmt_fe_client_lib_init(&client_params, vty_master);
-	assert(mgmt_lib_hndl);
+	assert(vty_master);
+	assert(!mgmt_fe_client);
+	snprintf(name, sizeof(name), "vty-%s-%ld", frr_get_progname(),
+		 (long)getpid());
+	mgmt_fe_client = mgmt_fe_client_create(name, &mgmt_cbs, 0, vty_master);
+	assert(mgmt_fe_client);
 }
 
 bool vty_mgmt_fe_enabled(void)
 {
-	return mgmt_lib_hndl && mgmt_fe_connected;
+	return mgmt_fe_client && mgmt_fe_connected;
 }
 
 bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty)
@@ -3598,13 +3597,11 @@ bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty)
 int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 			     bool lock)
 {
-	enum mgmt_result ret;
-
-	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+	if (mgmt_fe_client && vty->mgmt_session_id) {
 		vty->mgmt_req_id++;
-		ret = mgmt_fe_lock_ds(mgmt_lib_hndl, vty->mgmt_session_id,
-				      vty->mgmt_req_id, ds_id, lock);
-		if (ret != MGMTD_SUCCESS) {
+		if (mgmt_fe_send_lockds_req(mgmt_fe_client,
+					    vty->mgmt_session_id,
+					    vty->mgmt_req_id, ds_id, lock)) {
 			zlog_err("Failed sending %sLOCK-DS-REQ req-id %" PRIu64,
 				 lock ? "" : "UN", vty->mgmt_req_id);
 			vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!\n",
@@ -3641,7 +3638,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	}
 
 
-	if (mgmt_lib_hndl && vty->mgmt_client_id && !vty->mgmt_session_id) {
+	if (mgmt_fe_client && vty->mgmt_client_id && !vty->mgmt_session_id) {
 		/*
 		 * We are connected to mgmtd but we do not yet have an
 		 * established session. this means we need to send any changes
@@ -3652,7 +3649,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 		return 0;
 	}
 
-	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+	if (mgmt_fe_client && vty->mgmt_session_id) {
 		cnt = 0;
 		for (indx = 0; indx < vty->num_cfg_changes; indx++) {
 			mgmt_yang_data_init(&cfg_data[cnt]);
@@ -3701,8 +3698,8 @@ int vty_mgmt_send_config_data(struct vty *vty)
 
 		vty->mgmt_req_id++;
 		implicit_commit = vty_needs_implicit_commit(vty);
-		if (cnt && mgmt_fe_set_config_data(
-				   mgmt_lib_hndl, vty->mgmt_session_id,
+		if (cnt && mgmt_fe_send_setcfg_req(
+				   mgmt_fe_client, vty->mgmt_session_id,
 				   vty->mgmt_req_id, MGMTD_DS_CANDIDATE, cfgreq,
 				   cnt, implicit_commit,
 				   MGMTD_DS_RUNNING) != MGMTD_SUCCESS) {
@@ -3720,15 +3717,12 @@ int vty_mgmt_send_config_data(struct vty *vty)
 
 int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 {
-	enum mgmt_result ret;
-
-	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+	if (mgmt_fe_client && vty->mgmt_session_id) {
 		vty->mgmt_req_id++;
-		ret = mgmt_fe_commit_config_data(
-			mgmt_lib_hndl, vty->mgmt_session_id, vty->mgmt_req_id,
-			MGMTD_DS_CANDIDATE, MGMTD_DS_RUNNING, validate_only,
-			abort);
-		if (ret != MGMTD_SUCCESS) {
+		if (mgmt_fe_send_commitcfg_req(
+			    mgmt_fe_client, vty->mgmt_session_id,
+			    vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
+			    MGMTD_DS_RUNNING, validate_only, abort)) {
 			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64,
 				 vty->mgmt_req_id);
 			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");
@@ -3745,7 +3739,6 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 			     const char **xpath_list, int num_req)
 {
-	enum mgmt_result ret;
 	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
@@ -3762,11 +3755,9 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 		get_req[i].data = &yang_data[i];
 		getreq[i] = &get_req[i];
 	}
-	ret = mgmt_fe_get_config_data(mgmt_lib_hndl, vty->mgmt_session_id,
-				      vty->mgmt_req_id, datastore, getreq,
-				      num_req);
-
-	if (ret != MGMTD_SUCCESS) {
+	if (mgmt_fe_send_getcfg_req(mgmt_fe_client, vty->mgmt_session_id,
+				    vty->mgmt_req_id, datastore, getreq,
+				    num_req)) {
 		zlog_err(
 			"Failed to send GET-CONFIG to MGMTD for req-id %" PRIu64
 			".",
@@ -3783,7 +3774,6 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 			   const char **xpath_list, int num_req)
 {
-	enum mgmt_result ret;
 	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
@@ -3800,10 +3790,9 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 		get_req[i].data = &yang_data[i];
 		getreq[i] = &get_req[i];
 	}
-	ret = mgmt_fe_get_data(mgmt_lib_hndl, vty->mgmt_session_id,
-			       vty->mgmt_req_id, datastore, getreq, num_req);
-
-	if (ret != MGMTD_SUCCESS) {
+	if (mgmt_fe_send_getdata_req(mgmt_fe_client, vty->mgmt_session_id,
+				     vty->mgmt_req_id, datastore, getreq,
+				     num_req)) {
 		zlog_err("Failed to send GET-DATA to MGMTD for req-id %" PRIu64
 			 ".",
 			 vty->mgmt_req_id);
@@ -3862,9 +3851,9 @@ void vty_terminate(void)
 {
 	struct vty *vty;
 
-	if (mgmt_lib_hndl) {
-		mgmt_fe_client_lib_destroy();
-		mgmt_lib_hndl = 0;
+	if (mgmt_fe_client) {
+		mgmt_fe_client_destroy(mgmt_fe_client);
+		mgmt_fe_client = 0;
 	}
 
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
