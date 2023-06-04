@@ -28,6 +28,8 @@
 #define MGMTD_DBG_BE_CLIENT_CHECK()                                            \
 	DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL)
 
+DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_CLIENT, "backend client");
+DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_CLIENT_NAME, "backend client name");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH, "backend transaction batch data");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_TXN, "backend transaction data");
 
@@ -70,8 +72,6 @@ struct mgmt_be_batch_ctx {
 #define MGMTD_BE_TXN_FLAGS_CFG_APPLIED (1U << 1)
 DECLARE_LIST(mgmt_be_batches, struct mgmt_be_batch_ctx, list_linkage);
 
-struct mgmt_be_client_ctx;
-
 PREDECL_LIST(mgmt_be_txns);
 struct mgmt_be_txn_ctx {
 	/* Txn-Id as assigned by MGMTD */
@@ -79,7 +79,7 @@ struct mgmt_be_txn_ctx {
 	uint32_t flags;
 
 	struct mgmt_be_client_txn_ctx client_data;
-	struct mgmt_be_client_ctx *client_ctx;
+	struct mgmt_be_client *client;
 
 	/* List of batches belonging to this transaction */
 	struct mgmt_be_batches_head cfg_batches;
@@ -100,8 +100,10 @@ DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 #define FOREACH_BE_APPLY_BATCH_IN_LIST(txn, batch)                             \
 	frr_each_safe (mgmt_be_batches, &(txn)->apply_cfgs, (batch))
 
-struct mgmt_be_client_ctx {
+struct mgmt_be_client {
 	struct msg_client client;
+
+	char *name;
 
 	struct nb_config *candidate_config;
 	struct nb_config *running_config;
@@ -114,16 +116,15 @@ struct mgmt_be_client_ctx {
 	unsigned long avg_apply_nb_cfg_tm;
 
 	struct mgmt_be_txns_head txn_head;
-	struct mgmt_be_client_params client_params;
+
+	struct mgmt_be_client_cbs cbs;
+	uintptr_t user_data;
 };
 
 #define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
 struct debug mgmt_dbg_be_client = {0, "Management backend client operations"};
-
-static struct mgmt_be_client_ctx mgmt_be_client_ctx = {
-	.client = {.conn = {.fd = -1}}};
 
 const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 #ifdef HAVE_STATICD
@@ -132,7 +133,7 @@ const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
 
-static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
+static int mgmt_be_client_send_msg(struct mgmt_be_client *client_ctx,
 				   Mgmtd__BeMessage *be_msg)
 {
 	return msg_conn_send_msg(
@@ -216,8 +217,7 @@ static void mgmt_be_cleanup_all_batches(struct mgmt_be_txn_ctx *txn)
 }
 
 static struct mgmt_be_txn_ctx *
-mgmt_be_find_txn_by_id(struct mgmt_be_client_ctx *client_ctx,
-			   uint64_t txn_id)
+mgmt_be_find_txn_by_id(struct mgmt_be_client *client_ctx, uint64_t txn_id)
 {
 	struct mgmt_be_txn_ctx *txn = NULL;
 
@@ -230,8 +230,7 @@ mgmt_be_find_txn_by_id(struct mgmt_be_client_ctx *client_ctx,
 }
 
 static struct mgmt_be_txn_ctx *
-mgmt_be_txn_create(struct mgmt_be_client_ctx *client_ctx,
-		       uint64_t txn_id)
+mgmt_be_txn_create(struct mgmt_be_client *client_ctx, uint64_t txn_id)
 {
 	struct mgmt_be_txn_ctx *txn = NULL;
 
@@ -242,7 +241,7 @@ mgmt_be_txn_create(struct mgmt_be_client_ctx *client_ctx,
 		assert(txn);
 
 		txn->txn_id = txn_id;
-		txn->client_ctx = client_ctx;
+		txn->client = client_ctx;
 		mgmt_be_batches_init(&txn->cfg_batches);
 		mgmt_be_batches_init(&txn->apply_cfgs);
 		mgmt_be_txns_add_tail(&client_ctx->txn_head, txn);
@@ -253,8 +252,8 @@ mgmt_be_txn_create(struct mgmt_be_client_ctx *client_ctx,
 	return txn;
 }
 
-static void mgmt_be_txn_delete(struct mgmt_be_client_ctx *client_ctx,
-				   struct mgmt_be_txn_ctx **txn)
+static void mgmt_be_txn_delete(struct mgmt_be_client *client_ctx,
+			       struct mgmt_be_txn_ctx **txn)
 {
 	char err_msg[] = "MGMT Transaction Delete";
 
@@ -274,12 +273,10 @@ static void mgmt_be_txn_delete(struct mgmt_be_client_ctx *client_ctx,
 	 * CFGDATA_CREATE_REQs. But first notify the client
 	 * about the transaction delete.
 	 */
-	if (client_ctx->client_params.txn_notify)
-		(void)(*client_ctx->client_params
-				.txn_notify)(
-			(uintptr_t)client_ctx,
-			client_ctx->client_params.user_data,
-			&(*txn)->client_data, true);
+	if (client_ctx->cbs.txn_notify)
+		(void)(*client_ctx->cbs.txn_notify)(client_ctx,
+						    client_ctx->user_data,
+						    &(*txn)->client_data, true);
 
 	mgmt_be_cleanup_all_batches(*txn);
 	if ((*txn)->nb_txn)
@@ -290,8 +287,7 @@ static void mgmt_be_txn_delete(struct mgmt_be_client_ctx *client_ctx,
 	*txn = NULL;
 }
 
-static void
-mgmt_be_cleanup_all_txns(struct mgmt_be_client_ctx *client_ctx)
+static void mgmt_be_cleanup_all_txns(struct mgmt_be_client *client_ctx)
 {
 	struct mgmt_be_txn_ctx *txn = NULL;
 
@@ -300,9 +296,8 @@ mgmt_be_cleanup_all_txns(struct mgmt_be_client_ctx *client_ctx)
 	}
 }
 
-static int mgmt_be_send_txn_reply(struct mgmt_be_client_ctx *client_ctx,
-				      uint64_t txn_id, bool create,
-				      bool success)
+static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
+				  uint64_t txn_id, bool create, bool success)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeTxnReply txn_reply;
@@ -321,8 +316,8 @@ static int mgmt_be_send_txn_reply(struct mgmt_be_client_ctx *client_ctx,
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
 
-static int mgmt_be_process_txn_req(struct mgmt_be_client_ctx *client_ctx,
-				       uint64_t txn_id, bool create)
+static int mgmt_be_process_txn_req(struct mgmt_be_client *client_ctx,
+				   uint64_t txn_id, bool create)
 {
 	struct mgmt_be_txn_ctx *txn;
 
@@ -342,11 +337,9 @@ static int mgmt_be_process_txn_req(struct mgmt_be_client_ctx *client_ctx,
 		MGMTD_BE_CLIENT_DBG("Created new txn-id %" PRIu64, txn_id);
 		txn = mgmt_be_txn_create(client_ctx, txn_id);
 
-		if (client_ctx->client_params.txn_notify)
-			(void)(*client_ctx->client_params
-					.txn_notify)(
-				(uintptr_t)client_ctx,
-				client_ctx->client_params.user_data,
+		if (client_ctx->cbs.txn_notify)
+			(void)(*client_ctx->cbs.txn_notify)(
+				client_ctx, client_ctx->user_data,
 				&txn->client_data, false);
 	} else {
 		if (!txn) {
@@ -368,10 +361,10 @@ static int mgmt_be_process_txn_req(struct mgmt_be_client_ctx *client_ctx,
 	return 0;
 }
 
-static int
-mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client_ctx *client_ctx,
-				     uint64_t txn_id, uint64_t batch_id,
-				     bool success, const char *error_if_any)
+static int mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client *client_ctx,
+					     uint64_t txn_id, uint64_t batch_id,
+					     bool success,
+					     const char *error_if_any)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeCfgDataCreateReply cfgdata_reply;
@@ -398,7 +391,7 @@ static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 {
 	char errmsg[BUFSIZ] = {0};
 
-	assert(txn && txn->client_ctx);
+	assert(txn && txn->client);
 	if (txn->nb_txn) {
 		MGMTD_BE_CLIENT_ERR(
 			"Aborting configs after prep for txn-id: %" PRIu64,
@@ -416,13 +409,13 @@ static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 	MGMTD_BE_CLIENT_DBG(
 		"Reset candidate configurations after abort of txn-id: %" PRIu64,
 		txn->txn_id);
-	nb_config_replace(txn->client_ctx->candidate_config,
-			  txn->client_ctx->running_config, true);
+	nb_config_replace(txn->client->candidate_config,
+			  txn->client->running_config, true);
 }
 
 static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 {
-	struct mgmt_be_client_ctx *client_ctx;
+	struct mgmt_be_client *client_ctx;
 	struct mgmt_be_txn_req *txn_req = NULL;
 	struct nb_context nb_ctx = {0};
 	struct timeval edit_nb_cfg_start;
@@ -437,15 +430,15 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	size_t num_processed;
 	int err;
 
-	assert(txn && txn->client_ctx);
-	client_ctx = txn->client_ctx;
+	assert(txn && txn->client);
+	client_ctx = txn->client;
 
 	num_processed = 0;
 	FOREACH_BE_TXN_BATCH_IN_LIST (txn, batch) {
 		txn_req = &batch->txn_req;
 		error = false;
 		nb_ctx.client = NB_CLIENT_CLI;
-		nb_ctx.user = (void *)client_ctx->client_params.user_data;
+		nb_ctx.user = (void *)client_ctx->user_data;
 
 		if (!txn->nb_txn) {
 			/*
@@ -492,7 +485,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	 * Now prepare all the batches we have applied in one go.
 	 */
 	nb_ctx.client = NB_CLIENT_CLI;
-	nb_ctx.user = (void *)client_ctx->client_params.user_data;
+	nb_ctx.user = (void *)client_ctx->user_data;
 
 	gettimeofday(&prep_nb_cfg_start, NULL);
 	err = nb_candidate_commit_prepare(nb_ctx, client_ctx->candidate_config,
@@ -556,12 +549,11 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 /*
  * Process all CFG_DATA_REQs received so far and prepare them all in one go.
  */
-static int
-mgmt_be_update_setcfg_in_batch(struct mgmt_be_client_ctx *client_ctx,
-				  struct mgmt_be_txn_ctx *txn,
-				  uint64_t batch_id,
-				  Mgmtd__YangCfgDataReq * cfg_req[],
-				  int num_req)
+static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
+					  struct mgmt_be_txn_ctx *txn,
+					  uint64_t batch_id,
+					  Mgmtd__YangCfgDataReq *cfg_req[],
+					  int num_req)
 {
 	struct mgmt_be_batch_ctx *batch = NULL;
 	struct mgmt_be_txn_req *txn_req = NULL;
@@ -611,11 +603,10 @@ mgmt_be_update_setcfg_in_batch(struct mgmt_be_client_ctx *client_ctx,
 	return 0;
 }
 
-static int
-mgmt_be_process_cfgdata_req(struct mgmt_be_client_ctx *client_ctx,
-			       uint64_t txn_id, uint64_t batch_id,
-			       Mgmtd__YangCfgDataReq * cfg_req[], int num_req,
-			       bool end_of_data)
+static int mgmt_be_process_cfgdata_req(struct mgmt_be_client *client_ctx,
+				       uint64_t txn_id, uint64_t batch_id,
+				       Mgmtd__YangCfgDataReq *cfg_req[],
+				       int num_req, bool end_of_data)
 {
 	struct mgmt_be_txn_ctx *txn;
 
@@ -640,10 +631,10 @@ mgmt_be_process_cfgdata_req(struct mgmt_be_client_ctx *client_ctx,
 	return 0;
 }
 
-static int mgmt_be_send_apply_reply(struct mgmt_be_client_ctx *client_ctx,
-				       uint64_t txn_id, uint64_t batch_ids[],
-				       size_t num_batch_ids, bool success,
-				       const char *error_if_any)
+static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
+				    uint64_t txn_id, uint64_t batch_ids[],
+				    size_t num_batch_ids, bool success,
+				    const char *error_if_any)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeCfgDataApplyReply apply_reply;
@@ -673,7 +664,7 @@ static int mgmt_be_send_apply_reply(struct mgmt_be_client_ctx *client_ctx,
 
 static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 {
-	struct mgmt_be_client_ctx *client_ctx;
+	struct mgmt_be_client *client_ctx;
 	struct timeval apply_nb_cfg_start;
 	struct timeval apply_nb_cfg_end;
 	unsigned long apply_nb_cfg_tm;
@@ -682,8 +673,8 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	size_t num_processed;
 	static uint64_t batch_ids[MGMTD_BE_MAX_BATCH_IDS_IN_REQ];
 
-	assert(txn && txn->client_ctx);
-	client_ctx = txn->client_ctx;
+	assert(txn && txn->client);
+	client_ctx = txn->client;
 
 	assert(txn->nb_txn);
 	num_processed = 0;
@@ -735,9 +726,8 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	return 0;
 }
 
-static int
-mgmt_be_process_cfg_apply(struct mgmt_be_client_ctx *client_ctx,
-			     uint64_t txn_id)
+static int mgmt_be_process_cfg_apply(struct mgmt_be_client *client_ctx,
+				     uint64_t txn_id)
 {
 	struct mgmt_be_txn_ctx *txn;
 
@@ -754,9 +744,8 @@ mgmt_be_process_cfg_apply(struct mgmt_be_client_ctx *client_ctx,
 	return 0;
 }
 
-static int
-mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
-			     Mgmtd__BeMessage *be_msg)
+static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
+				     Mgmtd__BeMessage *be_msg)
 {
 	/*
 	 * protobuf-c adds a max size enum with an internal, and changing by
@@ -833,12 +822,12 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
 				       size_t len, struct msg_conn *conn)
 {
-	struct mgmt_be_client_ctx *client_ctx;
+	struct mgmt_be_client *client_ctx;
 	struct msg_client *client;
 	Mgmtd__BeMessage *be_msg;
 
 	client = container_of(conn, struct msg_client, conn);
-	client_ctx = container_of(client, struct mgmt_be_client_ctx, client);
+	client_ctx = container_of(client, struct mgmt_be_client, client);
 
 	be_msg = mgmtd__be_message__unpack(NULL, len, data);
 	if (!be_msg) {
@@ -853,17 +842,17 @@ static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
-				   bool subscr_xpaths, uint16_t num_reg_xpaths,
-				   char **reg_xpaths)
+int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
+			    bool subscr_xpaths, int num_xpaths,
+			    char **reg_xpaths)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeSubscribeReq subscr_req;
 
 	mgmtd__be_subscribe_req__init(&subscr_req);
-	subscr_req.client_name = client_ctx->client_params.name;
-	subscr_req.n_xpath_reg = num_reg_xpaths;
-	if (num_reg_xpaths)
+	subscr_req.client_name = client_ctx->name;
+	subscr_req.n_xpath_reg = num_xpaths;
+	if (num_xpaths)
 		subscr_req.xpath_reg = reg_xpaths;
 	else
 		subscr_req.xpath_reg = NULL;
@@ -881,24 +870,24 @@ static int mgmt_be_send_subscr_req(struct mgmt_be_client_ctx *client_ctx,
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
 
-static int _notify_conenct_disconnect(struct msg_client *client, bool connected)
+static int _notify_conenct_disconnect(struct msg_client *msg_client,
+				      bool connected)
 {
-	struct mgmt_be_client_ctx *client_ctx =
-		container_of(client, struct mgmt_be_client_ctx, client);
+	struct mgmt_be_client *client =
+		container_of(msg_client, struct mgmt_be_client, client);
 	int ret;
 
 	if (connected) {
-		assert(client->conn.fd != -1);
-		ret = mgmt_be_send_subscr_req(client_ctx, false, 0, NULL);
+		assert(msg_client->conn.fd != -1);
+		ret = mgmt_be_send_subscr_req(client, false, 0, NULL);
 		if (ret)
 			return ret;
 	}
 
 	/* Notify BE client through registered callback (if any) */
-	if (client_ctx->client_params.client_connect_notify)
-		(void)(*client_ctx->client_params.client_connect_notify)(
-			(uintptr_t)client_ctx,
-			client_ctx->client_params.user_data, connected);
+	if (client->cbs.client_connect_notify)
+		(void)(*client->cbs.client_connect_notify)(
+			client, client->user_data, connected);
 	return 0;
 }
 
@@ -913,6 +902,10 @@ static int mgmt_be_client_notify_disconenct(struct msg_conn *conn)
 
 	return _notify_conenct_disconnect(client, false);
 }
+
+/*
+ * Debug Flags
+ */
 
 DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
       "[no] debug mgmt client backend",
@@ -956,32 +949,33 @@ static struct cmd_node mgmt_dbg_node = {
 	.config_write = mgmt_debug_be_client_config_write,
 };
 
-/*
- * Initialize library and try connecting with MGMTD.
- */
-uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
-				  struct event_loop *master_thread)
+struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
+					     struct mgmt_be_client_cbs *cbs,
+					     uintptr_t user_data,
+					     struct event_loop *event_loop)
 {
-	/* Don't call twice */
-	assert(!mgmt_be_client_ctx.client.conn.loop);
+	struct mgmt_be_client *client =
+		XCALLOC(MTYPE_MGMTD_BE_CLIENT, sizeof(*client));
 
 	/* Only call after frr_init() */
 	assert(running_config);
 
-	mgmt_be_client_ctx.running_config = running_config;
-	mgmt_be_client_ctx.candidate_config = nb_config_new(NULL);
-	mgmt_be_client_ctx.client_params = *params;
-	mgmt_be_txns_init(&mgmt_be_client_ctx.txn_head);
-	msg_client_init(&mgmt_be_client_ctx.client, master_thread,
-			MGMTD_BE_SERVER_PATH, mgmt_be_client_notify_conenct,
+	client->name = XSTRDUP(MTYPE_MGMTD_BE_CLIENT_NAME, client_name);
+	client->running_config = running_config;
+	client->candidate_config = nb_config_new(NULL);
+	if (cbs)
+		client->cbs = *cbs;
+	mgmt_be_txns_init(&client->txn_head);
+	msg_client_init(&client->client, event_loop, MGMTD_BE_SERVER_PATH,
+			mgmt_be_client_notify_conenct,
 			mgmt_be_client_notify_disconenct,
 			mgmt_be_client_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
 			MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, false,
 			"BE-client", MGMTD_DBG_BE_CLIENT_CHECK());
 
-	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", params->name);
+	MGMTD_BE_CLIENT_DBG("Initialized client '%s'", client_name);
 
-	return (uintptr_t)&mgmt_be_client_ctx;
+	return client;
 }
 
 
@@ -993,86 +987,16 @@ void mgmt_be_client_lib_vty_init(void)
 	install_element(CONFIG_NODE, &debug_mgmt_client_be_cmd);
 }
 
-
-/*
- * Subscribe with MGMTD for one or more YANG subtree(s).
- */
-enum mgmt_result mgmt_be_subscribe_yang_data(uintptr_t lib_hndl,
-						char *reg_yang_xpaths[],
-						int num_reg_xpaths)
+void mgmt_be_client_destroy(struct mgmt_be_client *client)
 {
-	struct mgmt_be_client_ctx *client_ctx;
-
-	if (!num_reg_xpaths)
-		return MGMTD_SUCCESS;
-
-	client_ctx = (struct mgmt_be_client_ctx *)lib_hndl;
-	if (!client_ctx)
-		return MGMTD_INVALID_PARAM;
-
-	if (mgmt_be_send_subscr_req(client_ctx, true, num_reg_xpaths,
-				       reg_yang_xpaths)
-	    != 0)
-		return MGMTD_INTERNAL_ERROR;
-
-	return MGMTD_SUCCESS;
-}
-
-/*
- * Unsubscribe with MGMTD for one or more YANG subtree(s).
- */
-enum mgmt_result mgmt_be_unsubscribe_yang_data(uintptr_t lib_hndl,
-						  char *reg_yang_xpaths[],
-						  int num_reg_xpaths)
-{
-	struct mgmt_be_client_ctx *client_ctx;
-
-	if (!num_reg_xpaths)
-		return MGMTD_SUCCESS;
-
-	client_ctx = (struct mgmt_be_client_ctx *)lib_hndl;
-	if (!client_ctx)
-		return MGMTD_INVALID_PARAM;
-
-
-	if (mgmt_be_send_subscr_req(client_ctx, false, num_reg_xpaths,
-				       reg_yang_xpaths)
-	    < 0)
-		return MGMTD_INTERNAL_ERROR;
-
-	return MGMTD_SUCCESS;
-}
-
-/*
- * Send one or more YANG notifications to MGMTD daemon.
- */
-enum mgmt_result mgmt_be_send_yang_notify(uintptr_t lib_hndl,
-					     Mgmtd__YangData * data_elems[],
-					     int num_elems)
-{
-	struct mgmt_be_client_ctx *client_ctx;
-
-	client_ctx = (struct mgmt_be_client_ctx *)lib_hndl;
-	if (!client_ctx)
-		return MGMTD_INVALID_PARAM;
-
-	return MGMTD_SUCCESS;
-}
-
-/*
- * Destroy library and cleanup everything.
- */
-void mgmt_be_client_lib_destroy(void)
-{
-	struct mgmt_be_client_ctx *client_ctx = &mgmt_be_client_ctx;
-
 	MGMTD_BE_CLIENT_DBG("Destroying MGMTD Backend Client '%s'",
-			    client_ctx->client_params.name);
+			    client->name);
 
-	msg_client_cleanup(&client_ctx->client);
-	mgmt_be_cleanup_all_txns(client_ctx);
-	mgmt_be_txns_fini(&client_ctx->txn_head);
-	nb_config_free(client_ctx->candidate_config);
+	msg_client_cleanup(&client->client);
+	mgmt_be_cleanup_all_txns(client);
+	mgmt_be_txns_fini(&client->txn_head);
+	nb_config_free(client->candidate_config);
 
-	memset(client_ctx, 0, sizeof(*client_ctx));
+	XFREE(MTYPE_MGMTD_BE_CLIENT_NAME, client->name);
+	XFREE(MTYPE_MGMTD_BE_CLIENT, client);
 }
