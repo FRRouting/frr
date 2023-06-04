@@ -2359,8 +2359,13 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		/* Delete EVPN from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
 
+<<<<<<< HEAD
 		zebra_evpn_neigh_del_all(zevpn, 0, 0, DEL_ALL_NEIGH);
 		zebra_evpn_mac_del_all(zevpn, 0, 0, DEL_ALL_MAC);
+=======
+		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
+>>>>>>> 0112571dc (zebra: Cleanup the mac & neigh entry on vni transition(l2->l3))
 
 		/* Free up all remote VTEPs, if any. */
 		zebra_evpn_vtep_del_all(zevpn, 1);
