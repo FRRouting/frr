@@ -115,13 +115,9 @@ mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 			      struct mgmt_ds_ctx *ds_ctx,
 			      struct nb_config_cbs **cfg_chgs);
 
-/* Create a transaction. */
-extern int mgmt_be_create_txn(struct mgmt_be_client_adapter *adapter,
-				  uint64_t txn_id);
-
-/* Destroy a transaction. */
-extern int mgmt_be_destroy_txn(struct mgmt_be_client_adapter *adapter,
-				   uint64_t txn_id);
+/* Create/destroy a transaction. */
+extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
+				uint64_t txn_id, bool create);
 
 /*
  * Send config data create request to backend client.
@@ -135,8 +131,11 @@ extern int mgmt_be_destroy_txn(struct mgmt_be_client_adapter *adapter,
  * batch_id
  *    Request batch ID.
  *
- * cfg_req
- *    Config data request.
+ * cfgdata_reqs
+ *    An array of pointer to Mgmtd__YangCfgDataReq.
+ *
+ * num_reqs
+ *    Length of the cfgdata_reqs array.
  *
  * end_of_data
  *    TRUE if the data from last batch, FALSE otherwise.
@@ -144,37 +143,15 @@ extern int mgmt_be_destroy_txn(struct mgmt_be_client_adapter *adapter,
  * Returns:
  *    0 on success, -1 on failure.
  */
-extern int mgmt_be_send_cfg_data_create_req(
-	struct mgmt_be_client_adapter *adapter, uint64_t txn_id,
-	uint64_t batch_id, struct mgmt_be_cfgreq *cfg_req, bool end_of_data);
-
-/*
- * Send config validate request to backend client.
- *
- * adaptr
- *    Backend adapter information.
- *
- * txn_id
- *    Unique transaction identifier.
- *
- * batch_ids
- *    List of request batch IDs.
- *
- * num_batch_ids
- *    Number of batch ids.
- *
- * Returns:
- *    0 on success, -1 on failure.
- */
-extern int
-mgmt_be_send_cfg_validate_req(struct mgmt_be_client_adapter *adapter,
-				 uint64_t txn_id, uint64_t batch_ids[],
-				 size_t num_batch_ids);
+extern int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
+				    uint64_t txn_id, uint64_t batch_id,
+				    Mgmtd__YangCfgDataReq **cfgdata_reqs,
+				    size_t num_reqs, bool end_of_data);
 
 /*
  * Send config apply request to backend client.
  *
- * adaptr
+ * adapter
  *    Backend adapter information.
  *
  * txn_id
@@ -183,9 +160,8 @@ mgmt_be_send_cfg_validate_req(struct mgmt_be_client_adapter *adapter,
  * Returns:
  *    0 on success, -1 on failure.
  */
-extern int
-mgmt_be_send_cfg_apply_req(struct mgmt_be_client_adapter *adapter,
-			      uint64_t txn_id);
+extern int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
+				     uint64_t txn_id);
 
 /*
  * Dump backend adapter status to vty.
