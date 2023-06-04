@@ -2656,12 +2656,12 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		    ret != BGP_FSM_FAILURE_AND_DELETE) {
 			flog_err(
 				EC_BGP_FSM,
-				"%s [FSM] Failure handling event %s in state %s, prior events %s, %s, fd %d",
+				"%s [FSM] Failure handling event %s in state %s, prior events %s, %s, fd %d, last reset: %s",
 				peer->host, bgp_event_str[peer->cur_event],
 				lookup_msg(bgp_status_msg, peer->status, NULL),
 				bgp_event_str[peer->last_event],
-				bgp_event_str[peer->last_major_event],
-				peer->fd);
+				bgp_event_str[peer->last_major_event], peer->fd,
+				peer_down_str[peer->last_reset]);
 			bgp_stop(peer);
 			bgp_fsm_change_status(peer, Idle);
 			bgp_timer_set(peer);
