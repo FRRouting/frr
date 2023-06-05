@@ -1,0 +1,52 @@
+{
+   "vrfName":"default",
+   "routerId":"192.0.2.1",
+   "defaultLocPrf":100,
+   "localAS":65500,
+   "routes":{
+      "routeDistinguishers":{
+         "444:2":{
+            "172.31.0.10/32":[
+               {
+                  "valid":true,
+                  "bestpath":true,
+                  "selectionReason":"First path received",
+                  "pathFrom":"external",
+                  "prefix":"172.31.0.10",
+                  "prefixLen":32,
+                  "network":"172.31.0.10\/32",
+                  "peerId":"192.168.0.2",
+                  "nexthops":[
+                     {
+                        "ip":"192.168.0.2",
+                        "afi":"ipv4",
+                        "used":true
+                     }
+                  ]
+               }
+            ]
+         },
+         "444:2":{
+            "172.31.1.10/32":[
+               {
+                  "valid":true,
+                  "bestpath":true,
+                  "selectionReason":"First path received",
+                  "pathFrom":"external",
+                  "prefix":"172.31.1.10",
+                  "prefixLen":32,
+                  "network":"172.31.1.10\/32",
+                  "peerId":"192.168.0.2",
+                  "nexthops":[
+                     {
+                        "ip":"192.168.0.2",
+                        "afi":"ipv4",
+                        "used":true
+                     }
+                  ]
+               }
+            ]
+         }
+      }
+   }
+}
