@@ -19,14 +19,16 @@ from typing import (
     Literal,
     Mapping,
     Optional,
-    Self,
     Tuple,
-    TypeAlias,
     Union,
 )
 from typing_extensions import Protocol
 
 if typing.TYPE_CHECKING:
+    from typing import (
+        Self,
+        TypeAlias,
+    )
     import subprocess
     from . import toponom
     from .timeline import Timeline
@@ -159,12 +161,12 @@ class NetworkInstance(ABC):
     switch_ns: Optional[SwitchyNS]
     routers: Mapping[str, RouterNS]
 
-    RouterNS: TypeAlias = RouterNS
+    RouterNS: "TypeAlias" = RouterNS
     """
     To be overridden by concrete implementations, the virtual router type
     generally assumed by this instance.
     """
-    SwitchyNS: TypeAlias = SwitchyNS
+    SwitchyNS: "TypeAlias" = SwitchyNS
     """
     To be overridden by concrete implementations.
     """
@@ -191,7 +193,7 @@ class NetworkInstance(ABC):
         Get a path for a temporary file.
         """
 
-    def prepare(self) -> Self:
+    def prepare(self) -> "Self":
         """
         Execute setup (create switch & router objects) for this network instance.
         """
