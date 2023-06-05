@@ -22,8 +22,7 @@
 #include "ldp_debug.h"
 
 static void	 ifp2kif(struct interface *, struct kif *);
-static void	 ifc2kaddr(struct interface *, struct connected *,
-		    struct kaddr *);
+static void	 ifc2kaddr(struct interface *, struct connected *, struct kaddr *);
 static int	 ldp_zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_address_add(ZAPI_CALLBACK_ARGS);
@@ -295,8 +294,7 @@ kmpw_add(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (add)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -305,8 +303,7 @@ kmpw_del(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (del)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -316,8 +313,7 @@ kmpw_set(struct zapi_pw *zpw)
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
 	    zpw->local_label, zpw->remote_label);
 
-	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -326,8 +322,7 @@ kmpw_unset(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (unset)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 void
