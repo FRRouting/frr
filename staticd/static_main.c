@@ -53,7 +53,7 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct event_loop *master;
 
-uintptr_t mgmt_lib_hndl;
+struct mgmt_be_client *mgmt_be_client;
 
 static struct frr_daemon_info staticd_di;
 /* SIGHUP handler. */
@@ -71,7 +71,7 @@ static void sigint(void)
 	/* Disable BFD events to avoid wasting processing. */
 	bfd_protocol_integration_set_shutdown(true);
 
-	mgmt_be_client_lib_destroy();
+	mgmt_be_client_destroy(mgmt_be_client);
 
 	static_vrf_terminate();
 
@@ -104,56 +104,6 @@ struct frr_signal_t static_signals[] = {
 		.signal = SIGTERM,
 		.handler = &sigint,
 	},
-};
-
-#if 0
-static void static_mgmt_be_client_connect(uintptr_t lib_hndl,
-					  uintptr_t usr_data, bool connected)
-{
-	(void)usr_data;
-
-	assert(lib_hndl == mgmt_lib_hndl);
-
-	zlog_debug("Got %s %s MGMTD Backend Client Server",
-		   connected ? "connected" : "disconnected",
-		   connected ? "to" : "from");
-
-	/* unless we are subscribing to xpaths we don't need to do this */
-	if (connected)
-		(void)mgmt_be_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
-}
-
-static void
-static_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
-			struct mgmt_be_client_txn_ctx *txn_ctx,
-			bool destroyed)
-{
-	zlog_debug("Got Txn %s Notify from MGMTD server",
-		   destroyed ? "DESTROY" : "CREATE");
-
-	if (!destroyed) {
-		/*
-		 * TODO: Allocate and install a private scratchpad for this
-		 * transaction if required
-		 */
-	} else {
-		/*
-		 * TODO: Uninstall and deallocate the private scratchpad for
-		 * this transaction if installed earlier.
-		 */
-	}
-}
-#endif
-
-static struct mgmt_be_client_params mgmt_params = {
-	.name = "staticd",
-	.conn_retry_intvl_sec = 3,
-	/*
-	 * instead of a connect routine maybe just put xpaths to subcribe to
-	 * here
-	 */
-	.client_connect_notify = NULL, /* static_mgmt_be_client_connect, */
-	.txn_notify = NULL,	    /* static_mgmt_txn_notify */
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
@@ -212,7 +162,7 @@ int main(int argc, char **argv, char **envp)
 	static_vty_init();
 
 	/* Initialize MGMT backend functionalities */
-	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
+	mgmt_be_client = mgmt_be_client_create("staticd", NULL, 0, master);
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

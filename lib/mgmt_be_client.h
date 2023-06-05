@@ -82,67 +82,26 @@ enum mgmt_be_client_id {
 
 #define MGMTD_BE_MAX_CLIENTS_PER_XPATH_REG 32
 
+struct mgmt_be_client;
+
 struct mgmt_be_client_txn_ctx {
 	uintptr_t *user_ctx;
 };
 
-/*
- * All the client-specific information this library needs to
- * initialize itself, setup connection with MGMTD BackEnd interface
- * and carry on all required procedures appropriately.
+/**
+ * Backend client callbacks.
  *
- * BackEnd clients need to initialise a instance of this structure
- * with appropriate data and pass it while calling the API
- * to initialize the library (See mgmt_be_client_lib_init for
- * more details).
+ * Callbacks:
+ *	client_connect_notify: called when connection is made/lost to mgmtd.
+ *	txn_notify: called when a txn has been created
  */
-struct mgmt_be_client_params {
-	char name[MGMTD_CLIENT_NAME_MAX_LEN];
-	uintptr_t user_data;
-	unsigned long conn_retry_intvl_sec;
+struct mgmt_be_client_cbs {
+	void (*client_connect_notify)(struct mgmt_be_client *client,
+				      uintptr_t usr_data, bool connected);
 
-	void (*client_connect_notify)(uintptr_t lib_hndl,
-				      uintptr_t usr_data,
-				      bool connected);
-
-	void (*client_subscribe_notify)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct nb_yang_xpath **xpath,
-		enum mgmt_result subscribe_result[], int num_paths);
-
-	void (*txn_notify)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct mgmt_be_client_txn_ctx *txn_ctx, bool destroyed);
-
-	enum mgmt_result (*data_validate)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct mgmt_be_client_txn_ctx *txn_ctx,
-		struct nb_yang_xpath *xpath, struct nb_yang_value *data,
-		bool delete, char *error_if_any);
-
-	enum mgmt_result (*data_apply)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct mgmt_be_client_txn_ctx *txn_ctx,
-		struct nb_yang_xpath *xpath, struct nb_yang_value *data,
-		bool delete);
-
-	enum mgmt_result (*get_data_elem)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct mgmt_be_client_txn_ctx *txn_ctx,
-		struct nb_yang_xpath *xpath, struct nb_yang_xpath_elem *elem);
-
-	enum mgmt_result (*get_data)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct mgmt_be_client_txn_ctx *txn_ctx,
-		struct nb_yang_xpath *xpath, bool keys_only,
-		struct nb_yang_xpath_elem **elems, int *num_elems,
-		int *next_key);
-
-	enum mgmt_result (*get_next_data)(
-		uintptr_t lib_hndl, uintptr_t usr_data,
-		struct mgmt_be_client_txn_ctx *txn_ctx,
-		struct nb_yang_xpath *xpath, bool keys_only,
-		struct nb_yang_xpath_elem **elems, int *num_elems);
+	void (*txn_notify)(struct mgmt_be_client *client, uintptr_t usr_data,
+			   struct mgmt_be_client_txn_ctx *txn_ctx,
+			   bool destroyed);
 };
 
 /***************************************************************
@@ -176,20 +135,20 @@ mgmt_be_client_name2id(const char *name)
  * API prototypes
  ***************************************************************/
 
-/*
- * Initialize library and try connecting with MGMTD.
+/**
+ * Create backend client and connect to MGMTD.
  *
- * params
- *    Backend client parameters.
- *
- * master_thread
- *    Thread master.
+ * Args:
+ *	client_name: the name of the client
+ *	cbs: callbacks for various events.
+ *	event_loop: the main event loop.
  *
  * Returns:
- *    Backend client lib handler (nothing but address of mgmt_be_client_ctx)
+ *    Backend client object.
  */
-extern uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
-					 struct event_loop *master_thread);
+extern struct mgmt_be_client *
+mgmt_be_client_create(const char *name, struct mgmt_be_client_cbs *cbs,
+		      uintptr_t user_data, struct event_loop *event_loop);
 
 /*
  * Initialize library vty (adds debug support).
@@ -206,13 +165,13 @@ extern void mgmt_be_client_lib_vty_init(void);
 extern void mgmt_debug_be_client_show_debug(struct vty *vty);
 
 /*
- * Subscribe with MGMTD for one or more YANG subtree(s).
+ * [Un]-subscribe with MGMTD for one or more YANG subtree(s).
  *
- * lib_hndl
- *    Client library handler.
+ * client
+ *    The client object.
  *
  * reg_yang_xpaths
- *    Yang xpath(s) that needs to be subscribed to.
+ *    Yang xpath(s) that needs to be [un]-subscribed from/to
  *
  * num_xpaths
  *    Number of xpaths
@@ -220,52 +179,14 @@ extern void mgmt_debug_be_client_show_debug(struct vty *vty);
  * Returns:
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
-extern enum mgmt_result mgmt_be_subscribe_yang_data(uintptr_t lib_hndl,
-						       char **reg_yang_xpaths,
-						       int num_xpaths);
+extern int mgmt_be_send_subscr_req(struct mgmt_be_client *client,
+				   bool subscr_xpaths, int num_xpaths,
+				   char **reg_xpaths);
 
 /*
- * Send one or more YANG notifications to MGMTD daemon.
- *
- * lib_hndl
- *    Client library handler.
- *
- * data_elems
- *    Yang data elements from data tree.
- *
- * num_elems
- *    Number of data elements.
- *
- * Returns:
- *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
+ * Destroy backend client and cleanup everything.
  */
-extern enum mgmt_result
-mgmt_be_send_yang_notify(uintptr_t lib_hndl, Mgmtd__YangData **data_elems,
-			    int num_elems);
-
-/*
- * Un-subscribe with MGMTD for one or more YANG subtree(s).
- *
- * lib_hndl
- *    Client library handler.
- *
- * reg_yang_xpaths
- *    Yang xpath(s) that needs to be un-subscribed from.
- *
- * num_reg_xpaths
- *    Number of subscribed xpaths
- *
- * Returns:
- *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
- */
-enum mgmt_result mgmt_be_unsubscribe_yang_data(uintptr_t lib_hndl,
-						  char **reg_yang_xpaths,
-						  int num_reg_xpaths);
-
-/*
- * Destroy library and cleanup everything.
- */
-extern void mgmt_be_client_lib_destroy(void);
+extern void mgmt_be_client_destroy(struct mgmt_be_client *client);
 
 #ifdef __cplusplus
 }
