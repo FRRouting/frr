@@ -422,7 +422,9 @@ class Config(object):
             for line in lines:
                 if line.startswith("ip route ") or line.startswith("ipv6 route "):
                     if "null0" in line:
-                        line = re.sub(r"\s+null0(\s*$)", " Null0", line)
+                        line = re.sub(r"\s+null0(\s*$)", " blackhole", line)
+                    elif "Null0" in line:
+                        line = re.sub(r"\s+Null0(\s*$)", " blackhole", line)
                     newlines.append(line)
                 else:
                     newlines.append(line)
