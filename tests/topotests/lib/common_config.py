@@ -33,6 +33,7 @@ from lib.topogen import TopoRouter, get_topogen
 from lib.topolog import get_logger, logger
 from lib.topotest import frr_unicode, interface_set_status, version_cmp
 from lib import topotest
+from munet.testing.util import pause_test
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
@@ -2069,6 +2070,8 @@ def step(msg, reset=False):
     * ` msg` : Step message body.
     * `reset` : Reset step count to 1 when set to True.
     """
+    if bool(topotest.g_pytest_config.get_option("--pause")):
+        pause_test("before :" + msg)
     _step = Stepper()
     _step(msg, reset)
 
