@@ -499,8 +499,9 @@ int main(int argc, char **argv, char **env)
 	 * rather than restricts things), but the principle still applies.
 	 */
 	suid_on();
-	vtysh_apply_config(vtysh_config, dryrun, false);
+	FILE *vtysh_conf_fp = fopen(vtysh_config, "r");
 	suid_off();
+	vtysh_apply_config(vtysh_conf_fp, vtysh_config, dryrun, false);
 
 	/* Error code library system */
 	log_ref_init();
@@ -517,10 +518,15 @@ int main(int argc, char **argv, char **env)
 
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
-		if (inputfile) {
-			ret = vtysh_apply_config(inputfile, dryrun, false);
+		if (inputfile && !strcmp(inputfile, "-")) {
+			ret = vtysh_apply_config(stdin, "<stdin>", dryrun,
+						 false);
 		} else {
-			ret = vtysh_apply_config(frr_config, dryrun, false);
+			if (!inputfile)
+				inputfile = frr_config;
+
+			ret = vtysh_apply_config(fopen(inputfile, "r"),
+						 inputfile, dryrun, false);
 		}
 
 		exit(ret);
@@ -602,10 +608,16 @@ int main(int argc, char **argv, char **env)
 	if (boot_flag)
 		inputfile = frr_config;
 
-	if (inputfile || boot_flag) {
-		vtysh_flock_config(inputfile);
-		ret = vtysh_apply_config(inputfile, dryrun, !no_fork);
-		vtysh_unflock_config();
+	if (inputfile) {
+		if (strcmp(inputfile, "-")) {
+			vtysh_flock_config(inputfile);
+			ret = vtysh_apply_config(fopen(inputfile, "r"),
+						 inputfile, dryrun, !no_fork);
+			vtysh_unflock_config();
+		} else {
+			ret = vtysh_apply_config(stdin, "<stdin>", dryrun,
+						 !no_fork);
+		}
 
 		if (no_error)
 			ret = 0;

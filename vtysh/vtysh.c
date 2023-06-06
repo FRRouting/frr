@@ -3563,7 +3563,7 @@ DEFUN (vtysh_copy_to_running,
 	int ret;
 	const char *fname = argv[1]->arg;
 
-	ret = vtysh_apply_config(fname, true, false);
+	ret = vtysh_apply_config(fopen(fname, "r"), fname, true, false);
 
 	/* Return to enable mode - the 'read_config' api leaves us up a level */
 	vtysh_execute_no_pager("enable");
