@@ -455,7 +455,7 @@ Administrative Distance Metrics
 .. _bgp-requires-policy:
 
 Require policy on EBGP
--------------------------------
+----------------------
 
 .. clicmd:: bgp ebgp-requires-policy
 
@@ -3881,6 +3881,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
       Total number of neighbors 1
       exit1#
+
+If PfxRcd and/or PfxSnt is shown as ``(Policy)``, that means that the EBGP
+default policy is turned on, but you don't have any filters applied for
+incoming/outgoing directions.
+
+.. seealso:: :ref:`bgp-requires-policy`
 
 .. clicmd:: show bgp [afi] [safi] [all] [wide|json]
 
