@@ -186,7 +186,6 @@ def test_bgp_flowspec():
 
 
 if __name__ == "__main__":
-
     args = ["-s"] + sys.argv[1:]
     ret = pytest.main(args)
 
