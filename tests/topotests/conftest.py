@@ -4,6 +4,7 @@ Topotest conftest.py file.
 """
 # pylint: disable=consider-using-f-string
 
+import contextlib
 import glob
 import logging
 import os
@@ -12,6 +13,7 @@ import resource
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import lib.fixtures
 import pytest
@@ -39,6 +41,30 @@ try:
 
 except (AttributeError, ImportError):
     pass
+
+
+# Remove this and use munet version when we move to pytest_asyncio
+@contextlib.contextmanager
+def chdir(ndir, desc=""):
+    odir = os.getcwd()
+    os.chdir(ndir)
+    if desc:
+        logging.debug("%s: chdir from %s to %s", desc, odir, ndir)
+    try:
+        yield
+    finally:
+        if desc:
+            logging.debug("%s: chdir back from %s to %s", desc, ndir, odir)
+        os.chdir(odir)
+
+
+@contextlib.contextmanager
+def log_handler(basename, logpath):
+    topolog.logstart(basename, logpath)
+    try:
+        yield
+    finally:
+        topolog.logfinish(basename, logpath)
 
 
 def pytest_addoption(parser):
@@ -272,6 +298,20 @@ def check_for_memleaks():
 
 
 @pytest.fixture(autouse=True, scope="module")
+def module_autouse(request):
+    basename = get_test_logdir(request.node.nodeid, True)
+    logdir = Path(topotest.g_pytest_config.option.rundir) / basename
+    logpath = logdir / "exec.log"
+
+    subprocess.check_call("mkdir -p -m 1777 {}".format(logdir), shell=True)
+
+    with log_handler(basename, logpath):
+        sdir = os.path.dirname(os.path.realpath(request.fspath))
+        with chdir(sdir, "module autouse fixture"):
+            yield
+
+
+@pytest.fixture(autouse=True, scope="module")
 def module_check_memtest(request):
     yield
     if request.config.option.valgrind_memleaks:
@@ -282,14 +322,19 @@ def module_check_memtest(request):
             check_for_memleaks()
 
 
-def pytest_runtest_logstart(nodeid, location):
-    # location is (filename, lineno, testname)
-    topolog.logstart(nodeid, location, topotest.g_pytest_config.option.rundir)
-
-
-def pytest_runtest_logfinish(nodeid, location):
-    # location is (filename, lineno, testname)
-    topolog.logfinish(nodeid, location)
+#
+# Disable per test function logging as FRR CI system can't handle it.
+#
+# @pytest.fixture(autouse=True, scope="function")
+# def function_autouse(request):
+#     # For tests we actually use the logdir name as the logfile base
+#     logbase = get_test_logdir(nodeid=request.node.nodeid, module=False)
+#     logbase = os.path.join(topotest.g_pytest_config.option.rundir, logbase)
+#     logpath = Path(logbase)
+#     path = Path(f"{logpath.parent}/exec-{logpath.name}.log")
+#     subprocess.check_call("mkdir -p -m 1777 {}".format(logpath.parent), shell=True)
+#     with log_handler(request.node.nodeid, path):
+#         yield
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -340,8 +385,10 @@ def pytest_configure(config):
         os.environ["PYTEST_TOPOTEST_WORKER"] = ""
         is_xdist = os.environ["PYTEST_XDIST_MODE"] != "no"
         is_worker = False
+        wname = ""
     else:
-        os.environ["PYTEST_TOPOTEST_WORKER"] = os.environ["PYTEST_XDIST_WORKER"]
+        wname = os.environ["PYTEST_XDIST_WORKER"]
+        os.environ["PYTEST_TOPOTEST_WORKER"] = wname
         is_xdist = True
         is_worker = True
 
@@ -374,6 +421,16 @@ def pytest_configure(config):
     # Set the log_file (exec) to inside the rundir if not specified
     if not config.getoption("--log-file") and not config.getini("log_file"):
         config.option.log_file = os.path.join(rundir, "exec.log")
+
+    # Handle pytest-xdist each worker get's it's own top level log file
+    # `exec-worker-N.log`
+    if wname:
+        wname = wname.replace("gw", "worker-")
+        cpath = Path(config.option.log_file).absolute()
+        config.option.log_file = f"{cpath.parent}/{cpath.stem}-{wname}{cpath.suffix}"
+    elif is_xdist:
+        cpath = Path(config.option.log_file).absolute()
+        config.option.log_file = f"{cpath.parent}/{cpath.stem}-xdist{cpath.suffix}"
 
     # Turn on live logging if user specified verbose and the config has a CLI level set
     if config.getoption("--verbose") and not is_xdist and not config.getini("log_cli"):
@@ -433,6 +490,10 @@ def pytest_configure(config):
 
 @pytest.fixture(autouse=True, scope="session")
 def setup_session_auto():
+    # Aligns logs nicely
+    logging.addLevelName(logging.WARNING, " WARN")
+    logging.addLevelName(logging.INFO, " INFO")
+
     if "PYTEST_TOPOTEST_WORKER" not in os.environ:
         is_worker = False
     elif not os.environ["PYTEST_TOPOTEST_WORKER"]:

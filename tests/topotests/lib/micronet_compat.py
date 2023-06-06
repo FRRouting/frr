@@ -121,7 +121,7 @@ class Mininet(BaseMunet):
 
     g_mnet_inst = None
 
-    def __init__(self, rundir=None, pytestconfig=None):
+    def __init__(self, rundir=None, pytestconfig=None, logger=None):
         """
         Create a Micronet.
         """
@@ -140,7 +140,7 @@ class Mininet(BaseMunet):
         # os.umask(0)
 
         super(Mininet, self).__init__(
-            pid=False, rundir=rundir, pytestconfig=pytestconfig
+            pid=False, rundir=rundir, pytestconfig=pytestconfig, logger=logger
         )
 
         # From munet/munet/native.py
