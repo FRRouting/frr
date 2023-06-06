@@ -1643,15 +1643,112 @@ static int vty_write_config(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+int config_save_begin(struct vty *vty, struct config_save_state *state,
+		      const char *config_file)
+{
+	const char *slash;
+	int fd;
+
+	state->dirfd = -1;
+	state->sav = state->tmp = NULL;
+
+#ifndef O_DIRECTORY
+#define O_DIRECTORY 0
+#endif
+	slash = strrchr(config_file, '/');
+	if (slash) {
+		char *config_dir = XSTRDUP(MTYPE_TMP, config_file);
+		config_dir[slash - config_file] = '\0';
+		state->dirfd = open(config_dir, O_DIRECTORY | O_RDONLY);
+		XFREE(MTYPE_TMP, config_dir);
+	} else
+		state->dirfd = open(".", O_DIRECTORY | O_RDONLY);
+	/* if dirfd is invalid, directory sync fails, but we're still OK */
+
+	state->sav = asprintfrr(MTYPE_TMP, "%s" CONF_BACKUP_EXT, config_file);
+	state->tmp = asprintfrr(MTYPE_TMP, "%s.XXXXXX", config_file);
+
+	/* Open file to configuration write. */
+	fd = mkstemp(state->tmp);
+	if (fd < 0) {
+		vty_out(vty, "Can't open configuration file %pSQq: %m\n",
+			state->tmp);
+		goto out_err;
+	}
+	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
+		vty_out(vty, "Can't chmod configuration file %pSQq: %m\n",
+			state->tmp);
+		goto out_err_fd;
+	}
+
+	return fd;
+
+out_err_fd:
+	close(fd);
+out_err:
+	close(state->dirfd);
+	XFREE(MTYPE_TMP, state->sav);
+	XFREE(MTYPE_TMP, state->tmp);
+	return -1;
+}
+
+int config_save_commit(struct vty *vty, struct config_save_state *state,
+		       const char *config_file)
+{
+	struct stat conf_stat;
+	int ret = CMD_WARNING;
+
+	if (stat(config_file, &conf_stat) >= 0) {
+		if (unlink(state->sav) != 0 && errno != ENOENT) {
+			vty_out(vty,
+				"Can't unlink backup configuration file %s.\n",
+				state->sav);
+			goto out;
+		}
+		if (link(config_file, state->sav) != 0) {
+			vty_out(vty,
+				"Can't backup old configuration file %s.\n",
+				state->sav);
+			goto out;
+		}
+		if (state->dirfd >= 0)
+			fsync(state->dirfd);
+	}
+	if (rename(state->tmp, config_file) != 0) {
+		vty_out(vty, "Can't save configuration file %s.\n",
+			config_file);
+		goto out;
+	}
+	if (state->dirfd >= 0)
+		fsync(state->dirfd);
+	ret = 0;
+
+out:
+	if (ret)
+		unlink(state->tmp);
+	if (state->dirfd >= 0)
+		close(state->dirfd);
+	XFREE(MTYPE_TMP, state->tmp);
+	XFREE(MTYPE_TMP, state->sav);
+	return ret;
+}
+
+void config_save_abort(struct config_save_state *state)
+{
+	unlink(state->tmp);
+	if (state->dirfd >= 0)
+		close(state->dirfd);
+	XFREE(MTYPE_TMP, state->tmp);
+	XFREE(MTYPE_TMP, state->sav);
+}
+
 static int file_write_config(struct vty *vty)
 {
-	int fd, dirfd;
-	char *config_file, *slash;
-	char *config_file_tmp = NULL;
-	char *config_file_sav = NULL;
+	struct config_save_state state;
+	int fd;
+	char *config_file;
 	int ret = CMD_WARNING;
 	struct vty *file_vty;
-	struct stat conf_stat;
 
 	if (host.noconfig)
 		return CMD_SUCCESS;
@@ -1666,41 +1763,9 @@ static int file_write_config(struct vty *vty)
 	/* Get filename. */
 	config_file = host.config;
 
-#ifndef O_DIRECTORY
-#define O_DIRECTORY 0
-#endif
-	slash = strrchr(config_file, '/');
-	if (slash) {
-		char *config_dir = XSTRDUP(MTYPE_TMP, config_file);
-		config_dir[slash - config_file] = '\0';
-		dirfd = open(config_dir, O_DIRECTORY | O_RDONLY);
-		XFREE(MTYPE_TMP, config_dir);
-	} else
-		dirfd = open(".", O_DIRECTORY | O_RDONLY);
-	/* if dirfd is invalid, directory sync fails, but we're still OK */
-
-	size_t config_file_sav_sz = strlen(config_file) + strlen(CONF_BACKUP_EXT) + 1;
-	config_file_sav = XMALLOC(MTYPE_TMP, config_file_sav_sz);
-	strlcpy(config_file_sav, config_file, config_file_sav_sz);
-	strlcat(config_file_sav, CONF_BACKUP_EXT, config_file_sav_sz);
-
-
-	config_file_tmp = XMALLOC(MTYPE_TMP, strlen(config_file) + 8);
-	snprintf(config_file_tmp, strlen(config_file) + 8, "%s.XXXXXX",
-		 config_file);
-
-	/* Open file to configuration write. */
-	fd = mkstemp(config_file_tmp);
-	if (fd < 0) {
-		vty_out(vty, "Can't open configuration file %s.\n",
-			config_file_tmp);
-		goto finished;
-	}
-	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
-		vty_out(vty, "Can't chmod configuration file %s: %s (%d).\n",
-			config_file_tmp, safe_strerror(errno), errno);
-		goto finished;
-	}
+	fd = config_save_begin(vty, &state, config_file);
+	if (fd < 0)
+		return CMD_WARNING;
 
 	/* Make vty for configuration file. */
 	file_vty = vty_new();
@@ -1714,42 +1779,12 @@ static int file_write_config(struct vty *vty)
 	vty_write_config(file_vty);
 	vty_close(file_vty);
 
-	if (stat(config_file, &conf_stat) >= 0) {
-		if (unlink(config_file_sav) != 0)
-			if (errno != ENOENT) {
-				vty_out(vty,
-					"Can't unlink backup configuration file %s.\n",
-					config_file_sav);
-				goto finished;
-			}
-		if (link(config_file, config_file_sav) != 0) {
-			vty_out(vty,
-				"Can't backup old configuration file %s.\n",
-				config_file_sav);
-			goto finished;
-		}
-		if (dirfd >= 0)
-			fsync(dirfd);
-	}
-	if (rename(config_file_tmp, config_file) != 0) {
-		vty_out(vty, "Can't save configuration file %s.\n",
-			config_file);
-		goto finished;
-	}
-	if (dirfd >= 0)
-		fsync(dirfd);
+	ret = config_save_commit(vty, &state, config_file);
+	if (ret)
+		return ret;
 
 	vty_out(vty, "Configuration saved to %s\n", config_file);
-	ret = CMD_SUCCESS;
-
-finished:
-	if (ret != CMD_SUCCESS)
-		unlink(config_file_tmp);
-	if (dirfd >= 0)
-		close(dirfd);
-	XFREE(MTYPE_TMP, config_file_tmp);
-	XFREE(MTYPE_TMP, config_file_sav);
-	return ret;
+	return CMD_SUCCESS;
 }
 
 /* Write current configuration into file. */

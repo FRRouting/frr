@@ -557,6 +557,21 @@ extern int command_config_read_one_line(struct vty *vty,
 					uint32_t line_num, int use_config_node);
 extern int config_from_file(struct vty *, FILE *, unsigned int *line_num);
 extern enum node_type node_parent(enum node_type);
+
+/* shared code between vtysh & lib to safely write config files */
+struct config_save_state {
+	int dirfd;
+
+	char *tmp;
+	char *sav;
+};
+
+extern int config_save_begin(struct vty *vty, struct config_save_state *state,
+			       const char *config_file);
+extern int config_save_commit(struct vty *vty, struct config_save_state *state,
+			      const char *config_file);
+extern void config_save_abort(struct config_save_state *state);
+
 /*
  * Execute command under the given vty context.
  *
