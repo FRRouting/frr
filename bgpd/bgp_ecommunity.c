@@ -249,6 +249,9 @@ struct ecommunity *ecommunity_dup(struct ecommunity *ecom)
 {
 	struct ecommunity *new;
 
+	if (NULL == ecom)
+		return NULL;
+
 	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
 	new->size = ecom->size;
 	new->unit_size = ecom->unit_size;
@@ -1086,6 +1089,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
 				strlcpy(encbuf, "Default Gateway",
 					sizeof(encbuf));
+			} else if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_COLOR) {
+				uint32_t color;
+				memcpy(&color, pnt + 3, 4);
+				color = ntohl(color);
+				snprintf(encbuf, sizeof(encbuf), "Color:%u",
+					 color);
 			} else {
 				unk_ecom = 1;
 			}

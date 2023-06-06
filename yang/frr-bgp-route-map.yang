@@ -202,6 +202,12 @@ module frr-bgp-route-map {
       "Set BGP extended community attribute";
   }
 
+  identity set-extcommunity-color {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
+  }
+
   identity set-extcommunity-soo {
     base frr-route-map:rmap-set-type;
     description
@@ -849,6 +855,19 @@ module frr-bgp-route-map {
             "Bandwidth value in Mbps";
         }
         uses extcommunity-non-transitive-types;
+      }
+    }
+
+    case extcommunity-color {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-color')";
+      description
+        "Value of the ext-community";
+      leaf extcommunity-color {
+        type uint32 {
+          range "1..4294967295";
+        }
+        description
+          "Set BGP ext-community color attribute";
       }
     }
 

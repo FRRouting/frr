@@ -2907,6 +2907,84 @@ static const struct route_map_rule_cmd route_set_ecommunity_soo_cmd = {
 	route_set_ecommunity_free,
 };
 
+/* `set extcommunity color' */
+
+struct rmap_ecomm_color_set {
+	uint32_t color;
+};
+
+static enum route_map_cmd_result_t
+route_set_ecommunity_color(void *rule, const struct prefix *prefix,
+			   void *object)
+{
+	struct rmap_ecomm_color_set *recs = rule;
+	struct bgp_path_info *path;
+	struct ecommunity ecom_color = {0};
+	struct ecommunity_val color_eval;
+	uint32_t color = 0;
+	struct ecommunity *new_ecom;
+	struct ecommunity *old_ecom;
+
+	path = object;
+
+	/* Build color extended community */
+	color = recs->color;
+
+	encode_color_extcomm(color, &color_eval);
+
+	/* add to route or merge with existing */
+	old_ecom = path->attr->ecommunity;
+	if (old_ecom) {
+		new_ecom = ecommunity_dup(old_ecom);
+		ecommunity_add_val(new_ecom, &color_eval, true, true);
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	} else {
+		ecom_color.size = 1;
+		ecom_color.unit_size = ECOMMUNITY_SIZE;
+		ecom_color.val = (uint8_t *)color_eval.val;
+		new_ecom = ecommunity_dup(&ecom_color);
+	}
+
+	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_ecommunity_color_compile(const char *arg)
+{
+	uint32_t color = 0;
+	char *str;
+	char *end = NULL;
+	struct rmap_ecomm_color_set *recs;
+
+	str = (char *)arg;
+
+	color = strtoul(str, &end, 10);
+	if (*end != '\0')
+		return NULL;
+
+	recs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		       sizeof(struct rmap_ecomm_color_set));
+	recs->color = color;
+
+	return recs;
+}
+
+static void route_set_ecommunity_color_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Set extcommunity color rule structure. */
+struct route_map_rule_cmd route_set_ecommunity_color_cmd = {
+	"extcommunity color",
+	route_set_ecommunity_color,
+	route_set_ecommunity_color_compile,
+	route_set_ecommunity_color_free,
+};
+
 static void *route_set_ecommunity_nt_compile(const char *arg)
 {
 	struct rmap_ecom_set *rcs;
@@ -6319,6 +6397,45 @@ ALIAS_YANG (no_set_ecommunity_rt,
             "BGP extended community attribute\n"
             "Route Target extended community\n")
 
+DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
+	   "set extcommunity color (1-4294967295)",
+	   SET_STR
+	   "BGP extended community attribute\n"
+	   "Color extended community\n"
+	   "Color extended community\n")
+{
+	int idx_asn_nn = 3;
+	char *str;
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-color",
+		 xpath);
+	str = argv_concat(argv, argc, idx_asn_nn);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return ret;
+}
+
+DEFPY_YANG(no_set_ecommunity_color, no_set_ecommunity_color_cmd,
+	   "no set extcommunity color [(1-4294967295)]",
+	   NO_STR SET_STR
+	   "BGP extended community attribute\n"
+	   "Color extended community\n"
+	   "Color extended community\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (set_ecommunity_soo,
 	    set_ecommunity_soo_cmd,
 	    "set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
@@ -7375,6 +7492,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_nt_cmd);
 	route_map_install_set(&route_set_ecommunity_soo_cmd);
 	route_map_install_set(&route_set_ecommunity_lb_cmd);
+	route_map_install_set(&route_set_ecommunity_color_cmd);
 	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
@@ -7473,6 +7591,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ecommunity_lb_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_lb_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_lb_short_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_color_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_color_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_none_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_none_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_nt_cmd);
