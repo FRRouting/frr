@@ -1496,12 +1496,17 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
 
     for (ctx_keys, line) in lines_to_del_to_del:
-        if line is not None:
+        try:
             lines_to_del.remove((ctx_keys, line))
+        except ValueError:
+            pass
 
     for (ctx_keys, line) in lines_to_add_to_del:
-        if line is not None:
+        try:
             lines_to_add.remove((ctx_keys, line))
+        except ValueError:
+            pass
+
 
     return (lines_to_add, lines_to_del)
 
