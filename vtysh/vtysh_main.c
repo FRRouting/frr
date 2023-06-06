@@ -294,6 +294,8 @@ static void vtysh_unflock_config(void)
 
 void suid_on(void)
 {
+	int prev_errno = errno;
+
 	if (elevuid != realuid && seteuid(elevuid)) {
 		perror("seteuid(on)");
 		exit(1);
@@ -302,10 +304,14 @@ void suid_on(void)
 		perror("setegid(on)");
 		exit(1);
 	}
+
+	errno = prev_errno;
 }
 
 void suid_off(void)
 {
+	int prev_errno = errno;
+
 	if (elevuid != realuid && seteuid(realuid)) {
 		perror("seteuid(off)");
 		exit(1);
@@ -314,6 +320,8 @@ void suid_off(void)
 		perror("setegid(off)");
 		exit(1);
 	}
+
+	errno = prev_errno;
 }
 
 /* VTY shell main routine. */
