@@ -34,6 +34,7 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
+
 def build_topo(tgen):
     "Build function"
 
@@ -53,41 +54,42 @@ def build_topo(tgen):
     switch = tgen.add_switch("s4")
     switch.add_link(tgen.gears["r2"])
 
-        
+
 def _populate_iface():
     tgen = get_topogen()
     cmds_list = [
-        'modprobe mpls_router',
-        'echo 100000 > /proc/sys/net/mpls/platform_labels',
-        'ip link add vrf1 type vrf table 10',
-        'ip link set dev vrf1 up',
-        'ip link set dev {0}-eth1 master vrf1',
-        'echo 1 > /proc/sys/net/mpls/conf/vrf1/input',
+        "modprobe mpls_router",
+        "echo 100000 > /proc/sys/net/mpls/platform_labels",
+        "ip link add vrf1 type vrf table 10",
+        "ip link set dev vrf1 up",
+        "ip link set dev {0}-eth1 master vrf1",
+        "echo 1 > /proc/sys/net/mpls/conf/vrf1/input",
     ]
     cmds_list_extra = [
-        'ip link add vrf2 type vrf table 20',
-        'ip link set dev vrf2 up',
-        'ip link set dev {0}-eth2 master vrf2',
-        'echo 1 > /proc/sys/net/mpls/conf/vrf2/input',
+        "ip link add vrf2 type vrf table 20",
+        "ip link set dev vrf2 up",
+        "ip link set dev {0}-eth2 master vrf2",
+        "echo 1 > /proc/sys/net/mpls/conf/vrf2/input",
     ]
-    
-    for cmd in cmds_list:
-        input = cmd.format('r1', '1', '2')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r1'].cmd(cmd.format('r1', '1', '2'))
-        logger.info('output: ' + output)
 
     for cmd in cmds_list:
-        input = cmd.format('r2', '2', '1')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r2'].cmd(cmd.format('r2', '2', '1'))
-        logger.info('output: ' + output)
+        input = cmd.format("r1", "1", "2")
+        logger.info("input: " + cmd)
+        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2"))
+        logger.info("output: " + output)
+
+    for cmd in cmds_list:
+        input = cmd.format("r2", "2", "1")
+        logger.info("input: " + cmd)
+        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1"))
+        logger.info("output: " + output)
 
     for cmd in cmds_list_extra:
-        input = cmd.format('r2', '2', '1')
-        logger.info('input: ' + cmd)
-        output = tgen.net['r2'].cmd(cmd.format('r2', '2', '1'))
-        logger.info('output: ' + output)
+        input = cmd.format("r2", "2", "1")
+        logger.info("input: " + cmd)
+        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1"))
+        logger.info("output: " + output)
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -96,7 +98,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    _populate_iface() 
+    _populate_iface()
 
     for rname, router in router_list.items():
         router.load_config(
