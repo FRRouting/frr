@@ -106,6 +106,11 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 					  __func__, result);
 			return false;
 		}
+
+		if (!pim_addr_is_any(sg.src))
+			(*oilp)->oif_flags[pim_oif->mroute_vif_index] &=
+				~PIM_OIF_FLAG_PROTO_STAR;
+
 	} else {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
