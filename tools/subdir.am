@@ -66,4 +66,5 @@ EXTRA_DIST += \
 	tools/zc.pl \
 	tools/zebra.el \
 	tools/build-debian-package.sh \
+	tools/wrap_config_pkcs7.sh \
 	# end
