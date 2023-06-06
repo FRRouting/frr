@@ -4026,7 +4026,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	afi_t nh_afi;
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
-	bool leak_success = true;
 	int allowas_in = 0;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
@@ -4713,7 +4712,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 		if ((SAFI_MPLS_VPN == safi)
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-			leak_success = vpn_leak_to_vrf_update(bgp, pi, prd);
+			vpn_leak_to_vrf_update(bgp, pi, prd);
 		}
 
 #ifdef ENABLE_BGP_VNC
@@ -4728,13 +4727,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					   type, sub_type, NULL);
 		}
 #endif
-		if ((safi == SAFI_MPLS_VPN) &&
-		    !CHECK_FLAG(bgp->af_flags[afi][safi],
-				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL) &&
-		    !leak_success) {
-			bgp_unlink_nexthop(pi);
-			bgp_path_info_delete(dest, pi);
-		}
 		return;
 	} // End of implicit withdraw
 
@@ -4876,7 +4868,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 	if ((SAFI_MPLS_VPN == safi)
 	    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-		leak_success = vpn_leak_to_vrf_update(bgp, new, prd);
+		vpn_leak_to_vrf_update(bgp, new, prd);
 	}
 #ifdef ENABLE_BGP_VNC
 	if (SAFI_MPLS_VPN == safi) {
@@ -4890,13 +4882,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				   sub_type, NULL);
 	}
 #endif
-	if ((safi == SAFI_MPLS_VPN) &&
-	    !CHECK_FLAG(bgp->af_flags[afi][safi],
-			BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL) &&
-	    !leak_success) {
-		bgp_unlink_nexthop(new);
-		bgp_path_info_delete(dest, new);
-	}
 
 	return;
 
