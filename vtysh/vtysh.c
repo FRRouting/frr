@@ -152,6 +152,7 @@ static int vtysh_client_lookup(const char *name)
 
 enum vtysh_write_integrated vtysh_write_integrated =
 	WRITE_INTEGRATED_UNSPECIFIED;
+char *vtysh_wrap_script;
 
 static int vtysh_reconnect(struct vtysh_client *vclient);
 
@@ -3332,27 +3333,23 @@ DEFUN (no_vtysh_integrated_config,
 	return CMD_SUCCESS;
 }
 
-static void backup_config_file(const char *fbackup)
+DEFPY (vtysh_wrap_config,
+       vtysh_wrap_config_cmd,
+       "[no] service wrap-config ![SCRIPTFILE]",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Invoke wrapper script for config load/save\n"
+       "Wrapper script to use for en/decryption\n")
 {
-	char *integrate_sav = NULL;
-
-	size_t integrate_sav_sz = strlen(fbackup) + strlen(CONF_BACKUP_EXT) + 1;
-	integrate_sav = malloc(integrate_sav_sz);
-	strlcpy(integrate_sav, fbackup, integrate_sav_sz);
-	strlcat(integrate_sav, CONF_BACKUP_EXT, integrate_sav_sz);
-
-	/* Move current configuration file to backup config file. */
-	if (unlink(integrate_sav) != 0 && errno != ENOENT)
-		vty_out(vty, "Unlink failed for %s: %s\n", integrate_sav,
-			strerror(errno));
-	if (rename(fbackup, integrate_sav) != 0 && errno != ENOENT)
-		vty_out(vty, "Error renaming %s to %s: %s\n", fbackup,
-			integrate_sav, strerror(errno));
-	free(integrate_sav);
+	XFREE(MTYPE_TMP, vtysh_wrap_script);
+	if (!no)
+		vtysh_wrap_script = XSTRDUP(MTYPE_TMP, scriptfile);
+	return CMD_SUCCESS;
 }
 
 int vtysh_write_config_integrated(void)
 {
+	struct config_save_state state;
 	unsigned int i;
 	char line[] = "do write terminal";
 	FILE *fp;
@@ -3365,35 +3362,8 @@ int vtysh_write_config_integrated(void)
 #endif
 	uid_t uid = -1;
 	gid_t gid = -1;
-	struct stat st;
+	pid_t script_pid = -1;
 	int err = 0;
-
-	vty_out(vty, "Building Configuration...\n");
-
-	backup_config_file(frr_config);
-	fp = fopen(frr_config, "w");
-	if (fp == NULL) {
-		vty_out(vty,
-			"%% Error: failed to open configuration file %s: %s\n",
-			frr_config, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	fd = fileno(fp);
-
-	for (i = 0; i < array_size(vtysh_client); i++)
-		vtysh_client_config(&vtysh_client[i], line);
-
-	vtysh_config_write();
-	vty->of_saved = vty->of;
-	vty->of = fp;
-	vtysh_config_dump();
-	vty->of = vty->of_saved;
-
-	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
-		printf("%% Warning: can't chmod configuration file %s: %s\n",
-		       frr_config, safe_strerror(errno));
-		err++;
-	}
 
 #ifdef FRR_USER
 	pwentry = getpwnam(FRR_USER);
@@ -3415,36 +3385,44 @@ int vtysh_write_config_integrated(void)
 	}
 #endif
 
-	if (!fstat(fd, &st)) {
-		if (st.st_uid == uid)
-			uid = -1;
-		if (st.st_gid == gid)
-			gid = -1;
-		if ((uid != (uid_t)-1 || gid != (gid_t)-1)
-		    && fchown(fd, uid, gid)) {
-			printf("%% Warning: can't chown configuration file %s: %s\n",
-			       frr_config, safe_strerror(errno));
-			err++;
-		}
-	} else {
-		printf("%% Warning: stat() failed on %s: %s\n", frr_config,
-		       safe_strerror(errno));
-		err++;
-	}
+	vty_out(vty, "Building Configuration...\n");
 
-	if (fflush(fp) != 0) {
-		printf("%% Warning: fflush() failed on %s: %s\n", frr_config,
-		       safe_strerror(errno));
-		err++;
-	}
+	fd = config_save_begin(vty, &state, frr_config, uid, gid);
+	if (fd < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
-	if (fsync(fd) < 0) {
-		printf("%% Warning: fsync() failed on %s: %s\n", frr_config,
-		       safe_strerror(errno));
-		err++;
-	}
+	fp = fdopen(fd, "w");
+	err = vtysh_wrap_handle(&fp, &script_pid, true);
+	if (err)
+		return err;
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		vtysh_client_config(&vtysh_client[i], line);
+
+	vtysh_config_write();
+	vty->of_saved = vty->of;
+	vty->of = fp;
+	vtysh_config_dump();
+	vty->of = vty->of_saved;
 
 	fclose(fp);
+
+	if (script_pid != -1) {
+		int script_status;
+
+		if (waitpid(script_pid, &script_status, 0) <= 0) {
+			perror("waitpid(wrapper script)");
+			config_save_abort(&state);
+			return CMD_WARNING;
+		} else if (WEXITSTATUS(script_status)) {
+			fprintf(stderr, "%% script %s exited with status %d\n",
+				vtysh_wrap_script, WEXITSTATUS(script_status));
+			config_save_abort(&state);
+			return CMD_WARNING;
+		}
+	}
+
+	config_save_commit(vty, &state, frr_config);
 
 	printf("Integrated configuration saved to %s\n", frr_config);
 	if (err)
@@ -5022,6 +5000,8 @@ void vtysh_init_vty(void)
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
+
+	install_element(CONFIG_NODE, &vtysh_wrap_config_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_allow_reserved_ranges_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_allow_reserved_ranges_cmd);

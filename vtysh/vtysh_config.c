@@ -646,10 +646,11 @@ static int vtysh_read_config(FILE *confp, bool dry_run)
 }
 
 static int vtysh_forked_feed(FILE *config, const char *error_filename,
-			     FILE *feeds[])
+			     FILE *feeds[], pid_t script_pid)
 {
 	int status;
 	int keep_status = 0;
+	pid_t child;
 
 	while (!feof(config)) {
 		char buf[16 * 1024];
@@ -684,8 +685,17 @@ static int vtysh_forked_feed(FILE *config, const char *error_filename,
 
 	fprintf(stdout,
 		"Waiting for children to finish applying config...\n");
-	while (wait(&status) > 0) {
-		if (!keep_status && WEXITSTATUS(status))
+	while ((child = wait(&status)) > 0) {
+		if (!WEXITSTATUS(status))
+			continue;
+
+		if (child == script_pid) {
+			fprintf(stderr, "%% script %s exited with status %d\n",
+				vtysh_wrap_script, WEXITSTATUS(status));
+			keep_status = WEXITSTATUS(status);
+			continue;
+		}
+		if (!keep_status)
 			keep_status = WEXITSTATUS(status);
 	}
 
@@ -697,6 +707,54 @@ static int vtysh_forked_feed(FILE *config, const char *error_filename,
 	return keep_status;
 }
 
+int vtysh_wrap_handle(FILE **config, pid_t *script_pid, bool save)
+{
+	int pipefds[2];
+	int fd_and_idx, other_fd_and_idx;
+
+	if (!vtysh_wrap_script)
+		return 0;
+
+	fd_and_idx = save ? 0 : 1;
+	other_fd_and_idx = save ? 1 : 0;
+
+	if (pipe(pipefds)) {
+		perror("pipe");
+		return CMD_ERR_NO_FILE;
+	}
+
+	*script_pid = fork();
+
+	if (*script_pid == -1) {
+		perror("fork");
+		return CMD_ERR_NO_FILE;
+	}
+
+	if (*script_pid == 0) {
+		/* save: pipe[1] to 1 (stdout), load: pipe[0] to 0 (stdin) */
+		dup2(pipefds[fd_and_idx], fd_and_idx);
+		close(pipefds[0]);
+		close(pipefds[1]);
+
+		if (fileno(*config) != other_fd_and_idx) {
+			dup2(fileno(*config), other_fd_and_idx);
+			fclose(*config);
+		}
+
+		execl(vtysh_wrap_script, vtysh_wrap_script,
+		      save ? "save" : "load", NULL);
+		fprintf(stderr, "%% Can't execute script %s: %m\n",
+			vtysh_wrap_script);
+		exit(1);
+	}
+
+	close(pipefds[fd_and_idx]);
+	fclose(*config);
+
+	*config = fdopen(pipefds[other_fd_and_idx], save ? "w" : "r");
+	return 0;
+}
+
 int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
 		       bool do_fork)
 {
@@ -706,9 +764,13 @@ int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
 	 * child handle one daemon.
 	 */
 	pid_t fork_pid = getpid();
+	pid_t script_pid = -1;
 	int ret;
 	int my_client_type = 0;
 	char my_client[64];
+
+	if (!config && errno == ENOENT && vtysh_wrap_script)
+		config = fopen("/dev/null", "r");
 
 	if (!config) {
 		fprintf(stderr,
@@ -716,6 +778,10 @@ int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
 			error_filename);
 		return CMD_ERR_NO_FILE;
 	}
+
+	ret = vtysh_wrap_handle(&config, &script_pid, false);
+	if (ret)
+		return ret;
 
 	if (do_fork) {
 		FILE *feeds[array_size(vtysh_client)] = {};
@@ -745,7 +811,10 @@ int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
 
 		/* parent, wait for children */
 		if (fork_pid != 0)
-			return vtysh_forked_feed(config, error_filename, feeds);
+			return vtysh_forked_feed(config, error_filename, feeds,
+						 script_pid);
+		/* don't try to check on wrapper in forked children */
+		script_pid = -1;
 
 		/* parent duplicates & feeds config */
 		for (unsigned int i = 0; i < array_size(vtysh_client); i++)
@@ -789,6 +858,18 @@ int vtysh_apply_config(FILE *config, const char *error_filename, bool dry_run,
 	}
 
 	ret = vtysh_read_config(config, dry_run);
+
+	if (script_pid != -1) {
+		int script_status;
+
+		if (waitpid(script_pid, &script_status, 0) <= 0)
+			perror("waitpid(wrapper script)");
+		else if (WEXITSTATUS(script_status)) {
+			fprintf(stderr, "%% script %s exited with status %d\n",
+				vtysh_wrap_script, WEXITSTATUS(script_status));
+			ret = WEXITSTATUS(script_status);
+		}
+	}
 
 	if (ret) {
 		if (do_fork)
