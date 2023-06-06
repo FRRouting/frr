@@ -635,7 +635,6 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 		      txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->set_cfg_reqs, txn_req) {
-		error = false;
 		assert(txn_req->req_event == MGMTD_TXN_PROC_SETCFG);
 		ds_ctx = txn_req->req.set_cfg->ds_ctx;
 		if (!ds_ctx) {
@@ -644,7 +643,6 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 				txn_req->req.set_cfg->ds_id, txn_req->req_id,
 				MGMTD_INTERNAL_ERROR, "No such datastore!",
 				txn_req->req.set_cfg->implicit_commit);
-			error = true;
 			goto mgmt_txn_process_set_cfg_done;
 		}
 
@@ -656,7 +654,6 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 				MGMTD_INTERNAL_ERROR,
 				"Unable to retrieve DS Config Tree!",
 				txn_req->req.set_cfg->implicit_commit);
-			error = true;
 			goto mgmt_txn_process_set_cfg_done;
 		}
 
@@ -713,7 +710,6 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 				"Failed to send SET_CONFIG_REPLY txn-id %" PRIu64
 				" session-id: %" PRIu64,
 				txn->txn_id, txn->session_id);
-			error = true;
 		}
 
 	mgmt_txn_process_set_cfg_done:
@@ -1337,8 +1333,7 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
 		if (cmtcfg_req->subscr_info.xpath_subscr[id]) {
 			adapter = mgmt_be_get_adapter_by_id(id);
-			if (mgmt_be_create_txn(adapter, txn->txn_id)
-			    != 0) {
+			if (mgmt_be_send_txn_req(adapter, txn->txn_id, true)) {
 				(void)mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_INTERNAL_ERROR,
 					"Could not send TXN_CREATE to backend adapter");
@@ -1371,9 +1366,8 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 	return 0;
 }
 
-static int
-mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
-			      struct mgmt_be_client_adapter *adapter)
+static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
+				     struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
@@ -1395,10 +1389,10 @@ mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 		cfg_req.cfgdata_reqs = cfg_btch->cfg_datap;
 		cfg_req.num_reqs = cfg_btch->num_cfg_data;
 		indx++;
-		if (mgmt_be_send_cfg_data_create_req(
-			    adapter, txn->txn_id, cfg_btch->batch_id, &cfg_req,
-			    indx == num_batches ? true : false)
-		    != 0) {
+		if (mgmt_be_send_cfgdata_req(
+			    adapter, txn->txn_id, cfg_btch->batch_id,
+			    cfg_req.cfgdata_reqs, cfg_req.num_reqs,
+			    indx == num_batches ? true : false)) {
 			(void)mgmt_txn_send_commit_cfg_reply(
 				txn, MGMTD_INTERNAL_ERROR,
 				"Internal Error! Could not send config data to backend!");
@@ -1418,7 +1412,7 @@ mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	}
 
 	/*
-	 * This could ne the last Backend Client to send CFGDATA_CREATE_REQ to.
+	 * This could be the last Backend Client to send CFGDATA_CREATE_REQ to.
 	 * Try moving the commit to next phase.
 	 */
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
@@ -1438,7 +1432,7 @@ mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 	if (cmtcfg_req->subscr_info.xpath_subscr[adapter->id]) {
 		adapter = mgmt_be_get_adapter_by_id(adapter->id);
-		(void)mgmt_be_destroy_txn(adapter, txn->txn_id);
+		(void)mgmt_be_send_txn_req(adapter, txn->txn_id, false);
 
 		FOREACH_TXN_CFG_BATCH_IN_LIST (
 			&txn->commit_cfg_req->req.commit_cfg
@@ -1511,8 +1505,7 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 				return -1;
 
 			btch_list = &cmtcfg_req->curr_batches[id];
-			if (mgmt_be_send_cfg_apply_req(adapter, txn->txn_id)
-			    != 0) {
+			if (mgmt_be_send_cfgapply_req(adapter, txn->txn_id)) {
 				(void)mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_INTERNAL_ERROR,
 					"Could not send CFG_APPLY_REQ to backend adapter");
@@ -2260,11 +2253,6 @@ uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type)
 	return txn ? txn->txn_id : MGMTD_TXN_ID_NONE;
 }
 
-bool mgmt_txn_id_is_valid(uint64_t txn_id)
-{
-	return mgmt_txn_id2ctx(txn_id) ? true : false;
-}
-
 void mgmt_destroy_txn(uint64_t *txn_id)
 {
 	struct mgmt_txn_ctx *txn;
@@ -2275,17 +2263,6 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 
 	mgmt_txn_delete(&txn);
 	*txn_id = MGMTD_TXN_ID_NONE;
-}
-
-enum mgmt_txn_type mgmt_get_txn_type(uint64_t txn_id)
-{
-	struct mgmt_txn_ctx *txn;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return MGMTD_TXN_TYPE_NONE;
-
-	return txn->type;
 }
 
 int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,

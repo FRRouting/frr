@@ -42,8 +42,10 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
+    prologue = open(f"{CWD}/r1/mgmtd.conf").read()
+
     confpath = f"{tgen.gears['r1'].gearlogdir}/r1-late-big.conf"
-    start, end = write_big_route_conf("10.0.0.0/8", ROUTE_COUNT, confpath)
+    start, end = write_big_route_conf("10.0.0.0/8", ROUTE_COUNT, confpath, prologue)
     ROUTE_RANGE[0] = start
     ROUTE_RANGE[1] = end
 

@@ -2420,6 +2420,7 @@ void vty_close(struct vty *vty)
 	vty->status = VTY_CLOSE;
 
 	if (mgmt_fe_client && vty->mgmt_session_id) {
+		MGMTD_FE_CLIENT_DBG("closing vty session");
 		mgmt_fe_destroy_client_session(mgmt_fe_client,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
