@@ -490,13 +490,18 @@ int main(int argc, char **argv, char **env)
 
 	vty_init_vtysh();
 
-	if (!user_mode) {
-		/* Read vtysh configuration file before connecting to daemons.
-		 * (file may not be readable to calling user in SUID mode) */
-		suid_on();
-		vtysh_apply_config(vtysh_config, dryrun, false);
-		suid_off();
-	}
+	/* Read vtysh configuration file before connecting to daemons.
+	 * (file may not be readable to calling user in SUID mode)
+	 *
+	 * This MUST happen before allowing the user to do anything, because
+	 * it may contain additional restrictions.  Currently there is only
+	 * the "anti-PAM" "username WORD nopassword" setting (which relaxes
+	 * rather than restricts things), but the principle still applies.
+	 */
+	suid_on();
+	vtysh_apply_config(vtysh_config, dryrun, false);
+	suid_off();
+
 	/* Error code library system */
 	log_ref_init();
 	lib_error_init();
