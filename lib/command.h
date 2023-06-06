@@ -567,7 +567,7 @@ struct config_save_state {
 };
 
 extern int config_save_begin(struct vty *vty, struct config_save_state *state,
-			       const char *config_file);
+			       const char *config_file, uid_t uid, gid_t gid);
 extern int config_save_commit(struct vty *vty, struct config_save_state *state,
 			      const char *config_file);
 extern void config_save_abort(struct config_save_state *state);

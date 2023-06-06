@@ -1644,10 +1644,11 @@ static int vty_write_config(struct vty *vty)
 }
 
 int config_save_begin(struct vty *vty, struct config_save_state *state,
-		      const char *config_file)
+		      const char *config_file, uid_t uid, gid_t gid)
 {
 	const char *slash;
 	int fd;
+	struct stat st;
 
 	state->dirfd = -1;
 	state->sav = state->tmp = NULL;
@@ -1675,6 +1676,23 @@ int config_save_begin(struct vty *vty, struct config_save_state *state,
 			state->tmp);
 		goto out_err;
 	}
+
+	if (!fstat(fd, &st)) {
+		if (st.st_uid == uid)
+			uid = -1;
+		if (st.st_gid == gid)
+			gid = -1;
+		if ((uid != (uid_t)-1 || gid != (gid_t)-1)
+		    && fchown(fd, uid, gid)) {
+			vty_out(vty,
+				"Warning: can't chown configuration file %pSQq: %m\n",
+				state->tmp);
+		}
+	} else {
+		vty_out(vty, "Warning: stat() failed on %pSQq: %m\n",
+			state->tmp);
+	}
+
 	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
 		vty_out(vty, "Can't chmod configuration file %pSQq: %m\n",
 			state->tmp);
@@ -1763,7 +1781,7 @@ static int file_write_config(struct vty *vty)
 	/* Get filename. */
 	config_file = host.config;
 
-	fd = config_save_begin(vty, &state, config_file);
+	fd = config_save_begin(vty, &state, config_file, -1, -1);
 	if (fd < 0)
 		return CMD_WARNING;
 
