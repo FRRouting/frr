@@ -2365,6 +2365,52 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		bgp_dest_unlock_node(bn);
 }
 
+bool vpn_leak_to_vrf_no_retain_filter_check(struct bgp *from_bgp,
+					    struct attr *attr, afi_t afi)
+{
+	struct ecommunity *ecom_route_target = bgp_attr_get_ecommunity(attr);
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
+	struct listnode *node;
+	const char *debugmsg;
+	struct bgp *to_bgp;
+
+	/* Loop over BGP instances */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, to_bgp)) {
+		if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
+			if (debug)
+				zlog_debug(
+					"%s: from vpn (%s) to vrf (%s) afi %s, skipping: %s",
+					__func__, from_bgp->name_pretty,
+					to_bgp->name_pretty, afi2str(afi),
+					debugmsg);
+			continue;
+		}
+
+		/* Check for intersection of route targets */
+		if (!ecommunity_include(
+			    to_bgp->vpn_policy[afi]
+				    .rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
+			    ecom_route_target)) {
+			if (debug)
+				zlog_debug(
+					"%s: from vpn (%s) to vrf (%s) afi %s %s, skipping after no intersection of route targets",
+					__func__, from_bgp->name_pretty,
+					to_bgp->name_pretty, afi2str(afi),
+					ecommunity_str(ecom_route_target));
+			continue;
+		}
+		return false;
+	}
+
+	if (debug)
+		zlog_debug(
+			"%s: from vpn (%s) afi %s %s, no import - must be filtered",
+			__func__, from_bgp->name_pretty, afi2str(afi),
+			ecommunity_str(ecom_route_target));
+
+	return true;
+}
+
 void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 			    struct bgp_path_info *path_vpn,
 			    struct prefix_rd *prd)
