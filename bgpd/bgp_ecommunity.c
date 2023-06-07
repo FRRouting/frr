@@ -724,15 +724,21 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			memset(buf, 0, INET_ADDRSTRLEN + 1);
 			memcpy(buf, str, p - str);
 
-			if (dot) {
+			if (dot == 3) {
 				/* Parsing A.B.C.D in:
 				 * A.B.C.D:MN
 				 */
 				ret = inet_aton(buf, &ip);
 				if (ret == 0)
 					goto error;
+			} else if (dot == 1) {
+				/* Parsing A.B AS number in:
+				 * A.B:MN
+				 */
+				if (!asn_str2asn(buf, &as))
+					goto error;
 			} else {
-				/* ASN */
+				/* Parsing A AS number in A:MN */
 				errno = 0;
 				tmp_as = strtoul(buf, &endptr, 10);
 				/* 'unsigned long' is a uint64 on 64-bit
@@ -750,8 +756,11 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		} else if (*p == '.') {
 			if (separator)
 				goto error;
+			/* either IP or AS format */
 			dot++;
-			if (dot > 4)
+			if (dot > 1)
+				ecomm_type = ECOMMUNITY_ENCODE_IP;
+			if (dot >= 4)
 				goto error;
 		} else {
 			digit = 1;
@@ -776,19 +785,18 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	if (!digit && (!separator || !val_color_set))
 		goto error;
 
-	/* Encode result into extended community.  */
-	if (dot)
-		ecomm_type = ECOMMUNITY_ENCODE_IP;
-	else if (as > BGP_AS_MAX)
-		ecomm_type = ECOMMUNITY_ENCODE_AS4;
-	else if (as > 0)
-		ecomm_type = ECOMMUNITY_ENCODE_AS;
-	else if (val_color) {
-		ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
-		sub_type = ECOMMUNITY_COLOR;
-		val = val_color;
+	if (ecomm_type != ECOMMUNITY_ENCODE_IP) {
+		/* Encode result into extended community for AS format or color.  */
+		if (as > BGP_AS_MAX)
+			ecomm_type = ECOMMUNITY_ENCODE_AS4;
+		else if (as > 0)
+			ecomm_type = ECOMMUNITY_ENCODE_AS;
+		else if (val_color) {
+			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
+			sub_type = ECOMMUNITY_COLOR;
+			val = val_color;
+		}
 	}
-
 	if (ecommunity_encode(ecomm_type, sub_type, 1, as, ip, val, eval))
 		goto error;
 	*token = ecommunity_token_val;
