@@ -11783,7 +11783,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 				"\nDisplayed  %ld routes and %ld total paths\n",
 				output_cum, total_cum);
 	} else {
-		if (use_json && output_cum == 0)
+		if (use_json && output_cum == 0 && json_header_depth == 0)
 			vty_out(vty, "{}\n");
 	}
 	return CMD_SUCCESS;
