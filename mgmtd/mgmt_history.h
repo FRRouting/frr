@@ -74,9 +74,11 @@ mgmt_time_to_string(struct timespec *tv, bool long_fmt, char *buffer, size_t sz)
 
 	if (long_fmt) {
 		n = strftime(buffer, sz, MGMT_LONG_TIME_FMT, &tm);
+		assert(n < sz);
 		snprintf(&buffer[n], sz - n, ",%09lu", tv->tv_nsec);
 	} else {
 		n = strftime(buffer, sz, MGMT_SHORT_TIME_FMT, &tm);
+		assert(n < sz);
 		snprintf(&buffer[n], sz - n, "%09lu", tv->tv_nsec);
 	}
 
