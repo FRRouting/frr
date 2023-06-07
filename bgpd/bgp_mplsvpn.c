@@ -2551,6 +2551,51 @@ void vpn_leak_to_vrf_withdraw_all(struct bgp *to_bgp, afi_t afi)
 	}
 }
 
+void vpn_leak_no_retain(struct bgp *to_bgp, struct bgp *vpn_from, afi_t afi)
+{
+	struct bgp_dest *pdest;
+	safi_t safi = SAFI_MPLS_VPN;
+
+	assert(vpn_from);
+
+	/*
+	 * Walk vpn table
+	 */
+	for (pdest = bgp_table_top(vpn_from->rib[afi][safi]); pdest;
+	     pdest = bgp_route_next(pdest)) {
+		struct bgp_table *table;
+		struct bgp_dest *bn;
+		struct bgp_path_info *bpi;
+
+		/* This is the per-RD table of prefixes */
+		table = bgp_dest_get_bgp_table_info(pdest);
+
+		if (!table)
+			continue;
+
+		for (bn = bgp_table_top(table); bn; bn = bgp_route_next(bn)) {
+			for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
+			     bpi = bpi->next) {
+
+				if (bpi->extra &&
+				    bpi->extra->bgp_orig == to_bgp)
+					continue;
+
+				if (bpi->sub_type != BGP_ROUTE_NORMAL)
+					continue;
+
+				if (!vpn_leak_to_vrf_no_retain_filter_check(
+					    vpn_from, bpi->attr, afi))
+					/* do not filter */
+					continue;
+
+				bgp_unlink_nexthop(bpi);
+				bgp_rib_remove(bn, bpi, bpi->peer, afi, safi);
+			}
+		}
+	}
+}
+
 void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *vpn_from,
 				afi_t afi)
 {
@@ -3755,6 +3800,7 @@ void vpn_leak_postchange_all(void)
  */
 void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 {
+	struct bgp *bgp_default = bgp_get_default();
 	struct bgp *to_bgp;
 	const char *tmp_name;
 	char *vname;
@@ -3832,6 +3878,17 @@ void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 					break;
 				}
 			}
+		}
+
+		if (bgp_default &&
+		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
+				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL)) {
+			/* 'from_bgp' instance will be deleted
+			 * so force to unset importation to update VPN labels
+			 */
+			UNSET_FLAG(from_bgp->af_flags[afi][SAFI_UNICAST],
+				   BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT);
+			vpn_leak_no_retain(from_bgp, bgp_default, afi);
 		}
 	}
 	return;

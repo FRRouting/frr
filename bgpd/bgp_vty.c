@@ -9954,6 +9954,7 @@ DEFPY (bgp_imexport_vpn,
 	bool yes = true;
 	int flag;
 	enum vpn_policy_direction dir;
+	struct bgp *bgp_default = bgp_get_default();
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
@@ -9989,14 +9990,18 @@ DEFPY (bgp_imexport_vpn,
 		SET_FLAG(bgp->af_flags[afi][safi], flag);
 		if (!previous_state) {
 			/* trigger export current vrf */
-			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+			vpn_leak_postchange(dir, afi, bgp_default, bgp);
 		}
 	} else {
 		if (previous_state) {
 			/* trigger un-export current vrf */
-			vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+			vpn_leak_prechange(dir, afi, bgp_default, bgp);
 		}
 		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (previous_state && bgp_default &&
+		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
+				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
+			vpn_leak_no_retain(bgp, bgp_default, afi);
 	}
 
 	hook_call(bgp_snmp_init_stats, bgp);
