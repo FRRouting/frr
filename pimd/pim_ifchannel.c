@@ -135,7 +135,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		 * being inherited.  So let's figure out what
 		 * needs to be done here
 		 */
-		if (!pim_addr_is_any(ch->sg.src) &&
+		if (!pim_addr_is_any(ch->sg.src) && ch->parent &&
 		    pim_upstream_evaluate_join_desired_interface(
 			    ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
