@@ -8783,7 +8783,7 @@ DEFUN (neighbor_addpath_tx_all_paths,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_ALL);
+				  BGP_ADDPATH_ALL, 0);
 	return CMD_SUCCESS;
 }
 
@@ -8816,7 +8816,7 @@ DEFUN (no_neighbor_addpath_tx_all_paths,
 	}
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_NONE);
+				  BGP_ADDPATH_NONE, 0);
 
 	return CMD_SUCCESS;
 }
@@ -8826,6 +8826,45 @@ ALIAS_HIDDEN(no_neighbor_addpath_tx_all_paths,
 	     "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Use addpath to advertise all paths to a neighbor\n")
+
+DEFPY (neighbor_addpath_tx_best_selected_paths,
+       neighbor_addpath_tx_best_selected_paths_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected (1-6)$paths",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise best selected paths to a neighbor\n"
+       "The number of best paths\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+				  BGP_ADDPATH_BEST_SELECTED, paths);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_neighbor_addpath_tx_best_selected_paths,
+       no_neighbor_addpath_tx_best_selected_paths_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected [(1-6)]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise best selected paths to a neighbor\n"
+       "The number of best paths\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+				  BGP_ADDPATH_BEST_SELECTED, 0);
+	return CMD_SUCCESS;
+}
 
 DEFUN (neighbor_addpath_tx_bestpath_per_as,
        neighbor_addpath_tx_bestpath_per_as_cmd,
@@ -8842,7 +8881,7 @@ DEFUN (neighbor_addpath_tx_bestpath_per_as,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_BEST_PER_AS);
+				  BGP_ADDPATH_BEST_PER_AS, 0);
 
 	return CMD_SUCCESS;
 }
@@ -8876,7 +8915,7 @@ DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
 	}
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_NONE);
+				  BGP_ADDPATH_NONE, 0);
 
 	return CMD_SUCCESS;
 }
@@ -17917,6 +17956,13 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 				"  neighbor %s addpath-tx-bestpath-per-AS\n",
 				addr);
 			break;
+		case BGP_ADDPATH_BEST_SELECTED:
+			if (peer->addpath_best_selected[afi][safi])
+				vty_out(vty,
+					"  neighbor %s addpath-tx-best-selected %u\n",
+					addr,
+					peer->addpath_best_selected[afi][safi]);
+			break;
 		case BGP_ADDPATH_MAX:
 		case BGP_ADDPATH_NONE:
 			break;
@@ -19918,6 +19964,40 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_all_paths_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+
+	/* "neighbor addpath-tx-best-selected" commands.*/
+	install_element(BGP_IPV4_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4M_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4M_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4L_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4L_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6L_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6L_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV4_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV4_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV6_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV6_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
 
 	/* "neighbor addpath-tx-bestpath-per-AS" commands.*/
 	install_element(BGP_NODE,

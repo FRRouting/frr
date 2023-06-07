@@ -556,11 +556,11 @@ struct bgp_path_info *bgp_get_imported_bpi_ultimate(struct bgp_path_info *info)
 
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1.
  */
-static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
-			     struct bgp_path_info *exist, int *paths_eq,
-			     struct bgp_maxpaths_cfg *mpath_cfg, int debug,
-			     char *pfx_buf, afi_t afi, safi_t safi,
-			     enum bgp_path_selection_reason *reason)
+int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
+		      struct bgp_path_info *exist, int *paths_eq,
+		      struct bgp_maxpaths_cfg *mpath_cfg, int debug,
+		      char *pfx_buf, afi_t afi, safi_t safi,
+		      enum bgp_path_selection_reason *reason)
 {
 	const struct prefix *new_p;
 	struct attr *newattr, *existattr;

@@ -1183,7 +1183,7 @@ static void peer_free(struct peer *peer)
 		bgp_peer_remove_bfd_config(peer);
 
 	FOREACH_AFI_SAFI (afi, safi)
-		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE);
+		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE, 0);
 
 	if (peer->change_local_as_pretty)
 		XFREE(MTYPE_BGP, peer->change_local_as_pretty);
@@ -1398,6 +1398,7 @@ struct peer *peer_new(struct bgp *bgp)
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
+		peer->addpath_best_selected[afi][safi] = 0;
 		peer->soo[afi][safi] = NULL;
 	}
 

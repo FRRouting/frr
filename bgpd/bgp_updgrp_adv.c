@@ -87,6 +87,67 @@ static void adj_free(struct bgp_adj_out *adj)
 	XFREE(MTYPE_BGP_ADJ_OUT, adj);
 }
 
+static void
+subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
+				      struct update_subgroup *subgrp)
+{
+	afi_t afi = SUBGRP_AFI(subgrp);
+	safi_t safi = SUBGRP_SAFI(subgrp);
+	struct peer *peer = SUBGRP_PEER(subgrp);
+	enum bgp_path_selection_reason reason;
+	char pfx_buf[PREFIX2STR_BUFFER] = {};
+	int paths_eq = 0;
+	int best_path_count = 0;
+	struct list *list = list_new();
+	struct bgp_path_info *pi = NULL;
+
+	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
+		while (best_path_count++ <
+		       peer->addpath_best_selected[afi][safi]) {
+			struct bgp_path_info *exist = NULL;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				if (listnode_lookup(list, pi))
+					continue;
+
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					continue;
+
+				if (bgp_path_info_cmp(peer->bgp, pi, exist,
+						      &paths_eq, NULL, 0,
+						      pfx_buf, afi, safi,
+						      &reason))
+					exist = pi;
+			}
+
+			if (exist)
+				listnode_add(list, exist);
+		}
+	}
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		uint32_t id = bgp_addpath_id_for_peer(peer, afi, safi,
+						      &pi->tx_addpath);
+
+		if (peer->addpath_type[afi][safi] ==
+		    BGP_ADDPATH_BEST_SELECTED) {
+			if (listnode_lookup(list, pi))
+				subgroup_process_announce_selected(
+					subgrp, pi, dest, afi, safi, id);
+			else
+				subgroup_process_announce_selected(
+					subgrp, NULL, dest, afi, safi, id);
+		} else {
+			subgroup_process_announce_selected(subgrp, pi, dest,
+							   afi, safi, id);
+		}
+	}
+
+	if (list)
+		list_delete(&list);
+}
+
 static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 					  struct update_subgroup *subgrp)
 {
@@ -125,7 +186,6 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct updwalk_context *ctx = arg;
 	struct update_subgroup *subgrp;
-	struct bgp_path_info *pi;
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
@@ -143,7 +203,6 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			   bgp_dest_to_rnode(ctx->dest));
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-
 		/*
 		 * Skip the subgroups that have coalesce timer running. We will
 		 * walk the entire prefix table for those subgroups when the
@@ -155,19 +214,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			if (addpath_capable) {
 				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
-				for (pi = bgp_dest_get_bgp_path_info(ctx->dest);
-				     pi; pi = pi->next) {
-					/* Skip the bestpath for now */
-					if (pi == ctx->pi)
-						continue;
-
-					subgroup_process_announce_selected(
-						subgrp, pi, ctx->dest, afi,
-						safi,
-						bgp_addpath_id_for_peer(
-							peer, afi, safi,
-							&pi->tx_addpath));
-				}
+				subgrp_announce_addpath_best_selected(ctx->dest,
+								      subgrp);
 
 				/* Process the bestpath last so the "show [ip]
 				 * bgp neighbor x.x.x.x advertised"
@@ -686,6 +734,10 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+
+		if (addpath_capable)
+			subgrp_announce_addpath_best_selected(dest, subgrp);
+
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 
 			if (!bgp_check_selected(ri, peer, addpath_capable, afi,
@@ -703,10 +755,12 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			    is_default_prefix(bgp_dest_get_prefix(dest)))
 				break;
 
-			subgroup_process_announce_selected(
-				subgrp, ri, dest, afi, safi_rib,
-				bgp_addpath_id_for_peer(peer, afi, safi_rib,
-							&ri->tx_addpath));
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED))
+				subgroup_process_announce_selected(
+					subgrp, ri, dest, afi, safi_rib,
+					bgp_addpath_id_for_peer(
+						peer, afi, safi_rib,
+						&ri->tx_addpath));
 		}
 	}
 	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);

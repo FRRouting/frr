@@ -142,6 +142,8 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
 	dst->orf_plist[afi][safi] = src->orf_plist[afi][safi];
 	dst->addpath_type[afi][safi] = src->addpath_type[afi][safi];
+	dst->addpath_best_selected[afi][safi] =
+		src->addpath_best_selected[afi][safi];
 	dst->local_as = src->local_as;
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
@@ -307,6 +309,7 @@ static void *updgrp_hash_alloc(void *p)
  *       16. Local-as should match, if configured.
  *       17. maximum-prefix-out
  *       18. Local-role should also match, if configured.
+ *       19. Add-Path best selected paths count should match as well
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -340,6 +343,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
 	key = jhash_1word((uint32_t)peer->addpath_type[afi][safi], key);
+	key = jhash_1word(peer->addpath_best_selected[afi][safi], key);
 	key = jhash_1word((peer->cap & PEER_UPDGRP_CAP_FLAGS), key);
 	key = jhash_1word((peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS),
 			  key);
