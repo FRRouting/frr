@@ -1148,13 +1148,18 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    "wrongInterface",
 						    c_oil->cc.wrong_if);
 			}
-		}
+		} else
 #if PIM_IPV == 4
-		else
 			vty_out(vty, "%-6d %-15pPAs  %-15pPAs  %-3s  %-16s  ",
 				c_oil->installed, oil_origin(c_oil),
 				oil_mcastgrp(c_oil), isRpt ? "y" : "n",
 				in_ifname);
+#else
+			/* Add a new row for c_oil with no OIF */
+			ttable_add_row(tt, "%d|%pPAs|%pPAs|%s|%s|%c",
+				       c_oil->installed, oil_origin(c_oil),
+				       oil_mcastgrp(c_oil), isRpt ? "y" : "n",
+				       in_ifname, ' ');
 #endif
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
@@ -1225,6 +1230,13 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #if PIM_IPV == 4
 					vty_out(vty, "%s%s", out_ifname, flag);
 #else
+					/* OIF found.
+					 * Delete the existing row for c_oil,
+					 * with no OIF.
+					 * Add a new row for c_oil with OIF and
+					 * flag.
+					 */
+					ttable_del_row(tt, tt->nrows - 1);
 					ttable_add_row(
 						tt, "%d|%pPAs|%pPAs|%s|%s|%s%s",
 						c_oil->installed,
