@@ -59,16 +59,17 @@ class CLIError(Exception):
 
 def cli_cmd(name: Optional[str] = None):
     def decorate(func):
+        orig = func
         _name = name
         if _name is None:
             while getattr(func, "__func__", None):
                 func = func.__func__
             assert func.__name__.startswith("do_")
             _name = func.__name__[3:]
-        func.potatool_cli = {
+        orig.potatool_cli = {
             "name": _name,
         }
-        return func
+        return orig
 
     return decorate
 
