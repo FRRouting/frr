@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta
+from functools import partial
 
 import pytest
 from lib.common_config import (
@@ -30,6 +31,12 @@ from lib.common_config import (
 from lib.micronet import Timeout, comm_error
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import interface_set_status, json_cmp
+
+# pylint: disable=C0413
+# Import topogen and topotest helpers
+from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
 pytestmark = [pytest.mark.ospfd]
 
@@ -1140,6 +1147,438 @@ def test_ospf_opaque_restart(tgen):
     rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
     logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
     _test_opaque_add_restart_add(tgen, apibin)
+
+
+def _test_opaque_interface_disable(tgen, apibin):
+    "Test disabling opaque capability on an interface"
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    tc_name = "opaque_interface_disable"
+
+    p = None
+    pread = None
+    # Log to our stdin, stderr
+    pout = open(os.path.join(r1.net.logdir, "r1/intf-disable.log"), "a+")
+    try:
+        # STEP 1 in test_ospf_opaque_interface_disable and STEP 56 in CI tests
+        step("Disable OSPF opaque LSA Copability on r1's interface to r2")
+        r1.vtysh_multicmd("conf t\ninterface r1-eth0\nno ip ospf capability opaque")
+        time.sleep(15)
+
+        # STEP 2 in test_ospf_opaque_interface_disable and STEP 57 in CI tests
+        step("Verify the r1 configuration of 'no ip ospf capability opaque'")
+        no_capability_opaque_cfg = (
+            tgen.net["r1"]
+            .cmd(
+                'vtysh -c "show running ospfd" | grep "^ no ip ospf capability opaque"'
+            )
+            .rstrip()
+        )
+        assertmsg = (
+            "'no ip ospf capability opaque' applied, but not present in configuration"
+        )
+        assert no_capability_opaque_cfg == " no ip ospf capability opaque", assertmsg
+
+        # STEP 3 in test_ospf_opaque_interface_disable and STEP 58 in CI tests
+        step("Verify the ospf opaque option is not applied to the r1 interface")
+        r1_interface_without_opaque = {
+            "interfaces": {
+                "r1-eth0": {
+                    "ifUp": True,
+                    "ospfEnabled": True,
+                    "ipAddress": "10.0.1.1",
+                    "ospfIfType": "Broadcast",
+                    "opaqueCapable": False,
+                }
+            }
+        }
+        r1_interface_with_opaque = {
+            "interfaces": {
+                "r1-eth0": {
+                    "ifUp": True,
+                    "ospfEnabled": True,
+                    "ipAddress": "10.0.1.1",
+                    "ospfIfType": "Broadcast",
+                    "opaqueCapable": True,
+                }
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf interface json", r1_interface_without_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF interface doesn't have opaque capability disabled"
+        assert result is None, assertmsg
+
+        r1_neighbor_without_opaque = {
+            "neighbors": {
+                "2.0.0.0": [
+                    {
+                        "optionsList": "*|-|-|-|-|-|E|-",
+                    }
+                ]
+            }
+        }
+        r2_neighbor_without_opaque = {
+            "neighbors": {
+                "1.0.0.0": [
+                    {
+                        "optionsList": "*|-|-|-|-|-|E|-",
+                    }
+                ]
+            }
+        }
+        # STEP 4 in test_ospf_opaque_interface_disable and STEP 59 in CI tests
+        step("Verify that the r1 neighbor options don't include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_without_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF neighbor has opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 5 in test_ospf_opaque_interface_disable and STEP 60 in CI tests
+        step("Verify that the r1 neighbor options don't include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_without_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF neighbor has opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 6 in test_ospf_opaque_interface_disable and STEP 61 in CI tests
+        step(
+            "Verify no r2 configuration of 'no ip ospf capability opaque' in r2 configuration"
+        )
+        rc, _, _ = tgen.net["r2"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf capability opaque'", warn=False
+        )
+        assertmsg = "'no ip ospf capability opaque' not applied, but not present in r2 configuration"
+        assert rc, assertmsg
+
+        # STEP 7 in test_ospf_opaque_interface_disable and STEP 62 in CI tests
+        step("Verify the ospf opaque option is applied to the r2 interface")
+        r2_interface_without_opaque = {
+            "interfaces": {
+                "r2-eth0": {
+                    "ifUp": True,
+                    "ospfEnabled": True,
+                    "ipAddress": "10.0.1.2",
+                    "ospfIfType": "Broadcast",
+                    "opaqueCapable": False,
+                }
+            }
+        }
+        r2_interface_with_opaque = {
+            "interfaces": {
+                "r2-eth0": {
+                    "ifUp": True,
+                    "ospfEnabled": True,
+                    "ipAddress": "10.0.1.2",
+                    "ospfIfType": "Broadcast",
+                    "opaqueCapable": True,
+                }
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf interface json", r2_interface_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF interface has opaque capability disabled"
+        assert result is None, assertmsg
+
+        # STEP 8 in test_ospf_opaque_interface_disable and STEP 63 in CI tests
+        step("Install opaque LSAs on r1")
+        pread = r2.popen(
+            ["/usr/bin/timeout", "120", apibin, "-v", "--logtag=READER", "wait,120"],
+            encoding=None,  # don't buffer
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        p = r1.popen(
+            [
+                apibin,
+                "-v",
+                "add,9,10.0.1.1,230,1,feedaceedeadbeef",
+                "add,10,1.2.3.4,231,1,feedaceecafebeef",
+                "add,11,232,1,feedaceebaddbeef",
+                "wait,20",
+            ]
+        )
+        opaque_LSAs_in_database = {
+            "areas": {
+                "1.2.3.4": {
+                    "linkLocalOpaqueLsa": [
+                        {
+                            "lsId": "230.0.0.1",
+                            "advertisedRouter": "1.0.0.0",
+                            "sequenceNumber": "80000001",
+                        },
+                    ],
+                    "linkLocalOpaqueLsaCount": 1,
+                    "areaLocalOpaqueLsa": [
+                        {
+                            "lsId": "231.0.0.1",
+                            "advertisedRouter": "1.0.0.0",
+                            "sequenceNumber": "80000001",
+                        },
+                    ],
+                    "areaLocalOpaqueLsaCount": 1,
+                },
+            },
+            "asExternalOpaqueLsa": [
+                {
+                    "lsId": "232.0.0.1",
+                    "advertisedRouter": "1.0.0.0",
+                    "sequenceNumber": "80000001",
+                },
+            ],
+            "asExternalOpaqueLsaCount": 1,
+        }
+        opaque_area_empty_database = {
+            "routerId":"2.0.0.0",
+            "areaLocalOpaqueLsa":{
+                "areas":{
+                    "1.2.3.4":[
+                    ]
+                }
+            }
+        }
+
+        # STEP 9 in test_ospf_opaque_interface_disable and STEP 64 in CI tests
+        step("Check that LSAs are added on r1")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf database json", opaque_LSAs_in_database
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF database doesn't contain opaque LSAs"
+        assert result is None, assertmsg
+
+        # STEP 10 in test_ospf_opaque_interface_disable and STEP 65 in CI tests
+        step("Check that LSAs are not added on r2")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf database opaque-area json",
+            opaque_area_empty_database, True
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF area database contains opaque LSAs"
+        assert result is None, assertmsg
+
+        # STEP 11 in test_ospf_opaque_interface_disable and STEP 66 in CI tests
+        step("Enable OSPF opaque LSA Copability on r1's interface to r2")
+        r1.vtysh_multicmd("conf t\ninterface r1-eth0\nip ospf capability opaque")
+        time.sleep(15)
+
+        # STEP 12 in test_ospf_opaque_interface_disable and STEP 67 in CI tests
+        step("Verify no r1 configuration of 'no ip ospf capability opaque'")
+        rc, _, _ = tgen.net["r1"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf capability opaque'", warn=False
+        )
+        assertmsg = "'no ip ospf capability opaque' not applied, but not present in r1 configuration"
+        assert rc, assertmsg
+
+        # STEP 13 in test_ospf_opaque_interface_disable and STEP 68 in CI tests
+        step("Verify the ospf opaque option is applied to the r1 interface")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf interface json", r1_interface_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF interface doesn't have opaque capability disabled"
+        assert result is None, assertmsg
+
+        r1_neighbor_with_opaque = {
+            "neighbors": {
+                "2.0.0.0": [
+                    {
+                        "optionsList": "*|O|-|-|-|-|E|-",
+                    }
+                ]
+            }
+        }
+        r2_neighbor_with_opaque = {
+            "neighbors": {
+                "1.0.0.0": [
+                    {
+                        "optionsList": "*|O|-|-|-|-|E|-",
+                    }
+                ]
+            }
+        }
+        # STEP 14 in test_ospf_opaque_interface_disable and STEP 69 in CI tests
+        step("Verify that the r1 neighbor options include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF neighbor doesn't have opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 15 in test_ospf_opaque_interface_disable and STEP 70 in CI tests
+        step("Verify that the r2 neighbor options include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF neighbor doesn't have opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 16 in test_ospf_opaque_interface_disable and STEP 71 in CI tests
+        step("Check that LSAs are now added to r2")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf database json", opaque_LSAs_in_database
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF database doesn't contains opaque LSAs"
+        assert result is None, assertmsg
+
+        # STEP 17 in test_ospf_opaque_interface_disable and STEP 72 in CI tests
+        step(
+            "Disable Opaque Capability on r2's interface to r1 using the interface address"
+        )
+        r2.vtysh_multicmd(
+            "conf t\ninterface r2-eth0\nno ip ospf capability opaque 10.0.1.2"
+        )
+
+        # STEP 18 in test_ospf_opaque_interface_disable and STEP 73 in CI tests
+        step("Clear the OSPF process on r2 to clear the OSPF LSDB")
+        r2.vtysh_multicmd("clear ip ospf process")
+        time.sleep(15)
+
+        # STEP 19 in test_ospf_opaque_interface_disable and STEP 74 in CI tests
+        step("Verify the r2 configuration of 'no ip ospf capability opaque 10.0.1.2'")
+        no_capability_opaque_cfg = (
+            tgen.net["r2"]
+            .cmd_nostatus(
+                'vtysh -c "show running ospfd" | grep "^ no ip ospf capability opaque 10.0.1.2"'
+            )
+            .rstrip()
+        )
+        assertmsg = "'no ip ospf capability opaque 10.0.1.2' applied, but not present in configuration"
+        assert (
+            no_capability_opaque_cfg == " no ip ospf capability opaque 10.0.1.2"
+        ), assertmsg
+
+        # STEP 20 in test_ospf_opaque_interface_disable and STEP 75 in CI tests
+        step("Verify the ospf opaque option is not applied to the r2 interface")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf interface json", r2_interface_without_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF interface doesn't have opaque capability disabled"
+        assert result is None, assertmsg
+
+        # STEP 21 in test_ospf_opaque_interface_disable and STEP 76 in CI tests
+        step("Verify that the r1 neighbor options don't include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_without_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF neighbor has opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 22 in test_ospf_opaque_interface_disable and STEP 77 in CI tests
+        step("Verify that the r2 neighbor options don't include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_without_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF neighbor has opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 23 in test_ospf_opaque_interface_disable and STEP 78 in CI tests
+        step("Verify that r1 still has the opaque LSAs")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf database json", opaque_LSAs_in_database
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF database doesn't contain opaque LSAs"
+        assert result is None, assertmsg
+
+        # STEP 24 in test_ospf_opaque_interface_disable and STEP 79 in CI tests
+        step("Verify that r2 doesn't have the opaque LSAs")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf database opaque-area json",
+            opaque_area_empty_database, True
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF area database contains opaque LSAs"
+        assert result is None, assertmsg
+
+        # STEP 25 in test_ospf_opaque_interface_disable and STEP 80 in CI tests
+        step("Remove the 'no ip ospf capability opaque 10.0.1.2' config from r2 ")
+        r2.vtysh_multicmd(
+            "conf t\ninterface r2-eth0\nip ospf capability opaque 10.0.1.2"
+        )
+        time.sleep(15)
+
+        # STEP 26 in test_ospf_opaque_interface_disable and STEP 81 in CI tests
+        step("Verify the r2 removal of 'no ip ospf capability opaque 10.0.1.2'")
+        rc, _, _ = tgen.net["r2"].cmd_status(
+            "show running ospfd | grep -q 'ip ospf capability opaque'", warn=False
+        )
+        assertmsg = "'no ip ospf capability opaque' not applied, but not present in r2 configuration"
+        assert rc, assertmsg
+
+        # STEP 27 in test_ospf_opaque_interface_disable and STEP 82 in CI tests
+        step("Verify the ospf opaque option is applied to the r2 interface")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf interface json", r2_interface_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF interface doesn't have opaque capability disabled"
+        assert result is None, assertmsg
+
+        # STEP 28 in test_ospf_opaque_interface_disable and STEP 83 in CI tests
+        step("Verify that the r2 neighbor options include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF neighbor doesn't have opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 29 in test_ospf_opaque_interface_disable and STEP 84 in CI tests
+        step("Verify that the r1 neighbor options include opaque")
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_with_opaque
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF neighbor doesn't have opaque option in optionsList"
+        assert result is None, assertmsg
+
+        # STEP 30 in test_ospf_opaque_interface_disable and STEP 85 in CLI tests
+        step("Verify that r2 now has the opaque LSAs")
+        test_func = partial(
+            topotest.router_json_cmp, r2, "show ip ospf database json", opaque_LSAs_in_database
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r2 OSPF database doesn't contain opaque LSAs"
+        assert result is None, assertmsg
+
+    except Exception:
+        if p:
+            p.terminate()
+            if p.wait():
+                comm_error(p)
+            p = None
+        raise
+    finally:
+        if pread:
+            pread.terminate()
+            pread.wait()
+        if p:
+            p.terminate()
+            p.wait()
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_opaque_interface_disable(tgen):
+    apibin = os.path.join(CLIENTDIR, "ospfclient.py")
+    rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
+    _test_opaque_interface_disable(tgen, apibin)
 
 
 if __name__ == "__main__":

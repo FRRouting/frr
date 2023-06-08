@@ -112,6 +112,9 @@ struct ospf_if_params {
 
 	/* point-to-multipoint delayed reflooding configuration */
 	bool p2mp_delay_reflood;
+
+	/* Opaque LSA capability at interface level (see RFC5250) */
+	DECLARE_IF_PARAM(bool, opaque_capable);
 };
 
 enum { MEMBER_ALLROUTERS = 0,
