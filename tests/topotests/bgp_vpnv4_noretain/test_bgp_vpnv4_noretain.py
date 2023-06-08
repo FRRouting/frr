@@ -17,6 +17,7 @@ import os
 import sys
 import json
 from functools import partial
+from copy import deepcopy
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -137,6 +138,12 @@ def router_json_cmp_exact_filter(router, cmd, expected):
                     attr.pop("nhVrfId")
                 if "version" in attr:
                     attr.pop("version")
+
+    # filter out RD with no data (e.g. "444:3": {})
+    json_tmp = deepcopy(json_output)
+    for rd, data in json_tmp["routes"]["routeDistinguishers"].items():
+        if len(data.keys()) == 0:
+            json_output["routes"]["routeDistinguishers"].pop(rd)
 
     return topotest.json_cmp(json_output, expected, exact=True)
 
