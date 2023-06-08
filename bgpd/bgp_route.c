@@ -2515,6 +2515,51 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    bgp_otc_egress(peer, attr))
 		return false;
 
+	/* RTC-Filtering */
+	if (afi == AFI_L2VPN && SAFI_EVPN == safi) {
+		if (peer->afc[AFI_IP][SAFI_RTC]) {
+
+			// Build prefix to compare with
+			struct prefix cmp;
+			cmp.family = AF_RTC;
+			cmp.prefixlen = 96;
+			cmp.u.prefix_rtc.origin_as = 65000;
+
+			// The update group should only have one peer
+			onlypeer = SUBGRP_PFIRST(subgrp)->peer;
+			struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
+			uint8_t *pnt;
+			uint8_t type = 0;
+			uint8_t sub_type = 0;
+			for (uint32_t i = 0; i < ecom->size; i++) {
+
+				/* Retrieve value field */
+				pnt = ecom->val + (i * ecom->unit_size);
+
+				/* High-order octet is the type */
+				type = *pnt++;
+
+				if (type == ECOMMUNITY_ENCODE_TRANS_EXP ||
+								type == ECOMMUNITY_ENCODE_AS || type == ECOMMUNITY_ENCODE_IP
+				    || type == ECOMMUNITY_ENCODE_AS4 ||
+					   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
+					   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_3) {
+					sub_type = *pnt++;
+
+					if (sub_type == ECOMMUNITY_ROUTE_TARGET) {
+						memcpy(&cmp.u.prefix_rtc.route_target, ecom->val, ECOMMUNITY_SIZE);
+						if (onlypeer->rtc_plist != NULL) {
+							if (prefix_list_apply_ext(onlypeer->rtc_plist, NULL, &cmp, true) == PREFIX_DENY){
+								zlog_info("Filtered update because of RTC prefix-list");
+								return false;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if (filter->advmap.update_type == UPDATE_TYPE_WITHDRAW &&
 	    filter->advmap.aname &&
 	    route_map_lookup_by_name(filter->advmap.aname)) {
