@@ -6979,15 +6979,19 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 
 			bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
 		}
+	} else if (safi == SAFI_RTC) {
+		/* always mark static RTC as valid */
+		bgp_unlink_nexthop(bpi);
+		bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
 	}
 }
 
-static struct bgp_static *bgp_static_new(void)
+struct bgp_static *bgp_static_new(void)
 {
 	return XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
 }
 
-static void bgp_static_free(struct bgp_static *bgp_static)
+void bgp_static_free(struct bgp_static *bgp_static)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	route_map_counter_decrement(bgp_static->rmap.map);

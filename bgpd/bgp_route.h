@@ -843,6 +843,8 @@ extern int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			  uint32_t label_index, int evpn_type, const char *esi,
 			  const char *gwip, const char *ethtag,
 			  const char *routermac);
+extern struct bgp_static *bgp_static_new(void);
+extern void bgp_static_free(struct bgp_static *bgp_static);
 
 /* this is primarily for MPLS-VPN */
 extern void bgp_update(struct peer *peer, const struct prefix *p,
