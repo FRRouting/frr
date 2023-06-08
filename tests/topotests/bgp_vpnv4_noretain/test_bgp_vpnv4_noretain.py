@@ -176,6 +176,7 @@ def test_bgp_no_retain_step1():
 
     rname = "r1"
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
 
 def test_bgp_retain_step2():
@@ -198,6 +199,7 @@ router bgp 65500
     router.vtysh_cmd(cfg)
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
 
 def test_memory_leak():
