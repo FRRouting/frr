@@ -238,7 +238,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
 	if (result == PIM_RP_NO_PATH) {
 		snprintfrr(errmsg, errmsg_len,
 			   "No Path to RP address specified: %pPA", &rp_addr);
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
