@@ -5,6 +5,7 @@
  */
 
 #include "bgpd/bgp_rtc.h"
+#include "bgpd/bgp_debug.h"
 
 DEFINE_MTYPE(BGPD, BGP_RTC_PLIST, "BGP Route-Target Constraint prefix-list");
 DEFINE_MTYPE(BGPD, BGP_RTC_PLIST_ENTRY, "BGP Route-Target Constraint prefix-list entry");
@@ -66,6 +67,102 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *pa
 
 	return BGP_NLRI_PARSE_OK;
 }
+
+/* Check whether a route-target match the RTC prefix-list */
+static enum rtc_prefix_list_type bgp_rtc_plist_entry_match(struct bgp_rtc_plist *rtc_plist,
+							   uint8_t *route_target)
+{
+	struct bgp_rtc_plist_entry *rtc_pentry = NULL;
+	struct listnode *node;
+	size_t byte_count;
+	size_t extra_bits;
+	uint8_t mask;
+
+	for (ALL_LIST_ELEMENTS_RO(rtc_plist->entries, node, rtc_pentry)) {
+		if (rtc_pentry->prefixlen == 0 || rtc_pentry->prefixlen == 32)
+			return RTC_PREFIX_PERMIT;
+
+		if (rtc_pentry->prefixlen == 96) {
+			if (!memcmp(rtc_pentry->route_target, route_target,
+				    sizeof(rtc_pentry->route_target)))
+				return RTC_PREFIX_PERMIT;
+			continue;
+		}
+
+		byte_count = rtc_pentry->prefixlen / 8 - sizeof(as_t);
+		if (memcmp(rtc_pentry->route_target, route_target, byte_count))
+			continue;
+
+		extra_bits = rtc_pentry->prefixlen % 8;
+		if (!extra_bits)
+			return RTC_PREFIX_PERMIT;
+
+		mask = MASKBIT(extra_bits);
+		if ((rtc_pentry->route_target[byte_count] & mask) ==
+		    (route_target[byte_count] & mask))
+			return RTC_PREFIX_PERMIT;
+	}
+
+	return RTC_PREFIX_DENY;
+}
+
+/* Return whether route-target constraint must filter an advertisement via 'peer' based on the
+ * route-target attributes contained in the 'ecom' extended community list.
+ */
+enum rtc_prefix_list_type bgp_rtc_filter(struct peer *peer, struct ecommunity *ecom)
+{
+	uint8_t sub_type = 0;
+	uint8_t *pnt;
+	bool rt_found = false;
+	char *ecom_str;
+	struct bgp_rtc_plist *rtc_plist = bgp_peer_get_rtc_plist(peer);
+
+	if (!rtc_plist) {
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+			zlog_debug("Accepted a prefix with EC(%s) to peer %pBP because RTC prefix-list does not exist",
+				   ecom_str, peer);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		}
+		return RTC_PREFIX_PERMIT;
+	}
+
+	for (uint32_t i = 0; i < ecom->size; i++) {
+		/* Retrieve value field */
+		pnt = ecom->val + (i * ecom->unit_size);
+		sub_type = *(pnt + 1);
+
+		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+			continue;
+
+		rt_found = true;
+		if (bgp_rtc_plist_entry_match(rtc_plist, pnt) == RTC_PREFIX_DENY)
+			continue;
+
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+			zlog_debug("Accepted a prefix with EC(%s) to peer %pBP because of RTC prefix-list: case 0",
+				   ecom_str, peer);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		}
+
+		return RTC_PREFIX_PERMIT;
+	}
+
+	if (!rt_found)
+		/* No Route-target found => No filtering */
+		return RTC_PREFIX_PERMIT;
+
+	if (BGP_DEBUG(update, UPDATE_OUT)) {
+		ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+		zlog_debug("Filtered a prefix with EC(%s) to peer %pBP because of RTC prefix-list",
+			   ecom_str, peer);
+		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+	}
+
+	return RTC_PREFIX_DENY;
+}
+
 static void bgp_rtc_add_static(struct bgp *bgp, struct prefix *prefix)
 {
 	struct bgp_dest *dest;
