@@ -1112,6 +1112,17 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				yang_dnode_get_string(
 					dnode,
 					"./rmap-set-action/frr-zebra-route-map:ipv6-src-address"));
+	} else if (IS_SET_INITCWND(action)) {
+		Z vty_out(
+			vty, " set initcwnd %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-zebra-route-map:initcwnd"));
+	} else if (IS_SET_INITRWND(action)) {
+		vty_out(vty, " set initrwnd %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-zebra-route-map:initrwnd"));
 	} else if (IS_SET_METRIC_TYPE(action)) {
 		vty_out(vty, " set metric-type %s\n",
 			yang_dnode_get_string(

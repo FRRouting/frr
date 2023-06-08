@@ -179,12 +179,15 @@ def test_route_map_usage():
     # set the delay timer to 1 to improve test coverage (HA)
     r1.vtysh_cmd("conf\nzebra route-map delay-timer 1")
     r1.vtysh_cmd("conf\nroute-map static permit 10\nset src 192.168.215.1")
+    r1.vtysh_cmd("conf\nroute-map static permit 10\nset initcwnd 30")
+    r1.vtysh_cmd("conf\nroute-map static permit 10\nset initrwnd 30")
     r1.vtysh_cmd("conf\naccess-list 5 seq 5 permit 10.0.0.44/32")
     r1.vtysh_cmd("conf\naccess-list 10 seq 5 permit 10.0.1.0/24")
     r1.vtysh_cmd(
-        "conf\nroute-map sharp permit 10\nmatch ip address 10\nset src 192.168.214.1"
+        "conf\nroute-map sharp permit 10\nmatch ip address 10\nset src 192.168.214.1\nset initrwnd 22"
     )
     r1.vtysh_cmd("conf\nroute-map sharp permit 20\nset src 192.168.213.1")
+    r1.vtysh_cmd("conf\nroute-map sharp permit 20\nset initcwnd 33")
     r1.vtysh_cmd("conf\nip protocol static route-map static")
     r1.vtysh_cmd("conf\nip protocol sharp route-map sharp")
     sleep(4)

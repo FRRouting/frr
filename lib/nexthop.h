@@ -130,6 +130,12 @@ struct nexthop {
 
 	/* SRv6 information */
 	struct nexthop_srv6 *nh_srv6;
+
+	/* initial congestion window size */
+	uint32_t initcwnd;
+
+	/* initial advertised receive window size */
+	uint32_t initrwnd;
 };
 
 /* Utility to append one nexthop to another. */

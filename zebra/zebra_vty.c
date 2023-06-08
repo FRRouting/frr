@@ -427,6 +427,12 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	if (nexthop->weight)
 		vty_out(vty, ", weight %u", nexthop->weight);
 
+	if (nexthop->initcwnd)
+		vty_out(vty, ", initcwnd %u", nexthop->initcwnd);
+
+	if (nexthop->initrwnd)
+		vty_out(vty, ", initrwnd %u", nexthop->initrwnd);
+
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		vty_out(vty, ", backup %d", nexthop->backup_idx[0]);
 

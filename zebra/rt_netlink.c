@@ -2261,6 +2261,29 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 			zlog_debug("%s: %pFX nhg_id is %u", __func__, p,
 				   dplane_ctx_get_nhe_id(ctx));
 
+		if (nexthop->initcwnd || nexthop->initrwnd) {
+			struct rtattr *nnest;
+			nnest = nl_attr_nest(&req->n, datalen, RTA_METRICS);
+			if (nnest == NULL)
+				return 0;
+			if (nexthop->initcwnd) {
+				uint32_t initcwnd = nexthop->initcwnd;
+				if (!nl_attr_put(&req->n, datalen,
+						 RTAX_INITCWND, &initcwnd,
+						 sizeof(initcwnd)))
+					return 0;
+			}
+
+			if (nexthop->initrwnd) {
+				uint32_t initrwnd = nexthop->initrwnd;
+				if (!nl_attr_put(&req->n, datalen,
+						 RTAX_INITRWND, &initrwnd,
+						 sizeof(initrwnd)))
+					return 0;
+			}
+			nl_attr_nest_end(&req->n, nnest);
+		}
+
 		if (!nl_attr_put32(&req->n, datalen, RTA_NH_ID,
 				   dplane_ctx_get_nhe_id(ctx)))
 			return 0;
@@ -2343,6 +2366,29 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 			}
 		}
 
+		if (nexthop->initcwnd || nexthop->initrwnd) {
+			struct rtattr *nnest;
+			nnest = nl_attr_nest(&req->n, datalen, RTA_METRICS);
+			if (nnest == NULL)
+				return 0;
+			if (nexthop->initcwnd) {
+				uint32_t initcwnd = nexthop->initcwnd;
+				if (!nl_attr_put(&req->n, datalen,
+						 RTAX_INITCWND, &initcwnd,
+						 sizeof(initcwnd)))
+					return 0;
+			}
+
+			if (nexthop->initrwnd) {
+				uint32_t initrwnd = nexthop->initrwnd;
+				if (!nl_attr_put(&req->n, datalen,
+						 RTAX_INITRWND, &initrwnd,
+						 sizeof(initrwnd)))
+					return 0;
+			}
+			nl_attr_nest_end(&req->n, nnest);
+		}
+
 		if (setsrc) {
 			if (p->family == AF_INET) {
 				if (!nl_attr_put(&req->n, datalen, RTA_PREFSRC,
@@ -2416,6 +2462,28 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 			}
 		}
 
+		if (nexthop->initcwnd || nexthop->initrwnd) {
+			struct rtattr *nnest;
+			nnest = nl_attr_nest(&req->n, datalen, RTA_METRICS);
+			if (nnest == NULL)
+				return 0;
+			if (nexthop->initcwnd) {
+				uint32_t initcwnd = nexthop->initcwnd;
+				if (!nl_attr_put(&req->n, datalen,
+						 RTAX_INITCWND, &initcwnd,
+						 sizeof(initcwnd)))
+					return 0;
+			}
+
+			if (nexthop->initrwnd) {
+				uint32_t initrwnd = nexthop->initrwnd;
+				if (!nl_attr_put(&req->n, datalen,
+						 RTAX_INITRWND, &initrwnd,
+						 sizeof(initrwnd)))
+					return 0;
+			}
+			nl_attr_nest_end(&req->n, nnest);
+		}
 
 		if (setsrc) {
 			if (p->family == AF_INET) {

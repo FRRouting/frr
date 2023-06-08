@@ -5,6 +5,7 @@ route-map: sharp Invoked: 500 Optimization: enabled Processed Change: false
     ip address 10
   Set clauses:
     src 192.168.214.1
+    initrwnd 22
   Call clause:
   Action:
     Exit routemap
@@ -12,6 +13,7 @@ route-map: sharp Invoked: 500 Optimization: enabled Processed Change: false
   Match clauses:
   Set clauses:
     src 192.168.213.1
+    initcwnd 33
   Call clause:
   Action:
     Exit routemap

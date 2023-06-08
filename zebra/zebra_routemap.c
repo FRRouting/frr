@@ -640,6 +640,63 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(set_initcwnd, set_initcwnd_cmd, "set initcwnd (1-65535)",
+	   SET_STR
+	   "initcwnd for route\n"
+	   "set initial congestion window value for route\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:initcwnd']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-zebra-route-map:initcwnd", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, initcwnd_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_initcwnd, no_set_initcwnd_cmd, "no set initcwnd",
+	   NO_STR SET_STR "initcwnd for route\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:initcwnd']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(set_initrwnd, set_initrwnd_cmd, "set initrwnd (1-65535)",
+	   SET_STR
+	   "initrwnd for route\n"
+	   "set initial advertised receive window value for route\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:initrwnd']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-zebra-route-map:initrwnd", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, initrwnd_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_initrwnd, no_set_initrwnd_cmd, "no set initrwnd",
+	   NO_STR SET_STR "initrwnd for route\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:initrwnd']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 DEFUN_YANG (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
        "zebra route-map delay-timer (0-600)",
@@ -1549,6 +1606,109 @@ static const struct route_map_rule_cmd route_set_src_cmd = {
 	route_set_src_free,
 };
 
+/* `set initcwnd value' */
+
+/* Set initcwnd. */
+static enum route_map_cmd_result_t
+route_set_initcwnd(void *rule, const struct prefix *prefix, void *object)
+{
+	uint32_t initcwnd = *(uint32_t *)rule;
+	struct nh_rmap_obj *nh_data;
+
+	nh_data = (struct nh_rmap_obj *)object;
+	nh_data->nexthop->initcwnd = initcwnd;
+
+	return RMAP_OKAY;
+}
+
+/* set initcwnd compilation. */
+static void *route_set_initcwnd_compile(const char *arg)
+{
+	uint32_t *initcwnd;
+	char *endptr = NULL;
+	unsigned long tmpval;
+
+	/* initcwnd value shoud be integer. */
+	if (!all_digit(arg))
+		return NULL;
+
+	errno = 0;
+	tmpval = strtoul(arg, &endptr, 10);
+	if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
+		return NULL;
+
+	initcwnd = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+
+	*initcwnd = tmpval;
+	return initcwnd;
+}
+
+/* Free route map's compiled `set initcwnd' value. */
+static void route_set_initcwnd_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Set initcwnd rule structure. */
+static const struct route_map_rule_cmd route_set_initcwnd_cmd = {
+	"initcwnd",
+	route_set_initcwnd,
+	route_set_initcwnd_compile,
+	route_set_initcwnd_free,
+};
+
+/* `set initrwnd value' */
+
+/* Set initrwnd. */
+static enum route_map_cmd_result_t
+route_set_initrwnd(void *rule, const struct prefix *prefix, void *object)
+{
+	uint32_t initrwnd = *(uint32_t *)rule;
+
+	struct nh_rmap_obj *nh_data;
+
+	nh_data = (struct nh_rmap_obj *)object;
+	nh_data->nexthop->initrwnd = initrwnd;
+
+	return RMAP_OKAY;
+}
+
+/* set initrwnd compilation. */
+static void *route_set_initrwnd_compile(const char *arg)
+{
+	uint32_t *initrwnd;
+	char *endptr = NULL;
+	unsigned long tmpval;
+
+	/* initrwnd value shoud be integer. */
+	if (!all_digit(arg))
+		return NULL;
+
+	errno = 0;
+	tmpval = strtoul(arg, &endptr, 10);
+	if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
+		return NULL;
+
+	initrwnd = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+
+	*initrwnd = tmpval;
+	return initrwnd;
+}
+
+/* Free route map's compiled `set initrwnd' value. */
+static void route_set_initrwnd_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Set initrwnd rule structure. */
+static const struct route_map_rule_cmd route_set_initrwnd_cmd = {
+	"initrwnd",
+	route_set_initrwnd,
+	route_set_initrwnd_compile,
+	route_set_initrwnd_free,
+};
+
 /* The function checks if the changed routemap specified by parameter rmap
  * matches the configured protocol routemaps in proto_rm table. If there is
  * a match then rib_update_table() to process the routes.
@@ -2056,6 +2216,8 @@ void zebra_route_map_init(void)
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
+	route_map_install_set(&route_set_initcwnd_cmd);
+	route_map_install_set(&route_set_initrwnd_cmd);
 	/* */
 	install_element(RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
@@ -2071,4 +2233,8 @@ void zebra_route_map_init(void)
 	/* */
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);
+	install_element(RMAP_NODE, &set_initcwnd_cmd);
+	install_element(RMAP_NODE, &no_set_initcwnd_cmd);
+	install_element(RMAP_NODE, &set_initrwnd_cmd);
+	install_element(RMAP_NODE, &no_set_initrwnd_cmd);
 }

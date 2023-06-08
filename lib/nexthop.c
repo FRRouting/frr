@@ -798,6 +798,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
 	copy->rparent = rparent;
+	copy->initcwnd = nexthop->initcwnd;
+	copy->initrwnd = nexthop->initrwnd;
 	if (nexthop->nh_label)
 		nexthop_add_labels(copy, nexthop->nh_label_type,
 				   nexthop->nh_label->num_labels,
