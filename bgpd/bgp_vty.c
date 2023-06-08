@@ -10290,6 +10290,47 @@ static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
 	return CMD_SUCCESS;
 }
 
+/* For testing purpose, static route of RTC. */
+DEFUN (rtc_network,
+       rtc_network_cmd,
+       "network A.B.C.D/M rd WORD",
+	   "A test command\n"
+	   "Specify a network to announce\n"
+	   "Route distinguisher\n"
+	   "Define rd\n")
+{
+  vty_out(vty, "%% RTC network\n");
+  vty_out(vty, "%% A.B.C.D/M: %s\n", argv[1]->arg);
+  vty_out(vty, "%% rd %s\n", argv[3]->arg);
+  return bgp_static_set(vty, false, argv[1]->arg,
+		argv[3]->arg, "test", AFI_IP, SAFI_RTC, NULL, 0, 0,
+		BGP_EVPN_IP_PREFIX_ROUTE, NULL,
+		NULL, NULL,
+		NULL);
+}
+
+
+/* For testing purpose, static route of ENCAP. */
+DEFUN (no_rtc_network,
+       no_rtc_network_cmd,
+       "no network A.B.C.D/M rd WORD",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Specify Route Distinguisher\n"
+	   "TEST\n"
+       )
+{
+  vty_out(vty, "%% RTC network\n");
+  vty_out(vty, "%% A.B.C.D/M: %s\n", argv[2]->arg);
+  vty_out(vty, "%% rd %s\n", argv[4]->arg);
+  return bgp_static_unset_safi (AFI_IP, SAFI_RTC, vty, argv[2]->arg,
+		argv[4]->arg, "test",
+		BGP_EVPN_IP_PREFIX_ROUTE, NULL,
+		NULL, NULL
+		);
+}
+
 DEFPY (af_rt_vpn_imexport,
        af_rt_vpn_imexport_cmd,
        "[no] <rt|route-target> vpn <import|export|both>$direction_str RTLIST...",
@@ -20521,6 +20562,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
 	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_cmd);
 
+	install_element(BGP_RTC_NODE, &no_rtc_network_cmd);
+	install_element(BGP_RTC_NODE, &rtc_network_cmd);
 	install_element(BGP_RTC_NODE, &bgp_maxpaths_ibgp_cmd);
 	install_element(BGP_RTC_NODE, &no_bgp_maxpaths_ibgp_cmd);
 	install_element(BGP_RTC_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
