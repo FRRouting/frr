@@ -51,6 +51,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_linkstate_tlv.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_rtc.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -354,6 +355,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 	case SAFI_LINKSTATE:
 		return bgp_nlri_parse_linkstate(peer, attr, packet,
 						mp_withdraw);
+	case SAFI_RTC:
+		return bgp_nlri_parse_rtc(peer, attr, packet, mp_withdraw);
 	}
 
 	return BGP_NLRI_PARSE_ERROR;

@@ -1593,6 +1593,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		/* nothing to install */
 		return;
 
+	if (safi == SAFI_RTC)
+		/* nothing to install */
+		return;
+
 	/*
 	 * BGP is installing this route and bgp has been configured
 	 * to suppress announcements until the route has been installed
@@ -1893,6 +1897,10 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 
 	if (afi == AFI_LINKSTATE)
 		/* Nothing to uninstall */
+		return;
+
+	if (safi == SAFI_RTC)
+		/* Route-Target Constraint (RTC) prefixes are not installed into zebra RIB */
 		return;
 
 	if (safi == SAFI_FLOWSPEC) {
