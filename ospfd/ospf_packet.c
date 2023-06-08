@@ -2091,6 +2091,24 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				continue;
 		}
 
+		/* Added to prevent the router from accepting old LSAs that were
+		sent by it
+		before, were not properly removed (e.g. due to crash) but which
+		have become invalid */
+
+		if (current == NULL &&
+		    (IPV4_ADDR_SAME(&oi->ospf->router_id,
+				    &lsa->data->adv_router)) &&
+		    (lsa->data->type == OSPF_AS_NSSA_LSA)) {
+			ospf_lsa_flush(oi->ospf, lsa);
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug(
+					"ospf_lsa_discard() in ospf_ls_upd() point 10: lsa %p Type-%d",
+					(void *)lsa, (int)lsa->data->type);
+			ospf_lsa_discard(lsa);
+			continue;
+		}
+
 		/* (5) Find the instance of this LSA that is currently contained
 		   in the router's link state database.  If there is no
 		   database copy, or the received LSA is more recent than
