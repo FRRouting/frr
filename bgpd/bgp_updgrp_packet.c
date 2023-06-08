@@ -42,6 +42,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_rtc.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -336,9 +337,37 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	bpacket_attr_vec *vec;
 	struct peer *peer;
 	struct bgp_filter *filter;
+	uint8_t ecomflags;
+	uint16_t ecomlen;
+	size_t offset_ecom;
+	struct ecommunity ecom = {};
+	afi_t afi;
+	safi_t safi;
+
+	peer = PAF_PEER(paf);
+	afi = paf->afi;
+	safi = paf->safi;
+
+	if ((((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) ||
+	     (afi == AFI_L2VPN && safi == SAFI_EVPN)) &&
+	    CHECK_FLAG(pkt->arr.entries[BGP_ATTR_VEC_ECOM].flags, BPKT_ATTRVEC_FLAGS_UPDATED)) {
+		vec = &pkt->arr.entries[BGP_ATTR_VEC_ECOM];
+		ecomflags = stream_getc_from(pkt->buffer, vec->offset);
+		if (CHECK_FLAG(ecomflags, BGP_ATTR_FLAG_EXTLEN)) {
+			ecomlen = stream_getw_from(pkt->buffer, vec->offset + 2);
+			offset_ecom = vec->offset + 4;
+		} else {
+			ecomlen = stream_getc_from(pkt->buffer, vec->offset + 2);
+			offset_ecom = vec->offset + 3;
+		}
+		ecom.unit_size = ECOMMUNITY_SIZE;
+		ecom.size = ecomlen / ECOMMUNITY_SIZE;
+		ecom.val = (uint8_t *)(pkt->buffer->data + offset_ecom);
+		if (bgp_rtc_filter(peer, &ecom) == RTC_PREFIX_DENY)
+			return NULL;
+	}
 
 	s = stream_dup(pkt->buffer);
-	peer = PAF_PEER(paf);
 
 	vec = &pkt->arr.entries[BGP_ATTR_VEC_NH];
 
@@ -620,6 +649,20 @@ static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr,
 		vecarr->entries[i].offset += pos;
 }
 
+static void bpacket_attr_vec_arr_merge(struct bpacket_attr_vec_arr *dst,
+				       struct bpacket_attr_vec_arr *src)
+{
+	int i;
+
+	for (i = 0; i < BGP_ATTR_VEC_MAX; i++) {
+		assert(!(src->entries[i].flags && dst->entries[i].flags));
+		if (!src->entries[i].flags)
+			continue;
+		dst->entries[i].flags = src->entries[i].flags;
+		dst->entries[i].offset = src->entries[i].offset;
+	}
+}
+
 /*
  * Return if there are packets to build for this subgroup.
  */
@@ -644,7 +687,7 @@ bool subgroup_packets_to_build(struct update_subgroup *subgrp)
 /* Make BGP update packet.  */
 struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 {
-	struct bpacket_attr_vec_arr vecarr;
+	struct bpacket_attr_vec_arr vecarr, mp_vecarr = {};
 	struct bpacket *pkt;
 	struct peer *peer;
 	struct stream *s;
@@ -826,9 +869,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			}
 
 			if (stream_empty(snlri))
-				mpattrlen_pos = bgp_packet_mpattr_start(
-					snlri, peer, afi, safi, &vecarr,
-					adv->baa->attr);
+				mpattrlen_pos = bgp_packet_mpattr_start(snlri, peer, afi, safi,
+									&mp_vecarr, adv->baa->attr);
 
 			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd,
 						 label_pnt, num_labels,
@@ -895,7 +937,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		if (!stream_empty(snlri)) {
 			packet = stream_dupcat(s, snlri, mpattr_pos);
-			bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
+			bpacket_attr_vec_arr_update(&vecarr, snlri->endp);
+			bpacket_attr_vec_arr_update(&mp_vecarr, mpattr_pos);
+			bpacket_attr_vec_arr_merge(&vecarr, &mp_vecarr);
 		} else
 			packet = stream_dup(s);
 		bgp_packet_set_size(packet);

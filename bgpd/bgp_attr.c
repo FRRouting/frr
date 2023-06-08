@@ -4817,6 +4817,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 			struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
+			if (ecomm && ecomm->size)
+				bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_ECOM, s, NULL);
 			bgp_packet_ecommunity_attribute(s, peer, ecomm, BGP_ATTR_EXT_COMMUNITIES);
 		}
 
