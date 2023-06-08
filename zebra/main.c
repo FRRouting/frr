@@ -206,11 +206,16 @@ void zebra_finalize(struct event *dummy)
 
 	vrf_terminate();
 
+	/*
+	 * Stop dplane thread and finish any cleanup
+	 * This is before the zebra_ns_early_shutdown call
+	 * because sockets that the dplane depends on are closed
+	 * in those functions
+	 */
+	zebra_dplane_shutdown();
+
 	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
 	zebra_ns_notify_close();
-
-	/* Stop dplane thread and finish any cleanup */
-	zebra_dplane_shutdown();
 
 	/* Final shutdown of ns resources */
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
