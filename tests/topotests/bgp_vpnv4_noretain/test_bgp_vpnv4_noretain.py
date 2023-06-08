@@ -553,6 +553,297 @@ router bgp 65500
     check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
 
 
+def test_bgp_soft_reconfig_no_retain_step13():
+    """
+    Configure no retain and soft-reconfig inbound.
+    Check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500
+ address-family ipv4 vpn
+  no bgp retain route-target all
+  neighbor 10.125.0.2 soft-reconfiguration inbound
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_retain_step14():
+    """
+    Apply and check bgp retain route-target all on r1
+    """
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500
+ address-family ipv4 vpn
+  bgp retain route-target all
+"""
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_step15():
+    """
+    Apply and check no bgp retain route-target all on r1
+    """
+    rname = "r1"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.vtysh_cmd(
+        "configure\nrouter bgp 65500\naddress-family ipv4 vpn\nno bgp retain route-target all\n"
+    )
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_add_vrf2_step16():
+    """
+    Add vrf2 on r1 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ bgp router-id 192.0.2.1
+ address-family ipv4 unicast
+  redistribute connected
+  label vpn export 101
+  rd vpn export 192.0.2.1:200
+  rt vpn import 192.0.2.2:200
+  import vpn
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf2.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_unimport_vrf2_step17():
+    """
+    Unimport to vrf2 on r1 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ address-family ipv4 unicast
+  no import vpn
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_import_vrf2_step18():
+    """
+    Re-import to vrf2 on r1 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ address-family ipv4 unicast
+  import vpn
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf2.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_import_vrf1_step19():
+    """
+    Import r2 vrf1 into r1 vrf2 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ address-family ipv4 unicast
+  rt vpn import 192.0.2.1:100
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_import_vrf3_step20():
+    """
+    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ address-family ipv4 unicast
+  rt vpn import 192.0.2.2:300
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf3.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_unimport_vrf3_step21():
+    """
+    Un-import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ address-family ipv4 unicast
+  no rt vpn import 192.0.2.2:300
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_import_vrf3_step22():
+    """
+    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500 vrf vrf2
+ address-family ipv4 unicast
+  rt vpn import 192.0.2.2:300
+ exit-address-family
+!
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf3.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_no_retain_remove_vrf2_step23():
+    """
+    Import r2 vrf3 into r1 vrf2 and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+no router bgp 65500 vrf vrf2
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
+def test_bgp_soft_reconfig_retain_step24():
+    """
+    Configure retain and check bgp vpnv4 table
+    """
+
+    rname = "r1"
+    cfg = """
+configure
+router bgp 65500
+ address-family ipv4 vpn
+  bgp retain route-target all
+"""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears[rname]
+    router.vtysh_cmd(cfg)
+
+    check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
+    check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
