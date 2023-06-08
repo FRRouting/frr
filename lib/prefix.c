@@ -349,6 +349,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_RTC) {
+		memcpy(&dest->u.prefix_rtc, &src->u.prefix_rtc, sizeof(struct rtc_info));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -438,6 +440,10 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (p1->family == AF_RTC)
+			if (!memcmp(&p1->u.prefix_rtc, &p2->u.prefix_rtc,
+				    sizeof(struct rtc_info)))
+				return 1;
 	}
 	return 0;
 }
@@ -569,6 +575,8 @@ const char *prefix_family_str(union prefixconstptr pu)
 		return "ether";
 	if (p->family == AF_EVPN)
 		return "evpn";
+	if (p->family == AF_RTC)
+		return "rtc";
 	return "unspec";
 }
 
@@ -1116,6 +1124,10 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 
 	case AF_FLOWSPEC:
 		strlcpy(str, "FS prefix", size);
+		break;
+
+	case AF_RTC:
+		strlcpy(str, "RTC prefix", size);
 		break;
 
 	default:
