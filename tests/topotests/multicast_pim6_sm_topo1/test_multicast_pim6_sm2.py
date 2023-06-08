@@ -84,6 +84,16 @@ ASSERT_MSG = "Testcase {} : Failed Error: {}"
 pytestmark = [pytest.mark.pim6d]
 
 
+@pytest.fixture(scope="function")
+def app_helper():
+    # helper = McastTesterHelper(get_topogen())
+    # yield helepr
+    # helper.cleanup()
+    # Even better use contextmanager functionality:
+    with McastTesterHelper(get_topogen()) as ah:
+        yield ah
+
+
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -119,9 +129,6 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, tgen.json_topo)
 
-    global app_helper
-    app_helper = McastTesterHelper(tgen)
-
     logger.info("Running setup_module() done")
 
 
@@ -131,8 +138,6 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
-
-    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -196,7 +201,7 @@ def verify_state_incremented(state_before, state_after):
 #####################################################
 
 
-def test_clear_mroute_and_verify_multicast_data_p0(request):
+def test_clear_mroute_and_verify_multicast_data_p0(request, app_helper):
     """
     Verify (*,G) and (S,G) entry populated again after clear the
     PIM nbr and mroute from FRR node
@@ -424,7 +429,9 @@ def test_clear_mroute_and_verify_multicast_data_p0(request):
     write_test_footer(tc_name)
 
 
-def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
+def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(
+    request, app_helper
+):
     """
     Verify SPT switchover working when RPT and SPT path is
     different
@@ -436,8 +443,6 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
-
-    app_helper.stop_all_hosts()
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
