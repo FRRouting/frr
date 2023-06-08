@@ -134,6 +134,11 @@ enum bgp_linkstate_nlri_type {
 	BGP_LINKSTATE_PREFIX6 = 4, /* IPv6 Topology Prefix */
 };
 
+struct rtc_info {
+	uint32_t origin_as;
+	uint8_t route_target[8];
+};
+
 /*
  * A struct prefix contains an address family, a prefix length, and an
  * address.  This can represent either a 'network prefix' as defined
@@ -171,6 +176,10 @@ enum bgp_linkstate_nlri_type {
 #define AF_LINKSTATE (AF_MAX + 3)
 #endif
 
+#if !defined(AF_RTC)
+#define AF_RTC (AF_MAX + 4)
+#endif
+
 struct flowspec_prefix {
 	uint8_t family;
 	uintptr_t ptr;
@@ -198,6 +207,7 @@ struct prefix {
 		uint32_t val32[4];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
+		struct rtc_info prefix_rtc;   /* AF_RTC */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
 		struct linkstate_prefix prefix_linkstate; /* AF_LINKSTATE */
 	} u __attribute__((aligned(8)));
@@ -244,6 +254,13 @@ struct prefix_evpn {
 	uint16_t prefixlen;
 	struct evpn_addr prefix __attribute__((aligned(8)));
 };
+
+struct prefix_rtc {
+	uint8_t family;
+	uint16_t prefixlen;
+	struct rtc_info prefix __attribute__((aligned(8)));
+};
+
 
 static inline int is_evpn_prefix_ipaddr_none(const struct prefix_evpn *evp)
 {
@@ -320,6 +337,7 @@ union prefixptr {
 	uniontype(prefixptr, struct prefix_evpn, evp)
 	uniontype(prefixptr, struct prefix_fs,   fs)
 	uniontype(prefixptr, struct prefix_rd,   rd)
+	uniontype(prefixptr, struct prefix_rtc,   rtc)
 } TRANSPARENT_UNION;
 
 union prefixconstptr {
@@ -329,6 +347,7 @@ union prefixconstptr {
 	uniontype(prefixconstptr, const struct prefix_evpn, evp)
 	uniontype(prefixconstptr, const struct prefix_fs,   fs)
 	uniontype(prefixconstptr, const struct prefix_rd,   rd)
+	uniontype(prefixconstptr, const struct prefix_rtc,   rtc)
 } TRANSPARENT_UNION;
 /* clang-format on */
 
@@ -412,6 +431,15 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 extern void prefix_set_linkstate_display_hook(
 	char *(*func)(char *buf, size_t size, uint16_t nlri_type, uintptr_t ptr,
 		      uint16_t len));
+
+/* Max bit/byte length of RTC address. */
+#define RTC_MAX_BYTELEN 12
+#define RTC_MAX_BITLEN	96
+
+/* Max string length of RTC address.
+ * eg. 4294967295:0:1:255.255.255.255:65535/96
+ */
+#define RTC_ADDR_STRLEN 41
 
 /* Prototypes. */
 extern int str2family(const char *string);
@@ -507,6 +535,8 @@ extern struct prefix_ipv6 *prefix_ipv6_new(void);
 extern void prefix_ipv6_free(struct prefix_ipv6 **p);
 extern int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p);
 extern void apply_mask_ipv6(struct prefix_ipv6 *p);
+
+extern void apply_mask_rtc(struct prefix_rtc *p);
 
 extern int ip6_masklen(struct in6_addr netmask);
 extern void masklen2ip6(const int masklen, struct in6_addr *netmask);
@@ -695,6 +725,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
 #pragma FRR printfrr_ext "%pRDP"  (struct prefix_rd *)
+#pragma FRR printfrr_ext "%pRTC"(struct prefix_rtc *)
 /* RD with AS4B with dot and dot+ format */
 #pragma FRR printfrr_ext "%pRDD"  (struct prefix_rd *)
 #pragma FRR printfrr_ext "%pRDE"  (struct prefix_rd *)
