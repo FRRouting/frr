@@ -1,21 +1,21 @@
 {
    "vrfId":0,
    "vrfName":"default",
-   "routerId":"1.1.1.1",
+   "routerId":"192.0.2.1",
    "defaultLocPrf":100,
    "localAS":65500,
    "routes":{
       "routeDistinguishers":{
-         "444:1":{
-            "10.201.0.0/24":[
+         "192.0.2.1:1":{
+            "10.101.0.0/24":[
                {
                   "valid":true,
                   "bestpath":true,
                   "selectionReason":"First path received",
                   "pathFrom":"external",
-                  "prefix":"10.201.0.0",
+                  "prefix":"10.101.0.0",
                   "prefixLen":24,
-                  "network":"10.201.0.0\/24",
+                  "network":"10.101.0.0\/24",
                   "metric":0,
                   "weight":32768,
                   "peerId":"(unspec)",
@@ -34,16 +34,16 @@
                }
             ]
          },
-         "444:2":{
-            "10.200.0.0/24":[
+         "192.0.2.2:1":{
+            "10.201.0.0/24":[
                {
                   "valid":true,
                   "bestpath":true,
                   "selectionReason":"First path received",
                   "pathFrom":"internal",
-                  "prefix":"10.200.0.0",
+                  "prefix":"10.201.0.0",
                   "prefixLen":24,
-                  "network":"10.200.0.0\/24",
+                  "network":"10.201.0.0\/24",
                   "metric":0,
                   "locPrf":100,
                   "weight":0,
@@ -61,16 +61,16 @@
                }
             ]
          },
-         "444:3":{
-            "10.210.0.0/24":[
+         "192.0.2.2:2":{
+            "10.202.0.0/24":[
                {
                   "valid":true,
                   "bestpath":true,
                   "selectionReason":"First path received",
                   "pathFrom":"internal",
-                  "prefix":"10.210.0.0",
+                  "prefix":"10.202.0.0",
                   "prefixLen":24,
-                  "network":"10.210.0.0\/24",
+                  "network":"10.202.0.0\/24",
                   "metric":0,
                   "locPrf":100,
                   "weight":0,
