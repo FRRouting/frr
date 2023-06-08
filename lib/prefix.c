@@ -349,6 +349,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_RTC) {
+		memcpy(&dest->u.prefix_rtc, &src->u.prefix_rtc, sizeof(struct rtc_info));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -438,6 +440,9 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (p1->family == AF_RTC)
+			if (!memcmp(&p1->u.prefix_rtc, &p2->u.prefix_rtc, sizeof(struct rtc_info)))
+				return 1;
 	}
 	return 0;
 }
@@ -569,6 +574,8 @@ const char *prefix_family_str(union prefixconstptr pu)
 		return "ether";
 	if (p->family == AF_EVPN)
 		return "evpn";
+	if (p->family == AF_RTC)
+		return "rtc";
 	return "unspec";
 }
 
@@ -865,6 +872,27 @@ void apply_mask_ipv6(struct prefix_ipv6 *p)
 	}
 }
 
+void apply_mask_rtc(struct prefix_rtc *p)
+{
+	uint8_t mask;
+
+	if (p->prefixlen < 32) {
+		/* Except for the default route target, which is encoded as a zero-
+		 * length prefix, the minimum prefix length is 32 bits.  As the origin-
+		 * as field cannot be interpreted as a prefix.
+		 */
+		memset(p->prefix.route_target, 0, sizeof(p->prefix.route_target));
+		return;
+	}
+
+	mask = p->prefixlen % 8;
+	if (mask)
+		p->prefix.route_target[PSIZE(p->prefixlen) - 4 - 1] &= MASKBIT(mask);
+
+	memset(&p->prefix.route_target[PSIZE(p->prefixlen) - 4], 0,
+	       sizeof(p->prefix.route_target) - (PSIZE(p->prefixlen) - 4));
+}
+
 void apply_mask(union prefixptr pu)
 {
 	struct prefix *p = pu.p;
@@ -875,6 +903,9 @@ void apply_mask(union prefixptr pu)
 		break;
 	case AF_INET6:
 		apply_mask_ipv6(pu.p6);
+		break;
+	case AF_RTC:
+		apply_mask_rtc(pu.rtc);
 		break;
 	default:
 		break;
@@ -1116,6 +1147,10 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 
 	case AF_FLOWSPEC:
 		strlcpy(str, "FS prefix", size);
+		break;
+
+	case AF_RTC:
+		strlcpy(str, "RTC prefix", size);
 		break;
 
 	default:
