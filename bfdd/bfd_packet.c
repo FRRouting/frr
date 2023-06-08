@@ -768,6 +768,37 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
+static bool bfd_check_auth(const struct bfd_session *bfd,
+			   const struct bfd_pkt *cp)
+{
+	if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
+		/* RFC5880 4.1: Authentication Section is present. */
+		struct bfd_auth *auth = (struct bfd_auth *)(cp + 1);
+		uint16_t pkt_auth_type = ntohs(auth->type);
+
+		if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
+			return false;
+
+		if (cp->len < BFD_PKT_LEN + auth->length)
+			return false;
+
+		switch (pkt_auth_type) {
+		case BFD_AUTH_NULL:
+			return false;
+		case BFD_AUTH_SIMPLE:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		case BFD_AUTH_CRYPTOGRAPHIC:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		default:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		}
+	}
+	return true;
+}
+
 void bfd_recv_cb(struct event *t)
 {
 	int sd = EVENT_FD(t);
@@ -931,6 +962,13 @@ void bfd_recv_cb(struct event *t)
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
+
+	/* Check authentication. */
+	if (!bfd_check_auth(bfd, cp)) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "Authentication failed");
+		return;
+	}
 
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
