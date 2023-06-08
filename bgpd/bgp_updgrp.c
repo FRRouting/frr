@@ -2106,7 +2106,6 @@ void update_group_refresh_default_originate_route_map(struct event *thread)
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
 	EVENT_OFF(bgp->t_rmap_def_originate_eval);
-	bgp_unlock(bgp);
 }
 
 /*

@@ -601,6 +601,7 @@ struct bgp {
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
 	struct event *t_rmap_def_originate_eval;
+	uint16_t rmap_def_originate_eval_timer;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
 
 	/* BGP distance configuration.  */
