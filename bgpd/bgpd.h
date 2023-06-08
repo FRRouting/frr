@@ -1753,6 +1753,9 @@ struct peer {
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
+	
+	/* Route Target Constrain list */
+	struct prefix_list *rtc_plist;
 
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];

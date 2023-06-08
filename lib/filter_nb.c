@@ -1120,10 +1120,10 @@ static int lib_prefix_list_create(struct nb_cb_create_args *args)
 	name = yang_dnode_get_string(args->dnode, "name");
 	switch (type) {
 	case 0: /* ipv4 */
-		pl = prefix_list_get(AFI_IP, 0, name);
+		pl = prefix_list_get(AFI_IP, 0, 0, name);
 		break;
 	case 1: /* ipv6 */
-		pl = prefix_list_get(AFI_IP6, 0, name);
+		pl = prefix_list_get(AFI_IP6, 0, 0, name);
 		break;
 	}
 
