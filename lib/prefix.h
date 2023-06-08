@@ -20,6 +20,13 @@
 extern "C" {
 #endif
 
+/* Number of bits in prefix type. */
+#ifndef PNBBY
+#define PNBBY 8
+#endif /* PNBBY */
+
+#define MASKBIT(offset) ((0xff << (PNBBY - (offset))) & 0xff)
+
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif

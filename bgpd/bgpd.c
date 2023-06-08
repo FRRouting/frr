@@ -2987,6 +2987,9 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 			peer->afc_adv[afi][safi] = 0;
 			peer->afc_nego[afi][safi] = 0;
 
+			if (safi == SAFI_RTC)
+				bgp_peer_destroy_rtc_plist(peer);
+
 			if (peer_active_nego(peer)) {
 				bgp_capability_send(peer->connection, afi, safi,
 						    CAPABILITY_CODE_MP, CAPABILITY_ACTION_UNSET);
@@ -3083,6 +3086,9 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 			}
 		}
 	}
+
+	if (safi == SAFI_RTC)
+		bgp_peer_destroy_rtc_plist(peer);
 
 	return ret;
 }
@@ -3288,6 +3294,8 @@ int peer_delete(struct peer *peer)
 
 	FOREACH_AFI_SAFI (afi, safi)
 		peer_af_delete(peer, afi, safi);
+
+	bgp_peer_destroy_rtc_plist(peer);
 
 	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
 	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);

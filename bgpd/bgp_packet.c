@@ -617,8 +617,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 			 * packet with appropriate attributes from peer
 			 * and advance peer */
 			s = bpacket_reformat_for_peer(next_pkt, paf);
-			assert(s);
-			bgp_packet_add(connection, s);
+			if (s)
+				bgp_packet_add(connection, s);
 			bpacket_queue_advance_peer(paf);
 		}
 	} while (s && (++generated < wpq) && (connection->obuf->count <= bm->outq_limit) &&
@@ -4000,6 +4000,9 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 			} else {
 				peer->afc_recv[afi][safi] = 0;
 				peer->afc_nego[afi][safi] = 0;
+
+				if (safi == SAFI_RTC)
+					bgp_peer_destroy_rtc_plist(peer);
 
 				if (peer_active_nego(peer))
 					bgp_clear_route(peer, afi, safi);
