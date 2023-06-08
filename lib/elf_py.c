@@ -1319,6 +1319,7 @@ out:
 	if (w->elf)
 		elf_end(w->elf);
 	free(w->filename);
+	close(fd); 
 	return NULL;
 }
 
