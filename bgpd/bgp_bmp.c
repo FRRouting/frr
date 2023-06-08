@@ -2766,7 +2766,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 					afi2str_lower(afi), safi2str(safi));
 			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB))
 				vty_out(vty, "  bmp monitor %s %s loc-rib\n",
-					afi2str(afi), safi2str(safi));
+					afi2str_lower(afi), safi2str(safi));
 		}
 		frr_each (bmp_listeners, &bt->listeners, bl)
 			vty_out(vty, " \n  bmp listener %pSU port %d\n",
