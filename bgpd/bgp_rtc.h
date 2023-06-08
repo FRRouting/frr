@@ -10,9 +10,11 @@
 #include <zebra.h>
 #include "bgpd.h"
 #include "bgp_attr.h"
+#include "vty.h"
 
 extern int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *packet,
 			      bool withdraw);
+extern int bgp_rtc_static_from_str(struct vty *vty, struct bgp *bgp, const char *str, bool add);
 
 extern char *bgp_rtc_prefix_display(char *buf, size_t size, uint16_t prefix_len,
 				    const struct rtc_info *rtc_info);
