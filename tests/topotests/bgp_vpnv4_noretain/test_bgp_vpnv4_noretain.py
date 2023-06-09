@@ -229,6 +229,31 @@ def check_show_bgp_vrf_ipv4(rname, json_file):
     assert result is None, assertmsg
 
 
+def check_neighbor_vpnv4_received_routes_number(rname, neighbor, expected_nb):
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears[rname]
+
+    cmd = "show bgp ipv4 vpn neighbor {} received-routes json".format(neighbor)
+    output = router.vtysh_cmd(cmd)
+
+    json_output = json.loads(output)
+    actual_nb = json_output.get("totalPrefixCounter", None)
+
+    assertmsg = '"{}" - cannot read the received-routes number of prefixes from neighbor {}'.format(
+        router.name, neighbor
+    )
+    assert actual_nb is not None, assertmsg
+
+    assertmsg = (
+        '"{}" - received-routes number of prefixes mismatch from neighbor {}'.format(
+            router.name, neighbor
+        )
+    )
+    assert json_output.get("totalPrefixCounter") == expected_nb, assertmsg
+
+
 def test_protocols_convergence_step0():
     """
     Assert that all protocols have converged
@@ -576,6 +601,7 @@ router bgp 65500
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_retain_step14():
@@ -599,6 +625,7 @@ router bgp 65500
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_step15():
@@ -618,6 +645,7 @@ def test_bgp_soft_reconfig_no_retain_step15():
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_add_vrf2_step16():
@@ -648,6 +676,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf2.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_unimport_vrf2_step17():
@@ -673,6 +702,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_import_vrf2_step18():
@@ -698,6 +728,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf2.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_import_vrf1_step19():
@@ -723,6 +754,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_import_vrf3_step20():
@@ -748,6 +780,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf3.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_unimport_vrf3_step21():
@@ -773,6 +806,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_import_vrf3_step22():
@@ -798,6 +832,7 @@ router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init_plus_r2_vrf3.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_no_retain_remove_vrf2_step23():
@@ -819,6 +854,7 @@ no router bgp 65500 vrf vrf2
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_no_retain_init.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_bgp_soft_reconfig_retain_step24():
@@ -842,6 +878,7 @@ router bgp 65500
 
     check_show_bgp_ipv4_vpn(rname, "ipv4_vpn_routes_all.json")
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
+    check_neighbor_vpnv4_received_routes_number(rname, "10.125.0.2", 4)
 
 
 def test_memory_leak():
