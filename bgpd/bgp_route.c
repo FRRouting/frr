@@ -3000,8 +3000,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 	bgp_mp_list_clear(&mp_list);
 
-	bgp_addpath_update_ids(bgp, dest, afi, safi);
-
 	result->old = old_select;
 	result->new = new_select;
 	return;
@@ -3556,6 +3554,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		UNSET_FLAG(old_and_backup.new->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(old_and_backup.new->flags, BGP_PATH_LINK_BW_CHG);
 	}
+
+	bgp_addpath_update_ids(bgp, dest, afi, safi);
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {

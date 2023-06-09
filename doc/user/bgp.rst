@@ -1781,6 +1781,12 @@ Configuring Peers
 
    Configure BGP to calculate and send N best known paths to the neighbor.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-backup-paths
+
+   Configure BGP to calculate and send best paths and best second paths.
+   If a given path has 2 ECMP route and 1 backup route, then 3 additional
+   paths will be advertised.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx
 
    Do not accept additional paths from this neighbor.
