@@ -2618,26 +2618,6 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 	return 0;
 }
 
-int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
-				       enum mgmt_result result,
-				       const char *error_if_any)
-{
-	struct mgmt_txn_ctx *txn;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return -1;
-
-	if (!txn->commit_cfg_req) {
-		MGMTD_TXN_ERR("NO commit in-progress txn-id: %" PRIu64
-			      " session-id: %" PRIu64,
-			      txn->txn_id, txn->session_id);
-		return -1;
-	}
-
-	return mgmt_txn_send_commit_cfg_reply(txn, result, error_if_any);
-}
-
 int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
 				  Mgmtd__DatastoreId ds_id,
 				  struct mgmt_ds_ctx *ds_ctx,
