@@ -147,7 +147,6 @@ struct vty {
 	/* Dynamic transaction information. */
 	bool pending_allowed;
 	bool pending_commit;
-	bool no_implicit_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
@@ -408,7 +407,7 @@ extern bool vty_mgmt_fe_enabled(void);
 extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
 
 extern bool mgmt_vty_read_configs(void);
-extern int vty_mgmt_send_config_data(struct vty *vty);
+extern int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit);
 extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
 				       bool abort);
 extern int vty_mgmt_send_get_config(struct vty *vty,
@@ -422,11 +421,7 @@ extern void vty_mgmt_resume_response(struct vty *vty, bool success);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {
-	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
-			? ((vty->pending_allowed || vty->no_implicit_commit)
-				   ? false
-				   : true)
-			: false);
+	return frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
 }
 
 #ifdef __cplusplus
