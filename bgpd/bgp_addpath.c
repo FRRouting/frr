@@ -35,6 +35,14 @@ static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 		.type_json_name = "addpathTxBestSelectedPaths",
 		.id_json_name = "addpathTxIdBestSelected"
 	},
+	{
+		.config_name = "addpath-tx-backup-path",
+		.human_name = "Backup",
+		.human_description =
+			"Advertise bestpath and backup-bestpaths via addpath",
+		.type_json_name = "addpathTxBackupPaths",
+		.id_json_name = "addpathTxBackup",
+	},
 };
 
 static const struct bgp_addpath_strategy_names unknown_names = {
@@ -165,6 +173,13 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 		return false;
 	case BGP_ADDPATH_ALL:
 		return true;
+	case BGP_ADDPATH_BACKUP:
+		if (CHECK_FLAG(pi->flags, BGP_PATH_BACKUP | BGP_PATH_SELECTED |
+						  BGP_PATH_MULTIPATH |
+						  BGP_PATH_BACKUP_MULTIPATH))
+			return true;
+		else
+			return false;
 	case BGP_ADDPATH_BEST_PER_AS:
 		if (CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))
 			return true;
@@ -368,6 +383,7 @@ int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
 
 	switch (addpath_type) {
 	case BGP_ADDPATH_ALL:
+	case BGP_ADDPATH_BACKUP:
 	case BGP_ADDPATH_BEST_PER_AS:
 		action = CAPABILITY_ACTION_SET;
 		break;

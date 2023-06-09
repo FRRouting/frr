@@ -9076,6 +9076,36 @@ DEFUN(no_neighbor_disable_addpath_rx,
 	return ret;
 }
 
+DEFPY(neighbor_addpath_tx_backup_paths, neighbor_addpath_tx_backup_paths_cmd,
+      "[no] neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-backup-paths",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Use addpath to advertise backup paths to a neighbor\n")
+{
+	int idx_peer = 1;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no && peer->addpath_type[bgp_node_afi(vty)][bgp_node_safi(vty)] !=
+			  BGP_ADDPATH_BACKUP) {
+		vty_out(vty,
+			"%% Peer not currently configured to transmit backup paths.");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no)
+		bgp_addpath_set_peer_type(peer, bgp_node_afi(vty),
+					  bgp_node_safi(vty), BGP_ADDPATH_NONE,
+					  0);
+	else
+		bgp_addpath_set_peer_type(peer, bgp_node_afi(vty),
+					  bgp_node_safi(vty),
+					  BGP_ADDPATH_BACKUP, 0);
+	return CMD_SUCCESS;
+}
+
 DEFUN (neighbor_addpath_tx_all_paths,
        neighbor_addpath_tx_all_paths_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
@@ -18582,6 +18612,10 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	/* addpath TX knobs */
 	if (peergroup_af_addpath_check(peer, afi, safi)) {
 		switch (peer->addpath_type[afi][safi]) {
+		case BGP_ADDPATH_BACKUP:
+			vty_out(vty, "  neighbor %s addpath-tx-backup-paths\n",
+				addr);
+			break;
 		case BGP_ADDPATH_ALL:
 			vty_out(vty, "  neighbor %s addpath-tx-all-paths\n",
 				addr);
@@ -20705,6 +20739,16 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_addpath_path_selection_backup_cmd);
 	install_element(BGP_VPNV4_NODE, &bgp_addpath_path_selection_backup_cmd);
 	install_element(BGP_VPNV6_NODE, &bgp_addpath_path_selection_backup_cmd);
+
+	/* "neighbor addpath-tx-backup-paths" commands.*/
+	install_element(BGP_IPV4_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_addpath_tx_backup_paths_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_backup_paths_cmd);
 
 	/* "neighbor addpath-tx-all-paths" commands.*/
 	install_element(BGP_NODE, &neighbor_addpath_tx_all_paths_hidden_cmd);
