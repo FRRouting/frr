@@ -202,7 +202,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 			return CMD_SUCCESS;
 
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty);
+		ret = vty_mgmt_send_config_data(vty, implicit_commit);
 		if (ret >= 0 && !implicit_commit)
 			vty->mgmt_num_pending_setcfg++;
 		return ret;
@@ -229,9 +229,16 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 
 	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
-
+		/*
+		 * The legacy user wanted to clear pending (i.e., perform a
+		 * commit immediately) due to some non-yang compatible
+		 * functionality. This new mgmtd code however, continues to send
+		 * changes putting off the commit until XFRR_end is received
+		 * (i.e., end-of-config-file). This should be fine b/c all
+		 * conversions to mgmtd require full proper implementations.
+		 */
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty);
+		ret = vty_mgmt_send_config_data(vty, implicit_commit);
 		if (ret >= 0 && !implicit_commit)
 			vty->mgmt_num_pending_setcfg++;
 		return ret;
