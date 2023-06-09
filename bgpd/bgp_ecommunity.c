@@ -1420,6 +1420,29 @@ bool ecommunity_match(const struct ecommunity *ecom1,
 		return false;
 }
 
+/* return last occurence of color */
+/* it will be the greatest color value */
+extern uint32_t ecommunity_select_color(const struct ecommunity *ecom)
+{
+
+	uint32_t aux_color = 0;
+	uint8_t *p;
+	uint32_t c = 0;
+
+	/* If the value already exists in the structure return 0.  */
+
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++) {
+		if (p == NULL)
+			break;
+
+		if (p[0] == ECOMMUNITY_ENCODE_OPAQUE &&
+		    p[1] == ECOMMUNITY_COLOR)
+			ptr_get_be32((const uint8_t *)&p[4], &aux_color);
+	}
+	return aux_color;
+}
+
+
 /* return first occurence of type */
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 						uint8_t type, uint8_t subtype)

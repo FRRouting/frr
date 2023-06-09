@@ -1440,7 +1440,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (CHECK_FLAG(info->attr->flag,
 			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
-			api_nh->srte_color = info->attr->srte_color;
+			api_nh->srte_color = bgp_attr_get_color(info->attr);
 
 		if (bgp_debug_zebra(&api.prefix)) {
 			if (mpinfo->extra) {

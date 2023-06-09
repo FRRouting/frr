@@ -349,6 +349,7 @@ extern char *ecommunity_str(struct ecommunity *ecom);
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
 
+extern uint32_t ecommunity_select_color(const struct ecommunity *ecom);
 extern bool ecommunity_add_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval,
 			       bool unique, bool overwrite);

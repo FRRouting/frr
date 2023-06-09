@@ -2206,6 +2206,16 @@ cluster_list_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
+/* get locally configure or received srte-color value*/
+uint32_t bgp_attr_get_color(struct attr *attr)
+{
+	if (attr->srte_color)
+		return attr->srte_color;
+	if (attr->ecommunity)
+		return ecommunity_select_color(attr->ecommunity);
+	return 0;
+}
+
 /* Multiprotocol reachability information parse. */
 int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		       struct bgp_nlri *mp_update)
