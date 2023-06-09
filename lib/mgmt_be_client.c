@@ -20,14 +20,6 @@
 
 #include "lib/mgmt_be_client_clippy.c"
 
-#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
-	DEBUGD(&mgmt_dbg_be_client, "BE-CLIENT: %s: " fmt, __func__,           \
-	       ##__VA_ARGS__)
-#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
-	zlog_err("BE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#define MGMTD_DBG_BE_CLIENT_CHECK()                                            \
-	DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL)
-
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_CLIENT, "backend client");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_CLIENT_NAME, "backend client name");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH, "backend transaction batch data");
