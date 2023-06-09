@@ -328,6 +328,7 @@ struct bgp_path_info {
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 #define BGP_PATH_BACKUP		       (1 << 19)
+#define BGP_PATH_BACKUP_MULTIPATH      (1 << 20)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;

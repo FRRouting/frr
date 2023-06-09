@@ -461,7 +461,8 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	else
 		bgp_dest_set_bgp_path_info(dest, pi->next);
 
-	bgp_path_info_mpath_dequeue(pi);
+	bgp_path_info_mpath_dequeue(pi, BGP_PATH_BACKUP_MULTIPATH |
+						BGP_PATH_MULTIPATH);
 	bgp_path_info_unlock(pi);
 	hook_call(bgp_snmp_update_stats, dest, pi, false);
 
@@ -2989,19 +2990,20 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		}
 	}
 
-	/* TODO XXX backup multipath lists support */
-	if (result->blacklist == NULL) {
-		bgp_path_info_mpath_update(bgp, dest, new_select, old_select,
-					   &mp_list, mpath_cfg);
-		bgp_path_info_mpath_aggregate_update(new_select, old_select);
-	}
+	pi_and_new_select.old = old_select;
+	pi_and_new_select.new = new_select;
+	pi_and_new_select.blacklist = result->blacklist;
+
+	bgp_path_info_mpath_update(bgp, dest, &pi_and_new_select, &mp_list,
+				   mpath_cfg);
+	bgp_path_info_mpath_aggregate_update(new_select, old_select);
+
 	bgp_mp_list_clear(&mp_list);
 
 	bgp_addpath_update_ids(bgp, dest, afi, safi);
 
 	result->old = old_select;
 	result->new = new_select;
-
 	return;
 }
 
@@ -3415,7 +3417,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			       BGP_CONFIG_ADDPATH_BACKUP)) {
 		/* unset backup and backup-multipath routes */
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-			bgp_path_info_unset_flag(dest, pi, BGP_PATH_BACKUP);
+			bgp_path_info_unset_flag(dest, pi,
+						 BGP_PATH_BACKUP |
+							 BGP_PATH_BACKUP_MULTIPATH);
 	}
 
 
@@ -9063,6 +9067,9 @@ static void route_vty_short_status_out(struct vty *vty,
 
 		if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
 			json_object_boolean_true_add(json_path, "multipath");
+		else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP_MULTIPATH))
+			json_object_boolean_true_add(json_path,
+						     "backup-multipath");
 
 		/* Internal route. */
 		if ((path->peer->as)
@@ -9097,6 +9104,8 @@ static void route_vty_short_status_out(struct vty *vty,
 	else if (bgp_path_suppressed(path))
 		vty_out(vty, "s");
 	else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP))
+		vty_out(vty, "b");
+	else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP_MULTIPATH))
 		vty_out(vty, "b");
 	else if (CHECK_FLAG(path->flags, BGP_PATH_VALID)
 		 && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
@@ -10850,6 +10859,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_boolean_true_add(json_path, "multipath");
 		else
 			vty_out(vty, ", multipath");
+	} else if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP_MULTIPATH) ||
+		   (CHECK_FLAG(path->flags, BGP_PATH_BACKUP) &&
+		    bgp_path_info_mpath_count(path))) {
+		if (json_paths)
+			json_object_boolean_true_add(json_path,
+						     "backup-multipath");
+		else
+			vty_out(vty, ", backup-multipath");
 	}
 
 	// Mark the bestpath(s)
