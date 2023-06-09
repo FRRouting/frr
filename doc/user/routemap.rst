@@ -356,6 +356,10 @@ Route Map Set Command
 
    Accept L3VPN traffic over GRE encapsulation.
 
+.. clicmd:: set extcommunity color (1-4294967295)
+
+   Set the extcommunity color for a route. The color extcommunity is used for
+   next-hop iteration in SR-TE.
 .. _route-map-call-command:
 
 Route Map Call Command
