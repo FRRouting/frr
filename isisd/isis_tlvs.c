@@ -1133,7 +1133,7 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 	uint8_t uabm_flag_len;
 	uint8_t sabm[ASLA_APP_IDENTIFIER_BIT_LENGTH] = {0};
 	uint8_t uabm[ASLA_APP_IDENTIFIER_BIT_LENGTH] = {0};
-	uint8_t readable;
+	uint8_t readable = subtlv_len;
 	uint8_t subsubtlv_type;
 	uint8_t subsubtlv_len;
 	size_t nb_groups;
@@ -1156,15 +1156,23 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 	asla->standard_apps_length = ASLA_APPS_LENGTH_MASK & sabm_flag_len;
 	asla->user_def_apps_length = ASLA_APPS_LENGTH_MASK & uabm_flag_len;
 
+	readable -= ISIS_SUBSUBTLV_HDR_SIZE;
+	if (readable <
+	    asla->standard_apps_length + asla->user_def_apps_length) {
+		TLV_SIZE_MISMATCH(log, indent, "ASLA");
+		return -1;
+	}
+
 	for (int i = 0; i < asla->standard_apps_length; i++)
 		sabm[i] = stream_getc(s);
 	for (int i = 0; i < asla->user_def_apps_length; i++)
 		uabm[i] = stream_getc(s);
 
+	readable -= (asla->standard_apps_length + asla->user_def_apps_length);
+
 	asla->standard_apps = sabm[0];
 	asla->user_def_apps = uabm[0];
 
-	readable = subtlv_len - 4;
 	while (readable > 0) {
 		if (readable < ISIS_SUBSUBTLV_HDR_SIZE) {
 			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
