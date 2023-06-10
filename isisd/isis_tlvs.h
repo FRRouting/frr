@@ -461,6 +461,10 @@ enum isis_tlv_type {
 
 /* subTLVs size for TE and SR */
 enum ext_subtlv_size {
+	/* Sub-TLV Type and Length fields */
+	ISIS_SUBTLV_TYPE_FIELD_SIZE = 1,
+	ISIS_SUBTLV_LENGTH_FIELD_SIZE = 1,
+
 	/* RFC 5307 */
 	ISIS_SUBTLV_LLRI_SIZE = 8,
 
@@ -471,6 +475,8 @@ enum ext_subtlv_size {
 
 	/* RFC 8491 */
 	ISIS_SUBTLV_NODE_MSD_SIZE = 2,
+	ISIS_SUBTLV_NODE_MSD_TYPE_SIZE = 1,
+	ISIS_SUBTLV_NODE_MSD_VALUE_SIZE = 1,
 
 	/* RFC 8667 sections #2 & #3 */
 	ISIS_SUBTLV_SID_LABEL_SIZE = 3,

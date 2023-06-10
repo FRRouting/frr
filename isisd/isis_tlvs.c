@@ -4193,7 +4193,7 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 #ifndef FABRICD
 	size_t fad_sz;
 #endif /* ifndef FABRICD */
-	int nb_algo;
+	int nb_algo, nb_msd;
 
 	if ((router_cap->srgb.range_size != 0) &&
 	    (router_cap->srgb.lower_bound != 0)) {
@@ -4226,6 +4226,28 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 			sz += fad_sz;
 	}
 #endif /* ifndef FABRICD */
+
+	if (router_cap->srv6_cap.is_srv6_capable) {
+		sz += ISIS_SUBTLV_TYPE_FIELD_SIZE +
+		      ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+		      ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE;
+
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
+		if (nb_algo != 0)
+			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE +
+			      ISIS_SUBTLV_LENGTH_FIELD_SIZE + nb_algo;
+
+		nb_msd = router_cap->srv6_msd.max_seg_left_msd +
+			 router_cap->srv6_msd.max_end_pop_msd +
+			 router_cap->srv6_msd.max_h_encaps_msd +
+			 router_cap->srv6_msd.max_end_d_msd;
+		if (nb_msd != 0)
+			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE +
+			      ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+			      (ISIS_SUBTLV_NODE_MSD_TYPE_SIZE +
+			       ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
+				      nb_msd;
+	}
 
 	return sz;
 }
