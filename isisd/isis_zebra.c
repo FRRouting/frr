@@ -308,6 +308,9 @@ void isis_zebra_route_del_route(struct isis *isis,
 	if (zclient->sock < 0)
 		return;
 
+	if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+		return;
+
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
