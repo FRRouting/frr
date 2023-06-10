@@ -56,11 +56,11 @@ struct event_loop *master;
 struct mgmt_be_client *mgmt_be_client;
 
 static struct frr_daemon_info staticd_di;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
-	zlog_info("SIGHUP received");
-	vty_read_config(NULL, staticd_di.config_file, config_default);
+	zlog_info("SIGHUP received and ignored");
 }
 
 /* SIGINT / SIGTERM handler. */
