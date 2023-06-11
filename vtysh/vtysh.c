@@ -880,6 +880,13 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		if (strmatch(vty_buf_trimmed, "end"))
 			continue;
 
+		if (strmatch(vty_buf_trimmed, "exit") &&
+		    vty->node == CONFIG_NODE) {
+			fprintf(stderr, "line %d: Warning[%d]...: %s\n", lineno,
+				vty->node, "early exit from config file");
+			break;
+		}
+
 		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
 		switch (ret) {
