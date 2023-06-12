@@ -210,7 +210,8 @@ Kernel Thread Wrapper
 The basis for the integration of pthreads and the event system is a lightweight
 wrapper for both systems implemented in :file:`lib/frr_pthread.[ch]`. The
 header provides a core datastructure, ``struct frr_pthread``, that encapsulates
-structures from both POSIX threads and :file:`thread.[ch]`. In particular, this
+structures from both POSIX threads and :file:`event.c`, :file:`frrevent.h`.
+In particular, this
 datastructure has a pointer to a ``threadmaster`` that runs within the pthread.
 It also has fields for a name as well as start and stop functions that have
 signatures similar to the POSIX arguments for ``pthread_create()``.
@@ -218,18 +219,18 @@ signatures similar to the POSIX arguments for ``pthread_create()``.
 Calling ``frr_pthread_new()`` creates and registers a new ``frr_pthread``. The
 returned structure has a pre-initialized ``threadmaster``, and its ``start``
 and ``stop`` functions are initialized to defaults that will run a basic event
-loop with the given threadmaster. Calling ``frr_pthread_run`` starts the thread
+loop with the given threadmaster. Calling ``frr_pthread_run()`` starts the thread
 with the ``start`` function. From there, the model is the same as the regular
 event model. To schedule tasks on a particular pthread, simply use the regular
-:file:`thread.c` functions as usual and provide the ``threadmaster`` pointed to
+:file:`event.c` functions as usual and provide the ``threadmaster`` pointed to
 from the ``frr_pthread``. As part of implementing the wrapper, the
-:file:`thread.c` functions were made thread-safe. Consequently, it is safe to
+:file:`event.c` functions were made thread-safe. Consequently, it is safe to
 schedule events on a ``threadmaster`` belonging both to the calling thread as
 well as *any other pthread*. This serves as the basis for inter-thread
 communication and boils down to a slightly more complicated method of message
 passing, where the messages are the regular task events as used in the
 event-driven model. The only difference is thread cancellation, which requires
-calling ``event_cancel_async()`` instead of ``event_cancel`` to cancel a task
+calling ``event_cancel_async()`` instead of ``event_cancel()`` to cancel a task
 currently scheduled on a ``threadmaster`` belonging to a different pthread.
 This is necessary to avoid race conditions in the specific case where one
 pthread wants to guarantee that a task on another pthread is cancelled before
