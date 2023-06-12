@@ -389,6 +389,7 @@ static int mgmt_fe_send_lockds_reply(struct mgmt_fe_session_ctx *session,
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeLockDsReply lockds_reply;
+	bool scok = session->adapter->conn->is_short_circuit;
 
 	assert(session->adapter);
 
@@ -406,10 +407,10 @@ static int mgmt_fe_send_lockds_reply(struct mgmt_fe_session_ctx *session,
 	fe_msg.lockds_reply = &lockds_reply;
 
 	MGMTD_FE_ADAPTER_DBG(
-		"Sending LOCK_DS_REPLY message to MGMTD Frontend client '%s'",
-		session->adapter->name);
+		"Sending LOCK_DS_REPLY message to MGMTD Frontend client '%s' scok: %d",
+		session->adapter->name, scok);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
+	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, scok);
 }
 
 static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
