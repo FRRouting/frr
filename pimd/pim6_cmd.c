@@ -743,7 +743,7 @@ DEFPY (interface_ipv6_mld_query_max_response_time,
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
-       "Query response value in milliseconds\n")
+       "Query response value in deci-seconds\n")
 {
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
