@@ -237,6 +237,7 @@ class TopotatoItem(nodes.Item):
         # ordering of test items is based on caller here, so we need to go
         # with the topmost or we end up reordering things in a weird way.
         location = ""
+        caller = None
         while callers:
             module = inspect.getmodule(callers[0].frame)
             if not module or module.__name__.startswith("topotato."):
