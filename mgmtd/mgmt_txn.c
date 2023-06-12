@@ -494,6 +494,8 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	struct mgmt_txn_reqs_head *pending_list = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
+	struct mgmt_commit_cfg_req *ccreq;
+	bool cleanup;
 
 	switch ((*txn_req)->req_event) {
 	case MGMTD_TXN_PROC_SETCFG:
@@ -526,32 +528,38 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		MGMTD_TXN_DBG("Deleting COMMITCFG req-id: %" PRIu64
 			      " txn-id: %" PRIu64,
 			      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+
+		ccreq = &(*txn_req)->req.commit_cfg;
+		cleanup = (ccreq->curr_phase >= MGMTD_COMMIT_PHASE_TXN_CREATE &&
+			   ccreq->curr_phase < MGMTD_COMMIT_PHASE_TXN_DELETE);
+
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
 			/*
 			 * Send TXN_DELETE to cleanup state for this
 			 * transaction on backend
 			 */
-			if ((*txn_req)->req.commit_cfg.curr_phase >=
-				    MGMTD_COMMIT_PHASE_TXN_CREATE &&
-			    (*txn_req)->req.commit_cfg.curr_phase <
-				    MGMTD_COMMIT_PHASE_TXN_DELETE &&
-			    (*txn_req)
-				    ->req.commit_cfg.subscr_info
-				    .xpath_subscr[id]) {
-				adapter = mgmt_be_get_adapter_by_id(id);
-				if (adapter)
-					mgmt_txn_send_be_txn_delete(
-						(*txn_req)->txn, adapter);
+
+			/*
+			 * Get rid of the batches first so we don't end up doing
+			 * anything more with them
+			 */
+			mgmt_txn_cleanup_be_cfg_batches((*txn_req)->txn, id);
+			if (ccreq->batches) {
+				hash_clean(ccreq->batches,
+					   mgmt_txn_cfgbatch_hash_free);
+				hash_free(ccreq->batches);
+				ccreq->batches = NULL;
 			}
 
-			mgmt_txn_cleanup_be_cfg_batches((*txn_req)->txn,
-							    id);
-			if ((*txn_req)->req.commit_cfg.batches) {
-				hash_clean((*txn_req)->req.commit_cfg.batches,
-					   mgmt_txn_cfgbatch_hash_free);
-				hash_free((*txn_req)->req.commit_cfg.batches);
-				(*txn_req)->req.commit_cfg.batches = NULL;
-			}
+			/*
+			 * If we were in the middle of the state machine then
+			 * send a txn delete message
+			 */
+			adapter = mgmt_be_get_adapter_by_id(id);
+			if (adapter && cleanup &&
+			    ccreq->subscr_info.xpath_subscr[id])
+				mgmt_txn_send_be_txn_delete((*txn_req)->txn,
+							    adapter);
 		}
 		break;
 	case MGMTD_TXN_PROC_GETCFG:
@@ -1424,24 +1432,16 @@ static int
 mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 				 struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_be_cfg_batch *cfg_btch;
+	struct mgmt_commit_cfg_req *cmtcfg_req =
+		&txn->commit_cfg_req->req.commit_cfg;
 
-	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
+	assert(txn->type == MGMTD_TXN_TYPE_CONFIG);
+	assert(!mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id]));
 
-	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	if (cmtcfg_req->subscr_info.xpath_subscr[adapter->id]) {
-		adapter = mgmt_be_get_adapter_by_id(adapter->id);
-		(void)mgmt_be_send_txn_req(adapter, txn->txn_id, false);
+	if (!cmtcfg_req->subscr_info.xpath_subscr[adapter->id])
+		return 0;
 
-		FOREACH_TXN_CFG_BATCH_IN_LIST (
-			&txn->commit_cfg_req->req.commit_cfg
-				 .curr_batches[adapter->id],
-			cfg_btch)
-			cfg_btch->comm_phase = MGMTD_COMMIT_PHASE_TXN_DELETE;
-	}
-
-	return 0;
+	return mgmt_be_send_txn_req(adapter, txn->txn_id, false);
 }
 
 static void mgmt_txn_cfg_commit_timedout(struct event *thread)
