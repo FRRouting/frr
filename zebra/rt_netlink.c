@@ -2224,34 +2224,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 		nl_attr_nest_end(&req->n, nest);
 	}
 
-	/*
-	 * Always install blackhole routes without using nexthops, because of
-	 * the following kernel problems:
-	 * 1. Kernel nexthops don't suport unreachable/prohibit route types.
-	 * 2. Blackhole kernel nexthops are deleted when loopback is down.
-	 */
-	nexthop = dplane_ctx_get_ng(ctx)->nexthop;
-	if (nexthop) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			nexthop = nexthop->resolved;
-
-		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-			switch (nexthop->bh_type) {
-			case BLACKHOLE_ADMINPROHIB:
-				req->r.rtm_type = RTN_PROHIBIT;
-				break;
-			case BLACKHOLE_REJECT:
-				req->r.rtm_type = RTN_UNREACHABLE;
-				break;
-			case BLACKHOLE_UNSPEC:
-			case BLACKHOLE_NULL:
-				req->r.rtm_type = RTN_BLACKHOLE;
-				break;
-			}
-			return NLMSG_ALIGN(req->n.nlmsg_len);
-		}
-	}
-
 	if ((!fpm && kernel_nexthops_supported()
 	     && (!proto_nexthops_only()
 		 || is_proto_nhg(dplane_ctx_get_nhe_id(ctx), 0)))
@@ -2286,6 +2258,34 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 		}
 
 		return NLMSG_ALIGN(req->n.nlmsg_len);
+	}
+
+	/*
+	 * Always install blackhole routes without using nexthops, because of
+	 * the following kernel problems:
+	 * 1. Kernel nexthops don't suport unreachable/prohibit route types.
+	 * 2. Blackhole kernel nexthops are deleted when loopback is down.
+	 */
+	nexthop = dplane_ctx_get_ng(ctx)->nexthop;
+	if (nexthop) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			nexthop = nexthop->resolved;
+
+		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_ADMINPROHIB:
+				req->r.rtm_type = RTN_PROHIBIT;
+				break;
+			case BLACKHOLE_REJECT:
+				req->r.rtm_type = RTN_UNREACHABLE;
+				break;
+			case BLACKHOLE_UNSPEC:
+			case BLACKHOLE_NULL:
+				req->r.rtm_type = RTN_BLACKHOLE;
+				break;
+			}
+			return NLMSG_ALIGN(req->n.nlmsg_len);
+		}
 	}
 
 	/* Count overall nexthops so we can decide whether to use singlepath
