@@ -666,19 +666,28 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
 
         args = {k: v for k, v in all_args.items() if k in argnames}
         with GeneratorChecks():
-            iterator = method(**args)
+            return self.collect_iter(method(**args))
 
-            tests = []
-            sendval = None
-            try:
-                while True:
-                    value = iterator.send(sendval)
-                    if value is not None:
-                        logger.debug("collect on: %r test: %r", self, value)
-                        tests.append(value)
-                    sendval = (self, self.name)
-            except StopIteration:
-                pass
+    @skiptrace
+    def collect_iter(
+        self,
+        iterator: Generator[
+            Union[nodes.Item, nodes.Collector], Optional[Tuple[nodes.Item, str]], None
+        ],
+    ) -> Union[
+        None, nodes.Item, nodes.Collector, List[Union[nodes.Item, nodes.Collector]]
+    ]:
+        tests = []
+        sendval = None
+        try:
+            while True:
+                value = iterator.send(sendval)
+                if value is not None:
+                    logger.debug("collect on: %r test: %r", self, value)
+                    tests.append(value)
+                sendval = (self, self.name)
+        except StopIteration:
+            pass
 
         return tests
 
