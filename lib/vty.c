@@ -70,7 +70,6 @@ struct nb_config *vty_mgmt_candidate_config;
 
 static struct mgmt_fe_client *mgmt_fe_client;
 static bool mgmt_fe_connected;
-static bool mgmt_candidate_ds_wr_locked;
 static uint64_t mgmt_client_id_next;
 static uint64_t mgmt_last_req_id = UINT64_MAX;
 
@@ -128,6 +127,35 @@ char const *const mgmt_daemons[] = {
 #endif
 };
 uint mgmt_daemons_count = array_size(mgmt_daemons);
+
+
+static int vty_mgmt_lock_candidate_inline(struct vty *vty)
+{
+	assert(!vty->mgmt_locked_candidate_ds);
+	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, true, true);
+	return vty->mgmt_locked_candidate_ds ? 0 : -1;
+}
+
+static int vty_mgmt_unlock_candidate_inline(struct vty *vty)
+{
+	assert(vty->mgmt_locked_candidate_ds);
+	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false, true);
+	return vty->mgmt_locked_candidate_ds ? -1 : 0;
+}
+
+static int vty_mgmt_lock_running_inline(struct vty *vty)
+{
+	assert(!vty->mgmt_locked_running_ds);
+	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_RUNNING, true, true);
+	return vty->mgmt_locked_running_ds ? 0 : -1;
+}
+
+static int vty_mgmt_unlock_running_inline(struct vty *vty)
+{
+	assert(vty->mgmt_locked_running_ds);
+	(void)vty_mgmt_send_lockds_req(vty, MGMTD_DS_RUNNING, false, true);
+	return vty->mgmt_locked_running_ds ? -1 : 0;
+}
 
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
@@ -2198,10 +2226,8 @@ bool mgmt_vty_read_configs(void)
 	vty->node = CONFIG_NODE;
 	vty->config = true;
 	vty->pending_allowed = true;
-	vty->candidate_config = vty_shared_candidate_config;
-	vty->mgmt_locked_candidate_ds = true;
-	mgmt_candidate_ds_wr_locked = true;
 
+	vty->candidate_config = vty_shared_candidate_config;
 
 	for (index = 0; index < array_size(mgmt_daemons); index++) {
 		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
@@ -2247,9 +2273,6 @@ bool mgmt_vty_read_configs(void)
 	}
 
 	vty->pending_allowed = false;
-
-	vty->mgmt_locked_candidate_ds = false;
-	mgmt_candidate_ds_wr_locked = false;
 
 	if (!count)
 		vty_close(vty);
@@ -2348,7 +2371,15 @@ static void vtysh_read(struct event *thread)
 				/* with new infra we need to stop response till
 				 * we get response through callback.
 				 */
+<<<<<<< HEAD
 				if (vty->mgmt_req_pending)
+=======
+				if (vty->mgmt_req_pending_cmd) {
+					MGMTD_FE_CLIENT_DBG(
+						"postpone CLI response pending mgmtd %s on vty session-id %" PRIu64,
+						vty->mgmt_req_pending_cmd,
+						vty->mgmt_session_id);
+>>>>>>> f8500d484 (lib: mgmtd: use short-circuit for locking)
 					return;
 
 				/* warning: watchfrr hardcodes this result write
@@ -2423,15 +2454,26 @@ void vty_close(struct vty *vty)
 
 	vty->status = VTY_CLOSE;
 
+<<<<<<< HEAD
+=======
+	/*
+	 * If we reach here with pending config to commit we will be losing it
+	 * so warn the user.
+	 */
+	if (vty->mgmt_num_pending_setcfg)
+		MGMTD_FE_CLIENT_ERR(
+			"vty closed, uncommitted config will be lost.");
+
+	/* Drop out of configure / transaction if needed. */
+	vty_config_exit(vty);
+
+>>>>>>> f8500d484 (lib: mgmtd: use short-circuit for locking)
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		MGMTD_FE_CLIENT_DBG("closing vty session");
 		mgmt_fe_destroy_client_session(mgmt_fe_client,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
 	}
-
-	/* Drop out of configure / transaction if needed. */
-	vty_config_exit(vty);
 
 	/* Cancel threads.*/
 	EVENT_OFF(vty->t_read);
@@ -2798,21 +2840,26 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		return CMD_WARNING;
 	}
 
-	if (vty_mgmt_fe_enabled()) {
-		if (!mgmt_candidate_ds_wr_locked) {
-			if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE,
-						     true) != 0) {
-				vty_out(vty, "Not able to lock candidate DS\n");
-				return CMD_WARNING;
-			}
-		} else {
-			vty_out(vty,
-				"Candidate DS already locked by different session\n");
-			return CMD_WARNING;
-		}
-
+	/*
+	 * We only need to do a lock when reading a config file as we will be
+	 * sending a batch of setcfg changes followed by a single commit
+	 * message. For user interactive mode we are doing implicit commits
+	 * those will obtain the lock (or not) when they try and commit.
+	 */
+	if (vty_mgmt_fe_enabled() && vty->pending_allowed && !private_config) {
+		/*
+		 * lock using short-circuit, we set the locked boolean to true
+		 * here so that it can be flipped to false by our locked_notify
+		 * handler during the synchronous call.
+		 */
 		vty->mgmt_locked_candidate_ds = true;
-		mgmt_candidate_ds_wr_locked = true;
+		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, true,
+					     true) ||
+		    !vty->mgmt_locked_candidate_ds) {
+			vty_out(vty,
+				"%% Can't enter config; candidate datastore locked by another session\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	vty->node = CONFIG_NODE;
@@ -2825,22 +2872,23 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		vty->candidate_config_base = nb_config_dup(running_config);
 		vty_out(vty,
 			"Warning: uncommitted changes will be discarded on exit.\n\n");
-	} else {
-		/*
-		 * NOTE: On the MGMTD daemon we point the VTY candidate DS to
-		 * the global MGMTD candidate DS. Else we point to the VTY
-		 * Shared Candidate Config.
-		 */
-		vty->candidate_config = vty_mgmt_candidate_config
-						? vty_mgmt_candidate_config
-						: vty_shared_candidate_config;
-		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
-			vty->candidate_config_base =
-				nb_config_dup(running_config);
+		return CMD_SUCCESS;
 	}
+
+	/*
+	 * NOTE: On the MGMTD daemon we point the VTY candidate DS to
+	 * the global MGMTD candidate DS. Else we point to the VTY
+	 * Shared Candidate Config.
+	 */
+	vty->candidate_config = vty_mgmt_candidate_config
+					? vty_mgmt_candidate_config
+					: vty_shared_candidate_config;
+	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
+		vty->candidate_config_base = nb_config_dup(running_config);
 
 	return CMD_SUCCESS;
 }
+
 
 void vty_config_exit(struct vty *vty)
 {
@@ -2864,22 +2912,17 @@ void vty_config_exit(struct vty *vty)
 
 int vty_config_node_exit(struct vty *vty)
 {
+	int ret;
+
 	vty->xpath_index = 0;
 
-	/*
-	 * If we are not reading config file and we are mgmtd FE and we are
-	 * locked then unlock.
-	 */
-	if (vty->type != VTY_FILE && vty_mgmt_fe_enabled() &&
-	    mgmt_candidate_ds_wr_locked && vty->mgmt_locked_candidate_ds) {
-		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false) !=
-		    0) {
-			vty_out(vty, "Not able to unlock candidate DS\n");
-			return CMD_WARNING;
-		}
-
+	if (vty->mgmt_locked_candidate_ds) {
+		assert(vty->type != VTY_FILE);
+		/* use short-circuit call to immediately unlock */
+		ret = vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false,
+					       true);
+		assert(!ret);
 		vty->mgmt_locked_candidate_ds = false;
-		mgmt_candidate_ds_wr_locked = false;
 	}
 
 	/* Perform any pending commits. */
@@ -3461,17 +3504,21 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 
 	vty = (struct vty *)session_ctx;
 
-	if (!success) {
-		zlog_err("%socking for DS %u failed, Err: '%s'",
-			 lock_ds ? "L" : "Unl", ds_id, errmsg_if_any);
-		vty_out(vty, "ERROR: %socking for DS %u failed, Err: '%s'\n",
-			lock_ds ? "L" : "Unl", ds_id, errmsg_if_any);
-	} else {
+	assert(ds_id == MGMTD_DS_CANDIDATE || ds_id == MGMTD_DS_RUNNING);
+	if (!success)
+		zlog_err("%socking for DS %u failed, Err: '%s' vty %p",
+			 lock_ds ? "L" : "Unl", ds_id, errmsg_if_any, vty);
+	else {
 		MGMTD_FE_CLIENT_DBG("%socked DS %u successfully",
 				    lock_ds ? "L" : "Unl", ds_id);
+		if (ds_id == MGMTD_DS_CANDIDATE)
+			vty->mgmt_locked_candidate_ds = lock_ds;
+		else
+			vty->mgmt_locked_running_ds = lock_ds;
 	}
 
-	vty_mgmt_resume_response(vty, success);
+	if (vty->mgmt_req_pending_cmd)
+		vty_mgmt_resume_response(vty, success);
 }
 
 static void vty_mgmt_set_config_result_notified(
@@ -3600,22 +3647,27 @@ bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty)
 }
 
 int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-			     bool lock)
+			     bool lock, bool scok)
 {
-	if (mgmt_fe_client && vty->mgmt_session_id) {
-		vty->mgmt_req_id++;
-		if (mgmt_fe_send_lockds_req(mgmt_fe_client,
-					    vty->mgmt_session_id,
-					    vty->mgmt_req_id, ds_id, lock)) {
-			zlog_err("Failed sending %sLOCK-DS-REQ req-id %" PRIu64,
-				 lock ? "" : "UN", vty->mgmt_req_id);
-			vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!\n",
-				lock ? "" : "UN");
-			return -1;
-		}
+	assert(mgmt_fe_client);
+	assert(vty->mgmt_session_id);
 
+<<<<<<< HEAD
 		vty->mgmt_req_pending = true;
+=======
+	vty->mgmt_req_id++;
+	if (mgmt_fe_send_lockds_req(mgmt_fe_client, vty->mgmt_session_id,
+				    vty->mgmt_req_id, ds_id, lock, scok)) {
+		zlog_err("Failed sending %sLOCK-DS-REQ req-id %" PRIu64,
+			 lock ? "" : "UN", vty->mgmt_req_id);
+		vty_out(vty, "Failed to send %sLOCK-DS-REQ to MGMTD!\n",
+			lock ? "" : "UN");
+		return -1;
+>>>>>>> f8500d484 (lib: mgmtd: use short-circuit for locking)
 	}
+
+	if (!scok)
+		vty->mgmt_req_pending_cmd = "MESSAGE_LOCKDS_REQ";
 
 	return 0;
 }
@@ -3636,7 +3688,6 @@ int vty_mgmt_send_config_data(struct vty *vty)
 		 * changes until we are done reading the file and have modified
 		 * the local candidate DS.
 		 */
-		assert(vty->mgmt_locked_candidate_ds);
 		/* no-one else should be sending data right now */
 		assert(!vty->mgmt_num_pending_setcfg);
 		return 0;

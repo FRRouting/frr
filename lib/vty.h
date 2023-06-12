@@ -231,6 +231,7 @@ struct vty {
 	 * vty user. */
 	bool mgmt_req_pending;
 	bool mgmt_locked_candidate_ds;
+	bool mgmt_locked_running_ds;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -417,7 +418,7 @@ extern int vty_mgmt_send_get_config(struct vty *vty,
 extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 				  const char **xpath_list, int num_req);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-				    bool lock);
+				    bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, bool success);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
