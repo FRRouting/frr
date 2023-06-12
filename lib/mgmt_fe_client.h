@@ -219,7 +219,8 @@ mgmt_fe_destroy_client_session(struct mgmt_fe_client *client,
  */
 extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
 				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id, bool lock_ds);
+				   Mgmtd__DatastoreId ds_id, bool lock_ds,
+				   bool scok);
 
 /*
  * Send SET_CONFIG_REQ to MGMTD for one or more config data(s).
