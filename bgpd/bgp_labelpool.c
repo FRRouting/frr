@@ -15,7 +15,6 @@
 #include "linklist.h"
 #include "skiplist.h"
 #include "workqueue.h"
-#include "zclient.h"
 #include "mpls.h"
 
 #include "bgpd/bgpd.h"
@@ -31,11 +30,6 @@
 
 #include "bgpd/bgp_labelpool_clippy.c"
 
-
-/*
- * Definitions and external declarations.
- */
-extern struct zclient *zclient;
 
 #if BGP_LABELPOOL_ENABLE_TESTS
 static void lptest_init(void);
@@ -223,6 +217,8 @@ void bgp_lp_finish(void)
 {
 	struct lp_fifo *lf;
 	struct work_queue_item *item, *titem;
+	struct listnode *node;
+	struct lp_chunk *chunk;
 
 #if BGP_LABELPOOL_ENABLE_TESTS
 	lptest_finish();
@@ -235,6 +231,9 @@ void bgp_lp_finish(void)
 
 	skiplist_free(lp->inuse);
 	lp->inuse = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(lp->chunks, node, chunk))
+		bgp_zebra_release_label_range(chunk->first, chunk->last);
 
 	list_delete(&lp->chunks);
 
@@ -448,15 +447,13 @@ void bgp_lp_get(
 	lp_fifo_add_tail(&lp->requests, lf);
 
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
-		if (!zclient || zclient->sock < 0)
+		if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
+						   lp->next_chunksize))
 			return;
-		if (zclient_send_get_label_chunk(zclient, 0, lp->next_chunksize,
-						 MPLS_LABEL_BASE_ANY) !=
-		    ZCLIENT_SEND_FAILURE) {
-			lp->pending_count += lp->next_chunksize;
-			if ((lp->next_chunksize << 1) <= LP_CHUNK_SIZE_MAX)
-				lp->next_chunksize <<= 1;
-		}
+
+		lp->pending_count += lp->next_chunksize;
+		if ((lp->next_chunksize << 1) <= LP_CHUNK_SIZE_MAX)
+			lp->next_chunksize <<= 1;
 	}
 }
 
@@ -503,46 +500,12 @@ void bgp_lp_release(
 	}
 }
 
-/*
- * zebra response giving us a chunk of labels
- */
-void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
+static void bgp_sync_label_manager(struct event *e)
 {
-	struct lp_chunk *chunk;
 	int debug = BGP_DEBUG(labelpool, LABELPOOL);
 	struct lp_fifo *lf;
-	uint32_t labelcount;
 
-	if (last < first) {
-		flog_err(EC_BGP_LABEL,
-			 "%s: zebra label chunk invalid: first=%u, last=%u",
-			 __func__, first, last);
-		return;
-	}
-
-	chunk = XCALLOC(MTYPE_BGP_LABEL_CHUNK, sizeof(struct lp_chunk));
-
-	labelcount = last - first + 1;
-
-	chunk->first = first;
-	chunk->last = last;
-	chunk->nfree = labelcount;
-	bf_init(chunk->allocated_map, labelcount);
-
-	/*
-	 * Optimize for allocation by adding the new (presumably larger)
-	 * chunk at the head of the list so it is examined first.
-	 */
-	listnode_add_head(lp->chunks, chunk);
-
-	lp->pending_count -= labelcount;
-
-	if (debug) {
-		zlog_debug("%s: %zu pending requests", __func__,
-			lp_fifo_count(&lp->requests));
-	}
-
-	while (labelcount && (lf = lp_fifo_first(&lp->requests))) {
+	while ((lf = lp_fifo_pop(&lp->requests))) {
 
 		struct lp_lcb *lcb;
 		void *labelid = lf->lcb.labelid;
@@ -588,8 +551,6 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 			break;
 		}
 
-		labelcount -= 1;
-
 		/*
 		 * we filled the request from local pool.
 		 * Enqueue response work item with new label.
@@ -610,9 +571,41 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 		work_queue_add(lp->callback_q, q);
 
 finishedrequest:
-		lp_fifo_del(&lp->requests, lf);
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+}
+
+event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+		&bm->t_bgp_label_manager);
+}
+
+void bgp_lp_event_chunk(uint32_t first, uint32_t last)
+{
+	struct lp_chunk *chunk;
+	uint32_t labelcount;
+
+	if (last < first) {
+		flog_err(EC_BGP_LABEL,
+			 "%s: zebra label chunk invalid: first=%u, last=%u",
+			 __func__, first, last);
+		return;
 	}
+
+	chunk = XCALLOC(MTYPE_BGP_LABEL_CHUNK, sizeof(struct lp_chunk));
+
+	labelcount = last - first + 1;
+
+	chunk->first = first;
+	chunk->last = last;
+	chunk->nfree = labelcount;
+	bf_init(chunk->allocated_map, labelcount);
+
+	/*
+	 * Optimize for allocation by adding the new (presumably larger)
+	 * chunk at the head of the list so it is examined first.
+	 */
+	listnode_add_head(lp->chunks, chunk);
+
+	lp->pending_count -= labelcount;
 }
 
 /*
@@ -634,7 +627,6 @@ void bgp_lp_event_zebra_up(void)
 	unsigned int chunks_needed;
 	void *labelid;
 	struct lp_lcb *lcb;
-	int lm_init_ok;
 
 	lp->reconnect_count++;
 	/*
@@ -654,21 +646,15 @@ void bgp_lp_event_zebra_up(void)
 	chunks_needed = (labels_needed / lp->next_chunksize) + 1;
 	labels_needed = chunks_needed * lp->next_chunksize;
 
-	lm_init_ok = lm_label_manager_connect(zclient, 1) == 0;
-
-	if (!lm_init_ok) {
-		zlog_err("%s: label manager connection error", __func__);
-		return;
-	}
-
-	zclient_send_get_label_chunk(zclient, 0, labels_needed,
-				     MPLS_LABEL_BASE_ANY);
-	lp->pending_count = labels_needed;
-
 	/*
 	 * Invalidate current list of chunks
 	 */
 	list_delete_all_node(lp->chunks);
+
+	if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY, labels_needed))
+		return;
+
+	lp->pending_count = labels_needed;
 
 	/*
 	 * Invalidate any existing labels and requeue them as requests
@@ -712,6 +698,9 @@ void bgp_lp_event_zebra_up(void)
 
 		skiplist_delete_first(lp->inuse);
 	}
+
+	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+			&bm->t_bgp_label_manager);
 }
 
 DEFUN(show_bgp_labelpool_summary, show_bgp_labelpool_summary_cmd,
