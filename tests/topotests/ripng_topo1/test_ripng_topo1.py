@@ -374,7 +374,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])
