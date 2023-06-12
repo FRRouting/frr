@@ -20,7 +20,7 @@
 #include "mgmtd/mgmt_be_adapter.h"
 
 #define MGMTD_BE_ADAPTER_DBG(fmt, ...)                                         \
-	DEBUGD(&mgmt_debug_be, "BE-ADAPTER: %s:" fmt, __func__, ##__VA_ARGS__)
+	DEBUGD(&mgmt_debug_be, "BE-ADAPTER: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_BE_ADAPTER_ERR(fmt, ...)                                         \
 	zlog_err("BE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 

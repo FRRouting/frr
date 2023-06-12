@@ -15,7 +15,7 @@
 #include "mgmtd/mgmt_txn.h"
 
 #define MGMTD_TXN_DBG(fmt, ...)                                                \
-	DEBUGD(&mgmt_debug_txn, "%s:" fmt, __func__, ##__VA_ARGS__)
+	DEBUGD(&mgmt_debug_txn, "TXN: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_TXN_ERR(fmt, ...)                                                \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 

@@ -16,7 +16,7 @@
 #include "libyang/libyang.h"
 
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
-	DEBUGD(&mgmt_debug_ds, "%s:" fmt, __func__, ##__VA_ARGS__)
+	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_DS_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
