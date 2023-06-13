@@ -7,6 +7,13 @@
 #ifndef _QUAGGA_BGP_FSM_H
 #define _QUAGGA_BGP_FSM_H
 
+enum bgp_fsm_state_progress {
+	BGP_FSM_FAILURE_AND_DELETE = -2,
+	BGP_FSM_FAILURE = -1,
+	BGP_FSM_SUCCESS = 0,
+	BGP_FSM_SUCCESS_STATE_TRANSFER = 1,
+};
+
 /* Macro for BGP read, write and timer thread.  */
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
@@ -108,7 +115,7 @@
 extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
 extern void bgp_event(struct event *event);
 extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
-extern int bgp_stop(struct peer *peer);
+extern enum bgp_fsm_state_progress bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
 extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer *peer,
