@@ -31,7 +31,14 @@ from typing import (
 )
 
 import pytest
-from deprecated import deprecated
+
+try:
+    from deprecated import deprecated
+except ImportError:
+
+    def deprecated(fn):  # type: ignore
+        return fn
+
 
 from ..defer import subprocess
 from ..utils import deindent, get_dir, EnvcheckResult
