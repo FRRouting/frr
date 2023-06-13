@@ -747,6 +747,34 @@ def check_for_exit_vrf(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
+def check_for_exit_router(lines_to_add, lines_to_del):
+
+    # add exit once router blob is done.
+    # If the new config is missing it
+    # but we have configs under a router,
+    # we need to add it at the end to do the
+    # right context changes.
+    add_exit_router = False
+    index = 0
+
+    for (ctx_keys, line) in lines_to_add:
+        if add_exit_router == True:
+            if ctx_keys[0] != prior_ctx_key:
+                insert_key = ((prior_ctx_key),)
+                lines_to_add.insert(index, ((insert_key, "exit")))
+                add_exit_router = False
+
+        if ctx_keys[0].startswith("router ospf6") and line:
+            if line != "exit":
+                add_exit_router = True
+                prior_ctx_key = ctx_keys[0]
+            else:
+                add_exit_router = False
+        index += 1
+
+    return (lines_to_add, lines_to_del)
+
+
 def bgp_delete_inst_move_line(lines_to_del):
     # Deletion of bgp default inst followed by
     # bgp vrf inst leads to issue of default
@@ -1756,6 +1784,7 @@ def compare_context_objects(newconf, running):
         lines_to_add.extend(candidates_to_add)
 
     (lines_to_add, lines_to_del) = check_for_exit_vrf(lines_to_add, lines_to_del)
+    (lines_to_add, lines_to_del) = check_for_exit_router(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(
         lines_to_add, lines_to_del
     )
