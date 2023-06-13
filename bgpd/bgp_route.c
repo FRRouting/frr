@@ -7456,6 +7456,7 @@ void bgp_purge_static_redist_routes(struct bgp *bgp)
 		bgp_purge_af_static_redist_routes(bgp, afi, safi);
 }
 
+int str2prefix_rtc(const char *str, struct prefix_rtc *p);
 int str2prefix_rtc(const char *str, struct prefix_rtc *p) {
 	struct ecommunity *ecom = NULL;
 	int ret;
@@ -12134,6 +12135,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	return CMD_SUCCESS;
 }
 
+int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
+		      struct bgp_table *table, enum bgp_show_type type, void *output_arg,
+		      uint16_t show_flags);
 int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
 		      struct bgp_table *table, enum bgp_show_type type, void *output_arg,
 		      uint16_t show_flags)
