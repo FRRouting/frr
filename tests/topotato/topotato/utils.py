@@ -39,19 +39,30 @@ def deindent(text: str, trim=False) -> str:
     any indentation anyway.)
     """
     text = text.lstrip("\n")
-    m = _wsp_re.match(text)
+    lines = text.split("\n")
+    common_prefix = None
+    for line in lines:
+        if line.strip() == "":
+            continue
+        if m := _wsp_re.match(line):
+            this_prefix = m.group(0)
+            if common_prefix is None:
+                common_prefix = this_prefix
+                continue
+
+            this_prefix = this_prefix[: len(common_prefix)]
+            while this_prefix != common_prefix:
+                common_prefix = common_prefix[:-1]
+                this_prefix = this_prefix[: len(common_prefix)]
+        else:
+            common_prefix = None
+            break
+
+    if common_prefix is None:
+        return text
+
     do_trim = (lambda s: s.rstrip(" \t")) if trim else (lambda s: s)
-    if m is not None:
-        indent = m.group(0)
-        out = []
-        for line in text.splitlines():
-            if line.strip() == "":
-                out.append("")
-            else:
-                assert line.startswith(indent)
-                out.append(do_trim(line[len(indent) :]))
-        text = "\n".join(out)
-    return text
+    return "\n".join(do_trim(line)[len(common_prefix) :] for line in lines)
 
 
 def get_textdiff(text1: str, text2: str, title1="", title2="", **opts) -> str:

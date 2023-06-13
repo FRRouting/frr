@@ -46,7 +46,7 @@ from .generatorwrap import GeneratorWrapper, GeneratorChecks
 if typing.TYPE_CHECKING:
     from _pytest._code.code import ExceptionInfo, TracebackEntry
 
-    from .frr import FRRNetworkInstance
+    from .network import TopotatoNetwork
     from .timeline import Timeline
 
 logger = logging.getLogger("topotato")
@@ -144,7 +144,7 @@ class TopotatoItem(nodes.Item):
     instance of WhateverTestClass defined in test_something.py
     """
 
-    instance: "FRRNetworkInstance"
+    instance: "TopotatoNetwork"
     """
     Running network instance this item belongs to.
     """
@@ -237,6 +237,7 @@ class TopotatoItem(nodes.Item):
         # ordering of test items is based on caller here, so we need to go
         # with the topmost or we end up reordering things in a weird way.
         location = ""
+        caller = None
         while callers:
             module = inspect.getmodule(callers[0].frame)
             if not module or module.__name__.startswith("topotato."):
@@ -488,22 +489,9 @@ class TestBase:
     doesn't need to be direct, i.e. further subclassing is possible.
     """
 
-    instancefn: ClassVar[Callable[..., "FRRNetworkInstance"]]
+    instancefn: ClassVar[Callable[..., "TopotatoNetwork"]]
     """
-    Network instance/topology fixture (required.)
-
-    This must be set to the :py:func:`topotato.fixtures.instance_fixture`
-    decorated network instance setup function for this test.  This normally
-    looks something like this::
-
-       @instance_fixture()
-       def testenv(configs):
-           return FRRNetworkInstance(configs.topology, configs).prepare()
-
-       class MyTest(TestBase):
-           instancefn = testenv
-
-    With ``configs`` again referring to a configuration fixture and so on.
+    TBD (rework in progress)
     """
 
     @classmethod
@@ -678,19 +666,28 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
 
         args = {k: v for k, v in all_args.items() if k in argnames}
         with GeneratorChecks():
-            iterator = method(**args)
+            return self.collect_iter(method(**args))
 
-            tests = []
-            sendval = None
-            try:
-                while True:
-                    value = iterator.send(sendval)
-                    if value is not None:
-                        logger.debug("collect on: %r test: %r", self, value)
-                        tests.append(value)
-                    sendval = (self, self.name)
-            except StopIteration:
-                pass
+    @skiptrace
+    def collect_iter(
+        self,
+        iterator: Generator[
+            Union[nodes.Item, nodes.Collector], Optional[Tuple[nodes.Item, str]], None
+        ],
+    ) -> Union[
+        None, nodes.Item, nodes.Collector, List[Union[nodes.Item, nodes.Collector]]
+    ]:
+        tests = []
+        sendval = None
+        try:
+            while True:
+                value = iterator.send(sendval)
+                if value is not None:
+                    logger.debug("collect on: %r test: %r", self, value)
+                    tests.append(value)
+                sendval = (self, self.name)
+        except StopIteration:
+            pass
 
         return tests
 
@@ -723,7 +720,7 @@ class TopotatoClass(_pytest.python.Class):
 
     starting_ts: float
     started_ts: float
-    netinst: "FRRNetworkInstance"
+    netinst: "TopotatoNetwork"
 
     # pylint: disable=protected-access
     @classmethod
@@ -795,23 +792,17 @@ class TopotatoClass(_pytest.python.Class):
         failed = []
         for rtr in netinst.network.routers.keys():
             router = netinst.routers[rtr]
-
-            for daemon in netinst.configs.daemons:
-                if not netinst.configs.want_daemon(rtr, daemon):
-                    continue
-
-                try:
-                    _, _, rc = router.vtysh_polled(
-                        netinst.timeline, daemon, "show version"
-                    )
-                except ConnectionRefusedError:
-                    failed.append((rtr, daemon))
-                if rc != 0:
-                    failed.append((rtr, daemon))
+            router.start_post(netinst.timeline, failed)
 
         if len(failed) > 0:
             netinst.timeline.sleep(0)
-            raise TopotatoDaemonCrash(None, repr(failed))  # FIXME
+            if len(failed) == 1:
+                router, daemon = failed[0]
+                raise TopotatoDaemonCrash(daemon=daemon, router=router)
+
+            routers = ",".join(set(i[0] for i in failed))
+            daemons = ",".join(set(i[1] for i in failed))
+            raise TopotatoDaemonCrash(daemon=daemons, router=routers)
 
         self.started_ts = time.time()
 

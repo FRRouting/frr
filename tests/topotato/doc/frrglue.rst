@@ -1,9 +1,9 @@
 FRR integration logic
 =====================
 
-.. py:currentmodule:: topotato.livelog
+.. py:currentmodule:: topotato.frr.livelog
 
-.. automodule:: topotato.livelog
+.. automodule:: topotato.frr.livelog
    :members:
    :private-members:
 

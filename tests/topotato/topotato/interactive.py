@@ -18,11 +18,12 @@ from typing import Any, Callable, Dict
 
 import pytest
 from . import toponom
-from .base import TopotatoItem
+from .base import TopotatoItem, TopotatoFunction
 from .utils import LockedFile, AtomicPublishFile, deindent
 
 if typing.TYPE_CHECKING:
-    from .frr import FRRNetworkInstance
+    from _pytest import nodes
+    from .network import TopotatoNetwork
 
 
 taskbasedir = "/tmp/topotato-%s" % os.uname().nodename
@@ -140,6 +141,7 @@ class Interactive:
         )
 
         # FIXME
+        # pylint: disable=import-outside-toplevel
         from .nswrap import LinuxNamespace
 
         LinuxNamespace.taskdir = taskdir
@@ -159,17 +161,13 @@ class Interactive:
         }
         instance = getattr(item, "instance", None)
         if instance:
-            state["frrpath"] = instance.configs.frrpath
-
             nom = pickle.dumps(instance.network)
             state["nom"] = binascii.b2a_base64(nom, newline=False).decode("ASCII")
 
-            state["rundirs"] = {}
+            state["routers"] = {}
+
             for name, rtr in instance.routers.items():
-                rundir = getattr(rtr, "rundir", None)
-                if rundir is None:
-                    continue
-                state["rundirs"][name] = rundir
+                state["routers"][name] = rtr.interactive_state()
 
         self._post(state)
 
@@ -253,10 +251,12 @@ to attach to a router in this session, use:
 
 Dropping into python interactive shell.  Use \033[37;40;1mdir()\033[m to see state
 available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
+To modify & run a test item, replace "yield from X.make(...)" with
+\033[37;40;1m_yield_from(X.make(...))\033[m.
 """
         )
 
-    def show_instance_for_stop(self, instance: "FRRNetworkInstance"):
+    def show_instance_for_stop(self, instance: "TopotatoNetwork"):
         network: toponom.Network = instance.network
 
         self.show_diagram(network, sys.stdout)
@@ -283,15 +283,24 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
         tw.line("")
         tw.sep("^", "paused on failure", bold=True, purple=True)
 
-        context = {
-            "__excinfo__": excinfo,
-        }
+        context = {}
         if codeloc is not None:
+            context.update(codeloc.frame.f_globals)
             context.update(codeloc.frame.f_locals)
+            context = {
+                k: v
+                for k, v in context.items()
+                if not k.startswith("__") and not k.startswith("@")
+            }
 
+        context.update(
+            {
+                "__excinfo__": excinfo,
+            }
+        )
         self._topotato_stop(item, context)
 
-    def _topotato_stop(self, item, context=None):
+    def _topotato_stop(self, item: "nodes.Item", context=None):
         capman = item.config.pluginmanager.getplugin("capturemanager")
         if capman:
             capwhat = capman.is_capturing()
@@ -305,6 +314,16 @@ available for inspection.  Press \033[37;40;1mCtrl+D\033[m to continue test run.
             context["_instance"] = item.instance
             self.show_instance_for_stop(item.instance)
 
+        def _yield_from(iterator):
+            tests = item.getparent(TopotatoFunction).collect_iter(iter(iterator))
+
+            for value in tests:
+                value.instance = item.instance
+                value.timeline = item.timeline
+                print("_yield_from(): executing test: %r" % (value,))
+                value()
+
+        context["_yield_from"] = _yield_from
         try:
             code.interact(local=context, banner="")
         finally:

@@ -10,8 +10,6 @@ TODOs / Known issues
   modifier means the testbed is in an indeterminate state.
 - some style requirements should be automatically enforced, e.g. missing
   docstrings should cause a failure.
-- `config_fixture` and `env_fixture` are slated to be removed to cut off some
-  unnecessary boilerplaten.
 - ExaBGP support is work in progress.
 - terminal-on-failure (potatool) is work in progress.
 - integrated-config mode for FRR needs to be supported.
@@ -47,18 +45,14 @@ mkdir /etc/frr
 # dumpcap - Dump network traffic
 # ip - show / manipulate routing, network devices, interfaces and tunnels
 
-apt-get install graphviz tshark python3-venv wireshark-common
-wget https://github.com/krallin/tini/releases/download/v0.19.0/tini -O /bin/local/tini
-```
-
-Setup environments:
-===================
-
-- Installation of packages[^1]:
-
-```sh
-pip install -U setuptools # exabgp has some issues installing without them
-pip install -r requirements.txt
+apt-get satisfy \
+    'graphviz' 'tshark (>=4.0)' 'wireshark-common (>=4.0)' 'tini' \
+    'python3 (>=3.8)' \
+    'python3-pytest (>=6.1)' 'python3-pytest-xdist' \
+    'python3-typing-extensions' 'python3-docutils' 'python3-pyinotify' \
+    'python3-scapy (>=2.4.5)' 'python3-exabgp (>=4.2)' \
+    'python3-jinja2 (>=3.1)' 'python3-lxml' 'python3-markupsafe' \
+    #
 ```
 
 Running tests
@@ -76,15 +70,6 @@ To test a single file:
 # ./run_userns.sh --frr-builddir=/path/to/frr/build --log-cli-level=DEBUG -v -v -x <<FILENAME.py>>
 ./run_userns.sh --frr-builddir=/home/brunobernard/frr/ --log-cli-level=DEBUG -v -v -x test_demo.py 
 ```
-
-
-
-
-[^1]: In case, python modules cannot be installed into the system.
-    ```sh
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
 
 Coding style
 ============
@@ -114,6 +99,22 @@ Files should have a header consisting of the following things, in order:
 5. for tests: `from topotato.v1 import *`
 6. other imports
 
+
+Development Environment (VM)
+============
+
+Topotato has support for VM, it uses Vagrant to support those different environment:
+
+### Installation
+
+- Download Vagrant (https://developer.hashicorp.com/vagrant/downloads)
+- Ensure that the `vagrant` cli is ready. (type `vagrant` command)
+- Ubuntu Host
+  - Install virtualbox provider `sudo apt install virtualbox`
+  - Install vb-guest: `vagrant plugin install vagrant-vbguest`
+  - Do `vagrant up --provider virtualbox`
+
+
 TODO (for tests):
 
 - maybe `__topotato_version__ = 1234`?
@@ -129,3 +130,21 @@ FRR workflow applies to commit message text, i.e.:
 
 - Subject line should start with `topotato: ` (or `topotato/something:`)
 - `Signed-off-by:` is required
+
+
+Alternate setup if distro packages are unavailable or too old
+=============================================================
+
+- Installation of packages[^1]:
+
+```sh
+pip install -U setuptools # exabgp has some issues installing without them
+pip install -r requirements.txt
+```
+
+[^1]: In case, python modules cannot be installed into the system.
+    ```sh
+    apt-get install python3-venv
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```

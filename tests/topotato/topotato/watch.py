@@ -14,6 +14,9 @@ from pathlib import Path
 import subprocess
 import shlex
 import json
+import signal
+from os import tcgetpgrp, tcsetpgrp
+from termios import tcgetattr, tcsetattr, TCSAFLUSH
 
 from typing import (
     Any,
@@ -310,6 +313,7 @@ class WatchedSession:
         def __repr__(self):
             return f"<{self.__class__.__name__} name={self.name!r} pid={self.pid!r}>"
 
+        # pylint: disable=too-many-locals
         def run(self, cmd):
             """
             Execute command inside this router.
@@ -350,13 +354,65 @@ class WatchedSession:
                     setns(nsfd)
                     os.close(nsfd)
 
-                try:
-                    # joining PID namespace needs another fork
-                    with Forked(shlex.join(cmd)) as is_child:
-                        if is_child:
-                            # don't have terminal signals wreck the parent
-                            os.setsid()
-                            os.execlp(cmd[0], *cmd)
-                except subprocess.CalledProcessError as e:
-                    # pylint: disable=protected-access
-                    os._exit(e.returncode)
+                # pseudo-shell job control, let's get started...
+                orig_pgrp = tcgetpgrp(0)
+                orig_term = tcgetattr(0)
+                # tcsetpgrp will send SIGTTOU
+                signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+
+                # synchronize with child setting up its pgrp
+                rdfd, wrfd = os.pipe2(os.O_CLOEXEC)
+
+                pid = os.fork()
+                if pid == 0:
+                    os.close(rdfd)
+                    pid = os.getpid()
+                    # create pgrp and take ownership of terminal
+                    os.setpgid(pid, pid)
+                    tcsetpgrp(0, pid)
+
+                    # reset signals to sane behavior
+                    for sig in [
+                        signal.SIGHUP,
+                        signal.SIGINT,
+                        signal.SIGTERM,
+                        signal.SIGTSTP,
+                        signal.SIGTTIN,
+                        signal.SIGTTOU,
+                    ]:
+                        signal.signal(sig, signal.SIG_DFL)
+
+                    # pipe closed as side effect (CLOEXEC)
+                    os.execlp(cmd[0], *cmd)
+
+                os.close(wrfd)
+                # just wait for pipe to get closed
+                os.read(rdfd, 1)
+                os.close(rdfd)
+
+                rc = None
+                while rc is None:
+                    _, status = os.waitpid(pid, os.WUNTRACED)
+                    if os.WIFSTOPPED(status):
+                        # potatool doesn't implement job control - so just
+                        # stop ourselves along with the child.  but first,
+                        # claim back terminal & settings
+                        tcsetpgrp(0, orig_pgrp)
+                        child_term = tcgetattr(0)
+                        tcsetattr(0, TCSAFLUSH, orig_term)
+
+                        # ...and then stop the entire pgrp
+                        os.killpg(orig_pgrp, os.WSTOPSIG(status))
+                        # ... zZzZzZ ...
+
+                        # give terminal back to child and resume it
+                        tcsetattr(0, TCSAFLUSH, child_term)
+                        tcsetpgrp(0, pid)
+                        os.killpg(pid, signal.SIGCONT)
+                    else:
+                        rc = os.waitstatus_to_exitcode(status)
+
+                tcsetpgrp(0, orig_pgrp)
+                tcsetattr(0, TCSAFLUSH, orig_term)
+                # pylint: disable=protected-access
+                os._exit(rc)

@@ -59,16 +59,17 @@ class CLIError(Exception):
 
 def cli_cmd(name: Optional[str] = None):
     def decorate(func):
+        orig = func
         _name = name
         if _name is None:
             while getattr(func, "__func__", None):
                 func = func.__func__
             assert func.__name__.startswith("do_")
             _name = func.__name__[3:]
-        func.potatool_cli = {
+        orig.potatool_cli = {
             "name": _name,
         }
-        return func
+        return orig
 
     return decorate
 
@@ -358,11 +359,17 @@ class PotatoolSession(WatchedSession):
         return self._run(router, ["ip"] + args)
 
     def _vtysh(self, router, args):
-        frrpath = self.state.get("frrpath")
-        if not frrpath:
+        if "routers" not in self.state:
             raise CLIError("session not fully initialized")
-        rundirs = self.state.get("rundirs", {})
-        if router.name not in rundirs:
+        router_state = self.state["routers"].get(router.name)
+        if router_state is None:
+            raise CLIError(f"no state available for {router.name}")
+
+        frrpath = router_state.get("frrpath")
+        if not frrpath:
+            raise CLIError(f"router {router.name} is not running FRR")
+        rundir = router_state.get("rundir")
+        if not rundir:
             raise CLIError(f"no vtysh directory for router {router.name}")
 
         return self._run(
@@ -370,7 +377,7 @@ class PotatoolSession(WatchedSession):
             [
                 os.path.join(frrpath, "vtysh/vtysh"),
                 "--vty_socket",
-                rundirs[router.name],
+                rundir,
             ]
             + args,
         )

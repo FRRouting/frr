@@ -15,18 +15,19 @@ from .base import (
 )
 from .fixtures import (
     topology_fixture,
-    config_fixture,
-    instance_fixture,
     AutoFixture,
 )
 from .frr import (
-    FRRNetworkInstance,
     FRRConfigs,
 )
 from .utils import (
     JSONCompareIgnoreContent,
     JSONCompareIgnoreExtraListitems,
     JSONCompareListKeyedDict,
+)
+from .network import (
+    TopotatoNetwork,
+    Host,
 )
 
 # .assertions manages its own __all__
