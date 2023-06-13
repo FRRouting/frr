@@ -7,8 +7,12 @@ Test network for topotato.
 
 import typing
 from typing import (
+    Any,
     Dict,
     Callable,
+    List,
+    Optional,
+    Tuple,
 )
 
 from .timeline import Timeline
@@ -34,3 +38,23 @@ class TopotatoNetwork(NetworkInstance):
         super().__init__(network)
         self.timeline = Timeline()
         self.router_factories = {}
+
+    @classmethod
+    def __init_subclass__(cls, /, topo=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.topo = topo
+
+
+class Host(TopotatoNetwork.RouterNS):
+    def __init__(self, instance: TopotatoNetwork, name: str, frr):
+        super().__init__(instance, name)
+        _ = frr  # FIXME: remove arg / rework FRR specific setup
+
+    def interactive_state(self) -> Dict[str, Any]:
+        return {}
+
+    def report_state(self) -> Optional[Dict[str, Any]]:
+        return None
+
+    def start_post(self, timeline, failed: List[Tuple[str, str]]):
+        pass

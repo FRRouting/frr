@@ -25,6 +25,10 @@ from .utils import (
     JSONCompareIgnoreExtraListitems,
     JSONCompareListKeyedDict,
 )
+from .network import (
+    TopotatoNetwork,
+    Host,
+)
 
 # .assertions manages its own __all__
 from .assertions import *
