@@ -46,13 +46,6 @@
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
 DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
 
-enum bgp_fsm_state_progress {
-	BGP_FSM_FAILURE_AND_DELETE = -2,
-	BGP_FSM_FAILURE = -1,
-	BGP_FSM_SUCCESS = 0,
-	BGP_FSM_SUCCESS_STATE_TRANSFER = 1,
-};
-
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
