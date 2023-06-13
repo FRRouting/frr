@@ -196,6 +196,7 @@ class Context(object):
             self.dlines[ligne] = True
 
 
+
 def get_normalized_es_id(line):
     """
     The es-id or es-sys-mac need to be converted to lower case
@@ -217,6 +218,7 @@ def get_normalized_mac_ip_line(line):
         return get_normalized_ipv6_line(line)
 
     return line
+
 
 
 class Config(object):
@@ -713,6 +715,7 @@ def line_exist(lines, target_ctx_keys, target_line, exact_match=True):
                 if line.startswith(target_line):
                     return True
     return False
+
 
 
 def check_for_exit_vrf(lines_to_add, lines_to_del):
