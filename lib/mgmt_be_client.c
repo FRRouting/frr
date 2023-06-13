@@ -21,7 +21,7 @@
 #include "lib/mgmt_be_client_clippy.c"
 
 #define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
-	DEBUGD(&mgmt_dbg_be_client, "BE-CLIENT: %s:" fmt, __func__,            \
+	DEBUGD(&mgmt_dbg_be_client, "BE-CLIENT: %s: " fmt, __func__,           \
 	       ##__VA_ARGS__)
 #define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
 	zlog_err("BE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)

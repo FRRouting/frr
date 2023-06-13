@@ -21,7 +21,7 @@
 #include "mgmtd/mgmt_fe_adapter.h"
 
 #define MGMTD_FE_ADAPTER_DBG(fmt, ...)                                         \
-	DEBUGD(&mgmt_debug_fe, "FE-ADAPTER: %s:" fmt, __func__, ##__VA_ARGS__)
+	DEBUGD(&mgmt_debug_fe, "FE-ADAPTER: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_FE_ADAPTER_ERR(fmt, ...)                                         \
 	zlog_err("FE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 

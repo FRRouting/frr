@@ -2423,6 +2423,14 @@ void vty_close(struct vty *vty)
 
 	vty->status = VTY_CLOSE;
 
+	/*
+	 * If we reach here with pending config to commit we will be losing it
+	 * so warn the user.
+	 */
+	if (vty->mgmt_num_pending_setcfg)
+		MGMTD_FE_CLIENT_ERR(
+			"vty closed, uncommitted config will be lost.");
+
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		MGMTD_FE_CLIENT_DBG("closing vty session");
 		mgmt_fe_destroy_client_session(mgmt_fe_client,
@@ -3445,7 +3453,9 @@ static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
 		vty->mgmt_session_id = session_id;
 	} else {
 		vty->mgmt_session_id = 0;
-		vty_close(vty);
+		/* We may come here by way of vty_close() and short-circuits */
+		if (vty->status != VTY_CLOSE)
+			vty_close(vty);
 	}
 }
 

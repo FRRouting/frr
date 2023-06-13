@@ -176,10 +176,6 @@ extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 					    bool validate_only, bool abort,
 					    bool implicit);
 
-extern int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
-					      enum mgmt_result result,
-					      const char *error_if_any);
-
 /*
  * Send get-config request to be processed later in transaction.
  *
