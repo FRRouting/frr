@@ -19,7 +19,7 @@ import pytest
 from . import hooks
 from .utils import EnvcheckResult
 from .base import TopotatoItem
-from .frr import FRRConfigs
+from .frr import FRRSetup
 from .toponom import LAN
 from .interactive import Interactive
 from .pretty import PrettySession
@@ -45,7 +45,7 @@ def pytest_addhooks(pluginmanager):
     pluginmanager.add_hookspecs(hooks)
     pluginmanager.register(NetworkInstance)
     pluginmanager.register(TopotatoItem)
-    pluginmanager.register(FRRConfigs)
+    pluginmanager.register(FRRSetup)
     pluginmanager.register(PrettySession)
     pluginmanager.register(Interactive)
 
@@ -139,6 +139,8 @@ def pytest_collection(session):
 
     if session.config.getoption("--show-configs"):
         sys.stdout.write("\navailable configs:\n")
+
+        # TODO: refactor for FRRNetworkInstance removal / FRRConfigs rework
         for item in topologies():
             name = item.parent.nodeid
 
@@ -158,6 +160,7 @@ def pytest_collection(session):
         which = session.config.getoption("--show-config")
         path = which.split("/")
 
+        # TODO: refactor for FRRNetworkInstance removal / FRRConfigs rework
         for item in topologies():
             name = item.parent.nodeid
             if path[0] != name:

@@ -36,7 +36,7 @@ import pytest
 from .utils import json_cmp, text_rich_cmp, deindent
 from .base import TopotatoItem, TopotatoFunction, skiptrace
 from .livescapy import TimedScapy
-from .livelog import LogMessage
+from .frr.livelog import LogMessage
 from .timeline import TimingParams
 from .exceptions import (
     TopotatoCLICompareFail,
@@ -275,7 +275,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
                 elif isinstance(self._compare, str):
                     text = deindent(text, trim=True)
                     result = text_rich_cmp(
-                        self.instance.configs,
+                        router._configs,
                         self._rtr.name,
                         text,
                         self._compare,

@@ -13,11 +13,11 @@ from collections import namedtuple
 import typing
 from typing import Dict, Generator, Optional, Set, Tuple
 
-from .timeline import MiniPollee, TimedElement, FrameworkEvent
-from .pcapng import JournalExport, Context
+from ..timeline import MiniPollee, TimedElement, FrameworkEvent
+from ..pcapng import JournalExport, Context
 
 if typing.TYPE_CHECKING:
-    from .frr import FRRNetworkInstance
+    from . import FRRRouterNS
 
 
 # pylint: disable=too-many-instance-attributes
@@ -108,14 +108,12 @@ class LogMessage(TimedElement):
     _ts: float
     _prio: int
 
-    router: "FRRNetworkInstance.RouterNS"
+    router: "FRRRouterNS"
     daemon: str
 
     # mypy doesn't work with dynamic namedtuple
     @typing.no_type_check
-    def __init__(
-        self, router: "FRRNetworkInstance.RouterNS", daemon: str, rawmsg: bytes
-    ):
+    def __init__(self, router: "FRRRouterNS", daemon: str, rawmsg: bytes):
         super().__init__()
 
         # router name & daemon are not included in the message;  but we know
@@ -252,7 +250,7 @@ class LiveLog(MiniPollee):
     All FRR unique xref identifiers seen in log messages on this socket.
     """
 
-    def __init__(self, router: "FRRNetworkInstance.RouterNS", daemon: str):
+    def __init__(self, router: "FRRRouterNS", daemon: str):
         super().__init__()
 
         self._router = router

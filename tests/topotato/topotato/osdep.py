@@ -7,11 +7,13 @@ topotato OS-dependent submodule imports/dispatching
 # pylint: disable=unused-import
 
 import sys
+import typing
 
 import pytest
 
-
-if sys.platform == "linux":
+if typing.TYPE_CHECKING:
+    from .topobase import NetworkInstance
+elif sys.platform == "linux":
     from .topolinux import NetworkInstance
 elif sys.platform == "freebsd12":
     from .topofreebsd import NetworkInstance

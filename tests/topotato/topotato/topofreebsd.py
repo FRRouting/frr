@@ -20,6 +20,7 @@ from typing import (
 from .defer import subprocess
 from .jailwrap import FreeBSDJail
 from .toponom import LAN, Network
+from . import topobase
 
 
 def ifname(host, iface):
@@ -34,12 +35,12 @@ def ifname(host, iface):
     return "%s_%s" % (host, iface)
 
 
-class NetworkInstance:
+class NetworkInstance(topobase.NetworkInstance):
     """
     represent a test setup with all its routers & switches
     """
 
-    class BaseNS(FreeBSDJail):
+    class BaseNS(FreeBSDJail, topobase.BaseNS):
         """
         a netns with some extra functions for topotato
         """
@@ -105,7 +106,7 @@ class NetworkInstance:
                 ret[dst] = entry
             return ret
 
-    class SwitchyNS(BaseNS):
+    class SwitchyNS(BaseNS, topobase.SwitchyNS):
         """
         namespace used for switching between the various routers
 
@@ -137,7 +138,7 @@ class NetworkInstance:
 
             # nothing special for freebsd yet
 
-    class RouterNS(BaseNS):
+    class RouterNS(BaseNS, topobase.RouterNS):
         """
         a (FRR) router namespace.  maybe change the name.
 
@@ -215,20 +216,13 @@ class NetworkInstance:
     pcapfile: Optional[str]
 
     def __init__(self, network):
-        self.network = network
+        super().__init__(network)
         # pylint: disable=consider-using-with
         self.tempdir = tempfile.TemporaryDirectory()
         os.chmod(self.tempdir.name, 0o755)
 
     def tempfile(self, name):
         return os.path.join(self.tempdir.name, name)
-
-    def prepare(self):
-        self.switch_ns = self.SwitchyNS(self, "switch-ns")
-        self.routers = {}
-        for r in self.network.routers.values():
-            self.routers[r.name] = self.RouterNS(self, r.name)
-        return self
 
     def start(self):
         """
