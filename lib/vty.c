@@ -2217,6 +2217,8 @@ bool mgmt_vty_read_configs(void)
 		line_num = 0;
 		(void)config_from_file(vty, confp, &line_num);
 		count++;
+
+		fclose(confp);
 	}
 
 	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
@@ -2240,6 +2242,8 @@ bool mgmt_vty_read_configs(void)
 		line_num = 0;
 		(void)config_from_file(vty, confp, &line_num);
 		count++;
+
+		fclose(confp);
 	}
 
 	vty->pending_allowed = false;
@@ -2420,6 +2424,7 @@ void vty_close(struct vty *vty)
 	vty->status = VTY_CLOSE;
 
 	if (mgmt_fe_client && vty->mgmt_session_id) {
+		MGMTD_FE_CLIENT_DBG("closing vty session");
 		mgmt_fe_destroy_client_session(mgmt_fe_client,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;

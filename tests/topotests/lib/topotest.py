@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import logging
 from collections.abc import Mapping
 from copy import deepcopy
 
@@ -38,7 +39,7 @@ g_pytest_config = None
 
 
 def get_logs_path(rundir):
-    logspath = topolog.get_test_logdir()
+    logspath = topolog.get_test_logdir(module=True)
     return os.path.join(rundir, logspath)
 
 
@@ -1137,7 +1138,9 @@ def _sysctl_assure(commander, variable, value):
 def sysctl_atleast(commander, variable, min_value, raises=False):
     try:
         if commander is None:
-            commander = micronet.Commander("topotest")
+            logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=logger)
+
         return _sysctl_atleast(commander, variable, min_value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1153,7 +1156,8 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
 def sysctl_assure(commander, variable, value, raises=False):
     try:
         if commander is None:
-            commander = micronet.Commander("topotest")
+            logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=logger)
         return _sysctl_assure(commander, variable, value)
     except subprocess.CalledProcessError as error:
         logger.warning(

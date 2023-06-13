@@ -799,9 +799,33 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Feb 07 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jun 06 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
-* Tue Feb 07 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5
+* Tue Jun 06 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0
+
+* Fri Mar 10 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5
+- Major Highlights:
+-   Add support for per-VRF SRv6 SID
+-   Add BGP labeled-unicast Add-Path functionality
+-   Implementation of SNMP BGP4v2-MIB (IPv6 support) for better network management and monitoring
+-   Add BGP new command neighbor path-attribute discard
+-   Add BGP new command neighbor path-attribute treat-as-withdraw
+-   Implement L3 route-target auto/wildcard configuration
+-   Implement BGP ACCEPT_OWN Community Attribute (rfc7611)
+-   Implement The Accumulated IGP Metric Attribute for BGP (rfc7311)
+-   Implement graceful-shutdown command per neighbor
+-   Add BGP new command to configure TCP keepalives for a peer bgp tcp-keepalive
+-   Traffic control (TC) ZAPI implementation
+-   SRv6 uSID (microSID) implementation
+-   Start deprecating start-shell, ssh, and telnet commands due to security reasons
+-   Add VRRPv3 an ability to disable IPv4 pseudo-header checksum
+-   BFD integration for static routes
+-   Allow protocols to configure BFD sessions with automatic source selection
+-   Allow zero-length opaque LSAs for OSPF (rfc5250)
+-   Add ISIS new command set-overload-bit on-startup
+-   PIMv6 BSM support
+- For a full list of new features and bug fixes, please refer to:
+-   https://frrouting.org/release/
 
 * Tue Nov 01 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4
 - New BGP command (neighbor PEER soo) to configure SoO to prevent routing loops and suboptimal routing on dual-homed sites.

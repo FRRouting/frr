@@ -455,7 +455,7 @@ Administrative Distance Metrics
 .. _bgp-requires-policy:
 
 Require policy on EBGP
--------------------------------
+----------------------
 
 .. clicmd:: bgp ebgp-requires-policy
 
@@ -1728,6 +1728,12 @@ Configuring Peers
    when a link flaps.  `bgp fast-external-failover` is the default
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
+
+.. clicmd:: bgp default-originate timer (0-3600)
+
+   Set the period to rerun the default-originate route-map scanner process. The
+   default is 5 seconds. With a full routing table, it might be useful to increase
+   this setting to avoid scanning the whole BGP table aggressively.
 
 .. clicmd:: bgp default ipv4-unicast
 
@@ -3881,6 +3887,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
       Total number of neighbors 1
       exit1#
+
+If PfxRcd and/or PfxSnt is shown as ``(Policy)``, that means that the EBGP
+default policy is turned on, but you don't have any filters applied for
+incoming/outgoing directions.
+
+.. seealso:: :ref:`bgp-requires-policy`
 
 .. clicmd:: show bgp [afi] [safi] [all] [wide|json]
 

@@ -319,14 +319,6 @@ void igmp_source_free(struct gm_source *source)
 	XFREE(MTYPE_PIM_IGMP_GROUP_SOURCE, source);
 }
 
-static void source_channel_oil_detach(struct gm_source *source)
-{
-	if (source->source_channel_oil) {
-		pim_channel_oil_del(source->source_channel_oil, __func__);
-		source->source_channel_oil = NULL;
-	}
-}
-
 /*
   igmp_source_delete:       stop forwarding, and delete the source
   igmp_source_forward_stop: stop forwarding, but keep the source
@@ -355,6 +347,7 @@ void igmp_source_delete(struct gm_source *source)
 
 	source_timer_off(group, source);
 	igmp_source_forward_stop(source);
+	source->source_channel_oil = NULL;
 
 	/* sanity check that forwarding has been disabled */
 	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
@@ -370,8 +363,6 @@ void igmp_source_delete(struct gm_source *source)
 			group->interface->name);
 		/* warning only */
 	}
-
-	source_channel_oil_detach(source);
 
 	/*
 	  notice that listnode_delete() can't be moved

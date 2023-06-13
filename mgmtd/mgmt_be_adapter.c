@@ -564,8 +564,8 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	return 0;
 }
 
-static int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
-				    uint64_t txn_id, bool create)
+int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
+			 uint64_t txn_id, bool create)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeTxnReq txn_req;
@@ -584,11 +584,10 @@ static int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
-static int
-mgmt_be_send_cfgdata_create_req(struct mgmt_be_client_adapter *adapter,
-				   uint64_t txn_id, uint64_t batch_id,
-				   Mgmtd__YangCfgDataReq **cfgdata_reqs,
-				   size_t num_reqs, bool end_of_data)
+int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
+			     uint64_t txn_id, uint64_t batch_id,
+			     Mgmtd__YangCfgDataReq **cfgdata_reqs,
+			     size_t num_reqs, bool end_of_data)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeCfgDataCreateReq cfgdata_req;
@@ -612,8 +611,8 @@ mgmt_be_send_cfgdata_create_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
-static int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
-					uint64_t txn_id)
+int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
+			      uint64_t txn_id)
 {
 	Mgmtd__BeMessage be_msg;
 	Mgmtd__BeCfgDataApplyReq apply_req;
@@ -832,35 +831,6 @@ int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 
 	*cfg_chgs = &adapter->cfg_chgs;
 	return 0;
-}
-
-int mgmt_be_create_txn(struct mgmt_be_client_adapter *adapter,
-			   uint64_t txn_id)
-{
-	return mgmt_be_send_txn_req(adapter, txn_id, true);
-}
-
-int mgmt_be_destroy_txn(struct mgmt_be_client_adapter *adapter,
-			    uint64_t txn_id)
-{
-	return mgmt_be_send_txn_req(adapter, txn_id, false);
-}
-
-int mgmt_be_send_cfg_data_create_req(struct mgmt_be_client_adapter *adapter,
-					uint64_t txn_id, uint64_t batch_id,
-					struct mgmt_be_cfgreq *cfg_req,
-					bool end_of_data)
-{
-	return mgmt_be_send_cfgdata_create_req(
-		adapter, txn_id, batch_id, cfg_req->cfgdata_reqs,
-		cfg_req->num_reqs, end_of_data);
-}
-
-extern int
-mgmt_be_send_cfg_apply_req(struct mgmt_be_client_adapter *adapter,
-			      uint64_t txn_id)
-{
-	return mgmt_be_send_cfgapply_req(adapter, txn_id);
 }
 
 void mgmt_be_get_subscr_info_for_xpath(

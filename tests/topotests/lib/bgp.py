@@ -50,6 +50,7 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
             "bgp": {
                 "local_as": "200",
                 "router_id": "22.22.22.22",
+                "bgp_always_compare_med": True,
                 "graceful-restart": {
                     "graceful-restart": True,
                     "preserve-fw-state": True,
@@ -342,6 +343,13 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
                         cmd = "no {}".format(cmd)
 
                 config_data.append(cmd)
+
+    if "bgp_always_compare_med" in bgp_data:
+        bgp_always_compare_med = bgp_data["bgp_always_compare_med"]
+        if bgp_always_compare_med == True:
+            config_data.append("bgp always-compare-med")
+        elif bgp_always_compare_med == False:
+            config_data.append("no bgp always-compare-med")
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data

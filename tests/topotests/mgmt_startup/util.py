@@ -50,11 +50,13 @@ def get_ip_networks(super_prefix, count):
     return tuple(network.subnets(count_log2))[0:count]
 
 
-def write_big_route_conf(super_prefix, count, confpath):
+def write_big_route_conf(super_prefix, count, confpath, prologue=""):
     start = None
     end = None
 
     with open(confpath, "w+", encoding="ascii") as f:
+        if prologue:
+            f.write(prologue + "\n")
         for net in get_ip_networks(super_prefix, count):
             end = net
             if not start:
