@@ -2500,14 +2500,12 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	"exit-address-family", "Exit from Address Family configuration mode\n")
 {
-	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE
-	    || vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE
-	    || vty->node == BGP_VPNV6_NODE || vty->node == BGP_IPV6_NODE
-	    || vty->node == BGP_IPV6L_NODE || vty->node == BGP_IPV6M_NODE
-	    || vty->node == BGP_EVPN_NODE
-	    || vty->node == BGP_FLOWSPECV4_NODE
-	    || vty->node == BGP_FLOWSPECV6_NODE
-	    || vty->node == BGP_RTC_NODE)
+	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE ||
+	    vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE ||
+	    vty->node == BGP_VPNV6_NODE || vty->node == BGP_IPV6_NODE ||
+	    vty->node == BGP_IPV6L_NODE || vty->node == BGP_IPV6M_NODE ||
+	    vty->node == BGP_EVPN_NODE || vty->node == BGP_FLOWSPECV4_NODE ||
+	    vty->node == BGP_FLOWSPECV6_NODE || vty->node == BGP_RTC_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
