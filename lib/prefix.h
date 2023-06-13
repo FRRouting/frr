@@ -190,7 +190,7 @@ struct prefix {
 		uint32_t val32[4];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
-		struct rtc_info prefix_rtc; /* AF_RTC */
+		struct rtc_info prefix_rtc;   /* AF_RTC */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
 	} u __attribute__((aligned(8)));
 };
@@ -677,7 +677,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
 #pragma FRR printfrr_ext "%pRDP"  (struct prefix_rd *)
-#pragma FRR printfrr_ext "%pRTC"  (struct prefix_rtc *)
+#pragma FRR printfrr_ext "%pRTC"(struct prefix_rtc *)
 /* RD with AS4B with dot and dot+ format */
 #pragma FRR printfrr_ext "%pRDD"  (struct prefix_rd *)
 #pragma FRR printfrr_ext "%pRDE"  (struct prefix_rd *)

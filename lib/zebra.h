@@ -259,7 +259,7 @@ typedef enum {
 	SAFI_EVPN = 5,
 	SAFI_LABELED_UNICAST = 6,
 	SAFI_FLOWSPEC = 7,
-	SAFI_RTC = 8,	/* BGP-RTC RFC 4684 */
+	SAFI_RTC = 8, /* BGP-RTC RFC 4684 */
 	SAFI_MAX = 9,
 } safi_t;
 

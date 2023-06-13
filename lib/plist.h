@@ -69,8 +69,7 @@ extern struct stream *prefix_bgp_orf_entry(struct stream *,
 extern int prefix_bgp_orf_set(char *, afi_t, struct orf_prefix *, int, int);
 extern void prefix_bgp_orf_remove_all(afi_t, char *);
 
-int prefix_bgp_rtc_set(char *name, struct prefix *p,
-		       int permit, int set);
+int prefix_bgp_rtc_set(char *name, struct prefix *p, int permit, int set);
 extern int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 				       bool use_json);
 

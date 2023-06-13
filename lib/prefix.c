@@ -350,7 +350,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
 	} else if (src->family == AF_RTC) {
-		memcpy(&dest->u.prefix_rtc, &src->u.prefix_rtc, sizeof(struct rtc_info));
+		memcpy(&dest->u.prefix_rtc, &src->u.prefix_rtc,
+		       sizeof(struct rtc_info));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",

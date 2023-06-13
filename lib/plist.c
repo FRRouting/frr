@@ -28,7 +28,7 @@ DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_TRIE, "Prefix List Trie Table");
 #define PLC_BITS	8
 #define PLC_LEN		(1 << PLC_BITS)
 #define PLC_MAXLEVELV4	2	/* /24 for IPv4 */
-#define PLC_MAXLEVELRTC	3	/* /96 for RTC */
+#define PLC_MAXLEVELRTC 3       /* /96 for RTC */
 #define PLC_MAXLEVELV6	4	/* /48 for IPv6 */
 #define PLC_MAXLEVEL	4	/* max(v4,v6) */
 
@@ -88,14 +88,17 @@ static struct prefix_master prefix_master_orf_v6 = {
 
 /* Satic structure of BGP Route target constrain prefix_list's master. */
 static struct prefix_master prefix_master_rtc = {
-	NULL, NULL, NULL, PLC_MAXLEVELRTC,
+	NULL,
+	NULL,
+	NULL,
+	PLC_MAXLEVELRTC,
 };
 
 static struct prefix_master *prefix_master_get(afi_t afi, int orf, int rtc)
 {
 	if (orf && rtc)
 		return NULL;
-	
+
 	if (rtc)
 		return &prefix_master_rtc;
 	if (afi == AFI_IP)
@@ -205,7 +208,8 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf, int rtc,
 	return plist;
 }
 
-struct prefix_list *prefix_list_get(afi_t afi, int orf, int rtc, const char *name)
+struct prefix_list *prefix_list_get(afi_t afi, int orf, int rtc,
+				    const char *name)
 {
 	struct prefix_list *plist;
 
@@ -1467,8 +1471,7 @@ struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
 
 	return s;
 }
-int prefix_bgp_rtc_set(char *name, struct prefix *p,
-		       int permit, int set)
+int prefix_bgp_rtc_set(char *name, struct prefix *p, int permit, int set)
 {
 	struct prefix_list *plist;
 	struct prefix_list_entry *pentry;
@@ -1476,15 +1479,15 @@ int prefix_bgp_rtc_set(char *name, struct prefix *p,
 
 	plist = prefix_list_get(AFI_IP, 0, 1, name);
 	if (!plist) {
-		zlog_info("no prefix list named %s",name);
+		zlog_info("no prefix list named %s", name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 
 	if (set) {
 		pentry = prefix_list_entry_make(
-			p, (permit ? PREFIX_PERMIT : PREFIX_DENY),
-			-1, 0, 0, false);
+			p, (permit ? PREFIX_PERMIT : PREFIX_DENY), -1, 0, 0,
+			false);
 
 		if (prefix_entry_dup_check(plist, pentry)) {
 			prefix_list_entry_free(pentry);
@@ -1493,8 +1496,8 @@ int prefix_bgp_rtc_set(char *name, struct prefix *p,
 		prefix_list_entry_add(plist, pentry);
 	} else {
 		pentry = prefix_list_entry_lookup(
-			plist, p, (permit ? PREFIX_PERMIT : PREFIX_DENY),
-			0, 0, 0);
+			plist, p, (permit ? PREFIX_PERMIT : PREFIX_DENY), 0, 0,
+			0);
 
 		if (!pentry)
 			return CMD_WARNING_CONFIG_FAILED;
