@@ -1331,10 +1331,23 @@ frr-format plugin
       Using the plugin also changes the string for ``PRI[udx]64`` from the
       system value to ``%L[udx]`` (normally ``%ll[udx]`` or ``%l[udx]``.)
 
-Additionally, the FRR codebase is regularly scanned with Coverity.
-Unfortunately Coverity does not have the ability to handle scanning pull
-requests, but after code is merged it will send an email notifying project
-members with Coverity access of newly introduced defects.
+Additionally, the FRR codebase is regularly scanned for static analysis
+errors with Coverity and pull request changes are scanned as part of the
+Continuous Integration (CI) process. Developers can scan their commits for
+Coverity static analysis errors prior to submission using the
+``scan-build`` command. To use this command, the ``clang-tools`` package must
+be installed. For example, this can be accomplished on Ubuntu with the
+``sudo apt-get install clang-tools`` command.  Then, touch the files you want scanned and
+invoke the ``scan-file`` command. For example::
+  
+  cd ~/GitHub/frr
+  touch ospfd/ospf_flood.c ospfd/ospf_vty.c ospfd/ospf_opaque.c
+  cd build
+  scan-file make -j32
+     
+The results of the scan including any static analysis errors will appear inline.
+Additionally, there will a directory in the /tmp containing the Coverity
+reports (e.g., scan-build-2023-06-09-120100-473730-1).
 
 Executing non-installed dynamic binaries
 ----------------------------------------
