@@ -3652,7 +3652,7 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 	return 0;
 }
 
-int vty_mgmt_send_config_data(struct vty *vty)
+int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 {
 	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
 	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
@@ -3660,7 +3660,6 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
 	size_t indx;
 	int cnt;
-	bool implicit_commit = false;
 
 	if (vty->type == VTY_FILE) {
 		/*
@@ -3734,7 +3733,6 @@ int vty_mgmt_send_config_data(struct vty *vty)
 		}
 
 		vty->mgmt_req_id++;
-		implicit_commit = vty_needs_implicit_commit(vty);
 		if (cnt && mgmt_fe_send_setcfg_req(
 				   mgmt_fe_client, vty->mgmt_session_id,
 				   vty->mgmt_req_id, MGMTD_DS_CANDIDATE, cfgreq,
