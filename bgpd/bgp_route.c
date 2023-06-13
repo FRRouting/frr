@@ -7459,7 +7459,7 @@ void bgp_purge_static_redist_routes(struct bgp *bgp)
 int str2prefix_rtc(const char *str, struct prefix_rtc *p);
 int str2prefix_rtc(const char *str, struct prefix_rtc *p) {
 	struct ecommunity *ecom = NULL;
-	int ret;
+	int ret = CMD_SUCCESS;
 	int plen;
 	char *pnt;
 	char *cp;
@@ -7495,12 +7495,10 @@ int str2prefix_rtc(const char *str, struct prefix_rtc *p) {
 
 		/* Get prefix length. */
 		plen = (uint8_t)atoi(++pnt);
-		zlog_info("output2: %d", plen);
 		if (plen > 96)
 			return 0;
 
 		p->prefixlen = plen;
-		zlog_info("output3: %d", PSIZE(plen) -4);
 		memcpy(&p->prefix.route_target, ecom->val, PSIZE(plen) -4);
 		XFREE(MTYPE_TMP, cp);
 		return ret;
