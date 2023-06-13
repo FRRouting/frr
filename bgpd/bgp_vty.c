@@ -10291,13 +10291,11 @@ static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
 }
 
 /* For testing purpose, static route of RTC. */
-DEFUN (rtc_network,
-       rtc_network_cmd,
-       "network A.B.C.D/M rd WORD",
-	   "A test command\n"
-	   "Specify a network to announce\n"
-	   "Route distinguisher\n"
-	   "Define rd\n")
+DEFUN(rtc_network, rtc_network_cmd, "network A.B.C.D/M rd WORD",
+      "A test command\n"
+      "Specify a network to announce\n"
+      "Route distinguisher\n"
+      "Define rd\n")
 {
   vty_out(vty, "%% RTC network\n");
   vty_out(vty, "%% A.B.C.D/M: %s\n", argv[1]->arg);
@@ -10311,24 +10309,19 @@ DEFUN (rtc_network,
 
 
 /* For testing purpose, static route of ENCAP. */
-DEFUN (no_rtc_network,
-       no_rtc_network_cmd,
-       "no network A.B.C.D/M rd WORD",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Specify Route Distinguisher\n"
-	   "TEST\n"
-       )
+DEFUN(no_rtc_network, no_rtc_network_cmd, "no network A.B.C.D/M rd WORD",
+      NO_STR
+      "Specify a network to announce via BGP\n"
+      "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+      "Specify Route Distinguisher\n"
+      "TEST\n")
 {
-  vty_out(vty, "%% RTC network\n");
-  vty_out(vty, "%% A.B.C.D/M: %s\n", argv[2]->arg);
-  vty_out(vty, "%% rd %s\n", argv[4]->arg);
-  return bgp_static_unset_safi (AFI_IP, SAFI_RTC, vty, argv[2]->arg,
-		argv[4]->arg, "test",
-		BGP_EVPN_IP_PREFIX_ROUTE, NULL,
-		NULL, NULL
-		);
+	vty_out(vty, "%% RTC network\n");
+	vty_out(vty, "%% A.B.C.D/M: %s\n", argv[2]->arg);
+	vty_out(vty, "%% rd %s\n", argv[4]->arg);
+	return bgp_static_unset_safi(
+		AFI_IP, SAFI_RTC, vty, argv[2]->arg, argv[4]->arg, "test",
+		BGP_EVPN_IP_PREFIX_ROUTE, NULL, NULL, NULL);
 }
 
 DEFPY (af_rt_vpn_imexport,
@@ -11031,14 +11024,12 @@ DEFUN_NOSH (exit_address_family,
        "exit-address-family",
        "Exit from Address Family configuration mode\n")
 {
-	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE
-	    || vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE
-	    || vty->node == BGP_IPV6_NODE || vty->node == BGP_IPV6M_NODE
-	    || vty->node == BGP_IPV6L_NODE || vty->node == BGP_VPNV6_NODE
-	    || vty->node == BGP_EVPN_NODE
-	    || vty->node == BGP_FLOWSPECV4_NODE
-	    || vty->node == BGP_FLOWSPECV6_NODE
-		|| vty->node == BGP_RTC_NODE)
+	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE ||
+	    vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE ||
+	    vty->node == BGP_IPV6_NODE || vty->node == BGP_IPV6M_NODE ||
+	    vty->node == BGP_IPV6L_NODE || vty->node == BGP_VPNV6_NODE ||
+	    vty->node == BGP_EVPN_NODE || vty->node == BGP_FLOWSPECV4_NODE ||
+	    vty->node == BGP_FLOWSPECV6_NODE || vty->node == BGP_RTC_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -19942,8 +19933,7 @@ int bgp_config_write(struct vty *vty)
 		/* EVPN configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_L2VPN, SAFI_EVPN);
 
-		bgp_config_write_family(vty, bgp, AFI_IP,
-					SAFI_RTC);
+		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_RTC);
 
 		hook_call(bgp_inst_config_write, bgp, vty);
 

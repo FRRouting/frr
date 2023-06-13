@@ -351,15 +351,17 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
-	case SAFI_RTC: ;
+	case SAFI_RTC:;
 		uint8_t *pnt = packet->nlri;
-		uint8_t* lim = packet->nlri + packet->length;
+		uint8_t *lim = packet->nlri + packet->length;
 		int psize = 0;
 		for (; pnt < lim; pnt += psize) {
 			struct prefix p = {0};
 			p.prefixlen = *pnt++;
 			if (p.prefixlen > 96 || p.prefixlen < 32) {
-				zlog_err("SAFI_RTC parse error. Invalid prefixlen: %u", p.prefixlen);
+				zlog_err(
+					"SAFI_RTC parse error. Invalid prefixlen: %u",
+					p.prefixlen);
 				return BGP_NLRI_PARSE_ERROR;
 			}
 			p.family = AF_RTC;
@@ -370,28 +372,38 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 				return BGP_NLRI_PARSE_ERROR;
 			}
 
-			p.u.prefix_rtc.origin_as = ntohl(*(uint32_t *) pnt);
+			p.u.prefix_rtc.origin_as = ntohl(*(uint32_t *)pnt);
 			uint8_t value[ECOMMUNITY_SIZE] = {0};
-			memcpy(value, pnt+4, psize - 4);
+			memcpy(value, pnt + 4, psize - 4);
 			int offset = (p.prefixlen - 32) / 8;
 			int shift = (p.prefixlen - 32) % 8;
-			if (offset < ECOMMUNITY_SIZE){
+			if (offset < ECOMMUNITY_SIZE) {
 				for (; shift < 8; shift++) {
 					value[offset] &= ~(1 << shift);
 				}
 			}
 
-			memcpy(&p.u.prefix_rtc.route_target, value, ECOMMUNITY_SIZE);
+			memcpy(&p.u.prefix_rtc.route_target, value,
+			       ECOMMUNITY_SIZE);
 
 			if (mp_withdraw) {
-				prefix_bgp_rtc_set(peer->host, &p, PREFIX_PERMIT, 0);
-				peer->rtc_plist = prefix_list_get(AFI_IP, 0, 1, peer->host);
-				bgp_withdraw(peer, &p, 0, packet->afi, packet->safi, ZEBRA_ROUTE_BGP,
-				     	BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
+				prefix_bgp_rtc_set(peer->host, &p,
+						   PREFIX_PERMIT, 0);
+				peer->rtc_plist = prefix_list_get(AFI_IP, 0, 1,
+								  peer->host);
+				bgp_withdraw(peer, &p, 0, packet->afi,
+					     packet->safi, ZEBRA_ROUTE_BGP,
+					     BGP_ROUTE_NORMAL, NULL, NULL, 0,
+					     NULL);
 			} else {
-				prefix_bgp_rtc_set(peer->host, &p, PREFIX_PERMIT, 1);
-				peer->rtc_plist = prefix_list_get(AFI_IP, 0, 1, peer->host);
-				bgp_update(peer, &p, 0, attr, packet->afi, packet->safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, NULL, 0, 0, NULL);
+				prefix_bgp_rtc_set(peer->host, &p,
+						   PREFIX_PERMIT, 1);
+				peer->rtc_plist = prefix_list_get(AFI_IP, 0, 1,
+								  peer->host);
+				bgp_update(peer, &p, 0, attr, packet->afi,
+					   packet->safi, ZEBRA_ROUTE_BGP,
+					   BGP_ROUTE_NORMAL, NULL, NULL, 0, 0,
+					   NULL);
 			}
 		}
 		return BGP_NLRI_PARSE_OK;
@@ -2190,8 +2202,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 			peer->afc[AFI_IP][SAFI_LABELED_UNICAST];
 		peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP][SAFI_FLOWSPEC];
-		peer->afc_nego[AFI_IP][SAFI_RTC] = 
-		    peer->afc[AFI_IP][SAFI_RTC];
+		peer->afc_nego[AFI_IP][SAFI_RTC] = peer->afc[AFI_IP][SAFI_RTC];
 		peer->afc_nego[AFI_IP6][SAFI_UNICAST] =
 			peer->afc[AFI_IP6][SAFI_UNICAST];
 		peer->afc_nego[AFI_IP6][SAFI_MULTICAST] =

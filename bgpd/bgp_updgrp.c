@@ -441,9 +441,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
 
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN
-		&& peer->afc[AFI_IP][SAFI_RTC]){
-			key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN &&
+	    peer->afc[AFI_IP][SAFI_RTC]) {
+		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
 	}
 
@@ -524,9 +524,8 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			   (intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
 						PEER_FLAG_MAX_PREFIX_OUT));
 
-		zlog_debug(
-			"%pBP Update Group Hash: RTC: %u", peer, peer->afc[AFI_IP][SAFI_RTC]
-		);
+		zlog_debug("%pBP Update Group Hash: RTC: %u", peer,
+			   peer->afc[AFI_IP][SAFI_RTC]);
 
 		zlog_debug(
 			"%pBP Update Group Hash: local role: %u AIGP: %d SOO: %s",
@@ -669,9 +668,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    !sockunion_same(&pe1->connection->su, &pe2->connection->su))
 		return false;
 
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN
-		&& (pe1->afc[AFI_IP][SAFI_RTC] || pe2->afc[AFI_IP][SAFI_RTC])){
-			return false;
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN &&
+	    (pe1->afc[AFI_IP][SAFI_RTC] || pe2->afc[AFI_IP][SAFI_RTC])) {
+		return false;
 	}
 
 	return true;

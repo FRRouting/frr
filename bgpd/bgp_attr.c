@@ -4316,7 +4316,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 	case SAFI_RTC:
 		stream_putc(s, p->prefixlen);
 		stream_putl(s, p->u.prefix_rtc.origin_as);
-		stream_put(s, &p->u.prefix_rtc.route_target, PSIZE(p->prefixlen) - 4);
+		stream_put(s, &p->u.prefix_rtc.route_target,
+			   PSIZE(p->prefixlen) - 4);
 		break;
 	}
 }
