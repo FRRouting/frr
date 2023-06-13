@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [9.0-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [9.1-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -691,6 +691,8 @@ AC_ARG_ENABLE([ospfapi],
 AC_ARG_ENABLE([ospfclient],
   AS_HELP_STRING([--disable-ospfclient], [do not build OSPFAPI client for OSPFAPI,
                           (this is the default if --disable-ospfapi is set)]))
+AC_ARG_WITH([log_timestamp_precision],
+  AS_HELP_STRING([--with-log-timestamp-precision=ARG], [set startup log timestamp precision, ARG must be 0-12]))
 AC_ARG_ENABLE([multipath],
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_WITH([service_timeout],
@@ -791,6 +793,9 @@ if test "$ac_cv_lib_json_c_json_object_get" = "no"; then
   fi
 fi
 ])
+
+AC_ARG_ENABLE([ccls],
+AS_HELP_STRING([--enable-ccls], [Write .ccls config for this build]))
 
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
@@ -962,8 +967,19 @@ esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
 
-AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
+case "${with_log_timestamp_precision}" in
+[[0-9]|1[012]])
+;;
+"")
+;;
+*)
+AC_MSG_FAILURE([Please specify a number from 0-12 for log precision ARG])
+;;
+esac
+with_log_timestamp_precision=${with_log_timestamp_precision:-0}
+AC_DEFINE_UNQUOTED([LOG_TIMESTAMP_PRECISION], [${with_log_timestamp_precision}], [Startup zlog timestamp precision])
 
+AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
 
 TIMEOUT_MIN=2
 case "${with_service_timeout}" in
@@ -2806,6 +2822,42 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+
+# dnl write out a ccls file with our compile configuration
+# dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
+# dnl all DEFPY(), et al., macros to flag as errors.
+AS_IF([test "$enable_ccls" = "yes"], [
+    AC_CONFIG_COMMANDS([gen-dot-ccls], [
+        cat > "${srcdir}/.ccls" <<EOF
+clang
+-DHAVE_CONFIG_H
+-I.
+-I./include
+-I./lib
+-I./lib/assert
+-DSYSCONFDIR="${ac_frr_sysconfdir}"
+-DCONFDATE=${ac_frr_confdate}
+EOF
+        if test "$ac_abs_top_builddir" != "$ac_abs_top_srcdir"; then
+            echo "-I${ac_abs_top_builddir}" >> "${srcdir}/.ccls"
+        fi
+        if test -n "$FRR_ALL_CCLS_FLAGS"; then
+            echo ${FRR_ALL_CCLS_FLAGS} | tr ' ' '\n' >> "${srcdir}/.ccls"
+        fi
+        if test -n "$FRR_ALL_CCLS_CFLAGS"; then
+            cat >> "${srcdir}/.ccls" <<EOF
+%c $(echo ${FRR_ALL_CCLS_CFLAGS} | sed -e 's/  */\n%c /g')
+%c -Wno-unused-function
+EOF
+fi
+    ], [
+    FRR_ALL_CCLS_FLAGS="$(echo ${LIBYANG_CFLAGS} ${LUA_INCLUDE} ${SQLITE3_CFLAGS} | sed -e 's/  */ /g')"
+    FRR_ALL_CCLS_CFLAGS="$(echo ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS} | sed -e 's/  */ /g')"
+    ac_frr_confdate="${CONFDATE}"
+    ac_frr_sysconfdir="${sysconfdir}/"
+    ])
+])
+
 
 AS_IF([test "$with_pkg_git_version" = "yes"], [
     AC_CONFIG_COMMANDS([lib/gitversion.h], [

@@ -31,6 +31,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -118,6 +119,8 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 
 		while (!LIST_EMPTY(&(bnc->paths))) {
 			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
+
+			bgp_mplsvpn_path_nh_label_unlink(path);
 
 			path_nh_map(path, bnc, false);
 		}
@@ -908,27 +911,37 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 		}
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV6:
-			vty_out(vty, "  gate %pI6\n", &nexthop->gate.ipv6);
-			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			vty_out(vty, "  gate %pI6, if %s\n",
-				&nexthop->gate.ipv6,
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
-					       bgp->vrf_id));
+			vty_out(vty, "  gate %pI6", &nexthop->gate.ipv6);
+			if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+			    bnc->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex,
+						       bgp->vrf_id));
+			else if (nexthop->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(nexthop->ifindex,
+						       bgp->vrf_id));
+			else
+				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IPV4:
-			vty_out(vty, "  gate %pI4\n", &nexthop->gate.ipv4);
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			vty_out(vty, "  gate %pI4", &nexthop->gate.ipv4);
+			if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
+			    bnc->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex,
+						       bgp->vrf_id));
+			else if (nexthop->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(nexthop->ifindex,
+						       bgp->vrf_id));
+			else
+				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, "  if %s\n",
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
-					       bgp->vrf_id));
-			break;
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			vty_out(vty, "  gate %pI4, if %s\n",
-				&nexthop->gate.ipv4,
 				ifindex2ifname(bnc->ifindex ? bnc->ifindex
 							    : nexthop->ifindex,
 					       bgp->vrf_id));

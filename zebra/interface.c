@@ -267,6 +267,9 @@ struct interface *if_link_per_ns(struct zebra_ns *ns, struct interface *ifp)
 /* Delete a VRF. This is called in vrf_terminate(). */
 void if_unlink_per_ns(struct interface *ifp)
 {
+	if (!ifp->node)
+		return;
+
 	ifp->node->info = NULL;
 	route_unlock_node(ifp->node);
 	ifp->node = NULL;
@@ -800,6 +803,8 @@ void if_delete_update(struct interface **pifp)
 	if (ifp->vrf->vrf_id && !vrf_is_backend_netns())
 		if_handle_vrf_change(ifp, VRF_DEFAULT);
 
+	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+
 	/* Reset some zebra interface params to default values. */
 	zif = ifp->info;
 	if (zif) {
@@ -839,6 +844,9 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Send out notification on interface VRF change. */
 	/* This is to issue an UPDATE or a DELETE, as appropriate. */
 	zebra_interface_vrf_update_del(ifp, vrf_id);
+
+	if (if_is_vrf(ifp))
+		return;
 
 	/* update VRF */
 	if_update_to_new_vrf(ifp, vrf_id);

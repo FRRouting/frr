@@ -463,7 +463,7 @@ int main(int argc, char **argv, char **env)
 	}
 	if (inputfile && (writeconfig || boot_flag)) {
 		fprintf(stderr,
-			"WARNING: Combinining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
+			"WARNING: Combining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 
 	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s%s", sysconfdir,

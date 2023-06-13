@@ -34,18 +34,23 @@ static int log_cmdline_syslog_lvl = ZLOG_DISABLED;
 
 static struct zlog_cfg_file zt_file_cmdline = {
 	.prio_min = ZLOG_DISABLED,
+	.ts_subsec = LOG_TIMESTAMP_PRECISION,
 };
 static struct zlog_cfg_file zt_file = {
 	.prio_min = ZLOG_DISABLED,
+	.ts_subsec = LOG_TIMESTAMP_PRECISION,
 };
 static struct zlog_cfg_filterfile zt_filterfile = {
-	.parent = {
-		.prio_min = ZLOG_DISABLED,
-	},
+	.parent =
+		{
+			.prio_min = ZLOG_DISABLED,
+			.ts_subsec = LOG_TIMESTAMP_PRECISION,
+		},
 };
 
 static struct zlog_cfg_file zt_stdout_file = {
 	.prio_min = ZLOG_DISABLED,
+	.ts_subsec = LOG_TIMESTAMP_PRECISION,
 };
 static struct zlog_cfg_5424 zt_stdout_journald = {
 	.prio_min = ZLOG_DISABLED,

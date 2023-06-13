@@ -101,6 +101,9 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 			cost = 1;
 		else if (cost > 65535)
 			cost = 65535;
+
+		if (if_is_loopback(oi->ifp))
+			cost = 0;
 	}
 
 	return cost;
@@ -527,6 +530,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, passive_interface);
 	UNSET_IF_PARAM(oip, v_hello);
 	UNSET_IF_PARAM(oip, fast_hello);
+	UNSET_IF_PARAM(oip, v_gr_hello_delay);
 	UNSET_IF_PARAM(oip, v_wait);
 	UNSET_IF_PARAM(oip, priority);
 	UNSET_IF_PARAM(oip, type);
@@ -541,6 +545,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	oip->is_v_wait_set = false;
 
 	oip->ptp_dmvpn = 0;
+	oip->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
 
 	return oip;
 }
@@ -675,6 +680,9 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), fast_hello);
 	IF_DEF_PARAMS(ifp)->fast_hello = OSPF_FAST_HELLO_DEFAULT;
+
+	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_gr_hello_delay);
+	IF_DEF_PARAMS(ifp)->v_gr_hello_delay = OSPF_HELLO_DELAY_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_wait);
 	IF_DEF_PARAMS(ifp)->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;

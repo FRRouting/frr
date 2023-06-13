@@ -535,17 +535,24 @@ static bool zebra_evpn_acc_vl_cmp(const void *p1, const void *p2)
 }
 
 /* Lookup VLAN based broadcast domain */
-struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid,
-						    struct interface *br_if)
+struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find_index(vlanid_t vid, ifindex_t bridge_ifindex)
 {
 	struct zebra_evpn_access_bd *acc_bd;
 	struct zebra_evpn_access_bd tmp;
 
 	tmp.vid = vid;
-	tmp.bridge_ifindex = br_if->ifindex;
+	tmp.bridge_ifindex = bridge_ifindex;
 	acc_bd = hash_lookup(zmh_info->evpn_vlan_table, &tmp);
 
 	return acc_bd;
+}
+
+/* Lookup VLAN based broadcast domain */
+struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid,
+						    struct interface *br_if)
+{
+	return zebra_evpn_acc_vl_find_index(vid, br_if->ifindex);
 }
 
 /* A new broadcast domain can be created when a VLAN member or VLAN<=>VxLAN_IF
@@ -842,9 +849,9 @@ void zebra_evpn_access_bd_bridge_cleanup(vlanid_t vid, struct interface *br_if,
 void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 			     bool set)
 {
-	struct interface *br_if;
 	struct zebra_vxlan_vni *vni;
 	struct zebra_evpn_access_bd *acc_bd;
+	ifindex_t br_ifindex;
 
 	if (!zif)
 		return;
@@ -854,11 +861,12 @@ void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 	if (!vni)
 		return;
 
-	br_if = zif->brslave_info.br_if;
-	if (!br_if)
+	/* Use the index as the pointer can be stale (deleted) */
+	br_ifindex = zif->brslave_info.bridge_ifindex;
+	if (!zif->brslave_info.br_if || br_ifindex == IFINDEX_INTERNAL)
 		return;
 
-	acc_bd = zebra_evpn_acc_vl_find(vni->access_vlan, br_if);
+	acc_bd = zebra_evpn_acc_vl_find_index(vni->access_vlan, br_ifindex);
 	if (!acc_bd)
 		return;
 
@@ -3157,6 +3165,9 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 				json_array_string_add(json_flags, "local");
 			if (es->flags & ZEBRA_EVPNES_REMOTE)
 				json_array_string_add(json_flags, "remote");
+			if (es->flags & ZEBRA_EVPNES_LOCAL &&
+			    !(es->flags & ZEBRA_EVPNES_NON_DF))
+				json_array_string_add(json_flags, "df");
 			if (es->flags & ZEBRA_EVPNES_NON_DF)
 				json_array_string_add(json_flags, "nonDF");
 			if (es->flags & ZEBRA_EVPNES_BYPASS)

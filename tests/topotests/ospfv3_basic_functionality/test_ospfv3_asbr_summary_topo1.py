@@ -565,7 +565,7 @@ def test_ospfv3_type5_summary_tc42_p0(request):
 
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
 
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {

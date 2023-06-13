@@ -86,8 +86,8 @@ module frr-ripngd {
           "VRF name.";
       }
       leaf allow-ecmp {
-        type boolean;
-        default "false";
+        type uint8;
+        default 0;
         description
           "Allow equal-cost multi-path.";
       }

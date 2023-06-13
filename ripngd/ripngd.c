@@ -443,7 +443,10 @@ struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
 {
 	struct agg_node *rp = rinfo_new->rp;
 	struct ripng_info *rinfo = NULL;
+	struct ripng_info *rinfo_exist = NULL;
 	struct list *list = NULL;
+	struct listnode *node = NULL;
+	struct listnode *nnode = NULL;
 
 	if (rp->info == NULL)
 		rp->info = list_new();
@@ -454,6 +457,33 @@ struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
 	if (listcount(list) && !ripng->ecmp)
 		return NULL;
 
+	/* Add or replace an existing ECMP path with lower neighbor IP */
+	if (listcount(list) && listcount(list) >= ripng->ecmp) {
+		struct ripng_info *from_highest = NULL;
+
+		/* Find the rip_info struct that has the highest nexthop IP */
+		for (ALL_LIST_ELEMENTS(list, node, nnode, rinfo_exist))
+			if (!from_highest ||
+			    (from_highest &&
+			     IPV6_ADDR_CMP(&rinfo_exist->from,
+					   &from_highest->from) > 0)) {
+				from_highest = rinfo_exist;
+			}
+
+		/* If we have a route in ECMP group, delete the old
+		 * one that has a higher next-hop address. Lower IP is
+		 * preferred.
+		 */
+		if (ripng->ecmp > 1 && from_highest &&
+		    IPV6_ADDR_CMP(&from_highest->from, &rinfo_new->from) > 0) {
+			ripng_ecmp_delete(ripng, from_highest);
+			goto add_or_replace;
+		}
+
+		return NULL;
+	}
+
+add_or_replace:
 	rinfo = ripng_info_new();
 	memcpy(rinfo, rinfo_new, sizeof(struct ripng_info));
 	listnode_add(list, rinfo);
@@ -473,6 +503,36 @@ struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
 	ripng_event(ripng, RIPNG_TRIGGERED_UPDATE, 0);
 
 	return rinfo;
+}
+
+/* Update ECMP routes to zebra when `allow-ecmp` changed. */
+void ripng_ecmp_change(struct ripng *ripng)
+{
+	struct agg_node *rp;
+	struct ripng_info *rinfo;
+	struct list *list;
+	struct listnode *node, *nextnode;
+
+	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
+		list = rp->info;
+		if (list && listcount(list) > 1) {
+			while (listcount(list) > ripng->ecmp) {
+				struct ripng_info *from_highest = NULL;
+
+				for (ALL_LIST_ELEMENTS(list, node, nextnode,
+						       rinfo)) {
+					if (!from_highest ||
+					    (from_highest &&
+					     IPV6_ADDR_CMP(
+						     &rinfo->from,
+						     &from_highest->from) > 0))
+						from_highest = rinfo;
+				}
+
+				ripng_ecmp_delete(ripng, from_highest);
+			}
+		}
+	}
 }
 
 /* Replace the ECMP list with the new route.
@@ -1814,7 +1874,7 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 		"%s/timers/flush-interval", RIPNG_INSTANCE);
 	ripng->default_metric =
 		yang_get_default_uint8("%s/default-metric", RIPNG_INSTANCE);
-	ripng->ecmp = yang_get_default_bool("%s/allow-ecmp", RIPNG_INSTANCE);
+	ripng->ecmp = yang_get_default_uint8("%s/allow-ecmp", RIPNG_INSTANCE);
 
 	/* Make buffer.  */
 	ripng->ibuf = stream_new(RIPNG_MAX_PACKET_SIZE * 5);

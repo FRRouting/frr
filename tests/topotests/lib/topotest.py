@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import logging
 from collections.abc import Mapping
 from copy import deepcopy
 
@@ -38,7 +39,7 @@ g_pytest_config = None
 
 
 def get_logs_path(rundir):
-    logspath = topolog.get_test_logdir()
+    logspath = topolog.get_test_logdir(module=True)
     return os.path.join(rundir, logspath)
 
 
@@ -988,7 +989,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         )
         if addressSanitizerLog:
             # Find Calling Test. Could be multiple steps back
-            testframe = sys._current_frames().values()[0]
+            testframe = list(sys._current_frames().values())[0]
             level = 0
             while level < 10:
                 test = os.path.splitext(
@@ -1100,7 +1101,7 @@ def _sysctl_atleast(commander, variable, min_value):
         else:
             valstr = str(min_value)
         logger.debug("Increasing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"'.format(variable, valstr))
 
 
 def _sysctl_assure(commander, variable, value):
@@ -1137,7 +1138,9 @@ def _sysctl_assure(commander, variable, value):
 def sysctl_atleast(commander, variable, min_value, raises=False):
     try:
         if commander is None:
-            commander = micronet.Commander("topotest")
+            logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=logger)
+
         return _sysctl_atleast(commander, variable, min_value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1153,7 +1156,8 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
 def sysctl_assure(commander, variable, value, raises=False):
     try:
         if commander is None:
-            commander = micronet.Commander("topotest")
+            logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=logger)
         return _sysctl_assure(commander, variable, value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1469,21 +1473,22 @@ class Router(Node):
                 if not running:
                     break
 
-        if not running:
-            return ""
+        if running:
+            logger.warning(
+                "%s: sending SIGBUS to: %s",
+                self.name,
+                ", ".join([x[0] for x in running]),
+            )
+            for name, pid in running:
+                pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
+                logger.info("%s: killing %s", self.name, name)
+                self.cmd("kill -SIGBUS %d" % pid)
+                self.cmd("rm -- " + pidfile)
 
-        logger.warning(
-            "%s: sending SIGBUS to: %s", self.name, ", ".join([x[0] for x in running])
-        )
-        for name, pid in running:
-            pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
-            logger.info("%s: killing %s", self.name, name)
-            self.cmd("kill -SIGBUS %d" % pid)
-            self.cmd("rm -- " + pidfile)
-
-        sleep(
-            0.5, "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name
-        )
+            sleep(
+                0.5,
+                "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name,
+            )
 
         errors = self.checkRouterCores(reportOnce=True)
         if self.checkRouterVersion("<", minErrorVersion):
@@ -1526,6 +1531,11 @@ class Router(Node):
         """
 
         # Unfortunately this API allowsfor source to not exist for any and all routers.
+        source_was_none = source is None
+        if source_was_none:
+            source = f"{daemon}.conf"
+
+        # "" to avoid loading a default config which is present in router dir
         if source:
             head, tail = os.path.split(source)
             if not head and not self.path_exists(tail):
@@ -1546,18 +1556,40 @@ class Router(Node):
             if param is not None:
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
-            if source is None or not os.path.exists(source):
+            if source and not os.path.exists(source):
+                logger.warning(
+                    "missing config '%s' for '%s' creating empty file '%s'",
+                    self.name,
+                    source,
+                    conf_file,
+                )
                 if daemon == "frr" or not self.unified_config:
                     self.cmd_raises("rm -f " + conf_file)
                     self.cmd_raises("touch " + conf_file)
-            else:
+                    self.cmd_raises(
+                        "chown {0}:{0} {1}".format(self.routertype, conf_file)
+                    )
+                    self.cmd_raises("chmod 664 {}".format(conf_file))
+            elif source:
                 # copy zebra.conf to mgmtd folder, which can be used during startup
-                if daemon == "zebra":
+                if daemon == "zebra" and not self.unified_config:
                     conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
+                    logger.debug(
+                        "copying '%s' as '%s' on '%s'",
+                        source,
+                        conf_file_mgmt,
+                        self.name,
+                    )
                     self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
-                self.cmd_raises("cp {} {}".format(source, conf_file))
+                    self.cmd_raises(
+                        "chown {0}:{0} {1}".format(self.routertype, conf_file_mgmt)
+                    )
+                    self.cmd_raises("chmod 664 {}".format(conf_file_mgmt))
 
-            if not self.unified_config or daemon == "frr":
+                logger.debug(
+                    "copying '%s' as '%s' on '%s'", source, conf_file, self.name
+                )
+                self.cmd_raises("cp {} {}".format(source, conf_file))
                 self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
                 self.cmd_raises("chmod 664 {}".format(conf_file))
 
@@ -1584,7 +1616,8 @@ class Router(Node):
 
         else:
             logger.warning("No daemon {} known".format(daemon))
-        # print "Daemons after:", self.daemons
+
+        return source if os.path.exists(source) else ""
 
     def runInWindow(self, cmd, title=None):
         return self.run_in_window(cmd, title)
@@ -1683,7 +1716,11 @@ class Router(Node):
         return self.getLog("out", daemon)
 
     def getLog(self, log, daemon):
-        return self.cmd("cat {}/{}/{}.{}".format(self.logdir, self.name, daemon, log))
+        filename = "{}/{}/{}.{}".format(self.logdir, self.name, daemon, log)
+        log = ""
+        with open(filename) as file:
+            log = file.read()
+        return log
 
     def startRouterDaemons(self, daemons=None, tgen=None):
         "Starts FRR daemons for this router."
@@ -1841,9 +1878,13 @@ class Router(Node):
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
                 )
-            elif daemon in perfds and (self.name in perfds[daemon] or "all" in perfds[daemon]):
+            elif daemon in perfds and (
+                self.name in perfds[daemon] or "all" in perfds[daemon]
+            ):
                 cmdopt += rediropt
-                cmd = " ".join(["perf record {} --".format(perf_options), binary, cmdopt])
+                cmd = " ".join(
+                    ["perf record {} --".format(perf_options), binary, cmdopt]
+                )
                 p = self.popen(cmd)
                 self.perf_daemons[daemon] = p
                 if p.poll() and p.returncode:
@@ -1943,7 +1984,7 @@ class Router(Node):
                 tail_log_files.append("{}/{}/frr.log".format(self.logdir, self.name))
 
         for tailf in tail_log_files:
-            self.run_in_window("tail -f " + tailf, title=tailf, background=True)
+            self.run_in_window("tail -n10000 -F " + tailf, title=tailf, background=True)
 
         return ""
 

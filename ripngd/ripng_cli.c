@@ -85,14 +85,32 @@ void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
 /*
  * XPath: /frr-ripngd:ripngd/instance/allow-ecmp
  */
-DEFPY_YANG (ripng_allow_ecmp,
-       ripng_allow_ecmp_cmd,
-       "[no] allow-ecmp",
-       NO_STR
-       "Allow Equal Cost MultiPath\n")
+DEFUN_YANG (ripng_allow_ecmp,
+            ripng_allow_ecmp_cmd,
+            "allow-ecmp [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
+            "Allow Equal Cost MultiPath\n"
+            "Number of paths\n")
 {
-	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY,
-			      no ? "false" : "true");
+	int idx_number = 0;
+	char mpaths[3] = {};
+	uint32_t paths = MULTIPATH_NUM;
+
+    if (argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx_number))
+		paths = strtol(argv[idx_number]->arg, NULL, 10);
+	snprintf(mpaths, sizeof(mpaths), "%u", paths);
+
+	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY, mpaths);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_ripng_allow_ecmp,
+            no_ripng_allow_ecmp_cmd,
+            "no allow-ecmp [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]", NO_STR
+            "Allow Equal Cost MultiPath\n"
+            "Number of paths\n")
+{
+	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY, 0);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -100,10 +118,14 @@ DEFPY_YANG (ripng_allow_ecmp,
 void cli_show_ripng_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no");
+	uint8_t paths;
 
-	vty_out(vty, " allow-ecmp\n");
+	paths = yang_dnode_get_uint8(dnode, NULL);
+
+	if (!paths)
+		vty_out(vty, " no allow-ecmp\n");
+	else
+		vty_out(vty, " allow-ecmp %d\n", paths);
 }
 
 /*
@@ -547,6 +569,7 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_no_ipv6_distribute_list_cmd);
 
 	install_element(RIPNG_NODE, &ripng_allow_ecmp_cmd);
+	install_element(RIPNG_NODE, &no_ripng_allow_ecmp_cmd);
 	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);
 	install_element(RIPNG_NODE, &ripng_default_metric_cmd);
 	install_element(RIPNG_NODE, &no_ripng_default_metric_cmd);

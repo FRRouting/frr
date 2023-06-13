@@ -360,7 +360,7 @@ bool bgp_mac_exist(const struct ethaddr *mac)
 	return true;
 }
 
-/* This API checks EVPN type-2 prefix and comapares
+/* This API checks EVPN type-2 prefix and compares
  * mac against any of local assigned (SVIs) MAC
  * address.
  */
@@ -375,8 +375,6 @@ bool bgp_mac_entry_exists(const struct prefix *p)
 		return false;
 
 	return bgp_mac_exist(&p->u.prefix_evpn.macip_addr.mac);
-
-	return true;
 }
 
 static void bgp_mac_show_mac_entry(struct hash_bucket *bucket, void *arg)

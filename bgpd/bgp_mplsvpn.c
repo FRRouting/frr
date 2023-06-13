@@ -1116,12 +1116,14 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 
 	/*
 	 * Routes that are redistributed into BGP from zebra do not get
-	 * nexthop tracking. However, if those routes are subsequently
-	 * imported to other RIBs within BGP, the leaked routes do not
-	 * carry the original BGP_ROUTE_REDISTRIBUTE sub_type. Therefore,
-	 * in order to determine if the route we are currently leaking
-	 * should have nexthop tracking, we must find the ultimate
-	 * parent so we can check its sub_type.
+	 * nexthop tracking, unless MPLS allocation per nexthop is
+	 * performed. In the default case nexthop tracking does not apply,
+	 * if those routes are subsequently imported to other RIBs within
+	 * BGP, the leaked routes do not carry the original
+	 * BGP_ROUTE_REDISTRIBUTE sub_type. Therefore, in order to determine
+	 * if the route we are currently leaking should have nexthop
+	 * tracking, we must find the ultimate parent so we can check its
+	 * sub_type.
 	 *
 	 * As of now, source_bpi may at most be a second-generation route
 	 * (only one hop back to ultimate parent for vrf-vpn-vrf scheme).
@@ -1336,6 +1338,264 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	return new;
 }
 
+void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi)
+{
+	struct bgp_label_per_nexthop_cache *blnc;
+
+	if (!pi)
+		return;
+
+	blnc = pi->label_nexthop_cache;
+
+	if (!blnc)
+		return;
+
+	LIST_REMOVE(pi, label_nh_thread);
+	pi->label_nexthop_cache->path_count--;
+	pi->label_nexthop_cache = NULL;
+
+	if (LIST_EMPTY(&(blnc->paths)))
+		bgp_label_per_nexthop_free(blnc);
+}
+
+/* Called upon reception of a ZAPI Message from zebra, about
+ * a new available label.
+ */
+static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
+						void *context, bool allocated)
+{
+	struct bgp_label_per_nexthop_cache *blnc = context;
+	mpls_label_t old_label;
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	struct bgp_path_info *pi;
+	struct bgp_table *table;
+
+	old_label = blnc->label;
+
+	if (debug)
+		zlog_debug("%s: label=%u, allocated=%d, nexthop=%pFX", __func__,
+			   label, allocated, &blnc->nexthop);
+	if (allocated)
+		/* update the entry with the new label */
+		blnc->label = label;
+	else
+		/*
+		 * previously-allocated label is now invalid
+		 * eg: zebra deallocated the labels and notifies it
+		 */
+		blnc->label = MPLS_INVALID_LABEL;
+
+	if (old_label == blnc->label)
+		return 0; /* no change */
+
+	/* update paths */
+	if (blnc->label != MPLS_INVALID_LABEL)
+		bgp_zebra_send_nexthop_label(
+			ZEBRA_MPLS_LABELS_ADD, blnc->label, blnc->nh->ifindex,
+			blnc->nh->vrf_id, ZEBRA_LSP_BGP, &blnc->nexthop);
+
+	LIST_FOREACH (pi, &(blnc->paths), label_nh_thread) {
+		if (!pi->net)
+			continue;
+		table = bgp_dest_table(pi->net);
+		if (!table)
+			continue;
+		vpn_leak_from_vrf_update(blnc->to_bgp, table->bgp, pi);
+	}
+
+	return 0;
+}
+
+/* Get a per label nexthop value:
+ *  - Find and return a per label nexthop from the cache
+ *  - else allocate a new per label nexthop cache entry and request a
+ *    label to zebra. Return MPLS_INVALID_LABEL
+ */
+static mpls_label_t _vpn_leak_from_vrf_get_per_nexthop_label(
+	struct bgp_path_info *pi, struct bgp *to_bgp, struct bgp *from_bgp,
+	afi_t afi, safi_t safi)
+{
+	struct bgp_nexthop_cache *bnc = pi->nexthop;
+	struct bgp_label_per_nexthop_cache *blnc;
+	struct bgp_label_per_nexthop_cache_head *tree;
+	struct prefix *nh_pfx = NULL;
+	struct prefix nh_gate = {0};
+
+	/* extract the nexthop from the BNC nexthop cache */
+	switch (bnc->nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		/* the nexthop is recursive */
+		nh_gate.family = AF_INET;
+		nh_gate.prefixlen = IPV4_MAX_BITLEN;
+		IPV4_ADDR_COPY(&nh_gate.u.prefix4, &bnc->nexthop->gate.ipv4);
+		nh_pfx = &nh_gate;
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		/* the nexthop is recursive */
+		nh_gate.family = AF_INET6;
+		nh_gate.prefixlen = IPV6_MAX_BITLEN;
+		IPV6_ADDR_COPY(&nh_gate.u.prefix6, &bnc->nexthop->gate.ipv6);
+		nh_pfx = &nh_gate;
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		/* the nexthop is direcly connected */
+		nh_pfx = &bnc->prefix;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		assert(!"Blackhole nexthop. Already checked by the caller.");
+	}
+
+	/* find or allocate a nexthop label cache entry */
+	tree = &from_bgp->mpls_labels_per_nexthop[family2afi(nh_pfx->family)];
+	blnc = bgp_label_per_nexthop_find(tree, nh_pfx);
+	if (!blnc) {
+		blnc = bgp_label_per_nexthop_new(tree, nh_pfx);
+		blnc->to_bgp = to_bgp;
+		/* request a label to zebra for this nexthop
+		 * the response from zebra will trigger the callback
+		 */
+		bgp_lp_get(LP_TYPE_NEXTHOP, blnc,
+			   bgp_mplsvpn_get_label_per_nexthop_cb);
+	}
+
+	if (pi->label_nexthop_cache == blnc)
+		/* no change */
+		return blnc->label;
+
+	/* Unlink from any existing nexthop cache. Free the entry if unused.
+	 */
+	bgp_mplsvpn_path_nh_label_unlink(pi);
+
+	/* updates NHT pi list reference */
+	LIST_INSERT_HEAD(&(blnc->paths), pi, label_nh_thread);
+	pi->label_nexthop_cache = blnc;
+	pi->label_nexthop_cache->path_count++;
+	blnc->last_update = monotime(NULL);
+
+	/* then add or update the selected nexthop */
+	if (!blnc->nh)
+		blnc->nh = nexthop_dup(bnc->nexthop, NULL);
+	else if (!nexthop_same(bnc->nexthop, blnc->nh)) {
+		nexthop_free(blnc->nh);
+		blnc->nh = nexthop_dup(bnc->nexthop, NULL);
+		if (blnc->label != MPLS_INVALID_LABEL) {
+			bgp_zebra_send_nexthop_label(
+				ZEBRA_MPLS_LABELS_REPLACE, blnc->label,
+				bnc->nexthop->ifindex, bnc->nexthop->vrf_id,
+				ZEBRA_LSP_BGP, &blnc->nexthop);
+		}
+	}
+
+	return blnc->label;
+}
+
+/* Filter out all the cases where a per nexthop label is not possible:
+ * - return an invalid label when the nexthop is invalid
+ * - return the per VRF label when the per nexthop label is not supported
+ * Otherwise, find or request a per label nexthop.
+ */
+static mpls_label_t vpn_leak_from_vrf_get_per_nexthop_label(
+	afi_t afi, safi_t safi, struct bgp_path_info *pi, struct bgp *from_bgp,
+	struct bgp *to_bgp)
+{
+	struct bgp_path_info *bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
+	struct bgp *bgp_nexthop = NULL;
+	bool nh_valid;
+	afi_t nh_afi;
+	bool is_bgp_static_route;
+
+	is_bgp_static_route = bpi_ultimate->sub_type == BGP_ROUTE_STATIC &&
+			      bpi_ultimate->type == ZEBRA_ROUTE_BGP;
+
+	if (is_bgp_static_route == false && afi == AFI_IP &&
+	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) &&
+	    (pi->attr->nexthop.s_addr == INADDR_ANY ||
+	     !ipv4_unicast_valid(&pi->attr->nexthop))) {
+		/* IPv4 nexthop in standard BGP encoding format.
+		 * Format of address is not valid (not any, not unicast).
+		 * Fallback to the per VRF label.
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return from_bgp->vpn_policy[afi].tovpn_label;
+	}
+
+	if (is_bgp_static_route == false && afi == AFI_IP &&
+	    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 &&
+	    (pi->attr->mp_nexthop_global_in.s_addr == INADDR_ANY ||
+	     !ipv4_unicast_valid(&pi->attr->mp_nexthop_global_in))) {
+		/* IPv4 nexthop is in MP-BGP encoding format.
+		 * Format of address is not valid (not any, not unicast).
+		 * Fallback to the per VRF label.
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return from_bgp->vpn_policy[afi].tovpn_label;
+	}
+
+	if (is_bgp_static_route == false && afi == AFI_IP6 &&
+	    (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+	     pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) &&
+	    (IN6_IS_ADDR_UNSPECIFIED(&pi->attr->mp_nexthop_global) ||
+	     IN6_IS_ADDR_LOOPBACK(&pi->attr->mp_nexthop_global) ||
+	     IN6_IS_ADDR_MULTICAST(&pi->attr->mp_nexthop_global))) {
+		/* IPv6 nexthop is in MP-BGP encoding format.
+		 * Format of address is not valid
+		 * Fallback to the per VRF label.
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return from_bgp->vpn_policy[afi].tovpn_label;
+	}
+
+	/* Check the next-hop reachability.
+	 * Get the bgp instance where the bgp_path_info originates.
+	 */
+	if (pi->extra && pi->extra->bgp_orig)
+		bgp_nexthop = pi->extra->bgp_orig;
+	else
+		bgp_nexthop = from_bgp;
+
+	nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
+	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi, safi,
+					   pi, NULL, 0, NULL);
+
+	if (!nh_valid && is_bgp_static_route &&
+	    !CHECK_FLAG(from_bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
+		/* "network" prefixes not routable, but since 'no bgp network
+		 * import-check' is configured, they are always valid in the BGP
+		 * table. Fallback to the per-vrf label
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return from_bgp->vpn_policy[afi].tovpn_label;
+	}
+
+	if (!nh_valid || !pi->nexthop || pi->nexthop->nexthop_num == 0 ||
+	    !pi->nexthop->nexthop) {
+		/* invalid next-hop:
+		 * do not send the per-vrf label
+		 * otherwise, when the next-hop becomes valid,
+		 * we will have 2 BGP updates:
+		 * - one with the per-vrf label
+		 * - the second with the per-nexthop label
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return MPLS_INVALID_LABEL;
+	}
+
+	if (pi->nexthop->nexthop_num > 1 ||
+	    pi->nexthop->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		/* Blackhole or ECMP routes
+		 * is not compatible with per-nexthop label.
+		 * Fallback to per-vrf label.
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return from_bgp->vpn_policy[afi].tovpn_label;
+	}
+
+	return _vpn_leak_from_vrf_get_per_nexthop_label(pi, to_bgp, from_bgp,
+							afi, safi);
+}
+
 /* cf vnc_import_bgp_add_route_mode_nvegroup() and add_vnc_route() */
 void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			      struct bgp *from_bgp,	   /* from */
@@ -1528,12 +1788,32 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		nexthop_self_flag = 1;
 	}
 
-	label_val = from_bgp->vpn_policy[afi].tovpn_label;
-	if (label_val == MPLS_LABEL_NONE) {
-		encode_label(MPLS_LABEL_IMPLICIT_NULL, &label);
-	} else {
-		encode_label(label_val, &label);
+	if (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
+		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
+		/* per nexthop label mode */
+		label_val = vpn_leak_from_vrf_get_per_nexthop_label(
+			afi, safi, path_vrf, from_bgp, to_bgp);
+	else
+		/* per VRF label mode */
+		label_val = from_bgp->vpn_policy[afi].tovpn_label;
+
+	if (label_val == MPLS_INVALID_LABEL &&
+	    CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
+		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP)) {
+		/* no valid label for the moment
+		 * when the 'bgp_mplsvpn_get_label_per_nexthop_cb' callback gets
+		 * a valid label value, it will call the current function again.
+		 */
+		if (debug)
+			zlog_debug(
+				"%s: %s skipping: waiting for a valid per-label nexthop.",
+				__func__, from_bgp->name_pretty);
+		return;
 	}
+	if (label_val == MPLS_LABEL_NONE)
+		encode_label(MPLS_LABEL_IMPLICIT_NULL, &label);
+	else
+		encode_label(label_val, &label);
 
 	/* Set originator ID to "me" */
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
@@ -1770,6 +2050,8 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 						bpi, afi, safi);
 					bgp_path_info_delete(bn, bpi);
 					bgp_process(to_bgp, bn, afi, safi);
+					bgp_mplsvpn_path_nh_label_unlink(
+						bpi->extra->parent);
 				}
 			}
 		}

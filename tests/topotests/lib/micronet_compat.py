@@ -121,7 +121,7 @@ class Mininet(BaseMunet):
 
     g_mnet_inst = None
 
-    def __init__(self, rundir=None, pytestconfig=None):
+    def __init__(self, rundir=None, pytestconfig=None, logger=None):
         """
         Create a Micronet.
         """
@@ -140,7 +140,7 @@ class Mininet(BaseMunet):
         # os.umask(0)
 
         super(Mininet, self).__init__(
-            pid=False, rundir=rundir, pytestconfig=pytestconfig
+            pid=False, rundir=rundir, pytestconfig=pytestconfig, logger=logger
         )
 
         # From munet/munet/native.py
@@ -273,7 +273,7 @@ ff02::2\tip6-allrouters
 
         shellopt = self.cfgopt.get_option_list("--shell")
         if "all" in shellopt or "." in shellopt:
-            self.run_in_window("bash")
+            self.run_in_window("bash", title="munet")
 
         # This is expected by newer munet CLI code
         self.config_dirname = ""

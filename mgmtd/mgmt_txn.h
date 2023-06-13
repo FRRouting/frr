@@ -101,16 +101,6 @@ extern uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type);
 extern void mgmt_destroy_txn(uint64_t *txn_id);
 
 /*
- * Check if transaction is valid given an ID.
- */
-extern bool mgmt_txn_id_is_valid(uint64_t txn_id);
-
-/*
- * Returns the type of transaction given an ID.
- */
-extern enum mgmt_txn_type mgmt_get_txn_type(uint64_t txn_id);
-
-/*
  * Send set-config request to be processed later in transaction.
  *
  * txn_id
@@ -185,10 +175,6 @@ extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 					    struct mgmt_ds_ctx *src_ds_ctx,
 					    bool validate_only, bool abort,
 					    bool implicit);
-
-extern int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
-					      enum mgmt_result result,
-					      const char *error_if_any);
 
 /*
  * Send get-config request to be processed later in transaction.

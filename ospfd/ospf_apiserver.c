@@ -1764,6 +1764,12 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 		 * session. Dump it, but increment past it's seqnum.
 		 */
 		assert(!ospf_opaque_is_owned(old));
+		if (IS_DEBUG_OSPF_CLIENT_API)
+			zlog_debug(
+				"LSA[Type%d:%pI4]: OSPF API Server Originate LSA Old Seq: 0x%x Age: %d",
+				old->data->type, &old->data->id,
+				ntohl(old->data->ls_seqnum),
+				ntohl(old->data->ls_age));
 		if (IS_LSA_MAX_SEQ(old)) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "%s: old LSA at maxseq", __func__);
@@ -1772,6 +1778,11 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 		lsa->data->ls_seqnum = lsa_seqnum_increment(old);
 		ospf_discard_from_db(ospf, old->lsdb, old);
 	}
+	if (IS_DEBUG_OSPF_CLIENT_API)
+		zlog_debug(
+			"LSA[Type%d:%pI4]: OSPF API Server Originate LSA New Seq: 0x%x Age: %d",
+			lsa->data->type, &lsa->data->id,
+			ntohl(lsa->data->ls_seqnum), ntohl(lsa->data->ls_age));
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(ospf, lsa->oi, lsa) == NULL) {
@@ -1846,6 +1857,11 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	assert(ospf);
 
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+		zlog_debug("LSA[Type%d:%pI4]: OSPF API Server LSA Refresher",
+			   lsa->data->type, &lsa->data->id);
+	}
+
 	apiserv = lookup_apiserver_by_lsa(lsa);
 	if (!apiserv) {
 		zlog_warn("%s: LSA[%s]: No apiserver?", __func__,
@@ -1855,14 +1871,14 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 		goto out;
 	}
 
-	if (IS_LSA_MAXAGE(lsa)) {
-		ospf_opaque_lsa_flush_schedule(lsa);
-		goto out;
-	}
-
 	/* Check if updated version of LSA instance has already prepared. */
 	new = ospf_lsdb_lookup(&apiserv->reserve, lsa);
 	if (!new) {
+		if (IS_LSA_MAXAGE(lsa)) {
+			ospf_opaque_lsa_flush_schedule(lsa);
+			goto out;
+		}
+
 		/* This is a periodic refresh, driven by core OSPF mechanism. */
 		new = ospf_apiserver_opaque_lsa_new(lsa->area, lsa->oi,
 						    lsa->data);

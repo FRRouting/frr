@@ -21,8 +21,10 @@
 #include "if_rmap.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "bfd.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_bfd.h"
 #include "ripd/rip_nb.h"
 #include "ripd/rip_errors.h"
 
@@ -31,6 +33,8 @@ static struct option longopts[] = {{0}};
 
 /* ripd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
+
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 struct zebra_privs_t ripd_privs = {
 #if defined(FRR_USER)
@@ -65,6 +69,7 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	bfd_protocol_integration_set_shutdown(true);
 	rip_vrf_terminate();
 	if_rmap_terminate();
 	rip_zclient_stop();
@@ -162,6 +167,7 @@ int main(int argc, char **argv)
 	rip_if_init();
 	rip_cli_init();
 	rip_zclient_init(master);
+	rip_bfd_init(master);
 
 	frr_config_fork();
 	frr_run(master);

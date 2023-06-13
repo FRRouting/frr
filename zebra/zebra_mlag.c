@@ -338,8 +338,6 @@ static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 		}
 	}
 
-	stream_free(s);
-	return;
 stream_failure:
 	stream_free(s);
 	if (zebra_s)

@@ -5274,7 +5274,9 @@ int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 
 	vni = zl3vni->vni;
 	zl3vni_del(zl3vni);
-	zebra_vxlan_handle_vni_transition(zvrf, vni, 0);
+
+	if (!zrouter.in_shutdown)
+		zebra_vxlan_handle_vni_transition(zvrf, vni, 0);
 
 	return 0;
 }

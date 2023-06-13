@@ -138,6 +138,7 @@ lib_libfrr_la_SOURCES = \
 nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-affinity-map.yang.c \
 	yang/frr-filter.yang.c \
+	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
@@ -178,6 +179,8 @@ clippy_scan += \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
 	lib/log_vty.c \
+	lib/mgmt_be_client.c \
+	lib/mgmt_fe_client.c \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
 	lib/plist.c \

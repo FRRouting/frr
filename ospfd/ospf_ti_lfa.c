@@ -1078,6 +1078,7 @@ void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 
 		q_spaces_fini(p_space->q_spaces);
 		XFREE(MTYPE_OSPF_Q_SPACE, p_space->q_spaces);
+		XFREE(MTYPE_OSPF_P_SPACE, p_space);
 	}
 
 	p_spaces_fini(area->p_spaces);

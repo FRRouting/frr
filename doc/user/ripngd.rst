@@ -38,6 +38,10 @@ Currently ripngd supports the following commands:
 
    Set RIPng static routing announcement of NETWORK.
 
+.. clicmd:: allow-ecmp [1-MULTIPATH_NUM]
+
+   Control how many ECMP paths RIPng can inject for the same prefix. If specified
+   without a number, a maximum is taken (compiled with ``--enable-multipath``).
 
 .. _ripngd-terminal-mode-commands:
 

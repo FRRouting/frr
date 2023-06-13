@@ -465,6 +465,8 @@ BFD
   :t:`Bidirectional Forwarding Detection (BFD), D. Katz, D. Ward. June 2010`
 - :rfc:`5881`
   :t:`Bidirectional Forwarding Detection (BFD) for IPv4 and IPv6 (Single Hop), D. Katz, D. Ward. June 2010`
+- :rfc:`5882`
+  :t:`Generic Application of Bidirectional Forwarding Detection (BFD), D. Katz, D. Ward. June 2010`
 - :rfc:`5883`
   :t:`Bidirectional Forwarding Detection (BFD) for Multihop Paths, D. Katz, D. Ward. June 2010`
 

@@ -10,6 +10,7 @@ the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
+* :rfc:`5882`
 * :rfc:`5883`
 
 Currently, there are two implementations of the BFD commands in FRR:
@@ -351,6 +352,33 @@ The following commands are available inside the interface configuration node.
 
    Optionally uses the BFD profile ``BFDPROF`` in the created sessions under
    that interface.
+
+
+.. _bfd-rip-peer-config:
+
+RIP BFD configuration
+---------------------
+
+The following commands are available inside the interface configuration node:
+
+.. clicmd:: ip rip bfd
+
+   Automatically create BFD session for each RIP peer discovered in this
+   interface. When the BFD session monitor signalize that the link is down
+   the RIP peer is removed and all the learned routes associated with that
+   peer are removed.
+
+
+.. clicmd:: ip rip bfd profile BFD_PROFILE_NAME
+
+   Selects a BFD profile for the BFD sessions created in this interface.
+
+
+The following command is available in the RIP router configuration node:
+
+.. clicmd:: bfd default-profile BFD_PROFILE_NAME
+
+   Selects a default BFD profile for all sessions without a profile specified.
 
 
 .. _bfd-static-peer-config:

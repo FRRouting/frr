@@ -393,14 +393,14 @@ static void _isis_spftree_del(struct isis_spftree *spftree)
 	isis_vertex_queue_free(&spftree->paths);
 	isis_route_table_info_free(spftree->route_table->info);
 	isis_route_table_info_free(spftree->route_table_backup->info);
+	route_table_finish(spftree->route_table);
+	route_table_finish(spftree->route_table_backup);
 }
 
 void isis_spftree_del(struct isis_spftree *spftree)
 {
 	_isis_spftree_del(spftree);
 
-	route_table_finish(spftree->route_table);
-	route_table_finish(spftree->route_table_backup);
 	spftree->route_table = NULL;
 
 	XFREE(MTYPE_ISIS_SPFTREE, spftree);
@@ -1843,6 +1843,9 @@ void isis_run_spf(struct isis_spftree *spftree)
 	struct timeval time_end;
 	struct isis_mt_router_info *mt_router_info;
 	uint16_t mtid = 0;
+#ifndef FABRICD
+	bool flex_algo_enabled;
+#endif /* ifndef FABRICD */
 
 	/* Get time that can't roll backwards. */
 	monotime(&time_start);
@@ -1885,16 +1888,27 @@ void isis_run_spf(struct isis_spftree *spftree)
 	 * not supported by the node, it MUST stop participating in such
 	 * Flexible-Algorithm.
 	 */
-	if (flex_algo_id_valid(spftree->algorithm) &&
-	    !isis_flex_algo_elected_supported(spftree->algorithm,
-					      spftree->area)) {
-		if (!CHECK_FLAG(spftree->flags, F_SPFTREE_DISABLED)) {
-			isis_spftree_clear(spftree);
-			SET_FLAG(spftree->flags, F_SPFTREE_DISABLED);
+	if (flex_algo_id_valid(spftree->algorithm)) {
+		flex_algo_enabled = isis_flex_algo_elected_supported(
+			spftree->algorithm, spftree->area);
+		if (flex_algo_enabled !=
+		    flex_algo_get_state(spftree->area->flex_algos,
+					spftree->algorithm)) {
+			/* actual state is inconsistent with local LSP */
 			lsp_regenerate_schedule(spftree->area,
 						spftree->area->is_type, 0);
+			goto out;
 		}
-		goto out;
+		if (!flex_algo_enabled) {
+			if (!CHECK_FLAG(spftree->flags, F_SPFTREE_DISABLED)) {
+				isis_spftree_clear(spftree);
+				SET_FLAG(spftree->flags, F_SPFTREE_DISABLED);
+				lsp_regenerate_schedule(spftree->area,
+							spftree->area->is_type,
+							0);
+			}
+			goto out;
+		}
 	}
 #endif /* ifndef FABRICD */
 

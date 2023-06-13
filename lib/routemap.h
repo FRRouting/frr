@@ -259,6 +259,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-zebra-route-map:ipv4-next-hop-prefix-length"))
 #define IS_MATCH_SRC_PROTO(C)                                                  \
 	(strmatch(C, "frr-zebra-route-map:source-protocol"))
+#define IS_MATCH_BGP_SRC_PROTO(C)                                              \
+	(strmatch(C, "frr-bgp-route-map:source-protocol"))
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
@@ -354,6 +356,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-none"))
 #define IS_SET_EXTCOMMUNITY_RT(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-rt"))
+#define IS_SET_EXTCOMMUNITY_NT(A)                                              \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-nt"))
 #define IS_SET_EXTCOMMUNITY_SOO(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-soo"))
 #define IS_SET_EXTCOMMUNITY_LB(A)                                              \

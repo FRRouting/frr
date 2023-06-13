@@ -66,9 +66,11 @@ static void ospf_area_range_add(struct ospf_area *area,
 	apply_mask_ipv4(&p);
 
 	rn = route_node_get(ranges, (struct prefix *)&p);
-	if (rn->info)
+	if (rn->info) {
 		route_unlock_node(rn);
-	else
+		ospf_area_range_free(rn->info);
+		rn->info = range;
+	} else
 		rn->info = range;
 }
 

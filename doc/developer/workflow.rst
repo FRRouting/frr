@@ -166,15 +166,15 @@ as early as possible, i.e. the first 2-week window.
 
 For reference, the expected release schedule according to the above is:
 
-+---------+------------+------------+------------+------------+------------+
-| Release | 2023-03-07 | 2023-07-04 | 2023-10-31 | 2024-02-27 | 2024-06-25 |
-+---------+------------+------------+------------+------------+------------+
-| RC      | 2023-02-21 | 2023-06-20 | 2023-10-17 | 2024-02-13 | 2024-06-11 |
-+---------+------------+------------+------------+------------+------------+
-| dev/X.Y | 2023-02-07 | 2023-06-06 | 2023-10-03 | 2024-01-30 | 2024-05-28 |
-+---------+------------+------------+------------+------------+------------+
-| freeze  | 2023-01-24 | 2023-05-23 | 2023-09-19 | 2024-01-16 | 2024-05-14 |
-+---------+------------+------------+------------+------------+------------+
++---------+------------+------------+------------+
+| Release | 2023-07-04 | 2023-10-31 | 2024-02-27 |
++---------+------------+------------+------------+
+| RC      | 2023-06-20 | 2023-10-17 | 2024-02-13 |
++---------+------------+------------+------------+
+| dev/X.Y | 2023-06-06 | 2023-10-03 | 2024-01-30 |
++---------+------------+------------+------------+
+| freeze  | 2023-05-23 | 2023-09-19 | 2024-01-16 |
++---------+------------+------------+------------+
 
 Here is the hint on how to get the dates easily:
 
@@ -537,7 +537,8 @@ Programming Languages, Tools and Libraries
 ==========================================
 
 The core of FRR is written in C (gcc or clang supported) and makes
-use of GNU compiler extensions. A few non-essential scripts are
+use of GNU compiler extensions. Additionally, the CLI generation
+tool, `clippy`, requires Python. A few other non-essential scripts are
 implemented in Perl and Python. FRR requires the following tools
 to build distribution packages: automake, autoconf, texinfo, libtool and
 gawk and various libraries (i.e. libpam and libjson-c).

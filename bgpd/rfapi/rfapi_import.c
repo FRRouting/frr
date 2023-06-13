@@ -1939,7 +1939,7 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 	struct bgp *bgp;
 	struct bgp_path_info *prev;
 	struct bgp_path_info *next;
-	char pfx_buf[PREFIX2STR_BUFFER];
+	char pfx_buf[PREFIX2STR_BUFFER] = {};
 
 
 	bgp = bgp_get_default(); /* assume 1 instance for now */

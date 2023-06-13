@@ -810,8 +810,9 @@ int bgp_getsockname(struct peer *peer)
 				   &peer->nexthop, peer)) {
 		flog_err(
 			EC_BGP_NH_UPD,
-			"%s: nexthop_set failed, resetting connection - intf %s",
-			peer->host,
+			"%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
+			peer->host, peer->su_local, peer->su_remote,
+			peer->update_if ? peer->update_if : "(None)",
 			peer->nexthop.ifp ? peer->nexthop.ifp->name
 					  : "(Unknown)");
 		return -1;

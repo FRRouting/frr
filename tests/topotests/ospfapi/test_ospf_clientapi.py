@@ -19,8 +19,14 @@ import time
 from datetime import datetime, timedelta
 
 import pytest
-
-from lib.common_config import retry, run_frr_cmd, step
+from lib.common_config import (
+    kill_router_daemons,
+    retry,
+    run_frr_cmd,
+    shutdown_bringup_interface,
+    start_router_daemons,
+    step,
+)
 from lib.micronet import Timeout, comm_error
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import interface_set_status, json_cmp
@@ -934,6 +940,206 @@ def test_ospf_opaque_delete_data3(tgen):
     rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
     logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
     _test_opaque_add_del(tgen, apibin)
+
+
+def _test_opaque_add_restart_add(tgen, apibin):
+    "Test adding an opaque LSA and then restarting ospfd"
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    p = None
+    pread = None
+    # Log to our stdin, stderr
+    pout = open(os.path.join(r1.net.logdir, "r1/add-del.log"), "a+")
+    try:
+        step("reachable: check for add notification")
+        pread = r2.popen(
+            ["/usr/bin/timeout", "120", apibin, "-v", "--logtag=READER", "wait,120"],
+            encoding=None,  # don't buffer
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        p = r1.popen(
+            [
+                apibin,
+                "-v",
+                "add,10,1.2.3.4,231,1",  # seq = 80000001
+                "wait, 5",
+                "add,10,1.2.3.4,231,1,feedaceebeef",  # seq = 80000002
+                "wait, 5",
+            ]
+        )
+        add_input_dict = {
+            "areas": {
+                "1.2.3.4": {
+                    "areaLocalOpaqueLsa": [
+                        {
+                            "lsId": "231.0.0.1",
+                            "advertisedRouter": "1.0.0.0",
+                            "sequenceNumber": "80000002",
+                            "checksum": "cd26",
+                        },
+                    ],
+                    "areaLocalOpaqueLsaCount": 1,
+                },
+            },
+        }
+        step("Wait for the Opaque LSA to be distributed")
+        json_cmd = "show ip ospf da json"
+        assert verify_ospf_database(tgen, r1, add_input_dict, json_cmd) is None
+        assert verify_ospf_database(tgen, r2, add_input_dict, json_cmd) is None
+
+        step("Shutdown the interface on r1 to isolate it for r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", False)
+
+        time.sleep(2)
+        step("Reset the client")
+        p.send_signal(signal.SIGINT)
+        time.sleep(2)
+        p.wait()
+        p = None
+
+        # Verify the OLD LSA is still there unchanged on R2
+        assert verify_ospf_database(tgen, r2, add_input_dict, json_cmd) is None
+
+        step("Kill ospfd on R1")
+        kill_router_daemons(tgen, "r1", ["ospfd"])
+        time.sleep(2)
+
+        step("Bring ospfd on R1 back up")
+        start_router_daemons(tgen, "r1", ["ospfd"])
+
+        # This will start off with sequence num 80000001
+        # But should advance to 80000003 when we reestablish with r2
+        p = r1.popen(
+            [
+                apibin,
+                "-v",
+                "add,10,1.2.3.4,231,1,feedaceecafebeef",  # seq=80000001
+                "wait, 5",
+            ]
+        )
+
+        # verify the old value on r2 doesn't change yet
+        time.sleep(2)
+        assert verify_ospf_database(tgen, r2, add_input_dict, json_cmd) is None
+
+        json_cmd = "show ip ospf da opaque-area json"
+        new_add_input_dict = {
+            "areaLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [
+                        {
+                            "linkStateId": "231.0.0.1",
+                            "advertisingRouter": "1.0.0.0",
+                            "lsaSeqNumber": "80000001",
+                            "checksum": "b07a",
+                            "length": 28,
+                            "opaqueDataLength": 8,
+                        },
+                    ],
+                },
+            },
+        }
+        # verify new value with initial seq number on r1
+        assert verify_ospf_database(tgen, r1, new_add_input_dict, json_cmd) is None
+
+        step("Bring the interface on r1 back up for connection to r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", True)
+
+        step("Verify area opaque LSA refresh")
+
+        # Update the expected value to sequence number rev and new checksum
+        update_dict = new_add_input_dict["areaLocalOpaqueLsa"]["areas"]["1.2.3.4"][0]
+        update_dict["lsaSeqNumber"] = "80000003"
+        update_dict["checksum"] = "cb27"
+
+        # should settle on the same value now.
+        assert verify_ospf_database(tgen, r1, new_add_input_dict, json_cmd) is None
+        assert verify_ospf_database(tgen, r2, new_add_input_dict, json_cmd) is None
+
+        step("Shutdown the interface on r1 to isolate it for r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", False)
+
+        time.sleep(2)
+        step("Reset the client")
+        p.send_signal(signal.SIGINT)
+        time.sleep(2)
+        p.wait()
+        p = None
+
+        step("Kill ospfd on R1")
+        kill_router_daemons(tgen, "r1", ["ospfd"])
+        time.sleep(2)
+
+        step("Bring ospfd on R1 back up")
+        start_router_daemons(tgen, "r1", ["ospfd"])
+
+        step("Bring the interface on r1 back up for connection to r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", True)
+
+        step("Verify area opaque LSA Purging")
+        json_cmd = "show ip ospf da opaque-area json"
+        add_detail_input_dict = {
+            "areaLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [
+                        {
+                            "lsaAge": 3600,
+                            "linkStateId": "231.0.0.1",
+                            "advertisingRouter": "1.0.0.0",
+                            "lsaSeqNumber": "80000003",
+                            "checksum": "cb27",
+                            "length": 28,
+                            "opaqueDataLength": 8,
+                        },
+                    ],
+                },
+            },
+        }
+        assert verify_ospf_database(tgen, r1, add_detail_input_dict, json_cmd) is None
+        assert verify_ospf_database(tgen, r2, add_detail_input_dict, json_cmd) is None
+        step("Verify Area Opaque LSA removal after timeout (60 seconds)")
+        time.sleep(60)
+        json_cmd = "show ip ospf da opaque-area json"
+        timeout_detail_input_dict = {
+            "areaLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [],
+                },
+            },
+        }
+        assert (
+            verify_ospf_database(tgen, r1, timeout_detail_input_dict, json_cmd) is None
+        )
+        assert (
+            verify_ospf_database(tgen, r2, timeout_detail_input_dict, json_cmd) is None
+        )
+
+    except Exception:
+        if p:
+            p.terminate()
+            if p.wait():
+                comm_error(p)
+            p = None
+        raise
+    finally:
+        if pread:
+            pread.terminate()
+            pread.wait()
+        if p:
+            p.terminate()
+            p.wait()
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_opaque_restart(tgen):
+    apibin = os.path.join(CLIENTDIR, "ospfclient.py")
+    rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
+    _test_opaque_add_restart_add(tgen, apibin)
 
 
 if __name__ == "__main__":

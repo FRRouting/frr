@@ -47,6 +47,9 @@ root_hostname = subprocess.check_output("hostname")
 our_pid = os.getpid()
 
 
+detailed_cmd_logging = False
+
+
 class MunetError(Exception):
     """A generic munet error."""
 
@@ -116,6 +119,27 @@ def cmd_error(rc, o, e):
     s = f"rc {rc}"
     o = "\n\tstdout: " + o.strip() if o and o.strip() else ""
     e = "\n\tstderr: " + e.strip() if e and e.strip() else ""
+    return s + o + e
+
+
+def shorten(s):
+    s = s.strip()
+    i = s.find("\n")
+    if i > 0:
+        s = s[: i - 1]
+        if not s.endswith("..."):
+            s += "..."
+    if len(s) > 72:
+        s = s[:69]
+        if not s.endswith("..."):
+            s += "..."
+    return s
+
+
+def comm_result(rc, o, e):
+    s = f"\n\treturncode {rc}" if rc else ""
+    o = "\n\tstdout: " + shorten(o) if o and o.strip() else ""
+    e = "\n\tstderr: " + shorten(e) if e and e.strip() else ""
     return s + o + e
 
 
@@ -477,16 +501,27 @@ class Commander:  # pylint: disable=R0904
                 defaults["preexec_fn"] = os.setsid
             defaults["env"]["PS1"] = "$ "
 
-        self.logger.debug(
-            '%s: %s %s("%s", pre_cmd: "%s" use_pty: %s kwargs: %.120s)',
-            self,
-            "XXX" if method == "_spawn" else "",
-            method,
-            cmd_list,
-            pre_cmd_list if not skip_pre_cmd else "",
-            use_pty,
-            defaults,
-        )
+        if not detailed_cmd_logging:
+            pre_cmd_str = shlex.join(pre_cmd_list) if not skip_pre_cmd else ""
+            if "nsenter" in pre_cmd_str:
+                self.logger.debug('%s("%s")', method, shlex.join(cmd_list))
+            elif pre_cmd_str:
+                self.logger.debug(
+                    '%s("%s") [precmd: %s]', method, shlex.join(cmd_list), pre_cmd_str
+                )
+            else:
+                self.logger.debug('%s("%s") [no precmd]', method, shlex.join(cmd_list))
+        else:
+            self.logger.debug(
+                '%s: %s %s("%s", pre_cmd: "%s" use_pty: %s kwargs: %.120s)',
+                self,
+                "XXX" if method == "_spawn" else "",
+                method,
+                cmd_list,
+                pre_cmd_list if not skip_pre_cmd else "",
+                use_pty,
+                defaults,
+            )
 
         actual_cmd_list = cmd_list if skip_pre_cmd else pre_cmd_list + cmd_list
         return actual_cmd_list, defaults
@@ -873,7 +908,11 @@ class Commander:  # pylint: disable=R0904
     def _cmd_status_finish(self, p, c, ac, o, e, raises, warn):
         rc = p.returncode
         self.last = (rc, ac, c, o, e)
-        if rc:
+        if not rc:
+            resstr = comm_result(rc, o, e)
+            if resstr:
+                self.logger.debug("%s", resstr)
+        else:
             if warn:
                 self.logger.warning("%s: proc failed: %s", self, proc_error(p, o, e))
             if raises:
@@ -1241,9 +1280,13 @@ class Commander:  # pylint: disable=R0904
                 # XXX not appropriate for ssh
                 cmd = ["sudo", "-Eu", os.environ["SUDO_USER"]] + cmd
 
-            if not isinstance(nscmd, str):
-                nscmd = shlex.join(nscmd)
-            cmd.append(nscmd)
+            if title:
+                cmd.append("-t")
+                cmd.append(title)
+
+            if isinstance(nscmd, str):
+                nscmd = shlex.split(nscmd)
+            cmd.extend(nscmd)
         elif "DISPLAY" in os.environ:
             cmd = [get_exec_path_host("xterm")]
             if "SUDO_USER" in os.environ:

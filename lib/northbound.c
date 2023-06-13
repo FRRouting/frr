@@ -792,18 +792,19 @@ static void nb_update_candidate_changes(struct nb_config *candidate,
 	LYD_TREE_DFS_BEGIN (root, dnode) {
 		op = nb_lyd_diff_get_op(dnode);
 		switch (op) {
-		case 'c':
+		case 'c': /* create */
 			nb_config_diff_created(dnode, seq, cfg_chgs);
 			LYD_TREE_DFS_continue = 1;
 			break;
-		case 'd':
+		case 'd': /* delete */
 			nb_config_diff_deleted(dnode, seq, cfg_chgs);
 			LYD_TREE_DFS_continue = 1;
 			break;
-		case 'r':
+		case 'r': /* replace */
 			nb_config_diff_add_change(cfg_chgs, NB_OP_MODIFY, seq,
 						  dnode);
 			break;
+		case 'n': /* none */
 		default:
 			break;
 		}

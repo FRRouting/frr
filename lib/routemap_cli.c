@@ -599,11 +599,14 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length"));
-	} else if (IS_MATCH_SRC_PROTO(condition)) {
+	} else if (IS_MATCH_SRC_PROTO(condition) ||
+		   IS_MATCH_BGP_SRC_PROTO(condition)) {
 		vty_out(vty, " match source-protocol %s\n",
 			yang_dnode_get_string(
 				dnode,
-				"./rmap-match-condition/frr-zebra-route-map:source-protocol"));
+				IS_MATCH_SRC_PROTO(condition)
+					? "./rmap-match-condition/frr-zebra-route-map:source-protocol"
+					: "./rmap-match-condition/frr-bgp-route-map:source-protocol"));
 	} else if (IS_MATCH_SRC_INSTANCE(condition)) {
 		vty_out(vty, " match source-instance %s\n",
 			yang_dnode_get_string(
@@ -1218,6 +1221,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:extcommunity-rt"));
+	} else if (IS_SET_EXTCOMMUNITY_NT(action)) {
+		vty_out(vty, " set extcommunity nt %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:extcommunity-nt"));
 	} else if (IS_SET_EXTCOMMUNITY_SOO(action)) {
 		vty_out(vty, " set extcommunity soo %s\n",
 			yang_dnode_get_string(

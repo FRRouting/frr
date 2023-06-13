@@ -1,0 +1,187 @@
+{
+    "vrfName": "default",
+    "localAS": 65501,
+    "routes":
+    {
+        "routeDistinguishers":
+        {
+            "444:1":
+            {
+                "172.31.0.11/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.11",
+                        "prefixLen": 32,
+                        "network": "172.31.0.11\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172.31.0.12/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.12",
+                        "prefixLen": 32,
+                        "network": "172.31.0.12\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172.31.0.13/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.13",
+                        "prefixLen": 32,
+                        "network": "172.31.0.13\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172.31.0.14/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.14",
+                        "prefixLen": 32,
+                        "network": "172.31.0.14\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172.31.0.15/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.15",
+                        "prefixLen": 32,
+                        "network": "172.31.0.15\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172.31.0.20/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.20",
+                        "prefixLen": 32,
+                        "network": "172.31.0.20\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172.31.0.111/32": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172.31.0.111",
+                        "prefixLen": 32,
+                        "network": "172.31.0.111\/32",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "192.0.2.0/24": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "192.0.2.0",
+                        "prefixLen": 24,
+                        "network": "192.0.2.0\/24",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "192.168.255.0/24": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "192.168.255.0",
+                        "prefixLen": 24,
+                        "network": "192.168.255.0\/24",
+                        "peerId": "192.168.0.1",
+                        "nexthops": [
+                            {
+                                "ip": "192.168.0.1",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ]
+            },
+            "444:2":
+            {
+                "10.200.0.0/24": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "10.200.0.0",
+                        "prefixLen": 24,
+                        "network": "10.200.0.0\/24",
+                        "peerId": "(unspec)",
+                        "nhVrfName": "vrf1",
+                        "nexthops": [
+                            {
+                                "ip": "0.0.0.0",
+                                "afi": "ipv4",
+                                "used": true
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}

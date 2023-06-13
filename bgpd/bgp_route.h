@@ -319,6 +319,12 @@ struct bgp_path_info {
 	/* Addpath identifiers */
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
+
+	/* For nexthop per label linked list */
+	LIST_ENTRY(bgp_path_info) label_nh_thread;
+
+	/* Back pointer to the bgp label per nexthop structure */
+	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
 };
 
 /* Structure used in BGP path selection */
@@ -807,7 +813,8 @@ extern void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp);
 
 extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       struct bgp_path_info *selected,
-					       struct bgp_dest *dest,
+					       struct bgp_dest *dest, afi_t afi,
+					       safi_t safi,
 					       uint32_t addpath_tx_id);
 
 extern bool subgroup_announce_check(struct bgp_dest *dest,

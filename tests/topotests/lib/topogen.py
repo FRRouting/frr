@@ -84,7 +84,7 @@ def get_exabgp_cmd(commander=None):
     """Return the command to use for ExaBGP version < 4."""
 
     if commander is None:
-        commander = Commander("topogen")
+        commander = Commander("exabgp", logger=logging.getLogger("exabgp"))
 
     def exacmd_version_ok(exacmd):
         logger.debug("checking %s for exabgp < version 4", exacmd)
@@ -107,7 +107,7 @@ def get_exabgp_cmd(commander=None):
         exacmd = py2_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
             return exacmd
-    py2_path = commander.get_exec_path("python")
+        py2_path = commander.get_exec_path("python")
     if py2_path:
         exacmd = py2_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
@@ -209,7 +209,11 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet(rundir=self.logdir, pytestconfig=topotest.g_pytest_config)
+        self.net = Mininet(
+            rundir=self.logdir,
+            pytestconfig=topotest.g_pytest_config,
+            logger=topolog.get_logger("mu", log_level="debug"),
+        )
 
         # Adjust the parent namespace
         topotest.fix_netns_limits(self.net)
@@ -236,7 +240,6 @@ class Topogen(object):
                 self.add_topology_from_dict(topodef)
 
     def add_topology_from_dict(self, topodef):
-
         keylist = (
             topodef.keys()
             if isinstance(topodef, OrderedDict)
@@ -799,23 +802,23 @@ class TopoRouter(TopoGear):
         Start the daemons in the list
         If daemons is None, try to infer daemons from the config file
         """
-        self.load_config(self.RD_FRR, source)
+        source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
             # Always add zebra
-            self.load_config(self.RD_ZEBRA)
+            self.load_config(self.RD_ZEBRA, "")
             for daemon in self.RD:
                 # This will not work for all daemons
                 daemonstr = self.RD.get(daemon).rstrip("d")
                 if daemonstr == "pim":
-                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
+                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source_path)
                 else:
-                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
+                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source_path)
                 result = self.run(grep_cmd, warn=False).strip()
                 if result:
-                    self.load_config(daemon)
+                    self.load_config(daemon, "")
         else:
             for daemon in daemons:
-                self.load_config(daemon)
+                self.load_config(daemon, "")
 
     def load_config(self, daemon, source=None, param=None):
         """Loads daemon configuration from the specified source
@@ -834,7 +837,7 @@ class TopoRouter(TopoGear):
         """
         daemonstr = self.RD.get(daemon)
         self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
-        self.net.loadConf(daemonstr, source, param)
+        return self.net.loadConf(daemonstr, source, param)
 
     def check_router_running(self):
         """
@@ -869,7 +872,7 @@ class TopoRouter(TopoGear):
                             "conf t",
                             "log file {}.log debug".format(daemon),
                             "log commands",
-                            "log timestamp precision 3",
+                            "log timestamp precision 6",
                         ]
                     ),
                     daemon=daemon,
@@ -919,7 +922,7 @@ class TopoRouter(TopoGear):
                             "conf t",
                             "log file {}.log debug".format(daemon),
                             "log commands",
-                            "log timestamp precision 3",
+                            "log timestamp precision 6",
                         ]
                     ),
                     daemon=daemon,
@@ -1091,8 +1094,9 @@ class TopoSwitch(TopoGear):
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
+        logger = topolog.get_logger(name, log_level="debug")
         super(TopoSwitch, self).__init__(tgen, name, **params)
-        tgen.net.add_switch(name)
+        tgen.net.add_switch(name, logger=logger)
 
     def __str__(self):
         gear = super(TopoSwitch, self).__str__()
@@ -1203,6 +1207,7 @@ class TopoExaBGP(TopoHost):
 #
 # Diagnostic function
 #
+
 
 # Disable linter branch warning. It is expected to have these here.
 # pylint: disable=R0912

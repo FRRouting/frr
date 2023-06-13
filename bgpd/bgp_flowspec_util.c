@@ -185,16 +185,23 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 		offset++;
 	}
 	/* Prefix length check. */
-	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8)
+	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8) {
 		*error = -1;
+		return offset;
+	}
 	/* When packet overflow occur return immediately. */
-	if (psize + offset > max_len)
+	if (psize + offset > max_len) {
 		*error = -1;
+		return offset;
+	}
 	/* Defensive coding, double-check
 	 * the psize fits in a struct prefix
 	 */
-	if (psize > (ssize_t)sizeof(prefix_local.u))
+	if (psize > (ssize_t)sizeof(prefix_local.u)) {
 		*error = -1;
+		return offset;
+	}
+
 	memcpy(&prefix_local.u.prefix, &nlri_ptr[offset], psize);
 	offset += psize;
 	switch (type) {
@@ -352,8 +359,10 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 
 	*error = 0;
 	do {
-		if (loop > BGP_PBR_MATCH_VAL_MAX)
+		if (loop > BGP_PBR_MATCH_VAL_MAX) {
 			*error = -2;
+			return offset;
+		}
 		hex2bin(&nlri_ptr[offset], op);
 		/* if first element, AND bit can not be set */
 		if (op[1] == 1 && loop == 0)

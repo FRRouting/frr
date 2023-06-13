@@ -211,6 +211,7 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
 #define BGP_VPN_POLICY_TOVPN_SID_AUTO          (1 << 3)
+#define BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP (1 << 4)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -500,8 +501,10 @@ struct bgp {
 #define BGP_FLAG_HARD_ADMIN_RESET (1ULL << 31)
 /* Evaluate the AIGP attribute during the best path selection process */
 #define BGP_FLAG_COMPARE_AIGP (1ULL << 32)
-/* For BGP-LU, force local prefixes to use explicit-null label */
-#define BGP_FLAG_LU_EXPLICIT_NULL (1ULL << 33)
+/* For BGP-LU, force IPv4 local prefixes to use ipv4-explicit-null label */
+#define BGP_FLAG_LU_IPV4_EXPLICIT_NULL (1ULL << 33)
+/* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
+#define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -571,6 +574,10 @@ struct bgp {
 	/* Allocate MPLS labels */
 	uint8_t allocate_mpls_labels[AFI_MAX][SAFI_MAX];
 
+	/* Tree for next-hop lookup cache. */
+	struct bgp_label_per_nexthop_cache_head
+		mpls_labels_per_nexthop[AFI_MAX];
+
 	/* Allocate hash entries to store policy routing information
 	 * The hash are used to host pbr rules somewhere.
 	 * Actually, pbr will only be used by flowspec
@@ -594,6 +601,7 @@ struct bgp {
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
 	struct event *t_rmap_def_originate_eval;
+	uint16_t rmap_def_originate_eval_timer;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
 
 	/* BGP distance configuration.  */
@@ -1112,7 +1120,6 @@ struct peer {
 
 	/* BGP peer group.  */
 	struct peer_group *group;
-	uint64_t version[AFI_MAX][SAFI_MAX];
 
 	/* BGP peer_af structures, per configured AF on this peer */
 	struct peer_af *peer_af_array[BGP_AF_MAX];

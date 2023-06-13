@@ -45,7 +45,7 @@ void *isis_flex_algo_data_alloc(void *voidarg)
 	struct isis_flex_algo_alloc_arg *arg = voidarg;
 	struct isis_flex_algo_data *data;
 
-	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(*data));
+	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct isis_flex_algo_data));
 
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
@@ -70,6 +70,7 @@ void isis_flex_algo_data_free(void *voiddata)
 			if (data->spftree[tree][level - 1])
 				isis_spftree_del(
 					data->spftree[tree][level - 1]);
+	XFREE(MTYPE_FLEX_ALGO, data);
 }
 
 static struct isis_router_cap_fad *

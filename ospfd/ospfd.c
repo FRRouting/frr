@@ -720,6 +720,7 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	if (!ospf->gr_info.prepare_in_progress)
 		ospf_flush_self_originated_lsas_now(ospf);
+	XFREE(MTYPE_TMP, ospf->gr_info.exit_reason);
 
 	/* Unregister redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
@@ -1112,6 +1113,7 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	   skip network type setting. */
 	oi->type = IF_DEF_PARAMS(co->ifp)->type;
 	oi->ptp_dmvpn = IF_DEF_PARAMS(co->ifp)->ptp_dmvpn;
+	oi->p2mp_delay_reflood = IF_DEF_PARAMS(co->ifp)->p2mp_delay_reflood;
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);
@@ -1130,6 +1132,17 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	if ((area->ospf->router_id.s_addr != INADDR_ANY)
 	    && if_is_operative(co->ifp))
 		ospf_if_up(oi);
+
+	/*
+	 * RFC 3623 - Section 5 ("Unplanned Outages"):
+	 * "The grace-LSAs are encapsulated in Link State Update Packets
+	 * and sent out to all interfaces, even though the restarted
+	 * router has no adjacencies and no knowledge of previous
+	 * adjacencies".
+	 */
+	if (oi->ospf->gr_info.restart_in_progress &&
+	    oi->ospf->gr_info.reason == OSPF_GR_UNKNOWN_RESTART)
+		ospf_gr_unplanned_start_interface(oi);
 
 	return oi;
 }

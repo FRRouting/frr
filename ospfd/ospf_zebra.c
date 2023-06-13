@@ -1252,12 +1252,18 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 
 int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
 {
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_CAPABILITIES,
 				    stale_time);
 }
 
 int ospf_zebra_gr_disable(struct ospf *ospf)
 {
+	if (IS_DEBUG_OSPF_GR)
+		zlog_debug("Zebra disable GR");
+
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
@@ -2120,10 +2126,20 @@ int ospf_zebra_label_manager_connect(void)
 
 static void ospf_zebra_connected(struct zclient *zclient)
 {
+	struct ospf *ospf;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!ospf->gr_info.restart_support)
+			continue;
+		(void)ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
+	}
 }
 
 /*
