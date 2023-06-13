@@ -351,7 +351,7 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
-	case SAFI_RTC:
+	case SAFI_RTC: ;
 		uint8_t *pnt = packet->nlri;
 		uint8_t* lim = packet->nlri + packet->length;
 		int psize = 0;
