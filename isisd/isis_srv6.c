@@ -32,11 +32,27 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 	int ret;
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
+	struct isis_srv6_sid *sid;
 
 	if (strncmp(area->srv6db.config.srv6_locator_name, "",
 		    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
 		sr_debug("SRv6 locator not set");
 		return true;
+	}
+
+	/* Delete SRv6 SIDs */
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode, sid)) {
+		sr_debug(
+			"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
+			area->srv6db.config.srv6_locator_name, &sid->sid,
+			area->area_tag);
+
+		/* Uninstall the SRv6 SID from the forwarding plane through
+		 * Zebra */
+		isis_zebra_srv6_sid_uninstall(area, sid);
+
+		listnode_delete(area->srv6db.srv6_sids, sid);
+		isis_srv6_sid_free(sid);
 	}
 
 	/* Inform Zebra that we are releasing the SRv6 locator */
