@@ -50,6 +50,22 @@ struct mgmt_fe_client {
 struct debug mgmt_dbg_fe_client = {0, "Management frontend client operations"};
 
 
+static inline const char *dsid2name(Mgmtd__DatastoreId id)
+{
+	switch ((int)id) {
+	case MGMTD_DS_NONE:
+		return "none";
+	case MGMTD_DS_RUNNING:
+		return "running";
+	case MGMTD_DS_CANDIDATE:
+		return "candidate";
+	case MGMTD_DS_OPERATIONAL:
+		return "operational";
+	default:
+		return "unknown-datastore-id";
+	}
+}
+
 static struct mgmt_fe_client_session *
 mgmt_fe_find_session_by_client_id(struct mgmt_fe_client *client,
 				  uint64_t client_id)
@@ -165,8 +181,9 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
 	fe_msg.lockds_req = &lockds_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending %sLOCK_REQ message for Ds:%d session-id %" PRIu64,
-		lock ? "" : "UN", ds_id, session_id);
+		"Sending LOCKDS_REQ (%sLOCK) message for DS:%s session-id %" PRIu64,
+		lock ? "" : "UN", dsid2name(ds_id), session_id);
+
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
@@ -194,9 +211,9 @@ int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
 	fe_msg.setcfg_req = &setcfg_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending SET_CONFIG_REQ message for Ds:%d session-id %" PRIu64
+		"Sending SET_CONFIG_REQ message for DS:%s session-id %" PRIu64
 		" (#xpaths:%d)",
-		ds_id, session_id, num_data_reqs);
+		dsid2name(ds_id), session_id, num_data_reqs);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
@@ -224,8 +241,8 @@ int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
 	fe_msg.commcfg_req = &commitcfg_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending COMMIT_CONFIG_REQ message for Src-Ds:%d, Dst-Ds:%d session-id %" PRIu64,
-		src_ds_id, dest_ds_id, session_id);
+		"Sending COMMIT_CONFIG_REQ message for Src-DS:%s, Dst-DS:%s session-id %" PRIu64,
+		dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
@@ -251,9 +268,9 @@ int mgmt_fe_send_getcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
 	fe_msg.getcfg_req = &getcfg_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending GET_CONFIG_REQ message for Ds:%d session-id %" PRIu64
+		"Sending GET_CONFIG_REQ message for DS:%s session-id %" PRIu64
 		" (#xpaths:%d)",
-		ds_id, session_id, num_data_reqs);
+		dsid2name(ds_id), session_id, num_data_reqs);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
@@ -279,9 +296,9 @@ int mgmt_fe_send_getdata_req(struct mgmt_fe_client *client, uint64_t session_id,
 	fe_msg.getdata_req = &getdata_req;
 
 	MGMTD_FE_CLIENT_DBG(
-		"Sending GET_CONFIG_REQ message for Ds:%d session-id %" PRIu64
+		"Sending GET_CONFIG_REQ message for DS:%s session-id %" PRIu64
 		" (#xpaths:%d)",
-		ds_id, session_id, num_data_reqs);
+		dsid2name(ds_id), session_id, num_data_reqs);
 
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }

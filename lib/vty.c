@@ -134,18 +134,22 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 	uint8_t header[4] = {0, 0, 0, 0};
 	int ret = CMD_SUCCESS;
 
-	if (!vty->mgmt_req_pending) {
+	if (!vty->mgmt_req_pending_cmd) {
 		zlog_err(
-			"vty response called without setting mgmt_req_pending");
+			"vty resume response called without mgmt_req_pending_cmd");
 		return;
 	}
 
 	if (!success)
 		ret = CMD_WARNING_CONFIG_FAILED;
 
-	vty->mgmt_req_pending = false;
+	MGMTD_FE_CLIENT_DBG(
+		"resuming CLI cmd after %s on vty session-id: %" PRIu64
+		" with '%s'",
+		vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
+		success ? "succeeded" : "failed");
 
-	MGMTD_FE_CLIENT_DBG("resuming: %s:", success ? "succeeded" : "failed");
+	vty->mgmt_req_pending_cmd = NULL;
 
 	if (vty->type != VTY_FILE) {
 		header[3] = ret;
@@ -2274,6 +2278,19 @@ static void vtysh_read(struct event *thread)
 	sock = EVENT_FD(thread);
 	vty = EVENT_ARG(thread);
 
+	/*
+	 * This code looks like it can read multiple commands from the `buf`
+	 * value returned by read(); however, it cannot in some cases.
+	 *
+	 * There are multiple paths out of the "copying to vty->buf" loop, which
+	 * lose any content not yet copied from the stack `buf`, `passfd`,
+	 * `CMD_SUSPEND` and finally if a front-end for mgmtd (generally this
+	 * would be mgmtd itself). So these code paths are counting on vtysh not
+	 * sending us more than 1 command line before waiting on the reply to
+	 * that command.
+	 */
+	assert(vty->type == VTY_SHELL_SERV);
+
 	if ((nbytes = read(sock, buf, VTY_READ_BUFSIZ)) <= 0) {
 		if (nbytes < 0) {
 			if (ERRNO_IO_RETRY(errno)) {
@@ -2348,8 +2365,13 @@ static void vtysh_read(struct event *thread)
 				/* with new infra we need to stop response till
 				 * we get response through callback.
 				 */
-				if (vty->mgmt_req_pending)
+				if (vty->mgmt_req_pending_cmd) {
+					MGMTD_FE_CLIENT_DBG(
+						"postpone CLI cmd response pending mgmtd %s on vty session-id %" PRIu64,
+						vty->mgmt_req_pending_cmd,
+						vty->mgmt_session_id);
 					return;
+				}
 
 				/* warning: watchfrr hardcodes this result write
 				 */
@@ -3624,7 +3646,7 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 			return -1;
 		}
 
-		vty->mgmt_req_pending = true;
+		vty->mgmt_req_pending_cmd = "MESSAGE_LOCKDS_REQ";
 	}
 
 	return 0;
@@ -3724,7 +3746,7 @@ int vty_mgmt_send_config_data(struct vty *vty)
 			return -1;
 		}
 
-		vty->mgmt_req_pending = true;
+		vty->mgmt_req_pending_cmd = "MESSAGE_SETCFG_REQ";
 	}
 
 	return 0;
@@ -3744,7 +3766,7 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 			return -1;
 		}
 
-		vty->mgmt_req_pending = true;
+		vty->mgmt_req_pending_cmd = "MESSAGE_COMMCFG_REQ";
 		vty->mgmt_num_pending_setcfg = 0;
 	}
 
@@ -3781,7 +3803,7 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 		return -1;
 	}
 
-	vty->mgmt_req_pending = true;
+	vty->mgmt_req_pending_cmd = "MESSAGE_GETCFG_REQ";
 
 	return 0;
 }
@@ -3815,7 +3837,7 @@ int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 		return -1;
 	}
 
-	vty->mgmt_req_pending = true;
+	vty->mgmt_req_pending_cmd = "MESSAGE_GETDATA_REQ";
 
 	return 0;
 }

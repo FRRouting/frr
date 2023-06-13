@@ -59,11 +59,12 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	 */
 	while (avail > sizeof(struct mgmt_msg_hdr)) {
 		n = stream_read_try(ms->ins, fd, avail);
-		MGMT_MSG_DBG(dbgtag, "got %zd bytes", n);
 
 		/* -2 is normal nothing read, and to retry */
-		if (n == -2)
+		if (n == -2) {
+			MGMT_MSG_DBG(dbgtag, "nothing more to read");
 			break;
+		}
 		if (n <= 0) {
 			if (n == 0)
 				MGMT_MSG_ERR(ms, "got EOF/disconnect");
@@ -73,6 +74,7 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 					     safe_strerror(errno));
 			return MSR_DISCONNECT;
 		}
+		MGMT_MSG_DBG(dbgtag, "read %zd bytes", n);
 		ms->nrxb += n;
 		avail -= n;
 	}
