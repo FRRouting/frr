@@ -31,6 +31,7 @@ from typing import (
 )
 
 import pytest
+from deprecated import deprecated
 
 from ..defer import subprocess
 from ..utils import deindent, get_dir, EnvcheckResult
@@ -492,13 +493,18 @@ class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
 
     def __init__(self, instance: TopotatoNetwork, name: str, configs: FRRConfigs):
         super().__init__(instance, name)
-        self.configs = configs
+        self._configs = configs
         self.frr = configs.frr
         self.logfiles = {}
         self.livelogs = {}
         self.pids = {}
         self.rundir = None
         self.rtrcfg = {}
+
+    @property
+    @deprecated
+    def configs(self):
+        return self._configs
 
     def _getlogfd(self, daemon):
         if daemon not in self.livelogs:
@@ -531,9 +537,9 @@ class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
         # bit of a hack
         self.check_call(["mount", "--bind", rundir, "/var/run"])
 
-        self.rtrcfg = self.configs.get(self.name, {})
+        self.rtrcfg = self._configs.get(self.name, {})
 
-        for daemon in self.configs.daemons:
+        for daemon in self._configs.daemons:
             if daemon not in self.rtrcfg:
                 continue
             self.logfiles[daemon] = self.tempfile("%s.log" % daemon)
@@ -609,8 +615,8 @@ class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
                 self._vtysh(["-d", "mgmtd", "-f", cfgpath]).communicate()
 
     def start_post(self, timeline, failed: List[Tuple[str, str]]):
-        for daemon in self.configs.daemons:
-            if not self.configs.want_daemon(self.name, daemon):
+        for daemon in self._configs.daemons:
+            if not self._configs.want_daemon(self.name, daemon):
                 continue
 
             try:
