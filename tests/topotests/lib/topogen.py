@@ -1192,7 +1192,17 @@ class TopoExaBGP(TopoHost):
         self.run("chmod a+x /etc/exabgp/*.py")
         self.run("chown -R exabgp:exabgp /etc/exabgp")
 
-        output = self.run(exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
+        log_dir = os.path.join(self.logdir, self.name)
+        self.run("chmod 777 {}".format(log_dir))
+
+        log_file = os.path.join(log_dir, "exabgp.log")
+
+        env_cmd = "env exabgp.log.level=DEBUG "
+        env_cmd += "exabgp.log.destination={} ".format(log_file)
+
+        output = self.run(
+            env_cmd + exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg "
+        )
         if output is None or len(output) == 0:
             output = "<none>"
 
