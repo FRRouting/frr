@@ -6944,12 +6944,9 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	return BGP_NLRI_PARSE_OK;
 }
 
-static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
-					   struct bgp_path_info *bpi,
-					   const struct prefix *p,
-					   struct bgp_dest *dest,
-					   struct bgp *bgp,
-					   struct bgp *bgp_nexthop)
+void bgp_nexthop_reachability_check(afi_t afi, safi_t safi, struct bgp_path_info *bpi,
+				    const struct prefix *p, struct bgp_dest *dest, struct bgp *bgp,
+				    struct bgp *bgp_nexthop)
 {
 	/* Nexthop reachability check. */
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
