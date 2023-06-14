@@ -674,6 +674,12 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	}
 }
 
+void bgp_nexthop_reachability_check(afi_t afi, safi_t safi, struct bgp_path_info *bpi,
+				    const struct prefix *p, struct bgp_dest *dest, struct bgp *bgp,
+				    struct bgp *bgp_nexthop);
+
+void aspath_unintern(struct aspath **aspath);
+
 static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
 				       safi_t safi)
 {
