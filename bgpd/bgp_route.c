@@ -3559,6 +3559,7 @@ static void bgp_lu_handle_label_allocation(struct bgp *bgp,
 		   CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
 		bgp_unregister_for_label(dest);
 	}
+
 }
 
 static struct interface *
