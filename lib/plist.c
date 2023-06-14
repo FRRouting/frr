@@ -59,6 +59,10 @@ struct prefix_master {
 	/* number of bytes that have a trie level */
 	size_t trie_depth;
 
+	/* value to return if a prefix_list is empty and we are trying to get a
+	 * match */
+	enum prefix_list_type empty_action;
+
 	struct plist_head str;
 };
 static int prefix_list_compare_func(const struct prefix_list *a,
@@ -68,30 +72,27 @@ DECLARE_RBTREE_UNIQ(plist, struct prefix_list, plist_item,
 
 /* Static structure of IPv4 prefix_list's master. */
 static struct prefix_master prefix_master_ipv4 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV4,
+	NULL, NULL, NULL, PLC_MAXLEVELV4, PREFIX_PERMIT,
 };
 
 /* Static structure of IPv6 prefix-list's master. */
 static struct prefix_master prefix_master_ipv6 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV6,
+	NULL, NULL, NULL, PLC_MAXLEVELV6, PREFIX_PERMIT,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v4 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV4,
+	NULL, NULL, NULL, PLC_MAXLEVELV4, PREFIX_PERMIT,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v6 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV6,
+	NULL, NULL, NULL, PLC_MAXLEVELV6, PREFIX_PERMIT,
 };
 
 /* Satic structure of BGP Route target constrain prefix_list's master. */
 static struct prefix_master prefix_master_rtc = {
-	NULL,
-	NULL,
-	NULL,
-	PLC_MAXLEVELRTC,
+	NULL, NULL, NULL, PLC_MAXLEVELRTC, PREFIX_DENY,
 };
 
 static struct prefix_master *prefix_master_get(afi_t afi, int orf, int rtc)
@@ -804,7 +805,7 @@ enum prefix_list_type prefix_list_apply_ext(
 	if (plist->count == 0) {
 		if (which)
 			*which = NULL;
-		return PREFIX_PERMIT;
+		return plist->master->empty_action;
 	}
 
 	depth = plist->master->trie_depth;
