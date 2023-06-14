@@ -2924,7 +2924,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	 * is pending (BGP_NODE_FIB_INSTALL_PENDING), do not advertise the
 	 * route
 	 */
-	advertise = bgp_check_advertise(bgp, dest);
+	advertise = bgp_check_advertise(bgp, dest, safi);
 
 	if (selected) {
 		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
@@ -2933,7 +2933,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 			 * in FIB, then it is advertised
 			 */
 			if (advertise) {
-				if (!bgp_check_withdrawal(bgp, dest)) {
+				if (!bgp_check_withdrawal(bgp, dest, safi)) {
 					struct attr *adv_attr =
 						bgp_attr_intern(&attr);
 
@@ -7752,7 +7752,7 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		/* If suppress fib is enabled and route not installed
 		 * in FIB, skip the route
 		 */
-		if (!bgp_check_advertise(bgp, dest))
+		if (!bgp_check_advertise(bgp, dest, safi))
 			continue;
 
 		match = 0;
@@ -8266,7 +8266,7 @@ void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 	/* If suppress fib is enabled and route not installed
 	 * in FIB, do not update the aggregate route
 	 */
-	if (!bgp_check_advertise(bgp, pi->net))
+	if (!bgp_check_advertise(bgp, pi->net, safi))
 		return;
 
 	child = bgp_node_get(table, p);
