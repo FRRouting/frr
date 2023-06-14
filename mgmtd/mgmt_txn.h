@@ -169,12 +169,12 @@ extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
  *    0 on success, -1 on failures.
  */
 extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
-					    Mgmtd__DatastoreId src_ds_id,
-					    struct mgmt_ds_ctx *dst_ds_ctx,
-					    Mgmtd__DatastoreId dst_ds_id,
-					    struct mgmt_ds_ctx *src_ds_ctx,
-					    bool validate_only, bool abort,
-					    bool implicit);
+					   Mgmtd__DatastoreId src_ds_id,
+					   struct mgmt_ds_ctx *dst_ds_ctx,
+					   Mgmtd__DatastoreId dst_ds_id,
+					   struct mgmt_ds_ctx *src_ds_ctx,
+					   bool validate_only, bool abort,
+					   bool implicit);
 
 extern int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
 					      enum mgmt_result result,
@@ -186,10 +186,10 @@ extern int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
  * Similar to set-config request.
  */
 extern int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
-					 Mgmtd__DatastoreId ds_id,
-					 struct mgmt_ds_ctx *ds_ctx,
-					 Mgmtd__YangGetDataReq **data_req,
-					 size_t num_reqs);
+					Mgmtd__DatastoreId ds_id,
+					struct nb_config *cfg_root,
+					Mgmtd__YangGetDataReq **data_req,
+					size_t num_reqs);
 
 /*
  * Send get-data request to be processed later in transaction.
@@ -198,7 +198,6 @@ extern int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
  */
 extern int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
 				       Mgmtd__DatastoreId ds_id,
-				       struct mgmt_ds_ctx *ds_ctx,
 				       Mgmtd__YangGetDataReq **data_req,
 				       size_t num_reqs);
 

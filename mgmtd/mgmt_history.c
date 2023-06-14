@@ -211,7 +211,7 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 		return -1;
 	}
 
-	ret = mgmt_ds_write_lock(dst_ds_ctx);
+	ret = mgmt_ds_lock(dst_ds_ctx, vty->mgmt_session_id);
 	if (ret != 0) {
 		vty_out(vty,
 			"Failed to lock the DS %u for rollback Reason: %s!\n",
@@ -242,6 +242,8 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 	}
 
 	mgmt_history_dump_cmt_record_index();
+
+	/* XXX chopps when does this get unlocked? */
 
 	/*
 	 * Block the rollback command from returning till the rollback
