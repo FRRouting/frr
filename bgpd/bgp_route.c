@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP routing information
  * Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2016 Job Snijders <job@instituut.net>
@@ -75,6 +74,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_rtc.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -2516,58 +2516,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		return false;
 
 	/* RTC-Filtering */
-	if (afi == AFI_L2VPN && SAFI_EVPN == safi) {
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
 		if (peer->afc[AFI_IP][SAFI_RTC]) {
-
-			// Build prefix to compare with
-			struct prefix cmp;
-			cmp.family = AF_RTC;
-			cmp.prefixlen = 96;
-			cmp.u.prefix_rtc.origin_as = 65000;
-
 			// The update group should only have one peer
 			onlypeer = SUBGRP_PFIRST(subgrp)->peer;
-			struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
-			uint8_t *pnt;
-			uint8_t type = 0;
-			uint8_t sub_type = 0;
-			for (uint32_t i = 0; i < ecom->size; i++) {
-
-				/* Retrieve value field */
-				pnt = ecom->val + (i * ecom->unit_size);
-
-				/* High-order octet is the type */
-				type = *pnt++;
-
-				if (type == ECOMMUNITY_ENCODE_TRANS_EXP ||
-				    type == ECOMMUNITY_ENCODE_AS ||
-				    type == ECOMMUNITY_ENCODE_IP ||
-				    type == ECOMMUNITY_ENCODE_AS4 ||
-				    type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
-				    type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_3) {
-					sub_type = *pnt++;
-
-					if (sub_type ==
-					    ECOMMUNITY_ROUTE_TARGET) {
-						memcpy(&cmp.u.prefix_rtc
-								.route_target,
-						       ecom->val,
-						       ECOMMUNITY_SIZE);
-						if (onlypeer->rtc_plist !=
-						    NULL) {
-							if (prefix_list_apply_ext(
-								    onlypeer->rtc_plist,
-								    NULL, &cmp,
-								    true) ==
-							    PREFIX_DENY) {
-								zlog_info(
-									"Filtered update because of RTC prefix-list");
-								return false;
-							}
-						}
-					}
-				}
-			}
+			if (bgp_rtc_filter(onlypeer, attr))
+				return false;
 		}
 	}
 
@@ -6721,12 +6675,12 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 	}
 }
 
-static struct bgp_static *bgp_static_new(void)
+struct bgp_static *bgp_static_new(void)
 {
 	return XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
 }
 
-static void bgp_static_free(struct bgp_static *bgp_static)
+void bgp_static_free(struct bgp_static *bgp_static)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	route_map_counter_decrement(bgp_static->rmap.map);
@@ -7467,57 +7421,6 @@ void bgp_purge_static_redist_routes(struct bgp *bgp)
 		bgp_purge_af_static_redist_routes(bgp, afi, safi);
 }
 
-int str2prefix_rtc(const char *str, struct prefix_rtc *p);
-int str2prefix_rtc(const char *str, struct prefix_rtc *p)
-{
-	struct ecommunity *ecom = NULL;
-	int ret = CMD_SUCCESS;
-	int plen;
-	char *pnt;
-	char *cp;
-
-	p->prefix.origin_as = 65000;
-	p->family = AF_RTC;
-	p->prefixlen = 96;
-
-	/* Find slash inside string. */
-	pnt = strchr(str, '/');
-
-	/* String doesn't contail slash. */
-	if (pnt == NULL) {
-		ecom = ecommunity_str2com(str, ECOMMUNITY_ROUTE_TARGET, 0);
-		if (ecom == NULL) {
-			zlog_info("str2prefix_rtc: ecommunity_str2com failed");
-			return 0;
-		}
-		zlog_info("str2prefix_rtc: ecommunity_str2com success");
-		memcpy(&p->prefix.route_target, ecom->val, 8);
-		return ret;
-	} else {
-		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		memcpy(cp, str, pnt - str);
-		*(cp + (pnt - str)) = '\0';
-		zlog_info("output1: %s", cp);
-		ecom = ecommunity_str2com(cp, ECOMMUNITY_ROUTE_TARGET, 0);
-		if (ecom == NULL) {
-			XFREE(MTYPE_TMP, cp);
-			zlog_info("str2prefix_rtc: ecommunity_str2com failed");
-			return 0;
-		}
-
-		/* Get prefix length. */
-		plen = (uint8_t)atoi(++pnt);
-		if (plen > 96)
-			return 0;
-
-		p->prefixlen = plen;
-		memcpy(&p->prefix.route_target, ecom->val, PSIZE(plen) - 4);
-		XFREE(MTYPE_TMP, cp);
-		return ret;
-	}
-
-	return ret;
-}
 
 static int bgp_table_map_set(struct vty *vty, afi_t afi, safi_t safi,
 			     const char *rmap_name)
