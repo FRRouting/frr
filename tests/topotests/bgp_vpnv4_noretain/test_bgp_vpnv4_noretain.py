@@ -169,6 +169,30 @@ def check_show_bgp_ipv4_vpn(rname, json_file):
     assert result is None, assertmsg
 
 
+def test_protocols_convergence_step0():
+    """
+    Assert that all protocols have converged
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # check that r2 peerings are ok
+    logger.info("Checking BGP ipv4 vpn summary for r2")
+    router = tgen.gears["r2"]
+    json_file = "{}/{}/ipv4_vpn_summary.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv4 vpn summary json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
 def test_bgp_no_retain_step1():
     """
     Check bgp no retain route-target all on r1
