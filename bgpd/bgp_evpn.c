@@ -42,6 +42,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_rtc.h"
 
 /*
  * Definitions and external declarations.
@@ -547,8 +548,10 @@ static void map_vni_to_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			/* Already mapped. */
 			return;
 
-	if (!irt)
+	if (!irt) {
 		irt = import_rt_new(bgp, &eval_tmp);
+		bgp_rtc_add_static(bgp, eval, BGP_RTC_MAX_PREFIXLEN);
+	}
 
 	/* Add VNI to the hash list for this RT. */
 	listnode_add(irt->vnis, vpn);
@@ -559,11 +562,12 @@ static void map_vni_to_rt(struct bgp *bgp, struct bgpevpn *vpn,
  * VNIs for this RT, then the RT hash is deleted.
  */
 static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
-			      struct irt_node *irt)
+			      struct irt_node *irt, struct ecommunity_val *eval)
 {
 	/* Delete VNI from hash list for this RT. */
 	listnode_delete(irt->vnis, vpn);
 	if (!listnode_head(irt->vnis)) {
+		bgp_rtc_remove_static(bgp, eval, BGP_RTC_MAX_PREFIXLEN);
 		import_rt_free(bgp, irt);
 	}
 }
@@ -6191,7 +6195,7 @@ void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 
 			irt = lookup_import_rt(bgp, &eval_tmp);
 			if (irt)
-				unmap_vni_from_rt(bgp, vpn, irt);
+				unmap_vni_from_rt(bgp, vpn, irt, eval);
 		}
 	}
 }
