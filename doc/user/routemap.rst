@@ -335,6 +335,10 @@ Route Map Set Command
 
    Set the BGP community attribute.
 
+.. clicmd:: set extended-comm-list <EXTCOMMUNITY_LIST_NAME> delete
+
+   Set BGP extended community list for deletion.
+
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
 
    Set the BGP-4+ link local IPv6 nexthop address.

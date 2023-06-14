@@ -163,6 +163,9 @@ community_list_match_delete(struct community *com, struct community_list *list);
 extern struct lcommunity *
 lcommunity_list_match_delete(struct lcommunity *lcom,
 			     struct community_list *list);
+extern struct ecommunity *
+ecommunity_list_match_delete(struct ecommunity *ecom,
+			     struct community_list *list);
 
 static inline uint32_t bgp_clist_hash_key(char *name)
 {
