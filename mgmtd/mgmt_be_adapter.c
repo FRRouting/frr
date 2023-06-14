@@ -648,8 +648,7 @@ static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
-				     const char *xpath, struct lyd_node *node,
+static void mgmt_be_iter_and_get_cfg(const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx)
 {
 	struct mgmt_be_get_adapter_config_params *parms = ctx;
@@ -806,10 +805,10 @@ mgmt_be_get_adapter_by_name(const char *name)
 }
 
 int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
-				  struct mgmt_ds_ctx *ds_ctx,
-				  struct nb_config_cbs **cfg_chgs)
+			       struct nb_config_cbs **cfg_chgs)
 {
 	struct mgmt_be_get_adapter_config_params parms;
+	struct nb_config *cfg_root = mgmt_ds_get_nb_config(mm->running_ds);
 
 	assert(cfg_chgs);
 
@@ -825,8 +824,8 @@ int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 		parms.cfg_chgs = &adapter->cfg_chgs;
 		parms.seq = 0;
 
-		mgmt_ds_iter_data(ds_ctx, "", mgmt_be_iter_and_get_cfg,
-				  (void *)&parms);
+		mgmt_ds_iter_data(MGMTD_DS_RUNNING, cfg_root, "",
+				  mgmt_be_iter_and_get_cfg, (void *)&parms);
 	}
 
 	*cfg_chgs = &adapter->cfg_chgs;
