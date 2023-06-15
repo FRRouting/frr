@@ -192,24 +192,15 @@ void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 			uint32_t prefixlen)
 {
 	struct prefix prefix = {0};
-	struct bgp_dest *pdest;
 	struct bgp_dest *dest;
-	struct bgp_table *table;
 	struct bgp_static *bgp_static;
 	prefix.family = AF_RTC;
 	prefix.prefixlen = prefixlen;
 	prefix.u.prefix_rtc.origin_as = bgp->as;
 	memcpy(prefix.u.prefix_rtc.route_target, eval, PSIZE(prefixlen) - 4);
 	bgp_static = bgp_static_new();
-	pdest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
-	if (!bgp_dest_has_bgp_path_info_data(pdest))
-		bgp_dest_set_bgp_table_info(
-			pdest, bgp_table_init(bgp, AFI_IP, SAFI_RTC));
-	else
-		bgp_dest_unlock_node(pdest);
-	table = bgp_dest_get_bgp_table_info(pdest);
+	dest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
 
-	dest = bgp_node_get(table, &prefix);
 	if (bgp_dest_has_bgp_path_info_data(dest)) {
 		zlog_info("Same network configuration exists");
 		bgp_dest_unlock_node(dest);
@@ -233,24 +224,14 @@ void bgp_rtc_remove_static(struct bgp *bgp, struct ecommunity_val *eval,
 			   uint32_t prefixlen)
 {
 	struct prefix prefix = {0};
-	struct bgp_dest *pdest;
 	struct bgp_dest *dest;
-	struct bgp_table *table;
 	struct bgp_static *bgp_static;
 	prefix.family = AF_RTC;
 	prefix.prefixlen = prefixlen;
 	prefix.u.prefix_rtc.origin_as = bgp->as;
 	memcpy(prefix.u.prefix_rtc.route_target, eval, PSIZE(prefixlen) - 4);
 	bgp_static = bgp_static_new();
-	pdest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
-	if (!bgp_dest_has_bgp_path_info_data(pdest))
-		bgp_dest_set_bgp_table_info(
-			pdest, bgp_table_init(bgp, AFI_IP, SAFI_RTC));
-	else
-		bgp_dest_unlock_node(pdest);
-	table = bgp_dest_get_bgp_table_info(pdest);
-
-	dest = bgp_node_get(table, &prefix);
+	dest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
 
 	if (dest) {
 		bgp_static_withdraw(bgp, &prefix, AFI_IP, SAFI_RTC, NULL);
