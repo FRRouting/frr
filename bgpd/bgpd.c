@@ -80,6 +80,7 @@
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
+DEFINE_MTYPE_STATIC(BGPD, BGP_PEER_CONNECTION, "BGP Connection information");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -1142,14 +1143,15 @@ static void bgp_peer_connection_free(struct peer_connection *connection)
 	pthread_mutex_destroy(&connection->io_mtx);
 
 	memset(connection, 0, sizeof(struct peer_connection));
-	XFREE(MTYPE_BGP_PEER, connection);
+	XFREE(MTYPE_BGP_PEER_CONNECTION, connection);
 }
 
 struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 {
 	struct peer_connection *connection;
 
-	connection = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer_connection));
+	connection = XCALLOC(MTYPE_BGP_PEER_CONNECTION,
+			     sizeof(struct peer_connection));
 
 	connection->peer = peer;
 	connection->fd = -1;
