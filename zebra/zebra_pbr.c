@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Policy Based Routing (PBR) main handling.
  * Copyright (C) 2018  Cumulus Networks, Inc.
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *		    Approved for Public Release; Distribution Unlimited 21-1402
  */
 
 #include <zebra.h>
@@ -165,6 +168,10 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 			   rule->rule.filter.ip_proto, key);
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
+
+    key = jhash_3words(rule->rule.filter.pcp, 
+               rule->rule.filter.vlan_id,
+               rule->rule.filter.vlan_flags, key);
 
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
@@ -1118,7 +1125,7 @@ static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 			    uint16_t port_min, uint16_t port_max,
 			    uint8_t proto)
 {
-	if (!(filter_bm & PBR_FILTER_PROTO)) {
+	if (!(filter_bm & PBR_FILTER_IP_PROTOCOL)) {
 		if (port_max)
 			vty_out(vty, ":udp/tcp:%d-%d",
 				port_min, port_max);

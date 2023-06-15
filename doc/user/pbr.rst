@@ -5,9 +5,10 @@ PBR
 ***
 
 :abbr:`PBR` is Policy Based Routing.  This implementation supports a very simple
-interface to allow admins to influence routing on their router.  At this time
-you can only match on destination and source prefixes for an incoming interface.
-At this point in time, this implementation will only work on Linux.
+interface to allow admins to influence routing on their router.  At this point in 
+time, this implementation will only work on Linux. Note that some
+functionality (VLAN matching, packet mangling) is not supported by the default
+Linux kernel provider.
 
 .. _starting-pbr:
 
@@ -109,10 +110,12 @@ end destination.
    When a incoming packet matches the destination port specified, take the
    packet and forward according to the nexthops specified.
 
-.. clicmd:: match ip-protocol [tcp|udp]
+.. clicmd:: match ip-protocol PROTOCOL
 
    When a incoming packet matches the specified ip protocol, take the
-   packet and forward according to the nexthops specified.
+   packet and forward according to the nexthops specified. Protocols are
+   queried from the protocols database (`/etc/protocols`; see `man 5
+   protocols`).
 
 .. clicmd:: match mark (1-4294967295)
 
@@ -135,7 +138,6 @@ end destination.
    Match packets according to the specified explicit congestion notification
    (ECN) field in the IP header; if this value matches then forward the packet
    according to the nexthop(s) specified.
-
 
 .. clicmd:: set queue-id (1-65535)
 
@@ -160,6 +162,28 @@ end destination.
 
    Strip inner vlan tags from matched packets. The Linux Kernel provider does not currently support packet mangling, so this field will be ignored unless another provider is used. It is invalid to specify both a `strip` and `set
    vlan` action.
+
+.. clicmd:: match pcp (0-7)
+
+   Match packets according to the 802.1Q Priority Code Point. Zero is the
+   default (nominally, "best effort"). Note that the Linux kernel provider
+   does not support matching PCPs, so this field will be ignored unless other
+   providers are used.
+
+.. clicmd:: match vlan (1-4094)
+
+   Match packets according to their VLAN (802.1Q) identifier. Note that VLAN
+   IDs 0 and 4095 are reserved. The Linux kernel provider does not provide
+   VLAN-matching facilities, so this field will be ignored unless other
+   providers are used.
+
+.. clicmd:: match vlan (tagged|untagged|untagged-or-zero)
+
+   Match packets according to whether or not they have a VLAN tag. Use
+   `untagged-or-zero` to also match packets with the reserved VLAN ID of 0
+   (indicating an untagged frame which includes other 802.1Q fields). The
+   Linux kernel provider does not provide VLAN-matching facilities, so this
+   field will be ignored unless other providers are used.
 
 .. clicmd:: set nexthop-group NAME
 
@@ -227,7 +251,7 @@ end destination.
    | nexthopGroup    | This policy's nexthop group (if relevant) | Object  |
    +-----------------+-------------------------------------------+---------+
 
-   Finally, the ``nexthopGroup`` object above cotains information we know
+   Finally, the ``nexthopGroup`` object above contains information we know
    about the configured nexthop for this policy:
 
    +---------------------+--------------------------------------+---------+

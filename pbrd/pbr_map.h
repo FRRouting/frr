@@ -106,6 +106,16 @@ struct pbr_map_sequence {
 	 */
 	unsigned char family;
 
+	uint8_t match_pcp;
+	uint16_t match_vlan_id;
+
+#define PBR_MAP_VLAN_NO_WILD 0
+#define PBR_MAP_VLAN_TAGGED (1 << 0)
+#define PBR_MAP_VLAN_UNTAGGED (1 << 1)
+#define PBR_MAP_VLAN_UNTAGGED_0 (1 << 2)
+
+	uint16_t match_vlan_flags;
+
 	/*
 	 * Use interface's vrf.
 	 */
@@ -222,4 +232,9 @@ extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 extern void pbr_map_check_interface_nh_group_change(const char *nh_group,
 						    struct interface *ifp,
 						    ifindex_t oldifindex);
+extern void pbr_set_match_clause_for_vlan(struct pbr_map_sequence *pbrms,
+					  uint16_t vlan_id,
+					  uint16_t vlan_flags);
+extern void pbr_set_match_clause_for_pcp(struct pbr_map_sequence *pbrms,
+					 uint8_t pcp);
 #endif

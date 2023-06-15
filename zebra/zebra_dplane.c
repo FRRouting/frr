@@ -2,6 +2,9 @@
 /*
  * Zebra dataplane layer.
  * Copyright (c) 2018 Volta Networks, Inc.
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *		Approved for Public Release; Distribution Unlimited 21-1402
  */
 
 #ifdef HAVE_CONFIG_H
@@ -245,7 +248,9 @@ struct dplane_neigh_table {
  * Policy based routing rule info for the dataplane
  */
 struct dplane_ctx_rule {
+    uint32_t seq;
 	uint32_t priority;
+	uint32_t unique;
 
 	/* The route table pointed by this rule */
 	uint32_t table;
@@ -265,6 +270,10 @@ struct dplane_ctx_rule {
 	uint16_t action_vlan_flags;
 
 	uint32_t action_queue_id;
+
+    uint8_t filter_pcp;
+	uint16_t filter_vlan_id;
+	uint16_t filter_vlan_flags;
 
 	char ifname[INTERFACE_NAMSIZ + 1];
 	struct ethaddr smac;
@@ -3423,6 +3432,9 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
 	dplane_rule->src_port = rule->rule.filter.src_port;
 	dplane_rule->dst_port = rule->rule.filter.dst_port;
+    dplane_rule->filter_pcp = rule->rule.filter.pcp;
+	dplane_rule->filter_vlan_id = rule->rule.filter.vlan_id;
+	dplane_rule->filter_vlan_flags = rule->rule.filter.vlan_flags;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
 

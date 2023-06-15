@@ -30,6 +30,10 @@
 /libtool.orig
 /test-driver
 /test-suite.log
+/changelog-auto
+/m4/ac
+/pathd/
+/pceplib/
 
 /Makefile
 /Makefile.in
@@ -114,6 +118,6 @@ refix
 .kitchen
 .emacs.desktop*
 
-/test-suite.log
 pceplib/test/*.log
 pceplib/test/*.trs
+*.xref
