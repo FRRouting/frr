@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 # (c) 2001, Dave Jones. (the file handling bit)
 # (c) 2005, Joel Schopp <jschopp@austin.ibm.com> (the ugly bit)
@@ -21,6 +21,8 @@ my $D = dirname(abs_path($P));
 my $V = '0.32';
 
 use Getopt::Long qw(:config no_auto_abbrev);
+
+my $frr = 1;
 
 my $quiet = 0;
 my $verbose = 0;
@@ -65,10 +67,11 @@ my $codespell = 0;
 my $codespellfile = "/usr/share/codespell/dictionary.txt";
 my $user_codespellfile = "";
 my $conststructsfile = "$D/const_structs.checkpatch";
-my $docsfile = "$D/../Documentation/dev-tools/checkpatch.rst";
+my $docsfile = "$D/../doc/developer/checkpatch.rst";
 my $typedefsfile;
 my $color = "auto";
-my $allow_c99_comments = 1; # Can be overridden by --ignore C99_COMMENT_TOLERANCE
+my $allow_c99_comments = 0; # Not in FRR.
+#my $allow_c99_comments = 1; # Can be overridden by --ignore C99_COMMENT_TOLERANCE
 # git output parsing needs US English output, so first set backtick child process LANGUAGE
 my $git_command ='export LANGUAGE=en_US.UTF-8; git';
 my $tabsize = 8;
@@ -489,6 +492,7 @@ our $InitAttribute = qr{$InitAttributeData|$InitAttributeConst|$InitAttributeIni
 # Notes to $Attribute:
 # We need \b after 'init' otherwise 'initconst' will cause a false positive in a check
 our $Attribute	= qr{
+			_Atomic|
 			const|
 			volatile|
 			__percpu|
@@ -542,6 +546,25 @@ our $Operators	= qr{
 		  }x;
 
 our $c90_Keywords = qr{do|for|while|if|else|return|goto|continue|switch|default|case|break}x;
+our $Iterators	= qr{
+			frr_each|frr_each_safe|frr_each_from|
+			frr_with_mutex|frr_with_privs|
+			LIST_FOREACH|LIST_FOREACH_SAFE|
+			SLIST_FOREACH|SLIST_FOREACH_SAFE|SLIST_FOREACH_PREVPTR|
+			STAILQ_FOREACH|STAILQ_FOREACH_SAFE|
+			TAILQ_FOREACH|TAILQ_FOREACH_SAFE|TAILQ_FOREACH_REVERSE|TAILQ_FOREACH_REVERSE_SAFE|
+			RB_FOREACH|RB_FOREACH_SAFE|RB_FOREACH_REVERSE|RB_FOREACH_REVERSE_SAFE|
+			SPLAY_FOREACH|
+			FOR_ALL_INTERFACES|FOR_ALL_INTERFACES_ADDRESSES|JSON_FOREACH|
+			LY_FOR_KEYS|LY_LIST_FOR|LY_TREE_FOR|LY_TREE_DFS_BEGIN|LYD_TREE_DFS_BEGIN|
+			RE_DEST_FOREACH_ROUTE|RE_DEST_FOREACH_ROUTE_SAFE|
+			RNODE_FOREACH_RE|RNODE_FOREACH_RE_SAFE|
+			UPDGRP_FOREACH_SUBGRP|UPDGRP_FOREACH_SUBGRP_SAFE|
+			SUBGRP_FOREACH_PEER|SUBGRP_FOREACH_PEER_SAFE|
+			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
+			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
+			LSDB_LOOP
+		  }x;
 
 our $BasicType;
 our $NonptrType;
@@ -909,7 +932,7 @@ if (open(my $spelling, '<', $spelling_file)) {
 		$spelling_fix{$suspect} = $fix;
 	}
 	close($spelling);
-} else {
+} elsif (!$frr) {
 	warn "No typos will be found - file '$spelling_file': $!\n";
 }
 
@@ -967,7 +990,8 @@ sub read_words {
 }
 
 my $const_structs;
-if (show_type("CONST_STRUCT")) {
+if (!$frr &&
+    show_type("CONST_STRUCT")) {
 	read_words(\$const_structs, $conststructsfile)
 	    or warn "No structs that should be const will be found - file '$conststructsfile': $!\n";
 }
@@ -1335,9 +1359,10 @@ sub top_of_kernel_tree {
 	my ($root) = @_;
 
 	my @tree_check = (
-		"COPYING", "CREDITS", "Kbuild", "MAINTAINERS", "Makefile",
-		"README", "Documentation", "arch", "include", "drivers",
-		"fs", "init", "ipc", "kernel", "lib", "scripts",
+		"COPYING", "configure.ac", "Makefile.am",
+		"README.md", "doc", "lib", "vtysh", "watchfrr", "tests",
+		"zebra", "bgpd", "ospfd", "ospf6d", "isisd", "staticd",
+
 	);
 
 	foreach my $check (@tree_check) {
@@ -2581,6 +2606,21 @@ sub exclude_global_initialisers {
 		$realfile =~ m@/bpf/.*\.bpf\.c$@;
 }
 
+sub remove_defuns {
+    my @breakfast = ();
+    my $milktoast;
+    for my $tasty (@rawlines) {
+        $milktoast = $tasty;
+        if (($tasty =~ /^\+DEFPY/ ||
+             $tasty =~ /^\+DEFUN/ ||
+             $tasty =~ /^\+ALIAS/) .. ($tasty =~ /^\+\{/)) {
+            $milktoast = "\n";
+        }
+        push(@breakfast, $milktoast);
+    }
+    @rawlines = @breakfast;
+}
+
 sub process {
 	my $filename = shift;
 
@@ -2656,6 +2696,8 @@ sub process {
 	my $checklicenseline = 1;
 
 	sanitise_line_reset();
+        remove_defuns();
+
 	my $line;
 	foreach my $rawline (@rawlines) {
 		$linenr++;
@@ -2887,8 +2929,9 @@ sub process {
 				$commit_log_lines++;	#could be a $signature
 			}
 		} elsif ($has_commit_log && $commit_log_lines < 2) {
-			WARN("COMMIT_MESSAGE",
-			     "Missing commit description - Add an appropriate one\n");
+			# FRR: not used by FRR
+			# WARN("COMMIT_MESSAGE",
+			#      "Missing commit description - Add an appropriate one\n");
 			$commit_log_lines = 2;	#warn only once
 		}
 
@@ -3281,8 +3324,8 @@ sub process {
 		      (defined($1) || defined($2))))) {
 			$is_patch = 1;
 			$reported_maintainer_file = 1;
-			WARN("FILE_PATH_CHANGES",
-			     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
+			# WARN("FILE_PATH_CHANGES",
+			#      "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
 		}
 
 # Check for adding new DT bindings not in schema format
@@ -3613,8 +3656,12 @@ sub process {
 				$checklicenseline = 2;
 			} elsif ($rawline =~ /^\+/) {
 				my $comment = "";
-				if ($realfile =~ /\.(h|s|S)$/) {
+				if (!$frr &&
+                                    $realfile =~ /\.(h|s|S)$/) {
 					$comment = '/*';
+				} elsif ($frr &&
+                                         $realfile =~ /\.(h|s|S)$/) {
+                                    $comment = '//';
 				} elsif ($realfile =~ /\.(c|dts|dtsi)$/) {
 					$comment = '//';
 				} elsif (($checklicenseline == 2) || $realfile =~ /\.(sh|pl|py|awk|tc|yaml)$/) {
@@ -4179,7 +4226,7 @@ sub process {
 
 # if/while/etc brace do not go on next line, unless defining a do while loop,
 # or if that brace on the next line is for something else
-		if ($line =~ /(.*)\b((?:if|while|for|switch|(?:[a-z_]+|)for_each[a-z_]+)\s*\(|do\b|else\b)/ && $line !~ /^.\s*\#/) {
+		if ($line =~ /(.*)\b((?:if|while|for|switch|(?:[a-z_]+|)frr_(each|with)[a-z_]+)\s*\(|do\b|else\b)/ && $line !~ /^.\s*\#/) {
 			my $pre_ctx = "$1$2";
 
 			my ($level, @ctx) = ctx_statement_level($linenr, $realcnt, 0);
@@ -4225,7 +4272,7 @@ sub process {
 		}
 
 # Check relative indent for conditionals and blocks.
-		if ($line =~ /\b(?:(?:if|while|for|(?:[a-z_]+|)for_each[a-z_]+)\s*\(|(?:do|else)\b)/ && $line !~ /^.\s*#/ && $line !~ /\}\s*while\s*/) {
+		if ($line =~ /\b(?:(?:if|while|for|(?:[a-z_]+|)frr_(each|with)[a-z_]+)\s*\(|(?:do|else)\b)/ && $line !~ /^.\s*#/ && $line !~ /\}\s*while\s*/) {
 			($stat, $cond, $line_nr_next, $remain_next, $off_next) =
 				ctx_statement_block($linenr, $realcnt, 0)
 					if (!defined $stat);
@@ -4447,7 +4494,7 @@ sub process {
 
 # no C99 // comments
 		if ($line =~ m{//}) {
-			if (ERROR("C99_COMMENTS",
+			if (!$allow_c99_comments && ERROR("C99_COMMENTS",
 				  "do not use C99 // comments\n" . $herecurr) &&
 			    $fix) {
 				my $line = $fixed[$fixlinenr];
@@ -4455,6 +4502,9 @@ sub process {
 					my $comment = trim($1);
 					$fixed[$fixlinenr] =~ s@\/\/(.*)$@/\* $comment \*/@;
 				}
+			} else {
+				WARN("C99_COMMENTS",
+				     "C99 // comments do not match recommendation\n" . $herecurr);
 			}
 		}
 		# Remove C99 comments.
@@ -4920,7 +4970,8 @@ sub process {
 				if|for|while|switch|return|case|
 				volatile|__volatile__|
 				__attribute__|format|__extension__|
-				asm|__asm__)$/x)
+				asm|__asm__|
+				$Iterators)$/x)
 			{
 			# cpp #define statements have non-optional spaces, ie
 			# if there is a space between the name and the open
@@ -4933,6 +4984,10 @@ sub process {
 			# If this whole things ends with a type its most
 			# likely a typedef for a function.
 			} elsif ($ctx =~ /$Type$/) {
+
+			# All-uppercase function names are usually macros,
+			# ignore those
+			} elsif ($name eq uc $name) {
 
 			} else {
 				if (WARN("SPACING",
@@ -5070,7 +5125,9 @@ sub process {
 				} elsif ($op eq ',') {
 					my $rtrim_before = 0;
 					my $space_after = 0;
-					if ($ctx =~ /Wx./) {
+					if ($line=~/\#\s*define/) {
+						# FRR: ignore , spacing in macros
+					} elsif ($ctx =~ /Wx./) {
 						if (ERROR("SPACING",
 							  "space prohibited before that '$op' $at\n" . $hereptr)) {
 							$line_fixed = 1;
@@ -5411,7 +5468,9 @@ sub process {
 # and ignore bitfield definitions like foo:1
 # Strictly, labels can have whitespace after the identifier and before the :
 # but this is not allowed here as many ?: uses would appear to be labels
-		if ($sline =~ /^.\s+[A-Za-z_][A-Za-z\d_]*:(?!\s*\d+)/ &&
+                # FRR: has indented labels
+		if (!$frr &&
+                    $sline =~ /^.\s+[A-Za-z_][A-Za-z\d_]*:(?!\s*\d+)/ &&
 		    $sline !~ /^. [A-Za-z\d_][A-Za-z\d_]*:/ &&
 		    $sline !~ /^.\s+default:/) {
 			if (WARN("INDENTED_LABEL",
@@ -5767,6 +5826,7 @@ sub process {
 			my $ctx = '';
 			my $has_flow_statement = 0;
 			my $has_arg_concat = 0;
+			my $complex = 0;
 			($dstat, $dcond, $ln, $cnt, $off) =
 				ctx_statement_block($linenr, $realcnt, 0);
 			$ctx = $dstat;
@@ -5786,6 +5846,7 @@ sub process {
 				$define_args =~ s/\s*//g;
 				$define_args =~ s/\\\+?//g;
 				@def_args = split(",", $define_args);
+				$complex = 1;
 			}
 
 			$dstat =~ s/$;//g;
@@ -5850,7 +5911,7 @@ sub process {
 				} elsif ($dstat =~ /;/) {
 					ERROR("MULTISTATEMENT_MACRO_USE_DO_WHILE",
 					      "Macros with multiple statements should be enclosed in a do - while loop\n" . "$herectx");
-				} else {
+				} elsif ($complex) {
 					ERROR("COMPLEX_MACRO",
 					      "Macros with complex values should be enclosed in parentheses\n" . "$herectx");
 				}
@@ -6076,6 +6137,31 @@ sub process {
 			}
 		}
 
+		if (!defined $suppress_ifbraces{$linenr - 1} &&
+		    $line =~ /\b(frr_with_)/) {
+		    my ($level, $endln, @chunks) =
+			ctx_statement_full($linenr, $realcnt, $-[0]);
+
+		    # Check the condition.
+		    my ($cond, $block) = @{$chunks[0]};
+		    #print "CHECKING<$linenr> cond<$cond> block<$block>\n";
+		    if (defined $cond) {
+			substr($block, 0, length($cond), '');
+		    }
+
+		    if ($level == 0 && $block !~ /^\s*\{/) {
+			my $herectx = $here . "\n";
+			my $cnt = statement_rawlines($block);
+
+			for (my $n = 0; $n < $cnt; $n++) {
+			    $herectx .= raw_line($linenr, $n) . "\n";
+			}
+
+			WARN("BRACES",
+			     "braces {} are mandatory for frr_with_* blocks\n" . $herectx);
+		    }
+		}
+
 # check for single line unbalanced braces
 		if ($sline =~ /^.\s*\}\s*else\s*$/ ||
 		    $sline =~ /^.\s*else\s*\{\s*$/) {
@@ -6193,7 +6279,8 @@ sub process {
 
 # uncoalesced string fragments
 		if ($line =~ /$String\s*[Lu]?"/) {
-			if (WARN("STRING_FRAGMENTS",
+			# FRR: WARN -> CHK
+			if (CHK("STRING_FRAGMENTS",
 				 "Consecutive strings are generally better as a single string\n" . $herecurr) &&
 			    $fix) {
 				while ($line =~ /($String)(?=\s*")/g) {
@@ -6583,7 +6670,9 @@ sub process {
 		}
 
 # Check for compiler attributes
-		if ($realfile !~ m@\binclude/uapi/@ &&
+		# FRR: doesn't use kernel macro replacements for compiler attributes.
+		if (!$frr &&
+		    $realfile !~ m@\binclude/uapi/@ &&
 		    $rawline =~ /\b__attribute__\s*\(\s*($balanced_parens)\s*\)/) {
 			my $attr = $1;
 			$attr =~ s/\s*\(\s*(.*)\)\s*/$1/;
@@ -6648,7 +6737,8 @@ sub process {
 		}
 
 # Check for __attribute__ weak, or __weak declarations (may have link issues)
-		if ($perl_version_ok &&
+		if (!$frr &&
+		    $perl_version_ok &&
 		    $line =~ /(?:$Declare|$DeclareMisordered)\s*$Ident\s*$balanced_parens\s*(?:$Attribute)?\s*;/ &&
 		    ($line =~ /\b__attribute__\s*\(\s*\(.*\bweak\b/ ||
 		     $line =~ /\b__weak\b/)) {
@@ -6657,7 +6747,8 @@ sub process {
 		}
 
 # check for c99 types like uint8_t used outside of uapi/ and tools/
-		if ($realfile !~ m@\binclude/uapi/@ &&
+		if (!$frr &&
+		    $realfile !~ m@\binclude/uapi/@ &&
 		    $realfile !~ m@\btools/@ &&
 		    $line =~ /\b($Declare)\s*$Ident\s*[=;,\[]/) {
 			my $type = $1;
@@ -6730,7 +6821,8 @@ sub process {
 		}
 
 # check for vsprintf extension %p<foo> misuses
-		if ($perl_version_ok &&
+		if (!$frr &&
+		    $perl_version_ok &&
 		    defined $stat &&
 		    $stat =~ /^\+(?![^\{]*\{\s*).*\b(\w+)\s*\(.*$String\s*,/s &&
 		    $1 !~ /^_*volatile_*$/) {
@@ -6842,7 +6934,8 @@ sub process {
 #		}
 
 # strlcpy uses that should likely be strscpy
-		if ($line =~ /\bstrlcpy\s*\(/) {
+		if (!$frr &&
+                    $line =~ /\bstrlcpy\s*\(/) {
 			WARN("STRLCPY",
 			     "Prefer strscpy over strlcpy - see: https://lore.kernel.org/r/CAHk-=wgfRnXz0W3D37d01q3JFkr_i_uTL=V6A6G1oUZcprmknw\@mail.gmail.com/\n" . $herecurr);
 		}
@@ -6902,7 +6995,8 @@ sub process {
 		}
 
 # check for simple sscanf that should be kstrto<foo>
-		if ($perl_version_ok &&
+		if (!$frr &&
+		    $perl_version_ok &&
 		    defined $stat &&
 		    $line =~ /\bsscanf\b/) {
 			my $lc = $stat =~ tr@\n@@;
@@ -7187,7 +7281,8 @@ sub process {
 		}
 
 # recommend kstrto* over simple_strto* and strict_strto*
-		if ($line =~ /\b((simple|strict)_(strto(l|ll|ul|ull)))\s*\(/) {
+		if (!$frr &&
+		    $line =~ /\b((simple|strict)_(strto(l|ll|ul|ull)))\s*\(/) {
 			WARN("CONSIDER_KSTRTO",
 			     "$1 is obsolete, use k$3 instead\n" . $herecurr);
 		}
@@ -7214,7 +7309,8 @@ sub process {
 
 # check for various structs that are normally const (ops, kgdb, device_tree)
 # and avoid what seem like struct definitions 'struct foo {'
-		if (defined($const_structs) &&
+		if (!$frr &&
+		    defined($const_structs) &&
 		    $line !~ /\bconst\b/ &&
 		    $line =~ /\bstruct\s+($const_structs)\b(?!\s*\{)/) {
 			WARN("CONST_STRUCT",
@@ -7424,6 +7520,55 @@ sub process {
 		if ($line =~ /\.extra[12]\s*=\s*&(zero|one|int_max)\b/) {
 			WARN("DUPLICATED_SYSCTL_CONST",
 				"duplicated sysctl range checking value '$1', consider using the shared one in include/linux/sysctl.h\n" . $herecurr);
+		}
+
+# check for usage of nonstandard fixed-width integral types
+		if ($line =~ /u_int8_t/ ||
+		    $line =~ /u_int32_t/ ||
+		    $line =~ /u_int16_t/ ||
+		    $line =~ /u_int64_t/ ||
+		    $line =~ /[^a-z_]u_char[^a-z_]/ ||
+		    $line =~ /[^a-z_]u_short[^a-z_]/ ||
+		    $line =~ /[^a-z_]u_int[^a-z_]/ ||
+		    $line =~ /[^a-z_]u_long[^a-z_]/) {
+			ERROR("NONSTANDARD_INTEGRAL_TYPES",
+			      "Please, no nonstandard integer types in new code.\n" . $herecurr)
+		}
+
+# check for usage of non-32 bit atomics
+		if ($line =~ /_Atomic [u]?int(?!32)[0-9]+_t/) {
+			WARN("NON_32BIT_ATOMIC",
+			     "Please, only use 32 bit atomics.\n" . $herecurr);
+		}
+
+# check for use of strcpy()
+		if ($line =~ /\bstrcpy\s*\(.*\)/) {
+			ERROR("STRCPY",
+			      "strcpy() is error-prone; please use strlcpy()"  . $herecurr);
+		}
+
+# check for use of strncpy()
+		if ($line =~ /\bstrncpy\s*\(.*\)/) {
+			WARN("STRNCPY",
+			     "strncpy() is error-prone; please use strlcpy() if possible, or memcpy()"  . $herecurr);
+		}
+
+# check for use of strcat()
+		if ($line =~ /\bstrcat\s*\(.*\)/) {
+			ERROR("STRCAT",
+			      "strcat() is error-prone; please use strlcat() if possible"  . $herecurr);
+		}
+
+# check for use of strncat()
+		if ($line =~ /\bstrncat\s*\(.*\)/) {
+			WARN("STRNCAT",
+			     "strncat() is error-prone; please use strlcat() if possible"  . $herecurr);
+		}
+
+# check for use of bzero()
+		if ($line =~ /\bbzero\s*\(.*\)/) {
+			ERROR("BZERO",
+			      "bzero() is deprecated; use memset()"  . $herecurr);
 		}
 	}
 
