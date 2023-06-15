@@ -61,6 +61,8 @@ unsigned short ospf_instance;
 
 extern struct zclient *zclient;
 
+/* OSPF config processing timer thread */
+struct event *t_ospf_cfg;
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
 static void ospf_network_free(struct ospf *, struct ospf_network *);

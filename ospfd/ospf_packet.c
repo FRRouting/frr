@@ -3682,6 +3682,16 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 	struct ospf_packet *op;
 	uint16_t length = OSPF_HEADER_SIZE;
 
+	/* Check if config is still being processed */
+	if (event_is_scheduled(t_ospf_cfg)) {
+		if (IS_DEBUG_OSPF_PACKET(0, SEND))
+			zlog_debug(
+				"Suppressing hello to %pI4 on %s during config load",
+				&(addr), IF_NAME(oi));
+
+		return;
+	}
+
 	op = ospf_packet_new(oi->ifp->mtu);
 
 	/* Prepare OSPF common header. */
