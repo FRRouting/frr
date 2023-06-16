@@ -793,7 +793,46 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Apr 20 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Jun 15 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Thu Jun 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.2
+- Bug fixes:
+- bfdd
+-    Fix malformed session with vrf
+-    Remove redundant nb destroy callbacks
+- bgpd
+-    Ensure stream received has enough data
+-    Fix bgpd core when unintern attr
+-    Fix the json output of show bgp all json to be in a valid format
+-    Make sure aigp attribute is non-transitive
+-    Using no pretty json output for l2vpn-evpn routes
+- lib
+-    Fix memory leak in in link state
+-    Fix vtysh core when handling questionmark
+-    Link state memory corruption
+- ospfd
+-    Fix interface param type update
+-    Fix memory leaks w/ `show ip ospf int x json` commands
+-    Ospf opaque lsa stale processing fix and topotests.
+-    Respect loopback's cost that is set and set loopback costs to 0
+- pim6d
+-    Fix crash in ipv6 pim command
+
+- pimd
+-    Pim not sending register packets after changing from non dr to dr
+
+-tools
+-    Fix list value remove in frr-reload
+
+- vtysh
+-    Give actual pam error messages
+
+- zebra
+-    Evpn handle del event for dup detected mac
+-    Fix dp_out_queued counter to actually reflect real life
+-    Fix evpn dup detected local mac del event
+-    Reduce creation and fix memory leak of frrscripting pointers
+-    Unlock the route node when sending route notifications
 
 * Thu Apr 20 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.1
 - Bug fixes:
