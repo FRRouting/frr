@@ -575,7 +575,7 @@ finishedrequest:
 }
 
 event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
-		&bm->t_bgp_label_manager);
+		&bm->t_bgp_sync_label_manager);
 }
 
 void bgp_lp_event_chunk(uint32_t first, uint32_t last)
@@ -700,7 +700,7 @@ void bgp_lp_event_zebra_up(void)
 	}
 
 	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
-			&bm->t_bgp_label_manager);
+			&bm->t_bgp_sync_label_manager);
 }
 
 DEFUN(show_bgp_labelpool_summary, show_bgp_labelpool_summary_cmd,

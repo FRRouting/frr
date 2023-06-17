@@ -56,6 +56,7 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 struct zclient *zclient_sync = NULL;
+static bool bgp_zebra_label_manager_connect(void);
 
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
@@ -3413,13 +3414,23 @@ void bgp_if_init(void)
 	hook_register_prio(if_del, 0, bgp_if_delete_hook);
 }
 
-static void bgp_zebra_label_manager_connect(void)
+static void bgp_start_label_manager(struct event *start)
+{
+	bgp_zebra_label_manager_connect();
+}
+
+static bool bgp_zebra_label_manager_ready(void)
+{
+	return (zclient_sync->sock > 0);
+}
+
+static bool bgp_zebra_label_manager_connect(void)
 {
 	/* Connect to label manager. */
 	if (zclient_socket_connect(zclient_sync) < 0) {
 		zlog_warn("%s: failed connecting synchronous zclient!",
 			  __func__);
-		return;
+		return false;
 	}
 	/* make socket non-blocking */
 	set_nonblocking(zclient_sync->sock);
@@ -3430,7 +3441,7 @@ static void bgp_zebra_label_manager_connect(void)
 			  __func__);
 		close(zclient_sync->sock);
 		zclient_sync->sock = -1;
-		return;
+		return false;
 	}
 
 	/* Connect to label manager */
@@ -3440,11 +3451,13 @@ static void bgp_zebra_label_manager_connect(void)
 			close(zclient_sync->sock);
 			zclient_sync->sock = -1;
 		}
-		return;
+		return false;
 	}
 
 	/* tell label pool that zebra is connected */
 	bgp_lp_event_zebra_up();
+
+	return true;
 }
 
 void bgp_zebra_init(struct event_loop *master, unsigned short instance)
@@ -3472,7 +3485,9 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	zclient_sync->session_id = 1;
 	zclient_sync->privs = &bgpd_privs;
 
-	bgp_zebra_label_manager_connect();
+	if (!bgp_zebra_label_manager_ready())
+		event_add_timer(master, bgp_start_label_manager, NULL, 1,
+				&bm->t_bgp_start_label_manager);
 }
 
 void bgp_zebra_destroy(void)

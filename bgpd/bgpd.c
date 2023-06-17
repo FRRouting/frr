@@ -8062,7 +8062,8 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
-	bm->t_bgp_label_manager = NULL;
+	bm->t_bgp_sync_label_manager = NULL;
+	bm->t_bgp_start_label_manager = NULL;
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -8309,7 +8310,8 @@ void bgp_terminate(void)
 		list_delete(&bm->listen_sockets);
 
 	EVENT_OFF(bm->t_rmap_update);
-	EVENT_OFF(bm->t_bgp_label_manager);
+	EVENT_OFF(bm->t_bgp_sync_label_manager);
+	EVENT_OFF(bm->t_bgp_start_label_manager);
 
 	bgp_mac_finish();
 }
