@@ -3974,7 +3974,7 @@ bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 	int ret;
 	uint32_t start, end;
 
-	if (!zclient_sync || zclient_sync->sock < 0)
+	if (!zclient_sync || !bgp_zebra_label_manager_ready())
 		return false;
 
 	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
@@ -4000,7 +4000,7 @@ void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
 {
 	int ret;
 
-	if (!zclient_sync || zclient_sync->sock < 0)
+	if (!zclient_sync || !bgp_zebra_label_manager_ready())
 		return;
 
 	ret = lm_release_label_chunk(zclient_sync, start, end);
