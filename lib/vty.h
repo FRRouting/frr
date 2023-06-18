@@ -391,7 +391,7 @@ extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
-			    bool exclusive);
+			    bool exclusive, bool file_lock);
 extern void vty_config_exit(struct vty *);
 extern int vty_config_node_exit(struct vty *);
 extern int vty_shell(struct vty *);

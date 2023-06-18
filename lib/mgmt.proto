@@ -243,7 +243,8 @@ message FeSetConfigReply {
   required DatastoreId ds_id = 2;
   required uint64 req_id = 3;
   required bool success = 4;
-  optional string error_if_any = 5;
+  required bool implicit_commit = 5;
+  optional string error_if_any = 6;
 }
 
 message FeCommitConfigReq {

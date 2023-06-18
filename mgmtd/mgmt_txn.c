@@ -687,18 +687,18 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 			assert(mgmt_txn_reqs_count(&txn->set_cfg_reqs) == 1);
 			assert(txn_req->req.set_cfg->dst_ds_ctx);
 
-			ret = mgmt_ds_lock(txn_req->req.set_cfg->dst_ds_ctx,
-					   txn->session_id);
-			if (ret != 0) {
+			/* We expect the user to have locked the DST DS */
+			if (!mgmt_ds_is_locked(txn_req->req.set_cfg->dst_ds_ctx,
+					       txn->session_id)) {
 				MGMTD_TXN_ERR(
-					"Failed to lock DS %u txn-id: %" PRIu64
+					"DS %u not locked for implicit commit txn-id: %" PRIu64
 					" session-id: %" PRIu64 " err: %s",
 					txn_req->req.set_cfg->dst_ds_id,
 					txn->txn_id, txn->session_id,
 					strerror(ret));
 				mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_DS_LOCK_FAILED,
-					"Lock running DS before implicit commit failed!");
+					"running DS not locked for implicit commit");
 				goto mgmt_txn_process_set_cfg_done;
 			}
 
@@ -757,7 +757,12 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 
 	success = (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES);
 
+	/* TODO: these replies should not be send if it's a rollback
+	 * b/c right now that is special cased.. that special casing should be
+	 * removed; however...
+	 */
 	if (!txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id
+	    && !txn->commit_cfg_req->req.commit_cfg.rollback
 	    && mgmt_fe_send_commit_cfg_reply(
 		       txn->session_id, txn->txn_id,
 		       txn->commit_cfg_req->req.commit_cfg.src_ds_id,
@@ -773,6 +778,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id
+	    && !txn->commit_cfg_req->req.commit_cfg.rollback
 	    && mgmt_fe_send_set_cfg_reply(
 		       txn->session_id, txn->txn_id,
 		       txn->commit_cfg_req->req.commit_cfg.src_ds_id,
@@ -787,6 +793,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 
 	if (success) {
 		/* Stop the commit-timeout timer */
+		/* XXX why only on success? */
 		EVENT_OFF(txn->comm_cfg_timeout);
 
 		create_cmt_info_rec =
@@ -833,16 +840,17 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.rollback) {
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx);
 		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
-
 		/*
 		 * Resume processing the rollback command.
+		 *
+		 * TODO: there's no good reason to special case rollback, the
+		 * rollback boolean should be passed back to the FE client and it
+		 * can do the right thing.
 		 */
 		mgmt_history_rollback_complete(success);
 	}
-
-	if (txn->commit_cfg_req->req.commit_cfg.implicit)
-		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
 
 	txn->commit_cfg_req->req.commit_cfg.cmt_stats = NULL;
 	mgmt_txn_req_free(&txn->commit_cfg_req);
@@ -2651,10 +2659,11 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 					struct mgmt_ds_ctx *dst_ds_ctx)
 {
 	static struct nb_config_cbs changes;
+	static struct mgmt_commit_stats dummy_stats;
+
 	struct nb_config_cbs *cfg_chgs = NULL;
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
-	static struct mgmt_commit_stats dummy_stats;
 
 	memset(&changes, 0, sizeof(changes));
 	memset(&dummy_stats, 0, sizeof(dummy_stats));
