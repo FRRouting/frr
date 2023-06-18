@@ -592,8 +592,12 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	}
 }
 
-static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
+static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
+				       safi_t safi)
 {
+	if (!bgp_fibupd_safi(safi))
+		return true;
+
 	return (!(BGP_SUPPRESS_FIB_ENABLED(bgp) &&
 		  CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING) &&
 		 (!bgp_option_check(BGP_OPT_NO_FIB))));
@@ -605,11 +609,12 @@ static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
  * This function assumes that bgp_check_advertise was already returned
  * as good to go.
  */
-static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest)
+static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
+					safi_t safi)
 {
 	struct bgp_path_info *pi, *selected = NULL;
 
-	if (!BGP_SUPPRESS_FIB_ENABLED(bgp))
+	if (!bgp_fibupd_safi(safi) || !BGP_SUPPRESS_FIB_ENABLED(bgp))
 		return false;
 
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {

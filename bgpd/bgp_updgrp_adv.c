@@ -307,6 +307,7 @@ static void subgroup_coalesce_timer(struct event *thread)
 {
 	struct update_subgroup *subgrp;
 	struct bgp *bgp;
+	safi_t safi;
 
 	subgrp = EVENT_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
@@ -317,7 +318,7 @@ static void subgroup_coalesce_timer(struct event *thread)
 	subgrp->v_coalesce = 0;
 	bgp = SUBGRP_INST(subgrp);
 	subgroup_announce_route(subgrp);
-
+	safi = SUBGRP_SAFI(subgrp);
 
 	/* While the announce_route() may kick off the route advertisement timer
 	 * for
@@ -328,7 +329,8 @@ static void subgroup_coalesce_timer(struct event *thread)
 	 * announce, this is the method currently employed to trigger the EOR.
 	 */
 	if (!bgp_update_delay_active(SUBGRP_INST(subgrp)) &&
-	    !(BGP_SUPPRESS_FIB_ENABLED(bgp))) {
+	    !(bgp_fibupd_safi(safi) && BGP_SUPPRESS_FIB_ENABLED(bgp))) {
+
 		struct peer_af *paf;
 		struct peer *peer;
 
@@ -549,7 +551,8 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			 * the flag PEER_STATUS_ADV_DELAY which will allow
 			 * more routes to be sent in the update message
 			 */
-			if (BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+			if (bgp_fibupd_safi(safi) &&
+			    BGP_SUPPRESS_FIB_ENABLED(bgp)) {
 				adv_peer = PAF_PEER(paf);
 				if (!bgp_adv_fifo_count(
 						&subgrp->sync->withdraw))
@@ -1014,7 +1017,7 @@ void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* If suppress fib is enabled, the route will be advertised when
 	 * FIB status is received
 	 */
-	if (!bgp_check_advertise(bgp, dest))
+	if (!bgp_check_advertise(bgp, dest, safi))
 		return;
 
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);
