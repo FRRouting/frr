@@ -411,6 +411,7 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				session->user_ctx, fe_msg->setcfg_reply->req_id,
 				fe_msg->setcfg_reply->success,
 				fe_msg->setcfg_reply->ds_id,
+				fe_msg->setcfg_reply->implicit_commit,
 				fe_msg->setcfg_reply->error_if_any);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:

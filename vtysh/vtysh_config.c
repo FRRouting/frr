@@ -607,7 +607,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	vty->node = CONFIG_NODE;
 
 	vtysh_execute_no_pager("enable");
-	vtysh_execute_no_pager("configure terminal");
+	vtysh_execute_no_pager("configure terminal file-lock");
 
 	if (!dry_run)
 		vtysh_execute_no_pager("XFRR_start_configuration");

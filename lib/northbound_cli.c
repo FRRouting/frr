@@ -763,7 +763,7 @@ DEFUN (config_exclusive,
        "Configuration from vty interface\n"
        "Configure exclusively from this terminal\n")
 {
-	return vty_config_enter(vty, true, true);
+	return vty_config_enter(vty, true, true, false);
 }
 
 /* Configure using a private candidate configuration. */
@@ -773,7 +773,7 @@ DEFUN (config_private,
        "Configuration from vty interface\n"
        "Configure using a private candidate configuration\n")
 {
-	return vty_config_enter(vty, true, false);
+	return vty_config_enter(vty, true, false, false);
 }
 
 DEFPY (config_commit,

@@ -41,7 +41,6 @@ struct mgmt_fe_session_ctx {
 	uint64_t txn_id;
 	uint64_t cfg_txn_id;
 	uint8_t ds_locked[MGMTD_DS_MAX_ID];
-	uint8_t ds_locked_implict[MGMTD_DS_MAX_ID];
 	struct event *proc_cfg_txn_clnp;
 	struct event *proc_show_txn_clnp;
 
@@ -105,7 +104,6 @@ static void mgmt_fe_session_unlock_ds(Mgmtd__DatastoreId ds_id,
 			  session->session_id, mgmt_ds_id2name(ds_id));
 
 	session->ds_locked[ds_id] = false;
-	session->ds_locked_implict[ds_id] = false;
 	mgmt_ds_unlock(ds_ctx);
 	MGMTD_FE_ADAPTER_DBG(
 		"Unlocked DS:%s write-locked earlier by session-id: %" PRIu64
@@ -117,20 +115,11 @@ static void mgmt_fe_session_unlock_ds(Mgmtd__DatastoreId ds_id,
 static void
 mgmt_fe_session_cfg_txn_cleanup(struct mgmt_fe_session_ctx *session)
 {
-	Mgmtd__DatastoreId ds_id;
-	struct mgmt_ds_ctx *ds_ctx;
-
 	/*
 	 * Ensure any uncommitted changes in Candidate DS
 	 * is discarded.
 	 */
 	mgmt_ds_copy_dss(mm->running_ds, mm->candidate_ds, false);
-
-	for (ds_id = 0; ds_id < MGMTD_DS_MAX_ID; ds_id++) {
-		ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
-		if (ds_ctx && session->ds_locked_implict[ds_id])
-			mgmt_fe_session_unlock_ds(ds_id, ds_ctx, session);
-	}
 
 	/*
 	 * Destroy the actual transaction created earlier.
@@ -374,6 +363,7 @@ static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
 	setcfg_reply.ds_id = ds_id;
 	setcfg_reply.req_id = req_id;
 	setcfg_reply.success = success;
+	setcfg_reply.implicit_commit = implicit_commit;
 	if (error_if_any)
 		setcfg_reply.error_if_any = (char *)error_if_any;
 
@@ -612,8 +602,7 @@ static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
 }
 
 /*
- * XXX chopps: get rid of this, we should have deleted sessions when there was a
- * disconnect
+ * Purge any old connections that share the same client name with `adapter`
  */
 static void
 mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
@@ -621,17 +610,16 @@ mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
 	struct mgmt_fe_client_adapter *old;
 
 	FOREACH_ADAPTER_IN_LIST (old) {
-		if (old != adapter &&
-		    !strncmp(adapter->name, old->name, sizeof(adapter->name))) {
-			/*
-			 * We have a Zombie lingering around
-			 */
-			MGMTD_FE_ADAPTER_DBG(
-				"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)!",
-				adapter->name, adapter->conn->fd,
-				old->conn->fd);
-			msg_conn_disconnect(old->conn, false);
-		}
+		if (old == adapter)
+			continue;
+		if (strncmp(adapter->name, old->name, sizeof(adapter->name)))
+			continue;
+
+		MGMTD_FE_ADAPTER_DBG(
+			"Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)",
+			adapter->name, adapter->conn->fd,
+			old->conn->fd);
+		msg_conn_disconnect(old->conn, false);
 	}
 }
 
@@ -641,16 +629,12 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 {
 	struct mgmt_ds_ctx *ds_ctx;
 
-	/*
-	 * Next check first if the SETCFG_REQ is for Candidate DS
-	 * or not. Report failure if its not. MGMTD currently only
-	 * supports editing the Candidate DS.
-	 */
-	if (lockds_req->ds_id != MGMTD_DS_CANDIDATE) {
+	if (lockds_req->ds_id != MGMTD_DS_CANDIDATE &&
+	    lockds_req->ds_id != MGMTD_DS_RUNNING) {
 		mgmt_fe_send_lockds_reply(
 			session, lockds_req->ds_id, lockds_req->req_id,
 			lockds_req->lock, false,
-			"Lock/Unlock on datastores other than Candidate DS not permitted!");
+			"Lock/Unlock on DS other than candidate or running DS not supported");
 		return -1;
 	}
 
@@ -673,8 +657,6 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 				"Lock already taken on DS by another session!");
 			return -1;
 		}
-
-		session->ds_locked_implict[lockds_req->ds_id] = false;
 	} else {
 		if (!session->ds_locked[lockds_req->ds_id]) {
 			mgmt_fe_send_lockds_reply(
@@ -710,79 +692,49 @@ static int
 mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 					  Mgmtd__FeSetConfigReq *setcfg_req)
 {
-	uint64_t cfg_session_id;
-	struct mgmt_ds_ctx *ds_ctx, *dst_ds_ctx;
+	struct mgmt_ds_ctx *ds_ctx, *dst_ds_ctx = NULL;
+	bool txn_created = false;
 
 	if (mm->perf_stats_en)
 		gettimeofday(&session->adapter->setcfg_stats.last_start, NULL);
 
-	/*
-	 * Next check first if the SETCFG_REQ is for Candidate DS
-	 * or not. Report failure if its not. MGMTD currently only
-	 * supports editing the Candidate DS.
-	 */
+	/* MGMTD currently only supports editing the candidate DS. */
 	if (setcfg_req->ds_id != MGMTD_DS_CANDIDATE) {
 		mgmt_fe_send_setcfg_reply(
 			session, setcfg_req->ds_id, setcfg_req->req_id, false,
-			"Set-Config on datastores other than Candidate DS not permitted!",
+			"Set-Config on datastores other than Candidate DS not supported",
 			setcfg_req->implicit_commit);
 		return 0;
 	}
-
-	/*
-	 * Get the DS handle.
-	 */
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, setcfg_req->ds_id);
-	if (!ds_ctx) {
+	assert(ds_ctx);
+
+	/* MGMTD currently only supports targetting the running DS. */
+	if (setcfg_req->implicit_commit &&
+	    setcfg_req->commit_ds_id != MGMTD_DS_RUNNING) {
 		mgmt_fe_send_setcfg_reply(
 			session, setcfg_req->ds_id, setcfg_req->req_id, false,
-			"No such DS exists!", setcfg_req->implicit_commit);
+			"Implicit commit on datastores other than running DS not supported",
+			setcfg_req->implicit_commit);
+		return 0;
+	}
+	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, setcfg_req->commit_ds_id);
+	assert(dst_ds_ctx);
+
+	/* User should have write lock to change the DS */
+	if (!session->ds_locked[setcfg_req->ds_id]) {
+		mgmt_fe_send_setcfg_reply(session, setcfg_req->ds_id,
+					  setcfg_req->req_id, false,
+					  "Candidate DS is not locked",
+					  setcfg_req->implicit_commit);
 		return 0;
 	}
 
 	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
-		/*
-		 * Check first if the current session can run a CONFIG
-		 * transaction or not. Report failure if a CONFIG transaction
-		 * from another session is already in progress.
-		 */
-		cfg_session_id = mgmt_config_txn_in_progress();
-		if (cfg_session_id != MGMTD_SESSION_ID_NONE) {
-			assert(cfg_session_id != session->session_id);
-			mgmt_fe_send_setcfg_reply(
-				session, setcfg_req->ds_id, setcfg_req->req_id,
-				false,
-				"Configuration already in-progress through a different user session!",
-				setcfg_req->implicit_commit);
-			goto mgmt_fe_sess_handle_setcfg_req_failed;
-		}
+		/* as we have the lock no-one else should have a config txn */
+		assert(mgmt_config_txn_in_progress() == MGMTD_SESSION_ID_NONE);
 
-
-		/*
-		 * Try taking write-lock on the requested DS (if not already).
-		 */
-		if (!session->ds_locked[setcfg_req->ds_id]) {
-			MGMTD_FE_ADAPTER_ERR(
-				"SETCFG_REQ on session-id: %" PRIu64
-				" without obtaining lock",
-				session->session_id);
-			if (mgmt_fe_session_write_lock_ds(setcfg_req->ds_id,
-							      ds_ctx, session)
-			    != 0) {
-				mgmt_fe_send_setcfg_reply(
-					session, setcfg_req->ds_id,
-					setcfg_req->req_id, false,
-					"Failed to lock the target DS",
-					setcfg_req->implicit_commit);
-				goto mgmt_fe_sess_handle_setcfg_req_failed;
-			}
-
-			session->ds_locked_implict[setcfg_req->ds_id] = true;
-		}
-
-		/*
-		 * Start a CONFIG Transaction (if not started already)
-		 */
+		/* Start a CONFIG Transaction (if not started already) */
 		session->cfg_txn_id = mgmt_create_txn(session->session_id,
 						      MGMTD_TXN_TYPE_CONFIG);
 		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
@@ -791,14 +743,15 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 				false,
 				"Failed to create a Configuration session!",
 				setcfg_req->implicit_commit);
-			goto mgmt_fe_sess_handle_setcfg_req_failed;
+			return 0;
 		}
+		txn_created = true;
 
 		MGMTD_FE_ADAPTER_DBG("Created new Config txn-id: %" PRIu64
 				     " for session-id %" PRIu64,
 				     session->cfg_txn_id, session->session_id);
 	} else {
-		MGMTD_FE_ADAPTER_ERR("Config txn-id: %" PRIu64
+		MGMTD_FE_ADAPTER_DBG("Config txn-id: %" PRIu64
 				     " for session-id: %" PRIu64
 				     " already created",
 				     session->cfg_txn_id, session->session_id);
@@ -817,22 +770,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 		}
 	}
 
-	dst_ds_ctx = 0;
-	if (setcfg_req->implicit_commit) {
-		dst_ds_ctx =
-			mgmt_ds_get_ctx_by_id(mm, setcfg_req->commit_ds_id);
-		if (!dst_ds_ctx) {
-			mgmt_fe_send_setcfg_reply(
-				session, setcfg_req->ds_id, setcfg_req->req_id,
-				false, "No such commit DS exists!",
-				setcfg_req->implicit_commit);
-			return 0;
-		}
-	}
-
-	/*
-	 * Create the SETConfig request under the transaction.
-	 */
+	/* Create the SETConfig request under the transaction. */
 	if (mgmt_txn_send_set_config_req(
 		    session->cfg_txn_id, setcfg_req->req_id, setcfg_req->ds_id,
 		    ds_ctx, setcfg_req->data, setcfg_req->n_data,
@@ -843,20 +781,11 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 			session, setcfg_req->ds_id, setcfg_req->req_id, false,
 			"Request processing for SET-CONFIG failed!",
 			setcfg_req->implicit_commit);
-		goto mgmt_fe_sess_handle_setcfg_req_failed;
+
+		/* delete transaction if we just created it */
+		if (txn_created)
+			mgmt_destroy_txn(&session->cfg_txn_id);
 	}
-
-	return 0;
-
-mgmt_fe_sess_handle_setcfg_req_failed:
-
-	/*
-	 * Delete transaction created recently.
-	 */
-	if (session->cfg_txn_id != MGMTD_TXN_ID_NONE)
-		mgmt_destroy_txn(&session->cfg_txn_id);
-	if (ds_ctx && session->ds_locked[setcfg_req->ds_id])
-		mgmt_fe_session_unlock_ds(setcfg_req->ds_id, ds_ctx, session);
 
 	return 0;
 }
@@ -907,7 +836,6 @@ mgmt_fe_session_handle_getcfg_req_msg(struct mgmt_fe_session_ctx *session,
 				     " for session-id: %" PRIu64,
 				     session->txn_id, session->session_id);
 	} else {
-		/* XXX chopps: Why would we already have a TXN here? */
 		MGMTD_FE_ADAPTER_DBG("Show txn-id: %" PRIu64
 				     " for session-id: %" PRIu64
 				     " already created",
@@ -1029,43 +957,30 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	if (mm->perf_stats_en)
 		gettimeofday(&session->adapter->cmt_stats.last_start, NULL);
 	session->adapter->cmt_stats.commit_cnt++;
-	/*
-	 * Get the source DS handle.
-	 */
+
+	/* Validate source and dest DS */
+	if (commcfg_req->src_ds_id != MGMTD_DS_CANDIDATE ||
+	    commcfg_req->dst_ds_id != MGMTD_DS_RUNNING) {
+		mgmt_fe_send_commitcfg_reply(
+			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
+			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
+			commcfg_req->validate_only,
+			"Source/Dest for commit must be candidate/running DS");
+		return 0;
+	}
 	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, commcfg_req->src_ds_id);
-	if (!src_ds_ctx) {
-		mgmt_fe_send_commitcfg_reply(
-			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
-			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
-			commcfg_req->validate_only,
-			"No such source DS exists!");
-		return 0;
-	}
-
-	/*
-	 * Get the destination DS handle.
-	 */
+	assert(src_ds_ctx);
 	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, commcfg_req->dst_ds_id);
-	if (!dst_ds_ctx) {
-		mgmt_fe_send_commitcfg_reply(
-			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
-			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
-			commcfg_req->validate_only,
-			"No such destination DS exists!");
-		return 0;
-	}
+	assert(dst_ds_ctx);
 
-	/*
-	 * Next check first if the COMMCFG_REQ is for running DS
-	 * or not. Report failure if its not. MGMTD currently only
-	 * supports editing the Candidate DS.
-	 */
-	if (commcfg_req->dst_ds_id != MGMTD_DS_RUNNING) {
+	/* User should have lock on both source and dest DS */
+	if (!session->ds_locked[commcfg_req->dst_ds_id] ||
+	    !session->ds_locked[commcfg_req->src_ds_id]) {
 		mgmt_fe_send_commitcfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
-			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
+			commcfg_req->req_id, MGMTD_DS_LOCK_FAILED,
 			commcfg_req->validate_only,
-			"Set-Config on datastores other than Running DS not permitted!");
+			"Commit requires lock on candidate and/or running DS");
 		return 0;
 	}
 
@@ -1088,26 +1003,6 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 				     " for session-id %" PRIu64
 				     " for COMMIT-CFG-REQ",
 				     session->cfg_txn_id, session->session_id);
-	}
-
-
-	/*
-	 * Try taking write-lock on the destination DS (if not already).
-	 */
-	if (!session->ds_locked[commcfg_req->dst_ds_id]) {
-		if (mgmt_fe_session_write_lock_ds(commcfg_req->dst_ds_id,
-						      dst_ds_ctx, session)
-		    != 0) {
-			mgmt_fe_send_commitcfg_reply(
-				session, commcfg_req->src_ds_id,
-				commcfg_req->dst_ds_id, commcfg_req->req_id,
-				MGMTD_DS_LOCK_FAILED,
-				commcfg_req->validate_only,
-				"Failed to lock the destination DS!");
-			return 0;
-		}
-
-		session->ds_locked_implict[commcfg_req->dst_ds_id] = true;
 	}
 
 	/*
@@ -1647,12 +1542,8 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 			FOREACH_MGMTD_DS_ID (ds_id) {
 				if (session->ds_locked[ds_id]) {
 					locked = true;
-					vty_out(vty, "          %s\t\t\t%s\n",
-						mgmt_ds_id2name(ds_id),
-						session->ds_locked_implict
-								[ds_id]
-							? "Implicit"
-							: "Explicit");
+					vty_out(vty, "          %s\n",
+						mgmt_ds_id2name(ds_id));
 				}
 			}
 			if (!locked)
