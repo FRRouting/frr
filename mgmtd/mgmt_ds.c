@@ -78,29 +78,20 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 					   struct mgmt_ds_ctx *dst)
 {
-	struct lyd_node *dst_dnode, *src_dnode;
-
 	if (!src || !dst)
 		return -1;
 
 	MGMTD_DS_DBG("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
 		     mgmt_ds_id2name(src->ds_id));
 
-	src_dnode = src->config_ds ? src->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-	dst_dnode = dst->config_ds ? dst->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-
-	if (dst_dnode)
-		yang_dnode_free(dst_dnode);
-
-	/* Not using nb_config_replace as the oper ds does not contain nb_config
-	 */
-	dst_dnode = yang_dnode_dup(src_dnode);
-	if (dst->config_ds)
-		dst->root.cfg_root->dnode = dst_dnode;
-	else
-		dst->root.dnode_root = dst_dnode;
+	if (src->config_ds && dst->config_ds)
+		nb_config_replace(dst->root.cfg_root, src->root.cfg_root, true);
+	else {
+		assert(!src->config_ds && !dst->config_ds);
+		if (dst->root.dnode_root)
+			yang_dnode_free(dst->root.dnode_root);
+		dst->root.dnode_root = yang_dnode_dup(src->root.dnode_root);
+	}
 
 	if (src->ds_id == MGMTD_DS_CANDIDATE) {
 		/*
@@ -110,8 +101,6 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
-	/* TODO: Update the versions if nb_config present */
-
 	return 0;
 }
 
@@ -119,20 +108,21 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 					 struct mgmt_ds_ctx *dst)
 {
 	int ret;
-	struct lyd_node **dst_dnode, *src_dnode;
 
 	if (!src || !dst)
 		return -1;
 
 	MGMTD_DS_DBG("Merging DS %d with %d", dst->ds_id, src->ds_id);
-
-	src_dnode = src->config_ds ? src->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-	dst_dnode = dst->config_ds ? &dst->root.cfg_root->dnode
-				   : &dst->root.dnode_root;
-	ret = lyd_merge_siblings(dst_dnode, src_dnode, 0);
+	if (src->config_ds && dst->config_ds)
+		ret = nb_config_merge(dst->root.cfg_root, src->root.cfg_root,
+				      true);
+	else {
+		assert(!src->config_ds && !dst->config_ds);
+		ret = lyd_merge_siblings(&dst->root.dnode_root,
+					 src->root.dnode_root, 0);
+	}
 	if (ret != 0) {
-		MGMTD_DS_ERR("lyd_merge() failed with err %d", ret);
+		MGMTD_DS_ERR("merge failed with err: %d", ret);
 		return ret;
 	}
 
@@ -214,9 +204,11 @@ int mgmt_ds_init(struct mgmt_master *mm)
 
 void mgmt_ds_destroy(void)
 {
-	/*
-	 * TODO: Free the datastores.
-	 */
+	nb_config_free(candidate.root.cfg_root);
+	candidate.root.cfg_root = NULL;
+
+	yang_dnode_free(oper.root.dnode_root);
+	oper.root.dnode_root = NULL;
 }
 
 struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
