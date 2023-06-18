@@ -114,7 +114,7 @@ static void static_startup(void)
 	// Add a route
 	vty = vty_new();
 	vty->type = vty::VTY_TERM;
-	vty_config_enter(vty, true, false);
+	vty_config_enter(vty, true, false, false);
 
 	auto ret = cmd_execute(vty, "ip route 11.0.0.0/8 Null0", NULL, 0);
 	assert(!ret);

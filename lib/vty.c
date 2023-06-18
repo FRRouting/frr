@@ -1672,12 +1672,12 @@ struct vty *vty_new(void)
 		if (!mgmt_client_id_next)
 			mgmt_client_id_next++;
 		new->mgmt_client_id = mgmt_client_id_next++;
-		if (mgmt_fe_create_client_session(
-			    mgmt_fe_client, new->mgmt_client_id,
-			    (uintptr_t) new) != MGMTD_SUCCESS)
-			zlog_err(
-				"Failed to open a MGMTD Frontend session for VTY session %p!!",
-				new);
+		new->mgmt_session_id = 0;
+		mgmt_fe_create_client_session(
+			mgmt_fe_client, new->mgmt_client_id, (uintptr_t) new);
+		/* we short-circuit create the session so it must be set now */
+		assertf(new->mgmt_session_id != 0,
+			"Failed to create client session for VTY");
 	}
 
 	return new;
@@ -2229,6 +2229,9 @@ bool mgmt_vty_read_configs(void)
 
 	vty->candidate_config = vty_shared_candidate_config;
 
+	vty_mgmt_lock_candidate_inline(vty);
+	vty_mgmt_lock_running_inline(vty);
+
 	for (index = 0; index < array_size(mgmt_daemons); index++) {
 		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
 			 mgmt_daemons[index]);
@@ -2271,6 +2274,14 @@ bool mgmt_vty_read_configs(void)
 
 		fclose(confp);
 	}
+
+	/* Conditionally unlock as the config file may have "exit"d early which
+	 * would then have unlocked things.
+	 */
+	if (vty->mgmt_locked_running_ds)
+		vty_mgmt_unlock_running_inline(vty);
+	if (vty->mgmt_locked_candidate_ds)
+		vty_mgmt_unlock_candidate_inline(vty);
 
 	vty->pending_allowed = false;
 
@@ -2833,9 +2844,11 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 	return true;
 }
 
-int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
+int vty_config_enter(struct vty *vty, bool private_config, bool exclusive,
+		     bool file_lock)
 {
-	if (exclusive && nb_running_lock(NB_CLIENT_CLI, vty)) {
+	if (exclusive && !vty_mgmt_fe_enabled() &&
+	    nb_running_lock(NB_CLIENT_CLI, vty)) {
 		vty_out(vty, "%% Configuration is locked by other client\n");
 		return CMD_WARNING;
 	}
@@ -2846,20 +2859,20 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	 * message. For user interactive mode we are doing implicit commits
 	 * those will obtain the lock (or not) when they try and commit.
 	 */
-	if (vty_mgmt_fe_enabled() && vty->pending_allowed && !private_config) {
-		/*
-		 * lock using short-circuit, we set the locked boolean to true
-		 * here so that it can be flipped to false by our locked_notify
-		 * handler during the synchronous call.
-		 */
-		vty->mgmt_locked_candidate_ds = true;
-		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, true,
-					     true) ||
-		    !vty->mgmt_locked_candidate_ds) {
+	if (file_lock && vty_mgmt_fe_enabled() && !private_config) {
+		if (vty_mgmt_lock_candidate_inline(vty)) {
 			vty_out(vty,
 				"%% Can't enter config; candidate datastore locked by another session\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+		if (vty_mgmt_lock_running_inline(vty)) {
+			vty_out(vty,
+				"%% Can't enter config; running datastore locked by another session\n");
+			vty_mgmt_unlock_candidate_inline(vty);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		assert(vty->mgmt_locked_candidate_ds);
+		assert(vty->mgmt_locked_running_ds);
 	}
 
 	vty->node = CONFIG_NODE;
@@ -2912,18 +2925,15 @@ void vty_config_exit(struct vty *vty)
 
 int vty_config_node_exit(struct vty *vty)
 {
-	int ret;
-
 	vty->xpath_index = 0;
 
-	if (vty->mgmt_locked_candidate_ds) {
-		assert(vty->type != VTY_FILE);
-		/* use short-circuit call to immediately unlock */
-		ret = vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false,
-					       true);
-		assert(!ret);
-		vty->mgmt_locked_candidate_ds = false;
-	}
+	/* TODO: could we check for un-commited changes here? */
+
+	if (vty->mgmt_locked_running_ds)
+		vty_mgmt_unlock_running_inline(vty);
+
+	if (vty->mgmt_locked_candidate_ds)
+		vty_mgmt_unlock_candidate_inline(vty);
 
 	/* Perform any pending commits. */
 	(void)nb_cli_pending_commit_check(vty);
@@ -3524,7 +3534,8 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 static void vty_mgmt_set_config_result_notified(
 	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
 	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId ds_id, char *errmsg_if_any)
+	bool success, Mgmtd__DatastoreId ds_id, bool implicit_commit,
+	char *errmsg_if_any)
 {
 	struct vty *vty;
 
@@ -3540,6 +3551,12 @@ static void vty_mgmt_set_config_result_notified(
 		MGMTD_FE_CLIENT_DBG("SET_CONFIG request for client 0x%" PRIx64
 				    " req-id %" PRIu64 " was successfull",
 				    client_id, req_id);
+	}
+
+	if (implicit_commit) {
+		/* In this case the changes have been applied, we are done */
+		vty_mgmt_unlock_candidate_inline(vty);
+		vty_mgmt_unlock_running_inline(vty);
 	}
 
 	vty_mgmt_resume_response(vty, success);
@@ -3679,8 +3696,11 @@ int vty_mgmt_send_config_data(struct vty *vty)
 	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
 	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
 	size_t indx;
+<<<<<<< HEAD
 	int cnt;
 	bool implicit_commit = false;
+=======
+>>>>>>> df0173cee (mgmtd: KISS the locking code)
 
 	if (vty->type == VTY_FILE) {
 		/*
@@ -3693,18 +3713,13 @@ int vty_mgmt_send_config_data(struct vty *vty)
 		return 0;
 	}
 
+	/* If we are FE client and we have a vty then we have a session */
+	assert(mgmt_fe_client && vty->mgmt_client_id && vty->mgmt_session_id);
 
-	if (mgmt_fe_client && vty->mgmt_client_id && !vty->mgmt_session_id) {
-		/*
-		 * We are connected to mgmtd but we do not yet have an
-		 * established session. this means we need to send any changes
-		 * made during this "down-time" to all backend clients when this
-		 * FE client finishes coming up.
-		 */
-		MGMTD_FE_CLIENT_DBG("skipping as no session exists");
+	if (!vty->num_cfg_changes)
 		return 0;
-	}
 
+<<<<<<< HEAD
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		cnt = 0;
 		for (indx = 0; indx < vty->num_cfg_changes; indx++) {
@@ -3766,7 +3781,82 @@ int vty_mgmt_send_config_data(struct vty *vty)
 		}
 
 		vty->mgmt_req_pending = true;
+=======
+	/* grab the candidate and running lock prior to sending implicit commit
+	 * command
+	 */
+	if (implicit_commit) {
+		if (vty_mgmt_lock_candidate_inline(vty)) {
+			vty_out(vty,
+				"%% command failed, could not lock candidate DS\n");
+			return -1;
+		} else if (vty_mgmt_lock_running_inline(vty)) {
+			vty_out(vty,
+				"%% command failed, could not lock running DS\n");
+			return -1;
+		}
+>>>>>>> df0173cee (mgmtd: KISS the locking code)
 	}
+
+	for (indx = 0; indx < vty->num_cfg_changes; indx++) {
+		mgmt_yang_data_init(&cfg_data[indx]);
+
+		if (vty->cfg_changes[indx].value) {
+			mgmt_yang_data_value_init(&value[indx]);
+			value[indx].encoded_str_val =
+				(char *)vty->cfg_changes[indx].value;
+			value[indx].value_case =
+				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
+			cfg_data[indx].value = &value[indx];
+		}
+
+		cfg_data[indx].xpath = vty->cfg_changes[indx].xpath;
+
+		mgmt_yang_cfg_data_req_init(&cfg_req[indx]);
+		cfg_req[indx].data = &cfg_data[indx];
+		switch (vty->cfg_changes[indx].operation) {
+		case NB_OP_DESTROY:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+			break;
+
+		case NB_OP_CREATE:
+		case NB_OP_MODIFY:
+		case NB_OP_MOVE:
+		case NB_OP_PRE_VALIDATE:
+		case NB_OP_APPLY_FINISH:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
+			break;
+		case NB_OP_GET_ELEM:
+		case NB_OP_GET_NEXT:
+		case NB_OP_GET_KEYS:
+		case NB_OP_LOOKUP_ENTRY:
+		case NB_OP_RPC:
+		default:
+			assertf(false,
+				"Invalid operation type for send config: %d",
+				vty->cfg_changes[indx].operation);
+			/*NOTREACHED*/
+			abort();
+		}
+
+		cfgreq[indx] = &cfg_req[indx];
+	}
+	if (!indx)
+		return 0;
+
+	vty->mgmt_req_id++;
+	if (mgmt_fe_send_setcfg_req(mgmt_fe_client, vty->mgmt_session_id,
+				    vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
+				    cfgreq, indx, implicit_commit,
+				    MGMTD_DS_RUNNING)) {
+		zlog_err("Failed to send %zu config xpaths to mgmtd", indx);
+		vty_out(vty, "%% Failed to send commands to mgmtd\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_SETCFG_REQ";
 
 	return 0;
 }

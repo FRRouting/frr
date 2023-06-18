@@ -196,23 +196,21 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 	}
 
 	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_CANDIDATE);
-	if (!src_ds_ctx) {
-		vty_out(vty, "ERROR: Couldnot access Candidate datastore!\n");
-		return -1;
-	}
-
-	/*
-	 * Note: Write lock on src_ds is not required. This is already
-	 * taken in 'conf te'.
-	 */
 	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_RUNNING);
-	if (!dst_ds_ctx) {
-		vty_out(vty, "ERROR: Couldnot access Running datastore!\n");
+	assert(src_ds_ctx);
+	assert(dst_ds_ctx);
+
+	ret = mgmt_ds_lock(src_ds_ctx, vty->mgmt_session_id);
+	if (ret != 0) {
+		vty_out(vty,
+			"Failed to lock the DS %u for rollback Reason: %s!\n",
+			MGMTD_DS_RUNNING, strerror(ret));
 		return -1;
 	}
 
 	ret = mgmt_ds_lock(dst_ds_ctx, vty->mgmt_session_id);
 	if (ret != 0) {
+		mgmt_ds_unlock(src_ds_ctx);
 		vty_out(vty,
 			"Failed to lock the DS %u for rollback Reason: %s!\n",
 			MGMTD_DS_RUNNING, strerror(ret));
@@ -223,27 +221,28 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 		ret = mgmt_ds_load_config_from_file(
 			src_ds_ctx, cmt_info->cmt_json_file, false);
 		if (ret != 0) {
-			mgmt_ds_unlock(dst_ds_ctx);
 			vty_out(vty,
 				"Error with parsing the file with error code %d\n",
 				ret);
-			return ret;
+			goto failed_unlock;
 		}
 	}
 
 	/* Internally trigger a commit-request. */
 	ret = mgmt_txn_rollback_trigger_cfg_apply(src_ds_ctx, dst_ds_ctx);
 	if (ret != 0) {
-		mgmt_ds_unlock(dst_ds_ctx);
 		vty_out(vty,
 			"Error with creating commit apply txn with error code %d\n",
 			ret);
-		return ret;
+		goto failed_unlock;
 	}
 
 	mgmt_history_dump_cmt_record_index();
 
-	/* XXX chopps when does this get unlocked? */
+	/*
+	 * TODO: Cleanup: the generic TXN code currently checks for rollback
+	 * and does the unlock when it completes.
+	 */
 
 	/*
 	 * Block the rollback command from returning till the rollback
@@ -253,6 +252,11 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 	vty->mgmt_req_pending = true;
 	rollback_vty = vty;
 	return 0;
+
+failed_unlock:
+	mgmt_ds_unlock(src_ds_ctx);
+	mgmt_ds_unlock(dst_ds_ctx);
+	return ret;
 }
 
 void mgmt_history_rollback_complete(bool success)

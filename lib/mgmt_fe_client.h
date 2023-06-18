@@ -91,7 +91,7 @@ struct mgmt_fe_client_cbs {
 				  uintptr_t session_id,
 				  uintptr_t user_session_client,
 				  uint64_t req_id, bool success,
-				  Mgmtd__DatastoreId ds_id,
+				  Mgmtd__DatastoreId ds_id, bool implcit_commit,
 				  char *errmsg_if_any);
 
 	void (*commit_config_notify)(struct mgmt_fe_client *client,
