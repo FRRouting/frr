@@ -181,9 +181,10 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
-		  "Client '%s' encountered an error and is shutting down.",
-		  zebra_route_string(client->proto));
+	flog_warn(
+		EC_ZEBRA_CLIENT_IO_ERROR,
+		"Client '%s' (session id %d) encountered an error and is shutting down.",
+		zebra_route_string(client->proto), client->session_id);
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
