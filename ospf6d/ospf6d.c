@@ -34,8 +34,15 @@
 #include "lib/json.h"
 #include "ospf6_nssa.h"
 #include "ospf6_auth_trailer.h"
+#include "ospf6d/ospf6d_clippy.c"
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
+
+/* OSPF6 config processing timer thread */
+struct event *t_ospf6_cfg;
+
+/* OSPF6 debug event state */
+unsigned char conf_debug_ospf6_event;
 
 struct route_node *route_prev(struct route_node *node)
 {
@@ -62,6 +69,7 @@ struct route_node *route_prev(struct route_node *node)
 }
 
 static int config_write_ospf6_debug(struct vty *vty);
+static int config_write_ospf6_debug_event(struct vty *vty);
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -85,6 +93,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_nssa(vty);
 	config_write_ospf6_debug_gr_helper(vty);
 	config_write_ospf6_debug_auth(vty);
+	config_write_ospf6_debug_event(vty);
 
 	return 0;
 }
@@ -1374,6 +1383,29 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_ospf6_event, debug_ospf6_event_cmd, "[no] debug ospf6 event",
+      NO_STR DEBUG_STR OSPF6_STR "Debug OSPFv3 event function\n")
+{
+	if (!no)
+		OSPF6_DEBUG_EVENT_ON();
+	else
+		OSPF6_DEBUG_EVENT_OFF();
+	return CMD_SUCCESS;
+}
+
+static int config_write_ospf6_debug_event(struct vty *vty)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		vty_out(vty, "debug ospf6 event\n");
+	return 0;
+}
+
+static void install_element_ospf6_debug_event(void)
+{
+	install_element(ENABLE_NODE, &debug_ospf6_event_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_event_cmd);
+}
+
 /* Install ospf related commands. */
 void ospf6_init(struct event_loop *master)
 {
@@ -1447,6 +1479,7 @@ void ospf6_init(struct event_loop *master)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
+	install_element_ospf6_debug_event();
 	install_element_ospf6_debug_auth();
 	ospf6_interface_auth_trailer_cmd_init();
 	install_element_ospf6_clear_intf_auth();

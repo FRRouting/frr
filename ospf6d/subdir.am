@@ -75,6 +75,7 @@ ospf6d_ospf6d_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ospf6d_ospf6d_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 clippy_scan += \
+	ospf6d/ospf6d.c \
 	ospf6d/ospf6_top.c \
 	ospf6d/ospf6_area.c \
 	ospf6d/ospf6_asbr.c \

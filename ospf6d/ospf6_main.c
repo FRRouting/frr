@@ -173,6 +173,32 @@ FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 		.n_yang_modules = array_size(ospf6d_yang_modules),
 );
 
+/* Max wait time for config to load before accepting hellos */
+#define OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
+static void ospf6_config_finish(struct event *t)
+{
+	zlog_err("OSPF6 configuration end timer expired after %d seconds.",
+		 OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS);
+}
+
+static void ospf6_config_start(void)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("ospf6d config start received");
+	EVENT_OFF(t_ospf6_cfg);
+	event_add_timer(master, ospf6_config_finish, NULL,
+			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
+}
+
+static void ospf6_config_end(void)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("ospf6d config end received");
+
+	EVENT_OFF(t_ospf6_cfg);
+}
+
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */
 int main(int argc, char *argv[], char *envp[])
@@ -216,6 +242,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* initialize ospf6 */
 	ospf6_init(master);
+
+	/* Configuration processing callback initialization. */
+	cmd_init_config_callbacks(ospf6_config_start, ospf6_config_end);
 
 	frr_config_fork();
 	frr_run(master);
