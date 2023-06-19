@@ -180,7 +180,7 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 
 static int
 parse_hello_subtlv(const unsigned char *a, int alen,
-                   unsigned int *hello_send_us)
+                   time_t *hello_send_us)
 {
     int type, len, i = 0, ret = 0;
 
@@ -471,7 +471,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_HELLO) {
 		unsigned short seqno, interval, flags;
 		int changed;
-		unsigned int timestamp = 0;
+		time_t timestamp = 0;
 
 #define BABEL_UNICAST_HELLO 0x8000
 		DO_NTOHS(flags, message + 2);
