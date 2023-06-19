@@ -587,6 +587,13 @@ static void zserv_client_free(struct zserv *client)
 
 		close(client->sock);
 
+		/* If this is a synchronous BGP Zebra client for label/table
+		 * manager, then ignore it. It's not GR-aware, and causes GR to
+		 * be skipped for the session_id == 0 (asynchronous).
+		 */
+		if (client->proto == ZEBRA_ROUTE_BGP && client->session_id == 1)
+			return;
+
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			zebra_mpls_client_cleanup_vrf_label(client->proto);
 
