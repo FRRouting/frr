@@ -12,6 +12,7 @@ FRRouting Developer's Guide
    fuzzing
    tracing
    testing
+   mgmtd-dev
    bgpd
    fpm
    grpc
