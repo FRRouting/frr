@@ -2181,11 +2181,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	case NEXTHOP_TYPE_IFINDEX:
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
-		/*
-		 * If the interface exists and its operative or its a kernel
-		 * route and interface is up, its active. We trust kernel routes
-		 * to be good.
-		 */
+		/* If the interface exists and its operative, it's active */
 		if (ifp && (if_is_operative(ifp)))
 			return 1;
 		else
@@ -2595,7 +2591,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 
-		if (ifp && (if_is_operative(ifp) || if_is_up(ifp))) {
+		if (ifp && if_is_up(ifp)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			goto skip_check;
 		}
