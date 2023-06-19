@@ -55,7 +55,7 @@
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
-struct zclient *zclient_sync = NULL;
+struct zclient *zclient_sync;
 static bool bgp_zebra_label_manager_connect(void);
 
 /* hook to indicate vrf status change for SNMP */
