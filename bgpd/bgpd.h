@@ -1799,6 +1799,9 @@ struct peer {
 #define BGP_MAX_SOFT_VERSION 64
 	char *soft_version;
 
+	/* Add-Path Best selected paths number to advertise */
+	uint8_t addpath_best_selected[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
