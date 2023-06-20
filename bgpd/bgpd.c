@@ -8317,6 +8317,7 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 	int ret;
 	struct peer *peer;
 	union sockunion su;
+	struct peer_group *group;
 
 	/* Get peer sockunion. */
 	ret = str2sockunion(ip_str, &su);
@@ -8324,6 +8325,11 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 		peer = peer_lookup_by_conf_if(bgp, ip_str);
 		if (!peer) {
 			peer = peer_lookup_by_hostname(bgp, ip_str);
+
+			if (!peer) {
+				group = peer_group_lookup(bgp, ip_str);
+				peer = listnode_head(group->peer);
+			}
 
 			if (!peer) {
 				if (use_json) {
