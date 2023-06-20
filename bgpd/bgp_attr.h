@@ -637,4 +637,6 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 #endif
 }
 
+extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
+
 #endif /* _QUAGGA_BGP_ATTR_H */

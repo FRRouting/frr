@@ -80,7 +80,6 @@
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
-DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -3403,8 +3402,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	/* assign a unique rd id for auto derivation of vrf's RD */
 	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 
-	bgp->evpn_info = XCALLOC(MTYPE_BGP_EVPN_INFO,
-				 sizeof(struct bgp_evpn_info));
 	bgp_evpn_init(bgp);
 	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
@@ -3971,7 +3968,6 @@ void bgp_free(struct bgp *bgp)
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
 	bgp_srv6_cleanup(bgp);
-	XFREE(MTYPE_BGP_EVPN_INFO, bgp->evpn_info);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		enum vpn_policy_direction dir;
@@ -8389,4 +8385,17 @@ static ssize_t printfrr_bp(struct fbuf *buf, struct printfrr_eargs *ea,
 
 	return bprintfrr(buf, "%s(%s)", peer->host,
 			 peer->hostname ? peer->hostname : "Unknown");
+}
+
+const struct message bgp_martian_type_str[] = {
+	{BGP_MARTIAN_IF_IP, "Self Interface IP"},
+	{BGP_MARTIAN_TUN_IP, "Self Tunnel IP"},
+	{BGP_MARTIAN_IF_MAC, "Self Interface MAC"},
+	{BGP_MARTIAN_RMAC, "Self RMAC"},
+	{BGP_MARTIAN_SOO, "Self Site-of-Origin"},
+	{0}};
+
+const char *bgp_martian_type2str(enum bgp_martian_type mt)
+{
+	return lookup_msg(bgp_martian_type_str, mt, "Unknown Martian Type");
 }

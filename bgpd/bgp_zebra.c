@@ -2984,9 +2984,9 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"Rx L3-VNI ADD VRF %s VNI %u RMAC svi-mac %pEA vrr-mac %pEA filter %s svi-if %u",
-				vrf_id_to_name(vrf_id), l3vni, &svi_rmac,
-				&vrr_rmac,
+				"Rx L3-VNI ADD VRF %s VNI %u Originator-IP %pI4 RMAC svi-mac %pEA vrr-mac %pEA filter %s svi-if %u",
+				vrf_id_to_name(vrf_id), l3vni, &originator_ip,
+				&svi_rmac, &vrr_rmac,
 				filter ? "prefix-routes-only" : "none",
 				svi_ifindex);
 

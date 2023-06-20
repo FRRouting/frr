@@ -1080,6 +1080,7 @@ void bgp_notify_io_invalid(struct peer *peer, uint8_t code, uint8_t sub_code,
  * @param orf_type          Outbound Route Filtering type
  * @param when_to_refresh   Whether to refresh immediately or defer
  * @param remove            Whether to remove ORF for specified AFI/SAFI
+ * @param subtype           BGP enhanced route refresh optional subtypes
  */
 void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 			    uint8_t orf_type, uint8_t when_to_refresh,

@@ -157,7 +157,16 @@ extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   const struct prefix *p,
 				   struct bgp_path_info *ri);
-extern int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp);
+extern void
+bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
+						struct ecommunity *old_soo,
+						struct ecommunity *new_soo);
+extern void bgp_reimport_evpn_routes_upon_martian_change(
+	struct bgp *bgp, enum bgp_martian_type martian_type, void *old_martian,
+	void *new_martian);
+extern void
+bgp_filter_evpn_routes_upon_martian_change(struct bgp *bgp,
+					   enum bgp_martian_type martian_type);
 extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
 					int state);
