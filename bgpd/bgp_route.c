@@ -298,6 +298,29 @@ struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path)
 	return path;
 }
 
+bool bgp_path_info_nexthop_changed(struct bgp_path_info *pi, struct peer *to,
+				   afi_t afi)
+{
+	if (pi->peer->sort == BGP_PEER_IBGP && to->sort == BGP_PEER_IBGP &&
+	    !CHECK_FLAG(to->af_flags[afi][SAFI_MPLS_VPN],
+			PEER_FLAG_FORCE_NEXTHOP_SELF))
+		/* IBGP RR with no nexthop self force configured */
+		return false;
+
+	if (to->sort == BGP_PEER_IBGP &&
+	    !CHECK_FLAG(to->af_flags[afi][SAFI_MPLS_VPN],
+			PEER_FLAG_NEXTHOP_SELF))
+		/* IBGP RR with no nexthop self configured */
+		return false;
+
+	if (CHECK_FLAG(to->af_flags[afi][SAFI_MPLS_VPN],
+		       PEER_FLAG_NEXTHOP_UNCHANGED))
+		/* IBGP or EBGP with nexthop attribute unchanged */
+		return false;
+
+	return true;
+}
+
 /* This function sets flag BGP_NODE_SELECT_DEFER based on condition */
 static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 {
@@ -1996,6 +2019,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
 	bool nh_reset = false;
 	uint64_t cum_bw;
+	mpls_label_t label;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2081,13 +2105,36 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If it's labeled safi, make sure the route has a valid label. */
 	if (safi == SAFI_LABELED_UNICAST) {
-		mpls_label_t label = bgp_adv_label(dest, pi, peer, afi, safi);
+		label = bgp_adv_label(dest, pi, peer, afi, safi);
 		if (!bgp_is_valid_label(&label)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug("u%" PRIu64 ":s%" PRIu64
 					   " %pFX is filtered - no label (%p)",
 					   subgrp->update_group->id, subgrp->id,
 					   p, &label);
+			return false;
+		}
+	} else if (safi == SAFI_MPLS_VPN &&
+		   CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+		   pi->mplsvpn.bmnc.nh_label_bind_cache && peer &&
+		   pi->peer != peer && pi->sub_type != BGP_ROUTE_IMPORTED &&
+		   pi->sub_type != BGP_ROUTE_STATIC &&
+		   bgp_mplsvpn_path_uses_valid_mpls_label(pi) &&
+		   bgp_path_info_nexthop_changed(pi, peer, afi)) {
+		/* Redistributed mpls vpn route between distinct
+		 * peers from 'pi->peer' to 'to',
+		 * and an mpls label is used in this path,
+		 * and there is a nh label bind entry,
+		 * then get appropriate mpls local label
+		 * and check its validity
+		 */
+		label = bgp_mplsvpn_nh_label_bind_get_label(pi);
+		if (!bgp_is_valid_label(&label)) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " %pFX is filtered - no valid label",
+					   subgrp->update_group->id, subgrp->id,
+					   p);
 			return false;
 		}
 	}
@@ -3097,6 +3144,112 @@ need_null_label:
 	return true;
 }
 
+/* Right now, since we only deal with per-prefix labels, it is not
+ * necessary to do this upon changes to best path. Exceptions:
+ * - label index has changed -> recalculate resulting label
+ * - path_info sub_type changed -> switch to/from null label value
+ * - no valid label (due to removed static label binding) -> get new one
+ */
+static void bgp_lu_handle_label_allocation(struct bgp *bgp,
+					   struct bgp_dest *dest,
+					   struct bgp_path_info *new_select,
+					   struct bgp_path_info *old_select,
+					   afi_t afi)
+{
+	mpls_label_t mpls_label_null;
+
+	if (bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
+		if (new_select) {
+			if (!old_select ||
+			    bgp_label_index_differs(new_select, old_select) ||
+			    new_select->sub_type != old_select->sub_type ||
+			    !bgp_is_valid_label(&dest->local_label)) {
+				/* control label imposition for local
+				 * routes, aggregate and redistributed
+				 * routes
+				 */
+				mpls_label_null = MPLS_LABEL_IMPLICIT_NULL;
+				if (bgp_lu_need_null_label(bgp, new_select, afi,
+							   &mpls_label_null)) {
+					if (CHECK_FLAG(
+						    dest->flags,
+						    BGP_NODE_REGISTERED_FOR_LABEL) ||
+					    CHECK_FLAG(
+						    dest->flags,
+						    BGP_NODE_LABEL_REQUESTED))
+						bgp_unregister_for_label(dest);
+					dest->local_label = mpls_lse_encode(
+						mpls_label_null, 0, 0, 1);
+					bgp_set_valid_label(&dest->local_label);
+				} else
+					bgp_register_for_label(dest,
+							       new_select);
+			}
+		} else if (CHECK_FLAG(dest->flags,
+				      BGP_NODE_REGISTERED_FOR_LABEL) ||
+			   CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
+			bgp_unregister_for_label(dest);
+		}
+	} else if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL) ||
+		   CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
+		bgp_unregister_for_label(dest);
+	}
+}
+
+static struct interface *
+bgp_label_get_resolved_nh_iface(const struct bgp_path_info *pi)
+{
+	struct nexthop *nh;
+
+	if (pi->nexthop == NULL || pi->nexthop->nexthop == NULL ||
+	    !CHECK_FLAG(pi->nexthop->flags, BGP_NEXTHOP_VALID))
+		/* next-hop is not valid */
+		return NULL;
+
+	nh = pi->nexthop->nexthop;
+	if (nh->ifindex == IFINDEX_INTERNAL &&
+	    nh->type != NEXTHOP_TYPE_IPV4_IFINDEX &&
+	    nh->type != NEXTHOP_TYPE_IPV6_IFINDEX)
+		/* next-hop does not contain valid interface */
+		return NULL;
+
+	return if_lookup_by_index(nh->ifindex, nh->vrf_id);
+}
+
+static void
+bgp_mplsvpn_handle_label_allocation(struct bgp *bgp, struct bgp_dest *dest,
+				    struct bgp_path_info *new_select,
+				    struct bgp_path_info *old_select, afi_t afi)
+{
+	struct interface *ifp;
+	struct bgp_interface *bgp_ifp;
+
+	if (bgp->allocate_mpls_labels[afi][SAFI_MPLS_VPN] && new_select) {
+		ifp = bgp_label_get_resolved_nh_iface(new_select);
+		if (ifp)
+			bgp_ifp = (struct bgp_interface *)(ifp->info);
+		else
+			bgp_ifp = NULL;
+		if (bgp_ifp &&
+		    CHECK_FLAG(bgp_ifp->flags,
+			       BGP_INTERFACE_MPLS_L3VPN_SWITCHING) &&
+		    bgp_mplsvpn_path_uses_valid_mpls_label(new_select) &&
+		    new_select->sub_type != BGP_ROUTE_IMPORTED &&
+		    new_select->sub_type != BGP_ROUTE_STATIC)
+			bgp_mplsvpn_nh_label_bind_register_local_label(
+				bgp, dest, new_select);
+		else
+			bgp_mplsvpn_path_nh_label_bind_unlink(new_select);
+	} else {
+		if (new_select)
+			/* no mpls vpn allocation */
+			bgp_mplsvpn_path_nh_label_bind_unlink(new_select);
+		else if (old_select)
+			/* unlink old selection if any */
+			bgp_mplsvpn_path_nh_label_bind_unlink(old_select);
+	}
+}
+
 /*
  * old_select = The old best path
  * new_select = the new best path
@@ -3123,7 +3276,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
 	int debug = 0;
-	mpls_label_t mpls_label_null;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		if (dest)
@@ -3174,49 +3326,18 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
-	/* Do we need to allocate or free labels?
-	 * Right now, since we only deal with per-prefix labels, it is not
-	 * necessary to do this upon changes to best path. Exceptions:
-	 * - label index has changed -> recalculate resulting label
-	 * - path_info sub_type changed -> switch to/from null label value
-	 * - no valid label (due to removed static label binding) -> get new one
-	 */
-	if (bgp->allocate_mpls_labels[afi][safi]) {
-		if (new_select) {
-			if (!old_select
-			    || bgp_label_index_differs(new_select, old_select)
-			    || new_select->sub_type != old_select->sub_type
-			    || !bgp_is_valid_label(&dest->local_label)) {
-				/* control label imposition for local routes,
-				 * aggregate and redistributed routes
-				 */
-				mpls_label_null = MPLS_LABEL_IMPLICIT_NULL;
-				if (bgp_lu_need_null_label(bgp, new_select, afi,
-							   &mpls_label_null)) {
-					if (CHECK_FLAG(
-						    dest->flags,
-						    BGP_NODE_REGISTERED_FOR_LABEL)
-					    || CHECK_FLAG(
-						    dest->flags,
-						    BGP_NODE_LABEL_REQUESTED))
-						bgp_unregister_for_label(dest);
-					dest->local_label = mpls_lse_encode(
-						mpls_label_null, 0, 0, 1);
-					bgp_set_valid_label(&dest->local_label);
-				} else
-					bgp_register_for_label(dest,
-							       new_select);
-			}
-		} else if (CHECK_FLAG(dest->flags,
-				      BGP_NODE_REGISTERED_FOR_LABEL)
-			   || CHECK_FLAG(dest->flags,
-					 BGP_NODE_LABEL_REQUESTED)) {
-			bgp_unregister_for_label(dest);
-		}
-	} else if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)
-		   || CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
-		bgp_unregister_for_label(dest);
-	}
+	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)
+		/* label unicast path :
+		 * Do we need to allocate or free labels?
+		 */
+		bgp_lu_handle_label_allocation(bgp, dest, new_select,
+					       old_select, afi);
+	else if (safi == SAFI_MPLS_VPN)
+		/* mpls vpn path:
+		 * Do we need to allocate or free labels?
+		 */
+		bgp_mplsvpn_handle_label_allocation(bgp, dest, new_select,
+						    old_select, afi);
 
 	if (debug)
 		zlog_debug(
@@ -4626,10 +4747,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Nexthop reachability check - for unicast and
 		 * labeled-unicast.. */
-		if (((afi == AFI_IP || afi == AFI_IP6)
-		    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
-		    || (safi == SAFI_EVPN &&
-			bgp_evpn_is_prefix_nht_supported(p))) {
+		if (((afi == AFI_IP || afi == AFI_IP6) &&
+		     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
+		      (safi == SAFI_MPLS_VPN &&
+		       pi->sub_type != BGP_ROUTE_IMPORTED))) ||
+		    (safi == SAFI_EVPN &&
+		     bgp_evpn_is_prefix_nht_supported(p))) {
 			if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 			    && peer->ttl == BGP_DEFAULT_TTL
 			    && !CHECK_FLAG(peer->flags,
@@ -4650,10 +4773,14 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi,
 						    safi, pi, NULL, connected,
 						    bgp_nht_param_prefix) ||
-			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
+			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
+				if (accept_own)
+					bgp_path_info_set_flag(
+						dest, pi, BGP_PATH_ACCEPT_OWN);
+
 				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_VALID);
-			else {
+			} else {
 				if (BGP_DEBUG(nht, NHT)) {
 					zlog_debug("%s(%pI4): NH unresolved",
 						   __func__,
@@ -4663,10 +4790,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 							 BGP_PATH_VALID);
 			}
 		} else {
+			/* case mpls-vpn routes with accept-own community
+			 * (which have the BGP_ROUTE_IMPORTED subtype)
+			 * case other afi/safi not supporting nexthop tracking
+			 */
 			if (accept_own)
 				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_ACCEPT_OWN);
-
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		}
 
@@ -4796,9 +4926,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	/* Nexthop reachability check. */
-	if (((afi == AFI_IP || afi == AFI_IP6)
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
-	    || (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
+	if (((afi == AFI_IP || afi == AFI_IP6) &&
+	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
+	      (safi == SAFI_MPLS_VPN &&
+	       new->sub_type != BGP_ROUTE_IMPORTED))) ||
+	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
 		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
 		    && peer->ttl == BGP_DEFAULT_TTL
 		    && !CHECK_FLAG(peer->flags,
@@ -4813,18 +4945,25 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		if (bgp_find_or_add_nexthop(bgp, bgp, nh_afi, safi, new, NULL,
 					    connected, bgp_nht_param_prefix) ||
-		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
+		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
+			if (accept_own)
+				bgp_path_info_set_flag(dest, new,
+						       BGP_PATH_ACCEPT_OWN);
+
 			bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
-		else {
+		} else {
 			if (BGP_DEBUG(nht, NHT))
 				zlog_debug("%s(%pI4): NH unresolved", __func__,
 					   &attr_new->nexthop);
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
 	} else {
+		/* case mpls-vpn routes with accept-own community
+		 * (which have the BGP_ROUTE_IMPORTED subtype)
+		 * case other afi/safi not supporting nexthop tracking
+		 */
 		if (accept_own)
 			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
-
 		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
 	}
 

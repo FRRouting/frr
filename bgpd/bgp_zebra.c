@@ -3914,10 +3914,13 @@ int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 
 void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 				  ifindex_t ifindex, vrf_id_t vrf_id,
-				  enum lsp_types_t ltype, struct prefix *p)
+				  enum lsp_types_t ltype, struct prefix *p,
+				  uint32_t num_labels,
+				  mpls_label_t out_labels[])
 {
 	struct zapi_labels zl = {};
 	struct zapi_nexthop *znh;
+	int i = 0;
 
 	zl.type = ltype;
 	zl.local_label = label;
@@ -3935,8 +3938,16 @@ void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 						   : NEXTHOP_TYPE_IPV6_IFINDEX;
 	znh->ifindex = ifindex;
 	znh->vrf_id = vrf_id;
-	znh->label_num = 0;
-
+	if (num_labels == 0)
+		znh->label_num = 0;
+	else {
+		if (num_labels > MPLS_MAX_LABELS)
+			znh->label_num = MPLS_MAX_LABELS;
+		else
+			znh->label_num = num_labels;
+		for (i = 0; i < znh->label_num; i++)
+			znh->labels[i] = out_labels[i];
+	}
 	/* vrf_id is DEFAULT_VRF */
 	zebra_send_mpls_labels(zclient, cmd, &zl);
 }

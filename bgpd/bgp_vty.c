@@ -18997,6 +18997,12 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			vty_out(vty, " mpls bgp forwarding\n");
 			write++;
 		}
+		if (CHECK_FLAG(iifp->flags,
+			       BGP_INTERFACE_MPLS_L3VPN_SWITCHING)) {
+			vty_out(vty,
+				" mpls bgp l3vpn-multi-domain-switching\n");
+			write++;
+		}
 
 		if_vty_config_end(vty);
 	}
@@ -19044,6 +19050,35 @@ DEFPY(mpls_bgp_forwarding, mpls_bgp_forwarding_cmd,
 		if (if_is_operative(ifp))
 			bgp_nht_ifp_up(ifp);
 	}
+	return CMD_SUCCESS;
+}
+
+DEFPY(mpls_bgp_l3vpn_multi_domain_switching,
+      mpls_bgp_l3vpn_multi_domain_switching_cmd,
+      "[no$no] mpls bgp l3vpn-multi-domain-switching",
+      NO_STR MPLS_STR BGP_STR
+      "Bind a local MPLS label to incoming L3VPN updates\n")
+{
+	bool check;
+	struct bgp_interface *iifp;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	iifp = ifp->info;
+	if (!iifp) {
+		vty_out(vty, "Interface %s not available\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	check = CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+	if (check == !no)
+		return CMD_SUCCESS;
+	if (no)
+		UNSET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+	else
+		SET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+	/* trigger a nht update on eBGP sessions */
+	if (if_is_operative(ifp))
+		bgp_nht_ifp_up(ifp);
+
 	return CMD_SUCCESS;
 }
 
@@ -19106,6 +19141,8 @@ static void bgp_vty_if_init(void)
 
 	/* "mpls bgp forwarding" commands. */
 	install_element(INTERFACE_NODE, &mpls_bgp_forwarding_cmd);
+	install_element(INTERFACE_NODE,
+			&mpls_bgp_l3vpn_multi_domain_switching_cmd);
 }
 
 void bgp_vty_init(void)

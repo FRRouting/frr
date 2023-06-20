@@ -246,6 +246,22 @@ struct bgp_path_info_extra {
 	struct bgp_path_mh_info *mh_info;
 };
 
+struct bgp_mplsvpn_label_nh {
+	/* For nexthop per label linked list */
+	LIST_ENTRY(bgp_path_info) label_nh_thread;
+
+	/* Back pointer to the bgp label per nexthop structure */
+	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+};
+
+struct bgp_mplsvpn_nh_label_bind {
+	/* For mplsvpn nexthop label bind linked list */
+	LIST_ENTRY(bgp_path_info) nh_label_bind_thread;
+
+	/* Back pointer to the bgp mplsvpn nexthop label bind structure */
+	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
+};
+
 struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
@@ -298,6 +314,8 @@ struct bgp_path_info {
 #define BGP_PATH_ANNC_NH_SELF (1 << 14)
 #define BGP_PATH_LINK_BW_CHG (1 << 15)
 #define BGP_PATH_ACCEPT_OWN (1 << 16)
+#define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
+#define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -320,11 +338,10 @@ struct bgp_path_info {
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
 
-	/* For nexthop per label linked list */
-	LIST_ENTRY(bgp_path_info) label_nh_thread;
-
-	/* Back pointer to the bgp label per nexthop structure */
-	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+	union {
+		struct bgp_mplsvpn_label_nh blnc;
+		struct bgp_mplsvpn_nh_label_bind bmnc;
+	} mplsvpn;
 };
 
 /* Structure used in BGP path selection */
@@ -700,6 +717,8 @@ extern struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 struct prefix_rd *prd);
 extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
 extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
+extern bool bgp_path_info_nexthop_changed(struct bgp_path_info *pi,
+					  struct peer *to, afi_t afi);
 extern struct bgp_path_info *
 bgp_get_imported_bpi_ultimate(struct bgp_path_info *info);
 extern void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi);

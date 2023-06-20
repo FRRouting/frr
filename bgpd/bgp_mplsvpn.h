@@ -325,4 +325,71 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
 
+extern bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi);
+extern int
+bgp_mplsvpn_nh_label_bind_cmp(const struct bgp_mplsvpn_nh_label_bind_cache *a,
+			      const struct bgp_mplsvpn_nh_label_bind_cache *b);
+extern void bgp_mplsvpn_path_nh_label_bind_unlink(struct bgp_path_info *pi);
+extern void bgp_mplsvpn_nh_label_bind_register_local_label(
+	struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi);
+mpls_label_t bgp_mplsvpn_nh_label_bind_get_label(struct bgp_path_info *pi);
+
+/* used to bind a local label to the (label, nexthop) values
+ * from an incoming BGP mplsvpn update
+ */
+struct bgp_mplsvpn_nh_label_bind_cache {
+
+	/* RB-tree entry. */
+	struct bgp_mplsvpn_nh_label_bind_cache_item entry;
+
+	/* The nexthop and the vpn label are the key of the list.
+	 * Only received BGP MPLSVPN updates may use that structure.
+	 * orig_label is the original label received from the BGP Update.
+	 */
+	struct prefix nexthop;
+	mpls_label_t orig_label;
+
+	/* resolved interface for the paths */
+	struct nexthop *nh;
+
+	/* number of mplsvpn path */
+	unsigned int path_count;
+
+	/* back pointer to bgp instance */
+	struct bgp *bgp_vpn;
+
+	/* MPLS label allocated value.
+	 * When the next-hop is changed because of 'next-hop-self' or
+	 * because it is an eBGP peer, the redistributed orig_label value
+	 * is unmodified, unless the 'l3vpn-multi-domain-switching'
+	 * is enabled: a new_label value is allocated:
+	 * - The new_label value is sent in the advertised BGP update,
+	 * instead of the label value.
+	 * - An MPLS entry is set to swap <new_label> with <orig_label>.
+	 */
+	mpls_label_t new_label;
+
+	/* list of path_vrfs using it */
+	LIST_HEAD(mplsvpn_nh_label_bind_path_lists, bgp_path_info) paths;
+
+	time_t last_update;
+
+	bool allocation_in_progress;
+};
+
+DECLARE_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache,
+		    struct bgp_mplsvpn_nh_label_bind_cache, entry,
+		    bgp_mplsvpn_nh_label_bind_cmp);
+
+void bgp_mplsvpn_nh_label_bind_free(
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc);
+
+struct bgp_mplsvpn_nh_label_bind_cache *
+bgp_mplsvpn_nh_label_bind_new(struct bgp_mplsvpn_nh_label_bind_cache_head *tree,
+			      struct prefix *p, mpls_label_t orig_label);
+struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
+	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
+	mpls_label_t orig_label);
+void bgp_mplsvpn_nexthop_init(void);
+
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

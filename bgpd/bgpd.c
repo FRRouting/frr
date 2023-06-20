@@ -2318,6 +2318,7 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
 	struct bgp *bgp;
+	safi_t safi_check;
 
 	/* Nothing to do if we've already activated this peer */
 	if (peer->afc[afi][safi])
@@ -2348,16 +2349,22 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* If this is the first peer to be activated for this
-	 * afi/labeled-unicast recalc bestpaths to trigger label allocation */
-	if (ret != BGP_ERR_PEER_SAFI_CONFLICT && safi == SAFI_LABELED_UNICAST
-	    && !bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
+	 * afi/labeled-unicast or afi/mpls-vpn, recalc bestpaths to trigger
+	 * label allocation */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi_check = SAFI_UNICAST;
+	else
+		safi_check = safi;
+	if (ret != BGP_ERR_PEER_SAFI_CONFLICT &&
+	    (safi == SAFI_LABELED_UNICAST || safi == SAFI_MPLS_VPN) &&
+	    !bgp->allocate_mpls_labels[afi][safi_check]) {
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"peer(s) are now active for labeled-unicast, allocate MPLS labels");
-
-		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 1;
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
+				"peer(s) are now active for %s, allocate MPLS labels",
+				safi2str(safi));
+		bgp->allocate_mpls_labels[afi][safi_check] = 1;
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi_check);
 	}
 
 	if (safi == SAFI_FLOWSPEC) {
@@ -2423,6 +2430,7 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer *tmp_peer;
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	safi_t safi_check;
 
 	/* Nothing to do if we've already de-activated this peer */
 	if (!peer->afc[afi][safi])
@@ -2444,17 +2452,22 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 	bgp = peer->bgp;
 
 	/* If this is the last peer to be deactivated for this
-	 * afi/labeled-unicast recalc bestpaths to trigger label deallocation */
-	if (safi == SAFI_LABELED_UNICAST
-	    && bgp->allocate_mpls_labels[afi][SAFI_UNICAST]
-	    && !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
+	 * afi/labeled-unicast or afi/mpls-vpn, recalc bestpaths to trigger
+	 * label deallocation */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi_check = SAFI_UNICAST;
+	else
+		safi_check = safi;
+	if ((safi == SAFI_LABELED_UNICAST || safi == SAFI_MPLS_VPN) &&
+	    bgp->allocate_mpls_labels[afi][safi_check] &&
+	    !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"peer(s) are no longer active for labeled-unicast, deallocate MPLS labels");
-
-		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 0;
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
+				"peer(s) are no longer active for %s, deallocate MPLS labels",
+				safi2str(safi));
+		bgp->allocate_mpls_labels[afi][safi_check] = 0;
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi_check);
 	}
 	return ret;
 }
@@ -3359,6 +3372,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		bgp_label_per_nexthop_cache_init(
 			&bgp->mpls_labels_per_nexthop[afi]);
+
+	bgp_mplsvpn_nh_label_bind_cache_init(&bgp->mplsvpn_nh_label_bind);
 
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
@@ -8249,6 +8264,7 @@ void bgp_init(unsigned short instance)
 	bgp_lp_vty_init();
 
 	bgp_label_per_nexthop_init();
+	bgp_mplsvpn_nexthop_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }

@@ -843,6 +843,16 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 				vty_out(vty, "%-18s         %u\n", "nexthop",
 					lcb->label);
 			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+				json_object_int_add(json_elem, "label",
+						    lcb->label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "l3vpn-bind",
+					lcb->label);
+			break;
 		}
 	}
 	if (uj)
@@ -941,6 +951,15 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 				vty_out(vty, "%-18s         %u\n", "nexthop",
 					label);
 			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+				json_object_int_add(json_elem, "label", label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "l3vpn-bind",
+					label);
+			break;
 		}
 	}
 	if (uj)
@@ -1019,6 +1038,13 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 						       "nexthop");
 			else
 				vty_out(vty, "Nexthop\n");
+			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj)
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+			else
+				vty_out(vty, "L3VPN-BIND\n");
 			break;
 		}
 	}
@@ -1121,7 +1147,8 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");
-		LIST_FOREACH (path, &(iter->paths), label_nh_thread) {
+		LIST_FOREACH (path, &(iter->paths),
+			      mplsvpn.blnc.label_nh_thread) {
 			dest = path->net;
 			table = bgp_dest_table(dest);
 			assert(dest && table);
@@ -1703,7 +1730,7 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
 					     blnc->label, blnc->nh->ifindex,
 					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
-					     &blnc->nexthop);
+					     &blnc->nexthop, 0, NULL);
 		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
 	}
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
