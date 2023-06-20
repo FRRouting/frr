@@ -868,14 +868,17 @@ clang-format
    https://clang.llvm.org/docs/ClangFormat.html
 
 checkpatch.sh
+checkpatch.pl
+
    In the Linux kernel source tree there is a Perl script used to check
-   incoming patches for style errors. FRR uses an adapted version of this
-   script for the same purpose. It can be found at
-   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
-   patch file, applies it to a clean FRR tree, and inspects the result to catch
-   potential style errors. Running this script on your patches before
-   submission is highly recommended. The CI system runs this script as well and
-   will comment on the PR with the results if style errors are found.
+   incoming patches for style errors. FRR uses a shell script front end and an
+   adapted version of the perl script for the same purpose. These scripts can
+   be found at :file:`tools/checkpatch.sh` and :file:`tools/checkpatch.pl`.
+   This script takes a git-formatted diff or patch file, applies it to a clean
+   FRR tree, and inspects the result to catch potential style errors. Running
+   this script on your patches before submission is highly recommended. The CI
+   system runs this script as well and will comment on the PR with the results
+   if style errors are found.
 
    It is run like this::
 
@@ -915,6 +918,10 @@ checkpatch.sh
 
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
+
+   For convenience the Linux documentation for the :file:`tools/checkpatch.pl`
+   script has been included unmodified (i.e., it has not been updated to
+   reflect local changes) :doc:`here <checkpatch>`
 
 
 Please remember that while FRR provides these tools for your convenience,
