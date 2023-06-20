@@ -1,0 +1,1254 @@
+module frr-ospfd-lite {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/ospfd";
+  prefix frr-ospfd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import ietf-routing-types {
+    prefix rt-types;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  import frr-ospf-common-lite {
+    prefix common;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR OSPFd information.
+     This YANG module augments the basic routing with additional
+     OSPF information
+
+     A naming scheme has been attempted in this model; FRR specific
+     data is prefixed with 'frr-', otherwise the data definition was
+     drawn from the IETF OSPF model.
+
+     Portions of this code were derived from IETF RFC 9129. Please
+     reproduce this note if possible.
+
+     Copyright (c) 2022 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Copyright (C) 2023 LabN Consulting, L.L.C.
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     * Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+     * Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+     * Neither the name of Internet Society, IETF or IETF Trust, nor the
+       names of specific contributors, may be used to endorse or promote
+       products derived from this software without specific prior
+       written permission.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+     FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+     COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+     INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+     (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+     SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+     STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+     OF THE POSSIBILITY OF SUCH DAMAGE.
+";
+
+
+  revision 2023-04-23 {
+    description
+      "Update to align with IETF model";
+    reference "FRRouting";
+  }
+
+  /*
+   * RPC data types
+   */
+
+   // typedef neighbor-ref {
+   //   type leafref {
+   //     path "/frr-interface:lib/frr-interface:interface/frr-interface:state/"
+   //          + "frr-ospfd:ospf/frr-ospfd:neighbors/frr-ospfd:neighbor/"
+   //          + "frr-ospfd:neighbor-router-id";
+   //     require-instance false;
+   //   }
+   //   description
+   //     "Reference to a neighbor.";
+   // }
+
+   // typedef ospf-instance-ref {
+   //   type leafref {
+   //     path "/frr-interface:lib/frr-interface:interface/frr-ospfd:ospf/"
+   //          + "frr-ospfd:instance/frr-ospfd:id";
+   //     require-instance false;
+   //   }
+   //   description
+   //     "Reference to an OSPF instance ID.";
+   // }
+
+  /*
+   *-------------------------
+   * LSA Types and Identities
+   *-------------------------
+   */
+
+  identity ospfv2-lsa-type {
+    base common:ospf-lsa-type;
+    description
+      "OSPFv2 LSA types";
+  }
+  identity ospfv2-router-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Router LSA - Type 1";
+  }
+  identity ospfv2-network-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Network LSA - Type 2";
+  }
+  identity ospfv2-summary-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Summary LSA types";
+  }
+  identity ospfv2-external-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 External LSA type";
+  }
+  identity ospfv2-opaque-lsa-type {
+    base ospfv2-lsa-type;
+    description
+      "OSPFv2 Opaque LSA type";
+  }
+
+  identity ospfv2-lsa-option {
+    description
+      "Base identity for OSPFv2 LSA option flags.";
+  }
+  identity mt-bit {
+    base ospfv2-lsa-option;
+    description
+      "MT bit, When set, the router supports multi-topology as
+       in RFC 4915.";
+  }
+  identity v2-dc-bit {
+    base ospfv2-lsa-option;
+    description
+      "DC bit, When set, the router supports demand circuits.";
+  }
+  identity v2-p-bit {
+    base ospfv2-lsa-option;
+    description
+      "P bit, wnly used in type-7 LSA. When set, an NSSA
+       border router should translate the type-7 LSA
+       to a type-5 LSA.";
+  }
+  identity mc-flag {
+    base ospfv2-lsa-option;
+    description
+      "MC Bit, when set, the router supports MOSPF.";
+  }
+  identity v2-e-flag {
+    base ospfv2-lsa-option;
+    description
+      "E Bit, this bit describes the way AS-external LSAs
+       are flooded.";
+  }
+  identity o-bit {
+    base ospfv2-lsa-option;
+    description
+      "O bit, when set, the router is opaque-capable as in
+       RFC 5250.";
+  }
+  identity v2-dn-bit {
+    base ospfv2-lsa-option;
+    description
+      "DN bit, when a type 3, 5 or 7 LSA is sent from a PE
+       to a CE, the DN bit must be set. See RFC 4576.";
+  }
+
+  /*
+   * Extended prefix TLVs
+   */
+
+  identity ospfv2-extended-prefix-flag {
+    description
+      "Base identity for extended prefix TLV flag.";
+  }
+  identity a-flag {
+    base ospfv2-extended-prefix-flag;
+    description
+      "Attach flag, when set it indicates that the prefix
+       corresponds and a route what is directly connected to
+       the advertising router..";
+  }
+  identity node-flag {
+    base ospfv2-extended-prefix-flag;
+    description
+      "Node flag, when set, it indicates that the prefix is
+       used to represent the advertising node, e.g., a loopback
+       address.";
+  }
+
+  /*
+   * ---------------------
+   * LSA Operational State
+   * ---------------------
+   */
+
+  grouping ospfv2-router-link {
+    description "OSPFv2 router link.";
+    leaf link-id {
+      type inet:ipv4-address;
+      description "Router-LSA Link ID";
+    }
+    leaf link-data {
+      /*
+        XXX uint43 from OSPFv3 not supported
+      type union {
+        type inet:ipv4-address;
+        type uint32;
+      }
+      */
+      type inet:ipv4-address;
+      description "Router-LSA Link data.";
+    }
+    leaf type {
+      type common:router-link-type;
+      description "Router-LSA Link type.";
+    }
+  }
+
+  grouping ospfv2-lsa-body {
+    description "OSPFv2 LSA body.";
+    container router {
+      when "derived-from-or-self(../../header/type, "
+          + "'ospfv2-router-lsa-type')" {
+        description
+          "Only applies to Router-LSAs.";
+      }
+      description
+        "Router LSA.";
+      uses common:ospf-router-lsa-bits;
+      leaf num-of-links {
+        type uint16;
+        description "Number of links in Router LSA.";
+      }
+      container links {
+        description "All router Links.";
+        list link {
+          description "Router LSA link.";
+          uses ospfv2-router-link;
+          container topologies {
+            description "All topologies for the link.";
+            list topology {
+              description
+                "Topology specific information.";
+              leaf mt-id {
+                type uint8;
+                description
+                  "The MT-ID for the topology enabled on
+                   the link.";
+              }
+              leaf metric {
+                type uint16;
+                description "Metric for the topology.";
+              }
+            }
+          }
+        }
+      }
+    }
+    container network {
+      when "derived-from-or-self(../../header/type, "
+          + "'ospfv2-network-lsa-type')" {
+        description
+          "Only applies to Network LSAs.";
+      }
+      description
+        "Network LSA.";
+      leaf network-mask {
+        type yang:dotted-quad;
+        description
+          "The IP address mask for the network.";
+      }
+      container attached-routers {
+        description "All attached routers.";
+        leaf-list attached-router {
+          type inet:ipv4-address;
+          description
+            "List of the routers attached to the network.";
+        }
+      }
+    }
+    container summary {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv2-summary-lsa-type')" {
+        description
+          "Only applies to Summary LSAs.";
+      }
+      description
+        "Summary LSA.";
+      leaf network-mask {
+        type inet:ipv4-address;
+        description
+          "The IP address mask for the network";
+      }
+      container topologies {
+        description "All topologies for the summary LSA.";
+        list topology {
+          description
+            "Topology specific information.";
+          leaf mt-id {
+            type uint8;
+            description
+              "The MT-ID for the topology enabled for
+               the summary.";
+          }
+          leaf metric {
+            type common:ospf-metric;
+            description "Metric for the topology.";
+          }
+        }
+      }
+    }
+    container external {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv2-external-lsa-type')" {
+        description
+          "Only applies to AS-external LSAs and NSSA LSAs.";
+      }
+      description
+        "External LSA.";
+      leaf network-mask {
+        type inet:ipv4-address;
+        description
+          "The IP address mask for the network";
+      }
+      container topologies {
+        description "All topologies for the external.";
+        list topology {
+          description
+            "Topology specific information.";
+          leaf mt-id {
+            type uint8;
+            description
+              "The MT-ID for the topology enabled for the
+               external or NSSA prefix.";
+          }
+          leaf flags {
+            type bits {
+              bit E {
+                description
+                  "When set, the metric specified is a Type 2
+                   external metric.";
+              }
+            }
+            description "Flags.";
+          }
+          leaf metric {
+            type common:ospf-metric;
+            description "Metric for the topology.";
+          }
+          leaf forwarding-address {
+            type inet:ipv4-address;
+            description
+              "Forwarding address.";
+          }
+          leaf external-route-tag {
+            type uint32;
+            description
+              "Route tag for the topology.";
+          }
+        }
+      }
+    }
+    container opaque {
+      when "derived-from-or-self(../../header/type, "
+         + "'ospfv2-opaque-lsa-type')" {
+        description
+          "Only applies to Opaque LSAs.";
+      }
+      description
+        "Opaque LSA.";
+
+      container ri-opaque {
+        description "OSPF Router Information (RI) opaque LSA.";
+        reference "RFC 7770: OSPF Router Capabilities";
+
+        container router-capabilities-tlv {
+          description
+            "Informational and functional router capabilities";
+          uses common:router-capabilities-tlv;
+        }
+/*
+        container node-tag-tlvs {
+          description
+            "All node tag TLVs.";
+          list node-tag-tlv {
+            description
+              "Node tag TLV.";
+            uses node-tag-tlv;
+          }
+        }
+        container dynamic-hostname-tlv {
+          description "OSPF Dynamic Hostname";
+          uses dynamic-hostname-tlv;
+        }
+        container sbfd-discriminator-tlv {
+          description "OSPF S-BFD Discriminators";
+          uses sbfd-discriminator-tlv;
+        }
+        container maximum-sid-depth-tlv {
+          description "OSPF Maximum SID Depth (MSD) values";
+          uses maximum-sid-depth-tlv;
+        }
+*/
+        container pced-tlv {
+          uses common:pced-tlv;
+          description
+            "The PCE discovery tlv.";
+        }
+        uses common:unknown-tlvs;
+      }
+      container te-opaque {
+        description "OSPFv2 Traffic Engineering (TE) opaque LSA.";
+        reference "RFC 3630: Traffic Engineering (TE)
+                   Extensions to OSPFv2";
+
+        container router-address-tlv {
+          description
+            "Router address TLV.";
+          leaf router-address {
+            type inet:ipv4-address;
+            description
+              "Router address.";
+          }
+        }
+
+        container link-tlv {
+          description "Describes a single link, and it is constructed
+          of a set of Sub-TLVs.";
+          leaf link-type {
+            type common:router-link-type;
+            mandatory true;
+            description "Link type.";
+          }
+          leaf link-id {
+            type inet:ipv4-address;
+            mandatory true;
+            description "Link ID.";
+          }
+          container local-if-ipv4-addrs {
+            description "All local interface IPv4 addresses.";
+            leaf-list local-if-ipv4-addr {
+              type inet:ipv4-address;
+              description
+                "List of local interface IPv4 addresses.";
+            }
+          }
+          container remote-if-ipv4-addrs {
+            description "All remote interface IPv4 addresses.";
+            leaf-list remote-if-ipv4-addr {
+              type inet:ipv4-address;
+              description
+                "List of remote interface IPv4 addresses.";
+            }
+          }
+          leaf te-metric {
+            type uint32;
+            description "TE metric.";
+          }
+          leaf max-bandwidth {
+            type rt-types:bandwidth-ieee-float32;
+            description "Maximum bandwidth.";
+          }
+          leaf max-reservable-bandwidth {
+            type rt-types:bandwidth-ieee-float32;
+            description "Maximum reservable bandwidth.";
+          }
+          container unreserved-bandwidths {
+            description "All unreserved bandwidths.";
+            list unreserved-bandwidth {
+              leaf priority {
+                type uint8 {
+                  range "0 .. 7";
+                }
+                description "Priority from 0 to 7.";
+              }
+              leaf unreserved-bandwidth {
+                type rt-types:bandwidth-ieee-float32;
+                description "Unreserved bandwidth.";
+              }
+              description
+                "List of unreserved bandwidths for different
+                 priorities.";
+            }
+          }
+          leaf admin-group {
+            type uint32;
+            description
+              "Administrative group/Resource Class/Color.";
+          }
+
+          uses common:extended-tlvs;
+          uses common:unknown-tlvs;
+        }
+      }
+
+      container extended-prefix-opaque {
+        description "All extended prefix TLVs in the LSA.";
+        list extended-prefix-tlv {
+          description "Extended prefix TLV.";
+          leaf route-type {
+            type enumeration {
+              enum unspecified {
+                value "0";
+                description "Unspecified.";
+              }
+              enum intra-area {
+                value "1";
+                description "OSPF intra-area route.";
+              }
+              enum inter-area {
+                value "3";
+                description "OSPF inter-area route.";
+              }
+              enum external {
+                value "5";
+                description "OSPF External route.";
+              }
+              enum nssa {
+                value "7";
+                description "OSPF NSSA external route.";
+              }
+            }
+            description "Route type.";
+          }
+          container flags {
+            leaf-list extended-prefix-flags {
+              type identityref {
+                base ospfv2-extended-prefix-flag;
+              }
+              description
+                "Extended prefix TLV flags list. This list will
+                 contain identities for the prefix flags that
+                 are set in the extended prefix flags.";
+            }
+            description "Prefix Flags.";
+          }
+          leaf prefix {
+            type inet:ipv4-prefix;
+            description "Address prefix.";
+          }
+          uses common:unknown-tlvs;
+        }
+      }
+
+      container extended-link-opaque {
+        description "All extended link TLVs in the LSA.";
+        container extended-link-tlv {
+          description "Extended link TLV.";
+          uses ospfv2-router-link;
+          container maximum-sid-depth-tlv {
+            description "OSPF Maximum SID Depth (MSD) values";
+            uses common:maximum-sid-depth-tlv;
+          }
+          uses common:unknown-tlvs;
+        }
+      }
+    }
+  }
+
+  grouping ospfv2-lsa {
+    description
+        "OSPFv2 LSA - LSAs are uniquely identified by
+         the <LSA Type, Link-State ID, Advertising Router>
+         tuple with the sequence number differentiating
+         LSA instances.";
+    container header {
+      must "(derived-from-or-self(type, "
+         + "'ospfv2-opaque-lsa-type') and "
+         + "opaque-id and opaque-type) or "
+         + "(not(derived-from-or-self(type, "
+         + "'ospfv2-opaque-lsa-type')) "
+         + "and not(opaque-id) and not(opaque-type))" {
+        description
+          "Opaque type and ID only apply to Opaque LSAs.";
+      }
+      description
+        "Decoded OSPFv2 LSA header data.";
+
+      container lsa-options {
+        leaf-list lsa-option {
+          type identityref {
+            base ospfv2-lsa-option;
+          }
+          description
+            "LSA option flags list. This list will contain
+             the identities for the identities for the OSPFv2
+             LSA options that are set.";
+        }
+        description
+          "LSA options.";
+      }
+
+      leaf lsa-id {
+        type yang:dotted-quad;
+        mandatory true;
+        description "Link-State ID.";
+      }
+
+      leaf opaque-type {
+        type uint8;
+        description "Opaque type.";
+      }
+
+      leaf opaque-id {
+        type common:opaque-id;
+        description "Opaque ID.";
+      }
+
+      uses common:lsa-header;
+    }
+    container body {
+      description
+        "Decoded OSPFv2 LSA body data.";
+      uses ospfv2-lsa-body;
+    }
+  }
+
+  grouping ospfv2-lsa-database {
+    description "OSPFv3 LSA Database.";
+    uses common:lsa-key;
+    uses common:lsa {
+      augment "version" {
+        description "add ospfv2 augmentations";
+        container ospfv2 {
+          must "derived-from-or-self( "
+            + "/frr-rt:routing/frr-rt:control-plane-protocols/"
+            + "frr-rt:control-plane-protocol/frr-rt:type, 'ospf')" {
+            description "OSPFv2 LSA. (ospfd)";
+          }
+          description "OSPFv2 LSA";
+          uses ospfv2-lsa;
+        }
+      }
+    }
+  }
+
+  /*
+   * ----------------------------
+   * End of LSA Operational State
+   * ----------------------------
+   */
+
+  grouping ospfv2-redistribute-group {
+    description "XXX";
+    list redistribute {
+      key "protocol";
+      description "XXX";
+      leaf protocol {
+        type frr-route-types:frr-route-types-v4;
+        description
+          "Protocol.";
+      }
+
+      uses common:metric-common-group;
+    }
+  }
+
+  grouping ospfv2-distribute-list-group {
+    description "XXX";
+    container distribute-list {
+      description "XXX";
+      list dlist {
+        key "name protocol";
+        description "XXX";
+        leaf name {
+          type string;
+          description
+            "Filter networks in routing updates.";
+        }
+
+        leaf protocol {
+          type frr-route-types:frr-route-types-v4;
+          description
+            "Out protocol.";
+        }
+      }
+    }
+  }
+
+  grouping ospfv2-group {
+    description "XXX";
+    container ospf {
+      description "XXX";
+      leaf abr-type {
+        type enumeration {
+          enum "cisco" {
+            value 1;
+            description
+              "Alternative ABR, Cisco implementation.";
+          }
+          enum "ibm" {
+            value 2;
+            description
+              "Alternative ABR,  IBM implementation.";
+          }
+          enum "shortcut" {
+            value 3;
+            description
+              "Shortcut ABR.";
+          }
+          enum "standard" {
+            value 4;
+            description
+              "Standard behavior (RFC2328).";
+          }
+        }
+        description "XXX";
+      }
+
+      leaf opaque-lsa {
+        type boolean;
+        description
+          "Enable the Opaque-LSA capability (RFC2370)";
+      }
+
+      leaf rfc1583compatibility {
+        type boolean;
+        description
+          "Enable the RFC 1583 compatibility flag.";
+      }
+
+      leaf router-id {
+        type inet:ipv4-address;
+        description
+          "Router-id for the OSPF process.";
+      }
+
+      leaf write-multiplier {
+        type uint8 {
+          range "1..100";
+        }
+        description
+          "Write multiplier.";
+      }
+    }
+  }
+
+  grouping ospfv2-list-group {
+    description "XXX";
+    list neighbor {
+      key "ip";
+      description
+        "Neighbor list.";
+      leaf ip {
+        type inet:ipv4-address;
+        description
+          "Neighbor IP address.";
+      }
+
+      leaf priority {
+        type uint8;
+        description
+          "Neighbor Priority.";
+      }
+
+      leaf poll-interval {
+        type uint16 {
+          range "1..65535";
+        }
+        units "sec";
+        description
+          "Dead Neighbor Polling interval.";
+      }
+    }
+
+    list network {
+      key "prefix";
+      description
+        "Enable routing on list of IP network.";
+      leaf prefix {
+        type inet:ipv4-prefix;
+        description
+          "Prefix on which routing needs to be enabled.";
+      }
+
+      leaf area {
+        type common:ospf-area-id;
+        description
+          "Area ID for this network.";
+      }
+    }
+
+    list passive-interface {
+      key "interface";
+      description
+        "Suppress routing updates on list interface.";
+      leaf interface {
+        type frr-interface:interface-ref;
+        description
+          "Suppress routing updates on an interface.";
+      }
+
+      leaf address {
+        type inet:ipv4-address;
+        description
+          "Interface address.";
+      }
+    }
+  }
+
+  grouping ospfv2-route-standard {
+    // frr specific model
+    description "Standard OSPF route parameters.";
+
+    /*
+     * XXX There is also a pointer to a struct lsa_header which is not modeled
+     */
+    leaf area-id {
+      type common:ospf-area-id;
+      description "The area this route belongs to.";
+    }
+    leaf area-type {
+      type common:area-type;
+      description "Area type.";
+    }
+    container options {
+      leaf-list lsa-options {
+        type identityref {
+          base ospfv2-lsa-option;
+        }
+        description "XXX";
+      }
+      description "Optional capabilities.";
+    }
+    container flags {
+      leaf-list router-flags {
+        type identityref {
+          base common:router-lsa-bit;
+        }
+        description "XXX";
+      }
+      description "Router lsa type flags.";
+    }
+  }
+
+  grouping ospfv2-route {
+    description "OSPF Route";
+    leaf prefix {
+      type inet:ipv4-prefix;
+      description "Destination prefix.";
+    }
+    container next-hops {
+      description "Next hops for the route.";
+      list next-hop {
+        key "next-hop";
+        description "List of next hops for the route";
+        leaf outgoing-interface {
+          type frr-interface:interface-ref;
+          description
+            "Name of the outgoing interface.";
+        }
+        leaf next-hop {
+         type inet:ipv4-address;
+         description "Next hop address.";
+        }
+      }
+    }
+    leaf metric {
+      type common:ospf-metric;
+      description "Metric for this route.";
+    }
+
+    leaf route-type {
+      type common:route-type;
+      description "Route type for this route.";
+    }
+/*
+// Route tag is only stored for external routes in ospf
+    leaf route-tag {
+      type uint32;
+      description "Route tag for this route.";
+    }
+*/
+    uses common:frr-ospf-route;
+  }
+
+  grouping ospfv2-route-external {
+    // frr specific model
+    description "External OSPF route parameters.";
+
+    leaf ls-cost {
+      type uint32;
+      description "Type 2 Link State cost.";
+    }
+    leaf route-tag {
+      type uint32;
+      description "Route tag for this route.";
+    }
+    container asbr {
+      uses ospfv2-route;
+      uses ospfv2-route-standard;
+      description "route to ASBR.";
+    }
+  }
+
+  grouping ospv2-local-rib {
+    description "Local-rib - RIB for Routes computed by the local
+                 OSPF routing instance.";
+    container local-rib {
+      config false;
+      description "Local-rib.";
+      list network {
+        // frr specific model
+        key "prefix";
+        uses ospfv2-route;
+        uses ospfv2-route-standard;
+        description "Network routes.";
+      }
+      list router {
+        // frr specific model
+        key "prefix";
+        uses ospfv2-route;
+        uses ospfv2-route-standard;
+        description "Router routes.";
+      }
+      list border {
+        // frr specific model
+        key "prefix";
+        uses ospfv2-route;
+        uses ospfv2-route-standard;
+        description "ABR/ASBR routes.";
+      }
+      list external {
+        // frr specific model
+        key "prefix";
+        uses ospfv2-route;
+        uses ospfv2-route-external;
+        description "External routes.";
+      }
+    }
+  }
+
+  grouping ospfv2-fast-reroute-state {
+    description "IP-FRR state data grouping";
+
+    container protected-routes {
+      //if-feature fast-reroute;
+      config false;
+      description "Instance protection statistics";
+
+      list address-family-stats {
+//        key "address-family prefix alternate";
+        key "prefix alternate";
+        description
+          "Per Address Family protected prefix information";
+/*
+        leaf address-family {
+          type iana-rt-types:address-family;
+          description
+            "Address-family";
+        }
+*/
+        leaf prefix {
+          type inet:ipv4-prefix;
+          description
+            "Protected prefix.";
+        }
+        leaf alternate {
+          type inet:ipv4-address;
+          description
+            "Alternate next hop for the prefix.";
+        }
+        leaf alternate-type {
+          type enumeration {
+            enum equal-cost {
+              description
+                "ECMP alternate.";
+            }
+            enum lfa {
+              description
+                "LFA alternate.";
+            }
+            enum remote-lfa {
+              description
+                "Remote LFA alternate.";
+            }
+            enum tunnel {
+              description
+                "Tunnel based alternate
+                 (like RSVP-TE or GRE).";
+            }
+            enum ti-lfa {
+              description
+                "TI-LFA alternate.";
+            }
+            enum mrt {
+              description
+                "MRT alternate.";
+            }
+            enum other {
+              description
+                "Unknown alternate type.";
+            }
+          }
+          description
+            "Type of alternate.";
+        }
+        leaf best {
+          type boolean;
+          description
+            "Indicates that this alternate is preferred.";
+        }
+        leaf non-best-reason {
+          type string {
+            length "1..255";
+          }
+          description
+            "Information field to describe why the alternate
+             is not best.";
+        }
+        leaf protection-available {
+          type bits {
+            bit node-protect {
+              position 0;
+              description
+                "Node protection available.";
+            }
+            bit link-protect {
+              position 1;
+              description
+                "Link protection available.";
+            }
+            bit srlg-protect {
+              position 2;
+              description
+                "SRLG protection available.";
+            }
+            bit downstream-protect {
+              position 3;
+              description
+                "Downstream protection available.";
+            }
+            bit other {
+              position 4;
+              description
+                "Other protection available.";
+            }
+          }
+          description "Protection provided by the alternate.";
+        }
+        leaf alternate-metric1 {
+          type uint32;
+          description
+            "Metric from Point of Local Repair (PLR) to
+             destination through the alternate path.";
+        }
+        leaf alternate-metric2 {
+          type uint32;
+          description
+            "Metric from PLR to the alternate node";
+        }
+        leaf alternate-metric3 {
+          type uint32;
+          description
+            "Metric from alternate node to the destination";
+        }
+      }
+    }
+  }
+
+  grouping frr-ospfv2-state {
+    //frr specific model
+    description "Additional frr statistics for the OSPF router
+      operational state.";
+
+    container router-flags {
+      description "ASR/ASBR internal flags.";
+
+      leaf-list router-flag {
+        type identityref {
+          base common:router-lsa-bit;
+        }
+        description "XXX";
+      }
+    }
+
+    // container graceful-restart {
+    //   description "Operational graceful restart information.";
+
+    //   leaf active-restarter-count {
+    //     type uint16;
+    //     description
+    //       "The number of active restarters for which this router is a helper.";
+    //   }
+    //   leaf last-exit-reason {
+    //     type uint32;
+    //     description "The last Helper exit reason.";
+    //     /* XXX potentially convert to enum */
+    //   }
+    // }
+  }
+
+  grouping ospfv2-state {
+    description "OSPF router operational state.";
+
+    uses frr-ospfv2-state;
+    // uses ospv2-local-rib;
+
+    container statistics {
+      config false;
+      description "Per-instance statistics";
+      uses common:instance-stat;
+    }
+  }
+
+  grouping ospfv2-area-state {
+    description "OSPF area operational state";
+
+    // container threads{
+    //   // frr specific model
+    //   description "All Area-scope threads run by frr.";
+
+    //   container stub-router {
+    //     presence "Present if the stub-router thread is running.";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "usec";
+    //       description "Stub routers timer thread.";
+    //     }
+    //   }
+    //   container opaque-lsa-self {
+    //     presence
+    //       "Present if type-10 opaque LSAs origin thread is running";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "usec";
+    //       description "Timer for type-10 opaque-LSA origination.";
+    //     }
+    //   }
+    // }
+
+    container statistics {
+      description "Area-scope operational statistics.";
+      uses common:area-stat;
+    }
+  }
+
+  grouping frr-ospfv2-interface-state {
+    // frr specific model
+    description "FRR specific interface operational state.";
+
+    // leaf network-lsa-seqno {
+    //   type uint32;
+    //   description "The cryptographic sequence number in use if this
+    //     interface is the DR.";
+    // }
+
+    // container multicast-groups {
+    //   description "The multicast groups this interface is a part of.";
+
+    //   leaf ospf-all-routers {
+    //     type boolean;
+    //     description "Multicast group of all routers.";
+    //   }
+    //   leaf ospf-designated-routers {
+    //     type boolean;
+    //     description "Multicast group of designated routers.";
+    //   }
+    // }
+  }
+
+  grouping ospfv2-interface-state {
+    description "OSPFv2 interface state";
+
+    uses frr-ospfv2-interface-state;
+
+    uses common:interface-common-state;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols"
+    + "/frr-rt:control-plane-protocol" {
+    when "derived-from(frr-rt:type, 'ospf')" {
+      description
+        "This container is only valid for the 'OSPF' routing
+           protocol.";
+    }
+    description
+      "OSPF protocol FRR 'routing' module 'control-plane-protocol'
+       augmentation.";
+    container ospf {
+      description
+        "OSPF protocol instance.";
+      container state {
+        /* IETF model doesn't have a defined container for state */
+        config false;
+        description "Container for Router-scope operational state.";
+
+        uses ospfv2-state;
+      }
+      uses common:area-groupings {
+        augment "areas/area/state" {
+          description "OSPFv2 specific area state";
+          uses ospfv2-area-state;
+        }
+      }
+    }
+  }
+
+  /*
+   * Per-interface operational state data
+   */
+  augment "/frr-interface:lib/frr-interface:interface"
+    + "/frr-interface:state" {
+    description
+      "OSPF protocol FRR 'interface' module 'interface' state augmentation.";
+    container ospf {
+      description
+        "OSPF interface operation state.";
+
+      uses ospfv2-interface-state;
+    }
+  }
+}

@@ -1,0 +1,2753 @@
+module frr-ospf-common-lite {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/ospf-common";
+  prefix frr-ospf-common;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import ietf-routing-types {
+    prefix rt-types;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import frr-routing {
+    prefix frr-rt;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR OSPFd information.
+     This YANG module augments the basic routing with additional
+     OSPF information
+
+     Portions of this code were derived from IETF RFC 9129. Please
+     reproduce this note if possible.
+
+     Copyright (c) 2022 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Copyright (C) 2023 LabN Consulting, L.L.C.
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     * Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+     * Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+     * Neither the name of Internet Society, IETF or IETF Trust, nor the
+       names of specific contributors, may be used to endorse or promote
+       products derived from this software without specific prior
+       written permission.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+     FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+     COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+     INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+     (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+     SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+     STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+     OF THE POSSIBILITY OF SUCH DAMAGE.
+";
+
+  revision 2023-04-23 {
+    description
+      "Update to align with IETF model";
+    reference "FRRouting";
+  }
+
+  identity ospf {
+    base frr-rt:routing-protocol;
+    description
+      "'OSPF' routing ospf-protocol.";
+  }
+
+  /* Policy types to be removed later, once policy Yang finalized */
+  typedef plist-ref {
+    type string;
+    description "XXX";
+  }
+
+  typedef access-list-ref {
+    type string;
+    description "XXX";
+  }
+
+  typedef ospf-area-id {
+    type union {
+      type inet:ipv4-address;
+      type uint32;
+    }
+    description "OSPF Area ID.";
+  }
+
+  /*
+   XXX Currently unused since cost's are commented out in (virtual) links
+  typedef ospf-link-metric {
+    type uint16 {
+      range "0 .. 65535";
+    }
+    description "OSPF Link Metric - 16-bit unsigned integer.";
+  }
+  */
+
+  /*
+   * -----------------------------------------------
+   * Link State Database (LSDB) Types and Identities
+   * -----------------------------------------------
+   */
+
+  typedef if-state-type {
+    type enumeration {
+      enum down {
+        value "1";
+        description
+          "Interface down state.";
+      }
+      enum loopback {
+        value "2";
+        description
+          "Interface loopback state.";
+      }
+      enum waiting {
+        value "3";
+        description
+          "Interface waiting state.";
+      }
+      enum point-to-point {
+        value "4";
+        description
+          "Interface point-to-point state.";
+      }
+      enum dr {
+        value "5";
+        description
+          "Interface Designated Router (DR) state.";
+      }
+      enum bdr {
+        value "6";
+        description
+          "Interface Backup Designated Router (BDR) state.";
+      }
+      enum dr-other {
+        value "7";
+        description
+          "Interface Other Designated Router state.";
+      }
+    }
+    description
+      "OSPF interface state type.";
+  }
+
+  typedef nbr-state-type {
+    type enumeration {
+      enum down {
+        value "1";
+        description
+          "Neighbor down state.";
+      }
+      enum attempt {
+        value "2";
+        description
+          "Neighbor attempt state.";
+      }
+      enum init {
+        value "3";
+        description
+          "Neighbor init state.";
+      }
+      enum 2-way {
+        value "4";
+        description
+          "Neighbor 2-Way state.";
+      }
+      enum exstart {
+        value "5";
+        description
+          "Neighbor exchange start state.";
+      }
+      enum exchange {
+        value "6";
+        description
+          "Neighbor exchange state.";
+      }
+      enum loading {
+        value "7";
+        description
+          "Neighbor loading state.";
+      }
+      enum full {
+        value "8";
+        description
+          "Neighbor full state.";
+      }
+    }
+    description "OSPF neighbor state type.";
+  }
+
+  typedef gr-restart-reason {
+    // frr specific model, see ospf_gr.h
+    type enumeration {
+      enum unknown-restart {
+        value "0";
+        description "Uknown restart.";
+      }
+      enum sw-restart {
+        value "1";
+        description "Software restart.";
+      }
+      enum sw-upgrade {
+        value "2";
+        description "Software reload/upgrade.";
+      }
+      enum switch-redundant-card {
+        value "3";
+        description "Switch to redundant control processor.";
+      }
+      enum invalid-reason-code {
+        value "4";
+        description "Invalid restart.";
+      }
+    }
+    description "XXX";
+  }
+
+  typedef gr-exit-reason {
+    // frr specific model, see ospf_gr.h
+    type enumeration {
+      enum exit-none {
+        value "0";
+        description "No exit reason.";
+      }
+      enum inprogress {
+        value "1";
+        description "Graceful restart in progress.";
+      }
+      enum topo-chg {
+        value "2";
+        description "Topology has changed.";
+      }
+      enum grace-timeout {
+        value "3";
+        description "Grace period expired.";
+      }
+      enum completed {
+        value "4";
+        description "Graceful restart completed.";
+      }
+    }
+    description "XXX";
+  }
+
+  typedef gr-reject-reason {
+    // frr specific model, see ospf_gr.h
+    type enumeration {
+      enum rejected-none {
+        value "0";
+        description "No reject reason.";
+      }
+      enum support-disabled {
+        value "1";
+        description "Graceful restart is not supported.";
+      }
+      enum not-a-valid-neighbour {
+        value "2";
+        description "Not a valud neighbour.";
+      }
+      enum planned-only-restart {
+        value "3";
+        description "Can only support planned graceful restarts";
+      }
+      enum topo-change-rtxmt-list {
+        value "4";
+        description "Topology change in retransmit list";
+      }
+      enum lsa-age-more {
+        value "5";
+        description "Link state advertisments are older than grace period";
+      }
+      enum restarting {
+        value "6";
+        description "Currently restarting";
+      }
+    }
+    description "XXX";
+  }
+
+  typedef opaque-id {
+    type uint32 {
+      range "0 .. 16777215";
+    }
+    description
+      "Opaque ID - 24-bit unsigned integer.";
+  }
+
+  typedef fletcher-checksum16-type {
+    type string {
+       pattern '(0x)?[0-9a-fA-F]{4}';
+    }
+     description
+      "Fletcher 16-bit checksum in hex-string format 0xXXXX.";
+     reference "RFC 905: ISO Transport Protocol specification
+                ISO DP 8073";
+  }
+
+  typedef router-link-type {
+    type enumeration {
+      enum point-to-point-link {
+        value "1";
+        description
+          "Point-to-Point link to Router";
+      }
+      enum transit-network-link {
+        value "2";
+        description
+          "Link to transit network identified by
+           Designated-Router (DR)";
+      }
+      enum stub-network-link {
+        value "3";
+        description
+          "Link to stub network identified by subnet";
+      }
+      enum virtual-link {
+        value "4";
+        description
+          "Virtual link across transit area";
+      }
+    }
+    description
+      "OSPF Router Link Type.";
+  }
+
+  typedef ospf-metric {
+    type uint32 {
+      range "0 .. 16777215";
+    }
+    description
+      "OSPF Metric - 24-bit unsigned integer.";
+  }
+
+  typedef pce-domain-type {
+    type enumeration {
+      enum ospf-area-id {
+        value 1;
+        description
+          "Indicates that the visible domain type is an OSPF Area.";
+      }
+      enum as-number {
+        value 2;
+        description
+          "Indicates that the visible domain type is an AS";
+      }
+    }
+    description "XXX";
+  }
+
+  typedef route-type {
+    type enumeration {
+      enum min {
+        value 0;
+        description "OSPF min path.";
+      }
+      enum intra-area {
+        value 1;
+        description "OSPF intra-area route.";
+      }
+      enum inter-area {
+        value 2;
+        description "OSPF inter-area route.";
+      }
+      enum external-1 {
+        value 3;
+        description "OSPF type 1 external route.";
+      }
+      enum external-2 {
+        value 4;
+        description "OSPF type 2 external route.";
+      }
+      enum max {
+        value 5;
+        description "OSPF mac path.";
+      }
+/*
+      enum nssa-1 {
+        description "OSPF type 1 NSSA route.";
+      }
+      enum nssa-2 {
+        description "OSPF type 2 NSSA route.";
+      }
+*/
+    }
+    description "OSPF path/route type.";
+  }
+
+  typedef destination-type {
+    type enumeration {
+      enum router {
+        value 1;
+        description "Destination is a router.";
+      }
+      enum network {
+        value 2;
+        description "Destination is a network.";
+      }
+      enum discard {
+        value 3;
+        description "Destination is to be discarded.";
+      }
+    }
+    description "The destination type of a route.";
+  }
+
+  typedef area-type {
+    type enumeration {
+      enum default {
+        value 0;
+        description "Default area type.";
+      }
+      enum stub {
+        value 1;
+        description "Stub area type.";
+      }
+      enum nssa {
+        value 2;
+        description "Not so stubby area type.";
+      }
+      enum max {
+        value 3;
+        description "Max area type.";
+      }
+    }
+    description "The type of an area.";
+  }
+
+  identity ospf-lsa-type {
+    description
+      "Base identity for OSPFv2 and OSPFv3
+       Link State Advertisement (LSA) types";
+  }
+
+  /*
+   * PCE identities.
+   */
+  identity pce-path-scope-bit {
+    description
+      "The base identity for a PCE Path scope flags.";
+  }
+  identity intra-area-bit {
+    base pce-path-scope-bit;
+    description
+      "L bit (0th bit). When set, means can computer intra-area
+       paths.";
+  }
+  identity inter-area-bit {
+    base pce-path-scope-bit;
+    description
+      "R bit (1st bit). When set, means can act as PCE for inter-area TE
+       LSP computation.";
+  }
+  identity inter-area-default-bit {
+    base pce-path-scope-bit;
+    description
+      "Rd bit (2nd bit). When set, means can act as a default PCE for
+       inter-area TE LSP computation.";
+  }
+  identity inter-as-bit {
+    base pce-path-scope-bit;
+    description
+      "S bit (3rd bit). When set, means can act as PCE for inter-AS TE LSP
+       computation.";
+  }
+  identity inter-as-default-bit {
+    base pce-path-scope-bit;
+    description
+      "Sd bit (4th bit). When set, means can act as a default PCE for inter-AS
+       TE LSP computation.";
+  }
+  identity inter-layer-bit {
+    base pce-path-scope-bit;
+    description
+      "Y bit (5th bit). When set, means can act as PCE for inter-layer TE LSP
+       computation.";
+  }
+
+  identity lsa-log-reason {
+    description
+      "Base identity for an LSA log reason.";
+  }
+  identity lsa-refresh {
+    base lsa-log-reason;
+    description
+      "Identity used when the LSA is logged
+       as a result of receiving a refresh LSA.";
+  }
+  identity lsa-content-change {
+    base lsa-log-reason;
+    description
+      "Identity used when the LSA is logged
+       as a result of a change in the content
+       of the LSA.";
+  }
+  identity lsa-purge {
+    base lsa-log-reason;
+    description
+      "Identity used when the LSA is logged
+       as a result of being purged.";
+  }
+
+  identity informational-capability {
+    description
+      "Base identity for router informational capabilities.";
+  }
+  identity graceful-restart {
+    base informational-capability;
+    description
+      "When set, the router is capable of restarting
+       gracefully.";
+    reference "RFC 3623: Graceful OSPF Restart
+               RFC 5187: OSPFv3 Graceful Restart";
+  }
+  identity graceful-restart-helper {
+    base informational-capability;
+    description
+      "When set, the router is capable of acting as
+       a graceful restart helper.";
+    reference "RFC 3623: Graceful OSPF Restart
+               RFC 5187: OSPFv3 Graceful Restart";
+  }
+  identity stub-router {
+    base informational-capability;
+    description
+      "When set, the router is capable of acting as
+       an OSPF Stub Router.";
+    reference "RFC 6987: OSPF Stub Router Advertisement";
+  }
+  identity traffic-engineering {
+    base informational-capability;
+    description
+      "When set, the router is capable of OSPF traffic
+       engineering.";
+    reference "RFC 3630: Traffic Engineering (TE) Extensions
+               to OSPF Version 2
+               RFC 5329: Traffic Engineering (TE) Extensions
+               to OSPF Version 3";
+  }
+  identity p2p-over-lan {
+    base informational-capability;
+    description
+      "When set, the router is capable of OSPF Point-to-Point
+       over LAN.";
+    reference "RFC 5309: Point-to-Point Operation over LAN
+               in Link State Routing Protocols";
+  }
+  identity experimental-te {
+    base informational-capability;
+    description
+      "When set, the router is capable of OSPF experimental
+       traffic engineering.";
+    reference
+      "RFC 4973: OSPF-xTE OSPF Experimental Traffic
+       Engineering";
+  }
+
+  identity router-lsa-bit {
+    description
+      "Base identity for Router-LSA bits.";
+  }
+  identity vlink-end-bit {
+    base router-lsa-bit;
+    description
+      "V bit, when set, the router is an endpoint of one or
+       more virtual links.";
+  }
+  identity asbr-bit {
+    base router-lsa-bit;
+    description
+      "E bit, when set, the router is an AS Boundary
+       Router (ASBR).";
+  }
+  identity abr-bit {
+    base router-lsa-bit;
+    description
+      "B bit, when set, the router is an Area Border
+       Router (ABR).";
+  }
+  identity nssa-bit {
+    base router-lsa-bit;
+    description
+      "Nt bit, when set, the router is an NSSA border router
+       that is unconditionally translating NSSA LSAs into
+       AS-external LSAs.";
+  }
+  identity shortcut-bit {
+    base router-lsa-bit;
+    /* XXX find defined name of bit */
+    description
+      "? bit, when set, the router is shortcut-ABR enabled.";
+  }
+
+  identity pce-capabilities-bit {
+    description
+      "Base identity for PCE capability flags.";
+  }
+  identity gmpls-link-bit {
+    base pce-capabilities-bit;
+    description
+      "0th bit. When set, means that can compute paths with GMPLS link
+       constraints.";
+  }
+  identity bidirectional-bit {
+    base pce-capabilities-bit;
+    description
+      "1st bit. When set, means that can compute bidirectional paths.";
+  }
+  identity diverse-path-bit {
+    base pce-capabilities-bit;
+    description
+      "2nd bit. When set, means that can compute diverse paths.";
+  }
+  identity load-balance-bit {
+    base pce-capabilities-bit;
+    description
+      "3rd bit. When set, means that can compute load-balanced paths.";
+  }
+  identity synchronized-bit {
+    base pce-capabilities-bit;
+    description
+      "4th bit. When set, means that can compute synchronized paths.";
+  }
+  identity objectives-bit {
+    base pce-capabilities-bit;
+    description
+      "5th bit. When set, means that can support multiple objective functons.";
+  }
+  identity additive-bit {
+    base pce-capabilities-bit;
+    description
+      "6th bit. When set, means that can support additive path constraints.";
+  }
+  identity prioritization-bit {
+    base pce-capabilities-bit;
+    description
+      "7th bit. When set, means that can support requests for prioritization.";
+  }
+  identity multiple-req-bit {
+    base pce-capabilities-bit;
+    description
+      "8th bit. When set, means that can support multiple requests per
+       message.";
+  }
+
+  /*
+   * --------------------------------------------
+   * Link State Database (LSDB) Operational State
+   * --------------------------------------------
+   */
+
+  grouping tlv {
+    description
+      "Type-Length-Value (TLV)";
+    leaf type {
+      type uint16;
+      description "TLV type.";
+    }
+    leaf length {
+      type uint16;
+      description "TLV length (octets).";
+    }
+    leaf value {
+      type yang:hex-string;
+      description "TLV value.";
+    }
+  }
+
+  grouping unknown-tlvs {
+    description
+      "Unknown TLVs grouping - Used for unknown TLVs or
+       unknown sub-TLVs.";
+    container unknown-tlvs {
+      description "All unknown TLVs.";
+      list unknown-tlv {
+        description "Unknown TLV.";
+        uses tlv;
+      }
+    }
+  }
+
+  grouping extended-tlvs {
+  // frr specific model
+    description
+      "subTLVs implemented in frr beyond the default types 1-9";
+
+    container local-and-remote-te-router-id {
+      leaf local-router-id {
+        type inet:ipv4-address;
+        description
+          "Local TE Router ID.";
+      }
+      leaf remote-router-id {
+        type inet:ipv4-address;
+        description
+          "Remote TR Router ID.";
+      }
+      description
+        "Type 10 subTLVs. Local/Remote router Identifiers. If specified,
+         ignore link-id subTLVs and use instead.";
+    }
+
+    container link-local-remote-id {
+      leaf link-local-id {
+        type uint32;
+        description "XXX";
+      }
+      leaf link-remote-id {
+        type uint32;
+        description "XXX";
+      }
+      description
+        "Type subTLV 11. Link Local/Remote Identifiers";
+    }
+
+    leaf remote-as-number {
+      type uint32;
+      description
+        "Type 21 subTLVs. Specifies the AS number of a neighboring AS";
+    }
+
+    leaf ipv4-remote-asbr-id {
+      type inet:ipv4-address;
+      description
+        "Type 22 subTLVs. Specifies the ASBR Ip address of the previously
+         specified AS";
+    }
+
+    leaf unidirectional-link-delay {
+      type uint32 {
+        range "0..16777215";
+      }
+      units "microseconds";
+      description
+        "Type 27 subTLVs. Delay in Microseconds.";
+    }
+
+    container min-max-unidirectional-link-delay {
+      leaf min-delay {
+        type uint32 {
+          range "0..16777215";
+        }
+        units "microseconds";
+        description
+          "Minimum delay in Microseconds";
+      }
+      leaf max-delay {
+        type uint32 {
+          range "0..16777215";
+        }
+        units "microseconds";
+        description
+          "Maximum delay in Microseconds.";
+      }
+      description
+        "Type 28 subTLVs.";
+    }
+
+    leaf unidirectional-delay-variation {
+      type uint32 {
+        range "0..16777215";
+      }
+      units "microseconds";
+      description
+        "Type 29 subTLVs. Link delay variation in Microseconds.";
+    }
+
+    leaf unidirectional-link-loss {
+      type uint32 {
+        range "0..16777214";
+      }
+      description
+        "Type 20 subTLVs. Percentage loss of link packets on a link. Basic unit
+         is 0.000003%, leading to a maximum 50.331642%.";
+    }
+
+    leaf unidirectional-residual-bandwidth {
+      type rt-types:bandwidth-ieee-float32;
+      units "Bytes/Sec";
+      description
+        "Type 31 subTLVs. Residual unidirectional bandwidth in IEEE floating
+         point format with units of Bytes/Sec.";
+    }
+
+    leaf unidirectional-available-bandwidth {
+      type rt-types:bandwidth-ieee-float32;
+      units "Bytes/Sec";
+      description
+        "Type 32 subTLVs. Available unidirectional bandwidth in IEEE floating
+         point format with units of Bytes/Sec.";
+    }
+
+    leaf unidirectional-utilized-bandwidth {
+      type rt-types:bandwidth-ieee-float32;
+      units "Bytes/Sec";
+      description
+        "Type 33 subTLVs. Utilized unidirectional bandwidth in IEEE floating
+         point format with units of Bytes/Sec.";
+    }
+  }
+
+  grouping pced-tlv {
+    // frr specific model
+    description "XXX";
+
+    leaf pce-address {
+      type inet:ipv4-address;
+      description
+        "Type 1 subTLV. Ip address to reach the PCE.";
+    }
+
+    container path-scope {
+      leaf-list scope-flags {
+        type identityref {
+          base pce-path-scope-bit;
+        }
+        description
+          "List of PCE path scope flags";
+      }
+
+      leaf pref-l {
+        type uint8 {
+          range "0..7";
+        }
+        description
+          "PCE's preference for intra-area TE LSP computation.";
+      }
+
+      leaf pref-r {
+        type uint8 {
+          range "0..7";
+        }
+        description
+          "PCE's preference for inter-area TE LSP computation.";
+      }
+
+      leaf pref-s {
+        type uint8 {
+          range "0..7";
+        }
+        description
+          "PCE's preference for inter-AS TE LSP computation.";
+      }
+
+      leaf pref-y {
+        type uint8 {
+          range "0..7";
+        }
+        description
+          "PCE's preference for inter-layer TE LSP computation.";
+      }
+
+      description
+        "Type 2 subTLV. PCE path computation scope.";
+    }
+
+    container domain {
+      leaf domain-type {
+        type pce-domain-type;
+        description "XXX";
+      }
+      leaf domain-id {
+        type uint32;
+        description "PCE domain ID.";
+      }
+      description
+        "Type 3 subTLV. PCE domain type and ID.";
+    }
+
+    container neighbor {
+      leaf domain-type {
+        type pce-domain-type;
+        description "XXX";
+      }
+      leaf domain-id {
+        type uint32;
+        description
+          "PCE domain ID. Either an Area ID or As depending on domain-type";
+      }
+      description
+        "Type 4 subTLV. Neighbor's PCE domain type and ID.";
+    }
+
+    container capabilities {
+      leaf-list capabilities-flags {
+        type identityref {
+          base pce-capabilities-bit;
+        }
+        description
+          "List of PCE capability flags.";
+      }
+      description
+        "Type 5 subTLV. Indicates PCE capabilities.";
+    }
+  }
+
+  grouping node-tag-tlv {
+    description "OSPF Node Admin Tag TLV grouping.";
+    list node-tag {
+      leaf tag {
+        type uint32;
+        description
+          "Node admin tag value.";
+      }
+      description
+        "List of tags.";
+    }
+  }
+
+  grouping router-capabilities-tlv {
+    description "OSPF Router Capabilities TLV grouping.";
+    reference "RFC 7770: OSPF Router Capabilities";
+    container router-informational-capabilities {
+      leaf-list informational-capabilities {
+        type identityref {
+          base informational-capability;
+        }
+        description
+          "Informational capability list. This list will
+           contains the identities for the informational
+           capabilities supported by router.";
+      }
+      description
+         "OSPF Router Informational Flag Definitions.";
+    }
+/*
+    list informational-capabilities-flags {
+      leaf informational-flag {
+        type uint32;
+        description
+          "Individual informational capability flag.";
+      }
+      description
+        "List of informational capability flags. This will
+         return all the 32-bit informational flags irrespective
+         of whether or not they are known to the device.";
+    }
+    list functional-capabilities {
+      leaf functional-flag {
+        type uint32;
+        description
+          "Individual functional capability flag.";
+      }
+      description
+        "List of functional capability flags. This will
+         return all the 32-bit functional flags irrespective
+         of whether or not they are known to the device.";
+    }
+*/
+  }
+
+  grouping dynamic-hostname-tlv {
+    description "Dynamic Hostname TLV";
+    reference "RFC 5642: Dynamic Hostnames for OSPF";
+    leaf hostname {
+      type string {
+        length "1..255";
+      }
+      description "Dynamic Hostname";
+    }
+  }
+
+  grouping sbfd-discriminator-tlv {
+    description "Seamless BFD Discriminator TLV";
+    reference "RFC 7884: S-BFD Discriminators in OSPF";
+    list sbfd-discriminators {
+      leaf sbfd-discriminator {
+        type uint32;
+        description "Individual S-BFD Discriminator.";
+      }
+      description
+        "List of S-BFD Discriminators";
+    }
+  }
+
+  grouping maximum-sid-depth-tlv {
+    description "Maximum SID Depth (MSD) TLV";
+    reference
+      "RFC 8476: Signaling Maximum Segment Depth (MSD)
+       using OSPF";
+    list msd-type {
+      leaf msd-type {
+        type uint8;
+        description "Maximum Segment Depth (MSD) type";
+      }
+      leaf msd-value {
+        type uint8;
+        description
+          "Maximum Segment Depth (MSD) value for the type";
+      }
+      description
+        "List of Maximum Segment Depth (MSD) tuples";
+    }
+  }
+
+  grouping ospf-router-lsa-bits {
+    container router-bits {
+      leaf-list rtr-lsa-bit {
+        type identityref {
+          base router-lsa-bit;
+        }
+        description
+          "Router LSA bits list. This list will contain
+           identities for the bits which are set in the
+           Router-LSA bits.";
+      }
+      description "Router LSA Bits.";
+    }
+    description
+      "Router LSA Bits - Currently common for OSPFv2 and
+       OSPFv3 but it may diverge with future augmentations.";
+  }
+
+  grouping lsa-header {
+    description
+        "Common LSA for OSPFv2 and OSPFv3";
+    leaf age {
+      type uint16;
+      mandatory true;
+      description "LSA age.";
+    }
+    leaf type {
+      type identityref {
+        base ospf-lsa-type;
+      }
+      mandatory true;
+      description "LSA type";
+    }
+    leaf adv-router {
+      type rt-types:router-id;
+      mandatory true;
+      description "LSA advertising router.";
+    }
+    leaf seq-num {
+      type uint32;
+      mandatory true;
+      description "LSA sequence number.";
+    }
+    leaf checksum {
+      type fletcher-checksum16-type;
+      mandatory true;
+      description "LSA checksum.";
+    }
+    leaf length {
+      type uint16;
+      mandatory true;
+      description "LSA length including the header.";
+    }
+  }
+
+  grouping lsa-common {
+    description
+        "Common fields for OSPF LSA representation.";
+    leaf decode-completed {
+      type boolean;
+      description
+        "The OSPF LSA body was successfully decoded other than
+         unknown TLVs. Unknown LSAs types and OSPFv2 unknown
+         opaque LSA types are not decoded. Additionally,
+         malformed LSAs are generally not accepted and will
+         not be in the Link State Database.";
+    }
+    leaf raw-data {
+      type yang:hex-string;
+      description
+        "The complete LSA in network byte
+         order hexadecimal as received or originated.";
+    }
+  }
+
+  grouping lsa-key {
+    description
+      "OSPF LSA key - the database key for each LSA of a given
+       type in the Link State DataBase (LSDB).";
+    leaf lsa-id {
+      /*
+      XXX uint32 is included for OSPFv3, which is not supported under ospfd
+      type union {
+        type yang:dotted-quad;
+        type uint32;
+      }
+      */
+      type yang:dotted-quad;
+      description
+        "Link-State ID.";
+    }
+    leaf adv-router {
+      type rt-types:router-id;
+      description
+        "Advertising router.";
+    }
+  }
+
+  grouping lsa {
+    description
+        "OSPF LSA.";
+    uses lsa-common;
+    choice version {
+      description
+        "OSPFv2 or OSPFv3 LSA body.";
+    }
+  }
+
+  /*
+   * -----------------------------
+   * End of LSDB Operational State
+   * -----------------------------
+   */
+
+  grouping nssa-grouping {
+    description "XXX";
+    container nssa {
+      presence "Present if the nssa is enabled";
+      description "XXX";
+      leaf no-summary {
+        type boolean;
+        default "false";
+        description
+          "Do not inject inter-area routes into nssa";
+      }
+
+      leaf translate-always {
+        type boolean;
+        default "false";
+        description
+          "NSSA-ABR to always translate";
+      }
+
+      leaf translate-candidate {
+        type boolean;
+        default "false";
+        description
+          "NSSA-ABR for translate election";
+      }
+
+      leaf translate-never {
+        type boolean;
+        default "false";
+        description
+          "NSSA-ABR to never translate";
+      }
+    }
+  }
+
+  /*
+   * XXX this is probably ospfv2 only, but it's the only one in the area
+   * groupings below like this. :(
+  */
+  grouping range-grouping {
+    description "XXX";
+    container ranges {
+      description "XXX";
+      list range {
+        key "prefix";
+        description
+          "A list of range objects";
+        leaf prefix {
+          type inet:ipv4-prefix;
+          description
+            "Area range prefix";
+        }
+
+        leaf advertise {
+          type boolean;
+          description
+            "Advertise this range";
+        }
+
+        leaf not-advertise {
+          type boolean;
+          default "false";
+          description
+            "Do not advertise this range";
+        }
+
+        leaf cost {
+          type uint32 {
+            range "0..16777215";
+          }
+          description
+            "Metric for this range";
+        }
+
+        leaf substitute {
+          type inet:ipv4-prefix;
+          description
+            "Network prefix to be announced instead of range";
+        }
+      }
+    }
+  }
+
+
+  grouping stub-grouping {
+    description "XXX";
+    container stub {
+      presence "Present when area is stub";
+      description "XXX";
+      leaf no-summary {
+        type boolean;
+        default "false";
+        description
+          "Do not inject inter-area routes into stub";
+      }
+    }
+  }
+
+  grouping shortcut-grouping {
+    description "XXX";
+    container shortcut {
+      description "XXX";
+      leaf default {
+        type boolean;
+        default "false";
+        description
+          "Default shortcutting behavior";
+      }
+
+      leaf disable {
+        type boolean;
+        description
+          "Disable shortcutting through the area";
+      }
+
+      leaf enable {
+        type boolean;
+        description
+          "Enable shortcutting through the area";
+      }
+    }
+  }
+
+  grouping authentication-group {
+    description "XXX";
+    container authentication {
+      presence "Enable authentication.";
+      description
+        "Enable authentication on this virtual link.";
+      leaf message-digest {
+        type boolean;
+        description
+          "Use message-digest authentication.";
+      }
+
+      leaf null {
+        type boolean;
+        description
+          "Use null authentication.";
+      }
+    }
+
+    list message-digest-key {
+      key "key-id";
+      description "XXX";
+      leaf key-id {
+        type uint8;
+        description
+          "Key id";
+      }
+
+      leaf mds-key {
+        type string;
+        description
+          "The OSPF password.";
+      }
+    }
+
+    leaf authentication-key {
+      type string;
+      description
+        "The OSPF password.";
+    }
+  }
+
+  grouping virtual-link-group {
+    description "XXX";
+    list virtual-link {
+      key "neighbor area-id";
+      description
+        "Virtual link parameters.";
+      leaf neighbor {
+        type inet:ipv4-address;
+        description
+          "Router ID of the remote ABR.";
+      }
+
+      leaf area-id {
+        type ospf-area-id;
+        mandatory true;
+        description "XXX";
+      }
+
+      uses authentication-group;
+
+      container timers {
+        description "XXX";
+        leaf dead-interval {
+          type uint16;
+          units "seconds";
+          description
+            "Interval time after which a neighbor is declared down.";
+        }
+
+        leaf hello-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "Time between HELLO packets.";
+        }
+
+        leaf retransmit-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "Time between retransmitting lost link state advertisements.";
+        }
+
+        leaf transmit-delay {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          description
+            "Link state transmit delay.";
+        }
+      }
+
+      container state {
+        config false;
+        description "Operational state of all virtual links";
+        uses virtual-link-state;
+      }
+    }
+  }
+
+  grouping area-groupings {
+    description "XXX";
+    container areas {
+      description "XXX";
+      list area {
+        key "area-id";
+        description
+          "A list of area objects";
+        leaf area-id {
+          type ospf-area-id;
+          description "XXX";
+        }
+
+        // container authentication {
+        //   presence "Enable authentication";
+        //   description "XXX";
+        //   leaf message-digest {
+        //     type boolean;
+        //     description
+        //       "Use message-digest authentication";
+        //   }
+        // }
+
+        // leaf default-cost {
+        //   type uint32 {
+        //     range "0..16777215";
+        //   }
+        //   description
+        //     "Advertised default summary cost";
+        // }
+
+        // leaf export-list {
+        //   type access-list-ref;
+        //   description
+        //     "Filter for networks announced to other areas.";
+        // }
+
+        // leaf import-list {
+        //   type access-list-ref;
+        //   description
+        //     "Filter for networks from other areas announced to the
+        //      specified one.";
+        // }
+
+        // container filter-list {
+        //   description "XXX";
+        //   leaf prefix {
+        //     type plist-ref;
+        //     description
+        //       "Filter networks between OSPF areas.";
+        //   }
+
+        //   leaf in {
+        //     type boolean;
+        //     description "XXX";
+        //   }
+
+        //   leaf out {
+        //     type boolean;
+        //     description "XXX";
+        //   }
+        // }
+
+        // uses nssa-grouping;
+
+        // uses range-grouping;
+
+        // uses stub-grouping;
+
+        // uses shortcut-grouping;
+
+        container state {
+          /* XXX The ietf model has no container for it's area state.
+           * Should a container be avoided in this case? */
+          config false;
+          description "Area-scope operational state container.";
+
+          /* when useing, augment protocol specific state here */
+        }
+
+        // uses virtual-link-group;
+      }
+    }
+  }
+
+  /* router ospf attributes */
+  grouping route-ospf-leaf-attributes {
+    description "XXX";
+    leaf auto-cost-reference-bandwidth {
+      type uint32 {
+        range "1..4294967";
+      }
+      units "Mbits/Sec";
+      description
+        "The reference bandwidth in terms of Mbits per second.";
+    }
+
+    leaf use-arp {
+      type boolean;
+      default "true";
+      description
+        "ARP for neighbor table entry.";
+    }
+
+    leaf capability-opaque {
+      type boolean;
+      default "false";
+      description
+        "Opaque LSA.";
+    }
+
+    leaf compatible-rfc1583 {
+      type boolean;
+      description
+        "Compatible with RFC 1583.";
+    }
+
+    leaf default-metric {
+      type uint32 {
+        range "0..16777214";
+      }
+      description
+        "Metric of redistributed routes.";
+    }
+
+    leaf write-multiplier {
+      type uint8 {
+        range "1..100";
+      }
+      description
+        "Maximum number of interfaces serviced per write.";
+    }
+
+    container router-info {
+      description "XXX";
+      choice router-info {
+        description "XXX";
+        case as {
+          leaf as {
+            type boolean;
+            description
+              "Enable the Router Information functionality with AS
+               flooding scope.";
+          }
+        }
+        case area {
+          leaf area {
+            type ospf-area-id;
+            description
+              "Enable the Router Information functionality with Area
+               flooding scope.";
+          }
+        }
+      }
+    }
+  }
+
+  grouping metric-common-group {
+    description "XXX";
+    leaf metric {
+      type ospf-metric;
+      description
+        "OSPF default metric.";
+    }
+
+    leaf metric-type {
+      type enumeration {
+        enum "type-1" {
+          value 1;
+          description "XXX";
+        }
+        enum "type-2" {
+          value 2;
+          description "XXX";
+        }
+      }
+      description
+        "Metric type (1/2).";
+    }
+
+    leaf route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Route map reference.";
+    }
+  }
+
+  grouping default-info-group {
+    description "XXX";
+    container default-information {
+      description "XXX";
+      leaf originate {
+        type boolean;
+        description
+          "Advertise a default route";
+      }
+
+      leaf always {
+        type boolean;
+        description
+          "Always advertise default route.";
+      }
+
+      uses metric-common-group;
+    }
+  }
+
+  grouping distance-group {
+    description "XXX";
+    container distance {
+      description "XXX";
+      leaf admin-value {
+        type uint8 {
+          range "1..255";
+        }
+        description
+          "Admin value.";
+      }
+
+      container ospf {
+        description "XXX";
+        leaf external {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Distance for external routes.";
+        }
+
+        leaf inter-area {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Distance for inter-area routes.";
+        }
+
+        leaf intra-area {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Distance for intra-area routes.";
+        }
+      }
+    }
+  }
+
+  grouping max-metric-group {
+    description "XXX";
+    container max-metric {
+      description "XXX";
+      container router-lsa {
+        description
+          "Advertise own Router-LSA with infinite distance (stub router).";
+        leaf administrative {
+          type boolean;
+          description
+            "Administratively applied, for an indefinite period.";
+        }
+
+        leaf on-shutdown {
+          type uint8 {
+            range "5..100";
+          }
+          description
+            "Advertise stub-router prior to full shutdown of OSPF.";
+        }
+
+        leaf on-startup {
+          type uint32 {
+            range "5..86400";
+          }
+          description
+            "Automatically advertise stub Router-LSA on startup of OSPF.";
+        }
+      }
+    }
+  }
+
+  grouping mpls-te-group {
+    description "XXX";
+    container mpls-te {
+      description "XXX";
+      leaf on {
+        type boolean;
+        description
+          "Enable the MPLS-TE functionality.";
+      }
+
+      leaf router-address {
+        type inet:ipv4-address;
+        description
+          "Stable IP address of the advertising router.";
+      }
+
+      container inter-as {
+        description "XXX";
+        leaf as {
+          type boolean;
+          description
+            "AS native mode self originate INTER-AS LSA with Type 11 (as
+             flooding scope).";
+        }
+
+        leaf area {
+          type ospf-area-id;
+          description
+            "AREA native mode self originate INTER-AS LSA with Type 10
+            (area flooding scope).";
+        }
+      }
+    }
+  }
+
+  grouping timer-group {
+    description "XXX";
+    container timers {
+      description "XXX";
+      leaf refresh-interval {
+        type uint16 {
+          range "10..1800";
+        }
+        units "seconds";
+        description
+          "The maximum time between distinct originations of any particular
+           LSA, value in units seconds.";
+      }
+
+      leaf lsa-min-arrival {
+        type uint32 {
+          range "0..600000";
+        }
+        units "msec";
+        description
+          "Minimum delay in receiving new version of an LSA.";
+      }
+
+      container throttle {
+        description "XXX";
+        leaf lsa-all {
+          type uint16 {
+            range "0..5000";
+          }
+          units "msec";
+          description
+            "LSA delay between transmissions.";
+        }
+
+        leaf spf {
+          type uint32 {
+            range "0..600000";
+          }
+          units "msec";
+          description
+            "Delay from first change received till SPF calculation.";
+        }
+      }
+    }
+  }
+
+  grouping segment-routing-group {
+    description "XXX";
+    container segment-routing {
+      description "XXX";
+      container global-block {
+        description
+          "Segment Routing Global Block label range.";
+        leaf lower-bound {
+          type uint32 {
+            range "0..1048575";
+          }
+          must "../upper-bound > .";
+          default "16000";
+          description "XXX";
+        }
+
+        leaf upper-bound {
+          type uint32 {
+            range "0..1048575";
+          }
+          must ". > ../lower-bound";
+          default "23999";
+          description "XXX";
+        }
+      }
+
+      container srlb {
+        description
+          "Local blocks to be advertised.";
+        leaf lower-bound {
+          type uint32;
+          must "../upper-bound > .";
+          default "15000";
+          description
+            "Lower value in the label range.";
+        }
+        leaf upper-bound {
+          type uint32;
+          must ". > ../lower-bound";
+          default "15999";
+          description
+            "Upper value in the label range.";
+        }
+      }
+
+      leaf node-msd {
+        type uint8 {
+          range "1..16";
+        }
+        description
+          "Maximum Stack Depth for this router.";
+      }
+
+      leaf on {
+        type boolean;
+        description
+          "Enable Segment Routing.";
+      }
+
+      list prefix-sid {
+        key "index";
+        description "XXX";
+        leaf index {
+          type uint16;
+          description
+            "SID index for this prefix.";
+        }
+
+        leaf prefix {
+          type inet:ipv4-prefix;
+          description
+            "Prefix SID.";
+        }
+
+        leaf last-hop-behavior {
+          type enumeration {
+            enum "explicit-null" {
+              value 0;
+              description
+                "Use explicit-null for the SID.";
+            }
+            enum "no-php" {
+              value 1;
+              description
+                "Do not use Penultimate Hop Popping (PHP)
+                   for the SID.";
+             }
+             enum "php" {
+               value 2;
+               description
+                 "Use PHP for the SID.";
+             }
+           }
+           default "php";
+             description
+               "Configure last hop behavior.";
+        }
+      }
+    }
+  }
+
+  grouping interface-ospf-attribute-group {
+    description "XXX";
+    leaf area {
+      type ospf-area-id;
+      description
+        "OSPF area ID.";
+    }
+
+    uses authentication-group;
+
+    leaf cost {
+      type uint16 {
+        range "1..65535";
+      }
+      description
+        "Interface cost";
+    }
+
+    container dead-interval {
+      description "XXX";
+      leaf interval {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+        description "XXX";
+      }
+
+      container minimal {
+        description "XXX";
+        leaf hello-multiplier {
+          type uint8 {
+            range "1..10";
+          }
+          description "XXX";
+        }
+      }
+    }
+
+    leaf hello-interval {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Time between HELLO packets.";
+    }
+
+    leaf retransmit-interval {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Time between retransmitting lost link state advertisements.";
+    }
+
+    leaf transmit-delay {
+      type uint16 {
+        range "1..65535";
+      }
+      units "seconds";
+      description
+        "Link state transmit delay.";
+    }
+
+    leaf mtu-ignore {
+      type boolean;
+      description
+        "Disable MTU mismatch detection on this interface.";
+    }
+
+    leaf priority {
+      type uint8;
+      description
+        "Router priority.";
+    }
+  }
+
+  grouping frr-ospf-route {
+    // frr specific model
+    description "Additional OSPF route parameters in frr.";
+
+    leaf destination-type {
+      type destination-type;
+      description "Destination type.";
+    }
+    leaf changed {
+      type boolean;
+      description "Whether or not this route has changes recently.";
+    }
+  }
+
+  grouping frr-instance-stat {
+    description "Additional Per-instance statistics used in frr.";
+    container spf {
+      description "SPF statistics.";
+      leaf timestamp {
+        type yang:timestamp;
+        description "Timestamp of last SPF calculation.";
+      }
+      leaf duration {
+        type int64;
+        units "microseconds";
+        description "Execution time of last SPF calculation in microseconds.";
+      }
+    }
+  }
+
+  grouping instance-stat {
+    description "Per-instance statistics";
+/*
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time on the most recent occasion at which any one or
+         more of this OSPF instance's counters suffered a
+         discontinuity.  If no such discontinuities have occurred
+         since the OSPF instance was last re-initialized, then
+         this node contains the time the OSPF instance was
+         re-initialized which normally occurs when it was
+         created.";
+    }
+*/
+    leaf originate-new-lsa-count {
+      type yang:counter32;
+      description
+        "The number of new LSAs originated. Discontinuities in the
+         value of this counter can occur when the OSPF instance is
+         re-initialized.";
+    }
+    leaf rx-new-lsas-count {
+      type yang:counter32;
+      description
+        "The number of new LSAs received. Discontinuities in the
+         value of this counter can occur when the OSPF instance is
+         re-initialized.";
+    }
+/*
+    leaf as-scope-lsa-count {
+      type yang:gauge32;
+      description "The number of AS-scope LSAs.";
+    }
+    leaf as-scope-lsa-chksum-sum {
+      type uint32;
+      description
+        "The module 2**32 sum of the LSA checksums
+         for AS-scope LSAs. The value should be treated as
+         unsigned when comparing two sums of checksums. While
+         differing checksums indicate a different combination
+         of LSAs, equivalent checksums don't guarantee that the
+         LSAs are the same given that multiple combinations of
+         LSAs can result in the same checksum.";
+    }
+    container database {
+      description "Container for per AS-scope LSA statistics.";
+      list as-scope-lsa-type {
+        description "List of AS-scope LSA statistics";
+        leaf lsa-type {
+          type uint16;
+          description "AS-Scope LSA type.";
+        }
+        leaf lsa-count {
+          type yang:gauge32;
+          description "The number of LSAs of the LSA type.";
+        }
+        leaf lsa-cksum-sum {
+          type uint32;
+          description
+            "The module 2**32 sum of the LSA checksums
+             for the LSAs of this type. The value should be
+             treated as unsigned when comparing two sums of
+             checksums. While differing checksums indicate a
+             different combination of LSAs, equivalent checksums
+             don't guarantee that the LSAs are the same given that
+             multiple combinations of LSAs can result in the same
+             checksum.";
+        }
+      }
+    }
+*/
+    uses frr-instance-stat;
+//    uses instance-fast-reroute-state;
+  }
+
+  grouping lsa-identifiers {
+    description
+      "The parameters that uniquely identify an LSA.";
+    leaf area-id {
+      type ospf-area-id;
+      description
+        "Area ID";
+    }
+    leaf type {
+      type uint16;
+      description
+        "LSA type.";
+    }
+    leaf lsa-id {
+      type union {
+        type inet:ipv4-address;
+        type yang:dotted-quad;
+      }
+      description "Link-State ID.";
+    }
+    leaf adv-router {
+      type rt-types:router-id;
+      description
+        "LSA advertising router.";
+    }
+    leaf seq-num {
+      type uint32;
+      description
+        "LSA sequence number.";
+    }
+  }
+
+  grouping spf-log {
+    description
+      "Grouping for SPF log.";
+    container spf-log {
+      config false;
+      description
+        "This container lists the SPF log.";
+      list event {
+        key id;
+        description
+          "List of SPF log entries represented
+           as a wrapping buffer in chronological
+           order with the oldest entry returned
+           first.";
+        leaf id {
+          type uint32;
+          description
+            "Event identifier - Purely internal value.";
+        }
+        leaf spf-type {
+          type enumeration {
+            enum full {
+              description
+                "SPF computation was a Full SPF.";
+            }
+            enum intra {
+              description
+                "SPF computation was only for intra-area routes.";
+            }
+            enum inter {
+              description
+                "SPF computation was only for inter-area
+                 summary routes.";
+            }
+            enum external {
+              description
+                "SPF computation was only for AS external routes.";
+            }
+          }
+          description
+            "The SPF computation type for the SPF log entry.";
+        }
+        leaf schedule-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the computation was
+             scheduled.";
+        }
+        leaf start-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the computation was
+             started.";
+        }
+        leaf end-timestamp {
+          type yang:timestamp;
+          description
+            "This the timestamp when the computation was
+             completed.";
+        }
+        list trigger-lsa {
+          description
+            "The list of LSAs that triggered the computation.";
+          uses lsa-identifiers;
+        }
+      }
+    }
+  }
+
+  grouping lsa-log {
+    description
+      "Grouping for the LSA log.";
+    container lsa-log {
+      config false;
+      description
+        "This container lists the LSA log.
+         Local LSA modifications are also included
+         in the list.";
+      list event {
+        key id;
+        description
+          "List of LSA log entries represented
+           as a wrapping buffer in chronological order
+           with the oldest entries returned first.";
+        leaf id {
+          type uint32;
+          description
+            "Event identifier - purely internal value.";
+        }
+        container lsa {
+          description
+            "This container describes the logged LSA.";
+          uses lsa-identifiers;
+        }
+        leaf received-timestamp {
+          type yang:timestamp;
+          description
+            "This is the timestamp when the LSA was received.
+             In case of local LSA update, the timestamp refers
+             to the LSA origination time.";
+        }
+        leaf reason {
+          type identityref {
+            base lsa-log-reason;
+          }
+          description
+            "This reason for the LSA log entry.";
+        }
+      }
+    }
+  }
+
+  grouping virtual-link-state {
+    description
+      "OSPF virtual link operational state.";
+/*
+    leaf cost {
+      type ospf-link-metric;
+      config false;
+      description
+        "Virtual link interface cost.";
+    }
+*/
+    uses interface-common-state;
+  }
+
+  grouping frr-area-stat {
+    // frr specific model
+    description "Additional Per-area statistics kept track of in frr.";
+
+    leaf spf-timestamp {
+      type yang:timestamp;
+      description "Timestamp of last spf calculations.";
+    }
+    leaf active-interfaces {
+      type yang:counter32;
+      description "The number of active interfaces in this area.";
+    }
+    // leaf full-nbrs {
+    //   type yang:counter32;
+    //   description "The number of fully adjacent neighbors in this area.";
+    // }
+    // leaf full-virtual {
+    //   type yang:counter32;
+    //   description "The number of fully adjacent virtual neighbors in
+    //     this area.";
+    // }
+  }
+
+  grouping area-stat {
+    description "Per-area statistics.";
+/*
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time on the most recent occasion at which any one or
+          more of this OSPF area's counters suffered a
+          discontinuity.  If no such discontinuities have occurred
+          since the OSPF area was last re-initialized, then
+          this node contains the time the OSPF area was
+          re-initialized which normally occurs when it was
+          created.";
+    }
+*/
+    leaf spf-runs-count {
+      type yang:counter32;
+      description
+        "The number of times the intra-area SPF has run.
+         Discontinuities in the value of this counter can occur
+         when the OSPF area is re-initialized.";
+    }
+    // leaf abr-count {
+    //   type yang:gauge32;
+    //   description
+    //     "The total number of Area Border Routers (ABRs)
+    //      reachable within this area.";
+    // }
+    // leaf asbr-count {
+    //   type yang:gauge32;
+    //   description
+    //     "The total number of AS Boundary Routers (ASBRs).";
+    // }
+/*
+    leaf ar-nssa-translator-event-count {
+      type yang:counter32;
+      description
+        "The number of NSSA translator-state changes.
+         Discontinuities in the value of this counter can occur
+         when the OSPF area is re-initialized.";
+    }
+    leaf area-scope-lsa-count {
+      type yang:gauge32;
+      description
+        "The number of area-scope LSAs in the area.";
+    }
+    leaf area-scope-lsa-cksum-sum {
+      type uint32;
+      description
+        "The module 2**32 sum of the LSA checksums
+         for area-scope LSAs. The value should be treated as
+         unsigned when comparing two sums of checksums. While
+         differing checksums indicate a different combination
+         of LSAs, equivalent checksums don't guarantee that the
+         LSAs are the same given that multiple combinations of
+         LSAs can result in the same checksum.";
+    }
+    container database {
+      description "Container for area-scope LSA type statistics.";
+      list area-scope-lsa-type {
+        description "List of area-scope LSA statistics";
+        leaf lsa-type {
+          type uint16;
+          description "Area-scope LSA type.";
+        }
+        leaf lsa-count {
+          type yang:gauge32;
+          description "The number of LSAs of the LSA type.";
+        }
+        leaf lsa-cksum-sum {
+          type uint32;
+          description
+            "The module 2**32 sum of the LSA checksums
+             for the LSAs of this type. The value should be
+             treated as unsigned when comparing two sums of
+             checksums. While differing checksums indicate a
+             different combination of LSAs, equivalent checksums
+             don't guarantee that the LSAs are the same given that
+             multiple combinations of LSAs can result in the same
+             checksum.";
+        }
+      }
+    }
+*/
+
+   /* XXX Should the Shortest Path Graph be modeled? */
+
+    uses frr-area-stat;
+  }
+
+  grouping frr-interface-stat {
+    // frr specific model
+    description "Additional statistics kept track of in frr by each interface";
+
+    leaf hello-in {
+      type yang:counter32;
+      description "Hello message input count.";
+    }
+    leaf hello-out {
+      type yang:counter32;
+      description "Hello message output count.";
+    }
+    leaf db-desc-in {
+      type yang:counter32;
+      description "Database desc. message input count.";
+    }
+    leaf db-desc-out {
+      type yang:counter32;
+      description "Database desc. message output count.";
+    }
+    leaf ls-req-in {
+      type yang:counter32;
+      description "LS request message input count.";
+    }
+    leaf ls-req-out {
+      type yang:counter32;
+      description "LS request message output count.";
+    }
+    leaf ls-upd-in {
+      type yang:counter32;
+      description "LS update message input count.";
+    }
+    leaf ls-upd-out {
+      type yang:counter32;
+      description "LS update message output count.";
+    }
+    leaf ls-ack-in {
+      type yang:counter32;
+      description "LS ack message input count.";
+    }
+    leaf ls-ack-out {
+      type yang:counter32;
+      description "LS ack message output count.";
+    }
+    leaf discarded {
+      type yang:counter32;
+      description "Discarded input count by error.";
+    }
+    leaf nbrs {
+      type yang:counter32;
+      description "Number of neighbors on this interface.";
+    }
+    leaf full-nbrs {
+      type yang:counter32;
+      description "Number of full neighbors on this interface.";
+    }
+  }
+
+  grouping interface-stat {
+    description "Per-interface statistics";
+/*
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time on the most recent occasion at which any one or more of this
+         OSPF interface's counters suffered a discontinuity. If no such
+         discontinuities have occured since the OSPF interface was last
+         re-initialized, then this node contains the time the OSPF interface
+         was re-initialized which normall occurs when it was created.";
+    }
+*/
+    leaf if-event-count {
+      type yang:counter32;
+      description
+        "The number of times this interface has changed its state or an error
+         has occured. Discontinuities in the value of this counter can occur
+         when the OSPF interface is re-initialized.";
+    }
+/*
+    leaf link-scope-lsa-count {
+      type yang:gauge32;
+      description "The number of link-scope LSAs.";
+    }
+
+    leaf link-scope-lsa-cksum-sum {
+      type uint32;
+      description
+        "The module 2**32 sum of the LSA checksums for link-scope LSAs. The
+         value should be treated as unsigned when comparing two sums of
+         checksums. While differing checksums indicate a different combination
+         of LSAs, equivalent checksums don't guarantee that the LSAs are the
+         same given that multiple combinations of LSAs can result in the same
+         checksum.";
+    }
+
+    container database {
+      description "Container for link-scope LSA type statistics.";
+      list link-scope-lsa-type {
+        description "List of link-scope LSA statistics";
+        leaf lsa-type {
+          type uint16;
+          description "Link scope LSA type.";
+        }
+
+        leaf lsa-count {
+          type yang:gauge32;
+          description "The number of LSAs of the LSA type.";
+        }
+
+        leaf lsa-cksum-sum {
+          type uint32;
+          description
+            "The module 2**32 sum of the LSA checksums for the LSAs of this
+             type. The value should be treated as unsigned when comparing two
+             sums of checksums. While differing checksums indicate a different
+             combination of LSAs, equivalent checksums don't guarantee that
+             the LSAs are the same given that multiple combinations of LSAs
+             can result in the same checksum.";
+        }
+      }
+    }
+*/
+
+    uses frr-interface-stat;
+  }
+
+  grouping frr-neighbor-stat {
+    // frr specific model
+    description "Additional frr Per-neighbor statistics.";
+
+    leaf nbr-request-qlen {
+      // frr specific model
+      type yang:gauge32;
+     description
+        "The current length of the LSA request queue. (Rqstl)";
+    }
+    leaf nbr-summary-len {
+      // frr specific model
+      type int16;
+      description
+        "The current length of the database summary list. (DBsml)";
+    }
+    leaf nbr-uptime {
+      // frr specific model
+      type int64;
+      units "microseconds";
+      description
+        "The uptime of the neighbor over this interface in microseconds.";
+    }
+    leaf nbr-downtime {
+      // frr specific model
+      type int64;
+      units "microseconds";
+      description
+        "The downtime of the neighbor over this interface in microseconds.";
+    }
+
+    container nsm {
+      // frr specific model
+      description
+        "Neighbor state machine related statistics.";
+
+      leaf state-changes {
+        type uint32;
+        description
+          "The number of NSM state changes that have occured.";
+      }
+      leaf last-progressive {
+        type int64;
+        units "msec";
+        description
+          "Time since the last progressive NSM state change in
+           milliseconds.";
+      }
+      leaf last-regressive {
+        type int64;
+        units "microseconds";
+        description
+          "Time since the last regressive NSM state change in
+           microseconds.";
+      }
+    }
+  }
+
+  grouping neighbor-stat {
+    description "Per-neighbor statistics.";
+/*
+    leaf discontinuity-time {
+      type yang:date-and-time;
+      description
+        "The time on the most recent occasion at which any one or more of this
+         OSPF neighbor's counters suffered a discontinuity.  If no such
+         discontinuities have occurred since the OSPF neighbor was last
+         re-initialized, then this node contains the time the OSPF neighbor was
+         re-initialized which normally occurs when the neighbor is dynamically
+         discovered andcreated.";
+    }
+
+    leaf nbr-event-count {
+      type yang:counter32;
+      description
+        "The number of times this neighbor has changed state or an error has
+         occurred. Discontinuities in the value of this counter can occur when
+         the OSPF neighbor is re-initialized.";
+    }
+*/
+    leaf nbr-retrans-qlen {
+      type yang:gauge32;
+      description
+        "The current length of the LSA retransmission queue. (RXmtl)";
+    }
+
+    uses frr-neighbor-stat;
+  }
+
+  grouping frr-neighbor-state {
+    //frr specific model
+    description "Additional information frr uses to keep track of OSPF's
+      neighbor operational state.";
+
+    // container threads {
+    //   // frr specific model, see ospf_neighbor in ospf_neighbor.h
+    //   description "Status of frr-required neighbor threads.";
+
+    //   container inactivity {
+    //     presence "Present when inactivity timer thread is running";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "microseconds";
+    //       description "The remaining time an inactive neighbor has before they
+    //         are declared dead.";
+    //     }
+    //   }
+    //   container db-desc-retransmission {
+    //     presence
+    //       "Present when the database retransmission timer thread is running.";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "microseconds";
+    //       description
+    //         "Database description retranmission timer in microseconds";
+    //     }
+    //   }
+    //   container ls-request-retransmission {
+    //     presence
+    //       "Present when the LS request retransmission timer thread is
+    //        running.";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "microseconds";
+    //       description "LS request retransmission timer in microseconds.";
+    //     }
+    //   }
+    //   container ls-update-retransmission {
+    //     presence
+    //       "Present when the LS update retranmission timer thread is running.";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "microseconds";
+    //       description "LS update retransmission timer in microseconds.";
+    //     }
+    //   }
+    //   container hello-reply {
+    //     // XXX This thread was found in ospf_neighbor.h but didn't appear from
+    //     // clicmd: 'show ip ospf neighbor detail json'
+    //     presence
+    //       "Present when the hello reply timer thread is running.";
+    //     description "XXX";
+    //     leaf timer {
+    //       type int64;
+    //       units "microseconds";
+    //       description
+    //         "Time left for a neighbor to respond to a hello request, as
+    //         measured by the hello reply thread.";
+    //     }
+    //   }
+    // }
+
+    // container graceful-restart-helper {
+    //   // frr specific model, see ospf_helper_info in ospf_gr.h
+    //   description "Status of graceful restart helper";
+
+    //   leaf grace-period {
+    //     type uint32;
+    //     description "The grace interval for this gr helper.";
+    //   }
+    //   leaf restart-reason {
+    //     type gr-restart-reason;
+    //     description "The reason for a graceful restart.";
+    //   }
+    //   leaf helper-status {
+    //     type enumeration {
+    //       enum "not-helper" {
+    //         value "0";
+    //         description "gr helper is not active.";
+    //       }
+    //       enum "active-helper" {
+    //         value "1";
+    //         description "gr helper is active";
+    //       }
+    //     }
+    //     description "The gr helper's status.";
+    //   }
+    //   leaf helper-exit-reason {
+    //     type gr-exit-reason;
+    //     description "The reason for a gr helper exiting.";
+    //   }
+    //   leaf helper-rejected-reason {
+    //     type gr-reject-reason;
+    //     description "The reason a gr helper was rejected.";
+    //   }
+    // }
+  }
+
+  grouping neighbor-state {
+    description "OSPF neighbor operational state.";
+
+    leaf address {
+      type inet:ip-address;
+      description "Neighbor address.";
+    }
+    // leaf dr-router-id {
+    //   type rt-types:router-id;
+    //   description "Neighbor's Designated Router (DR) Router ID.";
+    // }
+    // leaf dr-ip-addr {
+    //   type inet:ip-address;
+    //   description "Neighbor's Designated Router (DR) IP address.";
+    // }
+    // leaf bdr-router-id {
+    //   type rt-types:router-id;
+    //   description "Neighbor's Backup Designated Router (BDR) Router ID.";
+    // }
+    // leaf bdr-ip-addr {
+    //   type inet:ip-address;
+    //   description "Neighbor's Backup Designated Router (BDR) IP Address.";
+    // }
+    leaf state {
+      type nbr-state-type;
+      description
+        "OSPF neighbor state.";
+    }
+/*
+    leaf cost {
+      // While present in the OSPF yang model code, it does not appear
+      // in the OSPF yang tree diagram
+      type ospf-link-metric;
+      description "Cost to reach neighbor for Point-to-Multipoint and Hybrid
+                   networks.";
+    }
+*/
+/*
+// See the inactivity-timer thread for this value.
+    leaf dead-timer {
+      type rt-types:timer-value-seconds16;
+      description "This timer tracks the remaining time before the neighbor is
+                   declared dead.";
+    }
+*/
+    // container statistics {
+    //   description "Per-neighbor statistics";
+    //   uses neighbor-stat;
+    // }
+
+    uses frr-neighbor-state;
+  }
+
+  grouping interface-common-state {
+    description "OSPF interface common operational state.";
+
+    leaf state {
+      type if-state-type;
+      description "Interface state.";
+    }
+
+    leaf hello-timer {
+      type rt-types:timer-value-seconds16;
+      description
+        "This timer tracks the remaining time before the next hello
+         packet is sent on the interface.";
+    }
+/*
+    leaf wait-timer {
+      type rt-types:timer-value-seconds16;
+      description
+        "This timer tracks the remaining time before the interface exits
+         the waiting state.";
+    }
+*/
+    // leaf dr-router-id {
+    //   type rt-types:router-id;
+    //   description "Designated Router (DR) Router ID.";
+    // }
+
+    // leaf dr-ip-addr {
+    //   type inet:ipv4-address;
+    //   description "Designated Router (DR) IP address.";
+    // }
+
+    // leaf bdr-router-id {
+    //   type rt-types:router-id;
+    //   description "Backup Designated Router (BDR) Router ID.";
+    // }
+
+    // leaf bdr-ip-addr {
+    //   type inet:ipv4-address;
+    //   description "Backup Designated Router (BDR) IP Address.";
+    // }
+
+    // container statistics {
+    //   description "Per-interface statistics";
+    //   uses interface-stat;
+    // }
+
+    container neighbors {
+      description "All neighbors for the interface.";
+
+      list neighbor {
+        key "neighbor-router-id";
+        description "List of interface OSPF neighbors.";
+        leaf neighbor-router-id {
+          type rt-types:router-id;
+          description "Neighbor Router ID.";
+        }
+        uses neighbor-state;
+      }
+    }
+
+  }
+
+  grouping interface-config {
+    description "XXX";
+    list instance {
+      key "id";
+      description "XXX";
+      leaf id {
+        type uint16;
+        description
+          "OSPF instance ID.";
+      }
+
+      leaf bfd {
+        type boolean;
+        default "false";
+        description
+          "BFD support.";
+      }
+
+      leaf network {
+        type enumeration {
+          enum "broadcast" {
+            value 1;
+            description "XXX";
+          }
+          enum "non-broadcast" {
+            value 2;
+            description "XXX";
+          }
+          enum "point-to-multipoint" {
+            value 3;
+            description "XXX";
+          }
+          enum "point-to-point" {
+            value 4;
+            description "XXX";
+          }
+        }
+        description "XXX";
+      }
+
+      uses interface-ospf-attribute-group;
+    }
+  }
+}
