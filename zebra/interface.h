@@ -114,6 +114,9 @@ struct zebra_if {
 	/* MPLS status. */
 	bool mpls;
 
+	/* MPLS configuration */
+	uint8_t mpls_config;
+
 	/* Linkdown status */
 	bool linkdown, linkdownv6;
 

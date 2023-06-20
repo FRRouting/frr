@@ -135,6 +135,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if->ifp = ifp;
 
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
+	zebra_if->mpls_config = IF_ZEBRA_DATA_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_DATA_OFF;
 
 	zebra_if->link_nsid = NS_UNKNOWN;
@@ -3016,10 +3017,10 @@ DEFPY (mpls,
 
 	if (no) {
 		dplane_intf_mpls_modify_state(ifp, false);
-		if_data->mpls = IF_ZEBRA_DATA_UNSPEC;
+		if_data->mpls_config = IF_ZEBRA_DATA_UNSPEC;
 	} else {
 		dplane_intf_mpls_modify_state(ifp, true);
-		if_data->mpls = IF_ZEBRA_DATA_ON;
+		if_data->mpls_config = IF_ZEBRA_DATA_ON;
 	}
 
 	return CMD_SUCCESS;
@@ -4859,7 +4860,8 @@ static int if_config_write(struct vty *vty)
 								IF_ZEBRA_DATA_ON
 							? ""
 							: "no ");
-				if (if_data->mpls == IF_ZEBRA_DATA_ON)
+
+				if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
 					vty_out(vty, " mpls enable\n");
 			}
 
