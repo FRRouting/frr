@@ -56,10 +56,17 @@ extern void vpn_leak_from_vrf_update_all(struct bgp *to_bgp,
 
 extern void vpn_leak_to_vrf_withdraw_all(struct bgp *to_bgp, afi_t afi);
 
+extern void vpn_leak_no_retain(struct bgp *to_bgp, struct bgp *vpn_from,
+			       afi_t afi);
+
 extern void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 				       afi_t afi);
 
-extern bool vpn_leak_to_vrf_update(struct bgp *from_bgp,
+extern bool vpn_leak_to_vrf_no_retain_filter_check(struct bgp *from_bgp,
+						   struct attr *attr,
+						   afi_t afi);
+
+extern void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 				   struct bgp_path_info *path_vpn,
 				   struct prefix_rd *prd);
 
