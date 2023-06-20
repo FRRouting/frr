@@ -3865,3 +3865,48 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 		}
 	}
 }
+
+mpls_label_t bgp_mplsvpn_adv_label(struct bgp_path_info *pi, struct peer *to,
+				   afi_t afi, safi_t safi)
+{
+	struct peer *from;
+	mpls_label_t remote_label;
+
+	if (!pi || !to || !to->bgp)
+		return MPLS_INVALID_LABEL;
+
+	remote_label = pi->extra ? pi->extra->label[0] : MPLS_INVALID_LABEL;
+	from = pi->peer;
+
+	if (pi->sub_type == BGP_ROUTE_IMPORTED)
+		/* imported route */
+		return remote_label;
+
+	if (from == NULL)
+		/* local route */
+		return remote_label;
+
+	if (from->sort == BGP_PEER_IBGP && to->sort == BGP_PEER_IBGP &&
+	    !CHECK_FLAG(to->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
+		/* nexthop not forced to self in iBGP redistribution */
+		return remote_label;
+
+	if (CHECK_FLAG(to->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
+		/* nexthop not changed */
+		return remote_label;
+
+	if (pi->attr && pi->attr->srv6_l3vpn)
+		/* srv6 sid */
+		return remote_label;
+
+	if (pi->attr &&
+	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) &&
+	    pi->attr->label_index != BGP_INVALID_LABEL_INDEX)
+		/* valid prefix_sid attribute */
+		return remote_label;
+
+	/* when next-hop changes, we need a new label value
+	 * TODO: get allocated label for that advertisement
+	 */
+	return MPLS_INVALID_LABEL;
+}

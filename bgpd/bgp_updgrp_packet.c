@@ -789,6 +789,11 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 						      safi);
 				label_pnt = &label;
 				num_labels = 1;
+			} else if (safi == SAFI_MPLS_VPN) {
+				label = bgp_mplsvpn_adv_label(path, peer, afi,
+							      safi);
+				label_pnt = &label;
+				num_labels = 1;
 			} else if (path && path->extra) {
 				label_pnt = &path->extra->label[0];
 				num_labels = path->extra->num_labels;
