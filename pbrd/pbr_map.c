@@ -548,7 +548,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 
 		pbrms->match_vlan_id = 0;
 		pbrms->match_vlan_flags = 0;
-		pbrms->match_pcp = 0;
+		pbrms->match_pcp = PBR_MAP_IGNORE_PCP;
 
 		pbrms->action_vlan_id = 0;
 		pbrms->action_vlan_flags = 0;

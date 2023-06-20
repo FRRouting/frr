@@ -113,6 +113,7 @@ struct pbr_map_sequence {
 #define PBR_MAP_VLAN_TAGGED (1 << 0)
 #define PBR_MAP_VLAN_UNTAGGED (1 << 1)
 #define PBR_MAP_VLAN_UNTAGGED_0 (1 << 2)
+#define PBR_MAP_IGNORE_PCP 8
 
 	uint16_t match_vlan_flags;
 

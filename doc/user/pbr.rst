@@ -148,7 +148,7 @@ end destination.
 .. clicmd:: set pcp (0-7)
 
    Set the 802.1Q priority code point (PCP) for matched packets. A PCP of zero
-   is the defaul (nominally, "best effort"). The Linux Kernel provider does not 
+   is the default (nominally, "best effort"). The Linux Kernel provider does not 
    currently support packet mangling, so this field will be ignored unless 
    another provider is used.
 

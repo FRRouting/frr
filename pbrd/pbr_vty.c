@@ -38,7 +38,7 @@ DEFPY(pbr_map_match_pcp, pbr_map_match_pcp_cmd, "[no] match pcp <(0-7)$pcp>",
 		if (!no)
 			pbr_set_match_clause_for_pcp(pbrms, pcp);
 		else if (pcp == pbrms->match_pcp)
-			pbr_set_match_clause_for_pcp(pbrms, 0);
+			pbr_set_match_clause_for_pcp(pbrms, PBR_MAP_IGNORE_PCP);
 	}
 	return CMD_SUCCESS;
 }
@@ -981,7 +981,7 @@ static void vty_show_pbrms(struct vty *vty,
 			pbrms->dsfield & PBR_DSFIELD_ECN);
 	if (pbrms->mark)
 		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
-	if (pbrms->match_pcp != 0)
+	if (pbrms->match_pcp != PBR_MAP_IGNORE_PCP)
 		vty_out(vty, "        PCP Match: %d\n", pbrms->match_pcp);
 
 	if (pbrms->match_vlan_id != 0)
