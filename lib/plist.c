@@ -1480,7 +1480,6 @@ int prefix_bgp_rtc_set(char *name, struct prefix *p, int permit, int set)
 
 	plist = prefix_list_get(AFI_IP, 0, 1, name);
 	if (!plist) {
-		zlog_info("no prefix list named %s", name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -1505,7 +1504,6 @@ int prefix_bgp_rtc_set(char *name, struct prefix *p, int permit, int set)
 
 		prefix_list_entry_delete(plist, pentry, 1);
 	}
-	zlog_info("Added successfully");
 
 	return CMD_SUCCESS;
 }
