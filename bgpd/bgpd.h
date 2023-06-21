@@ -165,6 +165,9 @@ struct bgp_master {
 	uint32_t inq_limit;
 	uint32_t outq_limit;
 
+	struct event *t_bgp_sync_label_manager;
+	struct event *t_bgp_start_label_manager;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);

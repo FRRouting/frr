@@ -55,6 +55,8 @@
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
+struct zclient *zclient_sync;
+static bool bgp_zebra_label_manager_connect(void);
 
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
@@ -2854,9 +2856,6 @@ static void bgp_zebra_connected(struct zclient *zclient)
 
 	bgp_zebra_instance_register(bgp);
 
-	/* tell label pool that zebra is connected */
-	bgp_lp_event_zebra_up();
-
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
 	 */
@@ -3161,54 +3160,6 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
-{
-	struct stream *s = NULL;
-	uint8_t response_keep;
-	uint32_t first;
-	uint32_t last;
-	uint8_t proto;
-	unsigned short instance;
-
-	s = zclient->ibuf;
-	STREAM_GETC(s, proto);
-	STREAM_GETW(s, instance);
-	STREAM_GETC(s, response_keep);
-	STREAM_GETL(s, first);
-	STREAM_GETL(s, last);
-
-	if (zclient->redist_default != proto) {
-		flog_err(EC_BGP_LM_ERROR, "Got LM msg with wrong proto %u",
-			 proto);
-		return 0;
-	}
-	if (zclient->instance != instance) {
-		flog_err(EC_BGP_LM_ERROR, "Got LM msg with wrong instance %u",
-			 proto);
-		return 0;
-	}
-
-	if (first > last ||
-		first < MPLS_LABEL_UNRESERVED_MIN ||
-		last > MPLS_LABEL_UNRESERVED_MAX) {
-
-		flog_err(EC_BGP_LM_ERROR, "%s: Invalid Label chunk: %u - %u",
-			 __func__, first, last);
-		return 0;
-	}
-	if (BGP_DEBUG(zebra, ZEBRA)) {
-		zlog_debug("Label Chunk assign: %u - %u (%u) ",
-			first, last, response_keep);
-	}
-
-	bgp_lp_event_chunk(response_keep, first, last);
-
-	return 0;
-
-stream_failure:		/* for STREAM_GETX */
-	return -1;
-}
-
 extern struct zebra_privs_t bgpd_privs;
 
 static int bgp_ifp_create(struct interface *ifp)
@@ -3427,7 +3378,6 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_L3VNI_DEL] = bgp_zebra_process_local_l3vni,
 	[ZEBRA_IP_PREFIX_ROUTE_ADD] = bgp_zebra_process_local_ip_prefix,
 	[ZEBRA_IP_PREFIX_ROUTE_DEL] = bgp_zebra_process_local_ip_prefix,
-	[ZEBRA_GET_LABEL_CHUNK] = bgp_zebra_process_label_chunk,
 	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
 	[ZEBRA_IPSET_NOTIFY_OWNER] = ipset_notify_owner,
 	[ZEBRA_IPSET_ENTRY_NOTIFY_OWNER] = ipset_entry_notify_owner,
@@ -3464,8 +3414,57 @@ void bgp_if_init(void)
 	hook_register_prio(if_del, 0, bgp_if_delete_hook);
 }
 
+static void bgp_start_label_manager(struct event *start)
+{
+	bgp_zebra_label_manager_connect();
+}
+
+static bool bgp_zebra_label_manager_ready(void)
+{
+	return (zclient_sync->sock > 0);
+}
+
+static bool bgp_zebra_label_manager_connect(void)
+{
+	/* Connect to label manager. */
+	if (zclient_socket_connect(zclient_sync) < 0) {
+		zlog_warn("%s: failed connecting synchronous zclient!",
+			  __func__);
+		return false;
+	}
+	/* make socket non-blocking */
+	set_nonblocking(zclient_sync->sock);
+
+	/* Send hello to notify zebra this is a synchronous client */
+	if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
+		zlog_warn("%s: failed sending hello for synchronous zclient!",
+			  __func__);
+		close(zclient_sync->sock);
+		zclient_sync->sock = -1;
+		return false;
+	}
+
+	/* Connect to label manager */
+	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		zlog_warn("%s: failed connecting to label manager!", __func__);
+		if (zclient_sync->sock > 0) {
+			close(zclient_sync->sock);
+			zclient_sync->sock = -1;
+		}
+		return false;
+	}
+
+	/* tell label pool that zebra is connected */
+	bgp_lp_event_zebra_up();
+
+	return true;
+}
+
 void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 {
+	struct zclient_options options = zclient_options_default;
+
+	options.synchronous = true;
 	zclient_num_connects = 0;
 
 	if_zapi_callbacks(bgp_ifp_create, bgp_ifp_up,
@@ -3477,6 +3476,18 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
 	zclient->instance = instance;
+
+	/* Initialize special zclient for synchronous message exchanges. */
+	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_BGP;
+	zclient_sync->instance = instance;
+	zclient_sync->session_id = 1;
+	zclient_sync->privs = &bgpd_privs;
+
+	if (!bgp_zebra_label_manager_ready())
+		event_add_timer(master, bgp_start_label_manager, NULL, 1,
+				&bm->t_bgp_start_label_manager);
 }
 
 void bgp_zebra_destroy(void)
@@ -3486,6 +3497,12 @@ void bgp_zebra_destroy(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;
+
+	if (zclient_sync == NULL)
+		return;
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
 }
 
 int bgp_zebra_num_connects(void)
@@ -3950,4 +3967,43 @@ void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 	}
 	/* vrf_id is DEFAULT_VRF */
 	zebra_send_mpls_labels(zclient, cmd, &zl);
+}
+
+bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
+{
+	int ret;
+	uint32_t start, end;
+
+	if (!zclient_sync || !bgp_zebra_label_manager_ready())
+		return false;
+
+	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
+				 &end);
+	if (ret < 0) {
+		zlog_warn("%s: error getting label range!", __func__);
+		return false;
+	}
+
+	if (start > end || start < MPLS_LABEL_UNRESERVED_MIN ||
+	    end > MPLS_LABEL_UNRESERVED_MAX) {
+		flog_err(EC_BGP_LM_ERROR, "%s: Invalid Label chunk: %u - %u",
+			 __func__, start, end);
+		return false;
+	}
+
+	bgp_lp_event_chunk(start, end);
+
+	return true;
+}
+
+void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
+{
+	int ret;
+
+	if (!zclient_sync || !bgp_zebra_label_manager_ready())
+		return;
+
+	ret = lm_release_label_chunk(zclient_sync, start, end);
+	if (ret < 0)
+		zlog_warn("%s: error releasing label range!", __func__);
 }
