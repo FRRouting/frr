@@ -6,7 +6,7 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 	uint8_t *pnt = packet->nlri;
 	uint8_t *lim = packet->nlri + packet->length;
 	int psize = 0;
-	// Iterate over all received prefixes
+	/* Iterate over all received prefixes */
 	for (; pnt < lim; pnt += psize) {
 		struct prefix p = {0};
 		p.prefixlen = *pnt++;
@@ -22,7 +22,7 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 			return BGP_NLRI_PARSE_ERROR;
 		}
 
-		// Mask the value according to the prefixlen
+		/* Mask the value according to the prefixlen */
 		for (int j = p.prefixlen; j < psize * 8; j++) {
 			pnt[j / 8] &= ~(1 << (j % 8));
 		}
@@ -58,7 +58,7 @@ int bgp_rtc_filter(struct peer *peer, struct attr *attr)
 			"Filtered update because RTC prefix-list does not exist");
 		return true;
 	}
-	// Build prefix to compare with
+	/* Build prefix to compare with */
 	struct prefix cmp;
 	cmp.family = AF_RTC;
 	cmp.prefixlen = BGP_RTC_MAX_PREFIXLEN;
