@@ -1122,7 +1122,7 @@ void bgp_zebra_init_tm_connect(struct bgp *bgp)
 	bgp_tm_min = bgp_tm_max = 0;
 	bgp_tm_chunk_size = BGP_FLOWSPEC_TABLE_CHUNK;
 	bgp_tm_bgp = bgp;
-	event_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
+	event_add_timer(bm->master, bgp_zebra_tm_connect, zclient_sync, delay,
 			&bgp_tm_thread_connect);
 }
 
