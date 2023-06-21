@@ -643,6 +643,12 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	if (pim_addr_is_any(up->sg.src))
 		return;
 
+	/* Ignore RP mapping when the upsteam state
+	 * is NOT Joined on a FHR
+	 */
+	if (up->join_state == PIM_UPSTREAM_NOTJOINED && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+		return;
+
 	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
 
 	/* We will use the SPT (IIF=RPF_interface(S) if -
