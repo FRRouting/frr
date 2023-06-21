@@ -241,7 +241,7 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 		if (safi == SAFI_FLOWSPEC)
 			return "IPv4 Flowspec";
 		if (safi == SAFI_RTC)
-			return "IPv4 RTC";
+			return "IPv4 RT-Constraint";
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			return "IPv6 Unicast";
@@ -491,7 +491,7 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_LABELED_UNICAST;
 	else if (strmatch(safi_str, "flowspec"))
 		safi = SAFI_FLOWSPEC;
-	else if (strmatch(safi_str, "rtc"))
+	else if (strmatch(safi_str, "rt-constraint"))
 		safi = SAFI_RTC;
 	return safi;
 }
@@ -560,7 +560,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 			return "ipv4-flowspec";
 		case SAFI_RTC:
-			return "rtc";
+			return "rt-constraint";
 		case SAFI_UNSPEC:
 		case SAFI_EVPN:
 		case SAFI_MAX:
@@ -10869,7 +10869,7 @@ DEFUN_NOSH (address_family_evpn,
 }
 
 DEFUN_NOSH(address_family_rtc, address_family_rtc_cmd,
-	   "address-family ipv4 rtc",
+	   "address-family ipv4 rt-constraint",
 	   "Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -19294,7 +19294,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		else if (safi == SAFI_FLOWSPEC)
 			vty_frame(vty, "ipv4 flowspec");
 		if (safi == SAFI_RTC)
-			vty_frame(vty, "ipv4 rtc");
+			vty_frame(vty, "ipv4 rt-constraint");
 	} else if (afi == AFI_IP6) {
 		if (safi == SAFI_UNICAST)
 			vty_frame(vty, "ipv6 unicast");
@@ -20047,7 +20047,7 @@ static struct cmd_node bgp_srv6_node = {
 };
 
 static struct cmd_node bgp_rtc_node = {
-	.name = "bgp rtc",
+	.name = "bgp rt-constraint",
 	.node = BGP_RTC_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af-rtc)# ",

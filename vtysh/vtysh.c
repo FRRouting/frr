@@ -1821,7 +1821,7 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 }
 
 DEFUNSH(VTYSH_BGPD, address_family_rtc, address_family_rtc_cmd,
-	"address-family ipv4 rtc",
+	"address-family ipv4 rt-constraint",
 	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_RTC_NODE;
