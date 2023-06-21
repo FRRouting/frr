@@ -16224,7 +16224,28 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		p = bgp_dest_get_prefix(dest);
 
-		vty_out(vty, "  network %pFX", p);
+		if (safi == SAFI_RTC) {
+			/* Only prefixes with a length of more than 48 have the
+			 * type and subtype field set. If those aren't set
+			 * ecommunity_ecom2str returns just UNK: */
+			if (p->prefixlen >= 48) {
+				struct ecommunity *ecom = ecommunity_parse(
+					(unsigned char *)&p->u.prefix_rtc
+						.route_target,
+					8, false);
+				char *b = ecommunity_ecom2str(
+					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP,
+					ECOMMUNITY_ROUTE_TARGET);
+				vty_out(vty, "  rt %s", b);
+				ecommunity_free(&ecom);
+				XFREE(MTYPE_ECOMMUNITY_STR, b);
+			} else {
+				vty_out(vty, "  rt 0:0");
+			}
+			vty_out(vty, "/%d", p->prefixlen);
+		} else {
+			vty_out(vty, "  network %pFX", p);
+		}
 
 		if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
 			vty_out(vty, " label-index %u",

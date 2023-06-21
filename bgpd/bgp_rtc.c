@@ -1,5 +1,6 @@
 #include "bgpd/bgp_rtc.h"
 #include "bgpd/bgp_debug.h"
+#include "bgp_route.h"
 
 int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 		       struct bgp_nlri *packet, bool withdraw)
@@ -167,6 +168,7 @@ void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 		bgp_static->igpmetric = 0;
 		bgp_static->igpnexthop.s_addr = INADDR_ANY;
 		bgp_static->label = MPLS_INVALID_LABEL;
+		bgp_static->label_index = BGP_INVALID_LABEL_INDEX;
 
 		bgp_dest_set_bgp_static_info(dest, bgp_static);
 
