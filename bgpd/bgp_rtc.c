@@ -102,8 +102,7 @@ int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
 	if (pnt == NULL) {
 		ecom = ecommunity_str2com(str, ECOMMUNITY_ROUTE_TARGET, 0);
 		if (ecom == NULL) {
-			zlog_info("str2prefix_rtc: ecommunity_str2com failed");
-			return CMD_ERR_NOTHING_TODO;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	} else {
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
@@ -113,15 +112,14 @@ int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
 
 		XFREE(MTYPE_TMP, cp);
 		if (ecom == NULL) {
-			zlog_info("str2prefix_rtc: ecommunity_str2com failed");
-			return CMD_ERR_NOTHING_TODO;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		/* Get prefix length. */
 		plen = (uint8_t)atoi(++pnt);
 		if (plen > BGP_RTC_MAX_PREFIXLEN) {
 			ecommunity_free(&ecom);
-			return CMD_ERR_NOTHING_TODO;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
 	if (add)
@@ -149,7 +147,6 @@ void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 	dest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
 
 	if (bgp_dest_has_bgp_path_info_data(dest)) {
-		zlog_info("Same network configuration exists");
 		bgp_dest_unlock_node(dest);
 	} else {
 		bgp_static = bgp_static_new();
@@ -162,7 +159,6 @@ void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 		bgp_dest_set_bgp_static_info(dest, bgp_static);
 
 		bgp_static->valid = 1;
-		zlog_info("Adding RTC route in auto generated RT");
 		bgp_static_update(bgp, &prefix, bgp_static, AFI_IP, SAFI_RTC);
 	}
 }
@@ -189,6 +185,5 @@ void bgp_rtc_remove_static(struct bgp *bgp, struct ecommunity_val *eval,
 		bgp_dest_set_bgp_static_info(dest, NULL);
 		bgp_dest_unlock_node(dest);
 		bgp_dest_unlock_node(dest);
-	} else
-		zlog_info("Can't find the route");
+	}
 }
