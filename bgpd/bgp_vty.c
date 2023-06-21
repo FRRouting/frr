@@ -10297,7 +10297,7 @@ DEFUN(rtc_network, rtc_network_cmd, "rt WORD",
       "Specify the route-target e.g 65000:100/96\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	return bgp_rtc_static_from_str(bgp, argv[1]->arg, true);
+	return bgp_rtc_static_from_str(vty, bgp, argv[1]->arg, true);
 }
 
 
@@ -10308,7 +10308,7 @@ DEFUN(no_rtc_network, no_rtc_network_cmd, "no rt WORD",
       "Specify the route-target e.g 65000:100/96\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	return bgp_rtc_static_from_str(bgp, argv[2]->arg, false);
+	return bgp_rtc_static_from_str(vty, bgp, argv[2]->arg, false);
 }
 
 DEFPY (af_rt_vpn_imexport,

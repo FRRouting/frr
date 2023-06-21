@@ -6,6 +6,7 @@
 #include "bgpd.h"
 #include "bgp_attr.h"
 #include "bgp_ecommunity.h"
+#include "vty.h"
 
 #define BGP_RTC_MAX_PREFIXLEN 96
 
@@ -16,5 +17,6 @@ extern void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 			       uint32_t prefixlen);
 extern void bgp_rtc_remove_static(struct bgp *bgp, struct ecommunity_val *eval,
 				  uint32_t prefixlen);
-int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add);
+int bgp_rtc_static_from_str(struct vty *vty, struct bgp *bgp, const char *str,
+			    bool add);
 #endif /* BGP_RTC_H */

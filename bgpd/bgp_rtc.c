@@ -88,7 +88,8 @@ int bgp_rtc_filter(struct peer *peer, struct attr *attr)
 	return false;
 }
 
-int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
+int bgp_rtc_static_from_str(struct vty *vty, struct bgp *bgp, const char *str,
+			    bool add)
 {
 	struct ecommunity *ecom = NULL;
 	int plen = BGP_RTC_MAX_PREFIXLEN;
@@ -102,6 +103,7 @@ int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
 	if (pnt == NULL) {
 		ecom = ecommunity_str2com(str, ECOMMUNITY_ROUTE_TARGET, 0);
 		if (ecom == NULL) {
+			vty_out(vty, "%% Can't parse ecommunity %s\n", str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	} else {
@@ -112,6 +114,7 @@ int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
 
 		XFREE(MTYPE_TMP, cp);
 		if (ecom == NULL) {
+			vty_out(vty, "%% Can't parse ecommunity %s\n", str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -119,6 +122,7 @@ int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
 		plen = (uint8_t)atoi(++pnt);
 		if (plen > BGP_RTC_MAX_PREFIXLEN) {
 			ecommunity_free(&ecom);
+			vty_out(vty, "%% Invalid prefix length %d\n", plen);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
