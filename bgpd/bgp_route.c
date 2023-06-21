@@ -2519,7 +2519,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (peer->afc[AFI_IP][SAFI_RTC]) {
 		/* The update group should only have one peer */
 		onlypeer = SUBGRP_PFIRST(subgrp)->peer;
-		if (bgp_rtc_filter(onlypeer, attr))
+		if (bgp_rtc_filter(onlypeer, attr, p))
 			return false;
 	}
 
