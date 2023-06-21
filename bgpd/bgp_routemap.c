@@ -2300,6 +2300,31 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 };
 
 /* `set as-path exclude ASn' */
+struct aspath_exclude {
+	struct aspath *aspath;
+	bool exclude_all;
+};
+
+static void *route_aspath_exclude_compile(const char *arg)
+{
+	struct aspath_exclude *ase;
+	const char *str = arg;
+
+	ase = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct aspath_exclude));
+	if (!strmatch(str, "all"))
+		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
+	else
+		ase->exclude_all = true;
+	return ase;
+}
+
+static void route_aspath_exclude_free(void *rule)
+{
+	struct aspath_exclude *ase = rule;
+
+	aspath_free(ase->aspath);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
+}
 
 /* For ASN exclude mechanism.
  * Iterate over ASns requested and filter them from the given AS_PATH one by
@@ -2309,16 +2334,28 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 static enum route_map_cmd_result_t
 route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 {
-	struct aspath *new_path, *exclude_path;
+	struct aspath *new_path;
 	struct bgp_path_info *path;
+	struct aspath_exclude *ase = rule;
 
-	exclude_path = rule;
 	path = object;
+
+	if (path->peer->sort != BGP_PEER_EBGP) {
+		zlog_warn(
+			"`set as-path exclude` is supported only for EBGP peers");
+		return RMAP_NOOP;
+	}
+
 	if (path->attr->aspath->refcnt)
 		new_path = aspath_dup(path->attr->aspath);
 	else
 		new_path = path->attr->aspath;
-	path->attr->aspath = aspath_filter_exclude(new_path, exclude_path);
+
+	if (ase->aspath)
+		path->attr->aspath =
+			aspath_filter_exclude(new_path, ase->aspath);
+	else if (ase->exclude_all)
+		path->attr->aspath = aspath_filter_exclude_all(new_path);
 
 	return RMAP_OKAY;
 }
@@ -2327,8 +2364,8 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 static const struct route_map_rule_cmd route_set_aspath_exclude_cmd = {
 	"as-path exclude",
 	route_set_aspath_exclude,
-	route_aspath_compile,
-	route_aspath_free,
+	route_aspath_exclude_compile,
+	route_aspath_exclude_free,
 };
 
 /* `set as-path replace AS-PATH` */
@@ -5910,6 +5947,32 @@ DEFUN_YANG (set_aspath_exclude,
 	return ret;
 }
 
+DEFPY_YANG(set_aspath_exclude_all, set_aspath_exclude_all_cmd,
+	   "[no$no] set as-path exclude all$all",
+	   NO_STR SET_STR
+	   "Transform BGP AS-path attribute\n"
+	   "Exclude from the as-path\n"
+	   "Exclude all AS numbers from the as-path\n")
+{
+	int ret;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+	char xpath_value[XPATH_MAXLEN];
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path",
+			 xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, all);
+	}
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	return ret;
+}
+
 DEFUN_YANG (no_set_aspath_exclude,
 	    no_set_aspath_exclude_cmd,
 	    "no set as-path exclude ASNUM...",
@@ -7436,6 +7499,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_prepend_asn_cmd);
 	install_element(RMAP_NODE, &set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
+	install_element(RMAP_NODE, &set_aspath_exclude_all_cmd);
 	install_element(RMAP_NODE, &set_aspath_replace_asn_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_lastas_cmd);

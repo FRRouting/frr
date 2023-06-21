@@ -2110,6 +2110,11 @@ Using AS Path in Route Map
    Replace a specific AS number to local AS number. ``any`` replaces each
    AS number in the AS-PATH with the local AS number.
 
+.. clicmd:: set as-path exclude all
+
+   Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
+   this command removes this set operation from the route-map.
+
 .. _bgp-communities-attribute:
 
 Communities Attribute
