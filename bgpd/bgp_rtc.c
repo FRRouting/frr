@@ -88,59 +88,6 @@ int bgp_rtc_filter(struct peer *peer, struct attr *attr)
 	return false;
 }
 
-int str2prefix_rtc(const char *str, struct prefix_rtc *p)
-{
-	struct ecommunity *ecom = NULL;
-	int ret = CMD_SUCCESS;
-	int plen;
-	char *pnt;
-	char *cp;
-
-	p->prefix.origin_as = 65000;
-	p->family = AF_RTC;
-	p->prefixlen = 96;
-
-	/* Find slash inside string. */
-	pnt = strchr(str, '/');
-
-	/* String doesn't contain slash. */
-	if (pnt == NULL) {
-		ecom = ecommunity_str2com(str, ECOMMUNITY_ROUTE_TARGET, 0);
-		if (ecom == NULL) {
-			zlog_info("str2prefix_rtc: ecommunity_str2com failed");
-			return 0;
-		}
-		zlog_info("str2prefix_rtc: ecommunity_str2com success");
-		memcpy(&p->prefix.route_target, ecom->val, 8);
-	} else {
-		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		memcpy(cp, str, pnt - str);
-		*(cp + (pnt - str)) = '\0';
-		zlog_info("output1: %s", cp);
-		ecom = ecommunity_str2com(cp, ECOMMUNITY_ROUTE_TARGET, 0);
-		if (ecom == NULL) {
-			XFREE(MTYPE_TMP, cp);
-			zlog_info("str2prefix_rtc: ecommunity_str2com failed");
-			return 0;
-		}
-
-		/* Get prefix length. */
-		plen = (uint8_t)atoi(++pnt);
-		if (plen > 96)
-			XFREE(MTYPE_TMP, cp);
-		ecommunity_free(&ecom);
-		return 0;
-
-		p->prefixlen = plen;
-		memcpy(&p->prefix.route_target, ecom->val, PSIZE(plen) - 4);
-		XFREE(MTYPE_TMP, cp);
-	}
-
-	ecommunity_free(&ecom);
-	return ret;
-	return 0;
-}
-
 int bgp_rtc_static_from_str(struct bgp *bgp, const char *str, bool add)
 {
 	struct ecommunity *ecom = NULL;

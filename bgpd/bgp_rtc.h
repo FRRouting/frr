@@ -12,7 +12,6 @@
 extern int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 			      struct bgp_nlri *packet, bool withdraw);
 extern int bgp_rtc_filter(struct peer *peer, struct attr *attr);
-extern int str2prefix_rtc(const char *str, struct prefix_rtc *p);
 extern void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 			       uint32_t prefixlen);
 extern void bgp_rtc_remove_static(struct bgp *bgp, struct ecommunity_val *eval,
