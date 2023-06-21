@@ -151,7 +151,6 @@ void bgp_rtc_add_static(struct bgp *bgp, struct ecommunity_val *eval,
 	prefix.prefixlen = prefixlen;
 	prefix.u.prefix_rtc.origin_as = bgp->as;
 	memcpy(prefix.u.prefix_rtc.route_target, eval, PSIZE(prefixlen) - 4);
-	bgp_static = bgp_static_new();
 	dest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
 
 	if (bgp_dest_has_bgp_path_info_data(dest)) {
@@ -181,7 +180,6 @@ void bgp_rtc_remove_static(struct bgp *bgp, struct ecommunity_val *eval,
 	prefix.prefixlen = prefixlen;
 	prefix.u.prefix_rtc.origin_as = bgp->as;
 	memcpy(prefix.u.prefix_rtc.route_target, eval, PSIZE(prefixlen) - 4);
-	bgp_static = bgp_static_new();
 	dest = bgp_node_get(bgp->route[AFI_IP][SAFI_RTC], &prefix);
 
 	if (dest) {
