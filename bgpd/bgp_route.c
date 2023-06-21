@@ -2516,8 +2516,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		return false;
 
 	/* RTC-Filtering */
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN &&
-	    peer->afc[AFI_IP][SAFI_RTC]) {
+	if (peer->afc[AFI_IP][SAFI_RTC]) {
 		/* The update group should only have one peer */
 		onlypeer = SUBGRP_PFIRST(subgrp)->peer;
 		if (bgp_rtc_filter(onlypeer, attr))

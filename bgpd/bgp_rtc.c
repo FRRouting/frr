@@ -53,18 +53,17 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 
 int bgp_rtc_filter(struct peer *peer, struct attr *attr)
 {
-	if (peer->rtc_plist == NULL) {
-		zlog_info(
-			"Filtered update because RTC prefix-list does not exist");
-		return true;
+	struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
+	if (ecom == NULL) {
+		return false;
 	}
+
 	/* Build prefix to compare with */
 	struct prefix cmp;
 	cmp.family = AF_RTC;
 	cmp.prefixlen = BGP_RTC_MAX_PREFIXLEN;
 	cmp.u.prefix_rtc.origin_as = peer->as;
 
-	struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
 	uint8_t *pnt;
 	uint8_t sub_type = 0;
 	for (uint32_t i = 0; i < ecom->size; i++) {
@@ -74,6 +73,11 @@ int bgp_rtc_filter(struct peer *peer, struct attr *attr)
 		sub_type = *++pnt;
 
 		if (sub_type == ECOMMUNITY_ROUTE_TARGET) {
+			if (peer->rtc_plist == NULL) {
+				zlog_info(
+					"Filtered update because RTC prefix-list does not exist");
+				return true;
+			}
 			memcpy(&cmp.u.prefix_rtc.route_target,
 			       ecom->val + (i * ecom->unit_size),
 			       ECOMMUNITY_SIZE);
