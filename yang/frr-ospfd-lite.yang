@@ -1,16 +1,14 @@
 module frr-ospfd-lite {
   yang-version 1.1;
-  namespace "http://frrouting.org/yang/ospfd";
+  namespace "http://frrouting.org/yang/frr-ospfd-lite";
   prefix frr-ospfd;
 
   import ietf-inet-types {
     prefix inet;
   }
-
   import ietf-routing-types {
     prefix rt-types;
   }
-
   import ietf-yang-types {
     prefix yang;
   }
@@ -26,11 +24,9 @@ module frr-ospfd-lite {
   import frr-interface {
     prefix frr-interface;
   }
-
   import frr-route-types {
     prefix frr-route-types;
   }
-
   import frr-ospf-common-lite {
     prefix common;
   }
@@ -75,7 +71,7 @@ module frr-ospfd-lite {
        written permission.
 
      THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-     “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
      LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
      FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
      COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
@@ -85,8 +81,7 @@ module frr-ospfd-lite {
      HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
      STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
      ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-     OF THE POSSIBILITY OF SUCH DAMAGE.
-";
+     OF THE POSSIBILITY OF SUCH DAMAGE.";
 
 
   revision 2023-04-23 {
@@ -101,7 +96,8 @@ module frr-ospfd-lite {
 
    // typedef neighbor-ref {
    //   type leafref {
-   //     path "/frr-interface:lib/frr-interface:interface/frr-interface:state/"
+   //     path "/frr-interface:lib/"
+   //          + "frr-interface:interface/frr-interface:state/"
    //          + "frr-ospfd:ospf/frr-ospfd:neighbors/frr-ospfd:neighbor/"
    //          + "frr-ospfd:neighbor-router-id";
    //     require-instance false;
@@ -1119,7 +1115,8 @@ module frr-ospfd-lite {
     //   leaf active-restarter-count {
     //     type uint16;
     //     description
-    //       "The number of active restarters for which this router is a helper.";
+    //       "The number of active restarters for which this router is a
+    //        helper.";
     //   }
     //   leaf last-exit-reason {
     //     type uint32;
@@ -1180,47 +1177,46 @@ module frr-ospfd-lite {
     // frr specific model
     description "FRR specific interface operational state.";
 
-    // leaf network-lsa-seqno {
-    //   type uint32;
-    //   description "The cryptographic sequence number in use if this
-    //     interface is the DR.";
-    // }
+    leaf network-lsa-seqno {
+      type uint32;
+      description "The cryptographic sequence number in use if this
+        interface is the DR.";
+    }
 
-    // container multicast-groups {
-    //   description "The multicast groups this interface is a part of.";
+    container multicast-groups {
+      description "The multicast groups this interface is a part of.";
 
-    //   leaf ospf-all-routers {
-    //     type boolean;
-    //     description "Multicast group of all routers.";
-    //   }
-    //   leaf ospf-designated-routers {
-    //     type boolean;
-    //     description "Multicast group of designated routers.";
-    //   }
-    // }
+      leaf ospf-all-routers {
+        type boolean;
+        description "Multicast group of all routers.";
+      }
+      leaf ospf-designated-routers {
+        type boolean;
+        description "Multicast group of designated routers.";
+      }
+    }
   }
 
   grouping ospfv2-interface-state {
     description "OSPFv2 interface state";
 
-    uses frr-ospfv2-interface-state;
+    // uses frr-ospfv2-interface-state;
 
     uses common:interface-common-state;
   }
 
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols"
-    + "/frr-rt:control-plane-protocol" {
-    when "derived-from(frr-rt:type, 'ospf')" {
-      description
-        "This container is only valid for the 'OSPF' routing
-           protocol.";
-    }
+  container ospf {
     description
-      "OSPF protocol FRR 'routing' module 'control-plane-protocol'
-       augmentation.";
-    container ospf {
+      "OSPF protocol data.";
+    list instance {
+      key "vrf";
       description
-        "OSPF protocol instance.";
+        "OSPF protocol instance data.";
+      leaf vrf {
+        type frr-vrf:vrf-ref;
+        description
+          "VRF name.";
+      }
       container state {
         /* IETF model doesn't have a defined container for state */
         config false;
@@ -1240,15 +1236,25 @@ module frr-ospfd-lite {
   /*
    * Per-interface operational state data
    */
-  augment "/frr-interface:lib/frr-interface:interface"
-    + "/frr-interface:state" {
+  augment "/frr-interface:lib/frr-interface:interface" {
     description
       "OSPF protocol FRR 'interface' module 'interface' state augmentation.";
-    container ospf {
+    list ospf-interface {
+      key "address";
       description
         "OSPF interface operation state.";
-
-      uses ospfv2-interface-state;
+      leaf address {
+        type union {
+          type inet:ipv4-address;
+          type empty;
+        }
+        description "Address of interface or empty for unnumbered.";
+      }
+      container state {
+        config false;
+        description "Stete for the ospf interface.";
+        uses ospfv2-interface-state;
+      }
     }
   }
 }

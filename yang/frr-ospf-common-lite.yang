@@ -1,6 +1,6 @@
 module frr-ospf-common-lite {
   yang-version 1.1;
-  namespace "http://frrouting.org/yang/ospf-common";
+  namespace "http://frrouting.org/yang/frr-ospf-common-lite";
   prefix frr-ospf-common;
 
   import ietf-inet-types {
@@ -122,37 +122,37 @@ module frr-ospf-common-lite {
   typedef if-state-type {
     type enumeration {
       enum down {
-        value "1";
+        value 1;
         description
           "Interface down state.";
       }
       enum loopback {
-        value "2";
+        value 2;
         description
           "Interface loopback state.";
       }
       enum waiting {
-        value "3";
+        value 3;
         description
           "Interface waiting state.";
       }
       enum point-to-point {
-        value "4";
+        value 4;
         description
           "Interface point-to-point state.";
       }
-      enum dr {
-        value "5";
+      enum dr-other {
+        value 5;
         description
           "Interface Designated Router (DR) state.";
       }
       enum bdr {
-        value "6";
+        value 6;
         description
           "Interface Backup Designated Router (BDR) state.";
       }
-      enum dr-other {
-        value "7";
+      enum dr {
+        value 7;
         description
           "Interface Other Designated Router state.";
       }
@@ -163,43 +163,48 @@ module frr-ospf-common-lite {
 
   typedef nbr-state-type {
     type enumeration {
+      enum deleted {
+        value 1;
+        description
+        "Neighbor down state.";
+      }
       enum down {
-        value "1";
+        value 2;
         description
           "Neighbor down state.";
       }
       enum attempt {
-        value "2";
+        value 3;
         description
           "Neighbor attempt state.";
       }
       enum init {
-        value "3";
+        value 4;
         description
           "Neighbor init state.";
       }
       enum 2-way {
-        value "4";
+        value 5;
         description
           "Neighbor 2-Way state.";
       }
       enum exstart {
-        value "5";
+        value 6;
         description
           "Neighbor exchange start state.";
       }
       enum exchange {
-        value "6";
+        value 7;
         description
           "Neighbor exchange state.";
       }
       enum loading {
-        value "7";
+        value 8;
         description
           "Neighbor loading state.";
       }
       enum full {
-        value "8";
+        value 9;
         description
           "Neighbor full state.";
       }
@@ -2172,15 +2177,15 @@ module frr-ospf-common-lite {
       type yang:counter32;
       description "The number of active interfaces in this area.";
     }
-    // leaf full-nbrs {
-    //   type yang:counter32;
-    //   description "The number of fully adjacent neighbors in this area.";
-    // }
-    // leaf full-virtual {
-    //   type yang:counter32;
-    //   description "The number of fully adjacent virtual neighbors in
-    //     this area.";
-    // }
+    leaf full-nbrs {
+      type yang:counter32;
+      description "The number of fully adjacent neighbors in this area.";
+    }
+    leaf full-virtual {
+      type yang:counter32;
+      description "The number of fully adjacent virtual neighbors in
+        this area.";
+    }
   }
 
   grouping area-stat {
@@ -2205,17 +2210,17 @@ module frr-ospf-common-lite {
          Discontinuities in the value of this counter can occur
          when the OSPF area is re-initialized.";
     }
-    // leaf abr-count {
-    //   type yang:gauge32;
-    //   description
-    //     "The total number of Area Border Routers (ABRs)
-    //      reachable within this area.";
-    // }
-    // leaf asbr-count {
-    //   type yang:gauge32;
-    //   description
-    //     "The total number of AS Boundary Routers (ASBRs).";
-    // }
+    leaf abr-count {
+      type yang:gauge32;
+      description
+        "The total number of Area Border Routers (ABRs)
+         reachable within this area.";
+    }
+    leaf asbr-count {
+      type yang:gauge32;
+      description
+        "The total number of AS Boundary Routers (ASBRs).";
+    }
 /*
     leaf ar-nssa-translator-event-count {
       type yang:counter32;
@@ -2224,11 +2229,14 @@ module frr-ospf-common-lite {
          Discontinuities in the value of this counter can occur
          when the OSPF area is re-initialized.";
     }
+*/
     leaf area-scope-lsa-count {
       type yang:gauge32;
       description
         "The number of area-scope LSAs in the area.";
     }
+
+/*
     leaf area-scope-lsa-cksum-sum {
       type uint32;
       description
@@ -2503,13 +2511,13 @@ module frr-ospf-common-lite {
     //     leaf timer {
     //       type int64;
     //       units "microseconds";
-    //       description "The remaining time an inactive neighbor has before they
-    //         are declared dead.";
+    //       description "The remaining time an inactive neighbor has before
+    //         they are declared dead.";
     //     }
     //   }
     //   container db-desc-retransmission {
     //     presence
-    //       "Present when the database retransmission timer thread is running.";
+    //       "Present when the database retrans. timer thread is running.";
     //     description "XXX";
     //     leaf timer {
     //       type int64;
@@ -2531,7 +2539,7 @@ module frr-ospf-common-lite {
     //   }
     //   container ls-update-retransmission {
     //     presence
-    //       "Present when the LS update retranmission timer thread is running.";
+    //       "Present when the LS update retrans. timer thread is running.";
     //     description "XXX";
     //     leaf timer {
     //       type int64;
@@ -2540,7 +2548,7 @@ module frr-ospf-common-lite {
     //     }
     //   }
     //   container hello-reply {
-    //     // XXX This thread was found in ospf_neighbor.h but didn't appear from
+    //     // XXX This thread was found in ospf_neighbor.h but didn't appear in
     //     // clicmd: 'show ip ospf neighbor detail json'
     //     presence
     //       "Present when the hello reply timer thread is running.";

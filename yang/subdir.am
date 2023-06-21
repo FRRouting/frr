@@ -98,7 +98,8 @@ dist_yangmodels_DATA += yang/frr-bgp.yang
 endif
 
 if OSPFD
-dist_yangmodels_DATA += yang/frr-ospfd.yang
+dist_yangmodels_DATA += yang/frr-ospf-common-lite.yang
+dist_yangmodels_DATA += yang/frr-ospfd-lite.yang
 endif
 
 if PATHD
