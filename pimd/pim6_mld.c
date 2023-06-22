@@ -1385,6 +1385,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	struct gm_query_timers timers;
 	bool general_query;
+	struct gm_sg *sg = NULL;
 
 	if (len < sizeof(struct mld_v2_query_hdr) &&
 	    len != sizeof(struct mld_v1_pkt)) {
@@ -1446,7 +1447,30 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		}
 	}
 
+	/* As per RFC 2271, s6 p14:
+	 * E.g. a router that starts as a Querier, receives a
+	 * Done message for a group and then receives a Query from a router with
+	 * a lower address (causing a transition to the Non-Querier state)
+	 * continues to send multicast-address-specific queries for the group in
+	 * question until it either receives a Report or its timer expires, at
+	 * which time it starts performing the actions of a Non-Querier for this
+	 * group.
+	 */
 	if (IPV6_ADDR_CMP(&pkt_src->sin6_addr, &gm_ifp->querier) < 0) {
+		/* If Group specific queries were generated earlier, it means
+		 * a leave was received, hence check and ignore it.
+		 */
+		frr_each (gm_sgs, gm_ifp->sgs, sg) {
+			if (sg->n_query > 0) {
+				if (PIM_DEBUG_GM_EVENTS)
+					zlog_debug(
+						log_pkt_src(
+							"Ignoring Querier %pPA to Non-Querier transition, since last member group specific queries are in progress"),
+						&gm_ifp->querier);
+				return;
+			}
+		}
+
 		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(
 				log_pkt_src("replacing elected querier %pPA"),
