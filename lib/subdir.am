@@ -29,6 +29,7 @@ lib_libfrr_la_SOURCES = \
 	lib/defaults.c \
 	lib/distribute.c \
 	lib/explicit_bzero.c \
+	lib/timingsafe_memcmp.c \
 	lib/ferr.c \
 	lib/filter.c \
 	lib/filter_cli.c \

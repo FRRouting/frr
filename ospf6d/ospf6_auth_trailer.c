@@ -531,11 +531,8 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 				 (oh_len + auth_len + lls_block_len),
 				 hash_algo);
 
-#ifdef CRYPTO_OPENSSL
-	ret = CRYPTO_memcmp(temp_hash, ospf6_auth->data, hash_len);
-#else
-	ret = memcmp(temp_hash, ospf6_auth->data, hash_len);
-#endif
+	ret = timingsafe_memcmp(temp_hash, ospf6_auth->data, hash_len);
+
 	if (ret == 0)
 		return OSPF6_AUTH_VALIDATE_SUCCESS;
 

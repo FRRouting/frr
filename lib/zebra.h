@@ -210,6 +210,10 @@ size_t strlcpy(char *__restrict dest,
 void explicit_bzero(void *buf, size_t len);
 #endif
 
+#ifndef HAVE_TIMINGSAFE_MEMCMP
+int timingsafe_memcmp(const void *b1, const void *b2, size_t len);
+#endif
+
 #if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
 /* avoid conflicts in case we have partial support */
 #define mmsghdr frr_mmsghdr
