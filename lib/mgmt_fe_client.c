@@ -164,7 +164,7 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 
 int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
 			    uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			    bool lock)
+			    bool lock, bool scok)
 {
 	(void)req_id;
 	Mgmtd__FeMessage fe_msg;
@@ -185,7 +185,7 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
 		lock ? "" : "UN", dsid2name(ds_id), session_id);
 
 
-	return mgmt_fe_client_send_msg(client, &fe_msg, false);
+	return mgmt_fe_client_send_msg(client, &fe_msg, scok);
 }
 
 int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
@@ -411,6 +411,7 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				session->user_ctx, fe_msg->setcfg_reply->req_id,
 				fe_msg->setcfg_reply->success,
 				fe_msg->setcfg_reply->ds_id,
+				fe_msg->setcfg_reply->implicit_commit,
 				fe_msg->setcfg_reply->error_if_any);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:
