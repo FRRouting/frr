@@ -124,18 +124,15 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeSessionReq sess_req;
-	bool scok;
 
 	mgmtd__fe_session_req__init(&sess_req);
 	sess_req.create = create;
 	if (create) {
 		sess_req.id_case = MGMTD__FE_SESSION_REQ__ID_CLIENT_CONN_ID;
 		sess_req.client_conn_id = session->client_id;
-		scok = true;
 	} else {
 		sess_req.id_case = MGMTD__FE_SESSION_REQ__ID_SESSION_ID;
 		sess_req.session_id = session->session_id;
-		scok = false;
 	}
 
 	mgmtd__fe_message__init(&fe_msg);
@@ -146,7 +143,7 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 		"Sending SESSION_REQ %s message for client-id %" PRIu64,
 		create ? "create" : "destroy", session->client_id);
 
-	return mgmt_fe_client_send_msg(client, &fe_msg, scok);
+	return mgmt_fe_client_send_msg(client, &fe_msg, true);
 }
 
 int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,

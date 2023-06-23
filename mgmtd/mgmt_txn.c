@@ -15,7 +15,7 @@
 #include "mgmtd/mgmt_txn.h"
 
 #define MGMTD_TXN_DBG(fmt, ...)                                                \
-	DEBUGD(&mgmt_debug_txn, "%s:" fmt, __func__, ##__VA_ARGS__)
+	DEBUGD(&mgmt_debug_txn, "TXN: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_TXN_ERR(fmt, ...)                                                \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
@@ -2616,26 +2616,6 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 		gettimeofday(&cmtcfg_req->cmt_stats->apply_cfg_end, NULL);
 
 	return 0;
-}
-
-int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
-				       enum mgmt_result result,
-				       const char *error_if_any)
-{
-	struct mgmt_txn_ctx *txn;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return -1;
-
-	if (!txn->commit_cfg_req) {
-		MGMTD_TXN_ERR("NO commit in-progress txn-id: %" PRIu64
-			      " session-id: %" PRIu64,
-			      txn->txn_id, txn->session_id);
-		return -1;
-	}
-
-	return mgmt_txn_send_commit_cfg_reply(txn, result, error_if_any);
 }
 
 int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
