@@ -39,7 +39,6 @@ enum zebra_iftype {
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 	ZEBRA_IF_VETH,      /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
 };
 
