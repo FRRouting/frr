@@ -87,6 +87,8 @@ ForEachMacros:
   # ospfd outliers:
   - 'LSDB_LOOP'
   # first git grep
+  - 'darr_foreach_p'
+  - 'darr_foreach_i'
   - 'frr_each'
   - 'frr_each_safe'
   - 'frr_each_from'
