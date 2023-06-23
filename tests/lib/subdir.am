@@ -157,6 +157,13 @@ tests_lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_checksum_SOURCES = tests/lib/test_checksum.c tests/helpers/c/prng.c
 
 
+check_PROGRAMS += tests/lib/test_darr
+tests_lib_test_darr_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_darr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_darr_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_darr_SOURCES = tests/lib/test_darr.c
+
+
 check_PROGRAMS += tests/lib/test_graph
 tests_lib_test_graph_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_graph_CPPFLAGS = $(TESTS_CPPFLAGS)
