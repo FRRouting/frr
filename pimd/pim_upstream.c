@@ -1713,6 +1713,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 				zlog_debug("%s: up %s RPF is not present",
 					   __func__, up->sg_str);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 			return;
 		}
 
