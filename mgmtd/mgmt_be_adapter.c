@@ -8,6 +8,7 @@
  */
 
 #include <zebra.h>
+#include "darr.h"
 #include "frrevent.h"
 #include "sockopt.h"
 #include "network.h"
@@ -28,23 +29,9 @@
 	frr_each_safe (mgmt_be_adapters, &mgmt_be_adapters, (adapter))
 
 /*
- * Static mapping of YANG XPath regular expressions and
- * the corresponding interested backend clients.
- * NOTE: Thiis is a static mapping defined by all MGMTD
- * backend client modules (for now, till we develop a
- * more dynamic way of creating and updating this map).
- * A running map is created by MGMTD in run-time to
- * handle real-time mapping of YANG xpaths to one or
- * more interested backend client adapters.
- *
- * Please see xpath_map_reg[] in lib/mgmt_be_client.c
- * for the actual map
+ * Mapping of YANG XPath regular expressions to
+ * their corresponding backend clients.
  */
-struct mgmt_be_xpath_map_init {
-	const char *xpath_regexp;
-	uint subscr_info[MGMTD_BE_CLIENT_ID_MAX];
-};
-
 struct mgmt_be_xpath_map {
 	char *xpath_regexp;
 	uint subscr_info[MGMTD_BE_CLIENT_ID_MAX];
@@ -65,55 +52,6 @@ struct mgmt_be_get_adapter_config_params {
 	struct nb_config_cbs *cfg_chgs;
 	uint32_t seq;
 };
-
-/*
- * Static mapping of YANG XPath regular expressions and
- * the corresponding interested backend clients.
- * NOTE: Thiis is a static mapping defined by all MGMTD
- * backend client modules (for now, till we develop a
- * more dynamic way of creating and updating this map).
- * A running map is created by MGMTD in run-time to
- * handle real-time mapping of YANG xpaths to one or
- * more interested backend client adapters.
- */
-static const struct mgmt_be_xpath_map_init mgmt_xpath_map_init[] = {
-	{
-		.xpath_regexp = "/frr-vrf:lib/*",
-		.subscr_info =
-			{
-#if HAVE_STATICD
-				[MGMTD_BE_CLIENT_ID_STATICD] =
-					MGMT_SUBSCR_VALIDATE_CFG |
-					MGMT_SUBSCR_NOTIFY_CFG,
-#endif
-			},
-	},
-	{
-		.xpath_regexp = "/frr-interface:lib/*",
-		.subscr_info =
-			{
-#if HAVE_STATICD
-				[MGMTD_BE_CLIENT_ID_STATICD] =
-					MGMT_SUBSCR_VALIDATE_CFG |
-					MGMT_SUBSCR_NOTIFY_CFG,
-#endif
-			},
-	},
-
-	{
-		.xpath_regexp =
-			"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/*",
-		.subscr_info =
-			{
-#if HAVE_STATICD
-				[MGMTD_BE_CLIENT_ID_STATICD] =
-					MGMT_SUBSCR_VALIDATE_CFG |
-					MGMT_SUBSCR_NOTIFY_CFG,
-#endif
-			},
-	},
-};
-
 
 /*
  * Each client gets their own map, but also union all the strings into the
@@ -145,12 +83,15 @@ static struct mgmt_be_client_xpath_map
 #endif
 };
 
-#define MGMTD_BE_MAX_NUM_XPATH_MAP 256
-
-/* We would like to have a better ADT than one with O(n)
-   comparisons */
+/*
+ * We would like to have a better ADT than one with O(n) comparisons
+ *
+ * Perhaps it's possible to sort this array in a way that allows binary search
+ * to find the start, then walk until no possible match can follow? Intuition
+ * says this probably involves exact match/no-match on a stem in the map array
+ * or something like that.
+ */
 static struct mgmt_be_xpath_map *mgmt_xpath_map;
-static uint mgmt_num_xpath_maps;
 
 static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_be_server = {.fd = -1};
@@ -193,34 +134,52 @@ mgmt_be_find_adapter_by_name(const char *name)
 	return NULL;
 }
 
+static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
+				       const char *xpath, uint subscribed)
+{
+	struct mgmt_be_xpath_map *map;
+
+	darr_foreach_p (mgmt_xpath_map, map)
+		if (!strcmp(xpath, map->xpath_regexp)) {
+			map->subscr_info[id] = subscribed;
+			return;
+		}
+	/* we didn't find a matching entry */
+	map = darr_append(mgmt_xpath_map);
+	map->xpath_regexp = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
+	map->subscr_info[id] = subscribed;
+}
+
+/*
+ * Load the initial mapping from static init map
+ */
 static void mgmt_be_xpath_map_init(void)
 {
-	uint i;
+	struct mgmt_be_client_xpath *init, *end;
+	enum mgmt_be_client_id id;
 
 	MGMTD_BE_ADAPTER_DBG("Init XPath Maps");
 
-	mgmt_num_xpath_maps = array_size(mgmt_xpath_map_init);
-	mgmt_xpath_map =
-		calloc(1, sizeof(*mgmt_xpath_map) * mgmt_num_xpath_maps);
-	for (i = 0; i < mgmt_num_xpath_maps; i++) {
-		MGMTD_BE_ADAPTER_DBG(" - XPATH: '%s'",
-				     mgmt_xpath_map_init[i].xpath_regexp);
-		mgmt_xpath_map[i].xpath_regexp = XSTRDUP(
-			MTYPE_MGMTD_XPATH, mgmt_xpath_map_init[i].xpath_regexp);
-		memcpy(mgmt_xpath_map[i].subscr_info,
-		       mgmt_xpath_map_init[i].subscr_info,
-		       sizeof(mgmt_xpath_map_init[i].subscr_info));
+	FOREACH_MGMTD_BE_CLIENT_ID (id) {
+		init = mgmt_client_xpaths[id].xpaths;
+		end = init + mgmt_client_xpaths[id].nxpaths;
+		for (; init < end; init++) {
+			MGMTD_BE_ADAPTER_DBG(" - XPATH: '%s'", init->xpath);
+			mgmt_register_client_xpath(id, init->xpath,
+						   init->subscribed);
+		}
 	}
-	MGMTD_BE_ADAPTER_DBG("Total XPath Maps: %u", mgmt_num_xpath_maps);
+
+	MGMTD_BE_ADAPTER_DBG("Total XPath Maps: %u", darr_len(mgmt_xpath_map));
 }
 
 static void mgmt_be_xpath_map_cleanup(void)
 {
-	uint i;
+	struct mgmt_be_xpath_map *map;
 
-	for (i = 0; i < mgmt_num_xpath_maps; i++)
-		XFREE(MTYPE_MGMTD_XPATH, mgmt_xpath_map[i].xpath_regexp);
-	free(mgmt_xpath_map);
+	darr_foreach_p (mgmt_xpath_map, map)
+		XFREE(MTYPE_MGMTD_XPATH, map->xpath_regexp);
+	darr_free(mgmt_xpath_map);
 }
 
 static int mgmt_be_eval_regexp_match(const char *xpath_regexp,
@@ -830,19 +789,17 @@ int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 void mgmt_be_get_subscr_info_for_xpath(
 	const char *xpath, struct mgmt_be_client_subscr_info *subscr_info)
 {
+	struct mgmt_be_xpath_map *map;
 	enum mgmt_be_client_id id;
-	uint i;
 
 	memset(subscr_info, 0, sizeof(*subscr_info));
 
 	MGMTD_BE_ADAPTER_DBG("XPATH: '%s'", xpath);
-	for (i = 0; i < mgmt_num_xpath_maps; i++) {
-		if (!mgmt_be_eval_regexp_match(mgmt_xpath_map[i].xpath_regexp,
-					       xpath))
+	darr_foreach_p (mgmt_xpath_map, map) {
+		if (!mgmt_be_eval_regexp_match(map->xpath_regexp, xpath))
 			continue;
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
-			subscr_info->xpath_subscr[id] |=
-				mgmt_xpath_map[i].subscr_info[id];
+			subscr_info->xpath_subscr[id] |= map->subscr_info[id];
 		}
 	}
 
@@ -923,18 +880,17 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 
 void mgmt_be_xpath_register_write(struct vty *vty)
 {
-	uint indx;
+	struct mgmt_be_xpath_map *map;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	uint info;
 
 	vty_out(vty, "MGMTD Backend XPath Registry\n");
 
-	for (indx = 0; indx < mgmt_num_xpath_maps; indx++) {
-		vty_out(vty, " - XPATH: '%s'\n",
-			mgmt_xpath_map[indx].xpath_regexp);
+	darr_foreach_p (mgmt_xpath_map, map) {
+		vty_out(vty, " - XPATH: '%s'\n", map->xpath_regexp);
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
-			info = mgmt_xpath_map[indx].subscr_info[id];
+			info = map->subscr_info[id];
 			if (!info)
 				continue;
 			vty_out(vty,
@@ -949,7 +905,7 @@ void mgmt_be_xpath_register_write(struct vty *vty)
 		}
 	}
 
-	vty_out(vty, "Total XPath Registries: %u\n", mgmt_num_xpath_maps);
+	vty_out(vty, "Total XPath Registries: %u\n", darr_len(mgmt_xpath_map));
 }
 
 void mgmt_be_xpath_subscr_info_write(struct vty *vty, const char *xpath)
