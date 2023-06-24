@@ -18985,6 +18985,9 @@ bool bgp_config_inprocess(void)
 	return event_is_scheduled(t_bgp_cfg);
 }
 
+/* Max wait time for config to load before post-config processing */
+#define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
 static void bgp_config_finish(struct event *t)
 {
 	struct listnode *node;
@@ -18994,11 +18997,17 @@ static void bgp_config_finish(struct event *t)
 		hook_call(bgp_config_end, bgp);
 }
 
+static void bgp_config_end_timeout(struct event *t)
+{
+	zlog_err("BGP configuration end timer expired after %d seconds.",
+		 BGP_PRE_CONFIG_MAX_WAIT_SECONDS);
+	bgp_config_finish(t);
+}
+
 static void bgp_config_start(void)
 {
-#define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
 	EVENT_OFF(t_bgp_cfg);
-	event_add_timer(bm->master, bgp_config_finish, NULL,
+	event_add_timer(bm->master, bgp_config_end_timeout, NULL,
 			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
 
