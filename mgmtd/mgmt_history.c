@@ -248,7 +248,7 @@ static int mgmt_history_rollback_to_cmt(struct vty *vty,
 	 * is completed. On rollback completion mgmt_history_rollback_complete()
 	 * shall be called to resume the rollback command return to VTYSH.
 	 */
-	vty->mgmt_req_pending = true;
+	vty->mgmt_req_pending_cmd = "ROLLBACK";
 	rollback_vty = vty;
 	return 0;
 }

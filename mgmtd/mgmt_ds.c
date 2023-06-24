@@ -80,7 +80,9 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 
 	if (!src || !dst)
 		return -1;
-	MGMTD_DS_DBG("Replacing %d with %d", dst->ds_id, src->ds_id);
+
+	MGMTD_DS_DBG("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
+		     mgmt_ds_id2name(src->ds_id));
 
 	src_dnode = src->config_ds ? src->root.cfg_root->dnode
 				   : dst->root.dnode_root;

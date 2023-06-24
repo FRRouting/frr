@@ -131,9 +131,19 @@ mgmt_be_client_name2id(const char *name)
 	return MGMTD_BE_CLIENT_ID_MAX;
 }
 
+extern struct debug mgmt_dbg_be_client;
+
 /***************************************************************
  * API prototypes
  ***************************************************************/
+
+#define MGMTD_BE_CLIENT_DBG(fmt, ...)                                          \
+	DEBUGD(&mgmt_dbg_be_client, "BE-CLIENT: %s: " fmt, __func__,           \
+	       ##__VA_ARGS__)
+#define MGMTD_BE_CLIENT_ERR(fmt, ...)                                          \
+	zlog_err("BE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define MGMTD_DBG_BE_CLIENT_CHECK()                                            \
+	DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_ALL)
 
 /**
  * Create backend client and connect to MGMTD.

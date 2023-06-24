@@ -17,6 +17,7 @@
 #include "hash.h"
 #include "jhash.h"
 #include "mgmtd/mgmt.h"
+#include "mgmtd/mgmt_ds.h"
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 
@@ -74,18 +75,19 @@ mgmt_fe_session_write_lock_ds(Mgmtd__DatastoreId ds_id,
 	if (!session->ds_write_locked[ds_id]) {
 		if (mgmt_ds_write_lock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to lock the DS %u for session-id: %" PRIu64
+				"Failed to lock the DS:%s for session-id: %" PRIu64
 				" from %s!",
-				ds_id, session->session_id,
+				mgmt_ds_id2name(ds_id), session->session_id,
 				session->adapter->name);
 			return -1;
 		}
 
 		session->ds_write_locked[ds_id] = true;
 		MGMTD_FE_ADAPTER_DBG(
-			"Write-Locked the DS %u for session-id: %" PRIu64
+			"Write-Locked the DS:%s for session-id: %" PRIu64
 			" from %s",
-			ds_id, session->session_id, session->adapter->name);
+			mgmt_ds_id2name(ds_id), session->session_id,
+			session->adapter->name);
 	}
 
 	return 0;
@@ -99,18 +101,19 @@ mgmt_fe_session_read_lock_ds(Mgmtd__DatastoreId ds_id,
 	if (!session->ds_read_locked[ds_id]) {
 		if (mgmt_ds_read_lock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to lock the DS %u for session-is: %" PRIu64
+				"Failed to lock the DS:%s for session-is: %" PRIu64
 				" from %s",
-				ds_id, session->session_id,
+				mgmt_ds_id2name(ds_id), session->session_id,
 				session->adapter->name);
 			return -1;
 		}
 
 		session->ds_read_locked[ds_id] = true;
 		MGMTD_FE_ADAPTER_DBG(
-			"Read-Locked the DS %u for session-id: %" PRIu64
+			"Read-Locked the DS:%s for session-id: %" PRIu64
 			" from %s",
-			ds_id, session->session_id, session->adapter->name);
+			mgmt_ds_id2name(ds_id), session->session_id,
+			session->adapter->name);
 	}
 
 	return 0;
@@ -126,33 +129,35 @@ static int mgmt_fe_session_unlock_ds(Mgmtd__DatastoreId ds_id,
 		session->ds_locked_implict[ds_id] = false;
 		if (mgmt_ds_unlock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to unlock the DS %u taken earlier by session-id: %" PRIu64
+				"Failed to unlock the DS:%s taken earlier by session-id: %" PRIu64
 				" from %s",
-				ds_id, session->session_id,
+				mgmt_ds_id2name(ds_id), session->session_id,
 				session->adapter->name);
 			return -1;
 		}
 
 		MGMTD_FE_ADAPTER_DBG(
-			"Unlocked DS %u write-locked earlier by session-id: %" PRIu64
+			"Unlocked DS:%s write-locked earlier by session-id: %" PRIu64
 			" from %s",
-			ds_id, session->session_id, session->adapter->name);
+			mgmt_ds_id2name(ds_id), session->session_id,
+			session->adapter->name);
 	} else if (unlock_read && session->ds_read_locked[ds_id]) {
 		session->ds_read_locked[ds_id] = false;
 		session->ds_locked_implict[ds_id] = false;
 		if (mgmt_ds_unlock(ds_ctx) != 0) {
 			MGMTD_FE_ADAPTER_DBG(
-				"Failed to unlock the DS %u taken earlier by session-id: %" PRIu64
+				"Failed to unlock the DS:%s taken earlier by session-id: %" PRIu64
 				" from %s",
-				ds_id, session->session_id,
+				mgmt_ds_id2name(ds_id), session->session_id,
 				session->adapter->name);
 			return -1;
 		}
 
 		MGMTD_FE_ADAPTER_DBG(
-			"Unlocked DS %u read-locked earlier by session-id: %" PRIu64
+			"Unlocked DS:%s read-locked earlier by session-id: %" PRIu64
 			" from %s",
-			ds_id, session->session_id, session->adapter->name);
+			mgmt_ds_id2name(ds_id), session->session_id,
+			session->adapter->name);
 	}
 
 	return 0;
@@ -1148,7 +1153,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	}
 
 	/*
-	 * Next check first if the COMMCFG_REQ is for Candidate DS
+	 * Next check first if the COMMCFG_REQ is for running DS
 	 * or not. Report failure if its not. MGMTD currently only
 	 * supports editing the Candidate DS.
 	 */
@@ -1278,10 +1283,10 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->lockds_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got %sLOCKDS_REQ for DS:%d for session-id %" PRIu64
+			"Got LOCKDS_REQ (%sLOCK) for DS:%s for session-id %" PRIu64
 			" from '%s'",
 			fe_msg->lockds_req->lock ? "" : "UN",
-			fe_msg->lockds_req->ds_id,
+			mgmt_ds_id2name(fe_msg->lockds_req->ds_id),
 			fe_msg->lockds_req->session_id, adapter->name);
 		mgmt_fe_session_handle_lockds_req_msg(
 			session, fe_msg->lockds_req);
@@ -1291,11 +1296,11 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 				fe_msg->setcfg_req->session_id);
 		session->adapter->setcfg_stats.set_cfg_count++;
 		MGMTD_FE_ADAPTER_DBG(
-			"Got SETCFG_REQ (%d Xpaths, Implicit:%c) on DS:%d for session-id %" PRIu64
+			"Got SETCFG_REQ (%d Xpaths, Implicit:%c) on DS:%s for session-id %" PRIu64
 			" from '%s'",
 			(int)fe_msg->setcfg_req->n_data,
 			fe_msg->setcfg_req->implicit_commit ? 'T' : 'F',
-			fe_msg->setcfg_req->ds_id,
+			mgmt_ds_id2name(fe_msg->setcfg_req->ds_id),
 			fe_msg->setcfg_req->session_id, adapter->name);
 
 		mgmt_fe_session_handle_setcfg_req_msg(
@@ -1305,10 +1310,10 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->commcfg_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got COMMCFG_REQ for src-DS:%d dst-DS:%d (Abort:%c) on session-id %" PRIu64
+			"Got COMMCFG_REQ for src-DS:%s dst-DS:%s (Abort:%c) on session-id %" PRIu64
 			" from '%s'",
-			fe_msg->commcfg_req->src_ds_id,
-			fe_msg->commcfg_req->dst_ds_id,
+			mgmt_ds_id2name(fe_msg->commcfg_req->src_ds_id),
+			mgmt_ds_id2name(fe_msg->commcfg_req->dst_ds_id),
 			fe_msg->commcfg_req->abort ? 'T' : 'F',
 			fe_msg->commcfg_req->session_id, adapter->name);
 		mgmt_fe_session_handle_commit_config_req_msg(
@@ -1318,9 +1323,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->getcfg_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got GETCFG_REQ for DS:%d (xpaths: %d) on session-id %" PRIu64
+			"Got GETCFG_REQ for DS:%s (xpaths: %d) on session-id %" PRIu64
 			" from '%s'",
-			fe_msg->getcfg_req->ds_id,
+			mgmt_ds_id2name(fe_msg->getcfg_req->ds_id),
 			(int)fe_msg->getcfg_req->n_data,
 			fe_msg->getcfg_req->session_id, adapter->name);
 		mgmt_fe_session_handle_getcfg_req_msg(
@@ -1330,9 +1335,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		session = mgmt_session_id2ctx(
 				fe_msg->getdata_req->session_id);
 		MGMTD_FE_ADAPTER_DBG(
-			"Got GETDATA_REQ for DS:%d (xpaths: %d) on session-id %" PRIu64
+			"Got GETDATA_REQ for DS:%s (xpaths: %d) on session-id %" PRIu64
 			" from '%s'",
-			fe_msg->getdata_req->ds_id,
+			mgmt_ds_id2name(fe_msg->getdata_req->ds_id),
 			(int)fe_msg->getdata_req->n_data,
 			fe_msg->getdata_req->session_id, adapter->name);
 		mgmt_fe_session_handle_getdata_req_msg(

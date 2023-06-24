@@ -228,7 +228,7 @@ struct vty {
 	/* set when we have sent mgmtd a *REQ command in response to some vty
 	 * CLI command and we are waiting on the reply so we can respond to the
 	 * vty user. */
-	bool mgmt_req_pending;
+	const char *mgmt_req_pending_cmd;
 	bool mgmt_locked_candidate_ds;
 };
 
