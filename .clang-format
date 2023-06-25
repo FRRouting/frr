@@ -169,16 +169,16 @@ ObjCSpaceBeforeProtocolList: true
 ## Lowest Penalty Value wins. Values are used by clang-format to influence
 ## the brak decisions, it's a bit of voodoo magic though.
 ## Originally from linux which was "Taken from git's rules"
-PenaltyBreakAssignment: 10
+PenaltyBreakAssignment: 30
 PenaltyBreakComment: 10
 PenaltyBreakFirstLessLess: 0
 # Don't break a string into multi-string-fragments
-PenaltyBreakString: 200
+PenaltyBreakString: 1000
 # Allow going past the ColumnLimit to keep function arguments aligned
 # with the open parenthesis.
-PenaltyBreakBeforeFirstCallParameter: 200
+PenaltyBreakBeforeFirstCallParameter: 1000
 # Try and stay under ColumnLimit, but not at the cost of incomprehensible code.
-PenaltyExcessCharacter: 5
+PenaltyExcessCharacter: 30
 PenaltyReturnTypeOnItsOwnLine: 60
 
 PointerAlignment: Right
