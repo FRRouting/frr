@@ -164,7 +164,7 @@ struct mgmt_get_data_reply {
 
 struct mgmt_get_data_req {
 	Mgmtd__DatastoreId ds_id;
-	struct mgmt_ds_ctx *ds_ctx;
+	struct nb_config *cfg_root;
 	char *xpaths[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
 	int num_xpaths;
 
@@ -576,6 +576,10 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		if ((*txn_req)->req.get_data->reply)
 			XFREE(MTYPE_MGMTD_TXN_GETDATA_REPLY,
 			      (*txn_req)->req.get_data->reply);
+
+		if ((*txn_req)->req.get_data->cfg_root)
+			nb_config_free((*txn_req)->req.get_data->cfg_root);
+
 		XFREE(MTYPE_MGMTD_TXN_GETDATA_REQ, (*txn_req)->req.get_data);
 		break;
 	case MGMTD_TXN_PROC_GETDATA:
@@ -683,18 +687,18 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 			assert(mgmt_txn_reqs_count(&txn->set_cfg_reqs) == 1);
 			assert(txn_req->req.set_cfg->dst_ds_ctx);
 
-			ret = mgmt_ds_write_lock(
-				txn_req->req.set_cfg->dst_ds_ctx);
-			if (ret != 0) {
+			/* We expect the user to have locked the DST DS */
+			if (!mgmt_ds_is_locked(txn_req->req.set_cfg->dst_ds_ctx,
+					       txn->session_id)) {
 				MGMTD_TXN_ERR(
-					"Failed to lock DS %u txn-id: %" PRIu64
+					"DS %u not locked for implicit commit txn-id: %" PRIu64
 					" session-id: %" PRIu64 " err: %s",
 					txn_req->req.set_cfg->dst_ds_id,
 					txn->txn_id, txn->session_id,
 					strerror(ret));
 				mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_DS_LOCK_FAILED,
-					"Lock running DS before implicit commit failed!");
+					"running DS not locked for implicit commit");
 				goto mgmt_txn_process_set_cfg_done;
 			}
 
@@ -703,8 +707,8 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 				txn_req->req.set_cfg->ds_id,
 				txn_req->req.set_cfg->ds_ctx,
 				txn_req->req.set_cfg->dst_ds_id,
-				txn_req->req.set_cfg->dst_ds_ctx, false,
-				false, true);
+				txn_req->req.set_cfg->dst_ds_ctx, false, false,
+				true);
 
 			if (mm->perf_stats_en)
 				gettimeofday(&cmt_stats->last_start, NULL);
@@ -746,7 +750,6 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					   enum mgmt_result result,
 					   const char *error_if_any)
 {
-	int ret = 0;
 	bool success, create_cmt_info_rec;
 
 	if (!txn->commit_cfg_req)
@@ -754,7 +757,12 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 
 	success = (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES);
 
+	/* TODO: these replies should not be send if it's a rollback
+	 * b/c right now that is special cased.. that special casing should be
+	 * removed; however...
+	 */
 	if (!txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id
+	    && !txn->commit_cfg_req->req.commit_cfg.rollback
 	    && mgmt_fe_send_commit_cfg_reply(
 		       txn->session_id, txn->txn_id,
 		       txn->commit_cfg_req->req.commit_cfg.src_ds_id,
@@ -770,6 +778,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id
+	    && !txn->commit_cfg_req->req.commit_cfg.rollback
 	    && mgmt_fe_send_set_cfg_reply(
 		       txn->session_id, txn->txn_id,
 		       txn->commit_cfg_req->req.commit_cfg.src_ds_id,
@@ -784,6 +793,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 
 	if (success) {
 		/* Stop the commit-timeout timer */
+		/* XXX why only on success? */
 		EVENT_OFF(txn->comm_cfg_timeout);
 
 		create_cmt_info_rec =
@@ -830,26 +840,17 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.rollback) {
-		ret = mgmt_ds_unlock(
-			txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
-		if (ret != 0)
-			MGMTD_TXN_ERR(
-				"Failed to unlock the dst DS during rollback : %s",
-				strerror(ret));
-
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx);
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
 		/*
 		 * Resume processing the rollback command.
+		 *
+		 * TODO: there's no good reason to special case rollback, the
+		 * rollback boolean should be passed back to the FE client and it
+		 * can do the right thing.
 		 */
 		mgmt_history_rollback_complete(success);
 	}
-
-	if (txn->commit_cfg_req->req.commit_cfg.implicit)
-		if (mgmt_ds_unlock(
-			    txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx)
-		    != 0)
-			MGMTD_TXN_ERR(
-				"Failed to unlock the dst DS during implicit : %s",
-				strerror(ret));
 
 	txn->commit_cfg_req->req.commit_cfg.cmt_stats = NULL;
 	mgmt_txn_req_free(&txn->commit_cfg_req);
@@ -1724,8 +1725,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	mgmt_reset_get_data_reply_buf(get_req);
 }
 
-static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
-						 const char *xpath,
+static void mgmt_txn_iter_and_send_get_cfg_reply(const char *xpath,
 						 struct lyd_node *node,
 						 struct nb_node *nb_node,
 						 void *ctx)
@@ -1770,7 +1770,7 @@ static void mgmt_txn_iter_and_send_get_cfg_reply(struct mgmt_ds_ctx *ds_ctx,
 
 static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 			       struct mgmt_txn_req *txn_req,
-			       struct mgmt_ds_ctx *ds_ctx)
+			       struct nb_config *root)
 {
 	int indx;
 	struct mgmt_get_data_req *get_data;
@@ -1805,7 +1805,8 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 		 * want to also use an xpath regexp we need to add this
 		 * functionality.
 		 */
-		if (mgmt_ds_iter_data(get_data->ds_ctx, get_data->xpaths[indx],
+		if (mgmt_ds_iter_data(get_data->ds_id, root,
+				      get_data->xpaths[indx],
 				      mgmt_txn_iter_and_send_get_cfg_reply,
 				      (void *)txn_req) == -1) {
 			MGMTD_TXN_DBG("Invalid Xpath '%s",
@@ -1837,7 +1838,7 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
-	struct mgmt_ds_ctx *ds_ctx;
+	struct nb_config *cfg_root;
 	int num_processed = 0;
 	bool error;
 
@@ -1852,18 +1853,10 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_cfg_reqs, txn_req) {
 		error = false;
 		assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
-		ds_ctx = txn_req->req.get_data->ds_ctx;
-		if (!ds_ctx) {
-			mgmt_fe_send_get_cfg_reply(
-				txn->session_id, txn->txn_id,
-				txn_req->req.get_data->ds_id, txn_req->req_id,
-				MGMTD_INTERNAL_ERROR, NULL,
-				"No such datastore!");
-			error = true;
-			goto mgmt_txn_process_get_cfg_done;
-		}
+		cfg_root = txn_req->req.get_data->cfg_root;
+		assert(cfg_root);
 
-		if (mgmt_txn_get_config(txn, txn_req, ds_ctx) != 0) {
+		if (mgmt_txn_get_config(txn, txn_req, cfg_root) != 0) {
 			MGMTD_TXN_ERR(
 				"Unable to retrieve config from DS %d txn-id: %" PRIu64
 				" session-id: %" PRIu64 " req-id: %" PRIu64,
@@ -1871,8 +1864,6 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 				txn->session_id, txn_req->req_id);
 			error = true;
 		}
-
-	mgmt_txn_process_get_cfg_done:
 
 		if (error) {
 			/*
@@ -1904,9 +1895,7 @@ static void mgmt_txn_process_get_data(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
-	struct mgmt_ds_ctx *ds_ctx;
 	int num_processed = 0;
-	bool error;
 
 	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
@@ -1917,54 +1906,23 @@ static void mgmt_txn_process_get_data(struct event *thread)
 		      txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_data_reqs, txn_req) {
-		error = false;
 		assert(txn_req->req_event == MGMTD_TXN_PROC_GETDATA);
-		ds_ctx = txn_req->req.get_data->ds_ctx;
-		if (!ds_ctx) {
-			mgmt_fe_send_get_data_reply(
-				txn->session_id, txn->txn_id,
-				txn_req->req.get_data->ds_id, txn_req->req_id,
-				MGMTD_INTERNAL_ERROR, NULL,
-				"No such datastore!");
-			error = true;
-			goto mgmt_txn_process_get_data_done;
-		}
 
-		if (mgmt_ds_is_config(ds_ctx)) {
-			if (mgmt_txn_get_config(txn, txn_req, ds_ctx)
-			    != 0) {
-				MGMTD_TXN_ERR(
-					"Unable to retrieve config from DS %d txn-id %" PRIu64
-					" session-id: %" PRIu64
-					" req-id: %" PRIu64,
-					txn_req->req.get_data->ds_id,
-					txn->txn_id, txn->session_id,
-					txn_req->req_id);
-				error = true;
-			}
-		} else {
-			/*
-			 * TODO: Trigger GET procedures for Backend
-			 * For now return back error.
-			 */
-			mgmt_fe_send_get_data_reply(
-				txn->session_id, txn->txn_id,
-				txn_req->req.get_data->ds_id, txn_req->req_id,
-				MGMTD_INTERNAL_ERROR, NULL,
-				"GET-DATA on Oper DS is not supported yet!");
-			error = true;
-		}
-
-	mgmt_txn_process_get_data_done:
-
-		if (error) {
-			/*
-			 * Delete the txn request.
-			 * Note: The following will remove it from the list
-			 * as well.
-			 */
-			mgmt_txn_req_free(&txn_req);
-		}
+		/*
+		 * TODO: Trigger GET procedures for Backend
+		 * For now return back error.
+		 */
+		mgmt_fe_send_get_data_reply(
+			txn->session_id, txn->txn_id,
+			txn_req->req.get_data->ds_id, txn_req->req_id,
+			MGMTD_INTERNAL_ERROR, NULL,
+			"GET-DATA on Oper DS is not supported yet!");
+		/*
+		 * Delete the txn request.
+		 * Note: The following will remove it from the list
+		 * as well.
+		 */
+		mgmt_txn_req_free(&txn_req);
 
 		/*
 		 * Else the transaction would have been already deleted or
@@ -2344,12 +2302,12 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 }
 
 int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
-				     Mgmtd__DatastoreId src_ds_id,
-				     struct mgmt_ds_ctx *src_ds_ctx,
-				     Mgmtd__DatastoreId dst_ds_id,
-				     struct mgmt_ds_ctx *dst_ds_ctx,
-				     bool validate_only, bool abort,
-				     bool implicit)
+				    Mgmtd__DatastoreId src_ds_id,
+				    struct mgmt_ds_ctx *src_ds_ctx,
+				    Mgmtd__DatastoreId dst_ds_id,
+				    struct mgmt_ds_ctx *dst_ds_ctx,
+				    bool validate_only, bool abort,
+				    bool implicit)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2395,9 +2353,8 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 	memset(&dummy_stats, 0, sizeof(dummy_stats));
 	if (connect) {
 		/* Get config for this single backend client */
-		mgmt_be_get_adapter_config(adapter, mm->running_ds,
-					      &adapter_cfgs);
 
+		mgmt_be_get_adapter_config(adapter, &adapter_cfgs);
 		if (!adapter_cfgs || RB_EMPTY(nb_config_cbs, adapter_cfgs)) {
 			SET_FLAG(adapter->flags,
 				 MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
@@ -2619,10 +2576,10 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 }
 
 int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
-				  Mgmtd__DatastoreId ds_id,
-				  struct mgmt_ds_ctx *ds_ctx,
-				  Mgmtd__YangGetDataReq **data_req,
-				  size_t num_reqs)
+				 Mgmtd__DatastoreId ds_id,
+				 struct nb_config *cfg_root,
+				 Mgmtd__YangGetDataReq **data_req,
+				 size_t num_reqs)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2634,7 +2591,7 @@ int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
 
 	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETCFG);
 	txn_req->req.get_data->ds_id = ds_id;
-	txn_req->req.get_data->ds_ctx = ds_ctx;
+	txn_req->req.get_data->cfg_root = cfg_root;
 	for (indx = 0;
 	     indx < num_reqs && indx < MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH;
 	     indx++) {
@@ -2650,10 +2607,9 @@ int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
 }
 
 int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
-				Mgmtd__DatastoreId ds_id,
-				struct mgmt_ds_ctx *ds_ctx,
-				Mgmtd__YangGetDataReq **data_req,
-				size_t num_reqs)
+			       Mgmtd__DatastoreId ds_id,
+			       Mgmtd__YangGetDataReq **data_req,
+			       size_t num_reqs)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2665,7 +2621,7 @@ int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
 
 	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETDATA);
 	txn_req->req.get_data->ds_id = ds_id;
-	txn_req->req.get_data->ds_ctx = ds_ctx;
+	txn_req->req.get_data->cfg_root = NULL;
 	for (indx = 0;
 	     indx < num_reqs && indx < MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH;
 	     indx++) {
@@ -2703,10 +2659,11 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 					struct mgmt_ds_ctx *dst_ds_ctx)
 {
 	static struct nb_config_cbs changes;
+	static struct mgmt_commit_stats dummy_stats;
+
 	struct nb_config_cbs *cfg_chgs = NULL;
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
-	static struct mgmt_commit_stats dummy_stats;
 
 	memset(&changes, 0, sizeof(changes));
 	memset(&dummy_stats, 0, sizeof(dummy_stats));

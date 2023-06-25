@@ -22,7 +22,9 @@
 
 struct mgmt_ds_ctx {
 	Mgmtd__DatastoreId ds_id;
-	int lock; /* 0 unlocked, >0 read locked < write locked */
+
+	bool locked;
+	uint64_t vty_session_id; /* Owner of the lock or 0 */
 
 	bool config_ds;
 
@@ -76,29 +78,20 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 					   struct mgmt_ds_ctx *dst)
 {
-	struct lyd_node *dst_dnode, *src_dnode;
-
 	if (!src || !dst)
 		return -1;
 
 	MGMTD_DS_DBG("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
 		     mgmt_ds_id2name(src->ds_id));
 
-	src_dnode = src->config_ds ? src->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-	dst_dnode = dst->config_ds ? dst->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-
-	if (dst_dnode)
-		yang_dnode_free(dst_dnode);
-
-	/* Not using nb_config_replace as the oper ds does not contain nb_config
-	 */
-	dst_dnode = yang_dnode_dup(src_dnode);
-	if (dst->config_ds)
-		dst->root.cfg_root->dnode = dst_dnode;
-	else
-		dst->root.dnode_root = dst_dnode;
+	if (src->config_ds && dst->config_ds)
+		nb_config_replace(dst->root.cfg_root, src->root.cfg_root, true);
+	else {
+		assert(!src->config_ds && !dst->config_ds);
+		if (dst->root.dnode_root)
+			yang_dnode_free(dst->root.dnode_root);
+		dst->root.dnode_root = yang_dnode_dup(src->root.dnode_root);
+	}
 
 	if (src->ds_id == MGMTD_DS_CANDIDATE) {
 		/*
@@ -108,8 +101,6 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
-	/* TODO: Update the versions if nb_config present */
-
 	return 0;
 }
 
@@ -117,20 +108,21 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 					 struct mgmt_ds_ctx *dst)
 {
 	int ret;
-	struct lyd_node **dst_dnode, *src_dnode;
 
 	if (!src || !dst)
 		return -1;
 
 	MGMTD_DS_DBG("Merging DS %d with %d", dst->ds_id, src->ds_id);
-
-	src_dnode = src->config_ds ? src->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-	dst_dnode = dst->config_ds ? &dst->root.cfg_root->dnode
-				   : &dst->root.dnode_root;
-	ret = lyd_merge_siblings(dst_dnode, src_dnode, 0);
+	if (src->config_ds && dst->config_ds)
+		ret = nb_config_merge(dst->root.cfg_root, src->root.cfg_root,
+				      true);
+	else {
+		assert(!src->config_ds && !dst->config_ds);
+		ret = lyd_merge_siblings(&dst->root.dnode_root,
+					 src->root.dnode_root, 0);
+	}
 	if (ret != 0) {
-		MGMTD_DS_ERR("lyd_merge() failed with err %d", ret);
+		MGMTD_DS_ERR("merge failed with err: %d", ret);
 		return ret;
 	}
 
@@ -212,9 +204,11 @@ int mgmt_ds_init(struct mgmt_master *mm)
 
 void mgmt_ds_destroy(void)
 {
-	/*
-	 * TODO: Free the datastores.
-	 */
+	nb_config_free(candidate.root.cfg_root);
+	candidate.root.cfg_root = NULL;
+
+	yang_dnode_free(oper.root.dnode_root);
+	oper.root.dnode_root = NULL;
 }
 
 struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
@@ -244,40 +238,33 @@ bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx)
 	return ds_ctx->config_ds;
 }
 
-int mgmt_ds_read_lock(struct mgmt_ds_ctx *ds_ctx)
+bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
-	if (!ds_ctx)
-		return EINVAL;
-	if (ds_ctx->lock < 0)
+	assert(ds_ctx);
+	return (ds_ctx->locked && ds_ctx->vty_session_id == session_id);
+}
+
+int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
+{
+	assert(ds_ctx);
+
+	if (ds_ctx->locked)
 		return EBUSY;
-	++ds_ctx->lock;
+
+	ds_ctx->locked = true;
+	ds_ctx->vty_session_id = session_id;
 	return 0;
 }
 
-int mgmt_ds_write_lock(struct mgmt_ds_ctx *ds_ctx)
+void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
 {
-	if (!ds_ctx)
-		return EINVAL;
-	if (ds_ctx->lock != 0)
-		return EBUSY;
-	ds_ctx->lock = -1;
-	return 0;
-}
-
-int mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
-{
-	if (!ds_ctx)
-		return EINVAL;
-	if (ds_ctx->lock > 0)
-		--ds_ctx->lock;
-	else if (ds_ctx->lock < 0) {
-		assert(ds_ctx->lock == -1);
-		ds_ctx->lock = 0;
-	} else {
-		assert(ds_ctx->lock != 0);
-		return EINVAL;
-	}
-	return 0;
+	assert(ds_ctx);
+	if (!ds_ctx->locked)
+		zlog_warn(
+			"%s: WARNING: unlock on unlocked in DS:%s last session-id %" PRIu64,
+			__func__, mgmt_ds_id2name(ds_ctx->ds_id),
+			ds_ctx->vty_session_id);
+	ds_ctx->locked = 0;
 }
 
 int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
@@ -314,10 +301,9 @@ struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx)
 }
 
 static int mgmt_walk_ds_nodes(
-	struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
+	struct nb_config *root, const char *base_xpath,
 	struct lyd_node *base_dnode,
-	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
-				     const char *xpath, struct lyd_node *node,
+	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
 	void *ctx)
 {
@@ -336,10 +322,7 @@ static int mgmt_walk_ds_nodes(
 		 * This function only returns the first node of a possible set
 		 * of matches issuing a warning if more than 1 matches
 		 */
-		base_dnode = yang_dnode_get(
-			ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-					   : ds_ctx->root.dnode_root,
-			base_xpath);
+		base_dnode = yang_dnode_get(root->dnode, base_xpath);
 	if (!base_dnode)
 		return -1;
 
@@ -348,7 +331,7 @@ static int mgmt_walk_ds_nodes(
 			       sizeof(xpath)));
 
 	nbnode = (struct nb_node *)base_dnode->schema->priv;
-	(*mgmt_ds_node_iter_fn)(ds_ctx, base_xpath, base_dnode, nbnode, ctx);
+	(*mgmt_ds_node_iter_fn)(base_xpath, base_dnode, nbnode, ctx);
 
 	/*
 	 * If the base_xpath points to a leaf node we can skip the tree walk.
@@ -370,7 +353,7 @@ static int mgmt_walk_ds_nodes(
 
 		MGMTD_DS_DBG(" -- Child xpath: %s", xpath);
 
-		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, dnode,
+		ret = mgmt_walk_ds_nodes(root, xpath, dnode,
 					 mgmt_ds_node_iter_fn, ctx);
 		if (ret != 0)
 			break;
@@ -459,9 +442,9 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 	return 0;
 }
 
-int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
-		      void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
-						   const char *xpath,
+int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
+		      const char *base_xpath,
+		      void (*mgmt_ds_node_iter_fn)(const char *xpath,
 						   struct lyd_node *node,
 						   struct nb_node *nb_node,
 						   void *ctx),
@@ -472,7 +455,7 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
 
-	if (!ds_ctx)
+	if (!root)
 		return -1;
 
 	strlcpy(xpath, base_xpath, sizeof(xpath));
@@ -484,12 +467,11 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
 	 * Oper-state should be kept in mind though for the prefix walk
 	 */
 
-	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_ctx->ds_id);
+	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_id);
 
 	/* If the base_xpath is empty then crawl the sibblings */
 	if (xpath[0] == 0) {
-		base_dnode = ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-						: ds_ctx->root.dnode_root;
+		base_dnode = root->dnode;
 
 		/* get first top-level sibling */
 		while (base_dnode->parent)
@@ -499,11 +481,11 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
 			base_dnode = base_dnode->prev;
 
 		LY_LIST_FOR (base_dnode, node) {
-			ret = mgmt_walk_ds_nodes(ds_ctx, xpath, node,
+			ret = mgmt_walk_ds_nodes(root, xpath, node,
 						 mgmt_ds_node_iter_fn, ctx);
 		}
 	} else
-		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, base_dnode,
+		ret = mgmt_walk_ds_nodes(root, xpath, base_dnode,
 					 mgmt_ds_node_iter_fn, ctx);
 
 	return ret;

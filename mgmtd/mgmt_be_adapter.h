@@ -110,10 +110,8 @@ extern struct mgmt_be_client_adapter *
 mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id);
 
 /* Fetch backend adapter config. */
-extern int
-mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
-			      struct mgmt_ds_ctx *ds_ctx,
-			      struct nb_config_cbs **cfg_chgs);
+extern int mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
+				      struct nb_config_cbs **cfg_chgs);
 
 /* Create/destroy a transaction. */
 extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,

@@ -98,8 +98,8 @@ struct msg_conn {
 			   struct msg_conn *conn);
 	void *user;
 	uint short_circuit_depth;
+	bool is_short_circuit;	/* true when the message being handled is SC */
 	bool is_client;
-	bool is_short_circuit;
 	bool debug;
 };
 

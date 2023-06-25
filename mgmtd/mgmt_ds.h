@@ -179,19 +179,19 @@ extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
 extern bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Acquire read lock to a ds given a ds_handle
+ * Check if a given datastore is locked by a given session
  */
-extern int mgmt_ds_read_lock(struct mgmt_ds_ctx *ds_ctx);
+extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Acquire write lock to a ds given a ds_handle
  */
-extern int mgmt_ds_write_lock(struct mgmt_ds_ctx *ds_ctx);
+extern int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Remove a lock from ds given a ds_handle
  */
-extern int mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
+extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
 
 /*
  * Copy from source to destination datastore.
@@ -233,8 +233,11 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
 /*
  * Iterate over datastore data.
  *
- * ds_ctx
- *    Datastore context.
+ * ds_id
+ *    Datastore ID..
+ *
+ * root
+ *    The root of the tree to iterate over.
  *
  * base_xpath
  *    Base YANG xpath from where needs to be iterated.
@@ -252,9 +255,9 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
  *    0 on success, -1 on failure.
  */
 extern int mgmt_ds_iter_data(
-	struct mgmt_ds_ctx *ds_ctx, const char *base_xpath,
-	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
-				     const char *xpath, struct lyd_node *node,
+	Mgmtd__DatastoreId ds_id, struct nb_config *root,
+	const char *base_xpath,
+	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
 	void *ctx);
 
