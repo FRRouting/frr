@@ -865,6 +865,24 @@ DEFPY (send_opaque_reg,
 	return CMD_SUCCESS;
 }
 
+/* Opaque notifications - register or unregister */
+DEFPY (send_opaque_notif_reg,
+       send_opaque_notif_reg_cmd,
+       "sharp send opaque notify <reg$reg | unreg> type (1-1000)",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Opaque notification messages\n"
+       "Send notify registration\n"
+       "Send notify unregistration\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	sharp_zebra_opaque_notif_reg((reg != NULL), type);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (neigh_discover,
        neigh_discover_cmd,
        "sharp neigh discover [vrf NAME$vrf_name] <A.B.C.D$dst4|X:X::X:X$dst6> IFNAME$ifname",
@@ -1406,6 +1424,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
+	install_element(ENABLE_NODE, &send_opaque_notif_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
 	install_element(ENABLE_NODE, &import_te_cmd);
 

@@ -87,7 +87,9 @@ enum zserv_client_capabilities {
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 
-/* Zebra message types. */
+/* Zebra message types. Please update the corresponding
+ * command_types array with any changes!
+ */
 typedef enum {
 	ZEBRA_INTERFACE_ADD,
 	ZEBRA_INTERFACE_DELETE,
@@ -232,7 +234,11 @@ typedef enum {
 	ZEBRA_TC_CLASS_DELETE,
 	ZEBRA_TC_FILTER_ADD,
 	ZEBRA_TC_FILTER_DELETE,
+	ZEBRA_OPAQUE_NOTIFY,
 } zebra_message_types_t;
+/* Zebra message types. Please update the corresponding
+ * command_types array with any changes!
+ */
 
 enum zebra_error_types {
 	ZEBRA_UNKNOWN_ERROR,    /* Error of unknown type */
@@ -1176,16 +1182,33 @@ zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 			    uint32_t session_id, const uint8_t *data,
 			    size_t datasize);
 
+/* Init functions also provided for clients who want to encode their
+ * data inline into the zclient's stream buffer. Please use these instead
+ * of hand-encoding the header info, since that may change over time.
+ * Note that these will reset the zclient's outbound stream before encoding.
+ */
+enum zclient_send_status zapi_opaque_init(struct zclient *zclient,
+					  uint32_t type, uint16_t flags);
+
+enum zclient_send_status
+zapi_opaque_unicast_init(struct zclient *zclient, uint32_t type, uint16_t flags,
+			 uint8_t proto, uint16_t instance, uint32_t session_id);
+
 /* Struct representing the decoded opaque header info */
 struct zapi_opaque_msg {
 	uint32_t type; /* Subtype */
 	uint16_t len;  /* len after zapi header and this info */
 	uint16_t flags;
 
-	/* Client-specific info - *if* UNICAST flag is set */
-	uint8_t proto;
-	uint16_t instance;
-	uint32_t session_id;
+	/* Sending client info */
+	uint8_t src_proto;
+	uint16_t src_instance;
+	uint32_t src_session_id;
+
+	/* Destination client info - *if* UNICAST flag is set */
+	uint8_t dest_proto;
+	uint16_t dest_instance;
+	uint32_t dest_session_id;
 };
 
 #define ZAPI_OPAQUE_FLAG_UNICAST   0x01
@@ -1201,6 +1224,34 @@ struct zapi_opaque_reg_info {
 	uint32_t session_id;
 };
 
+/* Simple struct conveying information about opaque notifications.
+ * Daemons can request notifications about the status of registration for
+ * opaque message types. For example, a client daemon can request notification
+ * when a server registers to receive a certain message code. Or a server can
+ * request notification when a subscriber registers for its output.
+ */
+struct zapi_opaque_notif_info {
+	bool request;	   /* Request to register, or notification from zebra */
+	bool reg;	   /* Register or unregister */
+	uint32_t msg_type; /* Target message code */
+
+	/* For notif registration, zapi info for the client.
+	 * For notifications, zapi info for the message's server/registrant.
+	 * For notification that there is no server/registrant, not present.
+	 */
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+};
+
+/* The same ZAPI message is used for daemon->zebra requests, and for
+ * zebra->daemon notifications.
+ * Daemons send 'request' true, and 'reg' true or false.
+ * Zebra sends 'request' false, 'reg' set if the notification is a
+ * server/receiver registration for the message type, and false if the event
+ * is the end of registrations.
+ */
+
 /* Decode incoming opaque */
 int zclient_opaque_decode(struct stream *msg, struct zapi_opaque_msg *info);
 
@@ -1210,6 +1261,19 @@ enum zclient_send_status zclient_unregister_opaque(struct zclient *zclient,
 						   uint32_t type);
 int zapi_opaque_reg_decode(struct stream *msg,
 			   struct zapi_opaque_reg_info *info);
+
+/* Opaque notification features */
+enum zclient_send_status zclient_opaque_request_notify(struct zclient *zclient,
+						       uint32_t msgtype);
+enum zclient_send_status zclient_opaque_drop_notify(struct zclient *zclient,
+						    uint32_t msgtype);
+
+/* Encode, decode an incoming zapi opaque notification */
+int zclient_opaque_notif_encode(struct stream *s, uint32_t msg_type,
+				bool reg /* register or unreg*/, uint8_t proto,
+				uint16_t instance, uint32_t session_id);
+int zclient_opaque_notif_decode(struct stream *s,
+				struct zapi_opaque_notif_info *info);
 
 /*
  * Registry of opaque message types. Please do not reuse an in-use

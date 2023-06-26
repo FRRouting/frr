@@ -3824,6 +3824,53 @@ enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
 }
 
 /*
+ * Init/header setup for opaque zapi messages
+ */
+enum zclient_send_status zapi_opaque_init(struct zclient *zclient,
+					  uint32_t type, uint16_t flags)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Source daemon identifiers */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
+ * Init, header setup for opaque unicast messages.
+ */
+enum zclient_send_status
+zapi_opaque_unicast_init(struct zclient *zclient, uint32_t type, uint16_t flags,
+			 uint8_t proto, uint16_t instance, uint32_t session_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+
+	/* Common init */
+	zapi_opaque_init(zclient, type, flags | ZAPI_OPAQUE_FLAG_UNICAST);
+
+	/* Send destination client info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
  * Send an OPAQUE message, contents opaque to zebra. The message header
  * is a message subtype.
  */
@@ -3840,16 +3887,12 @@ enum zclient_send_status zclient_send_opaque(struct zclient *zclient,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
-	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Send sub-type and flags */
-	stream_putl(s, type);
-	stream_putw(s, flags);
+	zapi_opaque_init(zclient, type, flags);
 
 	/* Send opaque data */
-	stream_write(s, data, datasize);
+	if (datasize > 0)
+		stream_write(s, data, datasize);
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3876,22 +3919,14 @@ zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
-	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
-
-	/* Send sub-type and flags */
-	SET_FLAG(flags, ZAPI_OPAQUE_FLAG_UNICAST);
-	stream_putl(s, type);
-	stream_putw(s, flags);
-
-	/* Send destination client info */
-	stream_putc(s, proto);
-	stream_putw(s, instance);
-	stream_putl(s, session_id);
+	/* Common init */
+	zapi_opaque_unicast_init(zclient, type, flags, proto, instance,
+				 session_id);
 
 	/* Send opaque data */
-	stream_write(s, data, datasize);
+	if (datasize > 0)
+		stream_write(s, data, datasize);
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3910,11 +3945,16 @@ int zclient_opaque_decode(struct stream *s, struct zapi_opaque_msg *info)
 	STREAM_GETL(s, info->type);
 	STREAM_GETW(s, info->flags);
 
-	/* Decode unicast client info if present */
+	/* Decode sending daemon info */
+	STREAM_GETC(s, info->src_proto);
+	STREAM_GETW(s, info->src_instance);
+	STREAM_GETL(s, info->src_session_id);
+
+	/* Decode unicast destination info, if present */
 	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
-		STREAM_GETC(s, info->proto);
-		STREAM_GETW(s, info->instance);
-		STREAM_GETL(s, info->session_id);
+		STREAM_GETC(s, info->dest_proto);
+		STREAM_GETW(s, info->dest_instance);
+		STREAM_GETL(s, info->dest_session_id);
 	}
 
 	info->len = STREAM_READABLE(s);
@@ -4471,4 +4511,126 @@ int zclient_send_zebra_gre_request(struct zclient *client,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);
 	return 0;
+}
+
+
+/*
+ * Opaque notification features
+ */
+
+/*
+ * Common encode helper for opaque notifications, both registration
+ * and async notification messages.
+ */
+static int opaque_notif_encode_common(struct stream *s, uint32_t msg_type,
+				      bool request, bool reg, uint8_t proto,
+				      uint16_t instance, uint32_t session_id)
+{
+	int ret = 0;
+	uint8_t val = 0;
+
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_NOTIFY, VRF_DEFAULT);
+
+	/* Notification or request */
+	if (request)
+		val = 1;
+	stream_putc(s, val);
+
+	if (reg)
+		val = 1;
+	else
+		val = 0;
+	stream_putc(s, val);
+
+	stream_putl(s, msg_type);
+
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	/* And capture message length */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return ret;
+}
+
+/*
+ * Encode a zapi opaque message type notification into buffer 's'
+ */
+int zclient_opaque_notif_encode(struct stream *s, uint32_t msg_type, bool reg,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id)
+{
+	return opaque_notif_encode_common(s, msg_type, false /* !request */,
+					  reg, proto, instance, session_id);
+}
+
+/*
+ * Decode an incoming zapi opaque message type notification
+ */
+int zclient_opaque_notif_decode(struct stream *s,
+				struct zapi_opaque_notif_info *info)
+{
+	uint8_t val;
+
+	memset(info, 0, sizeof(*info));
+
+	STREAM_GETC(s, val); /* Registration or notification */
+	info->request = (val != 0);
+
+	STREAM_GETC(s, val);
+	info->reg = (val != 0);
+
+	STREAM_GETL(s, info->msg_type);
+
+	STREAM_GETC(s, info->proto);
+	STREAM_GETW(s, info->instance);
+	STREAM_GETL(s, info->session_id);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+/*
+ * Encode and send a zapi opaque message type notification request to zebra
+ */
+enum zclient_send_status zclient_opaque_request_notify(struct zclient *zclient,
+						       uint32_t msgtype)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return ZCLIENT_SEND_FAILURE;
+
+	s = zclient->obuf;
+
+	opaque_notif_encode_common(s, msgtype, true /* request */,
+				   true /* register */, zclient->redist_default,
+				   zclient->instance, zclient->session_id);
+
+	return zclient_send_message(zclient);
+}
+
+/*
+ * Encode and send a request to drop notifications for an opaque message type.
+ */
+enum zclient_send_status zclient_opaque_drop_notify(struct zclient *zclient,
+						    uint32_t msgtype)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return ZCLIENT_SEND_FAILURE;
+
+	s = zclient->obuf;
+
+	opaque_notif_encode_common(s, msgtype, true /* req */,
+				   false /* unreg */, zclient->redist_default,
+				   zclient->instance, zclient->session_id);
+
+	return zclient_send_message(zclient);
 }
