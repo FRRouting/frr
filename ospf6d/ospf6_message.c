@@ -2248,6 +2248,17 @@ void ospf6_hello_send(struct event *thread)
 	if (oi->gr.hello_delay.t_grace_send)
 		return;
 
+	/* Check if config is still being processed */
+	if (event_is_scheduled(t_ospf6_cfg)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND))
+			zlog_debug(
+				"Suppressing Hello on interface %s during config load",
+				oi->interface->name);
+		event_add_timer(master, ospf6_hello_send, oi,
+				oi->hello_interval, &oi->thread_send_hello);
+		return;
+	}
+
 	if (oi->state <= OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
 			zlog_debug("Unable to send Hello on down interface %s",
