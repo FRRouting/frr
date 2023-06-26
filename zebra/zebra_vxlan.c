@@ -194,7 +194,7 @@ static int l3vni_rmac_nh_list_cmp(void *p1, void *p2)
 	const struct ipaddr *vtep_ip1 = p1;
 	const struct ipaddr *vtep_ip2 = p2;
 
-	return !ipaddr_cmp(vtep_ip1, vtep_ip2);
+	return ipaddr_cmp(vtep_ip1, vtep_ip2);
 }
 
 static void l3vni_rmac_nh_free(struct ipaddr *vtep_ip)
