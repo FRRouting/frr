@@ -39,6 +39,7 @@ static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
+extern struct zclient *zclient_sync;
 static bool zebra_registered = false;
 
 static void
@@ -703,4 +704,10 @@ ldp_zebra_destroy(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;
+
+	if (zclient_sync == NULL)
+		return;
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
 }
