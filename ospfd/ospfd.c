@@ -60,6 +60,7 @@ struct ospf_master *om;
 unsigned short ospf_instance;
 
 extern struct zclient *zclient;
+extern struct zclient *zclient_sync;
 
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
@@ -681,6 +682,8 @@ void ospf_terminate(void)
 	 */
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 
 done:
 	frr_fini();

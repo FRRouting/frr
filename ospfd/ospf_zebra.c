@@ -47,7 +47,7 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
 /* and for the Synchronous connection to the Label Manager */
-static struct zclient *zclient_sync;
+struct zclient *zclient_sync;
 
 /* For registering threads. */
 extern struct event_loop *master;
