@@ -52,12 +52,20 @@
 
 #include "pim6_mld.h"
 
+<<<<<<< HEAD
 #if PIM_IPV == 4
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 			  struct in_addr group_addr, struct in_addr source_addr,
 			  struct pim_interface *pim_ifp);
 #endif
+=======
+static void pim_if_gm_join_del_all(struct interface *ifp);
+
+static int gm_join_sock(const char *ifname, ifindex_t ifindex,
+			pim_addr group_addr, pim_addr source_addr,
+			struct pim_interface *pim_ifp);
+>>>>>>> 24379f0bb (pimd: Fix memory leak in PIM interface deletion)
 
 void pim_if_init(struct pim_instance *pim)
 {
@@ -201,11 +209,9 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-#if PIM_IPV == 4
 	if (pim_ifp->gm_join_list) {
-		pim_if_igmp_join_del_all(ifp);
+		pim_if_gm_join_del_all(ifp);
 	}
-#endif
 
 	pim_ifchannel_delete_all(ifp);
 #if PIM_IPV == 4
@@ -1421,7 +1427,7 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 }
 
 __attribute__((unused))
-static void pim_if_igmp_join_del_all(struct interface *ifp)
+static void pim_if_gm_join_del_all(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
@@ -1441,6 +1447,7 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
 		pim_if_igmp_join_del(ifp, ij->group_addr, ij->source_addr);
 }
+<<<<<<< HEAD
 #else /* PIM_IPV != 4 */
 ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			    struct in_addr source_addr)
@@ -1454,6 +1461,8 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 	return 0;
 }
 #endif /* PIM_IPV != 4 */
+=======
+>>>>>>> 24379f0bb (pimd: Fix memory leak in PIM interface deletion)
 
 /*
   RFC 4601
