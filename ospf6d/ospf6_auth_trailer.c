@@ -601,20 +601,19 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 	else
 		return;
 
-	ospf6->seqnum_l++;
 	if (ospf6->seqnum_l == 0xFFFFFFFF) {
-		ospf6->seqnum_h++;
-		ospf6->seqnum_l = 0;
+		if (ospf6->seqnum_h == 0xFFFFFFFF) {
+			/* Key must be reset, which is not handled as of now. */
+			zlog_err("Sequence number wrapped; key must be reset.");
+			ospf6->seqnum_h = 0;
+		} else {
+			ospf6->seqnum_h++;
+		}
 		ospf6_auth_seqno_nvm_update(ospf6);
-	}
 
-	/* Key must be reset. which is not handled as of now. */
-	if ((ospf6->seqnum_l == 0xFFFFFFFF)
-	    && (ospf6->seqnum_h == 0xFFFFFFFF)) {
 		ospf6->seqnum_l = 0;
-		ospf6->seqnum_h = 0;
-		zlog_err(
-			"Both Higher and Lower sequence number has wrapped. Need to reset the key");
+	} else {
+		ospf6->seqnum_l++;
 	}
 
 	memset(apad, 0, sizeof(apad));

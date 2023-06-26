@@ -27,6 +27,7 @@ dev_RSTFILES = \
 	doc/developer/building-libunwind-note.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \
+	doc/developer/checkpatch.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
 	doc/developer/cross-compiling.rst \

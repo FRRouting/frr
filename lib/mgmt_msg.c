@@ -59,11 +59,12 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 	 */
 	while (avail > sizeof(struct mgmt_msg_hdr)) {
 		n = stream_read_try(ms->ins, fd, avail);
-		MGMT_MSG_DBG(dbgtag, "got %zd bytes", n);
 
 		/* -2 is normal nothing read, and to retry */
-		if (n == -2)
+		if (n == -2) {
+			MGMT_MSG_DBG(dbgtag, "nothing more to read");
 			break;
+		}
 		if (n <= 0) {
 			if (n == 0)
 				MGMT_MSG_ERR(ms, "got EOF/disconnect");
@@ -73,6 +74,7 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 					     safe_strerror(errno));
 			return MSR_DISCONNECT;
 		}
+		MGMT_MSG_DBG(dbgtag, "read %zd bytes", n);
 		ms->nrxb += n;
 		avail -= n;
 	}
@@ -546,20 +548,26 @@ int msg_conn_send_msg(struct msg_conn *conn, uint8_t version, void *msg,
 	if (conn->remote_conn && short_circuit_ok) {
 		uint8_t *buf = msg;
 		size_t n = mlen;
+		bool old;
 
 		if (packf) {
 			buf = XMALLOC(MTYPE_TMP, mlen);
 			n = packf(msg, buf);
 		}
 
+		++conn->short_circuit_depth;
 		MGMT_MSG_DBG(dbgtag, "SC send: depth %u msg: %p",
-			     ++conn->short_circuit_depth, msg);
+			     conn->short_circuit_depth, msg);
 
+		old = conn->remote_conn->is_short_circuit;
+		conn->remote_conn->is_short_circuit = true;
 		conn->remote_conn->handle_msg(version, buf, n,
 					      conn->remote_conn);
+		conn->remote_conn->is_short_circuit = old;
 
+		--conn->short_circuit_depth;
 		MGMT_MSG_DBG(dbgtag, "SC return from depth: %u msg: %p",
-			     conn->short_circuit_depth--, msg);
+			     conn->short_circuit_depth, msg);
 
 		if (packf)
 			XFREE(MTYPE_TMP, buf);
@@ -659,12 +667,10 @@ static bool msg_client_connect_short_circuit(struct msg_client *client)
 	set_nonblocking(sockets[0]);
 	setsockopt_so_sendbuf(sockets[0], client->conn.mstate.max_write_buf);
 	setsockopt_so_recvbuf(sockets[0], client->conn.mstate.max_read_buf);
-	client->conn.is_short_circuit = true;
 
 	/* server side */
 	memset(&su, 0, sizeof(union sockunion));
 	server_conn = server->create(sockets[1], &su);
-	server_conn->is_short_circuit = true;
 
 	client->conn.remote_conn = server_conn;
 	server_conn->remote_conn = &client->conn;

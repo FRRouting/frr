@@ -1669,6 +1669,10 @@ Configuring Peers
    Configure BGP to send best known paths to neighbor in order to preserve multi
    path capabilities inside a network.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-best-selected (1-6)
+
+   Configure BGP to calculate and send N best known paths to the neighbor.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx
 
    Do not accept additional paths from this neighbor.
@@ -1728,6 +1732,12 @@ Configuring Peers
    when a link flaps.  `bgp fast-external-failover` is the default
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
+
+.. clicmd:: bgp default-originate timer (0-3600)
+
+   Set the period to rerun the default-originate route-map scanner process. The
+   default is 5 seconds. With a full routing table, it might be useful to increase
+   this setting to avoid scanning the whole BGP table aggressively.
 
 .. clicmd:: bgp default ipv4-unicast
 
@@ -2099,6 +2109,11 @@ Using AS Path in Route Map
 
    Replace a specific AS number to local AS number. ``any`` replaces each
    AS number in the AS-PATH with the local AS number.
+
+.. clicmd:: set as-path exclude all
+
+   Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
+   this command removes this set operation from the route-map.
 
 .. _bgp-communities-attribute:
 
@@ -2967,6 +2982,14 @@ by issuing the following command under the interface configuration context.
 This configuration will install VPN prefixes originated from an e-bgp session,
 and with the next-hop directly connected.
 
+.. clicmd:: mpls bgp l3vpn-multi-domain-switching
+
+Redistribute labeled L3VPN routes from AS to neighboring AS (RFC-4364 option
+B, or within the same AS when the iBGP peer uses ``next-hop-self`` to rewrite
+the next-hop attribute). The labeled L3VPN routes received on this interface are
+re-advertised with local labels and an MPLS table swap entry is set to bind
+the local label to the received label.
+
 .. _bgp-l3vpn-srv6:
 
 L3VPN SRv6
@@ -3222,6 +3245,77 @@ Example configuration:
      enable-resolve-overlay-index
     exit-address-family
    !
+
+.. _bgp-evpn-mac-vrf-site-of-origin:
+
+EVPN MAC-VRF Site-of-Origin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In some EVPN deployments it is useful to associate a logical VTEP's Layer 2
+domain (MAC-VRF) with a Site-of-Origin "site" identifier. This provides a
+BGP topology-independent means of marking and import-filtering EVPN routes
+originated from a particular L2 domain. One situation where this is valuable
+is when deploying EVPN using anycast VTEPs, i.e. Active/Active MLAG, as it
+can be used to avoid ownership conflicts between the two control planes
+(EVPN vs MLAG).
+
+Example Use Case (MLAG Anycast VTEPs):
+
+During normal operation, an MLAG VTEP will advertise EVPN routes for attached
+hosts using a shared anycast IP as the BGP next-hop. It is expected for its
+MLAG peer to drop routes originated by the MLAG Peer since they have a Martian
+(self) next-hop. However, prior to the anycast IP being assigned to the local
+system, the anycast BGP next-hop will not be considered a Martian (self) IP.
+This results in a timing window where hosts that are locally attached to the
+MLAG pair's L2 domain can be learned both as "local" (via MLAG) or "remote"
+(via an EVPN route with a non-local next-hop). This can trigger erroneous MAC
+Mobility events, as the host "moves" between one MLAG Peer's Unique VTEP-IP
+and the shared anycast VTEP-IP, which causes unnecessary control plane and
+data plane events to propagate throughout the EVPN domain.
+By associating the MAC-VRF of both MLAG VTEPs with the same site identifier,
+EVPN routes originated by one MLAG VTEP will ignored by its MLAG peer, ensuring
+that only the MLAG control plane attempts to take ownership of local hosts.
+
+The EVPN MAC-VRF Site-of-Origin feature works by influencing two behaviors:
+
+1. All EVPN routes originating from the local MAC-VRF will have a
+   Site-of-Origin extended community added to the route, matching the
+   configured value.
+2. EVPN routes will be subjected to a "self SoO" check during MAC-VRF
+   or IP-VRF import processing. If the EVPN route is found to carry a
+   Site-of-Origin extended community whose value matches the locally
+   configured MAC-VRF Site-of-Origin, the route will be maintained in
+   the global EVPN RIB ("show bgp l2vpn evpn route") but will not be
+   imported into the corresponding MAC-VRF ("show bgp vni") or IP-VRF
+   ("show bgp [vrf <vrfname>] [ipv4 | ipv6 [unicast]]").
+
+The import filtering described in item (2) is constrained just to Type-2
+(MAC-IP) and Type-3 (IMET) EVPN routes.
+
+The EVPN MAC-VRF Site-of-Origin can be configured using a single CLI command
+under ``address-family l2vpn evpn`` of the EVPN underlay BGP instance.
+
+.. clicmd:: [no] mac-vrf soo <site-of-origin-string>
+
+Example configuration:
+
+.. code-block:: frr
+
+   router bgp 100
+    neighbor 192.168.0.1 remote-as 101
+    !
+    address-family ipv4 l2vpn evpn
+     neighbor 192.168.0.1 activate
+     advertise-all-vni
+     mac-vrf soo 100.64.0.0:777
+    exit-address-family
+
+This configuration ensures:
+
+1. EVPN routes originated from a local L2VNI will have a Site-of-Origin
+   extended community with the value ``100.64.0.0:777``
+2. Received EVPN routes carrying a Site-of-Origin extended community with the
+   value ``100.64.0.0:777`` will not be imported into a local MAC-VRF (L2VNI)
+   or IP-VRF (L3VNI).
 
 .. _bgp-evpn-mh:
 

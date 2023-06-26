@@ -181,7 +181,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s(%s): Delete %s[%s] ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
+			"%s(%s): Delete %s[%s] ref count: %d, flags: %d c_oil ref count %d (Pre decrement)",
 			__func__, name, up->sg_str, pim->vrf->name,
 			up->ref_count, up->flags,
 			up->channel_oil->oil_ref_count);
@@ -1713,6 +1713,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 				zlog_debug("%s: up %s RPF is not present",
 					   __func__, up->sg_str);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 			return;
 		}
 
@@ -2056,7 +2057,7 @@ static void pim_upstream_sg_running(void *arg)
 	// No packet can have arrived here if this is the case
 	if (!up->channel_oil->installed) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: %s%s is not installed in mroute",
+			zlog_debug("%s: %s[%s] is not installed in mroute",
 				   __func__, up->sg_str, pim->vrf->name);
 		return;
 	}

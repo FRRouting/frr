@@ -165,6 +165,9 @@ struct bgp_master {
 	uint32_t inq_limit;
 	uint32_t outq_limit;
 
+	struct event *t_bgp_sync_label_manager;
+	struct event *t_bgp_start_label_manager;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
@@ -330,6 +333,9 @@ struct as_confed {
 	as_t as;
 	char *as_pretty;
 };
+
+struct bgp_mplsvpn_nh_label_bind_cache;
+PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
 
 /* BGP instance structure.  */
 struct bgp {
@@ -578,6 +584,9 @@ struct bgp {
 	struct bgp_label_per_nexthop_cache_head
 		mpls_labels_per_nexthop[AFI_MAX];
 
+	/* Tree for mplsvpn next-hop label bind cache */
+	struct bgp_mplsvpn_nh_label_bind_cache_head mplsvpn_nh_label_bind;
+
 	/* Allocate hash entries to store policy routing information
 	 * The hash are used to host pbr rules somewhere.
 	 * Actually, pbr will only be used by flowspec
@@ -601,6 +610,7 @@ struct bgp {
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
 	struct event *t_rmap_def_originate_eval;
+	uint16_t rmap_def_originate_eval_timer;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
 
 	/* BGP distance configuration.  */
@@ -810,6 +820,8 @@ DECLARE_QOBJ_TYPE(bgp);
 
 struct bgp_interface {
 #define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
+/* L3VPN multi domain switching */
+#define BGP_INTERFACE_MPLS_L3VPN_SWITCHING (1 << 1)
 	uint32_t flags;
 };
 
@@ -1790,6 +1802,9 @@ struct peer {
 #define BGP_MAX_SOFT_VERSION 64
 	char *soft_version;
 
+	/* Add-Path Best selected paths number to advertise */
+	uint8_t addpath_best_selected[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
@@ -2103,6 +2118,26 @@ enum peer_change_type {
 	peer_change_reset_in,
 	peer_change_reset_out,
 };
+
+/* Enumeration of martian ("self") entry types.
+ * Routes carrying fields that match a self entry are considered martians
+ * and should be handled accordingly, i.e. dropped or import-filtered.
+ * Note:
+ *     These "martians" are separate from routes optionally allowed via
+ *     'bgp allow-martian-nexthop'. The optionally allowed martians are
+ *     simply prefixes caught by ipv4_martian(), i.e. routes outside
+ *     the non-reserved IPv4 Unicast address space.
+ */
+enum bgp_martian_type {
+	BGP_MARTIAN_IF_IP,  /* bgp->address_hash */
+	BGP_MARTIAN_TUN_IP, /* bgp->tip_hash */
+	BGP_MARTIAN_IF_MAC, /* bgp->self_mac_hash */
+	BGP_MARTIAN_RMAC,   /* bgp->rmac */
+	BGP_MARTIAN_SOO,    /* bgp->evpn_info->macvrf_soo */
+};
+
+extern const struct message bgp_martian_type_str[];
+extern const char *bgp_martian_type2str(enum bgp_martian_type mt);
 
 extern struct bgp_master *bm;
 extern unsigned int multipath_num;

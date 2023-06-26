@@ -147,7 +147,6 @@ struct vty {
 	/* Dynamic transaction information. */
 	bool pending_allowed;
 	bool pending_commit;
-	bool no_implicit_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
@@ -229,8 +228,9 @@ struct vty {
 	/* set when we have sent mgmtd a *REQ command in response to some vty
 	 * CLI command and we are waiting on the reply so we can respond to the
 	 * vty user. */
-	bool mgmt_req_pending;
+	const char *mgmt_req_pending_cmd;
 	bool mgmt_locked_candidate_ds;
+	bool mgmt_locked_running_ds;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -391,7 +391,7 @@ extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
-			    bool exclusive);
+			    bool exclusive, bool file_lock);
 extern void vty_config_exit(struct vty *);
 extern int vty_config_node_exit(struct vty *);
 extern int vty_shell(struct vty *);
@@ -408,7 +408,7 @@ extern bool vty_mgmt_fe_enabled(void);
 extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
 
 extern bool mgmt_vty_read_configs(void);
-extern int vty_mgmt_send_config_data(struct vty *vty);
+extern int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit);
 extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
 				       bool abort);
 extern int vty_mgmt_send_get_config(struct vty *vty,
@@ -417,16 +417,12 @@ extern int vty_mgmt_send_get_config(struct vty *vty,
 extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
 				  const char **xpath_list, int num_req);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-				    bool lock);
+				    bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, bool success);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {
-	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
-			? ((vty->pending_allowed || vty->no_implicit_commit)
-				   ? false
-				   : true)
-			: false);
+	return frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
 }
 
 #ifdef __cplusplus

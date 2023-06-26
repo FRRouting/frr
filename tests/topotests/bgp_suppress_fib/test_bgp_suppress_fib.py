@@ -94,7 +94,6 @@ def test_bgp_route():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
 
     json_file = "{}/r3/v4_route3.json".format(CWD)
@@ -103,10 +102,11 @@ def test_bgp_route():
     test_func = partial(
         topotest.router_json_cmp,
         r3,
-        "show ip route 10.0.0.3 json",
+        "show ip route 60.0.0.0 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, assertmsg
 
 
 def test_bgp_better_admin_won():

@@ -880,6 +880,13 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		if (strmatch(vty_buf_trimmed, "end"))
 			continue;
 
+		if (strmatch(vty_buf_trimmed, "exit") &&
+		    vty->node == CONFIG_NODE) {
+			fprintf(stderr, "line %d: Warning[%d]...: %s\n", lineno,
+				vty->node, "early exit from config file");
+			break;
+		}
+
 		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
 		switch (ret) {
@@ -2326,8 +2333,9 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_disable, vtysh_disable_cmd, "disable",
 }
 
 DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal, vtysh_config_terminal_cmd,
-	"configure [terminal]",
+	"configure [terminal [file-lock]]",
 	"Configuration from vty interface\n"
+	"Configuration with locked datastores\n"
 	"Configuration terminal\n")
 {
 	vty->node = CONFIG_NODE;
@@ -2348,7 +2356,7 @@ static int vtysh_exit(struct vty *vty)
 	if (vty->node == CONFIG_NODE) {
 		/* resync in case one of the daemons is somewhere else */
 		vtysh_execute("end");
-		vtysh_execute("configure");
+		vtysh_execute("configure terminal file-lock");
 	}
 	return CMD_SUCCESS;
 }

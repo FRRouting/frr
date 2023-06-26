@@ -3597,17 +3597,9 @@ static int rip_vrf_new(struct vrf *vrf)
 
 static int rip_vrf_delete(struct vrf *vrf)
 {
-	struct rip *rip;
-
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
 			   vrf->vrf_id);
-
-	rip = rip_lookup_by_vrf_name(vrf->name);
-	if (!rip)
-		return 0;
-
-	rip_clean(rip);
 
 	return 0;
 }

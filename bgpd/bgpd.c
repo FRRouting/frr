@@ -80,7 +80,6 @@
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
-DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -1183,7 +1182,7 @@ static void peer_free(struct peer *peer)
 		bgp_peer_remove_bfd_config(peer);
 
 	FOREACH_AFI_SAFI (afi, safi)
-		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE);
+		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE, 0);
 
 	if (peer->change_local_as_pretty)
 		XFREE(MTYPE_BGP, peer->change_local_as_pretty);
@@ -1398,6 +1397,7 @@ struct peer *peer_new(struct bgp *bgp)
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
+		peer->addpath_best_selected[afi][safi] = 0;
 		peer->soo[afi][safi] = NULL;
 	}
 
@@ -2319,6 +2319,7 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
 	struct bgp *bgp;
+	safi_t safi_check;
 
 	/* Nothing to do if we've already activated this peer */
 	if (peer->afc[afi][safi])
@@ -2349,16 +2350,22 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* If this is the first peer to be activated for this
-	 * afi/labeled-unicast recalc bestpaths to trigger label allocation */
-	if (ret != BGP_ERR_PEER_SAFI_CONFLICT && safi == SAFI_LABELED_UNICAST
-	    && !bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
+	 * afi/labeled-unicast or afi/mpls-vpn, recalc bestpaths to trigger
+	 * label allocation */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi_check = SAFI_UNICAST;
+	else
+		safi_check = safi;
+	if (ret != BGP_ERR_PEER_SAFI_CONFLICT &&
+	    (safi == SAFI_LABELED_UNICAST || safi == SAFI_MPLS_VPN) &&
+	    !bgp->allocate_mpls_labels[afi][safi_check]) {
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"peer(s) are now active for labeled-unicast, allocate MPLS labels");
-
-		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 1;
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
+				"peer(s) are now active for %s, allocate MPLS labels",
+				safi2str(safi));
+		bgp->allocate_mpls_labels[afi][safi_check] = 1;
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi_check);
 	}
 
 	if (safi == SAFI_FLOWSPEC) {
@@ -2424,6 +2431,7 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer *tmp_peer;
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	safi_t safi_check;
 
 	/* Nothing to do if we've already de-activated this peer */
 	if (!peer->afc[afi][safi])
@@ -2445,17 +2453,22 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 	bgp = peer->bgp;
 
 	/* If this is the last peer to be deactivated for this
-	 * afi/labeled-unicast recalc bestpaths to trigger label deallocation */
-	if (safi == SAFI_LABELED_UNICAST
-	    && bgp->allocate_mpls_labels[afi][SAFI_UNICAST]
-	    && !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
+	 * afi/labeled-unicast or afi/mpls-vpn, recalc bestpaths to trigger
+	 * label deallocation */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi_check = SAFI_UNICAST;
+	else
+		safi_check = safi;
+	if ((safi == SAFI_LABELED_UNICAST || safi == SAFI_MPLS_VPN) &&
+	    bgp->allocate_mpls_labels[afi][safi_check] &&
+	    !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"peer(s) are no longer active for labeled-unicast, deallocate MPLS labels");
-
-		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 0;
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
+				"peer(s) are no longer active for %s, deallocate MPLS labels",
+				safi2str(safi));
+		bgp->allocate_mpls_labels[afi][safi_check] = 0;
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi_check);
 	}
 	return ret;
 }
@@ -3330,6 +3343,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
+	bgp->rmap_def_originate_eval_timer = RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
 
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
@@ -3359,6 +3373,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		bgp_label_per_nexthop_cache_init(
 			&bgp->mpls_labels_per_nexthop[afi]);
+
+	bgp_mplsvpn_nh_label_bind_cache_init(&bgp->mplsvpn_nh_label_bind);
 
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
@@ -3402,8 +3418,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	/* assign a unique rd id for auto derivation of vrf's RD */
 	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 
-	bgp->evpn_info = XCALLOC(MTYPE_BGP_EVPN_INFO,
-				 sizeof(struct bgp_evpn_info));
 	bgp_evpn_init(bgp);
 	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
@@ -3703,11 +3717,8 @@ void bgp_instance_down(struct bgp *bgp)
 	struct listnode *next;
 
 	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval) {
+	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);
-		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
-				    why? */
-	}
 
 	/* Bring down peers, so corresponding routes are purged. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
@@ -3810,11 +3821,8 @@ int bgp_delete(struct bgp *bgp)
 	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 
 	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval) {
+	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);
-		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
-				    why? */
-	}
 
 	/* Inform peers we're going down. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
@@ -3976,7 +3984,6 @@ void bgp_free(struct bgp *bgp)
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
 	bgp_srv6_cleanup(bgp);
-	XFREE(MTYPE_BGP_EVPN_INFO, bgp->evpn_info);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		enum vpn_policy_direction dir;
@@ -8055,6 +8062,8 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
+	bm->t_bgp_sync_label_manager = NULL;
+	bm->t_bgp_start_label_manager = NULL;
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -8258,6 +8267,7 @@ void bgp_init(unsigned short instance)
 	bgp_lp_vty_init();
 
 	bgp_label_per_nexthop_init();
+	bgp_mplsvpn_nexthop_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }
@@ -8300,6 +8310,8 @@ void bgp_terminate(void)
 		list_delete(&bm->listen_sockets);
 
 	EVENT_OFF(bm->t_rmap_update);
+	EVENT_OFF(bm->t_bgp_sync_label_manager);
+	EVENT_OFF(bm->t_bgp_start_label_manager);
 
 	bgp_mac_finish();
 }
@@ -8310,6 +8322,7 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 	int ret;
 	struct peer *peer;
 	union sockunion su;
+	struct peer_group *group;
 
 	/* Get peer sockunion. */
 	ret = str2sockunion(ip_str, &su);
@@ -8317,6 +8330,11 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 		peer = peer_lookup_by_conf_if(bgp, ip_str);
 		if (!peer) {
 			peer = peer_lookup_by_hostname(bgp, ip_str);
+
+			if (!peer) {
+				group = peer_group_lookup(bgp, ip_str);
+				peer = listnode_head(group->peer);
+			}
 
 			if (!peer) {
 				if (use_json) {
@@ -8394,4 +8412,17 @@ static ssize_t printfrr_bp(struct fbuf *buf, struct printfrr_eargs *ea,
 
 	return bprintfrr(buf, "%s(%s)", peer->host,
 			 peer->hostname ? peer->hostname : "Unknown");
+}
+
+const struct message bgp_martian_type_str[] = {
+	{BGP_MARTIAN_IF_IP, "Self Interface IP"},
+	{BGP_MARTIAN_TUN_IP, "Self Tunnel IP"},
+	{BGP_MARTIAN_IF_MAC, "Self Interface MAC"},
+	{BGP_MARTIAN_RMAC, "Self RMAC"},
+	{BGP_MARTIAN_SOO, "Self Site-of-Origin"},
+	{0}};
+
+const char *bgp_martian_type2str(enum bgp_martian_type mt)
+{
+	return lookup_msg(bgp_martian_type_str, mt, "Unknown Martian Type");
 }

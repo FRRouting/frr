@@ -181,9 +181,10 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
-		  "Client '%s' encountered an error and is shutting down.",
-		  zebra_route_string(client->proto));
+	flog_warn(
+		EC_ZEBRA_CLIENT_IO_ERROR,
+		"Client '%s' (session id %d) encountered an error and is shutting down.",
+		zebra_route_string(client->proto), client->session_id);
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
@@ -585,6 +586,13 @@ static void zserv_client_free(struct zserv *client)
 		unsigned long nnhgs;
 
 		close(client->sock);
+
+		/* If this is a synchronous BGP Zebra client for label/table
+		 * manager, then ignore it. It's not GR-aware, and causes GR to
+		 * be skipped for the session_id == 0 (asynchronous).
+		 */
+		if (client->proto == ZEBRA_ROUTE_BGP && client->session_id == 1)
+			return;
 
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			zebra_mpls_client_cleanup_vrf_label(client->proto);

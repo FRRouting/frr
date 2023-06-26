@@ -7959,6 +7959,26 @@ DEFPY (bgp_condadv_period,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_def_originate_eval,
+       bgp_def_originate_eval_cmd,
+       "[no$no] bgp default-originate timer (0-3600)$timer",
+       NO_STR
+       BGP_STR
+       "Control default-originate\n"
+       "Set period to rescan BGP table to check if default-originate condition is met\n"
+       "Period between BGP table scans, in seconds; default 5\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp->rmap_def_originate_eval_timer =
+		no ? RMAP_DEFAULT_ORIGINATE_EVAL_TIMER : timer;
+
+	if (bgp->t_rmap_def_originate_eval)
+		EVENT_OFF(bgp->t_rmap_def_originate_eval);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (neighbor_advertise_map,
        neighbor_advertise_map_cmd,
        "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
@@ -8783,7 +8803,7 @@ DEFUN (neighbor_addpath_tx_all_paths,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_ALL);
+				  BGP_ADDPATH_ALL, 0);
 	return CMD_SUCCESS;
 }
 
@@ -8816,7 +8836,7 @@ DEFUN (no_neighbor_addpath_tx_all_paths,
 	}
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_NONE);
+				  BGP_ADDPATH_NONE, 0);
 
 	return CMD_SUCCESS;
 }
@@ -8826,6 +8846,45 @@ ALIAS_HIDDEN(no_neighbor_addpath_tx_all_paths,
 	     "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Use addpath to advertise all paths to a neighbor\n")
+
+DEFPY (neighbor_addpath_tx_best_selected_paths,
+       neighbor_addpath_tx_best_selected_paths_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected (1-6)$paths",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise best selected paths to a neighbor\n"
+       "The number of best paths\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+				  BGP_ADDPATH_BEST_SELECTED, paths);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_neighbor_addpath_tx_best_selected_paths,
+       no_neighbor_addpath_tx_best_selected_paths_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor addpath-tx-best-selected [(1-6)]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise best selected paths to a neighbor\n"
+       "The number of best paths\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
+				  BGP_ADDPATH_BEST_SELECTED, 0);
+	return CMD_SUCCESS;
+}
 
 DEFUN (neighbor_addpath_tx_bestpath_per_as,
        neighbor_addpath_tx_bestpath_per_as_cmd,
@@ -8842,7 +8901,7 @@ DEFUN (neighbor_addpath_tx_bestpath_per_as,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_BEST_PER_AS);
+				  BGP_ADDPATH_BEST_PER_AS, 0);
 
 	return CMD_SUCCESS;
 }
@@ -8876,7 +8935,7 @@ DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
 	}
 
 	bgp_addpath_set_peer_type(peer, bgp_node_afi(vty), bgp_node_safi(vty),
-				 BGP_ADDPATH_NONE);
+				  BGP_ADDPATH_NONE, 0);
 
 	return CMD_SUCCESS;
 }
@@ -9934,6 +9993,7 @@ DEFPY (bgp_imexport_vpn,
 	bool yes = true;
 	int flag;
 	enum vpn_policy_direction dir;
+	struct bgp *bgp_default = bgp_get_default();
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
@@ -9969,14 +10029,18 @@ DEFPY (bgp_imexport_vpn,
 		SET_FLAG(bgp->af_flags[afi][safi], flag);
 		if (!previous_state) {
 			/* trigger export current vrf */
-			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+			vpn_leak_postchange(dir, afi, bgp_default, bgp);
 		}
 	} else {
 		if (previous_state) {
 			/* trigger un-export current vrf */
-			vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+			vpn_leak_prechange(dir, afi, bgp_default, bgp);
 		}
 		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (previous_state && bgp_default &&
+		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
+				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
+			vpn_leak_no_retain(bgp, bgp_default, afi);
 	}
 
 	hook_call(bgp_snmp_init_stats, bgp);
@@ -17917,6 +17981,13 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 				"  neighbor %s addpath-tx-bestpath-per-AS\n",
 				addr);
 			break;
+		case BGP_ADDPATH_BEST_SELECTED:
+			if (peer->addpath_best_selected[afi][safi])
+				vty_out(vty,
+					"  neighbor %s addpath-tx-best-selected %u\n",
+					addr,
+					peer->addpath_best_selected[afi][safi]);
+			break;
 		case BGP_ADDPATH_MAX:
 		case BGP_ADDPATH_NONE:
 			break;
@@ -18622,6 +18693,12 @@ int bgp_config_write(struct vty *vty)
 				" bgp conditional-advertisement timer %u\n",
 				bgp->condition_check_period);
 
+		/* default-originate timer configuration */
+		if (bgp->rmap_def_originate_eval_timer !=
+		    RMAP_DEFAULT_ORIGINATE_EVAL_TIMER)
+			vty_out(vty, " bgp default-originate timer %u\n",
+				bgp->rmap_def_originate_eval_timer);
+
 		/* peer-group */
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
 			bgp_config_write_peer_global(vty, bgp, group->conf);
@@ -18908,6 +18985,9 @@ bool bgp_config_inprocess(void)
 	return event_is_scheduled(t_bgp_cfg);
 }
 
+/* Max wait time for config to load before post-config processing */
+#define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
 static void bgp_config_finish(struct event *t)
 {
 	struct listnode *node;
@@ -18917,11 +18997,17 @@ static void bgp_config_finish(struct event *t)
 		hook_call(bgp_config_end, bgp);
 }
 
+static void bgp_config_end_timeout(struct event *t)
+{
+	zlog_err("BGP configuration end timer expired after %d seconds.",
+		 BGP_PRE_CONFIG_MAX_WAIT_SECONDS);
+	bgp_config_finish(t);
+}
+
 static void bgp_config_start(void)
 {
-#define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
 	EVENT_OFF(t_bgp_cfg);
-	event_add_timer(bm->master, bgp_config_finish, NULL,
+	event_add_timer(bm->master, bgp_config_end_timeout, NULL,
 			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
 
@@ -18971,6 +19057,12 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			vty_out(vty, " mpls bgp forwarding\n");
 			write++;
 		}
+		if (CHECK_FLAG(iifp->flags,
+			       BGP_INTERFACE_MPLS_L3VPN_SWITCHING)) {
+			vty_out(vty,
+				" mpls bgp l3vpn-multi-domain-switching\n");
+			write++;
+		}
 
 		if_vty_config_end(vty);
 	}
@@ -19018,6 +19110,35 @@ DEFPY(mpls_bgp_forwarding, mpls_bgp_forwarding_cmd,
 		if (if_is_operative(ifp))
 			bgp_nht_ifp_up(ifp);
 	}
+	return CMD_SUCCESS;
+}
+
+DEFPY(mpls_bgp_l3vpn_multi_domain_switching,
+      mpls_bgp_l3vpn_multi_domain_switching_cmd,
+      "[no$no] mpls bgp l3vpn-multi-domain-switching",
+      NO_STR MPLS_STR BGP_STR
+      "Bind a local MPLS label to incoming L3VPN updates\n")
+{
+	bool check;
+	struct bgp_interface *iifp;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	iifp = ifp->info;
+	if (!iifp) {
+		vty_out(vty, "Interface %s not available\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	check = CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+	if (check == !no)
+		return CMD_SUCCESS;
+	if (no)
+		UNSET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+	else
+		SET_FLAG(iifp->flags, BGP_INTERFACE_MPLS_L3VPN_SWITCHING);
+	/* trigger a nht update on eBGP sessions */
+	if (if_is_operative(ifp))
+		bgp_nht_ifp_up(ifp);
+
 	return CMD_SUCCESS;
 }
 
@@ -19080,6 +19201,8 @@ static void bgp_vty_if_init(void)
 
 	/* "mpls bgp forwarding" commands. */
 	install_element(INTERFACE_NODE, &mpls_bgp_forwarding_cmd);
+	install_element(INTERFACE_NODE,
+			&mpls_bgp_l3vpn_multi_domain_switching_cmd);
 }
 
 void bgp_vty_init(void)
@@ -19919,6 +20042,40 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_addpath_tx_all_paths_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
 
+	/* "neighbor addpath-tx-best-selected" commands.*/
+	install_element(BGP_IPV4_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4M_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4M_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4L_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV4L_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6L_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_IPV6L_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV4_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV4_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV6_NODE,
+			&neighbor_addpath_tx_best_selected_paths_cmd);
+	install_element(BGP_VPNV6_NODE,
+			&no_neighbor_addpath_tx_best_selected_paths_cmd);
+
 	/* "neighbor addpath-tx-bestpath-per-AS" commands.*/
 	install_element(BGP_NODE,
 			&neighbor_addpath_tx_bestpath_per_as_hidden_cmd);
@@ -20249,6 +20406,9 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &neighbor_advertise_map_cmd);
 	install_element(BGP_VPNV4_NODE, &neighbor_advertise_map_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_advertise_map_cmd);
+
+	/* bgp default-originate timer */
+	install_element(BGP_NODE, &bgp_def_originate_eval_cmd);
 
 	/* neighbor maximum-prefix-out commands. */
 	install_element(BGP_NODE, &neighbor_maximum_prefix_out_cmd);

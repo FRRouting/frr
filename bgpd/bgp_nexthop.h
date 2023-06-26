@@ -104,11 +104,6 @@ struct tip_addr {
 	int refcnt;
 };
 
-struct bgp_addrv6 {
-	struct in6_addr addrv6;
-	struct list *ifp_name_list;
-};
-
 /* Forward declaration(s). */
 struct peer;
 struct update_subgroup;

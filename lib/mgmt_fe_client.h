@@ -91,7 +91,7 @@ struct mgmt_fe_client_cbs {
 				  uintptr_t session_id,
 				  uintptr_t user_session_client,
 				  uint64_t req_id, bool success,
-				  Mgmtd__DatastoreId ds_id,
+				  Mgmtd__DatastoreId ds_id, bool implcit_commit,
 				  char *errmsg_if_any);
 
 	void (*commit_config_notify)(struct mgmt_fe_client *client,
@@ -119,18 +119,17 @@ struct mgmt_fe_client_cbs {
 
 extern struct debug mgmt_dbg_fe_client;
 
+/***************************************************************
+ * API prototypes
+ ***************************************************************/
+
 #define MGMTD_FE_CLIENT_DBG(fmt, ...)                                          \
-	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s:" fmt, __func__,            \
+	DEBUGD(&mgmt_dbg_fe_client, "FE-CLIENT: %s: " fmt, __func__,           \
 	       ##__VA_ARGS__)
 #define MGMTD_FE_CLIENT_ERR(fmt, ...)                                          \
 	zlog_err("FE-CLIENT: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_DBG_FE_CLIENT_CHECK()                                            \
 	DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_ALL)
-
-
-/***************************************************************
- * API prototypes
- ***************************************************************/
 
 /*
  * Initialize library and try connecting with MGMTD FrontEnd interface.
@@ -220,7 +219,8 @@ mgmt_fe_destroy_client_session(struct mgmt_fe_client *client,
  */
 extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
 				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id, bool lock_ds);
+				   Mgmtd__DatastoreId ds_id, bool lock_ds,
+				   bool scok);
 
 /*
  * Send SET_CONFIG_REQ to MGMTD for one or more config data(s).

@@ -1598,6 +1598,24 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 	return newpath;
 }
 
+struct aspath *aspath_filter_exclude_all(struct aspath *source)
+{
+	struct aspath *newpath;
+
+	newpath = aspath_new(source->asnotation);
+
+	aspath_str_update(newpath, false);
+	/* We are happy returning even an empty AS_PATH, because the
+	 * administrator
+	 * might expect this very behaviour. There's a mean to avoid this, if
+	 * necessary,
+	 * by having a match rule against certain AS_PATH regexps in the
+	 * route-map index.
+	 */
+	aspath_free(source);
+	return newpath;
+}
+
 /* Add specified AS to the leftmost of aspath. */
 static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
 				      uint8_t type, unsigned num)

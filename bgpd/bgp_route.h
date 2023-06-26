@@ -246,6 +246,22 @@ struct bgp_path_info_extra {
 	struct bgp_path_mh_info *mh_info;
 };
 
+struct bgp_mplsvpn_label_nh {
+	/* For nexthop per label linked list */
+	LIST_ENTRY(bgp_path_info) label_nh_thread;
+
+	/* Back pointer to the bgp label per nexthop structure */
+	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+};
+
+struct bgp_mplsvpn_nh_label_bind {
+	/* For mplsvpn nexthop label bind linked list */
+	LIST_ENTRY(bgp_path_info) nh_label_bind_thread;
+
+	/* Back pointer to the bgp mplsvpn nexthop label bind structure */
+	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
+};
+
 struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
@@ -298,6 +314,8 @@ struct bgp_path_info {
 #define BGP_PATH_ANNC_NH_SELF (1 << 14)
 #define BGP_PATH_LINK_BW_CHG (1 << 15)
 #define BGP_PATH_ACCEPT_OWN (1 << 16)
+#define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
+#define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -320,11 +338,10 @@ struct bgp_path_info {
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
 
-	/* For nexthop per label linked list */
-	LIST_ENTRY(bgp_path_info) label_nh_thread;
-
-	/* Back pointer to the bgp label per nexthop structure */
-	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+	union {
+		struct bgp_mplsvpn_label_nh blnc;
+		struct bgp_mplsvpn_nh_label_bind bmnc;
+	} mplsvpn;
 };
 
 /* Structure used in BGP path selection */
@@ -592,8 +609,12 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 	}
 }
 
-static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
+static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
+				       safi_t safi)
 {
+	if (!bgp_fibupd_safi(safi))
+		return true;
+
 	return (!(BGP_SUPPRESS_FIB_ENABLED(bgp) &&
 		  CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING) &&
 		 (!bgp_option_check(BGP_OPT_NO_FIB))));
@@ -605,11 +626,12 @@ static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
  * This function assumes that bgp_check_advertise was already returned
  * as good to go.
  */
-static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest)
+static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
+					safi_t safi)
 {
 	struct bgp_path_info *pi, *selected = NULL;
 
-	if (!BGP_SUPPRESS_FIB_ENABLED(bgp))
+	if (!bgp_fibupd_safi(safi) || !BGP_SUPPRESS_FIB_ENABLED(bgp))
 		return false;
 
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
@@ -695,6 +717,8 @@ extern struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 struct prefix_rd *prd);
 extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
 extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
+extern bool bgp_path_info_nexthop_changed(struct bgp_path_info *pi,
+					  struct peer *to, afi_t afi);
 extern struct bgp_path_info *
 bgp_get_imported_bpi_ultimate(struct bgp_path_info *info);
 extern void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi);
@@ -886,6 +910,11 @@ extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
+extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
+			     struct bgp_path_info *exist, int *paths_eq,
+			     struct bgp_maxpaths_cfg *mpath_cfg, int debug,
+			     char *pfx_buf, afi_t afi, safi_t safi,
+			     enum bgp_path_selection_reason *reason);
 #define bgp_path_info_add(A, B)                                                \
 	bgp_path_info_add_with_caller(__func__, (A), (B))
 #define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))

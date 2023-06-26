@@ -56,11 +56,11 @@ struct event_loop *master;
 struct mgmt_be_client *mgmt_be_client;
 
 static struct frr_daemon_info staticd_di;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
-	zlog_info("SIGHUP received");
-	vty_read_config(NULL, staticd_di.config_file, config_default);
+	zlog_info("SIGHUP received and ignored");
 }
 
 /* SIGINT / SIGTERM handler. */
@@ -107,7 +107,6 @@ struct frr_signal_t static_signals[] = {
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
-	&frr_filter_info,
 	&frr_interface_info,
 	&frr_vrf_info,
 	&frr_routing_info,
