@@ -70,6 +70,9 @@
 /* Default socket buffer size */
 #define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
 
+/* OSPF config processing timer thread */
+extern struct event *t_ospf_cfg;
+
 struct ospf_external {
 	unsigned short instance;
 	struct route_table *external_info;
