@@ -3822,8 +3822,9 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 	return 0;
 }
 
-int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
-			     const char **xpath_list, int num_req)
+int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
+			  Mgmtd__DatastoreId datastore, const char **xpath_list,
+			  int num_req)
 {
 	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
@@ -3841,52 +3842,16 @@ int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatastoreId datastore,
 		get_req[i].data = &yang_data[i];
 		getreq[i] = &get_req[i];
 	}
-	if (mgmt_fe_send_getcfg_req(mgmt_fe_client, vty->mgmt_session_id,
-				    vty->mgmt_req_id, datastore, getreq,
-				    num_req)) {
-		zlog_err(
-			"Failed to send GET-CONFIG to MGMTD for req-id %" PRIu64
-			".",
-			vty->mgmt_req_id);
+	if (mgmt_fe_send_get_req(mgmt_fe_client, vty->mgmt_session_id,
+				 vty->mgmt_req_id, is_config, datastore, getreq,
+				 num_req)) {
+		zlog_err("Failed to send GET- to MGMTD for req-id %" PRIu64 ".",
+			 vty->mgmt_req_id);
 		vty_out(vty, "Failed to send GET-CONFIG to MGMTD!\n");
 		return -1;
 	}
 
 	vty->mgmt_req_pending_cmd = "MESSAGE_GETCFG_REQ";
-
-	return 0;
-}
-
-int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
-			   const char **xpath_list, int num_req)
-{
-	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
-	int i;
-
-	vty->mgmt_req_id++;
-
-	for (i = 0; i < num_req; i++) {
-		mgmt_yang_get_data_req_init(&get_req[i]);
-		mgmt_yang_data_init(&yang_data[i]);
-
-		yang_data->xpath = (char *)xpath_list[i];
-
-		get_req[i].data = &yang_data[i];
-		getreq[i] = &get_req[i];
-	}
-	if (mgmt_fe_send_getdata_req(mgmt_fe_client, vty->mgmt_session_id,
-				     vty->mgmt_req_id, datastore, getreq,
-				     num_req)) {
-		zlog_err("Failed to send GET-DATA to MGMTD for req-id %" PRIu64
-			 ".",
-			 vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-DATA to MGMTD!\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_GETDATA_REQ";
 
 	return 0;
 }
