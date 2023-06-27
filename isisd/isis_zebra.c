@@ -772,9 +772,9 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 
 	switch (info.type) {
 	case LINK_STATE_SYNC:
-		STREAM_GETC(s, dst.proto);
-		STREAM_GETW(s, dst.instance);
-		STREAM_GETL(s, dst.session_id);
+		dst.proto = info.src_proto;
+		dst.instance = info.src_instance;
+		dst.session_id = info.src_session_id;
 		dst.type = LINK_STATE_SYNC;
 		ret = isis_te_sync_ted(dst);
 		break;
