@@ -2620,6 +2620,10 @@ BGP Extended Communities in Route Map
 
    This command sets Site of Origin value.
 
+.. clicmd:: set extcomumnity color EXTCOMMUNITY
+
+   This command sets colors values.
+   
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
    This command sets the BGP link-bandwidth extended community for the prefix

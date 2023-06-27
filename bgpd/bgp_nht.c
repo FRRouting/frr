@@ -32,6 +32,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_ecommunity.h"
 
 extern struct zclient *zclient;
 
@@ -322,7 +323,10 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			return 0;
 		}
 
-		srte_color = pi->attr->srte_color;
+		if (CHECK_FLAG(pi->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
+			srte_color = bgp_attr_get_color(pi->attr);
+
 	} else if (peer) {
 		/*
 		 * Gather the ifindex for if up/down events to be
@@ -1249,9 +1253,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		else if (bpi_ultimate->extra)
 			bpi_ultimate->extra->igpmetric = 0;
 
-		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
-		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)
-		    || path->attr->srte_color != 0)
+		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
+		    CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED) ||
+		    bgp_attr_get_color(path->attr))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 		path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);

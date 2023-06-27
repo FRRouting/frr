@@ -153,6 +153,10 @@ int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify(
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_modify(
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_destroy(
