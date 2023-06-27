@@ -546,7 +546,6 @@ static void opq_send_notifications(const struct opq_msg_reg *reg,
 					      client->session_id, msg)) {
 				/* Error - need to free the message */
 				stream_free(msg);
-				msg = NULL;
 			}
 		}
 	}
