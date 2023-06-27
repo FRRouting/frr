@@ -4023,14 +4023,21 @@ static void bgp_mplsvpn_nh_label_bind_send_nexthop_label(
 		}
 		p = &pfx_nh;
 		if (nh->nh_label) {
-			if (nh->nh_label->num_labels >
-			    MPLS_MAX_LABELS - num_labels)
-				lsp_num_labels = MPLS_MAX_LABELS - num_labels;
-			else
-				lsp_num_labels = nh->nh_label->num_labels;
+			if (nh->nh_label->num_labels + 1 > MPLS_MAX_LABELS) {
+				/* label stack overflow. no label switching will be performed
+				 */
+				flog_err(EC_BGP_LABEL,
+					 "%s [Error] BGP label %u->%u to %pFX, forged label stack too big: %u. Abort LSP installation",
+					 bmnc->bgp_vpn->name_pretty,
+					 bmnc->new_label, bmnc->orig_label,
+					 &bmnc->nexthop,
+					 nh->nh_label->num_labels + 1);
+				return;
+			}
+			lsp_num_labels = nh->nh_label->num_labels;
 			for (i = 0; i < lsp_num_labels; i++)
 				label[num_labels + i] = nh->nh_label->label[i];
-			num_labels += lsp_num_labels;
+			num_labels = lsp_num_labels;
 		}
 		label[num_labels] = bmnc->orig_label;
 		num_labels += 1;
