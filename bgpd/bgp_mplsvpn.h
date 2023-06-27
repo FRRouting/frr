@@ -336,5 +336,6 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
+extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
