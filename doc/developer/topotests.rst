@@ -443,7 +443,7 @@ as shown in the examples below.
 
 For each capture a window is opened displaying a live summary of the captured
 packets. Additionally, the entire packet stream is captured in a pcap file in
-the tests log directory e.g.,::
+the tests log directory e.g.,:
 
 .. code:: console
 
