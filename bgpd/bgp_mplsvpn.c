@@ -4239,15 +4239,13 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 		return;
 
 	bgp_mplsvpn_path_nh_label_bind_unlink(pi);
-	if (bmnc) {
-		/* updates NHT pi list reference */
-		LIST_INSERT_HEAD(&(bmnc->paths), pi,
-				 mplsvpn.bmnc.nh_label_bind_thread);
-		pi->mplsvpn.bmnc.nh_label_bind_cache = bmnc;
-		pi->mplsvpn.bmnc.nh_label_bind_cache->path_count++;
-		SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND);
-		bmnc->last_update = monotime(NULL);
-	}
+
+	/* updates NHT pi list reference */
+	LIST_INSERT_HEAD(&(bmnc->paths), pi, mplsvpn.bmnc.nh_label_bind_thread);
+	pi->mplsvpn.bmnc.nh_label_bind_cache = bmnc;
+	pi->mplsvpn.bmnc.nh_label_bind_cache->path_count++;
+	SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND);
+	bmnc->last_update = monotime(NULL);
 
 	/* Add or update the selected nexthop */
 	if (!bmnc->nh)
