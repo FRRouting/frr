@@ -1078,8 +1078,11 @@ static void bgp_zebra_tm_connect(struct event *t)
 		zlog_err("Error connecting to table manager!");
 		bgp_tm_status_connected = false;
 	} else {
-		if (!bgp_tm_status_connected)
-			zlog_debug("Connecting to table manager. Success");
+		if (!bgp_tm_status_connected) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug(
+					"Connecting to table manager. Success");
+		}
 		bgp_tm_status_connected = true;
 		if (!bgp_tm_chunk_obtained) {
 			if (bgp_zebra_get_table_range(bgp_tm_chunk_size,
