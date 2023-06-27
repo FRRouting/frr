@@ -1188,6 +1188,16 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 	igmp_stats_init(&igmp->igmp_stats);
 
+    /*
+     * Automatically enable pim-passive when IGMP is enabled.
+     * if pim is active on a interface, it sends out control
+     * packet, which breaks RFC3918 confor tests, so put
+     * the igmp interface on a passive mode
+     */
+    if (!pim_ifp->pim_enable) {
+        pim_ifp->pim_passive_enable = true;
+    }
+
 	if (mtrace_only) {
 		igmp->mtrace_only = mtrace_only;
 		return igmp;
