@@ -136,28 +136,6 @@ message BeOperDataGetReply {
   optional YangDataReply data = 5;
 }
 
-message BeOperDataNotify {
-  required YangDataReply data = 5;
-}
-
-message BeConfigCmdReq {
-  required string cmd = 1;
-}
-
-message BeConfigCmdReply {
-  required bool success = 1;
-  required string error_if_any = 2;
-}
-
-message BeShowCmdReq {
-  required string cmd = 1;
-}
-
-message BeShowCmdReply {
-  required bool success = 1;
-  required string cmd_ouput = 2;
-}
-
 //
 // Any message on the MGMTD Backend Interface.
 //
@@ -173,11 +151,6 @@ message BeMessage {
     BeCfgDataApplyReply cfg_apply_reply = 9;
     BeOperDataGetReq get_req = 10;
     BeOperDataGetReply get_reply = 11;
-    BeOperDataNotify notify_data = 12;
-    BeConfigCmdReq cfg_cmd_req = 13;
-    BeConfigCmdReply cfg_cmd_reply = 14;
-    BeShowCmdReq show_cmd_req = 15;
-    BeShowCmdReply show_cmd_reply = 16;
   }
 }
 

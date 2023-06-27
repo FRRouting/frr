@@ -532,9 +532,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			be_msg->cfg_apply_reply->error_if_any, adapter);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_NOTIFY_DATA:
 		/*
 		 * TODO: Add handling code in future.
 		 */
@@ -548,8 +545,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
