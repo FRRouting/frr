@@ -582,30 +582,27 @@ static void zserv_client_free(struct zserv *client)
 
 	/* Close file descriptor. */
 	if (client->sock) {
-		unsigned long nroutes;
-		unsigned long nnhgs;
+		unsigned long nroutes = 0;
+		unsigned long nnhgs = 0;
 
 		close(client->sock);
 
-		/* If this is a synchronous BGP Zebra client for label/table
-		 * manager, then ignore it. It's not GR-aware, and causes GR to
-		 * be skipped for the session_id == 0 (asynchronous).
-		 */
-		if (client->proto == ZEBRA_ROUTE_BGP && client->session_id == 1)
-			return;
-
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
-			zebra_mpls_client_cleanup_vrf_label(client->proto);
+			if (!client->synchronous) {
+				zebra_mpls_client_cleanup_vrf_label(
+					client->proto);
 
-			nroutes = rib_score_proto(client->proto,
-						  client->instance);
+				nroutes = rib_score_proto(client->proto,
+							  client->instance);
+			}
 			zlog_notice(
 				"client %d disconnected %lu %s routes removed from the rib",
 				client->sock, nroutes,
 				zebra_route_string(client->proto));
 
 			/* Not worrying about instance for now */
-			nnhgs = zebra_nhg_score_proto(client->proto);
+			if (!client->synchronous)
+				nnhgs = zebra_nhg_score_proto(client->proto);
 			zlog_notice(
 				"client %d disconnected %lu %s nhgs removed from the rib",
 				client->sock, nnhgs,
