@@ -92,6 +92,53 @@ RIPng routes can be filtered by a distribute-list.
    `distribute-list` can be applied to both incoming and outgoing data.
 
 
+.. _ripng-route-map:
+
+RIPng route-map
+===============
+
+Usage of *ripngd*'s route-map support.
+
+Route-map statement (:ref:`route-map`) is needed to use route-map
+functionality.
+
+.. clicmd:: match interface WORD
+
+   This command match to incoming interface. Notation of this match is
+   different from Cisco. Cisco uses a list of interfaces - NAME1 NAME2 ...
+   NAMEN. Ripngd allows only one name (maybe will change in the future). Next -
+   Cisco means interface which includes next-hop of routes (it is somewhat
+   similar to "ipv6 next-hop" statement). Ripngd means interface where this route
+   will be sent. This difference is because "next-hop" of same routes which
+   sends to different interfaces must be different.
+
+.. clicmd:: match ipv6 address WORD
+
+.. clicmd:: match ipv6 address prefix-list WORD
+
+   Match if route destination is permitted by access-list/prefix-list.
+
+.. clicmd:: match metric (0-4294967295)
+
+   This command match to the metric value of RIPng updates. For other protocol
+   compatibility metric range is shown as (0-4294967295). But for RIPng protocol
+   only the value range (0-16) make sense.
+
+.. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
+
+   Set the link-local IPv6 nexthop address.
+
+.. clicmd:: set metric (1-16)
+
+   Set a metric for matched route when sending announcement. The metric value
+   range is very large for compatibility with other protocols. For RIPng, valid
+   metric values are from 1 to 16.
+
+.. clicmd:: set tag (1-4294967295)
+
+   Set a tag on the matched route.
+
+
 Sample configuration
 ====================
 
