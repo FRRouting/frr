@@ -88,6 +88,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	bool mhop;
 	int family;
 	struct ipaddr source;
+	struct vrf *vrf = NULL;
 
 	use_interface = false;
 	use_source = yang_dnode_exists(dnode, "./source");
@@ -95,7 +96,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	onlink = yang_dnode_exists(dnode, "../onlink") &&
 		 yang_dnode_get_bool(dnode, "../onlink");
 	mhop = yang_dnode_get_bool(dnode, "./multi-hop");
-
+	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
 
 	family = static_next_hop_type_to_family(sn);
 	if (family == AF_UNSPEC)
@@ -133,6 +134,8 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	bfd_sess_set_profile(sn->bsp, use_profile ? yang_dnode_get_string(
 							    dnode, "./profile")
 						  : NULL);
+	if (vrf && vrf->vrf_id != VRF_UNKNOWN)
+		bfd_sess_set_vrf(sn->bsp, vrf->vrf_id);
 
 	bfd_sess_set_hop_count(sn->bsp, (onlink || mhop == false) ? 1 : 254);
 
