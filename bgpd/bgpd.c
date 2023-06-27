@@ -8333,7 +8333,8 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 
 			if (!peer) {
 				group = peer_group_lookup(bgp, ip_str);
-				peer = listnode_head(group->peer);
+				if (group)
+					peer = listnode_head(group->peer);
 			}
 
 			if (!peer) {
