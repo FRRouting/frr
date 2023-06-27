@@ -194,7 +194,7 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 		datastore = mgmt_ds_name2id(dsname);
 
 	xpath_list[0] = path;
-	vty_mgmt_send_get_config(vty, datastore, xpath_list, 1);
+	vty_mgmt_send_get_req(vty, true, datastore, xpath_list, 1);
 	return CMD_SUCCESS;
 }
 
@@ -214,7 +214,7 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 		datastore = mgmt_ds_name2id(dsname);
 
 	xpath_list[0] = path;
-	vty_mgmt_send_get_data(vty, datastore, xpath_list, 1);
+	vty_mgmt_send_get_req(vty, false, datastore, xpath_list, 1);
 	return CMD_SUCCESS;
 }
 

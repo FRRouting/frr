@@ -294,13 +294,19 @@ extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
 				      bool validate_only, bool abort);
 
 /*
- * Send GET_CONFIG_REQ to MGMTD for one or more config data item(s).
+ * Send GET_REQ to MGMTD for one or more config data item(s).
+ *
+ * If is_config is true gets config from the MGMTD datastore, otherwise
+ * operational state is queried from the backend clients.
  *
  * lib_hndl
  *    Client library handler.
  *
  * session_id
  *    Client session ID.
+ *
+ * is_config
+ *    True if get-config else get-data.
  *
  * req_id
  *    Client request ID.
@@ -309,31 +315,19 @@ extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
  *    Datastore ID (Running/Candidate)
  *
  * data_req
- *    Get config requested.
+ *    Get xpaths requested.
  *
  * num_req
- *    Number of get config requests.
+ *    Number of get xpath requests.
  *
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_getcfg_req(struct mgmt_fe_client *client,
-				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id,
-				   Mgmtd__YangGetDataReq **data_req,
-				   int num_reqs);
+extern int mgmt_fe_send_get_req(struct mgmt_fe_client *client,
+				uint64_t session_id, uint64_t req_id,
+				bool is_config, Mgmtd__DatastoreId ds_id,
+				Mgmtd__YangGetDataReq **data_req, int num_reqs);
 
-/*
- * Send GET_DATA_REQ to MGMTD for one or more data item(s).
- *
- * Similar to get config request but supports getting data
- * from operational ds aka backend clients directly.
- */
-extern int mgmt_fe_send_getdata_req(struct mgmt_fe_client *client,
-				    uint64_t session_id, uint64_t req_id,
-				    Mgmtd__DatastoreId ds_id,
-				    Mgmtd__YangGetDataReq **data_req,
-				    int num_reqs);
 
 /*
  * Send NOTIFY_REGISTER_REQ to MGMTD daemon.

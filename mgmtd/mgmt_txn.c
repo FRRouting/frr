@@ -1659,11 +1659,10 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 
 	switch (txn_req->req_event) {
 	case MGMTD_TXN_PROC_GETCFG:
-		if (mgmt_fe_send_get_cfg_reply(txn_req->txn->session_id,
-					       txn_req->txn->txn_id,
-					       get_req->ds_id, txn_req->req_id,
-					       MGMTD_SUCCESS, data_reply,
-					       NULL) != 0) {
+		if (mgmt_fe_send_get_reply(txn_req->txn->session_id,
+					   txn_req->txn->txn_id, get_req->ds_id,
+					   txn_req->req_id, MGMTD_SUCCESS,
+					   data_reply, NULL) != 0) {
 			MGMTD_TXN_ERR("Failed to send GET-CONFIG-REPLY txn-id: %" PRIu64
 				      " session-id: %" PRIu64
 				      " req-id: %" PRIu64,
@@ -1672,11 +1671,10 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 		}
 		break;
 	case MGMTD_TXN_PROC_GETDATA:
-		if (mgmt_fe_send_get_data_reply(txn_req->txn->session_id,
-						txn_req->txn->txn_id,
-						get_req->ds_id, txn_req->req_id,
-						MGMTD_SUCCESS, data_reply,
-						NULL) != 0) {
+		if (mgmt_fe_send_get_reply(txn_req->txn->session_id,
+					   txn_req->txn->txn_id, get_req->ds_id,
+					   txn_req->req_id, MGMTD_SUCCESS,
+					   data_reply, NULL) != 0) {
 			MGMTD_TXN_ERR("Failed to send GET-DATA-REPLY txn-id: %" PRIu64
 				      " session-id: %" PRIu64
 				      " req-id: %" PRIu64,
@@ -1755,7 +1753,7 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 		get_data->reply = XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REPLY,
 					  sizeof(struct mgmt_get_data_reply));
 		if (!get_data->reply) {
-			mgmt_fe_send_get_cfg_reply(
+			mgmt_fe_send_get_reply(
 				txn->session_id, txn->txn_id, get_data->ds_id,
 				txn_req->req_id, MGMTD_INTERNAL_ERROR, NULL,
 				"Internal error: Unable to allocate reply buffers!");
@@ -1783,11 +1781,10 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 				      (void *)txn_req) == -1) {
 			MGMTD_TXN_DBG("Invalid Xpath '%s",
 				      get_data->xpaths[indx]);
-			mgmt_fe_send_get_cfg_reply(txn->session_id, txn->txn_id,
-						   get_data->ds_id,
-						   txn_req->req_id,
-						   MGMTD_INTERNAL_ERROR, NULL,
-						   "Invalid xpath");
+			mgmt_fe_send_get_reply(txn->session_id, txn->txn_id,
+					       get_data->ds_id, txn_req->req_id,
+					       MGMTD_INTERNAL_ERROR, NULL,
+					       "Invalid xpath");
 			goto mgmt_txn_get_config_failed;
 		}
 		MGMTD_TXN_DBG("Got %d remaining data-replies for xpath '%s'",
@@ -1884,11 +1881,10 @@ static void mgmt_txn_process_get_data(struct event *thread)
 		 * TODO: Trigger GET procedures for Backend
 		 * For now return back error.
 		 */
-		mgmt_fe_send_get_data_reply(txn->session_id, txn->txn_id,
-					    txn_req->req.get_data->ds_id,
-					    txn_req->req_id,
-					    MGMTD_INTERNAL_ERROR, NULL,
-					    "GET-DATA on Oper DS is not supported yet!");
+		mgmt_fe_send_get_reply(txn->session_id, txn->txn_id,
+				       txn_req->req.get_data->ds_id,
+				       txn_req->req_id, MGMTD_INTERNAL_ERROR,
+				       NULL, "GET-DATA is not supported yet!");
 		/*
 		 * Delete the txn request.
 		 * Note: The following will remove it from the list
@@ -2532,21 +2528,22 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 	return 0;
 }
 
-int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
-				 Mgmtd__DatastoreId ds_id,
-				 struct nb_config *cfg_root,
-				 Mgmtd__YangGetDataReq **data_req,
-				 size_t num_reqs)
+int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
+			  Mgmtd__DatastoreId ds_id, struct nb_config *cfg_root,
+			  Mgmtd__YangGetDataReq **data_req, size_t num_reqs)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
+	enum mgmt_txn_event req_event;
 	size_t indx;
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn)
 		return -1;
 
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETCFG);
+	req_event = cfg_root ? MGMTD_TXN_PROC_GETCFG : MGMTD_TXN_PROC_GETDATA;
+
+	txn_req = mgmt_txn_req_alloc(txn, req_id, req_event);
 	txn_req->req.get_data->ds_id = ds_id;
 	txn_req->req.get_data->cfg_root = cfg_root;
 	for (indx = 0;
@@ -2558,36 +2555,7 @@ int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
 		txn_req->req.get_data->num_xpaths++;
 	}
 
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_GETCFG);
-
-	return 0;
-}
-
-int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
-			       Mgmtd__DatastoreId ds_id,
-			       Mgmtd__YangGetDataReq **data_req, size_t num_reqs)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	size_t indx;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return -1;
-
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETDATA);
-	txn_req->req.get_data->ds_id = ds_id;
-	txn_req->req.get_data->cfg_root = NULL;
-	for (indx = 0;
-	     indx < num_reqs && indx < MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH;
-	     indx++) {
-		MGMTD_TXN_DBG("XPath: '%s'", data_req[indx]->data->xpath);
-		txn_req->req.get_data->xpaths[indx] =
-			strdup(data_req[indx]->data->xpath);
-		txn_req->req.get_data->num_xpaths++;
-	}
-
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_GETDATA);
+	mgmt_txn_register_event(txn, req_event);
 
 	return 0;
 }

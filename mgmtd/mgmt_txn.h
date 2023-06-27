@@ -177,25 +177,16 @@ extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 					   bool implicit);
 
 /*
- * Send get-config request to be processed later in transaction.
+ * Send get-{cfg,data} request to be processed later in transaction.
  *
- * Similar to set-config request.
+ * Is get-config if cfg_root is provided and the config is gathered locally,
+ * otherwise it's get-data and data is fetched from backedn clients.
  */
-extern int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
-					Mgmtd__DatastoreId ds_id,
-					struct nb_config *cfg_root,
-					Mgmtd__YangGetDataReq **data_req,
-					size_t num_reqs);
-
-/*
- * Send get-data request to be processed later in transaction.
- *
- * Similar to get-config request, but here data is fetched from backedn client.
- */
-extern int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
-				       Mgmtd__DatastoreId ds_id,
-				       Mgmtd__YangGetDataReq **data_req,
-				       size_t num_reqs);
+extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
+				 Mgmtd__DatastoreId ds_id,
+				 struct nb_config *cfg_root,
+				 Mgmtd__YangGetDataReq **data_req,
+				 size_t num_reqs);
 
 /*
  * Notifiy backend adapter on connection.
