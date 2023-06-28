@@ -247,7 +247,6 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	api.flags = flags;
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	/* Only send via ID if nhgroup has been successfully installed */
