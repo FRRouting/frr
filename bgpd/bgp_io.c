@@ -225,7 +225,7 @@ static void bgp_process_reads(struct event *thread)
 
 	peer = EVENT_ARG(thread);
 
-	if (peer->fd < 0 || bm->terminating)
+	if (bm->terminating || peer->fd < 0)
 		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
