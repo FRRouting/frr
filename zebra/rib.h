@@ -167,6 +167,10 @@ struct route_entry {
 
 #define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)
 
+/* Define route types that are equivalent to "connected". */
+#define RIB_CONNECTED_ROUTE(R)                                                 \
+	((R)->type == ZEBRA_ROUTE_CONNECT || (R)->type == ZEBRA_ROUTE_NHRP)
+
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
  * sub-queue 1: EVPN/VxLAN objects
