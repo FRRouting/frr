@@ -687,7 +687,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 		rtnh = RTNH_NEXT(rtnh);
 	}
 
-	uint8_t nhop_num = nexthop_group_nexthop_num(ng);
+	uint32_t nhop_num = nexthop_group_nexthop_num(ng);
 
 	return nhop_num;
 }
