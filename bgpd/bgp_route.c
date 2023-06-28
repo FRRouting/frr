@@ -2267,6 +2267,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	else
 		*attr = *piattr;
 
+	/* don't confuse inbound and outbound setting */
+	RESET_FLAG(attr->rmap_change_flags);
+
 	/* If local-preference is not set. */
 	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
 	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))) {
@@ -2402,10 +2405,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		/* Fill temp path_info */
 		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest,
 				    pi, peer, attr);
-
-		/* don't confuse inbound and outbound setting */
-		RESET_FLAG(attr->rmap_change_flags);
-
 		/*
 		 * The route reflector is not allowed to modify the attributes
 		 * of the reflected IBGP routes unless explicitly allowed.
