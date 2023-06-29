@@ -250,7 +250,8 @@ def check_ping(name, dest_addr, expect_connected):
         tgen = get_topogen()
         output = tgen.gears[name].run("ping {} -c 1 -w 1".format(dest_addr))
         logger.info(output)
-        assert match in output, "ping fail"
+        if match not in output:
+            return "ping fail"
 
     match = ", {} packet loss".format("0%" if expect_connected else "100%")
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
