@@ -1438,7 +1438,7 @@ static void zebra_rib_evaluate_mpls(struct route_node *rn)
  */
 static bool rib_route_match_ctx(const struct route_entry *re,
 				const struct zebra_dplane_ctx *ctx,
-				bool is_update)
+				bool is_update, bool async)
 {
 	bool result = false;
 
@@ -1454,13 +1454,12 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			/* We use an extra test for statics, and another for
 			 * kernel routes.
 			 */
-			if (re->type == ZEBRA_ROUTE_STATIC &&
+			if (re->type == ZEBRA_ROUTE_STATIC && !async &&
 			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
 			     re->tag != dplane_ctx_get_old_tag(ctx))) {
 				result = false;
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
-				   re->metric !=
-				   dplane_ctx_get_old_metric(ctx)) {
+				   re->metric != dplane_ctx_get_old_metric(ctx)) {
 				result = false;
 			}
 		}
@@ -1482,7 +1481,7 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			/* We use an extra test for statics, and another for
 			 * kernel routes.
 			 */
-			if (re->type == ZEBRA_ROUTE_STATIC &&
+			if (re->type == ZEBRA_ROUTE_STATIC && !async &&
 			    (re->distance != dplane_ctx_get_distance(ctx) ||
 			     re->tag != dplane_ctx_get_tag(ctx))) {
 				result = false;
@@ -1946,13 +1945,13 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	RNODE_FOREACH_RE(rn, rib) {
 
 		if (re == NULL) {
-			if (rib_route_match_ctx(rib, ctx, false))
+			if (rib_route_match_ctx(rib, ctx, false, false))
 				re = rib;
 		}
 
 		/* Check for old route match */
 		if (is_update && (old_re == NULL)) {
-			if (rib_route_match_ctx(rib, ctx, true /*is_update*/))
+			if (rib_route_match_ctx(rib, ctx, true, false))
 				old_re = rib;
 		}
 
@@ -2271,7 +2270,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 * info.
 	 */
 	RNODE_FOREACH_RE(rn, re) {
-		if (rib_route_match_ctx(re, ctx, false /*!update*/))
+		if (rib_route_match_ctx(re, ctx, false, true))
 			break;
 	}
 
