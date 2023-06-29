@@ -3978,6 +3978,10 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 	if (IS_ZEBRA_DEBUG_RIB)
 		rnode_debug(rn, re->vrf_id, "rn %p, re %p, removing",
 			    (void *)rn, (void *)re);
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		route_entry_dump(&rn->p, NULL, re);
+
 	SET_FLAG(re->status, ROUTE_ENTRY_REMOVED);
 
 	afi = (rn->p.family == AF_INET)
@@ -4123,8 +4127,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		zclient_dump_route_flags(re->flags, flags_buf,
 					 sizeof(flags_buf)),
 		_dump_re_status(re, status_buf, sizeof(status_buf)));
-	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
-		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
+	zlog_debug("%s: tag == %u, nexthop_num == %u, nexthop_active_num == %u",
+		   straddr, re->tag, nexthop_group_nexthop_num(&(re->nhe->nhg)),
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
 	/* Dump nexthops */
