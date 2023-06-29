@@ -891,7 +891,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         lines_to_del.remove((ctx_keys, line))
 
 
-def delete_move_lines(lines_to_add, lines_to_del):
+def bgp_delete_move_lines(lines_to_add, lines_to_del):
     # This method handles deletion of bgp peer group config.
     # The objective is to delete config lines related to peers
     # associated with the peer-group and move the peer-group
@@ -1062,6 +1062,39 @@ def delete_move_lines(lines_to_add, lines_to_del):
         lines_to_del.append((ctx_keys, line))
 
     bgp_delete_inst_move_line(lines_to_del)
+
+    return (lines_to_add, lines_to_del)
+
+
+def pim_delete_move_lines(lines_to_add, lines_to_del):
+
+    # Under interface context, if 'no ip pim' is present
+    # remove subsequent 'no ip pim <blah>' options as it
+    # they are implicitly deleted by 'no ip pim'.
+    # Remove all such depdendent options from delete
+    # pending list.
+    pim_disable = False
+
+    for (ctx_keys, line) in lines_to_del:
+        if ctx_keys[0].startswith("interface") and line and line == "ip pim":
+            pim_disable = True
+
+    if pim_disable:
+        for (ctx_keys, line) in lines_to_del:
+            if (
+                ctx_keys[0].startswith("interface")
+                and line
+                and line.startswith("ip pim ")
+            ):
+                lines_to_del.remove((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
+
+
+def delete_move_lines(lines_to_add, lines_to_del):
+
+    lines_to_add, lines_to_del = bgp_delete_move_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = pim_delete_move_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
 
