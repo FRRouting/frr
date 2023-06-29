@@ -297,12 +297,25 @@ def check_for_memleaks():
         pytest.fail("memleaks found for daemons: " + " ".join(daemons))
 
 
+def check_for_core_dumps():
+    dumps = []
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    latest = []
+
+    if tgen is not None:
+        logdir = tgen.logdir
+        cores = glob.glob(os.path.join(logdir, "*/*.dmp"))
+
+    if cores:
+        logger.error("Cores found:\n\t%s", "\n\t".join(cores))
+        pytest.fail("Core files found")
+
+
 def check_for_backtraces():
     backtraces = []
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
     latest = []
     existing = []
-
     if tgen is not None:
         logdir = tgen.logdir
         if hasattr(tgen, "backtraces_existing_files"):
@@ -354,6 +367,7 @@ def module_check_memtest(request):
         if get_topogen() is not None:
             check_for_memleaks()
     check_for_backtraces()
+    check_for_core_dumps()
 
 
 #
