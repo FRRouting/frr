@@ -273,9 +273,8 @@ mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 	return session;
 }
 
-static int mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
-				    Mgmtd__FeMessage *fe_msg,
-				    bool short_circuit_ok)
+static int fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
+			       Mgmtd__FeMessage *fe_msg, bool short_circuit_ok)
 {
 	return msg_conn_send_msg(
 		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
@@ -284,10 +283,9 @@ static int mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
 		short_circuit_ok);
 }
 
-static int
-mgmt_fe_send_session_reply(struct mgmt_fe_client_adapter *adapter,
-			       struct mgmt_fe_session_ctx *session,
-			       bool create, bool success)
+static int fe_adapter_send_session_reply(struct mgmt_fe_client_adapter *adapter,
+					 struct mgmt_fe_session_ctx *session,
+					 bool create, bool success)
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeSessionReply session_reply;
@@ -309,13 +307,13 @@ mgmt_fe_send_session_reply(struct mgmt_fe_client_adapter *adapter,
 		"Sending SESSION_REPLY message to MGMTD Frontend client '%s'",
 		adapter->name);
 
-	return mgmt_fe_adapter_send_msg(adapter, &fe_msg, true);
+	return fe_adapter_send_msg(adapter, &fe_msg, true);
 }
 
-static int mgmt_fe_send_lockds_reply(struct mgmt_fe_session_ctx *session,
-					 Mgmtd__DatastoreId ds_id,
-					 uint64_t req_id, bool lock_ds,
-					 bool success, const char *error_if_any)
+static int fe_adapter_send_lockds_reply(struct mgmt_fe_session_ctx *session,
+					Mgmtd__DatastoreId ds_id,
+					uint64_t req_id, bool lock_ds,
+					bool success, const char *error_if_any)
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeLockDsReply lockds_reply;
@@ -340,10 +338,10 @@ static int mgmt_fe_send_lockds_reply(struct mgmt_fe_session_ctx *session,
 		"Sending LOCK_DS_REPLY message to MGMTD Frontend client '%s' scok: %d",
 		session->adapter->name, scok);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, scok);
+	return fe_adapter_send_msg(session->adapter, &fe_msg, scok);
 }
 
-static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
+static int fe_adapter_send_set_cfg_reply(struct mgmt_fe_session_ctx *session,
 					 Mgmtd__DatastoreId ds_id,
 					 uint64_t req_id, bool success,
 					 const char *error_if_any,
@@ -387,10 +385,10 @@ static int mgmt_fe_send_setcfg_reply(struct mgmt_fe_session_ctx *session,
 		gettimeofday(&session->adapter->setcfg_stats.last_end, NULL);
 	mgmt_fe_adapter_compute_set_cfg_timers(&session->adapter->setcfg_stats);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
+	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
-static int mgmt_fe_send_commitcfg_reply(
+static int fe_adapter_send_commit_cfg_reply(
 	struct mgmt_fe_session_ctx *session, Mgmtd__DatastoreId src_ds_id,
 	Mgmtd__DatastoreId dst_ds_id, uint64_t req_id, enum mgmt_result result,
 	bool validate_only, const char *error_if_any)
@@ -433,83 +431,43 @@ static int mgmt_fe_send_commitcfg_reply(
 	if (mm->perf_stats_en)
 		gettimeofday(&session->adapter->cmt_stats.last_end, NULL);
 	mgmt_fe_session_compute_commit_timers(&session->adapter->cmt_stats);
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
+	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
-static int mgmt_fe_send_getcfg_reply(struct mgmt_fe_session_ctx *session,
-					 Mgmtd__DatastoreId ds_id,
-					 uint64_t req_id, bool success,
-					 Mgmtd__YangDataReply *data,
-					 const char *error_if_any)
+static int fe_adapter_send_get_reply(struct mgmt_fe_session_ctx *session,
+				     Mgmtd__DatastoreId ds_id, uint64_t req_id,
+				     bool success, Mgmtd__YangDataReply *data,
+				     const char *error_if_any)
 {
 	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeGetConfigReply getcfg_reply;
+	Mgmtd__FeGetReply get_reply;
 
 	assert(session->adapter);
 
-	mgmtd__fe_get_config_reply__init(&getcfg_reply);
-	getcfg_reply.session_id = session->session_id;
-	getcfg_reply.ds_id = ds_id;
-	getcfg_reply.req_id = req_id;
-	getcfg_reply.success = success;
-	getcfg_reply.data = data;
+	mgmtd__fe_get_reply__init(&get_reply);
+	get_reply.session_id = session->session_id;
+	get_reply.ds_id = ds_id;
+	get_reply.req_id = req_id;
+	get_reply.success = success;
+	get_reply.data = data;
 	if (error_if_any)
-		getcfg_reply.error_if_any = (char *)error_if_any;
+		get_reply.error_if_any = (char *)error_if_any;
 
 	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REPLY;
-	fe_msg.getcfg_reply = &getcfg_reply;
+	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY;
+	fe_msg.get_reply = &get_reply;
 
-	MGMTD_FE_ADAPTER_DBG(
-		"Sending GET_CONFIG_REPLY message to MGMTD Frontend client '%s'",
-		session->adapter->name);
+	MGMTD_FE_ADAPTER_DBG("Sending GET_REPLY message to MGMTD Frontend client '%s'",
+			     session->adapter->name);
 
 	/*
 	 * Cleanup the SHOW transaction associated with this session.
 	 */
 	if (session->txn_id && (!success || (data && data->next_indx < 0)))
-		mgmt_fe_session_register_event(
-			session, MGMTD_FE_SESSION_SHOW_TXN_CLNUP);
+		mgmt_fe_session_register_event(session,
+					       MGMTD_FE_SESSION_SHOW_TXN_CLNUP);
 
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
-}
-
-static int mgmt_fe_send_getdata_reply(struct mgmt_fe_session_ctx *session,
-					  Mgmtd__DatastoreId ds_id,
-					  uint64_t req_id, bool success,
-					  Mgmtd__YangDataReply *data,
-					  const char *error_if_any)
-{
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeGetDataReply getdata_reply;
-
-	assert(session->adapter);
-
-	mgmtd__fe_get_data_reply__init(&getdata_reply);
-	getdata_reply.session_id = session->session_id;
-	getdata_reply.ds_id = ds_id;
-	getdata_reply.req_id = req_id;
-	getdata_reply.success = success;
-	getdata_reply.data = data;
-	if (error_if_any)
-		getdata_reply.error_if_any = (char *)error_if_any;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REPLY;
-	fe_msg.getdata_reply = &getdata_reply;
-
-	MGMTD_FE_ADAPTER_DBG(
-		"Sending GET_DATA_REPLY message to MGMTD Frontend client '%s'",
-		session->adapter->name);
-
-	/*
-	 * Cleanup the SHOW transaction associated with this session.
-	 */
-	if (session->txn_id && (!success || (data && data->next_indx < 0)))
-		mgmt_fe_session_register_event(
-			session, MGMTD_FE_SESSION_SHOW_TXN_CLNUP);
-
-	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg, false);
+	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
@@ -556,19 +514,6 @@ mgmt_fe_find_adapter_by_fd(int conn_fd)
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
 		if (adapter->conn->fd == conn_fd)
-			return adapter;
-	}
-
-	return NULL;
-}
-
-static struct mgmt_fe_client_adapter *
-mgmt_fe_find_adapter_by_name(const char *name)
-{
-	struct mgmt_fe_client_adapter *adapter;
-
-	FOREACH_ADAPTER_IN_LIST (adapter) {
-		if (!strncmp(adapter->name, name, sizeof(adapter->name)))
 			return adapter;
 	}
 
@@ -631,7 +576,7 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 
 	if (lockds_req->ds_id != MGMTD_DS_CANDIDATE &&
 	    lockds_req->ds_id != MGMTD_DS_RUNNING) {
-		mgmt_fe_send_lockds_reply(
+		fe_adapter_send_lockds_reply(
 			session, lockds_req->ds_id, lockds_req->req_id,
 			lockds_req->lock, false,
 			"Lock/Unlock on DS other than candidate or running DS not supported");
@@ -640,10 +585,10 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, lockds_req->ds_id);
 	if (!ds_ctx) {
-		mgmt_fe_send_lockds_reply(
-			session, lockds_req->ds_id, lockds_req->req_id,
-			lockds_req->lock, false,
-			"Failed to retrieve handle for DS!");
+		fe_adapter_send_lockds_reply(session, lockds_req->ds_id,
+					     lockds_req->req_id,
+					     lockds_req->lock, false,
+					     "Failed to retrieve handle for DS!");
 		return -1;
 	}
 
@@ -651,7 +596,7 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 		if (mgmt_fe_session_write_lock_ds(lockds_req->ds_id,
 						      ds_ctx, session)
 		    != 0) {
-			mgmt_fe_send_lockds_reply(
+			fe_adapter_send_lockds_reply(
 				session, lockds_req->ds_id, lockds_req->req_id,
 				lockds_req->lock, false,
 				"Lock already taken on DS by another session!");
@@ -659,7 +604,7 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 		}
 	} else {
 		if (!session->ds_locked[lockds_req->ds_id]) {
-			mgmt_fe_send_lockds_reply(
+			fe_adapter_send_lockds_reply(
 				session, lockds_req->ds_id, lockds_req->req_id,
 				lockds_req->lock, false,
 				"Lock on DS was not taken by this session!");
@@ -669,10 +614,9 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 		mgmt_fe_session_unlock_ds(lockds_req->ds_id, ds_ctx, session);
 	}
 
-	if (mgmt_fe_send_lockds_reply(session, lockds_req->ds_id,
-					   lockds_req->req_id, lockds_req->lock,
-					   true, NULL)
-	    != 0) {
+	if (fe_adapter_send_lockds_reply(session, lockds_req->ds_id,
+					 lockds_req->req_id, lockds_req->lock,
+					 true, NULL) != 0) {
 		MGMTD_FE_ADAPTER_DBG(
 			"Failed to send LOCK_DS_REPLY for DS %u session-id: %" PRIu64
 			" from %s",
@@ -700,7 +644,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 
 	/* MGMTD currently only supports editing the candidate DS. */
 	if (setcfg_req->ds_id != MGMTD_DS_CANDIDATE) {
-		mgmt_fe_send_setcfg_reply(
+		fe_adapter_send_set_cfg_reply(
 			session, setcfg_req->ds_id, setcfg_req->req_id, false,
 			"Set-Config on datastores other than Candidate DS not supported",
 			setcfg_req->implicit_commit);
@@ -712,7 +656,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	/* MGMTD currently only supports targetting the running DS. */
 	if (setcfg_req->implicit_commit &&
 	    setcfg_req->commit_ds_id != MGMTD_DS_RUNNING) {
-		mgmt_fe_send_setcfg_reply(
+		fe_adapter_send_set_cfg_reply(
 			session, setcfg_req->ds_id, setcfg_req->req_id, false,
 			"Implicit commit on datastores other than running DS not supported",
 			setcfg_req->implicit_commit);
@@ -723,10 +667,10 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 
 	/* User should have write lock to change the DS */
 	if (!session->ds_locked[setcfg_req->ds_id]) {
-		mgmt_fe_send_setcfg_reply(session, setcfg_req->ds_id,
-					  setcfg_req->req_id, false,
-					  "Candidate DS is not locked",
-					  setcfg_req->implicit_commit);
+		fe_adapter_send_set_cfg_reply(session, setcfg_req->ds_id,
+					      setcfg_req->req_id, false,
+					      "Candidate DS is not locked",
+					      setcfg_req->implicit_commit);
 		return 0;
 	}
 
@@ -738,7 +682,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 		session->cfg_txn_id = mgmt_create_txn(session->session_id,
 						      MGMTD_TXN_TYPE_CONFIG);
 		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
-			mgmt_fe_send_setcfg_reply(
+			fe_adapter_send_set_cfg_reply(
 				session, setcfg_req->ds_id, setcfg_req->req_id,
 				false,
 				"Failed to create a Configuration session!",
@@ -761,7 +705,7 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 			 * In this scenario need to skip cleanup of the txn,
 			 * so setting implicit commit to false.
 			 */
-			mgmt_fe_send_setcfg_reply(
+			fe_adapter_send_set_cfg_reply(
 				session, setcfg_req->ds_id, setcfg_req->req_id,
 				false,
 				"A Configuration transaction is already in progress!",
@@ -771,16 +715,16 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	}
 
 	/* Create the SETConfig request under the transaction. */
-	if (mgmt_txn_send_set_config_req(
-		    session->cfg_txn_id, setcfg_req->req_id, setcfg_req->ds_id,
-		    ds_ctx, setcfg_req->data, setcfg_req->n_data,
-		    setcfg_req->implicit_commit, setcfg_req->commit_ds_id,
-		    dst_ds_ctx)
-	    != 0) {
-		mgmt_fe_send_setcfg_reply(
-			session, setcfg_req->ds_id, setcfg_req->req_id, false,
-			"Request processing for SET-CONFIG failed!",
-			setcfg_req->implicit_commit);
+	if (mgmt_txn_send_set_config_req(session->cfg_txn_id, setcfg_req->req_id,
+					 setcfg_req->ds_id, ds_ctx,
+					 setcfg_req->data, setcfg_req->n_data,
+					 setcfg_req->implicit_commit,
+					 setcfg_req->commit_ds_id,
+					 dst_ds_ctx) != 0) {
+		fe_adapter_send_set_cfg_reply(session, setcfg_req->ds_id,
+					      setcfg_req->req_id, false,
+					      "Request processing for SET-CONFIG failed!",
+					      setcfg_req->implicit_commit);
 
 		/* delete transaction if we just created it */
 		if (txn_created)
@@ -790,33 +734,27 @@ mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
 	return 0;
 }
 
-static int
-mgmt_fe_session_handle_getcfg_req_msg(struct mgmt_fe_session_ctx *session,
-					  Mgmtd__FeGetConfigReq *getcfg_req)
+static int mgmt_fe_session_handle_get_req_msg(struct mgmt_fe_session_ctx *session,
+					      Mgmtd__FeGetReq *get_req)
 {
 	struct mgmt_ds_ctx *ds_ctx;
 	struct nb_config *cfg_root = NULL;
+	Mgmtd__DatastoreId ds_id = get_req->ds_id;
+	uint64_t req_id = get_req->req_id;
+	bool is_cfg = get_req->config;
+	bool ds_ok = true;
 
-	/*
-	 * Get the DS handle.
-	 */
-	ds_ctx = mgmt_ds_get_ctx_by_id(mm, getcfg_req->ds_id);
-	if (!ds_ctx) {
-		mgmt_fe_send_getcfg_reply(session, getcfg_req->ds_id,
-					      getcfg_req->req_id, false, NULL,
-					      "No such DS exists!");
+	if (is_cfg && ds_id != MGMTD_DS_CANDIDATE && ds_id != MGMTD_DS_RUNNING)
+		ds_ok = false;
+	else if (!is_cfg && ds_id != MGMTD_DS_OPERATIONAL)
+		ds_ok = false;
+	if (!ds_ok) {
+		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
+					  "get-req on unsupported datastore");
 		return 0;
 	}
-
-	/* GETCFG must be on candidate or running DS */
-	if (getcfg_req->ds_id != MGMTD_DS_CANDIDATE
-	    && getcfg_req->ds_id != MGMTD_DS_RUNNING) {
-		mgmt_fe_send_getcfg_reply(
-			session, getcfg_req->ds_id, getcfg_req->req_id, false,
-			NULL,
-			"Get-Config on datastores other than Candidate or Running DS not permitted!");
-		return 0;
-	}
+	ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
+	assert(ds_ctx);
 
 	if (session->txn_id == MGMTD_TXN_ID_NONE) {
 		/*
@@ -825,44 +763,43 @@ mgmt_fe_session_handle_getcfg_req_msg(struct mgmt_fe_session_ctx *session,
 		session->txn_id = mgmt_create_txn(session->session_id,
 						  MGMTD_TXN_TYPE_SHOW);
 		if (session->txn_id == MGMTD_SESSION_ID_NONE) {
-			mgmt_fe_send_getcfg_reply(
-				session, getcfg_req->ds_id, getcfg_req->req_id,
-				false, NULL,
-				"Failed to create a Show transaction!");
-			goto mgmt_fe_sess_handle_getcfg_req_failed;
+			fe_adapter_send_get_reply(session, ds_id, req_id, false,
+						  NULL,
+						  "Failed to create a Show transaction!");
+			return -1;
 		}
 
 		MGMTD_FE_ADAPTER_DBG("Created new show txn-id: %" PRIu64
 				     " for session-id: %" PRIu64,
 				     session->txn_id, session->session_id);
 	} else {
-		MGMTD_FE_ADAPTER_DBG("Show txn-id: %" PRIu64
-				     " for session-id: %" PRIu64
-				     " already created",
+		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
+					  "Request processing for GET failed!");
+		MGMTD_FE_ADAPTER_DBG("Transaction in progress txn-id: %" PRIu64
+				     " for session-id: %" PRIu64,
 				     session->txn_id, session->session_id);
+		return -1;
 	}
 
 	/*
 	 * Get a copy of the datastore config root, avoids locking.
 	 */
-	cfg_root = nb_config_dup(mgmt_ds_get_nb_config(ds_ctx));
+	if (is_cfg)
+		cfg_root = nb_config_dup(mgmt_ds_get_nb_config(ds_ctx));
 
 	/*
-	 * Create a GETConfig request under the transaction.
+	 * Create a GET request under the transaction.
 	 */
-	if (mgmt_txn_send_get_config_req(
-		    session->txn_id, getcfg_req->req_id, getcfg_req->ds_id,
-		    cfg_root, getcfg_req->data, getcfg_req->n_data) != 0) {
-		mgmt_fe_send_getcfg_reply(
-			session, getcfg_req->ds_id, getcfg_req->req_id, false,
-			NULL, "Request processing for GET-CONFIG failed!");
-		goto mgmt_fe_sess_handle_getcfg_req_failed;
+	if (mgmt_txn_send_get_req(session->txn_id, req_id, ds_id, cfg_root,
+				  get_req->data, get_req->n_data)) {
+		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
+					  "Request processing for GET failed!");
+
+		goto failed;
 	}
 
 	return 0;
-
-mgmt_fe_sess_handle_getcfg_req_failed:
-
+failed:
 	if (cfg_root)
 		nb_config_free(cfg_root);
 	/*
@@ -874,79 +811,6 @@ mgmt_fe_sess_handle_getcfg_req_failed:
 	return -1;
 }
 
-static int
-mgmt_fe_session_handle_getdata_req_msg(struct mgmt_fe_session_ctx *session,
-					   Mgmtd__FeGetDataReq *getdata_req)
-{
-	struct mgmt_ds_ctx *ds_ctx;
-
-	/*
-	 * Get the DS handle.
-	 */
-	ds_ctx = mgmt_ds_get_ctx_by_id(mm, getdata_req->ds_id);
-	if (!ds_ctx) {
-		mgmt_fe_send_getdata_reply(session, getdata_req->ds_id,
-					       getdata_req->req_id, false, NULL,
-					       "No such DS exists!");
-		return 0;
-	}
-
-	/* GETDATA must be on operational DS */
-	if (getdata_req->ds_id != MGMTD_DS_OPERATIONAL) {
-		mgmt_fe_send_getdata_reply(
-			session, getdata_req->ds_id, getdata_req->req_id, false,
-			NULL,
-			"Get-Data on datastore other than Operational DS not permitted!");
-		return 0;
-	}
-
-	if (session->txn_id == MGMTD_TXN_ID_NONE) {
-		/*
-		 * Start a SHOW Transaction (if not started already)
-		 */
-		session->txn_id = mgmt_create_txn(session->session_id,
-						  MGMTD_TXN_TYPE_SHOW);
-		if (session->txn_id == MGMTD_SESSION_ID_NONE) {
-			mgmt_fe_send_getdata_reply(
-				session, getdata_req->ds_id,
-				getdata_req->req_id, false, NULL,
-				"Failed to create a Show transaction!");
-			goto mgmt_fe_sess_handle_getdata_req_failed;
-		}
-
-		MGMTD_FE_ADAPTER_DBG("Created new Show Txn %" PRIu64
-				     " for session %" PRIu64,
-				     session->txn_id, session->session_id);
-	} else {
-		MGMTD_FE_ADAPTER_DBG("Show txn-id: %" PRIu64
-				     " for session %" PRIu64 " already created",
-				     session->txn_id, session->session_id);
-	}
-
-	/*
-	 * Create a GETData request under the transaction.
-	 */
-	if (mgmt_txn_send_get_data_req(session->txn_id, getdata_req->req_id,
-				       getdata_req->ds_id, getdata_req->data,
-				       getdata_req->n_data) != 0) {
-		mgmt_fe_send_getdata_reply(
-			session, getdata_req->ds_id, getdata_req->req_id, false,
-			NULL, "Request processing for GET-CONFIG failed!");
-		goto mgmt_fe_sess_handle_getdata_req_failed;
-	}
-
-	return 0;
-
-mgmt_fe_sess_handle_getdata_req_failed:
-
-	/*
-	 * Destroy the transaction created recently.
-	 */
-	if (session->txn_id != MGMTD_TXN_ID_NONE)
-		mgmt_destroy_txn(&session->txn_id);
-
-	return -1;
-}
 
 static int mgmt_fe_session_handle_commit_config_req_msg(
 	struct mgmt_fe_session_ctx *session,
@@ -961,7 +825,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/* Validate source and dest DS */
 	if (commcfg_req->src_ds_id != MGMTD_DS_CANDIDATE ||
 	    commcfg_req->dst_ds_id != MGMTD_DS_RUNNING) {
-		mgmt_fe_send_commitcfg_reply(
+		fe_adapter_send_commit_cfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
 			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
 			commcfg_req->validate_only,
@@ -976,7 +840,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/* User should have lock on both source and dest DS */
 	if (!session->ds_locked[commcfg_req->dst_ds_id] ||
 	    !session->ds_locked[commcfg_req->src_ds_id]) {
-		mgmt_fe_send_commitcfg_reply(
+		fe_adapter_send_commit_cfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
 			commcfg_req->req_id, MGMTD_DS_LOCK_FAILED,
 			commcfg_req->validate_only,
@@ -991,11 +855,10 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 		session->cfg_txn_id = mgmt_create_txn(session->session_id,
 						MGMTD_TXN_TYPE_CONFIG);
 		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
-			mgmt_fe_send_commitcfg_reply(
+			fe_adapter_send_commit_cfg_reply(
 				session, commcfg_req->src_ds_id,
 				commcfg_req->dst_ds_id, commcfg_req->req_id,
-				MGMTD_INTERNAL_ERROR,
-				commcfg_req->validate_only,
+				MGMTD_INTERNAL_ERROR, commcfg_req->validate_only,
 				"Failed to create a Configuration session!");
 			return 0;
 		}
@@ -1013,7 +876,7 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 		    commcfg_req->src_ds_id, src_ds_ctx, commcfg_req->dst_ds_id,
 		    dst_ds_ctx, commcfg_req->validate_only, commcfg_req->abort,
 		    false) != 0) {
-		mgmt_fe_send_commitcfg_reply(
+		fe_adapter_send_commit_cfg_reply(
 			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
 			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
 			commcfg_req->validate_only,
@@ -1058,8 +921,8 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 
 			session = mgmt_fe_create_session(
 				adapter, fe_msg->session_req->client_conn_id);
-			mgmt_fe_send_session_reply(adapter, session, true,
-						       session ? true : false);
+			fe_adapter_send_session_reply(adapter, session, true,
+						      session ? true : false);
 		} else if (
 			!fe_msg->session_req->create
 			&& fe_msg->session_req->id_case
@@ -1071,8 +934,8 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 
 			session = mgmt_session_id2ctx(
 				fe_msg->session_req->session_id);
-			mgmt_fe_send_session_reply(adapter, session, false,
-						       true);
+			fe_adapter_send_session_reply(adapter, session, false,
+						      true);
 			mgmt_fe_cleanup_session(&session);
 		}
 		break;
@@ -1116,29 +979,15 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		mgmt_fe_session_handle_commit_config_req_msg(
 			session, fe_msg->commcfg_req);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REQ:
-		session = mgmt_session_id2ctx(
-				fe_msg->getcfg_req->session_id);
-		MGMTD_FE_ADAPTER_DBG(
-			"Got GETCFG_REQ for DS:%s (xpaths: %d) on session-id %" PRIu64
-			" from '%s'",
-			mgmt_ds_id2name(fe_msg->getcfg_req->ds_id),
-			(int)fe_msg->getcfg_req->n_data,
-			fe_msg->getcfg_req->session_id, adapter->name);
-		mgmt_fe_session_handle_getcfg_req_msg(
-			session, fe_msg->getcfg_req);
-		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REQ:
-		session = mgmt_session_id2ctx(
-				fe_msg->getdata_req->session_id);
-		MGMTD_FE_ADAPTER_DBG(
-			"Got GETDATA_REQ for DS:%s (xpaths: %d) on session-id %" PRIu64
-			" from '%s'",
-			mgmt_ds_id2name(fe_msg->getdata_req->ds_id),
-			(int)fe_msg->getdata_req->n_data,
-			fe_msg->getdata_req->session_id, adapter->name);
-		mgmt_fe_session_handle_getdata_req_msg(
-			session, fe_msg->getdata_req);
+	case MGMTD__FE_MESSAGE__MESSAGE_GET_REQ:
+		session = mgmt_session_id2ctx(fe_msg->get_req->session_id);
+		MGMTD_FE_ADAPTER_DBG("Got GET_REQ (iscfg %d) for DS:%s (xpaths: %d) on session-id %" PRIu64
+				     " from '%s'",
+				     (int)fe_msg->get_req->config,
+				     mgmt_ds_id2name(fe_msg->get_req->ds_id),
+				     (int)fe_msg->get_req->n_data,
+				     fe_msg->get_req->session_id, adapter->name);
+		mgmt_fe_session_handle_get_req_msg(session, fe_msg->get_req);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_NOTIFY_DATA_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ:
@@ -1157,8 +1006,7 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	case MGMTD__FE_MESSAGE__MESSAGE_LOCKDS_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:
-	case MGMTD__FE_MESSAGE__MESSAGE_GETCFG_REPLY:
-	case MGMTD__FE_MESSAGE__MESSAGE_GETDATA_REPLY:
+	case MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
@@ -1293,11 +1141,6 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 	return adapter->conn;
 }
 
-struct mgmt_fe_client_adapter *mgmt_fe_get_adapter(const char *name)
-{
-	return mgmt_fe_find_adapter_by_name(name);
-}
-
 int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
 				   Mgmtd__DatastoreId ds_id, uint64_t req_id,
 				   enum mgmt_result result,
@@ -1316,9 +1159,10 @@ int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
 		return -1;
 	}
 
-	return mgmt_fe_send_setcfg_reply(
-		session, ds_id, req_id, result == MGMTD_SUCCESS ? true : false,
-		error_if_any, implicit_commit);
+	return fe_adapter_send_set_cfg_reply(session, ds_id, req_id,
+					     result == MGMTD_SUCCESS ? true
+								     : false,
+					     error_if_any, implicit_commit);
 }
 
 int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
@@ -1334,16 +1178,16 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
 	if (!session || session->cfg_txn_id != txn_id)
 		return -1;
 
-	return mgmt_fe_send_commitcfg_reply(session, src_ds_id, dst_ds_id,
+	return fe_adapter_send_commit_cfg_reply(session, src_ds_id, dst_ds_id,
 						req_id, result, validate_only,
 						error_if_any);
 }
 
-int mgmt_fe_send_get_cfg_reply(uint64_t session_id, uint64_t txn_id,
-				   Mgmtd__DatastoreId ds_id, uint64_t req_id,
-				   enum mgmt_result result,
-				   Mgmtd__YangDataReply *data_resp,
-				   const char *error_if_any)
+int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
+			   Mgmtd__DatastoreId ds_id, uint64_t req_id,
+			   enum mgmt_result result,
+			   Mgmtd__YangDataReply *data_resp,
+			   const char *error_if_any)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -1351,34 +1195,9 @@ int mgmt_fe_send_get_cfg_reply(uint64_t session_id, uint64_t txn_id,
 	if (!session || session->txn_id != txn_id)
 		return -1;
 
-	return mgmt_fe_send_getcfg_reply(session, ds_id, req_id,
-					     result == MGMTD_SUCCESS, data_resp,
-					     error_if_any);
-}
-
-int mgmt_fe_send_get_data_reply(uint64_t session_id, uint64_t txn_id,
-				    Mgmtd__DatastoreId ds_id, uint64_t req_id,
-				    enum mgmt_result result,
-				    Mgmtd__YangDataReply *data_resp,
-				    const char *error_if_any)
-{
-	struct mgmt_fe_session_ctx *session;
-
-	session = mgmt_session_id2ctx(session_id);
-	if (!session || session->txn_id != txn_id)
-		return -1;
-
-	return mgmt_fe_send_getdata_reply(session, ds_id, req_id,
-					      result == MGMTD_SUCCESS,
-					      data_resp, error_if_any);
-}
-
-int mgmt_fe_send_data_notify(Mgmtd__DatastoreId ds_id,
-				 Mgmtd__YangData * data_resp[], int num_data)
-{
-	/* struct mgmt_fe_session_ctx *session; */
-
-	return 0;
+	return fe_adapter_send_get_reply(session, ds_id, req_id,
+					 result == MGMTD_SUCCESS, data_resp,
+					 error_if_any);
 }
 
 struct mgmt_setcfg_stats *

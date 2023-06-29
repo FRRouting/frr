@@ -768,9 +768,6 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 			client_ctx, (uint64_t)be_msg->cfg_apply_req->txn_id);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REQ:
 		MGMTD_BE_CLIENT_ERR("Got unhandled message type %u",
 				    be_msg->message_case);
 		/*
@@ -781,13 +778,11 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 	 * NOTE: The following messages are always sent from Backend
 	 * clients to MGMTd only and/or need not be handled here.
 	 */
+	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_NOTIFY_DATA:
 	case MGMTD__BE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
