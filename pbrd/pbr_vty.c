@@ -3,6 +3,8 @@
  * PBR - vty code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *      Copyright (c) 2021 The MITRE Corporation.
  */
 #include <zebra.h>
 
@@ -184,6 +186,60 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_action_src, pbr_map_action_src_cmd,
+      "[no] set src-ip <A.B.C.D/M|X:X::X:X/M>$prefix",
+      NO_STR
+      "set the rest of the command\n"
+      "choose the src ip or ipv6 prefix to use\n"
+      "v4 Prefix\n"
+      "v6 Prefix\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	pbrms->family = prefix->family;
+
+	if (!no) {
+		if (pbrms->action_src) {
+			if (prefix_same(pbrms->action_src, prefix))
+				return CMD_SUCCESS;
+		} else
+			pbrms->action_src = prefix_new();
+
+		prefix_copy(pbrms->action_src, prefix);
+	} else
+		prefix_free(&pbrms->action_src);
+
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_dst, pbr_map_action_dst_cmd,
+      "[no] set dst-ip <A.B.C.D/M|X:X::X:X/M>$prefix",
+      NO_STR
+      "setthe rest of the command\n"
+      "set the dst ip or ipv6 prefix to use\n"
+      "v4 Prefix\n"
+      "v6 Prefix\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	pbrms->family = prefix->family;
+
+	if (!no) {
+		if (pbrms->action_dst) {
+			if (prefix_same(pbrms->action_dst, prefix))
+				return CMD_SUCCESS;
+		} else
+			pbrms->action_dst = prefix_new();
+
+		prefix_copy(pbrms->action_dst, prefix);
+	} else
+		prefix_free(&pbrms->action_dst);
+
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
 DEFPY(pbr_map_match_ip_proto, pbr_map_match_ip_proto_cmd,
       "[no] match ip-protocol [tcp|udp]$ip_proto",
       NO_STR
@@ -268,6 +324,50 @@ DEFPY(pbr_map_match_dst_port, pbr_map_match_dst_port_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_action_src_port, pbr_map_action_src_port_cmd,
+      "[no] set src-port (1-65535)$port",
+      NO_STR
+      "Match the rest of the command\n"
+      "Choose the destination port to use\n"
+      "The Destination Port\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if (pbrms->action_src_port == port)
+			return CMD_SUCCESS;
+
+		pbrms->action_src_port = port;
+	} else
+		pbrms->action_src_port = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_dst_port, pbr_map_action_dst_port_cmd,
+      "[no] set dst-port (1-65535)$port",
+      NO_STR
+      "Match the rest of the command\n"
+      "Choose the destination port to use\n"
+      "The Destination Port\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if (pbrms->action_dst_port == port)
+			return CMD_SUCCESS;
+
+		pbrms->action_dst_port = port;
+	} else
+		pbrms->action_dst_port = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
       "[no] match dscp DSCP$dscp",
       NO_STR
@@ -332,6 +432,58 @@ DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_action_dscp, pbr_map_action_dscp_cmd, "[no] set dscp DSCP$dscp",
+      NO_STR
+      "set the rest of the command\n"
+      "set based on IP DSCP field\n"
+      "DSCP value (below 64) or standard codepoint name\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+	char dscpname[100];
+	uint8_t rawDscp;
+
+	/* Discriminate dscp enums (cs0, cs1 etc.) and numbers */
+	bool isANumber = true;
+	for (int i = 0; i < (int)strlen(dscp); i++) {
+		/* Letters are not numbers */
+		if (!isdigit(dscp[i]))
+			isANumber = false;
+
+		/* Lowercase the dscp enum (if needed) */
+		if (isupper(dscp[i]))
+			dscpname[i] = tolower(dscp[i]);
+		else
+			dscpname[i] = dscp[i];
+	}
+	dscpname[strlen(dscp)] = '\0';
+
+	if (isANumber) {
+		/* dscp passed is a regular number */
+		long dscpAsNum = strtol(dscp, NULL, 0);
+
+		if (dscpAsNum > PBR_DSFIELD_DSCP >> 2) {
+			/* Refuse to install on overflow */
+			vty_out(vty, "dscp (%s) must be less than 64\n", dscp);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		rawDscp = dscpAsNum;
+	} else {
+		/* check dscp if it is an enum like cs0 */
+		rawDscp = pbr_map_decode_dscp_enum(dscpname);
+		if (rawDscp > PBR_DSFIELD_DSCP) {
+			vty_out(vty, "Invalid dscp value: %s\n", dscpname);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (!no)
+		pbr_set_action_clause_for_dscp(pbrms, rawDscp);
+	else
+		pbr_reset_action_clause_for_dscp(pbrms);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(pbr_map_match_ecn, pbr_map_match_ecn_cmd,
       "[no] match ecn (0-3)$ecn",
       NO_STR
@@ -355,6 +507,22 @@ DEFPY(pbr_map_match_ecn, pbr_map_match_ecn_cmd,
 	}
 
 	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_ecn, pbr_map_action_ecn_cmd, "[no] set ecn (0-3)$ecn",
+      NO_STR
+      "set the rest of the command\n"
+      "set based on IP ECN field\n"
+      "explicit Congestion Notification\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbr_set_action_clause_for_ecn(pbrms, ecn);
+	else
+		pbr_reset_action_clause_for_ecn(pbrms);
 
 	return CMD_SUCCESS;
 }
@@ -564,6 +732,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
         <\
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
+      |drop$drop\
 	>\
         [nexthop-vrf NAME$vrf_name]",
       "Set for the PBR-MAP\n"
@@ -572,6 +741,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
       "v6 Address\n"
       "Interface to use\n"
       "Interface to use\n"
+      "Drop action\n"
       "If the nexthop is in a different vrf tell us\n"
       "The nexthop-vrf Name\n")
 {
@@ -656,14 +826,18 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 				nhop.type = NEXTHOP_TYPE_IPV6;
 			}
 		}
-	} else
+	} else {
 		nhop.type = NEXTHOP_TYPE_IFINDEX;
-
-	if (pbrms->nhg)
+    } 
+    if (drop) {
+        nhop.type = NEXTHOP_TYPE_BLACKHOLE;
+    }
+	if (pbrms->nhg) {
 		nh = nexthop_exists(pbrms->nhg, &nhop);
-
-	if (nh) /* Same config re-entered */
+    }
+	if (nh) { /* Same config re-entered */
 		goto done;
+    }
 
 	/* This is new/replacement config */
 	pbrms_clear_set_config(pbrms);
@@ -691,6 +865,7 @@ DEFPY(no_pbr_map_nexthop, no_pbr_map_nexthop_cmd,
         [<\
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
+      |drop$drop\
 	>\
         [nexthop-vrf NAME$vrf_name]]",
       NO_STR
@@ -700,6 +875,7 @@ DEFPY(no_pbr_map_nexthop, no_pbr_map_nexthop_cmd,
       "v6 Address\n"
       "Interface to use\n"
       "Interface to use\n"
+      "Drop action\n"
       "If the nexthop is in a different vrf tell us\n"
       "The nexthop-vrf Name\n")
 {
@@ -918,7 +1094,30 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "        Strip VLAN ID\n");
 	if (pbrms->action_pcp)
 		vty_out(vty, "        Set PCP %u\n", pbrms->action_pcp);
+    if (pbrms->src_prt)
+		vty_out(vty, "        Match Src port %u\n", pbrms->src_prt);
+	if (pbrms->dst_prt)
+		vty_out(vty, "        Match Dst port %u\n", pbrms->dst_prt);
 
+	/* set actions */
+	if (pbrms->action_dsfield & PBR_DSFIELD_ECN)
+		vty_out(vty, "        Set ECN %u\n",
+			pbrms->action_dsfield & PBR_DSFIELD_ECN);
+	if (pbrms->action_dsfield & PBR_DSFIELD_DSCP)
+		vty_out(vty, "        Set DSCP %u\n",
+			(pbrms->action_dsfield & PBR_DSFIELD_DSCP) >> 2);
+
+	if (pbrms->action_dst)
+		vty_out(vty, "        Set DST IP %pFX\n", pbrms->action_dst);
+	if (pbrms->action_src)
+		vty_out(vty, "        Set SRC IP %pFX\n", pbrms->action_src);
+
+	if (pbrms->action_dst_port)
+		vty_out(vty, "        Set Dst port %u\n",
+			pbrms->action_dst_port);
+	if (pbrms->action_src_port)
+		vty_out(vty, "        Set Src port %u\n",
+			pbrms->action_src_port);
 
 	if (pbrms->nhgrp_name) {
 		vty_out(vty, "        Nexthop-Group: %s\n", pbrms->nhgrp_name);
@@ -1278,6 +1477,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 {
 	vty_out(vty, "pbr-map %s seq %u\n", pbrm->name, pbrms->seqno);
 
+    /* match first */
 	if (pbrms->src)
 		vty_out(vty, " match src-ip %pFX\n", pbrms->src);
 
@@ -1319,6 +1519,26 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 
 	if (pbrms->action_vlan_flags == PBR_MAP_STRIP_INNER_ANY)
 		vty_out(vty, " strip vlan any\n");
+
+    /* set commands */
+	if (pbrms->action_src)
+		vty_out(vty, " set src-ip %pFX\n", pbrms->action_src);
+
+	if (pbrms->action_dst)
+		vty_out(vty, " set dst-ip %pFX\n", pbrms->dst);
+
+	if (pbrms->action_dsfield & PBR_DSFIELD_DSCP)
+		vty_out(vty, " set dscp %u\n",
+			(pbrms->action_dsfield & PBR_DSFIELD_DSCP) >> 2);
+
+	if (pbrms->action_dsfield & PBR_DSFIELD_ECN)
+		vty_out(vty, " set ecn %u\n",
+			pbrms->action_dsfield & PBR_DSFIELD_ECN);
+
+	if (pbrms->action_dst_port)
+		vty_out(vty, " set dst-port %d\n", pbrms->action_dst_port);
+	if (pbrms->action_src_port)
+		vty_out(vty, " set src-port %d\n", pbrms->action_src_port);
 
 	if (pbrms->vrf_unchanged)
 		vty_out(vty, " set vrf unchanged\n");
@@ -1411,6 +1631,12 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
+    install_element(PBRMAP_NODE, &pbr_map_action_src_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_dst_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_dscp_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_ecn_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_src_port_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_dst_port_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &no_pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);

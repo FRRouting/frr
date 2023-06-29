@@ -3,6 +3,8 @@
  * PBR-map Header
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *      Copyright (c) 2021 The MITRE Corporation.
  */
 #ifndef __PBR_MAP_H__
 #define __PBR_MAP_H__
@@ -105,6 +107,20 @@ struct pbr_map_sequence {
 	 * Family of the src/dst.  Needed when deleting since we clear them
 	 */
 	unsigned char family;
+
+    /*
+	 * Actions
+	 */
+	struct prefix *action_src;
+	struct prefix *action_dst;
+
+#define PBR_UNDEFINED_VALUE 0xffffffff
+#define PBR_UNDEFINED_QUEUE_ID 0xff
+
+	uint16_t action_src_port;
+	uint16_t action_dst_port;
+
+	uint8_t action_dsfield;
 
 	/*
 	 * Use interface's vrf.
@@ -222,4 +238,11 @@ extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 extern void pbr_map_check_interface_nh_group_change(const char *nh_group,
 						    struct interface *ifp,
 						    ifindex_t oldifindex);
+extern void pbr_set_action_clause_for_dscp(struct pbr_map_sequence *pbrms,
+					   uint8_t dscp_value);
+extern void pbr_reset_action_clause_for_dscp(struct pbr_map_sequence *pbrms);
+
+extern void pbr_set_action_clause_for_ecn(struct pbr_map_sequence *pbrms,
+					  uint8_t ecn_value);
+extern void pbr_reset_action_clause_for_ecn(struct pbr_map_sequence *pbrms);
 #endif

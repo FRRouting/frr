@@ -161,15 +161,54 @@ end destination.
    Strip inner vlan tags from matched packets. The Linux Kernel provider does not currently support packet mangling, so this field will be ignored unless another provider is used. It is invalid to specify both a `strip` and `set
    vlan` action.
 
+.. clicmd:: set src-ip [A.B.C.D/M|X:X::X:X/M]
+
+   Change the source IP address of matched packets, possibly using a mask `M`.
+   Note that this action is not currently supported by the Linux kernel
+   provider, so will be ignored unless other providers are used. 
+
+.. clicmd:: set dst-ip [A.B.C.D/M|X:X::X:X/M]
+
+   Change the destination IP address of matched packets, possibly using a mask
+   `M`. Note that this action is not currently supported by the Linux kernel
+   provider, so will be ignored unless other providers are used.
+
+.. clicmd:: set src-port (1-65535)
+
+   Change the source port of matched packets. Note that this action only makes
+   sense with layer 4 protocols that use ports, such as TCP, UDP, and SCTP.
+   This action is not currently supported by the Linux kernel provider, so will 
+   be ignored unless other providers are used.
+
+.. clicmd:: set dst-port (1-65535)
+
+   Change the destination port of matched packets. Note that this action only 
+   makes sense with layer 4 protocols that use ports, such as TCP, UDP, and 
+   SCTP. This action is not currently supported by the Linux kernel provider, 
+   so will be ignored unless other providers are used.
+
+.. clicmd:: set dscp DSCP
+
+   Set the differentiated services code point (DSCP) of matched packets. This
+   action is not currently supported by the Linux kernel provider, so will be
+   ignored unless other providers are used.
+
+.. clicmd:: set ecn (0-3)
+
+   Set the explicit congestion notification (ECN) of matched packets. This
+   action is not currently supported by the Linux kernel provider, so will be
+   ignored unless other providers are used. 
+
 .. clicmd:: set nexthop-group NAME
 
    Use the nexthop-group NAME as the place to forward packets when the match
    commands have matched a packet.
 
-.. clicmd:: set nexthop [A.B.C.D|X:X::X:XX] [interface] [nexthop-vrf NAME]
+.. clicmd:: set nexthop [A.B.C.D|X:X::X:XX|drop] [interface] [nexthop-vrf NAME]
 
    Use this individual nexthop as the place to forward packets when the match
-   commands have matched a packet.
+   commands have matched a packet. If `drop`, packets will be sent to a
+   blackhole route and dropped.
 
 .. clicmd:: set vrf unchanged|NAME
 

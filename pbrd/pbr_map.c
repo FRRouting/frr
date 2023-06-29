@@ -3,6 +3,8 @@
  * PBR-map Code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *      Copyright (c) 2021 The MITRE Corporation.
  */
 #include <zebra.h>
 
@@ -17,6 +19,7 @@
 #include "log.h"
 #include "vty.h"
 
+#include "pbr.h"
 #include "pbr_nht.h"
 #include "pbr_map.h"
 #include "pbr_zebra.h"
@@ -117,6 +120,52 @@ pbr_map_interface_is_installed(const struct pbr_map *pbrm,
 				return true;
 
 	return false;
+}
+
+void pbr_set_action_clause_for_dscp(struct pbr_map_sequence *pbrms,
+				    uint8_t dscp_value)
+{
+	if (pbrms) {
+		/* if value is same, ignore; otherwise set and process */
+		if (((pbrms->action_dsfield & PBR_DSFIELD_DSCP) >> 2)
+		    != dscp_value) {
+			pbrms->action_dsfield =
+				(pbrms->action_dsfield & ~PBR_DSFIELD_DSCP)
+				| (dscp_value << 2);
+			pbr_map_check(pbrms, true);
+		}
+	}
+}
+
+void pbr_reset_action_clause_for_dscp(struct pbr_map_sequence *pbrms)
+{
+	if (pbrms) {
+		pbrms->action_dsfield &= ~PBR_DSFIELD_DSCP;
+		pbr_map_check(pbrms, true);
+	}
+}
+
+void pbr_set_action_clause_for_ecn(struct pbr_map_sequence *pbrms,
+				   uint8_t ecn_value)
+{
+	if (pbrms) {
+		/* if value is same, ignore; otherwise set and process */
+		if ((pbrms->action_dsfield & PBR_DSFIELD_ECN) != ecn_value) {
+			pbrms->action_dsfield =
+				(pbrms->action_dsfield & ~PBR_DSFIELD_ECN)
+				| (ecn_value);
+
+			pbr_map_check(pbrms, true);
+		}
+	}
+}
+
+void pbr_reset_action_clause_for_ecn(struct pbr_map_sequence *pbrms)
+{
+	if (pbrms) {
+		pbrms->action_dsfield &= ~PBR_DSFIELD_ECN;
+		pbr_map_check(pbrms, true);
+	}
 }
 
 static bool pbr_map_interface_is_valid(const struct pbr_map_interface *pmi)
@@ -486,9 +535,9 @@ uint8_t pbr_map_decode_dscp_enum(const char *name)
 
 struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 {
-	struct pbr_map *pbrm;
-	struct pbr_map_sequence *pbrms;
-	struct listnode *node;
+	struct pbr_map *pbrm = NULL;
+	struct pbr_map_sequence *pbrms = NULL;
+	struct listnode *node = NULL;
 
 	pbrm = pbrm_find(name);
 	if (!pbrm) {
@@ -531,6 +580,12 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->action_pcp = 0;
 
 		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
+        pbrms->ip_proto = 0;
+		pbrms->src_prt = 0;
+		pbrms->dst_prt = 0;
+
+		pbrms->action_src_port = 0;
+		pbrms->action_dst_port = 0;
 
 		pbrms->reason =
 			PBR_MAP_INVALID_EMPTY |
@@ -594,9 +649,12 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield
-	    && !pbrms->action_vlan_id && !pbrms->action_vlan_flags
-	    && !pbrms->action_pcp
+if (!pbrms->src && !pbrms->dst && !pbrms->action_src
+	    && !pbrms->action_dst && !pbrms->dsfield && !pbrms->action_dsfield
+	    && !pbrms->mark && !pbrms->src_prt && !pbrms->dst_prt
+	    && !pbrms->action_src_port && !pbrms->action_dst_port
+	    && !pbrms->ip_proto && !pbrms->action_vlan_id
+	    && !pbrms->action_vlan_flags && !pbrms->action_pcp
 	    && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }

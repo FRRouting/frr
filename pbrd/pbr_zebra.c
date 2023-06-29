@@ -3,6 +3,8 @@
  * Zebra connect code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *      Copyright (c) 2021 The MITRE Corporation.
  */
 #include <zebra.h>
 
@@ -529,12 +531,26 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putl(s, pbrms->seqno);
 	stream_putl(s, pbrms->ruleno);
 	stream_putl(s, pbrms->unique);
-	stream_putc(s, pbrms->ip_proto); /* The ip_proto */
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->src, family);
-	stream_putw(s, pbrms->src_prt);
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
+    pbr_encode_pbr_map_sequence_prefix(s, pbrms->action_src, family);
+	pbr_encode_pbr_map_sequence_prefix(s, pbrms->action_dst, family);
+
+	/* ports */
+	stream_putw(s, pbrms->src_prt);
 	stream_putw(s, pbrms->dst_prt);
+    /* port actions */
+	stream_putl(s, pbrms->action_src_port);
+	stream_putl(s, pbrms->action_dst_port);
+
+	/* dsfield & ecn */
 	stream_putc(s, pbrms->dsfield);
+    stream_putc(s, pbrms->action_dsfield);
+
+	/* The ip_proto */
+	stream_putc(s, pbrms->ip_proto);
+
+	/* mark */
 	stream_putl(s, pbrms->mark);
 
 	stream_putl(s, pbrms->action_queue_id);
@@ -543,6 +559,11 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, pbrms->action_vlan_flags);
 	stream_putw(s, pbrms->action_pcp);
 
+    /* if the user does not use the command "set vrf name |unchanged"
+	 * then pbr_encode_pbr_map_sequence_vrf will not be called
+	 */
+
+	/* these statement get a table id */
 	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
 		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
 	else if (pbrms->nhgrp_name)

@@ -5,6 +5,7 @@
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
+ *   Copyright (c) 2021 The MITRE Corporation.
  */
 
 #include <zebra.h>
@@ -3198,18 +3199,32 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, zpr.rule.seq);
 		STREAM_GETL(s, zpr.rule.priority);
 		STREAM_GETL(s, zpr.rule.unique);
-		STREAM_GETC(s, zpr.rule.filter.ip_proto);
 		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
 		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
 		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
 			   prefix_blen(&zpr.rule.filter.src_ip));
-		STREAM_GETW(s, zpr.rule.filter.src_port);
 		STREAM_GETC(s, zpr.rule.filter.dst_ip.family);
 		STREAM_GETC(s, zpr.rule.filter.dst_ip.prefixlen);
 		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
 			   prefix_blen(&zpr.rule.filter.dst_ip));
+        STREAM_GETC(s, zpr.rule.action.src_ip.family);
+		STREAM_GETC(s, zpr.rule.action.src_ip.prefixlen);
+		STREAM_GET(&zpr.rule.action.src_ip.u.prefix, s,
+			   prefix_blen(&zpr.rule.action.src_ip));
+
+		STREAM_GETC(s, zpr.rule.action.dst_ip.family);
+		STREAM_GETC(s, zpr.rule.action.dst_ip.prefixlen);
+		STREAM_GET(&zpr.rule.action.dst_ip.u.prefix, s,
+			   prefix_blen(&zpr.rule.action.dst_ip));
+
+		STREAM_GETW(s, zpr.rule.filter.src_port);
 		STREAM_GETW(s, zpr.rule.filter.dst_port);
+        STREAM_GETL(s, zpr.rule.action.src_port);
+		STREAM_GETL(s, zpr.rule.action.dst_port);
 		STREAM_GETC(s, zpr.rule.filter.dsfield);
+        STREAM_GETC(s, zpr.rule.action.dsfield);
+
+		STREAM_GETC(s, zpr.rule.filter.ip_proto);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 
 		STREAM_GETL(s, zpr.rule.action.queue_id);
@@ -3514,7 +3529,7 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		if (zpi.src_port_max != 0)
 			zpi.filter_bm |= PBR_FILTER_SRC_PORT_RANGE;
 		if (zpi.proto != 0)
-			zpi.filter_bm |= PBR_FILTER_PROTO;
+			zpi.filter_bm |= PBR_FILTER_IP_PROTOCOL;
 
 		if (!(zpi.dst.family == AF_INET
 		      || zpi.dst.family == AF_INET6)) {

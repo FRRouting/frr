@@ -2,6 +2,8 @@
 /*
  * Zebra dataplane layer.
  * Copyright (c) 2018 Volta Networks, Inc.
+ * Portions:
+ *      Copyright (c) 2021 The MITRE Corporation.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -256,9 +258,9 @@ struct dplane_ctx_rule {
 	uint8_t dsfield;
 	struct prefix src_ip;
 	struct prefix dst_ip;
+    uint32_t src_port;
+	uint32_t dst_port;
 	uint8_t ip_proto;
-	uint16_t src_port;
-	uint16_t dst_port;
 
 	uint8_t action_pcp;
 	uint16_t action_vlan_id;
@@ -267,6 +269,14 @@ struct dplane_ctx_rule {
 	uint32_t action_queue_id;
 
 	char ifname[INTERFACE_NAMSIZ + 1];
+    /* Actions */
+	struct prefix action_src_ip;
+	struct prefix action_dst_ip;
+
+	uint32_t action_src_port;
+	uint32_t action_dst_port;
+
+	uint8_t action_dsfield;
 	struct ethaddr smac;
 	struct ethaddr dmac;
 	int out_ifindex;
@@ -2392,20 +2402,6 @@ uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rule.old.fwmark;
 }
 
-uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.rule.new.ip_proto;
-}
-
-uint8_t dplane_ctx_rule_get_old_ipproto(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.rule.old.ip_proto;
-}
-
 uint16_t dplane_ctx_rule_get_src_port(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2432,6 +2428,20 @@ uint16_t dplane_ctx_rule_get_old_dst_port(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rule.old.dst_port;
+}
+
+uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.ip_proto;
+}
+
+uint8_t dplane_ctx_rule_get_old_ipproto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.ip_proto;
 }
 
 uint8_t dplane_ctx_rule_get_dsfield(const struct zebra_dplane_ctx *ctx)
@@ -3417,6 +3427,7 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->priority = rule->rule.priority;
 	dplane_rule->table = rule->rule.action.table;
 
+    /* copy filter clause */
 	dplane_rule->filter_bm = rule->rule.filter.filter_bm;
 	dplane_rule->fwmark = rule->rule.filter.fwmark;
 	dplane_rule->dsfield = rule->rule.filter.dsfield;
@@ -3431,7 +3442,17 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->action_vlan_id = rule->rule.action.vlan_id;
 	dplane_rule->action_queue_id = rule->rule.action.queue_id;
 
+    dplane_rule->src_port = rule->rule.filter.src_port;
+	dplane_rule->dst_port = rule->rule.filter.dst_port;
+
 	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);
+    /* copy action clause */
+	prefix_copy(&(dplane_rule->action_src_ip), &rule->rule.action.src_ip);
+	prefix_copy(&(dplane_rule->action_dst_ip), &rule->rule.action.dst_ip);
+	dplane_rule->action_src_port = rule->rule.action.src_port;
+	dplane_rule->action_dst_port = rule->rule.action.dst_port;
+	dplane_rule->action_dsfield = rule->rule.action.dsfield;
+
 	dplane_rule->dp_flow_ptr = rule->action.dp_flow_ptr;
 	n = rule->action.neigh;
 	if (n && (n->flags & ZEBRA_NEIGH_ENT_ACTIVE)) {
