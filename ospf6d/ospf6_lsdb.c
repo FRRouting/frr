@@ -236,8 +236,10 @@ struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
 		prefix.prefixlen = prefix_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, prefix_lsa,
 				      &prefix_lsa->prefix);
-		if (prefix_same(p, &prefix))
+		if (prefix_same(p, &prefix)) {
+			ospf6_lsa_unlock(lsa);
 			return lsa;
+		}
 	}
 
 	return NULL;

@@ -293,8 +293,10 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 			if (lsdesc->type != OSPF6_ROUTER_LSDESC_POINTTOPOINT)
 				continue;
 
-			if (lsdesc->neighbor_router_id == neighbor_router_id)
+			if (lsdesc->neighbor_router_id == neighbor_router_id) {
+				ospf6_lsa_unlock(lsa);
 				return RTR_LSA_ADJ_FOUND;
+			}
 		}
 	}
 
@@ -511,8 +513,10 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, router,
 					   lsa_self)) {
 			found = true;
-			if (!ospf6_gr_check_adjs_lsa(area, lsa_self))
+			if (!ospf6_gr_check_adjs_lsa(area, lsa_self)) {
+				ospf6_lsa_unlock(lsa_self);
 				return false;
+			}
 		}
 		if (!found)
 			return false;
