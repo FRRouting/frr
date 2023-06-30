@@ -212,6 +212,11 @@ DEFPY(pbr_map_match_ip_proto, pbr_map_match_ip_proto_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!no) {
+		if (!ip_proto) {
+			vty_out(vty, "Unable to convert (null) to proto id\n");
+			return CMD_WARNING;
+		}
+
 		p = getprotobyname(ip_proto);
 		if (!p) {
 			vty_out(vty, "Unable to convert %s to proto id\n",
