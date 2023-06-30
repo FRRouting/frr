@@ -8976,8 +8976,13 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 {
 	struct listnode *node;
 	struct peer *peer;
+	bool all_peers_are_admin_down = true;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		/* This peer is admin up */
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			all_peers_are_admin_down = false;
+
 		if (!peer->shut_during_cfg)
 			continue;
 
@@ -8991,6 +8996,43 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 			if (peer->connection->status != Idle)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
+		}
+	}
+
+	/*
+	 * If bgp shutdown is configured, all the peers will be set to admin
+	 * down. If there are no bgp peers configured then
+	 * all_peers_are_admin_down will be true.
+	 *
+	 * if All bgp peers are admin down or if there are no BGP peers
+	 * configured or if bgp shutdown is configured then set this boolean to
+	 * true.
+	 */
+	all_peers_are_admin_down = (all_peers_are_admin_down ||
+				    CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN));
+
+	/*
+	 * If BGP is restarting gracefully, if the mode is GLOBAL_GR
+	 * and if there are no BGP peers configured/all peers are admin down,
+	 * then send the UPDATE_PENDING and UPDATE_COMPLETE to zebra.
+	 */
+	if (all_peers_are_admin_down && bgp_in_graceful_restart() &&
+	    (bgp_global_gr_mode_get(bgp) == GLOBAL_GR)) {
+		zlog_debug("GR %s: BGP peers are ADMIN down. Sending update_pending and complete to zebra",
+			   __func__);
+
+		/* Send GR capability to zebra for this VRF */
+		bgp_zebra_send_capabilities(bgp, false);
+
+		afi_t afi;
+		safi_t safi;
+
+		FOREACH_AFI_SAFI_NSF (afi, safi) {
+			if (!bgp_gr_supported_for_afi_safi(afi, safi))
+				continue;
+			/* Inform zebra */
+			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		}
 	}
 
