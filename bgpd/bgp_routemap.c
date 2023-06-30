@@ -5938,7 +5938,6 @@ DEFPY_YANG(no_set_aspath_replace_asn, no_set_aspath_replace_asn_cmd,
 	   "Replace AS number to local or configured AS number\n"
 	   "Replace any AS number to local or configured AS number\n"
 	   "Replace a specific AS number to local or configured AS number\n"
-	   "Replace AS number with a configured AS number\n"
 	   "Define the configured AS number\n")
 {
 	const char *xpath =
