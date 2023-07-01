@@ -2529,7 +2529,8 @@ void ospf6_lsreq_send(struct thread *thread)
 
 	/* schedule loading_done if request list is empty */
 	if (on->request_list->count == 0) {
-		thread_add_event(master, loading_done, on, 0, NULL);
+		thread_add_event(master, loading_done, on, 0,
+				 &on->event_loading_done);
 		return;
 	}
 
