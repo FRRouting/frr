@@ -60,6 +60,7 @@ struct ospf_master *om;
 unsigned short ospf_instance;
 
 extern struct zclient *zclient;
+extern struct zclient *zclient_sync;
 
 /* OSPF config processing timer thread */
 struct event *t_ospf_cfg;
@@ -683,6 +684,8 @@ void ospf_terminate(void)
 	 */
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 
 done:
 	frr_fini();
