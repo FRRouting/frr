@@ -1052,28 +1052,26 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 }
 
 /* Convert extended community attribute to string.
-
-   Due to historical reason of industry standard implementation, there
-   are three types of format.
-
-   route-map set extcommunity format
-	"rt 100:1 100:2soo 100:3"
-
-   extcommunity-list
-	"rt 100:1 rt 100:2 soo 100:3
-	show [ip] bgp"
-   and extcommunity-list regular expression matching
-	"RT:100:1 RT:100:2 SoO:100:3"
-
-   For each format please use below definition for format:
-
-   ECOMMUNITY_FORMAT_ROUTE_MAP
-   ECOMMUNITY_FORMAT_COMMUNITY_LIST
-   ECOMMUNITY_FORMAT_DISPLAY
-
-   Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases.
-   0 value displays all
-*/
+ * Due to historical reason of industry standard implementation, there
+ * are three types of format:
+ *
+ * route-map set extcommunity format:
+ *     "rt 100:1 100:2soo 100:3"
+ *
+ * extcommunity-list:
+ *     "rt 100:1 rt 100:2 soo 100:3"
+ *
+ * show bgp:
+ *     "RT:100:1 RT:100:2 SoO:100:3"
+ *
+ * For each format please use below definition for format:
+ *     ECOMMUNITY_FORMAT_ROUTE_MAP
+ *     ECOMMUNITY_FORMAT_COMMUNITY_LIST
+ *     ECOMMUNITY_FORMAT_DISPLAY
+ *
+ * Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases.
+ * 0 value displays all.
+ */
 char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 {
 	uint32_t i;
