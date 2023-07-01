@@ -132,12 +132,22 @@ struct ospf6_neighbor {
 	struct thread *last_dbdesc_release_timer;
 
 	/* Thread for sending message */
+<<<<<<< HEAD
 	struct thread *thread_send_dbdesc;
 	struct thread *thread_send_lsreq;
 	struct thread *thread_send_lsupdate;
 	struct thread *thread_send_lsack;
 	struct thread *thread_exchange_done;
 	struct thread *thread_adj_ok;
+=======
+	struct event *thread_send_dbdesc;
+	struct event *thread_send_lsreq;
+	struct event *thread_send_lsupdate;
+	struct event *thread_send_lsack;
+	struct event *thread_exchange_done;
+	struct event *thread_adj_ok;
+	struct event *event_loading_done;
+>>>>>>> 77e838eb9 (ospf6d: Fix crash because neighbor structure was freed)
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
