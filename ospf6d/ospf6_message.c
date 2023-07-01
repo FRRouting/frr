@@ -2533,7 +2533,12 @@ void ospf6_lsreq_send(struct thread *thread)
 
 	/* schedule loading_done if request list is empty */
 	if (on->request_list->count == 0) {
+<<<<<<< HEAD
 		thread_add_event(master, loading_done, on, 0, NULL);
+=======
+		event_add_event(master, loading_done, on, 0,
+				&on->event_loading_done);
+>>>>>>> 77e838eb9 (ospf6d: Fix crash because neighbor structure was freed)
 		return;
 	}
 
