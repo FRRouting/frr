@@ -557,7 +557,6 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	int dot = 0;
 	int digit = 0;
 	int separator = 0;
-	int i;
 	const char *p = str;
 	char *endptr;
 	struct in_addr ip;
@@ -585,83 +584,75 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		return NULL;
 
 	/* "rt", "nt", "soo", and "color" keyword parse. */
-	if (!isdigit((unsigned char)*p)) {
-		/* "rt" match check.  */
-		if (tolower((unsigned char)*p) == 'r') {
+	/* "rt" */
+	if (tolower((unsigned char)*p) == 'r') {
+		p++;
+		if (tolower((unsigned char)*p) == 't') {
 			p++;
-			if (tolower((unsigned char)*p) == 't') {
-				p++;
-				if (*p != '\0' && tolower((int)*p) == '6')
-					*token = ecommunity_token_rt6;
-				else
-					*token = ecommunity_token_rt;
-				return p;
-			}
-			if (isspace((unsigned char)*p) || *p == '\0') {
+			if (*p != '\0' && tolower((int)*p) == '6')
+				*token = ecommunity_token_rt6;
+			else
 				*token = ecommunity_token_rt;
-				return p;
-			}
-			goto error;
+			return p;
 		}
-		/* "nt" match check. */
-		if (tolower((unsigned char)*p) == 'n') {
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_rt;
+			return p;
+		}
+		goto error;
+	}
+
+	/* "nt" */
+	if (tolower((unsigned char)*p) == 'n') {
+		p++;
+		if (tolower((unsigned char)*p) == 't') {
 			p++;
-			if (tolower((unsigned char)*p) == 't') {
-				p++;
-				*token = ecommunity_token_nt;
-				return p;
-			}
-			if (isspace((unsigned char)*p) || *p == '\0') {
-				*token = ecommunity_token_nt;
-				return p;
-			}
-			goto error;
+			*token = ecommunity_token_nt;
+			return p;
 		}
-		/* "soo" match check.  */
-		else if (tolower((unsigned char)*p) == 's') {
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_nt;
+			return p;
+		}
+		goto error;
+	}
+
+	/* "soo" */
+	if (tolower((unsigned char)*p) == 's') {
+		p++;
+		if (tolower((unsigned char)*p) == 'o') {
 			p++;
 			if (tolower((unsigned char)*p) == 'o') {
 				p++;
-				if (tolower((unsigned char)*p) == 'o') {
-					p++;
-					*token = ecommunity_token_soo;
-					return p;
-				}
-				if (isspace((unsigned char)*p) || *p == '\0') {
-					*token = ecommunity_token_soo;
-					return p;
-				}
-				goto error;
+				*token = ecommunity_token_soo;
+				return p;
 			}
 			if (isspace((unsigned char)*p) || *p == '\0') {
 				*token = ecommunity_token_soo;
 				return p;
 			}
 			goto error;
-		} else if (tolower((unsigned char)*p) == 'c') {
-			/* "color" match check.
-			 * 'c', 'co', 'col', 'colo' are also accepted
-			 */
-			for (i = 0; i < 5; i++) {
-				ptr_color = &str_color[0];
-				if (tolower((unsigned char)*p) == *ptr_color) {
-					p++;
-					ptr_color++;
-				} else if (i > 0) {
-					if (isspace((unsigned char)*p) ||
-					    *p == '\0') {
-						*token = ecommunity_token_color;
-						return p;
-					}
-					goto error;
-				}
-				if (isspace((unsigned char)*p) || *p == '\0') {
-					*token = ecommunity_token_color;
-					return p;
-				}
-				goto error;
-			}
-			goto error;
+		}
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_soo;
+			return p;
+		}
+		goto error;
+	}
+
+	/* "color" */
+	if (tolower((unsigned char)*p) == 'c') {
+		ptr_color = &str_color[0];
+		for (unsigned int i = 0; i < 5; i++) {
+			if (tolower((unsigned char)*p) != *ptr_color)
+				break;
+
+			p++;
+			ptr_color++;
+		}
+		if (isspace((unsigned char)*p) || *p == '\0') {
+			*token = ecommunity_token_color;
+			return p;
 		}
 		goto error;
 	}
