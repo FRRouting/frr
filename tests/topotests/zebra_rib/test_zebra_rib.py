@@ -255,7 +255,7 @@ def test_route_map_usage():
         )
 
     ok, result = topotest.run_and_expect(
-        check_static_map_correct_runs, "", count=5, wait=1
+        check_static_map_correct_runs, "", count=10, wait=1
     )
     assert ok, result
 
@@ -275,7 +275,7 @@ def test_route_map_usage():
         )
 
     ok, result = topotest.run_and_expect(
-        check_sharp_map_correct_runs, "", count=5, wait=1
+        check_sharp_map_correct_runs, "", count=10, wait=1
     )
     assert ok, result
 
