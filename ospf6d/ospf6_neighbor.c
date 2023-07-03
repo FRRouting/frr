@@ -173,6 +173,7 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	EVENT_OFF(on->thread_send_lsack);
 	EVENT_OFF(on->thread_exchange_done);
 	EVENT_OFF(on->thread_adj_ok);
+	EVENT_OFF(on->event_loading_done);
 
 	EVENT_OFF(on->gr_helper_info.t_grace_timer);
 
@@ -428,7 +429,8 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 	if ((on->state == OSPF6_NEIGHBOR_LOADING)
 	    || (on->state == OSPF6_NEIGHBOR_EXCHANGE)) {
 		if (on->request_list->count == 0)
-			event_add_event(master, loading_done, on, 0, NULL);
+			event_add_event(master, loading_done, on, 0,
+					&on->event_loading_done);
 		else if (on->last_ls_req == NULL) {
 			EVENT_OFF(on->thread_send_lsreq);
 			event_add_event(master, ospf6_lsreq_send, on, 0,
