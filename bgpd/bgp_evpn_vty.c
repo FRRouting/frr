@@ -6853,6 +6853,8 @@ DEFUN(bgp_evpn_ead_es_rt, bgp_evpn_ead_es_rt_cmd,
 	if (!bgp_evpn_rt_matches_existing(bgp_mh_info->ead_es_export_rtl,
 					  ecomadd))
 		bgp_evpn_mh_config_ead_export_rt(bgp, ecomadd, false);
+	else
+		ecommunity_free(&ecomadd);
 
 	return CMD_SUCCESS;
 }
@@ -6890,6 +6892,7 @@ DEFUN(no_bgp_evpn_ead_es_rt, no_bgp_evpn_ead_es_rt_cmd,
 	}
 	bgp_evpn_mh_config_ead_export_rt(bgp, ecomdel, true);
 
+	ecommunity_free(&ecomdel);
 	return CMD_SUCCESS;
 }
 
@@ -6941,6 +6944,8 @@ DEFUN (bgp_evpn_vni_rt,
 		/* Do nothing if we already have this import route-target */
 		if (!bgp_evpn_rt_matches_existing(vpn->import_rtl, ecomadd))
 			evpn_configure_import_rt(bgp, vpn, ecomadd);
+		else
+			ecommunity_free(&ecomadd);
 	}
 
 	/* Add/update the export route-target */
@@ -6957,6 +6962,8 @@ DEFUN (bgp_evpn_vni_rt,
 		/* Do nothing if we already have this export route-target */
 		if (!bgp_evpn_rt_matches_existing(vpn->export_rtl, ecomadd))
 			evpn_configure_export_rt(bgp, vpn, ecomadd);
+		else
+			ecommunity_free(&ecomadd);
 	}
 
 	return CMD_SUCCESS;
@@ -7064,6 +7071,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 		}
 	}
 
+	ecommunity_free(&ecomdel);
 	return CMD_SUCCESS;
 }
 
