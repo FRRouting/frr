@@ -2529,7 +2529,8 @@ void ospf6_lsreq_send(struct thread *thread)
 
 	/* schedule loading_done if request list is empty */
 	if (on->request_list->count == 0) {
-		thread_add_event(master, loading_done, on, 0, NULL);
+		thread_add_event(master, loading_done, on, 0,
+				 &on->event_loading_done);
 		return;
 	}
 
@@ -2572,9 +2573,7 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 				struct ospf6_interface *oi,
 				struct ospf6_packet *op)
 {
-
 	if (on) {
-
 		if ((on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT)
 		    || (on->ospf6_if->state == OSPF6_INTERFACE_DR)
 		    || (on->ospf6_if->state == OSPF6_INTERFACE_BDR))
@@ -2591,6 +2590,8 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 			op->dst = alldrouters6;
 	}
 	if (oi) {
+		struct ospf6 *ospf6;
+
 		ospf6_fill_hdr_checksum(oi, op);
 		ospf6_packet_add(oi, op);
 		/* If ospf instance is being deleted, send the packet
@@ -2598,12 +2599,27 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 		 */
 		if ((oi->area == NULL) || (oi->area->ospf6 == NULL))
 			return;
-		if (oi->area->ospf6->inst_shutdown) {
+
+		ospf6 = oi->area->ospf6;
+		if (ospf6->inst_shutdown) {
 			if (oi->on_write_q == 0) {
-				listnode_add(oi->area->ospf6->oi_write_q, oi);
+				listnode_add(ospf6->oi_write_q, oi);
 				oi->on_write_q = 1;
 			}
-			thread_execute(master, ospf6_write, oi->area->ospf6, 0);
+			/*
+			 * When ospf6d immediately calls event_execute
+			 * for items in the oi_write_q.  The event_execute
+			 * will call ospf6_write and cause the oi_write_q
+			 * to be emptied.  *IF* there is already an event
+			 * scheduled for the oi_write_q by something else
+			 * then when it wakes up in the future and attempts
+			 * to cycle through items in the queue it will
+			 * assert.  Let's stop the t_write event and
+			 * if ospf6_write doesn't finish up the work
+			 * it will schedule itself again.
+			 */
+			thread_cancel(&ospf6->t_write);
+			thread_execute(master, ospf6_write, ospf6, 0);
 		} else
 			OSPF6_MESSAGE_WRITE_ON(oi);
 	}
