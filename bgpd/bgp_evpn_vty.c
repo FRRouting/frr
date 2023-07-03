@@ -408,6 +408,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 			&bgp_vrf->originator_ip);
 		vty_out(vty, "  Advertise-gw-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
+<<<<<<< HEAD
 		vty_out(vty, "  Advertise-pip: %s\n",
 			bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
 		vty_out(vty, "  System-IP: %pI4\n",
@@ -418,6 +419,18 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		vty_out(vty, "  Router-MAC: %s\n",
 				prefix_mac2str(&bgp_vrf->rmac,
 					       buf2, sizeof(buf2)));
+=======
+		if (bgp_vrf->evpn_info) {
+			vty_out(vty, "  Advertise-pip: %s\n",
+				bgp_vrf->evpn_info->advertise_pip ? "Yes"
+								  : "No");
+			vty_out(vty, "  System-IP: %pI4\n",
+				&bgp_vrf->evpn_info->pip_ip);
+			vty_out(vty, "  System-MAC: %pEA\n",
+				&bgp_vrf->evpn_info->pip_rmac);
+		}
+		vty_out(vty, "  Router-MAC: %pEA\n", &bgp_vrf->rmac);
+>>>>>>> cc6491754 (bgpd: All paths bgp_vrf have already been derefed)
 	}
 
 	if (!json)
