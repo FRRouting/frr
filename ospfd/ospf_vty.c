@@ -4094,6 +4094,9 @@ static int show_ip_ospf_interface_traffic_common(
 			     rn = route_next(rn)) {
 				oi = rn->info;
 
+				if (oi == NULL)
+					continue;
+
 				if (use_json) {
 					json_interface_sub =
 						json_object_new_object();
