@@ -8587,6 +8587,8 @@ DEFPY (neighbor_soo,
 		ecommunity_free(&peer->soo[afi][safi]);
 		peer->soo[afi][safi] = ecomm_soo;
 		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO);
+	} else {
+		ecommunity_free(&ecomm_soo);
 	}
 
 	return bgp_vty_return(vty,
