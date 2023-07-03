@@ -1430,20 +1430,99 @@ DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
 		level);
 }
 
-static void vty_print_redistribute(struct vty *vty,
-				   const struct lyd_node *dnode,
-				   bool show_defaults, const char *family)
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/table
+ */
+DEFPY_YANG(isis_redistribute_table, isis_redistribute_table_cmd,
+	   "[no] redistribute <ipv4|ipv6>$ip table (1-65535)$table"
+	   "<level-1|level-2>$level [{metric (0-16777215)|route-map WORD}]",
+	   NO_STR REDIST_STR "Redistribute IPv4 routes\n"
+			     "Redistribute IPv6 routes\n"
+			     "Non-main Kernel Routing Table\n"
+			     "Table Id\n"
+			     "Redistribute into level-1\n"
+			     "Redistribute into level-2\n"
+			     "Metric for redistributed routes\n"
+			     "IS-IS default metric\n"
+			     "Route map reference\n"
+			     "Pointer to route-map entries\n")
 {
-	const char *level = yang_dnode_get_string(dnode, "./level");
-	const char *protocol = yang_dnode_get_string(dnode, "./protocol");
+	struct isis_redist_table_present_args rtda = {};
+	char xpath[XPATH_MAXLEN];
+	char xpath_entry[XPATH_MAXLEN + 128];
+	int rv;
 
-	vty_out(vty, " redistribute %s %s %s", family, protocol, level);
+	rtda.rtda_table = table_str;
+	rtda.rtda_ip = ip;
+	rtda.rtda_level = level;
+
+	if (no) {
+		if (!isis_redist_table_is_present(vty, &rtda))
+			return CMD_WARNING_CONFIG_FAILED;
+
+		snprintf(xpath, sizeof(xpath), "./table[table='%s']", table_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		rv = nb_cli_apply_changes(vty,
+					  "./redistribute/%s[protocol='table'][level='%s']",
+					  ip, level);
+		if (rv == CMD_SUCCESS) {
+			if (isis_redist_table_get_first(vty, &rtda) > 0)
+				return CMD_SUCCESS;
+			nb_cli_enqueue_change(vty, "./table", NB_OP_DESTROY,
+					      NULL);
+			nb_cli_apply_changes(vty,
+					     "./redistribute/%s[protocol='table'][level='%s']",
+					     ip, level);
+		}
+		return CMD_SUCCESS;
+	}
+	if (isis_redist_table_is_present(vty, &rtda))
+		return CMD_SUCCESS;
+
+	snprintf(xpath, sizeof(xpath), "./table[table='%s']", table_str);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_entry, sizeof(xpath_entry), "%s/route-map", xpath);
+	nb_cli_enqueue_change(vty, xpath_entry,
+			      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      route_map ? route_map : NULL);
+	snprintf(xpath_entry, sizeof(xpath_entry), "%s/metric", xpath);
+	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_MODIFY,
+			      metric_str ? metric_str : NULL);
+	return nb_cli_apply_changes(vty,
+				    "./redistribute/%s[protocol='table'][level='%s']",
+				    ip, level);
+}
+
+static void vty_print_redistribute(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults, const char *family,
+				   bool table)
+{
+	const char *level;
+	const char *protocol = NULL;
+	const char *routemap = NULL;
+	uint16_t tableid;
+
+	if (table) {
+		level = yang_dnode_get_string(dnode, "../level");
+		tableid = yang_dnode_get_uint16(dnode, "./table");
+		vty_out(vty, " redistribute %s table %d ", family, tableid);
+	} else {
+		protocol = yang_dnode_get_string(dnode, "./protocol");
+		if (!table && strmatch(protocol, "table"))
+			return;
+		level = yang_dnode_get_string(dnode, "./level");
+		vty_out(vty, " redistribute %s %s ", family, protocol);
+	}
+	vty_out(vty, "%s", level);
 	if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
 		vty_out(vty, " metric %s",
-			yang_dnode_get_string(dnode, "./metric"));
+			yang_dnode_get_string(dnode, "%s", "./metric"));
+
 	if (yang_dnode_exists(dnode, "./route-map"))
-		vty_out(vty, " route-map %s",
-			yang_dnode_get_string(dnode, "./route-map"));
+		routemap = yang_dnode_get_string(dnode, "./route-map");
+	if (routemap)
+		vty_out(vty, " route-map %s", routemap);
 	vty_out(vty, "\n");
 }
 
@@ -1451,13 +1530,37 @@ void cli_show_isis_redistribute_ipv4(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	vty_print_redistribute(vty, dnode, show_defaults, "ipv4");
+	vty_print_redistribute(vty, dnode, show_defaults, "ipv4", false);
 }
+
 void cli_show_isis_redistribute_ipv6(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	vty_print_redistribute(vty, dnode, show_defaults, "ipv6");
+	vty_print_redistribute(vty, dnode, show_defaults, "ipv6", false);
+}
+
+void cli_show_isis_redistribute_ipv4_table(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_print_redistribute(vty, dnode, show_defaults, "ipv4", true);
+}
+
+void cli_show_isis_redistribute_ipv6_table(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults)
+{
+	vty_print_redistribute(vty, dnode, show_defaults, "ipv6", true);
+}
+
+int cli_cmp_isis_redistribute_table(const struct lyd_node *dnode1,
+				    const struct lyd_node *dnode2)
+{
+	uint16_t table1 = yang_dnode_get_uint16(dnode1, "./table");
+	uint16_t table2 = yang_dnode_get_uint16(dnode2, "./table");
+
+	return table1 - table2;
 }
 
 /*
@@ -3681,6 +3784,7 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
+	install_element(ISIS_NODE, &isis_redistribute_table_cmd);
 
 	install_element(ISIS_NODE, &isis_topology_cmd);
 

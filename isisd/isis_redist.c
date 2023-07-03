@@ -206,6 +206,53 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 	info->metric = MAX_WIDE_PATH_METRIC;
 }
 
+static int _isis_redist_table_is_present(const struct lyd_node *dnode, void *arg)
+{
+	struct isis_redist_table_present_args *rtda = arg;
+
+	/* This entry is the caller, so skip it. */
+	if (yang_dnode_get_uint16(dnode, "table") !=
+	    (uint16_t)atoi(rtda->rtda_table))
+		return YANG_ITER_CONTINUE;
+
+	/* found */
+	rtda->rtda_found = true;
+	return YANG_ITER_CONTINUE;
+}
+
+static int _isis_redist_table_get_first_cb(const struct lyd_node *dnode,
+					   void *arg)
+{
+	uint16_t *table = arg;
+
+	*table = yang_dnode_get_uint16(dnode, "table");
+	return YANG_ITER_STOP;
+}
+
+uint16_t isis_redist_table_get_first(const struct vty *vty,
+				     struct isis_redist_table_present_args *rtda)
+{
+	uint16_t table = 0;
+
+	yang_dnode_iterate(_isis_redist_table_get_first_cb, &table,
+			   vty->candidate_config->dnode,
+			   "%s/redistribute/%s[protocol='table'][level='%s']/table",
+			   VTY_CURR_XPATH, rtda->rtda_ip, rtda->rtda_level);
+	return table;
+}
+
+bool isis_redist_table_is_present(const struct vty *vty,
+				  struct isis_redist_table_present_args *rtda)
+{
+	rtda->rtda_found = false;
+	yang_dnode_iterate(_isis_redist_table_is_present, rtda,
+			   vty->candidate_config->dnode,
+			   "%s/redistribute/%s[protocol='table'][level='%s']/table",
+			   VTY_CURR_XPATH, rtda->rtda_ip, rtda->rtda_level);
+
+	return rtda->rtda_found;
+}
+
 /* Handle notification about route being added */
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,

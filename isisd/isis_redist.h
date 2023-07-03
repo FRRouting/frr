@@ -28,6 +28,14 @@ struct isis_redist {
 	struct route_map *map;
 };
 
+struct isis_redist_table_present_args {
+	/* from filter.h, struct acl_dup_args */
+	const char *rtda_ip;
+	const char *rtda_level;
+	const char *rtda_table;
+	bool rtda_found;
+};
+
 struct isis;
 struct isis_area;
 struct prefix;
@@ -53,4 +61,9 @@ void isis_redist_set(struct isis_area *area, int level, int family, int type,
 void isis_redist_unset(struct isis_area *area, int level, int family, int type);
 
 void isis_redist_free(struct isis *isis);
+
+bool isis_redist_table_is_present(const struct vty *vty,
+				  struct isis_redist_table_present_args *rtda);
+uint16_t isis_redist_table_get_first(const struct vty *vty,
+				     struct isis_redist_table_present_args *rtda);
 #endif

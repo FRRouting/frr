@@ -1281,6 +1281,7 @@ int isis_instance_redistribute_ipv4_destroy(struct nb_cb_destroy_args *args)
 
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/route-map
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table/route-map
  */
 int isis_instance_redistribute_ipv4_route_map_modify(
 	struct nb_cb_modify_args *args)
@@ -1298,11 +1299,34 @@ int isis_instance_redistribute_ipv4_route_map_destroy(
 
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4/metric
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table/metric
  */
 int isis_instance_redistribute_ipv4_metric_modify(
 	struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_redistribute_ipv4_metric_destroy(struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv4/table
+ */
+int isis_instance_redistribute_ipv4_table_create(struct nb_cb_create_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* TODO */
+	return NB_OK;
+}
+int isis_instance_redistribute_ipv4_table_destroy(struct nb_cb_destroy_args *args)
+{
 	return NB_OK;
 }
 
@@ -1355,6 +1379,33 @@ int isis_instance_redistribute_ipv6_metric_modify(
 	struct nb_cb_modify_args *args)
 {
 	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_redistribute_ipv6_metric_destroy(struct nb_cb_destroy_args *args)
+{
+	/* It's all done by redistribute_apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute/ipv6/table
+ */
+int isis_instance_redistribute_ipv6_table_create(struct nb_cb_create_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* TODO */
+	return NB_OK;
+}
+
+int isis_instance_redistribute_ipv6_table_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* TODO */
 	return NB_OK;
 }
 
