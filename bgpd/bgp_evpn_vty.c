@@ -424,7 +424,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		}
 		vty_out(vty, "  Advertise-gw-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
-		if (bgp_vrf && bgp_vrf->evpn_info) {
+		if (bgp_vrf->evpn_info) {
 			vty_out(vty, "  Advertise-pip: %s\n",
 				bgp_vrf->evpn_info->advertise_pip ? "Yes"
 								  : "No");
