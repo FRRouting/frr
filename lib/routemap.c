@@ -2554,6 +2554,9 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct prefix conv;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
+		if (map)
+			map->applied++;
+
 		flog_warn(
 			EC_LIB_RMAP_RECURSION_LIMIT,
 			"route-map recursion limit (%d) reached, discarding route",
@@ -2563,6 +2566,8 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 	if (map == NULL || map->head == NULL) {
+		if (map)
+			map->applied++;
 		ret = RMAP_DENYMATCH;
 		goto route_map_apply_end;
 	}
