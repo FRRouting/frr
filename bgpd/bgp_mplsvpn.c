@@ -4070,6 +4070,10 @@ void bgp_mplsvpn_nh_label_bind_free(
 	}
 	bgp_mplsvpn_nh_label_bind_cache_del(
 		&bmnc->bgp_vpn->mplsvpn_nh_label_bind, bmnc);
+
+	if (bmnc->nh)
+		nexthop_free(bmnc->nh);
+
 	XFREE(MTYPE_MPLSVPN_NH_LABEL_BIND_CACHE, bmnc);
 }
 
