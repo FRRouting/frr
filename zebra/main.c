@@ -130,6 +130,7 @@ static void sigint(void)
 	if (sigint_done)
 		return;
 
+	assert(0);
 	sigint_done = true;
 
 	zlog_notice("Terminating on signal");
