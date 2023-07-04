@@ -995,7 +995,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	       family2addrsize(sockunion_family(&ip)));
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi],
+		if (!vrf_bitmap_check(&client->nhrp_neighinfo[afi],
 				      ifp->vrf->vrf_id))
 			continue;
 
@@ -1016,7 +1016,7 @@ int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 	struct stream *s;
 
 	/* Check this client need interface information. */
-	if (!vrf_bitmap_check(client->ridinfo[afi], vrf_id))
+	if (!vrf_bitmap_check(&client->ridinfo[afi], vrf_id))
 		return 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -2281,7 +2281,7 @@ static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 	}
 
 	/* Router-id information is needed. */
-	vrf_bitmap_set(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->ridinfo[afi], zvrf_id(zvrf));
 
 	router_id_get(afi, &p, zvrf);
 
@@ -2317,7 +2317,7 @@ static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 		goto stream_failure;
 	}
 
-	vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -2407,10 +2407,11 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+			vrf_bitmap_unset(&client->redist[afi][i],
+					 zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -3563,7 +3564,7 @@ static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3579,7 +3580,7 @@ static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }

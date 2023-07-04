@@ -180,14 +180,14 @@ void zclient_stop(struct zclient *zclient)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			vrf_bitmap_free(zclient->redist[afi][i]);
+			vrf_bitmap_free(&zclient->redist[afi][i]);
 			zclient->redist[afi][i] = VRF_BITMAP_NULL;
 		}
 		redist_del_instance(
 			&zclient->mi_redist[afi][zclient->redist_default],
 			zclient->instance);
 
-		vrf_bitmap_free(zclient->default_information[afi]);
+		vrf_bitmap_free(&zclient->default_information[afi]);
 		zclient->default_information[afi] = VRF_BITMAP_NULL;
 	}
 }
@@ -494,7 +494,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
+		vrf_bitmap_set(&zclient->redist[afi][zclient->redist_default],
 			       vrf_id);
 
 	/* Flush all redistribute request. */
@@ -524,15 +524,15 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* Resend all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (i != zclient->redist_default
-			    && vrf_bitmap_check(zclient->redist[afi][i],
-						vrf_id))
+			if (i != zclient->redist_default &&
+			    vrf_bitmap_check(&zclient->redist[afi][i], vrf_id))
 				zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD,
 							zclient, afi, i, 0,
 							vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
 				vrf_id);
@@ -561,7 +561,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_unset(zclient->redist[afi][zclient->redist_default],
+		vrf_bitmap_unset(&zclient->redist[afi][zclient->redist_default],
 				 vrf_id);
 
 	/* Flush all redistribute request. */
@@ -591,15 +591,15 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (i != zclient->redist_default
-			    && vrf_bitmap_check(zclient->redist[afi][i],
-						vrf_id))
+			if (i != zclient->redist_default &&
+			    vrf_bitmap_check(&zclient->redist[afi][i], vrf_id))
 				zebra_redistribute_send(
 					ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
 					i, 0, vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
 				vrf_id);
@@ -726,7 +726,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 	/* Clear redistribution flags. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			zclient->redist[afi][i] = vrf_bitmap_init();
+			vrf_bitmap_init(&zclient->redist[afi][i]);
 
 	/* Set unwanted redistribute route.  bgpd does not need BGP route
 	   redistribution. */
@@ -738,7 +738,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 				    instance);
 
 		/* Set default-information redistribute to zero. */
-		zclient->default_information[afi] = vrf_bitmap_init();
+		vrf_bitmap_init(&zclient->default_information[afi]);
 	}
 
 	if (zclient_debug)
@@ -4208,15 +4208,15 @@ void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 
 	} else {
 		if (command == ZEBRA_REDISTRIBUTE_ADD) {
-			if (vrf_bitmap_check(zclient->redist[afi][type],
+			if (vrf_bitmap_check(&zclient->redist[afi][type],
 					     vrf_id))
 				return;
-			vrf_bitmap_set(zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_set(&zclient->redist[afi][type], vrf_id);
 		} else {
-			if (!vrf_bitmap_check(zclient->redist[afi][type],
+			if (!vrf_bitmap_check(&zclient->redist[afi][type],
 					      vrf_id))
 				return;
-			vrf_bitmap_unset(zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_unset(&zclient->redist[afi][type], vrf_id);
 		}
 	}
 
@@ -4231,14 +4231,15 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 {
 
 	if (command == ZEBRA_REDISTRIBUTE_DEFAULT_ADD) {
-		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
 			return;
-		vrf_bitmap_set(zclient->default_information[afi], vrf_id);
+		vrf_bitmap_set(&zclient->default_information[afi], vrf_id);
 	} else {
-		if (!vrf_bitmap_check(zclient->default_information[afi],
+		if (!vrf_bitmap_check(&zclient->default_information[afi],
 				      vrf_id))
 			return;
-		vrf_bitmap_unset(zclient->default_information[afi], vrf_id);
+		vrf_bitmap_unset(&zclient->default_information[afi], vrf_id);
 	}
 
 	if (zclient->sock > 0)

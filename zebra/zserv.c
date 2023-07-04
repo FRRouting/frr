@@ -631,13 +631,13 @@ static void zserv_client_free(struct zserv *client)
 	/* Free bitmaps. */
 	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			vrf_bitmap_free(client->redist[afi][i]);
+			vrf_bitmap_free(&client->redist[afi][i]);
 			redist_del_all_instances(&client->mi_redist[afi][i]);
 		}
 
-		vrf_bitmap_free(client->redist_default[afi]);
-		vrf_bitmap_free(client->ridinfo[afi]);
-		vrf_bitmap_free(client->nhrp_neighinfo[afi]);
+		vrf_bitmap_free(&client->redist_default[afi]);
+		vrf_bitmap_free(&client->ridinfo[afi]);
+		vrf_bitmap_free(&client->nhrp_neighinfo[afi]);
 	}
 
 	/*
@@ -755,10 +755,10 @@ static struct zserv *zserv_client_create(int sock)
 	/* Initialize flags */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			client->redist[afi][i] = vrf_bitmap_init();
-		client->redist_default[afi] = vrf_bitmap_init();
-		client->ridinfo[afi] = vrf_bitmap_init();
-		client->nhrp_neighinfo[afi] = vrf_bitmap_init();
+			vrf_bitmap_init(&client->redist[afi][i]);
+		vrf_bitmap_init(&client->redist_default[afi]);
+		vrf_bitmap_init(&client->ridinfo[afi]);
+		vrf_bitmap_init(&client->nhrp_neighinfo[afi]);
 	}
 
 	/* Add this client to linked list. */

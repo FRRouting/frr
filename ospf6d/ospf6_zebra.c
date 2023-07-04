@@ -97,9 +97,9 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 /* redistribute function */
 void ospf6_zebra_redistribute(int type, vrf_id_t vrf_id)
 {
-	if (vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id))
+	if (vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id))
 		return;
-	vrf_bitmap_set(zclient->redist[AFI_IP6][type], vrf_id);
+	vrf_bitmap_set(&zclient->redist[AFI_IP6][type], vrf_id);
 
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
@@ -108,9 +108,9 @@ void ospf6_zebra_redistribute(int type, vrf_id_t vrf_id)
 
 void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 {
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id))
+	if (!vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id))
 		return;
-	vrf_bitmap_unset(zclient->redist[AFI_IP6][type], vrf_id);
+	vrf_bitmap_unset(&zclient->redist[AFI_IP6][type], vrf_id);
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
 					AFI_IP6, type, 0, vrf_id);
@@ -333,10 +333,10 @@ DEFUN(show_zebra,
 		json_object_int_add(json_zebra, "fail", zclient->fail);
 		json_object_int_add(
 			json_zebra, "redistributeDefault",
-			vrf_bitmap_check(zclient->default_information[AFI_IP6],
+			vrf_bitmap_check(&zclient->default_information[AFI_IP6],
 					 VRF_DEFAULT));
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+			if (vrf_bitmap_check(&zclient->redist[AFI_IP6][i],
 					     VRF_DEFAULT))
 				json_object_array_add(
 					json_array,
@@ -351,11 +351,11 @@ DEFUN(show_zebra,
 		vty_out(vty, "Zebra Information\n");
 		vty_out(vty, "  fail: %d\n", zclient->fail);
 		vty_out(vty, "  redistribute default: %d\n",
-			vrf_bitmap_check(zclient->default_information[AFI_IP6],
+			vrf_bitmap_check(&zclient->default_information[AFI_IP6],
 					 VRF_DEFAULT));
 		vty_out(vty, "  redistribute:");
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+			if (vrf_bitmap_check(&zclient->redist[AFI_IP6][i],
 					     VRF_DEFAULT))
 				vty_out(vty, " %s", zebra_route_string(i));
 		}

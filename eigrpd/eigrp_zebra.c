@@ -249,9 +249,9 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 static int eigrp_is_type_redistributed(int type, vrf_id_t vrf_id)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
-			? vrf_bitmap_check(zclient->default_information[AFI_IP],
-					   vrf_id)
-			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP], vrf_id)
+			: vrf_bitmap_check(&zclient->redist[AFI_IP][type],
 					   vrf_id));
 }
 

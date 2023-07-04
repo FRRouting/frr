@@ -2287,20 +2287,20 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf->vrf_id, type);
 		if (set)
-			vrf_bitmap_set(zclient->redist[AFI_IP][type],
+			vrf_bitmap_set(&zclient->redist[AFI_IP][type],
 				       ospf->vrf_id);
 		else
-			vrf_bitmap_unset(zclient->redist[AFI_IP][type],
+			vrf_bitmap_unset(&zclient->redist[AFI_IP][type],
 					 ospf->vrf_id);
 	}
 
 	red_list = ospf->redist[DEFAULT_ROUTE];
 	if (red_list) {
 		if (set)
-			vrf_bitmap_set(zclient->default_information[AFI_IP],
+			vrf_bitmap_set(&zclient->default_information[AFI_IP],
 				       ospf->vrf_id);
 		else
-			vrf_bitmap_unset(zclient->default_information[AFI_IP],
+			vrf_bitmap_unset(&zclient->default_information[AFI_IP],
 					 ospf->vrf_id);
 	}
 }

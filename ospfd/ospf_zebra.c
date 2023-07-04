@@ -814,16 +814,16 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 			       unsigned short instance)
 {
 	return (DEFAULT_ROUTE_TYPE(type)
-			? vrf_bitmap_check(zclient->default_information[AFI_IP],
-					   ospf->vrf_id)
-			: ((instance
-			    && redist_check_instance(
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP],
+				  ospf->vrf_id)
+			: ((instance &&
+			    redist_check_instance(
 				    &zclient->mi_redist[AFI_IP][type],
-				    instance))
-			   || (!instance
-			       && vrf_bitmap_check(
-				       zclient->redist[AFI_IP][type],
-				       ospf->vrf_id))));
+				    instance)) ||
+			   (!instance &&
+			    vrf_bitmap_check(&zclient->redist[AFI_IP][type],
+					     ospf->vrf_id))));
 }
 
 int ospf_redistribute_update(struct ospf *ospf, struct ospf_redist *red,
