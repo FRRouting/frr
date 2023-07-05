@@ -294,7 +294,7 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 				continue;
 
 			if (lsdesc->neighbor_router_id == neighbor_router_id) {
-				ospf6_lsa_unlock(lsa);
+				ospf6_lsa_unlock(&lsa);
 				return RTR_LSA_ADJ_FOUND;
 			}
 		}
@@ -514,7 +514,7 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 					   lsa_self)) {
 			found = true;
 			if (!ospf6_gr_check_adjs_lsa(area, lsa_self)) {
-				ospf6_lsa_unlock(lsa_self);
+				ospf6_lsa_unlock(&lsa_self);
 				return false;
 			}
 		}
