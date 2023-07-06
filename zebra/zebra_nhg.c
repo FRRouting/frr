@@ -2181,11 +2181,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	case NEXTHOP_TYPE_IFINDEX:
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
-		/*
-		 * If the interface exists and its operative or its a kernel
-		 * route and interface is up, its active. We trust kernel routes
-		 * to be good.
-		 */
+		/* If the interface exists and its operative, it's active */
 		if (ifp && (if_is_operative(ifp)))
 			return 1;
 		else
@@ -2586,6 +2582,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
 
+	vrf_id = zvrf_id(rib_dest_vrf(rib_dest_from_rnode(rn)));
+
 	/*
 	 * If this is a kernel route, then if the interface is *up* then
 	 * by golly gee whiz it's a good route.
@@ -2595,13 +2593,12 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 
-		if (ifp && (if_is_operative(ifp) || if_is_up(ifp))) {
+		if (ifp && ifp->vrf->vrf_id == vrf_id && if_is_up(ifp)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			goto skip_check;
 		}
 	}
 
-	vrf_id = zvrf_id(rib_dest_vrf(rib_dest_from_rnode(rn)));
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
