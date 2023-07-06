@@ -2848,6 +2848,7 @@ EOF
             cat >> "${srcdir}/.ccls" <<EOF
 %c $(echo ${FRR_ALL_CCLS_CFLAGS} | sed -e 's/  */\n%c /g')
 %c -Wno-unused-function
+%c -Wno-microsoft
 EOF
 fi
     ], [
