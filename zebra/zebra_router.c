@@ -259,6 +259,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 {
 	zrouter.sequence_num = 0;
 
+	zrouter.protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
+
 	zrouter.allow_delete = false;
 
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
