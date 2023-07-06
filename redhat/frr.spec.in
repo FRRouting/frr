@@ -184,7 +184,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang2-devel
+BuildRequires:  libyang-devel >= 2
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
