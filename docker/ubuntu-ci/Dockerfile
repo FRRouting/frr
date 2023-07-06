@@ -22,6 +22,7 @@ RUN apt update && apt upgrade -y && \
             libpam0g-dev \
             libreadline-dev \
             libsnmp-dev \
+            libsqlite3-dev \
             libtool \
             make \
             perl \
@@ -112,6 +113,7 @@ RUN cd ~/frr && \
        --enable-multipath=64 \
        --enable-user=frr \
        --enable-group=frr \
+       --enable-config-rollbacks \
        --enable-vty-group=frrvty \
        --enable-snmp=agentx \
        --enable-scripting \
