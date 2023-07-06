@@ -68,6 +68,7 @@ lib_libfrr_la_SOURCES = \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \
 	lib/mgmt_msg.c \
+	lib/mgmt_msg_native.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -256,6 +257,7 @@ pkginclude_HEADERS += \
 	lib/mgmt_defines.h \
 	lib/mgmt_fe_client.h \
 	lib/mgmt_msg.h \
+	lib/mgmt_msg_native.h \
 	lib/mgmt_pb.h \
 	lib/module.h \
 	lib/monotime.h \
