@@ -38,7 +38,6 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_FQDN           73 /* Advertise hostname capability */
 #define CAPABILITY_CODE_SOFT_VERSION   75 /* Software Version capability */
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
-#define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
 
@@ -63,7 +62,6 @@ struct graceful_restart_af {
 /* ORF Type */
 #define ORF_TYPE_RESERVED               0
 #define ORF_TYPE_PREFIX                64
-#define ORF_TYPE_PREFIX_OLD           128
 
 /* ORF Mode */
 #define ORF_MODE_RECEIVE                1

@@ -2258,12 +2258,6 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 					peer, afi, safi, ORF_TYPE_PREFIX,
 					REFRESH_IMMEDIATE, 0,
 					BGP_ROUTE_REFRESH_NORMAL);
-			else if (CHECK_FLAG(peer->af_cap[afi][safi],
-					    PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
-				bgp_route_refresh_send(
-					peer, afi, safi, ORF_TYPE_PREFIX_OLD,
-					REFRESH_IMMEDIATE, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 
@@ -2272,9 +2266,7 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_RM_ADV))
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
-				       PEER_CAP_ORF_PREFIX_SM_RCV)
-			    || CHECK_FLAG(peer->af_cap[afi][safi],
-					  PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
+				       PEER_CAP_ORF_PREFIX_SM_RCV))
 				SET_FLAG(peer->af_sflags[afi][safi],
 					 PEER_STATUS_ORF_WAIT_REFRESH);
 	}

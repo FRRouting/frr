@@ -1116,7 +1116,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 		stream_putc(s, 0);
 	stream_putc(s, pkt_safi);
 
-	if (orf_type == ORF_TYPE_PREFIX || orf_type == ORF_TYPE_PREFIX_OLD)
+	if (orf_type == ORF_TYPE_PREFIX)
 		if (remove || filter->plist[FILTER_IN].plist) {
 			uint16_t orf_len;
 			unsigned long orfp;
@@ -2375,8 +2375,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			/* orf_len in bounds? */
 			if ((stream_pnt(s) + orf_len) > end)
 				break; /* XXX: Notify instead?? */
-			if (orf_type == ORF_TYPE_PREFIX
-			    || orf_type == ORF_TYPE_PREFIX_OLD) {
+			if (orf_type == ORF_TYPE_PREFIX) {
 				uint8_t *p_pnt = stream_pnt(s);
 				uint8_t *p_end = stream_pnt(s) + orf_len;
 				struct orf_prefix orfp;
