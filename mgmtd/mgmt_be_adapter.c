@@ -15,6 +15,7 @@
 #include "network.h"
 #include "libfrr.h"
 #include "mgmt_msg.h"
+#include "mgmt_msg_native.h"
 #include "mgmt_pb.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_memory.h"
@@ -287,6 +288,13 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 	}
 }
 
+static int be_adapter_send_native_msg(struct mgmt_be_client_adapter *adapter,
+				      void *msg, size_t len,
+				      bool short_circuit_ok)
+{
+	return msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE, msg,
+				 len, NULL, short_circuit_ok);
+}
 
 static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 				    Mgmtd__BeMessage *be_msg)
@@ -503,12 +511,50 @@ int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
 
+int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg, size_t len)
+{
+	struct mgmt_be_client_adapter *adapter = mgmt_be_get_adapter_by_id(id);
+
+	if (!adapter)
+		return -1;
+
+	return be_adapter_send_native_msg(adapter, msg, len, false);
+}
+
+/*
+ * Handle a native encoded message
+ */
+static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
+					 struct mgmt_msg_header *msg,
+					 size_t msg_len)
+{
+	switch (msg->code) {
+	default:
+		MGMTD_BE_ADAPTER_ERR("unknown native message code %u to BE adapter %s",
+				     msg->code, adapter->name);
+		break;
+	}
+}
+
+
 static void mgmt_be_adapter_process_msg(uint8_t version, uint8_t *data,
 					size_t len, struct msg_conn *conn)
 {
 	struct mgmt_be_client_adapter *adapter = conn->user;
-	Mgmtd__BeMessage *be_msg = mgmtd__be_message__unpack(NULL, len, data);
+	Mgmtd__BeMessage *be_msg;
 
+	if (version == MGMT_MSG_VERSION_NATIVE) {
+		struct mgmt_msg_header *msg = (typeof(msg))data;
+
+		if (len >= sizeof(*msg))
+			be_adapter_handle_native_msg(adapter, msg, len);
+		else
+			MGMTD_BE_ADAPTER_ERR("native message to adapter %s too short %zu",
+					     adapter->name, len);
+		return;
+	}
+
+	be_msg = mgmtd__be_message__unpack(NULL, len, data);
 	if (!be_msg) {
 		MGMTD_BE_ADAPTER_DBG(
 			"Failed to decode %zu bytes for adapter: %s", len,
@@ -662,11 +708,13 @@ struct msg_conn *mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 	mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
 	RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
 
-	adapter->conn = msg_server_conn_create(
-		mgmt_loop, conn_fd, mgmt_be_adapter_notify_disconnect,
-		mgmt_be_adapter_process_msg, MGMTD_BE_MAX_NUM_MSG_PROC,
-		MGMTD_BE_MAX_NUM_MSG_WRITE, MGMTD_BE_MSG_MAX_LEN, adapter,
-		"BE-adapter");
+	adapter->conn = msg_server_conn_create(mgmt_loop, conn_fd,
+					       mgmt_be_adapter_notify_disconnect,
+					       mgmt_be_adapter_process_msg,
+					       MGMTD_BE_MAX_NUM_MSG_PROC,
+					       MGMTD_BE_MAX_NUM_MSG_WRITE,
+					       MGMTD_BE_MSG_MAX_LEN, adapter,
+					       "BE-adapter");
 
 	adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL);
 
