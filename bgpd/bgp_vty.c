@@ -11930,14 +11930,23 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				}
 				/* Make sure `Desc` column is the lastest in
 				 * the output.
+				 * If the description is not set, try
+				 * to print the software version if the
+				 * capability is enabled and received.
 				 */
 				if (peer->desc)
 					vty_out(vty, " %s",
 						bgp_peer_description_stripped(
 							peer->desc,
 							show_wide ? 64 : 20));
-				else
+				else if (peer->soft_version) {
+					vty_out(vty, " %s",
+						bgp_peer_description_stripped(
+							peer->soft_version,
+							show_wide ? 64 : 20));
+				} else {
 					vty_out(vty, " N/A");
+				}
 				vty_out(vty, "\n");
 			}
 
