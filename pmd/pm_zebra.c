@@ -307,6 +307,7 @@ static void pm_nht_hash_free(void *data)
 	struct pm_nht_data *nhtd = data;
 
 	prefix_free(&nhtd->nh);
+	nhtd->nh = NULL;
 	XFREE(MTYPE_TMP, nhtd);
 }
 
@@ -948,6 +949,7 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 	struct vrf *vrf;
 	struct interface *ifp;
 	void *src = NULL;
+	int nh_num = 1;
 
 	if (pm_nht_not_used) {
 		pm_zebra_fake_nht_register(pm, reg, vty);
@@ -1027,7 +1029,7 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 			return;
 
 		hash_release(pm_nht_hash, nhtd);
-		pm_nht_hash_free(nhtd);
+		nh_num = 0;
 	}
 
 	ifp =  if_lookup_address_local(src, sockunion_family(&pm->peer),
@@ -1035,11 +1037,15 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 	/* peer or gateway is owned by us */
 	if (ifp) {
 		nhtd->idx = ifp->ifindex;
-		pm_nht_update(nhtd->nh, 1,
+		pm_nht_update(nhtd->nh, nh_num,
 			      afi, vrf->vrf_id, vty,
 			      nhtd->idx);
+		if (!nh_num)
+			pm_nht_hash_free(nhtd);
 		return;
 	}
+	if (!nh_num)
+		pm_nht_hash_free(nhtd);
 	if (zclient_send_rnh(zclient, cmd, &p, SAFI_UNICAST, false, false,
 			     vrf->vrf_id, 0) < 0)
 		zlog_warn("%s: Failure to send nexthop to zebra",
