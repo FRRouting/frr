@@ -8,11 +8,13 @@
  */
 
 #include <zebra.h>
+#include "darr.h"
 #include "sockopt.h"
 #include "network.h"
 #include "libfrr.h"
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
+#include "mgmt_msg_native.h"
 #include "mgmt_pb.h"
 #include "hash.h"
 #include "jhash.h"
@@ -254,6 +256,19 @@ void mgmt_fe_adapter_toggle_client_debug(bool set)
 		adapter->conn->debug = set;
 }
 
+static struct mgmt_fe_session_ctx *fe_adapter_session_by_txn_id(uint64_t txn_id)
+{
+#if 0 /* allow commit to compile */
+	uint64_t session_id = mgmt_txn_get_session_id(txn_id);
+
+	if (session_id == MGMTD_SESSION_ID_NONE)
+		return NULL;
+	return mgmt_session_id2ctx(session_id);
+#else
+	return NULL;
+#endif
+}
+
 static struct mgmt_fe_session_ctx *
 mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 			   uint64_t client_id)
@@ -279,6 +294,14 @@ mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 	hash_get(mgmt_fe_sessions, session, hash_alloc_intern);
 
 	return session;
+}
+
+static int fe_adapter_send_native_msg(struct mgmt_fe_client_adapter *adapter,
+				      void *msg, size_t len,
+				      bool short_circuit_ok)
+{
+	return msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE, msg,
+				 len, NULL, short_circuit_ok);
 }
 
 static int fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
@@ -477,6 +500,28 @@ static int fe_adapter_send_get_reply(struct mgmt_fe_session_ctx *session,
 
 	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
+
+static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
+				 uint64_t req_id, bool short_circuit_ok,
+				 int16_t error, const char *errfmt, ...)
+	PRINTFRR(5, 6);
+
+static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
+				 uint64_t req_id, bool short_circuit_ok,
+				 int16_t error, const char *errfmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, errfmt);
+	ret = vmgmt_msg_native_send_error(session->adapter->conn,
+					  session->session_id, req_id,
+					  short_circuit_ok, error, errfmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
 
 static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
 {
@@ -1028,12 +1073,190 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	return 0;
 }
 
+/**
+ * Send result of get-tree request back to the FE client.
+ *
+ * Args:
+ *	session: the session.
+ *	req_id: the request ID.
+ *	short_circuit_ok: if allowed to short circuit the message.
+ *	result_format: LYD_FORMAT for the sent output.
+ *	tree: the tree to send, can be NULL which will send an empty tree.
+ *	partial_error: if an error occurred during gathering results.
+ *
+ * Return:
+ *	Any error that occurs -- the message is likely not sent if non-zero.
+ */
+static int fe_adapter_send_tree_data(struct mgmt_fe_session_ctx *session,
+				     uint64_t req_id, bool short_circuit_ok,
+				     uint8_t result_type,
+				     const struct lyd_node *tree,
+				     int partial_error)
+
+{
+	struct mgmt_msg_tree_data *msg;
+	struct lyd_node *empty = NULL;
+	uint8_t *buf = NULL;
+	int ret = 0;
+
+	darr_append_n(buf, offsetof(typeof(*msg), result));
+	msg = (typeof(msg))buf;
+	msg->session_id = session->session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_TREE_DATA;
+	msg->partial_error = partial_error;
+	msg->result_type = result_type;
+
+	if (!tree) {
+		empty = yang_dnode_new(ly_native_ctx, false);
+		tree = empty;
+	}
+
+	ret = yang_print_tree_append(&buf, tree, result_type,
+				     (LYD_PRINT_WD_EXPLICIT |
+				      LYD_PRINT_WITHSIBLINGS));
+	/* buf may have been reallocated and moved */
+	msg = (typeof(msg))buf;
+
+
+	if (ret != LY_SUCCESS) {
+		MGMTD_FE_ADAPTER_ERR("Error building get-tree result for client %s session-id %" PRIu64
+				     " req-id %" PRIu64
+				     " scok %d result type %u",
+				     session->adapter->name, session->session_id,
+				     req_id, short_circuit_ok, result_type);
+		goto done;
+	}
+
+	MGMTD_FE_ADAPTER_DBG("Sending get-tree result from adapter %s to session-id %" PRIu64
+			     " req-id %" PRIu64 " scok %d result type %u len %u",
+			     session->adapter->name, session->session_id, req_id,
+			     short_circuit_ok, result_type, darr_len(buf));
+
+	ret = fe_adapter_send_native_msg(session->adapter, buf, darr_len(buf),
+					 short_circuit_ok);
+done:
+	if (empty)
+		yang_dnode_free(empty);
+	darr_free(buf);
+
+	return ret;
+}
+
+/**
+ * Handle a get-tree message from the client.
+ */
+static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
+				       void *data, size_t len)
+{
+	struct mgmt_msg_get_tree *msg = data;
+	uint64_t req_id = msg->req_id;
+	uint64_t clients;
+	int ret;
+
+	MGMTD_FE_ADAPTER_DBG("Received get-tree request from client %s for session-id %" PRIu64
+			     " req-id %" PRIu64,
+			     session->adapter->name, session->session_id,
+			     msg->req_id);
+
+	if (session->txn_id != MGMTD_TXN_ID_NONE) {
+		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+				      "Transaction in progress txn-id: %" PRIu64
+				      " for session-id: %" PRIu64,
+				      session->txn_id, session->session_id);
+		return;
+	}
+
+	clients = mgmt_be_interested_clients(msg->xpath, false);
+	if (!clients) {
+		MGMTD_FE_ADAPTER_DBG("No backends provide xpath: %s for txn-id: %" PRIu64
+				     " session-id: %" PRIu64,
+				     msg->xpath, session->txn_id,
+				     session->session_id);
+
+		fe_adapter_send_tree_data(session, req_id, false,
+					  msg->result_type, NULL, 0);
+		return;
+	}
+
+	/* Start a SHOW Transaction */
+	session->txn_id = mgmt_create_txn(session->session_id,
+					  MGMTD_TXN_TYPE_SHOW);
+	if (session->txn_id == MGMTD_SESSION_ID_NONE) {
+		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+				      "failed to create a 'show' txn");
+		return;
+	}
+
+	MGMTD_FE_ADAPTER_DBG("Created new show txn-id: %" PRIu64
+			     " for session-id: %" PRIu64,
+			     session->txn_id, session->session_id);
+
+	/* Create a GET-TREE request under the transaction */
+#if 0 /* allow commit to compile */
+	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
+					  msg->result_type, msg->xpath);
+#else
+	ret = NB_OK;
+#endif
+	if (ret) {
+		/* destroy the just created txn */
+		mgmt_destroy_txn(&session->txn_id);
+		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+				      "failed to create a 'show' txn");
+	}
+}
+
+/**
+ * Handle a native encoded message from the FE client.
+ */
+static void fe_adapter_handle_native_msg(struct mgmt_fe_client_adapter *adapter,
+					 struct mgmt_msg_header *msg,
+					 size_t msg_len)
+{
+	struct mgmt_fe_session_ctx *session;
+
+	session = mgmt_session_id2ctx(msg->session_id);
+	if (!session) {
+		MGMTD_FE_ADAPTER_ERR("adapter %s: recv msg unknown session-id %" PRIu64,
+				     adapter->name, msg->session_id);
+		return;
+	}
+	assert(session->adapter == adapter);
+
+	switch (msg->code) {
+	case MGMT_MSG_CODE_GET_TREE:
+		fe_adapter_handle_get_tree(session, msg, msg_len);
+		break;
+	default:
+		MGMTD_FE_ADAPTER_ERR("unknown native message session-id %" PRIu64
+				     " req-id %" PRIu64
+				     " code %u to FE adapter %s",
+				     msg->session_id, msg->req_id, msg->code,
+				     adapter->name);
+		break;
+	}
+}
+
+
 static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 					size_t len, struct msg_conn *conn)
 {
 	struct mgmt_fe_client_adapter *adapter = conn->user;
-	Mgmtd__FeMessage *fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
+	Mgmtd__FeMessage *fe_msg;
 
+	if (version == MGMT_MSG_VERSION_NATIVE) {
+		struct mgmt_msg_header *msg = (typeof(msg))data;
+
+		if (len >= sizeof(*msg))
+			fe_adapter_handle_native_msg(adapter, msg, len);
+		else
+			MGMTD_FE_ADAPTER_ERR("native message to adapter %s too short %zu",
+					     adapter->name, len);
+		return;
+	}
+
+	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
 	if (!fe_msg) {
 		MGMTD_FE_ADAPTER_DBG(
 			"Failed to decode %zu bytes for adapter: %s", len,
@@ -1209,8 +1432,54 @@ int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
 					 error_if_any);
 }
 
-struct mgmt_setcfg_stats *
-mgmt_fe_get_session_setcfg_stats(uint64_t session_id)
+int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,
+				   uint64_t req_id, LYD_FORMAT result_type,
+				   const struct lyd_node *tree,
+				   int partial_error, bool short_circuit_ok)
+{
+	struct mgmt_fe_session_ctx *session;
+	int ret;
+
+	session = mgmt_session_id2ctx(session_id);
+	if (!session || session->txn_id != txn_id)
+		return -1;
+
+	ret = fe_adapter_send_tree_data(session, req_id, short_circuit_ok,
+					result_type, tree, partial_error);
+
+	mgmt_destroy_txn(&session->txn_id);
+
+	return ret;
+}
+
+/**
+ * Send an error back to the FE client and cleanup any in-progress txn.
+ */
+int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
+			      bool short_circuit_ok, int16_t error,
+			      const char *errstr)
+{
+	struct mgmt_fe_session_ctx *session;
+	int ret;
+
+	session = fe_adapter_session_by_txn_id(txn_id);
+	if (!session) {
+		MGMTD_FE_ADAPTER_ERR("failed sending error for txn-id %" PRIu64
+				     " session not found",
+				     txn_id);
+		return -ENOENT;
+	}
+
+
+	ret = fe_adapter_send_error(session, req_id, false, error, "%s", errstr);
+
+	mgmt_destroy_txn(&session->txn_id);
+
+	return ret;
+}
+
+
+struct mgmt_setcfg_stats *mgmt_fe_get_session_setcfg_stats(uint64_t session_id)
 {
 	struct mgmt_fe_session_ctx *session;
 

@@ -3859,7 +3859,7 @@ static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
 
 static int vty_mgmt_get_tree_result_notified(
 	struct mgmt_fe_client *client, uintptr_t user_data, uint64_t client_id,
-	uint64_t session_id, uint64_t session_ctx, uint64_t req_id,
+	uint64_t session_id, uintptr_t session_ctx, uint64_t req_id,
 	Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, void *result,
 	size_t len, int partial_error)
 {
