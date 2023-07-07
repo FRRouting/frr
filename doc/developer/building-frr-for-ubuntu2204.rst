@@ -50,6 +50,17 @@ This is optional
 
    sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
 
+
+Config Rollbacks
+^^^^^^^^^^^^^^^^
+
+If config rollbacks are enabled using ``--enable-config-rollbacks``
+the sqlite3 developer package also should be installed.
+
+.. code-block:: console
+   sudo apt install libsqlite3-dev
+
+
 ZeroMQ
 ^^^^^^
 This is optional
