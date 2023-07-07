@@ -11854,7 +11854,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					&peer->ibuf->count,
 					memory_order_relaxed);
 
-				vty_out(vty, "4 ");
+				vty_out(vty, "4");
 				vty_out(vty, ASN_FORMAT_SPACE(bgp->asnotation),
 					&peer->as);
 				if (show_wide)
