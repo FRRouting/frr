@@ -599,7 +599,8 @@ static void fpm_read(struct thread *t)
 		switch (hdr->nlmsg_type) {
 		case RTM_NEWROUTE:
 			ctx = dplane_ctx_alloc();
-			dplane_ctx_set_op(ctx, DPLANE_OP_ROUTE_NOTIFY);
+			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
+					      NULL);
 			if (netlink_route_change_read_unicast_internal(
 				    hdr, 0, false, ctx) != 1) {
 				dplane_ctx_fini(&ctx);
