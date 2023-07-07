@@ -29,5 +29,6 @@ DEFINE_MTYPE(MGMTD, MGMTD_TXN_SETCFG_REQ, "txn set-config requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "txn get-data requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "txn get-data replies");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETTREE_REQ, "txn get-tree requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "txn config batches");
 DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");

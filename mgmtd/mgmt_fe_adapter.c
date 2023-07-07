@@ -258,15 +258,11 @@ void mgmt_fe_adapter_toggle_client_debug(bool set)
 
 static struct mgmt_fe_session_ctx *fe_adapter_session_by_txn_id(uint64_t txn_id)
 {
-#if 0 /* allow commit to compile */
 	uint64_t session_id = mgmt_txn_get_session_id(txn_id);
 
 	if (session_id == MGMTD_SESSION_ID_NONE)
 		return NULL;
 	return mgmt_session_id2ctx(session_id);
-#else
-	return NULL;
-#endif
 }
 
 static struct mgmt_fe_session_ctx *
@@ -1193,12 +1189,8 @@ static void fe_adapter_handle_get_tree(struct mgmt_fe_session_ctx *session,
 			     session->txn_id, session->session_id);
 
 	/* Create a GET-TREE request under the transaction */
-#if 0 /* allow commit to compile */
 	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
 					  msg->result_type, msg->xpath);
-#else
-	ret = NB_OK;
-#endif
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);

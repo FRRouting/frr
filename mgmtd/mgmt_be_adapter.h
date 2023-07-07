@@ -149,6 +149,9 @@ mgmt_be_get_adapter_by_name(const char *name);
 extern struct mgmt_be_client_adapter *
 mgmt_be_get_adapter_by_id(enum mgmt_be_client_id id);
 
+/* Get the client name given a client ID */
+extern const char *mgmt_be_client_id2name(enum mgmt_be_client_id id);
+
 /* Toggle debug on or off for connected clients. */
 extern void mgmt_be_adapter_toggle_client_debug(bool set);
 

@@ -103,8 +103,7 @@ mgmt_be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 static bool be_is_client_interested(const char *xpath,
 				    enum mgmt_be_client_id id, bool config);
 
-
-static const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
+const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
 {
 	if (id > MGMTD_BE_CLIENT_ID_MAX)
 		return "invalid client id";
@@ -528,10 +527,37 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 					 struct mgmt_msg_header *msg,
 					 size_t msg_len)
 {
+	struct mgmt_msg_tree_data *tree_msg;
+	struct mgmt_msg_error *error_msg;
+
+	/* get the transaction */
+
 	switch (msg->code) {
+	case MGMT_MSG_CODE_ERROR:
+		error_msg = (typeof(error_msg))msg;
+		MGMTD_BE_ADAPTER_DBG("Got ERROR from '%s' txn-id %" PRIx64,
+				     adapter->name, msg->txn_id);
+
+		/* Forward the reply to the txn module */
+		mgmt_txn_notify_error(adapter, msg->txn_id, msg->req_id,
+				      error_msg->error, error_msg->errstr);
+
+		break;
+	case MGMT_MSG_CODE_TREE_DATA:
+		/* tree data from a backend client */
+		tree_msg = (typeof(tree_msg))msg;
+		MGMTD_BE_ADAPTER_DBG("Got TREE_DATA from '%s' txn-id %" PRIx64,
+				     adapter->name, msg->txn_id);
+
+		/* Forward the reply to the txn module */
+		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
+		break;
 	default:
-		MGMTD_BE_ADAPTER_ERR("unknown native message code %u to BE adapter %s",
-				     msg->code, adapter->name);
+		MGMTD_BE_ADAPTER_ERR("unknown native message txn-id %" PRIu64
+				     " req-id %" PRIu64
+				     " code %u from BE client for adapter %s",
+				     msg->txn_id, msg->req_id, msg->code,
+				     adapter->name);
 		break;
 	}
 }
