@@ -2798,13 +2798,20 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 {
 	int ret = EINVAL;
 
-	if (!ctx || !re)
+	if (!ctx)
 		return ret;
 
 	dplane_intf_extra_list_init(&ctx->u.rinfo.intf_extra_list);
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* This function may be called to create/init a dplane context, not
+	 * necessarily to copy a route object. Let's return if there is no route
+	 * object to copy.
+	 */
+	if (!re)
+		return AOK;
 
 	ctx->u.rinfo.zd_type = re->type;
 	ctx->u.rinfo.zd_old_type = re->type;
@@ -2837,6 +2844,8 @@ int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 
 /*
  * Initialize a context block for a route update from zebra data structs.
+ * If the `rn` or `re` parameters are NULL, this function only initializes the
+ * dplane context without copying a route object into it.
  */
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			  struct route_node *rn, struct route_entry *re)
@@ -2853,8 +2862,16 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	const struct interface *ifp;
 	struct dplane_intf_extra *if_extra;
 
-	if (!ctx || !rn || !re)
+	if (!ctx)
 		return ret;
+
+	/*
+	 * Initialize the dplane context and return, if there is no route
+	 * object to copy
+	 */
+	if (!re || !rn)
+		return dplane_ctx_route_init_basic(ctx, op, NULL, NULL, NULL,
+						   AFI_UNSPEC, SAFI_UNSPEC);
 
 	/*
 	 * Let's grab the data from the route_node
