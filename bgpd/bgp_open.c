@@ -36,7 +36,6 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_ADDPATH, "AddPath"},
 	{CAPABILITY_CODE_DYNAMIC, "Dynamic"},
 	{CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding"},
-	{CAPABILITY_CODE_DYNAMIC_OLD, "Dynamic (Old)"},
 	{CAPABILITY_CODE_REFRESH_OLD, "Route Refresh (Old)"},
 	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
 	{CAPABILITY_CODE_FQDN, "FQDN"},
@@ -56,7 +55,6 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_AS4] = CAPABILITY_CODE_AS4_LEN,
 		[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
 		[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = CAPABILITY_CODE_DYNAMIC_LEN,
 		[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
 		[CAPABILITY_CODE_REFRESH_OLD] = CAPABILITY_CODE_REFRESH_LEN,
 		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
@@ -81,7 +79,6 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_AS4] = 4,
 		[CAPABILITY_CODE_ADDPATH] = 4,
 		[CAPABILITY_CODE_DYNAMIC] = 1,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = 1,
 		[CAPABILITY_CODE_ENHE] = 6,
 		[CAPABILITY_CODE_REFRESH_OLD] = 1,
 		[CAPABILITY_CODE_ORF_OLD] = 1,
@@ -1018,7 +1015,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_ADDPATH:
 		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_DYNAMIC_OLD:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHANCED_RR:
@@ -1097,7 +1093,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			ret = bgp_capability_llgr(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_DYNAMIC_OLD:
 			SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV);
 			break;
 		case CAPABILITY_CODE_AS4:
@@ -1909,12 +1904,6 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	/* Dynamic capability. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
 		SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-		stream_putc(s, BGP_OPEN_OPT_CAP);
-		ext_opt_params
-			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
-			: stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
-		stream_putc(s, CAPABILITY_CODE_DYNAMIC_OLD);
-		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		ext_opt_params
 			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
