@@ -4192,10 +4192,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 						safi2str(safi), peer->host);
 
 				bgp_soft_reconfig_in(peer, afi, safi);
-			} else if (CHECK_FLAG(peer->cap,
-					      PEER_CAP_REFRESH_OLD_RCV)
-				   || CHECK_FLAG(peer->cap,
-						 PEER_CAP_REFRESH_NEW_RCV)) {
+			} else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
 					zlog_debug(
 						"Processing route_map %s(%s:%s) update on peer %s (inbound, route-refresh)",
