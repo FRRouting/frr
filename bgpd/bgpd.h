@@ -1242,8 +1242,7 @@ struct peer {
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t cap;
 #define PEER_CAP_REFRESH_ADV                (1U << 0) /* refresh advertised */
-#define PEER_CAP_REFRESH_OLD_RCV            (1U << 1) /* refresh old received */
-#define PEER_CAP_REFRESH_NEW_RCV            (1U << 2) /* refresh rfc received */
+#define PEER_CAP_REFRESH_RCV                (1U << 2) /* refresh rfc received */
 #define PEER_CAP_DYNAMIC_ADV                (1U << 3) /* dynamic advertised */
 #define PEER_CAP_DYNAMIC_RCV                (1U << 4) /* dynamic received */
 #define PEER_CAP_RESTART_ADV                (1U << 5) /* restart advertised */

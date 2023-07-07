@@ -36,8 +36,6 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_ADDPATH, "AddPath"},
 	{CAPABILITY_CODE_DYNAMIC, "Dynamic"},
 	{CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding"},
-	{CAPABILITY_CODE_DYNAMIC_OLD, "Dynamic (Old)"},
-	{CAPABILITY_CODE_REFRESH_OLD, "Route Refresh (Old)"},
 	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
 	{CAPABILITY_CODE_FQDN, "FQDN"},
 	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
@@ -56,9 +54,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_AS4] = CAPABILITY_CODE_AS4_LEN,
 		[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
 		[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = CAPABILITY_CODE_DYNAMIC_LEN,
 		[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
-		[CAPABILITY_CODE_REFRESH_OLD] = CAPABILITY_CODE_REFRESH_LEN,
 		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
 		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
 		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
@@ -81,9 +77,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_AS4] = 4,
 		[CAPABILITY_CODE_ADDPATH] = 4,
 		[CAPABILITY_CODE_DYNAMIC] = 1,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = 1,
 		[CAPABILITY_CODE_ENHE] = 6,
-		[CAPABILITY_CODE_REFRESH_OLD] = 1,
 		[CAPABILITY_CODE_ORF_OLD] = 1,
 		[CAPABILITY_CODE_FQDN] = 1,
 		[CAPABILITY_CODE_ENHANCED_RR] = 1,
@@ -1011,14 +1005,12 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		switch (caphdr.code) {
 		case CAPABILITY_CODE_MP:
 		case CAPABILITY_CODE_REFRESH:
-		case CAPABILITY_CODE_REFRESH_OLD:
 		case CAPABILITY_CODE_ORF:
 		case CAPABILITY_CODE_ORF_OLD:
 		case CAPABILITY_CODE_RESTART:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_ADDPATH:
 		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_DYNAMIC_OLD:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHANCED_RR:
@@ -1076,15 +1068,12 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			}
 		} break;
 		case CAPABILITY_CODE_ENHANCED_RR:
-		case CAPABILITY_CODE_REFRESH:
-		case CAPABILITY_CODE_REFRESH_OLD: {
+		case CAPABILITY_CODE_REFRESH: {
 			/* BGP refresh capability */
 			if (caphdr.code == CAPABILITY_CODE_ENHANCED_RR)
 				SET_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV);
-			else if (caphdr.code == CAPABILITY_CODE_REFRESH_OLD)
-				SET_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV);
 			else
-				SET_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV);
+				SET_FLAG(peer->cap, PEER_CAP_REFRESH_RCV);
 		} break;
 		case CAPABILITY_CODE_ORF:
 		case CAPABILITY_CODE_ORF_OLD:
@@ -1097,7 +1086,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			ret = bgp_capability_llgr(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_DYNAMIC_OLD:
 			SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV);
 			break;
 		case CAPABILITY_CODE_AS4:
@@ -1771,11 +1759,6 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_REFRESH_LEN + 2)
 		       : stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
-	stream_putc(s, CAPABILITY_CODE_REFRESH_OLD);
-	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
-	stream_putc(s, BGP_OPEN_OPT_CAP);
-	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_REFRESH_LEN + 2)
-		       : stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
 	stream_putc(s, CAPABILITY_CODE_REFRESH);
 	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
 
@@ -1909,12 +1892,6 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	/* Dynamic capability. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
 		SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-		stream_putc(s, BGP_OPEN_OPT_CAP);
-		ext_opt_params
-			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
-			: stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
-		stream_putc(s, CAPABILITY_CODE_DYNAMIC_OLD);
-		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		ext_opt_params
 			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
