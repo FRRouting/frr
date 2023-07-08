@@ -1560,10 +1560,30 @@ def compare_context_objects(newconf, running):
     pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
+    area_stub_no_sum = "area (\S+) stub no-summary"
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
     for (running_ctx_keys, running_ctx) in iteritems(running.contexts):
+
+        if running_ctx_keys in newconf.contexts:
+            newconf_ctx = newconf.contexts[running_ctx_keys]
+
+            for line in running_ctx.lines:
+                # ospf area <> stub no-summary line removal requires
+                # to remoe area <> stub as no form of original
+                # retains the stub form.
+                # lines_to_del will contain:
+                #   no area <x> stub no-summary and
+                #   no area <x> stub
+                if (
+                    running_ctx_keys[0].startswith("router ospf")
+                    and line not in newconf_ctx.dlines
+                ):
+                    re_area_stub_no_sum = re.search(area_stub_no_sum, line)
+                    if re_area_stub_no_sum:
+                        new_del_line = "area %s stub" % re_area_stub_no_sum.group(1)
+                        lines_to_del.append((running_ctx_keys, new_del_line))
 
         if running_ctx_keys not in newconf.contexts:
 
