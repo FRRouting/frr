@@ -137,6 +137,24 @@ struct bgp_attr_srv6_l3vpn {
 };
 
 /* BGP core attribute structure. */
+
+struct attr_extra {
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
+
+	/* Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
+
+	/* Route-Reflector Cluster attribute */
+	struct cluster_list *cluster1;
+
+	/* AIGP Metric */
+	uint64_t aigp_metric;
+
+	/* Unknown transitive attribute. */
+	struct transit *transit;
+};
+
 struct attr {
 	/* AS Path structure */
 	struct aspath *aspath;
@@ -159,9 +177,6 @@ struct attr {
 	/* Path origin attribute */
 	uint8_t origin;
 
-	/* PMSI tunnel type (RFC 6514). */
-	enum pta_type pmsi_tnl_type;
-
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
 	uint32_t rmap_change_flags;
@@ -176,17 +191,8 @@ struct attr {
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 
-	/* Extended Communities attribute. */
-	struct ecommunity *ipv6_ecommunity;
-
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
-
-	/* Route-Reflector Cluster attribute */
-	struct cluster_list *cluster1;
-
-	/* Unknown transitive attribute. */
-	struct transit *transit;
 
 	struct in_addr mp_nexthop_global_in;
 
@@ -315,8 +321,8 @@ struct attr {
 	/* OTC value if set */
 	uint32_t otc;
 
-	/* AIGP Metric */
-	uint64_t aigp_metric;
+	/* Extra attributes, non-mandatory */
+	struct attr_extra *extra;
 };
 
 /* rmap_change_flags definition */
@@ -345,6 +351,8 @@ struct transit {
 	int length;
 	uint8_t *val;
 };
+
+extern struct attr_extra *bgp_attr_extra_alloc(void);
 
 /* "(void) 0" will generate a compiler error.  this is a safety check to
  * ensure we're not using a value that exceeds the bit size of attr->flag. */
@@ -494,13 +502,19 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 
 static inline enum pta_type bgp_attr_get_pmsi_tnl_type(struct attr *attr)
 {
-	return attr->pmsi_tnl_type;
+	if (attr->extra)
+		return attr->extra->pmsi_tnl_type;
+
+	return PMSI_TNLTYPE_NO_INFO;
 }
 
 static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 					      enum pta_type pmsi_tnl_type)
 {
-	attr->pmsi_tnl_type = pmsi_tnl_type;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+
+	attr->extra->pmsi_tnl_type = pmsi_tnl_type;
 }
 
 static inline struct ecommunity *
@@ -557,13 +571,19 @@ static inline void bgp_attr_set_community(struct attr *attr,
 static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
-	return attr->ipv6_ecommunity;
+	if (attr->extra)
+		return attr->extra->ipv6_ecommunity;
+
+	return NULL;
 }
 
 static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
-	attr->ipv6_ecommunity = ipv6_ecomm;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+
+	attr->extra->ipv6_ecommunity = ipv6_ecomm;
 
 	if (ipv6_ecomm)
 		SET_FLAG(attr->flag,
@@ -575,23 +595,35 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)
 {
-	return attr->transit;
+	if (attr->extra)
+		return attr->extra->transit;
+
+	return NULL;
 }
 
 static inline void bgp_attr_set_transit(struct attr *attr,
 					struct transit *transit)
 {
-	attr->transit = transit;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+
+	attr->extra->transit = transit;
 }
 
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
-	return attr->aigp_metric;
+	if (attr->extra)
+		return attr->extra->aigp_metric;
+
+	return 0;
 }
 
 static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 {
-	attr->aigp_metric = aigp;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+
+	attr->extra->aigp_metric = aigp;
 
 	if (aigp)
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AIGP);
@@ -599,13 +631,19 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
 {
-	return attr->cluster1;
+	if (attr->extra)
+		return attr->extra->cluster1;
+
+	return NULL;
 }
 
 static inline void bgp_attr_set_cluster(struct attr *attr,
 					struct cluster_list *cl)
 {
-	attr->cluster1 = cl;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+
+	attr->extra->cluster1 = cl;
 }
 
 static inline const struct bgp_route_evpn *

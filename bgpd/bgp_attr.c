@@ -786,6 +786,11 @@ unsigned int attrhash_key_make(const void *p)
 	return key;
 }
 
+struct attr_extra *bgp_attr_extra_alloc(void)
+{
+	return XCALLOC(MTYPE_ATTR, sizeof(struct attr_extra));
+}
+
 bool attrhash_cmp(const void *p1, const void *p2)
 {
 	const struct attr *attr1 = p1;
@@ -865,6 +870,11 @@ static void attrhash_init(void)
  */
 static void attr_vfree(void *attr)
 {
+	struct attr *a = attr;
+
+	if (a->extra)
+		XFREE(MTYPE_ATTR, a->extra);
+
 	XFREE(MTYPE_ATTR, attr);
 }
 
@@ -1254,6 +1264,8 @@ void bgp_attr_unintern(struct attr **pattr)
 	if (attr->refcnt == 0) {
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
+		if (attr->extra)
+			XFREE(MTYPE_ATTR, attr->extra);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
 	}
