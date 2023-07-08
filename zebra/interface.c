@@ -1444,7 +1444,7 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 			linkdown_set = &zrouter.default_linkdownv6;
 		}
 	} else {
-		zif = ifp ? ifp->info : NULL;
+		zif = ifp->info;
 		if (!zif) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
