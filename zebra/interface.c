@@ -1368,6 +1368,13 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 	bool pd_reason_val;
 	bool down;
 
+	if (!ifp) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: Can't find ifp", __func__);
+
+		return;
+	}
+
 	dp_res = dplane_ctx_get_status(ctx);
 	pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
 	down = dplane_ctx_intf_is_protodown(ctx);
