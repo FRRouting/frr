@@ -118,13 +118,6 @@ struct mgmt_be_client {
 
 struct debug mgmt_dbg_be_client = {0, "Management backend client operations"};
 
-const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
-#ifdef HAVE_STATICD
-	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
-#endif
-	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
-};
-
 static int mgmt_be_client_send_msg(struct mgmt_be_client *client_ctx,
 				   Mgmtd__BeMessage *be_msg)
 {
