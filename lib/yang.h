@@ -600,6 +600,39 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
  */
 extern void yang_debugging_set(bool enable);
 
+
+/*
+ * "Print" the yang tree in `root` into dynamic sized array.
+ *
+ * Args:
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	A darr dynamic array with the "printed" output or NULL on failure.
+ */
+extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
+				uint32_t options);
+
+/*
+ * "Print" the yang tree in `root` into an existing dynamic sized array.
+ *
+ * This function does not initialize or free the dynamic array, the array can
+ * already existing data, the tree will be appended to this data.
+ *
+ * Args:
+ *	darr: existing `uint8_t *`, dynamic array.
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	LY_ERR from underlying calls.
+ */
+extern LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
+				     LYD_FORMAT format, uint32_t options);
+
 /*
  * Print libyang error messages into the provided buffer.
  *

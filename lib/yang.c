@@ -6,6 +6,7 @@
 
 #include <zebra.h>
 
+#include "darr.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "yang.h"
@@ -671,6 +672,37 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s (%s)", msg, path);
 	else
 		zlog(priority, "libyang: %s", msg);
+}
+
+static ssize_t yang_print_darr(void *arg, const void *buf, size_t count)
+{
+	uint8_t *dst = darr_append_n(*(uint8_t **)arg, count);
+
+	memcpy(dst, buf, count);
+	return count;
+}
+
+LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
+			      LYD_FORMAT format, uint32_t options)
+{
+	LY_ERR err;
+
+	err = lyd_print_clb(yang_print_darr, darr, root, format, options);
+	if (err)
+		zlog_err("Failed to save yang tree: %s", ly_last_errmsg());
+	else if (format != LYD_LYB)
+		*darr_append(*darr) = 0;
+	return err;
+}
+
+uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
+			 uint32_t options)
+{
+	uint8_t *darr = NULL;
+
+	if (yang_print_tree_append(&darr, root, format, options))
+		return NULL;
+	return darr;
 }
 
 const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
