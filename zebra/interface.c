@@ -609,6 +609,11 @@ void if_add_update(struct interface *ifp)
 
 		if_addr_wakeup(ifp);
 
+		if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
+			dplane_intf_mpls_modify_state(ifp, true);
+		else if (if_data->mpls_config == IF_ZEBRA_DATA_OFF)
+			dplane_intf_mpls_modify_state(ifp, false);
+
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"interface %s vrf %s(%u) index %d becomes active.",
