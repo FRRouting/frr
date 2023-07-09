@@ -3783,21 +3783,14 @@ DEFPY (mpls,
        "Set mpls to be on for the interface\n"
        "Set mpls to be off for the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *if_data = ifp->info;
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/mpls",
+				      NB_OP_CREATE, on ? "true" : "false");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/mpls",
+				      NB_OP_DESTROY, NULL);
 
-	if (no) {
-		/* keep the state as it is */
-		if_data->mpls_config = IF_ZEBRA_DATA_UNSPEC;
-	} else {
-		dplane_intf_mpls_modify_state(ifp, !!on);
-		if (on)
-			if_data->mpls_config = IF_ZEBRA_DATA_ON;
-		else
-			if_data->mpls_config = IF_ZEBRA_DATA_OFF;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 int if_multicast_unset(struct interface *ifp)
