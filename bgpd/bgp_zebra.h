@@ -24,7 +24,7 @@ extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
 extern uint32_t bgp_zebra_tm_get_id(void);
 extern bool bgp_zebra_tm_chunk_obtained(void);
 extern void bgp_zebra_destroy(void);
-extern int bgp_zebra_get_table_range(uint32_t chunk_size,
+extern int bgp_zebra_get_table_range(struct zclient *zc, uint32_t chunk_size,
 				     uint32_t *start, uint32_t *end);
 extern int bgp_if_update_all(void);
 extern void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
