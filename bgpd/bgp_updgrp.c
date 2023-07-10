@@ -140,7 +140,6 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
 	dst->cap = src->cap;
 	dst->afc[AFI_IP][SAFI_RTC] = src->afc[AFI_IP][SAFI_RTC];
-	dst->rtc_plist = src->rtc_plist;
 	dst->af_cap[afi][safi] = src->af_cap[afi][safi];
 	dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
 	dst->orf_plist[afi][safi] = src->orf_plist[afi][safi];
@@ -669,7 +668,7 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 		return false;
 
 	if (afi == AFI_L2VPN && safi == SAFI_EVPN &&
-	    (pe1->afc[AFI_IP][SAFI_RTC] || pe2->afc[AFI_IP][SAFI_RTC])) {
+	    (pe1->afc[AFI_IP][SAFI_RTC] != pe2->afc[AFI_IP][SAFI_RTC])) {
 		return false;
 	}
 
