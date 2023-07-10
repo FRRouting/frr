@@ -1160,8 +1160,7 @@ int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
 	}
 
 	return fe_adapter_send_set_cfg_reply(session, ds_id, req_id,
-					     result == MGMTD_SUCCESS ? true
-								     : false,
+					     result == MGMTD_SUCCESS,
 					     error_if_any, implicit_commit);
 }
 

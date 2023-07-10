@@ -1380,8 +1380,7 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 					     batch->batch_id,
 					     cfg_req.cfgdata_reqs,
 					     cfg_req.num_reqs,
-					     indx == num_batches ? true
-								 : false)) {
+					     indx == num_batches)) {
 			(void)mgmt_txn_send_commit_cfg_reply(
 				txn, MGMTD_INTERNAL_ERROR,
 				"Internal Error! Could not send config data to backend!");
