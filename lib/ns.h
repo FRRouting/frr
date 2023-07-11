@@ -121,6 +121,8 @@ extern void ns_walk_func(int (*func)(struct ns *,
 
 /* API to get the NETNS name, from the ns pointer */
 extern const char *ns_get_name(struct ns *ns);
+/* API to get the NETNS name, from the process pid */
+extern int ns_get_name_from_pid(pid_t pid, char *name, int len);
 
 /* only called from vrf ( when removing netns from vrf)
  * or at VRF termination
