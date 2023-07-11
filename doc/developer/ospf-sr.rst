@@ -300,15 +300,13 @@ OSPFd
 ^^^^^
 
 Here it is a simple example of configuration to enable Segment Routing. Note
-that `opaque capability` and `router information` must be set to activate
-Opaque LSA prior to Segment
+that `router information` must be set to activate Opaque LSA prior to Segment
 Routing.
 
 ::
 
    router ospf
     ospf router-id 192.168.1.11
-    capability opaque
     segment-routing on
     segment-routing global-block 10000 19999 local-block 5000 5999
     segment-routing node-msd 8
