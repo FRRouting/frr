@@ -14,6 +14,7 @@ This program
 
 from __future__ import print_function, unicode_literals
 import argparse
+import json
 import logging
 import os, os.path
 import random
@@ -1206,9 +1207,10 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
                     for (ctx_keys, add_line) in lines_to_add:
                         if ctx_keys[0].startswith("router bgp"):
-                            re_add_nbr_bfd_timers = re.search(
-                                bfd_search_string, add_line
-                            )
+                            if add_line:
+                                re_add_nbr_bfd_timers = re.search(
+                                    bfd_search_string, add_line
+                                )
 
                             if re_add_nbr_bfd_timers:
                                 found_add_bfd_nbr = line_exist(
@@ -1472,8 +1474,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         # put the "no" form in lines_to_add
         if ctx_keys[0].startswith("vrf ") and line:
             if line.startswith("ip route") or line.startswith("ipv6 route"):
-                add_cmd = "no " + line
-                lines_to_add.append((ctx_keys, add_cmd))
+                if not static_route_already_present(lines_to_add, line):
+                    # Only add the "no" form when we're really deleting a route
+                    # Updates to existing routes will go in without a "no",
+                    # and nulling them out may cause surprising static route
+                    # deletions. Try "ip route 1.1.1.1/32 2.2.2.2 tag 1"
+                    # followed by "no ip route 1.1.1.1/32 2.2.2.2 tag 2"
+                    add_cmd = ('no ' + line)
+                    lines_to_add.append((ctx_keys, add_cmd))
                 lines_to_del_to_del.append((ctx_keys, line))
 
         if not deleted:
@@ -1527,6 +1535,75 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
     return (lines_to_add, lines_to_del)
 
+def static_route_line_as_dict(line):
+    """
+    Parse an "ip route" or "ipv6 route" line
+    """
+    options = {}
+    # First we parse the command itself
+    if line.startswith('ip route '):
+        options['v6'] = True
+        line = line[len('ip route '):]
+    elif line.startswith('ipv6 route '):
+        options['v6'] = False
+        line = line[len("ipv6 route "):]
+    else:
+        return options
+
+    # mandatory prefix / destination fields
+    [prefix, dest] = line.split(' ', 2)[0:2]
+    line = line[len(prefix + ' ') + len(dest + ' '):]
+
+    # mandatory fields
+    options['prefix'] = prefix
+    options['destination'] = dest
+
+    return options
+
+def dict_values_match(a, b, key):
+    """
+    Check if a given bucket in dict a is the same as that in dict b
+    Note that if the bucket is in NEITHER a NOR b this is False
+    """
+    return not (
+        key in a or key in b) or (
+        key in a and
+        key in b and
+        a[key] == b[key])
+
+def static_route_already_present(lines_to_add, testline):
+    """
+    Determine if a given line will modify a pending addition to static routes
+    """
+
+    assert(testline.startswith('ip route ') or
+        testline.startswith('ipv6 route '))
+
+    candidate = static_route_line_as_dict(testline)
+    for (ctx_keys, line) in lines_to_add:
+        # Check each line which is pending addition against
+        # the candidate line for conflict
+        if line and (
+            line.startswith('ip route ') or
+            line.startswith('ipv6 route ')):
+            # Static route pending addition
+            trymatch = static_route_line_as_dict(line)
+
+            if not (dict_values_match(candidate, trymatch, 'v6') and
+                dict_values_match(candidate, trymatch, 'prefix') and
+                dict_values_match(candidate, trymatch, 'destination')):
+                # Type / prefix / destination don't match candidate rule
+                continue
+
+            # Candidate route is already pending installation (maybe with
+            # different parameters like "tag" or "nexthop-vrf") but should
+            # be replaced, not deleted
+            return True
+
+    # The candidate route is not pending installation and should be nulled
+    # out with "no" form
+    return False
+
 
 def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     """
@@ -1577,6 +1654,11 @@ def compare_context_objects(newconf, running):
     pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
+    restart_frr = False
+    def_vrf_ctx = None
+
+    if ("vrf default",) in newconf.contexts:
+        def_vrf_ctx = newconf.contexts[('vrf default',)]
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -1590,6 +1672,8 @@ def compare_context_objects(newconf, running):
             # running but not in newconf.
             if "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) == 1:
                 delete_bgpd = True
+                if "vrf" not in running_ctx_keys[0]:
+                    restart_frr = True
                 lines_to_del.append((running_ctx_keys, None))
 
             # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
@@ -1631,11 +1715,22 @@ def compare_context_objects(newconf, running):
             # doing vtysh -c inefficient (and can time out.)  For
             # these commands, instead of adding them to lines_to_del,
             # add the "no " version to lines_to_add.
+            #
+            # Handle the case where default-vrf static routes may
+            # be in a vrf/exit-vrf context, even though that's not
+            # necessary.
             elif running_ctx_keys[0].startswith("ip route") or running_ctx_keys[
                 0
             ].startswith("ipv6 route"):
-                add_cmd = ("no " + running_ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
+                # If default vrf context block, check it
+                if (def_vrf_ctx and
+                    (running_ctx_keys[0] not in def_vrf_ctx.lines)):
+                    add_cmd = ('no ' + running_ctx_keys[0],)
+                    lines_to_add.append((add_cmd, None))
+                elif not def_vrf_ctx:
+                    # Else remove the line
+                    add_cmd = ('no ' + running_ctx_keys[0],)
+                    lines_to_add.append((add_cmd, None))
 
             # if this an interface sub-subcontext in an address-family block in ldpd and
             # we are already deleting the whole context, then ignore this
@@ -1766,6 +1861,8 @@ def compare_context_objects(newconf, running):
     for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
 
         if newconf_ctx_keys not in running.contexts:
+            need_key = True
+            temp_lines = newconf_ctx.lines
 
             # candidate paths can only be added after the policy and segment list,
             # so add them to a separate array that is going to be appended at the end
@@ -1784,6 +1881,30 @@ def compare_context_objects(newconf, running):
                 for line in newconf_ctx.lines:
                     lines_to_add.append((newconf_ctx_keys, line))
 
+            if "vrf default" == newconf_ctx_keys[0]:
+                temp_lines = []
+                #
+                # Skip default vrf static routes if present in running config
+                #
+                for line in newconf_ctx.lines:
+                    if ((line.startswith("ip route") or
+                          line.startswith("ipv6 route")) and
+                         (line,) in running.contexts):
+                        continue
+                    temp_lines.append(line)
+
+                # Skip top-level key line if nothing to add
+                if len(temp_lines) == 0:
+                    need_key = False
+
+            # Add key line(s), if needed
+            if need_key:
+                lines_to_add.append((newconf_ctx_keys, None))
+
+            # Add remaining line(s), if any
+            for line in temp_lines:
+                lines_to_add.append((newconf_ctx_keys, line))
+
     # if we have some candidate paths commands to add, append them to lines_to_add
     if len(candidates_to_add) > 0:
         lines_to_add.extend(candidates_to_add)
@@ -1797,7 +1918,31 @@ def compare_context_objects(newconf, running):
         lines_to_add, lines_to_del
     )
 
-    return (lines_to_add, lines_to_del)
+    return (lines_to_add, lines_to_del, restart_frr)
+
+
+def is_evpn_enabled():
+    """
+    Returns True if bgpd is currently running with EVPN enabled
+    """
+
+    evpn_enabled = False
+    cmd = ['/usr/bin/vtysh', '-c', 'show bgp l2vpn evpn vni json']
+    output = ''
+    DEVNULL = open(os.devnull, 'wb')
+
+    try:
+        output = subprocess.check_output(cmd, stderr=DEVNULL).strip()
+    except:
+        pass
+
+    if output:
+        output = json.loads(output)
+        adv_vnis = output.get('advertiseAllVnis', '')
+        if 'Enabled' in adv_vnis:
+            evpn_enabled = True
+
+    return evpn_enabled
 
 
 if __name__ == "__main__":
@@ -2011,7 +2156,7 @@ if __name__ == "__main__":
         else:
             running.load_from_show_running(args.daemon)
 
-        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+        (lines_to_add, lines_to_del, restart_frr) = compare_context_objects(newconf, running)
 
         if lines_to_del:
             if not args.test_reset:
@@ -2113,7 +2258,18 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
             log.debug("Running Frr Config (Pass #%d)\n%s", x, running.get_lines())
 
-            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+            (lines_to_add, lines_to_del, restart_frr) = compare_context_objects(newconf, running)
+            if restart_frr and is_evpn_enabled():
+                # currently EVPN has heavy dependencies on the BGP default
+                # instance i.e. FRR cannot survive a BGP default instance
+                # delete. so as a workaround we "silently" restart FRR
+                # if the change in config requires a bgp delete (and if
+                # EVPN is enabled).
+                log.info('EVPN is enabled and default instance del needed')
+                log.info('Restarting FRR')
+                subprocess.call('systemctl reset-failed frr.service'.split())
+                subprocess.call('systemctl --no-block restart frr.service'.split())
+                sys.exit(0)
 
             if x == 0:
                 lines_to_add_first_pass = lines_to_add
