@@ -2844,6 +2844,8 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 	json_object *json_row = NULL;
 	json_object *json_ifp = NULL;
 	json_object *json_arr = NULL;
+	struct pim_interface *pim_ifp = NULL;
+	bool pim_enable = false;
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
@@ -2863,6 +2865,14 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 		json_ifp = json_object_new_object();
 		json_object_string_add(json_ifp, "interface",
 				       ifp ? ifp->name : "NULL");
+
+		if (ifp)
+			pim_ifp = ifp->info;
+
+		if (pim_ifp && pim_ifp->pim_enable)
+			pim_enable = true;
+
+		json_object_boolean_add(json_ifp, "pimEnabled", pim_enable);
 #if PIM_IPV == 4
 		json_object_string_addf(json_ifp, "nexthop", "%pI4",
 					&nh_node->gate.ipv4);
