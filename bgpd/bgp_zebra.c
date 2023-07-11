@@ -1085,7 +1085,7 @@ static void bgp_zebra_tm_connect(struct event *t)
 		}
 		bgp_tm_status_connected = true;
 		if (!bgp_tm_chunk_obtained) {
-			if (bgp_zebra_get_table_range(bgp_tm_chunk_size,
+			if (bgp_zebra_get_table_range(zclient, bgp_tm_chunk_size,
 						      &bgp_tm_min,
 						      &bgp_tm_max) >= 0) {
 				bgp_tm_chunk_obtained = true;
@@ -1129,14 +1129,14 @@ void bgp_zebra_init_tm_connect(struct bgp *bgp)
 			&bgp_tm_thread_connect);
 }
 
-int bgp_zebra_get_table_range(uint32_t chunk_size,
+int bgp_zebra_get_table_range(struct zclient *zc, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end)
 {
 	int ret;
 
 	if (!bgp_tm_status_connected)
 		return -1;
-	ret = tm_get_table_chunk(zclient, chunk_size, start, end);
+	ret = tm_get_table_chunk(zc, chunk_size, start, end);
 	if (ret < 0) {
 		flog_err(EC_BGP_TABLE_CHUNK,
 			 "BGP: Error getting table chunk %u", chunk_size);
