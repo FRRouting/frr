@@ -1231,6 +1231,46 @@ bool aspath_private_as_check(struct aspath *aspath)
 	return true;
 }
 
+/* Replace all ASN instances of the regex rule with our own ASN  */
+struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
+					struct as_list *acl_list, as_t our_asn)
+{
+	struct aspath *new;
+	struct assegment *cur_seg;
+	struct as_list *cur_as_list;
+	struct as_filter *cur_as_filter;
+	char str_buf[ASPATH_STR_DEFAULT_LEN];
+	uint32_t i;
+
+	new = aspath_dup(aspath);
+	cur_seg = new->segments;
+
+	while (cur_seg) {
+		cur_as_list = acl_list;
+		while (cur_as_list) {
+			cur_as_filter = cur_as_list->head;
+			while (cur_as_filter) {
+				for (i = 0; i < cur_seg->length; i++) {
+					snprintfrr(str_buf,
+						   ASPATH_STR_DEFAULT_LEN,
+						   ASN_FORMAT(new->asnotation),
+						   &cur_seg->as[i]);
+					if (!regexec(cur_as_filter->reg,
+						     str_buf, 0, NULL, 0))
+						cur_seg->as[i] = our_asn;
+				}
+				cur_as_filter = cur_as_filter->next;
+			}
+			cur_as_list = cur_as_list->next;
+		}
+		cur_seg = cur_seg->next;
+	}
+
+	aspath_str_update(new, false);
+	return new;
+}
+
+
 /* Replace all instances of the target ASN with our own ASN */
 struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 					   as_t target_asn, as_t our_asn)

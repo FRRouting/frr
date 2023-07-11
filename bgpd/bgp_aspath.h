@@ -107,6 +107,9 @@ extern unsigned int aspath_get_last_as(struct aspath *aspath);
 extern int aspath_loop_check(struct aspath *aspath, as_t asno);
 extern int aspath_loop_check_confed(struct aspath *aspath, as_t asno);
 extern bool aspath_private_as_check(struct aspath *aspath);
+extern struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
+					       struct as_list *acl_list,
+					       as_t our_asn);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);
