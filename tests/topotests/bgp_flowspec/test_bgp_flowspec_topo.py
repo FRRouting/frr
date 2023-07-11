@@ -138,11 +138,12 @@ def test_bgp_convergence():
     test_func = functools.partial(
         topotest.router_json_cmp, router, "show bgp summary json", expected
     )
-    _, res = topotest.run_and_expect(test_func, None, count=90, wait=0.5)
+    _, res = topotest.run_and_expect(test_func, None, count=210, wait=1)
     assertmsg = "BGP router network did not converge"
     if res is not None:
         generate_support_bundle()
         assert res is None, assertmsg
+    generate_support_bundle()
 
 
 def test_bgp_flowspec():

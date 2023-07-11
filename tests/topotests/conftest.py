@@ -297,6 +297,52 @@ def check_for_memleaks():
         pytest.fail("memleaks found for daemons: " + " ".join(daemons))
 
 
+def check_for_core_dumps():
+    dumps = []
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    latest = []
+
+    if tgen is not None:
+        logdir = tgen.logdir
+        cores = glob.glob(os.path.join(logdir, "*/*.dmp"))
+
+    if cores:
+        logger.error("Cores found:\n\t%s", "\n\t".join(cores))
+        pytest.fail("Core files found")
+
+
+def check_for_backtraces():
+    backtraces = []
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    latest = []
+    existing = []
+    if tgen is not None:
+        logdir = tgen.logdir
+        if hasattr(tgen, "backtraces_existing_files"):
+            existing = tgen.backtraces_existing_files
+        latest = glob.glob(os.path.join(logdir, "*/*.log"))
+
+    daemons = []
+    for vfile in latest:
+        if vfile in existing:
+            continue
+        with open(vfile, encoding="ascii") as vf:
+            vfcontent = vf.read()
+            backtrace = vfcontent.count("Backtrace:")
+            if backtrace:
+                existing.append(vfile)  # have backtrace don't check again
+                emsg = "Backtrace found in {}, failing test".format(vfile)
+                backtraces.append(emsg)
+
+    if tgen is not None:
+        tgen.backtrace_existing_files = existing
+
+    if backtraces:
+        logger.error("Backtraces found in test suite, erroring")
+        logger.error(backtraces)
+        pytest.fail("Backtraces found")
+
+
 @pytest.fixture(autouse=True, scope="module")
 def module_autouse(request):
     basename = get_test_logdir(request.node.nodeid, True)
@@ -320,6 +366,8 @@ def module_check_memtest(request):
     if request.config.option.memleaks:
         if get_topogen() is not None:
             check_for_memleaks()
+    check_for_backtraces()
+    check_for_core_dumps()
 
 
 #

@@ -1289,17 +1289,14 @@ int netlink_request(struct nlsock *nl, void *req)
 	return 0;
 }
 
-static int nl_batch_read_resp(struct nl_batch *bth)
+static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 {
 	struct nlmsghdr *h;
 	struct sockaddr_nl snl;
 	struct msghdr msg = {};
 	int status, seq;
-	struct nlsock *nl;
 	struct zebra_dplane_ctx *ctx;
 	bool ignore_msg;
-
-	nl = kernel_netlink_nlsock_lookup(bth->zns->sock);
 
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
@@ -1493,7 +1490,7 @@ static void nl_batch_send(struct nl_batch *bth)
 			err = true;
 
 		if (!err) {
-			if (nl_batch_read_resp(bth) == -1)
+			if (nl_batch_read_resp(bth, nl) == -1)
 				err = true;
 		}
 	}
