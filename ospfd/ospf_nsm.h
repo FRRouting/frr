@@ -49,7 +49,7 @@
 
 /* Macro for OSPF NSM execute event. */
 #define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \
-	event_execute(master, ospf_nsm_event, (N), (E))
+	event_execute(master, ospf_nsm_event, (N), (E), NULL)
 
 /* Prototypes. */
 extern void ospf_nsm_event(struct event *e);

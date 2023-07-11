@@ -1491,9 +1491,9 @@ void event_cancel(struct event **thread)
 		cr->thread = *thread;
 		listnode_add(master->cancel_req, cr);
 		do_event_cancel(master);
-	}
 
-	*thread = NULL;
+		*thread = NULL;
+	}
 }
 
 /**
@@ -2066,9 +2066,14 @@ void event_call(struct event *thread)
 
 /* Execute thread */
 void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
-		    void (*func)(struct event *), void *arg, int val)
+		    void (*func)(struct event *), void *arg, int val,
+		    struct event **eref)
 {
 	struct event *thread;
+
+	/* Cancel existing scheduled task TODO -- nice to do in 1 lock cycle */
+	if (eref)
+		event_cancel(eref);
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {

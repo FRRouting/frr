@@ -1367,7 +1367,7 @@ static void gm_bump_querier(struct gm_if *gm_ifp)
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 static void gm_t_other_querier(struct event *t)
@@ -1380,7 +1380,7 @@ static void gm_t_other_querier(struct event *t)
 	gm_ifp->querier = pim_ifp->ll_lowest;
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 static void gm_handle_query(struct gm_if *gm_ifp,
@@ -2267,7 +2267,7 @@ static void gm_update_ll(struct interface *ifp)
 		return;
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 void gm_ifp_update(struct interface *ifp)

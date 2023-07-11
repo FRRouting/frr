@@ -1436,7 +1436,7 @@ DEFPY (no_area_nssa_range,
 		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
 
 		/* Redo summaries if required */
-		event_execute(master, ospf6_abr_task_timer, ospf6, 0);
+		event_execute(master, ospf6_abr_task_timer, ospf6, 0, NULL);
 	}
 
 	ospf6_route_remove(range, oa->nssa_range_table);

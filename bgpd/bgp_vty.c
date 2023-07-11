@@ -7588,7 +7588,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 		if (!rmap_delay_timer && bm->t_rmap_update) {
 			EVENT_OFF(bm->t_rmap_update);
 			event_execute(bm->master, bgp_route_map_update_timer,
-				      NULL, 0);
+				      NULL, 0, NULL);
 		}
 		return CMD_SUCCESS;
 	} else {
