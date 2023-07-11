@@ -377,6 +377,7 @@ static int zlt_init(const char *progname, const char *protoname,
 #ifdef GNU_LINUX
 	static char syslog_name[NAME_MAX+1+NS_NAMSIZ];
 	char netns_name[NS_NAMSIZ];
+
 	if (!ns_get_name_from_pid(getpid(), netns_name, sizeof(netns_name))) {
 		snprintf(syslog_name, sizeof(syslog_name), "%s@%s", progname,
 			 netns_name);
