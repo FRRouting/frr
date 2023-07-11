@@ -420,8 +420,6 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)
 	    || CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-	    || CHECK_FLAG(peer->af_cap[afi][safi],
-			  PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
@@ -492,15 +490,12 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				: "(NONE)",
 			peer->shared_network &&
 				peer_afi_active_nego(peer, AFI_IP6));
-		zlog_debug(
-			"%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u ORF old: %u max prefix out: %ju",
-			peer, !!CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
-			CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_CAP_ORF_PREFIX_SM_RCV),
-			CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_CAP_ORF_PREFIX_SM_OLD_RCV),
-			(intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
-					     PEER_FLAG_MAX_PREFIX_OUT));
+		zlog_debug("%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u max prefix out: %ju",
+			   peer, !!CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
+			   CHECK_FLAG(peer->af_cap[afi][safi],
+				      PEER_CAP_ORF_PREFIX_SM_RCV),
+			   (intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
+						PEER_FLAG_MAX_PREFIX_OUT));
 		zlog_debug(
 			"%pBP Update Group Hash: local role: %u AIGP: %d SOO: %s",
 			peer, peer->local_role,
@@ -637,11 +632,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	if ((afi == AFI_IP6) && (pe1->shared_network != pe2->shared_network))
 		return false;
 
-	if ((CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL)
-	     || CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-	     || CHECK_FLAG(pe1->af_cap[afi][safi],
-			   PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
-	    && !sockunion_same(&pe1->su, &pe2->su))
+	if ((CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL) ||
+	     CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)) &&
+	    !sockunion_same(&pe1->su, &pe2->su))
 		return false;
 
 	return true;
