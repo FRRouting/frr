@@ -317,8 +317,10 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 				return;
 			}
 
-			ospf_external_lsa_refresh(ospf, new, ei,
-						  LSA_REFRESH_FORCE, false);
+			if (new->data->type == OSPF_AS_EXTERNAL_LSA)
+				ospf_external_lsa_refresh(ospf, new, ei, LSA_REFRESH_FORCE, false);
+			else
+				ospf_nssa_lsa_refresh(area, new, ei);
 		} else {
 			aggr = (struct ospf_external_aggr_rt *)
 				ospf_external_aggregator_lookup(ospf, &p);
@@ -333,10 +335,14 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 				ei_aggr.route_map_set.metric = -1;
 				ei_aggr.route_map_set.metric_type = -1;
 
-				ospf_external_lsa_refresh(ospf, new, &ei_aggr,
-						  LSA_REFRESH_FORCE, true);
-				SET_FLAG(aggr->flags,
-					 OSPF_EXTERNAL_AGGRT_ORIGINATED);
+				if (new->data->type == OSPF_AS_EXTERNAL_LSA) {
+					ospf_external_lsa_refresh(ospf, new, &ei_aggr,
+								  LSA_REFRESH_FORCE, true);
+					SET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_ORIGINATED);
+				} else {
+					ospf_nssa_lsa_refresh(area, new, &ei_aggr);
+					SET_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_ORIGINATED);
+				}
 			} else
 				ospf_lsa_flush_as(ospf, new);
 		}
