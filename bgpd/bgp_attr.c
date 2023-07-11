@@ -2658,7 +2658,9 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 
 		if (BGP_ATTR_ENCAP == type) {
 			subtype = stream_getc(BGP_INPUT(peer));
-			sublength = stream_getc(BGP_INPUT(peer));
+			sublength = (subtype < 128)
+					    ? stream_getc(BGP_INPUT(peer))
+					    : stream_getw(BGP_INPUT(peer));
 			length -= 2;
 #ifdef ENABLE_BGP_VNC
 		} else {
