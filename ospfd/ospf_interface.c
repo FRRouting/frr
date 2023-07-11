@@ -271,6 +271,10 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	QOBJ_REG(oi, ospf_interface);
 
+	/* If first oi, check per-intf write socket */
+	if (ospf->oi_running && ospf->intf_socket_enabled)
+		ospf_ifp_sock_init(ifp);
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u created",
 			   __func__, ifp->name, ospf_get_name(ospf),
@@ -327,6 +331,8 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 
 void ospf_if_free(struct ospf_interface *oi)
 {
+	struct interface *ifp = oi->ifp;
+
 	ospf_if_down(oi);
 
 	ospf_fifo_free(oi->obuf);
@@ -360,6 +366,10 @@ void ospf_if_free(struct ospf_interface *oi)
 	listnode_delete(oi->area->oiflist, oi);
 
 	event_cancel_event(master, oi);
+
+	/* If last oi, close per-interface socket */
+	if (ospf_oi_count(ifp) == 0)
+		ospf_ifp_sock_close(ifp);
 
 	memset(oi, 0, sizeof(*oi));
 	XFREE(MTYPE_OSPF_IF, oi);
@@ -1404,7 +1414,8 @@ static int ospf_ifp_up(struct interface *ifp)
 
 	/* Open per-intf write socket if configured */
 	ospf = ifp->vrf->info;
-	if (ospf && ospf->intf_socket_enabled)
+
+	if (ospf && ospf->oi_running && ospf->intf_socket_enabled)
 		ospf_ifp_sock_init(ifp);
 
 	ospf_if_recalculate_output_cost(ifp);
