@@ -10,9 +10,11 @@
 #include <syslog.h>
 
 #include "memory.h"
+#include "ns.h"
 #include "frrcu.h"
 #include "frr_pthread.h"
 #include "printfrr.h"
+#include "vrf.h"
 #include "zlog.h"
 #include "zlog_targets.h"
 
@@ -371,7 +373,19 @@ static int zlt_aux_init(const char *prefix, int prio_min)
 static int zlt_init(const char *progname, const char *protoname,
 		     unsigned short instance, uid_t uid, gid_t gid)
 {
-	openlog(progname, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+	const char *name = progname;
+
+#ifdef GNU_LINUX
+	static char syslog_name[NAME_MAX+1+NS_NAMSIZ];
+	char netns_name[NS_NAMSIZ];
+
+	if (!ns_get_name_from_pid(getpid(), netns_name, sizeof(netns_name))) {
+		snprintf(syslog_name, sizeof(syslog_name), "%s@%s", progname,
+			 netns_name);
+		name = syslog_name;
+	}
+#endif
+	openlog(name, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 	return 0;
 }
 
