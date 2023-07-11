@@ -773,8 +773,15 @@ static void ospf_gr_prepare(void)
 		}
 
 		/* Send a Grace-LSA to all neighbors. */
-		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, inode, oi))
-			ospf_gr_lsa_originate(oi, OSPF_GR_SW_RESTART, false);
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, inode, oi)) {
+			if (OSPF_IF_PARAM(oi, opaque_capable))
+				ospf_gr_lsa_originate(oi, OSPF_GR_SW_RESTART,
+						      false);
+			else
+				zlog_debug(
+					"GR: skipping grace LSA on interface %s (%s) with opaque capability disabled",
+					IF_NAME(oi), ospf_get_name(oi->ospf));
+		}
 
 		/* Record end of the grace period in non-volatile memory. */
 		ospf_gr_nvm_update(ospf, true);

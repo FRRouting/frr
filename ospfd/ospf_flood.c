@@ -568,6 +568,15 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	if (!ospf_if_is_enable(oi))
 		return 0;
 
+	if (IS_OPAQUE_LSA(lsa->data->type) &&
+	    !OSPF_IF_PARAM(oi, opaque_capable)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug(
+				"%s: Skipping interface %s (%s) with opaque disabled.",
+				__func__, IF_NAME(oi), ospf_get_name(oi->ospf));
+		return 0;
+	}
+
 	/* If flood reduction is configured, set the DC bit on the lsa. */
 	if (IS_LSA_SELF(lsa)) {
 		if (OSPF_FR_CONFIG(oi->area->ospf, oi->area)) {

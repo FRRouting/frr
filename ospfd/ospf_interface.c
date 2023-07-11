@@ -548,6 +548,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, auth_crypt);
 	UNSET_IF_PARAM(oip, auth_type);
 	UNSET_IF_PARAM(oip, if_area);
+	UNSET_IF_PARAM(oip, opaque_capable);
 
 	oip->auth_crypt = list_new();
 
@@ -556,6 +557,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 
 	oip->ptp_dmvpn = 0;
 	oip->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+	oip->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
 
 	return oip;
 }
@@ -585,19 +587,20 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	oip = rn->info;
 	route_unlock_node(rn);
 
-	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, v_hello)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, v_wait)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, priority)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, type)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, if_area)
-	    && listcount(oip->auth_crypt) == 0) {
+	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_wait) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, priority) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, type) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_type) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
+	    listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -702,6 +705,9 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_type);
 	IF_DEF_PARAMS(ifp)->auth_type = OSPF_AUTH_NOTSET;
+
+	SET_IF_PARAM(IF_DEF_PARAMS(ifp), opaque_capable);
+	IF_DEF_PARAMS(ifp)->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
 
 	rc = ospf_opaque_new_if(ifp);
 	return rc;

@@ -912,13 +912,25 @@ Opaque LSA
 
 
 
-   *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
+   *ospfd* supports Opaque LSA (:rfc:`5250`) as partial support for
    MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
    enabled in the configuration. An alternate command could be
    "mpls-te on" (:ref:`ospf-traffic-engineering`). Note that FRR
    offers only partial support for some of the routing protocol
    extensions that are used with MPLS-TE; it does not support a
    complete RSVP-TE solution.
+
+.. clicmd:: ip ospf capability opaque [A.B.C.D]
+
+   Enable or disable OSPF LSA database exchange and flooding on an interface.
+   The default is that opaque capability is enabled as long as the opaque
+   capability is enabled with the :clicmd:`capability opaque` command at the
+   OSPF instance level (using the command above). Note that disabling opaque
+   LSA support on an interface will impact the applications using opaque LSAs
+   if the opaque LSAs are not received on other flooding paths by all the
+   OSPF routers using those applications. For example, OSPF Graceful Restart
+   uses opaque-link LSAs and disabling support on an interface will disable
+   graceful restart signaling on that interface.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external)
 
