@@ -2138,6 +2138,15 @@ bgp_attr_originator_id(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
+	/* if the ORIGINATOR_ID attribute is received from an external
+	 * neighbor, it SHALL be discarded using the approach of "attribute
+	 * discard".
+	 */
+	if (peer->sort == BGP_PEER_EBGP) {
+		stream_forward_getp(peer->curr, length);
+		return BGP_ATTR_PARSE_PROCEED;
+	}
+
 	/* if received from an internal neighbor, it SHALL be considered
 	 * malformed if its length is not equal to 4. If malformed, the
 	 * UPDATE message SHALL be handled using the approach of "treat-as-
@@ -2173,6 +2182,15 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
+
+	/* if the CLUSTER_LIST attribute is received from an external
+	 * neighbor, it SHALL be discarded using the approach of "attribute
+	 * discard".
+	 */
+	if (peer->sort == BGP_PEER_EBGP) {
+		stream_forward_getp(peer->curr, length);
+		return BGP_ATTR_PARSE_PROCEED;
+	}
 
 	/* if received from an internal neighbor, it SHALL be considered
 	 * malformed if its length is not a non-zero multiple of 4.  If
