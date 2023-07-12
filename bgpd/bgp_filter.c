@@ -15,7 +15,6 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
-#include "bgpd/bgp_filter.h"
 
 /* List of AS filter list. */
 struct as_list_list {
@@ -35,30 +34,6 @@ struct as_list_master {
 	void (*delete_hook)(const char *);
 };
 
-/* Element of AS path filter. */
-struct as_filter {
-	struct as_filter *next;
-	struct as_filter *prev;
-
-	enum as_filter_type type;
-
-	regex_t *reg;
-	char *reg_str;
-
-	/* Sequence number. */
-	int64_t seq;
-};
-
-/* AS path filter list. */
-struct as_list {
-	char *name;
-
-	struct as_list *next;
-	struct as_list *prev;
-
-	struct as_filter *head;
-	struct as_filter *tail;
-};
 
 
 /* Calculate new sequential number. */
@@ -220,7 +195,6 @@ struct as_list *as_list_lookup(const char *name)
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		if (strcmp(aslist->name, name) == 0)
 			return aslist;
-
 	return NULL;
 }
 
