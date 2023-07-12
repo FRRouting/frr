@@ -1664,6 +1664,20 @@ static bool bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
 	return false;
 }
 
+static bool bgp_peer_iface_to_su_update_ll_peer(struct peer *peer,
+						struct interface *ifp)
+{
+	if (peer->su.sa.sa_family != AF_INET6)
+		return false;
+	if (!IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		return false;
+
+	peer->su.sa.sa_family = AF_INET6;
+	peer->su.sin6.sin6_scope_id = ifp->ifindex;
+
+	return true;
+}
+
 /*
  * Set or reset the peer address socketunion structure based on the
  * learnt/derived peer address. If the address has changed, update the
@@ -1682,13 +1696,14 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	 * based peering, so this simple test will tell us if
 	 * we are in an interface based configuration or not
 	 */
-	if (!peer->conf_if)
+	if (!peer->conf_if && !peer->ifname)
 		return;
 
 	old_su = peer->su;
 
 	prev_family = peer->su.sa.sa_family;
-	if ((ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
+	if (peer->conf_if &&
+	    (ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
 		peer->ifp = ifp;
 		/* If BGP unnumbered is not "v6only", we first see if we can
 		 * derive the
@@ -1708,6 +1723,14 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 			peer_addr_updated =
 				bgp_peer_conf_if_to_su_update_v6(peer, ifp);
 	}
+	/* if we failed to learn neighbor link-local address, our peer
+	 * IP address may be bound to an interface. Let's use it.
+	 */
+	if (!peer_addr_updated && peer->ifname &&
+	    (ifp = if_lookup_by_name(peer->ifname, peer->bgp->vrf_id)))
+		peer_addr_updated = bgp_peer_iface_to_su_update_ll_peer(peer,
+									ifp);
+
 	/* If we could derive the peer address, we may need to install the
 	 * password
 	 * configured for the peer, if any, on the listen socket. Otherwise,
@@ -1719,7 +1742,7 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)
 		    && prev_family == AF_UNSPEC)
 			bgp_md5_set(peer);
-	} else {
+	} else if (peer->conf_if) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)
 		    && prev_family != AF_UNSPEC)
 			bgp_md5_unset(peer);

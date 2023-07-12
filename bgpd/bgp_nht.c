@@ -1136,12 +1136,19 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
  */
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc)
 {
+	struct interface *ifp;
+
 	/* Check if we have already registered */
 	if (bnc->flags & BGP_NEXTHOP_REGISTERED)
 		return;
 
 	if (bnc->ifindex_ipv6_ll) {
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
+		ifp = if_lookup_by_index(bnc->ifindex, bnc->bgp->vrf_id);
+		if (ifp && if_is_operative(ifp)) {
+			bnc->nexthop_num = 1;
+			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		}
 		return;
 	}
 
