@@ -1,6 +1,10 @@
 frr (8.4.4-1) UNRELEASED; urgency=medium
 
   * new upstream release FRR 8.4.4
+  * upstream fix CVE-2023-31489 (closes: #1036061)
+  * upstream fix CVE-2023-31490 (closes: #1036062)
+  * correctly use sphinxdoc:Built-Using
+  * point watch file at git tarball, no more upstream dist tarballs
 
  -- David Lamparter <equinox-debian@diac24.net>  Wed, 12 Jul 2023 14:01:30 +0200
 
