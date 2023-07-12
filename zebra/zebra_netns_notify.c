@@ -178,6 +178,17 @@ static int zebra_ns_delete(char *name)
 			if_down(ifp);
 		}
 
+		if (IS_ZEBRA_IF_BOND(ifp))
+			zebra_l2if_update_bond(ifp, false);
+		if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
+			zebra_l2if_update_bond_slave(ifp, IFINDEX_INTERNAL,
+						     false);
+		/* Special handling for bridge or VxLAN interfaces. */
+		if (IS_ZEBRA_IF_BRIDGE(ifp))
+			zebra_l2_bridge_del(ifp);
+		else if (IS_ZEBRA_IF_VXLAN(ifp))
+			zebra_l2_vxlanif_del(ifp);
+
 		UNSET_FLAG(ifp->flags, IFF_UP);
 		if_delete_update(&ifp);
 	}

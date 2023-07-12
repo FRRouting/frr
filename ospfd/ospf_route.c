@@ -363,44 +363,49 @@ void ospf_route_install(struct ospf *ospf, struct route_table *rt)
 
 /* RFC2328 16.1. (4). For "router". */
 void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
-			   struct ospf_area *area, bool add_all)
+			   struct ospf_area *area, bool add_only)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
 	struct prefix_ipv4 p;
 	struct router_lsa *lsa;
 
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Start", __func__);
-
+	if (IS_DEBUG_OSPF_EVENT) {
+		if (!add_only)
+			zlog_debug("%s: Start", __func__);
+		else
+			zlog_debug("%s: REACHRUN: Start", __func__);
+	}
 	lsa = (struct router_lsa *)v->lsa;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: LS ID: %pI4", __func__, &lsa->header.id);
 
-	if (!OSPF_IS_AREA_BACKBONE(area))
-		ospf_vl_up_check(area, lsa->header.id, v);
+	if (!add_only) {
+		if (!OSPF_IS_AREA_BACKBONE(area))
+			ospf_vl_up_check(area, lsa->header.id, v);
 
-	if (!CHECK_FLAG(lsa->flags, ROUTER_LSA_SHORTCUT))
-		area->shortcut_capability = 0;
+		if (!CHECK_FLAG(lsa->flags, ROUTER_LSA_SHORTCUT))
+			area->shortcut_capability = 0;
 
-	/* If the newly added vertex is an area border router or AS boundary
-	   router, a routing table entry is added whose destination type is
-	   "router". */
-	if (!add_all && !IS_ROUTER_LSA_BORDER(lsa) &&
-	    !IS_ROUTER_LSA_EXTERNAL(lsa)) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"%s: this router is neither ASBR nor ABR, skipping it",
-				__func__);
-		return;
+		/* If the newly added vertex is an area border router or AS
+		   boundary router, a routing table entry is added whose
+		   destination type is "router". */
+		if (!IS_ROUTER_LSA_BORDER(lsa) &&
+		    !IS_ROUTER_LSA_EXTERNAL(lsa)) {
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug(
+					"%s: this router is neither ASBR nor ABR, skipping it",
+					__func__);
+			return;
+		}
+
+		/* Update ABR and ASBR count in this area. */
+		if (IS_ROUTER_LSA_BORDER(lsa))
+			area->abr_count++;
+		if (IS_ROUTER_LSA_EXTERNAL(lsa))
+			area->asbr_count++;
 	}
-
-	/* Update ABR and ASBR count in this area. */
-	if (IS_ROUTER_LSA_BORDER(lsa))
-		area->abr_count++;
-	if (IS_ROUTER_LSA_EXTERNAL(lsa))
-		area->asbr_count++;
 
 	/* The Options field found in the associated router-LSA is copied
 	   into the routing table entry's Optional capabilities field. Call
@@ -448,8 +453,12 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 
 	listnode_add(rn->info, or);
 
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Stop", __func__);
+	if (IS_DEBUG_OSPF_EVENT) {
+		if (!add_only)
+			zlog_debug("%s: Stop", __func__);
+		else
+			zlog_debug("%s: REACHRUN: Stop", __func__);
+	}
 }
 
 /* RFC2328 16.1. (4).  For transit network. */

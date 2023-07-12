@@ -140,7 +140,7 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	if (!pbrms)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (pbrms->dst && pbrms->family && prefix->family != pbrms->family) {
+	if (pbrms->dst && prefix->family != pbrms->dst->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -176,7 +176,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	if (!pbrms)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (pbrms->src && pbrms->family && prefix->family != pbrms->family) {
+	if (pbrms->src && prefix->family != pbrms->src->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -935,12 +935,12 @@ static void vty_show_pbrms(struct vty *vty,
 
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->nhgrp_name),
 				pbr_nht_get_table(pbrms->nhgrp_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->nhgrp_name) ? "yes"
 									 : "no",
 				pbr_nht_get_table(pbrms->nhgrp_name));
@@ -950,12 +950,12 @@ static void vty_show_pbrms(struct vty *vty,
 		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 		if (detail)
 			vty_out(vty,
-				"          Installed: %u(%d) Tableid: %d\n",
+				"          Installed: %u(%d) Tableid: %u\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->internal_nhg_name),
 				pbr_nht_get_table(pbrms->internal_nhg_name));
 		else
-			vty_out(vty, "          Installed: %s Tableid: %d\n",
+			vty_out(vty, "          Installed: %s Tableid: %u\n",
 				pbr_nht_get_installed(pbrms->internal_nhg_name)
 					? "yes"
 					: "no",

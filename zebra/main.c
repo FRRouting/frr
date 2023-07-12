@@ -204,6 +204,8 @@ static void sigint(void)
 	 */
 	zebra_routemap_finish();
 
+	rib_update_finish();
+
 	list_delete(&zrouter.client_list);
 
 	/* Indicate that all new dplane work has been enqueued. When that

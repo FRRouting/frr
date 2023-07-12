@@ -3800,7 +3800,9 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 
 		rmap_name = zebra_get_import_table_route_map(afi, re->table);
 		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
-	} else if (process)
+	}
+
+	if (process)
 		rib_queue_add(rn);
 }
 
@@ -3875,11 +3877,9 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
 				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
 				   rn, re, zebra_route_string(re->type));
-
-		rib_unlink(rn, re);
-	} else {
-		rib_queue_add(rn);
 	}
+
+	rib_queue_add(rn);
 }
 
 /*
@@ -4365,12 +4365,31 @@ static void rib_update_handler(struct thread *thread)
  */
 static struct thread *t_rib_update_threads[RIB_UPDATE_MAX];
 
+void rib_update_finish(void)
+{
+	int i;
+
+	for (i = RIB_UPDATE_KERNEL; i < RIB_UPDATE_MAX; i++) {
+		if (thread_is_scheduled(t_rib_update_threads[i])) {
+			struct rib_update_ctx *ctx;
+
+			ctx = THREAD_ARG(t_rib_update_threads[i]);
+
+			rib_update_ctx_fini(&ctx);
+			THREAD_OFF(t_rib_update_threads[i]);
+		}
+	}
+}
+
 /* Schedule a RIB update event for all vrfs */
 void rib_update(enum rib_update_event event)
 {
 	struct rib_update_ctx *ctx;
 
 	if (thread_is_scheduled(t_rib_update_threads[event]))
+		return;
+
+	if (zebra_router_in_shutdown())
 		return;
 
 	ctx = rib_update_ctx_init(0, event);
@@ -4568,6 +4587,21 @@ static void rib_process_dplane_results(struct thread *thread)
 	struct dplane_ctx_q ctxlist;
 	bool shut_p = false;
 
+#ifdef HAVE_SCRIPTING
+	char *script_name =
+		frrscript_names_get_script_name(ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
+
+	int ret = 1;
+	struct frrscript *fs = NULL;
+
+	if (script_name) {
+		fs = frrscript_new(script_name);
+		if (fs)
+			ret = frrscript_load(fs, ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					     NULL);
+	}
+#endif /* HAVE_SCRIPTING */
+
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
 	do {
@@ -4601,24 +4635,7 @@ static void rib_process_dplane_results(struct thread *thread)
 			continue;
 		}
 
-#ifdef HAVE_SCRIPTING
-		char *script_name = frrscript_names_get_script_name(
-			ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
-
-		int ret = 1;
-		struct frrscript *fs;
-
-		if (script_name) {
-			fs = frrscript_new(script_name);
-			if (fs)
-				ret = frrscript_load(
-					fs, ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
-					NULL);
-		}
-#endif /* HAVE_SCRIPTING */
-
 		while (ctx) {
-
 #ifdef HAVE_SCRIPTING
 			if (ret == 0)
 				frrscript_call(fs,
@@ -4728,6 +4745,11 @@ static void rib_process_dplane_results(struct thread *thread)
 		}
 
 	} while (1);
+
+#ifdef HAVE_SCRIPTING
+	if (fs)
+		frrscript_delete(fs);
+#endif
 }
 
 /*

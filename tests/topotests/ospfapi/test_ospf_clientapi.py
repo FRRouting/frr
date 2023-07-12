@@ -33,8 +33,16 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from lib.common_config import retry, run_frr_cmd, step
-from lib.micronet import comm_error
+from lib.common_config import (
+    retry,
+    run_frr_cmd,
+    step,
+    kill_router_daemons,
+    start_router_daemons,
+    shutdown_bringup_interface,
+)
+
+from lib.micronet import Timeout, comm_error
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import interface_set_status, json_cmp
 
@@ -56,15 +64,20 @@ assert os.path.exists(
 # Test Setup
 # ----------
 
+#
+#  r1 - r2
+#  |    |
+#  r4 - r3
+#
+
 
 @pytest.fixture(scope="function", name="tgen")
 def _tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
     nrouters = request.param
-    if nrouters == 1:
-        topodef = {"sw1:": ("r1",)}
-    else:
-        topodef = {f"sw{i}": (f"r{i}", f"r{i+1}") for i in range(1, nrouters)}
+    topodef = {f"sw{i}": (f"r{i}", f"r{i+1}") for i in range(1, nrouters)}
+    if nrouters == 4:
+        topodef["sw4"] = ("r4", "r1")
 
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
@@ -107,23 +120,23 @@ def verify_ospf_database(tgen, dut, input_dict, cmd="show ip ospf database json"
 def myreadline(f):
     buf = b""
     while True:
-        # logging.info("READING 1 CHAR")
+        # logging.debug("READING 1 CHAR")
         c = f.read(1)
         if not c:
             return buf if buf else None
         buf += c
-        # logging.info("READ CHAR: '%s'", c)
+        # logging.debug("READ CHAR: '%s'", c)
         if c == b"\n":
             return buf
 
 
-def _wait_output(p, regex, timeout=120):
-    retry_until = datetime.now() + timedelta(seconds=timeout)
-    while datetime.now() < retry_until:
+def _wait_output(p, regex, maxwait=120):
+    timeout = Timeout(maxwait)
+    while not timeout.is_expired():
         # line = p.stdout.readline()
         line = myreadline(p.stdout)
         if not line:
-            assert None, "Timeout waiting for '{}'".format(regex)
+            assert None, "EOF waiting for '{}'".format(regex)
         line = line.decode("utf-8")
         line = line.rstrip()
         if line:
@@ -131,7 +144,9 @@ def _wait_output(p, regex, timeout=120):
         m = re.search(regex, line)
         if m:
             return m
-    assert None, "Failed to get output withint {}s".format(timeout)
+    assert None, "Failed to get output matching '{}' withint {} actual {}s".format(
+        regex, maxwait, timeout.elapsed()
+    )
 
 
 # -----
@@ -141,12 +156,13 @@ def _wait_output(p, regex, timeout=120):
 
 def _test_reachability(tgen, testbin):
     waitlist = [
-        "192.168.0.1,192.168.0.2,192.168.0.4",
-        "192.168.0.2,192.168.0.4",
-        "192.168.0.1,192.168.0.2,192.168.0.4",
+        "1.0.0.0,2.0.0.0,4.0.0.0",
+        "2.0.0.0,4.0.0.0",
+        "1.0.0.0,2.0.0.0,4.0.0.0",
     ]
     r2 = tgen.gears["r2"]
     r3 = tgen.gears["r3"]
+    r4 = tgen.gears["r4"]
 
     wait_args = [f"--wait={x}" for x in waitlist]
 
@@ -164,10 +180,12 @@ def _test_reachability(tgen, testbin):
 
         step("reachable: check for modified reachability")
         interface_set_status(r2, "r2-eth0", False)
+        interface_set_status(r4, "r4-eth1", False)
         _wait_output(p, "SUCCESS: {}".format(waitlist[1]))
 
         step("reachable: check for restored reachability")
         interface_set_status(r2, "r2-eth0", True)
+        interface_set_status(r4, "r4-eth1", True)
         _wait_output(p, "SUCCESS: {}".format(waitlist[2]))
     except Exception as error:
         logging.error("ERROR: %s", error)
@@ -182,16 +200,16 @@ def _test_reachability(tgen, testbin):
 def test_ospf_reachability(tgen):
     testbin = os.path.join(TESTDIR, "ctester.py")
     rc, o, e = tgen.gears["r2"].net.cmd_status([testbin, "--help"])
-    logging.info("%s --help: rc: %s stdout: '%s' stderr: '%s'", testbin, rc, o, e)
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", testbin, rc, o, e)
     _test_reachability(tgen, testbin)
 
 
 def _test_router_id(tgen, testbin):
     r1 = tgen.gears["r1"]
     waitlist = [
-        "192.168.0.1",
+        "1.0.0.0",
         "1.1.1.1",
-        "192.168.0.1",
+        "1.0.0.0",
     ]
 
     mon_args = [f"--monitor={x}" for x in waitlist]
@@ -213,7 +231,7 @@ def _test_router_id(tgen, testbin):
         _wait_output(p, "SUCCESS: {}".format(waitlist[1]))
 
         step("router id: check for restored router id")
-        r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 192.168.0.1")
+        r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.0.0.0")
         _wait_output(p, "SUCCESS: {}".format(waitlist[2]))
     except Exception as error:
         logging.error("ERROR: %s", error)
@@ -228,7 +246,7 @@ def _test_router_id(tgen, testbin):
 def test_ospf_router_id(tgen):
     testbin = os.path.join(TESTDIR, "ctester.py")
     rc, o, e = tgen.gears["r1"].net.cmd_status([testbin, "--help"])
-    logging.info("%s --help: rc: %s stdout: '%s' stderr: '%s'", testbin, rc, o, e)
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", testbin, rc, o, e)
     _test_router_id(tgen, testbin)
 
 
@@ -243,13 +261,13 @@ def _test_add_data(tgen, apibin):
     try:
         p = r1.popen([apibin, "-v", "add,9,10.0.1.1,230,2,00000202"])
         input_dict = {
-            "routerId": "192.168.0.1",
+            "routerId": "1.0.0.0",
             "areas": {
                 "1.2.3.4": {
                     "linkLocalOpaqueLsa": [
                         {
                             "lsId": "230.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
                         }
                     ],
@@ -265,7 +283,7 @@ def _test_add_data(tgen, apibin):
                     "1.2.3.4": [
                         {
                             "linkStateId": "230.0.0.2",
-                            "advertisingRouter": "192.168.0.1",
+                            "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueData": "00000202",
                         },
@@ -285,13 +303,13 @@ def _test_add_data(tgen, apibin):
         p = None
         p = r1.popen([apibin, "-v", "add,10,1.2.3.4,231,1,00010101"])
         input_dict = {
-            "routerId": "192.168.0.1",
+            "routerId": "1.0.0.0",
             "areas": {
                 "1.2.3.4": {
                     "linkLocalOpaqueLsa": [
                         {
                             "lsId": "230.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
                             "lsaAge": 3600,
                         }
@@ -299,7 +317,7 @@ def _test_add_data(tgen, apibin):
                     "areaLocalOpaqueLsa": [
                         {
                             "lsId": "231.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
                         },
                     ],
@@ -315,7 +333,7 @@ def _test_add_data(tgen, apibin):
                     "1.2.3.4": [
                         {
                             "linkStateId": "231.0.0.1",
-                            "advertisingRouter": "192.168.0.1",
+                            "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueData": "00010101",
                         },
@@ -336,13 +354,13 @@ def _test_add_data(tgen, apibin):
 
         p = r1.popen([apibin, "-v", "add,11,232,3,deadbeaf01234567"])
         input_dict = {
-            "routerId": "192.168.0.1",
+            "routerId": "1.0.0.0",
             "areas": {
                 "1.2.3.4": {
                     "areaLocalOpaqueLsa": [
                         {
                             "lsId": "231.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
                             "lsaAge": 3600,
                         },
@@ -352,7 +370,7 @@ def _test_add_data(tgen, apibin):
             "asExternalOpaqueLsa": [
                 {
                     "lsId": "232.0.0.3",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "sequenceNumber": "80000001",
                 },
             ],
@@ -364,7 +382,7 @@ def _test_add_data(tgen, apibin):
             "asExternalOpaqueLsa": [
                 {
                     "linkStateId": "232.0.0.3",
-                    "advertisingRouter": "192.168.0.1",
+                    "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000001",
                     "opaqueData": "deadbeaf01234567",
                 },
@@ -382,11 +400,11 @@ def _test_add_data(tgen, apibin):
         p = None
 
         input_dict = {
-            "routerId": "192.168.0.1",
+            "routerId": "1.0.0.0",
             "asExternalOpaqueLsa": [
                 {
                     "lsId": "232.0.0.3",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "sequenceNumber": "80000001",
                     "lsaAge": 3600,
                 },
@@ -400,11 +418,11 @@ def _test_add_data(tgen, apibin):
         # Originate it again
         p = r1.popen([apibin, "-v", "add,11,232,3,ebadf00d"])
         input_dict = {
-            "routerId": "192.168.0.1",
+            "routerId": "1.0.0.0",
             "asExternalOpaqueLsa": [
                 {
                     "lsId": "232.0.0.3",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "sequenceNumber": "80000002",
                 },
             ],
@@ -415,7 +433,7 @@ def _test_add_data(tgen, apibin):
             "asExternalOpaqueLsa": [
                 {
                     "linkStateId": "232.0.0.3",
-                    "advertisingRouter": "192.168.0.1",
+                    "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000002",
                     "opaqueData": "ebadf00d",
                 },
@@ -425,6 +443,7 @@ def _test_add_data(tgen, apibin):
         json_cmd = "show ip ospf da opaque-as json"
         assert verify_ospf_database(tgen, r1, input_dict, json_cmd) is None
 
+        logging.debug("sending interrupt to writer api client")
         p.send_signal(signal.SIGINT)
         time.sleep(2)
         p.wait()
@@ -439,6 +458,7 @@ def _test_add_data(tgen, apibin):
         raise
     finally:
         if p:
+            logging.debug("cleanup: sending interrupt to writer api client")
             p.terminate()
             p.wait()
 
@@ -447,7 +467,7 @@ def _test_add_data(tgen, apibin):
 def test_ospf_opaque_add_data3(tgen):
     apibin = os.path.join(CLIENTDIR, "ospfclient.py")
     rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
-    logging.info("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
     _test_add_data(tgen, apibin)
 
 
@@ -459,10 +479,12 @@ def _test_opaque_add_del(tgen, apibin):
 
     p = None
     pread = None
+    # Log to our stdin, stderr
+    pout = open(os.path.join(r1.net.logdir, "r1/add-del.log"), "a+")
     try:
         step("reachable: check for add notification")
         pread = r2.popen(
-            ["/usr/bin/timeout", "120", apibin, "-v"],
+            ["/usr/bin/timeout", "120", apibin, "-v", "--logtag=READER", "wait,120"],
             encoding=None,  # don't buffer
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -492,30 +514,30 @@ def _test_opaque_add_del(tgen, apibin):
                     "linkLocalOpaqueLsa": [
                         {
                             "lsId": "230.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
-                            "checksum": "6d5f",
+                            "checksum": "76bf",
                         },
                         {
                             "lsId": "230.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
-                            "checksum": "8142",
+                            "checksum": "8aa2",
                         },
                     ],
                     "linkLocalOpaqueLsaCount": 2,
                     "areaLocalOpaqueLsa": [
                         {
                             "lsId": "231.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
-                            "checksum": "5278",
+                            "checksum": "5bd8",
                         },
                         {
                             "lsId": "231.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
-                            "checksum": "6d30",
+                            "checksum": "7690",
                         },
                     ],
                     "areaLocalOpaqueLsaCount": 2,
@@ -524,15 +546,15 @@ def _test_opaque_add_del(tgen, apibin):
             "asExternalOpaqueLsa": [
                 {
                     "lsId": "232.0.0.1",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "sequenceNumber": "80000001",
-                    "checksum": "5575",
+                    "checksum": "5ed5",
                 },
                 {
                     "lsId": "232.0.0.2",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "sequenceNumber": "80000001",
-                    "checksum": "d05d",
+                    "checksum": "d9bd",
                 },
             ],
             "asExternalOpaqueLsaCount": 2,
@@ -556,17 +578,17 @@ def _test_opaque_add_del(tgen, apibin):
                         "1.2.3.4": [
                             {
                                 "linkStateId": "230.0.0.1",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "6d5f",
+                                "checksum": "76bf",
                                 "length": 20,
                                 "opaqueDataLength": 0,
                             },
                             {
                                 "linkStateId": "230.0.0.2",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "8142",
+                                "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
                                 "opaqueDataLength": 4,
@@ -581,17 +603,17 @@ def _test_opaque_add_del(tgen, apibin):
                         "1.2.3.4": [
                             {
                                 "linkStateId": "231.0.0.1",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "5278",
+                                "checksum": "5bd8",
                                 "length": 20,
                                 "opaqueDataLength": 0,
                             },
                             {
                                 "linkStateId": "231.0.0.2",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "6d30",
+                                "checksum": "7690",
                                 "length": 28,
                                 "opaqueDataLength": 8,
                             },
@@ -603,17 +625,17 @@ def _test_opaque_add_del(tgen, apibin):
                 "asExternalOpaqueLsa": [
                     {
                         "linkStateId": "232.0.0.1",
-                        "advertisingRouter": "192.168.0.1",
+                        "advertisingRouter": "1.0.0.0",
                         "lsaSeqNumber": "80000001",
-                        "checksum": "5575",
+                        "checksum": "5ed5",
                         "length": 20,
                         "opaqueDataLength": 0,
                     },
                     {
                         "linkStateId": "232.0.0.2",
-                        "advertisingRouter": "192.168.0.1",
+                        "advertisingRouter": "1.0.0.0",
                         "lsaSeqNumber": "80000001",
-                        "checksum": "d05d",
+                        "checksum": "d9bd",
                         "length": 24,
                         "opaqueDataLength": 4,
                     },
@@ -655,32 +677,32 @@ def _test_opaque_add_del(tgen, apibin):
                     "linkLocalOpaqueLsa": [
                         {
                             "lsId": "230.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
-                            "checksum": "6d5f",
+                            "checksum": "76bf",
                         },
                         {
                             "lsId": "230.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "lsaAge": 3600,
                             "sequenceNumber": "80000001",
-                            "checksum": "8142",
+                            "checksum": "8aa2",
                         },
                     ],
                     "linkLocalOpaqueLsaCount": 2,
                     "areaLocalOpaqueLsa": [
                         {
                             "lsId": "231.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "sequenceNumber": "80000001",
-                            "checksum": "5278",
+                            "checksum": "5bd8",
                         },
                         {
                             "lsId": "231.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
+                            "advertisedRouter": "1.0.0.0",
                             "lsaAge": 3600,
                             "sequenceNumber": "80000002",
-                            "checksum": "4682",
+                            "checksum": "4fe2",
                         },
                     ],
                     "areaLocalOpaqueLsaCount": 2,
@@ -689,16 +711,16 @@ def _test_opaque_add_del(tgen, apibin):
             "asExternalOpaqueLsa": [
                 {
                     "lsId": "232.0.0.1",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "lsaAge": 3600,
                     "sequenceNumber": "80000001",
-                    "checksum": "5575",
+                    "checksum": "5ed5",
                 },
                 {
                     "lsId": "232.0.0.2",
-                    "advertisedRouter": "192.168.0.1",
+                    "advertisedRouter": "1.0.0.0",
                     "sequenceNumber": "80000001",
-                    "checksum": "d05d",
+                    "checksum": "d9bd",
                 },
             ],
             "asExternalOpaqueLsaCount": 2,
@@ -716,18 +738,18 @@ def _test_opaque_add_del(tgen, apibin):
                         "1.2.3.4": [
                             {
                                 "linkStateId": "230.0.0.1",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "6d5f",
+                                "checksum": "76bf",
                                 "length": 20,
                                 "opaqueDataLength": 0,
                             },
                             {
                                 "linkStateId": "230.0.0.2",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaAge": 3600,
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "8142",
+                                "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
                                 "opaqueDataLength": 4,
@@ -742,18 +764,18 @@ def _test_opaque_add_del(tgen, apibin):
                         "1.2.3.4": [
                             {
                                 "linkStateId": "231.0.0.1",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "5278",
+                                "checksum": "5bd8",
                                 "length": 20,
                                 "opaqueDataLength": 0,
                             },
                             {
                                 "lsaAge": 3600,
                                 "linkStateId": "231.0.0.2",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000002",
-                                "checksum": "4682",
+                                "checksum": "4fe2",
                                 # data removed
                                 "length": 20,
                                 "opaqueDataLength": 0,
@@ -766,18 +788,18 @@ def _test_opaque_add_del(tgen, apibin):
                 "asExternalOpaqueLsa": [
                     {
                         "linkStateId": "232.0.0.1",
-                        "advertisingRouter": "192.168.0.1",
+                        "advertisingRouter": "1.0.0.0",
                         "lsaAge": 3600,
                         "lsaSeqNumber": "80000001",
-                        "checksum": "5575",
+                        "checksum": "5ed5",
                         "length": 20,
                         "opaqueDataLength": 0,
                     },
                     {
                         "linkStateId": "232.0.0.2",
-                        "advertisingRouter": "192.168.0.1",
+                        "advertisingRouter": "1.0.0.0",
                         "lsaSeqNumber": "80000001",
-                        "checksum": "d05d",
+                        "checksum": "d9bd",
                         "length": 24,
                         "opaqueDataLength": 4,
                     },
@@ -808,19 +830,19 @@ def _test_opaque_add_del(tgen, apibin):
                         "1.2.3.4": [
                             {
                                 "linkStateId": "230.0.0.1",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaAge": 3600,
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "6d5f",
+                                "checksum": "76bf",
                                 "length": 20,
                                 "opaqueDataLength": 0,
                             },
                             {
                                 "linkStateId": "230.0.0.2",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaAge": 3600,
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "8142",
+                                "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
                                 "opaqueDataLength": 4,
@@ -836,18 +858,18 @@ def _test_opaque_add_del(tgen, apibin):
                             {
                                 "lsaAge": 3600,
                                 "linkStateId": "231.0.0.1",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "5278",
+                                "checksum": "5bd8",
                                 "length": 20,
                                 "opaqueDataLength": 0,
                             },
                             {
                                 "lsaAge": 3600,
                                 "linkStateId": "231.0.0.2",
-                                "advertisingRouter": "192.168.0.1",
+                                "advertisingRouter": "1.0.0.0",
                                 "lsaSeqNumber": "80000002",
-                                "checksum": "4682",
+                                "checksum": "4fe2",
                                 # data removed
                                 "length": 20,
                                 "opaqueDataLength": 0,
@@ -860,19 +882,19 @@ def _test_opaque_add_del(tgen, apibin):
                 "asExternalOpaqueLsa": [
                     {
                         "linkStateId": "232.0.0.1",
-                        "advertisingRouter": "192.168.0.1",
+                        "advertisingRouter": "1.0.0.0",
                         "lsaAge": 3600,
                         "lsaSeqNumber": "80000001",
-                        "checksum": "5575",
+                        "checksum": "5ed5",
                         "length": 20,
                         "opaqueDataLength": 0,
                     },
                     {
                         "linkStateId": "232.0.0.2",
-                        "advertisingRouter": "192.168.0.1",
+                        "advertisingRouter": "1.0.0.0",
                         "lsaAge": 3600,
                         "lsaSeqNumber": "80000001",
-                        "checksum": "d05d",
+                        "checksum": "d9bd",
                         "length": 24,
                         "opaqueDataLength": 4,
                     },
@@ -931,8 +953,193 @@ def _test_opaque_add_del(tgen, apibin):
 def test_ospf_opaque_delete_data3(tgen):
     apibin = os.path.join(CLIENTDIR, "ospfclient.py")
     rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
-    logging.info("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
     _test_opaque_add_del(tgen, apibin)
+
+
+def _test_opaque_add_restart_add(tgen, apibin):
+    "Test adding an opaque LSA and then restarting ospfd"
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    p = None
+    pread = None
+    # Log to our stdin, stderr
+    pout = open(os.path.join(r1.net.logdir, "r1/add-del.log"), "a+")
+    try:
+        step("reachable: check for add notification")
+        pread = r2.popen(
+            ["/usr/bin/timeout", "120", apibin, "-v", "--logtag=READER", "wait,120"],
+            encoding=None,  # don't buffer
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        p = r1.popen(
+            [
+                apibin,
+                "-v",
+                "add,10,1.2.3.4,231,1",
+                "add,10,1.2.3.4,231,1,feedaceebeef",
+                "wait, 5",
+                "add,10,1.2.3.4,231,1,feedaceedeadbeef",
+                "wait, 5",
+                "add,10,1.2.3.4,231,1,feedaceebaddbeef",
+                "wait, 5",
+            ]
+        )
+        add_input_dict = {
+            "areas": {
+                "1.2.3.4": {
+                    "areaLocalOpaqueLsa": [
+                        {
+                            "lsId": "231.0.0.1",
+                            "advertisedRouter": "1.0.0.0",
+                            "sequenceNumber": "80000004",
+                            "checksum": "3128",
+                        },
+                    ],
+                    "areaLocalOpaqueLsaCount": 1,
+                },
+            },
+        }
+        step("Check for add LSAs")
+        json_cmd = "show ip ospf da json"
+        assert verify_ospf_database(tgen, r1, add_input_dict, json_cmd) is None
+        assert verify_ospf_database(tgen, r2, add_input_dict, json_cmd) is None
+
+        step("Shutdown the interface on r1 to isolate it for r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", False)
+
+        time.sleep(2)
+        step("Reset the client")
+        p.send_signal(signal.SIGINT)
+        time.sleep(2)
+        p.wait()
+        p = None
+
+        step("Kill ospfd on R1")
+        kill_router_daemons(tgen, "r1", ["ospfd"])
+        time.sleep(2)
+
+        step("Bring ospfd on R1 back up")
+        start_router_daemons(tgen, "r1", ["ospfd"])
+
+        p = r1.popen(
+            [
+                apibin,
+                "-v",
+                "add,10,1.2.3.4,231,1",
+                "add,10,1.2.3.4,231,1,feedaceecafebeef",
+                "wait, 5",
+            ]
+        )
+
+        step("Bring the interface on r1 back up for connection to r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", True)
+
+        step("Verify area opaque LSA refresh")
+        json_cmd = "show ip ospf da opaque-area json"
+        add_detail_input_dict = {
+            "areaLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [
+                        {
+                            "linkStateId": "231.0.0.1",
+                            "advertisingRouter": "1.0.0.0",
+                            "lsaSeqNumber": "80000005",
+                            "checksum": "a87e",
+                            "length": 28,
+                            "opaqueDataLength": 8,
+                        },
+                    ],
+                },
+            },
+        }
+        assert verify_ospf_database(tgen, r1, add_detail_input_dict, json_cmd) is None
+        assert verify_ospf_database(tgen, r2, add_detail_input_dict, json_cmd) is None
+
+        step("Shutdown the interface on r1 to isolate it for r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", False)
+
+        time.sleep(2)
+        step("Reset the client")
+        p.send_signal(signal.SIGINT)
+        time.sleep(2)
+        p.wait()
+        p = None
+
+        step("Kill ospfd on R1")
+        kill_router_daemons(tgen, "r1", ["ospfd"])
+        time.sleep(2)
+
+        step("Bring ospfd on R1 back up")
+        start_router_daemons(tgen, "r1", ["ospfd"])
+
+        step("Bring the interface on r1 back up for connection to r2")
+        shutdown_bringup_interface(tgen, "r1", "r1-eth0", True)
+
+        step("Verify area opaque LSA Purging")
+        json_cmd = "show ip ospf da opaque-area json"
+        add_detail_input_dict = {
+            "areaLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [
+                        {
+                            "lsaAge": 3600,
+                            "linkStateId": "231.0.0.1",
+                            "advertisingRouter": "1.0.0.0",
+                            "lsaSeqNumber": "80000005",
+                            "checksum": "a87e",
+                            "length": 28,
+                            "opaqueDataLength": 8,
+                        },
+                    ],
+                },
+            },
+        }
+        assert verify_ospf_database(tgen, r1, add_detail_input_dict, json_cmd) is None
+        assert verify_ospf_database(tgen, r2, add_detail_input_dict, json_cmd) is None
+        step("Verify Area Opaque LSA removal after timeout (60 seconds)")
+        time.sleep(60)
+        json_cmd = "show ip ospf da opaque-area json"
+        timeout_detail_input_dict = {
+            "areaLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [],
+                },
+            },
+        }
+        assert (
+            verify_ospf_database(tgen, r1, timeout_detail_input_dict, json_cmd) is None
+        )
+        assert (
+            verify_ospf_database(tgen, r2, timeout_detail_input_dict, json_cmd) is None
+        )
+
+    except Exception:
+        if p:
+            p.terminate()
+            if p.wait():
+                comm_error(p)
+            p = None
+        raise
+    finally:
+        if pread:
+            pread.terminate()
+            pread.wait()
+        if p:
+            p.terminate()
+            p.wait()
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_opaque_restart(tgen):
+    apibin = os.path.join(CLIENTDIR, "ospfclient.py")
+    rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
+    _test_opaque_add_restart_add(tgen, apibin)
 
 
 if __name__ == "__main__":

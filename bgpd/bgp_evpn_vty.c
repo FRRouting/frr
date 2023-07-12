@@ -4629,8 +4629,14 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 
 	evpn_show_all_routes(vty, bgp, type, json, detail);
 
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and as such we need to save as much time as is
+	 * possible.
+	 */
 	if (uj)
-		vty_json(vty, json);
+		vty_json_no_pretty(vty, json);
+
 	return CMD_SUCCESS;
 }
 
@@ -6054,15 +6060,17 @@ DEFUN (bgp_evpn_vni_rt,
 		return CMD_WARNING;
 	}
 
-	ecomadd = ecommunity_str2com(argv[2]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
-	if (!ecomadd) {
-		vty_out(vty, "%% Malformed Route Target list\n");
-		return CMD_WARNING;
-	}
-	ecommunity_str(ecomadd);
-
 	/* Add/update the import route-target */
 	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_IMPORT) {
+		/* Note that first of the two RTs is created for "both" type */
+		ecomadd = ecommunity_str2com(argv[2]->arg,
+					     ECOMMUNITY_ROUTE_TARGET, 0);
+		if (!ecomadd) {
+			vty_out(vty, "%% Malformed Route Target list\n");
+			return CMD_WARNING;
+		}
+		ecommunity_str(ecomadd);
+
 		/* Do nothing if we already have this import route-target */
 		if (!bgp_evpn_rt_matches_existing(vpn->import_rtl, ecomadd))
 			evpn_configure_import_rt(bgp, vpn, ecomadd);
@@ -6070,6 +6078,15 @@ DEFUN (bgp_evpn_vni_rt,
 
 	/* Add/update the export route-target */
 	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_EXPORT) {
+		/* Note that second of the two RTs is created for "both" type */
+		ecomadd = ecommunity_str2com(argv[2]->arg,
+					     ECOMMUNITY_ROUTE_TARGET, 0);
+		if (!ecomadd) {
+			vty_out(vty, "%% Malformed Route Target list\n");
+			return CMD_WARNING;
+		}
+		ecommunity_str(ecomadd);
+
 		/* Do nothing if we already have this export route-target */
 		if (!bgp_evpn_rt_matches_existing(vpn->export_rtl, ecomadd))
 			evpn_configure_export_rt(bgp, vpn, ecomadd);

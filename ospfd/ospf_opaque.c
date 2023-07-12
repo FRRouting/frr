@@ -34,6 +34,7 @@
 #include "thread.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
+#include "printfrr.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -130,6 +131,10 @@ void ospf_opaque_finish(void)
 	ospf_router_info_finish();
 
 	ospf_ext_finish();
+
+#ifdef SUPPORT_OSPF_API
+	ospf_apiserver_term();
+#endif
 
 	ospf_sr_finish();
 }
@@ -1162,11 +1167,13 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 			     json_object *json)
 {
+	char buf[128], *bp;
 	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
 	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
 	uint32_t opaque_id = GET_OPAQUE_ID(lsid);
 	struct ospf_opaque_functab *functab;
+	int len, lenValid;
 
 	/* Switch output functionality by vty address. */
 	if (vty != NULL) {
@@ -1185,11 +1192,19 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 				json, "opaqueType",
 				ospf_opaque_type_name(opaque_type));
 			json_object_int_add(json, "opaqueId", opaque_id);
-			json_object_int_add(json, "opaqueDataLength",
-					    ntohs(lsah->length)
-						    - OSPF_LSA_HEADER_SIZE);
+			len = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
+			json_object_int_add(json, "opaqueDataLength", len);
+			lenValid = VALID_OPAQUE_INFO_LEN(lsah);
 			json_object_boolean_add(json, "opaqueDataLengthValid",
-						VALID_OPAQUE_INFO_LEN(lsah));
+						lenValid);
+			if (lenValid) {
+				bp = asnprintfrr(MTYPE_TMP, buf, sizeof(buf),
+						 "%*pHXn", (int)len,
+						 (lsah + 1));
+				json_object_string_add(json, "opaqueData", buf);
+				if (bp != buf)
+					XFREE(MTYPE_TMP, bp);
+			}
 		}
 	} else {
 		zlog_debug("    Opaque-Type %u (%s)", opaque_type,
@@ -2112,14 +2127,21 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 			lsa->data->type, &lsa->data->id);
 
 	/*
-	 * Since these LSA entries are not yet installed into corresponding
-	 * LSDB, just flush them without calling ospf_ls_maxage() afterward.
+	 * Install the stale LSA into the Link State Database, add it to the
+	 * MaxAge list, and flush it from the OSPF routing domain. For other
+	 * LSA types, the installation is done in the refresh function. It is
+	 * done inline here since the opaque refresh function is dynamically
+	 * registered when opaque LSAs are originated (which is not the case
+	 * for stale LSAs).
 	 */
 	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	ospf_lsa_install(
+		top, (lsa->data->type == OSPF_OPAQUE_LINK_LSA) ? nbr->oi : NULL,
+		lsa);
+	ospf_lsa_maxage(top, lsa);
+
 	switch (lsa->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:
-		ospf_flood_through_area(nbr->oi->area, NULL /*inbr*/, lsa);
-		break;
 	case OSPF_OPAQUE_AREA_LSA:
 		ospf_flood_through_area(nbr->oi->area, NULL /*inbr*/, lsa);
 		break;
@@ -2131,7 +2153,6 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 			  __func__, lsa->data->type);
 		return;
 	}
-	ospf_lsa_discard(lsa); /* List "lsas" will be deleted by caller. */
 }
 
 /*------------------------------------------------------------------------*

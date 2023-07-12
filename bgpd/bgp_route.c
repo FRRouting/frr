@@ -1142,9 +1142,18 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		/* If one path has a label but the other does not, do not treat
 		 * them as equals for multipath
 		 */
-		if ((new->extra &&bgp_is_valid_label(&new->extra->label[0]))
-		    != (exist->extra
-			&& bgp_is_valid_label(&exist->extra->label[0]))) {
+		int newl, existl;
+
+		newl = existl = 0;
+
+		if (new->extra)
+			newl = new->extra->num_labels;
+		if (exist->extra)
+			existl = exist->extra->num_labels;
+		if (((new->extra &&bgp_is_valid_label(&new->extra->label[0])) !=
+		     (exist->extra &&
+		      bgp_is_valid_label(&exist->extra->label[0]))) ||
+		    (newl != existl)) {
 			if (debug)
 				zlog_debug(
 					"%s: %s and %s cannot be multipath, one has a label while the other does not",
@@ -2292,7 +2301,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
 					"%pBP [Update:SEND] %pFX is filtered by route-map '%s'",
-					peer, p, ROUTE_MAP_OUT_NAME(filter));
+					peer, p,
+					bgp_path_suppressed(pi)
+						? UNSUPPRESS_MAP_NAME(filter)
+						: ROUTE_MAP_OUT_NAME(filter));
 			bgp_attr_flush(rmap_path.attr);
 			return false;
 		}
@@ -2590,9 +2602,12 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				continue;
 			if (BGP_PATH_HOLDDOWN(pi1))
 				continue;
-			if (pi1->peer != bgp->peer_self)
+			if (pi1->peer != bgp->peer_self &&
+			    !CHECK_FLAG(pi1->peer->sflags,
+					PEER_STATUS_NSF_WAIT)) {
 				if (!peer_established(pi1->peer))
 					continue;
+			}
 
 			new_select = pi1;
 			if (pi1->next) {
@@ -3895,17 +3910,24 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (has_valid_label)
 		assert(label != NULL);
 
-	/* Update overlay index of the attribute */
-	if (afi == AFI_L2VPN && evpn)
-		memcpy(&attr->evpn_overlay, evpn,
-		       sizeof(struct bgp_route_evpn));
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
-	if (!soft_reconfig
-	    && CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
-	    && peer != bgp->peer_self)
+	if (!soft_reconfig &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG) &&
+	    peer != bgp->peer_self) {
+		/*
+		 * If the trigger is not from soft_reconfig and if
+		 * PEER_FLAG_SOFT_RECONFIG is enabled for the peer, then attr
+		 * will not be interned. In which case, it is ok to update the
+		 * attr->evpn_overlay, so that, this can be stored in adj_in.
+		 */
+		if ((afi == AFI_L2VPN) && evpn) {
+			memcpy(&attr->evpn_overlay, evpn,
+			       sizeof(struct bgp_route_evpn));
+		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id);
+	}
 
 	/* Check previously received route. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
@@ -4015,6 +4037,15 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 	new_attr = *attr;
+	/*
+	 * If bgp_update is called with soft_reconfig set then
+	 * attr is interned. In this case, do not overwrite the
+	 * attr->evpn_overlay with evpn directly. Instead memcpy
+	 * evpn to new_atr.evpn_overlay before it is interned.
+	 */
+	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
+		memcpy(&new_attr.evpn_overlay, evpn,
+		       sizeof(struct bgp_route_evpn));
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
@@ -8182,59 +8213,7 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	/* Unlock aggregate address configuration. */
 	bgp_dest_set_bgp_aggregate_info(dest, NULL);
 
-	if (aggregate->community)
-		community_free(&aggregate->community);
-
-	if (aggregate->community_hash) {
-		/* Delete all communities in the hash.
-		 */
-		hash_clean(aggregate->community_hash,
-			   bgp_aggr_community_remove);
-		/* Free up the community_hash.
-		 */
-		hash_free(aggregate->community_hash);
-	}
-
-	if (aggregate->ecommunity)
-		ecommunity_free(&aggregate->ecommunity);
-
-	if (aggregate->ecommunity_hash) {
-		/* Delete all ecommunities in the hash.
-		 */
-		hash_clean(aggregate->ecommunity_hash,
-			   bgp_aggr_ecommunity_remove);
-		/* Free up the ecommunity_hash.
-		 */
-		hash_free(aggregate->ecommunity_hash);
-	}
-
-	if (aggregate->lcommunity)
-		lcommunity_free(&aggregate->lcommunity);
-
-	if (aggregate->lcommunity_hash) {
-		/* Delete all lcommunities in the hash.
-		 */
-		hash_clean(aggregate->lcommunity_hash,
-			   bgp_aggr_lcommunity_remove);
-		/* Free up the lcommunity_hash.
-		 */
-		hash_free(aggregate->lcommunity_hash);
-	}
-
-	if (aggregate->aspath)
-		aspath_free(aggregate->aspath);
-
-	if (aggregate->aspath_hash) {
-		/* Delete all as-paths in the hash.
-		 */
-		hash_clean(aggregate->aspath_hash,
-			   bgp_aggr_aspath_remove);
-		/* Free up the aspath_hash.
-		 */
-		hash_free(aggregate->aspath_hash);
-	}
-
-	bgp_aggregate_free(aggregate);
+	bgp_free_aggregate_info(aggregate);
 	bgp_dest_unlock_node(dest);
 	bgp_dest_unlock_node(dest);
 
@@ -8413,6 +8392,63 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
 	return bgp_aggregate_set(vty, prefix_s, AFI_IP, safi, rmap_name,
 				 summary_only != NULL, as_set, origin,
 				 match_med != NULL, suppress_map);
+}
+
+void bgp_free_aggregate_info(struct bgp_aggregate *aggregate)
+{
+	if (aggregate->community)
+		community_free(&aggregate->community);
+
+	if (aggregate->community_hash) {
+		/* Delete all communities in the hash.
+		 */
+		hash_clean(aggregate->community_hash,
+			   bgp_aggr_community_remove);
+		/* Free up the community_hash.
+		 */
+		hash_free(aggregate->community_hash);
+	}
+
+	if (aggregate->ecommunity)
+		ecommunity_free(&aggregate->ecommunity);
+
+	if (aggregate->ecommunity_hash) {
+		/* Delete all ecommunities in the hash.
+		 */
+		hash_clean(aggregate->ecommunity_hash,
+			   bgp_aggr_ecommunity_remove);
+		/* Free up the ecommunity_hash.
+		 */
+		hash_free(aggregate->ecommunity_hash);
+	}
+
+	if (aggregate->lcommunity)
+		lcommunity_free(&aggregate->lcommunity);
+
+	if (aggregate->lcommunity_hash) {
+		/* Delete all lcommunities in the hash.
+		 */
+		hash_clean(aggregate->lcommunity_hash,
+			   bgp_aggr_lcommunity_remove);
+		/* Free up the lcommunity_hash.
+		 */
+		hash_free(aggregate->lcommunity_hash);
+	}
+
+	if (aggregate->aspath)
+		aspath_free(aggregate->aspath);
+
+	if (aggregate->aspath_hash) {
+		/* Delete all as-paths in the hash.
+		 */
+		hash_clean(aggregate->aspath_hash,
+			   bgp_aggr_aspath_remove);
+		/* Free up the aspath_hash.
+		 */
+		hash_free(aggregate->aspath_hash);
+	}
+
+	bgp_aggregate_free(aggregate);
 }
 
 DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
@@ -11416,7 +11452,16 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				else
 					vty_out(vty, ",\"%pFX\": ", dest_p);
 			}
-			vty_json(vty, json_paths);
+			/*
+			 * We are using no_pretty here because under
+			 * extremely high settings( say lots and lots of
+			 * routes with lots and lots of ways to reach
+			 * that route via different paths ) this can
+			 * save several minutes of output when FRR
+			 * is run on older cpu's or more underperforming
+			 * routers out there
+			 */
+			vty_json_no_pretty(vty, json_paths);
 			json_paths = NULL;
 			first = 0;
 		} else
@@ -11650,11 +11695,13 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty,
 				"BGP routing table entry for %s%s%pFX, version %" PRIu64
 				"\n",
-				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
+				(((safi == SAFI_MPLS_VPN ||
+				   safi == SAFI_ENCAP) &&
+				  prd)
 					 ? prefix_rd2str(prd, buf1,
 							 sizeof(buf1))
 					 : ""),
-				safi == SAFI_MPLS_VPN ? ":" : "", p,
+				safi == SAFI_MPLS_VPN && prd ? ":" : "", p,
 				dest->version);
 
 		} else {
