@@ -7648,6 +7648,9 @@ static int peer_interface_vty(struct vty *vty, const char *ip_str,
 	else
 		peer_interface_unset(peer);
 
+	if (!BGP_PEER_START_SUPPRESSED(peer))
+		BGP_EVENT_ADD(peer, BGP_Start);
+
 	return CMD_SUCCESS;
 }
 

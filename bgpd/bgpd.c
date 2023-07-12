@@ -3742,8 +3742,10 @@ void bgp_instance_up(struct bgp *bgp)
 
 	/* Kick off any peers that may have been configured. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
-		if (!BGP_PEER_START_SUPPRESSED(peer))
+		if (!BGP_PEER_START_SUPPRESSED(peer)) {
+			BGP_EVENT_ADD(peer, BGP_Stop);
 			BGP_EVENT_ADD(peer, BGP_Start);
+		}
 	}
 
 	/* Process any networks that have been configured. */
