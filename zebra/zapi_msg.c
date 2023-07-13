@@ -1813,6 +1813,7 @@ static bool zapi_read_nexthops(uint8_t proto, struct prefix *p,
 		char nhbuf[NEXTHOP_STRLEN];
 		char labelbuf[MPLS_LABEL_STRLEN];
 		struct zapi_nexthop *api_nh = &nhops[i];
+		struct interface *ifp;
 
 		/* Convert zapi nexthop */
 		nexthop = nexthop_from_zapi(api_nh, flags, p, backup_nh_num);
@@ -1848,6 +1849,9 @@ static bool zapi_read_nexthops(uint8_t proto, struct prefix *p,
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL) &&
 		    api_nh->type != NEXTHOP_TYPE_BLACKHOLE &&
 		    api_nh->label_num > 0) {
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 nexthop->vrf_id);
+			mpls_auto_interface_data_on(ifp);
 			/* If label type was passed, use it */
 			if (api_nh->label_type)
 				label_type = api_nh->label_type;
@@ -3320,16 +3324,19 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 			}
 		}
 
-		if (really_remove)
+		if (really_remove) {
 			mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label[afi],
 					   NEXTHOP_TYPE_IFINDEX, NULL,
 					   ifp->ifindex, false /*backup*/);
+			mpls_auto_interface_data_off(ifp);
+		}
 	}
 
 	if (nlabel != MPLS_LABEL_NONE) {
 		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
 		mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label,
 				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+		mpls_auto_interface_data_on(ifp);
 	}
 
 	zvrf->label[afi] = nlabel;
