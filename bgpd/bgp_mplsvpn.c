@@ -593,7 +593,7 @@ static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
 	listnode_add(bgp->srv6_functions, func);
 }
 
-static void sid_unregister(struct bgp *bgp, const struct in6_addr *sid)
+void sid_unregister(struct bgp *bgp, const struct in6_addr *sid)
 {
 	struct listnode *node, *nnode;
 	struct bgp_srv6_function *func;
