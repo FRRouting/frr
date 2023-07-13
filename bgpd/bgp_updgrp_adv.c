@@ -715,11 +715,14 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 						    &attr, NULL)) {
 				/* Check if route can be advertised */
 				if (advertise) {
-					if (!bgp_check_withdrawal(bgp, dest))
+					if (!bgp_check_withdrawal(bgp, dest)) {
+						struct attr *adv_attr =
+							bgp_attr_intern(&attr);
+
 						bgp_adj_out_set_subgroup(
-							dest, subgrp, &attr,
+							dest, subgrp, adv_attr,
 							ri);
-					else
+					} else
 						bgp_adj_out_unset_subgroup(
 							dest, subgrp, 1,
 							bgp_addpath_id_for_peer(
