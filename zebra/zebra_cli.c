@@ -114,15 +114,16 @@ DEFPY_YANG_HIDDEN (multicast,
 
 DEFPY_YANG (mpls,
 	mpls_cmd,
-	"[no] mpls <enable$on|disable$off>",
+	"[no] mpls <enable|disable|auto>$state",
 	NO_STR
 	MPLS_STR
 	"Set mpls to be on for the interface\n"
-	"Set mpls to be off for the interface\n")
+	"Set mpls to be off for the interface\n"
+	"Set mpls to be auto for the interface\n")
 {
 	if (!no)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/mpls",
-				      NB_OP_CREATE, on ? "true" : "false");
+				      NB_OP_CREATE, state);
 	else
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/mpls",
 				      NB_OP_DESTROY, NULL);
@@ -134,12 +135,15 @@ static void lib_interface_zebra_mpls_cli_write(struct vty *vty,
 					       const struct lyd_node *dnode,
 					       bool show_defaults)
 {
-	bool mpls = yang_dnode_get_bool(dnode, NULL);
+	enum if_zebra_data_mode mpls = yang_dnode_get_enum(dnode, NULL);
 
 	if (mpls && ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_ON) || show_defaults))
 		vty_out(vty, " mpls enable\n");
 	else if (mpls == false &&
 		 ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_OFF) || show_defaults))
+		vty_out(vty, " mpls disable\n");
+	else if (mpls == IF_DATA_AUTO &&
+		 ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_AUTO) || show_defaults))
 		vty_out(vty, " mpls disable\n");
 }
 
