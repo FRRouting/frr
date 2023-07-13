@@ -3777,20 +3777,24 @@ DEFUN (multicast,
 
 DEFPY (mpls,
        mpls_cmd,
-       "[no] mpls enable",
+       "[no] mpls <enable$on|disable$off>",
        NO_STR
        MPLS_STR
-       "Set mpls to be on for the interface\n")
+       "Set mpls to be on for the interface\n"
+       "Set mpls to be off for the interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *if_data = ifp->info;
 
 	if (no) {
-		dplane_intf_mpls_modify_state(ifp, false);
+		/* keep the state as it is */
 		if_data->mpls_config = IF_ZEBRA_DATA_UNSPEC;
 	} else {
-		dplane_intf_mpls_modify_state(ifp, true);
-		if_data->mpls_config = IF_ZEBRA_DATA_ON;
+		dplane_intf_mpls_modify_state(ifp, !!on);
+		if (on)
+			if_data->mpls_config = IF_ZEBRA_DATA_ON;
+		else
+			if_data->mpls_config = IF_ZEBRA_DATA_OFF;
 	}
 
 	return CMD_SUCCESS;
@@ -5633,6 +5637,9 @@ static int if_config_write(struct vty *vty)
 
 				if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
 					vty_out(vty, " mpls enable\n");
+				else if (if_data->mpls_config ==
+					 IF_ZEBRA_DATA_OFF)
+					vty_out(vty, " mpls disable\n");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
