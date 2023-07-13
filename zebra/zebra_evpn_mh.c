@@ -2124,9 +2124,15 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 		return;
 
 	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
-		acc_bd = zebra_evpn_acc_vl_find(vid, zif->brslave_info.br_if);
-		if (acc_bd->zevpn)
-			zebra_evpn_local_es_evi_add(es, acc_bd->zevpn);
+		if (zif->brslave_info.br_if) {
+			acc_bd = zebra_evpn_acc_vl_find(vid, zif->brslave_info.br_if);
+			if (acc_bd && acc_bd->zevpn)
+				zebra_evpn_local_es_evi_add(es, acc_bd->zevpn);
+		} else {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+				zlog_debug("interface %s is not associated with a bridge, it needs to be linked to a bridge to complete ES config for %s",
+					   zif->ifp->name, es->esi_str);
+		}
 	}
 }
 
@@ -2194,6 +2200,13 @@ void zebra_evpn_es_local_br_port_update(struct zebra_if *zif)
 	new_br_port = !!(es->flags & ZEBRA_EVPNES_BR_PORT);
 	if (old_br_port == new_br_port)
 		return;
+
+	/* Setup ES-EVIs for all VxLAN stretched VLANs associated with
+	 * the zif, when the ES was created this might have been skipped due
+	 * to the mh bond not being associated with the bridge, hence set it up
+	 * now
+	 */
+	zebra_evpn_es_setup_evis(es);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br_port change old %u new %u", es->esi_str,
