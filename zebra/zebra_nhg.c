@@ -2363,6 +2363,14 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		 * tree.
 		 */
 
+		if (match && match->nhe->nhg.nexthop &&
+		    match->nhe->nhg.nexthop->ifindex != IFINDEX_INTERNAL &&
+		    nexthop->type != NEXTHOP_TYPE_BLACKHOLE &&
+		    nexthop->nh_label && nexthop->nh_label->num_labels) {
+			ifp = if_lookup_by_index(match->nhe->nhg.nexthop->ifindex,
+						 nexthop->vrf_id);
+			mpls_auto_interface_data_on(ifp);
+		}
 		/* If the candidate match's type is considered "connected",
 		 * we consider it first.
 		 */
