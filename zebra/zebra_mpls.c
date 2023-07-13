@@ -3115,6 +3115,10 @@ lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t type,
 		if (!nhlfe)
 			return NULL;
 
+		if (num_out_labels)
+			mpls_auto_interface_data_on(
+				if_lookup_by_index(ifindex, vrf_id));
+
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf2[MPLS_LABEL_STRLEN];
 

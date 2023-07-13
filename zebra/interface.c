@@ -608,6 +608,10 @@ void if_add_update(struct interface *ifp)
 			dplane_intf_mpls_modify_state(ifp, true);
 		else if (if_data->mpls_config == IF_ZEBRA_DATA_OFF)
 			dplane_intf_mpls_modify_state(ifp, false);
+		else if (if_data->mpls_config == IF_ZEBRA_DATA_AUTO &&
+			 if_data->mpls_dynamic != IF_ZEBRA_DATA_UNSPEC)
+			dplane_intf_mpls_modify_state(ifp,
+						      if_data->mpls_dynamic);
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -3932,6 +3936,42 @@ void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
 	dplane_intf_addr_unset(ifp, ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+}
+
+static void mpls_auto_interface_data_internal(struct interface *ifp, bool mpls)
+{
+	struct zebra_if *zif;
+	uint8_t mpls_val;
+
+	if (!ifp || !ifp->info)
+		return;
+	zif = ifp->info;
+	if (zif->mpls_config != IF_ZEBRA_DATA_AUTO)
+		return;
+
+	if (zif->mpls == mpls)
+		return;
+
+	if (mpls)
+		mpls_val = IF_ZEBRA_DATA_ON;
+	else
+		mpls_val = IF_ZEBRA_DATA_OFF;
+
+	if (zif->mpls_dynamic == mpls_val)
+		return;
+
+	zif->mpls_dynamic = mpls;
+	dplane_intf_mpls_modify_state(ifp, mpls);
+}
+
+void mpls_auto_interface_data_on(struct interface *ifp)
+{
+	mpls_auto_interface_data_internal(ifp, true);
+}
+
+void mpls_auto_interface_data_off(struct interface *ifp)
+{
+	mpls_auto_interface_data_internal(ifp, false);
 }
 
 /* Allocate and initialize interface vector. */
