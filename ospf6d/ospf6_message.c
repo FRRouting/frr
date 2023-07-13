@@ -2335,9 +2335,9 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 			if ((length + sizeof(struct ospf6_lsa_header)
 			     + OSPF6_HEADER_SIZE)
 			    > ospf6_packet_max(on->ospf6_if)) {
-				ospf6_lsa_unlock(lsa);
+				ospf6_lsa_unlock(&lsa);
 				if (lsanext)
-					ospf6_lsa_unlock(lsanext);
+					ospf6_lsa_unlock(&lsanext);
 				break;
 			}
 			stream_put(s, lsa->header,
@@ -2415,9 +2415,9 @@ void ospf6_dbdesc_send_newone(struct event *thread)
 
 		if (size + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(on->ospf6_if)) {
-			ospf6_lsa_unlock(lsa);
+			ospf6_lsa_unlock(&lsa);
 			if (lsanext)
-				ospf6_lsa_unlock(lsanext);
+				ospf6_lsa_unlock(&lsanext);
 			break;
 		}
 
@@ -2447,9 +2447,9 @@ static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
 	for (ALL_LSDB(on->request_list, lsa, lsanext)) {
 		if ((length + OSPF6_HEADER_SIZE)
 		    > ospf6_packet_max(on->ospf6_if)) {
-			ospf6_lsa_unlock(lsa);
+			ospf6_lsa_unlock(&lsa);
 			if (lsanext)
-				ospf6_lsa_unlock(lsanext);
+				ospf6_lsa_unlock(&lsanext);
 			break;
 		}
 		stream_putw(s, 0); /* reserved */
@@ -2462,7 +2462,7 @@ static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
 
 	if (last_req != NULL) {
 		if (on->last_ls_req != NULL)
-			on->last_ls_req = ospf6_lsa_unlock(on->last_ls_req);
+			ospf6_lsa_unlock(&on->last_ls_req);
 
 		ospf6_lsa_lock(last_req);
 		on->last_ls_req = last_req;
@@ -2944,9 +2944,9 @@ static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
 			event_add_event(master, ospf6_lsack_send_interface, oi,
 					0, &oi->thread_send_lsack);
 
-			ospf6_lsa_unlock(lsa);
+			ospf6_lsa_unlock(&lsa);
 			if (lsanext)
-				ospf6_lsa_unlock(lsanext);
+				ospf6_lsa_unlock(&lsanext);
 			break;
 		}
 		ospf6_lsa_age_update_to_send(lsa, oi->transdelay);

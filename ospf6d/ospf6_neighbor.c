@@ -98,9 +98,10 @@ static void ospf6_neighbor_clear_ls_lists(struct ospf6_neighbor *on)
 
 	ospf6_lsdb_remove_all(on->summary_list);
 	if (on->last_ls_req) {
-		ospf6_lsa_unlock(on->last_ls_req);
+		ospf6_lsa_unlock(&on->last_ls_req);
 		on->last_ls_req = NULL;
 	}
+
 	ospf6_lsdb_remove_all(on->request_list);
 	for (ALL_LSDB(on->retrans_list, lsa, lsanext)) {
 		ospf6_decrement_retrans_count(lsa);
