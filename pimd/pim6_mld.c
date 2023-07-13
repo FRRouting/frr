@@ -1239,6 +1239,7 @@ static void gm_handle_q_groupsrc(struct gm_if *gm_ifp,
 
 	for (i = 0; i < n_src; i++) {
 		sg = gm_sg_find(gm_ifp, grp, srcs[i]);
+		GM_UPDATE_SG_STATE(sg);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
 	}
 }
@@ -1313,6 +1314,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp("*,%pPAs expiry timer starting"),
 				   &grp);
+		GM_UPDATE_SG_STATE(sg);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
 
 		sg = gm_sgs_next(gm_ifp->sgs, sg);
