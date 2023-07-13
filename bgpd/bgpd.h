@@ -1280,8 +1280,6 @@ struct peer {
 #define PEER_CAP_ORF_PREFIX_RM_ADV          (1U << 1) /* receive-mode advertised */
 #define PEER_CAP_ORF_PREFIX_SM_RCV          (1U << 2) /* send-mode received */
 #define PEER_CAP_ORF_PREFIX_RM_RCV          (1U << 3) /* receive-mode received */
-#define PEER_CAP_ORF_PREFIX_SM_OLD_RCV      (1U << 4) /* send-mode received */
-#define PEER_CAP_ORF_PREFIX_RM_OLD_RCV      (1U << 5) /* receive-mode received */
 #define PEER_CAP_RESTART_AF_RCV             (1U << 6) /* graceful restart afi/safi received */
 #define PEER_CAP_RESTART_AF_PRESERVE_RCV    (1U << 7) /* graceful restart afi/safi F-bit received */
 #define PEER_CAP_ADDPATH_AF_TX_ADV          (1U << 8) /* addpath tx advertised */

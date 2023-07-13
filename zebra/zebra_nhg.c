@@ -2392,7 +2392,10 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			continue;
 		}
 
-		if ((match->type == ZEBRA_ROUTE_CONNECT) ||
+		/* If the candidate match's type is considered "connected",
+		 * we consider it first.
+		 */
+		if (RIB_CONNECTED_ROUTE(match) ||
 		    (RIB_SYSTEM_ROUTE(match) && RSYSTEM_ROUTE(type))) {
 			match = zebra_nhg_connected_ifindex(rn, match,
 							    nexthop->ifindex);
@@ -2412,6 +2415,10 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 				 */
 				return 0;
 			}
+
+			/* NHRP special case: need to indicate onlink */
+			if (match->type == ZEBRA_ROUTE_NHRP)
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(

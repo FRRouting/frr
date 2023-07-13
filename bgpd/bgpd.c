@@ -6964,11 +6964,8 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 				 */
 				if (CHECK_FLAG(peer->af_cap[afi][safi],
 					       PEER_CAP_ORF_PREFIX_SM_ADV) &&
-				    (CHECK_FLAG(peer->af_cap[afi][safi],
-						PEER_CAP_ORF_PREFIX_RM_RCV) ||
-				     CHECK_FLAG(
-					     peer->af_cap[afi][safi],
-					     PEER_CAP_ORF_PREFIX_RM_OLD_RCV)))
+				    CHECK_FLAG(peer->af_cap[afi][safi],
+					       PEER_CAP_ORF_PREFIX_RM_RCV))
 					peer_clear_soft(
 						peer, afi, safi,
 						BGP_CLEAR_SOFT_IN_ORF_PREFIX);
@@ -7935,19 +7932,15 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ORF_PREFIX_SM_ADV)
-		    && (CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_CAP_ORF_PREFIX_RM_RCV)
-			|| CHECK_FLAG(peer->af_cap[afi][safi],
-				      PEER_CAP_ORF_PREFIX_RM_OLD_RCV))) {
+			       PEER_CAP_ORF_PREFIX_SM_ADV) &&
+		    CHECK_FLAG(peer->af_cap[afi][safi],
+			       PEER_CAP_ORF_PREFIX_RM_RCV)) {
 			struct bgp_filter *filter = &peer->filter[afi][safi];
 			uint8_t prefix_type;
 
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
 				prefix_type = ORF_TYPE_PREFIX;
-			else
-				prefix_type = ORF_TYPE_PREFIX_OLD;
 
 			if (filter->plist[FILTER_IN].plist) {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],

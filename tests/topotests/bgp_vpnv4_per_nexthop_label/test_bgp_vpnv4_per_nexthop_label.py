@@ -242,6 +242,10 @@ def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=Non
         if label_list is not None:
             label_list.add(in_label)
         for nh in label_info["nexthops"]:
+            if "installed" not in nh.keys():
+                return "{} {} is not installed yet on {}".format(
+                    in_label, label_info, router.name
+                )
             if nh["installed"] != True or nh["type"] != "BGP":
                 return "{}, show mpls table, nexthop is not installed".format(
                     router.name

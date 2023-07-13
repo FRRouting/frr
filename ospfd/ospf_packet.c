@@ -953,8 +953,9 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	}
 #endif /* REJECT_IF_TBIT_ON */
 
-	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE)
-	    && CHECK_FLAG(hello->options, OSPF_OPTION_O)) {
+	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) &&
+	    OSPF_IF_PARAM(oi, opaque_capable) &&
+	    CHECK_FLAG(hello->options, OSPF_OPTION_O)) {
 		/*
 		 * This router does know the correct usage of O-bit
 		 * the bit should be set in DD packet only.
@@ -1362,8 +1363,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	}
 #endif /* REJECT_IF_TBIT_ON */
 
-	if (CHECK_FLAG(dd->options, OSPF_OPTION_O)
-	    && !CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE)) {
+	if (CHECK_FLAG(dd->options, OSPF_OPTION_O) &&
+	    (!CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) ||
+	     !OSPF_IF_PARAM(oi, opaque_capable))) {
 		/*
 		 * This node is not configured to handle O-bit, for now.
 		 * Clear it to ignore unsupported capability proposed by
@@ -1448,7 +1450,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		/* This is where the real Options are saved */
 		nbr->options = dd->options;
 
-		if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE)) {
+		if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) &&
+		    OSPF_IF_PARAM(oi, opaque_capable)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"Neighbor[%pI4] is %sOpaque-capable.",
@@ -3435,7 +3438,8 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 
 	/* Set Options. */
 	options = OPTIONS(oi);
-	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE))
+	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE) &&
+	    OSPF_IF_PARAM(oi, opaque_capable))
 		SET_FLAG(options, OSPF_OPTION_O);
 	if (OSPF_FR_CONFIG(oi->ospf, oi->area))
 		SET_FLAG(options, OSPF_OPTION_DC);

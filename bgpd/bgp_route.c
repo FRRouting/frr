@@ -2181,10 +2181,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* ORF prefix-list filter check */
-	if (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
-	    && (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-		|| CHECK_FLAG(peer->af_cap[afi][safi],
-			      PEER_CAP_ORF_PREFIX_SM_OLD_RCV)))
+	if (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV) &&
+	    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV))
 		if (peer->orf_plist[afi][safi]) {
 			if (prefix_list_apply(peer->orf_plist[afi][safi], p)
 			    == PREFIX_DENY) {
@@ -13836,10 +13834,10 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 		json_bitlen = json_object_new_array();
 
 		for (i = 0; i <= bitlen; i++) {
-			struct json_object *ind_bit = json_object_new_object();
-
 			if (!ts.prefix_len_count[i])
 				continue;
+
+			struct json_object *ind_bit = json_object_new_object();
 
 			snprintf(temp_buf, sizeof(temp_buf), "%u", i);
 			json_object_int_add(ind_bit, temp_buf,

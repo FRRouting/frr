@@ -3811,6 +3811,9 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
 			json_object_int_add(json_oi, "priority", PRIORITY(oi));
+			json_object_boolean_add(
+				json_interface_sub, "opaqueCapable",
+				OSPF_IF_PARAM(oi, opaque_capable));
 		} else {
 			vty_out(vty, " Area %s\n",
 				ospf_area_desc_string(oi->area));
@@ -3830,6 +3833,9 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				OSPF_IF_PARAM(oi, transmit_delay),
 				lookup_msg(ospf_ism_state_msg, oi->state, NULL),
 				PRIORITY(oi));
+                        if (!OSPF_IF_PARAM(oi, opaque_capable))
+                                vty_out(vty,
+                                        "  Opaque LSA capability disabled on interface\n");
 		}
 
 		/* Show DR information. */
@@ -9803,6 +9809,61 @@ DEFUN (no_ip_ospf_mtu_ignore,
 	return CMD_SUCCESS;
 }
 
+DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
+      "[no] ip ospf capability opaque [A.B.C.D]$ip_addr",
+      NO_STR
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Disable OSPF capability on this interface\n"
+      "Disable OSPF opaque LSA capability on this interface\n"
+      "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct route_node *rn;
+	bool old_opaque_capable;
+	bool opaque_capable_change;
+
+	struct ospf_if_params *params;
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	old_opaque_capable = params->opaque_capable;
+	params->opaque_capable = (no) ? false : true;
+        opaque_capable_change = (old_opaque_capable != params->opaque_capable);
+	if (params->opaque_capable != OSPF_OPAQUE_CAPABLE_DEFAULT)
+		SET_IF_PARAM(params, opaque_capable);
+	else {
+		UNSET_IF_PARAM(params, opaque_capable);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, ip_addr);
+			ospf_if_update_params(ifp, ip_addr);
+		}
+	}
+
+	/*
+	 * If there is a change to the opaque capability, flap the interface
+	 * to reset all the neighbor adjacencies.
+	 */
+	if (opaque_capable_change) {
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			struct ospf_interface *oi = rn->info;
+
+			if (oi && (oi->state > ISM_Down) &&
+			    (ip_addr.s_addr == INADDR_ANY ||
+			     IPV4_ADDR_SAME(&oi->address->u.prefix4,
+					    &ip_addr))) {
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
+				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+			}
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
@@ -12167,6 +12228,21 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			if (params && params->ldp_sync_info)
 				ospf_ldp_sync_if_write_config(vty, params);
 
+			/* Capability opaque print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, opaque_capable) &&
+			    params->opaque_capable !=
+				    OSPF_OPAQUE_CAPABLE_DEFAULT) {
+				if (params->opaque_capable == false)
+					vty_out(vty,
+						" no ip ospf capability opaque");
+				else
+					vty_out(vty,
+						" ip ospf capability opaque");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
 			while (1) {
 				if (rn == NULL)
 					rn = route_top(IF_OIFS_PARAMS(ifp));
@@ -12975,6 +13051,9 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf passive" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_passive_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_passive_cmd);
+
+	/* "ip ospf capability opaque" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_capability_opaque_addr_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);

@@ -936,7 +936,10 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	frrtrace(5, frr_bgp, evpn_mac_ip_zsend, add, vpn, p, remote_vtep_ip,
 		 esi);
 
-	return zclient_send_message(zclient);
+        if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+          return -1;
+
+        return 0;
 }
 
 /*
@@ -988,7 +991,10 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 
 	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
 
-	return zclient_send_message(zclient);
+        if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+          return -1;
+
+        return 0;
 }
 
 /*

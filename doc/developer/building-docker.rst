@@ -152,7 +152,7 @@ Start the container::
 
 Running a topotest (when the docker host is Ubuntu)::
 
-   docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+   docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
 
 Starting an interactive bash session::
 
@@ -189,7 +189,7 @@ Start the container::
 
 Running a topotest (when the docker host is Ubuntu)::
 
-   docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+   docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
 
 Starting an interactive bash session::
 

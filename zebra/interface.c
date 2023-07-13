@@ -610,6 +610,11 @@ void if_add_update(struct interface *ifp)
 
 		if_addr_wakeup(ifp);
 
+		if (if_data->mpls_config == IF_ZEBRA_DATA_ON)
+			dplane_intf_mpls_modify_state(ifp, true);
+		else if (if_data->mpls_config == IF_ZEBRA_DATA_OFF)
+			dplane_intf_mpls_modify_state(ifp, false);
+
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"interface %s vrf %s(%u) index %d becomes active.",
@@ -1368,6 +1373,13 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 	bool pd_reason_val;
 	bool down;
 
+	if (!ifp) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: Can't find ifp", __func__);
+
+		return;
+	}
+
 	dp_res = dplane_ctx_get_status(ctx);
 	pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
 	down = dplane_ctx_intf_is_protodown(ctx);
@@ -1444,7 +1456,7 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 			linkdown_set = &zrouter.default_linkdownv6;
 		}
 	} else {
-		zif = ifp ? ifp->info : NULL;
+		zif = ifp->info;
 		if (!zif) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
@@ -1524,10 +1536,16 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 			if (exist_id != VRF_DEFAULT) {
 				vrf = vrf_lookup_by_id(exist_id);
 
-				flog_err(
-					EC_ZEBRA_VRF_MISCONFIGURED,
-					"VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
-					name, ifindex, vrf->name, vrf->vrf_id);
+				if (vrf)
+					flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
+						 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
+						 name, ifindex, vrf->name,
+						 vrf->vrf_id);
+				else
+					flog_err(EC_ZEBRA_VRF_NOT_FOUND,
+						 "VRF %s id %u does not exist",
+						 name, ifindex);
+
 				exit(-1);
 			}
 		}
