@@ -2356,6 +2356,7 @@ static int vtysh_exit(struct vty *vty)
 	if (vty->node == CONFIG_NODE) {
 		/* resync in case one of the daemons is somewhere else */
 		vtysh_execute("end");
+		/* NOTE: a rather expensive thing to do, can we avoid it? */
 		vtysh_execute("configure terminal file-lock");
 	}
 	return CMD_SUCCESS;

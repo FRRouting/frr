@@ -3524,6 +3524,7 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 				      char *errmsg_if_any)
 {
 	struct vty *vty;
+	bool is_short_circuit = mgmt_fe_client_current_msg_short_circuit(client);
 
 	vty = (struct vty *)session_ctx;
 
@@ -3540,8 +3541,10 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 			vty->mgmt_locked_running_ds = lock_ds;
 	}
 
-	if (vty->mgmt_req_pending_cmd)
+	if (!is_short_circuit && vty->mgmt_req_pending_cmd) {
+		assert(!strcmp(vty->mgmt_req_pending_cmd, "MESSAGE_LOCKDS_REQ"));
 		vty_mgmt_resume_response(vty, success);
+	}
 }
 
 static void vty_mgmt_set_config_result_notified(
@@ -3734,6 +3737,7 @@ int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 		} else if (vty_mgmt_lock_running_inline(vty)) {
 			vty_out(vty,
 				"%% command failed, could not lock running DS\n");
+			vty_mgmt_unlock_candidate_inline(vty);
 			return -1;
 		}
 	}

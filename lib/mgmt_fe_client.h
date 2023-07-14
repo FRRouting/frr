@@ -373,6 +373,12 @@ extern void mgmt_fe_client_destroy(struct mgmt_fe_client *client);
  */
 extern uint mgmt_fe_client_session_count(struct mgmt_fe_client *client);
 
+/*
+ * True if the current handled message is being short-circuited
+ */
+extern bool
+mgmt_fe_client_current_msg_short_circuit(struct mgmt_fe_client *client);
+
 #ifdef __cplusplus
 }
 #endif
