@@ -593,9 +593,8 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 	}
 
 	if (lockds_req->lock) {
-		if (mgmt_fe_session_write_lock_ds(lockds_req->ds_id,
-						      ds_ctx, session)
-		    != 0) {
+		if (mgmt_fe_session_write_lock_ds(lockds_req->ds_id, ds_ctx,
+						  session)) {
 			fe_adapter_send_lockds_reply(
 				session, lockds_req->ds_id, lockds_req->req_id,
 				lockds_req->lock, false,
