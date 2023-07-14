@@ -834,6 +834,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 
 	if (ecom)
 		ecommunity_free(&ecom);
+	if (iattr)
+		bgp_attr_unintern(&iattr);
 }
 
 static void vnc_import_bgp_add_route_mode_nvegroup(
@@ -1030,6 +1032,8 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 
 	if (ecom)
 		ecommunity_free(&ecom);
+	if (iattr)
+		bgp_attr_unintern(&iattr);
 }
 
 static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
@@ -1982,8 +1986,6 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
 
-		int count = 0; /* debugging */
-
 		vnc_zlog_debug_verbose(
 			"%s: has exterior monitor; ext src: %p", __func__,
 			RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
@@ -2006,9 +2008,6 @@ void vnc_import_bgp_exterior_add_route_interior(
 			struct prefix_rd *prd;
 			struct attr new_attr;
 			uint32_t label = 0;
-
-
-			++count; /* debugging */
 
 			assert(bpi_exterior);
 			assert(pfx_exterior);

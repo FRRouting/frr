@@ -1598,6 +1598,24 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 	return newpath;
 }
 
+struct aspath *aspath_filter_exclude_all(struct aspath *source)
+{
+	struct aspath *newpath;
+
+	newpath = aspath_new(source->asnotation);
+
+	aspath_str_update(newpath, false);
+	/* We are happy returning even an empty AS_PATH, because the
+	 * administrator
+	 * might expect this very behaviour. There's a mean to avoid this, if
+	 * necessary,
+	 * by having a match rule against certain AS_PATH regexps in the
+	 * route-map index.
+	 */
+	aspath_free(source);
+	return newpath;
+}
+
 /* Add specified AS to the leftmost of aspath. */
 static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
 				      uint8_t type, unsigned num)
@@ -2095,9 +2113,7 @@ void aspath_init(void)
 
 void aspath_finish(void)
 {
-	hash_clean(ashash, (void (*)(void *))aspath_free);
-	hash_free(ashash);
-	ashash = NULL;
+	hash_clean_and_free(&ashash, (void (*)(void *))aspath_free);
 
 	if (snmp_stream)
 		stream_free(snmp_stream);
@@ -2157,11 +2173,15 @@ static void bgp_aggr_aspath_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct aspath *hb_aspath = hb->data;
 	struct aspath **aggr_aspath = arg;
+	struct aspath *aspath = NULL;
 
-	if (*aggr_aspath)
-		*aggr_aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
-	else
+	if (*aggr_aspath) {
+		aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
+		aspath_free(*aggr_aspath);
+		*aggr_aspath = aspath;
+	} else {
 		*aggr_aspath = aspath_dup(hb_aspath);
+	}
 }
 
 void bgp_aggr_aspath_remove(void *arg)

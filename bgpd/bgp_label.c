@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "zclient.h"
 #include "stream.h"
@@ -297,6 +297,9 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	uint8_t llen = 0;
 	uint8_t label_depth = 0;
 
+	if (plen < BGP_LABEL_BYTES)
+		return 0;
+
 	for (; data < lim; data += BGP_LABEL_BYTES) {
 		memcpy(label, data, BGP_LABEL_BYTES);
 		llen += BGP_LABEL_BYTES;
@@ -359,6 +362,9 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
 			addpath_id = ntohl(addpath_id);
 			pnt += BGP_ADDPATH_ID_LEN;
+
+			if (pnt >= lim)
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
 
 		/* Fetch prefix length. */
@@ -377,6 +383,13 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		/* Fill in the labels */
 		llen = bgp_nlri_get_labels(peer, pnt, psize, &label);
+		if (llen == 0) {
+			flog_err(
+				EC_BGP_UPDATE_RCV,
+				"%s [Error] Update packet error (wrong label length 0)",
+				peer->host);
+			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
+		}
 		p.prefixlen = prefixlen - BSIZE(llen);
 
 		/* There needs to be at least one label */
@@ -384,8 +397,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			flog_err(EC_BGP_UPDATE_RCV,
 				 "%s [Error] Update packet error (wrong label length %d)",
 				 peer->host, prefixlen);
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
 			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
 
@@ -458,4 +469,21 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+bool bgp_labels_same(const mpls_label_t *tbl_a, const uint32_t num_labels_a,
+		     const mpls_label_t *tbl_b, const uint32_t num_labels_b)
+{
+	uint32_t i;
+
+	if (num_labels_a != num_labels_b)
+		return false;
+	if (num_labels_a == 0)
+		return true;
+
+	for (i = 0; i < num_labels_a; i++) {
+		if (tbl_a[i] != tbl_b[i])
+			return false;
+	}
+	return true;
 }

@@ -10,8 +10,9 @@ on:
       - unlabeled
 
 jobs:
-  lint:
-    if: github.repository == 'frrouting/frr'
+  commitlint:
+    if: ${{ github.repository == 'frrouting/frr' }} && ${{ github.base_ref == 'refs/heads/master' }}
+    name: Check if the commits meet the requirements of the guidelines
     permissions:
       contents: read
       pull-requests: read
@@ -26,3 +27,4 @@ jobs:
         uses: wagoid/commitlint-github-action@v5
         with:
           configFile: .github/commitlint.config.js
+          helpURL: 'https://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html#submitting-patches-and-enhancements'

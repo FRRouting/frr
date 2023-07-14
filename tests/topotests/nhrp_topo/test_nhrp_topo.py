@@ -108,6 +108,12 @@ def setup_module(mod):
                 TopoRouter.RD_NHRP, os.path.join(CWD, "{}/nhrpd.conf".format(rname))
             )
 
+        # Include sharpd for r1
+        if rname == "r1":
+            router.load_config(
+                TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+            )
+
     # Initialize all routers.
     logger.info("Launching NHRP")
     for name in router_list:
@@ -199,6 +205,38 @@ def test_nhrp_connection():
         assert 0, assertmsg
     else:
         logger.info("Check Ping IPv4 from R1 to R2 OK")
+
+
+def test_route_install():
+    "Test use of NHRP routes by other protocols (sharpd here)."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing route install over NHRP tunnel")
+
+    # Install sharpd routes over an NHRP route
+    r1 = tgen.gears["r1"]
+
+    # Install one recursive and one non-recursive sharpd route
+    r1.vtysh_cmd("sharp install route 4.4.4.1 nexthop 10.255.255.2 1")
+
+    r1.vtysh_cmd("sharp install route 5.5.5.1 nexthop 10.255.255.2 1 no-recurse")
+
+    json_file = "{}/{}/sharp_route4.json".format(CWD, "r1")
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route sharp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+
+    logger.info("Sharp routes:")
+    output = r1.vtysh_cmd("show ip route sharp")
+    logger.info(output)
+
+    assertmsg = '"{}" JSON route output mismatches'.format(r1.name)
+    assert result is None, assertmsg
 
 
 def test_memory_leak():

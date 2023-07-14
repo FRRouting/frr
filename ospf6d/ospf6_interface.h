@@ -74,6 +74,15 @@ struct ospf6_interface {
 	uint16_t dead_interval;
 	uint32_t rxmt_interval;
 
+	/* Graceful-Restart data. */
+	struct {
+		struct {
+			uint16_t interval;
+			uint16_t elapsed_seconds;
+			struct event *t_grace_send;
+		} hello_delay;
+	} gr;
+
 	uint32_t state_change;
 
 	/* Cost */
@@ -90,7 +99,7 @@ struct ospf6_interface {
 
 	/* Interface socket setting trial counter, resets on success */
 	uint8_t sso_try_cnt;
-	struct thread *thread_sso;
+	struct event *thread_sso;
 
 	/* OSPF6 Interface flag */
 	char flag;
@@ -115,15 +124,15 @@ struct ospf6_interface {
 	struct ospf6_lsdb *lsack_list;
 
 	/* Ongoing Tasks */
-	struct thread *thread_send_hello;
-	struct thread *thread_send_lsupdate;
-	struct thread *thread_send_lsack;
+	struct event *thread_send_hello;
+	struct event *thread_send_lsupdate;
+	struct event *thread_send_lsack;
 
-	struct thread *thread_network_lsa;
-	struct thread *thread_link_lsa;
-	struct thread *thread_intra_prefix_lsa;
-	struct thread *thread_as_extern_lsa;
-	struct thread *thread_wait_timer;
+	struct event *thread_network_lsa;
+	struct event *thread_link_lsa;
+	struct event *thread_intra_prefix_lsa;
+	struct event *thread_as_extern_lsa;
+	struct event *thread_wait_timer;
 
 	struct ospf6_route_table *route_connected;
 
@@ -211,11 +220,11 @@ extern struct in6_addr *
 ospf6_interface_get_global_address(struct interface *ifp);
 
 /* interface event */
-extern void interface_up(struct thread *thread);
-extern void interface_down(struct thread *thread);
-extern void wait_timer(struct thread *thread);
-extern void backup_seen(struct thread *thread);
-extern void neighbor_change(struct thread *thread);
+extern void interface_up(struct event *thread);
+extern void interface_down(struct event *thread);
+extern void wait_timer(struct event *thread);
+extern void backup_seen(struct event *thread);
+extern void neighbor_change(struct event *thread);
 
 extern void ospf6_interface_init(void);
 extern void ospf6_interface_clear(struct interface *ifp);

@@ -24,7 +24,7 @@ import math
 import os
 import sys
 import pytest
-
+from lib import topotest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -109,7 +109,9 @@ def test_static_timing():
                 router.logdir, rname, "{}-routes-{}.conf".format(iptype.lower(), optype)
             )
             with open(config_file, "w") as f:
-                for i, net in enumerate(get_ip_networks(super_prefix, base_count, count)):
+                for i, net in enumerate(
+                    get_ip_networks(super_prefix, base_count, count)
+                ):
                     if i in bad_indices:
                         if add:
                             f.write("ip route {} {} bad_input\n".format(net, via))
@@ -131,7 +133,7 @@ def test_static_timing():
             delta = (datetime.datetime.now() - tstamp).total_seconds()
             tot_delta += delta
 
-            router.logger.info(
+            router.logger.debug(
                 "\nvtysh command => {}\nvtysh output <= {}\nin {}s".format(
                     load_command, output, delta
                 )
@@ -148,10 +150,9 @@ def test_static_timing():
 
         return tot_delta
 
-
     # Number of static routes
     router = tgen.gears["r1"]
-    output = router.run("vtysh -h | grep address-sanitizer")
+    output = router.net.cmd_legacy("vtysh -h | grep address-sanitizer", warn=False)
     if output == "":
         logger.info("No Address Sanitizer, generating 10000 routes")
         prefix_count = 10000
@@ -164,20 +165,49 @@ def test_static_timing():
         [u"2100:1111:2220::/44", u"2100:3333:4440::/44"],
     ]
 
+    # This apparently needed to allow for various mgmtd/staticd/zebra connections to form
+    # which then SLOWS execution down. If we don't include this value then the
+    # initial, baseline establishing, time is 2 time faster (e.g., 5s instead of 10s),
+    # but all later runs are slower and fail.
+    #
+    # This should be done differently based on actual facts.
+    topotest.sleep(5)
+
     bad_indices = []
     for ipv6 in [False, True]:
         base_delta = do_config(
-            prefix_count, prefix_count, bad_indices, 0, 0, True, ipv6, prefix_base[ipv6][0]
+            prefix_count,
+            prefix_count,
+            bad_indices,
+            0,
+            0,
+            True,
+            ipv6,
+            prefix_base[ipv6][0],
         )
 
         # Another set of same number of prefixes
         do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 3, True, ipv6, prefix_base[ipv6][1]
+            prefix_count,
+            prefix_count,
+            bad_indices,
+            base_delta,
+            3,
+            True,
+            ipv6,
+            prefix_base[ipv6][1],
         )
 
         # Duplicate config
         do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 3, True, ipv6, prefix_base[ipv6][0]
+            prefix_count,
+            prefix_count,
+            bad_indices,
+            base_delta,
+            3,
+            True,
+            ipv6,
+            prefix_base[ipv6][0],
         )
 
         # Remove 1/2 of duplicate
@@ -194,15 +224,36 @@ def test_static_timing():
 
         # Add all back in so 1/2 replicate 1/2 new
         do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 3, True, ipv6, prefix_base[ipv6][0]
+            prefix_count,
+            prefix_count,
+            bad_indices,
+            base_delta,
+            3,
+            True,
+            ipv6,
+            prefix_base[ipv6][0],
         )
 
         # remove all
         delta = do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 3, False, ipv6, prefix_base[ipv6][0]
+            prefix_count,
+            prefix_count,
+            bad_indices,
+            base_delta,
+            3,
+            False,
+            ipv6,
+            prefix_base[ipv6][0],
         )
         delta += do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 3, False, ipv6, prefix_base[ipv6][1]
+            prefix_count,
+            prefix_count,
+            bad_indices,
+            base_delta,
+            3,
+            False,
+            ipv6,
+            prefix_base[ipv6][1],
         )
 
 

@@ -299,7 +299,7 @@ struct bgp_evpn_mh_info {
 	/* List of ESs with pending/periodic processing */
 	struct list *pend_es_list;
 	/* periodic timer for running background consistency checks */
-	struct thread *t_cons_check;
+	struct event *t_cons_check;
 
 	/* config knobs for optimizing or interop */
 	/* Generate EAD-EVI routes even if the ES is oper-down. This can be

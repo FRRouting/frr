@@ -17,7 +17,7 @@
 
 struct frr_signal_t sigs[] = {};
 
-struct thread_master *master;
+struct event_loop *master;
 
 void func1(int *arg);
 void func3(void);
@@ -49,19 +49,19 @@ void func3(void)
 	func2(6, buf);
 }
 
-static void threadfunc(struct thread *thread)
+static void threadfunc(struct event *thread)
 {
 	func3();
 }
 
 int main(void)
 {
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, array_size(sigs), sigs);
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
-	thread_execute(master, threadfunc, 0, 0);
+	event_execute(master, threadfunc, 0, 0);
 
 	exit(0);
 }

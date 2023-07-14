@@ -74,9 +74,26 @@ def test_bgp_peer_group():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_peer_group_configured)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed bgp convergence in r1"
 
-    assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r1"])
+    def _bgp_peer_group_check_advertised_routes():
+        output = json.loads(
+            tgen.gears["r3"].vtysh_cmd("show ip bgp neighbor PG advertised-routes json")
+        )
+        expected = {
+            "advertisedRoutes": {
+                "192.168.255.0/24": {
+                    "valid": True,
+                    "best": True,
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_peer_group_check_advertised_routes)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed checking advertised routes from r3"
 
 
 if __name__ == "__main__":

@@ -278,6 +278,11 @@ extern struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *);
 
 extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *,
 						    struct external_info *);
+extern struct ospf_lsa *ospf_nssa_lsa_originate(struct ospf_area *area,
+						struct external_info *ei);
+extern struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
+					      struct ospf_lsa *lsa,
+					      struct external_info *ei);
 extern void ospf_external_lsa_rid_change(struct ospf *ospf);
 extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
 					uint32_t, struct in_addr,
@@ -300,7 +305,7 @@ extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *, uint8_t,
 extern void ospf_lsa_maxage(struct ospf *, struct ospf_lsa *);
 extern uint32_t get_metric(uint8_t *);
 
-extern void ospf_lsa_maxage_walker(struct thread *thread);
+extern void ospf_lsa_maxage_walker(struct event *thread);
 extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *, struct ospf_lsa *);
 
 extern void ospf_external_lsa_refresh_default(struct ospf *);
@@ -320,7 +325,7 @@ extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
 
 extern void ospf_refresher_register_lsa(struct ospf *, struct ospf_lsa *);
 extern void ospf_refresher_unregister_lsa(struct ospf *, struct ospf_lsa *);
-extern void ospf_lsa_refresh_walker(struct thread *thread);
+extern void ospf_lsa_refresh_walker(struct event *thread);
 
 extern void ospf_lsa_maxage_delete(struct ospf *, struct ospf_lsa *);
 
@@ -346,7 +351,7 @@ extern void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
 					    struct ospf_lsa *lsa);
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
-extern void ospf_maxage_lsa_remover(struct thread *thread);
+extern void ospf_maxage_lsa_remover(struct event *thread);
 extern bool ospf_check_dna_lsa(const struct ospf_lsa *lsa);
 extern void ospf_refresh_area_self_lsas(struct ospf_area *area);
 

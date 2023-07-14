@@ -26,7 +26,7 @@
 #include "frr_pthread.h"
 #include "command.h"
 #include "monotime.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #include "lib/version.h"
 #include "lib/lib_errors.h"
@@ -789,10 +789,10 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 	rcu_free(MTYPE_LOG_5424, oldt, zt.rcu_head);
 }
 
-static void zlog_5424_reconnect(struct thread *t)
+static void zlog_5424_reconnect(struct event *t)
 {
-	struct zlog_cfg_5424 *zcf = THREAD_ARG(t);
-	int fd = THREAD_FD(t);
+	struct zlog_cfg_5424 *zcf = EVENT_ARG(t);
+	int fd = EVENT_FD(t);
 	char dummy[256];
 	ssize_t ret;
 
@@ -800,8 +800,8 @@ static void zlog_5424_reconnect(struct thread *t)
 		ret = read(fd, dummy, sizeof(dummy));
 		if (ret > 0) {
 			/* logger is sending us something?!?! */
-			thread_add_read(t->master, zlog_5424_reconnect, zcf, fd,
-					&zcf->t_reconnect);
+			event_add_read(t->master, zlog_5424_reconnect, zcf, fd,
+				       &zcf->t_reconnect);
 			return;
 		}
 
@@ -1030,14 +1030,14 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 		assert(zcf->master);
 
 		if (fd != -1) {
-			thread_add_read(zcf->master, zlog_5424_reconnect, zcf,
-					fd, &zcf->t_reconnect);
+			event_add_read(zcf->master, zlog_5424_reconnect, zcf,
+				       fd, &zcf->t_reconnect);
 			zcf->reconn_backoff_cur = zcf->reconn_backoff;
 
 		} else {
-			thread_add_timer_msec(zcf->master, zlog_5424_reconnect,
-					      zcf, zcf->reconn_backoff_cur,
-					      &zcf->t_reconnect);
+			event_add_timer_msec(zcf->master, zlog_5424_reconnect,
+					     zcf, zcf->reconn_backoff_cur,
+					     &zcf->t_reconnect);
 
 			zcf->reconn_backoff_cur += zcf->reconn_backoff_cur / 2;
 			if (zcf->reconn_backoff_cur > zcf->reconn_backoff_max)
@@ -1053,7 +1053,7 @@ bool zlog_5424_apply_dst(struct zlog_cfg_5424 *zcf)
 {
 	int fd = -1;
 
-	thread_cancel(&zcf->t_reconnect);
+	event_cancel(&zcf->t_reconnect);
 
 	if (zcf->prio_min != ZLOG_DISABLED)
 		fd = zlog_5424_open(zcf, -1);
@@ -1106,7 +1106,7 @@ bool zlog_5424_rotate(struct zlog_cfg_5424 *zcf)
 		if (!zcf->active)
 			return true;
 
-		thread_cancel(&zcf->t_reconnect);
+		event_cancel(&zcf->t_reconnect);
 
 		/* need to retain the socket type because it also influences
 		 * other fields (packets) and we can't atomically swap these

@@ -28,8 +28,8 @@ static void path_ted_unregister_vty(void);
 static uint32_t path_ted_start_importing_igp(const char *daemon_str);
 static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
-static void path_ted_timer_handler_sync(struct thread *thread);
-static void path_ted_timer_handler_refresh(struct thread *thread);
+static void path_ted_timer_handler_sync(struct event *thread);
+static void path_ted_timer_handler_refresh(struct event *thread);
 static int path_ted_cli_debug_config_write(struct vty *vty);
 static int path_ted_cli_debug_set_all(uint32_t flags, bool set);
 
@@ -41,7 +41,7 @@ struct ted_state ted_state_g = {};
  * path_path_ted public API function implementations
  */
 
-void path_ted_init(struct thread_master *master)
+void path_ted_init(struct event_loop *master)
 {
 	ted_state_g.main = master;
 	ted_state_g.link_state_delay_interval = TIMER_RETRY_DELAY;
@@ -206,7 +206,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
-	uint64_t key;
+	struct ls_edge_key key;
 
 	if (!path_ted_is_initialized())
 		return MPLS_LABEL_NONE;
@@ -218,7 +218,8 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	case IPADDR_V4:
 		/* We have local and remote ip */
 		/* so check all attributes in ted */
-		key = ((uint64_t)ntohl(local->ip._v4_addr.s_addr)) & 0xffffffff;
+		key.family = AF_INET;
+		IPV4_ADDR_COPY(&key.k.addr, &local->ip._v4_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
 			if (edge->attributes->standard.remote.s_addr
@@ -232,8 +233,8 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		}
 		break;
 	case IPADDR_V6:
-		key = (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[2]) << 32 |
-		      (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[3]);
+		key.family = AF_INET6;
+		IPV6_ADDR_COPY(&key.k.addr6, &local->ip._v6_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
 			if ((0 == memcmp(&edge->attributes->standard.remote6,
@@ -268,7 +269,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	switch (prefix->family) {
 	case AF_INET:
 	case AF_INET6:
-		subnet = ls_find_subnet(ted_state_g.ted, *prefix);
+		subnet = ls_find_subnet(ted_state_g.ted, prefix);
 		if (subnet) {
 			if ((CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SR))
 			    && (subnet->ls_pref->sr.algo == algo))
@@ -298,7 +299,7 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	switch (prefix->family) {
 	case AF_INET:
 	case AF_INET6:
-		subnet = ls_find_subnet(ted_state_g.ted, *prefix);
+		subnet = ls_find_subnet(ted_state_g.ted, prefix);
 		if (subnet && subnet->vertex
 		    && subnet->vertex->outgoing_edges) {
 			/* from the vertex linked in subnet */
@@ -583,9 +584,9 @@ enum zclient_send_status path_ted_link_state_sync(void)
 		PATH_TED_DEBUG("%s: PATHD-TED: Opaque asked for TED sync ",
 			       __func__);
 	}
-	thread_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
-			 &ted_state_g, ted_state_g.link_state_delay_interval,
-			 &ted_state_g.t_link_state_sync);
+	event_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
+			&ted_state_g, ted_state_g.link_state_delay_interval,
+			&ted_state_g.t_link_state_sync);
 
 	return status;
 }
@@ -597,10 +598,10 @@ enum zclient_send_status path_ted_link_state_sync(void)
  *
  * @return		status
  */
-void path_ted_timer_handler_sync(struct thread *thread)
+void path_ted_timer_handler_sync(struct event *thread)
 {
 	/* data unpacking */
-	struct ted_state *data = THREAD_ARG(thread);
+	struct ted_state *data = EVENT_ARG(thread);
 
 	assert(data != NULL);
 	/* Retry the sync */
@@ -619,10 +620,9 @@ int path_ted_segment_list_refresh(void)
 	int status = 0;
 
 	path_ted_timer_refresh_cancel();
-	thread_add_timer(ted_state_g.main, path_ted_timer_handler_refresh,
-			 &ted_state_g,
-			 ted_state_g.segment_list_refresh_interval,
-			 &ted_state_g.t_segment_list_refresh);
+	event_add_timer(ted_state_g.main, path_ted_timer_handler_refresh,
+			&ted_state_g, ted_state_g.segment_list_refresh_interval,
+			&ted_state_g.t_segment_list_refresh);
 
 	return status;
 }
@@ -634,14 +634,14 @@ int path_ted_segment_list_refresh(void)
  *
  * @return		status
  */
-void path_ted_timer_handler_refresh(struct thread *thread)
+void path_ted_timer_handler_refresh(struct event *thread)
 {
 	if (!path_ted_is_initialized())
 		return;
 
 	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
 	/* data unpacking */
-	struct ted_state *data = THREAD_ARG(thread);
+	struct ted_state *data = EVENT_ARG(thread);
 
 	assert(data != NULL);
 
@@ -658,7 +658,7 @@ void path_ted_timer_handler_refresh(struct thread *thread)
 void path_ted_timer_sync_cancel(void)
 {
 	if (ted_state_g.t_link_state_sync != NULL) {
-		thread_cancel(&ted_state_g.t_link_state_sync);
+		event_cancel(&ted_state_g.t_link_state_sync);
 		ted_state_g.t_link_state_sync = NULL;
 	}
 }
@@ -673,7 +673,7 @@ void path_ted_timer_sync_cancel(void)
 void path_ted_timer_refresh_cancel(void)
 {
 	if (ted_state_g.t_segment_list_refresh != NULL) {
-		thread_cancel(&ted_state_g.t_segment_list_refresh);
+		event_cancel(&ted_state_g.t_segment_list_refresh);
 		ted_state_g.t_segment_list_refresh = NULL;
 	}
 }

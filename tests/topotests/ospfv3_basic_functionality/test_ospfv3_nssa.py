@@ -73,7 +73,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     result = verify_ospf6_neighbor(tgen, topo)
-    assert result is True, "setup_module: Failed \n Error:" " {}".format(result)
+    assert result is True, "setup_module: Failed \n Error:  {}".format(result)
 
     logger.info("Running setup_module() done")
 

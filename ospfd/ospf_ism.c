@@ -7,7 +7,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "if.h"
@@ -237,12 +237,16 @@ int ospf_dr_election(struct ospf_interface *oi)
 }
 
 
-void ospf_hello_timer(struct thread *thread)
+void ospf_hello_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 
-	oi = THREAD_ARG(thread);
+	oi = EVENT_ARG(thread);
 	oi->t_hello = NULL;
+
+	/* Check if the GR hello-delay is active. */
+	if (oi->gr.hello_delay.t_grace_send)
+		return;
 
 	if (IS_DEBUG_OSPF(ism, ISM_TIMERS))
 		zlog_debug("ISM[%s]: Timer (Hello timer expire)", IF_NAME(oi));
@@ -254,11 +258,11 @@ void ospf_hello_timer(struct thread *thread)
 	OSPF_HELLO_TIMER_ON(oi);
 }
 
-static void ospf_wait_timer(struct thread *thread)
+static void ospf_wait_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 
-	oi = THREAD_ARG(thread);
+	oi = EVENT_ARG(thread);
 	oi->t_wait = NULL;
 
 	if (IS_DEBUG_OSPF(ism, ISM_TIMERS))
@@ -279,16 +283,18 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   interface parameters must be set to initial values, and
 		   timers are
 		   reset also. */
-		THREAD_OFF(oi->t_hello);
-		THREAD_OFF(oi->t_wait);
-		THREAD_OFF(oi->t_ls_ack);
+		EVENT_OFF(oi->t_hello);
+		EVENT_OFF(oi->t_wait);
+		EVENT_OFF(oi->t_ls_ack);
+		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Loopback:
 		/* In this state, the interface may be looped back and will be
 		   unavailable for regular data traffic. */
-		THREAD_OFF(oi->t_hello);
-		THREAD_OFF(oi->t_wait);
-		THREAD_OFF(oi->t_ls_ack);
+		EVENT_OFF(oi->t_hello);
+		EVENT_OFF(oi->t_wait);
+		EVENT_OFF(oi->t_ls_ack);
+		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Waiting:
 		/* The router is trying to determine the identity of DRouter and
@@ -298,7 +304,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
 		OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
 				  OSPF_IF_PARAM(oi, v_wait));
-		THREAD_OFF(oi->t_ls_ack);
+		EVENT_OFF(oi->t_ls_ack);
 		break;
 	case ISM_PointToPoint:
 		/* The interface connects to a physical Point-to-point network
@@ -307,7 +313,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   neighboring router. Hello packets are also sent. */
 		/* send first hello immediately */
 		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
-		THREAD_OFF(oi->t_wait);
+		EVENT_OFF(oi->t_wait);
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
 		break;
@@ -317,7 +323,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   and the router itself is neither Designated Router nor
 		   Backup Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
-		THREAD_OFF(oi->t_wait);
+		EVENT_OFF(oi->t_wait);
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
 		break;
@@ -326,7 +332,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   network,
 		   and the router is Backup Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
-		THREAD_OFF(oi->t_wait);
+		EVENT_OFF(oi->t_wait);
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
 		break;
@@ -335,7 +341,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   network,
 		   and the router is Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
-		THREAD_OFF(oi->t_wait);
+		EVENT_OFF(oi->t_wait);
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
 		break;
@@ -560,14 +566,14 @@ static void ism_change_state(struct ospf_interface *oi, int state)
 }
 
 /* Execute ISM event process. */
-void ospf_ism_event(struct thread *thread)
+void ospf_ism_event(struct event *thread)
 {
 	int event;
 	int next_state;
 	struct ospf_interface *oi;
 
-	oi = THREAD_ARG(thread);
-	event = THREAD_VAL(thread);
+	oi = EVENT_ARG(thread);
+	event = EVENT_VAL(thread);
 
 	/* Call function. */
 	next_state = (*(ISM[oi->state][event].func))(oi);

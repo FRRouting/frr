@@ -9,9 +9,9 @@
 #include "memory.h"
 DECLARE_MGROUP(MVTYSH);
 
-struct thread_master;
+struct event_loop;
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 #define VTYSH_ZEBRA     0x00001
 #define VTYSH_RIPD      0x00002
@@ -34,6 +34,7 @@ extern struct thread_master *master;
 #define VTYSH_VRRPD     0x40000
 #define VTYSH_PATHD     0x80000
 #define VTYSH_PIM6D     0x100000
+#define VTYSH_MGMTD 0x200000
 
 #define VTYSH_WAS_ACTIVE (-2)
 
@@ -42,7 +43,12 @@ extern struct thread_master *master;
 /* watchfrr is not in ALL since library CLI functions should not be
  * run on it (logging & co. should stay in a fixed/frozen config, and
  * things like prefix lists are not even initialised) */
-#define VTYSH_ALL        VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_PIM6D|VTYSH_NHRPD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_SHARPD|VTYSH_PBRD|VTYSH_STATICD|VTYSH_BFDD|VTYSH_FABRICD|VTYSH_VRRPD|VTYSH_PATHD
+#define VTYSH_ALL                                                              \
+	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_LDPD | VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD |           \
+		VTYSH_PIM6D | VTYSH_NHRPD | VTYSH_EIGRPD | VTYSH_BABELD |      \
+		VTYSH_SHARPD | VTYSH_PBRD | VTYSH_STATICD | VTYSH_BFDD |       \
+		VTYSH_FABRICD | VTYSH_VRRPD | VTYSH_PATHD | VTYSH_MGMTD
 #define VTYSH_ACL         VTYSH_BFDD|VTYSH_BABELD|VTYSH_BGPD|VTYSH_EIGRPD|VTYSH_ISISD|VTYSH_FABRICD|VTYSH_LDPD|VTYSH_NHRPD|VTYSH_OSPF6D|VTYSH_OSPFD|VTYSH_PBRD|VTYSH_PIMD|VTYSH_PIM6D|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_VRRPD|VTYSH_ZEBRA
 #define VTYSH_AFFMAP VTYSH_ZEBRA | VTYSH_ISISD
 #define VTYSH_RMAP       VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_FABRICD
@@ -52,7 +58,7 @@ extern struct thread_master *master;
 		VTYSH_EIGRPD | VTYSH_BABELD | VTYSH_PBRD | VTYSH_FABRICD |     \
 		VTYSH_VRRPD
 #define VTYSH_INTERFACE VTYSH_INTERFACE_SUBSET | VTYSH_BGPD
-#define VTYSH_VRF VTYSH_INTERFACE_SUBSET | VTYSH_STATICD
+#define VTYSH_VRF VTYSH_INTERFACE_SUBSET | VTYSH_STATICD | VTYSH_MGMTD
 #define VTYSH_KEYS VTYSH_RIPD | VTYSH_EIGRPD | VTYSH_OSPF6D
 /* Daemons who can process nexthop-group configs */
 #define VTYSH_NH_GROUP    VTYSH_PBRD|VTYSH_SHARPD
@@ -92,7 +98,7 @@ void config_add_line(struct list *, const char *);
 
 int vtysh_mark_file(const char *filename);
 
-int vtysh_read_config(const char *filename, bool dry_run);
+int vtysh_apply_config(const char *config_file_path, bool dry_run, bool fork);
 int vtysh_write_config_integrated(void);
 
 void vtysh_config_parse_line(void *, const char *);
@@ -112,5 +118,19 @@ extern struct vty *vty;
 extern int user_mode;
 
 extern bool vtysh_add_timestamp;
+
+struct vtysh_client {
+	int fd;
+	const char *name;
+	int flag;
+	char path[MAXPATHLEN];
+	struct vtysh_client *next;
+
+	struct event *log_reader;
+	int log_fd;
+	uint32_t lost_msgs;
+};
+
+extern struct vtysh_client vtysh_client[22];
 
 #endif /* VTYSH_H */

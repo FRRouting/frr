@@ -610,10 +610,7 @@ struct hash *zebra_vxlan_vni_table_create(void)
 
 void zebra_vxlan_vni_table_destroy(struct hash *vni_table)
 {
-	if (vni_table) {
-		hash_clean(vni_table, zebra_vxlan_vni_free);
-		hash_free(vni_table);
-	}
+	hash_clean_and_free(&vni_table, zebra_vxlan_vni_free);
 }
 
 int zebra_vxlan_if_vni_table_destroy(struct zebra_if *zif)

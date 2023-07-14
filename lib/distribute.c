@@ -445,14 +445,15 @@ int config_write_distribute(struct vty *vty,
 
 void distribute_list_delete(struct distribute_ctx **ctx)
 {
-	if ((*ctx)->disthash) {
-		hash_clean((*ctx)->disthash, (void (*)(void *))distribute_free);
+	hash_clean_and_free(&(*ctx)->disthash,
+			    (void (*)(void *))distribute_free);
+
+	if (dist_ctx_list) {
+		listnode_delete(dist_ctx_list, *ctx);
+		if (list_isempty(dist_ctx_list))
+			list_delete(&dist_ctx_list);
 	}
-	if (!dist_ctx_list)
-		dist_ctx_list = list_new();
-	listnode_delete(dist_ctx_list, *ctx);
-	if (list_isempty(dist_ctx_list))
-		list_delete(&dist_ctx_list);
+
 	XFREE(MTYPE_DISTRIBUTE_CTX, (*ctx));
 }
 

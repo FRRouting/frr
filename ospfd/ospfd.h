@@ -67,6 +67,12 @@
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
+/* Default socket buffer size */
+#define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
+
+/* OSPF config processing timer thread */
+extern struct event *t_ospf_cfg;
+
 struct ospf_external {
 	unsigned short instance;
 	struct route_table *external_info;
@@ -78,7 +84,7 @@ struct ospf_master {
 	struct list *ospf;
 
 	/* OSPF thread master. */
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* Various OSPF global configuration. */
 	uint8_t options;
@@ -145,7 +151,9 @@ struct ospf_gr_info {
 	bool prepare_in_progress;
 	bool finishing_restart;
 	uint32_t grace_period;
-	struct thread *t_grace_period;
+	int reason;
+	char *exit_reason;
+	struct event *t_grace_period;
 };
 
 /* OSPF instance structure. */
@@ -257,31 +265,30 @@ struct ospf {
 	int redistribute;		/* Num of redistributed protocols. */
 
 	/* Threads. */
-	struct thread *t_abr_task;	  /* ABR task timer. */
-	struct thread *t_abr_fr;	  /* ABR FR timer. */
-	struct thread *t_asbr_check;	/* ASBR check timer. */
-	struct thread *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
+	struct event *t_abr_task;		 /* ABR task timer. */
+	struct event *t_abr_fr;			 /* ABR FR timer. */
+	struct event *t_asbr_check;		 /* ASBR check timer. */
+	struct event *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
 						     update timer. */
-	struct thread *t_distribute_update; /* Distirbute list update timer. */
-	struct thread *t_spf_calc;	  /* SPF calculation timer. */
-	struct thread *t_ase_calc;	  /* ASE calculation timer. */
-	struct thread
-		*t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
-	struct thread *t_sr_update; /* Segment Routing update timer */
+	struct event *t_distribute_update; /* Distirbute list update timer. */
+	struct event *t_spf_calc;	   /* SPF calculation timer. */
+	struct event *t_ase_calc;	   /* ASE calculation timer. */
+	struct event *t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
+	struct event *t_sr_update;	 /* Segment Routing update timer */
 
 	unsigned int maxage_delay;      /* Delay on Maxage remover timer, sec */
-	struct thread *t_maxage;	/* MaxAge LSA remover timer. */
-	struct thread *t_maxage_walker; /* MaxAge LSA checking timer. */
+	struct event *t_maxage;		/* MaxAge LSA remover timer. */
+	struct event *t_maxage_walker;	/* MaxAge LSA checking timer. */
 
-	struct thread
+	struct event
 		*t_deferred_shutdown; /* deferred/stub-router shutdown timer*/
 
-	struct thread *t_write;
+	struct event *t_write;
 #define OSPF_WRITE_INTERFACE_COUNT_DEFAULT    20
-	struct thread *t_default_routemap_timer;
+	struct event *t_default_routemap_timer;
 
 	int write_oi_count; /* Num of packets sent per thread invocation */
-	struct thread *t_read;
+	struct event *t_read;
 	int fd;
 	struct stream *ibuf;
 	struct list *oi_write_q;
@@ -303,6 +310,18 @@ struct ospf {
 
 	int default_metric; /* Default metric for redistribute. */
 
+	/* NSSA default-information-originate */
+	struct {
+		/* # of NSSA areas requesting default information */
+		uint16_t refcnt;
+
+		/*
+		 * Whether a default route known through non-OSPF protocol is
+		 * present in the RIB.
+		 */
+		bool status;
+	} nssa_default_import_check;
+
 #define OSPF_LSA_REFRESHER_GRANULARITY 10
 #define OSPF_LSA_REFRESHER_SLOTS                                               \
 	((OSPF_LS_REFRESH_TIME + OSPF_LS_REFRESH_SHIFT)                        \
@@ -313,7 +332,7 @@ struct ospf {
 		struct list *qs[OSPF_LSA_REFRESHER_SLOTS];
 	} lsa_refresh_queue;
 
-	struct thread *t_lsa_refresher;
+	struct event *t_lsa_refresher;
 	time_t lsa_refresher_started;
 #define OSPF_LSA_REFRESH_INTERVAL_DEFAULT 10
 	uint16_t lsa_refresh_interval;
@@ -382,7 +401,7 @@ struct ospf {
 	/* delay timer to process external routes
 	 * with summary address.
 	 */
-	struct thread *t_external_aggr;
+	struct event *t_external_aggr;
 
 	/* delay interval in seconds */
 	uint16_t aggr_delay_interval;
@@ -412,6 +431,13 @@ struct ospf {
 
 	/* Flood Reduction configuration state */
 	bool fr_configured;
+
+	/* Socket buffer sizes */
+	uint32_t recv_sock_bufsize;
+	uint32_t send_sock_bufsize;
+
+	/* Per-interface write socket */
+	bool intf_socket_enabled;
 
 	QOBJ_FIELDS;
 };
@@ -518,6 +544,7 @@ struct ospf_area {
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
 	struct route_table *ranges; /* Configured Area Ranges. */
+	struct route_table *nssa_ranges; /* Configured NSSA Area Ranges. */
 
 	/* RFC3137 stub router state flags for area */
 	uint8_t stub_router_state;
@@ -562,6 +589,13 @@ struct ospf_area {
 #define PREFIX_LIST_OUT(A)  (A)->plist_out.list
 #define PREFIX_NAME_OUT(A)  (A)->plist_out.name
 
+	/* NSSA default-information-originate */
+	struct {
+		bool enabled;
+		int metric_type;
+		int metric_value;
+	} nssa_default_originate;
+
 	/* Shortest Path Tree. */
 	struct vertex *spf;
 	struct list *spf_vertex_list;
@@ -578,8 +612,8 @@ struct ospf_area {
 	struct p_spaces_head *p_spaces;
 
 	/* Threads. */
-	struct thread *t_stub_router;     /* Stub-router timer */
-	struct thread *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
+	struct event *t_stub_router;	 /* Stub-router timer */
+	struct event *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
 
 	/* Statistics field. */
 	uint32_t spf_calculation; /* SPF Calculation Count. */
@@ -627,7 +661,7 @@ struct ospf_nbr_nbma {
 	uint32_t v_poll;
 
 	/* Poll timer thread. */
-	struct thread *t_poll;
+	struct event *t_poll;
 
 	/* State change. */
 	uint32_t state_change;
@@ -654,16 +688,18 @@ struct ospf_nbr_nbma {
 #define LSA_OPTIONS_NSSA_GET(area)                                             \
 	(((area)->external_routing == OSPF_AREA_NSSA) ? OSPF_OPTION_NP : 0)
 
-#define OSPF_TIMER_ON(T,F,V) thread_add_timer (master,(F),ospf,(V),&(T))
-#define OSPF_AREA_TIMER_ON(T,F,V) thread_add_timer (master, (F), area, (V), &(T))
-#define OSPF_POLL_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr_nbma, (V), &(T))
+#define OSPF_TIMER_ON(T, F, V) event_add_timer(master, (F), ospf, (V), &(T))
+#define OSPF_AREA_TIMER_ON(T, F, V)                                            \
+	event_add_timer(master, (F), area, (V), &(T))
+#define OSPF_POLL_TIMER_ON(T, F, V)                                            \
+	event_add_timer(master, (F), nbr_nbma, (V), &(T))
 
 /* Extern variables. */
 extern struct ospf_master *om;
 extern unsigned short ospf_instance;
 extern const int ospf_redistributed_proto_max;
 extern struct zclient *zclient;
-extern struct thread_master *master;
+extern struct event_loop *master;
 extern int ospf_zlog;
 extern struct zebra_privs_t ospfd_privs;
 
@@ -696,14 +732,18 @@ extern int ospf_area_no_summary_set(struct ospf *ospf, struct in_addr area_id);
 extern int ospf_area_no_summary_unset(struct ospf *ospf,
 				      struct in_addr area_id);
 extern int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id);
-extern int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id,
-				int argc);
+extern int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id);
 extern int ospf_area_nssa_suppress_fa_set(struct ospf *ospf,
 					  struct in_addr area_id);
 extern int ospf_area_nssa_suppress_fa_unset(struct ospf *ospf,
 					    struct in_addr area_id);
 extern int ospf_area_nssa_translator_role_set(struct ospf *ospf,
 					      struct in_addr area_id, int role);
+extern void ospf_area_nssa_default_originate_set(struct ospf *ospf,
+						 struct in_addr area_id,
+						 int metric, int metric_type);
+extern void ospf_area_nssa_default_originate_unset(struct ospf *ospf,
+						   struct in_addr area_id);
 extern int ospf_area_export_list_set(struct ospf *ospf,
 				     struct ospf_area *area_id,
 				     const char *list_name);
@@ -757,7 +797,7 @@ extern void ospf_interface_area_unset(struct ospf *ospf, struct interface *ifp);
 
 extern void ospf_route_map_init(void);
 
-extern void ospf_master_init(struct thread_master *master);
+extern void ospf_master_init(struct event_loop *master);
 extern void ospf_vrf_init(void);
 extern void ospf_vrf_terminate(void);
 extern void ospf_vrf_link(struct ospf *ospf, struct vrf *vrf);
@@ -768,6 +808,9 @@ int ospf_area_nssa_no_summary_set(struct ospf *ospf, struct in_addr area_id);
 const char *ospf_get_name(const struct ospf *ospf);
 extern struct ospf_interface *add_ospf_interface(struct connected *co,
 						 struct ospf_area *area);
+/* Update socket bufsize(s), after config change */
+void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
+			 uint32_t sendsize);
 
 extern int p_spaces_compare_func(const struct p_space *a,
 				 const struct p_space *b);

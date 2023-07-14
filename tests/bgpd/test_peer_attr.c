@@ -106,7 +106,7 @@
 
 /* Required variables to link in libbgp */
 struct zebra_privs_t bgpd_privs = {0};
-struct thread_master *master;
+struct event_loop *master;
 
 enum test_state {
 	TEST_SUCCESS,
@@ -1363,7 +1363,7 @@ static void bgp_startup(void)
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	nb_init(master, NULL, 0, false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);
@@ -1412,7 +1412,7 @@ static void bgp_shutdown(void)
 	nb_terminate();
 	yang_terminate();
 	zprivs_terminate(&bgpd_privs);
-	thread_master_free(master);
+	event_master_free(master);
 	master = NULL;
 }
 

@@ -24,7 +24,7 @@
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif /*s6_addr32*/
 
-struct thread_master *master;
+struct event_loop *master;
 
 /* This structure is copied from lib/srcdest_table.c to which it is
  * private as far as other parts of Quagga are concerned.
@@ -121,8 +121,7 @@ static struct test_state *test_state_new(void)
 static void test_state_free(struct test_state *test)
 {
 	route_table_finish(test->table);
-	hash_clean(test->log, log_free);
-	hash_free(test->log);
+	hash_clean_and_free(&test->log, log_free);
 	XFREE(MTYPE_TMP, test);
 }
 

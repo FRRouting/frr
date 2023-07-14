@@ -252,20 +252,15 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	struct rib_table_info *table_info =
-		rib_table_info(rib_dest_table(dest));
-	struct zebra_vrf *zvrf = table_info->zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
 	ri->prefix = rib_dest_prefix(dest);
 	ri->af = rib_dest_af(dest);
 
-	if (zvrf && zvrf->zns)
-		ri->nlmsg_pid = zvrf->zns->netlink_dplane_out.snl.nl_pid;
+	ri->nlmsg_pid = pid;
 
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = table_info->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -279,6 +274,8 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 		zfpm_debug("%s: Expected non-NULL re pointer", __func__);
 		return 0;
 	}
+
+	ri->rtm_table = re->table;
 
 	ri->rtm_protocol = netlink_proto_from_route_type(re->type);
 	ri->rtm_type = RTN_UNICAST;

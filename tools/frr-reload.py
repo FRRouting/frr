@@ -788,6 +788,8 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
     # remote-as config.
 
     pg_dict = dict()
+    found_pg_cmd = False
+
     # Find all peer-group commands; create dict of each peer-group
     # to store assoicated neighbor as value
     for ctx_keys, line in lines_to_add:
@@ -808,6 +810,10 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                     "remoteas": False,
                 }
                 found_pg_cmd = True
+
+    # Do nothing if there is no any "peer-group"
+    if found_pg_cmd is False:
+        return
 
     # Find peer-group with remote-as command, also search neighbor
     # associated to peer-group and store into peer-group dict
@@ -850,7 +856,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
                 for pg in pg_dict[ctx_keys[0]]:
                     if pg_dict[ctx_keys[0]][pg]["remoteas"] == True:
                         for nbr in pg_dict[ctx_keys[0]][pg]["nbr"]:
-                            if re_nbr_rmtas.group(1) in nbr:
+                            if re_nbr_rmtas.group(1) == nbr:
                                 lines_to_del_from_add.append((ctx_keys, line))
 
     for ctx_keys, line in lines_to_del_from_add:
@@ -885,7 +891,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         lines_to_del.remove((ctx_keys, line))
 
 
-def delete_move_lines(lines_to_add, lines_to_del):
+def bgp_delete_move_lines(lines_to_add, lines_to_del):
     # This method handles deletion of bgp peer group config.
     # The objective is to delete config lines related to peers
     # associated with the peer-group and move the peer-group
@@ -1056,6 +1062,39 @@ def delete_move_lines(lines_to_add, lines_to_del):
         lines_to_del.append((ctx_keys, line))
 
     bgp_delete_inst_move_line(lines_to_del)
+
+    return (lines_to_add, lines_to_del)
+
+
+def pim_delete_move_lines(lines_to_add, lines_to_del):
+
+    # Under interface context, if 'no ip pim' is present
+    # remove subsequent 'no ip pim <blah>' options as it
+    # they are implicitly deleted by 'no ip pim'.
+    # Remove all such depdendent options from delete
+    # pending list.
+    pim_disable = False
+
+    for (ctx_keys, line) in lines_to_del:
+        if ctx_keys[0].startswith("interface") and line and line == "ip pim":
+            pim_disable = True
+
+    if pim_disable:
+        for (ctx_keys, line) in lines_to_del:
+            if (
+                ctx_keys[0].startswith("interface")
+                and line
+                and line.startswith("ip pim ")
+            ):
+                lines_to_del.remove((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
+
+
+def delete_move_lines(lines_to_add, lines_to_del):
+
+    lines_to_add, lines_to_del = bgp_delete_move_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = pim_delete_move_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
 
@@ -1474,10 +1513,17 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
 
     for (ctx_keys, line) in lines_to_del_to_del:
-        lines_to_del.remove((ctx_keys, line))
+        try:
+            lines_to_del.remove((ctx_keys, line))
+        except ValueError:
+            pass
 
     for (ctx_keys, line) in lines_to_add_to_del:
-        lines_to_add.remove((ctx_keys, line))
+        try:
+            lines_to_add.remove((ctx_keys, line))
+        except ValueError:
+            pass
+
 
     return (lines_to_add, lines_to_del)
 
@@ -1531,10 +1577,30 @@ def compare_context_objects(newconf, running):
     pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
+    area_stub_no_sum = "area (\S+) stub no-summary"
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
     for (running_ctx_keys, running_ctx) in iteritems(running.contexts):
+
+        if running_ctx_keys in newconf.contexts:
+            newconf_ctx = newconf.contexts[running_ctx_keys]
+
+            for line in running_ctx.lines:
+                # ospf area <> stub no-summary line removal requires
+                # to remoe area <> stub as no form of original
+                # retains the stub form.
+                # lines_to_del will contain:
+                #   no area <x> stub no-summary and
+                #   no area <x> stub
+                if (
+                    running_ctx_keys[0].startswith("router ospf")
+                    and line not in newconf_ctx.dlines
+                ):
+                    re_area_stub_no_sum = re.search(area_stub_no_sum, line)
+                    if re_area_stub_no_sum:
+                        new_del_line = "area %s stub" % re_area_stub_no_sum.group(1)
+                        lines_to_del.append((running_ctx_keys, new_del_line))
 
         if running_ctx_keys not in newconf.contexts:
 

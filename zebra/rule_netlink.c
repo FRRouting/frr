@@ -116,9 +116,9 @@ static ssize_t netlink_rule_msg_encode(
 			return 0;
 	}
 
-	/* dsfield, if specified */
+	/* dsfield, if specified; mask off the ECN bits */
 	if (filter_bm & PBR_FILTER_DSFIELD)
-		req->frh.tos = dsfield;
+		req->frh.tos = dsfield & 0xfc;
 
 	/* protocol to match on */
 	if (filter_bm & PBR_FILTER_IP_PROTOCOL)
@@ -400,6 +400,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
 				 &dp_info, 0, true);
+
 	return ret;
 }
 

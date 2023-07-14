@@ -212,7 +212,7 @@ Route Map Match Command
 
 .. clicmd:: match source-protocol PROTOCOL_NAME
 
-  This is a ZEBRA specific match command.  Matches the
+  This is a ZEBRA and BGP specific match command.  Matches the
   originating protocol specified.
 
 .. clicmd:: match source-instance NUMBER
@@ -294,9 +294,9 @@ Route Map Set Command
 
    Subtract the BGP local preference from an existing `local_pref`.
 
-.. clicmd:: set distance DISTANCE
+.. clicmd:: set distance (1-255)
 
-   Set the Administrative distance to DISTANCE to use for the route.
+   Set the Administrative distance to use for the route.
    This is only locally significant and will not be dispersed to peers.
 
 .. clicmd:: set weight WEIGHT
@@ -305,10 +305,18 @@ Route Map Set Command
 
 .. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
 
-   Set the BGP attribute MED to a specific value. Use `+`/`-` to add or subtract
-   the specified value to/from the MED. Use `rtt` to set the MED to the round
-   trip time or `+rtt`/`-rtt` to add/subtract the round trip time to/from the
-   MED.
+   Set the route metric. When used with BGP, set the BGP attribute MED to a
+   specific value. Use `+`/`-` to add or subtract the specified value to/from
+   the existing/MED. Use `rtt` to set the MED to the round trip time or
+   `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
+
+.. clicmd:: set min-metric <(0-4294967295)>
+
+   Set the minimum meric for the route.
+
+.. clicmd:: set max-metric <(0-4294967295)>
+
+   Set the maximum meric for the route.
 
 .. clicmd:: set aigp-metric <igp-metric|(1-4294967295)>
 

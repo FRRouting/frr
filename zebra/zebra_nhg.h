@@ -89,7 +89,7 @@ struct nhg_hash_entry {
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
-	struct thread *timer;
+	struct event *timer;
 
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
@@ -358,6 +358,7 @@ extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 /* Dataplane install/uninstall */
 extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_interface_nhg_reinstall(struct interface *ifp);
 
 /* Forward ref of dplane update context type */
 struct zebra_dplane_ctx;

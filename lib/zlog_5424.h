@@ -13,8 +13,8 @@
 #include "zlog_targets.h"
 #include "qobj.h"
 
-struct thread;
-struct thread_master;
+struct event;
+struct event_loop;
 
 enum zlog_5424_dst {
 	/* can be used to disable a target temporarily */
@@ -78,8 +78,8 @@ struct zlog_cfg_5424 {
 	 */
 
 	/* sockets only - read handler to reconnect on errors */
-	struct thread_master *master;
-	struct thread *t_reconnect;
+	struct event_loop *master;
+	struct event *t_reconnect;
 	unsigned int reconn_backoff, reconn_backoff_cur, reconn_backoff_max;
 	int sock_type;
 	struct sockaddr_storage sa;

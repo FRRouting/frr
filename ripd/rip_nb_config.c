@@ -3,6 +3,7 @@
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
  * Copyright (C) 2018  NetDEF, Inc.
  *                     Renato Westphal
+ * Copyright (C) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -13,6 +14,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "command.h"
+#include "if_rmap.h"
 #include "routemap.h"
 #include "northbound.h"
 #include "libfrr.h"
@@ -21,6 +23,7 @@
 #include "ripd/rip_nb.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
+#include "ripd/rip_bfd.h"
 
 /*
  * XPath: /frr-ripd:ripd/instance
@@ -96,9 +99,14 @@ int ripd_instance_allow_ecmp_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	rip->ecmp = yang_dnode_get_bool(args->dnode, NULL);
-	if (!rip->ecmp)
+	rip->ecmp =
+		MIN(yang_dnode_get_uint8(args->dnode, NULL), zebra_ecmp_count);
+	if (!rip->ecmp) {
 		rip_ecmp_disable(rip);
+		return NB_OK;
+	}
+
+	rip_ecmp_change(rip);
 
 	return NB_OK;
 }
@@ -523,7 +531,7 @@ int ripd_instance_non_passive_interface_create(struct nb_cb_create_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
-	return rip_passive_nondefault_unset(rip, ifname);
+	return rip_passive_nondefault_set(rip, ifname);
 }
 
 int ripd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
@@ -537,7 +545,7 @@ int ripd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
-	return rip_passive_nondefault_set(rip, ifname);
+	return rip_passive_nondefault_unset(rip, ifname);
 }
 
 /*
@@ -681,6 +689,94 @@ int ripd_instance_redistribute_metric_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-ripd:ripd/instance/if-route-maps/if-route-map
+ */
+int ripd_instance_if_route_maps_if_route_map_create(
+	struct nb_cb_create_args *args)
+{
+	/* if_rmap is created when first routemap is added */
+	return NB_OK;
+}
+
+int ripd_instance_if_route_maps_if_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * YANG will prune edit deletes up to the most general deleted node so
+	 * we need to handle deleting any existing state underneath and not
+	 * count on those more specific callbacks being called individually.
+	 */
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	if_rmap_yang_destroy_cb(rip->if_rmap_ctx, args->dnode);
+
+	return NB_OK;
+}
+
+static void if_route_map_modify(const struct lyd_node *dnode,
+				enum if_rmap_type type, bool delete)
+{
+	struct rip *rip = nb_running_get_entry(dnode, NULL, true);
+
+	if_rmap_yang_modify_cb(rip->if_rmap_ctx, dnode, type, delete);
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/if-route-maps/if-route-map/in-route-map
+ */
+int ripd_instance_if_route_maps_if_route_map_in_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_IN, false);
+
+	return NB_OK;
+}
+
+int ripd_instance_if_route_maps_if_route_map_in_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_IN, true);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/if-route-maps/if-route-map/out-route-map
+ */
+int ripd_instance_if_route_maps_if_route_map_out_route_map_modify(
+	struct nb_cb_modify_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_OUT, false);
+
+	return NB_OK;
+}
+
+int ripd_instance_if_route_maps_if_route_map_out_route_map_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if_route_map_modify(args->dnode, IF_RMAP_OUT, true);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-ripd:ripd/instance/static-route
  */
 int ripd_instance_static_route_create(struct nb_cb_create_args *args)
@@ -811,6 +907,40 @@ int ripd_instance_version_send_modify(struct nb_cb_modify_args *args)
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	rip->version_send = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/default-bfd-profile
+ */
+int ripd_instance_default_bfd_profile_modify(struct nb_cb_modify_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	XFREE(MTYPE_RIP_BFD_PROFILE, rip->default_bfd_profile);
+	rip->default_bfd_profile =
+		XSTRDUP(MTYPE_RIP_BFD_PROFILE,
+			yang_dnode_get_string(args->dnode, NULL));
+	rip_bfd_instance_update(rip);
+
+	return NB_OK;
+}
+
+int ripd_instance_default_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	XFREE(MTYPE_RIP_BFD_PROFILE, rip->default_bfd_profile);
+	rip_bfd_instance_update(rip);
 
 	return NB_OK;
 }
@@ -976,6 +1106,104 @@ int lib_interface_rip_authentication_password_destroy(
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	ri = ifp->info;
 	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring
+ */
+int lib_interface_rip_bfd_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct rip_interface *ri;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ri = ifp->info;
+	ri->bfd.enabled = yang_dnode_get_bool(args->dnode, "./enable");
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
+	if (yang_dnode_exists(args->dnode, "./profile"))
+		ri->bfd.profile = XSTRDUP(
+			MTYPE_RIP_BFD_PROFILE,
+			yang_dnode_get_string(args->dnode, "./profile"));
+
+	rip_bfd_interface_update(ri);
+
+	return NB_OK;
+}
+
+int lib_interface_rip_bfd_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct rip_interface *ri;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ri = ifp->info;
+	ri->bfd.enabled = false;
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
+	rip_bfd_interface_update(ri);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/enable
+ */
+int lib_interface_rip_bfd_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct rip_interface *ri;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ri = ifp->info;
+	ri->bfd.enabled = yang_dnode_get_bool(args->dnode, NULL);
+	rip_bfd_interface_update(ri);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/profile
+ */
+int lib_interface_rip_bfd_profile_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct rip_interface *ri;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ri = ifp->info;
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
+	ri->bfd.profile = XSTRDUP(MTYPE_RIP_BFD_PROFILE,
+				  yang_dnode_get_string(args->dnode, NULL));
+	rip_bfd_interface_update(ri);
+
+	return NB_OK;
+}
+
+int lib_interface_rip_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct rip_interface *ri;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ri = ifp->info;
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
+	rip_bfd_interface_update(ri);
 
 	return NB_OK;
 }

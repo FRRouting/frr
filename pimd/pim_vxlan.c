@@ -169,7 +169,7 @@ void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 		pim_vxlan_del_work(vxlan_sg);
 }
 
-static void pim_vxlan_work_timer_cb(struct thread *t)
+static void pim_vxlan_work_timer_cb(struct event *t)
 {
 	pim_vxlan_do_reg_work();
 	pim_vxlan_work_timer_setup(true /* start */);
@@ -178,10 +178,10 @@ static void pim_vxlan_work_timer_cb(struct thread *t)
 /* global 1second timer used for periodic processing */
 static void pim_vxlan_work_timer_setup(bool start)
 {
-	THREAD_OFF(vxlan_info.work_timer);
+	EVENT_OFF(vxlan_info.work_timer);
 	if (start)
-		thread_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
-			PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
+		event_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
+				PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
 }
 
 /**************************** vxlan origination mroutes ***********************
@@ -225,7 +225,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * if there are no other references.
 		 */
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
-			THREAD_OFF(up->t_ka_timer);
+			EVENT_OFF(up->t_ka_timer);
 			up = pim_upstream_keep_alive_timer_proc(up);
 		} else {
 			/* this is really unexpected as we force vxlan
@@ -1172,12 +1172,8 @@ void pim_vxlan_init(struct pim_instance *pim)
 
 void pim_vxlan_exit(struct pim_instance *pim)
 {
-	if (pim->vxlan.sg_hash) {
-		hash_clean(pim->vxlan.sg_hash,
-			   (void (*)(void *))pim_vxlan_sg_del_item);
-		hash_free(pim->vxlan.sg_hash);
-		pim->vxlan.sg_hash = NULL;
-	}
+	hash_clean_and_free(&pim->vxlan.sg_hash,
+			    (void (*)(void *))pim_vxlan_sg_del_item);
 }
 
 void pim_vxlan_terminate(void)

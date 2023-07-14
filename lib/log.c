@@ -140,7 +140,7 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 
 	fb.pos = buf;
 
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (!tc)
@@ -284,7 +284,7 @@ void zlog_backtrace(int priority)
 
 void zlog_thread_info(int log_level)
 {
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (tc)
@@ -457,7 +457,9 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_TC_CLASS_ADD),
 	DESC_ENTRY(ZEBRA_TC_CLASS_DELETE),
 	DESC_ENTRY(ZEBRA_TC_FILTER_ADD),
-	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE)};
+	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE),
+	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY)
+};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
@@ -504,6 +506,26 @@ const char *zserv_command_string(unsigned int command)
 		return unknown.string;
 	}
 	return command_types[command].string;
+}
+
+#define DESC_ENTRY(T) [(T)] = {(T), (#T), '\0'}
+static const struct zebra_desc_table gr_client_cap_types[] = {
+	DESC_ENTRY(ZEBRA_CLIENT_GR_CAPABILITIES),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE),
+	DESC_ENTRY(ZEBRA_CLIENT_ROUTE_UPDATE_PENDING),
+	DESC_ENTRY(ZEBRA_CLIENT_GR_DISABLE),
+	DESC_ENTRY(ZEBRA_CLIENT_RIB_STALE_TIME),
+};
+#undef DESC_ENTRY
+
+const char *zserv_gr_client_cap_string(uint32_t zcc)
+{
+	if (zcc >= array_size(gr_client_cap_types)) {
+		flog_err(EC_LIB_DEVELOPMENT, "unknown zserv command type: %u",
+			 zcc);
+		return unknown.string;
+	}
+	return gr_client_cap_types[zcc].string;
 }
 
 int proto_name2num(const char *s)

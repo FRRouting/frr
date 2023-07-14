@@ -599,11 +599,14 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length"));
-	} else if (IS_MATCH_SRC_PROTO(condition)) {
+	} else if (IS_MATCH_SRC_PROTO(condition) ||
+		   IS_MATCH_BGP_SRC_PROTO(condition)) {
 		vty_out(vty, " match source-protocol %s\n",
 			yang_dnode_get_string(
 				dnode,
-				"./rmap-match-condition/frr-zebra-route-map:source-protocol"));
+				IS_MATCH_SRC_PROTO(condition)
+					? "./rmap-match-condition/frr-zebra-route-map:source-protocol"
+					: "./rmap-match-condition/frr-bgp-route-map:source-protocol"));
 	} else if (IS_MATCH_SRC_INSTANCE(condition)) {
 		vty_out(vty, " match source-instance %s\n",
 			yang_dnode_get_string(
@@ -890,6 +893,76 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(set_min_metric, set_min_metric_cmd,
+	   "set min-metric <(0-4294967295)$metric>",
+	   SET_STR
+	   "Minimum metric value for destination routing protocol\n"
+	   "Minimum metric value\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-route-map:set-min-metric']";
+	char xpath_value[XPATH_MAXLEN];
+	char value[64];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/min-metric", xpath);
+	snprintf(value, sizeof(value), "%s", metric_str);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_min_metric, no_set_min_metric_cmd,
+	   "no set min-metric [(0-4294967295)]",
+	   NO_STR SET_STR
+	   "Minimum metric value for destination routing protocol\n"
+	   "Minumum metric value\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-route-map:set-min-metric']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(set_max_metric, set_max_metric_cmd,
+	   "set max-metric <(0-4294967295)$metric>",
+	   SET_STR
+	   "Maximum metric value for destination routing protocol\n"
+	   "Miximum metric value\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-route-map:set-max-metric']";
+	char xpath_value[XPATH_MAXLEN];
+	char value[64];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/max-metric", xpath);
+	snprintf(value, sizeof(value), "%s", metric_str);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_max_metric, no_set_max_metric_cmd,
+	   "no set max-metric [(0-4294967295)]",
+	   NO_STR SET_STR
+	   "Maximum Metric value for destination routing protocol\n"
+	   "Maximum metric value\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-route-map:set-max-metric']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(
 	set_tag, set_tag_cmd,
 	"set tag (1-4294967295)$tag",
@@ -1011,6 +1084,14 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				yang_dnode_get_string(
 					dnode, "./rmap-set-action/value"));
 		}
+	} else if (IS_SET_MIN_METRIC(action)) {
+		vty_out(vty, " set min-metric %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-set-action/min-metric"));
+	} else if (IS_SET_MAX_METRIC(action)) {
+		vty_out(vty, " set max-metric %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-set-action/max-metric"));
 	} else if (IS_SET_TAG(action)) {
 		vty_out(vty, " set tag %s\n",
 			yang_dnode_get_string(dnode, "./rmap-set-action/tag"));
@@ -1140,6 +1221,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:extcommunity-rt"));
+	} else if (IS_SET_EXTCOMMUNITY_NT(action)) {
+		vty_out(vty, " set extcommunity nt %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:extcommunity-nt"));
 	} else if (IS_SET_EXTCOMMUNITY_SOO(action)) {
 		vty_out(vty, " set extcommunity soo %s\n",
 			yang_dnode_get_string(
@@ -1173,6 +1259,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			strlcat(str, " non-transitive", sizeof(str));
 
 		vty_out(vty, " set extcommunity bandwidth %s\n", str);
+	} else if (IS_SET_EXTCOMMUNITY_COLOR(action)) {
+		vty_out(vty, " set extcommunity color %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:extcommunity-color"));
 	} else if (IS_SET_EXTCOMMUNITY_NONE(action)) {
 		if (yang_dnode_get_bool(
 			    dnode,
@@ -1550,6 +1641,12 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &set_metric_cmd);
 	install_element(RMAP_NODE, &no_set_metric_cmd);
+
+	install_element(RMAP_NODE, &set_min_metric_cmd);
+	install_element(RMAP_NODE, &no_set_min_metric_cmd);
+
+	install_element(RMAP_NODE, &set_max_metric_cmd);
+	install_element(RMAP_NODE, &no_set_max_metric_cmd);
 
 	install_element(RMAP_NODE, &set_tag_cmd);
 	install_element(RMAP_NODE, &no_set_tag_cmd);

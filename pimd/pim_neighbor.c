@@ -29,6 +29,7 @@
 #include "pim_jp_agg.h"
 #include "pim_bfd.h"
 #include "pim_register.h"
+#include "pim_oil.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -123,9 +124,10 @@ int pim_if_dr_election(struct interface *ifp)
 		pim_if_update_could_assert(ifp);
 		pim_if_update_assert_tracking_desired(ifp);
 
-		if (PIM_I_am_DR(pim_ifp))
+		if (PIM_I_am_DR(pim_ifp)) {
 			pim_ifp->am_i_dr = true;
-		else {
+			pim_clear_nocache_state(pim_ifp);
+		} else {
 			if (pim_ifp->am_i_dr == true) {
 				pim_reg_del_on_couldreg_fail(ifp);
 				pim_ifp->am_i_dr = false;
@@ -188,13 +190,13 @@ static void update_dr_priority(struct pim_neighbor *neigh,
 	}
 }
 
-static void on_neighbor_timer(struct thread *t)
+static void on_neighbor_timer(struct event *t)
 {
 	struct pim_neighbor *neigh;
 	struct interface *ifp;
 	char msg[100];
 
-	neigh = THREAD_ARG(t);
+	neigh = EVENT_ARG(t);
 
 	ifp = neigh->interface;
 
@@ -220,7 +222,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 {
 	neigh->holdtime = holdtime;
 
-	THREAD_OFF(neigh->t_expire_timer);
+	EVENT_OFF(neigh->t_expire_timer);
 
 	/*
 	  0xFFFF is request for no holdtime
@@ -234,13 +236,13 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 			   __func__, neigh->holdtime, &neigh->source_addr,
 			   neigh->interface->name);
 
-	thread_add_timer(router->master, on_neighbor_timer, neigh,
-			 neigh->holdtime, &neigh->t_expire_timer);
+	event_add_timer(router->master, on_neighbor_timer, neigh,
+			neigh->holdtime, &neigh->t_expire_timer);
 }
 
-static void on_neighbor_jp_timer(struct thread *t)
+static void on_neighbor_jp_timer(struct event *t)
 {
-	struct pim_neighbor *neigh = THREAD_ARG(t);
+	struct pim_neighbor *neigh = EVENT_ARG(t);
 	struct pim_rpf rpf;
 
 	if (PIM_DEBUG_PIM_TRACE)
@@ -253,15 +255,15 @@ static void on_neighbor_jp_timer(struct thread *t)
 	rpf.rpf_addr = neigh->source_addr;
 	pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
 
-	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
-			 router->t_periodic, &neigh->jp_timer);
+	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
+			router->t_periodic, &neigh->jp_timer);
 }
 
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)
 {
-	THREAD_OFF(neigh->jp_timer);
-	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
-			 router->t_periodic, &neigh->jp_timer);
+	EVENT_OFF(neigh->jp_timer);
+	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
+			router->t_periodic, &neigh->jp_timer);
 }
 
 static struct pim_neighbor *
@@ -375,7 +377,7 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 	delete_prefix_list(neigh);
 
 	list_delete(&neigh->upstream_jp_agg);
-	THREAD_OFF(neigh->jp_timer);
+	EVENT_OFF(neigh->jp_timer);
 
 	bfd_sess_free(&neigh->bfd_session);
 
@@ -579,7 +581,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	zlog_notice("PIM NEIGHBOR DOWN: neighbor %pPA on interface %s: %s",
 		    &neigh->source_addr, ifp->name, delete_message);
 
-	THREAD_OFF(neigh->t_expire_timer);
+	EVENT_OFF(neigh->t_expire_timer);
 
 	pim_if_assert_on_neighbor_down(ifp, neigh->source_addr);
 

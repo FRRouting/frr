@@ -9,7 +9,7 @@
 #include <lib/version.h>
 #include "bfd.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "if.h"
@@ -70,7 +70,7 @@ const struct option longopts[] = {
 /* OSPFd program name */
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
@@ -134,6 +134,32 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 		.n_yang_modules = array_size(ospfd_yang_modules),
 );
 
+/** Max wait time for config to load before accepting hellos */
+#define OSPF_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
+static void ospf_config_finish(struct event *t)
+{
+	zlog_err("OSPF configuration end timer expired after %d seconds.",
+		 OSPF_PRE_CONFIG_MAX_WAIT_SECONDS);
+}
+
+static void ospf_config_start(void)
+{
+	EVENT_OFF(t_ospf_cfg);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("ospfd config start callback received.");
+	event_add_timer(master, ospf_config_finish, NULL,
+			OSPF_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf_cfg);
+}
+
+static void ospf_config_end(void)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("ospfd config end callback received.");
+
+	EVENT_OFF(t_ospf_cfg);
+}
+
 /* OSPFd main routine. */
 int main(int argc, char **argv)
 {
@@ -192,6 +218,9 @@ int main(int argc, char **argv)
 
 	access_list_init();
 	prefix_list_init();
+
+	/* Configuration processing callback initialization. */
+	cmd_init_config_callbacks(ospf_config_start, ospf_config_end);
 
 	/* OSPFd inits. */
 	ospf_if_init();

@@ -8,7 +8,7 @@
 #include <lib_vty.h>
 #include <buffer.h>
 
-struct thread_master *master;
+struct event_loop *master;
 
 int main(int argc, char **argv)
 {

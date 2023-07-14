@@ -15,11 +15,11 @@
 
 #define	CONTROL_BACKLOG	5
 
-static void control_accept(struct thread *);
+static void control_accept(struct event *);
 static struct ctl_conn	*control_connbyfd(int);
 static struct ctl_conn	*control_connbypid(pid_t);
 static void		 control_close(int);
-static void control_dispatch_imsg(struct thread *);
+static void control_dispatch_imsg(struct event *);
 
 struct ctl_conns	 ctl_conns;
 
@@ -90,7 +90,7 @@ control_cleanup(char *path)
 }
 
 /* ARGSUSED */
-static void control_accept(struct thread *thread)
+static void control_accept(struct event *thread)
 {
 	int			 connfd;
 	socklen_t		 len;
@@ -98,16 +98,15 @@ static void control_accept(struct thread *thread)
 	struct ctl_conn		*c;
 
 	len = sizeof(s_un);
-	if ((connfd = accept(THREAD_FD(thread), (struct sockaddr *)&s_un,
-	    &len)) == -1) {
+	if ((connfd = accept(EVENT_FD(thread), (struct sockaddr *)&s_un,
+			     &len)) == -1) {
 		/*
 		 * Pause accept if we are out of file descriptors, or
 		 * libevent will haunt us here too.
 		 */
 		if (errno == ENFILE || errno == EMFILE)
 			accept_pause();
-		else if (errno != EWOULDBLOCK && errno != EINTR &&
-		    errno != ECONNABORTED)
+		else if (errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED)
 			log_warn("%s: accept", __func__);
 		return;
 	}
@@ -122,8 +121,8 @@ static void control_accept(struct thread *thread)
 	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler_read = control_dispatch_imsg;
 	c->iev.ev_read = NULL;
-	thread_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
-			&c->iev.ev_read);
+	event_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
+		       &c->iev.ev_read);
 	c->iev.handler_write = ldp_write_handler;
 	c->iev.ev_write = NULL;
 
@@ -169,17 +168,17 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	THREAD_OFF(c->iev.ev_read);
-	THREAD_OFF(c->iev.ev_write);
+	EVENT_OFF(c->iev.ev_read);
+	EVENT_OFF(c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);
 }
 
 /* ARGSUSED */
-static void control_dispatch_imsg(struct thread *thread)
+static void control_dispatch_imsg(struct event *thread)
 {
-	int		 fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	struct ctl_conn	*c;
 	struct imsg	 imsg;
 	ssize_t		 n;
@@ -192,8 +191,7 @@ static void control_dispatch_imsg(struct thread *thread)
 
 	c->iev.ev_read = NULL;
 
-	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
-	    n == 0) {
+	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) || n == 0) {
 		control_close(fd);
 		return;
 	}
@@ -217,12 +215,10 @@ static void control_dispatch_imsg(struct thread *thread)
 			/* ignore */
 			break;
 		case IMSG_CTL_SHOW_INTERFACE:
-			if (imsg.hdr.len == IMSG_HEADER_SIZE +
-			    sizeof(ifidx)) {
+			if (imsg.hdr.len == IMSG_HEADER_SIZE + sizeof(ifidx)) {
 				memcpy(&ifidx, imsg.data, sizeof(ifidx));
 				ldpe_iface_ctl(c, ifidx);
-				imsg_compose_event(&c->iev, IMSG_CTL_END, 0,
-				    0, -1, NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1, NULL, 0);
 			}
 			break;
 		case IMSG_CTL_SHOW_DISCOVERY:
@@ -242,8 +238,7 @@ static void control_dispatch_imsg(struct thread *thread)
 			ldpe_nbr_ctl(c);
 			break;
 		case IMSG_CTL_CLEAR_NBR:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct ctl_nbr))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ctl_nbr))
 				break;
 
 			nbr_clear_ctl(imsg.data);
@@ -255,8 +250,7 @@ static void control_dispatch_imsg(struct thread *thread)
 			/* ignore */
 			break;
 		default:
-			log_debug("%s: error handling imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);

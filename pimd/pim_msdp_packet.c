@@ -8,7 +8,7 @@
 #include <lib/log.h>
 #include <lib/network.h>
 #include <lib/stream.h>
-#include <lib/thread.h>
+#include "frrevent.h"
 #include <lib/vty.h>
 #include <lib/lib_errors.h>
 
@@ -190,7 +190,7 @@ static void pim_msdp_write_proceed_actions(struct pim_msdp_peer *mp)
 	}
 }
 
-void pim_msdp_write(struct thread *thread)
+void pim_msdp_write(struct event *thread)
 {
 	struct pim_msdp_peer *mp;
 	struct stream *s;
@@ -200,7 +200,7 @@ void pim_msdp_write(struct thread *thread)
 	int work_cnt = 0;
 	int work_max_cnt = 100;
 
-	mp = THREAD_ARG(thread);
+	mp = EVENT_ARG(thread);
 	mp->t_write = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -686,13 +686,13 @@ static int pim_msdp_read_packet(struct pim_msdp_peer *mp)
 	return 0;
 }
 
-void pim_msdp_read(struct thread *thread)
+void pim_msdp_read(struct event *thread)
 {
 	struct pim_msdp_peer *mp;
 	int rc;
 	uint32_t len;
 
-	mp = THREAD_ARG(thread);
+	mp = EVENT_ARG(thread);
 	mp->t_read = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {

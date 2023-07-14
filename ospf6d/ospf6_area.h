@@ -60,8 +60,8 @@ struct ospf6_area {
 
 	uint32_t spf_calculation; /* SPF calculation count */
 
-	struct thread *thread_router_lsa;
-	struct thread *thread_intra_prefix_lsa;
+	struct event *thread_router_lsa;
+	struct event *thread_intra_prefix_lsa;
 	uint32_t router_lsa_size_limit;
 
 	/* Area announce list */

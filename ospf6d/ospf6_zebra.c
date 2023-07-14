@@ -97,9 +97,9 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 /* redistribute function */
 void ospf6_zebra_redistribute(int type, vrf_id_t vrf_id)
 {
-	if (vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id))
+	if (vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id))
 		return;
-	vrf_bitmap_set(zclient->redist[AFI_IP6][type], vrf_id);
+	vrf_bitmap_set(&zclient->redist[AFI_IP6][type], vrf_id);
 
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
@@ -108,9 +108,9 @@ void ospf6_zebra_redistribute(int type, vrf_id_t vrf_id)
 
 void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 {
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id))
+	if (!vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id))
 		return;
-	vrf_bitmap_unset(zclient->redist[AFI_IP6][type], vrf_id);
+	vrf_bitmap_unset(&zclient->redist[AFI_IP6][type], vrf_id);
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
 					AFI_IP6, type, 0, vrf_id);
@@ -239,12 +239,18 @@ static int ospf6_zebra_gr_update(struct ospf6 *ospf6, int command,
 
 int ospf6_zebra_gr_enable(struct ospf6 *ospf6, uint32_t stale_time)
 {
+	if (IS_DEBUG_OSPF6_GR)
+		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_CAPABILITIES,
 				     stale_time);
 }
 
 int ospf6_zebra_gr_disable(struct ospf6 *ospf6)
 {
+	if (IS_DEBUG_OSPF6_GR)
+		zlog_debug("Zebra disable GR");
+
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
@@ -252,7 +258,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	unsigned long ifindex;
-	struct in6_addr *nexthop;
+	const struct in6_addr *nexthop = &in6addr_any;
 	struct ospf6 *ospf6;
 	struct prefix_ipv6 p;
 
@@ -272,7 +278,9 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	ifindex = api.nexthops[0].ifindex;
-	nexthop = &api.nexthops[0].gate.ipv6;
+	if (api.nexthops[0].type == NEXTHOP_TYPE_IPV6
+	    || api.nexthops[0].type == NEXTHOP_TYPE_IPV6_IFINDEX)
+		nexthop = &api.nexthops[0].gate.ipv6;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug(
@@ -325,10 +333,10 @@ DEFUN(show_zebra,
 		json_object_int_add(json_zebra, "fail", zclient->fail);
 		json_object_int_add(
 			json_zebra, "redistributeDefault",
-			vrf_bitmap_check(zclient->default_information[AFI_IP6],
+			vrf_bitmap_check(&zclient->default_information[AFI_IP6],
 					 VRF_DEFAULT));
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+			if (vrf_bitmap_check(&zclient->redist[AFI_IP6][i],
 					     VRF_DEFAULT))
 				json_object_array_add(
 					json_array,
@@ -343,11 +351,11 @@ DEFUN(show_zebra,
 		vty_out(vty, "Zebra Information\n");
 		vty_out(vty, "  fail: %d\n", zclient->fail);
 		vty_out(vty, "  redistribute default: %d\n",
-			vrf_bitmap_check(zclient->default_information[AFI_IP6],
+			vrf_bitmap_check(&zclient->default_information[AFI_IP6],
 					 VRF_DEFAULT));
 		vty_out(vty, "  redistribute:");
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+			if (vrf_bitmap_check(&zclient->redist[AFI_IP6][i],
 					     VRF_DEFAULT))
 				vty_out(vty, " %s", zebra_route_string(i));
 		}
@@ -733,10 +741,20 @@ uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or,
 
 static void ospf6_zebra_connected(struct zclient *zclient)
 {
+	struct ospf6 *ospf6;
+	struct listnode *node;
+
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* Activate graceful restart if configured. */
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (!ospf6->gr_info.restart_support)
+			continue;
+		(void)ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
+	}
 }
 
 static zclient_handler *const ospf6_handlers[] = {
@@ -748,7 +766,7 @@ static zclient_handler *const ospf6_handlers[] = {
 	[ZEBRA_NEXTHOP_UPDATE] = ospf6_zebra_import_check_update,
 };
 
-void ospf6_zebra_init(struct thread_master *master)
+void ospf6_zebra_init(struct event_loop *master)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master, &zclient_options_default, ospf6_handlers,

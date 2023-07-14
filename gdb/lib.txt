@@ -157,7 +157,7 @@ document walk_route_table
 Walk through a routing table (or subset thereof) and dump all the non-null
 (struct route_node *)->info pointers.
 
-Argument: A lib/thread.h::(struct route_node *) pointing to the route_node
+Argument: A lib/hread.h::(struct route_node *) pointing to the route_node
 under which all data should be dumped
 end
 

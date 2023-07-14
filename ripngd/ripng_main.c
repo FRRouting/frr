@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "prefix.h"
 #include "if.h"
@@ -32,6 +32,8 @@ struct option longopts[] = {{0}};
 /* ripngd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
+
 struct zebra_privs_t ripngd_privs = {
 #if defined(FRR_USER)
 	.user = FRR_USER,
@@ -48,7 +50,7 @@ struct zebra_privs_t ripngd_privs = {
 
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info ripngd_di;
 

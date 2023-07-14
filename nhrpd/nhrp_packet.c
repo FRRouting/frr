@@ -10,7 +10,7 @@
 #include <netinet/if_ether.h>
 #include "nhrpd.h"
 #include "zbuf.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 
 #include "nhrp_protocol.h"
@@ -286,9 +286,9 @@ err:
 	return -1;
 }
 
-static void nhrp_packet_recvraw(struct thread *t)
+static void nhrp_packet_recvraw(struct event *t)
 {
-	int fd = THREAD_FD(t), ifindex;
+	int fd = EVENT_FD(t), ifindex;
 	struct zbuf *zb;
 	struct interface *ifp;
 	struct nhrp_peer *p;
@@ -296,7 +296,7 @@ static void nhrp_packet_recvraw(struct thread *t)
 	uint8_t addr[64];
 	size_t len, addrlen;
 
-	thread_add_read(master, nhrp_packet_recvraw, 0, fd, NULL);
+	event_add_read(master, nhrp_packet_recvraw, 0, fd, NULL);
 
 	zb = zbuf_alloc(1500);
 	if (!zb)
@@ -336,6 +336,6 @@ err:
 
 int nhrp_packet_init(void)
 {
-	thread_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
+	event_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
 	return 0;
 }

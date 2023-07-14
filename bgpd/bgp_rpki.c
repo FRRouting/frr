@@ -23,7 +23,7 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "filter.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -36,7 +36,6 @@
 #include "northbound_cli.h"
 
 #include "lib/network.h"
-#include "lib/thread.h"
 #include "rtrlib/rtrlib.h"
 #include "hook.h"
 #include "libfrr.h"
@@ -54,7 +53,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
-static struct thread *t_rpki_sync;
+static struct event *t_rpki_sync;
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -382,9 +381,9 @@ struct rpki_revalidate_prefix {
 	safi_t safi;
 };
 
-static void rpki_revalidate_prefix(struct thread *thread)
+static void rpki_revalidate_prefix(struct event *thread)
 {
-	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
+	struct rpki_revalidate_prefix *rrp = EVENT_ARG(thread);
 	struct bgp_dest *match, *node;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
@@ -403,15 +402,15 @@ static void rpki_revalidate_prefix(struct thread *thread)
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
 }
 
-static void bgpd_sync_callback(struct thread *thread)
+static void bgpd_sync_callback(struct event *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
 	struct prefix prefix;
 	struct pfx_record rec;
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	event_add_read(bm->master, bgpd_sync_callback, NULL,
+		       rpki_sync_socket_bgpd, NULL);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
 		while (read(rpki_sync_socket_bgpd, &rec,
@@ -449,8 +448,8 @@ static void bgpd_sync_callback(struct thread *thread)
 			rrp->prefix = prefix;
 			rrp->afi = afi;
 			rrp->safi = safi;
-			thread_add_event(bm->master, rpki_revalidate_prefix,
-					 rrp, 0, &bgp->t_revalidate[afi][safi]);
+			event_add_event(bm->master, rpki_revalidate_prefix, rrp,
+					0, &bgp->t_revalidate[afi][safi]);
 		}
 	}
 }
@@ -490,9 +489,9 @@ struct rpki_revalidate_peer {
 	struct peer *peer;
 };
 
-static void bgp_rpki_revalidate_peer(struct thread *thread)
+static void bgp_rpki_revalidate_peer(struct event *thread)
 {
-	struct rpki_revalidate_peer *rvp = THREAD_ARG(thread);
+	struct rpki_revalidate_peer *rvp = EVENT_ARG(thread);
 
 	/*
 	 * Here's the expensive bit of gnomish deviousness
@@ -530,7 +529,7 @@ static void revalidate_all_routes(void)
 				rvp->afi = afi;
 				rvp->safi = safi;
 
-				thread_add_event(
+				event_add_event(
 					bm->master, bgp_rpki_revalidate_peer,
 					rvp, 0,
 					&peer->t_revalidate_all[afi][safi]);
@@ -581,8 +580,8 @@ static void rpki_init_sync_socket(void)
 	}
 
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	event_add_read(bm->master, bgpd_sync_callback, NULL,
+		       rpki_sync_socket_bgpd, NULL);
 
 	return;
 
@@ -592,7 +591,7 @@ err:
 
 }
 
-static int bgp_rpki_init(struct thread_master *master)
+static int bgp_rpki_init(struct event_loop *master)
 {
 	rpki_debug = false;
 	rtr_is_running = false;
@@ -632,13 +631,13 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void sync_expired(struct thread *thread)
+static void sync_expired(struct event *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
-		thread_add_timer(bm->master, sync_expired, NULL,
-				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
-				 &t_rpki_sync);
+		event_add_timer(bm->master, sync_expired, NULL,
+				BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
+				&t_rpki_sync);
 		return;
 	}
 
@@ -681,7 +680,7 @@ static int start(void)
 		return ERROR;
 	}
 
-	thread_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
+	event_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
@@ -694,7 +693,7 @@ static void stop(void)
 {
 	rtr_is_stopping = true;
 	if (is_running()) {
-		THREAD_OFF(t_rpki_sync);
+		EVENT_OFF(t_rpki_sync);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = false;

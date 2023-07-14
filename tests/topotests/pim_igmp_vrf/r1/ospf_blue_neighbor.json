@@ -4,9 +4,9 @@
     "neighbors":{
       "192.168.0.11":[
         {
-          "priority":10,
+          "nbrPriority":10,
           "converged":"Full",
-          "address":"192.168.101.11",
+          "ifaceAddress":"192.168.101.11",
           "ifaceName":"r1-eth1:192.168.101.1"
         }
       ]

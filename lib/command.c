@@ -17,7 +17,7 @@
 #include "memory.h"
 #include "log.h"
 #include "log_vty.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vector.h"
 #include "linklist.h"
 #include "vty.h"
@@ -31,6 +31,8 @@
 #include "jhash.h"
 #include "hook.h"
 #include "lib_errors.h"
+#include "mgmt_be_client.h"
+#include "mgmt_fe_client.h"
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
@@ -733,9 +735,13 @@ char *cmd_variable_comp2str(vector comps, unsigned short cols)
 		char *item = vector_slot(comps, j);
 		itemlen = strlen(item);
 
-		if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
-			buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
+		size_t next_sz = cs + itemlen + AUTOCOMP_INDENT + 3;
 
+		if (next_sz > bsz) {
+			/* Make sure the buf size is large enough */
+			bsz = next_sz;
+			buf = XREALLOC(MTYPE_TMP, buf, bsz);
+		}
 		if (lc + itemlen + 1 >= cols) {
 			cs += snprintf(&buf[cs], bsz - cs, "\n%*s",
 				       AUTOCOMP_INDENT, "");
@@ -1281,6 +1287,7 @@ int command_config_read_one_line(struct vty *vty,
 
 		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
 		ve->line_num = line_num;
+		ve->cmd_ret = ret;
 		if (!vty->error)
 			vty->error = list_new();
 
@@ -1301,6 +1308,14 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		++(*line_num);
 
+		if (vty_log_commands) {
+			int len = strlen(vty->buf);
+
+			/* now log the command */
+			zlog_notice("config-from-file# %.*s", len ? len - 1 : 0,
+				    vty->buf);
+		}
+
 		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
@@ -1318,11 +1333,12 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure [terminal]",
+       "configure [terminal [file-lock]]",
        "Configuration from vty interface\n"
+       "Configuration with locked datastores\n"
        "Configuration terminal\n")
 {
-	return vty_config_enter(vty, false, false);
+	return vty_config_enter(vty, false, false, argc == 3);
 }
 
 /* Enable command */
@@ -2438,6 +2454,8 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+	mgmt_debug_be_client_show_debug(vty);
+	mgmt_debug_fe_client_show_debug(vty);
 }
 
 void install_default(enum node_type node)
@@ -2542,7 +2560,7 @@ void cmd_init(int terminal)
 
 		install_default(CONFIG_NODE);
 
-		thread_cmd_init();
+		event_cmd_init();
 		workqueue_cmd_init();
 		hash_cmd_init();
 	}
@@ -2596,9 +2614,7 @@ void cmd_terminate(void)
 				// well
 				graph_delete_graph(cmd_node->cmdgraph);
 				vector_free(cmd_node->cmd_vector);
-				hash_clean(cmd_node->cmd_hash, NULL);
-				hash_free(cmd_node->cmd_hash);
-				cmd_node->cmd_hash = NULL;
+				hash_clean_and_free(&cmd_node->cmd_hash, NULL);
 			}
 
 		vector_free(cmdvec);

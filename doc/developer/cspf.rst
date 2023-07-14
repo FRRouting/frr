@@ -162,6 +162,7 @@ various metrics. Link State provides such Traffic Engineering Database.
 To perform a Path Computation with given constraints, proceed as follow:
 
 .. code-block:: c
+
 	struct cspf *algo;
 	struct ls_ted *ted;
 	struct in_addr src;

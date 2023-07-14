@@ -12,7 +12,7 @@
 #include "if.h"
 #include "command.h"
 #include "table.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "log.h"
 #include "zclient.h"
@@ -154,11 +154,11 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		redist_on =
 			is_default_prefix4(&p)
 				? vrf_bitmap_check(
-					zclient->default_information[AFI_IP],
-					ospf->vrf_id)
-				: (zclient->mi_redist[AFI_IP][type].enabled
-				   || vrf_bitmap_check(
-					   zclient->redist[AFI_IP][type],
+					  &zclient->default_information[AFI_IP],
+					  ospf->vrf_id)
+				: (zclient->mi_redist[AFI_IP][type].enabled ||
+				   vrf_bitmap_check(
+					   &zclient->redist[AFI_IP][type],
 					   ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {
@@ -568,6 +568,15 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	if (!ospf_if_is_enable(oi))
 		return 0;
 
+	if (IS_OPAQUE_LSA(lsa->data->type) &&
+	    !OSPF_IF_PARAM(oi, opaque_capable)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug(
+				"%s: Skipping interface %s (%s) with opaque disabled.",
+				__func__, IF_NAME(oi), ospf_get_name(oi->ospf));
+		return 0;
+	}
+
 	/* If flood reduction is configured, set the DC bit on the lsa. */
 	if (IS_LSA_SELF(lsa)) {
 		if (OSPF_FR_CONFIG(oi->area->ospf, oi->area)) {
@@ -770,15 +779,26 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 						     OSPF_SEND_PACKET_DIRECT);
 		}
 	} else
-		/* Optimization: for P2MP interfaces,
-		   don't send back out the incoming interface immediately,
-		   allow time to rx multicast ack to the rx'ed (multicast)
-		   update */
-		if (retx_flag != 1 ||
-		    oi->type != OSPF_IFTYPE_POINTOMULTIPOINT || inbr == NULL ||
-		    oi != inbr->oi)
-		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
-				     OSPF_SEND_PACKET_INDIRECT);
+		/* If P2MP delayed reflooding is configured and the LSA was
+		   received from a neighbor on the P2MP interface, do not flood
+		   if back out on the interface. The LSA will be  retransmitted
+		   upon expiration of each neighbor's retransmission timer. This
+		   will allow time to receive a multicast multicast link state
+		   acknoweldgement and remove the LSA from each neighbor's link
+		   state retransmission list. */
+		if (oi->p2mp_delay_reflood &&
+		    (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) &&
+		    (inbr != NULL) && (oi == inbr->oi)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+				zlog_debug(
+					"Delay reflooding for LSA[%s] from NBR %pI4 on interface %s",
+					dump_lsa_key(lsa),
+					inbr ? &(inbr->router_id)
+					     : &(oi->ospf->router_id),
+					IF_NAME(oi));
+		} else
+			ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
+					     OSPF_SEND_PACKET_INDIRECT);
 
 	return 0;
 }

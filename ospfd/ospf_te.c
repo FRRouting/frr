@@ -24,7 +24,7 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "network.h"
@@ -1207,10 +1207,9 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 	/* Now, create an OSPF LSA instance. */
 	new = ospf_lsa_new_and_data(length);
 
-	new->vrf_id = ospf->vrf_id;
-	if (area && area->ospf)
-		new->vrf_id = area->ospf->vrf_id;
 	new->area = area;
+	new->vrf_id = VRF_DEFAULT;
+
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
@@ -1329,7 +1328,6 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 			  __func__);
 		return rc;
 	}
-	new->vrf_id = top->vrf_id;
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
@@ -1482,7 +1480,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		ospf_opaque_lsa_flush_schedule(lsa);
 		return NULL;
 	}
-	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	/* Create new Opaque-LSA/MPLS-TE instance. */
 	new = ospf_mpls_te_lsa_new(top, area, lp);
 	if (new == NULL) {
@@ -1667,12 +1665,13 @@ static struct ls_vertex *get_vertex(struct ls_ted *ted, struct ospf_lsa *lsa)
 static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 				struct in_addr link_id)
 {
-	uint64_t key;
+	struct ls_edge_key key;
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
 
 	/* Search Edge that corresponds to the Link ID */
-	key = ((uint64_t)ntohl(link_id.s_addr)) & 0xffffffff;
+	key.family = AF_INET;
+	IPV4_ADDR_COPY(&key.k.addr, &link_id);
 	edge = ls_find_edge_by_key(ted, key);
 
 	/* Create new one if not exist */
@@ -1781,7 +1780,7 @@ static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
  * @param metric	Standard metric attached to this Edge
  */
 static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex,
-				  struct prefix p, uint8_t metric)
+				  struct prefix *p, uint8_t metric)
 {
 	struct ls_subnet *subnet;
 	struct ls_prefix *ls_pref;
@@ -1840,7 +1839,7 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = addr;
-	subnet = ls_find_subnet(ted, p);
+	subnet = ls_find_subnet(ted, &p);
 
 	/* Remove subnet if found */
 	if (subnet) {
@@ -1933,7 +1932,7 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 			p.prefixlen = IPV4_MAX_BITLEN;
 			p.u.prefix4 = rl->link[i].link_data;
 			metric = ntohs(rl->link[i].metric);
-			ospf_te_update_subnet(ted, vertex, p, metric);
+			ospf_te_update_subnet(ted, vertex, &p, metric);
 			break;
 		case LSA_LINK_TYPE_STUB:
 			/* Keep only /32 prefix */
@@ -1942,7 +1941,7 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 				p.family = AF_INET;
 				p.u.prefix4 = rl->link[i].link_id;
 				metric = ntohs(rl->link[i].metric);
-				ospf_te_update_subnet(ted, vertex, p, metric);
+				ospf_te_update_subnet(ted, vertex, &p, metric);
 			}
 			break;
 		default:
@@ -2074,12 +2073,12 @@ static void ospf_te_update_remote_asbr(struct ls_ted *ted, struct ls_edge *edge)
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = attr->standard.local;
-	ospf_te_update_subnet(ted, edge->source, p, attr->standard.te_metric);
+	ospf_te_update_subnet(ted, edge->source, &p, attr->standard.te_metric);
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = attr->standard.remote_addr;
-	ospf_te_update_subnet(ted, vertex, p, attr->standard.te_metric);
+	ospf_te_update_subnet(ted, vertex, &p, attr->standard.te_metric);
 
 	/* Connect Edge to the remote Vertex */
 	if (edge->destination == NULL) {
@@ -2352,7 +2351,7 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_attributes *attr;
 	struct tlv_header *tlvh;
 	struct in_addr addr;
-	uint64_t key = 0;
+	struct ls_edge_key key = {.family = AF_UNSPEC};
 	uint16_t len, sum;
 	uint8_t lsa_id;
 
@@ -2368,12 +2367,13 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	for (tlvh = TLV_DATA(tlvh); sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
 		if (ntohs(tlvh->type) == TE_LINK_SUBTLV_LCLIF_IPADDR) {
 			memcpy(&addr, TLV_DATA(tlvh), TE_LINK_SUBTLV_DEF_SIZE);
-			key = ((uint64_t)ntohl(addr.s_addr)) & 0xffffffff;
+			key.family = AF_INET;
+			IPV4_ADDR_COPY(&key.k.addr, &addr);
 			break;
 		}
 		sum += TLV_SIZE(tlvh);
 	}
-	if (key == 0)
+	if (key.family == AF_UNSPEC)
 		return 0;
 
 	/* Search Edge that corresponds to the Link ID */
@@ -2625,14 +2625,14 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	pref.family = AF_INET;
 	pref.prefixlen = ext->pref_length;
 	pref.u.prefix4 = ext->address;
-	subnet = ls_find_subnet(ted, pref);
+	subnet = ls_find_subnet(ted, &pref);
 
 	/* Create new Link State Prefix if not found */
 	if (!subnet) {
 		lnid.origin = OSPFv2;
 		lnid.id.ip.addr = lsa->data->adv_router;
 		lnid.id.ip.area_id = lsa->area->area_id;
-		ls_pref = ls_prefix_new(lnid, pref);
+		ls_pref = ls_prefix_new(lnid, &pref);
 		/* and add it to the TED */
 		subnet = ls_subnet_add(ted, ls_pref);
 	}
@@ -2698,7 +2698,7 @@ static int ospf_te_delete_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	pref.family = AF_INET;
 	pref.prefixlen = ext->pref_length;
 	pref.u.prefix4 = ext->address;
-	subnet = ls_find_subnet(ted, pref);
+	subnet = ls_find_subnet(ted, &pref);
 
 	/* Check if there is a corresponding subnet */
 	if (!subnet)
@@ -2864,11 +2864,12 @@ static int ospf_te_delete_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_edge *edge;
 	struct ls_attributes *atr;
 	struct ext_tlv_link *ext;
-	uint64_t key;
+	struct ls_edge_key key;
 
 	/* Search for corresponding Edge from Link State Data Base */
 	ext = (struct ext_tlv_link *)TLV_HDR_TOP(lsa->data);
-	key = ((uint64_t)ntohl(ext->link_data.s_addr)) & 0xffffffff;
+	key.family = AF_INET;
+	IPV4_ADDR_COPY(&key.k.addr, &ext->link_data);
 	edge = ls_find_edge_by_key(ted, key);
 
 	/* Check if there is a corresponding Edge */
@@ -3847,6 +3848,12 @@ DEFUN (ospf_mpls_te_on,
 	if (OspfMplsTE.enabled)
 		return CMD_SUCCESS;
 
+	/* Check that the OSPF is using default VRF */
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "MPLS TE is only supported in default VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	ote_debug("MPLS-TE: OFF -> ON");
 
 	OspfMplsTE.enabled = true;
@@ -4229,12 +4236,10 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 
 DEFUN (show_ip_ospf_mpls_te_link,
        show_ip_ospf_mpls_te_link_cmd,
-       "show ip ospf [vrf <NAME|all>] mpls-te interface [INTERFACE]",
+       "show ip ospf mpls-te interface [INTERFACE]",
        SHOW_STR
        IP_STR
        OSPF_STR
-       VRF_CMD_HELP_STR
-       "All VRFs\n"
        "MPLS-TE information\n"
        "Interface information\n"
        "Interface name\n")
@@ -4242,43 +4247,18 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	struct vrf *vrf;
 	int idx_interface = 0;
 	struct interface *ifp = NULL;
-	struct listnode *node;
-	char *vrf_name = NULL;
-	bool all_vrf = false;
-	int inst = 0;
-	int idx_vrf = 0;
 	struct ospf *ospf = NULL;
 
-	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		vrf_name = argv[idx_vrf + 1]->arg;
-		all_vrf = strmatch(vrf_name, "all");
-	}
 	argv_find(argv, argc, "INTERFACE", &idx_interface);
-	/* vrf input is provided could be all or specific vrf*/
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-				if (!ospf->oi_running)
-					continue;
-				vrf = vrf_lookup_by_id(ospf->vrf_id);
-				FOR_ALL_INTERFACES (vrf, ifp)
-					show_mpls_te_link_sub(vty, ifp);
-			}
-			return CMD_SUCCESS;
-		}
-		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-	} else
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (!vrf)
 		return CMD_SUCCESS;
 	if (idx_interface) {
-		ifp = if_lookup_by_name(
-					argv[idx_interface]->arg,
-					ospf->vrf_id);
+		ifp = if_lookup_by_name(argv[idx_interface]->arg, VRF_DEFAULT);
 		if (ifp == NULL) {
 			vty_out(vty, "No such interface name in vrf %s\n",
 				vrf->name);
@@ -4321,6 +4301,7 @@ DEFUN (show_ip_ospf_mpls_te_db,
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	uint64_t key;
+	struct ls_edge_key ekey;
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -4374,8 +4355,9 @@ DEFUN (show_ip_ospf_mpls_te_db,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
-			edge = ls_find_edge_by_key(OspfMplsTE.ted, key);
+			ekey.family = AF_INET;
+			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
+			edge = ls_find_edge_by_key(OspfMplsTE.ted, ekey);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);
@@ -4398,7 +4380,7 @@ DEFUN (show_ip_ospf_mpls_te_db,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(OspfMplsTE.ted, pref);
+			subnet = ls_find_subnet(OspfMplsTE.ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);

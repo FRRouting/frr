@@ -162,6 +162,13 @@ struct bgp_evpn_info {
 	/* EVPN enable - advertise svi macip routes */
 	int advertise_svi_macip;
 
+	/* MAC-VRF Site-of-Origin
+	 * - added to all routes exported from L2VNI
+	 * - Type-2/3 routes with matching SoO not imported into L2VNI
+	 * - Type-2/5 routes with matching SoO not imported into L3VNI
+	 */
+	struct ecommunity *soo;
+
 	/* PIP feature knob */
 	bool advertise_pip;
 	/* PIP IP (sys ip) */
@@ -680,6 +687,8 @@ extern void bgp_evpn_handle_autort_change(struct bgp *bgp);
 extern void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw);
 extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 				      int withdraw);
+void bgp_evpn_handle_global_macvrf_soo_change(struct bgp *bgp,
+					      struct ecommunity *new_soo);
 extern int bgp_evpn_install_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf);
@@ -712,11 +721,9 @@ extern struct bgp_dest *
 bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi, safi_t safi,
 			 const struct prefix_evpn *evp, struct prefix_rd *prd,
 			 const struct bgp_path_info *local_pi);
-extern struct bgp_dest *
-bgp_evpn_global_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
-			    const struct prefix_evpn *evp,
-			    struct prefix_rd *prd,
-			    const struct bgp_path_info *local_pi);
+extern struct bgp_dest *bgp_evpn_global_node_lookup(
+	struct bgp_table *table, safi_t safi, const struct prefix_evpn *evp,
+	struct prefix_rd *prd, const struct bgp_path_info *local_pi);
 extern struct bgp_dest *
 bgp_evpn_vni_ip_node_get(struct bgp_table *const table,
 			 const struct prefix_evpn *evp,

@@ -179,7 +179,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -201,7 +201,8 @@ DEFPY (install_routes,
        "Should we repeat this command\n"
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
-       "The opaque data\n")
+       "The opaque data\n"
+       "No recursive nexthops\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -210,6 +211,7 @@ DEFPY (install_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.flags = 0;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -317,12 +319,16 @@ DEFPY (install_routes,
 	else
 		sg.r.opaque[0] = '\0';
 
+	/* Default is to ask for recursive nexthop resolution */
+	if (norecurse == NULL)
+		SET_FLAG(sg.r.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts, 0, sg.r.opaque);
+				    rts, sg.r.flags, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }
@@ -865,6 +871,24 @@ DEFPY (send_opaque_reg,
 	return CMD_SUCCESS;
 }
 
+/* Opaque notifications - register or unregister */
+DEFPY (send_opaque_notif_reg,
+       send_opaque_notif_reg_cmd,
+       "sharp send opaque notify <reg$reg | unreg> type (1-1000)",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Opaque notification messages\n"
+       "Send notify registration\n"
+       "Send notify unregistration\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	sharp_zebra_opaque_notif_reg((reg != NULL), type);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (neigh_discover,
        neigh_discover_cmd,
        "sharp neigh discover [vrf NAME$vrf_name] <A.B.C.D$dst4|X:X::X:X$dst6> IFNAME$ifname",
@@ -985,6 +1009,7 @@ DEFUN (show_sharp_ted,
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	uint64_t key;
+	struct ls_edge_key ekey;
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -1035,8 +1060,9 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
-			edge = ls_find_edge_by_key(sg.ted, key);
+			ekey.family = AF_INET;
+			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
+			edge = ls_find_edge_by_key(sg.ted, ekey);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);
@@ -1059,7 +1085,7 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Subnet from the Link State Database */
-			subnet = ls_find_subnet(sg.ted, pref);
+			subnet = ls_find_subnet(sg.ted, &pref);
 			if (!subnet) {
 				vty_out(vty, "No subnet found for ID %pFX\n",
 					&pref);
@@ -1245,6 +1271,7 @@ DEFPY (show_sharp_cspf,
 	}
 	if (path->status != SUCCESS) {
 		vty_out(vty, "Path computation failed: %d\n", path->status);
+		cpath_del(path);
 		return CMD_SUCCESS;
 	}
 
@@ -1260,7 +1287,7 @@ DEFPY (show_sharp_cspf,
 				&edge->attributes->standard.remote6);
 	}
 	vty_out(vty, "\n");
-
+	cpath_del(path);
 	return CMD_SUCCESS;
 }
 
@@ -1403,6 +1430,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
+	install_element(ENABLE_NODE, &send_opaque_notif_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
 	install_element(ENABLE_NODE, &import_te_cmd);
 

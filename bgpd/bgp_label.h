@@ -26,6 +26,10 @@ extern mpls_label_t bgp_adv_label(struct bgp_dest *dest,
 
 extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				struct bgp_nlri *packet);
+extern bool bgp_labels_same(const mpls_label_t *tbl_a,
+			    const uint32_t num_labels_a,
+			    const mpls_label_t *tbl_b,
+			    const uint32_t num_labels_b);
 
 static inline int bgp_labeled_safi(safi_t safi)
 {

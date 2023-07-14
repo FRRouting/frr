@@ -8,7 +8,7 @@
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "filter.h"
 #include "memory.h"
 #include "prefix.h"
@@ -52,7 +52,7 @@
 pid_t pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
-struct thread_master *master;
+struct event_loop *master;
 
 /* Route retain mode flag. */
 int retain_mode = 0;
@@ -175,11 +175,6 @@ static void sigint(void)
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
 
-	vrf_terminate();
-
-	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
-	zebra_ns_notify_close();
-
 	access_list_reset();
 	prefix_list_reset();
 	/*
@@ -189,6 +184,8 @@ static void sigint(void)
 	 * 3 route_map_finish
 	 */
 	zebra_routemap_finish();
+
+	rib_update_finish();
 
 	list_delete(&zrouter.client_list);
 
@@ -203,12 +200,22 @@ static void sigint(void)
  * Final shutdown step for the zebra main thread. This is run after all
  * async update processing has completed.
  */
-void zebra_finalize(struct thread *dummy)
+void zebra_finalize(struct event *dummy)
 {
 	zlog_info("Zebra final shutdown");
 
-	/* Stop dplane thread and finish any cleanup */
+	vrf_terminate();
+
+	/*
+	 * Stop dplane thread and finish any cleanup
+	 * This is before the zebra_ns_early_shutdown call
+	 * because sockets that the dplane depends on are closed
+	 * in those functions
+	 */
 	zebra_dplane_shutdown();
+
+	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
+	zebra_ns_notify_close();
 
 	/* Final shutdown of ns resources */
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
@@ -435,8 +442,8 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	thread_add_timer(zrouter.master, rib_sweep_route, NULL,
-			 graceful_restart, &zrouter.sweeper);
+	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
+			&zrouter.sweeper);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();

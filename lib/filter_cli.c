@@ -1272,9 +1272,6 @@ DEFPY_YANG(
 		pda.any = true;
 	}
 
-	if (plist_is_dup(vty->candidate_config->dnode, &pda))
-		return CMD_SUCCESS;
-
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
 	 * none given (backward compatibility).
@@ -1326,6 +1323,7 @@ DEFPY_YANG(
 				vty, "./ipv4-prefix-length-lesser-or-equal",
 				NB_OP_DESTROY, NULL);
 		}
+		nb_cli_enqueue_change(vty, "./any", NB_OP_DESTROY, NULL);
 	} else {
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}
@@ -1476,9 +1474,6 @@ DEFPY_YANG(
 		pda.any = true;
 	}
 
-	if (plist_is_dup(vty->candidate_config->dnode, &pda))
-		return CMD_SUCCESS;
-
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
 	 * none given (backward compatibility).
@@ -1530,6 +1525,7 @@ DEFPY_YANG(
 				vty, "./ipv6-prefix-length-lesser-or-equal",
 				NB_OP_DESTROY, NULL);
 		}
+		nb_cli_enqueue_change(vty, "./any", NB_OP_DESTROY, NULL);
 	} else {
 		nb_cli_enqueue_change(vty, "./any", NB_OP_CREATE, NULL);
 	}

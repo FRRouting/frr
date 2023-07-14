@@ -108,11 +108,10 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
-			 const union sockunion *nexthop, uint32_t mtu)
+			 const union sockunion *nexthop_ref, uint32_t mtu)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	union sockunion *nexthop_ref = (union sockunion *)nexthop;
 
 	if (zclient->sock < 0)
 		return;
@@ -125,9 +124,10 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 
 	switch (type) {
 	case NHRP_CACHE_NEGATIVE:
+		/* Fill in a blackhole nexthop */
 		zapi_route_set_blackhole(&api, BLACKHOLE_REJECT);
 		ifp = NULL;
-		nexthop = NULL;
+		nexthop_ref = NULL;
 		break;
 	case NHRP_CACHE_DYNAMIC:
 	case NHRP_CACHE_NHS:

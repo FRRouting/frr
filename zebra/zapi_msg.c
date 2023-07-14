@@ -801,11 +801,17 @@ int zsend_route_notify_owner(const struct route_node *rn,
 int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				 enum zapi_route_notify_owner note)
 {
-	return (route_notify_internal(
-		rib_find_rn_from_ctx(ctx), dplane_ctx_get_type(ctx),
-		dplane_ctx_get_instance(ctx), dplane_ctx_get_vrf(ctx),
-		dplane_ctx_get_table(ctx), note, dplane_ctx_get_afi(ctx),
-		dplane_ctx_get_safi(ctx)));
+	int result;
+	struct route_node *rn = rib_find_rn_from_ctx(ctx);
+
+	result = route_notify_internal(
+		rn, dplane_ctx_get_type(ctx), dplane_ctx_get_instance(ctx),
+		dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx), note,
+		dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx));
+
+	route_unlock_node(rn);
+
+	return result;
 }
 
 static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
@@ -989,7 +995,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	       family2addrsize(sockunion_family(&ip)));
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi],
+		if (!vrf_bitmap_check(&client->nhrp_neighinfo[afi],
 				      ifp->vrf->vrf_id))
 			continue;
 
@@ -1010,7 +1016,7 @@ int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 	struct stream *s;
 
 	/* Check this client need interface information. */
-	if (!vrf_bitmap_check(client->ridinfo[afi], vrf_id))
+	if (!vrf_bitmap_check(&client->ridinfo[afi], vrf_id))
 		return 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -1330,7 +1336,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 	uint32_t label_index = MPLS_INVALID_LABEL_INDEX;
 
 	s = msg;
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (!zvrf)
 		return;
 
@@ -1393,7 +1399,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 	uint16_t flags;
 
 	s = msg;
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	if (!zvrf)
 		return;
 
@@ -2275,7 +2281,7 @@ static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 	}
 
 	/* Router-id information is needed. */
-	vrf_bitmap_set(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->ridinfo[afi], zvrf_id(zvrf));
 
 	router_id_get(afi, &p, zvrf);
 
@@ -2311,7 +2317,7 @@ static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 		goto stream_failure;
 	}
 
-	vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -2337,7 +2343,7 @@ void zsend_capabilities_all_clients(void)
 	struct zebra_vrf *zvrf;
 	struct zserv *client;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
 		if (client->synchronous)
@@ -2401,10 +2407,11 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+			vrf_bitmap_unset(&client->redist[afi][i],
+					 zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -3557,7 +3564,7 @@ static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3573,7 +3580,7 @@ static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
 			afi);
 		goto stream_failure;
 	}
-	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 stream_failure:
 	return;
 }
@@ -3976,8 +3983,7 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 		hdr.length -= ZEBRA_HEADER_SIZE;
 
 		/* Before checking for a handler function, check for
-		 * special messages that are handled in another module;
-		 * we'll treat these as opaque.
+		 * special messages that are handled the 'opaque zapi' module.
 		 */
 		if (zebra_opaque_handles_msgid(hdr.command)) {
 			/* Reset message buffer */

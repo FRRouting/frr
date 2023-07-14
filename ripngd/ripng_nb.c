@@ -10,6 +10,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripng_nb.h"
+#include "lib/if_rmap.h"
 
 /* clang-format off */
 const struct frr_yang_module_info frr_ripngd_info = {
@@ -113,6 +114,28 @@ const struct frr_yang_module_info frr_ripngd_info = {
 				.destroy = ripngd_instance_redistribute_metric_destroy,
 				.modify = ripngd_instance_redistribute_metric_modify,
 			},
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map",
+			.cbs = {
+				.create = ripngd_instance_if_route_maps_if_route_map_create,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
+				.cli_show = cli_show_if_route_map,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map/in-route-map",
+			.cbs = {
+				.modify = ripngd_instance_if_route_maps_if_route_map_in_route_map_modify,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_in_route_map_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/if-route-maps/if-route-map/out-route-map",
+			.cbs = {
+				.modify = ripngd_instance_if_route_maps_if_route_map_out_route_map_modify,
+				.destroy = ripngd_instance_if_route_maps_if_route_map_out_route_map_destroy,
+			}
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",

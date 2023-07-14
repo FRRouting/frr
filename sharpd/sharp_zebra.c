@@ -6,7 +6,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -26,7 +26,7 @@
 struct zclient *zclient = NULL;
 
 /* For registering threads. */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* Privs info */
 extern struct zebra_privs_t sharp_privs;
@@ -247,7 +247,6 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	api.flags = flags;
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	/* Only send via ID if nhgroup has been successfully installed */
@@ -790,7 +789,7 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 		   zclient->session_id, info.type);
 
 	if (info.type == LINK_STATE_UPDATE) {
-		lse = ls_stream2ted(sg.ted, s, false);
+		lse = ls_stream2ted(sg.ted, s, true);
 		if (lse) {
 			zlog_debug(" |- Got %s %s from Link State Database",
 				   status2txt[lse->status],
@@ -801,6 +800,28 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 				"%s: Error to convert Stream into Link State",
 				__func__);
 	}
+
+	return 0;
+}
+
+/* Handler for opaque notification messages */
+static int sharp_opq_notify_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	struct zapi_opaque_notif_info info;
+
+	s = zclient->ibuf;
+
+	if (zclient_opaque_notif_decode(s, &info) != 0)
+		return -1;
+
+	if (info.reg)
+		zlog_debug("%s: received opaque notification REG, type %u => %d/%d/%d",
+			   __func__, info.msg_type, info.proto, info.instance,
+			   info.session_id);
+	else
+		zlog_debug("%s: received opaque notification UNREG, type %u",
+			   __func__, info.msg_type);
 
 	return 0;
 }
@@ -838,6 +859,17 @@ void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
 			break;
 		}
 	}
+}
+
+/*
+ * Register/unregister for opaque notifications from zebra about 'type'.
+ */
+void sharp_zebra_opaque_notif_reg(bool is_reg, uint32_t type)
+{
+	if (is_reg)
+		zclient_opaque_request_notify(zclient, type);
+	else
+		zclient_opaque_drop_notify(zclient, type);
 }
 
 /*
@@ -1036,6 +1068,7 @@ static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = sharp_redistribute_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = sharp_redistribute_route,
 	[ZEBRA_OPAQUE_MESSAGE] = sharp_opaque_handler,
+	[ZEBRA_OPAQUE_NOTIFY] = sharp_opq_notify_handler,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		sharp_zebra_process_srv6_locator_chunk,
 };

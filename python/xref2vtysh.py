@@ -37,6 +37,8 @@ daemon_flags = {
     "lib/filter_cli.c": "VTYSH_ACL",
     "lib/if.c": "VTYSH_INTERFACE",
     "lib/keychain.c": "VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_OSPF6D",
+    "lib/mgmt_be_client.c": "VTYSH_STATICD",
+    "lib/mgmt_fe_client.c": "VTYSH_MGMTD",
     "lib/lib_vty.c": "VTYSH_ALL",
     "lib/log_vty.c": "VTYSH_ALL",
     "lib/nexthop_group.c": "VTYSH_NH_GROUP",
@@ -44,7 +46,7 @@ daemon_flags = {
     "lib/routemap.c": "VTYSH_RMAP",
     "lib/routemap_cli.c": "VTYSH_RMAP",
     "lib/spf_backoff.c": "VTYSH_ISISD",
-    "lib/thread.c": "VTYSH_ALL",
+    "lib/event.c": "VTYSH_ALL",
     "lib/vrf.c": "VTYSH_VRF",
     "lib/vty.c": "VTYSH_ALL",
 }
@@ -325,7 +327,17 @@ class CommandEntry:
     def load(cls, xref):
         nodes = NodeDict()
 
+        mgmtname = "mgmtd/libmgmt_be_nb.la"
         for cmd_name, origins in xref.get("cli", {}).items():
+            # If mgmtd has a yang version of a CLI command, make it the only daemon
+            # to handle it.  For now, daemons can still be compiling their cmds into the
+            # binaries to allow for running standalone with CLI config files. When they
+            # do this they will also be present in the xref file, but we want to ignore
+            # those in vtysh.
+            if "yang" in origins.get(mgmtname, {}).get("attrs", []):
+                CommandEntry.process(nodes, cmd_name, mgmtname, origins[mgmtname])
+                continue
+
             for origin, spec in origins.items():
                 CommandEntry.process(nodes, cmd_name, origin, spec)
         return nodes

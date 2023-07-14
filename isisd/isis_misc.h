@@ -16,6 +16,7 @@ const char *circuit_t2string(int);
 const char *circuit_state2string(int state);
 const char *circuit_type2string(int type);
 const char *syst2string(int);
+const char *isis_hello_padding2string(int hello_padding_type);
 struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen);
 /*
  * Converting input to memory stored format
@@ -27,11 +28,6 @@ int sysid2buff(uint8_t *, const char *);
 /*
  * Printing functions
  */
-const char *isonet_print(const uint8_t *, int len);
-const char *sysid_print(const uint8_t *);
-const char *snpa_print(const uint8_t *);
-const char *rawlspid_print(const uint8_t *);
-const char *isis_format_id(const uint8_t *id, size_t len);
 const char *time2string(uint32_t);
 const char *nlpid2str(uint8_t nlpid);
 /* typedef struct nlpids nlpids; */

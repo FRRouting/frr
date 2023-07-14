@@ -22,13 +22,13 @@ static void func_for_bt(int number)
 
 #include <zebra.h>
 #include "lib/zlog.h"
-#include "lib/thread.h"
+#include "frrevent.h"
 #include "lib/sigevent.h"
 
 int main(int argc, char **argv)
 {
 	int number = 10;
-	struct thread_master *master;
+	struct event_loop *master;
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	assertf(number > 1, "(B) the number was %d", number);
 
 	/* set up SIGABRT handler */
-	master = thread_master_create("test");
+	master = event_master_create("test");
 	signal_init(master, 0, NULL);
 
 	func_for_bt(number);

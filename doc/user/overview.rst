@@ -424,6 +424,8 @@ BGP
   :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021.`
 - :rfc:`9234`
   :t:`Route Leak Prevention and Detection Using Roles in UPDATE and OPEN Messages. A. Azimov, E. Bogomazov, R. Bush, K. Patel, K. Sriram. May 2022.`
+- :rfc:`9384`
+  :t:`A BGP Cease NOTIFICATION Subcode for Bidirectional Forwarding Detection (BFD). J. Haas. March 2023.`
 
 OSPF
 ----
@@ -463,6 +465,8 @@ BFD
   :t:`Bidirectional Forwarding Detection (BFD), D. Katz, D. Ward. June 2010`
 - :rfc:`5881`
   :t:`Bidirectional Forwarding Detection (BFD) for IPv4 and IPv6 (Single Hop), D. Katz, D. Ward. June 2010`
+- :rfc:`5882`
+  :t:`Generic Application of Bidirectional Forwarding Detection (BFD), D. Katz, D. Ward. June 2010`
 - :rfc:`5883`
   :t:`Bidirectional Forwarding Detection (BFD) for Multihop Paths, D. Katz, D. Ward. June 2010`
 

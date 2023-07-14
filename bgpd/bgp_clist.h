@@ -65,9 +65,6 @@ struct community_entry {
 	/* Standard or expanded.  */
 	uint8_t style;
 
-	/* Any match.  */
-	bool any;
-
 	/* Sequence number. */
 	int64_t seq;
 

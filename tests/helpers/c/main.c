@@ -6,7 +6,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -14,7 +14,7 @@
 
 extern void test_init(void);
 
-struct thread_master *master;
+struct event_loop *master;
 
 struct option longopts[] = {{"daemon", no_argument, NULL, 'd'},
 			    {"config_file", required_argument, NULL, 'f'},
@@ -33,17 +33,17 @@ DEFUN (daemon_exit,
 }
 
 static int timer_count;
-static void test_timer(struct thread *thread)
+static void test_timer(struct event *thread)
 {
-	int *count = THREAD_ARG(thread);
+	int *count = EVENT_ARG(thread);
 
 	printf("run %d of timer\n", (*count)++);
-	thread_add_timer(master, test_timer, count, 5, NULL);
+	event_add_timer(master, test_timer, count, 5, NULL);
 }
 
 static void test_timer_init(void)
 {
-	thread_add_timer(master, test_timer, &timer_count, 10, NULL);
+	event_add_timer(master, test_timer, &timer_count, 10, NULL);
 }
 
 static void test_vty_init(void)
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	int vty_port = 4000;
 	int daemon_mode = 0;
 	char *progname;
-	struct thread thread;
+	struct event thread;
 	char *config_file = NULL;
 
 	/* Set umask before anything for security */
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	while (1) {
 		int opt;
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Create VTY socket */
-	vty_serv_sock(vty_addr, vty_port, "/tmp/.heavy.sock");
+	vty_serv_start(vty_addr, vty_port, "/tmp/.heavy.sock");
 
 	/* Configuration file read*/
 	if (!config_file)
@@ -164,8 +164,8 @@ int main(int argc, char **argv)
 	test_init();
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

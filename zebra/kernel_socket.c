@@ -1255,7 +1255,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 }
 
 
-#include "thread.h"
+#include "frrevent.h"
 #include "zebra/zserv.h"
 
 /* For debug purpose. */
@@ -1281,7 +1281,7 @@ static void rtmsg_debug(struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-static void kernel_read(struct thread *thread)
+static void kernel_read(struct event *thread)
 {
 	int sock;
 	int nbytes;
@@ -1326,7 +1326,7 @@ static void kernel_read(struct thread *thread)
 	} buf;
 
 	/* Fetch routing socket. */
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	nbytes = read(sock, &buf, sizeof(buf));
 
@@ -1338,8 +1338,8 @@ static void kernel_read(struct thread *thread)
 			 * shortage and is not harmful for consistency of
 			 * reading the routing socket.  Ignore it.
 			 */
-			thread_add_read(zrouter.master, kernel_read, NULL, sock,
-					NULL);
+			event_add_read(zrouter.master, kernel_read, NULL, sock,
+				       NULL);
 			return;
 #else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
@@ -1362,7 +1362,7 @@ static void kernel_read(struct thread *thread)
 	if (nbytes == 0)
 		return;
 
-	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1465,7 +1465,15 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+}
+
+void interface_list_second(struct zebra_ns *zns)
+{
+}
+
+void interface_list_tunneldump(struct zebra_ns *zns)
+{
 }
 
 /* Exported interface function.  This function simply calls
@@ -1617,6 +1625,7 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_GRE_SET:
 		case DPLANE_OP_INTF_ADDR_ADD:
 		case DPLANE_OP_INTF_ADDR_DEL:
+		case DPLANE_OP_STARTUP_STAGE:
 			zlog_err("Unhandled dplane data for %s",
 				 dplane_op2str(dplane_ctx_get_op(ctx)));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;

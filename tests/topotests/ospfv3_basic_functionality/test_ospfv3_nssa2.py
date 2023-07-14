@@ -138,7 +138,7 @@ def setup_module(mod):
 
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf6_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -277,7 +277,7 @@ def test_ospfv3_nssa_tc26_p0(request):
     result = verify_ospf6_neighbor(tgen, topo, dut="r2", expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n Nbrs are not down" "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n Nbrs are not down Error: {}".format(tc_name, result)
 
     step("Now configure area 0 on interface of r1 connecting to r2.")
 
@@ -349,7 +349,7 @@ def test_ospfv3_nssa_tc26_p0(request):
     result = verify_ospf6_neighbor(tgen, topo, dut="r2", expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n Nbrs are not down" "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n Nbrs are not down Error: {}".format(tc_name, result)
 
     step("Now configure area 2 on interface of r1 connecting to r2.")
 
@@ -471,7 +471,7 @@ def test_ospfv3_learning_tc15_p0(request):
     result = verify_ospf6_neighbor(tgen, topo)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Change area 1 as non nssa area (on the fly changing area" " type on DUT).")
+    step("Change area 1 as non nssa area (on the fly changing area  type on DUT).")
 
     for rtr in ["r1", "r2", "r3"]:
         input_dict = {

@@ -13,7 +13,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "smux.h"
 #include "filter.h"
 #include "hook.h"
@@ -1394,7 +1394,7 @@ static struct variable bgpv2_variables[] = {
 	 {1, 9, 1, BGP4V2_NLRI_PATH_ATTR_UNKNOWN, 2, 16}},
 };
 
-int bgp_snmp_bgp4v2_init(struct thread_master *tm)
+int bgp_snmp_bgp4v2_init(struct event_loop *tm)
 {
 	REGISTER_MIB("mibII/bgpv2", bgpv2_variables, variable, bgpv2_oid);
 	return 0;

@@ -21,7 +21,8 @@ try:
     import grpc
     import grpc_tools
 
-    from micronet import commander
+    sys.path.append(os.path.dirname(CWD))
+    from munet.base import commander
 
     commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
     commander.cmd_raises(

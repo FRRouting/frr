@@ -13,7 +13,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -326,7 +326,7 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
 
 	*nht_exists = false;
 
-	zvrf = vrf_info_lookup(vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 	if (!zvrf)
 		return;
 
@@ -1532,11 +1532,15 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		seg6local_context2str(buf, sizeof(buf),
 				      &nexthop->nh_srv6->seg6local_ctx,
 				      nexthop->nh_srv6->seg6local_action);
-		vty_out(vty, ", seg6local %s %s",
-			seg6local_action2str(
-				nexthop->nh_srv6->seg6local_action),
-			buf);
-		vty_out(vty, ", seg6 %pI6", &nexthop->nh_srv6->seg6_segs);
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			vty_out(vty, ", seg6local %s %s",
+				seg6local_action2str(
+					nexthop->nh_srv6->seg6local_action),
+				buf);
+		if (IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs, &in6addr_any))
+			vty_out(vty, ", seg6 %pI6",
+				&nexthop->nh_srv6->seg6_segs);
 	}
 
 	if (nexthop->weight)

@@ -16,7 +16,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "if.h"
@@ -251,7 +251,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	/* Set multicast memberships appropriately for new state. */
 	eigrp_if_set_multicast(ei);
 
-	thread_add_event(master, eigrp_hello_timer, ei, (1), &ei->t_hello);
+	event_add_event(master, eigrp_hello_timer, ei, (1), &ei->t_hello);
 
 	/*Prepare metrics*/
 	metric.bandwidth = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
@@ -333,7 +333,7 @@ int eigrp_if_down(struct eigrp_interface *ei)
 		return 0;
 
 	/* Shutdown packet reception and sending */
-	THREAD_OFF(ei->t_hello);
+	EVENT_OFF(ei->t_hello);
 
 	eigrp_if_stream_unset(ei);
 
@@ -360,7 +360,7 @@ void eigrp_if_stream_unset(struct eigrp_interface *ei)
 	if (ei->on_write_q) {
 		listnode_delete(eigrp->oi_write_q, ei);
 		if (list_isempty(eigrp->oi_write_q))
-			thread_cancel(&(eigrp->t_write));
+			event_cancel(&(eigrp->t_write));
 		ei->on_write_q = 0;
 	}
 }
@@ -422,7 +422,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	struct eigrp *eigrp = ei->eigrp;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
-		thread_cancel(&ei->t_hello);
+		event_cancel(&ei->t_hello);
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 

@@ -21,7 +21,7 @@
 #include <lttng/tracepoint.h>
 
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
 #include "table.h"
@@ -73,8 +73,8 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_libfrr, hash_release, TRACE_INFO)
 
 #define THREAD_SCHEDULE_ARGS                                                   \
-	TP_ARGS(struct thread_master *, master, const char *, funcname,        \
-		const char *, schedfrom, int, fromln, struct thread **,        \
+	TP_ARGS(struct event_loop *, master, const char *, funcname,        \
+		const char *, schedfrom, int, fromln, struct event **,        \
 		thread_ptr, int, fd, int, val, void *, arg, long, time)
 
 TRACEPOINT_EVENT_CLASS(
@@ -103,9 +103,9 @@ THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_timer)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_event)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_read)
 THREAD_OPERATION_TRACEPOINT_INSTANCE(schedule_write)
-THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_cancel)
-THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_cancel_async)
-THREAD_OPERATION_TRACEPOINT_INSTANCE(thread_call)
+THREAD_OPERATION_TRACEPOINT_INSTANCE(event_cancel)
+THREAD_OPERATION_TRACEPOINT_INSTANCE(event_cancel_async)
+THREAD_OPERATION_TRACEPOINT_INSTANCE(event_call)
 
 TRACEPOINT_EVENT(
 	frr_libfrr,

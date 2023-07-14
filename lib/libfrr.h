@@ -11,7 +11,7 @@
 #include "typesafe.h"
 #include "sigevent.h"
 #include "privs.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "getopt.h"
 #include "module.h"
@@ -39,6 +39,11 @@ extern "C" {
  * Does nothing if -d isn't used.
  */
 #define FRR_DETACH_LATER	(1 << 6)
+/* If FRR_MANUAL_VTY_START is used, frr_run() will not automatically start
+ * listening on for vty connection (either TCP or Unix socket based). The daemon
+ * is responsible for calling frr_vty_serv() itself.
+ */
+#define FRR_MANUAL_VTY_START (1 << 7)
 
 PREDECL_DLIST(log_args);
 struct log_arg {
@@ -70,7 +75,7 @@ struct frr_daemon_info {
 	bool terminal;
 	enum frr_cli_mode cli_mode;
 
-	struct thread *read_in;
+	struct event *read_in;
 	const char *config_file;
 	const char *backup_config_file;
 	const char *pid_file;
@@ -133,23 +138,25 @@ extern int frr_getopt(int argc, char *const argv[], int *longindex);
 
 extern __attribute__((__noreturn__)) void frr_help_exit(int status);
 
-extern struct thread_master *frr_init(void);
+extern struct event_loop *frr_init(void);
 extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
 extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
 
 /* call order of these hooks is as ordered here */
-DECLARE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
-DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
+DECLARE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
+DECLARE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 /* fork() happens between late_init and config_pre */
-DECLARE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
-DECLARE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+DECLARE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
+DECLARE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
 
 extern void frr_config_fork(void);
 
-extern void frr_run(struct thread_master *master);
+extern void frr_run(struct event_loop *master);
 extern void frr_detach(void);
+extern void frr_vty_serv_start(void);
+extern void frr_vty_serv_stop(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			     const char *path);

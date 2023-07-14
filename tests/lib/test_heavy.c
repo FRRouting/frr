@@ -13,7 +13,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"

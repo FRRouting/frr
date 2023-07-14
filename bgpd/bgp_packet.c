@@ -8,7 +8,7 @@
 #include <zebra.h>
 #include <sys/time.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "stream.h"
 #include "network.h"
 #include "prefix.h"
@@ -331,7 +331,7 @@ static void bgp_update_explicit_eors(struct peer *peer)
  * calling safi function and for evpn, passed as parameter
  */
 int bgp_nlri_parse(struct peer *peer, struct attr *attr,
-		   struct bgp_nlri *packet, int mp_withdraw)
+		   struct bgp_nlri *packet, bool mp_withdraw)
 {
 	switch (packet->safi) {
 	case SAFI_UNICAST:
@@ -442,9 +442,9 @@ static void bgp_write_proceed_actions(struct peer *peer)
  * update group a peer belongs to, encode this information into packets, and
  * enqueue the packets onto the peer's output buffer.
  */
-void bgp_generate_updgrp_packets(struct thread *thread)
+void bgp_generate_updgrp_packets(struct event *thread)
 {
-	struct peer *peer = THREAD_ARG(thread);
+	struct peer *peer = EVENT_ARG(thread);
 
 	struct stream *s;
 	struct peer_af *paf;
@@ -1080,6 +1080,7 @@ void bgp_notify_io_invalid(struct peer *peer, uint8_t code, uint8_t sub_code,
  * @param orf_type          Outbound Route Filtering type
  * @param when_to_refresh   Whether to refresh immediately or defer
  * @param remove            Whether to remove ORF for specified AFI/SAFI
+ * @param subtype           BGP enhanced route refresh optional subtypes
  */
 void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 			    uint8_t orf_type, uint8_t when_to_refresh,
@@ -1102,7 +1103,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
+	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
 		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
 	else
 		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_OLD);
@@ -1115,7 +1116,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 		stream_putc(s, 0);
 	stream_putc(s, pkt_safi);
 
-	if (orf_type == ORF_TYPE_PREFIX || orf_type == ORF_TYPE_PREFIX_OLD)
+	if (orf_type == ORF_TYPE_PREFIX)
 		if (remove || filter->plist[FILTER_IN].plist) {
 			uint16_t orf_len;
 			unsigned long orfp;
@@ -1792,11 +1793,11 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
-static void bgp_refresh_stalepath_timer_expire(struct thread *thread)
+static void bgp_refresh_stalepath_timer_expire(struct event *thread)
 {
 	struct peer_af *paf;
 
-	paf = THREAD_ARG(thread);
+	paf = EVENT_ARG(thread);
 
 	afi_t afi = paf->afi;
 	safi_t safi = paf->safi;
@@ -2106,11 +2107,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 							"EOR RCV",
 							gr_info->eor_received);
 					if (gr_info->t_select_deferral) {
-						void *info = THREAD_ARG(
+						void *info = EVENT_ARG(
 							gr_info->t_select_deferral);
 						XFREE(MTYPE_TMP, info);
 					}
-					THREAD_OFF(gr_info->t_select_deferral);
+					EVENT_OFF(gr_info->t_select_deferral);
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
 					/* Best path selection */
@@ -2374,8 +2375,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			/* orf_len in bounds? */
 			if ((stream_pnt(s) + orf_len) > end)
 				break; /* XXX: Notify instead?? */
-			if (orf_type == ORF_TYPE_PREFIX
-			    || orf_type == ORF_TYPE_PREFIX_OLD) {
+			if (orf_type == ORF_TYPE_PREFIX) {
 				uint8_t *p_pnt = stream_pnt(s);
 				uint8_t *p_end = stream_pnt(s) + orf_len;
 				struct orf_prefix orfp;
@@ -2595,10 +2595,10 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		}
 
 		if (peer_established(peer))
-			thread_add_timer(bm->master,
-					 bgp_refresh_stalepath_timer_expire,
-					 paf, peer->bgp->stalepath_time,
-					 &peer->t_refresh_stalepath);
+			event_add_timer(bm->master,
+					bgp_refresh_stalepath_timer_expire, paf,
+					peer->bgp->stalepath_time,
+					&peer->t_refresh_stalepath);
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -2613,7 +2613,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			return BGP_PACKET_NOOP;
 		}
 
-		THREAD_OFF(peer->t_refresh_stalepath);
+		EVENT_OFF(peer->t_refresh_stalepath);
 
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
 		UNSET_FLAG(peer->af_sflags[afi][safi],
@@ -2863,11 +2863,11 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
  * would not, making event flow difficult to understand. Please think twice
  * before hacking this.
  *
- * Thread type: THREAD_EVENT
+ * Thread type: EVENT_EVENT
  * @param thread
  * @return 0
  */
-void bgp_process_packet(struct thread *thread)
+void bgp_process_packet(struct event *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
@@ -2875,7 +2875,7 @@ void bgp_process_packet(struct thread *thread)
 	int fsm_update_result;    // return code of bgp_event_update()
 	int mprc;		  // message processing return code
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
 					       memory_order_relaxed);
 	fsm_update_result = 0;
@@ -3021,9 +3021,9 @@ void bgp_process_packet(struct thread *thread)
 		frr_with_mutex (&peer->io_mtx) {
 			// more work to do, come back later
 			if (peer->ibuf->count > 0)
-				thread_add_event(
-					bm->master, bgp_process_packet, peer, 0,
-					&peer->t_process_packet);
+				event_add_event(bm->master, bgp_process_packet,
+						peer, 0,
+						&peer->t_process_packet);
 		}
 	}
 }
@@ -3044,13 +3044,13 @@ void bgp_send_delayed_eor(struct bgp *bgp)
  * having the io pthread try to enqueue fsm events or mess with the peer
  * struct.
  */
-void bgp_packet_process_error(struct thread *thread)
+void bgp_packet_process_error(struct event *thread)
 {
 	struct peer *peer;
 	int code;
 
-	peer = THREAD_ARG(thread);
-	code = THREAD_VAL(thread);
+	peer = EVENT_ARG(thread);
+	code = EVENT_VAL(thread);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] BGP error %d on fd %d",

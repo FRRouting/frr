@@ -6,11 +6,12 @@
  */
 #include <zebra.h>
 
+#include <getopt.h>
+
 #include <lib/version.h>
 
 #include "lib/command.h"
 #include "lib/filter.h"
-#include "lib/getopt.h"
 #include "lib/if.h"
 #include "lib/libfrr.h"
 #include "lib/log.h"
@@ -18,7 +19,7 @@
 #include "lib/nexthop.h"
 #include "lib/privs.h"
 #include "lib/sigevent.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vrf.h"
 #include "lib/vty.h"
 
@@ -50,7 +51,7 @@ struct zebra_privs_t vrrp_privs = {
 struct option longopts[] = { {0} };
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info vrrpd_di;
 

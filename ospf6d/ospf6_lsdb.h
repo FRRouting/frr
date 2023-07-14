@@ -29,6 +29,9 @@ extern struct ospf6_lsa *ospf6_lsdb_lookup(uint16_t type, uint32_t id,
 extern struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
 						uint32_t adv_router,
 						struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
+						     struct ospf6_area *area,
+						     struct prefix *p);
 
 extern void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
@@ -60,11 +63,11 @@ extern struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
  * it really early.
  */
 #define ALL_LSDB(lsdb, lsa, lsanext)                                           \
-	const struct route_node *iterend =                                     \
-		ospf6_lsdb_head(lsdb, 0, 0, 0, &lsa);                          \
-	(lsa) != NULL && ospf6_lsa_lock(lsa)                                   \
-		&& ((lsanext) = ospf6_lsdb_next(iterend, (lsa)), 1);           \
-	ospf6_lsa_unlock(lsa), (lsa) = (lsanext)
+	const struct route_node *iterend = ospf6_lsdb_head(lsdb, 0, 0, 0,      \
+							   &lsa);              \
+	(lsa) != NULL && ospf6_lsa_lock(lsa) &&                                \
+		((lsanext) = ospf6_lsdb_next(iterend, (lsa)), 1);              \
+	ospf6_lsa_unlock(&lsa), (lsa) = (lsanext)
 
 extern void ospf6_lsdb_remove_all(struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa);

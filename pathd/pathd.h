@@ -311,7 +311,7 @@ struct srte_candidate {
 	uint32_t affinity_filters[MAX_AFFINITY_FILTER_TYPE];
 
 	/* Hooks delaying timer */
-	struct thread *hook_timer;
+	struct event *hook_timer;
 };
 
 RB_HEAD(srte_candidate_head, srte_candidate);
@@ -371,7 +371,7 @@ extern struct srte_policy_head srte_policies;
 extern struct zebra_privs_t pathd_privs;
 
 /* master thread, defined in path_main.c */
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 /* pathd.c */
 struct srte_segment_list *srte_segment_list_add(const char *name);

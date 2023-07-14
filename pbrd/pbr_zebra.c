@@ -6,7 +6,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "network.h"
 #include "prefix.h"
@@ -516,7 +516,7 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 	stream_putl(s, pbr_vrf->vrf->data.l.table_id);
 }
 
-static void pbr_encode_pbr_map_sequence(struct stream *s,
+static bool pbr_encode_pbr_map_sequence(struct stream *s,
 					struct pbr_map_sequence *pbrms,
 					struct interface *ifp)
 {
@@ -549,7 +549,14 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
 		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));
+	else {
+		/* Not valid for install without table */
+		return false;
+	}
+
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
+
+	return true;
 }
 
 bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
@@ -593,11 +600,13 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,
 	       install, pmi->ifp->name, pmi->delete);
 
-	pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp);
-
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	zclient_send_message(zclient);
+	if (pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp)) {
+		stream_putw_at(s, 0, stream_get_endp(s));
+		zclient_send_message(zclient);
+	} else {
+		DEBUGD(&pbr_dbg_zebra, "%s: %s seq %u encode failed, skipped",
+		       __func__, pbrm->name, pbrms->seqno);
+	}
 
 	return true;
 }

@@ -1,0 +1,68 @@
+#
+# mgmtd -- Mangagement Daemon
+#
+
+# dist_examples_DATA += \
+	# end
+
+vtysh_daemons += mgmtd
+
+# man8 += $(MANBUILD)/frr-mgmtd.8
+# endif
+
+clippy_scan += \
+	mgmtd/mgmt_vty.c \
+	# end
+
+lib_LTLIBRARIES += mgmtd/libmgmt_be_nb.la
+nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
+	# end
+mgmtd_libmgmt_be_nb_la_CFLAGS = $(AM_CFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY
+mgmtd_libmgmt_be_nb_la_CPPFLAGS = $(AM_CPPFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY
+mgmtd_libmgmt_be_nb_la_LDFLAGS = -version-info 0:0:0
+
+noinst_LIBRARIES += mgmtd/libmgmtd.a
+mgmtd_libmgmtd_a_SOURCES = \
+	mgmtd/mgmt.c \
+	mgmtd/mgmt_ds.c \
+	mgmtd/mgmt_be_adapter.c \
+	mgmtd/mgmt_fe_adapter.c \
+	mgmtd/mgmt_history.c \
+	mgmtd/mgmt_memory.c \
+	mgmtd/mgmt_txn.c \
+	mgmtd/mgmt_vty.c \
+	# end
+
+mgmtdheaderdir = $(pkgincludedir)/mgmtd
+mgmtdheader_HEADERS = \
+	mgmtd/mgmt_defines.h \
+	# end
+
+noinst_HEADERS += \
+	mgmtd/mgmt.h \
+	mgmtd/mgmt_be_adapter.h \
+	mgmtd/mgmt_ds.h \
+	mgmtd/mgmt_fe_adapter.h \
+	mgmtd/mgmt_history.h \
+	mgmtd/mgmt_memory.h \
+	mgmtd/mgmt_txn.h \
+	# end
+
+sbin_PROGRAMS += mgmtd/mgmtd
+
+mgmtd_mgmtd_SOURCES = \
+	mgmtd/mgmt_main.c \
+	# end
+nodist_mgmtd_mgmtd_SOURCES = \
+	# nothing
+mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
+mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
+mgmtd_mgmtd_LDADD += mgmtd/libmgmt_be_nb.la
+
+if STATICD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-staticd.yang.c \
+	yang/frr-bfdd.yang.c \
+	# end
+nodist_mgmtd_libmgmt_be_nb_la_SOURCES += staticd/static_vty.c
+endif

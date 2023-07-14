@@ -82,7 +82,7 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len,
 }
 
 int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
-			    struct bgp_nlri *packet, int withdraw)
+			    struct bgp_nlri *packet, bool withdraw)
 {
 	uint8_t *pnt;
 	uint8_t *lim;
@@ -97,6 +97,13 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	lim = pnt + packet->length;
 	afi = packet->afi;
 	safi = packet->safi;
+
+	/*
+	 * All other AFI/SAFI's treat no attribute as a implicit
+	 * withdraw.  Flowspec should as well.
+	 */
+	if (!attr)
+		withdraw = true;
 
 	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT_EXTENDED) {
 		flog_err(EC_BGP_FLOWSPEC_PACKET,
@@ -182,13 +189,16 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 			zlog_info("%s", local_string);
 		}
 		/* Process the route. */
-		if (!withdraw)
+		if (!withdraw) {
 			bgp_update(peer, &p, 0, attr, afi, safi,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
 				   NULL, 0, 0, NULL);
-		else
+		} else {
 			bgp_withdraw(peer, &p, 0, afi, safi, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
+		}
+
+		XFREE(MTYPE_TMP, temp);
 	}
 	return BGP_NLRI_PARSE_OK;
 }

@@ -8,7 +8,7 @@
 #include "linklist.h"
 #include "prefix.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "command.h"
 #include "memory.h"
@@ -36,9 +36,6 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_ADDPATH, "AddPath"},
 	{CAPABILITY_CODE_DYNAMIC, "Dynamic"},
 	{CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding"},
-	{CAPABILITY_CODE_DYNAMIC_OLD, "Dynamic (Old)"},
-	{CAPABILITY_CODE_REFRESH_OLD, "Route Refresh (Old)"},
-	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
 	{CAPABILITY_CODE_FQDN, "FQDN"},
 	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
 	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
@@ -56,10 +53,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_AS4] = CAPABILITY_CODE_AS4_LEN,
 		[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
 		[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = CAPABILITY_CODE_DYNAMIC_LEN,
 		[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
-		[CAPABILITY_CODE_REFRESH_OLD] = CAPABILITY_CODE_REFRESH_LEN,
-		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
 		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
 		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
 		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
@@ -81,10 +75,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_AS4] = 4,
 		[CAPABILITY_CODE_ADDPATH] = 4,
 		[CAPABILITY_CODE_DYNAMIC] = 1,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = 1,
 		[CAPABILITY_CODE_ENHE] = 6,
-		[CAPABILITY_CODE_REFRESH_OLD] = 1,
-		[CAPABILITY_CODE_ORF_OLD] = 1,
 		[CAPABILITY_CODE_FQDN] = 1,
 		[CAPABILITY_CODE_ENHANCED_RR] = 1,
 		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
@@ -351,7 +342,6 @@ static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
 static const struct message orf_type_str[] = {
 	{ORF_TYPE_RESERVED, "Reserved"},
 	{ORF_TYPE_PREFIX, "Prefixlist"},
-	{ORF_TYPE_PREFIX_OLD, "Prefixlist (old)"},
 	{0}};
 
 static const struct message orf_mode_str[] = {{ORF_MODE_RECEIVE, "Receive"},
@@ -440,22 +430,6 @@ static int bgp_capability_orf_entry(struct peer *peer,
 				continue;
 			}
 			break;
-		case CAPABILITY_CODE_ORF_OLD:
-			switch (type) {
-			case ORF_TYPE_RESERVED:
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%s Addr-family %d/%d has reserved ORF type, ignoring",
-						peer->host, afi, safi);
-				break;
-			case ORF_TYPE_PREFIX_OLD:
-				break;
-			default:
-				bgp_capability_orf_not_support(
-					peer, pkt_afi, pkt_safi, type, mode);
-				continue;
-			}
-			break;
 		default:
 			bgp_capability_orf_not_support(peer, pkt_afi, pkt_safi,
 						       type, mode);
@@ -482,9 +456,6 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		if (hdr->code == CAPABILITY_CODE_ORF) {
 			sm_cap = PEER_CAP_ORF_PREFIX_SM_RCV;
 			rm_cap = PEER_CAP_ORF_PREFIX_RM_RCV;
-		} else if (hdr->code == CAPABILITY_CODE_ORF_OLD) {
-			sm_cap = PEER_CAP_ORF_PREFIX_SM_OLD_RCV;
-			rm_cap = PEER_CAP_ORF_PREFIX_RM_OLD_RCV;
 		} else {
 			bgp_capability_orf_not_support(peer, pkt_afi, pkt_safi,
 						       type, mode);
@@ -604,12 +575,24 @@ static int bgp_capability_restart(struct peer *peer,
 static int bgp_capability_llgr(struct peer *peer,
 			       struct capability_header *caphdr)
 {
+/*
+ * +--------------------------------------------------+
+ * | Address Family Identifier (16 bits)              |
+ * +--------------------------------------------------+
+ * | Subsequent Address Family Identifier (8 bits)    |
+ * +--------------------------------------------------+
+ * | Flags for Address Family (8 bits)                |
+ * +--------------------------------------------------+
+ * | Long-lived Stale Time (24 bits)                  |
+ * +--------------------------------------------------+
+ */
+#define BGP_CAP_LLGR_MIN_PACKET_LEN 7
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + caphdr->length;
 
 	SET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
 
-	while (stream_get_getp(s) + 4 <= end) {
+	while (stream_get_getp(s) + BGP_CAP_LLGR_MIN_PACKET_LEN <= end) {
 		afi_t afi;
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
@@ -999,14 +982,11 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		switch (caphdr.code) {
 		case CAPABILITY_CODE_MP:
 		case CAPABILITY_CODE_REFRESH:
-		case CAPABILITY_CODE_REFRESH_OLD:
 		case CAPABILITY_CODE_ORF:
-		case CAPABILITY_CODE_ORF_OLD:
 		case CAPABILITY_CODE_RESTART:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_ADDPATH:
 		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_DYNAMIC_OLD:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHANCED_RR:
@@ -1064,18 +1044,14 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			}
 		} break;
 		case CAPABILITY_CODE_ENHANCED_RR:
-		case CAPABILITY_CODE_REFRESH:
-		case CAPABILITY_CODE_REFRESH_OLD: {
+		case CAPABILITY_CODE_REFRESH: {
 			/* BGP refresh capability */
 			if (caphdr.code == CAPABILITY_CODE_ENHANCED_RR)
 				SET_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV);
-			else if (caphdr.code == CAPABILITY_CODE_REFRESH_OLD)
-				SET_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV);
 			else
-				SET_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV);
+				SET_FLAG(peer->cap, PEER_CAP_REFRESH_RCV);
 		} break;
 		case CAPABILITY_CODE_ORF:
-		case CAPABILITY_CODE_ORF_OLD:
 			ret = bgp_capability_orf_entry(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_RESTART:
@@ -1085,7 +1061,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			ret = bgp_capability_llgr(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_DYNAMIC:
-		case CAPABILITY_CODE_DYNAMIC_OLD:
 			SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV);
 			break;
 		case CAPABILITY_CODE_AS4:
@@ -1486,9 +1461,7 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 	/* Address Prefix ORF */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_SM)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_RM)) {
-		stream_putc(s, (code == CAPABILITY_CODE_ORF
-					? ORF_TYPE_PREFIX
-					: ORF_TYPE_PREFIX_OLD));
+		stream_putc(s, ORF_TYPE_PREFIX);
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
 			       PEER_FLAG_ORF_PREFIX_SM)
@@ -1759,11 +1732,6 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_REFRESH_LEN + 2)
 		       : stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
-	stream_putc(s, CAPABILITY_CODE_REFRESH_OLD);
-	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
-	stream_putc(s, BGP_OPEN_OPT_CAP);
-	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_REFRESH_LEN + 2)
-		       : stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
 	stream_putc(s, CAPABILITY_CODE_REFRESH);
 	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
 
@@ -1886,9 +1854,6 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		    || CHECK_FLAG(peer->af_flags[afi][safi],
 				  PEER_FLAG_ORF_PREFIX_RM)) {
 			bgp_open_capability_orf(s, peer, afi, safi,
-						CAPABILITY_CODE_ORF_OLD,
-						ext_opt_params);
-			bgp_open_capability_orf(s, peer, afi, safi,
 						CAPABILITY_CODE_ORF,
 						ext_opt_params);
 		}
@@ -1897,12 +1862,6 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	/* Dynamic capability. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
 		SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-		stream_putc(s, BGP_OPEN_OPT_CAP);
-		ext_opt_params
-			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
-			: stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
-		stream_putc(s, CAPABILITY_CODE_DYNAMIC_OLD);
-		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		ext_opt_params
 			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)

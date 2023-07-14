@@ -13,7 +13,7 @@
 #include "prefix.h"
 #include "command.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 
 #include "ripngd/ripngd.h"
@@ -28,7 +28,7 @@ static struct ripng_peer *ripng_peer_new(void)
 
 static void ripng_peer_free(struct ripng_peer *peer)
 {
-	THREAD_OFF(peer->t_timeout);
+	EVENT_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIPNG_PEER, peer);
 }
 
@@ -60,11 +60,11 @@ struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
 /* RIPng peer is timeout.
  * Garbage collector.
  **/
-static void ripng_peer_timeout(struct thread *t)
+static void ripng_peer_timeout(struct event *t)
 {
 	struct ripng_peer *peer;
 
-	peer = THREAD_ARG(t);
+	peer = EVENT_ARG(t);
 	listnode_delete(peer->ripng->peer_list, peer);
 	ripng_peer_free(peer);
 }
@@ -78,7 +78,7 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	peer = ripng_peer_lookup(ripng, addr);
 
 	if (peer) {
-		THREAD_OFF(peer->t_timeout);
+		EVENT_OFF(peer->t_timeout);
 	} else {
 		peer = ripng_peer_new();
 		peer->ripng = ripng;
@@ -87,8 +87,8 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	}
 
 	/* Update timeout thread. */
-	thread_add_timer(master, ripng_peer_timeout, peer,
-			 RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
+	event_add_timer(master, ripng_peer_timeout, peer,
+			RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
 
 	/* Last update time set. */
 	time(&peer->uptime);

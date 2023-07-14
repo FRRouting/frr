@@ -167,6 +167,10 @@ struct route_entry {
 
 #define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)
 
+/* Define route types that are equivalent to "connected". */
+#define RIB_CONNECTED_ROUTE(R)                                                 \
+	((R)->type == ZEBRA_ROUTE_CONNECT || (R)->type == ZEBRA_ROUTE_NHRP)
+
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
  * sub-queue 1: EVPN/VxLAN objects
@@ -180,7 +184,7 @@ struct route_entry {
  * sub-queue 9: any other origin (if any) typically those that
  *              don't generate routes
  */
-#define MQ_SIZE 10
+#define MQ_SIZE 11
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
@@ -323,6 +327,7 @@ enum rib_update_event {
 	RIB_UPDATE_OTHER,
 	RIB_UPDATE_MAX
 };
+void rib_update_finish(void);
 
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
@@ -402,7 +407,7 @@ extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 extern void rib_update(enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
-extern void rib_sweep_route(struct thread *t);
+extern void rib_sweep_route(struct event *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
 extern void rib_init(void);
@@ -464,6 +469,13 @@ extern uint8_t route_distance(int type);
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
+/*
+ * rib_find_rn_from_ctx
+ *
+ * Returns a lock increased route_node for the appropriate
+ * table and prefix specified by the context.  Developer
+ * should unlock the node when done.
+ */
 extern struct route_node *
 rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx);
 
@@ -600,6 +612,12 @@ static inline struct nexthop_group *rib_get_fib_backup_nhg(
 {
 	return &(re->fib_backup_ng);
 }
+
+extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+				    uint8_t instance);
+
+extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+			  uint8_t instance);
 
 extern void zebra_vty_init(void);
 

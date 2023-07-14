@@ -23,13 +23,13 @@ static void vty_do_exit(int isexit)
 		exit(0);
 }
 
-struct thread_master *master;
+struct event_loop *master;
 
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event event;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
@@ -45,8 +45,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &event))
+		event_call(&event);
 
 	/* Not reached. */
 	exit(0);
