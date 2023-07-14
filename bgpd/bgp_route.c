@@ -6347,7 +6347,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 			/* Unintern original. */
 			aspath_unintern(&attr.aspath);
-			bgp_static_withdraw(bgp, p, afi, safi);
+			bgp_static_withdraw(bgp, p, afi, safi, NULL);
 			bgp_dest_unlock_node(dest);
 			return;
 		}
@@ -6528,42 +6528,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 }
 
 void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
-			 safi_t safi)
-{
-	struct bgp_dest *dest;
-	struct bgp_path_info *pi;
-
-	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
-
-	/* Check selected route and self inserted route. */
-	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
-		    && pi->sub_type == BGP_ROUTE_STATIC)
-			break;
-
-	/* Withdraw static BGP route from routing table. */
-	if (pi) {
-		if (SAFI_UNICAST == safi
-		    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
-			|| bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
-		}
-		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
-		bgp_unlink_nexthop(pi);
-		bgp_path_info_delete(dest, pi);
-		bgp_process(bgp, dest, afi, safi);
-	}
-
-	/* Unlock bgp_node_lookup. */
-	bgp_dest_unlock_node(dest);
-}
-
-/*
- * Used for SAFI_MPLS_VPN and SAFI_ENCAP
- */
-static void bgp_static_withdraw_safi(struct bgp *bgp, const struct prefix *p,
-				     afi_t afi, safi_t safi,
-				     struct prefix_rd *prd)
+			 safi_t safi, struct prefix_rd *prd)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
@@ -6579,15 +6544,22 @@ static void bgp_static_withdraw_safi(struct bgp *bgp, const struct prefix *p,
 	/* Withdraw static BGP route from routing table. */
 	if (pi) {
 #ifdef ENABLE_BGP_VNC
-		rfapiProcessWithdraw(
-			pi->peer, NULL, p, prd, pi->attr, afi, safi, pi->type,
-			1); /* Kill, since it is an administrative change */
+		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
+			rfapiProcessWithdraw(pi->peer, NULL, p, prd, pi->attr,
+					     afi, safi, pi->type,
+					     1); /* Kill, since it is an administrative change */
 #endif
+		if (SAFI_UNICAST == safi &&
+		    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+		     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
+			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
+		}
 		if (SAFI_MPLS_VPN == safi
 		    && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			vpn_leak_to_vrf_withdraw(pi);
 		}
 		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
+		bgp_unlink_nexthop(pi);
 		bgp_path_info_delete(dest, pi);
 		bgp_process(bgp, dest, afi, safi);
 	}
@@ -6674,8 +6646,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 
 			/* Unintern original. */
 			aspath_unintern(&attr.aspath);
-			bgp_static_withdraw_safi(bgp, p, afi, safi,
-						 &bgp_static->prd);
+			bgp_static_withdraw(bgp, p, afi, safi, &bgp_static->prd);
 			bgp_dest_unlock_node(dest);
 			return;
 		}
@@ -6828,7 +6799,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 
 		/* Update BGP RIB. */
 		if (!bgp_static->backdoor)
-			bgp_static_withdraw(bgp, &p, afi, safi);
+			bgp_static_withdraw(bgp, &p, afi, safi, NULL);
 
 		/* Clear configuration. */
 		bgp_static_free(bgp_static);
@@ -6902,7 +6873,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 
 		bgp_static->valid = 1;
 		if (need_update)
-			bgp_static_withdraw(bgp, &p, afi, safi);
+			bgp_static_withdraw(bgp, &p, afi, safi, NULL);
 
 		if (!bgp_static->backdoor)
 			bgp_static_update(bgp, &p, bgp_static, afi, safi);
@@ -6979,12 +6950,13 @@ void bgp_static_delete(struct bgp *bgp)
 					if (!bgp_static)
 						continue;
 
-					bgp_static_withdraw_safi(
-						bgp, bgp_dest_get_prefix(rm),
-						AFI_IP, safi,
-						(struct prefix_rd *)
-							bgp_dest_get_prefix(
-								dest));
+					bgp_static_withdraw(bgp,
+							    bgp_dest_get_prefix(
+								    rm),
+							    AFI_IP, safi,
+							    (struct prefix_rd *)
+								    bgp_dest_get_prefix(
+									    dest));
 					bgp_static_free(bgp_static);
 					bgp_dest_set_bgp_static_info(rm,
 								     NULL);
@@ -6994,7 +6966,7 @@ void bgp_static_delete(struct bgp *bgp)
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
 				bgp_static_withdraw(bgp,
 						    bgp_dest_get_prefix(dest),
-						    afi, safi);
+						    afi, safi, NULL);
 				bgp_static_free(bgp_static);
 				bgp_dest_set_bgp_static_info(dest, NULL);
 				bgp_dest_unlock_node(dest);
@@ -7276,7 +7248,7 @@ int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty,
 	dest = bgp_node_lookup(table, &p);
 
 	if (dest) {
-		bgp_static_withdraw_safi(bgp, &p, afi, safi, &prd);
+		bgp_static_withdraw(bgp, &p, afi, safi, &prd);
 
 		bgp_static = bgp_dest_get_bgp_static_info(dest);
 		bgp_static_free(bgp_static);

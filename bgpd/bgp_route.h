@@ -756,7 +756,7 @@ extern void bgp_purge_static_redist_routes(struct bgp *bgp);
 extern void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			      struct bgp_static *s, afi_t afi, safi_t safi);
 extern void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p,
-				afi_t afi, safi_t safi);
+				afi_t afi, safi_t safi, struct prefix_rd *prd);
 
 extern int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			       const char *, const char *, const char *,
