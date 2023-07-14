@@ -714,6 +714,11 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 {
 	struct bgp_nexthop_cache *bnc;
 
+	if (ifp->ifindex == IFINDEX_INTERNAL) {
+		zlog_warn("%s: The interface %s ignored", __func__, ifp->name);
+		return;
+	}
+
 	frr_each (bgp_nexthop_cache, table, bnc) {
 		if (bnc->ifindex != ifp->ifindex)
 			continue;

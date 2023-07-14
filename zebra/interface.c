@@ -787,6 +787,15 @@ void if_delete_update(struct interface **pifp)
 	/* Delete connected routes from the kernel. */
 	if_delete_connected(ifp);
 
+	/* if the ifp is in a vrf, move it to default so vrf can be deleted if
+	 * desired. This operation is not done for netns implementation to avoid
+	 * collision with interface with the same name in the default vrf (can
+	 * occur with this implementation whereas it is not possible with
+	 * vrf-lite).
+	 */
+	if (ifp->vrf->vrf_id && !vrf_is_backend_netns())
+		if_handle_vrf_change(ifp, VRF_DEFAULT);
+
 	/* Send out notification on interface delete. */
 	zebra_interface_delete_update(ifp);
 
@@ -799,15 +808,6 @@ void if_delete_update(struct interface **pifp)
 	   interface deletion message. */
 	if_set_index(ifp, IFINDEX_INTERNAL);
 	ifp->node = NULL;
-
-	/* if the ifp is in a vrf, move it to default so vrf can be deleted if
-	 * desired. This operation is not done for netns implementation to avoid
-	 * collision with interface with the same name in the default vrf (can
-	 * occur with this implementation whereas it is not possible with
-	 * vrf-lite).
-	 */
-	if (ifp->vrf->vrf_id && !vrf_is_backend_netns())
-		if_handle_vrf_change(ifp, VRF_DEFAULT);
 
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
