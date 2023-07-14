@@ -6272,6 +6272,43 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	return BGP_NLRI_PARSE_OK;
 }
 
+static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
+					   struct bgp_path_info *bpi,
+					   const struct prefix *p,
+					   struct bgp_dest *dest,
+					   struct bgp *bgp)
+{
+	/* Nexthop reachability check. */
+	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
+			if (bgp_find_or_add_nexthop(bgp, bgp, afi, safi, bpi,
+						    NULL, 0, p))
+				bgp_path_info_set_flag(dest, bpi,
+						       BGP_PATH_VALID);
+			else {
+				if (BGP_DEBUG(nht, NHT)) {
+					char buf1[INET6_ADDRSTRLEN];
+
+					inet_ntop(p->family, &p->u.prefix, buf1,
+						  sizeof(buf1));
+					zlog_debug("%s(%s): Route not in table, not advertising",
+						   __func__, buf1);
+				}
+				bgp_path_info_unset_flag(dest, bpi,
+							 BGP_PATH_VALID);
+			}
+		} else {
+			/* Delete the NHT structure if any, if we're toggling between
+			* enabling/disabling import check. We deregister the route
+			* from NHT to avoid overloading NHT and the process interaction
+			*/
+			bgp_unlink_nexthop(bpi);
+
+			bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
+		}
+	}
+}
+
 static struct bgp_static *bgp_static_new(void)
 {
 	return XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
@@ -6300,11 +6337,18 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	route_map_result_t ret;
 #ifdef ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;
+	mpls_label_t label = 0;
 #endif
+	uint32_t num_labels = 0;
 
 	assert(bgp_static);
 
-	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
+	if ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) &&
+	    bgp_static->label != MPLS_INVALID_LABEL)
+		num_labels = 1;
+
+	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p,
+				&bgp_static->prd);
 
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
@@ -6327,6 +6371,37 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID);
 	}
 
+	if (safi == SAFI_EVPN || safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) {
+		if (afi == AFI_IP) {
+			attr.mp_nexthop_global_in = bgp_static->igpnexthop;
+			attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
+		}
+	}
+
+	if (afi == AFI_L2VPN) {
+		if (bgp_static->gatewayIp.family == AF_INET) {
+			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
+			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
+			       &bgp_static->gatewayIp.u.prefix4,
+			       IPV4_MAX_BYTELEN);
+		} else if (bgp_static->gatewayIp.family == AF_INET6) {
+			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
+			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
+			       &bgp_static->gatewayIp.u.prefix6,
+			       IPV6_MAX_BYTELEN);
+		}
+		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
+		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
+			struct bgp_encap_type_vxlan bet;
+			memset(&bet, 0, sizeof(bet));
+			bet.vnid = p->u.prefix_evpn.prefix_addr.eth_tag;
+			bgp_encap_type_vxlan_to_tlv(&bet, &attr);
+		}
+		if (bgp_static->router_mac) {
+			bgp_add_routermac_ecom(&attr, bgp_static->router_mac);
+		}
+	}
+
 	/* Apply route-map. */
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
@@ -6347,7 +6422,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 			/* Unintern original. */
 			aspath_unintern(&attr.aspath);
-			bgp_static_withdraw(bgp, p, afi, safi, NULL);
+			bgp_static_withdraw(bgp, p, afi, safi, &bgp_static->prd);
 			bgp_dest_unlock_node(dest);
 			return;
 		}
@@ -6387,8 +6462,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			else
 				bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 #ifdef ENABLE_BGP_VNC
-			if ((afi == AFI_IP || afi == AFI_IP6)
-			    && (safi == SAFI_UNICAST)) {
+			if ((afi == AFI_IP || afi == AFI_IP6) &&
+			    safi == SAFI_UNICAST) {
 				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 					/*
 					 * Implicit withdraw case.
@@ -6406,59 +6481,40 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			pi->attr = attr_new;
 			pi->uptime = monotime(NULL);
 #ifdef ENABLE_BGP_VNC
-			if ((afi == AFI_IP || afi == AFI_IP6)
-			    && (safi == SAFI_UNICAST)) {
+			if ((afi == AFI_IP || afi == AFI_IP6) &&
+			    safi == SAFI_UNICAST) {
 				if (vnc_implicit_withdraw) {
 					vnc_import_bgp_add_route(bgp, p, pi);
 					vnc_import_bgp_exterior_add_route(
 						bgp, p, pi);
 				}
+			} else {
+				if (pi->extra)
+					label = decode_label(
+						&pi->extra->label[0]);
 			}
 #endif
 
-			/* Nexthop reachability check. */
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)
-			    && (safi == SAFI_UNICAST
-				|| safi == SAFI_LABELED_UNICAST)) {
+			bgp_nexthop_reachability_check(afi, safi, pi, p, dest,
+						       bgp);
 
-				struct bgp *bgp_nexthop = bgp;
-
-				if (pi->extra && pi->extra->bgp_orig)
-					bgp_nexthop = pi->extra->bgp_orig;
-
-				if (bgp_find_or_add_nexthop(bgp, bgp_nexthop,
-							    afi, safi, pi, NULL,
-							    0, p))
-					bgp_path_info_set_flag(dest, pi,
-							       BGP_PATH_VALID);
-				else {
-					if (BGP_DEBUG(nht, NHT)) {
-						char buf1[INET6_ADDRSTRLEN];
-						inet_ntop(p->family,
-							  &p->u.prefix, buf1,
-							  sizeof(buf1));
-						zlog_debug(
-							"%s(%s): Route not in table, not advertising",
-							__func__, buf1);
-					}
-					bgp_path_info_unset_flag(
-						dest, pi, BGP_PATH_VALID);
-				}
-			} else {
-				/* Delete the NHT structure if any, if we're
-				 * toggling between
-				 * enabling/disabling import check. We
-				 * deregister the route
-				 * from NHT to avoid overloading NHT and the
-				 * process interaction
-				 */
-				bgp_unlink_nexthop(pi);
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_VALID);
-			}
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, pi, afi, safi);
 			bgp_process(bgp, dest, afi, safi);
+
+			if (SAFI_MPLS_VPN == safi &&
+			    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+				vpn_leak_to_vrf_update(bgp, pi,
+						       &bgp_static->prd);
+			}
+#ifdef ENABLE_BGP_VNC
+			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP ||
+			    safi == SAFI_EVPN)
+				rfapiProcessUpdate(pi->peer, NULL, p,
+						   &bgp_static->prd, pi->attr,
+						   afi, safi, pi->type,
+						   pi->sub_type, &label);
+#endif
 
 			if (SAFI_UNICAST == safi
 			    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
@@ -6477,33 +6533,20 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	/* Make new BGP info. */
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self,
 			attr_new, dest);
-	/* Nexthop reachability check. */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
-		if (bgp_find_or_add_nexthop(bgp, bgp, afi, safi, new, NULL, 0,
-					    p))
-			bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
-		else {
-			if (BGP_DEBUG(nht, NHT)) {
-				char buf1[INET6_ADDRSTRLEN];
 
-				inet_ntop(p->family, &p->u.prefix, buf1,
-					  sizeof(buf1));
-				zlog_debug(
-					"%s(%s): Route not in table, not advertising",
-					__func__, buf1);
-			}
-			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
+	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
+		SET_FLAG(new->flags, BGP_PATH_VALID);
+		bgp_path_info_extra_get(new);
+		if (num_labels) {
+			new->extra->label[0] = bgp_static->label;
+			new->extra->num_labels = num_labels;
 		}
-	} else {
-		/* Delete the NHT structure if any, if we're toggling between
-		 * enabling/disabling import check. We deregister the route
-		 * from NHT to avoid overloading NHT and the process interaction
-		 */
-		bgp_unlink_nexthop(new);
-
-		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
+#ifdef ENABLE_BGP_VNC
+		label = decode_label(&bgp_static->label);
+#endif
 	}
+
+	bgp_nexthop_reachability_check(afi, safi, new, p, dest, bgp);
 
 	/* Aggregate address increment. */
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
@@ -6517,11 +6560,22 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	/* Process change. */
 	bgp_process(bgp, dest, afi, safi);
 
-	if (SAFI_UNICAST == safi
-	    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
-		|| bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
+	if (SAFI_UNICAST == safi &&
+	    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+	     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 		vpn_leak_from_vrf_update(bgp_get_default(), bgp, new);
 	}
+
+	if (SAFI_MPLS_VPN == safi &&
+	    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		vpn_leak_to_vrf_update(bgp, new, &bgp_static->prd);
+	}
+#ifdef ENABLE_BGP_VNC
+	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN)
+		rfapiProcessUpdate(new->peer, NULL, p, &bgp_static->prd,
+				   new->attr, afi, safi, new->type,
+				   new->sub_type, &label);
+#endif
 
 	/* Unintern original. */
 	aspath_unintern(&attr.aspath);
@@ -6566,181 +6620,6 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 	/* Unlock bgp_node_lookup. */
 	bgp_dest_unlock_node(dest);
-}
-
-static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
-				   struct bgp_static *bgp_static, afi_t afi,
-				   safi_t safi)
-{
-	struct bgp_dest *dest;
-	struct bgp_path_info *new;
-	struct attr *attr_new;
-	struct attr attr = {0};
-	struct bgp_path_info *pi;
-#ifdef ENABLE_BGP_VNC
-	mpls_label_t label = 0;
-#endif
-	uint32_t num_labels = 0;
-
-	assert(bgp_static);
-
-	if (bgp_static->label != MPLS_INVALID_LABEL)
-		num_labels = 1;
-	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p,
-				&bgp_static->prd);
-
-	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
-
-	attr.nexthop = bgp_static->igpnexthop;
-	attr.med = bgp_static->igpmetric;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
-
-	if ((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN)
-	    || (safi == SAFI_ENCAP)) {
-		if (afi == AFI_IP) {
-			attr.mp_nexthop_global_in = bgp_static->igpnexthop;
-			attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
-		}
-	}
-	if (afi == AFI_L2VPN) {
-		if (bgp_static->gatewayIp.family == AF_INET) {
-			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
-			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
-			       &bgp_static->gatewayIp.u.prefix4,
-			       IPV4_MAX_BYTELEN);
-		} else if (bgp_static->gatewayIp.family == AF_INET6) {
-			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
-			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
-			       &bgp_static->gatewayIp.u.prefix6,
-			       IPV6_MAX_BYTELEN);
-		}
-		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
-		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
-			struct bgp_encap_type_vxlan bet;
-			memset(&bet, 0, sizeof(bet));
-			bet.vnid = p->u.prefix_evpn.prefix_addr.eth_tag;
-			bgp_encap_type_vxlan_to_tlv(&bet, &attr);
-		}
-		if (bgp_static->router_mac) {
-			bgp_add_routermac_ecom(&attr, bgp_static->router_mac);
-		}
-	}
-	/* Apply route-map. */
-	if (bgp_static->rmap.name) {
-		struct attr attr_tmp = attr;
-		struct bgp_path_info rmap_path;
-		route_map_result_t ret;
-
-		rmap_path.peer = bgp->peer_self;
-		rmap_path.attr = &attr_tmp;
-
-		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_NETWORK);
-
-		ret = route_map_apply(bgp_static->rmap.map, p, &rmap_path);
-
-		bgp->peer_self->rmap_type = 0;
-
-		if (ret == RMAP_DENYMATCH) {
-			/* Free uninterned attribute. */
-			bgp_attr_flush(&attr_tmp);
-
-			/* Unintern original. */
-			aspath_unintern(&attr.aspath);
-			bgp_static_withdraw(bgp, p, afi, safi, &bgp_static->prd);
-			bgp_dest_unlock_node(dest);
-			return;
-		}
-
-		attr_new = bgp_attr_intern(&attr_tmp);
-	} else {
-		attr_new = bgp_attr_intern(&attr);
-	}
-
-	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
-		    && pi->sub_type == BGP_ROUTE_STATIC)
-			break;
-
-	if (pi) {
-		if (attrhash_cmp(pi->attr, attr_new)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
-			bgp_dest_unlock_node(dest);
-			bgp_attr_unintern(&attr_new);
-			aspath_unintern(&attr.aspath);
-			return;
-		} else {
-			/* The attribute is changed. */
-			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
-
-			/* Rewrite BGP route information. */
-			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
-				bgp_path_info_restore(dest, pi);
-			else
-				bgp_aggregate_decrement(bgp, p, pi, afi, safi);
-			bgp_attr_unintern(&pi->attr);
-			pi->attr = attr_new;
-			pi->uptime = monotime(NULL);
-#ifdef ENABLE_BGP_VNC
-			if (pi->extra)
-				label = decode_label(&pi->extra->label[0]);
-#endif
-
-			/* Process change. */
-			bgp_aggregate_increment(bgp, p, pi, afi, safi);
-			bgp_process(bgp, dest, afi, safi);
-
-			if (SAFI_MPLS_VPN == safi
-			    && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-				vpn_leak_to_vrf_update(bgp, pi,
-						       &bgp_static->prd);
-			}
-#ifdef ENABLE_BGP_VNC
-			rfapiProcessUpdate(pi->peer, NULL, p, &bgp_static->prd,
-					   pi->attr, afi, safi, pi->type,
-					   pi->sub_type, &label);
-#endif
-			bgp_dest_unlock_node(dest);
-			aspath_unintern(&attr.aspath);
-			return;
-		}
-	}
-
-
-	/* Make new BGP info. */
-	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self,
-			attr_new, dest);
-	SET_FLAG(new->flags, BGP_PATH_VALID);
-	bgp_path_info_extra_get(new);
-	if (num_labels) {
-		new->extra->label[0] = bgp_static->label;
-		new->extra->num_labels = num_labels;
-	}
-#ifdef ENABLE_BGP_VNC
-	label = decode_label(&bgp_static->label);
-#endif
-
-	/* Aggregate address increment. */
-	bgp_aggregate_increment(bgp, p, new, afi, safi);
-
-	/* Register new BGP information. */
-	bgp_path_info_add(dest, new);
-	/* route_node_get lock */
-	bgp_dest_unlock_node(dest);
-
-	/* Process change. */
-	bgp_process(bgp, dest, afi, safi);
-
-	if (SAFI_MPLS_VPN == safi
-	    && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-		vpn_leak_to_vrf_update(bgp, new, &bgp_static->prd);
-	}
-#ifdef ENABLE_BGP_VNC
-	rfapiProcessUpdate(new->peer, NULL, p, &bgp_static->prd, new->attr, afi,
-			   safi, new->type, new->sub_type, &label);
-#endif
-
-	/* Unintern original. */
-	aspath_unintern(&attr.aspath);
 }
 
 /* Configure static BGP network.  When user don't run zebra, static
@@ -6907,9 +6786,9 @@ void bgp_static_add(struct bgp *bgp)
 					bgp_static =
 						bgp_dest_get_bgp_static_info(
 							rm);
-					bgp_static_update_safi(
-						bgp, bgp_dest_get_prefix(rm),
-						bgp_static, afi, safi);
+					bgp_static_update(bgp,
+							  bgp_dest_get_prefix(rm),
+							  bgp_static, afi, safi);
 				}
 			} else {
 				bgp_static_update(
@@ -7000,9 +6879,9 @@ void bgp_static_redo_import_check(struct bgp *bgp)
 					bgp_static =
 						bgp_dest_get_bgp_static_info(
 							rm);
-					bgp_static_update_safi(
-						bgp, bgp_dest_get_prefix(rm),
-						bgp_static, afi, safi);
+					bgp_static_update(bgp,
+							  bgp_dest_get_prefix(rm),
+							  bgp_static, afi, safi);
 				}
 			} else {
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
@@ -7190,7 +7069,7 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 		bgp_dest_set_bgp_static_info(dest, bgp_static);
 
 		bgp_static->valid = 1;
-		bgp_static_update_safi(bgp, &p, bgp_static, afi, safi);
+		bgp_static_update(bgp, &p, bgp_static, afi, safi);
 	}
 
 	return CMD_SUCCESS;
