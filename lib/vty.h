@@ -231,6 +231,10 @@ struct vty {
 	const char *mgmt_req_pending_cmd;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+	/* Need to track when we file-lock in vtysh to re-lock on end/conf t
+	 * workaround
+	 */
+	bool vtysh_file_locked;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
