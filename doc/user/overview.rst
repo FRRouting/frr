@@ -358,6 +358,8 @@ BGP
   :t:`Outbound Route Filtering Capability. E. Chen, Y. Rekhter. August 2008.`
 - :rfc:`5292`
   :t:`Address-Prefix-Based Outbound Route Filter for BGP-4. E. Chen, S. Sangli. August 2008.`
+- :rfc:`5396`
+  :t:`Textual Representation of Autonomous System (AS) Numbers. G. Michaelson, G. Huston. December 2008.`
 - :rfc:`5492`
   :t:`Capabilities Advertisement with BGP-4. J. Scudder, R. Chandra. February 2009.`
 - :rfc:`5575`
