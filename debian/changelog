@@ -2,6 +2,11 @@ frr (8.5.2-1) UNRELEASED; urgency=medium
 
   * new upstream release FRR 8.5.2
   * cleaned up outdated debian/README files
+  * build against libunwind.  Results in better backtraces captured for both
+    crashes and non-crash deviations from expected operations.
+    (libunwind is used automatically if present, this also fixes an
+    uncontrolled build environment influence on the result binaries by always
+    requiring it.)
 
  -- David Lamparter <equinox-debian@diac24.net>  Sat, 15 Jul 2023 08:33:59 -0700
 
