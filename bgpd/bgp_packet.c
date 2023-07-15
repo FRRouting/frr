@@ -476,7 +476,7 @@ void bgp_generate_updgrp_packets(struct event *event)
 	/* If a GR restarter, we have to wait till path-selection
 	 * is complete.
 	 */
-	if (bgp_in_graceful_restart())
+	if (!peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart())
 		return;
 
 	do {
@@ -488,6 +488,12 @@ void bgp_generate_updgrp_packets(struct event *event)
 
 			afi = paf->afi;
 			safi = paf->safi;
+
+			if (peer->bgp->gr_multihop_peer_exists && bgp_in_graceful_restart() &&
+			    peer->bgp->gr_info[afi][safi].af_enabled &&
+			    !peer->bgp->gr_info[afi][safi].route_sync)
+				continue;
+
 			next_pkt = paf->next_pkt_to_send;
 
 			/*
@@ -2260,12 +2266,15 @@ static void bgp_update_receive_eor(struct bgp *bgp, struct peer *peer, afi_t afi
 
 		/* graceful-restart related processing */
 		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
-		if ((bgp->t_startup || bgp_in_graceful_restart()) &&
+
+		if ((bgp->t_startup || bgp_in_graceful_restart() ||
+		     BGP_MULTIHOP_GR_PENDING(bgp, afi, safi)) &&
 		    bgp_gr_supported_for_afi_safi(afi, safi)) {
 			struct graceful_restart_info *gr_info;
 
 			gr_info = &(bgp->gr_info[afi][safi]);
-			if (!gr_info->select_defer_over) {
+			if (!gr_info->select_defer_over ||
+			    BGP_MULTIHOP_GR_PENDING(bgp, afi, safi)) {
 				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 					zlog_debug("%s: check for deferred path-selection",
 						   bgp->name_pretty);
