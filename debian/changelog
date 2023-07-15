@@ -1,3 +1,9 @@
+frr (8.5.2-1) UNRELEASED; urgency=medium
+
+  * new upstream release FRR 8.5.2
+
+ -- David Lamparter <equinox-debian@diac24.net>  Sat, 15 Jul 2023 08:33:59 -0700
+
 frr (8.4.4-1) unstable; urgency=medium
 
   * new upstream release FRR 8.4.4
