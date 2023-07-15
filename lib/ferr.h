@@ -178,10 +178,12 @@ ferr_r ferr_clear(void);
 
 /* do NOT call these functions directly.  only for macro use! */
 ferr_r ferr_set_internal(const char *file, int line, const char *func,
-			 enum ferr_kind kind, const char *text, ...);
+			 enum ferr_kind kind, const char *text, ...)
+	PRINTFRR(5, 6);
 ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
 			     enum ferr_kind kind, const char *pathname,
-			     int errno_val, const char *text, ...);
+			     int errno_val, const char *text, ...)
+	PRINTFRR(7, 8);
 
 #define ferr_ok() 0
 
@@ -221,7 +223,8 @@ ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
 
 #include "vty.h"
 /* print error message to vty;  $ERR is replaced by the error's message */
-void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
+void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...)
+	PRINTFRR(3, 4);
 
 #define CMD_FERR_DO(func, action, ...)                                         \
 	do {                                                                   \

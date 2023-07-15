@@ -126,6 +126,8 @@ DEFUN_NOSH(show_debugging_nhrp, show_debugging_nhrp_cmd,
 			debug_flags_desc[i].str);
 	}
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

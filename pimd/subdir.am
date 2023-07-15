@@ -6,11 +6,6 @@ if PIMD
 sbin_PROGRAMS += pimd/pimd
 bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
-vtysh_scan += \
-	pimd/pim_cmd.c \
-	pimd/pim6_cmd.c \
-	pimd/pim6_mld.c \
-	#end
 vtysh_daemons += pimd
 vtysh_daemons += pim6d
 man8 += $(MANBUILD)/frr-pimd.8
@@ -21,7 +16,6 @@ pim_common = \
 	pimd/pim_addr.c \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
-	pimd/pim_br.c \
 	pimd/pim_bsm.c \
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
@@ -103,7 +97,6 @@ noinst_HEADERS += \
 	pimd/pim_addr.h \
 	pimd/pim_assert.h \
 	pimd/pim_bfd.h \
-	pimd/pim_br.h \
 	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
 	pimd/pim_cmd_common.h \

@@ -58,6 +58,7 @@
 		}                                                              \
 	} while (0)
 
+PRINTFRR(2, 0)
 static inline const char *
 yang_dnode_xpath_get_canon(const struct lyd_node *dnode, const char *xpath_fmt,
 			   va_list ap)
@@ -75,6 +76,7 @@ yang_dnode_xpath_get_canon(const struct lyd_node *dnode, const char *xpath_fmt,
 	return lyd_get_value(&__dleaf->node);
 }
 
+PRINTFRR(2, 0)
 static inline const struct lyd_value *
 yang_dnode_xpath_get_value(const struct lyd_node *dnode, const char *xpath_fmt,
 			   va_list ap)

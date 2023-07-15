@@ -285,7 +285,7 @@ parts:
            - zlib1g
         prime:
            - lib/librtr.so*
-           - usr/lib/x86_64-linux-gnu/libssh.so*
+           - usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
         source-tag: v0.8.0

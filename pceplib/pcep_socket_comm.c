@@ -62,7 +62,7 @@ int socket_fd_node_compare(void *list_entry, void *new_entry)
 }
 
 
-bool initialize_socket_comm_pre()
+bool initialize_socket_comm_pre(void)
 {
 	socket_comm_handle_ =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(pcep_socket_comm_handle));
@@ -129,7 +129,7 @@ bool initialize_socket_comm_external_infra(
 	return true;
 }
 
-bool initialize_socket_comm_loop()
+bool initialize_socket_comm_loop(void)
 {
 	if (socket_comm_handle_ != NULL) {
 		/* already initialized */
@@ -152,7 +152,7 @@ bool initialize_socket_comm_loop()
 }
 
 
-bool destroy_socket_comm_loop()
+bool destroy_socket_comm_loop(void)
 {
 	socket_comm_handle_->active = false;
 

@@ -487,6 +487,16 @@ void bgp_generate_updgrp_packets(struct thread *thread)
 	if (peer->t_routeadv)
 		return;
 
+	/*
+	 * Since the following is a do while loop
+	 * let's stop adding to the outq if we are
+	 * already at the limit.
+	 */
+	if (peer->obuf->count >= bm->outq_limit) {
+		bgp_write_proceed_actions(peer);
+		return;
+	}
+
 	do {
 		enum bgp_af_index index;
 
@@ -609,7 +619,8 @@ void bgp_generate_updgrp_packets(struct thread *thread)
 			bgp_packet_add(peer, s);
 			bpacket_queue_advance_peer(paf);
 		}
-	} while (s && (++generated < wpq));
+	} while (s && (++generated < wpq) &&
+		 (peer->obuf->count <= bm->outq_limit));
 
 	if (generated)
 		bgp_writes_on(peer);
@@ -979,10 +990,11 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
+		peer->notify.length = bgp_notify.length;
 
 		if (bgp_notify.length && data) {
-			bgp_notify.data =
-				XMALLOC(MTYPE_TMP, bgp_notify.length * 3);
+			bgp_notify.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
+						  bgp_notify.length * 3);
 			for (i = 0; i < bgp_notify.length; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
@@ -1002,7 +1014,15 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 		bgp_notify_print(peer, &bgp_notify, "sending", hard_reset);
 
 		if (bgp_notify.data) {
-			XFREE(MTYPE_TMP, bgp_notify.data);
+			if (data) {
+				XFREE(MTYPE_BGP_NOTIFICATION,
+				      peer->notify.data);
+				peer->notify.data = XCALLOC(
+					MTYPE_BGP_NOTIFICATION, datalen);
+				memcpy(peer->notify.data, data, datalen);
+			}
+
+			XFREE(MTYPE_BGP_NOTIFICATION, bgp_notify.data);
 			bgp_notify.length = 0;
 		}
 	}
@@ -1011,9 +1031,12 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 	if (code == BGP_NOTIFY_CEASE) {
 		if (sub_code == BGP_NOTIFY_CEASE_ADMIN_RESET)
 			peer->last_reset = PEER_DOWN_USER_RESET;
-		else if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN)
-			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
-		else
+		else if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN) {
+			if (CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN))
+				peer->last_reset = PEER_DOWN_RTT_SHUTDOWN;
+			else
+				peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		} else
 			peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 	} else
 		peer->last_reset = PEER_DOWN_NOTIFY_SEND;
@@ -1749,15 +1772,24 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	/* If the peer's RTT is higher than expected, shutdown
 	 * the peer automatically.
 	 */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_RTT_SHUTDOWN)
-	    && peer->rtt > peer->rtt_expected) {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_RTT_SHUTDOWN))
+		return Receive_KEEPALIVE_message;
 
+	if (peer->rtt > peer->rtt_expected) {
 		peer->rtt_keepalive_rcv++;
 
 		if (peer->rtt_keepalive_rcv > peer->rtt_keepalive_conf) {
-			zlog_warn(
-				"%s shutdown due to high round-trip-time (%dms > %dms)",
-				peer->host, peer->rtt, peer->rtt_expected);
+			char rtt_shutdown_reason[BUFSIZ] = {};
+
+			snprintfrr(
+				rtt_shutdown_reason,
+				sizeof(rtt_shutdown_reason),
+				"shutdown due to high round-trip-time (%dms > %dms, hit %u times)",
+				peer->rtt, peer->rtt_expected,
+				peer->rtt_keepalive_rcv);
+			zlog_warn("%s %s", peer->host, rtt_shutdown_reason);
+			SET_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN);
+			peer_tx_shutdown_message_set(peer, rtt_shutdown_reason);
 			peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 		}
 	} else {
@@ -2001,7 +2033,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
-			nlri_ret = bgp_nlri_parse(peer, &attr, &nlris[i], 1);
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
+						  &nlris[i], 1);
 			break;
 		default:
 			nlri_ret = BGP_NLRI_PARSE_ERROR;

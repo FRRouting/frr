@@ -179,8 +179,10 @@ static struct vertex_parent *vertex_parent_new(struct vertex *v, int backlink,
 	return new;
 }
 
-static void vertex_parent_free(void *p)
+static void vertex_parent_free(struct vertex_parent *p)
 {
+	vertex_nexthop_free(p->local_nexthop);
+	vertex_nexthop_free(p->nexthop);
 	XFREE(MTYPE_OSPF_VERTEX_PARENT, p);
 }
 
@@ -203,7 +205,7 @@ static struct vertex *ospf_vertex_new(struct ospf_area *area,
 	new->lsa = lsa->data;
 	new->children = list_new();
 	new->parents = list_new();
-	new->parents->del = vertex_parent_free;
+	new->parents->del = (void (*)(void *))vertex_parent_free;
 	new->parents->cmp = vertex_parent_cmp;
 	new->lsa_p = lsa;
 
@@ -346,7 +348,7 @@ static struct vertex *ospf_spf_vertex_copy(struct vertex *vertex)
 
 	memcpy(copy, vertex, sizeof(struct vertex));
 	copy->parents = list_new();
-	copy->parents->del = vertex_parent_free;
+	copy->parents->del = (void (*)(void *))vertex_parent_free;
 	copy->parents->cmp = vertex_parent_cmp;
 	copy->children = list_new();
 
@@ -683,11 +685,15 @@ static void ospf_spf_flush_parents(struct vertex *w)
 /*
  * Consider supplied next-hop for inclusion to the supplied list of
  * equal-cost next-hops, adjust list as necessary.
+ *
+ * Returns vertex parent pointer if created otherwise `NULL` if it already
+ * exists.
  */
-static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
-				struct vertex_nexthop *newhop,
-				struct vertex_nexthop *newlhop,
-				unsigned int distance)
+static struct vertex_parent *ospf_spf_add_parent(struct vertex *v,
+						 struct vertex *w,
+						 struct vertex_nexthop *newhop,
+						 struct vertex_nexthop *newlhop,
+						 unsigned int distance)
 {
 	struct vertex_parent *vp, *wp;
 	struct listnode *node;
@@ -733,7 +739,8 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 				zlog_debug(
 					"%s: ... nexthop already on parent list, skipping add",
 					__func__);
-			return;
+
+			return NULL;
 		}
 	}
 
@@ -741,7 +748,7 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 			       newlhop);
 	listnode_add_sort(w->parents, vp);
 
-	return;
+	return vp;
 }
 
 static int match_stub_prefix(struct lsa_header *lsa, struct in_addr v_link_addr,
@@ -979,8 +986,12 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					memcpy(lnh, nh,
 					       sizeof(struct vertex_nexthop));
 
-					ospf_spf_add_parent(v, w, nh, lnh,
-							    distance);
+					if (ospf_spf_add_parent(v, w, nh, lnh,
+								distance) ==
+					    NULL) {
+						vertex_nexthop_free(nh);
+						vertex_nexthop_free(lnh);
+					}
 					return 1;
 				} else
 					zlog_info(
@@ -1019,8 +1030,13 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					memcpy(lnh, nh,
 					       sizeof(struct vertex_nexthop));
 
-					ospf_spf_add_parent(v, w, nh, lnh,
-							    distance);
+					if (ospf_spf_add_parent(v, w, nh, lnh,
+								distance) ==
+					    NULL) {
+						vertex_nexthop_free(nh);
+						vertex_nexthop_free(lnh);
+					}
+
 					return 1;
 				} else
 					zlog_info(
@@ -1043,7 +1059,12 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 			lnh = vertex_nexthop_new();
 			memcpy(lnh, nh, sizeof(struct vertex_nexthop));
 
-			ospf_spf_add_parent(v, w, nh, lnh, distance);
+			if (ospf_spf_add_parent(v, w, nh, lnh, distance) ==
+			    NULL) {
+				vertex_nexthop_free(nh);
+				vertex_nexthop_free(lnh);
+			}
+
 			return 1;
 		}
 	} /* end V is the root */
@@ -1086,8 +1107,12 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					       sizeof(struct vertex_nexthop));
 
 					added = 1;
-					ospf_spf_add_parent(v, w, nh, lnh,
-							    distance);
+					if (ospf_spf_add_parent(v, w, nh, lnh,
+								distance) ==
+					    NULL) {
+						vertex_nexthop_free(nh);
+						vertex_nexthop_free(lnh);
+					}
 				}
 				/*
 				 * Note lack of return is deliberate. See next
@@ -1148,7 +1173,13 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 			lnh = NULL;
 		}
 
-		ospf_spf_add_parent(v, w, vp->nexthop, lnh, distance);
+		nh = vertex_nexthop_new();
+		*nh = *vp->nexthop;
+
+		if (ospf_spf_add_parent(v, w, nh, lnh, distance) == NULL) {
+			vertex_nexthop_free(nh);
+			vertex_nexthop_free(lnh);
+		}
 	}
 
 	return added;
@@ -1892,9 +1923,10 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	rt_time = monotime_since(&start_time, NULL);
 
 	/* Free old all routers routing table */
-	if (ospf->oall_rtrs)
-		/* ospf_route_delete (ospf->old_rtrs); */
+	if (ospf->oall_rtrs) {
 		ospf_rtrs_free(ospf->oall_rtrs);
+		ospf->oall_rtrs = NULL;
+	}
 
 	/* Update all routers routing table */
 	ospf->oall_rtrs = ospf->all_rtrs;
@@ -1904,9 +1936,10 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 #endif
 
 	/* Free old ABR/ASBR routing table */
-	if (ospf->old_rtrs)
-		/* ospf_route_delete (ospf->old_rtrs); */
+	if (ospf->old_rtrs) {
 		ospf_rtrs_free(ospf->old_rtrs);
+		ospf->old_rtrs = NULL;
+	}
 
 	/* Update ABR/ASBR routing table */
 	ospf->old_rtrs = ospf->new_rtrs;

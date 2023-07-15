@@ -35,6 +35,8 @@
 extern "C" {
 #endif
 
+#define ROUTE_INSTALLATION_METRIC 20
+
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
 #define RSYSTEM_ROUTE(type)                                                    \
@@ -119,7 +121,7 @@ extern int kernel_del_mac_nhg(uint32_t nhg_id);
 /*
  * Message batching interface.
  */
-extern void kernel_update_multi(struct dplane_ctx_q *ctx_list);
+extern void kernel_update_multi(struct dplane_ctx_list_head *ctx_list);
 
 /*
  * Called by the dplane pthread to read incoming OS messages and dispatch them.

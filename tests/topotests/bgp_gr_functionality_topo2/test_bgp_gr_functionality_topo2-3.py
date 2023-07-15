@@ -155,7 +155,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.16")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.16")
 
     global ADDR_TYPES
 
@@ -380,12 +380,11 @@ def test_BGP_GR_chaos_34_1_p1(request):
         result = verify_f_bit(
             tgen, topo, addr_type, input_dict_2, "r3", "r1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r3: F-bit is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: F-bit should not be set to True in r3\n"
+            "Found: {}".format(tc_name, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     logger.info("[Step 3] : Kill BGPd daemon on R1..")
 
@@ -402,19 +401,17 @@ def test_BGP_GR_chaos_34_1_p1(request):
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
         result = verify_rib(tgen, addr_type, dut, input_dict, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     # Start BGPd daemon on R1
     start_router_daemons(tgen, "r1", ["bgpd"])
@@ -587,31 +584,28 @@ def test_BGP_GR_chaos_32_p1(request):
         result = verify_eor(
             tgen, topo, addr_type, input_dict_3, dut="r5", peer="r1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r5: EOR is set to TRUE\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: EOR should not be set to True in r5\n"
+            "Found: {}".format(tc_name, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying BGP RIB routes after starting BGPd daemon
         input_dict_1 = {key: topo["routers"][key] for key in ["r5"]}
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r3: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -716,12 +710,11 @@ def test_BGP_GR_chaos_37_p1(request):
         result = verify_eor(
             tgen, topo, addr_type, input_dict, dut="r3", peer="r1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r3: EOR is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: EOR should not be set to True in r3\n"
+            "Found: {}".format(tc_name, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying BGP RIB routes after starting BGPd daemon
         dut = "r1"
@@ -783,10 +776,10 @@ def test_BGP_GR_chaos_37_p1(request):
         result = verify_eor(
             tgen, topo, addr_type, input_dict_3, dut="r1", peer="r3", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r1: EOR is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: EOR should not be set to True in r1\n"
+            "Found: {}".format(tc_name, result)
         )
 
     write_test_footer(tc_name)
@@ -941,19 +934,17 @@ def test_BGP_GR_chaos_30_p1(request):
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r1: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes before shutting down BGPd daemon
         result = verify_rib(tgen, addr_type, dut, input_dict, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r1: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -1356,7 +1347,8 @@ def BGP_GR_TC_7_p1(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r1: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     write_test_footer(tc_name)

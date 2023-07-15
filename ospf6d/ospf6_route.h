@@ -304,7 +304,7 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 	 (ra)->path.cost == (rb)->path.cost &&                                 \
 	 (ra)->path.u.cost_e2 == (rb)->path.u.cost_e2 &&                       \
 	 listcount(ra->paths) == listcount(rb->paths) &&                       \
-	 ospf6_route_cmp_nexthops(ra, rb) == 0)
+	 ospf6_route_cmp_nexthops(ra, rb))
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
@@ -330,8 +330,8 @@ extern void ospf6_add_nexthop(struct list *nh_list, int ifindex,
 			      struct in6_addr *addr);
 extern void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route);
 extern int ospf6_num_nexthops(struct list *nh_list);
-extern int ospf6_route_cmp_nexthops(struct ospf6_route *a,
-				    struct ospf6_route *b);
+extern bool ospf6_route_cmp_nexthops(struct ospf6_route *a,
+				     struct ospf6_route *b);
 extern void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 					    struct zapi_nexthop nexthops[],
 					    int entries, vrf_id_t vrf_id);

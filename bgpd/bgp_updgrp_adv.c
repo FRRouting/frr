@@ -355,6 +355,11 @@ static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
 	struct update_subgroup *subgrp;
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+		/* Avoid supressing duplicate routes later
+		 * when processing in subgroup_announce_table().
+		 */
+		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+
 		subgroup_announce_all(subgrp);
 	}
 
@@ -667,6 +672,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+	safi_t safi_rib;
 	bool addpath_capable;
 	struct bgp *bgp;
 	bool advertise;
@@ -678,10 +684,12 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
+		safi_rib = SAFI_UNICAST;
+	else
+		safi_rib = safi;
 
 	if (!table)
-		table = peer->bgp->rib[afi][safi];
+		table = peer->bgp->rib[afi][safi_rib];
 
 	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN
 	    && CHECK_FLAG(peer->af_flags[afi][safi],
@@ -700,7 +708,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 
 			if (!bgp_check_selected(ri, peer, addpath_capable, afi,
-						safi))
+						safi_rib))
 				continue;
 
 			if (subgroup_announce_check(dest, ri, subgrp, dest_p,
@@ -715,7 +723,8 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 						bgp_adj_out_unset_subgroup(
 							dest, subgrp, 1,
 							bgp_addpath_id_for_peer(
-								peer, afi, safi,
+								peer, afi,
+								safi_rib,
 								&ri->tx_addpath));
 				}
 			} else {
@@ -734,7 +743,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 				bgp_adj_out_unset_subgroup(
 					dest, subgrp, 1,
 					bgp_addpath_id_for_peer(
-						peer, afi, safi,
+						peer, afi, safi_rib,
 						&ri->tx_addpath));
 			}
 		}
@@ -811,6 +820,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	route_map_result_t new_ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
+	safi_t safi_rib;
 	int pref = 65536;
 	int new_pref = 0;
 
@@ -823,6 +833,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 	if (!(afi == AFI_IP || afi == AFI_IP6))
 		return;
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi_rib = SAFI_UNICAST;
+	else
+		safi_rib = safi;
 
 	bgp = peer->bgp;
 	from = bgp->peer_self;
@@ -857,7 +872,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		 * the default route. We announce the default
 		 * route only if route-map has a match.
 		 */
-		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+		for (dest = bgp_table_top(bgp->rib[afi][safi_rib]); dest;
 		     dest = bgp_route_next(dest)) {
 			if (!bgp_dest_has_bgp_path_info_data(dest))
 				continue;
@@ -915,7 +930,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
-	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p, NULL);
+	dest = bgp_afi_node_lookup(bgp->rib[afi][safi_rib], afi, safi_rib, &p,
+				   NULL);
 
 	if (withdraw) {
 		/* Withdraw the default route advertised using default

@@ -853,8 +853,9 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	stream_putw(s, 0);
 
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
-	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr,
-			&vecarr, NULL, afi, safi, peer, NULL, NULL, 0, 0, 0);
+	total_attr_len =
+		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi,
+				     safi, peer, NULL, NULL, 0, 0, 0, NULL);
 
 	/* space check? */
 
@@ -2033,9 +2034,7 @@ static const struct cmd_variable_handler bmp_targets_var_handlers[] = {
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_bmp_clippy.c"
-#endif
 
 DEFPY_NOSH(bmp_targets_main,
       bmp_targets_cmd,
@@ -2512,14 +2511,13 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 			vty_out(vty, "  bmp mirror\n");
 
 		FOREACH_AFI_SAFI (afi, safi) {
-			const char *afi_str = (afi == AFI_IP) ? "ipv4" : "ipv6";
-
 			if (bt->afimon[afi][safi] & BMP_MON_PREPOLICY)
 				vty_out(vty, "  bmp monitor %s %s pre-policy\n",
-					afi_str, safi2str(safi));
+					afi2str_lower(afi), safi2str(safi));
 			if (bt->afimon[afi][safi] & BMP_MON_POSTPOLICY)
-				vty_out(vty, "  bmp monitor %s %s post-policy\n",
-					afi_str, safi2str(safi));
+				vty_out(vty,
+					"  bmp monitor %s %s post-policy\n",
+					afi2str_lower(afi), safi2str(safi));
 		}
 		frr_each (bmp_listeners, &bt->listeners, bl)
 			vty_out(vty, " \n  bmp listener %pSU port %d\n",

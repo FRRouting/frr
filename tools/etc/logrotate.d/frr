@@ -1,0 +1,27 @@
+/var/log/frr/*.log {
+        size 500k
+        sharedscripts
+        missingok
+        compress
+        rotate 14
+        create 0640 frr frr
+
+        postrotate
+            pid=$(lsof -t -a -c /syslog/ /var/log/frr/* 2>/dev/null)
+            if [ -n "$pid" ]
+            then # using syslog
+                 kill -HUP $pid
+            fi
+            # in case using file logging; if switching back and forth
+            # between file and syslog, rsyslogd might still have file
+            # open, as well as the daemons, so always signal the daemons.
+            # It's safe, a NOP if (only) syslog is being used.
+            for i in babeld bgpd eigrpd isisd ldpd nhrpd ospf6d ospfd sharpd \
+                pimd pim6d ripd ripngd zebra pathd pbrd staticd bfdd fabricd vrrpd; do
+                if [ -e /var/run/frr/$i.pid ] ; then
+                    pids="$pids $(cat /var/run/frr/$i.pid)"
+                fi
+            done
+            [ -n "$pids" ] && kill -USR1 $pids || true
+        endscript
+}

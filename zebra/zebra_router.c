@@ -30,6 +30,7 @@
 #include "zebra_mlag.h"
 #include "zebra_nhg.h"
 #include "zebra_neigh.h"
+#include "zebra/zebra_tc.h"
 #include "debug.h"
 #include "zebra_script.h"
 
@@ -312,8 +313,33 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
 
+	zrouter.rules_hash =
+		hash_create_size(8, zebra_pbr_rules_hash_key,
+				 zebra_pbr_rules_hash_equal, "Rules Hash");
+
+	zrouter.qdisc_hash =
+		hash_create_size(8, zebra_tc_qdisc_hash_key,
+				 zebra_tc_qdisc_hash_equal, "TC (qdisc) Hash");
+	zrouter.class_hash = hash_create_size(8, zebra_tc_class_hash_key,
+					      zebra_tc_class_hash_equal,
+					      "TC (classes) Hash");
+	zrouter.filter_hash = hash_create_size(8, zebra_tc_filter_hash_key,
+					       zebra_tc_filter_hash_equal,
+					       "TC (filter) Hash");
+
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
+
+	/*
+	 * If you start using asic_notification_nexthop_control
+	 * come talk to the FRR community about what you are doing
+	 * We would like to know.
+	 */
+#if CONFDATE > 20251231
+	CPP_NOTICE(
+		"Remove zrouter.asic_notification_nexthop_control as that it's not being maintained or used");
+#endif
+	zrouter.asic_notification_nexthop_control = false;
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();

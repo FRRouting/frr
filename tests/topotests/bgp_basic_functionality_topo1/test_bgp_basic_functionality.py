@@ -121,7 +121,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -1148,9 +1148,9 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
             tgen, addr_type, dut, input_dict_r1, expected=False
         )  # pylint: disable=E1123
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name)
-            + "Expected behavior: routes should not present in fib \n"
-            + "Error: {}".format(result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     step("Verify Ipv4 and Ipv6 network installed in r3 RIB but not in FIB")
@@ -1169,9 +1169,9 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
             tgen, addr_type, dut, input_dict_r1, expected=False
         )  # pylint: disable=E1123
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name)
-            + "Expected behavior: routes should not present in fib \n"
-            + "Error: {}".format(result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     write_test_footer(tc_name)

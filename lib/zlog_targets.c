@@ -257,6 +257,7 @@ bool zlog_file_set_filename(struct zlog_cfg_file *zcf, const char *filename)
 		return zlog_file_cycle(zcf);
 	}
 	assert(0);
+	return false;
 }
 
 bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
@@ -271,6 +272,7 @@ bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
 		return zlog_file_cycle(zcf);
 	}
 	assert(0);
+	return false;
 }
 
 struct rcu_close_rotate {
@@ -544,6 +546,7 @@ int zlog_syslog_get_facility(void)
 		return syslog_facility;
 	}
 	assert(0);
+	return 0;
 }
 
 void zlog_syslog_set_prio_min(int prio_min)
@@ -581,4 +584,5 @@ int zlog_syslog_get_prio_min(void)
 		return syslog_prio_min;
 	}
 	assert(0);
+	return 0;
 }

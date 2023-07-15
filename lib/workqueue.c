@@ -272,9 +272,6 @@ void work_queue_run(struct thread *thread)
 
 		/* dont run items which are past their allowed retries */
 		if (item->ran > wq->spec.max_retries) {
-			/* run error handler, if any */
-			if (wq->spec.errorfunc)
-				wq->spec.errorfunc(wq, item);
 			work_queue_item_remove(wq, item);
 			continue;
 		}
@@ -317,10 +314,6 @@ void work_queue_run(struct thread *thread)
 		case WQ_RETRY_NOW:
 		/* a RETRY_NOW that gets here has exceeded max_tries, same as
 		 * ERROR */
-		case WQ_ERROR: {
-			if (wq->spec.errorfunc)
-				wq->spec.errorfunc(wq, item);
-		}
 		/* fallthru */
 		case WQ_SUCCESS:
 		default: {

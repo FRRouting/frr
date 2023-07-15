@@ -109,7 +109,7 @@ def test_zebra_netlink_batching(tgen):
         pfx = str(ipaddress.ip_network((i, 32)))
         match[pfx] = [dict(entry, prefix=pfx)]
 
-    ok = topotest.router_json_cmp_retry(r1, "show ip route json", match)
+    ok = topotest.router_json_cmp_retry(r1, "show ip route json", match, False, 30)
     assert ok, '"r1" JSON output mismatches'
 
     r1.vtysh_cmd("sharp remove routes 2.1.3.7 " + str(count))

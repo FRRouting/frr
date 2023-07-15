@@ -663,7 +663,7 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 
 	connected_src = pim_if_connected_to_source(ifp, ip_hdr->ip_src);
 
-	if (!connected_src) {
+	if (!connected_src && !pim_addr_is_any(ip_hdr->ip_src)) {
 		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug(
 				"Recv IGMP packet on interface: %s from a non-connected source: %pI4",
@@ -673,7 +673,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 	}
 
 	pim_ifp = ifp->info;
-	ifaddr = connected_src->u.prefix4;
+	ifaddr = connected_src ? connected_src->u.prefix4
+			       : pim_ifp->primary_address;
 	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 
 	if (PIM_DEBUG_GM_PACKETS) {
@@ -684,11 +685,11 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 	}
 	if (igmp)
 		pim_igmp_packet(igmp, (char *)buf, buf_size);
-	else if (PIM_DEBUG_GM_PACKETS) {
+	else if (PIM_DEBUG_GM_PACKETS)
 		zlog_debug(
-			"No IGMP socket on interface: %s with connected source: %pFX",
-			ifp->name, connected_src);
-	}
+			"No IGMP socket on interface: %s with connected source: %pI4",
+			ifp->name, &ifaddr);
+
 	return 0;
 }
 #endif

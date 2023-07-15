@@ -104,13 +104,13 @@ extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);
 extern void aspath_unintern(struct aspath **aspath);
 extern const char *aspath_print(struct aspath *aspath);
-extern void aspath_print_vty(struct vty *vty, const char *format,
-			     struct aspath *aspath, const char *suffix);
+extern void aspath_print_vty(struct vty *vty, struct aspath *aspath);
 extern void aspath_print_all_vty(struct vty *vty);
 extern unsigned int aspath_key_make(const void *p);
 extern unsigned int aspath_get_first_as(struct aspath *aspath);
 extern unsigned int aspath_get_last_as(struct aspath *aspath);
 extern int aspath_loop_check(struct aspath *aspath, as_t asno);
+extern int aspath_loop_check_confed(struct aspath *aspath, as_t asno);
 extern bool aspath_private_as_check(struct aspath *aspath);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,

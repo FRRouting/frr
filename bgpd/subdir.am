@@ -6,36 +6,9 @@ if BGPD
 noinst_LIBRARIES += bgpd/libbgp.a
 sbin_PROGRAMS += bgpd/bgpd
 noinst_PROGRAMS += bgpd/bgp_btoa
-vtysh_scan += \
-	bgpd/bgp_bfd.c \
-	bgpd/bgp_debug.c \
-	bgpd/bgp_dump.c \
-	bgpd/bgp_evpn_mh.c \
-	bgpd/bgp_evpn_vty.c \
-	bgpd/bgp_filter.c \
-	bgpd/bgp_labelpool.c \
-	bgpd/bgp_mplsvpn.c \
-	bgpd/bgp_nexthop.c \
-	bgpd/bgp_route.c \
-	bgpd/bgp_routemap.c \
-	bgpd/bgp_vty.c \
-	bgpd/bgp_flowspec_vty.c \
-	# end
-
-# can be loaded as DSO - always include for vtysh
-vtysh_scan += bgpd/bgp_rpki.c
-vtysh_scan += bgpd/bgp_bmp.c
 
 vtysh_daemons += bgpd
 
-if ENABLE_BGP_VNC
-vtysh_scan += \
-	bgpd/rfapi/bgp_rfapi_cfg.c \
-	bgpd/rfapi/rfapi.c \
-	bgpd/rfapi/rfapi_vty.c \
-	bgpd/rfapi/vnc_debug.c \
-	# end
-endif
 if SNMP
 module_LTLIBRARIES += bgpd/bgpd_snmp.la
 endif
@@ -177,6 +150,9 @@ noinst_HEADERS += \
 	bgpd/bgp_route.h \
 	bgpd/bgp_routemap_nb.h \
 	bgpd/bgp_script.h \
+	bgpd/bgp_snmp.h \
+	bgpd/bgp_snmp_bgp4.h \
+	bgpd/bgp_snmp_bgp4v2.h \
 	bgpd/bgp_table.h \
 	bgpd/bgp_updgrp.h \
 	bgpd/bgp_vpn.h \
@@ -214,7 +190,7 @@ bgpd_bgp_btoa_SOURCES = bgpd/bgp_btoa.c
 bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
 bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBYANG_LIBS) $(LIBCAP) $(LIBM) $(UST_LIBS)
 
-bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp.c  bgpd/bgp_mplsvpn_snmp.c
+bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp_bgp4.c bgpd/bgp_snmp_bgp4v2.c bgpd/bgp_snmp.c bgpd/bgp_mplsvpn_snmp.c
 bgpd_bgpd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
 bgpd_bgpd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 bgpd_bgpd_snmp_la_LIBADD = lib/libfrrsnmp.la
@@ -237,6 +213,7 @@ clippy_scan += \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \
 	bgpd/bgp_vty.c \
+        bgpd/bgp_nexthop.c \
 	# end
 
 nodist_bgpd_bgpd_SOURCES = \

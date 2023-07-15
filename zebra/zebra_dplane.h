@@ -24,7 +24,6 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
-#include "lib/queue.h"
 #include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
@@ -195,9 +194,14 @@ enum dplane_op_e {
 	DPLANE_OP_INTF_DELETE,
 
 	/* Traffic control */
-	DPLANE_OP_TC_INSTALL,
-	DPLANE_OP_TC_UPDATE,
-	DPLANE_OP_TC_DELETE,
+	DPLANE_OP_TC_QDISC_INSTALL,
+	DPLANE_OP_TC_QDISC_UNINSTALL,
+	DPLANE_OP_TC_CLASS_ADD,
+	DPLANE_OP_TC_CLASS_DELETE,
+	DPLANE_OP_TC_CLASS_UPDATE,
+	DPLANE_OP_TC_FILTER_ADD,
+	DPLANE_OP_TC_FILTER_DELETE,
+	DPLANE_OP_TC_FILTER_UPDATE
 };
 
 /*
@@ -260,14 +264,15 @@ void dplane_enable_sys_route_notifs(void);
  * they cannot share existing global data structures safely.
  */
 
-/* Define a tailq list type for context blocks. The list is exposed/public,
+/* Define a list type for context blocks. The list is exposed/public,
  * but the internal linkage in the context struct is private, so there
  * are accessor apis that support enqueue and dequeue.
  */
-TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
+
+PREDECL_DLIST(dplane_ctx_list);
 
 /* Declare a type for (optional) extended interface info objects. */
-TAILQ_HEAD(dplane_intf_extra_q, dplane_intf_extra);
+PREDECL_DLIST(dplane_intf_extra_list);
 
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
@@ -295,18 +300,21 @@ void dplane_ctx_fini(struct zebra_dplane_ctx **pctx);
 /* Enqueue a context block to caller's tailq. This exists so that the
  * context struct can remain opaque.
  */
-void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,
+void dplane_ctx_enqueue_tail(struct dplane_ctx_list_head *q,
 			     const struct zebra_dplane_ctx *ctx);
 
 /* Append a list of context blocks to another list - again, just keeping
  * the context struct opaque.
  */
-void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
-			    struct dplane_ctx_q *from_list);
+void dplane_ctx_list_append(struct dplane_ctx_list_head *to_list,
+			    struct dplane_ctx_list_head *from_list);
 
 /* Dequeue a context block from the head of caller's tailq */
-struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q);
-struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q);
+struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q);
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
+
+/* Init a list of contexts */
+void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
 
 /*
  * Accessors for information from the context object
@@ -375,6 +383,8 @@ route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_instance(struct zebra_dplane_ctx *ctx, uint16_t instance);
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
@@ -384,14 +394,42 @@ void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for traffic control context */
-uint64_t dplane_ctx_tc_get_rate(const struct zebra_dplane_ctx *ctx);
-uint64_t dplane_ctx_tc_get_ceil(const struct zebra_dplane_ctx *ctx);
-uint32_t dplane_ctx_tc_get_filter_bm(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_qdisc_get_kind_str(const struct zebra_dplane_ctx *ctx);
+
+uint32_t dplane_ctx_tc_class_get_handle(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_tc_class_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_class_get_kind_str(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_class_get_rate(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_class_get_ceil(const struct zebra_dplane_ctx *ctx);
+
+int dplane_ctx_tc_filter_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_filter_get_kind_str(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_priority(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_handle(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_minor(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_eth_proto(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_filter_bm(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
-dplane_ctx_tc_get_src_ip(const struct zebra_dplane_ctx *ctx);
+dplane_ctx_tc_filter_get_src_ip(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_src_port_min(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_src_port_max(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
-dplane_ctx_tc_get_dst_ip(const struct zebra_dplane_ctx *ctx);
-uint8_t dplane_ctx_tc_get_ip_proto(const struct zebra_dplane_ctx *ctx);
+dplane_ctx_tc_filter_get_dst_ip(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_min(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_max(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_ip_proto(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_dsfield(const struct zebra_dplane_ctx *ctx);
+uint8_t
+dplane_ctx_tc_filter_get_dsfield_mask(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
@@ -723,11 +761,23 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_delete(const struct interface *ifp);
 
 /*
- * Enqueue interface link changes for the dataplane.
+ * Enqueue tc link changes for the dataplane.
  */
-enum zebra_dplane_result dplane_tc_add(void);
-enum zebra_dplane_result dplane_tc_update(void);
-enum zebra_dplane_result dplane_tc_delete(void);
+
+struct zebra_tc_qdisc;
+struct zebra_tc_class;
+struct zebra_tc_filter;
+enum zebra_dplane_result dplane_tc_qdisc_install(struct zebra_tc_qdisc *qdisc);
+enum zebra_dplane_result
+dplane_tc_qdisc_uninstall(struct zebra_tc_qdisc *qdisc);
+enum zebra_dplane_result dplane_tc_class_add(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_class_delete(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_class_update(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_filter_add(struct zebra_tc_filter *filter);
+enum zebra_dplane_result
+dplane_tc_filter_delete(struct zebra_tc_filter *filter);
+enum zebra_dplane_result
+dplane_tc_filter_update(struct zebra_tc_filter *filter);
 
 /*
  * Link layer operations for the dataplane.
@@ -863,6 +913,12 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset);
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			  struct route_node *rn, struct route_entry *re);
 
+int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
+				enum dplane_op_e op, struct route_entry *re,
+				const struct prefix *p,
+				const struct prefix_ipv6 *src_p, afi_t afi,
+				safi_t safi);
+
 /* Encode next hop information into data plane context. */
 int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			    struct nhg_hash_entry *nhe);
@@ -983,7 +1039,7 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 
 /* Dequeue work to a list, maintain counter and locking, return count */
 int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
-				    struct dplane_ctx_q *listp);
+				    struct dplane_ctx_list_head *listp);
 
 /* Current completed work queue length */
 uint32_t dplane_provider_out_ctx_queue_len(struct zebra_dplane_provider *prov);
@@ -1008,7 +1064,7 @@ void dplane_enable_intf_extra_info(void);
  * so the expectation is that the contexts are queued for the zebra
  * main pthread.
  */
-void zebra_dplane_init(int (*) (struct dplane_ctx_q *));
+void zebra_dplane_init(int (*)(struct dplane_ctx_list_head *));
 
 /*
  * Start the dataplane pthread. This step needs to be run later than the
@@ -1027,6 +1083,16 @@ void zebra_dplane_start(void);
 void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
+
+/*
+ * decision point for sending a routing update through the old
+ * straight to zebra master pthread or through the dplane to
+ * the master pthread for handling
+ */
+void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			      struct prefix_ipv6 *src_p, struct route_entry *re,
+			      struct nexthop_group *ng, int startup,
+			      struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

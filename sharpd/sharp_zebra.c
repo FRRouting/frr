@@ -31,6 +31,7 @@
 #include "nexthop.h"
 #include "nexthop_group.h"
 #include "link_state.h"
+#include "tc.h"
 
 #include "sharp_globals.h"
 #include "sharp_nht.h"
@@ -302,8 +303,8 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		memcpy(api.opaque.data, opaque, api.opaque.length);
 	}
 
-	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api)
-	    == ZCLIENT_SEND_BUFFERED)
+	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api) ==
+	    ZCLIENT_SEND_BUFFERED)
 		return true;
 	else
 		return false;
@@ -326,8 +327,8 @@ static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 	api.instance = instance;
 	memcpy(&api.prefix, p, sizeof(*p));
 
-	if (zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api)
-	    == ZCLIENT_SEND_BUFFERED)
+	if (zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api) ==
+	    ZCLIENT_SEND_BUFFERED)
 		return true;
 	else
 		return false;
@@ -360,7 +361,7 @@ static void sharp_install_routes_restart(struct prefix *p, uint32_t count,
 
 		if (buffered) {
 			wb.p = *p;
-			wb.count = i+1;
+			wb.count = i + 1;
 			wb.routes = routes;
 			wb.vrf_id = vrf_id;
 			wb.instance = instance;
@@ -447,17 +448,16 @@ static void handle_repeated(bool installed)
 
 	if (installed) {
 		sg.r.removed_routes = 0;
-		sharp_remove_routes_helper(&p, sg.r.vrf_id,
-					   sg.r.inst, sg.r.total_routes);
+		sharp_remove_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
+					   sg.r.total_routes);
 	}
 
 	if (!installed) {
 		sg.r.installed_routes = 0;
-		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
-					    sg.r.nhgid, &sg.r.nhop_group,
-					    &sg.r.backup_nhop_group,
-					    sg.r.total_routes, sg.r.flags,
-					    sg.r.opaque);
+		sharp_install_routes_helper(
+			&p, sg.r.vrf_id, sg.r.inst, sg.r.nhgid,
+			&sg.r.nhop_group, &sg.r.backup_nhop_group,
+			sg.r.total_routes, sg.r.flags, sg.r.opaque);
 	}
 }
 
@@ -467,8 +467,7 @@ static void sharp_zclient_buffer_ready(void)
 	case SHARP_INSTALL_ROUTES_RESTART:
 		sharp_install_routes_restart(
 			&wb.p, wb.count, wb.vrf_id, wb.instance, wb.nhgid,
-			wb.nhg, wb.backup_nhg, wb.routes, wb.flags,
-			wb.opaque);
+			wb.nhg, wb.backup_nhg, wb.routes, wb.flags, wb.opaque);
 		return;
 	case SHARP_DELETE_ROUTES_RESTART:
 		sharp_remove_routes_restart(&wb.p, wb.count, wb.vrf_id,
@@ -484,8 +483,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_route_notify_owner note;
 	uint32_t table;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note,
-				      NULL, NULL))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note, NULL,
+				      NULL))
 		return -1;
 
 	switch (note) {
@@ -550,6 +549,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	bool is_valid = true;
 
 	api_nhg.id = id;
+
+	api_nhg.resilience = nhg->nhgr;
+
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
 			zlog_warn(
@@ -571,8 +573,8 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	}
 
 	if (api_nhg.nexthop_num == 0) {
-		zlog_debug("%s: nhg %u not sent: no valid nexthops",
-			   __func__, id);
+		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
+			   id);
 		is_valid = false;
 		goto done;
 	}
@@ -632,8 +634,7 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
 	if (zclient_send_rnh(zclient, command, p, SAFI_UNICAST, connected,
-			     false, vrf_id)
-	    == ZCLIENT_SEND_FAILURE)
+			     false, vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 
@@ -642,8 +643,7 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 	int i;
 
 	if (api->nexthop_num == 0) {
-		zlog_debug(
-			"        Not installed");
+		zlog_debug("        Not installed");
 		return 0;
 	}
 
@@ -708,8 +708,8 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 		zlog_warn("%s: Decode of redistribute failed: %d", __func__,
 			  ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 
-	zlog_debug("%s: %pFX (%s)", zserv_command_string(cmd),
-		   &api.prefix, zebra_route_string(api.type));
+	zlog_debug("%s: %pFX (%s)", zserv_command_string(cmd), &api.prefix,
+		   zebra_route_string(api.type));
 
 	sharp_debug_nexthops(&api);
 
@@ -781,9 +781,9 @@ int sharp_zclient_delete(uint32_t session_id)
 	return 0;
 }
 
-static const char *const type2txt[] = { "Generic", "Vertex", "Edge", "Subnet" };
-static const char *const status2txt[] = { "Unknown", "New", "Update",
-					  "Delete", "Sync", "Orphan"};
+static const char *const type2txt[] = {"Generic", "Vertex", "Edge", "Subnet"};
+static const char *const status2txt[] = {"Unknown", "New",  "Update",
+					 "Delete",  "Sync", "Orphan"};
 /* Handler for opaque messages */
 static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 {
@@ -806,8 +806,7 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 				   status2txt[lse->status],
 				   type2txt[lse->type]);
 			lse->status = SYNC;
-		}
-		else
+		} else
 			zlog_debug(
 				"%s: Error to convert Stream into Link State",
 				__func__);
@@ -844,12 +843,11 @@ void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
 							  instance, session_id,
 							  buf, sizeof(buf));
 		if (ret == ZCLIENT_SEND_FAILURE) {
-			zlog_debug("%s: send_opaque() failed => %d",
-				   __func__, ret);
+			zlog_debug("%s: send_opaque() failed => %d", __func__,
+				   ret);
 			break;
 		}
 	}
-
 }
 
 /*
@@ -880,7 +878,6 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	(void)zclient_send_message(zclient);
-
 }
 
 /* Link State registration */
@@ -982,6 +979,64 @@ int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
 	return 0;
 }
 
+int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
+				    const struct prefix *source,
+				    const struct prefix *destination,
+				    uint8_t ip_proto, uint16_t src_port,
+				    uint16_t dst_port, uint64_t rate)
+{
+#define SHARPD_TC_HANDLE 0x0001
+	struct stream *s;
+
+	s = zclient->obuf;
+
+	struct tc_qdisc q = {.ifindex = ifp->ifindex, .kind = TC_QDISC_HTB};
+
+	zapi_tc_qdisc_encode(ZEBRA_TC_QDISC_INSTALL, s, &q);
+	if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
+	struct tc_class c = {.ifindex = ifp->ifindex,
+			     .handle = SHARPD_TC_HANDLE & 0xffff,
+			     .kind = TC_QDISC_HTB,
+			     .u.htb.ceil = rate,
+			     .u.htb.rate = rate};
+
+	zapi_tc_class_encode(ZEBRA_TC_CLASS_ADD, s, &c);
+	if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
+	struct tc_filter f = {.ifindex = ifp->ifindex,
+			      .handle = SHARPD_TC_HANDLE,
+			      .priority = 0x1,
+			      .kind = TC_FILTER_FLOWER,
+			      .u.flower.filter_bm = 0};
+
+#ifdef ETH_P_IP
+	f.protocol = ETH_P_IP;
+#else
+	f.protocol = 0x0800;
+#endif
+
+	f.u.flower.filter_bm |= TC_FLOWER_IP_PROTOCOL;
+	f.u.flower.ip_proto = ip_proto;
+	f.u.flower.filter_bm |= TC_FLOWER_SRC_IP;
+	prefix_copy(&f.u.flower.src_ip, source);
+	f.u.flower.filter_bm |= TC_FLOWER_DST_IP;
+	prefix_copy(&f.u.flower.dst_ip, destination);
+	f.u.flower.filter_bm |= TC_FLOWER_SRC_PORT;
+	f.u.flower.src_port_min = f.u.flower.src_port_max = src_port;
+	f.u.flower.filter_bm |= TC_FLOWER_DST_PORT;
+	f.u.flower.dst_port_min = f.u.flower.dst_port_max = dst_port;
+	f.u.flower.classid = SHARPD_TC_HANDLE & 0xffff;
+
+	zapi_tc_filter_encode(ZEBRA_TC_FILTER_ADD, s, &f);
+	if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
+	return 0;
+}
+
 static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
@@ -999,8 +1054,8 @@ void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
 
-	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up,
-			  sharp_ifp_down, sharp_ifp_destroy);
+	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up, sharp_ifp_down,
+			  sharp_ifp_destroy);
 
 	zclient = zclient_new(master, &opt, sharp_handlers,
 			      array_size(sharp_handlers));

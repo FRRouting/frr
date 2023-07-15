@@ -211,6 +211,9 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 1;
 	}
 
+	if (zclient->bfd_integration)
+		bfd_nht_update(&matched, &nhr);
+
 	if (matched.family == AF_INET6)
 		afi = AFI_IP6;
 
@@ -313,6 +316,7 @@ static bool static_zebra_nht_get_prefix(const struct static_nexthop *nh,
 	}
 
 	assertf(0, "BUG: someone forgot to add nexthop type %u", nh->type);
+	return false;
 }
 
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
@@ -440,6 +444,9 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		api_nh = &api.nexthops[nh_num];
 		if (nh->nh_vrf_id == VRF_UNKNOWN)
 			continue;
+		/* Skip next hop which peer is down. */
+		if (nh->path_down)
+			continue;
 
 		api_nh->vrf_id = nh->nh_vrf_id;
 		if (nh->onlink)
@@ -544,6 +551,7 @@ void static_zebra_init(void)
 	zclient->zebra_connected = zebra_connected;
 
 	static_nht_hash_init(static_nht_hash);
+	static_bfd_initialize(zclient, master);
 }
 
 /* static_zebra_stop used by tests/lib/test_grpc.cpp */

@@ -74,7 +74,6 @@ static const short DEFAULT_SRC_TCP_PORT = 4999;
 // Private fn's
 struct cmd_line_args *get_cmdline_args(int argc, char *argv[]);
 void handle_signal_action(int sig_number);
-int setup_signals(void);
 void send_pce_path_request_message(pcep_session *session);
 void send_pce_report_message(pcep_session *session);
 void print_queue_event(struct pcep_event *event);
@@ -211,8 +210,7 @@ void handle_signal_action(int sig_number)
 	}
 }
 
-
-int setup_signals()
+static int setup_signals(void)
 {
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));

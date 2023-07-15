@@ -3,22 +3,19 @@
  *
  * Copyright (C) 2022 Shichu Yang
  *
- * This file is part of FRR.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_TC_NETLINK_H
@@ -51,7 +48,30 @@ enum {
 };
 
 extern enum netlink_msg_status
-netlink_put_tc_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+netlink_put_tc_qdisc_update_msg(struct nl_batch *bth,
+				struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_tc_class_update_msg(struct nl_batch *bth,
+				struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_tc_filter_update_msg(struct nl_batch *bth,
+				 struct zebra_dplane_ctx *ctx);
+
+/**
+ * "filter" & "class" in the following become "tfilter" & "tclass" for
+ * the sake of consistency with kernel message types (RTM_NEWTFILTER etc.)
+ */
+
+extern int netlink_qdisc_read(struct zebra_ns *zns);
+extern int netlink_tfilter_read_for_interface(struct zebra_ns *zns,
+					      ifindex_t ifindex);
+
+extern int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id,
+				  int startup);
+extern int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id,
+				 int startup);
+extern int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+
 
 #ifdef __cplusplus
 }

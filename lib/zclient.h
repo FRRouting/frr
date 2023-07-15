@@ -35,6 +35,8 @@ struct zclient;
 
 /* For union g_addr */
 #include "nexthop.h"
+/* For resilience */
+#include "nexthop_group.h"
 
 /* For union pw_protocol_fields */
 #include "pw.h"
@@ -239,6 +241,12 @@ typedef enum {
 	ZEBRA_GRE_GET,
 	ZEBRA_GRE_UPDATE,
 	ZEBRA_GRE_SOURCE_SET,
+	ZEBRA_TC_QDISC_INSTALL,
+	ZEBRA_TC_QDISC_UNINSTALL,
+	ZEBRA_TC_CLASS_ADD,
+	ZEBRA_TC_CLASS_DELETE,
+	ZEBRA_TC_FILTER_ADD,
+	ZEBRA_TC_FILTER_DELETE,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -461,6 +469,8 @@ struct zapi_nhg {
 	uint16_t proto;
 	uint32_t id;
 
+	struct nhg_resilience resilience;
+
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 
@@ -537,6 +547,13 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
+
+/*
+ * This flag lets us know that we think the route entry
+ * received has caused us to be out of sync with the
+ * kernel (NLM_F_APPEND at the very least )
+ */
+#define ZEBRA_FLAG_OUTOFSYNC          0x400
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

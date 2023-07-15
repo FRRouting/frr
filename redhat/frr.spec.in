@@ -24,7 +24,7 @@
 %{!?with_pam:           %global  with_pam           0 }
 %{!?with_pbrd:          %global  with_pbrd          1 }
 %{!?with_pimd:          %global  with_pimd          1 }
-%{!?with_pim6d:         %global  with_pim6d         0 }
+%{!?with_pim6d:         %global  with_pim6d         1 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
@@ -469,7 +469,7 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
 install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr/frr.conf.template
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
-install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
+install -m644 %{zeb_src}/tools/etc/logrotate.d/frr %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
 
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
@@ -795,47 +795,125 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 * Thu Jun 15 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
-* Thu Jun 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.4
-- This a convenience release/tag for house keeping
+* Thu Jun 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.2
+- Bug fixes:
+- bfdd
+-    Fix malformed session with vrf
+-    Remove redundant nb destroy callbacks
+- bgpd
+-    Ensure stream received has enough data
+-    Fix bgpd core when unintern attr
+-    Fix the json output of show bgp all json to be in a valid format
+-    Make sure aigp attribute is non-transitive
+-    Using no pretty json output for l2vpn-evpn routes
+- lib
+-    Fix memory leak in in link state
+-    Fix vtysh core when handling questionmark
+-    Link state memory corruption
+- ospfd
+-    Fix interface param type update
+-    Fix memory leaks w/ `show ip ospf int x json` commands
+-    Ospf opaque lsa stale processing fix and topotests.
+-    Respect loopback's cost that is set and set loopback costs to 0
+- pim6d
+-    Fix crash in ipv6 pim command
 
-* Wed Mar 15 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.3
-- This a convenience release/tag for house keeping
+- pimd
+-    Pim not sending register packets after changing from non dr to dr
 
-* Mon Jan 09 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.2
-- bfdd: fix ipv4 socket source selection
-- bgpd : fix crash for `set ipv4/ipv6 vpn next-hop` command
-- bgpd: stop overriding nexthop when bgp unnumbered
-- bgpd: fix aggregated routes are withdrawn abnormally
-- bgpd: fix a few memory leaks
-- build: enable pim6d by default
-- build: fix sed regex in lua macro
-- doc : add freebsd 13 build docs
-- isisd: fix memory leak
-- lib:  disable vrf before terminating interfaces
-- lib: do not log `echo ping` commands from watchfrr
-- ospf6d:  fix infinite loop when adding asbr route
-- ospfd: fix rfc conformance test cases 25.19 and 27.6
-- ospfd: fix typo and report the P2P link name in the warning
-- ospfd: report the router IP with opaque capability mismatch
-- ospfd: fix memory leak
-- pimd: consistently ignore prefix list mask len
-- staticd: do not crash when modifying an existing static route with color
-- zebra: free all memory associated ctx->u.iptable.interface_name_list
-- zebra: fix tracepoint changes for lttng
-- zebra: free up route map name memory on vrf deletion event
-- zebra: use `mpls enable`, not `mpls` when generating a config
-- tools: Ignore agentx command for frr-reload.py
+-tools
+-    Fix list value remove in frr-reload
 
-* Thu Nov 17 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.1
-- zebra: reuse netinet/if_ether.h to avoid redefinition of struct ethhdr
-- zebra: fix build without AF_MPLS
-- ospfd: get route-map name for default-information originate
-- ospfd: allow unnumbered and numbered addresses to co-exist better
-- ospfd: prevent from crashing when processing external lsa
-- bgpd: fix "storing the address of local variable"
-- bgpd: rpki was decrementing the node lock one time too many
-- bgpd: do not send Deconfig/Shutdown message when restarting
-- pimd: convert zlog_warn to debug
+- vtysh
+-    Give actual pam error messages
+
+- zebra
+-    Evpn handle del event for dup detected mac
+-    Fix dp_out_queued counter to actually reflect real life
+-    Fix evpn dup detected local mac del event
+-    Reduce creation and fix memory leak of frrscripting pointers
+-    Unlock the route node when sending route notifications
+
+* Thu Apr 20 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5.1
+- Bug fixes:
+- bgpd
+-    Aggregate-address memory leak fix
+-    Bmp fix peer-up ports byte order
+-    Check 7 bytes for long-lived graceful-restart capability
+-    Copy the password from the previous peer on peer_xfer_config()
+-    Do not allow a `no router bgp xxx` when autoimport is happening
+-    Do not allow l3vni changes when shutting down
+-    Do not announce routes immediatelly on filter updates
+-    Do not call bgp_soft_reconfig_in() twice in a row on policy change
+-    Evpn-mh esi not active suppress ead-es route
+-    Fix crash for `show bgp ... neighbor received-routes detail|prefix`
+-    Fix debug output for route-map names when using a unsuppress-map
+-    Fix ecommunity parsing for as4
+-    Fix for ain->attr corruption during path update
+-    Increase buffer size used for dumping bgp to mrt files
+-    Limit flowspec to no attribute means a implicit withdrawal
+-    Prevent null pointer deref when outputting data
+- lib
+-    Fix clear route-map cmd using defpy
+-    Fix link state memory leak
+-    On bfd peer shutdown actually stop event
+- ospfd
+-    Cleanup some memory leaks on shutdown in ospf_apiserver.c
+-    Fix for vitual-link crash in signal handler
+-    Fix ospf_lsa memory leak
+-    Fix ospf_ti_lfa drop of an entire table
+-    Fix summary origination after range configuration
+-    Free up q_space in early return path
+-    Log adjacency changes with neighbor ip in addition to neighbor id
+- pbrd
+-    Fix mismatching in match src-dst
+- pim6d
+-    Fixing mroutes not created after disabling and enabling pimv6.
+- pimd
+-    Fix use after free issue for ifp's moving vrfs
+-    In_multicast needs host order
+-    Process no-forward bsm packet
+- ripd
+-    Fix malformed route-map
+-    Fix memory leak for ripd's route-map
+- staticd
+-    Tell bfd that we are shutting down
+- tools
+-    Fix missing remote-as configuration when reload
+-    Frr-reload fix list value not present
+-    Make check flag really work for reload
+-    Set correct directory of vtysh for frr-reload.py
+- zebra
+-    Add link_nsid to zebra interface
+-    Cleanup ctx leak on shutdown and turn off event
+-    Evpn mh sync mac install as inactive
+-    Fix for heap-use-after-free in evpn
+-    Fix race during shutdown
+-    Install directly connected route after interface flap
+
+* Fri Mar 10 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5
+- Major Highlights:
+-   Add support for per-VRF SRv6 SID
+-   Add BGP labeled-unicast Add-Path functionality
+-   Implementation of SNMP BGP4v2-MIB (IPv6 support) for better network management and monitoring
+-   Add BGP new command neighbor path-attribute discard
+-   Add BGP new command neighbor path-attribute treat-as-withdraw
+-   Implement L3 route-target auto/wildcard configuration
+-   Implement BGP ACCEPT_OWN Community Attribute (rfc7611)
+-   Implement The Accumulated IGP Metric Attribute for BGP (rfc7311)
+-   Implement graceful-shutdown command per neighbor
+-   Add BGP new command to configure TCP keepalives for a peer bgp tcp-keepalive
+-   Traffic control (TC) ZAPI implementation
+-   SRv6 uSID (microSID) implementation
+-   Start deprecating start-shell, ssh, and telnet commands due to security reasons
+-   Add VRRPv3 an ability to disable IPv4 pseudo-header checksum
+-   BFD integration for static routes
+-   Allow protocols to configure BFD sessions with automatic source selection
+-   Allow zero-length opaque LSAs for OSPF (rfc5250)
+-   Add ISIS new command set-overload-bit on-startup
+-   PIMv6 BSM support
+- For a full list of new features and bug fixes, please refer to:
+-   https://frrouting.org/release/
 
 * Tue Nov 01 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4
 - New BGP command (neighbor PEER soo) to configure SoO to prevent routing loops and suboptimal routing on dual-homed sites.
@@ -857,6 +935,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 - bfdd:
 -    Fix broken FSM in active/passive modes
 - bgpd:
+-    Fix crash due to community aliases size
 -    Notification Message Support for BGP Graceful Restart (rfc8538)
 -    BGP Cease Notification Subcode For BFD
 -    Send Hold Timer for BGP (own implementation without an additional knob)

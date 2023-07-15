@@ -39,8 +39,7 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.topogen import get_topogen
-from lib import topojson
+from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
     write_test_header,
@@ -51,10 +50,11 @@ from lib.common_config import (
     reset_config_on_routers,
     shutdown_bringup_interface,
     apply_raw_config,
+    start_topology,
 )
 from lib.topolog import logger
+from lib.topojson import build_config_from_json
 from lib.bgp import create_router_bgp, verify_bgp_convergence
-
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -78,8 +78,18 @@ def setup_module(mod):
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
 
-    tgen = topojson.setup_module_from_json(mod.__file__)
+    # This function initiates the topology build with Topogen...
+    json_file = "{}/ibgp_ecmp_topo3.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
     topo = tgen.json_topo
+
+    # Starting topology, create tmp files which are loaded to routers
+    #  to start daemons and then start routers
+    start_topology(tgen)
+
+    # Creating configuration from JSON
+    build_config_from_json(tgen, topo)
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -240,17 +250,18 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
     logger.info("Ensure BGP has processed the cli")
     r2 = tgen.gears["r2"]
     output = r2.vtysh_cmd("show run")
-    verify = re.search(r"fast-convergence", output )
-    assert verify is not None, (
-        "r2 does not have the fast convergence command yet")
+    verify = re.search(r"fast-convergence", output)
+    assert verify is not None, "r2 does not have the fast convergence command yet"
 
     logger.info("Shutdown one link b/w r2 and r3")
     shutdown_bringup_interface(tgen, "r2", intf1, False)
 
     logger.info("Verify bgp neighbors goes down immediately")
     result = verify_bgp_convergence(tgen, topo, dut="r2", expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: BGP should not be converged for {} \n "
+        "Found: {}".format(tc_name, "r2", result)
     )
 
     logger.info("Shutdown second link b/w r2 and r3")
@@ -258,8 +269,10 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
 
     logger.info("Verify bgp neighbors goes down immediately")
     result = verify_bgp_convergence(tgen, topo, dut="r2", expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: BGP should not be converged for {} \n "
+        "Found: {}".format(tc_name, "r2", result)
     )
 
     write_test_footer(tc_name)

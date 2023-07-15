@@ -42,9 +42,7 @@
 #include "ospf6d/ospf6_intra.h"
 #include "ospf6d/ospf6_spf.h"
 #include "ospf6d/ospf6_gr.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_gr_clippy.c"
-#endif
 
 static void ospf6_gr_nvm_delete(struct ospf6 *ospf6);
 

@@ -384,6 +384,23 @@ int zebra_sr_policy_label_update(mpls_label_t label,
 	return 0;
 }
 
+static int zebra_srte_client_close_cleanup(struct zserv *client)
+{
+	int sock = client->sock;
+	struct zebra_sr_policy *policy, *policy_temp;
+
+	if (!sock)
+		return 0;
+
+	RB_FOREACH_SAFE (policy, zebra_sr_policy_instance_head,
+			 &zebra_sr_policy_instances, policy_temp) {
+		if (policy->sock == sock)
+			zebra_sr_policy_del(policy);
+	}
+	return 1;
+}
+
 void zebra_srte_init(void)
 {
+	hook_register(zserv_client_close, zebra_srte_client_close_cleanup);
 }

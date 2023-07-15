@@ -91,9 +91,16 @@ static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 	struct isis_nexthop *nh;
 
 	for (ALL_LIST_ELEMENTS_RO(nexthops, node, nh)) {
-		if (nh->family != family)
-			continue;
 		if (nh->ifindex != ifindex)
+			continue;
+
+		/* if the IP is unspecified, return the first nexthop found on
+		 * the interface
+		 */
+		if (!ip)
+			return nh;
+
+		if (nh->family != family)
 			continue;
 
 		switch (family) {
@@ -459,6 +466,21 @@ void isis_route_delete(struct isis_area *area, struct route_node *rode,
 	route_unlock_node(rode);
 }
 
+static void isis_route_remove_previous_sid(struct isis_area *area,
+					   struct prefix *prefix,
+					   struct isis_route_info *route_info)
+{
+	/*
+	 * Explicitly uninstall previous Prefix-SID label if it has
+	 * changed or was removed.
+	 */
+	if (route_info->sr_previous.present &&
+	    (!route_info->sr.present ||
+	     route_info->sr_previous.label != route_info->sr.label))
+		isis_zebra_prefix_sid_uninstall(area, prefix, route_info,
+						&route_info->sr_previous);
+}
+
 static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 			      struct prefix_ipv6 *src_p,
 			      struct isis_route_info *route_info)
@@ -470,17 +492,7 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
 
-		/*
-		 * Explicitly uninstall previous Prefix-SID label if it has
-		 * changed or was removed.
-		 */
-		if (route_info->sr_previous.present
-		    && (!route_info->sr.present
-			|| route_info->sr_previous.label
-				   != route_info->sr.label))
-			isis_zebra_prefix_sid_uninstall(
-				area, prefix, route_info,
-				&route_info->sr_previous);
+		isis_route_remove_previous_sid(area, prefix, route_info);
 
 		/* Install route. */
 		isis_zebra_route_add_route(area->isis, prefix, src_p,
@@ -725,5 +737,56 @@ void isis_route_invalidate_table(struct isis_area *area,
 			UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 		}
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
+	}
+}
+
+void isis_route_switchover_nexthop(struct isis_area *area,
+				   struct route_table *table, int family,
+				   union g_addr *nexthop_addr,
+				   ifindex_t ifindex)
+{
+	const char *ifname = NULL, *vrfname = NULL;
+	struct isis_route_info *rinfo;
+	struct prefix_ipv6 *src_p;
+	struct route_node *rnode;
+	vrf_id_t vrf_id;
+	struct prefix *prefix;
+
+	if (IS_DEBUG_EVENTS) {
+		if (area && area->isis) {
+			vrf_id = area->isis->vrf_id;
+			vrfname = vrf_id_to_name(vrf_id);
+			ifname = ifindex2ifname(ifindex, vrf_id);
+		}
+		zlog_debug("%s: initiating fast-reroute %s on VRF %s iface %s",
+			   __func__, family2str(family), vrfname ? vrfname : "",
+			   ifname ? ifname : "");
+	}
+
+	for (rnode = route_top(table); rnode;
+	     rnode = srcdest_route_next(rnode)) {
+		if (!rnode->info)
+			continue;
+		rinfo = rnode->info;
+
+		if (!rinfo->backup)
+			continue;
+
+		if (!nexthoplookup(rinfo->nexthops, family, nexthop_addr,
+				   ifindex))
+			continue;
+
+		srcdest_rnode_prefixes(rnode, (const struct prefix **)&prefix,
+				       (const struct prefix **)&src_p);
+
+		/* Switchover route. */
+		isis_route_remove_previous_sid(area, prefix, rinfo);
+		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+		isis_route_update(area, prefix, src_p, rinfo->backup);
+
+		isis_route_info_delete(rinfo);
+
+		rnode->info = NULL;
+		route_unlock_node(rnode);
 	}
 }

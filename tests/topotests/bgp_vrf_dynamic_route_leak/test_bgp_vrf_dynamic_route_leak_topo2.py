@@ -75,28 +75,12 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_vrf_dynamic_route_leak_topo2.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
-
 # Global variables
 NETWORK1_1 = {"ipv4": "11.11.11.1/32", "ipv6": "11:11::1/128"}
 NETWORK3_3 = {"ipv4": "50.50.50.5/32", "ipv6": "50:50::5/128"}
 NETWORK3_4 = {"ipv4": "50.50.50.50/32", "ipv6": "50:50::50/128"}
 
 PREFERRED_NEXT_HOP = "global"
-
-
-def build_topo(tgen):
-    """Build function"""
-
-    # Building topology from json file
-    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -114,7 +98,9 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(build_topo, mod.__name__)
+    json_file = "{}/bgp_vrf_dynamic_route_leak_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

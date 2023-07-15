@@ -44,6 +44,7 @@ extern "C" {
 #define SNMP_INVALID 2
 
 #define IN_ADDR_SIZE sizeof(struct in_addr)
+#define IN6_ADDR_SIZE sizeof(struct in6_addr)
 
 /* IANAipRouteProtocol */
 #define IANAIPROUTEPROTOCOLOTHER 1
@@ -87,8 +88,9 @@ struct index_oid {
 /* Declare SMUX return value. */
 #define SNMP_LOCAL_VARIABLES                                                   \
 	static long snmp_int_val __attribute__((unused));                      \
-	static struct in_addr snmp_in_addr_val __attribute__((unused));
-	static uint8_t snmp_octet_val __attribute__((unused));
+	static struct in_addr snmp_in_addr_val __attribute__((unused));        \
+	static uint8_t snmp_octet_val __attribute__((unused));                 \
+	static char snmp_string_val[255] __attribute__((unused));
 #define SNMP_INTEGER(V)                                                        \
 	(*var_len = sizeof(snmp_int_val), snmp_int_val = V,                    \
 	 (uint8_t *)&snmp_int_val)
@@ -97,13 +99,20 @@ struct index_oid {
 	(*var_len = sizeof(snmp_octet_val), snmp_octet_val = V,                    \
 	 (uint8_t *)&snmp_octet_val)
 
+#define SNMP_STRING(V)                                                         \
+	(*var_len = MIN(sizeof(snmp_string_val), strlen(V) + 1),               \
+	 strlcpy(snmp_string_val, V, *var_len), (uint8_t *)&snmp_string_val)
+
 #define SNMP_IPADDRESS(V)                                                      \
 	(*var_len = sizeof(struct in_addr), snmp_in_addr_val = V,              \
 	 (uint8_t *)&snmp_in_addr_val)
 
 #define SNMP_IP6ADDRESS(V) (*var_len = sizeof(struct in6_addr), (uint8_t *)&V)
 
-extern int smux_enabled(void);
+/*
+ * Check to see if snmp is enabled or not
+ */
+extern bool smux_enabled(void);
 
 extern void smux_init(struct thread_master *tm);
 extern void smux_agentx_enable(void);

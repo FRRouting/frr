@@ -208,7 +208,6 @@ ldpe_shutdown(void)
 	iev_main_sync->ibuf.fd = -1;
 
 	control_cleanup(ctl_sock_path);
-	config_clear(leconf);
 
 #ifdef __OpenBSD__
 	if (sysdep.no_pfkey == 0) {
@@ -231,6 +230,7 @@ ldpe_shutdown(void)
 		adj_del(adj, S_SHUTDOWN);
 	}
 
+	config_clear(leconf);
 	/* clean up */
 	if (iev_lde)
 		free(iev_lde);

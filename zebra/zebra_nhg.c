@@ -563,6 +563,15 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	if (nhe1->afi != nhe2->afi)
 		return false;
 
+	if (nhe1->nhg.nhgr.buckets != nhe2->nhg.nhgr.buckets)
+		return false;
+
+	if (nhe1->nhg.nhgr.idle_timer != nhe2->nhg.nhgr.idle_timer)
+		return false;
+
+	if (nhe1->nhg.nhgr.unbalanced_timer != nhe2->nhg.nhgr.unbalanced_timer)
+		return false;
+
 	/* Nexthops should be in-order, so we simply compare them in-place */
 	for (nexthop1 = nhe1->nhg.nexthop, nexthop2 = nhe2->nhg.nexthop;
 	     nexthop1 && nexthop2;
@@ -621,7 +630,8 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 
 static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 				 struct nhg_connected_tree_head *depends,
-				 struct nh_grp *grp, uint8_t count)
+				 struct nh_grp *grp, uint8_t count,
+				 struct nhg_resilience *resilience)
 {
 	nhg_connected_tree_init(depends);
 
@@ -651,6 +661,9 @@ static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 
 		copy_nexthops(&nhg->nexthop, depend->nhg.nexthop, NULL);
 	}
+
+	if (resilience)
+		nhg->nhgr = *resilience;
 
 	return 0;
 }
@@ -985,6 +998,11 @@ static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
 	return ctx->u.grp;
 }
 
+static struct nhg_resilience *nhg_ctx_get_resilience(struct nhg_ctx *ctx)
+{
+	return &ctx->resilience;
+}
+
 static struct nhg_ctx *nhg_ctx_new(void)
 {
 	struct nhg_ctx *new;
@@ -1018,7 +1036,8 @@ done:
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 				    struct nh_grp *grp, vrf_id_t vrf_id,
-				    afi_t afi, int type, uint8_t count)
+				    afi_t afi, int type, uint8_t count,
+				    struct nhg_resilience *resilience)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1029,6 +1048,9 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 	ctx->afi = afi;
 	ctx->type = type;
 	ctx->count = count;
+
+	if (resilience)
+		ctx->resilience = *resilience;
 
 	if (count)
 		/* Copy over the array */
@@ -1176,7 +1198,8 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	if (nhg_ctx_get_count(ctx)) {
 		nhg = nexthop_group_new();
 		if (zebra_nhg_process_grp(nhg, &nhg_depends,
-					  nhg_ctx_get_grp(ctx), count)) {
+					  nhg_ctx_get_grp(ctx), count,
+					  nhg_ctx_get_resilience(ctx))) {
 			depends_decrement_free(&nhg_depends);
 			nexthop_group_delete(&nhg);
 			return -ENOENT;
@@ -1306,7 +1329,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 /* Kernel-side, you either get a single new nexthop or a array of ID's */
 int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 			  uint8_t count, vrf_id_t vrf_id, afi_t afi, int type,
-			  int startup)
+			  int startup, struct nhg_resilience *nhgr)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1320,7 +1343,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		 */
 		id_counter = id;
 
-	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count);
+	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count, nhgr);
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_NEW);
 
 	/* Under statup conditions, we need to handle them immediately
@@ -1343,7 +1366,7 @@ int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id)
 {
 	struct nhg_ctx *ctx = NULL;
 
-	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0);
+	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0, NULL);
 
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
@@ -1797,7 +1820,7 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (policy) {
-		int i = 0;
+		int label_num = 0;
 
 		/*
 		 * Don't push the first SID if the corresponding action in the
@@ -1805,10 +1828,11 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		 */
 		if (!newhop->nh_label || !newhop->nh_label->num_labels
 		    || newhop->nh_label->label[0] == MPLS_LABEL_IMPLICIT_NULL)
-			i = 1;
+			label_num = 1;
 
-		for (; i < policy->segment_list.label_num; i++)
-			labels[num_labels++] = policy->segment_list.labels[i];
+		for (; label_num < policy->segment_list.label_num; label_num++)
+			labels[num_labels++] =
+				policy->segment_list.labels[label_num];
 		label_type = policy->segment_list.type;
 	} else if (newhop->nh_label) {
 		for (i = 0; i < newhop->nh_label->num_labels; i++) {
@@ -2369,11 +2393,33 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 
 			resolved = 0;
 
-			/* Only useful if installed */
-			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED)) {
+			/*
+			 * Only useful if installed or being Route Replacing
+			 * Why Being Route Replaced as well?
+			 * Imagine a route A and route B( that depends on A )
+			 * for recursive resolution and A already exists in the
+			 * zebra rib.  If zebra receives the routes
+			 * for resolution at aproximately the same time in the [
+			 * B, A ] order on the workQ.  If this happens then
+			 * normal route resolution will happen and B will be
+			 * resolved successfully and then A will be resolved
+			 * successfully. Now imagine the reversed order [A, B].
+			 * A will be resolved and then scheduled for installed
+			 * (Thus not having the ROUTE_ENTRY_INSTALLED flag ).  B
+			 * will then get resolved and fail to be installed
+			 * because the original below test.  Let's `loosen` this
+			 * up a tiny bit and allow the
+			 * ROUTE_ENTRY_ROUTE_REPLACING flag ( that is set when a
+			 * Route Replace operation is being initiated on A now )
+			 * to now satisfy this situation.  This will allow
+			 * either order in the workQ to work properly.
+			 */
+			if (!CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED) &&
+			    !CHECK_FLAG(match->status,
+					ROUTE_ENTRY_ROUTE_REPLACING)) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
-						"%s: match %p (%pNG) not installed",
+						"%s: match %p (%pNG) not installed or being Route Replaced",
 						__func__, match, match->nhe);
 
 				goto done_with_match;
@@ -3123,9 +3169,14 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 	}
 }
@@ -3322,6 +3373,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
+	lookup.nhg.nhgr = nhg->nhgr;
 	lookup.id = id;
 	lookup.type = type;
 

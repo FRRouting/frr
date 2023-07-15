@@ -652,7 +652,7 @@ DEFUN_YANG_NOSH (vrf,
 	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
 
 	nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, "%s", xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(VRF_NODE, xpath_list);
 		vrf = vrf_lookup_by_name(vrfname);
@@ -1000,8 +1000,7 @@ lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
 	if (vrfp->status == VRF_ACTIVE)
-		return yang_data_new_bool(
-			args->xpath, vrfp->status == VRF_ACTIVE ? true : false);
+		return yang_data_new_bool(args->xpath, true);
 
 	return NULL;
 }

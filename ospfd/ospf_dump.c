@@ -42,9 +42,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_dump_clippy.c"
-#endif
 
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -54,13 +52,13 @@ unsigned long conf_debug_ospf_nsm = 0;
 unsigned long conf_debug_ospf_lsa = 0;
 unsigned long conf_debug_ospf_zebra = 0;
 unsigned long conf_debug_ospf_nssa = 0;
-unsigned long conf_debug_ospf_te = 0;
+unsigned long conf_debug_ospf_te;
 unsigned long conf_debug_ospf_ext = 0;
-unsigned long conf_debug_ospf_sr = 0;
-unsigned long conf_debug_ospf_ti_lfa = 0;
-unsigned long conf_debug_ospf_defaultinfo = 0;
-unsigned long conf_debug_ospf_ldp_sync = 0;
-unsigned long conf_debug_ospf_gr = 0;
+unsigned long conf_debug_ospf_sr;
+unsigned long conf_debug_ospf_ti_lfa;
+unsigned long conf_debug_ospf_defaultinfo;
+unsigned long conf_debug_ospf_ldp_sync;
+unsigned long conf_debug_ospf_gr;
 unsigned long conf_debug_ospf_bfd;
 unsigned long conf_debug_ospf_client_api;
 
@@ -72,13 +70,13 @@ unsigned long term_debug_ospf_nsm = 0;
 unsigned long term_debug_ospf_lsa = 0;
 unsigned long term_debug_ospf_zebra = 0;
 unsigned long term_debug_ospf_nssa = 0;
-unsigned long term_debug_ospf_te = 0;
+unsigned long term_debug_ospf_te;
 unsigned long term_debug_ospf_ext = 0;
-unsigned long term_debug_ospf_sr = 0;
-unsigned long term_debug_ospf_ti_lfa = 0;
+unsigned long term_debug_ospf_sr;
+unsigned long term_debug_ospf_ti_lfa;
 unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
-unsigned long term_debug_ospf_gr = 0;
+unsigned long term_debug_ospf_gr;
 unsigned long term_debug_ospf_bfd;
 unsigned long term_debug_ospf_client_api;
 
@@ -628,84 +626,9 @@ void ospf_packet_dump(struct stream *s)
 	stream_set_getp(s, gp);
 }
 
-DEFUN (debug_ospf_packet,
+DEFPY (debug_ospf_packet,
        debug_ospf_packet_cmd,
-       "debug ospf [(1-65535)] packet <hello|dd|ls-request|ls-update|ls-ack|all> [<send [detail]|recv [detail]|detail>]",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Detail Information\n"
-       "Packet received\n"
-       "Detail Information\n"
-       "Detail Information\n")
-{
-	int inst = (argv[2]->type == RANGE_TKN) ? 1 : 0;
-	int detail = strmatch(argv[argc - 1]->text, "detail");
-	int send = strmatch(argv[argc - (1 + detail)]->text, "send");
-	int recv = strmatch(argv[argc - (1 + detail)]->text, "recv");
-	char *packet = argv[3 + inst]->text;
-
-	if (inst) // user passed instance ID
-	{
-		if (inst != ospf_instance)
-			return CMD_NOT_MY_INSTANCE;
-	}
-
-	int type = 0;
-	int flag = 0;
-	int i;
-
-	/* Check packet type. */
-	if (strmatch(packet, "hello"))
-		type = OSPF_DEBUG_HELLO;
-	else if (strmatch(packet, "dd"))
-		type = OSPF_DEBUG_DB_DESC;
-	else if (strmatch(packet, "ls-request"))
-		type = OSPF_DEBUG_LS_REQ;
-	else if (strmatch(packet, "ls-update"))
-		type = OSPF_DEBUG_LS_UPD;
-	else if (strmatch(packet, "ls-ack"))
-		type = OSPF_DEBUG_LS_ACK;
-	else if (strmatch(packet, "all"))
-		type = OSPF_DEBUG_ALL;
-
-	/* Cases:
-	 * (none)      = send + recv
-	 * detail      = send + recv + detail
-	 * recv        = recv
-	 * send        = send
-	 * recv detail = recv + detail
-	 * send detail = send + detail
-	 */
-	if (!send && !recv)
-		send = recv = 1;
-
-	flag |= (send) ? OSPF_DEBUG_SEND : 0;
-	flag |= (recv) ? OSPF_DEBUG_RECV : 0;
-	flag |= (detail) ? OSPF_DEBUG_DETAIL : 0;
-
-	for (i = 0; i < 5; i++)
-		if (type & (0x01 << i)) {
-			if (vty->node == CONFIG_NODE)
-				DEBUG_PACKET_ON(i, flag);
-			else
-				TERM_DEBUG_PACKET_ON(i, flag);
-		}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_packet,
-       no_debug_ospf_packet_cmd,
-       "no debug ospf [(1-65535)] packet <hello|dd|ls-request|ls-update|ls-ack|all> [<send [detail]|recv [detail]|detail>]",
+       "[no$no] debug ospf [(1-65535)$inst] packet <hello|dd|ls-request|ls-update|ls-ack|all>$packet [<send$send [detail$detail]|recv$recv [detail$detail]|detail$detail>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -723,21 +646,12 @@ DEFUN (no_debug_ospf_packet,
        "Detail Information\n"
        "Detail Information\n")
 {
-	int inst = (argv[3]->type == RANGE_TKN) ? 1 : 0;
-	int detail = strmatch(argv[argc - 1]->text, "detail");
-	int send = strmatch(argv[argc - (1 + detail)]->text, "send");
-	int recv = strmatch(argv[argc - (1 + detail)]->text, "recv");
-	char *packet = argv[4 + inst]->text;
-
-	if (inst) // user passed instance ID
-	{
-		if (inst != ospf_instance)
-			return CMD_NOT_MY_INSTANCE;
-	}
-
 	int type = 0;
 	int flag = 0;
 	int i;
+
+	if (inst && inst != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	/* Check packet type. */
 	if (strmatch(packet, "hello"))
@@ -761,8 +675,10 @@ DEFUN (no_debug_ospf_packet,
 	 * recv detail = recv + detail
 	 * send detail = send + detail
 	 */
-	if (!send && !recv)
-		send = recv = 1;
+	if (!send && !recv) {
+		flag |= OSPF_DEBUG_SEND;
+		flag |= OSPF_DEBUG_RECV;
+	}
 
 	flag |= (send) ? OSPF_DEBUG_SEND : 0;
 	flag |= (recv) ? OSPF_DEBUG_RECV : 0;
@@ -770,10 +686,17 @@ DEFUN (no_debug_ospf_packet,
 
 	for (i = 0; i < 5; i++)
 		if (type & (0x01 << i)) {
-			if (vty->node == CONFIG_NODE)
-				DEBUG_PACKET_OFF(i, flag);
-			else
-				TERM_DEBUG_PACKET_OFF(i, flag);
+			if (vty->node == CONFIG_NODE) {
+				if (no)
+					DEBUG_PACKET_OFF(i, flag);
+				else
+					DEBUG_PACKET_ON(i, flag);
+			} else {
+				if (no)
+					TERM_DEBUG_PACKET_OFF(i, flag);
+				else
+					TERM_DEBUG_PACKET_ON(i, flag);
+			}
 		}
 
 #ifdef DEBUG
@@ -1457,194 +1380,221 @@ DEFUN (no_debug_ospf_instance_nssa,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf_te,
+DEFPY (debug_ospf_te,
        debug_ospf_te_cmd,
-       "debug ospf te",
+       "[no$no] debug ospf [(1-65535)$instance] te",
+       NO_STR
        DEBUG_STR
        OSPF_STR
+       "Instance ID\n"
        "OSPF-TE information\n")
 {
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(te, TE);
-	TERM_DEBUG_ON(te, TE);
-	return CMD_SUCCESS;
-}
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
-DEFUN (no_debug_ospf_te,
-       no_debug_ospf_te_cmd,
-       "no debug ospf te",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF-TE information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(te, TE);
-	TERM_DEBUG_OFF(te, TE);
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ospf_sr,
-       debug_ospf_sr_cmd,
-       "debug ospf sr",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF-SR information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(sr, SR);
-	TERM_DEBUG_ON(sr, SR);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_sr,
-       no_debug_ospf_sr_cmd,
-       "no debug ospf sr",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF-SR information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(sr, SR);
-	TERM_DEBUG_OFF(sr, SR);
-	return CMD_SUCCESS;
-}
-
-DEFUN(debug_ospf_ti_lfa, debug_ospf_ti_lfa_cmd, "debug ospf ti-lfa",
-      DEBUG_STR OSPF_STR "OSPF-SR TI-LFA information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(ti_lfa, TI_LFA);
-	TERM_DEBUG_ON(ti_lfa, TI_LFA);
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_debug_ospf_ti_lfa, no_debug_ospf_ti_lfa_cmd, "no debug ospf ti-lfa",
-      NO_STR DEBUG_STR OSPF_STR "OSPF-SR TI-LFA information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(ti_lfa, TI_LFA);
-	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ospf_default_info,
-       debug_ospf_default_info_cmd,
-       "debug ospf default-information",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF default information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(defaultinfo, DEFAULTINFO);
-	TERM_DEBUG_ON(defaultinfo, DEFAULTINFO);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_default_info,
-       no_debug_ospf_default_info_cmd,
-       "no debug ospf default-information",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF default information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(defaultinfo, DEFAULTINFO);
-	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
-	return CMD_SUCCESS;
-}
-
-DEFUN(debug_ospf_ldp_sync,
-      debug_ospf_ldp_sync_cmd,
-      "debug ospf ldp-sync",
-      DEBUG_STR OSPF_STR
-      "OSPF LDP-Sync information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(ldp_sync, LDP_SYNC);
-	TERM_DEBUG_ON(ldp_sync, LDP_SYNC);
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_debug_ospf_ldp_sync,
-      no_debug_ospf_ldp_sync_cmd,
-      "no debug ospf ldp-sync",
-      NO_STR
-      DEBUG_STR
-      OSPF_STR
-      "OSPF LDP-Sync information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(ldp_sync, LDP_SYNC);
-	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(debug_ospf_gr, debug_ospf_gr_cmd, "[no$no] debug ospf graceful-restart",
-      NO_STR DEBUG_STR OSPF_STR "OSPF Graceful Restart\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(gr, GR);
-
-	if (!no)
-		TERM_DEBUG_ON(gr, GR);
-	else
-		TERM_DEBUG_OFF(gr, GR);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(debug_ospf_bfd, debug_ospf_bfd_cmd,
-      "[no] debug ospf bfd",
-      NO_STR
-      DEBUG_STR
-      OSPF_STR
-      "Bidirection Forwarding Detection\n")
-{
 	if (vty->node == CONFIG_NODE) {
-		if (no) {
-			bfd_protocol_integration_set_debug(false);
-			CONF_DEBUG_OFF(bfd, BFD_LIB);
-		} else {
-			bfd_protocol_integration_set_debug(true);
-			CONF_DEBUG_ON(bfd, BFD_LIB);
-		}
+		if (no)
+			DEBUG_OFF(te, TE);
+		else
+			DEBUG_ON(te, TE);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(te, TE);
+		else
+			TERM_DEBUG_ON(te, TE);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_ospf_sr,
+       debug_ospf_sr_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] sr",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF-SR information\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(sr, SR);
+		else
+			DEBUG_ON(sr, SR);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(sr, SR);
+		else
+			TERM_DEBUG_ON(sr, SR);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_ospf_ti_lfa,
+       debug_ospf_ti_lfa_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] ti-lfa",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF-SR TI-LFA information\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(ti_lfa, TI_LFA);
+		else
+			DEBUG_ON(ti_lfa, TI_LFA);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(ti_lfa, TI_LFA);
+		else
+			TERM_DEBUG_ON(ti_lfa, TI_LFA);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_ospf_default_info,
+       debug_ospf_default_info_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] default-information",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF default information\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(defaultinfo, DEFAULTINFO);
+		else
+			DEBUG_ON(defaultinfo, DEFAULTINFO);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
+		else
+			TERM_DEBUG_ON(defaultinfo, DEFAULTINFO);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_ospf_ldp_sync,
+       debug_ospf_ldp_sync_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] ldp-sync",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF LDP-Sync information\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(ldp_sync, LDP_SYNC);
+		else
+			DEBUG_ON(ldp_sync, LDP_SYNC);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+		else
+			TERM_DEBUG_ON(ldp_sync, LDP_SYNC);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_ospf_gr,
+       debug_ospf_gr_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] graceful-restart",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF Graceful Restart\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			CONF_DEBUG_OFF(gr, GR);
+		else
+			CONF_DEBUG_ON(gr, GR);
 	}
 
 	if (no)
-		TERM_DEBUG_OFF(bfd, BFD_LIB);
+		TERM_DEBUG_OFF(gr, GR);
 	else
-		TERM_DEBUG_ON(bfd, BFD_LIB);
+		TERM_DEBUG_ON(gr, GR);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN(debug_ospf_client_api,
-      debug_ospf_client_api_cmd,
-      "debug ospf client-api",
-      DEBUG_STR OSPF_STR
-      "OSPF client API information\n")
+DEFPY (debug_ospf_bfd,
+       debug_ospf_bfd_cmd,
+       "[no] debug ospf [(1-65535)$instance] bfd",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "Bidirection Forwarding Detection\n")
 {
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(client_api, CLIENT_API);
-	TERM_DEBUG_ON(client_api, CLIENT_API);
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no) {
+			bfd_protocol_integration_set_debug(false);
+			DEBUG_OFF(bfd, BFD_LIB);
+		} else {
+			bfd_protocol_integration_set_debug(true);
+			DEBUG_ON(bfd, BFD_LIB);
+		}
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(bfd, BFD_LIB);
+		else
+			TERM_DEBUG_ON(bfd, BFD_LIB);
+	}
+
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_debug_ospf_client_api,
-      no_debug_ospf_client_api_cmd,
-      "no debug ospf client-api",
-      NO_STR
-      DEBUG_STR
-      OSPF_STR
-      "OSPF client API information\n")
+DEFPY (debug_ospf_client_api,
+       debug_ospf_client_api_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] client-api",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF client API information\n")
 {
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(client_api, CLIENT_API);
-	TERM_DEBUG_OFF(client_api, CLIENT_API);
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(client_api, CLIENT_API);
+		else
+			DEBUG_ON(client_api, CLIENT_API);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(client_api, CLIENT_API);
+		else
+			TERM_DEBUG_ON(client_api, CLIENT_API);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1816,7 +1766,7 @@ static int show_debugging_ospf_common(struct vty *vty)
 	}
 
 	if (IS_DEBUG_OSPF(defaultinfo, DEFAULTINFO) == OSPF_DEBUG_DEFAULTINFO)
-		vty_out(vty, "OSPF default information is on\n");
+		vty_out(vty, "  OSPF default information is on\n");
 
 	/* Show debug status for NSSA. */
 	if (IS_DEBUG_OSPF(nssa, NSSA) == OSPF_DEBUG_NSSA)
@@ -1860,7 +1810,11 @@ DEFUN_NOSH (show_debugging_ospf,
 	    DEBUG_STR
 	    OSPF_STR)
 {
-	return show_debugging_ospf_common(vty);
+	show_debugging_ospf_common(vty);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN_NOSH (show_debugging_ospf_instance,
@@ -1878,7 +1832,11 @@ DEFUN_NOSH (show_debugging_ospf_instance,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return show_debugging_ospf_common(vty);
+	show_debugging_ospf_common(vty);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
 }
 
 static int config_write_debug(struct vty *vty);
@@ -1978,7 +1936,7 @@ static int config_write_debug(struct vty *vty)
 		     & (OSPF_DEBUG_SEND_RECV | OSPF_DEBUG_DETAIL);
 	if (r == (OSPF_DEBUG_SEND_RECV | OSPF_DEBUG_DETAIL)) {
 		vty_out(vty, "debug ospf%s packet all detail\n", str);
-		return 1;
+		write = 1;
 	}
 
 	/* debug ospf packet all. */
@@ -1991,7 +1949,7 @@ static int config_write_debug(struct vty *vty)
 			if (conf_debug_ospf_packet[i] & OSPF_DEBUG_DETAIL)
 				vty_out(vty, "debug ospf%s packet %s detail\n",
 					str, type_str[i]);
-		return 1;
+		write = 1;
 	}
 
 	/* debug ospf packet (hello|dd|ls-request|ls-update|ls-ack)
@@ -2047,6 +2005,13 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf default-information */
+	if (IS_CONF_DEBUG_OSPF(defaultinfo, DEFAULTINFO) ==
+	    OSPF_DEBUG_DEFAULTINFO) {
+		vty_out(vty, "debug ospf%s default-information\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
@@ -2074,18 +2039,11 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_zebra_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_event_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nssa_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_te_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_sr_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_ti_lfa_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_packet_cmd);
 
 	install_element(ENABLE_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_instance_lsa_cmd);
@@ -2100,7 +2058,6 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_packet_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_packet_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ism_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ism_cmd);
 
@@ -2120,12 +2077,6 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_event_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nssa_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_te_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_sr_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_ti_lfa_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 

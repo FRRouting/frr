@@ -83,7 +83,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >= 4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -317,17 +317,18 @@ def test_bgp_no_advertise_community_p0(request):
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict, expected=False)
-        assert result is not True, "Testcase {} : Failed \n ".format(
-            tc_name
-        ) + " Routes still present in R3 router. Error: {}".format(result)
+        assert result is not True, (
+            "Testcase {} : Failed \n Expected: "
+            "Routes still present in {} router. Found: {}".format(tc_name, dut, result)
+        )
 
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
         assert (
             result is not True
-        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
-            tc_name, result
+        ), "Testcase {} : Failed \n  Expected: Routes still present in {} router. Found: {}".format(
+            tc_name, dut, result
         )
 
         step("Remove and Add no advertise community")

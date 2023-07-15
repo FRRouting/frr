@@ -45,9 +45,7 @@
 #include "pim_zebra.h"
 #include "pim_instance.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
-#endif
 
 static struct cmd_node debug_node = {
 	.name = "debug",
@@ -476,6 +474,47 @@ DEFPY (no_ipv6_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
+DEFPY (ipv6_pim_bsm,
+       ipv6_pim_bsm_cmd,
+       "ipv6 pim bsm",
+       IPV6_STR
+       PIM_STR
+       "Enable BSM support on the interface\n")
+{
+	return pim_process_bsm_cmd(vty);
+}
+
+DEFPY (no_ipv6_pim_bsm,
+       no_ipv6_pim_bsm_cmd,
+       "no ipv6 pim bsm",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Enable BSM support on the interface\n")
+{
+	return pim_process_no_bsm_cmd(vty);
+}
+
+DEFPY (ipv6_pim_ucast_bsm,
+       ipv6_pim_ucast_bsm_cmd,
+       "ipv6 pim unicast-bsm",
+       IPV6_STR
+       PIM_STR
+       "Accept/Send unicast BSM on the interface\n")
+{
+	return pim_process_unicast_bsm_cmd(vty);
+}
+
+DEFPY (no_ipv6_pim_ucast_bsm,
+       no_ipv6_pim_ucast_bsm_cmd,
+       "no ipv6 pim unicast-bsm",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Accept/Send unicast BSM on the interface\n")
+{
+	return pim_process_no_unicast_bsm_cmd(vty);
+}
 
 DEFPY (ipv6_ssmpingd,
       ipv6_ssmpingd_cmd,
@@ -1240,6 +1279,44 @@ DEFPY (show_ipv6_pim_interface_traffic,
 	return pim_show_interface_traffic_helper(vrf, if_name, vty, !!json);
 }
 
+DEFPY (show_ipv6_pim_bsr,
+       show_ipv6_pim_bsr_cmd,
+       "show ipv6 pim bsr [vrf NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       "boot-strap router information\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	return pim_show_bsr_helper(vrf, vty, !!json);
+}
+
+DEFPY (show_ipv6_pim_bsm_db,
+       show_ipv6_pim_bsm_db_cmd,
+       "show ipv6 pim bsm-database [vrf NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       "PIM cached bsm packets information\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	return pim_show_bsm_db_helper(vrf, vty, !!json);
+}
+
+DEFPY (show_ipv6_pim_bsrp,
+       show_ipv6_pim_bsrp_cmd,
+       "show ipv6 pim bsrp-info [vrf NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       "PIM cached group-rp mappings information\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
+}
 
 DEFPY (clear_ipv6_pim_statistics,
        clear_ipv6_pim_statistics_cmd,
@@ -1558,6 +1635,109 @@ DEFUN_NOSH (show_debugging_pimv6,
 
 	pim_debug_config_write(vty);
 
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_mld,
+       debug_mld_cmd,
+       "[no] debug mld",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MLD_STR)
+{
+	if (!no) {
+		PIM_DO_DEBUG_GM_EVENTS;
+		PIM_DO_DEBUG_GM_PACKETS;
+		PIM_DO_DEBUG_GM_TRACE;
+	} else {
+		PIM_DONT_DEBUG_GM_EVENTS;
+		PIM_DONT_DEBUG_GM_PACKETS;
+		PIM_DONT_DEBUG_GM_TRACE;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_mld_events,
+       debug_mld_events_cmd,
+       "[no] debug mld events",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MLD_STR
+       DEBUG_MLD_EVENTS_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_GM_EVENTS;
+	else
+		PIM_DONT_DEBUG_GM_EVENTS;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_mld_packets,
+       debug_mld_packets_cmd,
+       "[no] debug mld packets",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MLD_STR
+       DEBUG_MLD_PACKETS_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_GM_PACKETS;
+	else
+		PIM_DONT_DEBUG_GM_PACKETS;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_mld_trace,
+       debug_mld_trace_cmd,
+       "[no] debug mld trace",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MLD_STR
+       DEBUG_MLD_TRACE_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_GM_TRACE;
+	else
+		PIM_DONT_DEBUG_GM_TRACE;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_mld_trace_detail,
+       debug_mld_trace_detail_cmd,
+       "[no] debug mld trace detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MLD_STR
+       DEBUG_MLD_TRACE_STR
+       "detailed\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_GM_TRACE_DETAIL;
+	else
+		PIM_DONT_DEBUG_GM_TRACE_DETAIL;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_bsm,
+       debug_pimv6_bsm_cmd,
+       "[no] debug pimv6 bsm",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_BSM_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_BSM;
+	else
+		PIM_DONT_DEBUG_BSM;
+
 	return CMD_SUCCESS;
 }
 
@@ -1598,6 +1778,11 @@ void pim_cmd_init(void)
 			&interface_no_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
+	/* Install BSM command */
+	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &ipv6_pim_ucast_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_pim_ucast_bsm_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_rp_cmd);
 	install_element(VRF_NODE, &ipv6_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_cmd);
@@ -1670,7 +1855,9 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_traffic_cmd);
-
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsm_db_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsrp_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
@@ -1693,6 +1880,12 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_zebra_cmd);
 	install_element(ENABLE_NODE, &debug_mroute6_cmd);
 	install_element(ENABLE_NODE, &debug_mroute6_detail_cmd);
+	install_element(ENABLE_NODE, &debug_mld_cmd);
+	install_element(ENABLE_NODE, &debug_mld_events_cmd);
+	install_element(ENABLE_NODE, &debug_mld_packets_cmd);
+	install_element(ENABLE_NODE, &debug_mld_trace_cmd);
+	install_element(ENABLE_NODE, &debug_mld_trace_detail_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_bsm_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
@@ -1706,4 +1899,10 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pimv6_zebra_cmd);
 	install_element(CONFIG_NODE, &debug_mroute6_cmd);
 	install_element(CONFIG_NODE, &debug_mroute6_detail_cmd);
+	install_element(CONFIG_NODE, &debug_mld_cmd);
+	install_element(CONFIG_NODE, &debug_mld_events_cmd);
+	install_element(CONFIG_NODE, &debug_mld_packets_cmd);
+	install_element(CONFIG_NODE, &debug_mld_trace_cmd);
+	install_element(CONFIG_NODE, &debug_mld_trace_detail_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_bsm_cmd);
 }

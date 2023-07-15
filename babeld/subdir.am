@@ -4,11 +4,6 @@
 
 if BABELD
 sbin_PROGRAMS += babeld/babeld
-vtysh_scan += \
-	babeld/babel_interface.c \
-	babeld/babel_zebra.c \
-	babeld/babeld.c \
-	# end
 vtysh_daemons += babeld
 endif
 
@@ -47,5 +42,9 @@ noinst_HEADERS += \
 	babeld/util.h \
 	babeld/xroute.h \
 	# end
+
+clippy_scan += \
+	babeld/babel_interface.c \
+	babeld/babeld.c
 
 babeld_babeld_LDADD = lib/libfrr.la $(LIBCAP)

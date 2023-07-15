@@ -37,6 +37,7 @@
 #include "if.h"
 #include "table.h"
 #include "memory.h"
+#include "network.h"
 #include "command.h"
 #include "stream.h"
 #include "log.h"
@@ -83,7 +84,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	/* Initialize neighbor list. */
 	ei->nbrs = list_new();
 
-	ei->crypt_seqnum = time(NULL);
+	ei->crypt_seqnum = frr_sequence32_next();
 
 	/* Initialize lists */
 	for (i = 0; i < EIGRP_FILTER_MAX; i++) {

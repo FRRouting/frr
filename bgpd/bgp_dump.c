@@ -117,9 +117,13 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	if (bgp_dump->filename[0] != DIRECTORY_SEP) {
 		snprintf(fullpath, sizeof(fullpath), "%s/%s", vty_get_cwd(),
 			 bgp_dump->filename);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* user supplied date/time format string */
 		ret = strftime(realpath, MAXPATHLEN, fullpath, &tm);
 	} else
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, &tm);
+#pragma GCC diagnostic pop
 
 	if (ret == 0) {
 		flog_warn(EC_BGP_DUMP, "%s: strftime error", __func__);
@@ -376,7 +380,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 
 		/* Dump attribute. */
 		/* Skip prefix & AFI/SAFI for MP_NLRI */
-		bgp_dump_routes_attr(obuf, path->attr, p);
+		bgp_dump_routes_attr(obuf, path, p);
 
 		cur_endp = stream_get_endp(obuf);
 		if (cur_endp > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE

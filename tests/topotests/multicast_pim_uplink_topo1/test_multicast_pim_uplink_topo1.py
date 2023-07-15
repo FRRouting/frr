@@ -64,7 +64,6 @@ from lib.common_config import (
     stop_router,
     create_static_routes,
     required_linux_kernel_version,
-    topo_daemons,
 )
 from lib.bgp import create_router_bgp
 from lib.pim import (
@@ -148,12 +147,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, tgen.json_topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -349,8 +345,9 @@ def configure_static_routes_for_rp_reachability(tgen, topo):
         }
 
         result = create_static_routes(tgen, static_routes)
-        assert result is True, "API {} : Failed Error: {}".\
-            format(sys._getframe().f_code.co_name, result)
+        assert result is True, "API {} : Failed Error: {}".format(
+            sys._getframe().f_code.co_name, result
+        )
 
 
 def verify_state_incremented(state_before, state_after):
@@ -1666,9 +1663,10 @@ def test_mroutes_updated_correctly_after_source_interface_shut_noshut_p1(request
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed "
-            "Mroute IIF and OIF are same \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed " "Mroute IIF and OIF are same \n Error: {}".format(
+            tc_name, result
         )
 
     step("Shut and No shut source interface multiple time")
@@ -2339,9 +2337,10 @@ def test_mroutes_updated_after_sending_IGMP_prune_and_join_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed "
-            " mroute are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed " " mroute are still present \n Error: {}".format(
+            tc_name, result
         )
 
     for data in input_dict_sg:
@@ -2354,9 +2353,10 @@ def test_mroutes_updated_after_sending_IGMP_prune_and_join_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed "
-            " mroute are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed " " mroute are still present \n Error: {}".format(
+            tc_name, result
         )
 
     step(
@@ -2795,10 +2795,11 @@ def test_mroutes_updated_after_changing_rp_config_p1(request):
     intf_traffic = topo["routers"]["r4"]["links"]["r3-link1"]["interface"]
     state_dict = {"r4": {intf_traffic: ["registerStopRx"]}}
     state_before = verify_pim_interface_traffic(tgen, state_dict)
-    assert  isinstance(state_before, dict), \
-    ("Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".\
-        format(tc_name, result))
+    assert isinstance(
+        state_before, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     step("Change the RP to R3 loopback for same group range (225.1.1.1-5)")
 
@@ -2888,10 +2889,11 @@ def test_mroutes_updated_after_changing_rp_config_p1(request):
     step("Verify pim interface traffic after changing RP")
 
     state_after = verify_pim_interface_traffic(tgen, state_dict)
-    assert  isinstance(state_before, dict), \
-    ("Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".\
-        format(tc_name, result))
+    assert isinstance(
+        state_before, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -3285,9 +3287,10 @@ def test_mroutes_after_restart_frr_services_p2(request):
                 data["oil"],
                 expected=False,
             )
-            assert result is not True, (
-                "Testcase {}: Failed "
-                "mroutes are still present \n Error: {}".format(tc_name, result)
+            assert (
+                result is not True
+            ), "Testcase {}: Failed " "mroutes are still present \n Error: {}".format(
+                tc_name, result
             )
 
     step("Stop FRR on R4 node")
@@ -3310,9 +3313,10 @@ def test_mroutes_after_restart_frr_services_p2(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed "
-            " Mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed " " Mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
 
     step("Start FRR on R4 node")

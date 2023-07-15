@@ -379,10 +379,11 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 
 		route_map_sets_nh =
 			(CHECK_FLAG(vec->flags,
-				    BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED)
-			 || CHECK_FLAG(
-				 vec->flags,
-				 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
+				    BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED) ||
+			 CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED) ||
+			 CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
 		switch (nhlen) {
 		case BGP_ATTR_NHLEN_IPV4:
@@ -468,10 +469,12 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 
 		route_map_sets_nh =
 			(CHECK_FLAG(vec->flags,
-				    BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED)
-			 || CHECK_FLAG(
+				    BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED) ||
+			 CHECK_FLAG(
 				 vec->flags,
-				 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
+				 BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED) ||
+			 CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
 		/*
 		 * The logic here is rather similar to that for IPv4, the
@@ -752,7 +755,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			 * attr. */
 			total_attr_len = bgp_packet_attribute(
 				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
-				afi, safi, from, NULL, NULL, 0, 0, 0);
+				afi, safi, from, NULL, NULL, 0, 0, 0, path);
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -1069,6 +1072,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	safi_t safi;
 	struct bpacket_attr_vec_arr vecarr;
 	bool addpath_capable = false;
+	uint8_t default_originate_label[4] = {0x80, 0x00, 0x00};
+	mpls_label_t *label = NULL;
+	uint32_t num_labels = 0;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -1081,6 +1087,11 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	safi = SUBGRP_SAFI(subgrp);
 	bpacket_attr_vec_arr_reset(&vecarr);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
+
+	if (safi == SAFI_LABELED_UNICAST) {
+		label = (mpls_label_t *)default_originate_label;
+		num_labels = 1;
+	}
 
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
@@ -1124,8 +1135,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	pos = stream_get_endp(s);
 	stream_putw(s, 0);
 	total_attr_len = bgp_packet_attribute(
-		NULL, peer, s, attr, &vecarr, &p, afi, safi, from, NULL, NULL,
-		0, addpath_capable, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+		NULL, peer, s, attr, &vecarr, &p, afi, safi, from, NULL, label,
+		num_labels, addpath_capable,
+		BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);
@@ -1274,6 +1286,15 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED);
+
+	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
+			 BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED);
+
+	if (CHECK_FLAG(attr->rmap_change_flags,
+		       BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
+			 BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED);
 
 	if (CHECK_FLAG(attr->rmap_change_flags,
 		       BATTR_RMAP_IPV6_LL_NHOP_CHANGED))

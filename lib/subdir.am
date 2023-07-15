@@ -123,6 +123,7 @@ lib_libfrr_la_SOURCES = \
 	lib/printf/glue.c \
 	lib/routing_nb.c \
 	lib/routing_nb_config.c \
+	lib/tc.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -139,27 +140,6 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-module-translator.yang.c \
 	# end
 
-vtysh_scan += \
-	lib/distribute.c \
-	lib/filter.c \
-	lib/filter_cli.c \
-	lib/if.c \
-	lib/if_rmap.c \
-	lib/keychain.c \
-	lib/lib_vty.c \
-	lib/log_vty.c \
-	lib/nexthop_group.c \
-	lib/plist.c \
-	lib/routemap.c \
-	lib/routemap_cli.c \
-	lib/spf_backoff.c \
-	lib/thread.c \
-	lib/vrf.c \
-	lib/vty.c \
-	# end
-# can be loaded as DSO - always include for vtysh
-vtysh_scan += lib/agentx.c
-
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
@@ -172,6 +152,7 @@ clippy_scan += \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
 	lib/plist.c \
+	lib/routemap.c \
 	lib/routemap_cli.c \
 	lib/thread.c \
 	lib/vty.c \
@@ -295,6 +276,7 @@ pkginclude_HEADERS += \
 	lib/zlog_live.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/tc.h \
 	lib/routing_nb.h \
 	\
 	lib/assert/assert.h \
@@ -346,7 +328,6 @@ lib_libfrrsnmp_la_SOURCES = \
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
 pkginclude_HEADERS += lib/resolver.h
-vtysh_scan += lib/resolver.c
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
@@ -477,12 +458,17 @@ SUFFIXES += .xref
 
 # dependencies added in python/makefile.py
 frr.xref:
-	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ -c vtysh/vtysh_cmd.c $^
 all-am: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
 clean-local: clean-xref
+
+CLEANFILES += vtysh/vtysh_cmd.c
+vtysh/vtysh_cmd.c: frr.xref
+	@test -f $@ || rm -f frr.xref || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) frr.xref
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
@@ -582,6 +568,7 @@ rt_enabled += --enabled zebra
 endif
 
 lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl
+	@$(MKDIR_P) lib
 	$(PERL) $(top_srcdir)/lib/route_types.pl $(rt_enabled) < $(top_srcdir)/lib/route_types.txt > $@
 DISTCLEANFILES += lib/route_types.h
 
@@ -596,6 +583,7 @@ PHONY_GITVERSION=lib/gitversion.h.tmp
 .SILENT: lib/gitversion.h lib/gitversion.h.tmp
 GITH=lib/gitversion.h
 lib/gitversion.h.tmp: $(top_srcdir)/.git
+	@$(MKDIR_P) lib
 	$(PERL) $(top_srcdir)/lib/gitversion.pl $(top_srcdir) > ${GITH}.tmp
 lib/gitversion.h: lib/gitversion.h.tmp
 	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp ${GITH}.tmp ${GITH}

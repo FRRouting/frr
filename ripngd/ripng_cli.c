@@ -30,9 +30,7 @@
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nb.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ripngd/ripng_cli_clippy.c"
-#endif
 
 /*
  * XPath: /frr-ripngd:ripngd/instance

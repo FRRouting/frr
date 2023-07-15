@@ -2915,7 +2915,8 @@ static void rfapiBgpInfoFilteredImportEncap(
 
 	vnc_zlog_debug_verbose(
 		"%s: entry: %s: prefix %s/%d", __func__, action_str,
-		inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf)),
+		p->prefixlen);
 
 	memset(&p_firstbpi_old, 0, sizeof(p_firstbpi_old));
 	memset(&p_firstbpi_new, 0, sizeof(p_firstbpi_new));

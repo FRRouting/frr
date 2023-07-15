@@ -36,11 +36,12 @@ from lib.topolog import logger
 class SnmpTester(object):
     "A helper class for testing SNMP"
 
-    def __init__(self, router, iface, community, version):
+    def __init__(self, router, iface, community, version, options=""):
         self.community = community
         self.version = version
         self.router = router
         self.iface = iface
+        self.options = options
         logger.info(
             "created SNMP tester: SNMPv{0} community:{1}".format(
                 self.version, self.community
@@ -52,7 +53,9 @@ class SnmpTester(object):
         Helper function to build a string with SNMP
         configuration for commands.
         """
-        return "-v {0} -c {1} {2}".format(self.version, self.community, self.iface)
+        return "-v {0} -c {1} {2} {3}".format(
+            self.version, self.community, self.options, self.iface
+        )
 
     @staticmethod
     def _get_snmp_value(snmp_output):

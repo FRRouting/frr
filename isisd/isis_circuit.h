@@ -28,6 +28,7 @@
 #include "qobj.h"
 #include "prefix.h"
 #include "ferr.h"
+#include "nexthop.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -141,6 +142,7 @@ struct isis_circuit {
 	struct list *ipv6_non_link; /* our non-link local IPv6 addresses */
 	uint16_t upadjcount[ISIS_LEVELS];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
+#define ISIS_CIRCUIT_IF_DOWN_FROM_Z 0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
 	struct {
@@ -209,6 +211,9 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 void isis_circuit_print_json(struct isis_circuit *circuit,
 			     struct json_object *json, char detail);
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
+void isis_circuit_switchover_routes(struct isis_circuit *circuit, int family,
+				    union g_addr *nexthop_ip,
+				    ifindex_t ifindex);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,

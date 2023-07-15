@@ -61,6 +61,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	ifindex_t first_ifindex = 0;
 	int found = 0;
 	int i = 0;
+	struct pim_interface *pim_ifp;
 
 #if PIM_IPV == 4
 	/*
@@ -118,17 +119,18 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			continue;
 		}
 
-		if (!ifp->info) {
+		pim_ifp = ifp->info;
+		if (!pim_ifp || !pim_ifp->pim_enable) {
 			if (PIM_DEBUG_ZEBRA)
 				zlog_debug(
-					"%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %pPAs)",
+					"%s: pim not enabled on input interface %s (ifindex=%d, RPF for source %pPAs)",
 					__func__, ifp->name, first_ifindex,
 					&addr);
 			i++;
-		} else if (neighbor_needed
-			   && !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find(ifp,
-						nexthop_tab[i].nexthop_addr);
+		} else if (neighbor_needed &&
+			   !pim_if_connected_to_source(ifp, addr)) {
+			nbr = pim_neighbor_find(
+				ifp, nexthop_tab[i].nexthop_addr, true);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p",
 					   ifp->name, nbr);

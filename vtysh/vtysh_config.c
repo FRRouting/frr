@@ -261,6 +261,11 @@ static void config_add_line_uniq_end(struct list *config, const char *line)
 		listnode_move_to_tail(config, node);
 }
 
+static void config_add_line_head(struct list *config, const char *line)
+{
+	listnode_add_head(config, XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line));
+}
+
 void vtysh_config_parse_line(void *arg, const char *line)
 {
 	char c;
@@ -324,21 +329,32 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			} else if (!strncmp(line, " ip mroute",
 					    strlen(" ip mroute"))) {
 				config_add_line_uniq_end(config->line, line);
-			} else if (config->index == RMAP_NODE
-				   || config->index == INTERFACE_NODE
-				   || config->index == VTY_NODE
-				   || config->index == NH_GROUP_NODE)
+			} else if (config->index == RMAP_NODE ||
+				   config->index == INTERFACE_NODE ||
+				   config->index == VTY_NODE)
 				config_add_line_uniq(config->line, line);
-			else
+			else if (config->index == NH_GROUP_NODE) {
+				if (strncmp(line, " resilient",
+					    strlen(" resilient")) == 0)
+					config_add_line_head(config->line,
+							     line);
+				else
+					config_add_line_uniq_end(config->line,
+								 line);
+			} else
 				config_add_line(config->line, line);
 		} else
 			config_add_line(config_top, line);
 		break;
 	default:
 		if (strncmp(line, "exit", strlen("exit")) == 0) {
-			if (config)
+			if (config) {
+				if (config->exit)
+					XFREE(MTYPE_VTYSH_CONFIG_LINE,
+					      config->exit);
 				config->exit =
 					XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
+			}
 		} else if (strncmp(line, "interface", strlen("interface")) == 0)
 			config = config_get(INTERFACE_NODE, line);
 		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
@@ -492,8 +508,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    strlen("no ip prefix-list")) == 0 ||
 			    strncmp(line, "no ipv6 prefix-list",
 				    strlen("no ipv6 prefix-list")) == 0 ||
-			    strncmp(line, "service cputime-stats",
-				    strlen("service cputime-stats")) == 0 ||
+			    strncmp(line, "service ", strlen("service ")) ==
+				    0 ||
 			    strncmp(line, "no service cputime-stats",
 				    strlen("no service cputime-stats")) == 0 ||
 			    strncmp(line, "service cputime-warning",
@@ -652,18 +668,21 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
  */
 void vtysh_config_write(void)
 {
+	const char *name;
 	char line[512];
 
-	if (cmd_hostname_get()) {
-		snprintf(line, sizeof(line), "hostname %s", cmd_hostname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0') {
+		snprintf(line, sizeof(line), "hostname %s", name);
 		vtysh_config_parse_line(NULL, line);
 	}
 
-	if (cmd_domainname_get()) {
-		snprintf(line, sizeof(line), "domainname %s",
-			 cmd_domainname_get());
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0') {
+		snprintf(line, sizeof(line), "domainname %s", name);
 		vtysh_config_parse_line(NULL, line);
 	}
+
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
 		vtysh_config_parse_line(NULL,
 					"no service integrated-vtysh-config");

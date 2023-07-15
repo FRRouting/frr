@@ -28,6 +28,13 @@ am__v_PROTOC_1 =
 
 SUFFIXES += .pb.h .pb.cc .grpc.pb.cc
 
+grpc/frr-northbound.grpc.pb.h: grpc/frr-northbound.grpc.pb.cc
+	@test -f $@ || rm -f $< || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) $<
+grpc/frr-northbound.pb.h: grpc/frr-northbound.pb.cc
+	@test -f $@ || rm -f $< || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) $<
+
 .proto.pb.cc:
 	$(AM_V_PROTOC)$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_builddir) $^
 .proto.grpc.pb.cc:

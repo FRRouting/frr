@@ -125,7 +125,7 @@ def test_pim_rp_setup():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip pim rp-info json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=15, wait=5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
     # tgen.mininet_cli()
@@ -148,13 +148,13 @@ def test_pim_send_mcast_stream():
     # Let's establish a S,G stream from r2 -> r1
     CWD = os.path.dirname(os.path.realpath(__file__))
     r2.run(
-        "{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r2-eth0 > /tmp/bar".format(
+        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r2-eth0 > /tmp/bar".format(
             CWD
         )
     )
     # And from r3 -> r1
     r3.run(
-        "{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r3-eth0 > /tmp/bar".format(
+        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r3-eth0 > /tmp/bar".format(
             CWD
         )
     )
@@ -175,7 +175,7 @@ def test_pim_send_mcast_stream():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip pim upstream json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
     assert result is None, "failed to converge pim"
     # tgen.mininet_cli()
 
@@ -191,7 +191,7 @@ def test_pim_rp_sees_stream():
     test_func = partial(
         topotest.router_json_cmp, rp, "show ip pim upstream json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(rp.name)
     assert result is None, assertmsg
 
@@ -225,7 +225,7 @@ def test_pim_igmp_report():
         test_func = partial(
             topotest.router_json_cmp, r1, "show ip pim upstream json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=5, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(r1.name)
         assert result is None, assertmsg
     finally:

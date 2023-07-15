@@ -129,9 +129,10 @@ void listnode_add_head(struct list *list, void *val)
 
 	node->next = list->head;
 
-	if (list->head == NULL)
+	if (list->head == NULL) {
 		list->head = node;
-	else
+		list->tail = node;
+	} else
 		list->head->prev = node;
 	list->head = node;
 

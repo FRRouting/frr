@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   stale:
+    if: github.repository == 'frrouting/frr'
     permissions:
       issues: write
       pull-requests: write

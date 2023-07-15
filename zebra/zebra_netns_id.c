@@ -23,6 +23,7 @@
 #include "vrf.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "zebra/rib.h"
 #include "zebra/zebra_dplane.h"
@@ -73,7 +74,7 @@ static struct nlmsghdr *initiate_nlh(char *buf, unsigned int *seq, int type)
 	nlh->nlmsg_flags = NLM_F_REQUEST;
 	if (type == RTM_NEWNSID)
 		nlh->nlmsg_flags |= NLM_F_ACK;
-	nlh->nlmsg_seq = *seq = time(NULL);
+	nlh->nlmsg_seq = *seq = frr_sequence32_next();
 	return nlh;
 }
 

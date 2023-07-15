@@ -228,6 +228,7 @@ struct nhg_ctx {
 		struct nh_grp grp[MULTIPATH_NUM];
 	} u;
 
+	struct nhg_resilience resilience;
 	enum nhg_ctx_op_e op;
 	enum nhg_ctx_status status;
 };
@@ -308,7 +309,8 @@ void nhg_ctx_free(struct nhg_ctx **ctx);
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 struct nh_grp *grp, uint8_t count,
 				 vrf_id_t vrf_id, afi_t afi, int type,
-				 int startup);
+				 int startup,
+				 struct nhg_resilience *resilience);
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 

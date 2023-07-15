@@ -1516,13 +1516,13 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 	return 0;
 }
 
-void kernel_update_multi(struct dplane_ctx_q *ctx_list)
+void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
-	struct dplane_ctx_q handled_list;
+	struct dplane_ctx_list_head handled_list;
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
-	TAILQ_INIT(&handled_list);
+	dplane_ctx_q_init(&handled_list);
 
 	while (true) {
 		ctx = dplane_ctx_dequeue(ctx_list);
@@ -1594,9 +1594,14 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 			res = kernel_intf_update(ctx);
 			break;
 
-		case DPLANE_OP_TC_INSTALL:
-		case DPLANE_OP_TC_UPDATE:
-		case DPLANE_OP_TC_DELETE:
+		case DPLANE_OP_TC_QDISC_INSTALL:
+		case DPLANE_OP_TC_QDISC_UNINSTALL:
+		case DPLANE_OP_TC_CLASS_ADD:
+		case DPLANE_OP_TC_CLASS_DELETE:
+		case DPLANE_OP_TC_CLASS_UPDATE:
+		case DPLANE_OP_TC_FILTER_ADD:
+		case DPLANE_OP_TC_FILTER_DELETE:
+		case DPLANE_OP_TC_FILTER_UPDATE:
 			res = kernel_tc_update(ctx);
 			break;
 
@@ -1637,7 +1642,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 		dplane_ctx_enqueue_tail(&handled_list, ctx);
 	}
 
-	TAILQ_INIT(ctx_list);
+	dplane_ctx_q_init(ctx_list);
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 

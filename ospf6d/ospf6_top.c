@@ -65,9 +65,7 @@ FRR_CFG_DEFAULT_BOOL(OSPF6_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = false },
 );
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_top_clippy.c"
-#endif
 
 /* global ospf6d variable */
 static struct ospf6_master ospf6_master;
@@ -500,6 +498,7 @@ void ospf6_delete(struct ospf6 *o)
 	struct route_node *rn = NULL;
 	struct ospf6_area *oa;
 	struct vrf *vrf;
+	struct ospf6_external_aggr_rt *aggr;
 
 	QOBJ_UNREG(o);
 
@@ -538,8 +537,11 @@ void ospf6_delete(struct ospf6 *o)
 	}
 
 	for (rn = route_top(o->rt_aggr_tbl); rn; rn = route_next(rn))
-		if (rn->info)
-			ospf6_external_aggregator_free(rn->info);
+		if (rn->info) {
+			aggr = rn->info;
+			ospf6_asbr_summary_config_delete(o, rn);
+			ospf6_external_aggregator_free(aggr);
+		}
 	route_table_finish(o->rt_aggr_tbl);
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
@@ -2013,9 +2015,6 @@ ospf6_show_vrf_name(struct vty *vty, struct ospf6 *ospf6,
 	}
 }
 
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
-#endif
 static int
 ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object *json,
@@ -2035,8 +2034,6 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 
 		ospf6_show_vrf_name(vty, ospf6, json_vrf);
 
-		json_object_int_add(json_vrf, "aggregation delay interval",
-				    ospf6->aggr_delay_interval);
 		json_object_int_add(json_vrf, "aggregationDelayInterval",
 				    ospf6->aggr_delay_interval);
 	}
@@ -2060,17 +2057,9 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 						buf,
 						json_aggr);
 
-			json_object_string_add(json_aggr,
-					"Summary address",
-					buf);
 			json_object_string_add(json_aggr, "summaryAddress",
 					       buf);
 
-			json_object_string_add(
-				json_aggr, "Metric-type",
-				(aggr->mtype == DEFAULT_METRIC_TYPE)
-					? "E2"
-					: "E1");
 			json_object_string_add(
 				json_aggr, "metricType",
 				(aggr->mtype == DEFAULT_METRIC_TYPE) ? "E2"
@@ -2084,9 +2073,6 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object_int_add(json_aggr, "Tag",
 					    aggr->tag);
 
-			json_object_int_add(json_aggr,
-					"External route count",
-					OSPF6_EXTERNAL_RT_COUNT(aggr));
 			json_object_int_add(json_aggr, "externalRouteCount",
 					    OSPF6_EXTERNAL_RT_COUNT(aggr));
 

@@ -29,11 +29,13 @@
 #include "stream.h"
 #include "vrf.h"
 #include "zclient.h"
+#include "libfrr.h"
 #include "table.h"
 #include "vty.h"
 #include "bfd.h"
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
+DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
 
 /**
  * BFD protocol integration configuration.
@@ -46,6 +48,29 @@ enum bfd_session_event {
 	/** Install the BFD session configuration. */
 	BSE_INSTALL,
 };
+
+/**
+ * BFD source selection result cache.
+ *
+ * This structure will keep track of the result based on the destination
+ * prefix. When the result changes all related BFD sessions with automatic
+ * source will be updated.
+ */
+struct bfd_source_cache {
+	/** Address VRF belongs. */
+	vrf_id_t vrf_id;
+	/** Destination network address. */
+	struct prefix address;
+	/** Source selected. */
+	struct prefix source;
+	/** Is the source address valid? */
+	bool valid;
+	/** BFD sessions using this. */
+	size_t refcount;
+
+	SLIST_ENTRY(bfd_source_cache) entry;
+};
+SLIST_HEAD(bfd_source_list, bfd_source_cache);
 
 /**
  * Data structure to do the necessary tricks to hide the BFD protocol
@@ -82,6 +107,11 @@ struct bfd_session_params {
 	/** BFD session installation state. */
 	bool installed;
 
+	/** Automatic source selection. */
+	bool auto_source;
+	/** Currently selected source. */
+	struct bfd_source_cache *source_cache;
+
 	/** Global BFD paramaters list. */
 	TAILQ_ENTRY(bfd_session_params) entry;
 };
@@ -92,6 +122,8 @@ struct bfd_sessions_global {
 	 * without code duplication among daemons.
 	 */
 	TAILQ_HEAD(bsplist, bfd_session_params) bsplist;
+	/** BFD automatic source selection cache. */
+	struct bfd_source_list source_list;
 
 	/** Pointer to FRR's event manager. */
 	struct thread_master *tm;
@@ -109,6 +141,13 @@ static struct bfd_sessions_global bsglobal;
 
 /** Global empty address for IPv4/IPv6. */
 static const struct in6_addr i6a_zero;
+
+/*
+ * Prototypes
+ */
+
+static void bfd_source_cache_get(struct bfd_session_params *session);
+static void bfd_source_cache_put(struct bfd_session_params *session);
 
 /*
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
@@ -531,6 +570,8 @@ void bfd_sess_free(struct bfd_session_params **bsp)
 	/* Remove from global list. */
 	TAILQ_REMOVE(&bsglobal.bsplist, (*bsp), entry);
 
+	bfd_source_cache_put(*bsp);
+
 	/* Free the memory and point to NULL. */
 	XFREE(MTYPE_BFD_INFO, (*bsp));
 }
@@ -565,6 +606,8 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
+	/* Address changed so we must reapply auto source. */
+	bfd_source_cache_put(bsp);
 
 	bsp->args.family = AF_INET;
 
@@ -578,6 +621,9 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 
 	assert(dst);
 	memcpy(&bsp->args.dst, dst, sizeof(struct in_addr));
+
+	if (bsp->auto_source)
+		bfd_source_cache_get(bsp);
 }
 
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
@@ -589,6 +635,8 @@ void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
+	/* Address changed so we must reapply auto source. */
+	bfd_source_cache_put(bsp);
 
 	bsp->args.family = AF_INET6;
 
@@ -600,6 +648,9 @@ void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 
 	assert(dst);
 	bsp->args.dst = *dst;
+
+	if (bsp->auto_source)
+		bfd_source_cache_get(bsp);
 }
 
 void bfd_sess_set_interface(struct bfd_session_params *bsp, const char *ifname)
@@ -646,8 +697,13 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
+	/* Address changed so we must reapply auto source. */
+	bfd_source_cache_put(bsp);
 
 	bsp->args.vrf_id = vrf_id;
+
+	if (bsp->auto_source)
+		bfd_source_cache_get(bsp);
 }
 
 void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)
@@ -675,6 +731,18 @@ void bfd_sess_set_timers(struct bfd_session_params *bsp,
 	bsp->args.detection_multiplier = detection_multiplier;
 	bsp->args.min_rx = min_rx;
 	bsp->args.min_tx = min_tx;
+}
+
+void bfd_sess_set_auto_source(struct bfd_session_params *bsp, bool enable)
+{
+	if (bsp->auto_source == enable)
+		return;
+
+	bsp->auto_source = enable;
+	if (enable)
+		bfd_source_cache_get(bsp);
+	else
+		bfd_source_cache_put(bsp);
 }
 
 void bfd_sess_install(struct bfd_session_params *bsp)
@@ -744,6 +812,11 @@ void bfd_sess_timers(const struct bfd_session_params *bsp,
 	*detection_multiplier = bsp->args.detection_multiplier;
 	*min_rx = bsp->args.min_rx;
 	*min_tx = bsp->args.min_tx;
+}
+
+bool bfd_sess_auto_source(const struct bfd_session_params *bsp)
+{
+	return bsp->auto_source;
 }
 
 void bfd_sess_show(struct vty *vty, struct json_object *json,
@@ -950,10 +1023,42 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * Frees all allocated resources and stops any activity.
+ *
+ * Must be called after every BFD session has been successfully
+ * unconfigured otherwise this function will `free()` any available
+ * session causing existing pointers to dangle.
+ *
+ * This is just a comment, in practice it will be called by the FRR
+ * library late finish hook. \see `bfd_protocol_integration_init`.
+ */
+static int bfd_protocol_integration_finish(void)
+{
+	if (bsglobal.zc == NULL)
+		return 0;
+
+	while (!TAILQ_EMPTY(&bsglobal.bsplist)) {
+		struct bfd_session_params *session =
+			TAILQ_FIRST(&bsglobal.bsplist);
+		bfd_sess_free(&session);
+	}
+
+	/*
+	 * BFD source cache is linked to sessions, if all sessions are gone
+	 * then the source cache must be empty.
+	 */
+	if (!SLIST_EMPTY(&bsglobal.source_list))
+		zlog_warn("BFD integration source cache not empty");
+
+	return 0;
+}
+
 void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 {
 	/* Initialize data structure. */
 	TAILQ_INIT(&bsglobal.bsplist);
+	SLIST_INIT(&bsglobal.source_list);
 
 	/* Copy pointers. */
 	bsglobal.zc = zc;
@@ -964,6 +1069,8 @@ void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zc, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+
+	hook_register(frr_fini, bfd_protocol_integration_finish);
 }
 
 void bfd_protocol_integration_set_debug(bool enable)
@@ -984,4 +1091,263 @@ bool bfd_protocol_integration_debug(void)
 bool bfd_protocol_integration_shutting_down(void)
 {
 	return bsglobal.shutting_down;
+}
+
+/*
+ * BFD automatic source selection
+ *
+ * This feature will use the next hop tracking (NHT) provided by zebra
+ * to find out the source address by looking at the output interface.
+ *
+ * When the interface address / routing table change we'll be notified
+ * and be able to update the source address accordingly.
+ *
+ *     <daemon>                 zebra
+ *         |
+ * +-----------------+
+ * | BFD session set |
+ * | to auto source  |
+ * +-----------------+
+ *         |
+ *         \                 +-----------------+
+ *          -------------->  | Resolves        |
+ *                           | destination     |
+ *                           | address         |
+ *                           +-----------------+
+ *                                |
+ * +-----------------+            /
+ * | Sets resolved   | <----------
+ * | source address  |
+ * +-----------------+
+ */
+static bool
+bfd_source_cache_session_match(const struct bfd_source_cache *source,
+			       const struct bfd_session_params *session)
+{
+	const struct in_addr *address;
+	const struct in6_addr *address_v6;
+
+	if (session->args.vrf_id != source->vrf_id)
+		return false;
+	if (session->args.family != source->address.family)
+		return false;
+
+	switch (session->args.family) {
+	case AF_INET:
+		address = (const struct in_addr *)&session->args.dst;
+		if (address->s_addr != source->address.u.prefix4.s_addr)
+			return false;
+		break;
+	case AF_INET6:
+		address_v6 = &session->args.dst;
+		if (memcmp(address_v6, &source->address.u.prefix6,
+			   sizeof(struct in6_addr)))
+			return false;
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+static struct bfd_source_cache *
+bfd_source_cache_find(vrf_id_t vrf_id, const struct prefix *prefix)
+{
+	struct bfd_source_cache *source;
+
+	SLIST_FOREACH (source, &bsglobal.source_list, entry) {
+		if (source->vrf_id != vrf_id)
+			continue;
+		if (!prefix_same(&source->address, prefix))
+			continue;
+
+		return source;
+	}
+
+	return NULL;
+}
+
+static void bfd_source_cache_get(struct bfd_session_params *session)
+{
+	struct bfd_source_cache *source;
+	struct prefix target = {};
+
+	switch (session->args.family) {
+	case AF_INET:
+		target.family = AF_INET;
+		target.prefixlen = IPV4_MAX_BITLEN;
+		memcpy(&target.u.prefix4, &session->args.dst,
+		       sizeof(struct in_addr));
+		break;
+	case AF_INET6:
+		target.family = AF_INET6;
+		target.prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&target.u.prefix6, &session->args.dst,
+		       sizeof(struct in6_addr));
+		break;
+	default:
+		return;
+	}
+
+	source = bfd_source_cache_find(session->args.vrf_id, &target);
+	if (source) {
+		if (session->source_cache == source)
+			return;
+
+		bfd_source_cache_put(session);
+		session->source_cache = source;
+		source->refcount++;
+		return;
+	}
+
+	source = XCALLOC(MTYPE_BFD_SOURCE, sizeof(*source));
+	prefix_copy(&source->address, &target);
+	source->vrf_id = session->args.vrf_id;
+	SLIST_INSERT_HEAD(&bsglobal.source_list, source, entry);
+
+	bfd_source_cache_put(session);
+	session->source_cache = source;
+	source->refcount = 1;
+
+	return;
+}
+
+static void bfd_source_cache_put(struct bfd_session_params *session)
+{
+	if (session->source_cache == NULL)
+		return;
+
+	session->source_cache->refcount--;
+	if (session->source_cache->refcount > 0) {
+		session->source_cache = NULL;
+		return;
+	}
+
+	SLIST_REMOVE(&bsglobal.source_list, session->source_cache,
+		     bfd_source_cache, entry);
+	XFREE(MTYPE_BFD_SOURCE, session->source_cache);
+}
+
+/** Updates BFD running session if source address has changed. */
+static void
+bfd_source_cache_update_session(const struct bfd_source_cache *source,
+				struct bfd_session_params *session)
+{
+	const struct in_addr *address;
+	const struct in6_addr *address_v6;
+
+	switch (session->args.family) {
+	case AF_INET:
+		address = (const struct in_addr *)&session->args.src;
+		if (memcmp(address, &source->source.u.prefix4,
+			   sizeof(struct in_addr)) == 0)
+			return;
+
+		_bfd_sess_remove(session);
+		memcpy(&session->args.src, &source->source.u.prefix4,
+		       sizeof(struct in_addr));
+		break;
+	case AF_INET6:
+		address_v6 = &session->args.src;
+		if (memcmp(address_v6, &source->source.u.prefix6,
+			   sizeof(struct in6_addr)) == 0)
+			return;
+
+		_bfd_sess_remove(session);
+		memcpy(&session->args.src, &source->source.u.prefix6,
+		       sizeof(struct in6_addr));
+		break;
+	default:
+		return;
+	}
+
+	bfd_sess_install(session);
+}
+
+static void
+bfd_source_cache_update_sessions(const struct bfd_source_cache *source)
+{
+	struct bfd_session_params *session;
+
+	if (!source->valid)
+		return;
+
+	TAILQ_FOREACH (session, &bsglobal.bsplist, entry) {
+		if (!session->auto_source)
+			continue;
+		if (!bfd_source_cache_session_match(source, session))
+			continue;
+
+		bfd_source_cache_update_session(source, session);
+	}
+}
+
+/**
+ * Try to translate next hop information into source address.
+ *
+ * \returns `true` if source changed otherwise `false`.
+ */
+static bool bfd_source_cache_update(struct bfd_source_cache *source,
+				    const struct zapi_route *route)
+{
+	size_t nh_index;
+
+	for (nh_index = 0; nh_index < route->nexthop_num; nh_index++) {
+		const struct zapi_nexthop *nh = &route->nexthops[nh_index];
+		const struct interface *interface;
+		const struct connected *connected;
+		const struct listnode *node;
+
+		interface = if_lookup_by_index(nh->ifindex, nh->vrf_id);
+		if (interface == NULL) {
+			zlog_err("next hop interface not found (index %d)",
+				 nh->ifindex);
+			continue;
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(interface->connected, node,
+					  connected)) {
+			if (source->address.family !=
+			    connected->address->family)
+				continue;
+			if (prefix_same(connected->address, &source->source))
+				return false;
+			/*
+			 * Skip link-local as it is only useful for single hop
+			 * and in that case no source is specified usually.
+			 */
+			if (source->address.family == AF_INET6 &&
+			    IN6_IS_ADDR_LINKLOCAL(
+				    &connected->address->u.prefix6))
+				continue;
+
+			prefix_copy(&source->source, connected->address);
+			source->valid = true;
+			return true;
+		}
+	}
+
+	memset(&source->source, 0, sizeof(source->source));
+	source->valid = false;
+	return false;
+}
+
+int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
+{
+	struct bfd_source_cache *source;
+
+	if (bsglobal.debugging)
+		zlog_debug("BFD NHT update for %pFX", &route->prefix);
+
+	SLIST_FOREACH (source, &bsglobal.source_list, entry) {
+		if (source->vrf_id != route->vrf_id)
+			continue;
+		if (!prefix_same(match, &source->address))
+			continue;
+		if (bfd_source_cache_update(source, route))
+			bfd_source_cache_update_sessions(source);
+	}
+
+	return 0;
 }

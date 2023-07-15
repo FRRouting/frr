@@ -69,6 +69,9 @@ DEFINE_HOOK(zebra_rmac_update,
 	     const char *reason),
 	    (rmac, zl3vni, delete, reason));
 
+/* config knobs */
+static bool accept_bgp_seq = true;
+
 /* static function declarations */
 static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 					    void **args);
@@ -2866,7 +2869,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
  * Display MACs for a VNI (VTY command handler).
  */
 void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				vni_t vni, bool use_json)
+				vni_t vni, bool use_json, bool detail)
 {
 	struct zebra_evpn *zevpn;
 	uint32_t num_macs;
@@ -2899,17 +2902,28 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	wctx.json = json_mac;
 
 	if (!use_json) {
-		vty_out(vty,
-			"Number of MACs (local and remote) known for this VNI: %u\n",
-			num_macs);
-		vty_out(vty,
-			"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
-		vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC", "Type",
-			"Flags", "Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
+		if (detail) {
+			vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n",
+				zevpn->vni, num_macs);
+		} else {
+			vty_out(vty,
+				"Number of MACs (local and remote) known for this VNI: %u\n",
+				num_macs);
+			vty_out(vty,
+				"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
+			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC",
+				"Type", "Flags", "Intf/Remote ES/VTEP", "VLAN",
+				"Seq #'s");
+		}
 	} else
 		json_object_int_add(json, "numMacs", num_macs);
 
-	hash_iterate(zevpn->mac_table, zebra_evpn_print_mac_hash, &wctx);
+	if (detail)
+		hash_iterate(zevpn->mac_table, zebra_evpn_print_mac_hash_detail,
+			     &wctx);
+	else
+		hash_iterate(zevpn->mac_table, zebra_evpn_print_mac_hash,
+			     &wctx);
 
 	if (use_json) {
 		json_object_object_add(json, "macs", json_mac);
@@ -3508,6 +3522,12 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json = json_object_new_object();
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zvrf->advertise_gw_macip ? "Yes" : "No");
+		json_object_string_add(json, "advertiseSviMacip",
+				       zvrf->advertise_svi_macip ? "Yes"
+								 : "No");
+		json_object_string_add(json, "advertiseSviMac",
+				       zebra_evpn_mh_do_adv_svi_mac() ? "Yes"
+								      : "No");
 		json_object_int_add(json, "numVnis", num_vnis);
 		json_object_int_add(json, "numL2Vnis", num_l2vnis);
 		json_object_int_add(json, "numL3Vnis", num_l3vnis);
@@ -5534,6 +5554,7 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		struct zebra_if *zif = NULL;
 		struct zebra_l2info_vxlan zl2_info;
 		struct interface *vlan_if = NULL;
+		int old_advertise;
 
 		zevpn = zebra_evpn_lookup(vni);
 		if (!zevpn)
@@ -5541,19 +5562,20 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"EVPN SVI macip Adv %s on VNI %d , currently %s",
+				"EVPN SVI macip Adv %s on VNI %d, currently %s",
 				advertise ? "enabled" : "disabled", vni,
 				advertise_svi_macip_enabled(zevpn)
 					? "enabled"
 					: "disabled");
 
-		if (zevpn->advertise_svi_macip == advertise)
-			return;
+		old_advertise = advertise_svi_macip_enabled(zevpn);
 
 		/* Store flag even though SVI is not present.
 		 * Once SVI comes up triggers self MAC-IP route add.
 		 */
 		zevpn->advertise_svi_macip = advertise;
+		if (advertise_svi_macip_enabled(zevpn) == old_advertise)
+			return;
 
 		ifp = zevpn->vxlan_if;
 		if (!ifp)
@@ -5617,7 +5639,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN subnet Adv %s on VNI %d , currently %s",
+		zlog_debug("EVPN subnet Adv %s on VNI %d, currently %s",
 			   advertise ? "enabled" : "disabled", vni,
 			   zevpn->advertise_subnet ? "enabled" : "disabled");
 
@@ -5699,6 +5721,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 		struct zebra_l2info_vxlan zl2_info;
 		struct interface *vlan_if = NULL;
 		struct interface *vrr_if = NULL;
+		int old_advertise;
 
 		zevpn = zebra_evpn_lookup(vni);
 		if (!zevpn)
@@ -5706,15 +5729,16 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"EVPN gateway macip Adv %s on VNI %d , currently %s",
+				"EVPN gateway macip Adv %s on VNI %d, currently %s",
 				advertise ? "enabled" : "disabled", vni,
 				advertise_gw_macip_enabled(zevpn) ? "enabled"
-								 : "disabled");
+								  : "disabled");
 
-		if (zevpn->advertise_gw_macip == advertise)
-			return;
+		old_advertise = advertise_gw_macip_enabled(zevpn);
 
 		zevpn->advertise_gw_macip = advertise;
+		if (advertise_gw_macip_enabled(zevpn) == old_advertise)
+			return;
 
 		ifp = zevpn->vxlan_if;
 		if (!ifp)
@@ -6282,6 +6306,17 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx)
 {
 	return;
+}
+
+/* Config knob for accepting lower sequence numbers */
+void zebra_vxlan_set_accept_bgp_seq(bool set)
+{
+	accept_bgp_seq = set;
+}
+
+bool zebra_vxlan_get_accept_bgp_seq(void)
+{
+	return accept_bgp_seq;
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */

@@ -222,6 +222,18 @@ void bfd_sess_set_timers(struct bfd_session_params *bsp,
 			 uint32_t min_tx);
 
 /**
+ * Configures the automatic source selection for the BFD session.
+ *
+ * NOTE:
+ * Setting this configuration will override the IP source value set by
+ * `bfd_sess_set_ipv4_addrs` or `bfd_sess_set_ipv6_addrs`.
+ *
+ * \param bsp BFD session parameters
+ * \param enable BFD automatic source selection state.
+ */
+void bfd_sess_set_auto_source(struct bfd_session_params *bsp, bool enable);
+
+/**
  * Installs or updates the BFD session based on the saved session arguments.
  *
  * NOTE:
@@ -329,6 +341,11 @@ bool bfd_sess_cbit(const struct bfd_session_params *bsp);
 void bfd_sess_timers(const struct bfd_session_params *bsp,
 		     uint8_t *detection_multiplier, uint32_t *min_rx,
 		     uint32_t *min_tx);
+
+/**
+ * Gets the automatic source selection state.
+ */
+bool bfd_sess_auto_source(const struct bfd_session_params *bsp);
 
 /**
  * Show BFD session configuration and status. If `json` is provided (e.g. not
@@ -455,6 +472,13 @@ extern bool bfd_protocol_integration_debug(void);
  * Get API shutdown state.
  */
 extern bool bfd_protocol_integration_shutting_down(void);
+
+/* Update nexthop-tracking (nht) information for BFD auto source selection.
+ * The function must be called from the daemon callback function
+ * that deals with the ZEBRA_NEXTHOP_UPDATE zclient command
+ */
+extern int bfd_nht_update(const struct prefix *match,
+			  const struct zapi_route *route);
 
 #ifdef __cplusplus
 }

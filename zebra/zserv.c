@@ -78,6 +78,8 @@ static struct zserv *find_client_internal(uint8_t proto,
 					  unsigned short instance,
 					  uint32_t session_id);
 
+/* Mem type for zclients. */
+DEFINE_MTYPE_STATIC(ZEBRA, ZSERV_CLIENT, "ZClients");
 
 /*
  * Client thread events.
@@ -144,6 +146,14 @@ static void zserv_event(struct zserv *client, enum zserv_event event);
 
 
 /* Client thread lifecycle -------------------------------------------------- */
+
+/*
+ * Free a zserv client object.
+ */
+void zserv_client_delete(struct zserv *client)
+{
+	XFREE(MTYPE_ZSERV_CLIENT, client);
+}
 
 /*
  * Log zapi message to zlog.
@@ -648,7 +658,7 @@ static void zserv_client_free(struct zserv *client)
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("%s: Deleting client %s", __func__,
 				   zebra_route_string(client->proto));
-		XFREE(MTYPE_TMP, client);
+		zserv_client_delete(client);
 	} else {
 		/* Handle cases where client has GR instance. */
 		if (IS_ZEBRA_DEBUG_EVENT)
@@ -737,7 +747,7 @@ static struct zserv *zserv_client_create(int sock)
 	int i;
 	afi_t afi;
 
-	client = XCALLOC(MTYPE_TMP, sizeof(struct zserv));
+	client = XCALLOC(MTYPE_ZSERV_CLIENT, sizeof(struct zserv));
 
 	/* Make client input/output buffer. */
 	client->sock = sock;
@@ -1036,7 +1046,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	} else
 		vty_out(vty, "Not registered for Nexthop Updates\n");
 
-	vty_out(vty, "Client will %sbe notified about it's routes status\n",
+	vty_out(vty,
+		"Client will %sbe notified about the status of its routes.\n",
 		client->notify_owner ? "" : "Not ");
 
 	vty_out(vty, "Last Msg Rx Time: %s \n",

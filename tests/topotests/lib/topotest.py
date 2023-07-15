@@ -355,6 +355,16 @@ def run_and_expect(func, what, count=20, wait=3):
     else:
         func_name = func.__name__
 
+    # Just a safety-check to avoid running topotests with very
+    # small wait/count arguments.
+    wait_time = wait * count
+    if wait_time < 5:
+        assert (
+            wait_time >= 5
+        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
+            count, wait
+        )
+
     logger.info(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
             func_name, wait, count
@@ -401,6 +411,16 @@ def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
         func_name = func.func.__name__
     else:
         func_name = func.__name__
+
+    # Just a safety-check to avoid running topotests with very
+    # small wait/count arguments.
+    wait_time = wait * count
+    if wait_time < 5:
+        assert (
+            wait_time >= 5
+        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
+            count, wait
+        )
 
     logger.info(
         "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
@@ -1868,15 +1888,16 @@ class Router(Node):
                 # Exclude empty string at end of list
                 for d in dmns[:-1]:
                     if re.search(r"%s" % daemon, d):
-                        daemonpid = self.cmd("cat %s" % d.rstrip()).rstrip()
+                        daemonpidfile = d.rstrip()
+                        daemonpid = self.cmd("cat %s" % daemonpidfile).rstrip()
                         if daemonpid.isdigit() and pid_exists(int(daemonpid)):
                             logger.info(
                                 "{}: killing {}".format(
                                     self.name,
-                                    os.path.basename(d.rstrip().rsplit(".", 1)[0]),
+                                    os.path.basename(daemonpidfile.rsplit(".", 1)[0]),
                                 )
                             )
-                            self.cmd("kill -9 %s" % daemonpid)
+                            os.kill(int(daemonpid), signal.SIGKILL)
                             if pid_exists(int(daemonpid)):
                                 numRunning += 1
                         while wait and numRunning > 0:
@@ -1902,12 +1923,12 @@ class Router(Node):
                                                 ),
                                             )
                                         )
-                                        self.cmd("kill -9 %s" % daemonpid)
+                                        os.kill(int(daemonpid), signal.SIGKILL)
                                     if daemonpid.isdigit() and not pid_exists(
                                         int(daemonpid)
                                     ):
                                         numRunning -= 1
-                        self.cmd("rm -- {}".format(d.rstrip()))
+                        self.cmd("rm -- {}".format(daemonpidfile))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
                         if self.checkRouterVersion("<", minErrorVersion):

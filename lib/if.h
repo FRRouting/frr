@@ -143,9 +143,13 @@ struct if_stats {
 #define TE_EXT_MASK             0x0FFFFFFF
 #define TE_EXT_ANORMAL          0x80000000
 #define LOSS_PRECISION          0.000003
+/* TE_MEGA_BIT and TE_BYTE are utilized to convert TE bandwidth */
 #define TE_MEGA_BIT             1000000
 #define TE_BYTE                 8
-#define DEFAULT_BANDWIDTH       10000
+/* Default TE bandwidth when no value in config.
+ * The value is in Mbps (will be multiplied by TE_BYTE)
+ */
+#define DEFAULT_BANDWIDTH 10
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
 
@@ -528,6 +532,7 @@ static inline bool if_address_is_local(const void *matchaddr, int family,
 struct vrf;
 extern struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_get_vrf_loopback(vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
 					const char *vrf_name);
 
@@ -588,6 +593,8 @@ struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);
+struct if_link_params *if_link_params_enable(struct interface *ifp);
+struct if_link_params *if_link_params_init(struct interface *ifp);
 void if_link_params_free(struct interface *);
 
 /* Northbound. */

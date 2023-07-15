@@ -11,6 +11,7 @@ user_RSTFILES = \
 	doc/user/bugs.rst \
 	doc/user/conf.py \
 	doc/user/eigrpd.rst \
+	doc/user/evpn.rst \
 	doc/user/extlog.rst \
 	doc/user/fabricd.rst \
 	doc/user/filter.rst \
@@ -22,6 +23,7 @@ user_RSTFILES = \
 	doc/user/ipv6.rst \
 	doc/user/isisd.rst \
 	doc/user/kernel.rst \
+	doc/user/nexthop_groups.rst \
 	doc/user/nhrpd.rst \
 	doc/user/ospf6d.rst \
 	doc/user/ospfd.rst \

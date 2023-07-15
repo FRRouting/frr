@@ -223,7 +223,7 @@ static inline bool is_selfroute(int proto)
 	return false;
 }
 
-static inline int zebra2proto(int proto)
+int zebra2proto(int proto)
 {
 	switch (proto) {
 	case ZEBRA_ROUTE_BABEL:
@@ -692,8 +692,9 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 }
 
 /* Looking up routing table by netlink interface. */
-static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
-					     int startup)
+int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
+					       ns_id_t ns_id, int startup,
+					       struct zebra_dplane_ctx *ctx)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -768,9 +769,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
-	if (!startup && selfroute
-	    && h->nlmsg_type == RTM_NEWROUTE
-	    && !zrouter.asic_offloaded) {
+	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE &&
+	    !zrouter.asic_offloaded && !ctx) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
 				   rtm->rtm_protocol);
@@ -802,6 +802,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		flags |= ZEBRA_FLAG_OFFLOADED;
 	if (rtm->rtm_flags & RTM_F_OFFLOAD_FAILED)
 		flags |= ZEBRA_FLAG_OFFLOAD_FAILED;
+
+	if (h->nlmsg_flags & NLM_F_APPEND)
+		flags |= ZEBRA_FLAG_OUTOFSYNC;
 
 	/* Route which inserted by Zebra. */
 	if (selfroute) {
@@ -984,10 +987,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				}
 			}
 		}
-		if (nhe_id || ng)
-			rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p, re, ng,
-					  startup);
-		else {
+		if (nhe_id || ng) {
+			dplane_rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p,
+						 re, ng, startup, ctx);
+			if (ng)
+				nexthop_group_delete(&ng);
+		} else {
 			/*
 			 * I really don't see how this is possible
 			 * but since we are testing for it let's
@@ -1001,6 +1006,13 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			XFREE(MTYPE_RE, re);
 		}
 	} else {
+		if (ctx) {
+			zlog_err(
+				"%s: %pFX RTM_DELROUTE received but received a context as well",
+				__func__, &p);
+			return 0;
+		}
+
 		if (nhe_id) {
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
 				   &p, &src_p, NULL, nhe_id, table, metric,
@@ -1025,7 +1037,14 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		}
 	}
 
-	return 0;
+	return 1;
+}
+
+static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
+					     int startup)
+{
+	return netlink_route_change_read_unicast_internal(h, ns_id, startup,
+							  NULL);
 }
 
 static struct mcast_route_data *mroute = NULL;
@@ -1540,6 +1559,16 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   ctx->table))
 					return false;
 				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_DT46))
+					return false;
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_VRFTABLE,
+						   ctx->table))
+					return false;
+				break;
 			default:
 				zlog_err("%s: unsupport seg6local behaviour action=%u",
 					 __func__,
@@ -2048,7 +2077,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	 * by the routing protocol and for communicating with protocol peers.
 	 */
 	if (!nl_attr_put32(&req->n, datalen, RTA_PRIORITY,
-			   NL_DEFAULT_ROUTE_METRIC))
+			   ROUTE_INSTALLATION_METRIC))
 		return 0;
 
 #if defined(SUPPORT_REALMS)
@@ -2402,7 +2431,8 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 					 uint32_t id,
 					 const struct nh_grp *z_grp,
-					 const uint8_t count)
+					 const uint8_t count, bool resilient,
+					 const struct nhg_resilience *nhgr)
 {
 	struct nexthop_grp grp[count];
 	/* Need space for max group size, "/", and null term */
@@ -2432,6 +2462,24 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 		if (!nl_attr_put(n, req_size, NHA_GROUP, grp,
 				 count * sizeof(*grp)))
 			return false;
+
+		if (resilient) {
+			struct rtattr *nest;
+
+			nest = nl_attr_nest(n, req_size, NHA_RES_GROUP);
+
+			nl_attr_put16(n, req_size, NHA_RES_GROUP_BUCKETS,
+				      nhgr->buckets);
+			nl_attr_put32(n, req_size, NHA_RES_GROUP_IDLE_TIMER,
+				      nhgr->idle_timer * 1000);
+			nl_attr_put32(n, req_size,
+				      NHA_RES_GROUP_UNBALANCED_TIMER,
+				      nhgr->unbalanced_timer * 1000);
+			nl_attr_nest_end(n, nest);
+
+			nl_attr_put16(n, req_size, NHA_GROUP_TYPE,
+				      NEXTHOP_GRP_TYPE_RES);
+		}
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2453,7 +2501,7 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
  */
 ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				   const struct zebra_dplane_ctx *ctx,
-				   void *buf, size_t buflen)
+				   void *buf, size_t buflen, bool fpm)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2480,9 +2528,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 	/*
 	 * Nothing to do if the kernel doesn't support nexthop objects or
-	 * we dont want to install this type of NHG
+	 * we dont want to install this type of NHG, but FPM may possible to
+	 * handle this.
 	 */
-	if (!kernel_nexthops_supported()) {
+	if (!fpm && !kernel_nexthops_supported()) {
 		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
 			zlog_debug(
 				"%s: nhg_id %u (%s): kernel nexthops not supported, ignoring",
@@ -2528,10 +2577,16 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 		 * other ids.
 		 */
 		if (dplane_ctx_get_nhe_nh_grp_count(ctx)) {
+			const struct nexthop_group *nhg;
+			const struct nhg_resilience *nhgr;
+
+			nhg = dplane_ctx_get_nhe_ng(ctx);
+			nhgr = &nhg->nhgr;
 			if (!_netlink_nexthop_build_group(
 				    &req->n, buflen, id,
 				    dplane_ctx_get_nhe_nh_grp(ctx),
-				    dplane_ctx_get_nhe_nh_grp_count(ctx)))
+				    dplane_ctx_get_nhe_nh_grp_count(ctx),
+				    !!nhgr->buckets, nhgr))
 				return 0;
 		} else {
 			const struct nexthop *nh =
@@ -2706,6 +2761,18 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							    ctx->table))
 							return 0;
 						break;
+					case SEG6_LOCAL_ACTION_END_DT46:
+						if (!nl_attr_put32(
+							    &req->n, buflen,
+							    SEG6_LOCAL_ACTION,
+							    SEG6_LOCAL_ACTION_END_DT46))
+							return 0;
+						if (!nl_attr_put32(
+							    &req->n, buflen,
+							    SEG6_LOCAL_VRFTABLE,
+							    ctx->table))
+							return 0;
+						break;
 					default:
 						zlog_err("%s: unsupport seg6local behaviour action=%u",
 							 __func__, action);
@@ -2784,7 +2851,7 @@ static ssize_t netlink_nexthop_msg_encoder(struct zebra_dplane_ctx *ctx,
 		return -1;
 	}
 
-	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen);
+	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen, false);
 }
 
 enum netlink_msg_status
@@ -2963,7 +3030,8 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 }
 
 static int netlink_nexthop_process_group(struct rtattr **tb,
-					 struct nh_grp *z_grp, int z_grp_size)
+					 struct nh_grp *z_grp, int z_grp_size,
+					 struct nhg_resilience *nhgr)
 {
 	uint8_t count = 0;
 	/* linux/nexthop.h group struct */
@@ -2982,6 +3050,36 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		z_grp[i].id = n_grp[i].id;
 		z_grp[i].weight = n_grp[i].weight + 1;
 	}
+
+	memset(nhgr, 0, sizeof(*nhgr));
+	if (tb[NHA_RES_GROUP]) {
+		struct rtattr *tbn[NHA_RES_GROUP_MAX + 1];
+		struct rtattr *rta;
+		struct rtattr *res_group = tb[NHA_RES_GROUP];
+
+		netlink_parse_rtattr_nested(tbn, NHA_RES_GROUP_MAX, res_group);
+
+		if (tbn[NHA_RES_GROUP_BUCKETS]) {
+			rta = tbn[NHA_RES_GROUP_BUCKETS];
+			nhgr->buckets = *(uint16_t *)RTA_DATA(rta);
+		}
+
+		if (tbn[NHA_RES_GROUP_IDLE_TIMER]) {
+			rta = tbn[NHA_RES_GROUP_IDLE_TIMER];
+			nhgr->idle_timer = *(uint32_t *)RTA_DATA(rta);
+		}
+
+		if (tbn[NHA_RES_GROUP_UNBALANCED_TIMER]) {
+			rta = tbn[NHA_RES_GROUP_UNBALANCED_TIMER];
+			nhgr->unbalanced_timer = *(uint32_t *)RTA_DATA(rta);
+		}
+
+		if (tbn[NHA_RES_GROUP_UNBALANCED_TIME]) {
+			rta = tbn[NHA_RES_GROUP_UNBALANCED_TIME];
+			nhgr->unbalanced_time = *(uint64_t *)RTA_DATA(rta);
+		}
+	}
+
 	return count;
 }
 
@@ -3065,13 +3163,15 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 
 	if (h->nlmsg_type == RTM_NEWNEXTHOP) {
+		struct nhg_resilience nhgr = {};
+
 		if (tb[NHA_GROUP]) {
 			/**
 			 * If this is a group message its only going to have
 			 * an array of nexthop IDs associated with it
 			 */
 			grp_count = netlink_nexthop_process_group(
-				tb, grp, array_size(grp));
+				tb, grp, array_size(grp), &nhgr);
 		} else {
 			if (tb[NHA_BLACKHOLE]) {
 				/**
@@ -3103,7 +3203,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 
 		if (zebra_nhg_kernel_find(id, &nh, grp, grp_count, vrf_id, afi,
-					  type, startup))
+					  type, startup, &nhgr))
 			return -1;
 
 	} else if (h->nlmsg_type == RTM_DELNEXTHOP)
@@ -4289,7 +4389,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 			"Tx %s family %s IF %s(%u) Neigh %pIA %s %s flags 0x%x state 0x%x %sext_flags 0x%x",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			ip, link_ip ? "Link " : "MAC ", buf2, flags, state,
+			ip, link_ip ? "Link" : "MAC", buf2, flags, state,
 			ext ? "ext " : "", ext_flags);
 
 	return netlink_neigh_update_msg_encode(

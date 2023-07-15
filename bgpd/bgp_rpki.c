@@ -52,20 +52,17 @@
 
 #include "lib/network.h"
 #include "lib/thread.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "rtrlib/rtrlib.h"
-#endif
 #include "hook.h"
 #include "libfrr.h"
 #include "lib/version.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_rpki_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
@@ -375,10 +372,9 @@ inline bool is_stopping(void)
 	return rtr_is_stopping;
 }
 
-static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
+static void pfx_record_to_prefix(struct pfx_record *record,
+				 struct prefix *prefix)
 {
-	struct prefix *prefix = prefix_new();
-
 	prefix->prefixlen = record->min_len;
 
 	if (record->prefix.ver == LRTR_IPV4) {
@@ -389,15 +385,41 @@ static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
 		ipv6_addr_to_network_byte_order(record->prefix.u.addr6.addr,
 						prefix->u.prefix6.s6_addr32);
 	}
+}
 
-	return prefix;
+struct rpki_revalidate_prefix {
+	struct bgp *bgp;
+	struct prefix prefix;
+	afi_t afi;
+	safi_t safi;
+};
+
+static void rpki_revalidate_prefix(struct thread *thread)
+{
+	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
+	struct bgp_dest *match, *node;
+
+	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
+					 &rrp->prefix);
+
+	node = match;
+
+	while (node) {
+		if (bgp_dest_has_bgp_path_info_data(node)) {
+			revalidate_bgp_node(node, rrp->afi, rrp->safi);
+		}
+
+		node = bgp_route_next_until(node, match);
+	}
+
+	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
 }
 
 static void bgpd_sync_callback(struct thread *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct prefix *prefix;
+	struct prefix prefix;
 	struct pfx_record rec;
 
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
@@ -420,7 +442,7 @@ static void bgpd_sync_callback(struct thread *thread)
 		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
 		return;
 	}
-	prefix = pfx_record_to_prefix(&rec);
+	pfx_record_to_prefix(&rec, &prefix);
 
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
@@ -429,27 +451,20 @@ static void bgpd_sync_callback(struct thread *thread)
 
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
 			struct bgp_table *table = bgp->rib[afi][safi];
+			struct rpki_revalidate_prefix *rrp;
 
 			if (!table)
 				continue;
 
-			struct bgp_dest *match;
-			struct bgp_dest *node;
-
-			match = bgp_table_subtree_lookup(table, prefix);
-			node = match;
-
-			while (node) {
-				if (bgp_dest_has_bgp_path_info_data(node)) {
-					revalidate_bgp_node(node, afi, safi);
-				}
-
-				node = bgp_route_next_until(node, match);
-			}
+			rrp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE, sizeof(*rrp));
+			rrp->bgp = bgp;
+			rrp->prefix = prefix;
+			rrp->afi = afi;
+			rrp->safi = safi;
+			thread_add_event(bm->master, rpki_revalidate_prefix,
+					 rrp, 0, &bgp->t_revalidate[afi][safi]);
 		}
 	}
-
-	prefix_free(&prefix);
 }
 
 static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
@@ -474,6 +489,31 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 	}
 }
 
+/*
+ * The act of a soft reconfig in revalidation is really expensive
+ * coupled with the fact that the download of a full rpki state
+ * from a rpki server can be expensive, let's break up the revalidation
+ * to a point in time in the future to allow other bgp events
+ * to take place too.
+ */
+struct rpki_revalidate_peer {
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer;
+};
+
+static void bgp_rpki_revalidate_peer(struct thread *thread)
+{
+	struct rpki_revalidate_peer *rvp = THREAD_ARG(thread);
+
+	/*
+	 * Here's the expensive bit of gnomish deviousness
+	 */
+	bgp_soft_reconfig_in(rvp->peer, rvp->afi, rvp->safi);
+
+	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rvp);
+}
+
 static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
@@ -484,18 +524,28 @@ static void revalidate_all_routes(void)
 		struct listnode *peer_listnode;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
+			afi_t afi;
+			safi_t safi;
 
-			for (size_t i = 0; i < 2; i++) {
-				safi_t safi;
-				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+			FOREACH_AFI_SAFI (afi, safi) {
+				struct rpki_revalidate_peer *rvp;
 
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					if (!peer->bgp->rib[afi][safi])
-						continue;
+				if (!bgp->rib[afi][safi])
+					continue;
 
-					bgp_soft_reconfig_in(peer, afi, safi);
-				}
+				if (!peer_established(peer))
+					continue;
+
+				rvp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE,
+					      sizeof(*rvp));
+				rvp->peer = peer;
+				rvp->afi = afi;
+				rvp->safi = safi;
+
+				thread_add_event(
+					bm->master, bgp_rpki_revalidate_peer,
+					rvp, 0,
+					&peer->t_revalidate_all[afi][safi]);
 			}
 		}
 	}
@@ -589,7 +639,7 @@ static int bgp_rpki_module_init(void)
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
-	hook_register(frr_early_fini, &bgp_rpki_fini);
+	hook_register(frr_early_fini, bgp_rpki_fini);
 
 	return 0;
 }

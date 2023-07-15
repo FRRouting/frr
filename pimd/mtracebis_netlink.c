@@ -92,7 +92,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 			rth->local.nl_family);
 		return -1;
 	}
-	rth->seq = (uint32_t)time(NULL);
+	rth->seq = getpid();
 	return 0;
 }
 

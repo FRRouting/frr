@@ -126,6 +126,8 @@ struct gm_sg {
 	 */
 	struct gm_packet_sg *most_recent;
 };
+int gm_sg_cmp(const struct gm_sg *a, const struct gm_sg *b);
+DECLARE_RBTREE_UNIQ(gm_sgs, struct gm_sg, itm, gm_sg_cmp);
 
 /* host tracking entry.  addr will be one of:
  *
@@ -365,5 +367,6 @@ static inline void gm_ifp_teardown(struct interface *ifp)
 #endif
 
 extern void gm_cli_init(void);
+bool in6_multicast_nofwd(const pim_addr *addr);
 
 #endif /* PIM6_MLD_H */

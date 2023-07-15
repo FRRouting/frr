@@ -39,9 +39,7 @@
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
 #else
-#ifndef VTYSH_EXTRACT_PL
 #include "linux/mroute.h"
-#endif
 #endif
 
 typedef struct vifctl pim_vifctl;
@@ -86,9 +84,7 @@ typedef struct sioc_sg_req pim_sioc_sg_req;
 #if defined(HAVE_LINUX_MROUTE6_H)
 #include <linux/mroute6.h>
 #else
-#ifndef VTYSH_EXTRACT_PL
 #include "linux/mroute6.h"
-#endif
 #endif
 
 #ifndef MRT_INIT

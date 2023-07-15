@@ -80,14 +80,6 @@
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH 6
 
-/* SRv6 SID Structure default values */
-#define BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH 40
-#define BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH 24
-#define BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH 16
-#define BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH 0
-#define BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH 16
-#define BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET 64
-
 #define BGP_ATTR_NH_AFI(afi, attr) \
 	((afi != AFI_L2VPN) ? afi : \
 	((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ? AFI_IP : AFI_IP6))
@@ -337,6 +329,9 @@ struct attr {
 
 	/* OTC value if set */
 	uint32_t otc;
+
+	/* AIGP Metric */
+	uint64_t aigp_metric;
 };
 
 /* rmap_change_flags definition */
@@ -349,6 +344,8 @@ struct attr {
 #define BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED (1 << 6)
 #define BATTR_RMAP_LINK_BW_SET (1 << 7)
 #define BATTR_RMAP_L3VPN_ACCEPT_GRE (1 << 8)
+#define BATTR_RMAP_VPNV4_NHOP_CHANGED (1 << 9)
+#define BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED (1 << 10)
 
 /* Router Reflector related structure. */
 struct cluster_list {
@@ -404,21 +401,21 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
-extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
-				       struct stream *s, struct attr *attr,
-				       struct bpacket_attr_vec_arr *vecarr,
-				       struct prefix *p, afi_t afi, safi_t safi,
-				       struct peer *from, struct prefix_rd *prd,
-				       mpls_label_t *label, uint32_t num_labels,
-				       bool addpath_capable,
-				       uint32_t addpath_tx_id);
-extern void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
+extern bgp_size_t bgp_packet_attribute(
+	struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
+	struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi,
+	safi_t safi, struct peer *from, struct prefix_rd *prd,
+	mpls_label_t *label, uint32_t num_labels, bool addpath_capable,
+	uint32_t addpath_tx_id, struct bgp_path_info *bpi);
+extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
 extern unsigned int attrhash_key_make(const void *p);
 extern void attr_show_all(struct vty *vty);
 extern unsigned long int attr_count(void);
 extern unsigned long int attr_unknown_count(void);
+extern void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
+					   const char *discard_attrs, bool set);
 
 /* Cluster list prototypes. */
 extern bool cluster_loop_check(struct cluster_list *cluster,
@@ -480,20 +477,23 @@ extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 						      struct attr *attr);
 
-static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
-					uint32_t in_rmap_flags)
+static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
+					 uint32_t in_rmap_flags)
 {
-	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)
-		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED)
-		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED)
-		 || CHECK_FLAG(out_rmap_flags,
-			       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED)
-		 || CHECK_FLAG(out_rmap_flags,
-			       BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED)
-		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED)
-		 || CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
-			? 1
-			: 0);
+	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags,
+			    BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags,
+			    BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags,
+			    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
+		 CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
+			? true
+			: false);
 }
 
 static inline uint32_t mac_mobility_seqnum(struct attr *attr)
@@ -591,6 +591,19 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 					struct transit *transit)
 {
 	attr->transit = transit;
+}
+
+static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
+{
+	return attr->aigp_metric;
+}
+
+static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
+{
+	attr->aigp_metric = aigp;
+
+	if (aigp)
+		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AIGP);
 }
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)

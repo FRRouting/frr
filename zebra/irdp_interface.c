@@ -200,12 +200,12 @@ static void if_set_defaults(struct irdp_interface *irdp)
 
 static struct Adv *Adv_new(void)
 {
-	return XCALLOC(MTYPE_TMP, sizeof(struct Adv));
+	return XCALLOC(MTYPE_IRDP_IF, sizeof(struct Adv));
 }
 
 static void Adv_free(struct Adv *adv)
 {
-	XFREE(MTYPE_TMP, adv);
+	XFREE(MTYPE_IRDP_IF, adv);
 }
 
 static void irdp_if_start(struct interface *ifp, int multicast,

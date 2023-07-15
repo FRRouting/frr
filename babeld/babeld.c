@@ -47,6 +47,10 @@ THE SOFTWARE.
 #include "babel_zebra.h"
 #include "babel_errors.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "babeld/babeld_clippy.c"
+#endif
+
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
@@ -161,7 +165,7 @@ babel_create_routing_process (void)
     }
 
     /* Threads. */
-    thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    thread_add_read(master, babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
     /* wait a little: zebra will announce interfaces, addresses, routes... */
     thread_add_timer_msec(master, babel_init_routing_process, NULL, 200L, &babel_routing_process->t_update);
 
@@ -662,50 +666,42 @@ DEFUN (no_babel_diversity,
 }
 
 /* [Babel Command] */
-DEFUN (babel_diversity_factor,
+DEFPY (babel_diversity_factor,
        babel_diversity_factor_cmd,
-       "babel diversity-factor (1-256)",
+       "[no] babel diversity-factor (1-256)$factor",
+       NO_STR
        "Babel commands\n"
        "Set the diversity factor.\n"
        "Factor in units of 1/256.\n")
 {
-    int factor;
-
-    factor = strtoul(argv[2]->arg, NULL, 10);
-
-    diversity_factor = factor;
+    diversity_factor = no ? BABEL_DEFAULT_DIVERSITY_FACTOR : factor;
     return CMD_SUCCESS;
 }
 
 /* [Babel Command] */
-DEFUN (babel_set_resend_delay,
+DEFPY (babel_set_resend_delay,
        babel_set_resend_delay_cmd,
-       "babel resend-delay (20-655340)",
+       "[no] babel resend-delay (20-655340)$delay",
+       NO_STR
        "Babel commands\n"
        "Time before resending a message\n"
        "Milliseconds\n")
 {
-    int interval;
-
-    interval = strtoul(argv[2]->arg, NULL, 10);
-
-    resend_delay = interval;
+    resend_delay = no ? BABEL_DEFAULT_RESEND_DELAY : delay;
     return CMD_SUCCESS;
 }
 
 /* [Babel Command] */
-DEFUN (babel_set_smoothing_half_life,
+DEFPY (babel_set_smoothing_half_life,
        babel_set_smoothing_half_life_cmd,
-       "babel smoothing-half-life (0-65534)",
+       "[no] babel smoothing-half-life (0-65534)$seconds",
+       NO_STR
        "Babel commands\n"
        "Smoothing half-life\n"
        "Seconds (0 to disable)\n")
 {
-    int seconds;
-
-    seconds = strtoul(argv[2]->arg, NULL, 10);
-
-    change_smoothing_half_life(seconds);
+    change_smoothing_half_life(no ? BABEL_DEFAULT_SMOOTHING_HALF_LIFE
+        : seconds);
     return CMD_SUCCESS;
 }
 

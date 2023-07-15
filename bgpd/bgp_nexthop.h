@@ -166,7 +166,7 @@ extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);
 extern void bgp_address_init(struct bgp *bgp);
 extern void bgp_address_destroy(struct bgp *bgp);
-extern void bgp_tip_add(struct bgp *bgp, struct in_addr *tip);
+extern bool bgp_tip_add(struct bgp *bgp, struct in_addr *tip);
 extern void bgp_tip_del(struct bgp *bgp, struct in_addr *tip);
 extern void bgp_tip_hash_init(struct bgp *bgp);
 extern void bgp_tip_hash_destroy(struct bgp *bgp);

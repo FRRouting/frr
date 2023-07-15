@@ -77,6 +77,9 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	/* Disable BFD events to avoid wasting processing. */
+	bfd_protocol_integration_set_shutdown(true);
+
 	static_vrf_terminate();
 
 	static_zebra_stop();

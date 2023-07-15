@@ -109,6 +109,9 @@ enum zebra_if_flags {
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
 	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
 
+/* Mem type for zif desc */
+DECLARE_MTYPE(ZIF_DESC);
+
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* back pointer to the interface */
@@ -206,6 +209,7 @@ struct zebra_if {
 	struct list *mac_list;
 
 	/* Link fields - for sub-interfaces. */
+	ns_id_t link_nsid;
 	ifindex_t link_ifindex;
 	struct interface *link;
 
@@ -270,6 +274,8 @@ extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
+extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
+						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
 extern void if_unlink_per_ns(struct interface *);

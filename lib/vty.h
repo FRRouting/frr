@@ -22,11 +22,16 @@
 #define _ZEBRA_VTY_H
 
 #include <sys/types.h>
-#ifdef HAVE_LIBPCREPOSIX
+#ifdef HAVE_LIBPCRE2_POSIX
+#ifndef _FRR_PCRE2_POSIX
+#define _FRR_PCRE2_POSIX
+#include <pcre2posix.h>
+#endif /* _FRR_PCRE2_POSIX */
+#elif defined(HAVE_LIBPCREPOSIX)
 #include <pcreposix.h>
 #else
 #include <regex.h>
-#endif /* HAVE_LIBPCREPOSIX */
+#endif /* HAVE_LIBPCRE2_POSIX */
 
 #include "thread.h"
 #include "log.h"

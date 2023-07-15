@@ -321,15 +321,31 @@ extra_info = {
         "lsp_processq_complete",
     ],
     # zebra - main WQ
-    ("mq_add_handler", "work_queue_add"): ["meta_queue_process",],
-    ("meta_queue_process", "work_queue_add"): ["meta_queue_process",],
+    ("mq_add_handler", "work_queue_add"): [
+        "meta_queue_process",
+    ],
+    ("meta_queue_process", "work_queue_add"): [
+        "meta_queue_process",
+    ],
     # bgpd - label pool WQ
-    ("bgp_lp_get", "work_queue_add"): ["lp_cbq_docallback",],
-    ("bgp_lp_event_chunk", "work_queue_add"): ["lp_cbq_docallback",],
-    ("bgp_lp_event_zebra_up", "work_queue_add"): ["lp_cbq_docallback",],
+    ("bgp_lp_get", "work_queue_add"): [
+        "lp_cbq_docallback",
+    ],
+    ("bgp_lp_event_chunk", "work_queue_add"): [
+        "lp_cbq_docallback",
+    ],
+    ("bgp_lp_event_zebra_up", "work_queue_add"): [
+        "lp_cbq_docallback",
+    ],
     # bgpd - main WQ
-    ("bgp_process", "work_queue_add"): ["bgp_process_wq", "bgp_processq_del",],
-    ("bgp_add_eoiu_mark", "work_queue_add"): ["bgp_process_wq", "bgp_processq_del",],
+    ("bgp_process", "work_queue_add"): [
+        "bgp_process_wq",
+        "bgp_processq_del",
+    ],
+    ("bgp_add_eoiu_mark", "work_queue_add"): [
+        "bgp_process_wq",
+        "bgp_processq_del",
+    ],
     # clear node WQ
     ("bgp_clear_route_table", "work_queue_add"): [
         "bgp_clear_route_node",
@@ -337,7 +353,9 @@ extra_info = {
         "bgp_clear_node_complete",
     ],
     # rfapi WQs
-    ("rfapi_close", "work_queue_add"): ["rfapi_deferred_close_workfunc",],
+    ("rfapi_close", "work_queue_add"): [
+        "rfapi_deferred_close_workfunc",
+    ],
     ("rfapiRibUpdatePendingNode", "work_queue_add"): [
         "rfapiRibDoQueuedCallback",
         "rfapiRibQueueItemDelete",

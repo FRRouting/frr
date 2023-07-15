@@ -231,7 +231,7 @@ void zebra_evpn_sync_neigh_del(struct zebra_neigh *n);
 struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 	struct zebra_evpn *zevpn, struct zebra_neigh *n, uint16_t ipa_len,
 	const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-	const esi_t *esi, struct sync_mac_ip_ctx *ctx);
+	const esi_t *esi, struct zebra_mac *mac);
 void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 			      int upd_client, uint32_t flags);
 struct zebra_neigh *zebra_evpn_neigh_lookup(struct zebra_evpn *zevpn,

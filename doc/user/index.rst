@@ -31,6 +31,7 @@ Basics
    kernel
    snmp
    scripting
+   nexthop_groups
 .. modules
 
 #########
@@ -48,6 +49,7 @@ Protocols
    fabricd
    ldpd
    eigrpd
+   evpn
    isisd
    nhrpd
    ospfd

@@ -507,15 +507,8 @@ void ospf_ldp_sync_show_info(struct vty *vty, struct ospf *ospf,
 
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (use_json) {
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-			json_object_boolean_true_add(json_vrf,
-						     "MplsLdpIgpSyncEnabled");
 			json_object_boolean_true_add(json_vrf,
 						     "mplsLdpIgpSyncEnabled");
-			json_object_int_add(json_vrf, "MplsLdpIgpSyncHolddown",
-					    ospf->ldp_sync_cmd.holddown);
 			json_object_int_add(json_vrf, "mplsLdpIgpSyncHolddown",
 					    ospf->ldp_sync_cmd.holddown);
 		} else {
@@ -751,9 +744,7 @@ void ospf_ldp_sync_if_write_config(struct vty *vty,
 /*
  * LDP-SYNC commands.
  */
-#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_ldp_sync_clippy.c"
-#endif
 
 DEFPY (ospf_mpls_ldp_sync,
        ospf_mpls_ldp_sync_cmd,

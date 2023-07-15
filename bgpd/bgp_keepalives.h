@@ -74,18 +74,6 @@ extern void bgp_keepalives_init(void);
 extern void *bgp_keepalives_start(void *arg);
 
 /**
- * Poking function for keepalives pthread.
- *
- * Under normal circumstances the pthread will automatically wake itself
- * whenever it is necessary to do work. This function may be used to force the
- * thread to wake up and see if there is any work to do, or if it is time to
- * die.
- *
- * It is not necessary to call this after bgp_keepalives_on().
- */
-extern void bgp_keepalives_wake(void);
-
-/**
  * Stops the thread and blocks until it terminates.
  */
 int bgp_keepalives_stop(struct frr_pthread *fpt, void **result);

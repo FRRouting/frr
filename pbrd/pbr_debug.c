@@ -23,9 +23,7 @@
 #include "command.h"
 #include "vector.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pbrd/pbr_debug_clippy.c"
-#endif
 #include "pbrd/pbr_debug.h"
 
 struct debug pbr_dbg_map = {0, "PBR map"};

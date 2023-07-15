@@ -743,7 +743,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		fb.outpos_i = 0;
 
 		va_copy(args, msg->args);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		/* format-string checking is done further up the chain */
 		need += vbprintfrr(&fb, msg->fmt, args);
+#pragma GCC diagnostic pop
 		va_end(args);
 
 		msg->textlen = need;
@@ -762,7 +766,11 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 			fb.outpos_i = 0;
 
 			va_copy(args, msg->args);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+			/* same as above */
 			vbprintfrr(&fb, msg->fmt, args);
+#pragma GCC diagnostic pop
 			va_end(args);
 
 			bputch(&fb, '\n');

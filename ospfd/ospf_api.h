@@ -298,7 +298,7 @@ struct apimsg {
 	} u;
 };
 
-#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_LSA_SIZE)
+#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_PACKET_SIZE)
 
 /* -----------------------------------------------------------
  * Prototypes for specific messages

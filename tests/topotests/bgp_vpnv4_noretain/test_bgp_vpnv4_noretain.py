@@ -133,27 +133,46 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def test_protocols_convergence():
+def router_json_cmp_exact_filter(router, cmd, expected):
+    output = router.vtysh_cmd(cmd)
+    logger.info("{}: {}\n{}".format(router.name, cmd, output))
+
+    json_output = json.loads(output)
+
+    # filter out tableVersion, version and nhVrfID
+    json_output.pop("tableVersion")
+    for rd, data in json_output["routes"]["routeDistinguishers"].items():
+        for prefix, attrs in data.items():
+            for attr in attrs:
+                if "nhVrfId" in attr:
+                    attr.pop("nhVrfId")
+                if "version" in attr:
+                    attr.pop("version")
+
+    return topotest.json_cmp(json_output, expected, exact=True)
+
+
+def test_bgp_no_retain():
     """
-    Assert that all protocols have converged
-    statuses as they depend on it.
+    Check bgp no retain route-target all on r1
     """
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     # Check IPv4 VPN routing tables on r1
-    logger.info("Checking IPv4 routes for convergence on r1")
-    router = tgen.gears['r1']
+    logger.info("Checking VPNv4 routes for convergence on r1")
+    router = tgen.gears["r1"]
     json_file = "{}/{}/ipv4_vpn_routes.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
         logger.info("skipping file {}".format(json_file))
-        assert 0, 'ipv4_vpn_routes.json file not found'
+        assert 0, "{} file not found".format(json_file)
         return
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp,
+        router_json_cmp_exact_filter,
         router,
         "show bgp ipv4 vpn json",
         expected,
@@ -162,23 +181,31 @@ def test_protocols_convergence():
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
-    # Check BGP IPv4 routing tables after unsetting no retain flag
-    logger.info("Checking BGP IPv4 routes for convergence on r2")
-    router = tgen.gears['r1']
-    router.vtysh_cmd("configure\nrouter bgp 65500\naddress-family ipv4 vpn\nbgp retain route-target all\n")
+
+def test_bgp_retain():
+    """
+    Apply and check bgp retain route-target all on r1
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Check IPv4 VPN routing tables on r1
-    logger.info("Checking IPv4 routes for convergence on r1")
-    router = tgen.gears['r1']
+    logger.info("Checking VPNv4 routes on r1 after bgp no retain")
+    router = tgen.gears["r1"]
+    router.vtysh_cmd(
+        "configure\nrouter bgp 65500\naddress-family ipv4 vpn\nbgp retain route-target all\n"
+    )
     json_file = "{}/{}/ipv4_vpn_routes_unfiltered.json".format(CWD, router.name)
     if not os.path.isfile(json_file):
         logger.info("skipping file {}".format(json_file))
-        assert 0, 'ipv4_vpn_routes_unfiltered.json file not found'
+        assert 0, "{} file not found".format(json_file)
         return
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp,
+        router_json_cmp_exact_filter,
         router,
         "show bgp ipv4 vpn json",
         expected,
@@ -186,6 +213,7 @@ def test_protocols_convergence():
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."

@@ -83,7 +83,6 @@ from lib.common_config import (
     apply_raw_config,
     run_frr_cmd,
     required_linux_kernel_version,
-    topo_daemons,
     verify_rib,
 )
 
@@ -152,7 +151,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel version should be >= 4.15")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -168,12 +167,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -695,10 +691,10 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     result = verify_rib(
         tgen, "ipv4", "f1", input_routes, protocol="static", expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "Route is still present \n Error {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: Routes should not be present in {} RIB \n "
+        "Found: {}".format(tc_name, "f1", result)
     )
 
     # Use scapy to send pre-defined packet from senser to receiver
@@ -744,10 +740,10 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
 
     step("Verify if b1 chosen as BSR in l1")
     result = verify_pim_bsr(tgen, topo, "l1", BSR_IP_1, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "b1 is not chosen as BSR in l1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: b1 should be chosen as BSR in {} \n "
+        "Found: {}".format(tc_name, "l1", result)
     )
 
     state_after = get_pim_interface_traffic(tgen, state_dict)
@@ -792,9 +788,8 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "Routes:[{}, {}] are still present \n Error {}".format(
-            tc_name, BSR1_ADDR, CRP, result
-        )
+        "Expected: Routes should not be present in {} RIB \n "
+        "Found: {}".format(tc_name, "f1", result)
     )
 
     step("Sending BSR after removing black-hole address for BSR and candidate RP")
@@ -919,9 +914,8 @@ def test_new_router_fwd_p0(request):
     result = verify_pim_bsr(tgen, topo, "l1", bsr_ip, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "BSR data is present after no-forward bsm also \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: BSR data should not be present after no-forward bsm \n "
+        "Found: {}".format(tc_name, "l1", result)
     )
 
     # unconfigure unicast bsm on f1-i1-eth2
@@ -1046,10 +1040,10 @@ def test_int_bsm_config_p1(request):
     result = verify_mroutes(
         tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "Mroutes are still present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (S, G) should be cleared from mroute table\n "
+        "Found: {}".format(tc_name, "i1", result)
     )
 
     # unconfigure bsm processing on f1 on  f1-i1-eth2
@@ -1070,10 +1064,10 @@ def test_int_bsm_config_p1(request):
     # Verify bsr state in i1
     step("Verify if b1 is not chosen as BSR in i1")
     result = verify_pim_bsr(tgen, topo, "i1", bsr_ip, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "b1 is chosen as BSR in i1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: b1 should not be chosen as BSR \n "
+        "Found: {}".format(tc_name, "i1", result)
     )
 
     # check if mroute still not installed because of rp not available
@@ -1083,7 +1077,8 @@ def test_int_bsm_config_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "mroute installed but rp not available \n Error: {}".format(tc_name, result)
+        "Expected: [{}]: mroute (S, G) should not be installed as RP is not available\n "
+        "Found: {}".format(tc_name, "i1", result)
     )
 
     # configure bsm processing on i1 on  f1-i1-eth2
@@ -1540,11 +1535,10 @@ def test_BSM_timeout_p0(request):
     result = verify_pim_grp_rp_source(
         tgen, topo, "f1", group, rp_source="BSR", expected=False
     )
-
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "bsr has not aged out in f1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: bsr should be aged out \n "
+        "Found: {}".format(tc_name, "f1", result)
     )
 
     # Verify RP mapping removed after hold timer expires
@@ -1571,9 +1565,8 @@ def test_BSM_timeout_p0(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "join state is up and join timer is running in l1 \n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     # Verify ip mroute is not installed
@@ -1581,10 +1574,10 @@ def test_BSM_timeout_p0(request):
     result = verify_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "mroute installed in l1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (S, G) should not be installed \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("clear  BSM database before moving to next case")
@@ -1721,10 +1714,10 @@ def test_iif_join_state_p0(request):
     result = verify_rib(
         tgen, "ipv4", "l1", input_dict, protocol="static", expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "Routes:{} are still present \n Error {}".format(
-        tc_name, rp_ip, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: Routes should not be present in {} BGP RIB \n "
+        "Found: {}".format(tc_name, "l1", result)
     )
 
     # Check RP unreachable
@@ -1746,10 +1739,10 @@ def test_iif_join_state_p0(request):
     result = verify_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "mroute installed in l1 \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (S, G) should not be installed \n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     # Add back route for RP to make it reachable

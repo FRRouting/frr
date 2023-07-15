@@ -225,6 +225,8 @@ DEFUN_NOSH (show_debugging_babel,
 
 	debug_babel_config_write(vty);
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

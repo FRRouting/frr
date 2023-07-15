@@ -1,0 +1,22 @@
+name: Mergifyio backport
+
+on: [issue_comment]
+
+jobs:
+  mergifyio_backport:
+    if: github.repository == 'frrouting/frr'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-ecosystem/action-regex-match@v2
+        id: regex-match
+        with:
+          text: ${{ github.event.comment.body }}
+          regex: '[Mm]ergifyio backport '
+
+      - uses: actions-ecosystem/action-add-labels@v1
+        if: ${{ steps.regex-match.outputs.match != '' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: backport

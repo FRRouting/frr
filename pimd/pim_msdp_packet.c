@@ -83,9 +83,17 @@ static void pim_msdp_pkt_sa_dump_one(struct stream *s)
 
 static void pim_msdp_pkt_sa_dump(struct stream *s)
 {
+	const size_t header_length = PIM_MSDP_SA_X_SIZE - PIM_MSDP_HEADER_SIZE;
+	size_t payload_length;
 	int entry_cnt;
 	int i;
 	struct in_addr rp; /* Last RP address associated with this SA */
+
+	if (header_length > STREAM_READABLE(s)) {
+		zlog_err("BUG MSDP SA bad header (readable %zu expected %zu)",
+			 STREAM_READABLE(s), header_length);
+		return;
+	}
 
 	entry_cnt = stream_getc(s);
 	rp.s_addr = stream_get_ipv4(s);
@@ -94,6 +102,13 @@ static void pim_msdp_pkt_sa_dump(struct stream *s)
 		char rp_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<rp?>", rp, rp_str, sizeof(rp_str));
 		zlog_debug("  entry_cnt %d rp %s", entry_cnt, rp_str);
+	}
+
+	payload_length = (size_t)entry_cnt * PIM_MSDP_SA_ONE_ENTRY_SIZE;
+	if (payload_length > STREAM_READABLE(s)) {
+		zlog_err("BUG MSDP SA bad length (readable %zu expected %zu)",
+			 STREAM_READABLE(s), payload_length);
+		return;
 	}
 
 	/* dump SAs */
@@ -113,6 +128,11 @@ static void pim_msdp_pkt_dump(struct pim_msdp_peer *mp, int type, int len,
 		   rx ? "rx" : "tx", type_str, len);
 
 	if (!s) {
+		return;
+	}
+
+	if (len < PIM_MSDP_HEADER_SIZE) {
+		zlog_err("invalid MSDP header length");
 		return;
 	}
 
@@ -711,6 +731,30 @@ void pim_msdp_read(struct thread *thread)
 			pim_msdp_pkt_rxed_with_fatal_error(mp);
 			return;
 		}
+
+		/*
+		 * Handle messages with longer than expected TLV size: resize
+		 * the stream to handle reading the whole message.
+		 *
+		 * RFC 3618 Section 12. 'Packet Formats':
+		 * > ... If an implementation receives a TLV whose length
+		 * > exceeds the maximum TLV length specified below, the TLV
+		 * > SHOULD be accepted. Any additional data, including possible
+		 * > next TLV's in the same message, SHOULD be ignored, and the
+		 * > MSDP session should not be reset. ...
+		 */
+		if (len > PIM_MSDP_SA_TLV_MAX_SIZE) {
+			/* Check if the current buffer is big enough. */
+			if (mp->ibuf->size < len) {
+				if (PIM_DEBUG_MSDP_PACKETS)
+					zlog_debug(
+						"MSDP peer %s sent TLV with unexpected large length (%d bytes)",
+						mp->key_str, len);
+
+				stream_resize_inplace(&mp->ibuf, len);
+			}
+		}
+
 		/* read complete TLV */
 		mp->packet_size = len;
 	}

@@ -111,6 +111,8 @@ static void vtysh_rl_callback(char *line_read)
 
 	if (!vtysh_loop_exited)
 		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+
+	free(line_read);
 }
 
 /* SIGTSTP handler.  This function care user's ^Z input. */

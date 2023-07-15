@@ -95,7 +95,7 @@ extern void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 						  struct ethaddr *rmac,
 						  bool use_json);
 extern void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				       vni_t vni, bool use_json);
+				       vni_t vni, bool use_json, bool detail);
 extern void zebra_vxlan_print_macs_all_vni(struct vty *vty,
 					   struct zebra_vrf *zvrf,
 					   bool print_dup,
@@ -224,6 +224,9 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 					  struct interface *br_if,
 					  struct ethaddr *macaddr,
 					  vlanid_t vid);
+
+extern void zebra_vxlan_set_accept_bgp_seq(bool set);
+extern bool zebra_vxlan_get_accept_bgp_seq(void);
 
 #ifdef __cplusplus
 }

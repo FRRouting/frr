@@ -261,8 +261,34 @@ zebra_privs_current_t zprivs_state_caps(void)
 	return ZPRIVS_LOWERED;
 }
 
+/** Release private cap state if allocated. */
+static void zprivs_state_free_caps(void)
+{
+	if (zprivs_state.syscaps_p) {
+		if (zprivs_state.syscaps_p->num)
+			XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p->caps);
+
+		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p);
+	}
+
+	if (zprivs_state.syscaps_i) {
+		if (zprivs_state.syscaps_i->num)
+			XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i->caps);
+
+		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i);
+	}
+
+	if (zprivs_state.caps) {
+		cap_free(zprivs_state.caps);
+		zprivs_state.caps = NULL;
+	}
+}
+
 static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 {
+	/* Release allocated zcaps if this function was called before. */
+	zprivs_state_free_caps();
+
 	zprivs_state.syscaps_p = zcaps2sys(zprivs->caps_p, zprivs->cap_num_p);
 	zprivs_state.syscaps_i = zcaps2sys(zprivs->caps_i, zprivs->cap_num_i);
 
@@ -362,18 +388,7 @@ static void zprivs_caps_terminate(void)
 		exit(1);
 	}
 
-	/* free up private state */
-	if (zprivs_state.syscaps_p && zprivs_state.syscaps_p->num) {
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p->caps);
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p);
-	}
-
-	if (zprivs_state.syscaps_i && zprivs_state.syscaps_i->num) {
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i->caps);
-		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_i);
-	}
-
-	cap_free(zprivs_state.caps);
+	zprivs_state_free_caps();
 }
 #else /* !HAVE_LCAPS */
 #error "no Linux capabilities, dazed and confused..."

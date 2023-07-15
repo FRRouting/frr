@@ -212,6 +212,36 @@ static const char *adj_level2string(int level)
 	return NULL; /* not reached */
 }
 
+static void isis_adj_route_switchover(struct isis_adjacency *adj)
+{
+	union g_addr ip = {};
+	ifindex_t ifindex;
+	unsigned int i;
+
+	if (!adj->circuit || !adj->circuit->interface)
+		return;
+
+	ifindex = adj->circuit->interface->ifindex;
+
+	for (i = 0; i < adj->ipv4_address_count; i++) {
+		ip.ipv4 = adj->ipv4_addresses[i];
+		isis_circuit_switchover_routes(adj->circuit, AF_INET, &ip,
+					       ifindex);
+	}
+
+	for (i = 0; i < adj->ll_ipv6_count; i++) {
+		ip.ipv6 = adj->ll_ipv6_addrs[i];
+		isis_circuit_switchover_routes(adj->circuit, AF_INET6, &ip,
+					       ifindex);
+	}
+
+	for (i = 0; i < adj->global_ipv6_count; i++) {
+		ip.ipv6 = adj->global_ipv6_addrs[i];
+		isis_circuit_switchover_routes(adj->circuit, AF_INET6, &ip,
+					       ifindex);
+	}
+}
+
 void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage)
@@ -297,6 +327,16 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 
 	if (new_state == old_state)
 		return;
+
+	if (old_state == ISIS_ADJ_UP &&
+	    !CHECK_FLAG(adj->circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z)) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"ISIS-Adj (%s): Starting fast-reroute on state change %d->%d: %s",
+				circuit->area->area_tag, old_state, new_state,
+				reason ? reason : "unspecified");
+		isis_adj_route_switchover(adj);
+	}
 
 	adj->adj_state = new_state;
 	send_hello_sched(circuit, adj->level, TRIGGERED_IIH_DELAY);

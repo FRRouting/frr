@@ -28,9 +28,7 @@
 
 #include "bfd.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bfdd/bfdd_vty_clippy.c"
-#endif
 
 /*
  * Commands help string definitions.
@@ -972,6 +970,8 @@ DEFUN_NOSH(show_debugging_bfd,
 		vty_out(vty, "  Zebra events debugging is on.\n");
 	if (bglobal.debug_network)
 		vty_out(vty, "  Network layer debugging is on.\n");
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }

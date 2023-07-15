@@ -144,7 +144,7 @@ def build_topo(tgen):
     ]
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         outputs[rname] = {}
-        for step in range(1, 9 + 1):
+        for step in range(1, 12 + 1):
             outputs[rname][step] = {}
             for file in files:
                 if step == 1:
@@ -188,6 +188,9 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
+        router.load_config(
+            TopoRouter.RD_BFD, os.path.join(CWD, "/dev/null".format(rname))
+        )
 
     tgen.start_router()
 
@@ -200,7 +203,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def router_compare_json_output(rname, command, reference):
+def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
@@ -210,7 +213,7 @@ def router_compare_json_output(rname, command, reference):
 
     # Run test function until we get an result. Wait at most 60 seconds.
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -737,6 +740,364 @@ def test_mpls_lib_step9():
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
             rname, "show mpls table json", outputs[rname][9]["show_mpls_table.ref"]
+        )
+
+
+#
+# Step 10
+#
+# Action(s):
+# - Setting spf-delay-ietf init-delay of 15s
+#
+# Expected changes:
+# - No routing table change
+# - At the end of test, SPF reacts to a failure in 15s
+#
+def test_rib_ipv4_step10():
+    logger.info("Test (step 10): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Setting spf-delay-ietf init-delay of 15s")
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 15000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"'
+    )
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", outputs[rname][10]["show_ip_route.ref"]
+        )
+
+
+def test_rib_ipv6_step10():
+    logger.info("Test (step 10): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][10]["show_ipv6_route.ref"],
+        )
+
+
+def test_mpls_lib_step10():
+    logger.info("Test (step 10): verify MPLS LIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", outputs[rname][10]["show_mpls_table.ref"]
+        )
+
+
+#
+# Step 11
+#
+# Action(s):
+# - shut the eth-rt5 interface on rt6
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt5
+#
+def test_rt6_step11():
+    logger.info(
+        "Test (step 11): Check IPv4/6 RIB and MPLS table after a LFA switchover"
+    )
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Shut a rt6 interface to rt5 from the switch side and check fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s8"].intfs[1])
+
+    rname = "rt6"
+    router_compare_json_output(
+        rname,
+        "show ip route isis json",
+        outputs[rname][11]["show_ip_route.ref"],
+        count=10,
+    )
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][11]["show_ipv6_route.ref"],
+        count=10,
+    )
+    router_compare_json_output(
+        rname,
+        "show mpls table json",
+        outputs[rname][11]["show_mpls_table.ref"],
+        count=10,
+    )
+
+
+#
+# Step 12
+#
+# Action(s): wait for the convergence and SPF computation on rt6
+#
+# Expected changes:
+# - convergence of IPv4/6 RIB and MPLS table
+#
+def test_rib_ipv4_step12():
+    logger.info("Test (step 12): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ip route isis json",
+            outputs[rname][12]["show_ip_route.ref"],
+        )
+
+
+def test_rib_ipv6_step12():
+    logger.info("Test (step 12): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][12]["show_ipv6_route.ref"],
+        )
+
+
+def test_mpls_lib_step12():
+    logger.info("Test (step 12): verify MPLS LIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show mpls table json",
+            outputs[rname][12]["show_mpls_table.ref"],
+        )
+
+
+#
+# Step 13
+#
+# Action(s):
+# - unshut the rt6 to rt5 interface
+# - Setup BFD
+#
+# Expected changes:
+# - All route tables go back to previous state situation
+# - At the end of test, next SPF is scheduled in approximatively 15s
+#
+def test_rib_ipv4_step13():
+    logger.info("Test (step 13): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Unsetting spf-delay-ietf init-delay of 15s")
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "router isis 1" -c "no spf-delay-ietf"')
+
+    logger.info(
+        "Unshut the rt6 interface to rt5 from the switch side and check fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set %s up" % tgen.net["s8"].intfs[1])
+
+    logger.info("Setup BFD on rt5 and rt6")
+    for rname in ["rt5", "rt6"]:
+        conf_file = os.path.join(CWD, "{}/bfdd.conf".format(rname))
+        tgen.net[rname].cmd("vtysh -f {}".format(conf_file))
+
+    expect = (
+        '[{"multihop":false,"peer":"10.0.8.5","interface":"eth-rt5","status":"up"}]'
+    )
+    router_compare_json_output("rt6", "show bfd peers json", expect)
+
+    # Unset link detection. We want zebra to consider linkdow as operationaly up
+    # in order that BFD triggers LFA instead of the interface down
+
+    # reset spf-interval
+    logger.info("Set spf-interval to 15s")
+    tgen.net["rt6"].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 15000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"'
+    )
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", outputs[rname][10]["show_ip_route.ref"]
+        )
+
+    logger.info("Set ISIS BFD")
+    tgen.net["rt5"].cmd('vtysh -c "conf t" -c "int eth-rt6" -c "isis bfd"')
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "int eth-rt5" -c "isis bfd"')
+
+
+def test_rib_ipv6_step13():
+    logger.info("Test (step 13): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][10]["show_ipv6_route.ref"],
+        )
+
+
+def test_mpls_lib_step13():
+    logger.info("Test (step 13): verify MPLS LIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", outputs[rname][10]["show_mpls_table.ref"]
+        )
+
+
+#
+# Step 14
+#
+# Action(s):
+# - drop traffic between rt5 and rt6 by shutting down the bridge between
+#   the routers. Interfaces on rt5 and rt6 stay up.
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt5
+#
+def test_rt6_step14():
+    logger.info("Test (step 14): verify IPv4/6 RIB and MPLS table")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Drop traffic between rt5 and rt6")
+    tgen.net.cmd_raises("ip link set s8 down")
+
+    rname = "rt6"
+
+    expect = (
+        '[{"multihop":false,"peer":"10.0.8.5","interface":"eth-rt5","status":"down"}]'
+    )
+    router_compare_json_output(
+        rname,
+        "show bfd peers json",
+        expect,
+        count=40,
+        wait=0.5,
+    )
+
+    router_compare_json_output(
+        rname,
+        "show ip route isis json",
+        outputs[rname][11]["show_ip_route.ref"],
+        count=10,
+    )
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][11]["show_ipv6_route.ref"],
+        count=10,
+    )
+    router_compare_json_output(
+        rname,
+        "show mpls table json",
+        outputs[rname][11]["show_mpls_table.ref"],
+        count=10,
+    )
+
+
+#
+# Step 15
+#
+# Action(s): wait for the convergence and SPF computation on rt6
+#
+# Expected changes:
+# - convergence of IPv4/6 RIB and MPLS table
+#
+def test_rib_ipv4_step15():
+    logger.info("Test (step 15): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ip route isis json",
+            outputs[rname][12]["show_ip_route.ref"],
+        )
+
+
+def test_rib_ipv6_step15():
+    logger.info("Test (step 15): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][12]["show_ipv6_route.ref"],
+        )
+
+
+def test_mpls_lib_step15():
+    logger.info("Test (step 15): verify MPLS LIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show mpls table json",
+            outputs[rname][12]["show_mpls_table.ref"],
         )
 
 

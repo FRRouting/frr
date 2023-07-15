@@ -178,7 +178,7 @@ def route_install_helper(iter):
 
     # Table of defaults, used for timeout values and 'expected' objects
     scale_defaults = dict(
-        zip(scale_keys, [None, None, 7, 30, expected_installed, expected_removed])
+        zip(scale_keys, [None, None, 10, 50, expected_installed, expected_removed])
     )
 
     # List of params for each step in the test; note extra time given

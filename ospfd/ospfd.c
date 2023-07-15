@@ -851,6 +851,10 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_route_delete(ospf, ospf->new_table);
 		ospf_route_table_free(ospf->new_table);
 	}
+	if (ospf->oall_rtrs)
+		ospf_rtrs_free(ospf->oall_rtrs);
+	if (ospf->all_rtrs)
+		ospf_rtrs_free(ospf->all_rtrs);
 	if (ospf->old_rtrs)
 		ospf_rtrs_free(ospf->old_rtrs);
 	if (ospf->new_rtrs)

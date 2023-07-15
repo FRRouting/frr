@@ -746,6 +746,7 @@ static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 	}
 }
 
+PRINTFRR(6, 7)
 static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		     struct sockaddr_any *local, ifindex_t ifindex,
 		     vrf_id_t vrfid, const char *fmt, ...)
@@ -844,7 +845,7 @@ void bfd_recv_cb(struct thread *t)
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "too small (%ld bytes)", mlen);
+			 "too small (%zd bytes)", mlen);
 		return;
 	}
 

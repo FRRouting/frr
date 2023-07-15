@@ -41,7 +41,6 @@ DECLARE_MTYPE(WORK_QUEUE);
 /* action value, for use by item processor and item error handlers */
 typedef enum {
 	WQ_SUCCESS = 0,
-	WQ_ERROR,	 /* Error, run error handler if provided */
 	WQ_RETRY_NOW,     /* retry immediately */
 	WQ_RETRY_LATER,   /* retry later, cease processing work queue */
 	WQ_REQUEUE,       /* requeue item, continue processing work queue */
@@ -79,10 +78,6 @@ struct work_queue {
 		 * Second argument is the item data
 		 */
 		wq_item_status (*workfunc)(struct work_queue *, void *);
-
-		/* error handling function, optional */
-		void (*errorfunc)(struct work_queue *,
-				  struct work_queue_item *);
 
 		/* callback to delete user specific item data */
 		void (*del_item_data)(struct work_queue *, void *);

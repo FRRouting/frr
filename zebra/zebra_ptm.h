@@ -63,14 +63,12 @@ struct zebra_ptm_cb {
 #define ZEBRA_IF_PTM_ENABLE_ON     1
 #define ZEBRA_IF_PTM_ENABLE_UNSPEC 2
 
-#define IS_BFD_ENABLED_PROTOCOL(protocol) ( \
-	(protocol) == ZEBRA_ROUTE_BGP || \
-	(protocol) == ZEBRA_ROUTE_OSPF || \
-	(protocol) == ZEBRA_ROUTE_OSPF6 || \
-	(protocol) == ZEBRA_ROUTE_ISIS || \
-	(protocol) == ZEBRA_ROUTE_PIM || \
-	(protocol) == ZEBRA_ROUTE_OPENFABRIC \
-)
+#define IS_BFD_ENABLED_PROTOCOL(protocol)                                      \
+	((protocol) == ZEBRA_ROUTE_BGP || (protocol) == ZEBRA_ROUTE_OSPF ||    \
+	 (protocol) == ZEBRA_ROUTE_OSPF6 || (protocol) == ZEBRA_ROUTE_ISIS ||  \
+	 (protocol) == ZEBRA_ROUTE_PIM ||                                      \
+	 (protocol) == ZEBRA_ROUTE_OPENFABRIC ||                               \
+	 (protocol) == ZEBRA_ROUTE_STATIC)
 
 void zebra_ptm_init(void);
 void zebra_ptm_finish(void);

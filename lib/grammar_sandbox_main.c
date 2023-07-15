@@ -49,8 +49,8 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	cmd_init(1);
-	host.name = strdup("test");
-	host.domainname = strdup("testdomainname");
+	cmd_hostname_set("test");
+	cmd_domainname_set("testdomainname");
 
 	vty_init(master, true);
 	lib_cmd_init();

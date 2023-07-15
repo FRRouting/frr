@@ -175,7 +175,7 @@ controller and obtain those by means of the PCEP protocol.
 .. image:: images/pathd_initiated_multi.png
 
 Starting
-=============
+========
 
 Default configuration file for *pathd* is :file:`pathd.conf`.  The typical
 location of :file:`pathd.conf` is |INSTALL_PREFIX_ETC|/pathd.conf.
@@ -480,6 +480,12 @@ Configuration Commands
 
    Specify a peer and its precedence in a PCC definition.
 
+Debugging
+---------
+
+.. clicmd:: debug pathd policy
+
+   Enable or disable Pathd policy information.
 
 Introspection Commands
 ----------------------

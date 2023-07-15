@@ -30,6 +30,7 @@
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_tc.h"
 #include "zebra/zebra_errors.h"
 
 /* Kernel routing table read up by sysctl function. */
@@ -105,6 +106,10 @@ void neigh_read_specific_ip(const struct ipaddr *ip, struct interface *vlan_if)
 }
 
 void kernel_read_pbr_rules(struct zebra_ns *zns)
+{
+}
+
+void kernel_read_tc_qdisc(struct zebra_ns *zns)
 {
 }
 

@@ -4,11 +4,6 @@
 
 if RIPNGD
 sbin_PROGRAMS += ripngd/ripngd
-vtysh_scan += \
-	ripngd/ripng_cli.c \
-	ripngd/ripng_debug.c \
-	ripngd/ripngd.c \
-	# end
 vtysh_daemons += ripngd
 man8 += $(MANBUILD)/frr-ripngd.8
 endif

@@ -225,10 +225,8 @@ static struct call_back {
 } callback;
 
 
-DEFUN_HIDDEN (start_config,
-	      start_config_cmd,
-	      "XFRR_start_configuration",
-	      "The Beginning of Configuration\n")
+DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
+	   "The Beginning of Configuration\n")
 {
 	callback.readin_time = monotime(NULL);
 
@@ -240,10 +238,8 @@ DEFUN_HIDDEN (start_config,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (end_config,
-	      end_config_cmd,
-	      "XFRR_end_configuration",
-	      "The End of Configuration\n")
+DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
+	   "The End of Configuration\n")
 {
 	time_t readin_time;
 	char readin_time_str[MONOTIME_STRLEN];

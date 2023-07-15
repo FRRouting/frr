@@ -899,7 +899,6 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
 		len = zfpm_netlink_encode_route(cmd, dest, re, in_buf,
 						in_buf_len);
 		assert(fpm_msg_align(len) == len);
-		*msg_type = FPM_MSG_TYPE_NETLINK;
 #endif /* HAVE_NETLINK */
 		break;
 
@@ -1841,12 +1840,15 @@ DEFUN (clear_zebra_fpm_stats,
 /*
  * update fpm connection information
  */
-DEFUN ( fpm_remote_ip,
+DEFUN (fpm_remote_ip,
        fpm_remote_ip_cmd,
-        "fpm connection ip A.B.C.D port (1-65535)",
-        "fpm connection remote ip and port\n"
-        "Remote fpm server ip A.B.C.D\n"
-        "Enter ip ")
+       "fpm connection ip A.B.C.D port (1-65535)",
+       "Forwarding Path Manager\n"
+       "Configure FPM connection\n"
+       "Connect to IPv4 address\n"
+       "Connect to IPv4 address\n"
+       "TCP port number\n"
+       "TCP port number\n")
 {
 
 	in_addr_t fpm_server;
@@ -1867,13 +1869,16 @@ DEFUN ( fpm_remote_ip,
 	return CMD_SUCCESS;
 }
 
-DEFUN ( no_fpm_remote_ip,
+DEFUN (no_fpm_remote_ip,
        no_fpm_remote_ip_cmd,
-        "no fpm connection ip A.B.C.D port (1-65535)",
-        "fpm connection remote ip and port\n"
-        "Connection\n"
-        "Remote fpm server ip A.B.C.D\n"
-        "Enter ip ")
+       "no fpm connection ip A.B.C.D port (1-65535)",
+       NO_STR
+       "Forwarding Path Manager\n"
+       "Remove configured FPM connection\n"
+       "Connect to IPv4 address\n"
+       "Connect to IPv4 address\n"
+       "TCP port number\n"
+       "TCP port number\n")
 {
 	if (zfpm_g->fpm_server != inet_addr(argv[4]->arg)
 	    || zfpm_g->fpm_port != atoi(argv[6]->arg))

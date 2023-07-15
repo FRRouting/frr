@@ -207,6 +207,25 @@ int bgp_md5_set(struct peer *peer)
 	return bgp_md5_set_password(peer, peer->password);
 }
 
+static void bgp_update_setsockopt_tcp_keepalive(struct bgp *bgp, int fd)
+{
+	if (!bgp)
+		return;
+	if (bgp->tcp_keepalive_idle != 0) {
+		int ret;
+
+		ret = setsockopt_tcp_keepalive(fd, bgp->tcp_keepalive_idle,
+					       bgp->tcp_keepalive_intvl,
+					       bgp->tcp_keepalive_probes);
+		if (ret < 0)
+			zlog_err(
+				"Can't set TCP keepalive on socket %d, idle %u intvl %u probes %u",
+				fd, bgp->tcp_keepalive_idle,
+				bgp->tcp_keepalive_intvl,
+				bgp->tcp_keepalive_probes);
+	}
+}
+
 int bgp_md5_unset(struct peer *peer)
 {
 	/* Unset the password from listen socket. */
@@ -415,6 +434,9 @@ static void bgp_accept(struct thread *thread)
 
 	bgp_socket_set_buffer_size(bgp_sock);
 
+	/* Set TCP keepalive when TCP keepalive is enabled */
+	bgp_update_setsockopt_tcp_keepalive(bgp, bgp_sock);
+
 	/* Check remote IP address */
 	peer1 = peer_lookup(bgp, &su);
 
@@ -499,17 +521,25 @@ static void bgp_accept(struct thread *thread)
 	 * is shutdown.
 	 */
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
-				peer1->host);
+		if (bgp_debug_neighbor_events(peer1)) {
+			if (peer1->shut_during_cfg)
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to configuration being currently read in",
+					peer1->host);
+			else
+				zlog_debug(
+					"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
+					peer1->host);
+		}
 		close(bgp_sock);
 		return;
 	}
 
 	if (bgp_debug_neighbor_events(peer1))
-		zlog_debug("[Event] BGP connection from host %s fd %d",
-			   inet_sutop(&su, buf), bgp_sock);
+		zlog_debug(
+			"[Event] connection from %s fd %d, active peer status %d fd %d",
+			inet_sutop(&su, buf), bgp_sock, peer1->status,
+			peer1->fd);
 
 	if (peer1->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
@@ -529,9 +559,7 @@ static void bgp_accept(struct thread *thread)
 				peer1->host);
 
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
-			   peer1->as, peer1->as_type, NULL);
-	hash_release(peer->bgp->peerhash, peer);
-	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+			   peer1->as, peer1->as_type, NULL, false);
 
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
@@ -547,8 +575,6 @@ static void bgp_accept(struct thread *thread)
 			peer_nsf_stop(peer);
 		}
 	}
-
-	UNSET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	peer->doppelganger = peer1;
 	peer1->doppelganger = peer;
@@ -718,12 +744,16 @@ int bgp_connect(struct peer *peer)
 
 	bgp_socket_set_buffer_size(peer->fd);
 
+	/* Set TCP keepalive when TCP keepalive is enabled */
+	bgp_update_setsockopt_tcp_keepalive(peer->bgp, peer->fd);
+
 	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
+
 		return -1;
 	}
 

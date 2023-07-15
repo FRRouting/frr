@@ -449,12 +449,6 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 		return OSPF_API_ILLEGALLSATYPE;
 	}
 
-	if ((size_t)opaquelen > sizeof(buf) - sizeof(struct lsa_header)) {
-		fprintf(stderr, "opaquelen(%d) is larger than buf size %zu\n",
-			opaquelen, sizeof(buf));
-		return OSPF_API_NOMEMORY;
-	}
-
 	/* Make a new LSA from parameters */
 	lsah = (struct lsa_header *)buf;
 	lsah->ls_age = 0;

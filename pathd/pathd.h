@@ -43,6 +43,10 @@ enum srte_protocol_origin {
 	SRTE_ORIGIN_LOCAL = 3,
 };
 
+extern struct debug path_policy_debug;
+
+#define PATH_POLICY_DEBUG_BASIC 0x01
+
 enum srte_policy_status {
 	SRTE_POLICY_STATUS_UNKNOWN = 0,
 	SRTE_POLICY_STATUS_DOWN = 1,
@@ -326,6 +330,8 @@ struct srte_candidate {
 RB_HEAD(srte_candidate_head, srte_candidate);
 RB_PROTOTYPE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
 
+#define ENDPOINT_STR_LENGTH IPADDR_STRING_SIZE
+
 struct srte_policy {
 	RB_ENTRY(srte_policy) entry;
 
@@ -444,6 +450,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status);
 void srte_candidate_unset_segment_list(const char *originator, bool force);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 void pathd_shutdown(void);
+void path_policy_show_debugging(struct vty *vty);
 
 /* path_cli.c */
 void path_cli_init(void);

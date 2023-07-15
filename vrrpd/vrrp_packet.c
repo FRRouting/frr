@@ -71,7 +71,7 @@ static const char *const vrrp_packet_names[16] = {
  *    VRRP checksum in network byte order.
  */
 static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
-				  struct ipaddr *src)
+				  struct ipaddr *src, bool ipv4_ph)
 {
 	uint16_t chksum;
 	bool v6 = (src->ipa_type == IPADDR_V6);
@@ -89,13 +89,16 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 		ph.next_hdr = IPPROTO_VRRP;
 		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
 	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 3)) {
-		struct ipv4_ph ph = {};
+		if (ipv4_ph) {
+			struct ipv4_ph ph = {};
 
-		ph.src = src->ipaddr_v4;
-		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
-		ph.proto = IPPROTO_VRRP;
-		ph.len = htons(pktsize);
-		chksum = in_cksum_with_ph4(&ph, pkt, pktsize);
+			ph.src = src->ipaddr_v4;
+			inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
+			ph.proto = IPPROTO_VRRP;
+			ph.len = htons(pktsize);
+			chksum = in_cksum_with_ph4(&ph, pkt, pktsize);
+		} else
+			chksum = in_cksum(pkt, pktsize);
 	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 2)) {
 		chksum = in_cksum(pkt, pktsize);
 	} else {
@@ -110,7 +113,7 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 			     uint8_t version, uint8_t vrid, uint8_t prio,
 			     uint16_t max_adver_int, uint8_t numip,
-			     struct ipaddr **ips)
+			     struct ipaddr **ips, bool ipv4_ph)
 {
 	bool v6 = false;
 	size_t addrsz = 0;
@@ -147,7 +150,7 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 		aptr += addrsz;
 	}
 
-	(*pkt)->hdr.chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
+	(*pkt)->hdr.chksum = vrrp_pkt_checksum(*pkt, pktsize, src, ipv4_ph);
 
 	return pktsize;
 }
@@ -188,10 +191,10 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
 	return rs;
 }
 
-ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
-				size_t read, struct ipaddr *src,
-				struct vrrp_pkt **pkt, char *errmsg,
-				size_t errmsg_len)
+ssize_t vrrp_pkt_parse_datagram(int family, int version, bool ipv4_ph,
+				struct msghdr *m, size_t read,
+				struct ipaddr *src, struct vrrp_pkt **pkt,
+				char *errmsg, size_t errmsg_len)
 {
 	/* Source (MAC & IP), Dest (MAC & IP) TTL validation done by kernel */
 	size_t addrsz = (family == AF_INET) ? sizeof(struct in_addr)
@@ -289,7 +292,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	VRRP_PKT_VCHECK(pktver == version, "Bad version %u", pktver);
 
 	/* Checksum check */
-	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
+	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src, ipv4_ph);
 
 	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
 			"Bad VRRP checksum %hx; should be %hx",

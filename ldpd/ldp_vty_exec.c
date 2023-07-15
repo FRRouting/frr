@@ -1472,10 +1472,6 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
 		json_pw = json_object_new_object();
 		json_object_string_addf(json_pw, "peerId", "%pI4", &pw->lsr_id);
 		json_object_int_add(json_pw, "vcId", pw->pwid);
-#if CONFDATE > 20230131
-CPP_NOTICE("Remove JSON object commands with keys starting with capital")
-#endif
-		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
 		json_object_string_add(json_pw, "vpnName", pw->l2vpn_name);
 		if (pw->status == PW_FORWARDING)
 			json_object_string_add(json_pw, "status", "up");

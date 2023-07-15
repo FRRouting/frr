@@ -293,5 +293,9 @@ static ssize_t printfrr_va(struct fbuf *buf, struct printfrr_eargs *ea,
 	 * when allocating a larger buffer in asnprintfrr()
 	 */
 	va_copy(ap, *vaf->va);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+	/* can't format check this */
 	return vbprintfrr(buf, vaf->fmt, ap);
+#pragma GCC diagnostic pop
 }

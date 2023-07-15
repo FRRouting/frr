@@ -1081,8 +1081,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	zif->link_ifindex = link_ifindex;
 
 	if (desc) {
-		XFREE(MTYPE_TMP, zif->desc);
-		zif->desc = XSTRDUP(MTYPE_TMP, desc);
+		XFREE(MTYPE_ZIF_DESC, zif->desc);
+		zif->desc = XSTRDUP(MTYPE_ZIF_DESC, desc);
 	}
 
 	/* Hardware type and address. */
@@ -2152,9 +2152,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		zif = ifp->info;
 		if (zif) {
-			XFREE(MTYPE_TMP, zif->desc);
+			XFREE(MTYPE_ZIF_DESC, zif->desc);
 			if (desc)
-				zif->desc = XSTRDUP(MTYPE_TMP, desc);
+				zif->desc = XSTRDUP(MTYPE_ZIF_DESC, desc);
 		}
 	} else {
 		/* Delete interface notification from kernel */

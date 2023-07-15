@@ -243,7 +243,7 @@ def test_ospf6_default_route():
             "show ipv6 route json",
             {route: [{"metric": metric}]},
         )
-        _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = '"{}" convergence failure'.format(router)
         assert result is None, assertmsg
 

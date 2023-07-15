@@ -829,10 +829,11 @@ def test_RT_verification_auto_p0(request):
         }
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-        logger.info("Expected Behavior: {}".format(result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "d2", result)
+        )
 
     step(
         "Revert back to original VNI number for all 3 VRFs on Edge-1 "
@@ -965,12 +966,11 @@ def test_RT_verification_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, "d2", input_routes_1, rt="auto", rt_peer="e1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Malfaromed Auto-RT value accepted: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Malformed Auto-RT value should not be accepted in {} \n "
+            "Found: {}".format(tc_name, "d2", result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step("Configure VNI number more than boundary limit (16777215)")
 
@@ -1000,12 +1000,11 @@ def test_RT_verification_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, "d2", input_routes_1, rt="auto", rt_peer="e1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Malfaromed Auto-RT value accepted: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Malformed Auto-RT value should not be accepted in {} \n "
+            "Found: {}".format(tc_name, "d2", result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step("Un-configure VNI number more than boundary limit (16777215)")
 

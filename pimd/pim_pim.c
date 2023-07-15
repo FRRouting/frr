@@ -302,7 +302,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_JOIN_PRUNE:
-		neigh = pim_neighbor_find(ifp, sg.src);
+		neigh = pim_neighbor_find(ifp, sg.src, false);
 		if (!neigh) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
@@ -317,7 +317,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					  pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_ASSERT:
-		neigh = pim_neighbor_find(ifp, sg.src);
+		neigh = pim_neighbor_find(ifp, sg.src, false);
 		if (!neigh) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(

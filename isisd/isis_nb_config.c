@@ -336,9 +336,9 @@ int isis_instance_attached_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/overload
+ * XPath: /frr-isisd:isis/instance/overload/enabled
  */
-int isis_instance_overload_modify(struct nb_cb_modify_args *args)
+int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
 	bool overload;
@@ -348,7 +348,27 @@ int isis_instance_overload_modify(struct nb_cb_modify_args *args)
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	overload = yang_dnode_get_bool(args->dnode, NULL);
+	area->overload_configured = overload;
+
 	isis_area_overload_bit_set(area, overload);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/overload/on-startup
+ */
+int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+	uint32_t overload_time;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	overload_time = yang_dnode_get_uint32(args->dnode, NULL);
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	isis_area_overload_on_startup_set(area, overload_time);
 
 	return NB_OK;
 }
