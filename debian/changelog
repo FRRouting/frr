@@ -1,6 +1,7 @@
 frr (8.5.2-1) UNRELEASED; urgency=medium
 
   * new upstream release FRR 8.5.2
+  * cleaned up outdated debian/README files
 
  -- David Lamparter <equinox-debian@diac24.net>  Sat, 15 Jul 2023 08:33:59 -0700
 
