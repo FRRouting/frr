@@ -1,3 +1,12 @@
+General Housekeeping
+====================
+
+The presence of this message means this package / tarball / branch / ... was
+pulled from FRR's debian/bookworm stable maintenance branch.  This branch
+was created on 2023-07-15 and receives updates to FRR 8.4.x as necessary and
+appropriate for Debian stable, until Trixie becomes the next Debian stable.
+
+
 * SAFETY MEASURES:
 ==================
 
