@@ -629,6 +629,11 @@ uint mgmt_fe_client_session_count(struct mgmt_fe_client *client)
 	return mgmt_sessions_count(&client->sessions);
 }
 
+bool mgmt_fe_client_current_msg_short_circuit(struct mgmt_fe_client *client)
+{
+	return client->client.conn.is_short_circuit;
+}
+
 /*
  * Create a new Session for a Frontend Client connection.
  */
