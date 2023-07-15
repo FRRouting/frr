@@ -298,49 +298,53 @@ def check_for_memleaks():
 
 
 def check_for_core_dumps():
-    dumps = []
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
-    latest = []
+    if not tgen:
+        return
 
-    if tgen is not None:
-        logdir = tgen.logdir
-        cores = glob.glob(os.path.join(logdir, "*/*.dmp"))
+    if not hasattr(tgen, "existing_core_files"):
+        tgen.existing_core_files = set()
+    existing = tgen.existing_core_files
 
-    if cores:
-        logger.error("Cores found:\n\t%s", "\n\t".join(cores))
-        pytest.fail("Core files found")
+    cores = glob.glob(os.path.join(tgen.logdir, "*/*.dmp"))
+    latest = {x for x in cores if x not in existing}
+    if latest:
+        existing |= latest
+        tgen.existing_core_files = existing
+
+        emsg = "New core[s] found: " + ", ".join(latest)
+        logger.error(emsg)
+        pytest.fail(emsg)
 
 
 def check_for_backtraces():
-    backtraces = []
     tgen = get_topogen()  # pylint: disable=redefined-outer-name
-    latest = []
-    existing = []
-    if tgen is not None:
-        logdir = tgen.logdir
-        if hasattr(tgen, "backtraces_existing_files"):
-            existing = tgen.backtraces_existing_files
-        latest = glob.glob(os.path.join(logdir, "*/*.log"))
+    if not tgen:
+        return
 
-    daemons = []
+    if not hasattr(tgen, "existing_backtrace_files"):
+        tgen.existing_backtrace_files = {}
+    existing = tgen.existing_backtrace_files
+
+    latest = glob.glob(os.path.join(tgen.logdir, "*/*.log"))
+    backtraces = []
     for vfile in latest:
-        if vfile in existing:
-            continue
         with open(vfile, encoding="ascii") as vf:
             vfcontent = vf.read()
-            backtrace = vfcontent.count("Backtrace:")
-            if backtrace:
-                existing.append(vfile)  # have backtrace don't check again
-                emsg = "Backtrace found in {}, failing test".format(vfile)
-                backtraces.append(emsg)
-
-    if tgen is not None:
-        tgen.backtrace_existing_files = existing
+            btcount = vfcontent.count("Backtrace:")
+        if not btcount:
+            continue
+        if vfile not in existing:
+            existing[vfile] = 0
+        if btcount == existing[vfile]:
+            continue
+        existing[vfile] = btcount
+        backtraces.append(vfile)
 
     if backtraces:
-        logger.error("Backtraces found in test suite, erroring")
-        logger.error(backtraces)
-        pytest.fail("Backtraces found")
+        emsg = "New backtraces found in: " + ", ".join(backtraces)
+        logger.error(emsg)
+        pytest.fail(emsg)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -366,8 +370,6 @@ def module_check_memtest(request):
     if request.config.option.memleaks:
         if get_topogen() is not None:
             check_for_memleaks()
-    check_for_backtraces()
-    check_for_core_dumps()
 
 
 #
@@ -397,9 +399,13 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     # Let the default pytest_runtest_call execute the test function
     yield
 
+    check_for_backtraces()
+    check_for_core_dumps()
+
     # Check for leaks if requested
     if item.config.option.valgrind_memleaks:
         check_for_valgrind_memleaks()
+
     if item.config.option.memleaks:
         check_for_memleaks()
 
