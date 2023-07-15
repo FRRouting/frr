@@ -65,6 +65,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_rpki.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_bfd.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -124,6 +125,7 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 #define SOFT_RECONFIG_TASK_MAX_PREFIX 25000
 
 static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo);
+static void bgp_gr_start_tier2_timer_if_required(struct bgp *bgp, afi_t afi, safi_t safi);
 
 static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 						   char *buf, size_t len)
@@ -484,11 +486,15 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 			/* If the peer is graceful restart capable and peer is
 			 * restarting mode, set the flag BGP_NODE_SELECT_DEFER
 			 */
+
+			/*
+			 * If we haven't recieved EORs from all the multihop
+			 * peers then defer bestpath calculation
+			 */
 			peer = old_pi->peer;
-			if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
-			    && BGP_PEER_RESTARTING_MODE(peer)
-			    && (old_pi
-				&& old_pi->sub_type == BGP_ROUTE_NORMAL)) {
+			if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
+			    BGP_PEER_RESTARTING_MODE(peer) &&
+			    (old_pi && old_pi->sub_type == BGP_ROUTE_NORMAL)) {
 				set_flag = true;
 			}
 		}
@@ -500,7 +506,8 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 	 * is active
 	 */
 	if (set_flag && table) {
-		if (bgp && (bgp->gr_info[afi][safi].t_select_deferral)) {
+		if (bgp && (bgp->gr_info[afi][safi].t_select_deferral ||
+			    bgp->gr_info[afi][safi].t_select_deferral_tier2)) {
 			if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
 				bgp->gr_info[afi][safi].gr_deferred++;
 			SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
@@ -4162,19 +4169,37 @@ void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	bool route_sync_pending = false;
 
+	/*
+	 * Check if tier2 timer needs to be started if this
+	 * afi-safi is enabled for multihop peer
+	 */
+	bgp_gr_start_tier2_timer_if_required(bgp, afi, safi);
+
 	bgp_send_delayed_eor(bgp);
+
+
 	/* Send route processing complete message to RIB */
-	bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+	if (!bgp->gr_info[afi][safi].route_sync_tier2 && BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi)) {
+		bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+		bgp->gr_info[afi][safi].route_sync_tier2 = true;
+	}
+
 	bgp->gr_info[afi][safi].route_sync = true;
 
-	/* If this instance is all done, check for GR completion overall */
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (bgp->gr_info[afi][safi].af_enabled && !bgp->gr_info[afi][safi].route_sync) {
+	/*
+	 * If this instance is all done,
+	 * check for GR completion overall
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (bgp->gr_info[afi][safi].af_enabled &&
+		    ((!bgp->gr_multihop_peer_exists && !bgp->gr_info[afi][safi].route_sync) ||
+		     (bgp->gr_multihop_peer_exists &&
+		      (!bgp->gr_info[afi][safi].route_sync ||
+		       !bgp->gr_info[afi][safi].route_sync_tier2)))) {
 			route_sync_pending = true;
 			break;
 		}
 	}
-
 	if (!route_sync_pending) {
 		bgp->gr_route_sync_pending = false;
 		bgp_update_gr_completion();
@@ -4254,6 +4279,57 @@ void bgp_dest_decrement_gr_fib_install_pending_count(struct bgp_dest *dest)
 	}
 }
 
+/*
+ * If multihop peer is configured for this AFI SAFI and if
+ * tier 2 timer has not been started yet, then this function
+ * will start it.
+ */
+static void bgp_gr_start_tier2_timer_if_required(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer = NULL;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Checking if tier 2 timer needs to be started for %s",
+			   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+
+	/*
+	 * If there's no multihop peer in this VRF or if the
+	 * tier2 timer has been started for this afi-safi then
+	 * there's nothing to do.
+	 */
+	if (!bgp->gr_multihop_peer_exists || bgp->gr_info[afi][safi].select_defer_tier2_required)
+		return;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (!PEER_IS_MULTIHOP(peer))
+			continue;
+
+		if ((!peer->afc[afi][safi]) || !CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+			continue;
+
+		/*
+		 * Multihop peer has this GR AFI SAFI enabled. If
+		 * all the directly connected peers with this afi-safi
+		 * enabled, did not come up, then tier1 timer will
+		 * expire.
+		 *
+		 * But tier2 GR timer is started only after all the
+		 * directly connected peers come up.
+		 * So in case where all directly connected peers with
+		 * this afi-safi enabled did not come up, we did not
+		 * start tier2 GR timer even though multihop peer exists and
+		 * has this afi-safi enabled.
+		 *
+		 * So start the tier2 timer here.
+		 */
+		if (bgp->gr_info[afi][safi].select_defer_over)
+			bgp_start_tier2_deferral_timer(bgp, afi, safi);
+	}
+}
+
 /* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
 void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 {
@@ -4274,6 +4350,10 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 			   get_afi_safi_str(afi, safi, false),
 			   bgp->gr_info[afi][safi].gr_deferred);
 	}
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Started doing BGP deferred path selection for %s",
+			   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
 
 	/* Process the route list */
 	for (dest = bgp_table_top(bgp->rib[afi][safi]);
@@ -4296,28 +4376,34 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 		dest = NULL;
 	}
 
-	/* Send EOR message when all routes are processed */
+	/*
+	 * Send EOR message when all routes are processed
+	 * and if select deferral timer for tier 2 peers is
+	 * not running or has expired.
+	 */
 	if (!bgp->gr_info[afi][safi].gr_deferred) {
 		/* t_select_deferral will be NULL when either gr_route_fib_install_pending_cnt is 0
 		 * or deferral timer for fib install expires
 		 */
 		if (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].t_select_deferral)
 			bgp_process_gr_deferral_complete(bgp, afi, safi);
-		return;
+	} else {
+		/*
+		 * Check if there are routes to be processed
+		 */
+		thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
+
+		thread_info->afi = afi;
+		thread_info->safi = safi;
+		thread_info->bgp = bgp;
+
+		/*
+		 * If there are more routes to be processed, start the
+		 * selection timer
+		 */
+		event_add_timer(bm->master, bgp_route_select_timer_expire, thread_info,
+				BGP_ROUTE_SELECT_DELAY, &bgp->gr_info[afi][safi].t_route_select);
 	}
-
-	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
-
-	thread_info->afi = afi;
-	thread_info->safi = safi;
-	thread_info->bgp = bgp;
-
-	/* If there are more routes to be processed, start the
-	 * selection timer
-	 */
-	event_add_timer(bm->master, bgp_route_select_timer_expire, thread_info,
-			BGP_ROUTE_SELECT_DELAY,
-			&bgp->gr_info[afi][safi].t_route_select);
 }
 
 static const char *subqueue2str(enum meta_queue_indexes index)

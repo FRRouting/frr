@@ -3657,9 +3657,13 @@ peer_init:
 				      multipath_num, 0);
 		/* Initialize graceful restart info */
 		bgp->gr_info[afi][safi].t_select_deferral = NULL;
+		bgp->gr_info[afi][safi].t_select_deferral_tier2 = NULL;
 		bgp->gr_info[afi][safi].t_route_select = NULL;
 		bgp->gr_info[afi][safi].gr_deferred = 0;
 		bgp->gr_info[afi][safi].select_defer_over = false;
+		bgp->gr_info[afi][safi].select_defer_over_tier2 = false;
+		bgp->gr_info[afi][safi].select_defer_tier2_required = false;
+		bgp->gr_info[afi][safi].route_sync_tier2 = false;
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;
