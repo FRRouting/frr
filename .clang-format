@@ -25,6 +25,8 @@ CommentPragmas: '\$(FRR|clippy)'
 ContinuationIndentWidth: 8
 ForEachMacros:
   # lib
+  - darr_foreach_p
+  - darr_foreach_i
   - frr_each
   - frr_each_safe
   - frr_each_from

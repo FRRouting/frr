@@ -25,6 +25,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_parse.y \
 	lib/cspf.c \
 	lib/csv.c \
+	lib/darr.c \
 	lib/debug.c \
 	lib/defaults.c \
 	lib/distribute.c \
@@ -209,6 +210,7 @@ pkginclude_HEADERS += \
 	lib/compiler.h \
 	lib/cspf.h \
 	lib/csv.h \
+	lib/darr.h \
 	lib/db.h \
 	lib/debug.h \
 	lib/defaults.h \

@@ -411,11 +411,9 @@ extern bool mgmt_vty_read_configs(void);
 extern int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit);
 extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
 				       bool abort);
-extern int vty_mgmt_send_get_config(struct vty *vty,
-				    Mgmtd__DatastoreId datastore,
-				    const char **xpath_list, int num_req);
-extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
-				  const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
+				 Mgmtd__DatastoreId datastore,
+				 const char **xpath_list, int num_req);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 				    bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, bool success);
