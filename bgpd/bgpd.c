@@ -5506,9 +5506,14 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 	if (rmap) {
 		if (!peer->default_rmap[afi][safi].name
 		    || strcmp(rmap, peer->default_rmap[afi][safi].name) != 0) {
-			if (peer->default_rmap[afi][safi].name)
+			struct route_map *map = NULL;
+
+			if (peer->default_rmap[afi][safi].name) {
+				map = route_map_lookup_by_name(
+					peer->default_rmap[afi][safi].name);
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      peer->default_rmap[afi][safi].name);
+			}
 
 			/*
 			 * When there is a change in route-map policy,
@@ -5521,16 +5526,21 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 				UNSET_FLAG(subgrp->sflags,
 					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
-			route_map_counter_decrement(peer->default_rmap[afi][safi].map);
+			route_map_counter_decrement(map);
 			peer->default_rmap[afi][safi].name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 			peer->default_rmap[afi][safi].map = route_map;
 			route_map_counter_increment(route_map);
 		}
 	} else if (!rmap) {
-		if (peer->default_rmap[afi][safi].name)
+		struct route_map *map = NULL;
+
+		if (peer->default_rmap[afi][safi].name) {
+			map = route_map_lookup_by_name(
+				peer->default_rmap[afi][safi].name);
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
+		}
 
 		/*
 		 * This is triggered in case of route-map deletion.
@@ -5541,7 +5551,7 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 			UNSET_FLAG(subgrp->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
-		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
+		route_map_counter_decrement(map);
 		peer->default_rmap[afi][safi].name = NULL;
 		peer->default_rmap[afi][safi].map = NULL;
 	}
@@ -5573,11 +5583,16 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 		SET_FLAG(member->af_flags[afi][safi],
 			 PEER_FLAG_DEFAULT_ORIGINATE);
 		if (rmap) {
-			if (member->default_rmap[afi][safi].name)
+			struct route_map *map = NULL;
+
+			if (member->default_rmap[afi][safi].name) {
+				map = route_map_lookup_by_name(
+					member->default_rmap[afi][safi].name);
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      member->default_rmap[afi][safi].name);
-			route_map_counter_decrement(
-					member->default_rmap[afi][safi].map);
+			}
+
+			route_map_counter_decrement(map);
 			member->default_rmap[afi][safi].name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 			member->default_rmap[afi][safi].map = route_map;
@@ -5611,13 +5626,18 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		PEER_ATTR_INHERIT(peer, peer->group,
 				  default_rmap[afi][safi].map);
 	} else {
+		struct route_map *map = NULL;
+
 		/* Otherwise remove flag and configuration from peer. */
 		peer_af_flag_unset(peer, afi, safi,
 				   PEER_FLAG_DEFAULT_ORIGINATE);
-		if (peer->default_rmap[afi][safi].name)
+		if (peer->default_rmap[afi][safi].name) {
+			map = route_map_lookup_by_name(
+				peer->default_rmap[afi][safi].name);
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
-		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
+		}
+		route_map_counter_decrement(map);
 		peer->default_rmap[afi][safi].name = NULL;
 		peer->default_rmap[afi][safi].map = NULL;
 	}
@@ -5640,6 +5660,10 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		struct route_map *map;
+
+		map = NULL;
+
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->af_flags_override[afi][safi],
 			       PEER_FLAG_DEFAULT_ORIGINATE))
@@ -5648,10 +5672,13 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		/* Remove flag and configuration on peer-group member. */
 		UNSET_FLAG(member->af_flags[afi][safi],
 			   PEER_FLAG_DEFAULT_ORIGINATE);
-		if (member->default_rmap[afi][safi].name)
+		if (member->default_rmap[afi][safi].name) {
+			map = route_map_lookup_by_name(
+				member->default_rmap[afi][safi].name);
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      member->default_rmap[afi][safi].name);
-		route_map_counter_decrement(member->default_rmap[afi][safi].map);
+		}
+		route_map_counter_decrement(map);
 		member->default_rmap[afi][safi].name = NULL;
 		member->default_rmap[afi][safi].map = NULL;
 
@@ -7186,6 +7213,7 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 	struct peer *member;
 	struct bgp_filter *filter;
 	struct listnode *node, *nnode;
+	struct route_map *map = NULL;
 
 	if (direct != RMAP_IN && direct != RMAP_OUT)
 		return BGP_ERR_INVALID_VALUE;
@@ -7199,9 +7227,10 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 		if (strcmp(filter->map[direct].name, name) == 0)
 			return 0;
 
+		map = route_map_lookup_by_name(filter->map[direct].name);
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
 	}
-	route_map_counter_decrement(filter->map[direct].map);
+	route_map_counter_decrement(map);
 	filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->map[direct].map = route_map;
 	route_map_counter_increment(route_map);
@@ -7223,6 +7252,7 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		map = NULL;
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
 			       PEER_FT_ROUTE_MAP))
@@ -7230,9 +7260,11 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 		/* Set configuration on peer-group member. */
 		filter = &member->filter[afi][safi];
-		if (filter->map[direct].name)
+		if (filter->map[direct].name) {
+			map = route_map_lookup_by_name(filter->map[direct].name);
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-		route_map_counter_decrement(filter->map[direct].map);
+		}
+		route_map_counter_decrement(map);
 		filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->map[direct].map = route_map;
 		route_map_counter_increment(route_map);
@@ -7265,11 +7297,16 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 		PEER_ATTR_INHERIT(peer, peer->group,
 				  filter[afi][safi].map[direct].map);
 	} else {
+		struct route_map *map = NULL;
+
 		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-		if (filter->map[direct].name)
+
+		if (filter->map[direct].name) {
+			map = route_map_lookup_by_name(filter->map[direct].name);
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-		route_map_counter_decrement(filter->map[direct].map);
+		}
+		route_map_counter_decrement(map);
 		filter->map[direct].name = NULL;
 		filter->map[direct].map = NULL;
 	}
@@ -7289,6 +7326,10 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		struct route_map *map;
+
+		map = NULL;
+
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
 			       PEER_FT_ROUTE_MAP))
@@ -7296,9 +7337,11 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 		/* Remove configuration on peer-group member. */
 		filter = &member->filter[afi][safi];
-		if (filter->map[direct].name)
+		if (filter->map[direct].name) {
+			map = route_map_lookup_by_name(filter->map[direct].name);
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-		route_map_counter_decrement(filter->map[direct].map);
+		}
+		route_map_counter_decrement(map);
 		filter->map[direct].name = NULL;
 		filter->map[direct].map = NULL;
 
@@ -7343,6 +7386,10 @@ int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		struct route_map *map;
+
+		map = NULL;
+
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->filter_override[afi][safi][0],
 			       PEER_FT_UNSUPPRESS_MAP))
@@ -7350,9 +7397,11 @@ int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 
 		/* Set configuration on peer-group member. */
 		filter = &member->filter[afi][safi];
-		if (filter->usmap.name)
+		if (filter->usmap.name) {
+			map = route_map_lookup_by_name(filter->usmap.name);
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-		route_map_counter_decrement(filter->usmap.map);
+		}
+		route_map_counter_decrement(map);
 		filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->usmap.map = route_map;
 		route_map_counter_increment(route_map);
@@ -7382,11 +7431,15 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 		PEER_ATTR_INHERIT(peer, peer->group,
 				  filter[afi][safi].usmap.map);
 	} else {
+		struct route_map *map = NULL;
+
 		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-		if (filter->usmap.name)
+		if (filter->usmap.name) {
+			map = route_map_lookup_by_name(filter->usmap.name);
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-		route_map_counter_decrement(filter->usmap.map);
+		}
+		route_map_counter_decrement(map);
 		filter->usmap.name = NULL;
 		filter->usmap.map = NULL;
 	}
@@ -7405,6 +7458,10 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		struct route_map *map;
+
+		map = NULL;
+
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->filter_override[afi][safi][0],
 			       PEER_FT_UNSUPPRESS_MAP))
@@ -7412,9 +7469,11 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 		/* Remove configuration on peer-group member. */
 		filter = &member->filter[afi][safi];
-		if (filter->usmap.name)
+		if (filter->usmap.name) {
+			map = route_map_lookup_by_name(filter->usmap.name);
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-		route_map_counter_decrement(filter->usmap.map);
+		}
+		route_map_counter_decrement(map);
 		filter->usmap.name = NULL;
 		filter->usmap.map = NULL;
 
