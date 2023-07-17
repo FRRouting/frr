@@ -1611,35 +1611,132 @@ static void zapi_encode_prefix(struct stream *s, struct prefix *p,
 	stream_put(s, &p->u.prefix, prefix_blen(p));
 }
 
-int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
+static bool zapi_decode_prefix(struct stream *s, struct prefix *p)
 {
-	stream_reset(s);
-	zclient_create_header(s, cmd, zrule->vrf_id);
+	STREAM_GETC(s, p->family);
+	STREAM_GETC(s, p->prefixlen);
+	STREAM_GET(&(p->u.prefix), s, prefix_blen(p));
+	return true;
 
+stream_failure:
+	return false;
+}
+
+/*
+ * Encode filter subsection of pbr_rule
+ */
+static void zapi_pbr_rule_filter_encode(struct stream *s, struct pbr_filter *f)
+{
+	assert(f->src_ip.family == f->dst_ip.family);
+	assert((AF_INET == f->src_ip.family) || (AF_INET6 == f->src_ip.family));
+
+	stream_putl(s, f->filter_bm);
+	stream_putc(s, f->ip_proto);
+
+	/* addresses */
+	zapi_encode_prefix(s, &f->src_ip, f->src_ip.family);
+	zapi_encode_prefix(s, &f->dst_ip, f->dst_ip.family);
+
+	/* port numbers */
+	stream_putw(s, f->src_port);
+	stream_putw(s, f->dst_port);
+
+	/* vlan */
+	stream_putc(s, f->pcp);
+	stream_putw(s, f->vlan_id);
+	stream_putw(s, f->vlan_flags);
+
+	stream_putc(s, f->dsfield);
+	stream_putl(s, f->fwmark);
+}
+
+static bool zapi_pbr_rule_filter_decode(struct stream *s, struct pbr_filter *f)
+{
+	STREAM_GETL(s, f->filter_bm);
+	STREAM_GETC(s, f->ip_proto);
+	if (!zapi_decode_prefix(s, &(f->src_ip)))
+		goto stream_failure;
+	if (!zapi_decode_prefix(s, &(f->dst_ip)))
+		goto stream_failure;
+	STREAM_GETW(s, f->src_port);
+	STREAM_GETW(s, f->dst_port);
+	STREAM_GETC(s, f->pcp);
+	STREAM_GETW(s, f->vlan_id);
+	STREAM_GETW(s, f->vlan_flags);
+	STREAM_GETC(s, f->dsfield);
+	STREAM_GETL(s, f->fwmark);
+	return true;
+
+stream_failure:
+	return false;
+}
+
+static void zapi_pbr_rule_action_encode(struct stream *s, struct pbr_action *a)
+{
+	stream_putl(s, a->flags);
+	stream_putl(s, a->table);
+	stream_putl(s, a->queue_id);
+	stream_putc(s, a->pcp);
+	stream_putw(s, a->vlan_id);
+	stream_putw(s, a->vlan_flags);
+}
+
+static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
+{
+	STREAM_GETL(s, a->flags);
+	STREAM_GETL(s, a->table);
+	STREAM_GETL(s, a->queue_id);
+	STREAM_GETC(s, a->pcp);
+	STREAM_GETW(s, a->vlan_id);
+	STREAM_GETW(s, a->vlan_flags);
+	return true;
+
+stream_failure:
+	return false;
+}
+
+int zapi_pbr_rule_encode(struct stream *s, struct pbr_rule *r)
+{
 	/*
-	 * We are sending one item at a time at the moment
+	 * PBR record count is always 1
 	 */
 	stream_putl(s, 1);
 
-	stream_putl(s, zrule->seq);
-	stream_putl(s, zrule->priority);
-	stream_putl(s, zrule->unique);
+	stream_putl(s, r->seq);
+	stream_putl(s, r->priority);
+	stream_putl(s, r->unique);
 
-	zapi_encode_prefix(s, &(zrule->filter.src_ip),
-			   zrule->filter.src_ip.family);
-	stream_putw(s, zrule->filter.src_port); /* src port */
-	zapi_encode_prefix(s, &(zrule->filter.dst_ip),
-			   zrule->filter.src_ip.family);
-	stream_putw(s, zrule->filter.dst_port); /* dst port */
-	stream_putw(s, zrule->filter.fwmark);   /* fwmark */
+	zapi_pbr_rule_filter_encode(s, &(r->filter));
+	zapi_pbr_rule_action_encode(s, &(r->action));
 
-	stream_putl(s, zrule->action.table);
-	stream_put(s, zrule->ifname, INTERFACE_NAMSIZ);
+	stream_put(s, r->ifname, INTERFACE_NAMSIZ);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return 0;
+}
+
+bool zapi_pbr_rule_decode(struct stream *s, struct pbr_rule *r)
+{
+	/* NB caller has already read 4-byte rule count */
+
+	memset(r, 0, sizeof(*r));
+
+	STREAM_GETL(s, r->seq);
+	STREAM_GETL(s, r->priority);
+	STREAM_GETL(s, r->unique);
+
+	if (!zapi_pbr_rule_filter_decode(s, &(r->filter)))
+		goto stream_failure;
+	if (!zapi_pbr_rule_action_decode(s, &(r->action)))
+		goto stream_failure;
+
+	STREAM_GET(r->ifname, s, INTERFACE_NAMSIZ);
+	return true;
+
+stream_failure:
+	return false;
 }
 
 int zapi_tc_qdisc_encode(uint8_t cmd, struct stream *s, struct tc_qdisc *qdisc)

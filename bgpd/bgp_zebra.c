@@ -2712,17 +2712,20 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 				       struct bgp_pbr_action *pbra,
 				       struct bgp_pbr_rule *pbr)
 {
-	struct prefix pfx;
 	uint8_t fam = AF_INET;
-	char ifname[INTERFACE_NAMSIZ];
+	struct pbr_rule r;
 
 	if (pbra->nh.type == NEXTHOP_TYPE_IPV6)
 		fam = AF_INET6;
-	stream_putl(s, 0); /* seqno unused */
+
+	/*
+	 * Convert to canonical form
+	 */
+	memset(&r, 0, sizeof(r));
+	/* r.seq unused */
 	if (pbr)
-		stream_putl(s, pbr->priority);
-	else
-		stream_putl(s, 0);
+		r.priority = pbr->priority;
+
 	/* ruleno unused - priority change
 	 * ruleno permits distinguishing various FS PBR entries
 	 * - FS PBR entries based on ipset/iptables
@@ -2730,56 +2733,37 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	 * the latter may contain default routing information injected by FS
 	 */
 	if (pbr)
-		stream_putl(s, pbr->unique);
+		r.unique = pbr->unique;
 	else
-		stream_putl(s, pbra->unique);
+		r.unique = pbra->unique;
 
-	stream_putl(s, 0); /* filter_bm placeholder */
 
-	stream_putc(s, 0); /* ip protocol being used */
-	if (pbr && pbr->flags & MATCH_IP_SRC_SET)
-		memcpy(&pfx, &(pbr->src), sizeof(struct prefix));
-	else {
-		memset(&pfx, 0, sizeof(pfx));
-		pfx.family = fam;
+	/* filter */
+
+	if (pbr && pbr->flags & MATCH_IP_SRC_SET) {
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_SRC_IP);
+		r.filter.src_ip = pbr->src;
+	} else {
+		/* ??? */
+		r.filter.src_ip.family = fam;
 	}
-	stream_putc(s, pfx.family);
-	stream_putc(s, pfx.prefixlen);
-	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
-
-	stream_putw(s, 0);  /* src port */
-
-	if (pbr && pbr->flags & MATCH_IP_DST_SET)
-		memcpy(&pfx, &(pbr->dst), sizeof(struct prefix));
-	else {
-		memset(&pfx, 0, sizeof(pfx));
-		pfx.family = fam;
+	if (pbr && pbr->flags & MATCH_IP_DST_SET) {
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DST_IP);
+		r.filter.dst_ip = pbr->dst;
+	} else {
+		/* ??? */
+		r.filter.dst_ip.family = fam;
 	}
-	stream_putc(s, pfx.family);
-	stream_putc(s, pfx.prefixlen);
-	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
+	/* src_port, dst_port, pcp, dsfield not used */
+	if (!pbr) {
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_FWMARK);
+		r.filter.fwmark = pbra->fwmark;
+	}
 
-	stream_putw(s, 0);  /* dst port */
+	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
+	r.action.table = pbra->table_id;
 
-	stream_putc(s, 0); /* filter dsfield */
-	/* if pbr present, fwmark is not used */
-	if (pbr)
-		stream_putl(s, 0);
-	else
-		stream_putl(s, pbra->fwmark); /* filter fwmark */
-
-	stream_putc(s, 0); /* pcp filter */
-	stream_putw(s, 0); /* pcp action  */
-	stream_putw(s, 0); /* vlan_id filter */
-	stream_putw(s, 0); /* vlan_flags filter */
-	stream_putw(s, 0); /* vlan_id action */
-	stream_putw(s, 0); /* vlan_flags action */
-	stream_putl(s, 0); /* queue id action */
-
-	stream_putl(s, pbra->table_id); /* table action */
-
-	memset(ifname, 0, sizeof(ifname));
-	stream_put(s, ifname, INTERFACE_NAMSIZ); /* ifname unused */
+	zapi_pbr_rule_encode(s, &r);
 }
 
 static void bgp_encode_pbr_ipset_match(struct stream *s,
@@ -3545,11 +3529,9 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
 	zclient_create_header(s,
 			      install ? ZEBRA_RULE_ADD : ZEBRA_RULE_DELETE,
 			      VRF_DEFAULT);
-	stream_putl(s, 1); /* send one pbr action */
 
 	bgp_encode_pbr_rule_action(s, pbra, pbr);
 
-	stream_putw_at(s, 0, stream_get_endp(s));
 	if ((zclient_send_message(zclient) != ZCLIENT_SEND_FAILURE)
 	    && install) {
 		if (!pbr)

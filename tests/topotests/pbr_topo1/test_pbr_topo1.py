@@ -181,8 +181,10 @@ def test_pbr_data():
 #
 
 #
-# tm: must-match pattern
-# tN: must Not match pattern
+# c:   command
+# cDN: omit default destination IP address (special case)
+# tm:  must-match pattern
+# tN:  must Not match pattern
 #
 # Note we are searching amid a bunch of other rules, so these elements
 # should be unique.
@@ -199,6 +201,27 @@ ftest = [
     {"c": "match vlan untagged", "tm": r"VLAN Flags Match: untagged$"},
     {"c": "match vlan untagged-or-zero", "tm": r"VLAN Flags Match: untagged-or-zero$"},
     {"c": "no match vlan tagged", "tN": r"VLAN Flags Match:"},
+
+    {"c": "match src-ip 37.49.22.0/24", "tm": r"SRC IP Match: 37.49.22.0/24$"},
+    {"c": "no match src-ip 37.49.22.0/24", "tN": r"SRC IP Match: 37.49.22.0/24$"},
+
+    {"c": "match dst-ip 38.41.29.0/25", "cDN": "foo", "tm": r"DST IP Match: 38.41.29.0/25$"},
+    {"c": "no match dst-ip 38.41.29.0/25", "tN": r"DST IP Match: 38.41.29.0/25$"},
+
+    {"c": "match src-port 117", "tm": r"SRC Port Match: 117$"},
+    {"c": "no match src-port 117", "tN": r"SRC Port Match: 117$"},
+
+    {"c": "match dst-port 119", "tm": r"DST Port Match: 119$"},
+    {"c": "no match dst-port 119", "tN": r"DST Port Match: 119$"},
+
+    {"c": "match dscp cs3", "tm": r"DSCP Match: 24$"},
+    {"c": "no match dscp cs3", "tN": r"DSCP Match: 24$"},
+
+    {"c": "match ecn 2", "tm": r"ECN Match: 2$"},
+    {"c": "no match ecn 2", "tN": r"ECN Match: 2$"},
+
+    {"c": "match mark 337", "tm": r"MARK Match: 337$"},
+    {"c": "no match mark 337", "tN": r"MARK Match: 337$"},
 ]
 
 
@@ -233,6 +256,9 @@ def test_pbr_fields():
 
     logger.info("Verifying PBR rule fields")
 
+    # uncomment for manual interaction
+    # tgen.cli()
+
     tag = "field"
 
     router_list = tgen.routers().values()
@@ -240,8 +266,12 @@ def test_pbr_fields():
         for t in ftest:
             # send field-setting command
             # always have a match dst-ip to satisfy rule non-empty check
-            vcmd = "c t\npbr-map ASAKUSA seq 100\n{}\nmatch dst-ip 9.9.9.9/32\nset nexthop-group A\nend\nend".format(
-                t["c"]
+            if "cDN" in t:
+                match_dstip = ""
+            else:
+                match_dstip = "match dst-ip 9.9.9.9/32\n"
+            vcmd = "c t\npbr-map ASAKUSA seq 100\n{}\n{}set nexthop-group A\nend\nend".format(
+                t["c"], match_dstip
             )
             router.vtysh_multicmd(vcmd)
 
