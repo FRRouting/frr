@@ -81,6 +81,9 @@ struct ospf_if_params {
 	/* Fast-Hellos */
 	DECLARE_IF_PARAM(uint8_t, fast_hello);
 
+	/* Prefix-Suppression */
+	DECLARE_IF_PARAM(bool, prefix_suppression);
+
 	/* Authentication data. */
 	uint8_t auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1]; /* Simple password. */
 	uint8_t auth_simple__config : 1;

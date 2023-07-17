@@ -4076,6 +4076,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
 
+		if (use_json) {
+			json_object_boolean_add(json_interface_sub,
+						"prefixSuppression",
+						OSPF_IF_PARAM(oi,
+							      prefix_suppression));
+			json_object_boolean_add(json_oi, "prefixSuppression",
+						OSPF_IF_PARAM(oi,
+							      prefix_suppression));
+		} else {
+			if (OSPF_IF_PARAM(oi, prefix_suppression))
+				vty_out(vty,
+					"  Suppress advertisement of interface IP prefix\n");
+		}
+
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 
@@ -9865,6 +9879,56 @@ DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
 }
 
 
+DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
+      "[no] ip ospf prefix-suppression [A.B.C.D]$ip_addr", NO_STR
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Supress OSPF prefix advertisement on this interface\n"
+      "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct route_node *rn;
+	bool prefix_suppression_change;
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	prefix_suppression_change = (params->prefix_suppression == (bool)no);
+	params->prefix_suppression = (no) ? false : true;
+	if (params->prefix_suppression != OSPF_PREFIX_SUPPRESSION_DEFAULT)
+		SET_IF_PARAM(params, prefix_suppression);
+	else {
+		UNSET_IF_PARAM(params, prefix_suppression);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, ip_addr);
+			ospf_if_update_params(ifp, ip_addr);
+		}
+	}
+
+	/*
+	 * If there is a change to the prefix suppression, update the Router-LSA.
+	 */
+	if (prefix_suppression_change) {
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			struct ospf_interface *oi = rn->info;
+
+			if (oi && (oi->state > ISM_Down) &&
+			    (ip_addr.s_addr == INADDR_ANY ||
+			     IPV4_ADDR_SAME(&oi->address->u.prefix4, &ip_addr))) {
+				(void)ospf_router_lsa_update_area(oi->area);
+				if (oi->state == ISM_DR)
+					ospf_network_lsa_update(oi);
+			}
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
@@ -12243,6 +12307,22 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* prefix-suppression print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params,
+						     prefix_suppression) &&
+			    params->prefix_suppression !=
+				    OSPF_PREFIX_SUPPRESSION_DEFAULT) {
+				if (params->prefix_suppression == false)
+					vty_out(vty,
+						" no ip ospf prefix-suppression");
+				else
+					vty_out(vty,
+						" ip ospf prefix-suppression");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
 			while (1) {
 				if (rn == NULL)
 					rn = route_top(IF_OIFS_PARAMS(ifp));
@@ -13054,6 +13134,9 @@ static void ospf_vty_if_init(void)
 
 	/* "ip ospf capability opaque" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_capability_opaque_addr_cmd);
+
+	/* "ip ospf prefix-suppression" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_prefix_suppression_addr_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);
