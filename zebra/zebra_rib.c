@@ -2824,8 +2824,13 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	rib_addnode(rn, re, 1);
 
 	/* Free implicit route.*/
-	if (same)
+	if (same) {
+		rib_dest_t *dest = rn->info;
+
+		if (same == dest->selected_fib)
+			SET_FLAG(same->status, ROUTE_ENTRY_ROUTE_REPLACING);
 		rib_delnode(rn, same);
+	}
 
 	/* See if we can remove some RE entries that are queued for
 	 * removal, but won't be considered in rib processing.
