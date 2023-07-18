@@ -669,6 +669,9 @@ static void zebra_evpn_arp_nd_if_update_all(bool enable)
 /* ARP redirect for fast failover is enabled on the first local ES add */
 void zebra_evpn_arp_nd_failover_enable(void)
 {
+	if (!CHECK_FLAG(zmh_info->flags, ZEBRA_EVPN_MH_ENABLE))
+	    return;
+
 	/* If fast failover is not enabled there is nothing to do */
 	if (zmh_info->flags & ZEBRA_EVPN_MH_REDIRECT_OFF)
 		return;
