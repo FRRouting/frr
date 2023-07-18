@@ -8800,6 +8800,10 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	route_map_result_t ret;
 	struct bgp_redist *red;
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
+	    bgp->peer_self == NULL)
+		return;
+
 	/* Make default attribute. */
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/*
