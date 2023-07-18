@@ -1337,8 +1337,6 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	/*
 	 * The minimum amount of data that can be sent for one fec
@@ -1400,8 +1398,6 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	/*
 	 * The minimum amount of data that can be sent for one

@@ -2703,12 +2703,7 @@ DEFUN (default_vrf_vni_mapping,
        "Prefix routes only \n")
 {
 	char xpath[XPATH_MAXLEN];
-	struct zebra_vrf *zvrf = NULL;
 	int filter = 0;
-
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	if (argc == 3)
 		filter = 1;
@@ -2746,8 +2741,6 @@ DEFUN (no_default_vrf_vni_mapping,
 	struct zebra_vrf *zvrf = NULL;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	if (argc == 4)
 		filter = 1;
