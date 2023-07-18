@@ -511,6 +511,7 @@ struct bgp {
 #define BGP_FLAG_LU_IPV4_EXPLICIT_NULL (1ULL << 33)
 /* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
 #define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
+#define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 35)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
