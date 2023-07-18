@@ -192,7 +192,8 @@ struct bgp_redist {
 enum vpn_policy_direction {
 	BGP_VPN_POLICY_DIR_FROMVPN = 0,
 	BGP_VPN_POLICY_DIR_TOVPN = 1,
-	BGP_VPN_POLICY_DIR_MAX = 2
+	BGP_VRF_POLICY_DIR_TOVRF = 2,
+	BGP_VPN_POLICY_DIR_MAX = 3
 };
 
 struct vpn_policy {
@@ -227,6 +228,9 @@ struct vpn_policy {
 	 * vrf names that we are being exported to.
 	 */
 	struct list *export_vrf;
+
+	struct list *redistribute_import_vrf;
+	struct list *redistribute_export_vrf;
 
 	/*
 	 * Segment-Routing SRv6 Mode
