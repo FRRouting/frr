@@ -1132,7 +1132,7 @@ def verify_upstream_iif(
                                     grp_addr,
                                     in_interface,
                                     group_addr_json[src_address]["inboundInterface"],
-                                    joinState,
+                                    "Joined",
                                     group_addr_json[src_address]["joinState"],
                                 )
                             )
