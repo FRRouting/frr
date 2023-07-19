@@ -2138,6 +2138,13 @@ Using AS Path in Route Map
    Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
    this command removes this set operation from the route-map.
 
+.. clicmd:: set as-path exclude as-path-access-list WORD
+
+   Remove some AS numbers from the AS_PATH of the BGP path's NLRI. Removed AS
+   numbers are conformant with the regex defined in as-path access-list  WORD.
+   The no form of this command removes this set operation from the route-map.
+   
+   
 .. _bgp-communities-attribute:
 
 Communities Attribute

@@ -10,6 +10,33 @@
 
 enum as_filter_type { AS_FILTER_DENY, AS_FILTER_PERMIT };
 
+
+/* Element of AS path filter. */
+struct as_filter {
+	struct as_filter *next;
+	struct as_filter *prev;
+
+	enum as_filter_type type;
+
+	regex_t *reg;
+	char *reg_str;
+
+	/* Sequence number. */
+	int64_t seq;
+};
+
+/* AS path filter list. */
+struct as_list {
+	char *name;
+
+	struct as_list *next;
+	struct as_list *prev;
+
+	struct as_filter *head;
+	struct as_filter *tail;
+};
+
+
 extern void bgp_filter_init(void);
 extern void bgp_filter_reset(void);
 
