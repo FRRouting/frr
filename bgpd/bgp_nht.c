@@ -719,8 +719,8 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	struct bgp_nexthop_cache *bnc;
 	struct nexthop *nhop;
 	uint8_t other_nh_count;
-	bool nhop_ll_found;
-	bool nhop_found;
+	bool nhop_ll_found = false;
+	bool nhop_found = false;
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		zlog_warn("%s: The interface %s ignored", __func__, ifp->name);
