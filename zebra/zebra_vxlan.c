@@ -3229,7 +3229,11 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (use_json) {
 		json_object_object_add(json, "macs", json_mac);
-		vty_json(vty, json);
+		/*
+		 * This is an extremely expensive operation at scale
+		 * and non-pretty reduces memory footprint significantly.
+		 */
+		vty_json_no_pretty(vty, json);
 	}
 }
 
@@ -4014,8 +4018,12 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 			       void *))zl3vni_print_hash_detail,
 		     &zes);
 
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and non-pretty reduces memory footprint significantly.
+	 */
 	if (use_json)
-		vty_json(vty, json_array);
+		vty_json_no_pretty(vty, json_array);
 }
 
 /*
