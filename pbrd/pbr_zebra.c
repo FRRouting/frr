@@ -3,6 +3,9 @@
  * Zebra connect code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 #include <zebra.h>
 
@@ -20,6 +23,7 @@
 #include "log.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "pbr.h"
 
 #include "pbr_nht.h"
 #include "pbr_map.h"
@@ -529,6 +533,9 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putl(s, pbrms->seqno);
 	stream_putl(s, pbrms->ruleno);
 	stream_putl(s, pbrms->unique);
+
+	stream_putl(s, pbrms->filter_bm);
+
 	stream_putc(s, pbrms->ip_proto); /* The ip_proto */
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->src, family);
 	stream_putw(s, pbrms->src_prt);
@@ -536,13 +543,25 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, pbrms->dst_prt);
 	stream_putc(s, pbrms->dsfield);
 	stream_putl(s, pbrms->mark);
-
-	stream_putl(s, pbrms->action_queue_id);
+	/* PCP */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP))
+		stream_putc(s, pbrms->match_pcp);
+	else
+		stream_putc(s, 0);
+	stream_putw(s, pbrms->action_pcp);
+	/* VLAN */
+	stream_putw(s, pbrms->match_vlan_id);
+	stream_putw(s, pbrms->match_vlan_flags);
 
 	stream_putw(s, pbrms->action_vlan_id);
 	stream_putw(s, pbrms->action_vlan_flags);
-	stream_putw(s, pbrms->action_pcp);
+	stream_putl(s, pbrms->action_queue_id);
 
+	/* if the user does not use the command "set vrf name |unchanged"
+	 * then pbr_encode_pbr_map_sequence_vrf will not be called
+	 */
+
+	/* these statement get a table id */
 	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
 		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
 	else if (pbrms->nhgrp_name)
@@ -567,9 +586,6 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	uint64_t is_installed = (uint64_t)1 << pmi->install_bit;
 
 	is_installed &= pbrms->installed;
-
-	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%" PRIu64 ")", __func__,
-	       pbrm->name, install, is_installed);
 
 	/*
 	 * If we are installed and asked to do so again and the config

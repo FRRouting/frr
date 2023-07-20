@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* zebra client
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
+ * Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -2732,6 +2733,9 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 		stream_putl(s, pbr->unique);
 	else
 		stream_putl(s, pbra->unique);
+
+	stream_putl(s, 0); /* filter_bm placeholder */
+
 	stream_putc(s, 0); /* ip protocol being used */
 	if (pbr && pbr->flags & MATCH_IP_SRC_SET)
 		memcpy(&pfx, &(pbr->src), sizeof(struct prefix));
@@ -2756,19 +2760,23 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
 
 	stream_putw(s, 0);  /* dst port */
-	stream_putc(s, 0);  /* dsfield */
+
+	stream_putc(s, 0); /* filter dsfield */
 	/* if pbr present, fwmark is not used */
 	if (pbr)
 		stream_putl(s, 0);
 	else
-		stream_putl(s, pbra->fwmark);  /* fwmark */
+		stream_putl(s, pbra->fwmark); /* filter fwmark */
 
-	stream_putl(s, 0); /* queue id */
-	stream_putw(s, 0); /* vlan_id */
-	stream_putw(s, 0); /* vlan_flags */
-	stream_putw(s, 0); /* pcp */
+	stream_putc(s, 0); /* pcp filter */
+	stream_putw(s, 0); /* pcp action  */
+	stream_putw(s, 0); /* vlan_id filter */
+	stream_putw(s, 0); /* vlan_flags filter */
+	stream_putw(s, 0); /* vlan_id action */
+	stream_putw(s, 0); /* vlan_flags action */
+	stream_putl(s, 0); /* queue id action */
 
-	stream_putl(s, pbra->table_id);
+	stream_putl(s, pbra->table_id); /* table action */
 
 	memset(ifname, 0, sizeof(ifname));
 	stream_put(s, ifname, INTERFACE_NAMSIZ); /* ifname unused */

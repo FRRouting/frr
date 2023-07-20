@@ -3,6 +3,9 @@
  * PBR-map Code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 #include <zebra.h>
 
@@ -16,6 +19,7 @@
 #include "memory.h"
 #include "log.h"
 #include "vty.h"
+#include "pbr.h"
 
 #include "pbr_nht.h"
 #include "pbr_map.h"
@@ -99,6 +103,38 @@ static bool pbrms_is_installed(const struct pbr_map_sequence *pbrms,
 		return true;
 
 	return false;
+}
+
+void pbr_set_match_clause_for_pcp(struct pbr_map_sequence *pbrms, bool set,
+				  uint8_t pcp)
+{
+	bool changed = false;
+
+	if (set) {
+		if (!CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP) ||
+		    (pcp != pbrms->match_pcp)) {
+			SET_FLAG(pbrms->filter_bm, PBR_FILTER_PCP);
+			pbrms->match_pcp = pcp;
+			changed = true;
+		}
+	} else {
+		if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP)) {
+			UNSET_FLAG(pbrms->filter_bm, PBR_FILTER_PCP);
+			changed = true;
+		}
+	}
+	if (changed)
+		pbr_map_check(pbrms, true);
+}
+
+void pbr_set_match_clause_for_vlan(struct pbr_map_sequence *pbrms,
+				   uint16_t vlan_id, uint16_t vlan_flags)
+{
+	if (pbrms) {
+		pbrms->match_vlan_id = vlan_id;
+		pbrms->match_vlan_flags = vlan_flags;
+		pbr_map_check(pbrms, true);
+	}
 }
 
 /* If any sequence is installed on the interface, assume installed */
@@ -486,9 +522,9 @@ uint8_t pbr_map_decode_dscp_enum(const char *name)
 
 struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 {
-	struct pbr_map *pbrm;
-	struct pbr_map_sequence *pbrms;
-	struct listnode *node;
+	struct pbr_map *pbrm = NULL;
+	struct pbr_map_sequence *pbrms = NULL;
+	struct listnode *node = NULL;
 
 	pbrm = pbrm_find(name);
 	if (!pbrm) {
@@ -525,6 +561,10 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->seqno = seqno;
 		pbrms->ruleno = pbr_nht_get_next_rule(seqno);
 		pbrms->parent = pbrm;
+
+		pbrms->match_vlan_id = 0;
+		pbrms->match_vlan_flags = 0;
+		pbrms->match_pcp = 0;
 
 		pbrms->action_vlan_id = 0;
 		pbrms->action_vlan_flags = 0;
@@ -594,10 +634,12 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield
-	    && !pbrms->action_vlan_id && !pbrms->action_vlan_flags
-	    && !pbrms->action_pcp
-	    && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield &&
+	    !CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP) &&
+	    !pbrms->action_pcp && !pbrms->match_vlan_id &&
+	    !pbrms->match_vlan_flags && !pbrms->action_vlan_id &&
+	    !pbrms->action_vlan_flags &&
+	    pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 
@@ -733,7 +775,6 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 	struct listnode *node;
 	struct pbr_map_sequence *pbrms;
 	bool sent = false;
-
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		if (pbr_send_pbr_map(pbrms, pmi, false, true))
