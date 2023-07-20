@@ -39,11 +39,11 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     tzdata \
     && microdnf --disableplugin=subscription-manager clean all
 
-RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-12/RedHat-8-x86_64-Packages/libyang2-2.0.7-1.el8.x86_64.rpm \
+RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-2.1.80-1.el8.x86_64.rpm \
     && rpm -i /tmp/libyang2.rpm \
     && rm -f /tmp/libyang2.rpm
 
-RUN curl -sSL -o /tmp/libyang2-devel.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-12/RedHat-8-x86_64-Packages/libyang2-devel-2.0.7-1.el8.x86_64.rpm \
+RUN curl -sSL -o /tmp/libyang2-devel.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-devel-2.1.80-1.el8.x86_64.rpm \
     && rpm -i /tmp/libyang2-devel.rpm \
     && rm -f /tmp/libyang2-devel.rpm
 
@@ -102,7 +102,7 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     systemd \
     && microdnf --disableplugin=subscription-manager clean all
 
-RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-12/RedHat-8-x86_64-Packages/libyang2-2.0.7-1.el8.x86_64.rpm \
+RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-2.1.80-1.el8.x86_64.rpm \
     && rpm -i /tmp/libyang2.rpm \
     && rm -f /tmp/libyang2.rpm
 
