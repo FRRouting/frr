@@ -22,10 +22,6 @@ RUN source /src/alpine/APKBUILD.in \
 		--no-cache \
 		--update-cache \
 		$makedepends \
-		gzip \
-		py-pip \
-		rtrlib \
-		protobuf-c-dev \
 	&& pip install pytest
 RUN mkdir -p /pkgs/apk
 COPY . /src
