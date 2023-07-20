@@ -37,6 +37,7 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     systemd-devel \
     texinfo \
     tzdata \
+    protobuf-c-devel \
     && microdnf --disableplugin=subscription-manager clean all
 
 RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-2.1.80-1.el8.x86_64.rpm \
