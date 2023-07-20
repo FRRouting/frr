@@ -891,6 +891,7 @@ static int zvni_map_to_svi_ns(struct ns *ns,
 
 		if (vl->vid == in_param->vid) {
 			*p_ifp = tmp_if;
+			route_unlock_node(rn);
 			return NS_WALK_STOP;
 		}
 	}
@@ -2005,6 +2006,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 
 		zl3vni->local_vtep_ip = zif->l2info.vxl.vtep_ip;
 		*_pifp = (void *)ifp;
+		route_unlock_node(rn);
 		return NS_WALK_STOP;
 	}
 
@@ -2116,6 +2118,7 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 				zif, in_param->br_if);
 			if (vni_id) {
 				found = 1;
+				route_unlock_node(rn);
 				break;
 			}
 		}
@@ -2402,6 +2405,7 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			vnip = zebra_vxlan_if_vni_find(zif, vni);
 			if (vnip) {
 				found = true;
+				route_unlock_node(rn);
 				break;
 			}
 		}
