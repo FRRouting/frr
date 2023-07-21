@@ -1595,8 +1595,6 @@ struct peer {
 	uint8_t update_delay_over; /* When this is set, BGP is no more waiting
 				     for EOR */
 
-	/* Syncronization list and time.  */
-	struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
 	time_t synctime;
 	/* timestamp when the last UPDATE msg was written */
 	_Atomic time_t last_write;

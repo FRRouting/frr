@@ -173,7 +173,6 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 			vncHD1VR.peer = peer_new(bgp);
 			vncHD1VR.peer->status =
 				Established; /* keep bgp core happy */
-			bgp_sync_delete(vncHD1VR.peer); /* don't need these */
 
 			/*
 			 * since this peer is not on the I/O thread, this lock
