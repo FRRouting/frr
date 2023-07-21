@@ -480,6 +480,7 @@ done : {
 	return status;
 }
 
+uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX];
 /*
  * Reads a chunk of data from peer->fd into peer->ibuf_work.
  *
@@ -487,6 +488,10 @@ done : {
  *    Pointer to location to store FSM event code in case of fatal error.
  *
  * @return status flag (see top-of-file)
+ *
+ * PLEASE NOTE:  If we ever transform the bgp_read to be a pthread
+ * per peer then we need to rethink the global ibuf_scratch
+ * data structure above.
  */
 static uint16_t bgp_read(struct peer *peer, int *code_p)
 {
@@ -502,9 +507,9 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 		return status;
 	}
 
-	readsize = MIN(ibuf_work_space, sizeof(peer->ibuf_scratch));
+	readsize = MIN(ibuf_work_space, sizeof(ibuf_scratch));
 
-	nbytes = read(peer->fd, peer->ibuf_scratch, readsize);
+	nbytes = read(peer->fd, ibuf_scratch, readsize);
 
 	/* EAGAIN or EWOULDBLOCK; come back later */
 	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {
@@ -533,8 +538,8 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
 	} else {
-		assert(ringbuf_put(peer->ibuf_work, peer->ibuf_scratch, nbytes)
-		       == (size_t)nbytes);
+		assert(ringbuf_put(peer->ibuf_work, ibuf_scratch, nbytes) ==
+		       (size_t)nbytes);
 	}
 
 	return status;
