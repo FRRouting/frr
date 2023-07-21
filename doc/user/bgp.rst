@@ -2142,6 +2142,14 @@ Using AS Path in Route Map
    ``any`` replaces each AS number in the AS-PATH with either the local AS
    number or the configured AS number.
 
+.. clicmd:: set as-path replace as-path-access-list WORD [<ASN>]
+
+   Replace some AS numbers from the AS_PATH of the BGP path's NLRI. Substituted
+   AS numbers are conformant with the regex defined in as-path access-list
+   WORD. Changed AS numbers are replaced either by the local AS number or the
+   configured AS number.
+   The no form of this command removes this set operation from the route-map.
+
 .. clicmd:: set as-path exclude all
 
    Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
