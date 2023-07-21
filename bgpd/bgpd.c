@@ -1171,8 +1171,6 @@ static void peer_free(struct peer *peer)
 	if (peer->clear_node_queue)
 		work_queue_free_and_null(&peer->clear_node_queue);
 
-	bgp_sync_delete(peer);
-
 	XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
 
 	XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
@@ -1417,8 +1415,6 @@ struct peer *peer_new(struct bgp *bgp)
 
 	peer->ibuf_work =
 		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
-
-	bgp_sync_init(peer);
 
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");

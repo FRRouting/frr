@@ -135,8 +135,6 @@ extern bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
 			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest *dest, struct bgp_adj_in *bai);
 
-extern void bgp_sync_init(struct peer *peer);
-extern void bgp_sync_delete(struct peer *peer);
 extern unsigned int bgp_advertise_attr_hash_key(const void *p);
 extern bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2);
 extern void bgp_advertise_add(struct bgp_advertise_attr *baa,
