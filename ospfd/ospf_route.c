@@ -463,6 +463,12 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	   the IP network number, which can be obtained by masking the
 	   Vertex ID (Link State ID) with its associated subnet mask (found
 	   in the body of the associated network-LSA). */
+	if (lsa->mask.s_addr == 0xffffffff) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("Suppress installing LSA[Type2,%pI4] route due to host mask",
+				   &(lsa->header.id));
+		return;
+	}
 	p.family = AF_INET;
 	p.prefix = v->id;
 	p.prefixlen = ip_masklen(lsa->mask);

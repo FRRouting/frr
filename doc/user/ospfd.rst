@@ -699,6 +699,15 @@ Interfaces
    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
    advertise non-OSPF links into stub areas.
 
+.. clicmd:: ip ospf prefix-suppression [A.B.C.D]
+
+   Configure OSPF to not advertise the IPv4 prefix associated with the
+   OSPF interface. The associated IPv4 prefix will be omitted from an OSPF
+   router-LSA or advertised with a host mask in an OSPF network-LSA as
+   specified in RFC 6860, "Hiding Transit-Only Networks in OSPF". If an
+   optional IPv4 address is specified, the prefix suppression will apply
+   to the OSPF interface associated with the specified interface address.
+
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
 
