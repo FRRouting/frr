@@ -100,7 +100,6 @@ struct bgp_adj_in {
 struct bgp_synchronize {
 	struct bgp_adv_fifo_head update;
 	struct bgp_adv_fifo_head withdraw;
-	struct bgp_adv_fifo_head withdraw_low;
 };
 
 /* BGP adjacency linked list.  */

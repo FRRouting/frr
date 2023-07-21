@@ -584,11 +584,9 @@ static inline void bgp_announce_peer(struct peer *peer)
  */
 static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 {
-	if (bgp_adv_fifo_count(&subgrp->sync->update)
-	    || bgp_adv_fifo_count(&subgrp->sync->withdraw)
-	    || bgp_adv_fifo_count(&subgrp->sync->withdraw_low)) {
+	if (bgp_adv_fifo_count(&subgrp->sync->update) ||
+	    bgp_adv_fifo_count(&subgrp->sync->withdraw))
 		return 0;
-	}
 
 	return 1;
 }
