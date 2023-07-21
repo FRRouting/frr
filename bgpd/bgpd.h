@@ -1171,12 +1171,6 @@ struct peer {
 
 	struct stream *curr; // the current packet being parsed
 
-	/* We use a separate stream to encode MP_REACH_NLRI for efficient
-	 * NLRI packing. peer->obuf_work stores all the other attributes. The
-	 * actual packet is then constructed by concatenating the two.
-	 */
-	struct stream *scratch;
-
 	/* the doppelganger peer structure, due to dual TCP conn setup */
 	struct peer *doppelganger;
 

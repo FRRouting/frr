@@ -1432,8 +1432,6 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->ibuf_work =
 		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
 
-	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
-
 	bgp_sync_init(peer);
 
 	/* Get service port number.  */
@@ -2627,11 +2625,6 @@ int peer_delete(struct peer *peer)
 	if (peer->obuf_work) {
 		stream_free(peer->obuf_work);
 		peer->obuf_work = NULL;
-	}
-
-	if (peer->scratch) {
-		stream_free(peer->scratch);
-		peer->scratch = NULL;
 	}
 
 	/* Local and remote addresses. */
