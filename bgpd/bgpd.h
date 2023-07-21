@@ -1163,19 +1163,9 @@ struct peer {
 	struct stream_fifo *ibuf; // packets waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
-	/* used as a block to deposit raw wire data to */
-	uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
-			     * BGP_READ_PACKET_MAX];
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
-	struct stream *obuf_work;  // WiP buffer used to construct packets
 
 	struct stream *curr; // the current packet being parsed
-
-	/* We use a separate stream to encode MP_REACH_NLRI for efficient
-	 * NLRI packing. peer->obuf_work stores all the other attributes. The
-	 * actual packet is then constructed by concatenating the two.
-	 */
-	struct stream *scratch;
 
 	/* the doppelganger peer structure, due to dual TCP conn setup */
 	struct peer *doppelganger;
@@ -1612,8 +1602,6 @@ struct peer {
 	uint8_t update_delay_over; /* When this is set, BGP is no more waiting
 				     for EOR */
 
-	/* Syncronization list and time.  */
-	struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
 	time_t synctime;
 	/* timestamp when the last UPDATE msg was written */
 	_Atomic time_t last_write;
