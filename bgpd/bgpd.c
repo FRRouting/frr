@@ -8977,11 +8977,15 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	struct listnode *node;
 	struct peer *peer;
 	bool all_peers_are_admin_down = true;
+	bool gr_router_detected = false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		/* This peer is admin up */
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 			all_peers_are_admin_down = false;
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+			gr_router_detected = true;
 
 		if (!peer->shut_during_cfg)
 			continue;
@@ -9017,9 +9021,10 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	 * then send the UPDATE_PENDING and UPDATE_COMPLETE to zebra.
 	 */
 	if (all_peers_are_admin_down && bgp_in_graceful_restart() &&
-	    (bgp_global_gr_mode_get(bgp) == GLOBAL_GR)) {
-		zlog_debug("GR %s: BGP peers are ADMIN down. Sending update_pending and complete to zebra",
-			   __func__);
+	    (bgp_global_gr_mode_get(bgp) == GLOBAL_GR || gr_router_detected)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("GR %s: All peers in %s are ADMIN down. Sending update_pending and complete to zebra",
+				   __func__, bgp->name_pretty);
 
 		/* Send GR capability to zebra for this VRF */
 		bgp_zebra_send_capabilities(bgp, false);
