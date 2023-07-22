@@ -962,8 +962,12 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		}
 	}
 
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and non-pretty reduces memory footprint significantly.
+	 */
 	if (use_json)
-		vty_json(vty, json);
+		vty_json_no_pretty(vty, json);
 }
 
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
