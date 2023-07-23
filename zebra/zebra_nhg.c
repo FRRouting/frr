@@ -3635,7 +3635,18 @@ unsigned long zebra_nhg_score_proto(int type)
 		 * This should be the last ref if we remove client routes too,
 		 * and thus should remove and free them.
 		 */
-		zebra_nhg_decrement_ref(nhe);
+		if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED))
+			zebra_nhg_decrement_ref(nhe);
+		else {
+
+			/* protocol sends explicit delete of nhg, the
+			 * nhe->refcount is decremented in zread_nhg_del()
+			 */
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"%s: nhe %u (%p) refcount %u already decremented in zread_nhg_del",
+					__func__, nhe->id, nhe, nhe->refcnt);
+		}
 	}
 
 	count = iter.found->count;
