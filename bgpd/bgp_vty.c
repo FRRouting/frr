@@ -14862,15 +14862,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    BGP_UPTIME_LEN, 0, NULL));
 
 			bgp_show_peer_reset(vty, p, NULL, false);
-			if (p->last_reset_cause_size) {
-				msg = p->last_reset_cause;
+			if (p->last_reset_cause) {
+				msg = p->last_reset_cause->data;
 				vty_out(vty,
 					"  Message received that caused BGP to send a NOTIFICATION:\n    ");
-				for (i = 1; i <= p->last_reset_cause_size;
+				for (i = 1; i <= p->last_reset_cause->size;
 				     i++) {
 					vty_out(vty, "%02X", *msg++);
 
-					if (i != p->last_reset_cause_size) {
+					if (i != p->last_reset_cause->size) {
 						if (i % 16 == 0) {
 							vty_out(vty, "\n    ");
 						} else if (i % 4 == 0) {
