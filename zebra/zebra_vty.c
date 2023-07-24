@@ -4033,6 +4033,9 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "VRF|Not Available");
 #endif
 
+	ttable_add_row(table, "v6 with v4 nexthop|%s",
+		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavaliable");
+
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.asic_offloaded ? "Used" : "Unavailable");
 
