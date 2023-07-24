@@ -600,6 +600,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_type) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, prefix_suppression) &&
 	    listcount(oip->auth_crypt) == 0) {
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
@@ -708,6 +709,8 @@ int ospf_if_new_hook(struct interface *ifp)
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), opaque_capable);
 	IF_DEF_PARAMS(ifp)->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
+
+	IF_DEF_PARAMS(ifp)->prefix_suppression = OSPF_PREFIX_SUPPRESSION_DEFAULT;
 
 	rc = ospf_opaque_new_if(ifp);
 	return rc;

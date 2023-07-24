@@ -8,6 +8,7 @@
 
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_filter.h"
 
 /* AS path segment type.  */
 #define AS_SET                       1
@@ -77,6 +78,8 @@ extern struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_filter_exclude(struct aspath *source,
 					    struct aspath *exclude_list);
 extern struct aspath *aspath_filter_exclude_all(struct aspath *source);
+extern struct aspath *aspath_filter_exclude_acl(struct aspath *source,
+						struct as_list *acl_list);
 extern struct aspath *aspath_add_seq_n(struct aspath *aspath, as_t asno,
 				       unsigned num);
 extern struct aspath *aspath_add_seq(struct aspath *aspath, as_t asno);

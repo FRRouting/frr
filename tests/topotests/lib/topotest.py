@@ -44,33 +44,89 @@ def get_logs_path(rundir):
 
 
 def gdb_core(obj, daemon, corefiles):
-    gdbcmds = """
-        info threads
-        bt full
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
+    gdbcmds = r"""
+set print elements 1024
+echo -------\n
+echo threads\n
+echo -------\n
+info threads
+echo ---------\n
+echo registers\n
+echo ---------\n
+info registers
+echo ---------\n
+echo backtrace\n
+echo ---------\n
+bt
     """
     gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
     gdbcmds = [item for sl in gdbcmds for item in sl]
 
     daemon_path = os.path.join(obj.daemondir, daemon)
-    backtrace = subprocess.check_output(
-        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
     )
+    backtrace = p.stdout
+
+    #
+    # Grab the disassemble of top couple frames
+    #
+    m = re.search(r"#(\d+) .*assert.*", backtrace)
+    if not m:
+        m = re.search(r"#(\d+) .*abort.*", backtrace)
+    frames = re.findall(r"\n#(\d+) ", backtrace)
+    if m:
+        frstart = -1
+        astart = int(m.group(1)) + 1
+        ocount = f"-{int(frames[-1]) - astart + 1}"
+    else:
+        astart = -1
+        frstart = 0
+        ocount = ""
+        m = re.search(r"#(\d+) .*core_handler.*", backtrace)
+        if m:
+            frstart = int(m.group(1)) + 2
+            ocount = f"-{int(frames[-1]) - frstart + 1}"
+
     sys.stderr.write(
-        "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+        f"\nCORE FOUND: {obj.name}: {daemon} crashed: see log for backtrace and more\n"
     )
-    sys.stderr.write("%s" % backtrace)
-    return backtrace
+
+    gdbcmds = rf"""
+set print elements 1024
+echo -------------------------\n
+echo backtrace with local args\n
+echo -------------------------\n
+bt full {ocount}
+"""
+    if frstart >= 0:
+        gdbcmds += rf"""echo ---------------------------------------\n
+echo disassemble of failing funciton (guess)\n
+echo ---------------------------------------\n
+fr {frstart}
+disassemble /m
+"""
+
+    gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "-q", "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    btdump = p.stdout
+
+    # sys.stderr.write(
+    #     "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+    # )
+
+    return backtrace + btdump
 
 
 class json_cmp_result(object):
@@ -1189,8 +1245,8 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 def fix_netns_limits(ns):
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1249,8 +1305,8 @@ def fix_host_limits():
     sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
 
     # Garbage Collection Settings for ARP and Neighbors
     sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
@@ -2088,8 +2144,7 @@ class Router(Node):
                     backtrace = gdb_core(self, daemon, corefiles)
                     traces = (
                         traces
-                        + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s"
-                        % (self.name, daemon, backtrace)
+                        + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
                     )
                     reportMade = True
                 elif reportLeaks:

@@ -355,6 +355,41 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 	}
 }
 
+bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2)
+{
+	if (e1->route_type != e2->route_type)
+		return false;
+	if (e1->route_type == BGP_EVPN_AD_ROUTE)
+		return (!memcmp(&e1->ead_addr.esi.val,
+				&e2->ead_addr.esi.val, ESI_BYTES) &&
+			e1->ead_addr.eth_tag == e2->ead_addr.eth_tag &&
+			!ipaddr_cmp(&e1->ead_addr.ip, &e2->ead_addr.ip));
+	if (e1->route_type == BGP_EVPN_MAC_IP_ROUTE)
+		return (e1->macip_addr.eth_tag == e2->macip_addr.eth_tag &&
+			e1->macip_addr.ip_prefix_length
+				== e2->macip_addr.ip_prefix_length &&
+			!memcmp(&e1->macip_addr.mac,
+				&e2->macip_addr.mac, ETH_ALEN) &&
+			!ipaddr_cmp(&e1->macip_addr.ip, &e2->macip_addr.ip));
+	if (e1->route_type == BGP_EVPN_IMET_ROUTE)
+		return (e1->imet_addr.eth_tag == e2->imet_addr.eth_tag &&
+			e1->imet_addr.ip_prefix_length
+				== e2->imet_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->imet_addr.ip, &e2->imet_addr.ip));
+	if (e1->route_type == BGP_EVPN_ES_ROUTE)
+		return (!memcmp(&e1->es_addr.esi.val,
+				&e2->es_addr.esi.val, ESI_BYTES) &&
+			e1->es_addr.ip_prefix_length
+				== e2->es_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->es_addr.ip, &e2->es_addr.ip));
+	if (e1->route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+		return (e1->prefix_addr.eth_tag == e2->prefix_addr.eth_tag &&
+			e1->prefix_addr.ip_prefix_length
+				== e2->prefix_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->prefix_addr.ip, &e2->prefix_addr.ip));
+	return true;
+}
+
 /*
  * Return 1 if the address/netmask contained in the prefix structure
  * is the same, and else return 0.  For this routine, 'same' requires
@@ -387,8 +422,7 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    sizeof(struct ethaddr)))
 				return 1;
 		if (p1->family == AF_EVPN)
-			if (!memcmp(&p1->u.prefix_evpn, &p2->u.prefix_evpn,
-				    sizeof(struct evpn_addr)))
+			if (evpn_addr_same(&p1->u.prefix_evpn, &p2->u.prefix_evpn))
 				return 1;
 		if (p1->family == AF_FLOWSPEC) {
 			if (p1->u.prefix_flowspec.family !=

@@ -962,8 +962,12 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		}
 	}
 
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and non-pretty reduces memory footprint significantly.
+	 */
 	if (use_json)
-		vty_json(vty, json);
+		vty_json_no_pretty(vty, json);
 }
 
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
@@ -2703,12 +2707,7 @@ DEFUN (default_vrf_vni_mapping,
        "Prefix routes only \n")
 {
 	char xpath[XPATH_MAXLEN];
-	struct zebra_vrf *zvrf = NULL;
 	int filter = 0;
-
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	if (argc == 3)
 		filter = 1;
@@ -2746,8 +2745,6 @@ DEFUN (no_default_vrf_vni_mapping,
 	struct zebra_vrf *zvrf = NULL;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	if (argc == 4)
 		filter = 1;

@@ -699,6 +699,15 @@ Interfaces
    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
    advertise non-OSPF links into stub areas.
 
+.. clicmd:: ip ospf prefix-suppression [A.B.C.D]
+
+   Configure OSPF to not advertise the IPv4 prefix associated with the
+   OSPF interface. The associated IPv4 prefix will be omitted from an OSPF
+   router-LSA or advertised with a host mask in an OSPF network-LSA as
+   specified in RFC 6860, "Hiding Transit-Only Networks in OSPF". If an
+   optional IPv4 address is specified, the prefix suppression will apply
+   to the OSPF interface associated with the specified interface address.
+
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
 
@@ -884,10 +893,11 @@ Showing Information
 
    Show detailed information about the OSPF link-state database.
 
-.. clicmd:: show ip ospf route [json]
+.. clicmd:: show ip ospf route [detail] [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
-   calculation.
+   calculation. When detail option is used, it shows more information
+   to the CLI like advertising router ID for each route, etc.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
 
@@ -898,7 +908,7 @@ Showing Information
 
 .. clicmd:: show ip ospf graceful-restart helper [detail] [json]
 
-   Displays the Grcaeful Restart Helper details including helper
+   Displays the Graceful Restart Helper details including helper
    config changes.
 
 .. _opaque-lsa:

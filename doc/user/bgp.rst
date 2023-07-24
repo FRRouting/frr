@@ -1813,6 +1813,28 @@ Configuring Peers
    outputs. It's easier to troubleshoot if you have a number of BGP peers
    and a number of routes to check.
 
+.. clicmd:: bgp default software-version-capability
+
+   This command enables software version capability advertisement by default
+   for all the neighbors.
+
+   For ``datacenter`` profile, this is enabled by default.
+
+   .. code-block:: frr
+
+      IPv4 Unicast Summary (VRF default):
+      BGP router identifier 10.0.0.6, local AS number 65001 vrf-id 0
+      BGP table version 12
+      RIB entries 23, using 4600 bytes of memory
+      Peers 3, using 2174 KiB of memory
+
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+      10.0.0.4        4      65001        20        22       12    0    0 00:00:11            5       12 FRRouting/8.5.1
+      10.0.0.5        4      65001        21        22       12    0    0 00:00:11            5       12 FRRouting/9.0
+      192.168.67.7    4      65001        27        31       12    0    0 00:00:23            2       10 FRRouting/9.1-dev-MyOwnFRRVersion-g3c8c08dcd9
+
+      Total number of neighbors 3
+
 .. clicmd:: neighbor PEER advertisement-interval (0-600)
 
    Setup the minimum route advertisement interval(mrai) for the
@@ -2116,6 +2138,13 @@ Using AS Path in Route Map
    Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
    this command removes this set operation from the route-map.
 
+.. clicmd:: set as-path exclude as-path-access-list WORD
+
+   Remove some AS numbers from the AS_PATH of the BGP path's NLRI. Removed AS
+   numbers are conformant with the regex defined in as-path access-list  WORD.
+   The no form of this command removes this set operation from the route-map.
+   
+   
 .. _bgp-communities-attribute:
 
 Communities Attribute
@@ -2624,7 +2653,7 @@ BGP Extended Communities in Route Map
 .. clicmd:: set extcomumnity color EXTCOMMUNITY
 
    This command sets colors values.
-   
+
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
    This command sets the BGP link-bandwidth extended community for the prefix

@@ -3,6 +3,7 @@
  * PBR-map Header
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 #ifndef __PBR_MAP_H__
 #define __PBR_MAP_H__
@@ -71,28 +72,43 @@ struct pbr_map_sequence {
 	 */
 	uint32_t ruleno;
 
+
+	/*****************************************************************
+	 * Filter fields
+	 * gpz 230716: I hope to replace all of the filter fields with
+	 * 'struct pbr_filter' from lib/pbr.h.
+	 *****************************************************************/
+
 	/*
-	 * src and dst ports
+	 * same bit definitions as in lib/pbr.h
 	 */
+	uint32_t filter_bm;
+
+	/* Family of the src/dst. Needed when deleting since we clear them */
+	unsigned char family;
+
+	/* src and dst IP addresses */
+	struct prefix *src;
+	struct prefix *dst;
+
+	/* src and dst UDP/TCP ports */
 	uint16_t src_prt;
 	uint16_t dst_prt;
 
-	/*
-	 * The ip protocol we want to match on
-	 */
 	uint8_t ip_proto;
 
-	/*
-	 * Our policy Catchers
-	 */
-	struct prefix *src;
-	struct prefix *dst;
+	uint8_t match_pcp;
+	uint16_t match_vlan_id; /* bits defined in lib/pbr.h */
+
+	uint16_t match_vlan_flags;
+
 	uint8_t dsfield;
 	uint32_t mark;
 
-	/*
-	 * Actions
-	 */
+	/*****************************************************************
+	 * Action fields
+	 *****************************************************************/
+
 	uint8_t action_pcp;
 	uint8_t action_vlan_id;
 #define PBR_MAP_STRIP_INNER_ANY (1 << 0)
@@ -100,11 +116,6 @@ struct pbr_map_sequence {
 
 #define PBR_MAP_UNDEFINED_QUEUE_ID 0
 	uint32_t action_queue_id;
-
-	/*
-	 * Family of the src/dst.  Needed when deleting since we clear them
-	 */
-	unsigned char family;
 
 	/*
 	 * Use interface's vrf.
@@ -222,4 +233,9 @@ extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 extern void pbr_map_check_interface_nh_group_change(const char *nh_group,
 						    struct interface *ifp,
 						    ifindex_t oldifindex);
+extern void pbr_set_match_clause_for_vlan(struct pbr_map_sequence *pbrms,
+					  uint16_t vlan_id,
+					  uint16_t vlan_flags);
+extern void pbr_set_match_clause_for_pcp(struct pbr_map_sequence *pbrms,
+					 bool set, uint8_t pcp);
 #endif

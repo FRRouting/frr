@@ -1517,8 +1517,6 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 
 		if (peer->ibuf_work)
 			ringbuf_wipe(peer->ibuf_work);
-		if (peer->obuf_work)
-			stream_reset(peer->obuf_work);
 
 		if (peer->curr) {
 			stream_free(peer->curr);

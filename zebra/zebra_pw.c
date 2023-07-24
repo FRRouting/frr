@@ -408,8 +408,6 @@ DEFUN_NOSH (pseudowire_if,
 	int idx = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
@@ -440,8 +438,6 @@ DEFUN (no_pseudowire_if,
 	int idx = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
@@ -564,8 +560,6 @@ DEFUN (show_pseudowires,
 	struct zebra_pw *pw;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
 
 	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", "Interface", "Neighbor",
 		"Labels", "Protocol", "Status");
@@ -603,8 +597,6 @@ static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 	struct nexthop_group *nhg;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
 		char buf_nbr[INET6_ADDRSTRLEN];
@@ -759,8 +751,6 @@ static void vty_show_mpls_pseudowire_detail_json(struct vty *vty)
 	struct zebra_pw *pw;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	json = json_object_new_object();
 	json_pws = json_object_new_array();
@@ -795,8 +785,6 @@ static int zebra_pw_config(struct vty *vty)
 	struct zebra_pw *pw;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
 
 	RB_FOREACH (pw, zebra_static_pw_head, &zvrf->static_pseudowires) {
 		vty_out(vty, "pseudowire %s\n", pw->ifname);

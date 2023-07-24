@@ -2303,18 +2303,27 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 struct aspath_exclude {
 	struct aspath *aspath;
 	bool exclude_all;
+	char *exclude_aspath_acl_name;
+	struct as_list *exclude_aspath_acl;
 };
 
 static void *route_aspath_exclude_compile(const char *arg)
 {
 	struct aspath_exclude *ase;
 	const char *str = arg;
+	static const char asp_acl[] = "as-path-access-list";
 
 	ase = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct aspath_exclude));
-	if (!strmatch(str, "all"))
-		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
-	else
+	if (strmatch(str, "all"))
 		ase->exclude_all = true;
+	else if (!strncmp(str, asp_acl, strlen(asp_acl))) {
+		str += strlen(asp_acl);
+		while (*str == ' ')
+			str++;
+		ase->exclude_aspath_acl_name = XSTRDUP(MTYPE_TMP, str);
+		ase->exclude_aspath_acl = as_list_lookup(str);
+	} else
+		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
 	return ase;
 }
 
@@ -2323,6 +2332,8 @@ static void route_aspath_exclude_free(void *rule)
 	struct aspath_exclude *ase = rule;
 
 	aspath_free(ase->aspath);
+	if (ase->exclude_aspath_acl_name)
+		XFREE(MTYPE_TMP, ase->exclude_aspath_acl_name);
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
 }
 
@@ -2357,10 +2368,20 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 	else if (ase->exclude_all)
 		path->attr->aspath = aspath_filter_exclude_all(new_path);
 
+	else if (ase->exclude_aspath_acl_name) {
+		if (!ase->exclude_aspath_acl)
+			ase->exclude_aspath_acl =
+				as_list_lookup(ase->exclude_aspath_acl_name);
+		if (ase->exclude_aspath_acl)
+			path->attr->aspath =
+				aspath_filter_exclude_acl(new_path,
+							  ase->exclude_aspath_acl);
+	}
+
 	return RMAP_OKAY;
 }
 
-/* Set ASn exlude rule structure. */
+/* Set ASn exclude rule structure. */
 static const struct route_map_rule_cmd route_set_aspath_exclude_cmd = {
 	"as-path exclude",
 	route_set_aspath_exclude,
@@ -6053,6 +6074,46 @@ DEFUN_YANG (no_set_aspath_exclude,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(set_aspath_exclude_access_list, set_aspath_exclude_access_list_cmd,
+	   "set as-path exclude as-path-access-list AS_PATH_FILTER_NAME",
+	   SET_STR
+	   "Transform BGP AS-path attribute\n"
+	   "Exclude from the as-path\n"
+	   "Specify an as path access list name\n"
+	   "AS path access list name\n")
+{
+	char *str;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+	char xpath_value[XPATH_MAXLEN];
+
+	str = argv_concat(argv, argc, 3);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_aspath_exclude_access_list, no_set_aspath_exclude_access_list_cmd,
+	   "no set as-path exclude as-path-access-list [AS_PATH_FILTER_NAME]",
+	   NO_STR
+	   SET_STR
+	   "Transform BGP AS_PATH attribute\n"
+	   "Exclude from the as-path\n"
+	   "Specify an as path access list name\n"
+	   "AS path access list name\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 ALIAS_YANG (no_set_aspath_exclude, no_set_aspath_exclude_all_cmd,
             "no set as-path exclude",
             NO_STR SET_STR
@@ -7616,11 +7677,13 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &set_aspath_exclude_all_cmd);
+	install_element(RMAP_NODE, &set_aspath_exclude_access_list_cmd);
 	install_element(RMAP_NODE, &set_aspath_replace_asn_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_exclude_access_list_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_replace_asn_cmd);
 	install_element(RMAP_NODE, &set_origin_cmd);
 	install_element(RMAP_NODE, &no_set_origin_cmd);

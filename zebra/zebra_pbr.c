@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Policy Based Routing (PBR) main handling.
  * Copyright (C) 2018  Cumulus Networks, Inc.
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -165,6 +168,9 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 			   rule->rule.filter.ip_proto, key);
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
+
+	key = jhash_3words(rule->rule.filter.pcp, rule->rule.filter.vlan_id,
+			   rule->rule.filter.vlan_flags, key);
 
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
@@ -525,6 +531,22 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 
 	if (prule->filter.filter_bm & PBR_FILTER_FWMARK)
 		vty_out(vty, "  MARK Match: %u\n", prule->filter.fwmark);
+	if (prule->filter.filter_bm & PBR_FILTER_PCP)
+		vty_out(vty, "  PCP Match: %u\n", prule->filter.pcp);
+	if (prule->filter.filter_bm & PBR_FILTER_VLAN_ID)
+		vty_out(vty, "  VLAN ID Match: %u\n", prule->filter.vlan_id);
+	if (prule->filter.filter_bm & PBR_FILTER_VLAN_FLAGS) {
+		vty_out(vty, "  VLAN Flags Match:");
+		if (CHECK_FLAG(prule->filter.vlan_flags, PBR_VLAN_FLAGS_TAGGED))
+			vty_out(vty, " tagged");
+		if (CHECK_FLAG(prule->filter.vlan_flags,
+			       PBR_VLAN_FLAGS_UNTAGGED))
+			vty_out(vty, " untagged");
+		if (CHECK_FLAG(prule->filter.vlan_flags,
+			       PBR_VLAN_FLAGS_UNTAGGED_0))
+			vty_out(vty, " untagged-or-zero");
+		vty_out(vty, "\n");
+	}
 
 	vty_out(vty, "  Tableid: %u\n", prule->action.table);
 	if (zaction->afi == AFI_IP)
@@ -1118,7 +1140,7 @@ static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 			    uint16_t port_min, uint16_t port_max,
 			    uint8_t proto)
 {
-	if (!(filter_bm & PBR_FILTER_PROTO)) {
+	if (!(filter_bm & PBR_FILTER_IP_PROTOCOL)) {
 		if (port_max)
 			vty_out(vty, ":udp/tcp:%d-%d",
 				port_min, port_max);

@@ -4076,6 +4076,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
 
+		if (use_json) {
+			json_object_boolean_add(json_interface_sub,
+						"prefixSuppression",
+						OSPF_IF_PARAM(oi,
+							      prefix_suppression));
+			json_object_boolean_add(json_oi, "prefixSuppression",
+						OSPF_IF_PARAM(oi,
+							      prefix_suppression));
+		} else {
+			if (OSPF_IF_PARAM(oi, prefix_suppression))
+				vty_out(vty,
+					"  Suppress advertisement of interface IP prefix\n");
+		}
+
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 
@@ -9865,6 +9879,56 @@ DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
 }
 
 
+DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
+      "[no] ip ospf prefix-suppression [A.B.C.D]$ip_addr", NO_STR
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Supress OSPF prefix advertisement on this interface\n"
+      "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct route_node *rn;
+	bool prefix_suppression_change;
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	prefix_suppression_change = (params->prefix_suppression == (bool)no);
+	params->prefix_suppression = (no) ? false : true;
+	if (params->prefix_suppression != OSPF_PREFIX_SUPPRESSION_DEFAULT)
+		SET_IF_PARAM(params, prefix_suppression);
+	else {
+		UNSET_IF_PARAM(params, prefix_suppression);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, ip_addr);
+			ospf_if_update_params(ifp, ip_addr);
+		}
+	}
+
+	/*
+	 * If there is a change to the prefix suppression, update the Router-LSA.
+	 */
+	if (prefix_suppression_change) {
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			struct ospf_interface *oi = rn->info;
+
+			if (oi && (oi->state > ISM_Down) &&
+			    (ip_addr.s_addr == INADDR_ANY ||
+			     IPV4_ADDR_SAME(&oi->address->u.prefix4, &ip_addr))) {
+				(void)ospf_router_lsa_update_area(oi->area);
+				if (oi->state == ISM_DR)
+					ospf_network_lsa_update(oi);
+			}
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
@@ -10732,7 +10796,7 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 
 static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				       struct route_table *rt,
-				       json_object *json)
+				       json_object *json, bool detail)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -10792,15 +10856,17 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 			if (json) {
 				json_object_string_add(json_route, "routeType",
 						       "N");
+				json_object_boolean_add(json_route, "transit",
+							or->u.std.transit);
 				json_object_int_add(json_route, "cost",
 						    or->cost);
 				json_object_string_addf(json_route, "area",
 							"%pI4",
 							&or->u.std.area_id);
 			} else {
-				vty_out(vty, "N    %-18s    [%d] area: %pI4\n",
-					buf1, or->cost,
-					&or->u.std.area_id);
+				vty_out(vty, "N %s  %-18s    [%d] area: %pI4\n",
+					or->u.std.transit && detail ? "T" : " ",
+					buf1, or->cost, &or->u.std.area_id);
 			}
 			break;
 		default:
@@ -10857,6 +10923,11 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
+							json_object_string_addf(
+								json_nexthop,
+								"advertisedRouter",
+								"%pI4",
+								&path->adv_router);
 						} else {
 							vty_out(vty,
 								"%24s   via %pI4, %s\n",
@@ -10866,6 +10937,11 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 									path->ifindex,
 									ospf->vrf_id));
 						}
+						if (detail && !json)
+							vty_out(vty,
+								"%24s   adv %pI4\n",
+								"",
+								&path->adv_router);
 					}
 				}
 			}
@@ -11020,7 +11096,7 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 
 static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 					struct route_table *rt,
-					json_object *json)
+					json_object *json, bool detail)
 {
 	struct route_node *rn;
 	struct ospf_route *er;
@@ -11124,6 +11200,11 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
+						json_object_string_addf(
+							json_nexthop,
+							"advertisedRouter",
+							"%pI4",
+							&path->adv_router);
 					} else {
 						vty_out(vty,
 							"%24s   via %pI4, %s\n",
@@ -11133,6 +11214,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 								path->ifindex,
 								ospf->vrf_id));
 					}
+					if (detail && !json)
+						vty_out(vty,
+							"%24s   adv %pI4\n", "",
+							&path->adv_router);
 				}
 			}
 		}
@@ -11419,7 +11504,8 @@ DEFUN (show_ip_ospf_instance_border_routers,
 }
 
 static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
-				     json_object *json, uint8_t use_vrf)
+				     json_object *json, uint8_t use_vrf,
+				     bool detail)
 {
 	json_object *json_vrf = NULL;
 
@@ -11446,8 +11532,15 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 		return CMD_SUCCESS;
 	}
 
+	if (detail && json == NULL) {
+		vty_out(vty, "Codes: N  - network     T - transitive\n");
+		vty_out(vty, "       IA - inter-area  E - external route\n");
+		vty_out(vty, "       D  - destination R - router\n\n");
+	}
+
 	/* Show Network routes. */
-	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf);
+	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf,
+				   detail);
 
 	/* Show Router routes. */
 	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
@@ -11458,7 +11551,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	/* Show AS External routes. */
 	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
-				    json_vrf);
+				    json_vrf, detail);
 
 	if (json) {
 		if (use_vrf) {
@@ -11476,13 +11569,14 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
-	"show ip ospf [vrf <NAME|all>] route [json]",
+	"show ip ospf [vrf <NAME|all>] route [detail] [json]",
 	SHOW_STR
 	IP_STR
 	"OSPF information\n"
 	VRF_CMD_HELP_STR
 	"All VRFs\n"
 	"OSPF routing table\n"
+	"Detailed information\n"
 	JSON_STR)
 {
 	struct ospf *ospf = NULL;
@@ -11491,13 +11585,18 @@ DEFUN (show_ip_ospf_route,
 	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
+	int idx = 0;
 	int idx_vrf = 0;
 	uint8_t use_vrf = 0;
 	bool uj = use_json(argc, argv);
+	bool detail = false;
 	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
@@ -11512,8 +11611,8 @@ DEFUN (show_ip_ospf_route,
 				if (!ospf->oi_running)
 					continue;
 				ospf_output = true;
-				ret = show_ip_ospf_route_common(vty, ospf, json,
-								use_vrf);
+				ret = show_ip_ospf_route_common(
+					vty, ospf, json, use_vrf, detail);
 			}
 
 			if (uj) {
@@ -11550,7 +11649,8 @@ DEFUN (show_ip_ospf_route,
 	}
 
 	if (ospf) {
-		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf);
+		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf,
+						detail);
 		/* Keep Non-pretty format */
 		if (uj)
 			vty_out(vty, "%s\n",
@@ -11566,16 +11666,22 @@ DEFUN (show_ip_ospf_route,
 
 DEFUN (show_ip_ospf_instance_route,
        show_ip_ospf_instance_route_cmd,
-       "show ip ospf (1-65535) route",
+       "show ip ospf (1-65535) route [detail]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
-       "OSPF routing table\n")
+       "OSPF routing table\n"
+       "Detailed information\n")
 {
 	int idx_number = 3;
+	int idx = 0;
 	struct ospf *ospf;
 	unsigned short instance = 0;
+	bool detail = false;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (instance != ospf_instance)
@@ -11585,7 +11691,7 @@ DEFUN (show_ip_ospf_instance_route,
 	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_route_common(vty, ospf, NULL, 0);
+	return show_ip_ospf_route_common(vty, ospf, NULL, 0, detail);
 }
 
 
@@ -12238,6 +12344,22 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				else
 					vty_out(vty,
 						" ip ospf capability opaque");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
+			/* prefix-suppression print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params,
+						     prefix_suppression) &&
+			    params->prefix_suppression !=
+				    OSPF_PREFIX_SUPPRESSION_DEFAULT) {
+				if (params->prefix_suppression == false)
+					vty_out(vty,
+						" no ip ospf prefix-suppression");
+				else
+					vty_out(vty,
+						" ip ospf prefix-suppression");
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
@@ -13054,6 +13176,9 @@ static void ospf_vty_if_init(void)
 
 	/* "ip ospf capability opaque" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_capability_opaque_addr_cmd);
+
+	/* "ip ospf prefix-suppression" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_prefix_suppression_addr_cmd);
 
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);

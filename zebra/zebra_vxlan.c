@@ -891,6 +891,7 @@ static int zvni_map_to_svi_ns(struct ns *ns,
 
 		if (vl->vid == in_param->vid) {
 			*p_ifp = tmp_if;
+			route_unlock_node(rn);
 			return NS_WALK_STOP;
 		}
 	}
@@ -2005,6 +2006,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 
 		zl3vni->local_vtep_ip = zif->l2info.vxl.vtep_ip;
 		*_pifp = (void *)ifp;
+		route_unlock_node(rn);
 		return NS_WALK_STOP;
 	}
 
@@ -2116,6 +2118,7 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 				zif, in_param->br_if);
 			if (vni_id) {
 				found = 1;
+				route_unlock_node(rn);
 				break;
 			}
 		}
@@ -2402,6 +2405,7 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			vnip = zebra_vxlan_if_vni_find(zif, vni);
 			if (vnip) {
 				found = true;
+				route_unlock_node(rn);
 				break;
 			}
 		}
@@ -3225,7 +3229,11 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (use_json) {
 		json_object_object_add(json, "macs", json_mac);
-		vty_json(vty, json);
+		/*
+		 * This is an extremely expensive operation at scale
+		 * and non-pretty reduces memory footprint significantly.
+		 */
+		vty_json_no_pretty(vty, json);
 	}
 }
 
@@ -4010,8 +4018,12 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 			       void *))zl3vni_print_hash_detail,
 		     &zes);
 
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and non-pretty reduces memory footprint significantly.
+	 */
 	if (use_json)
-		vty_json(vty, json_array);
+		vty_json_no_pretty(vty, json_array);
 }
 
 /*
@@ -5937,8 +5949,6 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 	struct zebra_vrf *zvrf;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	/* On SG entry deletion remove the reference to its parent XG
 	 * entry
@@ -6008,8 +6018,6 @@ void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	zebra_vxlan_sg_do_deref(zvrf, local_vtep_ip, mcast_grp);
 }
@@ -6023,8 +6031,7 @@ void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip, struct in_addr mcast_grp)
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
+
 	zebra_vxlan_sg_do_ref(zvrf, local_vtep_ip, mcast_grp);
 }
 

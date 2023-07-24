@@ -84,6 +84,62 @@ def test_bgp_set_aspath_exclude():
     assert result is None, "Failed overriding incoming AS-PATH with route-map"
 
 
+def test_bgp_set_aspath_exclude_access_list():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "r1"
+    r1 = tgen.gears[rname]
+
+    r1.vtysh_cmd(
+        """
+conf
+ bgp as-path access-list FIRST permit ^65 
+ route-map r2 permit 6 
+  set as-path exclude as-path-access-list FIRST
+    """
+    )
+
+    expected = {
+        "routes": {
+            "172.16.255.31/32": [{"path": ""}],
+            "172.16.255.32/32": [{"path": ""}],
+        }
+    }
+
+    def _bgp_regexp_1(router):
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_regexp_1, tgen.gears["r1"])
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed overriding incoming AS-PATH with regex 1 route-map"
+    r1.vtysh_cmd(
+        """
+conf
+ bgp as-path access-list SECOND permit 2
+ route-map r2 permit 6
+  set as-path exclude as-path-access-list SECOND
+    """
+    )
+
+    expected = {
+        "routes": {
+            "172.16.255.31/32": [{"path": "65003"}],
+            "172.16.255.32/32": [{"path": "65003"}],
+        }
+    }
+
+    test_func = functools.partial(_bgp_regexp_1, tgen.gears["r1"])
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed overriding incoming AS-PATH with regex 2 route-map"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
