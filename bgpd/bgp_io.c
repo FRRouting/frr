@@ -218,7 +218,6 @@ static void bgp_process_reads(struct event *thread)
 	bool fatal = false;             /* whether fatal error occurred */
 	bool added_pkt = false;         /* whether we pushed onto ->ibuf */
 	int code = 0;                   /* FSM code if error occurred */
-	bool ibuf_full = false;         /* Is peer fifo IN Buffer full */
 	static bool ibuf_full_logged;   /* Have we logged full already */
 	int ret = 1;
 	/* clang-format on */
@@ -265,7 +264,6 @@ static void bgp_process_reads(struct event *thread)
 		fatal = true;
 		break;
 	case -ENOMEM:
-		ibuf_full = true;
 		if (!ibuf_full_logged) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
@@ -287,10 +285,6 @@ done:
 		ringbuf_wipe(peer->ibuf_work);
 		return;
 	}
-
-	/* ringbuf should be fully drained unless ibuf is full */
-	if (!ibuf_full)
-		assert(ringbuf_space(peer->ibuf_work) >= peer->max_packet_size);
 
 	event_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 		       &peer->t_read);
