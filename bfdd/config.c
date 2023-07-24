@@ -17,6 +17,8 @@
 
 #include "bfd.h"
 
+#ifdef BFD_CONTROL_OBSOLETE
+
 DEFINE_MTYPE_STATIC(BFDD, BFDD_LABEL, "long-lived label memory");
 
 /*
@@ -590,3 +592,5 @@ void pl_free(struct peer_label *pl)
 	TAILQ_REMOVE(&bglobal.bg_pllist, pl, pl_entry);
 	XFREE(MTYPE_BFDD_LABEL, pl);
 }
+
+#endif /* BFD_CONTROL_OBSOLETE */

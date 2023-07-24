@@ -51,8 +51,10 @@ struct bfd_peer_cfg {
 	struct sockaddr_any bpc_peer;
 	struct sockaddr_any bpc_local;
 
+#ifdef BFD_CONTROL_OBSOLETE
 	bool bpc_has_label;
 	char bpc_label[MAXNAMELEN];
+#endif /* BFD_CONTROL_OBSOLETE */
 
 	bool bpc_has_localif;
 	char bpc_localif[MAXNAMELEN + 1];

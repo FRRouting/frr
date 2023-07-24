@@ -353,8 +353,12 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs->remote_timers.required_min_rx = ntohl(state->required_rx);
 	bs->remote_timers.required_min_echo = ntohl(state->required_echo_rx);
 
+#ifdef BFD_CONTROL_OBSOLETE
 	/* Notify and update counters. */
 	control_notify(bs, bs->ses_state);
+#else
+	ptm_bfd_notify(bs, bs->ses_state);
+#endif /* BFD_CONTROL_OBSOLETE */
 
 	/* No state change. */
 	if (old_state == bs->ses_state)

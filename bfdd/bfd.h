@@ -20,6 +20,11 @@
 #include "lib/queue.h"
 #include "lib/vrf.h"
 
+#if CONFDATE > 20231101
+CPP_NOTICE("Remove obsolete: BFD control socket")
+#endif
+#define BFD_CONTROL_OBSOLETE
+
 #include "bfdctl.h"
 
 #ifdef BFD_DEBUG
@@ -29,8 +34,10 @@
 #endif
 
 DECLARE_MGROUP(BFDD);
+#ifdef BFD_CONTROL_OBSOLETE
 DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
+#endif /* BFD_CONTROL_OBSOLETE */
 DECLARE_MTYPE(BFDD_CLIENT);
 DECLARE_MTYPE(BFDD_CLIENT_NOTIFICATION);
 
@@ -243,8 +250,10 @@ struct bfd_profile {
 /** Profile list type. */
 TAILQ_HEAD(bfdproflist, bfd_profile);
 
+#ifdef BFD_CONTROL_OBSOLETE
 /* bfd_session shortcut label forwarding. */
 struct peer_label;
+#endif /* BFD_CONTROL_OBSOLETE */
 
 struct bfd_config_timers {
 	uint32_t desired_min_tx;
@@ -323,6 +332,7 @@ struct bfd_session {
 	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
+#ifdef BFD_CONTROL_OBSOLETE
 struct peer_label {
 	TAILQ_ENTRY(peer_label) pl_entry;
 
@@ -330,6 +340,7 @@ struct peer_label {
 	char pl_label[MAXNAMELEN];
 };
 TAILQ_HEAD(pllist, peer_label);
+#endif /* BFD_CONTROL_OBSOLETE */
 
 struct bfd_diag_str_list {
 	const char *str;
@@ -382,6 +393,7 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEF_ECHO_PORT 3785
 #define BFD_DEF_MHOP_DEST_PORT 4784
 
+#ifdef BFD_CONTROL_OBSOLETE
 /*
  * control.c
  *
@@ -439,6 +451,7 @@ void control_shutdown(void);
 int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
 void control_accept(struct event *t);
+#endif /* BFD_CONTROL_OBSOLETE */
 
 
 /*
@@ -465,9 +478,11 @@ TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
 struct bfd_global {
 	int bg_csock;
 	struct event *bg_csockev;
+#ifdef BFD_CONTROL_OBSOLETE
 	struct bcslist bg_bcslist;
 
 	struct pllist bg_pllist;
+#endif /* BFD_CONTROL_OBSOLETE */
 
 	struct obslist bg_obslist;
 
@@ -518,6 +533,7 @@ void socket_close(int *s);
  *
  * Contains the code related with loading/reloading configuration.
  */
+#ifdef BFD_CONTROL_OBSOLETE
 int parse_config(const char *fname);
 int config_request_add(const char *jsonstr);
 int config_request_del(const char *jsonstr);
@@ -532,6 +548,7 @@ int config_notify_request(struct bfd_control_socket *bcs, const char *jsonstr,
 struct peer_label *pl_new(const char *label, struct bfd_session *bs);
 struct peer_label *pl_find(const char *label);
 void pl_free(struct peer_label *pl);
+#endif /* BFD_CONTROL_OBSOLETE */
 
 
 /*
@@ -618,7 +635,9 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
+#ifdef BFD_CONTROL_OBSOLETE
 int bfd_session_update_label(struct bfd_session *bs, const char *nlabel);
+#endif /* BFD_CONTROL_OBSOLETE */
 void bfd_set_polling(struct bfd_session *bs);
 void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);

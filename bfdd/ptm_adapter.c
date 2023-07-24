@@ -148,7 +148,9 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
 				bs_to_string(bs));
 		} else {
+#ifdef BFD_CONTROL_OBSOLETE
 			control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
+#endif /* BFD_CONTROL_OBSOLETE */
 			bfd_session_free(bs);
 		}
 	}

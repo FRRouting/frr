@@ -85,8 +85,10 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, " interface %s", bs->key.ifname);
 	vty_out(vty, "\n");
 
+#ifdef BFD_CONTROL_OBSOLETE
 	if (bs->pl)
 		vty_out(vty, "\t\tlabel: %s\n", bs->pl->pl_label);
+#endif /* BFD_CONTROL_OBSOLETE */
 }
 
 static void _display_peer(struct vty *vty, struct bfd_session *bs)
@@ -200,8 +202,10 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 	if (bs->key.ifname[0])
 		json_object_string_add(jo, "interface", bs->key.ifname);
 
+#ifdef BFD_CONTROL_OBSOLETE
 	if (bs->pl)
 		json_object_string_add(jo, "label", bs->pl->pl_label);
+#endif /* BFD_CONTROL_OBSOLETE */
 
 	return jo;
 }
@@ -555,17 +559,20 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 	int idx;
 	bool mhop;
 	struct bfd_session *bs = NULL;
-	struct peer_label *pl;
 	struct bfd_peer_cfg bpc;
 	struct sockaddr_any psa, lsa, *lsap;
 	char errormsg[128];
+#ifdef BFD_CONTROL_OBSOLETE
+	struct peer_label *pl;
 
 	/* Look up the BFD peer. */
 	if (label) {
 		pl = pl_find(label);
 		if (pl)
 			bs = pl->pl_bs;
-	} else if (peer_str) {
+	} else
+#endif	/* BFD_CONTROL_OBSOLETE */
+	if (peer_str) {
 		strtosa(peer_str, &psa);
 		if (local_str) {
 			strtosa(local_str, &lsa);
