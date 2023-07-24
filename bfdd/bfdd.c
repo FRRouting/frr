@@ -30,6 +30,8 @@
 DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
 DEFINE_MTYPE(BFDD, BFDD_CONTROL, "control socket memory");
 DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "control notification data");
+DEFINE_MTYPE(BFDD, BFDD_CLIENT, "BFD client data");
+DEFINE_MTYPE(BFDD, BFDD_CLIENT_NOTIFICATION, "BFD client notification data");
 
 /* Master of threads. */
 struct event_loop *master;

@@ -903,7 +903,7 @@ static struct ptm_client *pc_new(uint32_t pid)
 		return pc;
 
 	/* Allocate the client data and save it. */
-	pc = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*pc));
+	pc = XCALLOC(MTYPE_BFDD_CLIENT, sizeof(*pc));
 
 	pc->pc_pid = pid;
 	TAILQ_INSERT_HEAD(&pcqueue, pc, pc_entry);
@@ -921,7 +921,7 @@ static void pc_free(struct ptm_client *pc)
 		pcn_free(pcn);
 	}
 
-	XFREE(MTYPE_BFDD_CONTROL, pc);
+	XFREE(MTYPE_BFDD_CLIENT, pc);
 }
 
 static void pc_free_all(void)
@@ -945,7 +945,7 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 		return pcn;
 
 	/* Save the client notification data. */
-	pcn = XCALLOC(MTYPE_BFDD_NOTIFICATION, sizeof(*pcn));
+	pcn = XCALLOC(MTYPE_BFDD_CLIENT_NOTIFICATION, sizeof(*pcn));
 
 	TAILQ_INSERT_HEAD(&pc->pc_pcnqueue, pcn, pcn_entry);
 	pcn->pcn_pc = pc;
@@ -993,5 +993,5 @@ static void pcn_free(struct ptm_client_notification *pcn)
 	pcn->pcn_pc = NULL;
 	TAILQ_REMOVE(&pc->pc_pcnqueue, pcn, pcn_entry);
 
-	XFREE(MTYPE_BFDD_NOTIFICATION, pcn);
+	XFREE(MTYPE_BFDD_CLIENT_NOTIFICATION, pcn);
 }
