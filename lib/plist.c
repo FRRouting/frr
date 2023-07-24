@@ -1496,13 +1496,13 @@ int prefix_bgp_rtc_set(char *name, struct prefix *p, int permit, int set)
 		prefix_list_entry_add(plist, pentry);
 	} else {
 		pentry = prefix_list_entry_lookup(
-			plist, p, (permit ? PREFIX_PERMIT : PREFIX_DENY), 0, 0,
+			plist, p, (permit ? PREFIX_PERMIT : PREFIX_DENY), -1, 0,
 			0);
 
 		if (!pentry)
 			return CMD_WARNING_CONFIG_FAILED;
 
-		prefix_list_entry_delete(plist, pentry, 1);
+		prefix_list_entry_delete(plist, pentry, 0);
 	}
 
 	return CMD_SUCCESS;

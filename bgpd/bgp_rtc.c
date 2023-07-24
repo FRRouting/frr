@@ -34,7 +34,10 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 		memcpy(&p.u.prefix_rtc.route_target, pnt + 4, psize - 4);
 
 		if (withdraw) {
-			prefix_bgp_rtc_set(peer->host, &p, PREFIX_PERMIT, 0);
+			if (prefix_bgp_rtc_set(peer->host, &p, PREFIX_PERMIT, 0)) {
+				zlog_info("Withdrawn prefix %pFX is not in RTC prefix-list",
+					  &p);
+			}
 			peer->rtc_plist =
 				prefix_list_get(AFI_IP, 0, 1, peer->host);
 			bgp_withdraw(peer, &p, 0, packet->afi, packet->safi,
