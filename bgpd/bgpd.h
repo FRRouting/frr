@@ -1716,8 +1716,7 @@ struct peer {
 	 * a new value to the last_reset reason
 	 */
 
-	uint16_t last_reset_cause_size;
-	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
+	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
 	uint16_t rmap_type;

@@ -1189,6 +1189,8 @@ static void peer_free(struct peer *peer)
 
 	bgp_unlock(peer->bgp);
 
+	stream_free(peer->last_reset_cause);
+
 	memset(peer, 0, sizeof(struct peer));
 
 	XFREE(MTYPE_BGP_PEER, peer);
