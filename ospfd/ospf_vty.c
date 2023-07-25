@@ -1529,7 +1529,7 @@ DEFPY (ospf_area_nssa,
 	/* Flush the external LSA for the specified area */
 	ospf_flush_lsa_from_area(ospf, area_id, OSPF_AS_EXTERNAL_LSA);
 	ospf_schedule_abr_task(ospf);
-	ospf_schedule_asbr_nssa_redist_update(ospf);
+	ospf_schedule_asbr_redist_update(ospf);
 
 	return CMD_SUCCESS;
 }
@@ -9633,6 +9633,8 @@ DEFUN (ospf_default_metric,
 
 	ospf->default_metric = metric;
 
+	ospf_schedule_asbr_redist_update(ospf);
+
 	return CMD_SUCCESS;
 }
 
@@ -9646,6 +9648,8 @@ DEFUN (no_ospf_default_metric,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	ospf->default_metric = -1;
+
+	ospf_schedule_asbr_redist_update(ospf);
 
 	return CMD_SUCCESS;
 }

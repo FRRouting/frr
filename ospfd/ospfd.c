@@ -816,7 +816,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	EVENT_OFF(ospf->t_abr_task);
 	EVENT_OFF(ospf->t_abr_fr);
 	EVENT_OFF(ospf->t_asbr_check);
-	EVENT_OFF(ospf->t_asbr_nssa_redist_update);
+	EVENT_OFF(ospf->t_asbr_redist_update);
 	EVENT_OFF(ospf->t_distribute_update);
 	EVENT_OFF(ospf->t_lsa_refresher);
 	EVENT_OFF(ospf->t_opaque_lsa_self);
