@@ -4170,10 +4170,10 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"Route %pFX(%u) queued for processing into sub-queue %s",
-			&ere->p, ere->re->vrf_id,
-			subqueue2str(META_QUEUE_EARLY_ROUTE));
+		zlog_debug("Route %pFX(%u) (%s) queued for processing into sub-queue %s",
+			   &ere->p, ere->re->vrf_id,
+			   ere->deletion ? "delete" : "add",
+			   subqueue2str(META_QUEUE_EARLY_ROUTE));
 
 	return 0;
 }
