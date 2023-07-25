@@ -483,27 +483,9 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 	}
 }
 
-static void pbr_encode_pbr_map_sequence_prefix(struct stream *s,
-					       struct prefix *p,
-					       unsigned char  family)
-{
-	struct prefix any;
 
-	if (!p) {
-		memset(&any, 0, sizeof(any));
-		any.family = family;
-		p = &any;
-	}
-
-	stream_putc(s, p->family);
-	stream_putc(s, p->prefixlen);
-	stream_put(s, &p->u.prefix, prefix_blen(p));
-}
-
-static void
-pbr_encode_pbr_map_sequence_vrf(struct stream *s,
-				const struct pbr_map_sequence *pbrms,
-				const struct interface *ifp)
+static uint32_t pbr_map_sequence_vrf(const struct pbr_map_sequence *pbrms,
+				     const struct interface *ifp)
 {
 	struct pbr_vrf *pbr_vrf;
 
@@ -514,66 +496,130 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 
 	if (!pbr_vrf) {
 		DEBUGD(&pbr_dbg_zebra, "%s: VRF not found", __func__);
-		return;
+		return 0;
 	}
 
-	stream_putl(s, pbr_vrf->vrf->data.l.table_id);
+	return pbr_vrf->vrf->data.l.table_id;
+
 }
 
+/*
+ * 230716 gpz note: it would be worthwhile for pbrd to represent
+ * its rules internally using the lib/pbr.h structures to help
+ * move toward a more common structure across pbrd, bgpd, and zebra.
+ */
 static bool pbr_encode_pbr_map_sequence(struct stream *s,
 					struct pbr_map_sequence *pbrms,
 					struct interface *ifp)
 {
-	unsigned char family;
 
+	struct pbr_rule r;
+	uint8_t family;
+
+	/*
+	 * There seems to be some effort in pbr_vty.c to keep the three
+	 * copies of "family" equal. Not sure if the reason goes beyond
+	 * ensuring consistency in ZAPI encoding. In any case, it might
+	 * be handled better as an internal matter for the encoder (TBD).
+	 */
 	family = AF_INET;
 	if (pbrms->family)
 		family = pbrms->family;
 
-	stream_putl(s, pbrms->seqno);
-	stream_putl(s, pbrms->ruleno);
-	stream_putl(s, pbrms->unique);
+	if (pbrms->src)
+		assert(family == pbrms->src->family);
+	if (pbrms->dst)
+		assert(family == pbrms->dst->family);
 
-	stream_putl(s, pbrms->filter_bm);
+	/*
+	 * Convert struct pbr_map_sequence to canonical form
+	 */
+	memset(&r, 0, sizeof(r));
+	r.seq = pbrms->seqno;
+	r.priority = pbrms->ruleno;
+	r.unique = pbrms->unique;
 
-	stream_putc(s, pbrms->ip_proto); /* The ip_proto */
-	pbr_encode_pbr_map_sequence_prefix(s, pbrms->src, family);
-	stream_putw(s, pbrms->src_prt);
-	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
-	stream_putw(s, pbrms->dst_prt);
-	stream_putc(s, pbrms->dsfield);
-	stream_putl(s, pbrms->mark);
-	/* PCP */
-	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP))
-		stream_putc(s, pbrms->match_pcp);
+	/* filter */
+	r.filter.filter_bm = pbrms->filter_bm;
+	if (pbrms->src)
+		r.filter.src_ip = *pbrms->src;
 	else
-		stream_putc(s, 0);
-	stream_putw(s, pbrms->action_pcp);
-	/* VLAN */
-	stream_putw(s, pbrms->match_vlan_id);
-	stream_putw(s, pbrms->match_vlan_flags);
+		r.filter.src_ip.family = family;
+	if (pbrms->dst)
+		r.filter.dst_ip = *pbrms->dst;
+	else
+		r.filter.dst_ip.family = family;
+	r.filter.src_port = pbrms->src_prt;
+	r.filter.dst_port = pbrms->dst_prt;
+	r.filter.pcp = pbrms->match_pcp;
+	r.filter.vlan_id = pbrms->match_vlan_id;
+	r.filter.vlan_flags = pbrms->match_vlan_flags;
+	r.filter.dsfield = pbrms->dsfield;
+	r.filter.fwmark = pbrms->mark;
+	r.filter.ip_proto = pbrms->ip_proto;
 
-	stream_putw(s, pbrms->action_vlan_id);
-	stream_putw(s, pbrms->action_vlan_flags);
-	stream_putl(s, pbrms->action_queue_id);
+	/*
+	 * Fix up filter flags for now, since PBRD doesn't maintain
+	 * them yet (aside from PBR_FILTER_PCP)
+	 */
+	if (!is_default_prefix(&r.filter.src_ip))
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_SRC_IP);
+	if (!is_default_prefix(&r.filter.dst_ip))
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DST_IP);
+	if (r.filter.src_port)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_SRC_PORT);
+	if (r.filter.dst_port)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DST_PORT);
+	if (r.filter.vlan_id)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_VLAN_ID);
+	if (r.filter.vlan_flags)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_VLAN_FLAGS);
+	if (r.filter.dsfield)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DSFIELD);
+	if (r.filter.fwmark)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_FWMARK);
+	if (r.filter.ip_proto)
+		SET_FLAG(r.filter.filter_bm, PBR_FILTER_IP_PROTOCOL);
 
-	/* if the user does not use the command "set vrf name |unchanged"
+	/* actions */
+
+	/*
+	 * PBR should maintain its own set of action flags that we
+	 * can copy here instead of trying to infer from magic values.
+	 */
+	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
+	if (PBR_MAP_UNDEFINED_QUEUE_ID != pbrms->action_queue_id)
+		SET_FLAG(r.action.flags, PBR_ACTION_QUEUE_ID);
+	if (0 != pbrms->action_pcp)
+		SET_FLAG(r.action.flags, PBR_ACTION_PCP);
+	if (0 != pbrms->action_vlan_id)
+		SET_FLAG(r.action.flags, PBR_ACTION_VLAN_ID);
+	if (0 != pbrms->action_vlan_flags)
+		SET_FLAG(r.action.flags, PBR_ACTION_VLAN_FLAGS);
+
+	/*
+	 * if the user does not use the command "set vrf name unchanged"
 	 * then pbr_encode_pbr_map_sequence_vrf will not be called
 	 */
-
-	/* these statement get a table id */
 	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
-		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
+		r.action.table = pbr_map_sequence_vrf(pbrms, ifp);
 	else if (pbrms->nhgrp_name)
-		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
+		r.action.table = pbr_nht_get_table(pbrms->nhgrp_name);
 	else if (pbrms->nhg)
-		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));
+		r.action.table = pbr_nht_get_table(pbrms->internal_nhg_name);
 	else {
 		/* Not valid for install without table */
 		return false;
 	}
 
-	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
+	r.action.queue_id = pbrms->action_queue_id;
+	r.action.pcp = pbrms->action_pcp;
+	r.action.vlan_id = pbrms->action_vlan_id;
+	r.action.vlan_flags = pbrms->action_vlan_flags;
+
+	strlcpy(r.ifname, ifp->name, sizeof(r.ifname));
+
+	zapi_pbr_rule_encode(s, &r);
 
 	return true;
 }
@@ -606,11 +652,6 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	zclient_create_header(s,
 			      install ? ZEBRA_RULE_ADD : ZEBRA_RULE_DELETE,
 			      VRF_DEFAULT);
-
-	/*
-	 * We are sending one item at a time at the moment
-	 */
-	stream_putl(s, 1);
 
 	DEBUGD(&pbr_dbg_zebra, "%s:    %s %s seq %u %d %s %u", __func__,
 	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,

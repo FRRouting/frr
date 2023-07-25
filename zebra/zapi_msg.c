@@ -3184,7 +3184,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	char ifname[INTERFACE_NAMSIZ + 1] = {};
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -3194,68 +3193,11 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		zpr.sock = client->sock;
 		zpr.rule.vrf_id = hdr->vrf_id;
-		STREAM_GETL(s, zpr.rule.seq);
-		STREAM_GETL(s, zpr.rule.priority);
-		STREAM_GETL(s, zpr.rule.unique);
 
-		STREAM_GETL(s, zpr.rule.filter.filter_bm);
+		if (!zapi_pbr_rule_decode(s, &zpr.rule))
+			goto stream_failure;
 
-		STREAM_GETC(s, zpr.rule.filter.ip_proto);
-		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
-		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
-		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
-			   prefix_blen(&zpr.rule.filter.src_ip));
-		STREAM_GETW(s, zpr.rule.filter.src_port);
-		STREAM_GETC(s, zpr.rule.filter.dst_ip.family);
-		STREAM_GETC(s, zpr.rule.filter.dst_ip.prefixlen);
-		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
-			   prefix_blen(&zpr.rule.filter.dst_ip));
-		STREAM_GETW(s, zpr.rule.filter.dst_port);
-		STREAM_GETC(s, zpr.rule.filter.dsfield);
-		STREAM_GETL(s, zpr.rule.filter.fwmark);
-
-		STREAM_GETC(s, zpr.rule.filter.pcp);
-		STREAM_GETW(s, zpr.rule.action.pcp);
-		STREAM_GETW(s, zpr.rule.filter.vlan_id);
-		STREAM_GETW(s, zpr.rule.filter.vlan_flags);
-		STREAM_GETW(s, zpr.rule.action.vlan_id);
-		STREAM_GETW(s, zpr.rule.action.vlan_flags);
-		STREAM_GETL(s, zpr.rule.action.queue_id);
-
-		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
-
-		strlcpy(zpr.ifname, ifname, sizeof(zpr.ifname));
-		strlcpy(zpr.rule.ifname, ifname, sizeof(zpr.rule.ifname));
-
-		if (!is_default_prefix(&zpr.rule.filter.src_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
-
-		if (!is_default_prefix(&zpr.rule.filter.dst_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
-
-		if (zpr.rule.filter.src_port)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_PORT;
-
-		if (zpr.rule.filter.dst_port)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_PORT;
-
-		if (zpr.rule.filter.dsfield)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DSFIELD;
-
-		if (zpr.rule.filter.ip_proto)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_IP_PROTOCOL;
-
-		if (zpr.rule.filter.fwmark)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
-
-		/* NB PBR_FILTER_PCP should already be set by sender */
-
-		if (zpr.rule.filter.vlan_flags)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_VLAN_FLAGS;
-
-		if (zpr.rule.filter.vlan_id)
-			zpr.rule.filter.filter_bm |= PBR_FILTER_VLAN_ID;
+		strlcpy(zpr.ifname, zpr.rule.ifname, sizeof(zpr.ifname));
 
 		if (!(zpr.rule.filter.src_ip.family == AF_INET
 		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
