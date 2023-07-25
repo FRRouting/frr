@@ -956,8 +956,9 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 	if (use_curr && peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
 		assert(packetsize <= peer->max_packet_size);
-		memcpy(peer->last_reset_cause, peer->curr->data, packetsize);
-		peer->last_reset_cause_size = packetsize;
+		if (peer->last_reset_cause)
+			stream_free(peer->last_reset_cause);
+		peer->last_reset_cause = stream_dup(peer->curr);
 	}
 
 	/* For debug */
