@@ -675,6 +675,8 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 		zebra_del_import_table_entry(zvrf, rn, same);
 	}
 
+	UNSET_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE);
+
 	newre = zebra_rib_route_entry_new(
 		0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
 		zvrf->table_id, re->metric, re->mtu,
