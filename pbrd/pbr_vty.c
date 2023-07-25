@@ -73,7 +73,7 @@ DEFPY(pbr_map_match_vlan_id, pbr_map_match_vlan_id_cmd,
 
 /* clang-format off */
 DEFPY(pbr_map_match_vlan_tag, pbr_map_match_vlan_tag_cmd,
-      "[no] match vlan [<tagged|untagged|untagged-or-zero>$tag_type]",
+      "[no] match vlan ![<tagged|untagged|untagged-or-zero>$tag_type]",
       NO_STR
       "Match the rest of the command\n"
       "Match based on VLAN tagging\n"
@@ -88,6 +88,7 @@ DEFPY(pbr_map_match_vlan_tag, pbr_map_match_vlan_tag_cmd,
 		return CMD_WARNING;
 
 	if (!no) {
+		assert(tag_type);
 		if (strmatch(tag_type, "tagged")) {
 			pbr_set_match_clause_for_vlan(pbrms, 0,
 						      PBR_VLAN_FLAGS_TAGGED);
