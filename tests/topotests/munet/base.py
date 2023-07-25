@@ -2193,7 +2193,13 @@ class LinuxNamespace(Commander, InterfaceMixin):
 
         # Set the hostname to the namespace name
         if uts and set_hostname:
-            self.cmd_status_nsonly("hostname " + self.name)
+            hostname_command = (
+                ["hostnamectl", "hostname", self.name]
+                if self.get_exec_path("hostnamectl")
+                else ["hostname", self.name]
+            )
+            self.cmd_status_nsonly(hostname_command)
+
             nroot = socket.gethostname()
             if unshare_inline or (unet and unet.unshare_inline):
                 assert (
