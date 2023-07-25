@@ -618,8 +618,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	char up_str[MONOTIME_STRLEN];
 	bool first_p = true;
 	bool nhg_from_backup = false;
+	time_t epoch_tbuf;
 
 	uptime2str(re->uptime, up_str, sizeof(up_str));
+	epoch_tbuf = time(NULL) - (monotime(NULL) - (UPTIMESECS(re->uptime)));
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -699,6 +701,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					    re->nhe_installed_id);
 
 		json_object_string_add(json_route, "uptime", up_str);
+		json_object_int_add(json_route, "routeUptimeEstablishedEpoch",
+				    epoch_tbuf);
+		json_object_string_add(json_route,
+				       "routeUptimeEstablishedEpochStr",
+				       ctime(&epoch_tbuf));
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
