@@ -932,6 +932,8 @@ ssize_t printfrr_nhs(struct fbuf *buf, const struct nexthop *nexthop)
 		ret += bputs(buf, "blackhole");
 		break;
 	}
+
+	ret += bprintfrr(buf, " vrfid %u", nexthop->vrf_id);
 	return ret;
 }
 
