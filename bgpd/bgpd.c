@@ -1416,7 +1416,7 @@ struct peer *peer_new(struct bgp *bgp)
 	pthread_mutex_init(&peer->io_mtx, NULL);
 
 	peer->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+		ringbuf_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE/2);
 
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");
