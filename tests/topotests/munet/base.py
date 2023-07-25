@@ -17,6 +17,7 @@ import re
 import readline
 import shlex
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -43,7 +44,7 @@ except ImportError:
 PEXPECT_PROMPT = "PEXPECT_PROMPT>"
 PEXPECT_CONTINUATION_PROMPT = "PEXPECT_PROMPT+"
 
-root_hostname = subprocess.check_output("hostname")
+root_hostname = socket.gethostname()
 our_pid = os.getpid()
 
 
@@ -2193,7 +2194,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
         # Set the hostname to the namespace name
         if uts and set_hostname:
             self.cmd_status_nsonly("hostname " + self.name)
-            nroot = subprocess.check_output("hostname")
+            nroot = socket.gethostname()
             if unshare_inline or (unet and unet.unshare_inline):
                 assert (
                     root_hostname != nroot
