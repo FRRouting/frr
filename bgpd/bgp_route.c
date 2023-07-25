@@ -14639,8 +14639,12 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			json_object_free(json_ocode);
 		}
 
-		vty_json(vty, json);
-	} else if (output_count > 0) {
+                /*
+                 * This is an extremely expensive operation at scale
+                 * and non-pretty reduces memory footprint significantly.
+                 */
+                vty_json_no_pretty(vty, json);
+        } else if (output_count > 0) {
 		if (!match && filtered_count > 0)
 			vty_out(vty,
 				"\nTotal number of prefixes %ld (%ld filtered)\n",
