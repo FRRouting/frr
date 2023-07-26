@@ -35,6 +35,14 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_destroy(
 	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_destroy(
@@ -79,6 +87,14 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_destroy(
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
 	struct nb_cb_create_args *args);
@@ -146,6 +162,10 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_STATIC_ROUTE_NH_LABEL_XPATH "/mpls-label-stack"
 
 #define FRR_STATIC_ROUTE_NHLB_KEY_XPATH "/entry[id='%u']/label"
+
+#define FRR_STATIC_ROUTE_NH_SRV6_SEGS_XPATH "/srv6-segs-stack"
+
+#define FRR_STATIC_ROUTE_NH_SRV6_KEY_SEG_XPATH "/entry[id='%u']/seg"
 
 /* route-list/srclist */
 #define FRR_S_ROUTE_SRC_INFO_KEY_XPATH                                         \
