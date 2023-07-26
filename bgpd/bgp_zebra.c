@@ -3714,38 +3714,26 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 	api.distance = ZEBRA_EBGP_DISTANCE_DEFAULT;
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 
+	api_nh->vrf_id = nh->vrf_id;
+
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		struct vrf *vrf;
+
+		vrf = vrf_lookup_by_id(nh->vrf_id);
+		zlog_debug("%s: %s default route to %pNHvv(%s) table %d",
+			   bgp->name_pretty, announce ? "adding" : "withdrawing",
+			   nh, VRF_LOGNAME(vrf), table_id);
+	}
+
 	/* redirect IP */
 	if (afi == AFI_IP && nh->gate.ipv4.s_addr != INADDR_ANY) {
-		api_nh->vrf_id = nh->vrf_id;
 		api_nh->gate.ipv4 = nh->gate.ipv4;
 		api_nh->type = NEXTHOP_TYPE_IPV4;
-
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug(
-				"BGP: %s default route to %pI4 table %d (redirect IP)",
-				announce ? "adding" : "withdrawing",
-				&nh->gate.ipv4, table_id);
-
-		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
-				   : ZEBRA_ROUTE_DELETE,
-				   zclient, &api);
-	} else if (afi == AFI_IP6 &&
-		   memcmp(&nh->gate.ipv6,
-			  &in6addr_any, sizeof(struct in6_addr))) {
-		api_nh->vrf_id = nh->vrf_id;
+	} else if (afi == AFI_IP6 && memcmp(&nh->gate.ipv6, &in6addr_any,
+					    sizeof(struct in6_addr))) {
 		memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6,
 		       sizeof(struct in6_addr));
 		api_nh->type = NEXTHOP_TYPE_IPV6;
-
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug(
-				"BGP: %s default route to %pI6 table %d (redirect IP)",
-				announce ? "adding" : "withdrawing",
-				&nh->gate.ipv6, table_id);
-
-		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
-				   : ZEBRA_ROUTE_DELETE,
-				   zclient, &api);
 	} else if (nh->vrf_id != bgp->vrf_id) {
 		struct vrf *vrf;
 		struct interface *ifp;
@@ -3759,18 +3747,12 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 		ifp = if_lookup_by_name_vrf(vrf->name, vrf);
 		if (!ifp)
 			return;
-		api_nh->vrf_id = nh->vrf_id;
 		api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		api_nh->ifindex = ifp->ifindex;
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info("BGP: %s default route to %s table %d (redirect VRF)",
-				  announce ? "adding" : "withdrawing",
-				  vrf->name, table_id);
-		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
-				   : ZEBRA_ROUTE_DELETE,
-				   zclient, &api);
-		return;
 	}
+
+	zclient_route_send(announce ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+			   zclient, &api);
 }
 
 /* Send capabilities to RIB */

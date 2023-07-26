@@ -43,7 +43,6 @@ pim_common = \
 	pimd/pim_ssm.c \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
-	pimd/pim_str.c \
 	pimd/pim_tib.c \
 	pimd/pim_time.c \
 	pimd/pim_tlv.c \
