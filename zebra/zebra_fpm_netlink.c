@@ -287,6 +287,8 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+			continue;
 
 		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
 			switch (nexthop->bh_type) {
