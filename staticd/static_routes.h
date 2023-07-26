@@ -9,6 +9,7 @@
 
 #include "lib/bfd.h"
 #include "lib/mpls.h"
+#include "lib/srv6.h"
 #include "table.h"
 #include "memory.h"
 
@@ -25,6 +26,12 @@ struct static_nh_label {
 	uint8_t num_labels;
 	uint8_t reserved[3];
 	mpls_label_t label[MPLS_MAX_LABELS];
+};
+
+/* Static route seg information */
+struct static_nh_seg {
+	int num_segs;
+	struct in6_addr seg[SRV6_MAX_SIDS];
 };
 
 enum static_blackhole_type {
@@ -128,6 +135,9 @@ struct static_nexthop {
 
 	/* Label information */
 	struct static_nh_label snh_label;
+
+	/* SRv6 Seg information */
+	struct static_nh_seg snh_seg;
 
 	/*
 	 * Whether to pretend the nexthop is directly attached to the specified
