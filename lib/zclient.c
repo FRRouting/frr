@@ -1628,7 +1628,7 @@ stream_failure:
 static void zapi_pbr_rule_filter_encode(struct stream *s, struct pbr_filter *f)
 {
 	assert(f->src_ip.family == f->dst_ip.family);
-	assert((AF_INET == f->src_ip.family) || (AF_INET6 == f->src_ip.family));
+	assert((f->src_ip.family == AF_INET) || (f->src_ip.family == AF_INET6));
 
 	stream_putl(s, f->filter_bm);
 	stream_putc(s, f->ip_proto);

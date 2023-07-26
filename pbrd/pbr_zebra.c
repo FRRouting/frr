@@ -588,13 +588,13 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	 * can copy here instead of trying to infer from magic values.
 	 */
 	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
-	if (PBR_MAP_UNDEFINED_QUEUE_ID != pbrms->action_queue_id)
+	if (pbrms->action_queue_id != PBR_MAP_UNDEFINED_QUEUE_ID)
 		SET_FLAG(r.action.flags, PBR_ACTION_QUEUE_ID);
-	if (0 != pbrms->action_pcp)
+	if (pbrms->action_pcp != 0)
 		SET_FLAG(r.action.flags, PBR_ACTION_PCP);
-	if (0 != pbrms->action_vlan_id)
+	if (pbrms->action_vlan_id != 0)
 		SET_FLAG(r.action.flags, PBR_ACTION_VLAN_ID);
-	if (0 != pbrms->action_vlan_flags)
+	if (pbrms->action_vlan_flags != 0)
 		SET_FLAG(r.action.flags, PBR_ACTION_VLAN_FLAGS);
 
 	/*
