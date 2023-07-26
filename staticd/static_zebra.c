@@ -499,6 +499,21 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			for (i = 0; i < api_nh->label_num; i++)
 				api_nh->labels[i] = nh->snh_label.label[i];
 		}
+		if (nh->snh_seg.num_segs) {
+			int i;
+
+			api_nh->seg6local_action =
+				ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+			api.safi = SAFI_UNICAST;
+
+			api_nh->seg_num = nh->snh_seg.num_segs;
+			for (i = 0; i < api_nh->seg_num; i++)
+				memcpy(&api_nh->seg6_segs[i],
+				       &nh->snh_seg.seg[i],
+				       sizeof(struct in6_addr));
+		}
 		nh_num++;
 	}
 
