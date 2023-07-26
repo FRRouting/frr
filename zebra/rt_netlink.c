@@ -66,6 +66,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
+#include "lib/srv6.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -76,6 +77,8 @@
 #ifndef _UAPI_LINUX_IF_BRIDGE_H
 #define BR_SPH_LIST_SIZE 10
 #endif
+
+DEFINE_MTYPE_STATIC(LIB, NH_SRV6, "Nexthop srv6");
 
 static vlanid_t filter_vlan = 0;
 
@@ -476,19 +479,19 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
-	struct in6_addr *segments = NULL;
+	int i;
 
 	netlink_parse_rtattr_nested(tb_encap, SEG6_IPTUNNEL_MAX, tb);
 
-	/*
-	 * TODO: It's not support multiple SID list.
-	 */
 	if (tb_encap[SEG6_IPTUNNEL_SRH]) {
 		ipt = (struct seg6_iptunnel_encap *)
 			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
-		segments = ipt->srh[0].segments;
-		*segs = segments[0];
-		return 1;
+
+		for (i = ipt->srh[0].first_segment; i >= 0; i--)
+			memcpy(&segs[i], &ipt->srh[0].segments[i],
+			       sizeof(struct in6_addr));
+
+		return ipt->srh[0].first_segment + 1;
 	}
 
 	return 0;
@@ -506,7 +509,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {};
-	struct in6_addr seg6_segs = {};
+	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
 
 	vrf_id_t nh_vrf_id = vrf_id;
@@ -555,7 +558,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6) {
-		num_segs = parse_encap_seg6(tb[RTA_ENCAP], &seg6_segs);
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs);
 	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
@@ -581,7 +584,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, &seg6_segs);
+		nexthop_add_srv6_seg6(&nh, segs, num_segs);
 
 	return nh;
 }
@@ -601,7 +604,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {};
-	struct in6_addr seg6_segs = {};
+	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 
@@ -657,7 +660,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6) {
 				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP],
-							   &seg6_segs);
+							    segs);
 			}
 		}
 
@@ -700,7 +703,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, &seg6_segs);
+				nexthop_add_srv6_seg6(nh, segs, num_segs);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -1514,37 +1517,40 @@ static bool _netlink_route_encode_nexthop_src(const struct nexthop *nexthop,
 }
 
 static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
-				  const struct in6_addr *seg)
+				  struct seg6_seg_stack *segs)
 {
 	struct seg6_iptunnel_encap *ipt;
 	struct ipv6_sr_hdr *srh;
-	const size_t srhlen = 24;
+	size_t srhlen;
+	int i;
 
-	/*
-	 * Caution: Support only SINGLE-SID, not MULTI-SID
-	 * This function only supports the case where segs represents
-	 * a single SID. If you want to extend the SRv6 functionality,
-	 * you should improve the Boundary Check.
-	 * Ex. In case of set a SID-List include multiple-SIDs as an
-	 * argument of the Transit Behavior, we must support variable
-	 * boundary check for buflen.
-	 */
-	if (buflen < (sizeof(struct seg6_iptunnel_encap) +
-		      sizeof(struct ipv6_sr_hdr) + 16))
+	if (segs->num_segs > SRV6_MAX_SEGS) {
+		/* Exceeding maximum supported SIDs */
+		return -1;
+	}
+
+	srhlen = SRH_BASE_HEADER_LENGTH + SRH_SEGMENT_LENGTH * segs->num_segs;
+
+	if (buflen < (sizeof(struct seg6_iptunnel_encap) + srhlen))
 		return -1;
 
 	memset(buffer, 0, buflen);
 
 	ipt = (struct seg6_iptunnel_encap *)buffer;
 	ipt->mode = SEG6_IPTUN_MODE_ENCAP;
-	srh = ipt->srh;
+
+	srh = (struct ipv6_sr_hdr *)&ipt->srh;
 	srh->hdrlen = (srhlen >> 3) - 1;
 	srh->type = 4;
-	srh->segments_left = 0;
-	srh->first_segment = 0;
-	memcpy(&srh->segments[0], seg, sizeof(struct in6_addr));
+	srh->segments_left = segs->num_segs - 1;
+	srh->first_segment = segs->num_segs - 1;
 
-	return srhlen + 4;
+	for (i = 0; i < segs->num_segs; i++) {
+		memcpy(&srh->segments[i], &segs->seg[i],
+		       sizeof(struct in6_addr));
+	}
+
+	return sizeof(struct seg6_iptunnel_encap) + srhlen;
 }
 
 static bool
@@ -1726,7 +1732,9 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			nl_attr_nest_end(nlmsg, nest);
 		}
 
-		if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nexthop->nh_srv6->seg6_segs)) {
 			char tun_buf[4096];
 			ssize_t tun_len;
 			struct rtattr *nest;
@@ -1737,8 +1745,9 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
 			if (!nest)
 				return false;
-			tun_len = fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
-					&nexthop->nh_srv6->seg6_segs);
+			tun_len =
+				fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
+						   nexthop->nh_srv6->seg6_segs);
 			if (tun_len < 0)
 				return false;
 			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
@@ -2971,7 +2980,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					nl_attr_nest_end(&req->n, nest);
 				}
 
-				if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
+				if (nh->nh_srv6->seg6_segs &&
+				    nh->nh_srv6->seg6_segs->num_segs &&
+				    !sid_zero(nh->nh_srv6->seg6_segs)) {
 					char tun_buf[4096];
 					ssize_t tun_len;
 					struct rtattr *nest;
@@ -2984,9 +2995,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					    NHA_ENCAP | NLA_F_NESTED);
 					if (!nest)
 						return 0;
-					tun_len = fill_seg6ipt_encap(tun_buf,
-					    sizeof(tun_buf),
-					    &nh->nh_srv6->seg6_segs);
+					tun_len = fill_seg6ipt_encap(
+						tun_buf, sizeof(tun_buf),
+						nh->nh_srv6->seg6_segs);
 					if (tun_len < 0)
 						return 0;
 					if (!nl_attr_put(&req->n, buflen,

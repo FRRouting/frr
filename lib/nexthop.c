@@ -570,13 +570,15 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 
 	nexthop->nh_srv6->seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 
-	if (sid_zero(&nexthop->nh_srv6->seg6_segs))
+	if (nexthop->nh_srv6->seg6_segs == NULL)
 		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
 }
 
-void nexthop_add_srv6_seg6(struct nexthop *nexthop,
-			   const struct in6_addr *segs)
+void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
+			   int num_segs)
 {
+	int i;
+
 	if (!segs)
 		return;
 
@@ -584,7 +586,22 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop,
 		nexthop->nh_srv6 = XCALLOC(MTYPE_NH_SRV6,
 					   sizeof(struct nexthop_srv6));
 
-	nexthop->nh_srv6->seg6_segs = *segs;
+	/* Enforce limit on srv6 seg stack size */
+	if (num_segs > SRV6_MAX_SIDS)
+		num_segs = SRV6_MAX_SIDS;
+
+	if (!nexthop->nh_srv6->seg6_segs) {
+		nexthop->nh_srv6->seg6_segs =
+			XCALLOC(MTYPE_NH_SRV6,
+				sizeof(struct seg6_seg_stack) +
+					num_segs * sizeof(struct in6_addr));
+	}
+
+	nexthop->nh_srv6->seg6_segs->num_segs = num_segs;
+
+	for (i = 0; i < num_segs; i++)
+		memcpy(&nexthop->nh_srv6->seg6_segs->seg[i], &segs[i],
+		       sizeof(struct in6_addr));
 }
 
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
@@ -810,9 +827,13 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 			nexthop_add_srv6_seg6local(copy,
 				nexthop->nh_srv6->seg6local_action,
 				&nexthop->nh_srv6->seg6local_ctx);
-		if (!sid_zero(&nexthop->nh_srv6->seg6_segs))
+		if (nexthop->nh_srv6->seg6_segs &&
+		    nexthop->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(copy,
-				&nexthop->nh_srv6->seg6_segs);
+					      &nexthop->nh_srv6->seg6_segs->seg[0],
+					      nexthop->nh_srv6->seg6_segs
+						      ->num_segs);
 	}
 }
 

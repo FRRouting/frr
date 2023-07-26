@@ -1557,17 +1557,17 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		api_nh->weight = nh_weight;
 
 		if (((mpinfo->attr->srv6_l3vpn &&
-		      !sid_zero(&mpinfo->attr->srv6_l3vpn->sid)) ||
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
 		     (mpinfo->attr->srv6_vpn &&
-		      !sid_zero(&mpinfo->attr->srv6_vpn->sid))) &&
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
 		    !is_evpn && bgp_is_valid_label(&labels[0])) {
 			struct in6_addr *sid_tmp =
 				mpinfo->attr->srv6_l3vpn
 					? (&mpinfo->attr->srv6_l3vpn->sid)
 					: (&mpinfo->attr->srv6_vpn->sid);
 
-			memcpy(&api_nh->seg6_segs, sid_tmp,
-			       sizeof(api_nh->seg6_segs));
+			memcpy(&api_nh->seg6_segs[0], sid_tmp,
+			       sizeof(api_nh->seg6_segs[0]));
 
 			if (mpinfo->attr->srv6_l3vpn &&
 			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
@@ -1581,13 +1581,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 					continue;
 				}
 
-				transpose_sid(&api_nh->seg6_segs, nh_label,
+				transpose_sid(&api_nh->seg6_segs[0], nh_label,
 					      mpinfo->attr->srv6_l3vpn
 						      ->transposition_offset,
 					      mpinfo->attr->srv6_l3vpn
 						      ->transposition_len);
 			}
 
+			api_nh->seg_num = 1;
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
 
@@ -1704,7 +1705,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
 			    !CHECK_FLAG(api_nh->flags,
 					ZAPI_NEXTHOP_FLAG_EVPN)) {
-				inet_ntop(AF_INET6, &api_nh->seg6_segs,
+				inet_ntop(AF_INET6, &api_nh->seg6_segs[0],
 					  sid_buf, sizeof(sid_buf));
 				snprintf(segs_buf, sizeof(segs_buf), "segs %s",
 					 sid_buf);

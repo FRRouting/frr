@@ -1061,10 +1061,11 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			     sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
-		stream_write(s, &api_nh->seg6_segs,
-			     sizeof(struct in6_addr));
-
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+		stream_putc(s, api_nh->seg_num);
+		stream_put(s, &api_nh->seg6_segs[0],
+			   api_nh->seg_num * sizeof(struct in6_addr));
+	}
 done:
 	return ret;
 }
@@ -1430,9 +1431,18 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
-		STREAM_GET(&api_nh->seg6_segs, s,
-			   sizeof(struct in6_addr));
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+		STREAM_GETC(s, api_nh->seg_num);
+		if (api_nh->seg_num > SRV6_MAX_SIDS) {
+			flog_err(EC_LIB_ZAPI_ENCODE,
+				 "%s: invalid number of SRv6 Segs (%u)",
+				 __func__, api_nh->seg_num);
+			return -1;
+		}
+
+		STREAM_GET(&api_nh->seg6_segs[0], s,
+			   api_nh->seg_num * sizeof(struct in6_addr));
+	}
 
 	/* Success */
 	ret = 0;
@@ -2132,8 +2142,8 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
 					   &znh->seg6local_ctx);
 
-	if (!sid_zero(&znh->seg6_segs))
-		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
+	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
 
 	return n;
 }
@@ -2193,10 +2203,14 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			       sizeof(struct seg6local_context));
 		}
 
-		if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
+		if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nh->nh_srv6->seg6_segs)) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
-			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
-			       sizeof(struct in6_addr));
+			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)
+				memcpy(&znh->seg6_segs[i],
+				       &nh->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
 		}
 	}
 
