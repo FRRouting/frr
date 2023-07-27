@@ -283,9 +283,9 @@ static inline struct bgp_dest *bgp_table_get_next(const struct bgp_table *table,
 {
 	struct route_node *rn = route_table_get_next(table->route_table,p);
 	while(rn && !rn->info){
-            rn = route_next(rn);
-    }
-    return bgp_dest_from_rnode(rn);
+		rn = route_next(rn);
+	}
+	return bgp_dest_from_rnode(rn);
 }
 
 /* This would benefit from a real atomic operation...
