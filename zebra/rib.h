@@ -336,6 +336,9 @@ int route_entry_update_nhe(struct route_entry *re,
 void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 			    struct nhg_hash_entry *new_entry);
 
+/* NHG got lost, reinstall failed routes */
+void rib_handle_nhg_reinstall(struct nhg_hash_entry *entry);
+
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      union prefixconstptr src_pp,

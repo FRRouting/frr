@@ -3703,6 +3703,11 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		nh = rb_node_dep->nhe->nhg.nexthop;
+
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: Scanning nhe %pNG, interface: %s",
+				   __func__, rb_node_dep->nhe, ifp->name);
+
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
@@ -3721,6 +3726,9 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					rb_node_dep->nhe->flags);
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
 
+			/* reinstall any failed routes that might have resulted from nhe being missing */
+			rib_handle_nhg_reinstall(rb_node_dep->nhe);
+
 			/* mark depedent uninstall, when interface associated
 			 * singleton is installed, install depedent
 			 */
@@ -3735,6 +3743,11 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				UNSET_FLAG(rb_node_dependent->nhe->flags,
 					   NEXTHOP_GROUP_INSTALLED);
 			}
+		} else {
+			if (IS_ZEBRA_DEBUG_NHG)
+				zlog_debug("%s did not install nhe %pNG nh type %u flags 0x%x",
+					   __func__, rb_node_dep->nhe, nh->type,
+					   rb_node_dep->nhe->flags);
 		}
 	}
 }

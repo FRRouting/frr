@@ -683,6 +683,16 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	}
 	zebra_rnh_store_in_routing_table(rnh);
 
+	if (nrn && prn && !force) {
+		force = prefix_same(&nrn->p, &prn->p);
+		if (force) {
+			if (IS_ZEBRA_DEBUG_NHT) {
+				zlog_debug("Setting force update of %pRN recursive nexthop.",
+					   nrn);
+			}
+		}
+	}
+
 	if (state_changed || force) {
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
 		 * rnh->state.
@@ -1213,7 +1223,13 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
+				if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_EVPN) &&
+				    CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK)) {
+					SET_FLAG(nh->flags,
+						 NEXTHOP_FLAG_RNH_UPDATE);
+				}
 				zapi_nexthop_from_nexthop(&znh, nh);
+				UNSET_FLAG(nh->flags, NEXTHOP_FLAG_RNH_UPDATE);
 				ret = zapi_nexthop_encode(s, &znh, 0, message);
 				if (ret < 0)
 					goto failure;
@@ -1225,7 +1241,16 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		if (nhg) {
 			for (ALL_NEXTHOPS_PTR(nhg, nh))
 				if (rnh_nexthop_valid(re, nh)) {
+					if (CHECK_FLAG(nh->flags,
+						       NEXTHOP_FLAG_EVPN) &&
+					    CHECK_FLAG(nh->flags,
+						       NEXTHOP_FLAG_ONLINK)) {
+						SET_FLAG(nh->flags,
+							 NEXTHOP_FLAG_RNH_UPDATE);
+					}
 					zapi_nexthop_from_nexthop(&znh, nh);
+					UNSET_FLAG(nh->flags,
+						   NEXTHOP_FLAG_RNH_UPDATE);
 					ret = zapi_nexthop_encode(
 						s, &znh, 0 /* flags */,
 						0 /* message */);

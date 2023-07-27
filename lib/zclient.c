@@ -2021,6 +2021,9 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 	znh->ifindex = nh->ifindex;
 	znh->gate = nh->gate;
 
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RNH_UPDATE))
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_RNH_UPDATE);
+
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 
@@ -2171,6 +2174,9 @@ bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	for (i = 0; i < nhr->nexthop_num; i++) {
 		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
 			return false;
+		if (CHECK_FLAG(nhr->nexthops[i].flags, ZAPI_NEXTHOP_RNH_UPDATE)) {
+			SET_FLAG(nhr->flags, ZEBRA_FLAG_RNH_UPDATE);
+		}
 	}
 
 	return true;

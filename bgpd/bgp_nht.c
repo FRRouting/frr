@@ -555,7 +555,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 
 	bnc->last_update = monotime(NULL);
 	bnc->change_flags = 0;
-
+	if (CHECK_FLAG(nhr->flags, ZEBRA_FLAG_RNH_UPDATE)) {
+		if (BGP_DEBUG(nht, NHT)) {
+			zlog_debug("Force update of %pFX", &nhr->prefix);
+		}
+		SET_FLAG(bnc->flags, BGP_FORCED_CACHE_UPDATE);
+	}
 	/* debug print the input */
 	if (BGP_DEBUG(nht, NHT)) {
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
@@ -1365,9 +1370,18 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			}
 		}
 
+		if (CHECK_FLAG(bnc->flags, BGP_FORCED_CACHE_UPDATE)) {
+			if (BGP_DEBUG(nht, NHT)) {
+				zlog_debug("Setting force update for %pBD",
+					   dest);
+			}
+			bgp_path_info_set_flag(dest, path,
+					       BGP_PATH_RECURSIVE_PATH_UPDATE);
+		}
 		bgp_process(bgp_path, dest, afi, safi);
 	}
 
+	UNSET_FLAG(bnc->flags, BGP_FORCED_CACHE_UPDATE);
 	if (peer) {
 		int valid_nexthops = bgp_isvalid_nexthop(bnc);
 

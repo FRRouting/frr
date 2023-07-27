@@ -453,6 +453,7 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_SEG6		0x10
 #define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
 #define ZAPI_NEXTHOP_FLAG_EVPN		0x40
+#define ZAPI_NEXTHOP_RNH_UPDATE		0x80
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -546,6 +547,14 @@ struct zapi_route {
  * kernel (NLM_F_APPEND at the very least )
  */
 #define ZEBRA_FLAG_OUTOFSYNC          0x400
+
+	/*
+ * This flag tells Zebra to update route even if state seems to be the same
+ * because is used as recursive onlink nexthop and might be out-of-sync
+ * after bgp session changes.
+*/
+
+#define ZEBRA_FLAG_RNH_UPDATE 0x800
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
