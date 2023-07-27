@@ -124,7 +124,7 @@ extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
  */
 static inline struct bgp_dest *bgp_dest_from_rnode(struct route_node *rnode)
 {
-	return (rnode && rnode->info)? (struct bgp_dest *) rnode->info :NULL;
+	return (rnode && rnode->info)? (struct bgp_dest *) rnode->info:NULL;
 }
 
 /*
