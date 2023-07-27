@@ -2668,7 +2668,7 @@ DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer));
 DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_stats,
-	     (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
+	     (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
 	     (rn, pi, added));
 DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,

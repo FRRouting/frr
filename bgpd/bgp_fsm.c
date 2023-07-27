@@ -722,7 +722,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
 							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
-							peer, &dest->p);
+							peer, &dest->rn->p);
 
 					attr = *pi->attr;
 					bgp_attr_add_llgr_community(&attr);
@@ -750,7 +750,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
-						peer, &dest->p);
+						peer, &dest->rn->p);
 
 				attr = *pi->attr;
 				bgp_attr_add_llgr_community(&attr);

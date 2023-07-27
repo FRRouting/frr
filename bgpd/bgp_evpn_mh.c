@@ -539,7 +539,7 @@ int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		 * routes
 		 */
 		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-			struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+			struct prefix_evpn *evp = (struct prefix_evpn *)&rn->rn->p;
 
 			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE)
 				continue;
@@ -1577,7 +1577,7 @@ static void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
 	pi = es_info->pi;
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug("vni %u path %pFX unlinked from es %s", es_info->vni,
-			   &pi->net->p, es->esi_str);
+			   &pi->net->rn->p, es->esi_str);
 
 	if (es_info->vni)
 		list_delete_node(es->macip_evi_path_list,
@@ -1635,7 +1635,7 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	bgp_evpn_path_es_unlink(es_info);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug("vni %u path %pFX linked to es %s", vni, &pi->net->p,
+		zlog_debug("vni %u path %pFX linked to es %s", vni, &pi->net->rn->p,
 			   es->esi_str);
 
 	/* link mac-ip path to the new destination ES */
@@ -1655,7 +1655,7 @@ static bool bgp_evpn_is_macip_path(struct bgp_path_info *pi)
 	 * skipped) as these lists are maintained for managing
 	 * host routes in the tenant VRF
 	 */
-	evp = (struct prefix_evpn *)&pi->net->p;
+	evp = (struct prefix_evpn *)&pi->net->rn->p;
 	return is_evpn_prefix_ipaddr_v4(evp) || is_evpn_prefix_ipaddr_v6(evp);
 }
 
@@ -1691,7 +1691,7 @@ bgp_evpn_es_path_update_on_es_vrf_chg(struct bgp_evpn_es_vrf *es_vrf,
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
 				"update path %pFX linked to es %s on vrf chg",
-				&pi->net->p, es->esi_str);
+				&pi->net->rn->p, es->esi_str);
 		bgp_evpn_route_entry_install_if_vrf_match(es_vrf->bgp_vrf, pi,
 							  1);
 	}
@@ -2080,7 +2080,7 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
 				"update path %d %pFX linked to es %s on oper chg",
-				es_info->vni, &pi->net->p, es->esi_str);
+				es_info->vni, &pi->net->rn->p, es->esi_str);
 
 		bgp_evpn_update_type2_route_entry(bgp, vpn, pi->net, pi,
 						  __func__);
@@ -2129,7 +2129,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
 				"update path %pFX linked to es %s on chg to %s",
-				&pi->net->p, es->esi_str,
+				&pi->net->rn->p, es->esi_str,
 				is_local ? "local" : "non-local");
 
 		attr_tmp = *pi->attr;
@@ -3154,7 +3154,7 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 	esi_t *esi;
 	struct bgp_evpn_es_vrf *es_vrf = NULL;
 	struct bgp_path_info *parent_pi;
-	struct bgp_node *rn;
+	struct bgp_dest *rn;
 	struct prefix_evpn *evp;
 	struct bgp_path_info *mpinfo;
 	bool use_l3nhg = false;
@@ -3174,7 +3174,7 @@ bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 	if (!rn)
 		return false;
 
-	evp = (struct prefix_evpn *)&rn->p;
+	evp = (struct prefix_evpn *)&rn->rn->p;
 	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return false;
 
@@ -4699,7 +4699,7 @@ static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info)
 	pi = nh_info->pi;
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug("path %s unlinked from nh %s %s",
-			   pi->net ? prefix2str(&pi->net->p, prefix_buf,
+			   pi->net ? prefix2str(&pi->net->rn->p, prefix_buf,
 						sizeof(prefix_buf))
 				   : "",
 			   nh->bgp_vrf->name_pretty, nh->nh_str);
@@ -4734,7 +4734,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	if (!bgp_vrf->evpn_nh_table) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug("path %pFX linked to vrf %s failed",
-				   &pi->net->p, bgp_vrf->name_pretty);
+				   &pi->net->rn->p, bgp_vrf->name_pretty);
 		return;
 	}
 
@@ -4757,7 +4757,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 
 	/* find-create nh */
 	memset(&ip, 0, sizeof(ip));
-	if (pi->net->p.family == AF_INET6) {
+	if (pi->net->rn->p.family == AF_INET6) {
 		SET_IPADDR_V6(&ip);
 		memcpy(&ip.ipaddr_v6, &pi->attr->mp_nexthop_global,
 		       sizeof(ip.ipaddr_v6));
@@ -4781,7 +4781,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	bgp_evpn_path_nh_unlink(nh_info);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
-		zlog_debug("path %pFX linked to nh %s %s", &pi->net->p,
+		zlog_debug("path %pFX linked to nh %s %s", &pi->net->rn->p,
 			   nh->bgp_vrf->name_pretty, nh->nh_str);
 
 	/* link mac-ip path to the new nh */
@@ -4796,7 +4796,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 		if (!nh->ref_pi)
 			zlog_debug(
 				"path %pFX linked to nh %s %s with no valid pi",
-				&pi->net->p, nh->bgp_vrf->name_pretty,
+				&pi->net->rn->p, nh->bgp_vrf->name_pretty,
 				nh->nh_str);
 	}
 }
@@ -4833,7 +4833,7 @@ static void bgp_evpn_nh_show_entry(struct bgp_evpn_nh *nh, struct vty *vty,
 
 	prefix_mac2str(&nh->rmac, mac_buf, sizeof(mac_buf));
 	if (nh->ref_pi && nh->ref_pi->net)
-		prefix2str(&nh->ref_pi->net->p, prefix_buf, sizeof(prefix_buf));
+		prefix2str(&nh->ref_pi->net->rn->p, prefix_buf, sizeof(prefix_buf));
 	else
 		prefix_buf[0] = '\0';
 	if (json) {

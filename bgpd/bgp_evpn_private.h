@@ -750,7 +750,7 @@ bgp_evpn_vni_node_lookup(const struct bgpevpn *vpn, const struct prefix_evpn *p,
 extern void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 					      struct bgpevpn *vpn,
-					      struct bgp_node *rn,
+					      struct bgp_dest *rn,
 					      struct bgp_path_info *local_pi,
 					      const char *caller);
 extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
