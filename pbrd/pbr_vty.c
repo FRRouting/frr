@@ -29,89 +29,60 @@
 #include "pbrd/pbr_vty_clippy.c"
 
 /* clang-format off */
-DEFPY(pbr_map_match_pcp, pbr_map_match_pcp_cmd, "[no] match pcp <(0-7)$pcp>",
-      NO_STR
-      "Match spec follows\n"
-      "Match based on 802.1p Priority Code Point (PCP) value\n"
-      "PCP value to match\n")
+DEFPY  (pbr_set_table_range,
+	pbr_set_table_range_cmd,
+	"pbr table range (10000-4294966272)$lb (10000-4294966272)$ub",
+	PBR_STR
+	"Set table ID range\n"
+	"Set table ID range\n"
+	"Lower bound for table ID range\n"
+	"Upper bound for table ID range\n")
 {
 	/* clang-format on */
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+	/* upper bound is 2^32 - 2^10 */
+	int ret = CMD_WARNING;
+	const int minrange = 1000;
 
-	if (pbrms)
-		pbr_set_match_clause_for_pcp(pbrms, !no, pcp);
+	/* validate given bounds */
+	if (lb > ub)
+		vty_out(vty, "%% Lower bound must be less than upper bound\n");
+	else if (ub - lb < minrange)
+		vty_out(vty, "%% Range breadth must be at least %d\n", minrange);
+	else {
+		ret = CMD_SUCCESS;
+		pbr_nht_set_tableid_range((uint32_t)lb, (uint32_t)ub);
+	}
 
+	return ret;
+}
+
+/* clang-format off */
+DEFPY  (no_pbr_set_table_range,
+	no_pbr_set_table_range_cmd,
+	"no pbr table range [(10000-4294966272)$lb (10000-4294966272)$ub]",
+	NO_STR
+	PBR_STR
+	"Set table ID range\n"
+	"Set table ID range\n"
+	"Lower bound for table ID range\n"
+	"Upper bound for table ID range\n")
+{
+	/* clang-format on */
+	pbr_nht_set_tableid_range(PBR_NHT_DEFAULT_LOW_TABLEID,
+				  PBR_NHT_DEFAULT_HIGH_TABLEID);
 	return CMD_SUCCESS;
 }
 
 /* clang-format off */
-DEFPY(pbr_map_match_vlan_id, pbr_map_match_vlan_id_cmd,
-      "[no] match vlan <(1-4094)$vlan_id>",
-      NO_STR
-      "Match spec follows\n"
-      "Match based on VLAN ID\n"
-      "VLAN ID to match\n")
-{
-	/* clang-format on */
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-
-	if (pbrms) {
-		if (!no) {
-			pbr_set_match_clause_for_vlan(pbrms, vlan_id, 0);
-		} else {
-			/* if the user previously set a vlan_id value */
-			if (pbrms->match_vlan_id != 0) {
-				if (vlan_id == pbrms->match_vlan_id) {
-					pbr_set_match_clause_for_vlan(pbrms, 0,
-								      0);
-				}
-			}
-		}
-	}
-	return CMD_SUCCESS;
-}
-
-/* clang-format off */
-DEFPY(pbr_map_match_vlan_tag, pbr_map_match_vlan_tag_cmd,
-      "[no] match vlan ![<tagged|untagged|untagged-or-zero>$tag_type]",
-      NO_STR
-      "Match the rest of the command\n"
-      "Match based on VLAN tagging\n"
-      "Match all tagged frames\n"
-      "Match all untagged frames\n"
-      "Match untagged frames, or tagged frames with id zero\n")
-{
-	/* clang-format on */
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-
-	if (!pbrms)
-		return CMD_WARNING;
-
-	if (!no) {
-		assert(tag_type);
-		if (strmatch(tag_type, "tagged")) {
-			pbr_set_match_clause_for_vlan(pbrms, 0,
-						      PBR_VLAN_FLAGS_TAGGED);
-		} else if (strmatch(tag_type, "untagged")) {
-			pbr_set_match_clause_for_vlan(pbrms, 0,
-						      PBR_VLAN_FLAGS_UNTAGGED);
-		} else if (strmatch(tag_type, "untagged-or-zero")) {
-			pbr_set_match_clause_for_vlan(pbrms, 0,
-						      PBR_VLAN_FLAGS_UNTAGGED_0);
-		}
-	} else {
-		pbr_set_match_clause_for_vlan(pbrms, 0, PBR_VLAN_FLAGS_NO_WILD);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
+DEFUN_NOSH(pbr_map,
+	   pbr_map_cmd,
+	   "pbr-map PBRMAP seq (1-700)",
 	   "Create pbr-map or enter pbr-map command mode\n"
 	   "The name of the PBR MAP\n"
 	   "Sequence to insert in existing pbr-map entry\n"
 	   "Sequence number\n")
 {
+	/* clang-format on */
 	const char *pbrm_name = argv[1]->arg;
 	uint32_t seqno = atoi(argv[3]->arg);
 	struct pbr_map_sequence *pbrms;
@@ -122,13 +93,17 @@ DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
+/* clang-format off */
+DEFUN_NOSH(no_pbr_map,
+	   no_pbr_map_cmd,
+	   "no pbr-map PBRMAP [seq (1-700)]",
 	   NO_STR
 	   "Delete pbr-map\n"
 	   "The name of the PBR MAP\n"
 	   "Sequence to delete from existing pbr-map entry\n"
 	   "Sequence number\n")
 {
+	/* clang-format on */
 	const char *pbrm_name = argv[2]->arg;
 	uint32_t seqno = 0;
 	struct pbr_map *pbrm = pbrm_find(pbrm_name);
@@ -153,47 +128,13 @@ DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_set_table_range,
-      pbr_set_table_range_cmd,
-      "pbr table range (10000-4294966272)$lb (10000-4294966272)$ub",
-      PBR_STR
-      "Set table ID range\n"
-      "Set table ID range\n"
-      "Lower bound for table ID range\n"
-      "Upper bound for table ID range\n")
-{
-	/* upper bound is 2^32 - 2^10 */
-	int ret = CMD_WARNING;
-	const int minrange = 1000;
+/***********************************************************************
+ *		pbrms/rule Match L3 Fields
+ ***********************************************************************/
 
-	/* validate given bounds */
-	if (lb > ub)
-		vty_out(vty, "%% Lower bound must be less than upper bound\n");
-	else if (ub - lb < minrange)
-		vty_out(vty, "%% Range breadth must be at least %d\n", minrange);
-	else {
-		ret = CMD_SUCCESS;
-		pbr_nht_set_tableid_range((uint32_t) lb, (uint32_t) ub);
-	}
-
-	return ret;
-}
-
-DEFPY(no_pbr_set_table_range, no_pbr_set_table_range_cmd,
-      "no pbr table range [(10000-4294966272)$lb (10000-4294966272)$ub]",
-      NO_STR
-      PBR_STR
-      "Set table ID range\n"
-      "Set table ID range\n"
-      "Lower bound for table ID range\n"
-      "Upper bound for table ID range\n")
-{
-	pbr_nht_set_tableid_range(PBR_NHT_DEFAULT_LOW_TABLEID,
-				  PBR_NHT_DEFAULT_HIGH_TABLEID);
-	return CMD_SUCCESS;
-}
-
-DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
+/* clang-format off */
+DEFPY  (pbr_map_match_src,
+	pbr_map_match_src_cmd,
 	"[no] match src-ip <A.B.C.D/M|X:X::X:X/M>$prefix",
 	NO_STR
 	"Match the rest of the command\n"
@@ -201,6 +142,7 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	"v4 Prefix\n"
 	"v6 Prefix\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
@@ -229,7 +171,9 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
+/* clang-format off */
+DEFPY  (pbr_map_match_dst,
+	pbr_map_match_dst_cmd,
 	"[no] match dst-ip <A.B.C.D/M|X:X::X:X/M>$prefix",
 	NO_STR
 	"Match the rest of the command\n"
@@ -237,6 +181,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	"v4 Prefix\n"
 	"v6 Prefix\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
@@ -246,7 +191,6 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-
 	pbrms->family = prefix->family;
 
 	if (!no) {
@@ -265,13 +209,16 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_ip_proto, pbr_map_match_ip_proto_cmd,
-      "[no] match ip-protocol PROTO$ip_proto",
-      NO_STR
-      "Match the rest of the command\n"
-      "Choose an ip-protocol\n"
-      "Protocol name\n")
+/* clang-format off */
+DEFPY  (pbr_map_match_ip_proto,
+	pbr_map_match_ip_proto_cmd,
+	"[no] match ip-protocol PROTO$ip_proto",
+	NO_STR
+	"Match the rest of the command\n"
+	"Choose an ip-protocol\n"
+	"Protocol name\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	struct protoent *p;
 
@@ -300,13 +247,16 @@ DEFPY(pbr_map_match_ip_proto, pbr_map_match_ip_proto_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_src_port, pbr_map_match_src_port_cmd,
-      "[no] match src-port (1-65535)$port",
-      NO_STR
-      "Match the rest of the command\n"
-      "Choose the source port to use\n"
-      "The Source Port\n")
+/* clang-format off */
+DEFPY  (pbr_map_match_src_port,
+	pbr_map_match_src_port_cmd,
+	"[no] match src-port (1-65535)$port",
+	NO_STR
+	"Match the rest of the command\n"
+	"Choose the source port to use\n"
+	"The Source Port\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
@@ -325,13 +275,16 @@ DEFPY(pbr_map_match_src_port, pbr_map_match_src_port_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_dst_port, pbr_map_match_dst_port_cmd,
-      "[no] match dst-port (1-65535)$port",
-      NO_STR
-      "Match the rest of the command\n"
-      "Choose the destination port to use\n"
-      "The Destination Port\n")
+/* clang-format off */
+DEFPY  (pbr_map_match_dst_port,
+	pbr_map_match_dst_port_cmd,
+	"[no] match dst-port (1-65535)$port",
+	NO_STR
+	"Match the rest of the command\n"
+	"Choose the destination port to use\n"
+	"The Destination Port\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
@@ -350,13 +303,16 @@ DEFPY(pbr_map_match_dst_port, pbr_map_match_dst_port_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
-      "[no] match dscp DSCP$dscp",
-      NO_STR
-      "Match the rest of the command\n"
-      "Match based on IP DSCP field\n"
-      "DSCP value (below 64) or standard codepoint name\n")
+/* clang-format off */
+DEFPY  (pbr_map_match_dscp,
+	pbr_map_match_dscp_cmd,
+	"[no] match dscp DSCP$dscp",
+	NO_STR
+	"Match the rest of the command\n"
+	"Match based on IP DSCP field\n"
+	"DSCP value (below 64) or standard codepoint name\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	char dscpname[100];
 	uint8_t rawDscp;
@@ -414,13 +370,16 @@ DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_ecn, pbr_map_match_ecn_cmd,
-      "[no] match ecn (0-3)$ecn",
-      NO_STR
-      "Match the rest of the command\n"
-      "Match based on IP ECN field\n"
-      "Explicit Congestion Notification\n")
+/* clang-format off */
+DEFPY  (pbr_map_match_ecn,
+	pbr_map_match_ecn_cmd,
+	"[no] match ecn (0-3)$ecn",
+	NO_STR
+	"Match the rest of the command\n"
+	"Match based on IP ECN field\n"
+	"Explicit Congestion Notification\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
@@ -441,13 +400,104 @@ DEFPY(pbr_map_match_ecn, pbr_map_match_ecn_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
+/***********************************************************************
+ *		pbrms/rule Match L2 fields
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_map_match_pcp, pbr_map_match_pcp_cmd, "[no] match pcp <(0-7)$pcp>",
+	NO_STR
+	"Match spec follows\n"
+	"Match based on 802.1p Priority Code Point (PCP) value\n"
+	"PCP value to match\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (pbrms)
+		pbr_set_match_clause_for_pcp(pbrms, !no, pcp);
+
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_match_vlan_id,
+	pbr_map_match_vlan_id_cmd,
+	"[no] match vlan <(1-4094)$vlan_id>",
+	NO_STR
+	"Match spec follows\n"
+	"Match based on VLAN ID\n"
+	"VLAN ID to match\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (pbrms) {
+		if (!no) {
+			pbr_set_match_clause_for_vlan(pbrms, vlan_id, 0);
+		} else {
+			/* if the user previously set a vlan_id value */
+			if (pbrms->match_vlan_id != 0) {
+				if (vlan_id == pbrms->match_vlan_id) {
+					pbr_set_match_clause_for_vlan(pbrms, 0,
+								      0);
+				}
+			}
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_match_vlan_tag,
+	pbr_map_match_vlan_tag_cmd,
+	"[no] match vlan ![<tagged|untagged|untagged-or-zero>$tag_type]",
+	NO_STR
+	"Match the rest of the command\n"
+	"Match based on VLAN tagging\n"
+	"Match all tagged frames\n"
+	"Match all untagged frames\n"
+	"Match untagged frames, or tagged frames with id zero\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING;
+
+	if (!no) {
+		assert(tag_type);
+		if (strmatch(tag_type, "tagged")) {
+			pbr_set_match_clause_for_vlan(pbrms, 0,
+						      PBR_VLAN_FLAGS_TAGGED);
+		} else if (strmatch(tag_type, "untagged")) {
+			pbr_set_match_clause_for_vlan(pbrms, 0,
+						      PBR_VLAN_FLAGS_UNTAGGED);
+		} else if (strmatch(tag_type, "untagged-or-zero")) {
+			pbr_set_match_clause_for_vlan(pbrms, 0,
+						      PBR_VLAN_FLAGS_UNTAGGED_0);
+		}
+	} else {
+		pbr_set_match_clause_for_vlan(pbrms, 0, PBR_VLAN_FLAGS_NO_WILD);
+	}
+
+	return CMD_SUCCESS;
+}
+
+/***********************************************************************
+ *		pbrms/rule Match meta
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_map_match_mark,
+	pbr_map_match_mark_cmd,
 	"[no] match mark (1-4294967295)$mark",
 	NO_STR
 	"Match the rest of the command\n"
 	"Choose the mark value to use\n"
 	"mark\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)
@@ -471,6 +521,119 @@ DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
 
 	return CMD_SUCCESS;
 }
+
+/***********************************************************************
+ *		pbrms/rule Action Set Meta
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_map_action_queue_id,
+	pbr_map_action_queue_id_cmd,
+	"[no] set queue-id <(1-65535)$queue_id>",
+	NO_STR
+	"Set the rest of the command\n"
+	"Set based on egress port queue id\n"
+	"A valid value in range 1..65535 \n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!no)
+		pbrms->action_queue_id = queue_id;
+	else if ((uint32_t)queue_id == pbrms->action_queue_id)
+		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+
+/***********************************************************************
+ *		pbrms/rule Action Set L2 Fields
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_map_action_pcp,
+	pbr_map_action_pcp_cmd,
+	"[no] set pcp <(0-7)$pcp>",
+	NO_STR
+	"Set the rest of the command\n"
+	"Set based on 802.1p Priority Code Point (PCP) value\n"
+	"A valid value in range 0..7\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!no)
+		pbrms->action_pcp = pcp;
+	else if (pcp == pbrms->action_pcp)
+		pbrms->action_pcp = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_vlan_id,
+	pbr_map_action_vlan_id_cmd,
+	"[no] set vlan <(1-4094)$vlan_id>",
+	NO_STR
+	"Set the rest of the command\n"
+	"Set action for VLAN tagging\n"
+	"A valid value in range 1..4094\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!no)
+		pbrms->action_vlan_id = vlan_id;
+	else if (pbrms->action_vlan_id == vlan_id)
+		pbrms->action_vlan_id = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_strip_vlan,
+	pbr_map_action_strip_vlan_cmd,
+	"[no] strip vlan",
+	NO_STR
+	"Strip the vlan tags from frame\n"
+	"Strip any inner vlan tag \n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!no)
+		pbrms->action_vlan_flags = PBR_MAP_STRIP_INNER_ANY;
+	else
+		pbrms->action_vlan_flags = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+
+/***********************************************************************
+ *		pbrms/rule Action Forwarding
+ ***********************************************************************/
 
 static void pbrms_clear_set_vrf_config(struct pbr_map_sequence *pbrms)
 {
@@ -503,92 +666,6 @@ static void pbrms_clear_set_config(struct pbr_map_sequence *pbrms)
 	pbrms->nhs_installed = false;
 }
 
-
-DEFPY(pbr_map_action_queue_id, pbr_map_action_queue_id_cmd,
-      "[no] set queue-id <(1-65535)$queue_id>",
-      NO_STR
-      "Set the rest of the command\n"
-      "Set based on egress port queue id\n"
-      "A valid value in range 1..65535 \n")
-{
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-
-	if (!pbrms)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!no)
-		pbrms->action_queue_id = queue_id;
-	else if ((uint32_t)queue_id == pbrms->action_queue_id)
-		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
-
-	pbr_map_check(pbrms, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(pbr_map_action_pcp, pbr_map_action_pcp_cmd, "[no] set pcp <(0-7)$pcp>",
-      NO_STR
-      "Set the rest of the command\n"
-      "Set based on 802.1p Priority Code Point (PCP) value\n"
-      "A valid value in range 0..7\n")
-{
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-
-	if (!pbrms)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!no)
-		pbrms->action_pcp = pcp;
-	else if (pcp == pbrms->action_pcp)
-		pbrms->action_pcp = 0;
-
-	pbr_map_check(pbrms, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(pbr_map_action_vlan_id, pbr_map_action_vlan_id_cmd,
-      "[no] set vlan <(1-4094)$vlan_id>",
-      NO_STR
-      "Set the rest of the command\n"
-      "Set action for VLAN tagging\n"
-      "A valid value in range 1..4094\n")
-{
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-
-	if (!pbrms)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!no)
-		pbrms->action_vlan_id = vlan_id;
-	else if (pbrms->action_vlan_id == vlan_id)
-		pbrms->action_vlan_id = 0;
-
-	pbr_map_check(pbrms, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(pbr_map_action_strip_vlan, pbr_map_action_strip_vlan_cmd,
-      "[no] strip vlan",
-      NO_STR
-      "Strip the vlan tags from frame\n"
-      "Strip any inner vlan tag \n")
-{
-	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-
-	if (!pbrms)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!no)
-		pbrms->action_vlan_flags = PBR_MAP_STRIP_INNER_ANY;
-	else
-		pbrms->action_vlan_flags = 0;
-
-	pbr_map_check(pbrms, true);
-
-	return CMD_SUCCESS;
-}
 
 
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
@@ -853,13 +930,19 @@ DEFPY(no_pbr_map_vrf, no_pbr_map_vrf_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY (pbr_policy,
+/***********************************************************************
+ *			Policy
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_policy,
 	pbr_policy_cmd,
 	"[no] pbr-policy PBRMAP$mapname",
 	NO_STR
 	"Policy to use\n"
 	"Name of the pbr-map to apply\n")
 {
+	/* clang-format on */
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct pbr_map *pbrm, *old_pbrm;
 	struct pbr_interface *pbr_ifp = ifp->info;
