@@ -173,7 +173,6 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
 static inline struct bgp_dest *
 bgp_table_top_nolock(const struct bgp_table *const table)
 {
-	//return bgp_dest_from_rnode(table->route_table->top);
 	struct route_node *top;
 	struct route_node *rn = top = table->route_table->top;
 	while(rn && !rn->info){
