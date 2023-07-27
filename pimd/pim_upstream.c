@@ -316,7 +316,7 @@ static void on_join_timer(struct thread *t)
 	}
 
 	/*
-	 * In the case of a HFR we will not ahve anyone to send this to.
+	 * In the case of a FHR we will not ahve anyone to send this to.
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		return;
