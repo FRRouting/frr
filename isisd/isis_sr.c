@@ -923,13 +923,14 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
 }
 
 /**
- * Activate local Prefix-SID when loopback interface goes up for IS-IS.
+ * Update the Node-SID flag of the configured Prefix-SID mappings in response
+ * to an address addition or removal event.
  *
- * @param ifp	Loopback Interface
+ * @param ifp	Interface
  *
  * @return	0
  */
-static int sr_if_new_hook(struct interface *ifp)
+int sr_if_addr_update(struct interface *ifp)
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 	struct isis_circuit *circuit;
@@ -947,13 +948,7 @@ static int sr_if_new_hook(struct interface *ifp)
 	if (!area)
 		return 0;
 
-	/*
-	 * Update the Node-SID flag of the configured Prefix-SID mappings if
-	 * necessary. This needs to be done here since isisd reads the startup
-	 * configuration before receiving interface information from zebra.
-	 */
 	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
-
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			pcfgs[i] = isis_sr_cfg_prefix_find(
 				area, connected->address, i);
@@ -1313,7 +1308,6 @@ void isis_sr_init(void)
 	hook_register(isis_adj_state_change_hook, sr_adj_state_change);
 	hook_register(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_register(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
-	hook_register(isis_if_new_hook, sr_if_new_hook);
 }
 
 /**
@@ -1325,5 +1319,4 @@ void isis_sr_term(void)
 	hook_unregister(isis_adj_state_change_hook, sr_adj_state_change);
 	hook_unregister(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_unregister(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
-	hook_unregister(isis_if_new_hook, sr_if_new_hook);
 }

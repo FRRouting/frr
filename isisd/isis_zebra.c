@@ -98,6 +98,8 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 			isis_circuit_add_addr(circuit, c);
 	}
 
+	sr_if_addr_update(c->ifp);
+
 	return 0;
 }
 
@@ -124,6 +126,8 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		if (circuit)
 			isis_circuit_del_addr(circuit, c);
 	}
+
+	sr_if_addr_update(c->ifp);
 
 	connected_free(&c);
 
