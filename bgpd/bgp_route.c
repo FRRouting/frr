@@ -3372,24 +3372,20 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				       BGP_PATH_RECURSIVE_PATH_UPDATE)) {
 				UNSET_FLAG(old_select->flags,
 					   BGP_PATH_RECURSIVE_PATH_UPDATE);
-				if (bgp->rib) {
-					struct bgp_table *table =
-						bgp->rib[afi][safi];
-					if (old_select->nexthop) {
-						struct bgp_dest *ddest =
-							bgp_node_get(table,
-								     &old_select
-									      ->nexthop
-									      ->prefix);
-						if (ddest) {
-							if (debug) {
-								zlog_debug("Route %pBD set to be updated, setting nexthop %pBD to be updated",
-									   dest,
-									   ddest);
-							}
-							SET_FLAG(ddest->flags,
-								 BGP_NODE_USED_AS_RECURSIVE_ONLINK_NEXTHOP);
+				struct bgp_table *table = bgp->rib[afi][safi];
+				if (old_select->nexthop) {
+					struct bgp_dest *ddest =
+						bgp_node_get(table,
+							     &old_select
+								      ->nexthop
+								      ->prefix);
+					if (ddest) {
+						if (debug) {
+							zlog_debug("Route %pBD set to be updated, setting nexthop %pBD to be updated",
+								   dest, ddest);
 						}
+						SET_FLAG(ddest->flags,
+							 BGP_NODE_USED_AS_RECURSIVE_ONLINK_NEXTHOP);
 					}
 				}
 			}
