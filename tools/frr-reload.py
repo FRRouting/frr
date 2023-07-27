@@ -1567,6 +1567,7 @@ def compare_context_objects(newconf, running):
     candidates_to_add = []
     delete_bgpd = False
     area_stub_no_sum = "area (\S+) stub no-summary"
+    deleted_keychains = []
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -1614,6 +1615,22 @@ def compare_context_objects(newconf, running):
                 "router bgp" in running_ctx_keys[0]
                 and len(running_ctx_keys) > 1
                 and delete_bgpd
+            ):
+                continue
+
+            # Check if key chain is being deleted:
+            # - If it is being deleted then avoid deleting its contexts
+            # - Else delete its configuration without removing the root node
+            elif (
+                running_ctx_keys[0].startswith("key chain ")
+                and len(running_ctx_keys) == 1
+            ):
+                deleted_keychains.append(running_ctx_keys[0])
+                lines_to_del.append((running_ctx_keys, None))
+            elif (
+                running_ctx_keys[0].startswith("key chain ")
+                and len(running_ctx_keys) > 1
+                and running_ctx_keys[0] in deleted_keychains
             ):
                 continue
 
