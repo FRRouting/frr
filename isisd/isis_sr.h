@@ -222,6 +222,7 @@ extern struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj,
 						 int family,
 						 enum sr_adj_type type);
 extern void isis_area_delete_backup_adj_sids(struct isis_area *area, int level);
+extern int sr_if_addr_update(struct interface *ifp);
 extern char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
 		       mpls_label_t label_out);
 extern int isis_sr_start(struct isis_area *area);
