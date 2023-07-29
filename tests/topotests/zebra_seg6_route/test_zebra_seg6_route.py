@@ -86,7 +86,7 @@ def test_zebra_seg6local_routes():
         )
         logger.info("CHECK {} {} {}".format(dest, nh, sid))
         test_func = partial(check, r1, dest, manifest["out"])
-        success, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+        success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
         assert result is None, "Failed"
 
 
