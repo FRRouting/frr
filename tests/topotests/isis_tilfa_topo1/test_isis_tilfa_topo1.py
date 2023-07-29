@@ -946,6 +946,15 @@ def test_rib_ipv4_step13():
     tgen.net["rt5"].cmd('vtysh -c "conf t" -c "int eth-rt6" -c "isis bfd"')
     tgen.net["rt6"].cmd('vtysh -c "conf t" -c "int eth-rt5" -c "isis bfd"')
 
+    expect = (
+        '[{"multihop":false,"peer":"10.0.8.5","interface":"eth-rt5","status":"up"}]'
+    )
+    router_compare_json_output(
+        rname,
+        "show bfd peers json",
+        expect,
+    )
+
 
 def test_rib_ipv6_step13():
     logger.info("Test (step 13): verify IPv6 RIB")
