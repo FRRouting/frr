@@ -718,22 +718,27 @@ DEFPY(no_pbr_map_nexthop_group, no_pbr_map_nexthop_group_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
-      "set nexthop\
+/* clang-format off */
+DEFPY  (pbr_map_nexthop,
+	pbr_map_nexthop_cmd,
+	"set nexthop\
         <\
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
+	  |blackhole$bh\
 	>\
         [nexthop-vrf NAME$vrf_name]",
-      "Set for the PBR-MAP\n"
-      "Specify one of the nexthops in this map\n"
-      "v4 Address\n"
-      "v6 Address\n"
-      "Interface to use\n"
-      "Interface to use\n"
-      "If the nexthop is in a different vrf tell us\n"
-      "The nexthop-vrf Name\n")
+	"Set for the PBR-MAP\n"
+	"Specify one of the nexthops in this map\n"
+	"v4 Address\n"
+	"v6 Address\n"
+	"Interface to use\n"
+	"Interface to use\n"
+	"Blackhole route\n"
+	"If the nexthop is in a different vrf tell us\n"
+	"The nexthop-vrf Name\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	struct vrf *vrf;
 	struct nexthop nhop;
@@ -815,8 +820,11 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 				nhop.type = NEXTHOP_TYPE_IPV6;
 			}
 		}
-	} else
+	} else if (bh) {
+		nhop.type = NEXTHOP_TYPE_BLACKHOLE;
+	} else {
 		nhop.type = NEXTHOP_TYPE_IFINDEX;
+	}
 
 	if (pbrms->nhg)
 		nh = nexthop_exists(pbrms->nhg, &nhop);
@@ -845,23 +853,28 @@ done:
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_pbr_map_nexthop, no_pbr_map_nexthop_cmd,
-      "no set nexthop\
+/* clang-format off */
+DEFPY  (no_pbr_map_nexthop,
+	no_pbr_map_nexthop_cmd,
+	"no set nexthop\
         [<\
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
+	  |blackhole$bh\
 	>\
         [nexthop-vrf NAME$vrf_name]]",
-      NO_STR
-      "Set for the PBR-MAP\n"
-      "Specify one of the nexthops in this map\n"
-      "v4 Address\n"
-      "v6 Address\n"
-      "Interface to use\n"
-      "Interface to use\n"
-      "If the nexthop is in a different vrf tell us\n"
-      "The nexthop-vrf Name\n")
+	NO_STR
+	"Set for the PBR-MAP\n"
+	"Specify one of the nexthops in this map\n"
+	"v4 Address\n"
+	"v6 Address\n"
+	"Interface to use\n"
+	"Interface to use\n"
+	"Blackhole route\n"
+	"If the nexthop is in a different vrf tell us\n"
+	"The nexthop-vrf Name\n")
 {
+	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!pbrms)

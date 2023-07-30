@@ -161,6 +161,26 @@ specified in the rule are also applied to the packet.
    VLAN-matching facilities,
    so this field will be ignored unless other dataplane providers are used.
 
+.. clicmd:: set nexthop-group NAME
+
+   Action:
+   forward the packet using nexthop-group NAME.
+
+.. clicmd:: set nexthop [A.B.C.D|X:X::X:XX|blackhole] [interface] [nexthop-vrf NAME]
+
+   Action:
+   forward the packet using the specified single nexthop.
+   If `blackhole`, packets will be sent to a blackhole route and dropped.
+
+.. clicmd:: set vrf unchanged|NAME
+
+   Action:
+   If set to ``unchanged``, the rule will use the vrf table the interface
+   is in as its lookup.
+   If set to NAME, the rule will use that vrf table as its lookup.
+
+   Not supported with NETNS VRF backend.
+
 .. clicmd:: set queue-id (1-65535)
 
    Action:
@@ -194,25 +214,6 @@ specified in the rule are also applied to the packet.
    packet mangling,
    so this field will be ignored unless another dataplane provider is used.
    It is invalid to specify both a `strip` and `set vlan` action.
-
-.. clicmd:: set nexthop-group NAME
-
-   Action:
-   forward the packet using nexthop-group NAME.
-
-.. clicmd:: set nexthop [A.B.C.D|X:X::X:XX] [interface] [nexthop-vrf NAME]
-
-   Action:
-   forward the packet using the specified single nexthop.
-
-.. clicmd:: set vrf unchanged|NAME
-
-   Action:
-   If set to ``unchanged``, the rule will use the vrf table the interface
-   is in as its lookup.
-   If set to NAME, the rule will use that vrf table as its lookup.
-
-   Not supported with NETNS VRF backend.
 
 .. clicmd:: show pbr map [NAME] [detail|json]
 
