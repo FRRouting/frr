@@ -129,6 +129,14 @@ def test_bfd_loss_intermediate():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    r1 = tgen.gears["r1"]
+    expected = { "as":101, "peers":{ "2001:db8:4::1": { "state":"Established" } } }
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv6 uni summ json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg ='"r1" has not established bgp peering yet'
+    assert result is None, assertmsg
+
+    #assert False
     logger.info("removing IPv6 address from r2 to simulate loss of connectivity")
     # Disable r2-eth0 ipv6 address
     cmd = 'vtysh -c "configure terminal" -c "interface r2-eth1" -c "no ipv6 address 2001:db8:4::2/64"'

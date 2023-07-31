@@ -258,7 +258,6 @@
         },
         "segment-routing":[
           {
-            "adj-sid":5001,
             "flags":"0xb0",
             "weight":0
           }
@@ -561,7 +560,6 @@
         },
         "segment-routing":[
           {
-            "adj-sid":5000,
             "flags":"0x30",
             "weight":0
           }
