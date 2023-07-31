@@ -2737,6 +2737,7 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	else
 		r.unique = pbra->unique;
 
+	r.family = fam;
 
 	/* filter */
 

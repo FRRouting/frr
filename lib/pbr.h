@@ -114,6 +114,7 @@ struct pbr_action {
  */
 struct pbr_rule {
 	vrf_id_t vrf_id;
+	uint8_t family; /* netlink: select which rule database */
 
 	uint32_t seq;
 	uint32_t priority;

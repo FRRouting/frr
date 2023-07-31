@@ -1702,6 +1702,7 @@ int zapi_pbr_rule_encode(struct stream *s, struct pbr_rule *r)
 	 */
 	stream_putl(s, 1);
 
+	stream_putc(s, r->family);
 	stream_putl(s, r->seq);
 	stream_putl(s, r->priority);
 	stream_putl(s, r->unique);
@@ -1723,6 +1724,7 @@ bool zapi_pbr_rule_decode(struct stream *s, struct pbr_rule *r)
 
 	memset(r, 0, sizeof(*r));
 
+	STREAM_GETC(s, r->family);
 	STREAM_GETL(s, r->seq);
 	STREAM_GETL(s, r->priority);
 	STREAM_GETL(s, r->unique);

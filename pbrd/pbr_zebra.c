@@ -517,10 +517,14 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	uint8_t family;
 
 	/*
-	 * There seems to be some effort in pbr_vty.c to keep the three
-	 * copies of "family" equal. Not sure if the reason goes beyond
-	 * ensuring consistency in ZAPI encoding. In any case, it might
-	 * be handled better as an internal matter for the encoder (TBD).
+	 * Opportunistic address family field is set when any of the IP
+	 * address match/set fields is set, or when a NH/NHG is resolved.
+	 * The value is needed by zebra for the underlying netlink
+	 * messaging, particularly in delete operations, because it
+	 * selects the rule database (IPv4 vs. IPv6).
+	 *
+	 * Historically the value has been encoded into any unused
+	 * "match src/dst address" fields and picked off in zebra.
 	 */
 	family = AF_INET;
 	if (pbrms->family)
@@ -538,6 +542,8 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	r.seq = pbrms->seqno;
 	r.priority = pbrms->ruleno;
 	r.unique = pbrms->unique;
+
+	r.family = pbrms->family;
 
 	/* filter */
 	r.filter.filter_bm = pbrms->filter_bm;
