@@ -154,7 +154,7 @@ class json_cmp_result(object):
         )
 
 
-def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
+def gen_json_diff_report(output, expected, exact=False, path="> $", acc=(0, "")):
     """
     Internal workhorse which compares two JSON data structures and generates an error report suited to be read by a human eye.
     """
@@ -202,60 +202,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     def has_errors(other_acc):
         return other_acc[0] > 0
 
-    if d2 == "*" or (
-        not isinstance(d1, (list, dict))
-        and not isinstance(d2, (list, dict))
-        and d1 == d2
+    if expected == "*" or (
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output == expected
     ):
         return acc
     elif (
-        not isinstance(d1, (list, dict))
-        and not isinstance(d2, (list, dict))
-        and d1 != d2
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output != expected
     ):
         acc = add_error(
             acc,
-            "d1 has element with value '{}' but in d2 it has value '{}'".format(d1, d2),
+            "output has element with value '{}' but in expected it has value '{}'".format(
+                output, expected
+            ),
         )
     elif (
-        isinstance(d1, list)
-        and isinstance(d2, list)
-        and ((len(d2) > 0 and d2[0] == "__ordered__") or exact)
+        isinstance(output, list)
+        and isinstance(expected, list)
+        and ((len(expected) > 0 and expected[0] == "__ordered__") or exact)
     ):
         if not exact:
-            del d2[0]
-        if len(d1) != len(d2):
+            del expected[0]
+        if len(output) != len(expected):
             acc = add_error(
                 acc,
-                "d1 has Array of length {} but in d2 it is of length {}".format(
-                    len(d1), len(d2)
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
                 ),
             )
         else:
-            for idx, v1, v2 in zip(range(0, len(d1)), d1, d2):
+            for idx, v1, v2 in zip(range(0, len(output)), output, expected):
                 acc = merge_errors(
                     acc, gen_json_diff_report(v1, v2, exact=exact, path=add_idx(idx))
                 )
-    elif isinstance(d1, list) and isinstance(d2, list):
-        if len(d1) < len(d2):
+    elif isinstance(output, list) and isinstance(expected, list):
+        if len(output) < len(expected):
             acc = add_error(
                 acc,
-                "d1 has Array of length {} but in d2 it is of length {}".format(
-                    len(d1), len(d2)
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
                 ),
             )
         else:
-            for idx2, v2 in zip(range(0, len(d2)), d2):
+            for idx2, v2 in zip(range(0, len(expected)), expected):
                 found_match = False
                 closest_diff = None
                 closest_idx = None
-                for idx1, v1 in zip(range(0, len(d1)), d1):
+                for idx1, v1 in zip(range(0, len(output)), output):
                     tmp_v1 = deepcopy(v1)
                     tmp_v2 = deepcopy(v2)
                     tmp_diff = gen_json_diff_report(tmp_v1, tmp_v2, path=add_idx(idx1))
                     if not has_errors(tmp_diff):
                         found_match = True
-                        del d1[idx1]
+                        del output[idx1]
                         break
                     elif not closest_diff or get_errors_n(tmp_diff) < get_errors_n(
                         closest_diff
@@ -269,50 +271,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
                     acc = add_error(
                         acc,
                         (
-                            "d2 has the following element at index {} which is not present in d1: "
-                            + "\n\n{}\n\n\tClosest match in d1 is at index {} with the following errors: {}"
+                            "expected has the following element at index {} which is not present in output: "
+                            + "\n\n{}\n\n\tClosest match in output is at index {} with the following errors: {}"
                         ).format(idx2, dump_json(v2), closest_idx, sub_error),
                     )
                 if not found_match and not isinstance(v2, (list, dict)):
                     acc = add_error(
                         acc,
-                        "d2 has the following element at index {} which is not present in d1: {}".format(
+                        "expected has the following element at index {} which is not present in output: {}".format(
                             idx2, dump_json(v2)
                         ),
                     )
-    elif isinstance(d1, dict) and isinstance(d2, dict) and exact:
-        invalid_keys_d1 = [k for k in d1.keys() if k not in d2.keys()]
-        invalid_keys_d2 = [k for k in d2.keys() if k not in d1.keys()]
+    elif isinstance(output, dict) and isinstance(expected, dict) and exact:
+        invalid_keys_d1 = [k for k in output.keys() if k not in expected.keys()]
+        invalid_keys_d2 = [k for k in expected.keys() if k not in output.keys()]
         for k in invalid_keys_d1:
-            acc = add_error(acc, "d1 has key '{}' which is not present in d2".format(k))
+            acc = add_error(
+                acc, "output has key '{}' which is not present in expected".format(k)
+            )
         for k in invalid_keys_d2:
-            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
-        valid_keys_intersection = [k for k in d1.keys() if k in d2.keys()]
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in output.keys() if k in expected.keys()]
         for k in valid_keys_intersection:
             acc = merge_errors(
-                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
             )
-    elif isinstance(d1, dict) and isinstance(d2, dict):
-        none_keys = [k for k, v in d2.items() if v == None]
-        none_keys_present = [k for k in d1.keys() if k in none_keys]
+    elif isinstance(output, dict) and isinstance(expected, dict):
+        none_keys = [k for k, v in expected.items() if v == None]
+        none_keys_present = [k for k in output.keys() if k in none_keys]
         for k in none_keys_present:
             acc = add_error(
-                acc, "d1 has key '{}' which is not supposed to be present".format(k)
+                acc, "output has key '{}' which is not supposed to be present".format(k)
             )
-        keys = [k for k, v in d2.items() if v != None]
-        invalid_keys_intersection = [k for k in keys if k not in d1.keys()]
+        keys = [k for k, v in expected.items() if v != None]
+        invalid_keys_intersection = [k for k in keys if k not in output.keys()]
         for k in invalid_keys_intersection:
-            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
-        valid_keys_intersection = [k for k in keys if k in d1.keys()]
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in keys if k in output.keys()]
         for k in valid_keys_intersection:
             acc = merge_errors(
-                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
             )
     else:
         acc = add_error(
             acc,
-            "d1 has element of type '{}' but the corresponding element in d2 is of type '{}'".format(
-                json_type(d1), json_type(d2)
+            "output has element of type '{}' but the corresponding element in expected is of type '{}'".format(
+                json_type(output), json_type(expected)
             ),
             points=2,
         )
