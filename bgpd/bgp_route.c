@@ -77,7 +77,7 @@
 #include "bgpd/bgp_route_clippy.c"
 
 DEFINE_HOOK(bgp_snmp_update_stats,
-	    (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
+	    (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
 	    (rn, pi, added));
 
 DEFINE_HOOK(bgp_rpki_prefix_status,
@@ -265,7 +265,7 @@ struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 {
 	if (!pi->extra)
 		pi->extra = bgp_path_info_extra_new();
-	if (!pi->extra->evpn && pi->net && pi->net->p.family == AF_EVPN)
+	if (!pi->extra->evpn && pi->net && pi->net->rn->p.family == AF_EVPN)
 		pi->extra->evpn =
 			XCALLOC(MTYPE_BGP_ROUTE_EXTRA_EVPN,
 				sizeof(struct bgp_path_info_extra_evpn));

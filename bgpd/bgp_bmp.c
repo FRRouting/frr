@@ -1307,7 +1307,7 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 	if (frrtrace_enabled(frr_bgp, bmp_process)) {
 		char pfxprint[PREFIX2STR_BUFFER];
 
-		prefix2str(&bn->p, pfxprint, sizeof(pfxprint));
+		prefix2str(&bn->rn->p, pfxprint, sizeof(pfxprint));
 		frrtrace(5, frr_bgp, bmp_process, peer, pfxprint, afi, safi,
 			 withdraw);
 	}
