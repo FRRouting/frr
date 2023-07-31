@@ -5393,16 +5393,29 @@ void peer_update_source_unset(struct peer *peer)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
+	bool src_unchanged = false;
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE))
 		return;
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
+		/* Don't reset peer if the update_source we'll inherit from
+		 * the peer-group matches the peer's existing update_source
+		 */
+		src_unchanged =
+			(peer->update_source &&
+			 peer->group->conf->update_source &&
+			 sockunion_cmp(peer->update_source,
+				       peer->group->conf->update_source) == 0);
+
 		peer_flag_inherit(peer, PEER_FLAG_UPDATE_SOURCE);
 		PEER_SU_ATTR_INHERIT(peer, peer->group, update_source);
 		PEER_STR_ATTR_INHERIT(peer, peer->group, update_if,
 				      MTYPE_PEER_UPDATE_SOURCE);
+
+		if (src_unchanged)
+			return;
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
 		peer_flag_unset(peer, PEER_FLAG_UPDATE_SOURCE);
