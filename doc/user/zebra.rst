@@ -163,12 +163,13 @@ Standard Commands
    Set description for the interface.
 
 
-.. clicmd:: mpls enable
+.. clicmd:: mpls <enable|disable>
 
-   Enable or disable mpls kernel processing on the interface, for linux.  Interfaces
+   Choose mpls kernel processing value on the interface, for linux. Interfaces
    configured with mpls will not automatically turn on if mpls kernel modules do not
-   happen to be loaded.  This command will fail on 3.X linux kernels and does not
-   work on non-linux systems at all.
+   happen to be loaded. This command will fail on 3.X linux kernels and does not
+   work on non-linux systems at all. 'enable' and 'disable' will respectively turn
+   on and off mpls on the given interface.
 
 .. clicmd:: multicast
 
