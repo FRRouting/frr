@@ -320,29 +320,29 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     return acc
 
 
-def json_cmp(d1, d2, exact=False):
+def json_cmp(output, expected, exact=False):
     """
     JSON compare function. Receives two parameters:
-    * `d1`: parsed JSON data structure
-    * `d2`: parsed JSON data structure
+    * `output`: parsed JSON data structure from outputed vtysh command
+    * `expected``: parsed JSON data structure from what is expected to be seen
 
-    Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
-    in d1, i.e., when d2 is a "subset" of d1 without honoring any order. Otherwise an
+    Returns 'None' when all JSON Object keys and all Array elements of expected have a match
+    in output, i.e., when expected is a "subset" of output without honoring any order. Otherwise an
     error report is generated and wrapped in a 'json_cmp_result()'. There are special
     parameters and notations explained below which can be used to cover rather unusual
     cases:
 
-    * when 'exact is set to 'True' then d1 and d2 are tested for equality (including
+    * when 'exact is set to 'True' then output and expected are tested for equality (including
       order within JSON Arrays)
     * using 'null' (or 'None' in Python) as JSON Object value is checking for key
-      absence in d1
-    * using '*' as JSON Object value or Array value is checking for presence in d1
+      absence in output
+    * using '*' as JSON Object value or Array value is checking for presence in output
       without checking the values
-    * using '__ordered__' as first element in a JSON Array in d2 will also check the
-      order when it is compared to an Array in d1
+    * using '__ordered__' as first element in a JSON Array in expected will also check the
+      order when it is compared to an Array in output
     """
 
-    (errors_n, errors) = gen_json_diff_report(deepcopy(d1), deepcopy(d2), exact=exact)
+    (errors_n, errors) = gen_json_diff_report(deepcopy(output), deepcopy(expected), exact=exact)
 
     if errors_n > 0:
         result = json_cmp_result()
