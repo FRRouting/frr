@@ -28,7 +28,7 @@ FROM alpine:3.18 as source-builder
 RUN mkdir -p /src/alpine /pkgs/apk
 COPY alpine/APKBUILD.in /src/alpine
 COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
-RUN cd /pkgs/apk/x86_64 && apk add --allow-untrusted *.apk
+RUN cd /pkgs/apk && apk add --allow-untrusted */*.apk
 RUN source /src/alpine/APKBUILD.in \
 	&& apk add \
 		--no-cache \
@@ -48,7 +48,7 @@ RUN cd /src \
 FROM alpine-builder as alpine-apk-builder
 COPY --from=source-builder /src/frr-*.tar.gz /src/alpine/* /dist/
 COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
-RUN cd /pkgs/apk/x86_64 && apk add --allow-untrusted *.apk
+RUN cd /pkgs/apk && apk add --allow-untrusted */*.apk
 RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
 RUN chown -R builder /dist /pkgs
 USER builder
