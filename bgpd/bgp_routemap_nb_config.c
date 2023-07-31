@@ -2835,6 +2835,8 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 				"../../frr-route-map:action");
 		if (IS_SET_COMM_LIST_DEL(action))
 			rhc->rhc_rule = "comm-list";
+		else if (IS_SET_EXTCOMM_LIST_DEL(action))
+			rhc->rhc_rule = "extended-comm-list";
 		else
 			rhc->rhc_rule = "large-comm-list";
 

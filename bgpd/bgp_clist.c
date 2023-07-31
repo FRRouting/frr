@@ -986,6 +986,44 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	return lcom;
 }
 
+/* Delete all permitted extended communities in the list from ecom.*/
+struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
+						struct community_list *list)
+{
+	struct community_entry *entry;
+	uint32_t com_index_to_delete[ecom->size];
+	uint8_t *ptr;
+	uint32_t delete_index = 0;
+	uint32_t i;
+	struct ecommunity local_ecom = {.size = 1};
+	struct ecommunity_val local_eval = {0};
+
+	for (i = 0; i < ecom->size; i++) {
+		local_ecom.val = ecom->val + (i * ECOMMUNITY_SIZE);
+		for (entry = list->head; entry; entry = entry->next) {
+			if (((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
+			     ecommunity_include(entry->u.ecom, &local_ecom)) ||
+			   ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
+			    ecommunity_regexp_match(ecom, entry->reg))) {
+				if (entry->direct == COMMUNITY_PERMIT) {
+					com_index_to_delete[delete_index] = i;
+					delete_index++;
+				}
+				break;
+			}
+		}
+	}
+
+	/* Delete all of the extended communities we flagged for deletion */
+	for (i = delete_index; i > 0; i--) {
+		ptr = ecom->val + (com_index_to_delete[i-1] * ECOMMUNITY_SIZE);
+		memcpy(&local_eval.val, ptr, sizeof(local_eval.val));
+		ecommunity_del_val(ecom, &local_eval);
+	}
+
+	return ecom;
+}
+
 /* Helper to check if every octet do not exceed UINT_MAX */
 bool lcommunity_list_valid(const char *community, int style)
 {
