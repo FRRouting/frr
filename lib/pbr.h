@@ -57,7 +57,7 @@ struct pbr_filter {
 	struct prefix src_ip;
 	struct prefix dst_ip;
 
-	/* Source and Destination higher-layer (TCP/UDP) port numbers */
+	/* Source and Destination layer 4 (TCP/UDP/etc.) port numbers */
 	uint16_t src_port;
 	uint16_t dst_port;
 
@@ -88,11 +88,11 @@ struct pbr_filter {
 struct pbr_action {
 	uint32_t flags;
 
-#define PBR_ACTION_TABLE      (1 << 0)
-#define PBR_ACTION_QUEUE_ID   (1 << 1)
-#define PBR_ACTION_PCP        (1 << 2)
-#define PBR_ACTION_VLAN_ID    (1 << 3)
-#define PBR_ACTION_VLAN_FLAGS (1 << 4)
+#define PBR_ACTION_TABLE		(1 << 0)
+#define PBR_ACTION_QUEUE_ID		(1 << 1)
+#define PBR_ACTION_PCP			(1 << 2)
+#define PBR_ACTION_VLAN_ID		(1 << 3)
+#define PBR_ACTION_VLAN_STRIP_INNER_ANY (1 << 4)
 
 	uint32_t table;
 	uint32_t queue_id;
@@ -100,7 +100,6 @@ struct pbr_action {
 	/* VLAN */
 	uint8_t pcp;
 	uint16_t vlan_id;
-	uint16_t vlan_flags;
 
 
 };
