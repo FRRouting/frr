@@ -183,6 +183,7 @@ static bool pbr_family_consistent(struct pbr_map_sequence *pbrms,
 				  uint32_t skip_action_bm, const char **msg)
 {
 	uint32_t filter_bm = pbrms->filter_bm & ~skip_filter_bm;
+	uint32_t action_bm = pbrms->action_bm & ~skip_action_bm;
 
 	if (CHECK_FLAG(filter_bm, PBR_FILTER_SRC_IP) &&
 	    (family != pbrms->src->family)) {
@@ -196,6 +197,18 @@ static bool pbr_family_consistent(struct pbr_map_sequence *pbrms,
 			*msg = "match dst-ip";
 		return false;
 	}
+	if (CHECK_FLAG(action_bm, PBR_ACTION_SRC_IP) &&
+	    (family != sockunion_family(&pbrms->action_src))) {
+		if (msg)
+			*msg = "set src-ip";
+		return false;
+	}
+	if (CHECK_FLAG(filter_bm, PBR_ACTION_DST_IP) &&
+	    (family != sockunion_family(&pbrms->action_dst))) {
+		if (msg)
+			*msg = "set dst-ip";
+		return false;
+	}
 	return true;
 }
 
@@ -206,7 +219,7 @@ DEFPY  (pbr_map_match_src,
 	"[no] match src-ip ![<A.B.C.D/M|X:X::X:X/M>$prefix]",
 	NO_STR
 	"Match the rest of the command\n"
-	"Choose the src ip or ipv6 prefix to use\n"
+	"Choose the src ipv4 or ipv6 prefix to use\n"
 	"v4 Prefix\n"
 	"v6 Prefix\n")
 {
@@ -254,7 +267,7 @@ DEFPY  (pbr_map_match_dst,
 	"[no] match dst-ip ![<A.B.C.D/M|X:X::X:X/M>$prefix]",
 	NO_STR
 	"Match the rest of the command\n"
-	"Choose the dst ip or ipv6 prefix to use\n"
+	"Choose the dst ipv4 or ipv6 prefix to use\n"
 	"v4 Prefix\n"
 	"v6 Prefix\n")
 {
@@ -672,6 +685,237 @@ check:
 
 	return CMD_SUCCESS;
 }
+
+/***********************************************************************
+ *		pbrms/rule Action Set L3 Fields
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_map_action_src,
+	pbr_map_action_src_cmd,
+	"[no] set src-ip ![<A.B.C.D|X:X::X:X>$su]",
+	NO_STR
+	"Set command\n"
+	"Set the src ipv4 or ipv6 prefix\n"
+	"v4 Prefix\n"
+	"v6 Prefix\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+	const char *fmsg = NULL;
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP))
+			return CMD_SUCCESS;
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP);
+		goto check;
+	}
+
+	assert(su);
+	if (!pbr_family_consistent(pbrms, sockunion_family(su),
+				   PBR_ACTION_SRC_IP, 0, &fmsg)) {
+		vty_out(vty, "Address family mismatch (%s)\n", fmsg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	pbrms->family = sockunion_family(su);
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP) &&
+	    (sockunion_same(&pbrms->action_src, su))) {
+		return CMD_SUCCESS;
+	}
+	pbrms->action_src = *su;
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP);
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_dst,
+	pbr_map_action_dst_cmd,
+	"[no] set dst-ip ![<A.B.C.D|X:X::X:X>$su]",
+	NO_STR
+	"Set command\n"
+	"Set the dst ipv4 or ipv6 prefix\n"
+	"v4 Prefix\n"
+	"v6 Prefix\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+	const char *fmsg = NULL;
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP))
+			return CMD_SUCCESS;
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP);
+		goto check;
+	}
+
+	assert(su);
+	if (!pbr_family_consistent(pbrms, sockunion_family(su),
+				   PBR_ACTION_DST_IP, 0, &fmsg)) {
+		vty_out(vty, "Address family mismatch (%s)\n", fmsg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	pbrms->family = sockunion_family(su);
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP) &&
+	    (sockunion_same(&pbrms->action_dst, su))) {
+		return CMD_SUCCESS;
+	}
+	pbrms->action_dst = *su;
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP);
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_src_port,
+	pbr_map_action_src_port_cmd,
+	"[no] set src-port ![(1-65535)$port]",
+	NO_STR
+	"Set command\n"
+	"Set Source Port\n"
+	"The Source Port\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT))
+			return CMD_SUCCESS;
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT);
+		goto check;
+	}
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT) &&
+	    (pbrms->action_src_port == port))
+		return CMD_SUCCESS;
+
+	pbrms->action_src_port = port;
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT);
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_dst_port,
+	pbr_map_action_dst_port_cmd,
+	"[no] set dst-port ![(1-65535)$port]",
+	NO_STR
+	"Set command\n"
+	"Set Destination Port\n"
+	"The Destination Port\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT))
+			return CMD_SUCCESS;
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT);
+		goto check;
+	}
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT) &&
+	    (pbrms->action_dst_port == port))
+		return CMD_SUCCESS;
+
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT);
+	pbrms->action_dst_port = port;
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_dscp,
+	pbr_map_action_dscp_cmd,
+	"[no] set dscp ![DSCP$dscp]",
+	NO_STR
+	"Set command\n"
+	"Set IP DSCP field\n"
+	"DSCP numeric value (0-63) or standard codepoint name\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP))
+			return CMD_SUCCESS;
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_DSCP);
+		goto check;
+	}
+
+	unsigned long ul_dscp;
+	char *pend;
+	uint8_t raw_dscp;
+
+	assert(dscp);
+	ul_dscp = strtol(dscp, &pend, 0);
+	if (*pend)
+		raw_dscp = pbr_map_decode_dscp_enum(dscp);
+	else
+		raw_dscp = ul_dscp << 2;
+
+	if (raw_dscp > PBR_DSFIELD_DSCP) {
+		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
+			(pend ? "" : " (numeric value must be in range 0-63)"));
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP) &&
+	    (pbrms->action_dscp == raw_dscp)) {
+		return CMD_SUCCESS;
+	}
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_DSCP);
+	pbrms->action_dscp = raw_dscp;
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_map_action_ecn,
+	pbr_map_action_ecn_cmd,
+	"[no] set ecn ![(0-3)$ecn]",
+	NO_STR
+	"Set command\n"
+	"Set IP ECN field\n"
+	"Explicit Congestion Notification value\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN))
+			return CMD_SUCCESS;
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_ECN);
+		goto check;
+	}
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN) &&
+	    (pbrms->action_ecn == ecn)) {
+		return CMD_SUCCESS;
+	}
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_ECN);
+	pbrms->action_ecn = ecn;
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
 
 /***********************************************************************
  *		pbrms/rule Action Set Meta
@@ -1308,10 +1552,22 @@ static void vty_show_pbrms(struct vty *vty,
 
 	/* set actions */
 
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP))
+		vty_out(vty, "        Set SRC IP: %pSU\n", &pbrms->action_src);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP))
+		vty_out(vty, "        Set DST IP: %pSU\n", &pbrms->action_dst);
 
-	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_QUEUE_ID))
-		vty_out(vty, "        Set Queue ID: %u\n",
-			pbrms->action_queue_id);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT))
+		vty_out(vty, "        Set Src port: %u\n",
+			pbrms->action_src_port);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT))
+		vty_out(vty, "        Set Dst port: %u\n",
+			pbrms->action_dst_port);
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP))
+		vty_out(vty, "        Set DSCP: %u\n", (pbrms->action_dscp) >> 2);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN))
+		vty_out(vty, "        Set ECN: %u\n", pbrms->action_ecn);
 
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_VLAN_ID))
 		vty_out(vty, "        Set VLAN ID %u\n", pbrms->action_vlan_id);
@@ -1319,6 +1575,10 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "        Strip VLAN ID\n");
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_PCP))
 		vty_out(vty, "        Set PCP %u\n", pbrms->action_pcp);
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_QUEUE_ID))
+		vty_out(vty, "        Set Queue ID: %u\n",
+			pbrms->action_queue_id);
 
 
 	switch (pbrms->forwarding_type) {
@@ -1467,6 +1727,25 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	 * action clauses
 	 */
 
+	/* IP header fields */
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP))
+		json_object_string_addf(jpbrm, "actionSetSrcIpAddr", "%pSU",
+					&pbrms->action_src);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP))
+		json_object_string_addf(jpbrm, "actionSetDstIpAddr", "%pSU",
+					&pbrms->action_dst);
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT))
+		json_object_int_add(jpbrm, "actionSetSrcPort",
+				    pbrms->action_src_port);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT))
+		json_object_int_add(jpbrm, "actionSetDstPort",
+				    pbrms->action_dst_port);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP))
+		json_object_int_add(jpbrm, "actionSetDscp",
+				    pbrms->action_dscp >> 2);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN))
+		json_object_int_add(jpbrm, "actionSetEcn", pbrms->action_ecn);
 
 	/* L2 header fields */
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_VLAN_STRIP_INNER_ANY))
@@ -1796,6 +2075,19 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	 * action clauses
 	 */
 
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_IP))
+		vty_out(vty, " set src-ip %pSU\n", &pbrms->action_src);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_IP))
+		vty_out(vty, " set dst-ip %pSU\n", &pbrms->action_dst);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT))
+		vty_out(vty, " set src-port %d\n", pbrms->action_src_port);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT))
+		vty_out(vty, " set dst-port %d\n", pbrms->action_dst_port);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP))
+		vty_out(vty, " set dscp %u\n", (pbrms->action_dscp) >> 2);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN))
+		vty_out(vty, " set ecn %u\n", pbrms->action_ecn);
+
 	/* L2 header fields */
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_VLAN_STRIP_INNER_ANY))
 		vty_out(vty, " strip vlan any\n");
@@ -1906,10 +2198,18 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_match_vlan_tag_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
+
 	install_element(PBRMAP_NODE, &pbr_map_action_queue_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_src_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_dst_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_dscp_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_ecn_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_src_port_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_dst_port_cmd);
+
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &no_pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);

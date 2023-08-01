@@ -124,6 +124,15 @@ struct pbr_map_sequence {
 	 */
 	uint32_t action_bm;
 
+	union sockunion action_src;
+	union sockunion action_dst;
+
+	uint16_t action_src_port;
+	uint16_t action_dst_port;
+
+	uint8_t action_dscp;
+	uint8_t action_ecn;
+
 	uint8_t action_pcp;
 	uint8_t action_vlan_id;
 

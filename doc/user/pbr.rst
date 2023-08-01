@@ -215,6 +215,58 @@ specified in the rule are also applied to the packet.
    so this field will be ignored unless another dataplane provider is used.
    It is invalid to specify both a `strip` and `set vlan` action.
 
+.. clicmd:: set src-ip [A.B.C.D/M|X:X::X:X/M]
+
+   Action:
+   Set the source IP address of matched packets, possibly using a mask `M`.
+   The Linux Kernel dataplane provider does not currently support
+   packet mangling,
+   so this field will be ignored unless another dataplane provider is used.
+
+.. clicmd:: set dst-ip [A.B.C.D/M|X:X::X:X/M]
+
+   Action:
+   set the destination IP address of matched packets, possibly using a mask
+   `M`.
+   The Linux Kernel dataplane provider does not currently support
+   packet mangling,
+   so this field will be ignored unless another dataplane provider is used.
+
+.. clicmd:: set src-port (1-65535)
+
+   Action:
+   set the source port of matched packets. Note that this action only makes
+   sense with layer 4 protocols that use ports, such as TCP, UDP, and SCTP.
+   The Linux Kernel dataplane provider does not currently support
+   packet mangling,
+   so this field will be ignored unless another dataplane provider is used.
+
+.. clicmd:: set dst-port (1-65535)
+
+   Action:
+   set the destination port of matched packets. Note that this action only
+   makes sense with layer 4 protocols that use ports, such as TCP, UDP, and
+   SCTP.
+   The Linux Kernel dataplane provider does not currently support
+   packet mangling,
+   so this field will be ignored unless another dataplane provider is used.
+
+.. clicmd:: set dscp DSCP
+
+   Action:
+   set the differentiated services code point (DSCP) of matched packets.
+   The Linux Kernel dataplane provider does not currently support
+   this action,
+   so this field will be ignored unless another dataplane provider is used.
+
+.. clicmd:: set ecn (0-3)
+
+   Action:
+   set the explicit congestion notification (ECN) of matched packets.
+   The Linux Kernel dataplane provider does not currently support
+   this action,
+   so this field will be ignored unless another dataplane provider is used.
+
 .. clicmd:: show pbr map [NAME] [detail|json]
 
    Display pbr maps either all or by ``NAME``. If ``detail`` is set, it will

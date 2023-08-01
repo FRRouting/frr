@@ -594,6 +594,15 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 
 	r.action.queue_id = pbrms->action_queue_id;
 
+	r.action.src_ip = pbrms->action_src;
+	r.action.dst_ip = pbrms->action_dst;
+
+	r.action.src_port = pbrms->action_src_port;
+	r.action.dst_port = pbrms->action_dst_port;
+
+	r.action.dscp = pbrms->action_dscp;
+	r.action.ecn = pbrms->action_ecn;
+
 	r.action.pcp = pbrms->action_pcp;
 	r.action.vlan_id = pbrms->action_vlan_id;
 

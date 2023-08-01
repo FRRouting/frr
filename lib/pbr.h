@@ -93,6 +93,12 @@ struct pbr_action {
 #define PBR_ACTION_PCP			(1 << 2)
 #define PBR_ACTION_VLAN_ID		(1 << 3)
 #define PBR_ACTION_VLAN_STRIP_INNER_ANY (1 << 4)
+#define PBR_ACTION_SRC_IP		(1 << 5)
+#define PBR_ACTION_DST_IP		(1 << 6)
+#define PBR_ACTION_SRC_PORT		(1 << 7)
+#define PBR_ACTION_DST_PORT		(1 << 8)
+#define PBR_ACTION_DSCP			(1 << 9)
+#define PBR_ACTION_ECN			(1 << 10)
 
 	uint32_t table;
 	uint32_t queue_id;
@@ -101,7 +107,17 @@ struct pbr_action {
 	uint8_t pcp;
 	uint16_t vlan_id;
 
+	/* Source and Destination IP addresses */
+	union sockunion src_ip;
+	union sockunion dst_ip;
 
+	/* Source and Destination layer 4 (TCP/UDP/etc.) port numbers */
+	uint32_t src_port;
+	uint32_t dst_port;
+
+	/* Differentiated Services field  */
+	uint8_t dscp; /* stored here already shifted to upper 6 bits */
+	uint8_t ecn;  /* stored here as lower 2 bits */
 };
 
 /*

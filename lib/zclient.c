@@ -1622,6 +1622,47 @@ stream_failure:
 	return false;
 }
 
+static void zapi_encode_sockunion(struct stream *s, const union sockunion *su)
+{
+	int family = sockunion_family(su);
+	size_t addrlen = family2addrsize(family);
+
+	/*
+	 * Must know length to encode
+	 */
+	assert(addrlen);
+
+	stream_putc(s, (uint8_t)family);
+
+	stream_write(s, sockunion_get_addr(su), addrlen);
+}
+
+static bool zapi_decode_sockunion(struct stream *s, union sockunion *su)
+{
+	uint8_t family;
+	size_t addrlen;
+	uint8_t buf[sizeof(union sockunion)];
+
+	memset(su, 0, sizeof(*su));
+
+	STREAM_GETC(s, family);
+	sockunion_family(su) = family;
+
+	addrlen = family2addrsize(family);
+	if (!addrlen)
+		return false;
+
+	if (addrlen > sizeof(buf))
+		return false;
+
+	STREAM_GET(buf, s, addrlen);
+	sockunion_set(su, family, buf, addrlen);
+	return true;
+
+stream_failure:
+	return false;
+}
+
 /*
  * Encode filter subsection of pbr_rule
  */
@@ -1719,6 +1760,21 @@ static void zapi_pbr_rule_action_encode(struct stream *s, struct pbr_action *a)
 	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
 		stream_putl(s, a->queue_id);
 
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP))
+		zapi_encode_sockunion(s, &a->src_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		zapi_encode_sockunion(s, &a->dst_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		stream_putw(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		stream_putw(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP))
+		stream_putc(s, a->dscp & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN))
+		stream_putc(s, a->ecn & PBR_DSFIELD_ECN);
+
 	/* L2 */
 	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
 		stream_putc(s, a->pcp);
@@ -1734,6 +1790,29 @@ static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
 		STREAM_GETL(s, a->table);
 	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
 		STREAM_GETL(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP)) {
+		if (!zapi_decode_sockunion(s, &(a->src_ip)))
+			goto stream_failure;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		if (!zapi_decode_sockunion(s, &(a->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		STREAM_GETW(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		STREAM_GETW(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP)) {
+		STREAM_GETC(s, a->dscp);
+		a->dscp &= PBR_DSFIELD_DSCP;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN)) {
+		STREAM_GETC(s, a->ecn);
+		a->ecn &= PBR_DSFIELD_ECN;
+	}
 
 	/* L2 */
 	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))

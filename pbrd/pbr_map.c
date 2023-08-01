@@ -612,6 +612,13 @@ static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 			PBR_FILTER_VLAN_FLAGS
 		)) &&
 		!CHECK_FLAG(pbrms->action_bm, (
+			PBR_ACTION_SRC_IP |
+			PBR_ACTION_DST_IP |
+			PBR_ACTION_SRC_PORT |
+			PBR_ACTION_DST_PORT |
+
+			PBR_ACTION_DSCP |
+			PBR_ACTION_ECN |
 
 			PBR_ACTION_PCP |
 			PBR_ACTION_VLAN_ID |
