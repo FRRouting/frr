@@ -30,11 +30,11 @@ void lua_pushpeer(lua_State *L, const struct peer *peer)
 	lua_setfield(L, -2, "state");
 	lua_pushstring(L, peer->desc ? peer->desc : "");
 	lua_setfield(L, -2, "description");
-	lua_pushtimet(L, &peer->uptime);
+	lua_pushinteger(L, peer->uptime);
 	lua_setfield(L, -2, "uptime");
-	lua_pushtimet(L, &peer->readtime);
+	lua_pushinteger(L, peer->readtime);
 	lua_setfield(L, -2, "last_readtime");
-	lua_pushtimet(L, &peer->resettime);
+	lua_pushinteger(L, peer->resettime);
 	lua_setfield(L, -2, "last_resettime");
 	lua_pushsockunion(L, peer->su_local);
 	lua_setfield(L, -2, "local_address");

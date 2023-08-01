@@ -22,10 +22,11 @@ static void test_encode_decode(void)
 	assert(lua_gettop(L) == 0);
 
 	time_t time_a = 100;
-	time_t time_b = time_a;
+	time_t time_b;
 
-	lua_pushtimet(L, &time_a);
-	lua_decode_timet(L, -1, &time_a);
+	lua_pushinteger(L, time_a);
+	time_b = lua_tointeger(L, -1);
+	lua_pop(L, 1);
 	assert(time_a == time_b);
 	assert(lua_gettop(L) == 0);
 
