@@ -2058,6 +2058,13 @@ DEFUN (ospf_abr_type,
 	if (ospf->abr_type != abr_type) {
 		ospf->abr_type = abr_type;
 		ospf_schedule_abr_task(ospf);
+
+		/* The ABR task might not initiate SPF recalculation if the
+		 * OSPF flags remain the same. And inter-area routes would not
+		 * be added/deleted according to the new ABR type. So this
+		 * needs to be done here too.
+		 */
+		ospf_spf_calculate_schedule(ospf, SPF_FLAG_ABR_STATUS_CHANGE);
 	}
 
 	return CMD_SUCCESS;
