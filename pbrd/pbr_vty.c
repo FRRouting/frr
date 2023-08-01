@@ -361,8 +361,10 @@ DEFPY  (pbr_map_match_dscp,
 		/* Set the DSCP bits of the DSField */
 		pbrms->dsfield =
 			(pbrms->dsfield & ~PBR_DSFIELD_DSCP) | (rawDscp << 2);
+		SET_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP);
 	} else {
 		pbrms->dsfield &= ~PBR_DSFIELD_DSCP;
+		UNSET_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP);
 	}
 
 	pbr_map_check(pbrms, true);
@@ -391,8 +393,10 @@ DEFPY  (pbr_map_match_ecn,
 
 		/* Set the ECN bits of the DSField */
 		pbrms->dsfield = (pbrms->dsfield & ~PBR_DSFIELD_ECN) | ecn;
+		SET_FLAG(pbrms->filter_bm, PBR_FILTER_ECN);
 	} else {
 		pbrms->dsfield &= ~PBR_DSFIELD_ECN;
+		UNSET_FLAG(pbrms->filter_bm, PBR_FILTER_ECN);
 	}
 
 	pbr_map_check(pbrms, true);
