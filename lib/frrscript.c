@@ -133,9 +133,6 @@ struct frrscript_codec frrscript_codecs_lib[] = {
 	{.typename = "sockunion",
 	 .encoder = (encoder_func)lua_pushsockunion,
 	 .decoder = lua_tosockunion},
-	{.typename = "time_t",
-	 .encoder = (encoder_func)lua_pushtimet,
-	 .decoder = lua_totimet},
 	{}};
 
 /* Type codecs */
