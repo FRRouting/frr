@@ -542,7 +542,7 @@ static int pm_tracking_call_release_session(struct pm_session *pm)
 	if (ctx->label)
 		XFREE(MTYPE_PM_TRACK_LABEL, ctx->label);
 	ctx->label = NULL;
-	hash_release(pm_tracking_list, &ctx);
+	hash_release(pm_tracking_list, ctx);
 	return 1;
 }
 
