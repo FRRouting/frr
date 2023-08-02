@@ -759,9 +759,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					subgrp->update_group->id, subgrp->id);
 
 				/* Flush the FIFO update queue */
-				while (adv)
+				while (adv && adv->adj)
 					adv = bgp_advertise_clean_subgroup(
-						subgrp, adj);
+						subgrp, adv->adj);
 				return NULL;
 			}
 
