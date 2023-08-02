@@ -63,28 +63,28 @@ struct pm_rtt_stats *pm_rtt_allocate_ctx(void)
 void pm_rtt_update_stats(struct pm_rtt_stats *rtt_stats,
 			 struct timeval *rtt, uint32_t *rtt_ms)
 {
-	uint32_t value_ms;
+	uint32_t value_us;
 
 	if (!rtt_stats)
 		return;
 	rtt_stats->total_count++;
-	/* convert in ms */
+	/* convert in us (microseconds) */
 	if (!rtt_ms && rtt)
-		value_ms = rtt->tv_sec * 1000 + rtt->tv_usec / 1000000;
+		value_us = rtt->tv_sec * 1000000 + rtt->tv_usec;
 	else
-		value_ms = *rtt_ms;
-	rtt_stats->sum_rtt += value_ms;
+		value_us = *rtt_ms * 1000;
+	rtt_stats->sum_rtt += value_us;
 	if (!(rtt_stats->flags & RTT_STATS_MIN_SET)) {
-		rtt_stats->min_rtt = value_ms;
+		rtt_stats->min_rtt = value_us;
 		rtt_stats->flags |= RTT_STATS_MIN_SET;
-	} else if (value_ms < rtt_stats->min_rtt) {
-		rtt_stats->min_rtt = value_ms;
+	} else if (value_us < rtt_stats->min_rtt) {
+		rtt_stats->min_rtt = value_us;
 	}
 	if (!(rtt_stats->flags & RTT_STATS_MAX_SET)) {
-		rtt_stats->max_rtt = value_ms;
+		rtt_stats->max_rtt = value_us;
 		rtt_stats->flags |= RTT_STATS_MAX_SET;
-	} else if (value_ms > rtt_stats->max_rtt) {
-		rtt_stats->max_rtt = value_ms;
+	} else if (value_us > rtt_stats->max_rtt) {
+		rtt_stats->max_rtt = value_us;
 	}
 }
 
@@ -136,10 +136,10 @@ void pm_rtt_display_stats(struct vty *vty, struct pm_rtt_stats *rtt_stats)
 		rtt_stats->avg_rtt = rtt_stats->sum_rtt
 			/ rtt_stats->total_count;
 	vty_out(vty,
-		"rtt calculated total %u, min %u ms, max %u ms"
-		"avg %u ms\r\n",
-		rtt_stats->total_count, rtt_stats->min_rtt,
-		rtt_stats->max_rtt, rtt_stats->avg_rtt);
+		"rtt calculated total %u, min %u us, max %u us, "
+		"avg %u us\r\n",
+		rtt_stats->total_count, rtt_stats->min_rtt, rtt_stats->max_rtt,
+		rtt_stats->avg_rtt);
 }
 
 const char *pm_rtt_tvtostr(struct timeval *tv)

@@ -29,7 +29,7 @@ struct pm_rtt_stats {
 #define RTT_STATS_MAX_SET 1 << 1
 	int flags;
 	uint32_t total_count;
-	uint32_t sum_rtt;
+	uint64_t sum_rtt;
 	uint32_t avg_rtt;
 	uint32_t min_rtt;
 	uint32_t max_rtt;
