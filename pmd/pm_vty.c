@@ -237,6 +237,7 @@ DEFPY(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	/* flush session if any */
+	QOBJ_UNREG(pm);
 	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 	pm_zebra_nht_register(pm, false, vty);
 
