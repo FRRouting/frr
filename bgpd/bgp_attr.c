@@ -3570,6 +3570,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				attr_args.total);
 			if (ret == BGP_ATTR_PARSE_PROCEED)
 				continue;
+			stream_forward_getp(BGP_INPUT(peer), endp - BGP_INPUT_PNT(peer));
 			goto done;
 		}
 
@@ -3674,6 +3675,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
 				"%s: Attribute %s, parse error - treating as withdrawal",
 				peer->host, lookup_msg(attr_str, type, NULL));
+			stream_forward_getp(BGP_INPUT(peer), endp - BGP_INPUT_PNT(peer));
 			goto done;
 		}
 
