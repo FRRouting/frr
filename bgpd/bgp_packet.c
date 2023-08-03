@@ -1261,6 +1261,19 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 								: "Removing",
 				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
 		break;
+	case CAPABILITY_CODE_REFRESH:
+	case CAPABILITY_CODE_ORF:
+	case CAPABILITY_CODE_RESTART:
+	case CAPABILITY_CODE_AS4:
+	case CAPABILITY_CODE_DYNAMIC:
+	case CAPABILITY_CODE_ADDPATH:
+	case CAPABILITY_CODE_ENHANCED_RR:
+	case CAPABILITY_CODE_LLGR:
+	case CAPABILITY_CODE_FQDN:
+	case CAPABILITY_CODE_ENHE:
+	case CAPABILITY_CODE_EXT_MESSAGE:
+	case CAPABILITY_CODE_ROLE:
+		break;
 	default:
 		break;
 	}
@@ -2851,6 +2864,19 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				else
 					return BGP_Stop;
 			}
+			break;
+		case CAPABILITY_CODE_REFRESH:
+		case CAPABILITY_CODE_ORF:
+		case CAPABILITY_CODE_RESTART:
+		case CAPABILITY_CODE_AS4:
+		case CAPABILITY_CODE_DYNAMIC:
+		case CAPABILITY_CODE_ADDPATH:
+		case CAPABILITY_CODE_ENHANCED_RR:
+		case CAPABILITY_CODE_LLGR:
+		case CAPABILITY_CODE_FQDN:
+		case CAPABILITY_CODE_ENHE:
+		case CAPABILITY_CODE_EXT_MESSAGE:
+		case CAPABILITY_CODE_ROLE:
 			break;
 		default:
 			flog_warn(
