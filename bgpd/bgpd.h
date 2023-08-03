@@ -168,6 +168,8 @@ struct bgp_master {
 	struct event *t_bgp_sync_label_manager;
 	struct event *t_bgp_start_label_manager;
 
+	bool v6_with_v4_nexthops;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
