@@ -362,7 +362,7 @@ struct nexthop *nexthop_new(void)
 	 * The linux kernel does some weird stuff with adding +1 to
 	 * all nexthop weights it gets over netlink.
 	 * To handle this, just default everything to 1 right from
-	 * from the beginning so we don't have to special case
+	 * the beginning so we don't have to special case
 	 * default weights in the linux netlink code.
 	 *
 	 * 1 should be a valid on all platforms anyway.
@@ -568,7 +568,15 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 	if (!nexthop->nh_srv6)
 		return;
 
+	if (nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+		return;
+
 	nexthop->nh_srv6->seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+
+	if (nexthop->nh_srv6->seg6_segs &&
+	    (nexthop->nh_srv6->seg6_segs->num_segs == 0 ||
+	     sid_zero(nexthop->nh_srv6->seg6_segs)))
+		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6->seg6_segs);
 
 	if (nexthop->nh_srv6->seg6_segs == NULL)
 		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
