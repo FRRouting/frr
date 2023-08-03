@@ -5728,8 +5728,8 @@ DEFPY(neighbor_capability_software_version,
 	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (peer && peer->conf_if)
-		return CMD_SUCCESS;
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
 		ret = peer_flag_unset_vty(vty, neighbor,
