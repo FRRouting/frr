@@ -185,6 +185,10 @@ struct route_entry {
  *              don't generate routes
  */
 #define MQ_SIZE 11
+
+/* For checking that an object has already queued in some sub-queue */
+#define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
+
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */

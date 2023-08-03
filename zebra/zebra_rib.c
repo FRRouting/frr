@@ -3255,12 +3255,26 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 		return -1;
 
 	/* Invariant: at this point we always have rn->info set. */
-	if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
-		       RIB_ROUTE_QUEUED(qindex))) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+	/* A route node must only be in one sub-queue at a time. */
+	if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags, MQ_BIT_MASK)) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			/*
+			 * curr_qindex_bitmask is power of 2, because a route node must only be in one sub-queue at a time,
+			 * so for getting current sub-queue index from bitmask we may use part of classic msb function
+			 * (find most significant set bit).
+			 */
+			const uint32_t curr_qindex_bitmask = CHECK_FLAG(rib_dest_from_rnode(rn)->flags, MQ_BIT_MASK);
+			static const uint8_t pos[32] = { 0, 1, 28, 2, 29, 14, 24, 3,
+				30, 22, 20, 15, 25, 17, 4, 8, 31, 27, 13, 23, 21, 19,
+				16, 7, 26, 12, 18, 6, 11, 5, 10, 9 };
+
+			curr_qindex = pos[(uint32_t)(curr_qindex_bitmask * 0x077CB531UL) >> 27];
+
 			rnode_debug(rn, re->vrf_id,
 				    "rn %p is already queued in sub-queue %s",
-				    (void *)rn, subqueue2str(qindex));
+				    (void *)rn, subqueue2str(curr_qindex));
+		}
+
 		return -1;
 	}
 
