@@ -333,6 +333,10 @@ static void encap_unintern(struct bgp_attr_encap_subtlv **encapp,
 			   encap_subtlv_type type)
 {
 	struct bgp_attr_encap_subtlv *encap = *encapp;
+
+	if (!*encapp)
+		return;
+
 	if (encap->refcnt)
 		encap->refcnt--;
 
@@ -1219,17 +1223,14 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	transit_unintern(&transit);
 	bgp_attr_set_transit(attr, NULL);
 
-	if (attr->encap_subtlvs)
-		encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
+	encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
 
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs =
 		bgp_attr_get_vnc_subtlvs(attr);
 
-	if (vnc_subtlvs) {
-		encap_unintern(&vnc_subtlvs, VNC_SUBTLV_TYPE);
-		bgp_attr_set_vnc_subtlvs(attr, vnc_subtlvs);
-	}
+	encap_unintern(&vnc_subtlvs, VNC_SUBTLV_TYPE);
+	bgp_attr_set_vnc_subtlvs(attr, NULL);
 #endif
 
 	if (attr->srv6_l3vpn)
