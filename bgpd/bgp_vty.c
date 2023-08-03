@@ -5725,17 +5725,29 @@ DEFPY(neighbor_capability_software_version,
       "Advertise Software Version capability to the peer\n")
 {
 	struct peer *peer;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (peer && peer->conf_if)
 		return CMD_SUCCESS;
 
 	if (no)
-		return peer_flag_unset_vty(vty, neighbor,
-					   PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_unset_vty(vty, neighbor,
+					  PEER_FLAG_CAPABILITY_SOFT_VERSION);
 	else
-		return peer_flag_set_vty(vty, neighbor,
-					 PEER_FLAG_CAPABILITY_SOFT_VERSION);
+		ret = peer_flag_set_vty(vty, neighbor,
+					PEER_FLAG_CAPABILITY_SOFT_VERSION);
+
+	if (peer_established(peer)) {
+		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_SOFT_VERSION,
+					    no ? CAPABILITY_ACTION_UNSET
+					       : CAPABILITY_ACTION_SET);
+	}
+
+	return ret;
 }
 
 static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,

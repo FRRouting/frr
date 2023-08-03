@@ -1199,6 +1199,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	struct stream *s;
 	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
+	unsigned long cap_len;
+	uint16_t len;
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1209,7 +1211,41 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	bgp_packet_set_marker(s, BGP_MSG_CAPABILITY);
 
 	/* Encode MP_EXT capability. */
-	if (capability_code == CAPABILITY_CODE_MP) {
+	switch (capability_code) {
+	case CAPABILITY_CODE_SOFT_VERSION:
+		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_SOFT_VERSION);
+		cap_len = stream_get_endp(s);
+		stream_putc(s, 0); /* Capability Length */
+
+		/* The Capability Length SHOULD be no greater than 64.
+		 * This is the limit to allow other capabilities as much
+		 * space as they require.
+		 */
+		const char *soft_version = cmd_software_version_get();
+
+		len = strlen(soft_version);
+		if (len > BGP_MAX_SOFT_VERSION)
+			len = BGP_MAX_SOFT_VERSION;
+
+		stream_putc(s, len);
+		stream_put(s, soft_version, len);
+
+		/* Software Version capability Len. */
+		len = stream_get_endp(s) - cap_len - 1;
+		stream_putc_at(s, cap_len, len);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP sending CAPABILITY has %s Software Version for afi/safi: %s/%s",
+				   peer,
+				   action == CAPABILITY_ACTION_SET
+					   ? "Advertising"
+					   : "Removing",
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi));
+		break;
+	case CAPABILITY_CODE_MP:
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_MP);
 		stream_putc(s, CAPABILITY_CODE_MP_LEN);
@@ -1224,6 +1260,9 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				action == CAPABILITY_ACTION_SET ? "Advertising"
 								: "Removing",
 				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+		break;
+	default:
+		break;
 	}
 
 	/* Set packet size. */
@@ -2698,6 +2737,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 	afi_t afi;
 	iana_safi_t pkt_safi;
 	safi_t safi;
+	char soft_version[BGP_MAX_SOFT_VERSION + 1] = {};
 
 	end = pnt + length;
 
@@ -2728,14 +2768,6 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				"%s CAPABILITY has action: %d, code: %u, length %u",
 				peer->host, action, hdr->code, hdr->length);
 
-		if (hdr->length < sizeof(struct capability_mp_data)) {
-			zlog_info(
-				"%pBP Capability structure is not properly filled out, expected at least %zu bytes but header length specified is %d",
-				peer, sizeof(struct capability_mp_data),
-				hdr->length);
-			return BGP_Stop;
-		}
-
 		/* Capability length check. */
 		if ((pnt + hdr->length + 3) > end) {
 			zlog_info("%s Capability length error", peer->host);
@@ -2744,19 +2776,41 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			return BGP_Stop;
 		}
 
-		/* Fetch structure to the byte stream. */
-		memcpy(&mpc, pnt + 3, sizeof(struct capability_mp_data));
-		pnt += hdr->length + 3;
+		/* Ignore capability when override-capability is set. */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY))
+			continue;
 
-		/* We know MP Capability Code. */
-		if (hdr->code == CAPABILITY_CODE_MP) {
+		switch (hdr->code) {
+		case CAPABILITY_CODE_SOFT_VERSION:
+			if (action == CAPABILITY_ACTION_SET) {
+				SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
+
+				memcpy(&soft_version, pnt + 3, hdr->length);
+				soft_version[hdr->length] = '\0';
+
+				XFREE(MTYPE_BGP_SOFT_VERSION,
+				      peer->soft_version);
+				peer->soft_version =
+					XSTRDUP(MTYPE_BGP_SOFT_VERSION,
+						soft_version);
+			} else {
+				UNSET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
+				XFREE(MTYPE_BGP_SOFT_VERSION,
+				      peer->soft_version);
+			}
+			break;
+		case CAPABILITY_CODE_MP:
+			if (hdr->length < sizeof(struct capability_mp_data)) {
+				zlog_info("%pBP Capability structure is not properly filled out, expected at least %zu bytes but header length specified is %d",
+					  peer,
+					  sizeof(struct capability_mp_data),
+					  hdr->length);
+				return BGP_Stop;
+			}
+
+			memcpy(&mpc, pnt + 3, sizeof(struct capability_mp_data));
 			pkt_afi = ntohs(mpc.afi);
 			pkt_safi = mpc.safi;
-
-			/* Ignore capability when override-capability is set. */
-			if (CHECK_FLAG(peer->flags,
-				       PEER_FLAG_OVERRIDE_CAPABILITY))
-				continue;
 
 			/* Convert AFI, SAFI to internal values. */
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
@@ -2797,12 +2851,16 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				else
 					return BGP_Stop;
 			}
-		} else {
+			break;
+		default:
 			flog_warn(
 				EC_BGP_UNRECOGNIZED_CAPABILITY,
 				"%s unrecognized capability code: %d - ignored",
 				peer->host, hdr->code);
+			break;
 		}
+
+		pnt += hdr->length + 3;
 	}
 
 	/* No FSM action necessary */
