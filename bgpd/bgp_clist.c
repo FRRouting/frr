@@ -449,13 +449,6 @@ static char *community_str_get(struct community *com, int i)
 	comval = ntohl(comval);
 
 	switch (comval) {
-#if CONFDATE > 20230801
-CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
-#endif
-	case COMMUNITY_INTERNET:
-		str = XSTRDUP(MTYPE_COMMUNITY_STR, "internet");
-		zlog_warn("`internet` community is deprecated");
-		break;
 	case COMMUNITY_GSHUT:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "graceful-shutdown");
 		break;
@@ -660,9 +653,6 @@ bool community_list_match(struct community *com, struct community_list *list)
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
-			if (community_include(entry->u.com, COMMUNITY_INTERNET))
-				return entry->direct == COMMUNITY_PERMIT;
-
 			if (community_match(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
@@ -735,9 +725,6 @@ bool community_list_exact_match(struct community *com,
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
-			if (community_include(entry->u.com, COMMUNITY_INTERNET))
-				return entry->direct == COMMUNITY_PERMIT;
-
 			if (community_cmp(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
@@ -767,17 +754,14 @@ struct community *community_list_match_delete(struct community *com,
 
 		for (entry = list->head; entry; entry = entry->next) {
 			if ((entry->style == COMMUNITY_LIST_STANDARD) &&
-			    (community_include(entry->u.com,
-					       COMMUNITY_INTERNET) ||
-			     community_include(entry->u.com, val))) {
+			    community_include(entry->u.com, val)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
 				}
 				break;
 			} else if ((entry->style == COMMUNITY_LIST_EXPANDED) &&
-				   community_regexp_include(entry->reg, com,
-							    i)) {
+				   community_regexp_include(entry->reg, com, i)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
