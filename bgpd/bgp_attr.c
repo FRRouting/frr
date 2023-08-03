@@ -421,6 +421,9 @@ static struct transit *transit_intern(struct transit *transit)
 
 static void transit_unintern(struct transit **transit)
 {
+	if (!*transit)
+		return;
+
 	if ((*transit)->refcnt)
 		(*transit)->refcnt--;
 
@@ -1186,6 +1189,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct cluster_list *cluster;
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
+	struct transit *transit;
 
 	/* aspath refcount shoud be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1211,12 +1215,9 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	cluster_unintern(&cluster);
 	bgp_attr_set_cluster(attr, NULL);
 
-	struct transit *transit = bgp_attr_get_transit(attr);
-
-	if (transit) {
-		transit_unintern(&transit);
-		bgp_attr_set_transit(attr, transit);
-	}
+	transit = bgp_attr_get_transit(attr);
+	transit_unintern(&transit);
+	bgp_attr_set_transit(attr, NULL);
 
 	if (attr->encap_subtlvs)
 		encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
