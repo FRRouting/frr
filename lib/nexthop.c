@@ -760,11 +760,32 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 	}
 
 	if (nexthop->nh_srv6) {
-		key = jhash_1word(nexthop->nh_srv6->seg6local_action, key);
-		key = jhash(&nexthop->nh_srv6->seg6local_ctx,
-			    sizeof(nexthop->nh_srv6->seg6local_ctx), key);
-		key = jhash(&nexthop->nh_srv6->seg6_segs,
-			    sizeof(nexthop->nh_srv6->seg6_segs), key);
+		int segs_num = 0;
+		int i = 0;
+
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			key = jhash_1word(nexthop->nh_srv6->seg6local_action,
+					  key);
+			key = jhash(&nexthop->nh_srv6->seg6local_ctx,
+				    sizeof(nexthop->nh_srv6->seg6local_ctx),
+				    key);
+			if (nexthop->nh_srv6->seg6_segs)
+				key = jhash(&nexthop->nh_srv6->seg6_segs->seg[0],
+					    sizeof(struct in6_addr), key);
+		} else {
+			if (nexthop->nh_srv6->seg6_segs) {
+				segs_num = nexthop->nh_srv6->seg6_segs->num_segs;
+				while (segs_num >= 1) {
+					key = jhash(&nexthop->nh_srv6->seg6_segs
+							    ->seg[i],
+						    sizeof(struct in6_addr),
+						    key);
+					segs_num -= 1;
+					i += 1;
+				}
+			}
+		}
 	}
 
 	return key;
