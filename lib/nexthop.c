@@ -609,12 +609,14 @@ void nexthop_del_srv6_seg6(struct nexthop *nexthop)
 	if (!nexthop->nh_srv6)
 		return;
 
-	memset(&nexthop->nh_srv6->seg6_segs, 0,
-	       sizeof(nexthop->nh_srv6->seg6_segs));
-
-	if (nexthop->nh_srv6->seg6local_action ==
-	    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
+	if (nexthop->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC &&
+			nexthop->nh_srv6->seg6_segs) {
+		memset(nexthop->nh_srv6->seg6_segs->seg, 0,
+		       sizeof(struct in6_addr) *
+			       nexthop->nh_srv6->seg6_segs->num_segs);
+		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6->seg6_segs);
+	}
+	XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
 }
 
 const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
