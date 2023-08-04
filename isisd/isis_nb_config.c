@@ -3563,6 +3563,162 @@ int isis_instance_segment_routing_srv6_locator_destroy(
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-segs-left
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_seg_left_msd = yang_dnode_get_uint8(args->dnode,
+								    NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_seg_left_msd =
+		yang_get_default_uint8("./msd/node-msd/max-segs-left");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-pop
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_pop_msd = yang_dnode_get_uint8(args->dnode,
+								   NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_pop_msd =
+		yang_get_default_uint8("./msd/node-msd/max-end-pop");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-h-encaps
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_h_encaps_msd = yang_dnode_get_uint8(args->dnode,
+								    NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_h_encaps_msd =
+		yang_get_default_uint8("./msd/node-msd/max-h-encaps");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-d
+ */
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_d_msd = yang_dnode_get_uint8(args->dnode,
+								 NULL);
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.max_end_d_msd =
+		yang_get_default_uint8("./msd/node-msd/max-end-d");
+
+	/* Update and regenerate LSP */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)

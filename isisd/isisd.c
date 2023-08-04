@@ -3839,6 +3839,13 @@ struct cmd_node isis_srv6_node = {
 	.prompt = "%s(config-router-srv6)# ",
 };
 
+struct cmd_node isis_srv6_node_msd_node = {
+	.name = "isis-srv6-node-msd",
+	.node = ISIS_SRV6_NODE_MSD_NODE,
+	.parent_node = ISIS_SRV6_NODE,
+	.prompt = "%s(config-router-srv6-node-msd)# ",
+};
+
 void isis_init(void)
 {
 	/* Install IS-IS top node */
@@ -3953,6 +3960,9 @@ void isis_init(void)
 
 	install_node(&isis_srv6_node);
 	install_default(ISIS_SRV6_NODE);
+
+	install_node(&isis_srv6_node_msd_node);
+	install_default(ISIS_SRV6_NODE_MSD_NODE);
 
 	spf_backoff_cmd_init();
 }

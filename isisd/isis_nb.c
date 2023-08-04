@@ -876,6 +876,40 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-segs-left",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-pop",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-h-encaps",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-d",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify,
+				.destroy = isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd",
+			.cbs = {
+				.cli_show = cli_show_isis_srv6_node_msd,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync",
 			.cbs = {
 				.cli_show = cli_show_isis_mpls_ldp_sync,

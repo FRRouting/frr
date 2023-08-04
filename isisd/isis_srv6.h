@@ -11,14 +11,7 @@
 #define _FRR_ISIS_SRV6_H
 
 #include "lib/srv6.h"
-
 #include "isisd/isis_tlvs.h"
-
-/* Maximum SRv6 SID Depths supported by the router */
-#define SRV6_MAX_SEG_LEFT 3
-#define SRV6_MAX_END_POP 3
-#define SRV6_MAX_H_ENCAPS 2
-#define SRV6_MAX_END_D 5
 
 /* Name of the interface used for installing SRv6 SIDs into the data plane */
 #define SRV6_IFNAME "sr0"
