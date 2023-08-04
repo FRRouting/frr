@@ -75,6 +75,42 @@ def test_bgp_addpath_best_selected():
 
     r2 = tgen.gears["r2"]
 
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast 172.16.16.254/32 json"))
+        expected = {
+            "paths": [
+                {
+                    "aspath": {
+                        "string": "65006",
+                    },
+                    "weight": 6,
+                },
+                {
+                    "aspath": {
+                        "string": "65005",
+                    },
+                    "weight": 5,
+                },
+                {
+                    "aspath": {
+                        "string": "65004",
+                    },
+                    "weight": 4,
+                },
+                {
+                    "aspath": {
+                        "string": "65003",
+                    },
+                    "weight": 3,
+                },
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Can't converge initially"
+
     def check_bgp_advertised_routes_to_r1():
         output = json.loads(
             r2.vtysh_cmd(
@@ -104,7 +140,7 @@ def test_bgp_addpath_best_selected():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(check_bgp_advertised_routes_to_r1)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
     ), "Received more/less Add-Path best paths, but should be only 1+1 (real best path)"
@@ -143,7 +179,7 @@ def test_bgp_addpath_best_selected():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(check_bgp_advertised_routes_to_r7)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
     ), "Received more/less Add-Path best paths, but should be only 2+1 (real best path)"
