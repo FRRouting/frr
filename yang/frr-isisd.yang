@@ -2011,6 +2011,46 @@ module frr-isisd {
           description
             "SRv6 locator.";
         }
+        container msd {
+          description
+            "SRv6 Maximum SRv6 SID Depths.";
+          container node-msd {
+            description
+              "SRv6 Node Maximum SRv6 SID Depths.";
+            leaf max-segs-left {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum Segments Left MSD.";
+            }
+            leaf max-end-pop {
+              type uint8 {
+                range "0..255";
+              }
+              default 3;
+              description
+               "Maximum End Pop MSD.";
+            }
+            leaf max-h-encaps {
+              type uint8 {
+                range "0..255";
+              }
+              default 2;
+              description
+               "Maximum H.Encaps MSD.";
+            }
+            leaf max-end-d {
+              type uint8 {
+                range "0..255";
+              }
+              default 5;
+              description
+               "Maximum End D MSD.";
+            }
+          }
+        }
       }
 
       container mpls {
