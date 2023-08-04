@@ -548,9 +548,7 @@ static void configvec_dump(vector vec, bool nested)
 				 * are not under the VRF node.
 				 */
 				if (config->index == INTERFACE_NODE
-				    && (listcount(config->line) == 1)
-				    && (line = listnode_head(config->line))
-				    && strmatch(line, "exit")) {
+				    && list_isempty(config->line)) {
 					config_del(config);
 					continue;
 				}
