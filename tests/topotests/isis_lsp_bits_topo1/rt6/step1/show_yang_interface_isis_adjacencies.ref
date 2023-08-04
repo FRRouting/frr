@@ -9,7 +9,7 @@
             "adjacencies": {
               "adjacency": [
                 {
-                  "neighbor-sys-type": "level-1-2",
+                  "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0004",
                   "hold-timer": 10,
                   "neighbor-priority": 0,
@@ -28,7 +28,7 @@
             "adjacencies": {
               "adjacency": [
                 {
-                  "neighbor-sys-type": "level-1-2",
+                  "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0005",
                   "hold-timer": 10,
                   "neighbor-priority": 0,
