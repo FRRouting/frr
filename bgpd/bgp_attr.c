@@ -167,6 +167,9 @@ static struct cluster_list *cluster_intern(struct cluster_list *cluster)
 
 static void cluster_unintern(struct cluster_list **cluster)
 {
+	if (!*cluster)
+		return;
+
 	if ((*cluster)->refcnt)
 		(*cluster)->refcnt--;
 
@@ -330,6 +333,10 @@ static void encap_unintern(struct bgp_attr_encap_subtlv **encapp,
 			   encap_subtlv_type type)
 {
 	struct bgp_attr_encap_subtlv *encap = *encapp;
+
+	if (!*encapp)
+		return;
+
 	if (encap->refcnt)
 		encap->refcnt--;
 
@@ -418,6 +425,9 @@ static struct transit *transit_intern(struct transit *transit)
 
 static void transit_unintern(struct transit **transit)
 {
+	if (!*transit)
+		return;
+
 	if ((*transit)->refcnt)
 		(*transit)->refcnt--;
 
@@ -558,6 +568,9 @@ static void srv6_l3vpn_unintern(struct bgp_attr_srv6_l3vpn **l3vpnp)
 {
 	struct bgp_attr_srv6_l3vpn *l3vpn = *l3vpnp;
 
+	if (!*l3vpnp)
+		return;
+
 	if (l3vpn->refcnt)
 		l3vpn->refcnt--;
 
@@ -592,6 +605,9 @@ static struct bgp_attr_srv6_vpn *srv6_vpn_intern(struct bgp_attr_srv6_vpn *vpn)
 static void srv6_vpn_unintern(struct bgp_attr_srv6_vpn **vpnp)
 {
 	struct bgp_attr_srv6_vpn *vpn = *vpnp;
+
+	if (!*vpnp)
+		return;
 
 	if (vpn->refcnt)
 		vpn->refcnt--;
@@ -1183,6 +1199,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct cluster_list *cluster;
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
+	struct transit *transit;
 
 	/* aspath refcount shoud be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1205,37 +1222,25 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
-	if (cluster) {
-		cluster_unintern(&cluster);
-		bgp_attr_set_cluster(attr, cluster);
-	}
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
+	cluster_unintern(&cluster);
+	bgp_attr_set_cluster(attr, NULL);
 
-	struct transit *transit = bgp_attr_get_transit(attr);
+	transit = bgp_attr_get_transit(attr);
+	transit_unintern(&transit);
+	bgp_attr_set_transit(attr, NULL);
 
-	if (transit) {
-		transit_unintern(&transit);
-		bgp_attr_set_transit(attr, transit);
-	}
-
-	if (attr->encap_subtlvs)
-		encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
+	encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
 
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs =
 		bgp_attr_get_vnc_subtlvs(attr);
 
-	if (vnc_subtlvs) {
-		encap_unintern(&vnc_subtlvs, VNC_SUBTLV_TYPE);
-		bgp_attr_set_vnc_subtlvs(attr, vnc_subtlvs);
-	}
+	encap_unintern(&vnc_subtlvs, VNC_SUBTLV_TYPE);
+	bgp_attr_set_vnc_subtlvs(attr, NULL);
 #endif
 
-	if (attr->srv6_l3vpn)
-		srv6_l3vpn_unintern(&attr->srv6_l3vpn);
-
-	if (attr->srv6_vpn)
-		srv6_vpn_unintern(&attr->srv6_vpn);
+	srv6_l3vpn_unintern(&attr->srv6_l3vpn);
+	srv6_vpn_unintern(&attr->srv6_vpn);
 }
 
 /* Free bgp attribute and aspath. */
@@ -2213,8 +2218,6 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 
 	/* XXX: Fix cluster_parse to use stream API and then remove this */
 	stream_forward_getp(peer->curr, length);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST);
 
 	return BGP_ATTR_PARSE_PROCEED;
 

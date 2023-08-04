@@ -594,7 +594,7 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	attr->aigp_metric = aigp;
 
 	if (aigp)
-		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AIGP);
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
@@ -606,6 +606,11 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 					struct cluster_list *cl)
 {
 	attr->cluster1 = cl;
+
+	if (cl)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 }
 
 static inline const struct bgp_route_evpn *
