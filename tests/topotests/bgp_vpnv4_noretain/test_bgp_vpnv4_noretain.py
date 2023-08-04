@@ -120,9 +120,6 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
 
     # Initialize all routers.
     tgen.start_router()
