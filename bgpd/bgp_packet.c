@@ -1202,6 +1202,13 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	unsigned long cap_len;
 	uint16_t len;
 
+	if (!peer_established(peer))
+		return;
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+		return;
+
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 

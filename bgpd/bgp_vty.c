@@ -5738,14 +5738,10 @@ DEFPY(neighbor_capability_software_version,
 		ret = peer_flag_set_vty(vty, neighbor,
 					PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
-	if (peer_established(peer)) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_SOFT_VERSION,
-					    no ? CAPABILITY_ACTION_UNSET
-					       : CAPABILITY_ACTION_SET);
-	}
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+			    CAPABILITY_CODE_SOFT_VERSION,
+			    no ? CAPABILITY_ACTION_UNSET
+			       : CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -6813,13 +6809,8 @@ DEFPY(neighbor_role,
 
 	ret = peer_role_set_vty(vty, peer, role, false);
 
-	if (peer_established(peer)) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_ROLE,
-					    CAPABILITY_ACTION_SET);
-	}
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+			    CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -6842,13 +6833,8 @@ DEFPY(neighbor_role_strict,
 
 	ret = peer_role_set_vty(vty, peer, role, true);
 
-	if (peer_established(peer)) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_ROLE,
-					    CAPABILITY_ACTION_SET);
-	}
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+			    CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -6872,13 +6858,8 @@ DEFPY(no_neighbor_role,
 
 	ret = bgp_vty_return(vty, peer_role_unset(peer));
 
-	if (peer_established(peer)) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_ROLE,
-					    CAPABILITY_ACTION_UNSET);
-	}
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+			    CAPABILITY_ACTION_UNSET);
 
 	return ret;
 }
