@@ -6786,14 +6786,9 @@ static uint8_t get_role_by_name(const char *role_str)
 	return ROLE_UNDEFINED;
 }
 
-static int peer_role_set_vty(struct vty *vty, const char *ip_str,
+static int peer_role_set_vty(struct vty *vty, struct peer *peer,
 			     const char *role_str, bool strict_mode)
 {
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
 	uint8_t role = get_role_by_name(role_str);
 
 	if (role == ROLE_UNDEFINED)
@@ -6801,50 +6796,66 @@ static int peer_role_set_vty(struct vty *vty, const char *ip_str,
 	return bgp_vty_return(vty, peer_role_set(peer, role, strict_mode));
 }
 
-static int peer_role_unset_vty(struct vty *vty, const char *ip_str)
-{
-	struct peer *peer;
-
-	peer = peer_and_group_lookup_vty(vty, ip_str);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-	return bgp_vty_return(vty, peer_role_unset(peer));
-}
-
 DEFPY(neighbor_role,
       neighbor_role_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer>",
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer>$role",
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
       "Set session role\n"
       ROLE_STR)
 {
-	int idx_peer = 1;
-	int idx_role = 3;
+	int ret;
+	struct peer *peer;
 
-	return peer_role_set_vty(vty, argv[idx_peer]->arg, argv[idx_role]->arg,
-				 false);
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_role_set_vty(vty, peer, role, false);
+
+	if (peer_established(peer)) {
+		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_ROLE,
+					    CAPABILITY_ACTION_SET);
+	}
+
+	return ret;
 }
 
 DEFPY(neighbor_role_strict,
       neighbor_role_strict_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer> strict-mode",
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer>$role strict-mode",
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
       "Set session role\n"
       ROLE_STR
       "Use additional restriction on peer\n")
 {
-	int idx_peer = 1;
-	int idx_role = 3;
+	int ret;
+	struct peer *peer;
 
-	return peer_role_set_vty(vty, argv[idx_peer]->arg, argv[idx_role]->arg,
-				 true);
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_role_set_vty(vty, peer, role, true);
+
+	if (peer_established(peer)) {
+		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_ROLE,
+					    CAPABILITY_ACTION_SET);
+	}
+
+	return ret;
 }
 
 DEFPY(no_neighbor_role,
       no_neighbor_role_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer> [strict-mode]",
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor local-role <provider|rs-server|rs-client|customer|peer> [strict-mode]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
@@ -6852,9 +6863,24 @@ DEFPY(no_neighbor_role,
       ROLE_STR
       "Use additional restriction on peer\n")
 {
-	int idx_peer = 2;
+	int ret;
+	struct peer *peer;
 
-	return peer_role_unset_vty(vty, argv[idx_peer]->arg);
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = bgp_vty_return(vty, peer_role_unset(peer));
+
+	if (peer_established(peer)) {
+		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_ROLE,
+					    CAPABILITY_ACTION_UNSET);
+	}
+
+	return ret;
 }
 
 /* disable-connected-check */
