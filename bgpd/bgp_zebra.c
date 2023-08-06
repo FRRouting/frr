@@ -3455,6 +3455,11 @@ static bool bgp_zebra_label_manager_connect(void)
 	return true;
 }
 
+static void bgp_zebra_capabilities(struct zclient_capabilities *cap)
+{
+	bm->v6_with_v4_nexthops = cap->v6_with_v4_nexthop;
+}
+
 void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 {
 	struct zclient_options options = zclient_options_default;
@@ -3470,6 +3475,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 			      array_size(bgp_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
+	zclient->zebra_capabilities = bgp_zebra_capabilities;
 	zclient->instance = instance;
 
 	/* Initialize special zclient for synchronous message exchanges. */

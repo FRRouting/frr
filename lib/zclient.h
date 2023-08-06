@@ -274,6 +274,7 @@ struct zclient_capabilities {
 	uint32_t ecmp;
 	bool mpls_enabled;
 	enum mlag_role role;
+	bool v6_with_v4_nexthop;
 };
 
 /* Graceful Restart Capabilities message */

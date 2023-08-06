@@ -87,6 +87,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    Allow zebra to modify the default receive buffer size to SIZE
    in bytes.  Under \*BSD only the -s option is available.
 
+.. option:: --v6-with-v4-nexthops
+
+   Signal to zebra that v6 routes with v4 nexthops are accepted
+   by the underlying dataplane.  This will be communicated to
+   the upper level daemons that can install v6 routes with v4
+   nexthops.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour

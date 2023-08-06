@@ -207,6 +207,7 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+	bool v6_with_v4_nexthop;
 
 	/*
 	 * If the asic is notifying us about successful nexthop
@@ -237,7 +238,8 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
 
-extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack,
+			      bool v6_with_v4_nexthop);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 

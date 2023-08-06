@@ -3876,6 +3876,7 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 	cap.mpls_enabled = !!mpls_enabled;
 	STREAM_GETL(s, cap.ecmp);
 	STREAM_GETC(s, cap.role);
+	STREAM_GETC(s, cap.v6_with_v4_nexthop);
 
 	if (zclient->zebra_capabilities)
 		(*zclient->zebra_capabilities)(&cap);
