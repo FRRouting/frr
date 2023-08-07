@@ -280,34 +280,8 @@ struct dplane_neigh_table {
  * Policy based routing rule info for the dataplane
  */
 struct dplane_ctx_rule {
-	uint32_t seq;
-	uint32_t priority;
-	uint32_t unique;
+	struct pbr_rule prule;
 
-	/* The route table pointed by this rule */
-	uint32_t table;
-
-	/* Filter criteria */
-	uint32_t filter_bm;
-	uint32_t fwmark;
-	uint8_t dsfield;
-	struct prefix src_ip;
-	struct prefix dst_ip;
-	uint8_t ip_proto;
-	uint16_t src_port;
-	uint16_t dst_port;
-
-	uint8_t action_pcp;
-	uint16_t action_vlan_id;
-	uint16_t action_vlan_flags;
-
-	uint32_t action_queue_id;
-
-	uint8_t filter_pcp;
-	uint16_t filter_vlan_id;
-	uint16_t filter_vlan_flags;
-
-	char ifname[INTERFACE_NAMSIZ + 1];
 	struct ethaddr smac;
 	struct ethaddr dmac;
 	int out_ifindex;
@@ -2774,6 +2748,25 @@ dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx)
 	return &ctx->u.gre.info;
 }
 
+/***********************************************************************
+ *		PBR RULE ACCESSORS - start
+ **********************************************************************/
+
+/*
+ * This accessor fills one or two lib/pbr structs from the PBR context.
+ * New dataplane modules should use this interface where possible instead
+ * of adding more accessors that return fields from 'struct pbr_rule'.
+ */
+void dplane_ctx_rule_get(const struct zebra_dplane_ctx *ctx,
+	struct pbr_rule *pNew, struct pbr_rule *pOld)
+{
+	DPLANE_CTX_VALID(ctx);
+	if (pNew)
+		*pNew = ctx->u.rule.new.prule;
+	if (pOld)
+		*pOld = ctx->u.rule.old.prule;
+}
+
 /* Accessors for PBR rule information */
 int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx)
 {
@@ -2786,7 +2779,7 @@ const char *dplane_ctx_rule_get_ifname(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.ifname;
+	return ctx->u.rule.new.prule.ifname;
 }
 
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx)
@@ -2807,112 +2800,112 @@ uint32_t dplane_ctx_rule_get_priority(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.priority;
+	return ctx->u.rule.new.prule.priority;
 }
 
 uint32_t dplane_ctx_rule_get_old_priority(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.priority;
+	return ctx->u.rule.old.prule.priority;
 }
 
 uint32_t dplane_ctx_rule_get_table(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.table;
+	return ctx->u.rule.new.prule.action.table;
 }
 
 uint32_t dplane_ctx_rule_get_old_table(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.table;
+	return ctx->u.rule.old.prule.action.table;
 }
 
 uint32_t dplane_ctx_rule_get_filter_bm(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.filter_bm;
+	return ctx->u.rule.new.prule.filter.filter_bm;
 }
 
 uint32_t dplane_ctx_rule_get_old_filter_bm(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.filter_bm;
+	return ctx->u.rule.old.prule.filter.filter_bm;
 }
 
 uint32_t dplane_ctx_rule_get_fwmark(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.fwmark;
+	return ctx->u.rule.new.prule.filter.fwmark;
 }
 
 uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.fwmark;
+	return ctx->u.rule.old.prule.filter.fwmark;
 }
 
 uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.ip_proto;
+	return ctx->u.rule.new.prule.filter.ip_proto;
 }
 
 uint8_t dplane_ctx_rule_get_old_ipproto(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.ip_proto;
+	return ctx->u.rule.old.prule.filter.ip_proto;
 }
 
 uint16_t dplane_ctx_rule_get_src_port(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.src_port;
+	return ctx->u.rule.new.prule.filter.src_port;
 }
 
 uint16_t dplane_ctx_rule_get_old_src_port(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.src_port;
+	return ctx->u.rule.old.prule.filter.src_port;
 }
 
 uint16_t dplane_ctx_rule_get_dst_port(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.dst_port;
+	return ctx->u.rule.new.prule.filter.dst_port;
 }
 
 uint16_t dplane_ctx_rule_get_old_dst_port(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.dst_port;
+	return ctx->u.rule.old.prule.filter.dst_port;
 }
 
 uint8_t dplane_ctx_rule_get_dsfield(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.new.dsfield;
+	return ctx->u.rule.new.prule.filter.dsfield;
 }
 
 uint8_t dplane_ctx_rule_get_old_dsfield(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.rule.old.dsfield;
+	return ctx->u.rule.old.prule.filter.dsfield;
 }
 
 const struct prefix *
@@ -2920,7 +2913,7 @@ dplane_ctx_rule_get_src_ip(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.rule.new.src_ip);
+	return &(ctx->u.rule.new.prule.filter.src_ip);
 }
 
 const struct prefix *
@@ -2928,7 +2921,7 @@ dplane_ctx_rule_get_old_src_ip(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.rule.old.src_ip);
+	return &(ctx->u.rule.old.prule.filter.src_ip);
 }
 
 const struct prefix *
@@ -2936,7 +2929,7 @@ dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.rule.new.dst_ip);
+	return &(ctx->u.rule.new.prule.filter.dst_ip);
 }
 
 const struct prefix *
@@ -2944,8 +2937,57 @@ dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.rule.old.dst_ip);
+	return &(ctx->u.rule.old.prule.filter.dst_ip);
 }
+
+const struct ethaddr *
+dplane_ctx_rule_get_smac(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rule.new.smac);
+}
+
+const struct ethaddr *
+dplane_ctx_rule_get_dmac(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rule.new.dmac);
+}
+
+int dplane_ctx_rule_get_out_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.out_ifindex;
+}
+
+intptr_t dplane_ctx_rule_get_old_dp_flow_ptr(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.dp_flow_ptr;
+}
+
+intptr_t dplane_ctx_rule_get_dp_flow_ptr(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.dp_flow_ptr;
+}
+
+void dplane_ctx_rule_set_dp_flow_ptr(struct zebra_dplane_ctx *ctx,
+				     intptr_t dp_flow_ptr)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.new.dp_flow_ptr = dp_flow_ptr;
+}
+
+/***********************************************************************
+ *		PBR RULE ACCESSORS - end
+ **********************************************************************/
 
 uint32_t dplane_ctx_get_br_port_flags(const struct zebra_dplane_ctx *ctx)
 {
@@ -3014,55 +3056,6 @@ void dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
 
 	memcpy(entry, &ctx->u.ipset_entry.entry, sizeof(struct zebra_pbr_ipset_entry));
 }
-
-const struct ethaddr *
-dplane_ctx_rule_get_smac(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return &(ctx->u.rule.new.smac);
-}
-
-const struct ethaddr *
-dplane_ctx_rule_get_dmac(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return &(ctx->u.rule.new.dmac);
-}
-
-int dplane_ctx_rule_get_out_ifindex(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.rule.new.out_ifindex;
-}
-
-intptr_t dplane_ctx_rule_get_old_dp_flow_ptr(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.rule.old.dp_flow_ptr;
-}
-
-intptr_t dplane_ctx_rule_get_dp_flow_ptr(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.rule.new.dp_flow_ptr;
-}
-
-void dplane_ctx_rule_set_dp_flow_ptr(struct zebra_dplane_ctx *ctx,
-				     intptr_t dp_flow_ptr)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	ctx->u.rule.new.dp_flow_ptr = dp_flow_ptr;
-}
-
-/*
- * End of dplane context accessors
- */
 
 /* Optional extra info about interfaces in nexthops - a plugin must enable
  * this extra info.
@@ -3898,27 +3891,8 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 {
 	struct zebra_neigh_ent *n;
 
-	dplane_rule->priority = rule->rule.priority;
-	dplane_rule->table = rule->rule.action.table;
+	dplane_rule->prule = rule->rule;
 
-	dplane_rule->filter_bm = rule->rule.filter.filter_bm;
-	dplane_rule->fwmark = rule->rule.filter.fwmark;
-	dplane_rule->dsfield = rule->rule.filter.dsfield;
-	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
-	dplane_rule->src_port = rule->rule.filter.src_port;
-	dplane_rule->dst_port = rule->rule.filter.dst_port;
-	dplane_rule->filter_pcp = rule->rule.filter.pcp;
-	dplane_rule->filter_vlan_id = rule->rule.filter.vlan_id;
-	dplane_rule->filter_vlan_flags = rule->rule.filter.vlan_flags;
-	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
-	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
-
-	dplane_rule->action_pcp = rule->rule.action.pcp;
-	dplane_rule->action_vlan_flags = rule->rule.action.vlan_flags;
-	dplane_rule->action_vlan_id = rule->rule.action.vlan_id;
-	dplane_rule->action_queue_id = rule->rule.action.queue_id;
-
-	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);
 	dplane_rule->dp_flow_ptr = rule->action.dp_flow_ptr;
 	n = rule->action.neigh;
 	if (n && (n->flags & ZEBRA_NEIGH_ENT_ACTIVE)) {
