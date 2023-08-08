@@ -6,7 +6,7 @@
 #
 
 """
-Test if software version capability is exchanged dynamically.
+Test if role capability is exchanged dynamically.
 """
 
 import os
@@ -52,7 +52,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_dynamic_capability_software_version():
+def test_bgp_dynamic_capability_role():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -66,12 +66,10 @@ def test_bgp_dynamic_capability_software_version():
         expected = {
             "192.168.1.2": {
                 "bgpState": "Established",
+                "localRole": "undefined",
+                "remoteRole": "undefined",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "softwareVersion": {
-                        "advertisedSoftwareVersion": None,
-                        "receivedSoftwareVersion": None,
-                    },
                 },
                 "connectionsEstablished": 1,
                 "connectionsDropped": 0,
@@ -85,13 +83,13 @@ def test_bgp_dynamic_capability_software_version():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
 
-    step("Enable software version capability and check if it's exchanged dynamically")
+    step("Set local-role and check if it's exchanged dynamically")
 
     r1.vtysh_cmd(
         """
     configure terminal
     router bgp
-      neighbor 192.168.1.2 capability software-version
+      neighbor 192.168.1.2 local-role customer
     """
     )
 
@@ -99,39 +97,20 @@ def test_bgp_dynamic_capability_software_version():
         """
     configure terminal
     router bgp
-      neighbor 192.168.1.1 capability software-version
+      neighbor 192.168.1.1 local-role provider
     """
     )
 
     def _bgp_check_if_session_not_reset():
-        def _bgp_software_version():
-            try:
-                versions = output["192.168.1.2"]["neighborCapabilities"][
-                    "softwareVersion"
-                ]
-                adv = versions["advertisedSoftwareVersion"]
-                rcv = versions["receivedSoftwareVersion"]
-
-                if not adv and not rcv:
-                    return ""
-
-                pattern = "FRRouting/\\d.+"
-                if re.search(pattern, adv) and re.search(pattern, rcv):
-                    return adv, rcv
-            except:
-                return ""
-
         output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
-        adv, rcv = _bgp_software_version()
         expected = {
             "192.168.1.2": {
                 "bgpState": "Established",
+                "localRole": "customer",
+                "remoteRole": "provider",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "softwareVersion": {
-                        "advertisedSoftwareVersion": adv,
-                        "receivedSoftwareVersion": rcv,
-                    },
+                    "role": "advertisedAndReceived",
                 },
                 "connectionsEstablished": 1,
                 "connectionsDropped": 0,
@@ -143,9 +122,7 @@ def test_bgp_dynamic_capability_software_version():
         _bgp_check_if_session_not_reset,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "Session was reset after enabling software version capability"
+    assert result is None, "Session was reset after setting role capability"
 
 
 if __name__ == "__main__":

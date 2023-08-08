@@ -1202,6 +1202,13 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	unsigned long cap_len;
 	uint16_t len;
 
+	if (!peer_established(peer))
+		return;
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+		return;
+
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
@@ -1272,7 +1279,15 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	case CAPABILITY_CODE_FQDN:
 	case CAPABILITY_CODE_ENHE:
 	case CAPABILITY_CODE_EXT_MESSAGE:
+		break;
 	case CAPABILITY_CODE_ROLE:
+		if (peer->local_role != ROLE_UNDEFINED) {
+			SET_FLAG(peer->cap, PEER_CAP_ROLE_ADV);
+			stream_putc(s, action);
+			stream_putc(s, CAPABILITY_CODE_ROLE);
+			stream_putc(s, CAPABILITY_CODE_ROLE_LEN);
+			stream_putc(s, peer->local_role);
+		}
 		break;
 	default:
 		break;
@@ -2879,7 +2894,22 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_EXT_MESSAGE:
+			break;
 		case CAPABILITY_CODE_ROLE:
+			SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
+				flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+					  "Role: Received invalid length %d",
+					  hdr->length);
+				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				return BGP_Stop;
+			}
+			uint8_t role;
+
+			memcpy(&role, pnt + 3, sizeof(role));
+
+			peer->remote_role = role;
 			break;
 		default:
 			flog_warn(

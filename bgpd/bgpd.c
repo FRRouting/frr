@@ -4444,8 +4444,8 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
-	{PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_reset},
-	{PEER_FLAG_ROLE, 0, peer_change_reset},
+	{PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_none},
+	{PEER_FLAG_ROLE, 0, peer_change_none},
 	{PEER_FLAG_PORT, 0, peer_change_reset},
 	{PEER_FLAG_AIGP, 0, peer_change_none},
 	{PEER_FLAG_GRACEFUL_SHUTDOWN, 0, peer_change_none},
@@ -5167,7 +5167,6 @@ int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 			else
 				UNSET_FLAG(peer->flags,
 					   PEER_FLAG_ROLE_STRICT_MODE);
-			bgp_session_reset(peer);
 		}
 
 		return CMD_SUCCESS;
@@ -5212,7 +5211,6 @@ int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 				UNSET_FLAG(member->flags,
 					   PEER_FLAG_ROLE_STRICT_MODE);
 			}
-			bgp_session_reset(member);
 		}
 	}
 
