@@ -145,6 +145,54 @@ struct bgp_sid_info {
 	uint8_t transposition_offset;
 };
 
+/* new structure for EVPN */
+struct bgp_path_info_extra_evpn {
+#define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
+	/* af specific flags */
+	uint16_t af_flags;
+	union {
+		struct ethaddr mac; /* MAC set here for VNI IP table */
+		struct ipaddr ip;   /* IP set here for VNI MAC table */
+	} vni_info;
+	/* Destination Ethernet Segment links for EVPN MH */
+	struct bgp_path_mh_info *mh_info;
+};
+
+/* new structure for flowspec*/
+struct bgp_path_info_extra_fs {
+	/* presence of FS pbr firewall based entry */
+	struct list *bgp_fs_pbr;
+	/* presence of FS pbr iprule based entry */
+	struct list *bgp_fs_iprule;
+};
+
+/* new structure for vrfleak*/
+struct bgp_path_info_extra_vrfleak {
+	void *parent; /* parent from global table */
+	/*
+	 * Original bgp instance for imported routes. Needed for:
+	 * 1. Find all routes from a specific vrf for deletion
+	 * 2. vrf context of original nexthop
+	 *
+	 * Store pointer to bgp instance rather than bgp->vrf_id because
+	 * bgp->vrf_id is not always valid (or may change?).
+	 *
+	 * Set to NULL if route is not imported from another bgp instance.
+	 */
+	struct bgp *bgp_orig;
+	/*
+	 * Original bgp session to know if the session is a
+	 * connected EBGP session or not
+	 */
+	struct peer *peer_orig;
+	/*
+	 * Nexthop in context of original bgp instance. Needed
+	 * for label resolution of core mpls routes exported to a vrf.
+	 * Set nexthop_orig.family to 0 if not valid.
+	 */
+	struct prefix nexthop_orig;
+};
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -163,13 +211,8 @@ struct bgp_path_info_extra {
 	mpls_label_t label[BGP_MAX_LABELS];
 	uint32_t num_labels;
 
-	/* af specific flags */
-	uint16_t af_flags;
-#define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
-
-	/* SRv6 SID(s) for SRv6-VPN */
-	struct bgp_sid_info sid[BGP_MAX_SIDS];
-	uint32_t num_sids;
+	/*For EVPN*/
+	struct bgp_path_info_extra_evpn *evpn;
 
 #ifdef ENABLE_BGP_VNC
 	union {
@@ -200,50 +243,11 @@ struct bgp_path_info_extra {
 	} vnc;
 #endif
 
-	/*
-	 * For imported routes into a VNI (or VRF)
-	 */
-	void *parent;	    /* parent from global table */
-	union {
-		struct ethaddr mac; /* MAC set here for VNI IP table */
-		struct ipaddr ip;   /* IP set here for VNI MAC table */
-	} vni_info;
+	/* For flowspec*/
+	struct bgp_path_info_extra_fs *flowspec;
 
-	/*
-	 * Some tunnelish parameters follow. Maybe consolidate into an
-	 * internal tunnel structure?
-	 */
-
-	/*
-	 * Original bgp instance for imported routes. Needed for:
-	 * 1. Find all routes from a specific vrf for deletion
-	 * 2. vrf context of original nexthop
-	 *
-	 * Store pointer to bgp instance rather than bgp->vrf_id because
-	 * bgp->vrf_id is not always valid (or may change?).
-	 *
-	 * Set to NULL if route is not imported from another bgp instance.
-	 */
-	struct bgp *bgp_orig;
-
-	/*
-	 * Original bgp session to know if the session is a
-	 * connected EBGP session or not
-	 */
-	struct peer *peer_orig;
-
-	/*
-	 * Nexthop in context of original bgp instance. Needed
-	 * for label resolution of core mpls routes exported to a vrf.
-	 * Set nexthop_orig.family to 0 if not valid.
-	 */
-	struct prefix nexthop_orig;
-	/* presence of FS pbr firewall based entry */
-	struct list *bgp_fs_pbr;
-	/* presence of FS pbr iprule based entry */
-	struct list *bgp_fs_iprule;
-	/* Destination Ethernet Segment links for EVPN MH */
-	struct bgp_path_mh_info *mh_info;
+	/* For vrf leaking*/
+	struct bgp_path_info_extra_vrfleak *vrfleak;
 };
 
 struct bgp_mplsvpn_label_nh {

@@ -56,10 +56,11 @@ static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
 	struct bgp_interface *iifp;
 	struct peer *peer;
 
-	if (!path->extra || !path->extra->peer_orig)
+	if (!path->extra || !path->extra->vrfleak ||
+	    !path->extra->vrfleak->peer_orig)
 		return false;
 
-	peer = path->extra->peer_orig;
+	peer = path->extra->vrfleak->peer_orig;
 
 	/* only connected ebgp peers are valid */
 	if (peer->sort != BGP_PEER_EBGP || peer->ttl != BGP_DEFAULT_TTL ||
