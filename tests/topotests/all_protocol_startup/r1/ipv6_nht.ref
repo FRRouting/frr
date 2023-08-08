@@ -1,3 +1,5 @@
+VRF default:
+ Resolve via default: on
 fc00::2
  resolved via connected
  is directly connected, r1-eth0 (vrf default)
@@ -10,4 +12,4 @@ fc00:0:0:8::2000(Connected)
  resolved via connected
  is directly connected, r1-eth8 (vrf default)
  Client list: bgp(fd XX)
- 
+
