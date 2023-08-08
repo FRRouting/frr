@@ -389,7 +389,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		}
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
 		json_object_string_add(json, "advertiseSviMacIp", "n/a");
-		if (bgp_vrf && bgp_vrf->evpn_info) {
+		if (bgp_vrf->evpn_info) {
 			json_object_string_add(json, "advertisePip",
 					       bgp_vrf->evpn_info->advertise_pip
 						       ? "Enabled"
