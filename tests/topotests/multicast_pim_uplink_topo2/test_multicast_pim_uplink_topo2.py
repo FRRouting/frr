@@ -43,6 +43,7 @@ from lib.common_config import (
     reset_config_on_routers,
     shutdown_bringup_interface,
     required_linux_kernel_version,
+    create_debug_log_config,
 )
 from lib.pim import (
     create_pim_config,
@@ -58,6 +59,7 @@ from lib.pim import (
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
+from time import sleep
 
 # Global variables
 GROUP_RANGE_1 = [
@@ -170,7 +172,6 @@ def get_interfaces_names(topo):
     """
 
     for link in range(1, 5):
-
         intf = topo["routers"]["r1"]["links"]["r2-link{}".format(link)]["interface"]
         r1_r2_links.append(intf)
 
@@ -258,6 +259,16 @@ def test_iif_oil_when_RP_address_changes_from_static_to_BSR_p1(request):
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    input_dict = {
+        "r1": {"debug": {"log_file": "r1_debug.log", "enable": ["pimd"]}},
+        "r2": {"debug": {"log_file": "r2_debug.log", "enable": ["pimd"]}},
+        "r3": {"debug": {"log_file": "r3_debug.log", "enable": ["pimd"]}},
+        "r4": {"debug": {"log_file": "r4_debug.log", "enable": ["pimd"]}},
+        "r5": {"debug": {"log_file": "r5_debug.log", "enable": ["pimd"]}},
+    }
+
+    result = create_debug_log_config(tgen, input_dict)
 
     step("Shutdown interfaces which are not required")
     intf_r1_r4 = topo["routers"]["r1"]["links"]["r4"]["interface"]
@@ -401,6 +412,7 @@ def test_iif_oil_when_RP_address_changes_from_static_to_BSR_p1(request):
     result = verify_multicast_traffic(tgen, input_traffic)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+    sleep(10)
     step(
         "Change RP address for range 225.1.1.1-5 to cisco (BSRP) " "loopback interface"
     )
