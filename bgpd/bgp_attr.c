@@ -69,6 +69,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_PREFIX_SID, "PREFIX_SID"},
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
 	{BGP_ATTR_AIGP, "AIGP"},
+	{BGP_ATTR_SRTE_COLOR, "SRTE_COLOR"},
 	{0}};
 
 static const struct message attr_flag_str[] = {
