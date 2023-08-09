@@ -50,6 +50,8 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.checkping import check_ping
+
 
 # Required to instantiate the topology builder class.
 
@@ -255,29 +257,6 @@ def mpls_table_check_entry(router, out_label, out_nexthop):
     return "{}, show mpls table, entry matching in_label {} out_label {} out_nexthop {} not found".format(
         router.name, in_label, out_label, out_nexthop
     )
-
-
-def check_ping(name, dest_addr, expect_connected):
-    """
-    Assert that ping to dest_addr is expected
-    * 'name': the router to set the ping from
-    * 'dest_addr': The destination ip address to ping
-    * 'expect_connected': True if ping is expected to pass
-    """
-
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        if match not in output:
-            return "ping fail"
-
-    match = ", {} packet loss".format("0%" if expect_connected else "100%")
-    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
-    assert result is None, "Failed"
 
 
 def check_show_bgp_vpn_prefix_found(
@@ -493,8 +472,8 @@ def test_mpls_setup_ok():
     check_show_bgp_vpn_ok(router, vpnv4_checks)
 
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
-    check_ping("h1", "172.31.1.10", True)
-    check_ping("h1", "172.31.2.10", True)
+    check_ping("h1", "172.31.1.10", True, 20, 0.5)
+    check_ping("h1", "172.31.2.10", True, 20, 0.5)
 
 
 def test_r3_prefixes_removed():
@@ -751,8 +730,8 @@ def test_reconfigure_nexthop_change_nexthop_self():
     check_show_bgp_vpn_ok(router, vpnv4_checks)
 
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
-    check_ping("h1", "172.31.1.10", True)
-    check_ping("h1", "172.31.2.10", True)
+    check_ping("h1", "172.31.1.10", True, 20, 0.5)
+    check_ping("h1", "172.31.2.10", True, 20, 0.5)
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
     router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
