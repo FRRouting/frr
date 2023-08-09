@@ -420,15 +420,20 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 			vty_out(vty, " label=%u",
 				decode_label(&bpi->extra->label[0]));
 
-		if (bpi->extra->num_sids) {
-			vty_out(vty, " sid=%pI6", &bpi->extra->sid[0].sid);
+		if (bpi->attr->srv6_l3vpn || bpi->attr->srv6_vpn) {
+			struct in6_addr *sid_tmp =
+				bpi->attr->srv6_l3vpn
+					? (&bpi->attr->srv6_l3vpn->sid)
+					: (&bpi->attr->srv6_vpn->sid);
+			vty_out(vty, " sid=%pI6", sid_tmp);
 
-			if (bpi->extra->sid[0].loc_block_len != 0) {
+			if (bpi->attr->srv6_l3vpn &&
+			    bpi->attr->srv6_l3vpn->loc_block_len != 0) {
 				vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
-					bpi->extra->sid[0].loc_block_len,
-					bpi->extra->sid[0].loc_node_len,
-					bpi->extra->sid[0].func_len,
-					bpi->extra->sid[0].arg_len);
+					bpi->attr->srv6_l3vpn->loc_block_len,
+					bpi->attr->srv6_l3vpn->loc_node_len,
+					bpi->attr->srv6_l3vpn->func_len,
+					bpi->attr->srv6_l3vpn->arg_len);
 			}
 		}
 	}

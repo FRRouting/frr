@@ -10978,6 +10978,29 @@ DEFUN (show_bgp_memory,
 				memstrbuf, sizeof(memstrbuf),
 				count * sizeof(struct bgp_path_info_extra)));
 
+	count = mtype_stats_alloc(MTYPE_BGP_ROUTE_EXTRA_EVPN);
+	if (count)
+		vty_out(vty, "%ld BGP extra info for EVPN, using %s of memory\n",
+			count,
+			mtype_memstr(memstrbuf, sizeof(memstrbuf),
+				     count * sizeof(struct bgp_path_info_extra_evpn)));
+
+	count = mtype_stats_alloc(MTYPE_BGP_ROUTE_EXTRA_FS);
+	if (count)
+		vty_out(vty,
+			"%ld BGP extra info for flowspec, using %s of memory\n",
+			count,
+			mtype_memstr(memstrbuf, sizeof(memstrbuf),
+				     count * sizeof(struct bgp_path_info_extra_fs)));
+
+	count = mtype_stats_alloc(MTYPE_BGP_ROUTE_EXTRA_VRFLEAK);
+	if (count)
+		vty_out(vty,
+			"%ld BGP extra info for vrf leaking, using %s of memory\n",
+			count,
+			mtype_memstr(memstrbuf, sizeof(memstrbuf),
+				     count * sizeof(struct bgp_path_info_extra_vrfleak)));
+
 	if ((count = mtype_stats_alloc(MTYPE_BGP_STATIC)))
 		vty_out(vty, "%ld Static routes, using %s of memory\n", count,
 			mtype_memstr(memstrbuf, sizeof(memstrbuf),
