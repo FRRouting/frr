@@ -6643,6 +6643,11 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 					   struct bgp *bgp,
 					   struct bgp *bgp_nexthop)
 {
+	if (safi == SAFI_RTC) {
+		bgp_unlink_nexthop(bpi);
+
+		bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
+	}
 	/* Nexthop reachability check. */
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
