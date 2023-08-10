@@ -28,21 +28,23 @@
 #include "lib/command.h"
 #include "lib/resolver.h"
 
+enum pm_probe_type {
+	PM_ICMP_ECHO = 0,      /* for RTT & connectivity */
+	PM_ICMP_TIMESTAMP = 1, /* for RTT & oneway delay, & connectivity */
+	PM_ICMP_SLA = 2, /* for RTT & connectivity with echo-request bulks */
+};
+
 struct pm_session_key {
 	char peer[HOSTNAME_LEN];
 	union sockunion local;
 	char ifname[IFNAMSIZ];
 	char vrfname[IFNAMSIZ];
+	enum pm_probe_type type;
 };
 
 #define PM_SET_FLAG(field, flag) (field |= flag)
 #define PM_UNSET_FLAG(field, flag) (field &= ~flag)
 #define PM_CHECK_FLAG(field, flag) (field & flag)
-
-enum pm_probe_type {
-	PM_ICMP_ECHO = 0, /* for RTT & connectivity */
-	PM_ICMP_TIMESTAMP = 1, /* for RTT & oneway delay, & connectivity */
-};
 
 struct pm_session {
 	struct pm_session_key key;
@@ -62,7 +64,6 @@ struct pm_session {
 	afi_t afi_resolve;
 	uint8_t resolve_immediately;
 	union sockunion nh;
-	enum pm_probe_type type;
 #define PM_PACKET_SIZE_DEFAULT PM_DEF_PACKET_SIZE
 #define PM_PACKET_SIZE_DEFAULT_IPV6 PM_DEF_IPV6_PACKET_SIZE
 	int packet_size;
@@ -153,16 +154,14 @@ extern void pm_initialise(struct pm_session *pm, bool validate_only,
 			  char *ebuf, size_t size);
 extern void pm_set_sess_state(struct pm_session *pm, uint8_t ses_state);
 
-extern struct pm_session *pm_lookup_session(const char *peer,
-					    const char *local,
+extern struct pm_session *
+pm_lookup_session(const char *peer, const char *local, const char *ifname,
+		  const char *vrfname, enum pm_probe_type type, bool create,
+		  char *ebuf, size_t ebuflen);
+extern struct pm_session *pm_create_session(const char *peer, const char *local,
 					    const char *ifname,
 					    const char *vrfname,
-					    bool create,
-					    char *ebuf, size_t ebuflen);
-extern struct pm_session *pm_create_session(const char *peer,
-					    const char *local,
-					    const char *ifname,
-					    const char *vrfname);
+					    enum pm_probe_type type);
 extern uint32_t pm_id_list_gen_id(void);
 struct pm_echo;
 extern bool pm_id_list_insert(struct pm_echo *pm);

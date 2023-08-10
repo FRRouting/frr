@@ -56,6 +56,9 @@
 #define LOCAL_INTF_STR "Configure local interface name to use\n"
 #define VRF_STR "Configure VRF\n"
 #define VRF_NAME_STR "Configure VRF name\n"
+#define TYPE_STR "Configure type\n"
+#define TYPE_ICMP_ECHO_STR "ICMP echo session type\n"
+#define TYPE_ICMP_SLA_STR "ICMP SLA session type\n"
 
 DEFINE_HOOK(pm_tracking_write_config,
 	    (struct pm_session *pm, struct vty *vty),
@@ -105,6 +108,9 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, " interface %s", pm->key.ifname);
 	if (pm->key.vrfname[0])
 		vty_out(vty, " vrf %s", pm->key.vrfname);
+	if (pm->key.type == PM_ICMP_SLA)
+		vty_out(vty, " type %s",
+			pm_get_probe_type(pm));
 	vty_out(vty, "\n");
 	if (pm->interval != PM_INTERVAL_DEFAULT)
 		vty_out(vty, "  interval %u\n", pm->interval);
@@ -156,17 +162,20 @@ DEFUN_NOSH(pm_enter, pm_enter_cmd, "pm", "Configure Path Monitoring sessions\n")
 
 DEFUN_NOSH(
 	pm_peer_enter, pm_peer_enter_cmd,
-	"session <A.B.C.D|X:X::X:X|NAME> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	"session <A.B.C.D|X:X::X:X|NAME> "
+	"[{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME|type <icmp_echo|icmp_sla>}]",
 	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
 	INTERFACE_STR
 	LOCAL_INTF_STR
-	VRF_STR VRF_NAME_STR)
+	VRF_STR VRF_NAME_STR
+	TYPE_STR TYPE_ICMP_ECHO_STR TYPE_ICMP_SLA_STR)
 {
 	struct pm_session *pm = NULL;
 	const char *peer = argv[1]->arg;
 	int idx;
 	const char *ifname = NULL, *local = NULL, *vrfname = NULL;
+	enum pm_probe_type type;
 	char errormsg[128];
 
 	idx = 0;
@@ -181,7 +190,14 @@ DEFUN_NOSH(
 	if (argv_find(argv, argc, "vrf", &idx))
 		vrfname = argv[idx + 1]->arg;
 
-	pm = pm_lookup_session(peer, local, ifname, vrfname, false,
+	idx = 0;
+	if (argv_find(argv, argc, "type", &idx))
+		type = strmatch(argv[idx + 1]->arg, "icmp_sla") ? PM_ICMP_SLA
+								: PM_ICMP_ECHO;
+	else
+		type = PM_ICMP_ECHO;
+
+	pm = pm_lookup_session(peer, local, ifname, vrfname, type, false,
 			       errormsg, sizeof(errormsg));
 	if (pm) {
 		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_CONFIG)) {
@@ -192,7 +208,7 @@ DEFUN_NOSH(
 		VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
 		return CMD_SUCCESS;
 	}
-	pm = pm_lookup_session(peer, local, ifname, vrfname, true,
+	pm = pm_lookup_session(peer, local, ifname, vrfname, type, true,
 			       errormsg, sizeof(errormsg));
 	if (!pm) {
 		vty_out(vty, "%% Invalid session configuration: %s\n",
@@ -216,20 +232,24 @@ DEFPY(pm_set_nht, pm_set_nht_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(
-      pm_remove_session, pm_remove_session_cmd,
-      "no session <A.B.C.D|X:X::X:X|WORD>$peer [{local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]",
+DEFPY(pm_remove_session, pm_remove_session_cmd,
+     "no session <A.B.C.D|X:X::X:X|WORD>$peer "
+     "[{local-address <A.B.C.D|X:X::X:X>$local|interface "
+     "IFNAME$ifname|vrf NAME$vrfname|type <icmp_echo|icmp_sla>$typename}]",
       NO_STR
       SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
       LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
       INTERFACE_STR
       LOCAL_INTF_STR
-      VRF_STR VRF_NAME_STR)
+      VRF_STR VRF_NAME_STR
+      TYPE_STR TYPE_ICMP_ECHO_STR TYPE_ICMP_SLA_STR)
 {
 	struct pm_session *pm = NULL;
 	char errormsg[128];
+	enum pm_probe_type type =
+		strmatch(typename, "icmp_sla") ? PM_ICMP_SLA : PM_ICMP_ECHO;
 
-	pm = pm_lookup_session(peer, local_str, ifname, vrfname, false,
+	pm = pm_lookup_session(peer, local_str, ifname, vrfname, type, false,
 			       errormsg, sizeof(errormsg));
 	if (!pm) {
 		vty_out(vty, "%% Invalid session configuration: %s\n",
@@ -539,6 +559,7 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 		if (sockunion_family(&pme->gw) == AF_INET ||
 		    sockunion_family(&pme->gw) == AF_INET6)
 			json_object_string_addf(jo, "nexthop", "%pSU", &pme->gw);
+		json_object_string_add(jo, "type", pm_get_probe_type(pm));
 		return jo;
 	}
 	if (!pme) {
@@ -627,6 +648,7 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, " local-address %pSU", &pm->key.local);
 	if (pm->key.ifname[0])
 		vty_out(vty, " interface %s", pm->key.ifname);
+	vty_out(vty, " type %s", pm_get_probe_type(pm));
 	if (pm->key.vrfname[0])
 		vty_out(vty, " vrf %s", pm->key.vrfname);
 	vty_out(vty, "\n");

@@ -102,6 +102,8 @@ static bool pm_session_hash_equal(const void *arg1, const void *arg2)
 		return false;
 	if (memcmp(&a1->key.vrfname, &a2->key.vrfname, IFNAMSIZ))
 		return false;
+	if (a1->key.type != a2->key.type)
+		return false;
 	return true;
 }
 
@@ -142,6 +144,8 @@ static int pm_lookup_unique_walker(struct hash_bucket *b, void *data)
 	    (sockunion_family(&psc->pm_to_search->key.local) == AF_INET ||
 	     sockunion_family(&psc->pm_to_search->key.local) == AF_INET6))
 		return HASHWALK_CONTINUE;
+	if (pm->key.type != psc->pm_to_search->key.type)
+		return HASHWALK_CONTINUE;
 	if (memcmp(pm->key.ifname, psc->pm_to_search->key.ifname,
 		   sizeof(pm->key.ifname)))
 		return HASHWALK_CONTINUE;
@@ -153,10 +157,9 @@ static int pm_lookup_unique_walker(struct hash_bucket *b, void *data)
 	return HASHWALK_ABORT;
 }
 
-struct pm_session *pm_create_session(const char *peer,
-				     const char *local,
-				     const char *ifname,
-				     const char *vrfname)
+struct pm_session *pm_create_session(const char *peer, const char *local,
+				     const char *ifname, const char *vrfname,
+				     enum pm_probe_type type)
 {
 	struct pm_session pm, *pm_created;
 	union sockunion lsa, *lsap;
@@ -177,6 +180,7 @@ struct pm_session *pm_create_session(const char *peer,
 		memcpy(&pm.key.ifname, ifname, strlen(ifname));
 	if (vrfname)
 		memcpy(&pm.key.vrfname, vrfname, strlen(vrfname));
+	pm.key.type = type;
 
 	/* create */
 	pm_created = hash_get(pm_session_list,
@@ -186,11 +190,9 @@ struct pm_session *pm_create_session(const char *peer,
 	return pm_created;
 }
 
-struct pm_session *pm_lookup_session(const char *peer,
-				     const char *local,
-				     const char *ifname,
-				     const char *vrfname,
-				     bool create,
+struct pm_session *pm_lookup_session(const char *peer, const char *local,
+				     const char *ifname, const char *vrfname,
+				     enum pm_probe_type type, bool create,
 				     char *ebuf, size_t ebuflen)
 {
 	union sockunion lsa, *lsap;
@@ -226,6 +228,7 @@ struct pm_session *pm_lookup_session(const char *peer,
 		memcpy(&pm.key.ifname, ifname, strlen(ifname));
 	if (vrfname)
 		memcpy(&pm.key.vrfname, vrfname, strlen(vrfname));
+	pm.key.type = type;
 
 	psc.pm_to_search = &pm;
 	psc.pm_found = NULL;
@@ -235,7 +238,7 @@ struct pm_session *pm_lookup_session(const char *peer,
 		return pm_search;
 
 	/* create */
-	return pm_create_session(peer, local, ifname, vrfname);
+	return pm_create_session(peer, local, ifname, vrfname, type);
 }
 
 static bool pm_check_local_address_ifp(union sockunion *loc,
@@ -789,11 +792,13 @@ void pm_sessions_change_interface(struct interface *ifp, bool enable)
 
 const char *pm_get_probe_type(struct pm_session *pm)
 {
-	switch (pm->type) {
+	switch (pm->key.type) {
 	case PM_ICMP_ECHO:
 		return "icmp_echo";
 	case PM_ICMP_TIMESTAMP:
 		return "icmp_timestamp";
+	case PM_ICMP_SLA:
+		return "icmp_sla";
 	}
 
 	return "";

@@ -525,6 +525,7 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 					bool create)
 {
 	const char *vrfname, *ifname;
+	enum pm_probe_type type = PM_ICMP_ECHO;
 	char ebuf[128];
 	const char *bpc_local;
 	struct pm_session *pm;
@@ -548,17 +549,15 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 		vrfname = cfg->bpc_vrfname;
 	else
 		vrfname = NULL;
-	pm = pm_lookup_session(peer_str, bpc_local, ifname,
-			       vrfname, false,
-			       ebuf, sizeof(ebuf));
+	pm = pm_lookup_session(peer_str, bpc_local, ifname, vrfname, type,
+			       false, ebuf, sizeof(ebuf));
 	if (!pm)/* search without ifname */
-		pm = pm_lookup_session(peer_str, bpc_local, NULL,
-				       vrfname, false,
-				       ebuf, sizeof(ebuf));
+		pm = pm_lookup_session(peer_str, bpc_local, NULL, vrfname, type,
+				       false, ebuf, sizeof(ebuf));
 	/* create */
 	if (create && !pm)
-		pm = pm_create_session(peer_str, bpc_local, ifname,
-				       vrfname);
+		pm = pm_create_session(peer_str, bpc_local, ifname, vrfname,
+				       type);
 	if (pm) {
 		if (cfg->bpc_nexthop.sa.sa_family == AF_INET ||
 		    cfg->bpc_nexthop.sa.sa_family == AF_INET6)

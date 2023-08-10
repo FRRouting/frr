@@ -2484,14 +2484,18 @@ DEFUNSH(VTYSH_PMD, pm_enter, pm_enter_cmd, "pm", "Configure Path Monitoring sess
 #define LOCAL_INTF_STR "Configure local interface name to use\n"
 #define VRF_STR "Configure VRF\n"
 #define VRF_NAME_STR "Configure VRF name\n"
+#define TYPE_STR "Configure type\n"
+#define TYPE_ICMP_ECHO_STR "ICMP echo session type\n"
+#define TYPE_ICMP_SLA_STR "ICMP SLA session type\n"
 
 DEFUNSH(VTYSH_PMD, pm_session_enter, pm_session_enter_cmd,
-	"session <A.B.C.D|X:X::X:X|WORD> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	"session <A.B.C.D|X:X::X:X|WORD> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME|type <icmp_echo|icmp_sla>}]",
 	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
 	INTERFACE_STR
 	LOCAL_INTF_STR
-	VRF_STR VRF_NAME_STR)
+	VRF_STR VRF_NAME_STR
+	TYPE_STR TYPE_ICMP_ECHO_STR TYPE_ICMP_SLA_STR)
 {
 	vty->node = PM_SESSION_NODE;
 	return CMD_SUCCESS;
