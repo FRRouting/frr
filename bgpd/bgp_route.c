@@ -12086,6 +12086,8 @@ int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
 				"Prefix: \n\tRoute Target: %s/%u\n\tOrigin-as: %u\n",
 				ecomstr, local_p.prefixlen,
 				local_p.u.prefix_rtc.origin_as);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecomstr);
+			ecommunity_unintern(&ecom);
 			route_vty_out_detail_header(vty, bgp, dest, &local_p,
 						    NULL, AFI_IP, safi, NULL,
 						    false);
@@ -16242,7 +16244,7 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP,
 					ECOMMUNITY_ROUTE_TARGET);
 				vty_out(vty, "  rt %s", b);
-				ecommunity_free(&ecom);
+				ecommunity_unintern(&ecom);
 				XFREE(MTYPE_ECOMMUNITY_STR, b);
 			} else {
 				vty_out(vty, "  rt 0:0");
