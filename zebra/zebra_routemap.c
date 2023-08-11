@@ -33,7 +33,6 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
-	vrf_id_t vrf_id;
 	uint32_t source_protocol;
 	uint8_t instance;
 	int metric;
@@ -83,7 +82,7 @@ route_match_interface(void *rule, const struct prefix *prefix, void *object)
 	rm_data = object;
 	if (!rm_data || !rm_data->nexthop)
 		return RMAP_NOMATCH;
-	ifindex = ifname2ifindex(ifname, rm_data->vrf_id);
+	ifindex = ifname2ifindex(ifname, rm_data->nexthop->vrf_id);
 	if (ifindex == 0)
 		return RMAP_NOMATCH;
 	if (rm_data->nexthop->ifindex == ifindex)
@@ -1772,7 +1771,6 @@ zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.vrf_id = nexthop->vrf_id;
 	rm_obj.source_protocol = rib_type;
 	rm_obj.instance = instance;
 	rm_obj.metric = 0;
@@ -1825,7 +1823,6 @@ route_map_result_t zebra_import_table_route_map_check(
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.vrf_id = nexthop->vrf_id;
 	rm_obj.source_protocol = re_type;
 	rm_obj.instance = instance;
 	rm_obj.metric = 0;
@@ -1851,7 +1848,6 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.vrf_id = nexthop->vrf_id;
 	rm_obj.source_protocol = re->type;
 	rm_obj.instance = re->instance;
 	rm_obj.metric = re->metric;
