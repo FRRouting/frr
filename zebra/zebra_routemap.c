@@ -34,7 +34,6 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
 	struct route_entry *re;
-	uint8_t instance;
 	int metric;
 	route_tag_t tag;
 };
@@ -1477,7 +1476,7 @@ route_match_source_instance(void *rule, const struct prefix *p, void *object)
 	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	return (rm_data->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+	return (rm_data->re->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
 }
 
 static void *route_match_source_instance_compile(const char *arg)
@@ -1759,10 +1758,10 @@ void zebra_routemap_finish(void)
 	route_map_finish();
 }
 
-route_map_result_t
-zebra_route_map_check(afi_t family, struct route_entry *re, uint8_t instance,
-		      const struct prefix *p, struct nexthop *nexthop,
-		      struct zebra_vrf *zvrf, route_tag_t tag)
+route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
+					 const struct prefix *p,
+					 struct nexthop *nexthop,
+					 struct zebra_vrf *zvrf, route_tag_t tag)
 {
 	struct route_map *rmap = NULL;
 	char *rm_name;
@@ -1771,7 +1770,6 @@ zebra_route_map_check(afi_t family, struct route_entry *re, uint8_t instance,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.instance = instance;
 	rm_obj.metric = 0;
 	rm_obj.tag = tag;
 
@@ -1813,11 +1811,9 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
 }
 
-route_map_result_t
-zebra_import_table_route_map_check(int family, struct route_entry *re,
-				   uint8_t instance, const struct prefix *p,
-				   struct nexthop *nexthop, route_tag_t tag,
-				   const char *rmap_name)
+route_map_result_t zebra_import_table_route_map_check(
+	int family, struct route_entry *re, const struct prefix *p,
+	struct nexthop *nexthop, route_tag_t tag, const char *rmap_name)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_DENYMATCH;
@@ -1825,7 +1821,6 @@ zebra_import_table_route_map_check(int family, struct route_entry *re,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.instance = instance;
 	rm_obj.metric = 0;
 	rm_obj.tag = tag;
 
@@ -1850,7 +1845,6 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.instance = re->instance;
 	rm_obj.metric = re->metric;
 	rm_obj.tag = re->tag;
 

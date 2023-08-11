@@ -21,13 +21,11 @@ extern void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
 					     uint32_t table);
 extern void zebra_del_import_table_route_map(afi_t afi, uint32_t table);
 
+extern route_map_result_t zebra_import_table_route_map_check(
+	int family, struct route_entry *re, const struct prefix *p,
+	struct nexthop *nexthop, route_tag_t tag, const char *rmap_name);
 extern route_map_result_t
-zebra_import_table_route_map_check(int family, struct route_entry *re,
-				   uint8_t instance, const struct prefix *p,
-				   struct nexthop *nexthop, route_tag_t tag,
-				   const char *rmap_name);
-extern route_map_result_t
-zebra_route_map_check(afi_t family, struct route_entry *re, uint8_t instance,
+zebra_route_map_check(afi_t family, struct route_entry *re,
 		      const struct prefix *p, struct nexthop *nexthop,
 		      struct zebra_vrf *zvrf, route_tag_t tag);
 extern route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,

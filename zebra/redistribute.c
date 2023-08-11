@@ -647,8 +647,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	afi = family2afi(rn->p.family);
 	if (rmap_name)
-		ret = zebra_import_table_route_map_check(afi, re, re->instance,
-							 &rn->p,
+		ret = zebra_import_table_route_map_check(afi, re, &rn->p,
 							 re->nhe->nhg.nexthop,
 							 re->tag, rmap_name);
 
