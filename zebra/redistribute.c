@@ -649,7 +649,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (rmap_name)
 		ret = zebra_import_table_route_map_check(afi, re, &rn->p,
 							 re->nhe->nhg.nexthop,
-							 re->tag, rmap_name);
+							 rmap_name);
 
 	if (ret != RMAP_PERMITMATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);

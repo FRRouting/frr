@@ -2703,7 +2703,7 @@ skip_check:
 	}
 
 	/* It'll get set if required inside */
-	ret = zebra_route_map_check(family, re, p, nexthop, zvrf, re->tag);
+	ret = zebra_route_map_check(family, re, p, nexthop, zvrf);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(

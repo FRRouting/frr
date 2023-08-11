@@ -34,7 +34,6 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
 	struct route_entry *re;
-	route_tag_t tag;
 };
 
 static void zebra_route_map_set_delay_timer(uint32_t value);
@@ -51,7 +50,7 @@ route_match_tag(void *rule, const struct prefix *prefix, void *object)
 	tag = rule;
 	rm_data = object;
 
-	if (rm_data->tag == *tag)
+	if (rm_data->re->tag == *tag)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -1760,7 +1759,7 @@ void zebra_routemap_finish(void)
 route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 					 const struct prefix *p,
 					 struct nexthop *nexthop,
-					 struct zebra_vrf *zvrf, route_tag_t tag)
+					 struct zebra_vrf *zvrf)
 {
 	struct route_map *rmap = NULL;
 	char *rm_name;
@@ -1769,7 +1768,6 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.tag = tag;
 
 	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX) {
 		rm_name = PROTO_RM_NAME(zvrf, family, re->type);
@@ -1809,9 +1807,11 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
 }
 
-route_map_result_t zebra_import_table_route_map_check(
-	int family, struct route_entry *re, const struct prefix *p,
-	struct nexthop *nexthop, route_tag_t tag, const char *rmap_name)
+route_map_result_t zebra_import_table_route_map_check(int family,
+						      struct route_entry *re,
+						      const struct prefix *p,
+						      struct nexthop *nexthop,
+						      const char *rmap_name)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_DENYMATCH;
@@ -1819,7 +1819,6 @@ route_map_result_t zebra_import_table_route_map_check(
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.tag = tag;
 
 	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
 		rmap = route_map_lookup_by_name(rmap_name);
@@ -1842,7 +1841,6 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.tag = re->tag;
 
 	if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
 		rmap = NHT_RM_MAP(zvrf, afi, client_proto);
