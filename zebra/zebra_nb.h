@@ -96,6 +96,8 @@ int lib_interface_zebra_shutdown_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_shutdown_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args);
+int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_legacy_admin_group_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_legacy_admin_group_destroy(

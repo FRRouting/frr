@@ -1982,6 +1982,12 @@ module frr-zebra {
           "Interface admin status.";
       }
 
+      leaf mpls {
+        type boolean;
+        description
+          "Interface MPLS status.";
+      }
+
       leaf bandwidth {
         type uint32 {
           range "1..100000";
