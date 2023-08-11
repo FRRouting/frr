@@ -479,8 +479,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(RPKI_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0 ||
-			    strncmp(line, "hostname", strlen("hostname")) ==
-				    0 ||
+			    strncmp(line, "hostname", strlen("hostname")) == 0 ||
 			    strncmp(line, "domainname", strlen("domainname")) ==
 				    0 ||
 			    strncmp(line, "allow-reserved-ranges",
@@ -492,12 +491,18 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    strlen("no ip prefix-list")) == 0 ||
 			    strncmp(line, "no ipv6 prefix-list",
 				    strlen("no ipv6 prefix-list")) == 0 ||
+<<<<<<< HEAD
 			    strncmp(line, "service cputime-stats",
 				    strlen("service cputime-stats")) == 0 ||
 			    strncmp(line, "no service cputime-stats",
 				    strlen("no service cputime-stats")) == 0 ||
 			    strncmp(line, "service cputime-warning",
 				    strlen("service cputime-warning")) == 0)
+=======
+			    strncmp(line, "service ", strlen("service ")) == 0 ||
+			    strncmp(line, "no service ",
+				    strlen("no service ")) == 0)
+>>>>>>> 8fa9f2bc2 (vtysh: Print uniq lines when parsing `no service ...`)
 				config_add_line_uniq(config_top, line);
 			else
 				config_add_line(config_top, line);
