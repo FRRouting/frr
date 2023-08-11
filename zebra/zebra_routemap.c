@@ -34,7 +34,6 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
 	struct route_entry *re;
-	int metric;
 	route_tag_t tag;
 };
 
@@ -1770,7 +1769,6 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.metric = 0;
 	rm_obj.tag = tag;
 
 	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX) {
@@ -1821,7 +1819,6 @@ route_map_result_t zebra_import_table_route_map_check(
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.metric = 0;
 	rm_obj.tag = tag;
 
 	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
@@ -1845,7 +1842,6 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 
 	rm_obj.nexthop = nexthop;
 	rm_obj.re = re;
-	rm_obj.metric = re->metric;
 	rm_obj.tag = re->tag;
 
 	if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
