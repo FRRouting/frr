@@ -1485,7 +1485,7 @@ class Router(Node):
                 self.routertype = params.get("routertype")
 
         # Set ownership of config files
-        self.cmd("chown {0}:{0}vty /etc/{0}".format(self.routertype))
+        self.cmd("chown root:root /etc/{0}".format(self.routertype))
 
     def terminate(self):
         # Stop running FRR daemons
@@ -1644,7 +1644,7 @@ class Router(Node):
                     self.cmd_raises("rm -f " + conf_file)
                     self.cmd_raises("touch " + conf_file)
                     self.cmd_raises(
-                        "chown {0}:{0} {1}".format(self.routertype, conf_file)
+                        "chown root:root {0}".format(conf_file)
                     )
                     self.cmd_raises("chmod 664 {}".format(conf_file))
             elif source:
@@ -1659,7 +1659,7 @@ class Router(Node):
                     )
                     self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
                     self.cmd_raises(
-                        "chown {0}:{0} {1}".format(self.routertype, conf_file_mgmt)
+                        "chown root:root {0}".format(conf_file_mgmt)
                     )
                     self.cmd_raises("chmod 664 {}".format(conf_file_mgmt))
 
@@ -1667,7 +1667,7 @@ class Router(Node):
                     "copying '%s' as '%s' on '%s'", source, conf_file, self.name
                 )
                 self.cmd_raises("cp {} {}".format(source, conf_file))
-                self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
+                self.cmd_raises("chown root:root {0}".format(conf_file))
                 self.cmd_raises("chmod 664 {}".format(conf_file))
 
             if (daemon == "snmpd") and (self.routertype == "frr"):
@@ -1713,8 +1713,8 @@ class Router(Node):
             )
 
         self.cmd(
-            "chown %s:%svty /etc/%s/vtysh.conf"
-            % (self.routertype, self.routertype, self.routertype)
+            "chown root:root /etc/%s/vtysh.conf"
+            % (self.routertype)
         )
         # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
@@ -1829,7 +1829,7 @@ class Router(Node):
 
         # Starts actual daemons without init (ie restart)
         # cd to per node directory
-        self.cmd("install -m 775 -o frr -g frr -d {}/{}".format(self.logdir, self.name))
+        self.cmd("install -m 775 -o root -g root -d {}/{}".format(self.logdir, self.name))
         self.set_cwd("{}/{}".format(self.logdir, self.name))
         self.cmd("umask 000")
 
@@ -2248,7 +2248,7 @@ class Router(Node):
             )
 
         # Update the permissions on the log files
-        self.cmd("chown frr:frr -R {}/{}".format(self.logdir, self.name))
+        self.cmd("chown root:root -R {}/{}".format(self.logdir, self.name))
         self.cmd("chmod ug+rwX,o+r -R {}/{}".format(self.logdir, self.name))
 
         if "frr" in logd_options:
