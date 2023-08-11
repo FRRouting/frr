@@ -49,6 +49,7 @@ SEQ = 0
 
 PRE_POLICY = "pre-policy"
 POST_POLICY = "post-policy"
+LOC_RIB = "loc-rib"
 
 
 def build_topo(tgen):
@@ -239,6 +240,8 @@ def test_bmp_bgp_unicast():
     unicast_prefixes(PRE_POLICY)
     logger.info("*** Unicast prefixes post-policy logging ***")
     unicast_prefixes(POST_POLICY)
+    logger.info("*** Unicast prefixes loc-rib logging ***")
+    unicast_prefixes(LOC_RIB)
 
 
 if __name__ == "__main__":
