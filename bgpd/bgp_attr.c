@@ -3507,27 +3507,6 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		else
 			length = stream_getc(BGP_INPUT(peer));
 
-		/* If any attribute appears more than once in the UPDATE
-		   message, then the Error Subcode is set to Malformed Attribute
-		   List. */
-
-		if (CHECK_BITMAP(seen, type)) {
-			flog_warn(
-				EC_BGP_ATTRIBUTE_REPEATED,
-				"%s: error BGP attribute type %d appears twice in a message",
-				peer->host, type);
-
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_MAL_ATTR);
-			ret = BGP_ATTR_PARSE_ERROR;
-			goto done;
-		}
-
-		/* Set type to bitmap to check duplicate attribute.  `type' is
-		   unsigned char so it never overflow bitmap range. */
-
-		SET_BITMAP(seen, type);
-
 		/* Overflow check. */
 		attr_endp = BGP_INPUT_PNT(peer) + length;
 
@@ -3598,6 +3577,45 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				goto done;
 			}
 		}
+
+		/* If attribute appears more than once in the UPDATE message,
+		 * for MP_REACH_NLRI & MP_UNREACH_NLRI attributes
+		 * the Error Subcode is set to Malformed Attribute List.
+		 * For all other attributes, all the occurances of the attribute
+		 * other than the first occurence is discarded. (RFC7606 3g)
+		 */
+
+		if (CHECK_BITMAP(seen, type)) {
+			/* Only relax error handling for eBGP peers */
+			if (peer->sort != BGP_PEER_EBGP ||
+					type == BGP_ATTR_MP_REACH_NLRI || type == BGP_ATTR_MP_UNREACH_NLRI) {
+				flog_warn(
+					EC_BGP_ATTRIBUTE_REPEATED,
+					"%s: error BGP attribute type %d appears twice in a message",
+					peer->host, type);
+
+				bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+						BGP_NOTIFY_UPDATE_MAL_ATTR);
+				ret = BGP_ATTR_PARSE_ERROR;
+				goto done;
+			} else {
+				flog_warn(
+					EC_BGP_ATTRIBUTE_REPEATED,
+					"%s: error BGP attribute type %d appears twice in a message - discard attribute",
+					peer->host, type);
+				/* Adjust the stream getp to the end of the attribute, in case we
+				 * haven't read all the attributes.
+				 */
+				stream_set_getp(BGP_INPUT(peer),
+					(startp - STREAM_DATA(BGP_INPUT(peer))) + (attr_endp - startp));
+				continue;
+			}
+		}
+
+		/* Set type to bitmap to check duplicate attribute.  `type' is
+		   unsigned char so it never overflow bitmap range. */
+
+		SET_BITMAP(seen, type);
 
 		struct bgp_attr_parser_args attr_args = {
 			.peer = peer,
