@@ -33,7 +33,7 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
-	uint32_t source_protocol;
+	struct route_entry *re;
 	uint8_t instance;
 	int metric;
 	route_tag_t tag;
@@ -1431,15 +1431,14 @@ static const struct route_map_rule_cmd
 static enum route_map_cmd_result_t
 route_match_source_protocol(void *rule, const struct prefix *p, void *object)
 {
-	uint32_t *rib_type = (uint32_t *)rule;
+	int32_t *rib_type = (int32_t *)rule;
 	struct zebra_rmap_obj *rm_data;
 
 	rm_data = (struct zebra_rmap_obj *)object;
 	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	return ((rm_data->source_protocol == *rib_type) ? RMAP_MATCH
-							: RMAP_NOMATCH);
+	return ((rm_data->re->type == *rib_type) ? RMAP_MATCH : RMAP_NOMATCH);
 }
 
 static void *route_match_source_protocol_compile(const char *arg)
@@ -1761,7 +1760,7 @@ void zebra_routemap_finish(void)
 }
 
 route_map_result_t
-zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
+zebra_route_map_check(afi_t family, struct route_entry *re, uint8_t instance,
 		      const struct prefix *p, struct nexthop *nexthop,
 		      struct zebra_vrf *zvrf, route_tag_t tag)
 {
@@ -1771,14 +1770,14 @@ zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.source_protocol = rib_type;
+	rm_obj.re = re;
 	rm_obj.instance = instance;
 	rm_obj.metric = 0;
 	rm_obj.tag = tag;
 
-	if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX) {
-		rm_name = PROTO_RM_NAME(zvrf, family, rib_type);
-		rmap = PROTO_RM_MAP(zvrf, family, rib_type);
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX) {
+		rm_name = PROTO_RM_NAME(zvrf, family, re->type);
+		rmap = PROTO_RM_MAP(zvrf, family, re->type);
 
 		if (rm_name && !rmap)
 			return RMAP_DENYMATCH;
@@ -1814,21 +1813,23 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
 }
 
-route_map_result_t zebra_import_table_route_map_check(
-	int family, int re_type, uint8_t instance, const struct prefix *p,
-	struct nexthop *nexthop, route_tag_t tag, const char *rmap_name)
+route_map_result_t
+zebra_import_table_route_map_check(int family, struct route_entry *re,
+				   uint8_t instance, const struct prefix *p,
+				   struct nexthop *nexthop, route_tag_t tag,
+				   const char *rmap_name)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_DENYMATCH;
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.source_protocol = re_type;
+	rm_obj.re = re;
 	rm_obj.instance = instance;
 	rm_obj.metric = 0;
 	rm_obj.tag = tag;
 
-	if (re_type >= 0 && re_type < ZEBRA_ROUTE_MAX)
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
 		rmap = route_map_lookup_by_name(rmap_name);
 	if (rmap) {
 		ret = route_map_apply(rmap, p, &rm_obj);
@@ -1848,7 +1849,7 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.source_protocol = re->type;
+	rm_obj.re = re;
 	rm_obj.instance = re->instance;
 	rm_obj.metric = re->metric;
 	rm_obj.tag = re->tag;
