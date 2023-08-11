@@ -368,7 +368,7 @@ DEFPY (service_cputime_stats,
 
 DEFPY (service_cputime_warning,
        service_cputime_warning_cmd,
-       "[no] service cputime-warning (1-4294967295)",
+       "[no] service cputime-warning ![(1-4294967295)]",
        NO_STR
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding CPU usage threshold\n"
@@ -381,16 +381,9 @@ DEFPY (service_cputime_warning,
 	return CMD_SUCCESS;
 }
 
-ALIAS (service_cputime_warning,
-       no_service_cputime_warning_cmd,
-       "no service cputime-warning",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Warn for tasks exceeding CPU usage threshold\n")
-
 DEFPY (service_walltime_warning,
        service_walltime_warning_cmd,
-       "[no] service walltime-warning (1-4294967295)",
+       "[no] service walltime-warning ![(1-4294967295)]",
        NO_STR
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding total wallclock threshold\n"
@@ -402,13 +395,6 @@ DEFPY (service_walltime_warning,
 		walltime_threshold = walltime_warning * 1000;
 	return CMD_SUCCESS;
 }
-
-ALIAS (service_walltime_warning,
-       no_service_walltime_warning_cmd,
-       "no service walltime-warning",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Warn for tasks exceeding total wallclock threshold\n")
 
 static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 {
@@ -539,9 +525,7 @@ void thread_cmd_init(void)
 
 	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
 	install_element(CONFIG_NODE, &service_cputime_warning_cmd);
-	install_element(CONFIG_NODE, &no_service_cputime_warning_cmd);
 	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
-	install_element(CONFIG_NODE, &no_service_walltime_warning_cmd);
 
 	install_element(VIEW_NODE, &show_thread_timers_cmd);
 }
