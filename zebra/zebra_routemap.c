@@ -1816,19 +1816,16 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
 }
 
-route_map_result_t
-zebra_import_table_route_map_check(int family, int re_type, uint8_t instance,
-				   const struct prefix *p,
-				   struct nexthop *nexthop,
-				   vrf_id_t vrf_id, route_tag_t tag,
-				   const char *rmap_name)
+route_map_result_t zebra_import_table_route_map_check(
+	int family, int re_type, uint8_t instance, const struct prefix *p,
+	struct nexthop *nexthop, route_tag_t tag, const char *rmap_name)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_DENYMATCH;
 	struct zebra_rmap_obj rm_obj;
 
 	rm_obj.nexthop = nexthop;
-	rm_obj.vrf_id = vrf_id;
+	rm_obj.vrf_id = nexthop->vrf_id;
 	rm_obj.source_protocol = re_type;
 	rm_obj.instance = instance;
 	rm_obj.metric = 0;
