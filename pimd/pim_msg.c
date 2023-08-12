@@ -196,7 +196,32 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 				__func__, up->sg_str);
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
-			if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
+			/*
+			 * PIM VXLAN is weird
+			 * It auto creates the S,G and populates a bunch
+			 * of flags that make it look like a SPT prune should
+			 * be sent.  But this regularly scheduled join
+			 * for the *,G in the VXLAN setup can happen at
+			 * scheduled times *before* the null register
+			 * is received by the RP to cause it to initiate
+			 * the S,G joins toward the source.  Let's just
+			 * assume that if this is a SRC VXLAN ORIG route
+			 * and no actual ifchannels( joins ) have been
+			 * created then do not send the embedded prune
+			 * Why you may ask?  Well if the prune is S,G
+			 * RPT Prune is received *before* the join
+			 * from the RP( if it flows to this routers
+			 * upstream interface ) then we'll just wisely
+			 * create a mroute with an empty oil on
+			 * the upstream intermediate router preventing
+			 * packets from flowing to the RP
+			 */
+			if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(child->flags) &&
+			    listcount(child->ifchannels) == 0) {
+				if (PIM_DEBUG_PIM_PACKETS)
+					zlog_debug("%s: %s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
+						   __func__, child->sg_str);
+			} else if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
 				/* If we are using SPT and the SPT and RPT IIFs
 				 * are different we can prune the source off
 				 * of the RPT.
