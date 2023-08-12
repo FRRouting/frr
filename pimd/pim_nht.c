@@ -461,15 +461,15 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	}
 
 	if (PIM_DEBUG_PIM_NHT) {
-		zlog_debug(
-			"%s: NHT upstream %s(%s) old ifp %s new ifp %s",
-			__func__, up->sg_str, pim->vrf->name,
-			old.source_nexthop.interface ? old.source_nexthop
-							       .interface->name
-						     : "Unknown",
-			up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
-								   .interface->name
-							 : "Unknown");
+		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s rpf_result: %d",
+			   __func__, up->sg_str, pim->vrf->name,
+			   old.source_nexthop.interface ? old.source_nexthop
+								  .interface->name
+							: "Unknown",
+			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
+								      .interface->name
+							    : "Unknown",
+			   rpf_result);
 	}
 
 	return HASHWALK_CONTINUE;
