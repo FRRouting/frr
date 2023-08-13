@@ -1105,6 +1105,9 @@ static void pbrms_clear_set_config(struct pbr_map_sequence *pbrms)
 	pbrms->nhs_installed = false;
 
 	pbrms->forwarding_type = PBR_FT_UNSPEC;
+
+	/* clear advisory flag indicating nexthop == blackhole */
+	UNSET_FLAG(pbrms->action_bm, PBR_ACTION_DROP);
 }
 
 
@@ -1263,6 +1266,8 @@ DEFPY  (pbr_map_nexthop,
 		}
 	} else if (bh) {
 		nhop.type = NEXTHOP_TYPE_BLACKHOLE;
+		/* advisory flag for non-linux dataplanes */
+		SET_FLAG(pbrms->action_bm, PBR_ACTION_DROP);
 	} else {
 		nhop.type = NEXTHOP_TYPE_IFINDEX;
 	}

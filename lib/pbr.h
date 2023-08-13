@@ -99,6 +99,7 @@ struct pbr_action {
 #define PBR_ACTION_DST_PORT		(1 << 8)
 #define PBR_ACTION_DSCP			(1 << 9)
 #define PBR_ACTION_ECN			(1 << 10)
+#define PBR_ACTION_DROP			(1 << 11) /* nexthop == blackhole */
 
 	uint32_t table;
 	uint32_t queue_id;
