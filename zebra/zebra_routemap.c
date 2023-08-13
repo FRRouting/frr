@@ -31,13 +31,9 @@ static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct event *zebra_t_rmap_update = NULL;
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
-struct nh_rmap_obj {
+struct zebra_rmap_obj {
 	struct nexthop *nexthop;
-	vrf_id_t vrf_id;
-	uint32_t source_protocol;
-	uint8_t instance;
-	int metric;
-	route_tag_t tag;
+	struct route_entry *re;
 };
 
 static void zebra_route_map_set_delay_timer(uint32_t value);
@@ -49,12 +45,12 @@ static enum route_map_cmd_result_t
 route_match_tag(void *rule, const struct prefix *prefix, void *object)
 {
 	route_tag_t *tag;
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 
 	tag = rule;
-	nh_data = object;
+	rm_data = object;
 
-	if (nh_data->tag == *tag)
+	if (rm_data->re->tag == *tag)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -74,19 +70,19 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 static enum route_map_cmd_result_t
 route_match_interface(void *rule, const struct prefix *prefix, void *object)
 {
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 	char *ifname = rule;
 	ifindex_t ifindex;
 
 	if (strcasecmp(ifname, "any") == 0)
 		return RMAP_MATCH;
-	nh_data = object;
-	if (!nh_data || !nh_data->nexthop)
+	rm_data = object;
+	if (!rm_data || !rm_data->nexthop)
 		return RMAP_NOMATCH;
-	ifindex = ifname2ifindex(ifname, nh_data->vrf_id);
+	ifindex = ifname2ifindex(ifname, rm_data->nexthop->vrf_id);
 	if (ifindex == 0)
 		return RMAP_NOMATCH;
-	if (nh_data->nexthop->ifindex == ifindex)
+	if (rm_data->nexthop->ifindex == ifindex)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -1017,21 +1013,21 @@ static enum route_map_cmd_result_t
 route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 	struct prefix_ipv4 p;
 
-	nh_data = object;
-	if (!nh_data)
+	rm_data = object;
+	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	switch (nh_data->nexthop->type) {
+	switch (rm_data->nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		/* Interface routes can't match ip next-hop */
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		p.family = AF_INET;
-		p.prefix = nh_data->nexthop->gate.ipv4;
+		p.prefix = rm_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1080,21 +1076,21 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				    void *object)
 {
 	struct prefix_list *plist;
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 	struct prefix_ipv4 p;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	if (!nh_data)
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	switch (nh_data->nexthop->type) {
+	switch (rm_data->nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		/* Interface routes can't match ip next-hop */
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		p.family = AF_INET;
-		p.prefix = nh_data->nexthop->gate.ipv4;
+		p.prefix = rm_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1264,14 +1260,14 @@ static enum route_map_cmd_result_t
 route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
 			       void *object)
 {
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 
 	if (prefix->family == AF_INET6) {
-		nh_data = (struct nh_rmap_obj *)object;
-		if (!nh_data)
+		rm_data = (struct zebra_rmap_obj *)object;
+		if (!rm_data)
 			return RMAP_NOMATCH;
 
-		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+		if (rm_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 			return RMAP_MATCH;
 	}
 
@@ -1356,21 +1352,21 @@ route_match_ip_nexthop_prefix_len(void *rule, const struct prefix *prefix,
 				  void *object)
 {
 	uint32_t *prefixlen = (uint32_t *)rule;
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 	struct prefix_ipv4 p;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	if (!nh_data || !nh_data->nexthop)
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data || !rm_data->nexthop)
 		return RMAP_NOMATCH;
 
-	switch (nh_data->nexthop->type) {
+	switch (rm_data->nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		/* Interface routes can't match ip next-hop */
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		p.family = AF_INET;
-		p.prefix = nh_data->nexthop->gate.ipv4;
+		p.prefix = rm_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1395,14 +1391,14 @@ static enum route_map_cmd_result_t
 route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
 			     void *object)
 {
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 
 	if (prefix->family == AF_INET) {
-		nh_data = (struct nh_rmap_obj *)object;
-		if (!nh_data)
+		rm_data = (struct zebra_rmap_obj *)object;
+		if (!rm_data)
 			return RMAP_NOMATCH;
 
-		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+		if (rm_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 			return RMAP_MATCH;
 	}
 
@@ -1432,15 +1428,14 @@ static const struct route_map_rule_cmd
 static enum route_map_cmd_result_t
 route_match_source_protocol(void *rule, const struct prefix *p, void *object)
 {
-	uint32_t *rib_type = (uint32_t *)rule;
-	struct nh_rmap_obj *nh_data;
+	int32_t *rib_type = (int32_t *)rule;
+	struct zebra_rmap_obj *rm_data;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	if (!nh_data)
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	return ((nh_data->source_protocol == *rib_type) ? RMAP_MATCH
-							: RMAP_NOMATCH);
+	return ((rm_data->re->type == *rib_type) ? RMAP_MATCH : RMAP_NOMATCH);
 }
 
 static void *route_match_source_protocol_compile(const char *arg)
@@ -1473,13 +1468,13 @@ static enum route_map_cmd_result_t
 route_match_source_instance(void *rule, const struct prefix *p, void *object)
 {
 	uint8_t *instance = (uint8_t *)rule;
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	if (!nh_data)
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data)
 		return RMAP_NOMATCH;
 
-	return (nh_data->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+	return (rm_data->re->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
 }
 
 static void *route_match_source_instance_compile(const char *arg)
@@ -1513,10 +1508,10 @@ static const struct route_map_rule_cmd route_match_source_instance_cmd = {
 static enum route_map_cmd_result_t
 route_set_src(void *rule, const struct prefix *prefix, void *object)
 {
-	struct nh_rmap_obj *nh_data;
+	struct zebra_rmap_obj *rm_data;
 
-	nh_data = (struct nh_rmap_obj *)object;
-	nh_data->nexthop->rmap_src = *(union g_addr *)rule;
+	rm_data = (struct zebra_rmap_obj *)object;
+	rm_data->nexthop->rmap_src = *(union g_addr *)rule;
 
 	return RMAP_OKAY;
 }
@@ -1761,26 +1756,22 @@ void zebra_routemap_finish(void)
 	route_map_finish();
 }
 
-route_map_result_t
-zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
-		      const struct prefix *p, struct nexthop *nexthop,
-		      struct zebra_vrf *zvrf, route_tag_t tag)
+route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
+					 const struct prefix *p,
+					 struct nexthop *nexthop,
+					 struct zebra_vrf *zvrf)
 {
 	struct route_map *rmap = NULL;
 	char *rm_name;
 	route_map_result_t ret = RMAP_PERMITMATCH;
-	struct nh_rmap_obj nh_obj;
+	struct zebra_rmap_obj rm_obj;
 
-	nh_obj.nexthop = nexthop;
-	nh_obj.vrf_id = nexthop->vrf_id;
-	nh_obj.source_protocol = rib_type;
-	nh_obj.instance = instance;
-	nh_obj.metric = 0;
-	nh_obj.tag = tag;
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
 
-	if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX) {
-		rm_name = PROTO_RM_NAME(zvrf, family, rib_type);
-		rmap = PROTO_RM_MAP(zvrf, family, rib_type);
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX) {
+		rm_name = PROTO_RM_NAME(zvrf, family, re->type);
+		rmap = PROTO_RM_MAP(zvrf, family, re->type);
 
 		if (rm_name && !rmap)
 			return RMAP_DENYMATCH;
@@ -1793,7 +1784,7 @@ zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
 			return RMAP_DENYMATCH;
 	}
 	if (rmap) {
-		ret = route_map_apply(rmap, p, &nh_obj);
+		ret = route_map_apply(rmap, p, &rm_obj);
 	}
 
 	return (ret);
@@ -1816,28 +1807,23 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
 }
 
-route_map_result_t
-zebra_import_table_route_map_check(int family, int re_type, uint8_t instance,
-				   const struct prefix *p,
-				   struct nexthop *nexthop,
-				   vrf_id_t vrf_id, route_tag_t tag,
-				   const char *rmap_name)
+route_map_result_t zebra_import_table_route_map_check(int family,
+						      struct route_entry *re,
+						      const struct prefix *p,
+						      struct nexthop *nexthop,
+						      const char *rmap_name)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_DENYMATCH;
-	struct nh_rmap_obj nh_obj;
+	struct zebra_rmap_obj rm_obj;
 
-	nh_obj.nexthop = nexthop;
-	nh_obj.vrf_id = vrf_id;
-	nh_obj.source_protocol = re_type;
-	nh_obj.instance = instance;
-	nh_obj.metric = 0;
-	nh_obj.tag = tag;
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
 
-	if (re_type >= 0 && re_type < ZEBRA_ROUTE_MAX)
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
 		rmap = route_map_lookup_by_name(rmap_name);
 	if (rmap) {
-		ret = route_map_apply(rmap, p, &nh_obj);
+		ret = route_map_apply(rmap, p, &rm_obj);
 	}
 
 	return (ret);
@@ -1851,21 +1837,17 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_PERMITMATCH;
-	struct nh_rmap_obj nh_obj;
+	struct zebra_rmap_obj rm_obj;
 
-	nh_obj.nexthop = nexthop;
-	nh_obj.vrf_id = nexthop->vrf_id;
-	nh_obj.source_protocol = re->type;
-	nh_obj.instance = re->instance;
-	nh_obj.metric = re->metric;
-	nh_obj.tag = re->tag;
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
 
 	if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
 		rmap = NHT_RM_MAP(zvrf, afi, client_proto);
 	if (!rmap && NHT_RM_MAP(zvrf, afi, ZEBRA_ROUTE_MAX))
 		rmap = NHT_RM_MAP(zvrf, afi, ZEBRA_ROUTE_MAX);
 	if (rmap)
-		ret = route_map_apply(rmap, p, &nh_obj);
+		ret = route_map_apply(rmap, p, &rm_obj);
 
 	return ret;
 }
