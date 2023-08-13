@@ -3188,10 +3188,32 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		strlcpy(zpr.ifname, zpr.rule.ifname, sizeof(zpr.ifname));
 
+		if ((zpr.rule.family != AF_INET) &&
+		    (zpr.rule.family != AF_INET6)) {
+			zlog_warn("Unsupported PBR source IP family: %s (%hhu)",
+				  family2str(zpr.rule.family), zpr.rule.family);
+			return;
+		}
+
+		/*
+		 * Fixup filter src/dst IP addresses if they are unset
+		 * because the netlink code currently obtains address family
+		 * from them. Address family is used to specify which
+		 * kernel database to use when adding/deleting rule.
+		 *
+		 * TBD: propagate zpr.rule.family into dataplane and
+		 * netlink code so they can stop using filter src/dst addrs.
+		 */
+		if (!CHECK_FLAG(zpr.rule.filter.filter_bm, PBR_FILTER_SRC_IP))
+			zpr.rule.filter.src_ip.family = zpr.rule.family;
+		if (!CHECK_FLAG(zpr.rule.filter.filter_bm, PBR_FILTER_DST_IP))
+			zpr.rule.filter.dst_ip.family = zpr.rule.family;
+
+		/* TBD delete below block when netlink code gets family from zpr.rule.family */
 		if (!(zpr.rule.filter.src_ip.family == AF_INET
 		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
 			zlog_warn(
-				"Unsupported PBR source IP family: %s (%hhu)",
+				"Unsupported PBR source IP family: %s (%u)",
 				family2str(zpr.rule.filter.src_ip.family),
 				zpr.rule.filter.src_ip.family);
 			return;
@@ -3199,11 +3221,12 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (!(zpr.rule.filter.dst_ip.family == AF_INET
 		      || zpr.rule.filter.dst_ip.family == AF_INET6)) {
 			zlog_warn(
-				"Unsupported PBR destination IP family: %s (%hhu)",
+				"Unsupported PBR destination IP family: %s (%u)",
 				family2str(zpr.rule.filter.dst_ip.family),
 				zpr.rule.filter.dst_ip.family);
 			return;
 		}
+		/* TBD delete above block when netlink code gets family from zpr.rule.family */
 
 
 		zpr.vrf_id = zvrf->vrf->vrf_id;

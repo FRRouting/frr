@@ -1622,6 +1622,47 @@ stream_failure:
 	return false;
 }
 
+static void zapi_encode_sockunion(struct stream *s, const union sockunion *su)
+{
+	int family = sockunion_family(su);
+	size_t addrlen = family2addrsize(family);
+
+	/*
+	 * Must know length to encode
+	 */
+	assert(addrlen);
+
+	stream_putc(s, (uint8_t)family);
+
+	stream_write(s, sockunion_get_addr(su), addrlen);
+}
+
+static bool zapi_decode_sockunion(struct stream *s, union sockunion *su)
+{
+	uint8_t family;
+	size_t addrlen;
+	uint8_t buf[sizeof(union sockunion)];
+
+	memset(su, 0, sizeof(*su));
+
+	STREAM_GETC(s, family);
+	sockunion_family(su) = family;
+
+	addrlen = family2addrsize(family);
+	if (!addrlen)
+		return false;
+
+	if (addrlen > sizeof(buf))
+		return false;
+
+	STREAM_GET(buf, s, addrlen);
+	sockunion_set(su, family, buf, addrlen);
+	return true;
+
+stream_failure:
+	return false;
+}
+
 /*
  * Encode filter subsection of pbr_rule
  */
@@ -1631,40 +1672,79 @@ static void zapi_pbr_rule_filter_encode(struct stream *s, struct pbr_filter *f)
 	assert((f->src_ip.family == AF_INET) || (f->src_ip.family == AF_INET6));
 
 	stream_putl(s, f->filter_bm);
-	stream_putc(s, f->ip_proto);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_IP_PROTOCOL))
+		stream_putc(s, f->ip_proto);
 
 	/* addresses */
-	zapi_encode_prefix(s, &f->src_ip, f->src_ip.family);
-	zapi_encode_prefix(s, &f->dst_ip, f->dst_ip.family);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_IP))
+		zapi_encode_prefix(s, &f->src_ip, f->src_ip.family);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_IP))
+		zapi_encode_prefix(s, &f->dst_ip, f->dst_ip.family);
 
 	/* port numbers */
-	stream_putw(s, f->src_port);
-	stream_putw(s, f->dst_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_PORT))
+		stream_putw(s, f->src_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_PORT))
+		stream_putw(s, f->dst_port);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DSCP))
+		stream_putc(s, f->dsfield & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_ECN))
+		stream_putc(s, f->dsfield & PBR_DSFIELD_ECN);
 
 	/* vlan */
-	stream_putc(s, f->pcp);
-	stream_putw(s, f->vlan_id);
-	stream_putw(s, f->vlan_flags);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_PCP))
+		stream_putc(s, f->pcp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_ID))
+		stream_putw(s, f->vlan_id);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_FLAGS))
+		stream_putw(s, f->vlan_flags);
 
-	stream_putc(s, f->dsfield);
-	stream_putl(s, f->fwmark);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_FWMARK))
+		stream_putl(s, f->fwmark);
 }
 
 static bool zapi_pbr_rule_filter_decode(struct stream *s, struct pbr_filter *f)
 {
+	uint8_t dscp = 0;
+	uint8_t ecn = 0;
+
 	STREAM_GETL(s, f->filter_bm);
-	STREAM_GETC(s, f->ip_proto);
-	if (!zapi_decode_prefix(s, &(f->src_ip)))
-		goto stream_failure;
-	if (!zapi_decode_prefix(s, &(f->dst_ip)))
-		goto stream_failure;
-	STREAM_GETW(s, f->src_port);
-	STREAM_GETW(s, f->dst_port);
-	STREAM_GETC(s, f->pcp);
-	STREAM_GETW(s, f->vlan_id);
-	STREAM_GETW(s, f->vlan_flags);
-	STREAM_GETC(s, f->dsfield);
-	STREAM_GETL(s, f->fwmark);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_IP_PROTOCOL))
+		STREAM_GETC(s, f->ip_proto);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_IP))
+		if (!zapi_decode_prefix(s, &(f->src_ip)))
+			goto stream_failure;
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_IP))
+		if (!zapi_decode_prefix(s, &(f->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_PORT))
+		STREAM_GETW(s, f->src_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_PORT))
+		STREAM_GETW(s, f->dst_port);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DSCP))
+		STREAM_GETC(s, dscp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_ECN))
+		STREAM_GETC(s, ecn);
+	f->dsfield = (dscp & PBR_DSFIELD_DSCP) | (ecn & PBR_DSFIELD_ECN);
+
+	/* vlan */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_PCP))
+		STREAM_GETC(s, f->pcp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_ID))
+		STREAM_GETW(s, f->vlan_id);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_FLAGS))
+		STREAM_GETW(s, f->vlan_flags);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_FWMARK))
+		STREAM_GETL(s, f->fwmark);
+
 	return true;
 
 stream_failure:
@@ -1674,21 +1754,72 @@ stream_failure:
 static void zapi_pbr_rule_action_encode(struct stream *s, struct pbr_action *a)
 {
 	stream_putl(s, a->flags);
-	stream_putl(s, a->table);
-	stream_putl(s, a->queue_id);
-	stream_putc(s, a->pcp);
-	stream_putw(s, a->vlan_id);
-	stream_putw(s, a->vlan_flags);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TABLE))
+		stream_putl(s, a->table);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
+		stream_putl(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP))
+		zapi_encode_sockunion(s, &a->src_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		zapi_encode_sockunion(s, &a->dst_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		stream_putw(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		stream_putw(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP))
+		stream_putc(s, a->dscp & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN))
+		stream_putc(s, a->ecn & PBR_DSFIELD_ECN);
+
+	/* L2 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
+		stream_putc(s, a->pcp);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
+		stream_putw(s, a->vlan_id);
 }
 
 static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
 {
 	STREAM_GETL(s, a->flags);
-	STREAM_GETL(s, a->table);
-	STREAM_GETL(s, a->queue_id);
-	STREAM_GETC(s, a->pcp);
-	STREAM_GETW(s, a->vlan_id);
-	STREAM_GETW(s, a->vlan_flags);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TABLE))
+		STREAM_GETL(s, a->table);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
+		STREAM_GETL(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP)) {
+		if (!zapi_decode_sockunion(s, &(a->src_ip)))
+			goto stream_failure;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		if (!zapi_decode_sockunion(s, &(a->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		STREAM_GETW(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		STREAM_GETW(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP)) {
+		STREAM_GETC(s, a->dscp);
+		a->dscp &= PBR_DSFIELD_DSCP;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN)) {
+		STREAM_GETC(s, a->ecn);
+		a->ecn &= PBR_DSFIELD_ECN;
+	}
+
+	/* L2 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
+		STREAM_GETC(s, a->pcp);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
+		STREAM_GETW(s, a->vlan_id);
+
 	return true;
 
 stream_failure:
@@ -1702,6 +1833,7 @@ int zapi_pbr_rule_encode(struct stream *s, struct pbr_rule *r)
 	 */
 	stream_putl(s, 1);
 
+	stream_putc(s, r->family);
 	stream_putl(s, r->seq);
 	stream_putl(s, r->priority);
 	stream_putl(s, r->unique);
@@ -1723,6 +1855,7 @@ bool zapi_pbr_rule_decode(struct stream *s, struct pbr_rule *r)
 
 	memset(r, 0, sizeof(*r));
 
+	STREAM_GETC(s, r->family);
 	STREAM_GETL(s, r->seq);
 	STREAM_GETL(s, r->priority);
 	STREAM_GETL(s, r->unique);

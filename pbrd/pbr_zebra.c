@@ -517,10 +517,14 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	uint8_t family;
 
 	/*
-	 * There seems to be some effort in pbr_vty.c to keep the three
-	 * copies of "family" equal. Not sure if the reason goes beyond
-	 * ensuring consistency in ZAPI encoding. In any case, it might
-	 * be handled better as an internal matter for the encoder (TBD).
+	 * Opportunistic address family field is set when any of the IP
+	 * address match/set fields is set, or when a NH/NHG is resolved.
+	 * The value is needed by zebra for the underlying netlink
+	 * messaging, particularly in delete operations, because it
+	 * selects the rule database (IPv4 vs. IPv6).
+	 *
+	 * Historically the value has been encoded into any unused
+	 * "match src/dst address" fields and picked off in zebra.
 	 */
 	family = AF_INET;
 	if (pbrms->family)
@@ -538,6 +542,8 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	r.seq = pbrms->seqno;
 	r.priority = pbrms->ruleno;
 	r.unique = pbrms->unique;
+
+	r.family = pbrms->family;
 
 	/* filter */
 	r.filter.filter_bm = pbrms->filter_bm;
@@ -558,44 +564,18 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	r.filter.fwmark = pbrms->mark;
 	r.filter.ip_proto = pbrms->ip_proto;
 
-	/*
-	 * Fix up filter flags for now, since PBRD doesn't maintain
-	 * them yet (aside from PBR_FILTER_PCP)
-	 */
-	if (!is_default_prefix(&r.filter.src_ip))
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_SRC_IP);
-	if (!is_default_prefix(&r.filter.dst_ip))
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DST_IP);
-	if (r.filter.src_port)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_SRC_PORT);
-	if (r.filter.dst_port)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DST_PORT);
-	if (r.filter.vlan_id)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_VLAN_ID);
-	if (r.filter.vlan_flags)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_VLAN_FLAGS);
-	if (r.filter.dsfield)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_DSFIELD);
-	if (r.filter.fwmark)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_FWMARK);
-	if (r.filter.ip_proto)
-		SET_FLAG(r.filter.filter_bm, PBR_FILTER_IP_PROTOCOL);
+	r.filter.filter_bm = pbrms->filter_bm;
 
 	/* actions */
+
+	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
 
 	/*
 	 * PBR should maintain its own set of action flags that we
 	 * can copy here instead of trying to infer from magic values.
 	 */
-	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
-	if (pbrms->action_queue_id != PBR_MAP_UNDEFINED_QUEUE_ID)
-		SET_FLAG(r.action.flags, PBR_ACTION_QUEUE_ID);
-	if (pbrms->action_pcp != 0)
-		SET_FLAG(r.action.flags, PBR_ACTION_PCP);
-	if (pbrms->action_vlan_id != 0)
-		SET_FLAG(r.action.flags, PBR_ACTION_VLAN_ID);
-	if (pbrms->action_vlan_flags != 0)
-		SET_FLAG(r.action.flags, PBR_ACTION_VLAN_FLAGS);
+
+	r.action.flags = pbrms->action_bm;
 
 	/*
 	 * if the user does not use the command "set vrf name unchanged"
@@ -613,9 +593,18 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	}
 
 	r.action.queue_id = pbrms->action_queue_id;
+
+	r.action.src_ip = pbrms->action_src;
+	r.action.dst_ip = pbrms->action_dst;
+
+	r.action.src_port = pbrms->action_src_port;
+	r.action.dst_port = pbrms->action_dst_port;
+
+	r.action.dscp = pbrms->action_dscp;
+	r.action.ecn = pbrms->action_ecn;
+
 	r.action.pcp = pbrms->action_pcp;
 	r.action.vlan_id = pbrms->action_vlan_id;
-	r.action.vlan_flags = pbrms->action_vlan_flags;
 
 	strlcpy(r.ifname, ifp->name, sizeof(r.ifname));
 
