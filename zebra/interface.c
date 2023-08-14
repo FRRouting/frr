@@ -1848,8 +1848,14 @@ static void interface_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
 	struct zebra_if *zif = ifp->info;
 	const struct zebra_dplane_bridge_vlan_info *bvinfo;
 
+	if (dplane_ctx_get_ifp_no_afspec(ctx))
+		return;
+
 	if (IS_ZEBRA_VXLAN_IF_SVD(zif))
 		interface_bridge_vxlan_vlan_vni_map_update(ctx, ifp);
+
+	if (dplane_ctx_get_ifp_no_bridge_vlan_info(ctx))
+		return;
 
 	bvinfo = dplane_ctx_get_ifp_bridge_vlan_info(ctx);
 

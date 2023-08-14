@@ -383,7 +383,8 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 	assert(zif);
 
 	/* This would be called only in non svd case */
-	assert(IS_ZEBRA_VXLAN_IF_VNI(zif));
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return;
 
 	old_access_vlan = zif->l2info.vxl.vni_info.vni.access_vlan;
 	;
