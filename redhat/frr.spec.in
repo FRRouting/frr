@@ -668,6 +668,7 @@ fi
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/mgmtd
+%{_sbindir}/fpmsyncd
 %exclude %{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr

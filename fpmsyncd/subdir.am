@@ -1,0 +1,13 @@
+
+if FPM
+sbin_PROGRAMS += fpmsyncd/fpmsyncd
+endif
+fpmsyncd_fpmsyncd_CXXFLAGS = -g -I/usr/include/libnl3 
+fpmsyncd_fpmsyncd_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS) -lnl-3 -lnl-route-3 -lpthread
+fpmsyncd_fpmsyncd_SOURCES = \
+    fpmsyncd/fpmsyncd.cpp \
+    fpmsyncd/fpmlink.cpp \
+    fpmsyncd/fpmparser.cpp \
+    fpmsyncd/json.hpp \
+    fpmsyncd/fpmjson.h
+    #end 

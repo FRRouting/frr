@@ -731,6 +731,8 @@ AC_ARG_ENABLE([pcre2posix],
   AS_HELP_STRING([--enable-pcre2posix], [enable using PCRE2 Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
+AC_ARG_ENABLE([fpmsyncd],
+  AS_HELP_STRING([--enable-fpmsyncd], [enable Fpmsyncd simulator daemon]))
 AC_ARG_ENABLE([werror],
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE([cumulus],
@@ -2756,6 +2758,7 @@ AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
 AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
+AM_CONDITIONAL([FPMSYNCD], [test "$enable_fpmsyncd" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 

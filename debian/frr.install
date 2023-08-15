@@ -21,3 +21,4 @@ usr/lib/frr/watchfrr
 usr/lib/frr/zebra
 usr/share/man/
 usr/share/yang/
+usr/lib/frr/fpmsyncd
