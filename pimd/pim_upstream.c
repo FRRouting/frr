@@ -912,6 +912,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 				false /*update_mroute*/);
 		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
 		if (rpf_result == PIM_RPF_FAILURE) {
+			up->channel_oil->oil_inherited_rescan = 1;
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: Attempting to create upstream(%s), Unable to RPF for source",
