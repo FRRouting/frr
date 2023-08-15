@@ -6610,6 +6610,7 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	}
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
+		memset(&prd, 0, sizeof(prd));
 		ret = str2prefix_rd(rd_str, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
