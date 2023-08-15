@@ -84,4 +84,14 @@ ENV PATH "$PATH:/opt/topotests"
 RUN echo "cat /opt/topotests/motd.txt" >> /root/.profile && \
       echo "export PS1='(topotests) $PS1'" >> /root/.profile
 
+# Install libnl-3.7.0
+RUN wget https://github.com/thom311/libnl/releases/download/libnl3_7_0/libnl-3.7.0.tar.gz  -q \
+&& tar -xf libnl-3.7.0.tar.gz \
+&& cd libnl-3.7.0 \
+&& ./configure --prefix=/usr     \
+            --sysconfdir=/etc \
+            --disable-static  \
+&& make -j 8 \
+&& make install  > /dev/null 
+
 ENTRYPOINT [ "bash", "/opt/topotests/entrypoint.sh" ]
