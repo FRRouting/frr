@@ -80,13 +80,12 @@ void zebra_gr_stale_client_cleanup(struct list *client_list)
 			/* Cancel the stale timer */
 			if (info->t_stale_removal != NULL) {
 				EVENT_OFF(info->t_stale_removal);
-				info->t_stale_removal = NULL;
 				info->do_delete = true;
 				/* Process the stale routes */
 				event_execute(
 					zrouter.master,
 					zebra_gr_route_stale_delete_timer_expiry,
-					info, 0);
+					info, 0, NULL);
 			}
 		}
 	}

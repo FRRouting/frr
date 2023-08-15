@@ -61,7 +61,7 @@ int main(void)
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
-	event_execute(master, threadfunc, 0, 0);
+	event_execute(master, threadfunc, 0, 0, NULL);
 
 	exit(0);
 }
