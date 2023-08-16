@@ -2001,8 +2001,8 @@ DEFUN (bgp_confederation_identifier,
        "bgp confederation identifier ASNUM",
        BGP_STR
        "AS confederation parameters\n"
-       AS_STR
-       "Set routing domain confederation AS\n")
+       "Set routing domain confederation AS\n"
+       AS_STR)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
@@ -2024,8 +2024,8 @@ DEFUN (no_bgp_confederation_identifier,
        NO_STR
        BGP_STR
        "AS confederation parameters\n"
-       AS_STR
-       "Set routing domain confederation AS\n")
+       "Set routing domain confederation AS\n"
+       AS_STR)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_confederation_id_unset(bgp);
