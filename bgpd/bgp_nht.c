@@ -316,6 +316,14 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		if (make_prefix(afi, pi, &p) < 0)
 			return 1;
 
+		/*
+		 * If path is learnt from an interface based peer,
+		 * set the ifindex to peer's interface index so that
+		 * correct nexthop can be found in nexthop tree.
+		 */
+		if (pi->peer->conf_if)
+			ifindex = pi->peer->su.sin6.sin6_scope_id;
+
 		if (!is_bgp_static_route && orig_prefix
 		    && prefix_same(&p, orig_prefix)) {
 			if (BGP_DEBUG(nht, NHT)) {
