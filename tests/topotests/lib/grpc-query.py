@@ -26,7 +26,7 @@ try:
 
     commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
     commander.cmd_raises(
-        f"python -m grpc_tools.protoc --python_out=. --grpc_python_out=. -I . frr-northbound.proto"
+        f"python3 -m grpc_tools.protoc --python_out=. --grpc_python_out=. -I . frr-northbound.proto"
     )
 except Exception as error:
     logging.error("can't create proto definition modules %s", error)
@@ -36,17 +36,6 @@ try:
     sys.path[0:0] = "."
     import frr_northbound_pb2
     import frr_northbound_pb2_grpc
-
-    # Would be nice if compiling the modules internally from the source worked
-    # # import grpc_tools.protoc
-    # # proto_include = pkg_resources.resource_filename("grpc_tools", "_proto")
-    # from grpc_tools.protoc import _proto_file_to_module_name, _protos_and_services
-    # try:
-    #     frr_northbound_pb2, frr_northbound_pb2_grpc = _protos_and_services(
-    #         "frr_northbound.proto"
-    #     )
-    # finally:
-    #     os.chdir(CWD)
 except Exception as error:
     logging.error("can't import proto definition modules %s", error)
     raise
