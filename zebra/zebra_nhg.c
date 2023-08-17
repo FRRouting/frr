@@ -3420,6 +3420,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop *newhop;
 	bool replace = false;
+	int ret = 0;
 
 	if (!nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
@@ -3517,22 +3518,31 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 		if (CHECK_FLAG(old->flags, NEXTHOP_GROUP_PROTO_RELEASED))
 			zebra_nhg_increment_ref(old);
 
-		rib_handle_nhg_replace(old, new);
+		ret = rib_handle_nhg_replace(old, new);
+		if (ret)
+			/*
+			 * if ret > 0, some previous re->nhe has freed the
+			 * address to which old_entry is pointing. Hence mark
+			 * the old NHE as NULL
+			 */
+			old = NULL;
+		else {
+			/* We have to decrement its singletons
+			 * because some might not exist in NEW.
+			 */
+			if (!zebra_nhg_depends_is_empty(old)) {
+				frr_each (nhg_connected_tree, &old->nhg_depends,
+					  rb_node_dep)
+					zebra_nhg_decrement_ref(
+						rb_node_dep->nhe);
+			}
 
-		/* We have to decrement its singletons
-		 * because some might not exist in NEW.
-		 */
-		if (!zebra_nhg_depends_is_empty(old)) {
-			frr_each (nhg_connected_tree, &old->nhg_depends,
-				  rb_node_dep)
-				zebra_nhg_decrement_ref(rb_node_dep->nhe);
+			/* Dont call the dec API, we dont want to uninstall the ID */
+			old->refcnt = 0;
+			EVENT_OFF(old->timer);
+			zebra_nhg_free(old);
+			old = NULL;
 		}
-
-		/* Dont call the dec API, we dont want to uninstall the ID */
-		old->refcnt = 0;
-		EVENT_OFF(old->timer);
-		zebra_nhg_free(old);
-		old = NULL;
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
