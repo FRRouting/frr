@@ -123,6 +123,7 @@ DEFUN_NOSH(no_pbr_map,
 			continue;
 
 		pbr_map_delete(pbrms);
+		pbr_map_sequence_delete(pbrms);
 	}
 
 	return CMD_SUCCESS;
