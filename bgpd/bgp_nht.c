@@ -317,11 +317,18 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			return 1;
 
 		/*
-		 * If path is learnt from an interface based peer,
+		 * If it's a V6 nexthop, path is learnt from a v6 LL peer,
+		 * and if the NH prefix matches peer's LL address then
 		 * set the ifindex to peer's interface index so that
 		 * correct nexthop can be found in nexthop tree.
+		 *
+		 * NH could be set to different v6 LL address (compared to
+		 * peer's LL) using route-map. In such a scenario, do not set
+		 * the ifindex.
 		 */
-		if (pi->peer->conf_if)
+		if (afi == AFI_IP6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&pi->peer->su.sin6.sin6_addr) &&
+		    IPV6_ADDR_SAME(&pi->peer->su.sin6.sin6_addr, &p.u.prefix6))
 			ifindex = pi->peer->su.sin6.sin6_scope_id;
 
 		if (!is_bgp_static_route && orig_prefix
