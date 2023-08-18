@@ -448,6 +448,120 @@ static void transit_unintern(struct transit **transit)
 	}
 }
 
+<<<<<<< HEAD
+=======
+static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
+					 uint64_t *aigp)
+{
+	uint8_t *data = pnt;
+	uint8_t tlv_type;
+	uint16_t tlv_length;
+
+	while (length) {
+		tlv_type = *data;
+		ptr_get_be16(data + 1, &tlv_length);
+		(void)data;
+
+		/* The value field of the AIGP TLV is always 8 octets
+		 * long and its value is interpreted as an unsigned 64-bit
+		 * integer.
+		 */
+		if (tlv_type == BGP_AIGP_TLV_METRIC) {
+			(void)ptr_get_be64(data + 3, aigp);
+
+			/* If an AIGP attribute is received and its first AIGP
+			 * TLV contains the maximum value 0xffffffffffffffff,
+			 * the attribute SHOULD be considered to be malformed
+			 * and SHOULD be discarded as specified in this section.
+			 */
+			if (*aigp == BGP_AIGP_TLV_METRIC_MAX) {
+				zlog_err("Bad AIGP TLV (%s) length: %llu",
+					 BGP_AIGP_TLV_METRIC_DESC,
+					 BGP_AIGP_TLV_METRIC_MAX);
+				return false;
+			}
+
+			return true;
+		}
+
+		data += tlv_length;
+		length -= tlv_length;
+	}
+
+	return false;
+}
+
+static uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
+{
+	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
+
+	if (bpi->nexthop)
+		return aigp + bpi->nexthop->metric;
+	else
+		return aigp;
+}
+
+static void stream_put_bgp_aigp_tlv_metric(struct stream *s,
+					   struct bgp_path_info *bpi)
+{
+	stream_putc(s, BGP_AIGP_TLV_METRIC);
+	stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
+	stream_putq(s, bgp_aigp_metric_total(bpi));
+}
+
+static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
+{
+	uint8_t *data = pnt;
+	uint8_t tlv_type;
+	uint16_t tlv_length;
+	uint8_t *end = data + length;
+
+	if (length < 3) {
+		zlog_err("Bad AIGP attribute length (MUST be minimum 3): %u",
+			 length);
+		return false;
+	}
+
+	while (length) {
+		size_t data_len = end - data;
+
+		tlv_type = *data;
+
+		if (data_len - 1 < 2)
+			return false;
+
+		ptr_get_be16(data + 1, &tlv_length);
+		(void)data;
+
+		if (length < tlv_length) {
+			zlog_err(
+				"Bad AIGP attribute length: %u, but TLV length: %u",
+				length, tlv_length);
+			return false;
+		}
+
+		if (tlv_length < 3) {
+			zlog_err("Bad AIGP TLV length (MUST be minimum 3): %u",
+				 tlv_length);
+			return false;
+		}
+
+		/* AIGP TLV, Length: 11 */
+		if (tlv_type == BGP_AIGP_TLV_METRIC &&
+		    tlv_length != BGP_AIGP_TLV_METRIC_LEN) {
+			zlog_err("Bad AIGP TLV (%s) length: %u",
+				 BGP_AIGP_TLV_METRIC_DESC, tlv_length);
+			return false;
+		}
+
+		data += tlv_length;
+		length -= tlv_length;
+	}
+
+	return true;
+}
+
+>>>>>>> f96201e10 (bgpd: Make sure we have enough data to read two bytes when validating AIGP)
 static void *srv6_l3vpn_hash_alloc(void *p)
 {
 	return p;
