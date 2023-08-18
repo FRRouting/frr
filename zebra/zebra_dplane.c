@@ -197,6 +197,8 @@ struct dplane_intf_info {
 	bool startup;
 	uint8_t family;
 	struct zebra_vxlan_vni_array *vniarray;
+	bool no_bvinfo_avail;
+	bool no_afspec_avail;
 	struct zebra_dplane_bridge_vlan_info bvinfo;
 	struct zebra_dplane_bridge_vlan_info_array *bvarray;
 
@@ -1353,6 +1355,34 @@ dplane_ctx_get_ifp_vxlan_vni_array(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.vniarray;
+}
+
+void dplane_ctx_set_ifp_no_afspec(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.no_afspec_avail = true;
+}
+
+bool dplane_ctx_get_ifp_no_afspec(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.no_afspec_avail;
+}
+
+void dplane_ctx_set_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.no_bvinfo_avail = true;
+}
+
+bool dplane_ctx_get_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.no_bvinfo_avail;
 }
 
 void dplane_ctx_set_ifp_bridge_vlan_info(

@@ -635,8 +635,10 @@ static int netlink_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
 	struct bridge_vlan_info *vinfo;
 	struct zebra_dplane_bridge_vlan_info bvinfo;
 
-	if (!af_spec)
+	if (!af_spec) {
+		dplane_ctx_set_ifp_no_afspec(ctx);
 		return 0;
+	}
 
 	netlink_bridge_vxlan_vlan_vni_map_update(ctx, af_spec);
 
@@ -644,8 +646,10 @@ static int netlink_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
 	 * only 1 access VLAN is accepted.
 	 */
 	netlink_parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, af_spec);
-	if (!aftb[IFLA_BRIDGE_VLAN_INFO])
+	if (!aftb[IFLA_BRIDGE_VLAN_INFO]) {
+		dplane_ctx_set_ifp_no_bridge_vlan_info(ctx);
 		return 0;
+	}
 
 	vinfo = RTA_DATA(aftb[IFLA_BRIDGE_VLAN_INFO]);
 	bvinfo.flags = vinfo->flags;

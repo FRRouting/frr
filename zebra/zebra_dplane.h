@@ -429,6 +429,10 @@ struct zebra_dplane_bridge_vlan_info {
 	uint16_t flags;
 	uint16_t vid;
 };
+void dplane_ctx_set_ifp_no_afspec(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_ifp_no_afspec(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_ifp_no_bridge_vlan_info(struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_bridge_vlan_info(
 	struct zebra_dplane_ctx *ctx,
 	struct zebra_dplane_bridge_vlan_info *bvinfo);
