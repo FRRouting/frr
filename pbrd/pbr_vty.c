@@ -441,18 +441,18 @@ DEFPY  (pbr_map_match_dscp,
 	}
 
 	unsigned long ul_dscp;
-	char *pend;
+	char *pend = NULL;
 	uint8_t raw_dscp;
 
 	assert(dscp);
-	ul_dscp = strtol(dscp, &pend, 0);
-	if (*pend)
+	ul_dscp = strtoul(dscp, &pend, 0);
+	if (pend && *pend)
 		raw_dscp = pbr_map_decode_dscp_enum(dscp);
 	else
 		raw_dscp = ul_dscp << 2;
 	if (raw_dscp > PBR_DSFIELD_DSCP) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
-			(pend ? "" : " (numeric value must be in range 0-63)"));
+			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -859,19 +859,19 @@ DEFPY  (pbr_map_action_dscp,
 	}
 
 	unsigned long ul_dscp;
-	char *pend;
+	char *pend = NULL;
 	uint8_t raw_dscp;
 
 	assert(dscp);
-	ul_dscp = strtol(dscp, &pend, 0);
-	if (*pend)
+	ul_dscp = strtoul(dscp, &pend, 0);
+	if (pend && *pend)
 		raw_dscp = pbr_map_decode_dscp_enum(dscp);
 	else
 		raw_dscp = ul_dscp << 2;
 
 	if (raw_dscp > PBR_DSFIELD_DSCP) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
-			(pend ? "" : " (numeric value must be in range 0-63)"));
+			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP) &&
