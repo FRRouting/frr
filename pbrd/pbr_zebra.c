@@ -568,14 +568,9 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 
 	/* actions */
 
-	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
-
-	/*
-	 * PBR should maintain its own set of action flags that we
-	 * can copy here instead of trying to infer from magic values.
-	 */
-
 	r.action.flags = pbrms->action_bm;
+
+	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
 
 	/*
 	 * if the user does not use the command "set vrf name unchanged"
