@@ -6163,6 +6163,7 @@ DEFPY_YANG(
 	char xpath_value[XPATH_MAXLEN];
 	as_t as_configured_value;
 	char replace_value[ASN_STRING_MAX_SIZE * 2];
+	int ret;
 
 	if (configured_asn_str &&
 	    !asn_str2asn(configured_asn_str, &as_configured_value)) {
@@ -6181,7 +6182,9 @@ DEFPY_YANG(
 		 "%s/rmap-set-action/frr-bgp-route-map:replace-as-path", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return ret;
 }
 
 DEFPY_YANG(
