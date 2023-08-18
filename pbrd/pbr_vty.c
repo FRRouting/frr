@@ -790,6 +790,9 @@ DEFPY  (pbr_map_action_src_port,
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT))
 			return CMD_SUCCESS;
@@ -821,6 +824,9 @@ DEFPY  (pbr_map_action_dst_port,
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT))
 			return CMD_SUCCESS;
@@ -850,6 +856,9 @@ DEFPY  (pbr_map_action_dscp,
 {
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP))
@@ -897,6 +906,9 @@ DEFPY  (pbr_map_action_ecn,
 {
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN))
