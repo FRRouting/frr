@@ -1354,6 +1354,7 @@ DEFPY(pbr_map_vrf, pbr_map_vrf_cmd,
 	 * If an equivalent set vrf * exists, just return success.
 	 */
 	if ((pbrms->forwarding_type == PBR_FT_SETVRF) &&
+	    vrf_name &&
 	    strncmp(pbrms->vrf_name, vrf_name, sizeof(pbrms->vrf_name)) == 0)
 		return CMD_SUCCESS;
 	else if (!vrf_name && (pbrms->forwarding_type == PBR_FT_VRF_UNCHANGED))
