@@ -6326,6 +6326,7 @@ DEFPY_YANG(set_aspath_exclude_access_list, set_aspath_exclude_access_list_cmd,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:as-path-exclude']";
 	char xpath_value[XPATH_MAXLEN];
+	int ret;
 
 	str = argv_concat(argv, argc, 3);
 
@@ -6335,7 +6336,9 @@ DEFPY_YANG(set_aspath_exclude_access_list, set_aspath_exclude_access_list_cmd,
 		 "%s/rmap-set-action/frr-bgp-route-map:exclude-as-path", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, str);
+	return ret;
 }
 
 DEFPY_YANG(no_set_aspath_exclude_access_list, no_set_aspath_exclude_access_list_cmd,
