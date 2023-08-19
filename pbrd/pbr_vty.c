@@ -441,18 +441,18 @@ DEFPY  (pbr_map_match_dscp,
 	}
 
 	unsigned long ul_dscp;
-	char *pend;
+	char *pend = NULL;
 	uint8_t raw_dscp;
 
 	assert(dscp);
-	ul_dscp = strtol(dscp, &pend, 0);
-	if (*pend)
+	ul_dscp = strtoul(dscp, &pend, 0);
+	if (pend && *pend)
 		raw_dscp = pbr_map_decode_dscp_enum(dscp);
 	else
 		raw_dscp = ul_dscp << 2;
 	if (raw_dscp > PBR_DSFIELD_DSCP) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
-			(pend ? "" : " (numeric value must be in range 0-63)"));
+			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -790,6 +790,9 @@ DEFPY  (pbr_map_action_src_port,
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_SRC_PORT))
 			return CMD_SUCCESS;
@@ -821,6 +824,9 @@ DEFPY  (pbr_map_action_dst_port,
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DST_PORT))
 			return CMD_SUCCESS;
@@ -851,6 +857,9 @@ DEFPY  (pbr_map_action_dscp,
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP))
 			return CMD_SUCCESS;
@@ -859,19 +868,19 @@ DEFPY  (pbr_map_action_dscp,
 	}
 
 	unsigned long ul_dscp;
-	char *pend;
+	char *pend = NULL;
 	uint8_t raw_dscp;
 
 	assert(dscp);
-	ul_dscp = strtol(dscp, &pend, 0);
-	if (*pend)
+	ul_dscp = strtoul(dscp, &pend, 0);
+	if (pend && *pend)
 		raw_dscp = pbr_map_decode_dscp_enum(dscp);
 	else
 		raw_dscp = ul_dscp << 2;
 
 	if (raw_dscp > PBR_DSFIELD_DSCP) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
-			(pend ? "" : " (numeric value must be in range 0-63)"));
+			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP) &&
@@ -897,6 +906,9 @@ DEFPY  (pbr_map_action_ecn,
 {
 	/* clang-format on */
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no) {
 		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_ECN))
@@ -1342,6 +1354,7 @@ DEFPY(pbr_map_vrf, pbr_map_vrf_cmd,
 	 * If an equivalent set vrf * exists, just return success.
 	 */
 	if ((pbrms->forwarding_type == PBR_FT_SETVRF) &&
+	    vrf_name &&
 	    strncmp(pbrms->vrf_name, vrf_name, sizeof(pbrms->vrf_name)) == 0)
 		return CMD_SUCCESS;
 	else if (!vrf_name && (pbrms->forwarding_type == PBR_FT_VRF_UNCHANGED))
