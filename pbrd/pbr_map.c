@@ -353,6 +353,11 @@ extern void pbr_map_delete(struct pbr_map_sequence *pbrms)
 	if (pbrms->nhg)
 		pbr_nht_delete_individual_nexthop(pbrms);
 
+	if (pbrms->nhgrp_name)
+		XFREE(MTYPE_TMP, pbrms->nhgrp_name);
+
+	prefix_free(&pbrms->dst);
+
 	listnode_delete(pbrm->seqnumbers, pbrms);
 
 	if (pbrm->seqnumbers->count == 0) {
