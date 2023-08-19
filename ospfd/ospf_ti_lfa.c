@@ -694,6 +694,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 			__func__, &p_space->root->id, &q_space->root->id,
 			res_buf);
 
+		list_delete(&q_space->vertex_list);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space);
