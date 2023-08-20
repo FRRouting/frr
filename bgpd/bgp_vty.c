@@ -17341,8 +17341,12 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	    && !(peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED
 		 && peer->ttl == MAXTTL)) {
 		if (!peer_group_active(peer) || g_peer->ttl != peer->ttl) {
-			vty_out(vty, " neighbor %s ebgp-multihop %d\n", addr,
-				peer->ttl);
+			if (peer->ttl != MAXTTL)
+				vty_out(vty, " neighbor %s ebgp-multihop %d\n",
+					addr, peer->ttl);
+			else
+				vty_out(vty, " neighbor %s ebgp-multihop\n",
+					addr);
 		}
 	}
 
