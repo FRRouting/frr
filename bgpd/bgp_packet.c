@@ -2375,7 +2375,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 				 * and 7 bytes of ORF Address-filter entry from
 				 * the stream
 				 */
-				if (*p_pnt & ORF_COMMON_PART_REMOVE_ALL) {
+				if (p_pnt < p_end &&
+				    *p_pnt & ORF_COMMON_PART_REMOVE_ALL) {
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
 							"%pBP rcvd Remove-All pfxlist ORF request",
