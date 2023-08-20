@@ -940,8 +940,18 @@ static int bgp_capability_software_version(struct peer *peer,
 		return -1;
 	}
 
-	if (len) {
+	if (len > BGP_MAX_SOFT_VERSION) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+			  "%s: Received Software Version, but the length is too big, truncating, from peer %s",
+			  __func__, peer->host);
+		stream_get(str, s, BGP_MAX_SOFT_VERSION);
+		stream_forward_getp(s, len - BGP_MAX_SOFT_VERSION);
+		len = BGP_MAX_SOFT_VERSION;
+	} else if (len) {
 		stream_get(str, s, len);
+	}
+
+	if (len) {
 		str[len] = '\0';
 
 		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
