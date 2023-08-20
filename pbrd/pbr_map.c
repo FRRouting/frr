@@ -62,7 +62,7 @@ static int pbr_map_sequence_compare(const struct pbr_map_sequence *pbrms1,
 	return 1;
 }
 
-static void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
+void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
 {
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 
