@@ -57,8 +57,6 @@ static void ospf_spf_set_reason(ospf_spf_reason_t reason)
 	spf_reason_flags |= 1 << reason;
 }
 
-static void ospf_vertex_free(void *);
-
 /*
  * Heap related functions, for the managment of the candidates, to
  * be used with pqueue.
@@ -207,7 +205,7 @@ static struct vertex *ospf_vertex_new(struct ospf_area *area,
 	return new;
 }
 
-static void ospf_vertex_free(void *data)
+void ospf_vertex_free(void *data)
 {
 	struct vertex *v = data;
 
