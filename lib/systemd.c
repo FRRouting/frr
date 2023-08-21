@@ -7,7 +7,7 @@
 #include <zebra.h>
 #include <sys/un.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "systemd.h"
 #include "lib_errors.h"
 
@@ -63,18 +63,18 @@ void systemd_send_stopping(void)
 	systemd_send_information("STOPPING=1");
 }
 
-static struct thread_master *systemd_master = NULL;
+static struct event_loop *systemd_master = NULL;
 
-static void systemd_send_watchdog(struct thread *t)
+static void systemd_send_watchdog(struct event *t)
 {
 	systemd_send_information("WATCHDOG=1");
 
 	assert(watchdog_msec > 0);
-	thread_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
-			      watchdog_msec, NULL);
+	event_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
+			     watchdog_msec, NULL);
 }
 
-void systemd_send_started(struct thread_master *m)
+void systemd_send_started(struct event_loop *m)
 {
 	assert(m != NULL);
 

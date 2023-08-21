@@ -235,8 +235,8 @@ struct yang_translator *yang_translator_load(const char *path)
 		xpath_custom =
 			yang_dnode_get_string(set->dnodes[i], "./custom");
 
-		snode_custom = lys_find_path(translator->ly_ctx, NULL,
-					     xpath_custom, 0);
+		snode_custom =
+			yang_find_snode(translator->ly_ctx, xpath_custom, 0);
 		if (!snode_custom) {
 			flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
 				  "%s: unknown data path: %s", __func__,
@@ -247,8 +247,7 @@ struct yang_translator *yang_translator_load(const char *path)
 
 		xpath_native =
 			yang_dnode_get_string(set->dnodes[i], "./native");
-		snode_native =
-			lys_find_path(ly_native_ctx, NULL, xpath_native, 0);
+		snode_native = yang_find_snode(ly_native_ctx, xpath_native, 0);
 		if (!snode_native) {
 			flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
 				  "%s: unknown data path: %s", __func__,
@@ -315,7 +314,7 @@ yang_translate_xpath(const struct yang_translator *translator, int dir,
 	else
 		ly_ctx = ly_native_ctx;
 
-	snode = lys_find_path(ly_ctx, NULL, xpath, 0);
+	snode = yang_find_snode(ly_ctx, xpath, 0);
 	if (!snode) {
 		flog_warn(EC_LIB_YANG_TRANSLATION_ERROR,
 			  "%s: unknown data path: %s", __func__, xpath);

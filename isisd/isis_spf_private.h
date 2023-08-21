@@ -349,11 +349,16 @@ struct isis_spftree {
 			uint32_t total[SPF_PREFIX_PRIO_MAX];
 		} protection_counters;
 	} lfa;
+	uint8_t algorithm;
 	uint8_t flags;
 };
 #define F_SPFTREE_HOPCOUNT_METRIC 0x01
 #define F_SPFTREE_NO_ROUTES 0x02
 #define F_SPFTREE_NO_ADJACENCIES 0x04
+#ifndef FABRICD
+/* flex-algo */
+#define F_SPFTREE_DISABLED 0x08
+#endif /* ifndef FABRICD */
 
 __attribute__((__unused__))
 static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,

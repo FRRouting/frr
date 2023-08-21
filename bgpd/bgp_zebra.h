@@ -10,22 +10,22 @@
 
 /* Macro to update bgp_original based on bpg_path_info */
 #define BGP_ORIGINAL_UPDATE(_bgp_orig, _mpinfo, _bgp)                          \
-	((_mpinfo->extra && _mpinfo->extra->bgp_orig                           \
-	  && _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                          \
-		 ? (_bgp_orig = _mpinfo->extra->bgp_orig)                      \
+	((_mpinfo->extra && _mpinfo->extra->vrfleak &&                        \
+	  _mpinfo->extra->vrfleak->bgp_orig &&                                \
+	  _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                             \
+		 ? (_bgp_orig = _mpinfo->extra->vrfleak->bgp_orig)            \
 		 : (_bgp_orig = _bgp))
 
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
-extern void bgp_zebra_init(struct thread_master *master,
-			   unsigned short instance);
+extern void bgp_zebra_init(struct event_loop *master, unsigned short instance);
 extern void bgp_if_init(void);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
 extern uint32_t bgp_zebra_tm_get_id(void);
 extern bool bgp_zebra_tm_chunk_obtained(void);
 extern void bgp_zebra_destroy(void);
-extern int bgp_zebra_get_table_range(uint32_t chunk_size,
+extern int bgp_zebra_get_table_range(struct zclient *zc, uint32_t chunk_size,
 				     uint32_t *start, uint32_t *end);
 extern int bgp_if_update_all(void);
 extern void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
@@ -119,4 +119,11 @@ extern int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
+extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
+					 ifindex_t index, vrf_id_t vrfid,
+					 enum lsp_types_t ltype,
+					 struct prefix *p, uint32_t num_labels,
+					 mpls_label_t out_labels[]);
+extern bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
+extern void bgp_zebra_release_label_range(uint32_t start, uint32_t end);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

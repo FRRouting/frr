@@ -69,6 +69,8 @@ struct route_standard {
 
 	/*  */
 	uint8_t flags; /* From router-LSA */
+
+	bool transit; /* Transit network or not */
 };
 
 struct route_external {
@@ -152,9 +154,10 @@ extern void ospf_route_subst_nexthops(struct ospf_route *, struct list *);
 extern void ospf_prune_unreachable_networks(struct route_table *);
 extern void ospf_prune_unreachable_routers(struct route_table *);
 extern int ospf_add_discard_route(struct ospf *, struct route_table *,
-				  struct ospf_area *, struct prefix_ipv4 *);
+				  struct ospf_area *, struct prefix_ipv4 *,
+				  bool);
 extern void ospf_delete_discard_route(struct ospf *, struct route_table *,
-				      struct prefix_ipv4 *);
+				      struct prefix_ipv4 *, bool);
 extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
 				 struct ospf_route *);
 

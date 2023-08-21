@@ -420,15 +420,20 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 			vty_out(vty, " label=%u",
 				decode_label(&bpi->extra->label[0]));
 
-		if (bpi->extra->num_sids) {
-			vty_out(vty, " sid=%pI6", &bpi->extra->sid[0].sid);
+		if (bpi->attr->srv6_l3vpn || bpi->attr->srv6_vpn) {
+			struct in6_addr *sid_tmp =
+				bpi->attr->srv6_l3vpn
+					? (&bpi->attr->srv6_l3vpn->sid)
+					: (&bpi->attr->srv6_vpn->sid);
+			vty_out(vty, " sid=%pI6", sid_tmp);
 
-			if (bpi->extra->sid[0].loc_block_len != 0) {
+			if (bpi->attr->srv6_l3vpn &&
+			    bpi->attr->srv6_l3vpn->loc_block_len != 0) {
 				vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
-					bpi->extra->sid[0].loc_block_len,
-					bpi->extra->sid[0].loc_node_len,
-					bpi->extra->sid[0].func_len,
-					bpi->extra->sid[0].arg_len);
+					bpi->attr->srv6_l3vpn->loc_block_len,
+					bpi->attr->srv6_l3vpn->loc_node_len,
+					bpi->attr->srv6_l3vpn->func_len,
+					bpi->attr->srv6_l3vpn->arg_len);
 			}
 		}
 	}
@@ -516,10 +521,10 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 
 	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
 	    && bpi->extra->vnc.import.timer) {
-		struct thread *t =
-			(struct thread *)bpi->extra->vnc.import.timer;
+		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+
 		r = snprintf(p, REMAIN, " [%4lu] ",
-			     thread_timer_remain_second(t));
+			     event_timer_remain_second(t));
 		INCP;
 
 	} else {
@@ -822,11 +827,6 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 	const char *vty_newline;
 
 	int printedheader = 0;
-
-	int nves_total = 0;
-	int nves_with_queries = 0;
-	int nves_displayed = 0;
-
 	int queries_total = 0;
 	int queries_displayed = 0;
 
@@ -850,15 +850,9 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 		struct agg_node *rn;
 		int printedquerier = 0;
 
-
-		++nves_total;
-
-		if (rfd->mon
-		    || (rfd->mon_eth && skiplist_count(rfd->mon_eth))) {
-			++nves_with_queries;
-		} else {
+		if (!rfd->mon &&
+		    !(rfd->mon_eth && skiplist_count(rfd->mon_eth)))
 			continue;
-		}
 
 		/*
 		 * IP Queries
@@ -904,13 +898,11 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 					fp(out, "%-15s %-15s", buf_vn, buf_un);
 					printedquerier = 1;
-
-					++nves_displayed;
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
 				rfapiFormatSeconds(
-					thread_timer_remain_second(m->timer),
+					event_timer_remain_second(m->timer),
 					buf_remain, BUFSIZ);
 				fp(out, " %-15s %-10s\n",
 				   inet_ntop(m->p.family, &m->p.u.prefix,
@@ -978,12 +970,10 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 					fp(out, "%-15s %-15s", buf_vn, buf_un);
 					printedquerier = 1;
-
-					++nves_displayed;
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
-				rfapiFormatSeconds(thread_timer_remain_second(
+				rfapiFormatSeconds(event_timer_remain_second(
 							   mon_eth->timer),
 						   buf_remain, BUFSIZ);
 				fp(out, " %-17s %10d %-10s\n",
@@ -1114,9 +1104,8 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		time_t age;
 		char buf_age[BUFSIZ];
 
-		struct thread *t =
-			(struct thread *)bpi->extra->vnc.import.timer;
-		remaining = thread_timer_remain_second(t);
+		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+		remaining = event_timer_remain_second(t);
 
 #ifdef RFAPI_REGISTRATIONS_REPORT_AGE
 		/*
@@ -1174,6 +1163,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	}
 	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->extra) {
 		uint32_t l = decode_label(&bpi->extra->label[0]);
+
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
 			if (nlines == 1)
@@ -4903,6 +4893,7 @@ static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
 	clear_vnc_prefix(&cda);
 	vty_out(vty, "Cleared %u out of %d prefixes.\n", cda.pfx_count,
 		start_count);
+	print_cleared_stats(&cda); /* frees lists in cda */
 	return CMD_SUCCESS;
 }
 

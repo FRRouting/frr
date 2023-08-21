@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
@@ -103,9 +103,9 @@ void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
 	ospf6_lsdb_add(ospf6_lsa_copy(lsa), lsdb_self);
 
-	THREAD_OFF(lsa->refresh);
-	thread_add_timer(master, ospf6_lsa_refresh, lsa, OSPF_LS_REFRESH_TIME,
-			 &lsa->refresh);
+	EVENT_OFF(lsa->refresh);
+	event_add_timer(master, ospf6_lsa_refresh, lsa, OSPF_LS_REFRESH_TIME,
+			&lsa->refresh);
 
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
 	    || IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type)) {
@@ -168,8 +168,8 @@ void ospf6_lsa_purge(struct ospf6_lsa *lsa)
 	self = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				 lsa->header->adv_router, lsdb_self);
 	if (self) {
-		THREAD_OFF(self->expire);
-		THREAD_OFF(self->refresh);
+		EVENT_OFF(self->expire);
+		EVENT_OFF(self->refresh);
 		ospf6_lsdb_remove(self, lsdb_self);
 	}
 
@@ -250,17 +250,17 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 					   lsa->name);
 			lsa->external_lsa_id = old->external_lsa_id;
 		}
-		THREAD_OFF(old->expire);
-		THREAD_OFF(old->refresh);
+		EVENT_OFF(old->expire);
+		EVENT_OFF(old->refresh);
 		ospf6_flood_clear(old);
 	}
 
 	monotime(&now);
 	if (!OSPF6_LSA_IS_MAXAGE(lsa)) {
-		thread_add_timer(master, ospf6_lsa_expire, lsa,
-				 OSPF_LSA_MAXAGE + lsa->birth.tv_sec
-					 - now.tv_sec,
-				 &lsa->expire);
+		event_add_timer(master, ospf6_lsa_expire, lsa,
+				OSPF_LSA_MAXAGE + lsa->birth.tv_sec -
+					now.tv_sec,
+				&lsa->expire);
 	} else
 		lsa->expire = NULL;
 
@@ -389,7 +389,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 					if (req == on->last_ls_req) {
 						/* sanity check refcount */
 						assert(req->lock >= 2);
-						req = ospf6_lsa_unlock(req);
+						ospf6_lsa_unlock(&req);
 						on->last_ls_req = NULL;
 					}
 					if (req)
@@ -406,7 +406,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						zlog_debug(
 							"Received is newer, remove requesting");
 					if (req == on->last_ls_req) {
-						req = ospf6_lsa_unlock(req);
+						ospf6_lsa_unlock(&req);
 						on->last_ls_req = NULL;
 					}
 					if (req)
@@ -473,10 +473,10 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 
 				ospf6_lsdb_add(ospf6_lsa_copy(lsa),
 					       on->retrans_list);
-				thread_add_timer(
-					master, ospf6_lsupdate_send_neighbor,
-					on, on->ospf6_if->rxmt_interval,
-					&on->thread_send_lsupdate);
+				event_add_timer(master,
+						ospf6_lsupdate_send_neighbor,
+						on, on->ospf6_if->rxmt_interval,
+						&on->thread_send_lsupdate);
 				retrans_added++;
 			}
 		}
@@ -520,14 +520,14 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if ((oi->type == OSPF_IFTYPE_BROADCAST)
 	    || (oi->type == OSPF_IFTYPE_POINTOPOINT)) {
 		ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsupdate_list);
-		thread_add_event(master, ospf6_lsupdate_send_interface, oi, 0,
-				 &oi->thread_send_lsupdate);
+		event_add_event(master, ospf6_lsupdate_send_interface, oi, 0,
+				&oi->thread_send_lsupdate);
 	} else {
 		/* reschedule retransmissions to all neighbors */
 		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-			THREAD_OFF(on->thread_send_lsupdate);
-			thread_add_event(master, ospf6_lsupdate_send_neighbor,
-					 on, 0, &on->thread_send_lsupdate);
+			EVENT_OFF(on->thread_send_lsupdate);
+			event_add_event(master, ospf6_lsupdate_send_neighbor,
+					on, 0, &on->thread_send_lsupdate);
 		}
 	}
 }
@@ -697,8 +697,8 @@ static void ospf6_acknowledge_lsa_bdrouter(struct ospf6_lsa *lsa,
 					"Delayed acknowledgement (BDR & MoreRecent & from DR)");
 			/* Delayed acknowledgement */
 			ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-			thread_add_timer(master, ospf6_lsack_send_interface, oi,
-					 3, &oi->thread_send_lsack);
+			event_add_timer(master, ospf6_lsack_send_interface, oi,
+					3, &oi->thread_send_lsack);
 		} else {
 			if (is_debug)
 				zlog_debug(
@@ -718,8 +718,8 @@ static void ospf6_acknowledge_lsa_bdrouter(struct ospf6_lsa *lsa,
 					"Delayed acknowledgement (BDR & Duplicate & ImpliedAck & from DR)");
 			/* Delayed acknowledgement */
 			ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-			thread_add_timer(master, ospf6_lsack_send_interface, oi,
-					 3, &oi->thread_send_lsack);
+			event_add_timer(master, ospf6_lsack_send_interface, oi,
+					3, &oi->thread_send_lsack);
 		} else {
 			if (is_debug)
 				zlog_debug(
@@ -736,8 +736,8 @@ static void ospf6_acknowledge_lsa_bdrouter(struct ospf6_lsa *lsa,
 		if (is_debug)
 			zlog_debug("Direct acknowledgement (BDR & Duplicate)");
 		ospf6_lsdb_add(ospf6_lsa_copy(lsa), from->lsack_list);
-		thread_add_event(master, ospf6_lsack_send_neighbor, from, 0,
-				 &from->thread_send_lsack);
+		event_add_event(master, ospf6_lsack_send_neighbor, from, 0,
+				&from->thread_send_lsack);
 		return;
 	}
 
@@ -778,8 +778,8 @@ static void ospf6_acknowledge_lsa_allother(struct ospf6_lsa *lsa,
 				"Delayed acknowledgement (AllOther & MoreRecent)");
 		/* Delayed acknowledgement */
 		ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-		thread_add_timer(master, ospf6_lsack_send_interface, oi, 3,
-				 &oi->thread_send_lsack);
+		event_add_timer(master, ospf6_lsack_send_interface, oi, 3,
+				&oi->thread_send_lsack);
 		return;
 	}
 
@@ -802,8 +802,8 @@ static void ospf6_acknowledge_lsa_allother(struct ospf6_lsa *lsa,
 			zlog_debug(
 				"Direct acknowledgement (AllOther & Duplicate)");
 		ospf6_lsdb_add(ospf6_lsa_copy(lsa), from->lsack_list);
-		thread_add_event(master, ospf6_lsack_send_neighbor, from, 0,
-				 &from->thread_send_lsack);
+		event_add_event(master, ospf6_lsack_send_neighbor, from, 0,
+				&from->thread_send_lsack);
 		return;
 	}
 
@@ -973,8 +973,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		/* a) Acknowledge back to neighbor (Direct acknowledgement,
 		 * 13.5) */
 		ospf6_lsdb_add(ospf6_lsa_copy(new), from->lsack_list);
-		thread_add_event(master, ospf6_lsack_send_neighbor, from, 0,
-				 &from->thread_send_lsack);
+		event_add_event(master, ospf6_lsack_send_neighbor, from, 0,
+				&from->thread_send_lsack);
 
 		/* b) Discard */
 		ospf6_lsa_delete(new);
@@ -1105,8 +1105,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Newer instance of the self-originated LSA");
 				zlog_debug("Schedule reorigination");
 			}
-			thread_add_event(master, ospf6_lsa_refresh, new, 0,
-					 &new->refresh);
+			event_add_event(master, ospf6_lsa_refresh, new, 0,
+					&new->refresh);
 		}
 
 		/* GR: check for network topology change. */
@@ -1134,7 +1134,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			new->name);
 
 		/* BadLSReq */
-		thread_add_event(master, bad_lsreq, from, 0, NULL);
+		event_add_event(master, bad_lsreq, from, 0, NULL);
 
 		ospf6_lsa_delete(new);
 		return;
@@ -1231,8 +1231,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 			ospf6_lsdb_add(ospf6_lsa_copy(old),
 				       from->lsupdate_list);
-			thread_add_event(master, ospf6_lsupdate_send_neighbor,
-					 from, 0, &from->thread_send_lsupdate);
+			event_add_event(master, ospf6_lsupdate_send_neighbor,
+					from, 0, &from->thread_send_lsupdate);
 
 			ospf6_lsa_delete(new);
 			return;

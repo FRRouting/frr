@@ -9,7 +9,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "hash.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "queue.h"
 #include "filter.h"
 
@@ -218,30 +218,4 @@ bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
 	}
 
 	return true;
-}
-
-void bgp_sync_init(struct peer *peer)
-{
-	afi_t afi;
-	safi_t safi;
-	struct bgp_synchronize *sync;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		sync = XCALLOC(MTYPE_BGP_SYNCHRONISE,
-			       sizeof(struct bgp_synchronize));
-		bgp_adv_fifo_init(&sync->update);
-		bgp_adv_fifo_init(&sync->withdraw);
-		bgp_adv_fifo_init(&sync->withdraw_low);
-		peer->sync[afi][safi] = sync;
-	}
-}
-
-void bgp_sync_delete(struct peer *peer)
-{
-	afi_t afi;
-	safi_t safi;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		XFREE(MTYPE_BGP_SYNCHRONISE, peer->sync[afi][safi]);
-	}
 }

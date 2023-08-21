@@ -6,7 +6,7 @@
 #ifndef _FRR_RESOLVER_H
 #define _FRR_RESOLVER_H
 
-#include "thread.h"
+#include "frrevent.h"
 #include "sockunion.h"
 
 #ifdef __cplusplus
@@ -19,10 +19,10 @@ struct resolver_query {
 
 	/* used to immediate provide the result if IP literal is passed in */
 	union sockunion literal_addr;
-	struct thread *literal_cb;
+	struct event *literal_cb;
 };
 
-void resolver_init(struct thread_master *tm);
+void resolver_init(struct event_loop *tm);
 void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname,
 		      void (*cb)(struct resolver_query *, const char *, int,

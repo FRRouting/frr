@@ -12,7 +12,7 @@
 
 #include "hook.h"
 #include "module.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
 #include "lib/version.h"
@@ -32,11 +32,11 @@
  *
  */
 
-static struct thread_master *zmlag_master;
+static struct event_loop *zmlag_master;
 static int mlag_socket;
 
-static void zebra_mlag_connect(struct thread *thread);
-static void zebra_mlag_read(struct thread *thread);
+static void zebra_mlag_connect(struct event *thread);
+static void zebra_mlag_read(struct event *thread);
 
 /*
  * Write the data to MLAGD
@@ -55,11 +55,11 @@ static int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 
 static void zebra_mlag_sched_read(void)
 {
-	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
-			&zrouter.mlag_info.t_read);
+	event_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
+		       &zrouter.mlag_info.t_read);
 }
 
-static void zebra_mlag_read(struct thread *thread)
+static void zebra_mlag_read(struct event *thread)
 {
 	static uint32_t mlag_rd_buf_offset;
 	uint32_t *msglen;
@@ -151,7 +151,7 @@ static void zebra_mlag_read(struct thread *thread)
 	zebra_mlag_sched_read();
 }
 
-static void zebra_mlag_connect(struct thread *thread)
+static void zebra_mlag_connect(struct event *thread)
 {
 	struct sockaddr_un svr = {0};
 
@@ -173,8 +173,8 @@ static void zebra_mlag_connect(struct thread *thread)
 				svr.sun_path);
 		close(mlag_socket);
 		zrouter.mlag_info.timer_running = true;
-		thread_add_timer(zmlag_master, zebra_mlag_connect, NULL, 10,
-				 &zrouter.mlag_info.t_read);
+		event_add_timer(zmlag_master, zebra_mlag_connect, NULL, 10,
+				&zrouter.mlag_info.t_read);
 		return;
 	}
 
@@ -184,8 +184,8 @@ static void zebra_mlag_connect(struct thread *thread)
 		zlog_debug("%s: Connection with MLAG is established ",
 			   __func__);
 
-	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
-			&zrouter.mlag_info.t_read);
+	event_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
+		       &zrouter.mlag_info.t_read);
 	/*
 	 * Connection is established with MLAGD, post to clients
 	 */
@@ -197,8 +197,8 @@ static void zebra_mlag_connect(struct thread *thread)
  */
 static int zebra_mlag_private_monitor_state(void)
 {
-	thread_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
-			 &zrouter.mlag_info.t_read);
+	event_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
+			&zrouter.mlag_info.t_read);
 	return 0;
 }
 
@@ -225,8 +225,8 @@ static int zebra_mlag_private_open_channel(void)
 		/*
 		 * Connect only if any clients are showing interest
 		 */
-		thread_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
-				 &zrouter.mlag_info.t_read);
+		event_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
+				&zrouter.mlag_info.t_read);
 	}
 	return 0;
 }

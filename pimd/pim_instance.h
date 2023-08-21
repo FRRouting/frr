@@ -64,7 +64,7 @@ enum pim_mlag_flags {
 };
 
 struct pim_router {
-	struct thread_master *master;
+	struct event_loop *master;
 
 	uint32_t debugs;
 
@@ -92,7 +92,7 @@ struct pim_router {
 	/* Holds the client data(unencoded) that need to be pushed to MCLAGD*/
 	struct stream_fifo *mlag_fifo;
 	struct stream *mlag_stream;
-	struct thread *zpthread_mlag_write;
+	struct event *zpthread_mlag_write;
 	struct in_addr anycast_vtep_ip;
 	struct in_addr local_vtep_ip;
 	struct pim_mlag_stats mlag_stats;
@@ -120,7 +120,7 @@ struct pim_instance {
 
 	int send_v6_secondary;
 
-	struct thread *thread;
+	struct event *thread;
 	int mroute_socket;
 	int reg_sock; /* Socket to send register msg */
 	int64_t mroute_socket_creation;
@@ -157,7 +157,7 @@ struct pim_instance {
 
 	unsigned int gm_socket_if_count;
 	int gm_socket;
-	struct thread *t_gm_recv;
+	struct event *t_gm_recv;
 
 	unsigned int gm_group_count;
 	unsigned int gm_watermark_limit;
@@ -176,7 +176,7 @@ struct pim_instance {
 	uint64_t bsm_dropped;
 
 	/* If we need to rescan all our upstreams */
-	struct thread *rpf_cache_refresher;
+	struct event *rpf_cache_refresher;
 	int64_t rpf_cache_refresh_requests;
 	int64_t rpf_cache_refresh_events;
 	int64_t rpf_cache_refresh_last;

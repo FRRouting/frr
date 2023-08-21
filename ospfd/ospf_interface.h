@@ -72,11 +72,17 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, v_wait);  /* Router Dead Interval */
 	bool is_v_wait_set;                  /* Check for Dead Interval set */
 
+	/* GR Hello Delay Interval */
+	DECLARE_IF_PARAM(uint16_t, v_gr_hello_delay);
+
 	/* MTU mismatch check (see RFC2328, chap 10.6) */
 	DECLARE_IF_PARAM(uint8_t, mtu_ignore);
 
 	/* Fast-Hellos */
 	DECLARE_IF_PARAM(uint8_t, fast_hello);
+
+	/* Prefix-Suppression */
+	DECLARE_IF_PARAM(bool, prefix_suppression);
 
 	/* Authentication data. */
 	uint8_t auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1]; /* Simple password. */
@@ -106,6 +112,12 @@ struct ospf_if_params {
 
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
+
+	/* point-to-multipoint delayed reflooding configuration */
+	bool p2mp_delay_reflood;
+
+	/* Opaque LSA capability at interface level (see RFC5250) */
+	DECLARE_IF_PARAM(bool, opaque_capable);
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -121,6 +133,9 @@ struct ospf_if_info {
 		membership_counts[MEMBER_MAX]; /* multicast group refcnts */
 
 	uint32_t curr_mtu;
+
+	/* Per-interface write socket, configured via 'ospf' object */
+	int oii_fd;
 };
 
 struct ospf_interface;
@@ -171,6 +186,9 @@ struct ospf_interface {
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
 
+	/* point-to-multipoint delayed reflooding */
+	bool p2mp_delay_reflood;
+
 	/* State of Interface State Machine. */
 	uint8_t state;
 
@@ -211,6 +229,14 @@ struct ospf_interface {
 	/* List of configured NBMA neighbor. */
 	struct list *nbr_nbma;
 
+	/* Graceful-Restart data. */
+	struct {
+		struct {
+			uint16_t elapsed_seconds;
+			struct event *t_grace_send;
+		} hello_delay;
+	} gr;
+
 	/* self-originated LSAs. */
 	struct ospf_lsa *network_lsa_self; /* network-LSA. */
 	struct list *opaque_lsa_self;      /* Type-9 Opaque-LSAs */
@@ -228,12 +254,12 @@ struct ospf_interface {
 	uint32_t v_ls_ack; /* Delayed Link State Acknowledgment */
 
 	/* Threads. */
-	struct thread *t_hello;		  /* timer */
-	struct thread *t_wait;		  /* timer */
-	struct thread *t_ls_ack;	  /* timer */
-	struct thread *t_ls_ack_direct;   /* event */
-	struct thread *t_ls_upd_event;    /* event */
-	struct thread *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
+	struct event *t_hello;		 /* timer */
+	struct event *t_wait;		 /* timer */
+	struct event *t_ls_ack;		 /* timer */
+	struct event *t_ls_ack_direct;	 /* event */
+	struct event *t_ls_upd_event;	 /* event */
+	struct event *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
 
 	int on_write_q;
 

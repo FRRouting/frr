@@ -259,6 +259,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-zebra-route-map:ipv4-next-hop-prefix-length"))
 #define IS_MATCH_SRC_PROTO(C)                                                  \
 	(strmatch(C, "frr-zebra-route-map:source-protocol"))
+#define IS_MATCH_BGP_SRC_PROTO(C)                                              \
+	(strmatch(C, "frr-bgp-route-map:source-protocol"))
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
@@ -312,6 +314,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-route-map:ipv6-next-hop"))
 #define IS_SET_METRIC(A)                                                       \
 	(strmatch(A, "frr-route-map:set-metric"))
+#define IS_SET_MIN_METRIC(A) (strmatch(A, "frr-route-map:set-min-metric"))
+#define IS_SET_MAX_METRIC(A) (strmatch(A, "frr-route-map:set-max-metric"))
 #define IS_SET_TAG(A) (strmatch(A, "frr-route-map:set-tag"))
 #define IS_SET_SR_TE_COLOR(A)                                                  \
 	(strmatch(A, "frr-route-map:set-sr-te-color"))
@@ -344,6 +348,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:comm-list-delete"))
 #define IS_SET_LCOMM_LIST_DEL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:large-comm-list-delete"))
+#define IS_SET_EXTCOMM_LIST_DEL(A)                                                \
+	(strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
 #define IS_SET_LCOMMUNITY(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:set-large-community"))
 #define IS_SET_COMMUNITY(A)                                                    \
@@ -352,10 +358,15 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-none"))
 #define IS_SET_EXTCOMMUNITY_RT(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-rt"))
+#define IS_SET_EXTCOMMUNITY_NT(A)                                              \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-nt"))
 #define IS_SET_EXTCOMMUNITY_SOO(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-soo"))
 #define IS_SET_EXTCOMMUNITY_LB(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-lb"))
+#define IS_SET_EXTCOMMUNITY_COLOR(A)                                           \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-color"))
+
 #define IS_SET_AGGREGATOR(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:aggregator"))
 #define IS_SET_AS_PREPEND(A)                                                   \
@@ -684,6 +695,22 @@ extern void route_map_no_set_metric_hook(
 	int (*func)(struct route_map_index *index,
 		    const char *command, const char *arg,
 		    char *errmsg, size_t errmsg_len));
+/* set metric */
+extern void route_map_set_max_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* no set metric */
+extern void route_map_no_set_max_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* set metric */
+extern void route_map_set_min_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
+/* no set metric */
+extern void route_map_no_set_min_metric_hook(
+	int (*func)(struct route_map_index *index, const char *command,
+		    const char *arg, char *errmsg, size_t errmsg_len));
 /* set tag */
 extern void route_map_set_tag_hook(int (*func)(struct route_map_index *index,
 					       const char *command,
@@ -920,6 +947,25 @@ struct route_map_match_set_hooks {
 	int (*no_set_metric)(struct route_map_index *index,
 			     const char *command, const char *arg,
 			     char *errmsg, size_t errmsg_len);
+	/* set min-metric */
+	int (*set_min_metric)(struct route_map_index *index,
+			      const char *command, const char *arg,
+			      char *errmsg, size_t errmsg_len);
+
+	/* no set min-metric */
+	int (*no_set_min_metric)(struct route_map_index *index,
+				 const char *command, const char *arg,
+				 char *errmsg, size_t errmsg_len);
+
+	/* set max-metric */
+	int (*set_max_metric)(struct route_map_index *index,
+			      const char *command, const char *arg,
+			      char *errmsg, size_t errmsg_len);
+
+	/* no set max-metric */
+	int (*no_set_max_metric)(struct route_map_index *index,
+				 const char *command, const char *arg,
+				 char *errmsg, size_t errmsg_len);
 
 	/* set tag */
 	int (*set_tag)(struct route_map_index *index,

@@ -17,7 +17,7 @@
 #include "memory.h"
 #include "log.h"
 #include "log_vty.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vector.h"
 #include "linklist.h"
 #include "vty.h"
@@ -31,6 +31,8 @@
 #include "jhash.h"
 #include "hook.h"
 #include "lib_errors.h"
+#include "mgmt_be_client.h"
+#include "mgmt_fe_client.h"
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
@@ -733,9 +735,13 @@ char *cmd_variable_comp2str(vector comps, unsigned short cols)
 		char *item = vector_slot(comps, j);
 		itemlen = strlen(item);
 
-		if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
-			buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
+		size_t next_sz = cs + itemlen + AUTOCOMP_INDENT + 3;
 
+		if (next_sz > bsz) {
+			/* Make sure the buf size is large enough */
+			bsz = next_sz;
+			buf = XREALLOC(MTYPE_TMP, buf, bsz);
+		}
 		if (lc + itemlen + 1 >= cols) {
 			cs += snprintf(&buf[cs], bsz - cs, "\n%*s",
 				       AUTOCOMP_INDENT, "");
@@ -897,8 +903,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
-				    struct vty *vty,
+static int cmd_execute_command_real(vector vline, struct vty *vty,
 				    const struct cmd_element **cmd,
 				    unsigned int up_level)
 {
@@ -1035,8 +1040,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			vector_set_index(shifted_vline, index - 1,
 					 vector_lookup(vline, index));
 
-		ret = cmd_execute_command_real(shifted_vline, FILTER_RELAXED,
-					       vty, cmd, 0);
+		ret = cmd_execute_command_real(shifted_vline, vty, cmd, 0);
 
 		vector_free(shifted_vline);
 		vty->node = onode;
@@ -1045,7 +1049,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	}
 
 	saved_ret = ret =
-		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd, 0);
+		cmd_execute_command_real(vline, vty, cmd, 0);
 
 	if (vtysh)
 		return saved_ret;
@@ -1063,8 +1067,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
 
-			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
-						       vty, cmd, 0);
+			ret = cmd_execute_command_real(vline, vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
 			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
@@ -1096,7 +1099,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 int cmd_execute_command_strict(vector vline, struct vty *vty,
 			       const struct cmd_element **cmd)
 {
-	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd, 0);
+	return cmd_execute_command_real(vline, vty, cmd, 0);
 }
 
 /*
@@ -1268,8 +1271,7 @@ int command_config_read_one_line(struct vty *vty,
 	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	       && ret != CMD_NO_LEVEL_UP)
-		ret = cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd,
-					       ++up_level);
+		ret = cmd_execute_command_real(vline, vty, cmd, ++up_level);
 
 	if (ret == CMD_NO_LEVEL_UP)
 		ret = CMD_ERR_NO_MATCH;
@@ -1281,6 +1283,7 @@ int command_config_read_one_line(struct vty *vty,
 
 		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
 		ve->line_num = line_num;
+		ve->cmd_ret = ret;
 		if (!vty->error)
 			vty->error = list_new();
 
@@ -1301,6 +1304,14 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		++(*line_num);
 
+		if (vty_log_commands) {
+			int len = strlen(vty->buf);
+
+			/* now log the command */
+			zlog_notice("config-from-file# %.*s", len ? len - 1 : 0,
+				    vty->buf);
+		}
+
 		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
@@ -1318,11 +1329,12 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure [terminal]",
+       "configure [terminal [file-lock]]",
        "Configuration from vty interface\n"
+       "Configuration with locked datastores\n"
        "Configuration terminal\n")
 {
-	return vty_config_enter(vty, false, false);
+	return vty_config_enter(vty, false, false, argc == 3);
 }
 
 /* Enable command */
@@ -2438,6 +2450,8 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+	mgmt_debug_be_client_show_debug(vty);
+	mgmt_debug_fe_client_show_debug(vty);
 }
 
 void install_default(enum node_type node)
@@ -2542,7 +2556,7 @@ void cmd_init(int terminal)
 
 		install_default(CONFIG_NODE);
 
-		thread_cmd_init();
+		event_cmd_init();
 		workqueue_cmd_init();
 		hash_cmd_init();
 	}
@@ -2596,9 +2610,7 @@ void cmd_terminate(void)
 				// well
 				graph_delete_graph(cmd_node->cmdgraph);
 				vector_free(cmd_node->cmd_vector);
-				hash_clean(cmd_node->cmd_hash, NULL);
-				hash_free(cmd_node->cmd_hash);
-				cmd_node->cmd_hash = NULL;
+				hash_clean_and_free(&cmd_node->cmd_hash, NULL);
 			}
 
 		vector_free(cmdvec);

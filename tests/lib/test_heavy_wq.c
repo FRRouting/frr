@@ -13,7 +13,7 @@
  */
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -27,7 +27,7 @@ DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test");
 DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node");
 DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str");
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 static struct work_queue *heavy_wq;
 
 struct heavy_wq_node {

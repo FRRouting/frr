@@ -26,7 +26,7 @@
 
 #include "tests/lib/cli/common_cli.h"
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 
 static void resolver_result(struct resolver_query *resq, const char *errstr,
 			    int numaddrs, union sockunion *addr)

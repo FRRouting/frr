@@ -549,6 +549,7 @@ void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
 		return;
 
 	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_GROUP;
 
 	nhgc = nhgc_find(name);
 	if (!nhgc)
@@ -572,6 +573,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 		MTYPE_TMP,
 		pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 					  pbrms->seqno, buf));
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_SINGLE;
 
 	nh = nexthop_new();
 	memcpy(nh, nhop, sizeof(*nh));

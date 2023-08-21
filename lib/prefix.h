@@ -427,6 +427,7 @@ extern int prefix_cmp(union prefixconstptr ua, union prefixconstptr ub);
 extern int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub);
 extern void prefix_copy(union prefixptr udst, union prefixconstptr usrc);
 extern void apply_mask(union prefixptr pu);
+extern bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2);
 
 #ifdef __clang_analyzer__
 /* clang-SA doesn't understand transparent unions, making it think that the
@@ -499,11 +500,8 @@ extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 /* NOTE: This routine expects the address argument in network byte order. */
 static inline bool ipv4_martian(const struct in_addr *addr)
 {
-	in_addr_t ip = ntohl(addr->s_addr);
-
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || !ipv4_unicast_valid(addr)) {
+	if (!ipv4_unicast_valid(addr))
 		return true;
-	}
 	return false;
 }
 
@@ -599,6 +597,14 @@ static inline bool ipv6_mcast_ssm(const struct in6_addr *addr)
 
 	/* ff3x:0000::/32 */
 	return (bits & 0xfff0ffff) == 0xff300000;
+}
+
+static inline bool ipv6_mcast_reserved(const struct in6_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s6_addr32[0]);
+
+	/* ffx2::/16 */
+	return (bits & 0xff0fffff) == 0xff020000;
 }
 
 static inline uint8_t ipv4_mcast_scope(const struct in_addr *addr)

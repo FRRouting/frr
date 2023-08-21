@@ -566,9 +566,9 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
-	case ASNUM_TKN:
 	case RANGE_TKN:
 		return 2;
+	case ASNUM_TKN:
 	case WORD_TKN:
 		return 3;
 	case VARIABLE_TKN:

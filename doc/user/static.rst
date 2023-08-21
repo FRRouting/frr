@@ -90,7 +90,7 @@ a static prefix and gateway, with several possible forms.
 Multiple nexthop static route
 =============================
 
-To create multiple nexthops to the same NETWORK, just reenter the same
+To create multiple nexthops to the same NETWORK (also known as a multipath route), just reenter the same
 network statement with different nexthop information.
 
 .. code-block:: frr
@@ -122,7 +122,7 @@ nexthops, if the platform supports this.
    ip route 10.0.0.0/8 null0 255
 
 
-This will install a multihop route via the specified next-hops if they are
+This will install a multipath route via the specified next-hops if they are
 reachable, as well as a high-distance blackhole route, which can be useful to
 prevent traffic destined for a prefix to match less-specific routes (e.g.
 default) should the specified gateways not be reachable. E.g.:

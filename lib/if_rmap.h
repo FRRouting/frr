@@ -6,15 +6,20 @@
 #ifndef _ZEBRA_IF_RMAP_H
 #define _ZEBRA_IF_RMAP_H
 
+#include "typesafe.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct lyd_node;
+struct vty;
 
 enum if_rmap_type { IF_RMAP_IN, IF_RMAP_OUT, IF_RMAP_MAX };
 
 struct if_rmap {
 	/* Name of the interface. */
-	char *ifname;
+	const char *ifname;
 
 	char *routemap[IF_RMAP_MAX];
 };
@@ -45,7 +50,14 @@ void if_rmap_hook_delete(struct if_rmap_ctx *ctx,
 				      struct if_rmap *));
 extern struct if_rmap *if_rmap_lookup(struct if_rmap_ctx *ctx,
 				      const char *ifname);
+extern void if_rmap_yang_modify_cb(struct if_rmap_ctx *ctx,
+				   const struct lyd_node *dnode,
+				   enum if_rmap_type type, bool del);
+extern void if_rmap_yang_destroy_cb(struct if_rmap_ctx *ctx,
+				    const struct lyd_node *dnode);
 extern int config_write_if_rmap(struct vty *, struct if_rmap_ctx *ctx);
+void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
+			   bool show_defaults);
 
 #ifdef __cplusplus
 }

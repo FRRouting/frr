@@ -12,7 +12,7 @@
 DEFINE_MTYPE_STATIC(LIB, TESTBUF, "zmq test buffer");
 DEFINE_MTYPE_STATIC(LIB, ZMQMSG, "zmq message");
 
-static struct thread_master *master;
+static struct event_loop *master;
 
 static void msg_buf_free(void *data, void *hint)
 {
@@ -212,8 +212,8 @@ static void serverpartfn(void *arg, void *zmqsock, zmq_msg_t *msg,
 	printf("server recv: %s\n", buf);
 	fflush(stdout);
 
-	frrzmq_thread_add_write_msg(master, serverwritefn, NULL, msg_id,
-				    zmqsock, &cb);
+	frrzmq_event_add_write_msg(master, serverwritefn, NULL, msg_id, zmqsock,
+				   &cb);
 }
 
 static void serverfn(void *arg, void *zmqsock)
@@ -242,8 +242,8 @@ static void serverfn(void *arg, void *zmqsock)
 	frrzmq_thread_cancel(&cb, &cb->read);
 	frrzmq_thread_cancel(&cb, &cb->write);
 
-	frrzmq_thread_add_read_part(master, serverpartfn, NULL, NULL, zmqsock,
-				    &cb);
+	frrzmq_event_add_read_part(master, serverpartfn, NULL, NULL, zmqsock,
+				   &cb);
 }
 
 static void sigchld(void)
@@ -264,9 +264,9 @@ static void run_server(int syncfd)
 {
 	void *zmqsock;
 	char dummy = 0;
-	struct thread t;
+	struct event t;
 
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, array_size(sigs), sigs);
 	frrzmq_init();
 
@@ -276,15 +276,15 @@ static void run_server(int syncfd)
 		exit(1);
 	}
 
-	frrzmq_thread_add_read_msg(master, serverfn, NULL, NULL, zmqsock, &cb);
+	frrzmq_event_add_read_msg(master, serverfn, NULL, NULL, zmqsock, &cb);
 
 	write(syncfd, &dummy, sizeof(dummy));
-	while (thread_fetch(master, &t))
-		thread_call(&t);
+	while (event_fetch(master, &t))
+		event_call(&t);
 
 	zmq_close(zmqsock);
 	frrzmq_finish();
-	thread_master_free(master);
+	event_master_free(master);
 	log_memstats_stderr("test");
 }
 

@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "nhrpd.h"
 #include "netlink.h"
 #include "znl.h"
@@ -28,7 +28,7 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast");
 
 int netlink_mcast_nflog_group;
 static int netlink_mcast_log_fd = -1;
-static struct thread *netlink_mcast_log_thread;
+static struct event *netlink_mcast_log_thread;
 
 struct mcast_ctx {
 	struct interface *ifp;
@@ -138,10 +138,10 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	}
 }
 
-static void netlink_mcast_log_recv(struct thread *t)
+static void netlink_mcast_log_recv(struct event *t)
 {
 	uint8_t buf[65535]; /* Max OSPF Packet size */
-	int fd = THREAD_FD(t);
+	int fd = EVENT_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
@@ -160,8 +160,8 @@ static void netlink_mcast_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
-			&netlink_mcast_log_thread);
+	event_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
+		       &netlink_mcast_log_thread);
 }
 
 static void netlink_mcast_log_register(int fd, int group)
@@ -190,7 +190,7 @@ static void netlink_mcast_log_register(int fd, int group)
 void netlink_mcast_set_nflog_group(int nlgroup)
 {
 	if (netlink_mcast_log_fd >= 0) {
-		THREAD_OFF(netlink_mcast_log_thread);
+		EVENT_OFF(netlink_mcast_log_thread);
 		close(netlink_mcast_log_fd);
 		netlink_mcast_log_fd = -1;
 		debugf(NHRP_DEBUG_COMMON, "De-register nflog group");
@@ -202,9 +202,8 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_mcast_log_register(netlink_mcast_log_fd, nlgroup);
-		thread_add_read(master, netlink_mcast_log_recv, 0,
-				netlink_mcast_log_fd,
-				&netlink_mcast_log_thread);
+		event_add_read(master, netlink_mcast_log_recv, 0,
+			       netlink_mcast_log_fd, &netlink_mcast_log_thread);
 		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d",
 		       netlink_mcast_nflog_group);
 	}

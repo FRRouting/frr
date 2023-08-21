@@ -6,7 +6,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "log.h"
 #include "memory.h"
@@ -41,7 +41,7 @@ struct zebra_privs_t pathd_privs = {
 struct option longopts[] = {{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_loop *master;
 
 static struct frr_daemon_info pathd_di;
 

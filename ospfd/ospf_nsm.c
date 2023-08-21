@@ -7,7 +7,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -44,11 +44,11 @@ DEFINE_HOOK(ospf_nsm_change,
 static void nsm_clear_adj(struct ospf_neighbor *);
 
 /* OSPF NSM Timer functions. */
-static void ospf_inactivity_timer(struct thread *thread)
+static void ospf_inactivity_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_inactivity = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -71,11 +71,11 @@ static void ospf_inactivity_timer(struct thread *thread)
 	}
 }
 
-static void ospf_db_desc_timer(struct thread *thread)
+static void ospf_db_desc_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_db_desc = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -105,32 +105,32 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	switch (nbr->state) {
 	case NSM_Deleted:
 	case NSM_Down:
-		THREAD_OFF(nbr->t_inactivity);
-		THREAD_OFF(nbr->t_hello_reply);
+		EVENT_OFF(nbr->t_inactivity);
+		EVENT_OFF(nbr->t_hello_reply);
 	/* fallthru */
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:
-		THREAD_OFF(nbr->t_db_desc);
-		THREAD_OFF(nbr->t_ls_upd);
-		THREAD_OFF(nbr->t_ls_req);
+		EVENT_OFF(nbr->t_db_desc);
+		EVENT_OFF(nbr->t_ls_upd);
+		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
-		THREAD_OFF(nbr->t_ls_upd);
-		THREAD_OFF(nbr->t_ls_req);
+		EVENT_OFF(nbr->t_ls_upd);
+		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
 		OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer,
 				  nbr->v_ls_upd);
 		if (!IS_SET_DD_MS(nbr->dd_flags))
-			THREAD_OFF(nbr->t_db_desc);
+			EVENT_OFF(nbr->t_db_desc);
 		break;
 	case NSM_Loading:
 	case NSM_Full:
 	default:
-		THREAD_OFF(nbr->t_db_desc);
+		EVENT_OFF(nbr->t_db_desc);
 		break;
 	}
 }
@@ -161,13 +161,13 @@ int nsm_should_adj(struct ospf_neighbor *nbr)
 static int nsm_hello_received(struct ospf_neighbor *nbr)
 {
 	/* Start or Restart Inactivity Timer. */
-	THREAD_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
 	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
-		THREAD_OFF(nbr->nbr_nbma->t_poll);
+		EVENT_OFF(nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
 	if (nbr->state < NSM_Exchange)
@@ -179,9 +179,9 @@ static int nsm_hello_received(struct ospf_neighbor *nbr)
 static int nsm_start(struct ospf_neighbor *nbr)
 {
 	if (nbr->nbr_nbma)
-		THREAD_OFF(nbr->nbr_nbma->t_poll);
+		EVENT_OFF(nbr->nbr_nbma->t_poll);
 
-	THREAD_OFF(nbr->t_inactivity);
+	EVENT_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
@@ -791,14 +791,14 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 }
 
 /* Execute NSM event process. */
-void ospf_nsm_event(struct thread *thread)
+void ospf_nsm_event(struct event *thread)
 {
 	int event;
 	int next_state;
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
-	event = THREAD_VAL(thread);
+	nbr = EVENT_ARG(thread);
+	event = EVENT_VAL(thread);
 
 	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
 		zlog_debug("NSM[%s:%pI4:%s]: %s (%s)", IF_NAME(nbr->oi),

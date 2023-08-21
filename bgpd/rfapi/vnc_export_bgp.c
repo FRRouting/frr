@@ -1692,7 +1692,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	 * export expiration timer is already running on
 	 * this route: cancel it
 	 */
-	THREAD_OFF(eti->timer);
+	EVENT_OFF(eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1704,9 +1704,9 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	bgp_attr_unintern(&iattr);
 }
 
-static void vncExportWithdrawTimer(struct thread *t)
+static void vncExportWithdrawTimer(struct event *t)
 {
-	struct vnc_export_info *eti = THREAD_ARG(t);
+	struct vnc_export_info *eti = EVENT_ARG(t);
 	const struct prefix *p = agg_node_get_prefix(eti->node);
 
 	/*
@@ -1765,8 +1765,8 @@ void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
 
 	if (!eti->timer && eti->lifetime <= INT32_MAX) {
 		eti->timer = NULL;
-		thread_add_timer(bm->master, vncExportWithdrawTimer, eti,
-				 eti->lifetime, &eti->timer);
+		event_add_timer(bm->master, vncExportWithdrawTimer, eti,
+				eti->lifetime, &eti->timer);
 		vnc_zlog_debug_verbose(
 			"%s: set expiration timer for %u seconds", __func__,
 			eti->lifetime);
@@ -1922,7 +1922,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					 * already running on
 					 * this route: cancel it
 					 */
-					THREAD_OFF(eti->timer);
+					EVENT_OFF(eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -1991,7 +1991,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					THREAD_OFF(eti->timer);
+					EVENT_OFF(eti->timer);
 					vnc_eti_delete(eti);
 				}
 

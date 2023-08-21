@@ -13,12 +13,13 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     expat fakeroot flex fortify-headers gdbm git gmp json-c-dev kmod
     lddtree libacl libatomic libattr libblkid libburn libbz2 libc-dev
     libcap-dev libcurl libedit libffi libgcc libgomp libisoburn libisofs
-    libltdl libressl libssh2 libstdc++ libtool libuuid
+    libltdl openssl libssh2 libstdc++ libtool libuuid
     linux-headers lzip lzo m4 make mkinitfs mpc1 mpfr4 mtools musl-dev
     ncurses-libs ncurses-terminfo ncurses-terminfo-base patch pax-utils pcre2
     perl pkgconf python3 python3-dev readline readline-dev sqlite-libs pcre2-dev
     squashfs-tools sudo tar texinfo xorriso xz-libs py-pip rtrlib rtrlib-dev
-    py3-sphinx elfutils elfutils-dev libyang-dev"
+    py3-sphinx elfutils elfutils-dev protobuf-c-compiler protobuf-c-dev
+    lua5.3-dev lua5.3 gzip"
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
@@ -47,7 +48,8 @@ build() {
 		--enable-vty-group=frrvty \
 		--enable-user=$_user \
 		--enable-group=$_user \
-		--enable-pcre2posix
+		--enable-pcre2posix \
+		--enable-scripting
 	make -j $(nproc)
 }
 

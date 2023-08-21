@@ -15,8 +15,14 @@ tests_lib_test_frrscript_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_frrscript_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_frrscript_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_frrscript_SOURCES = tests/lib/test_frrscript.c
-EXTRA_DIST += tests/lib/test_frrscript.py
+EXTRA_tests_lib_test_frrscript_DEPENDENCIES = copy_script
+EXTRA_DIST += tests/lib/test_frrscript.py tests/lib/script1.lua
 
+# For out-of-tree build, lua script needs to be in the build dir, rather than
+# just available somewhere in the VPATH
+copy_script: tests/lib/script1.lua
+	test -e tests/lib/script1.lua || \
+	$(INSTALL_SCRIPT) $< tests/lib/script1.lua
 
 ##############################################################################
 GRPC_TESTS_LDADD = staticd/libstatic.a grpc/libfrrgrpc_pb.la -lgrpc++ -lprotobuf $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) -lm
@@ -149,6 +155,13 @@ tests_lib_test_checksum_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_checksum_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_checksum_SOURCES = tests/lib/test_checksum.c tests/helpers/c/prng.c
+
+
+check_PROGRAMS += tests/lib/test_darr
+tests_lib_test_darr_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_darr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_darr_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_darr_SOURCES = tests/lib/test_darr.c
 
 
 check_PROGRAMS += tests/lib/test_graph

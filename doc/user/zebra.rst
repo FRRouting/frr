@@ -87,6 +87,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    Allow zebra to modify the default receive buffer size to SIZE
    in bytes.  Under \*BSD only the -s option is available.
 
+.. option:: --v6-with-v4-nexthops
+
+   Signal to zebra that v6 routes with v4 nexthops are accepted
+   by the underlying dataplane.  This will be communicated to
+   the upper level daemons that can install v6 routes with v4
+   nexthops.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour
@@ -156,12 +163,13 @@ Standard Commands
    Set description for the interface.
 
 
-.. clicmd:: mpls enable
+.. clicmd:: mpls <enable|disable>
 
-   Enable or disable mpls kernel processing on the interface, for linux.  Interfaces
+   Choose mpls kernel processing value on the interface, for linux. Interfaces
    configured with mpls will not automatically turn on if mpls kernel modules do not
-   happen to be loaded.  This command will fail on 3.X linux kernels and does not
-   work on non-linux systems at all.
+   happen to be loaded. This command will fail on 3.X linux kernels and does not
+   work on non-linux systems at all. 'enable' and 'disable' will respectively turn
+   on and off mpls on the given interface.
 
 .. clicmd:: multicast
 

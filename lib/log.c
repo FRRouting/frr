@@ -140,7 +140,7 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 
 	fb.pos = buf;
 
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (!tc)
@@ -284,7 +284,7 @@ void zlog_backtrace(int priority)
 
 void zlog_thread_info(int log_level)
 {
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (tc)
@@ -457,7 +457,9 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_TC_CLASS_ADD),
 	DESC_ENTRY(ZEBRA_TC_CLASS_DELETE),
 	DESC_ENTRY(ZEBRA_TC_FILTER_ADD),
-	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE)};
+	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE),
+	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY)
+};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};

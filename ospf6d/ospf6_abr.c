@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "linklist.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "plist.h"
 #include "filter.h"
 

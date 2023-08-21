@@ -13,6 +13,7 @@ man8 += $(MANBUILD)/frr-ripd.8
 endif
 
 ripd_ripd_SOURCES = \
+	ripd/rip_bfd.c \
 	ripd/rip_cli.c \
 	ripd/rip_debug.c \
 	ripd/rip_errors.c \
@@ -31,10 +32,12 @@ ripd_ripd_SOURCES = \
 	# end
 
 clippy_scan += \
+	ripd/rip_bfd.c \
 	ripd/rip_cli.c \
 	# end
 
 noinst_HEADERS += \
+	ripd/rip_bfd.h \
 	ripd/rip_debug.h \
 	ripd/rip_errors.h \
 	ripd/rip_interface.h \
@@ -45,6 +48,7 @@ noinst_HEADERS += \
 ripd_ripd_LDADD = lib/libfrr.la $(LIBCAP)
 nodist_ripd_ripd_SOURCES = \
 	yang/frr-ripd.yang.c \
+	yang/frr-bfdd.yang.c \
 	# end
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c

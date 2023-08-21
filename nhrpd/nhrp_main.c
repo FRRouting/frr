@@ -12,7 +12,7 @@
 #include "zebra.h"
 #include "privs.h"
 #include "getopt.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "sigevent.h"
 #include "lib/version.h"
 #include "log.h"
@@ -28,7 +28,7 @@ DEFINE_MGROUP(NHRPD, "NHRP");
 
 unsigned int debug_flags = 0;
 
-struct thread_master *master;
+struct event_loop *master;
 struct timeval current_time;
 
 /* nhrpd options. */

@@ -12,7 +12,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "smux.h"
 #include "filter.h"
 #include "hook.h"
@@ -1627,6 +1627,7 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 			}
 		} else
 			return SNMP_INTEGER(MPLSL3VPNVRFRTECIDRTYPEOTHER);
+		break;
 	case MPLSL3VPNVRFRTEINETCIDRPROTO:
 		switch (pi->type) {
 		case ZEBRA_ROUTE_CONNECT:

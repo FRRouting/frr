@@ -119,7 +119,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+    assert ospf_covergence is True, "setup_module :Failed \n Error:  {}".format(
         ospf_covergence
     )
 
@@ -193,7 +193,7 @@ def test_ospf_gr_helper_tc7_p1(request):
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
     assert (
         ospf_covergence is True
-    ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
+    ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
     ospf_gr_r0 = {
         "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
@@ -221,7 +221,7 @@ def test_ospf_gr_helper_tc7_p1(request):
     result = verify_ospf_gr_helper(tgen, topo, dut, input_dict, expected=False)
     assert (
         result is not True
-    ), "Testcase {} : Failed. DUT entered helper role " " \n Error: {}".format(
+    ), "Testcase {} : Failed. DUT entered helper role   \n Error: {}".format(
         tc_name, result
     )
 
@@ -253,7 +253,7 @@ def test_ospf_gr_helper_tc8_p1(request):
     ospf_covergence = verify_ospf_neighbor(tgen, topo, lan=True)
     assert (
         ospf_covergence is True
-    ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
+    ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
     ospf_gr_r0 = {
         "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }

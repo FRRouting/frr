@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -14,7 +14,7 @@
 #include "log.h"
 #include "northbound.h"
 
-static struct thread_master *master;
+static struct event_loop *master;
 
 struct troute {
 	struct prefix_ipv4 prefix;
@@ -351,7 +351,7 @@ static void vty_do_exit(int isexit)
 	vty_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "test-nb-oper-data");
 	if (!isexit)
@@ -361,7 +361,7 @@ static void vty_do_exit(int isexit)
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
 	unsigned int num_vrfs = 2;
 	unsigned int num_interfaces = 4;
 	unsigned int num_routes = 6;
@@ -377,7 +377,7 @@ int main(int argc, char **argv)
 	umask(0027);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
@@ -395,8 +395,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

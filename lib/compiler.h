@@ -439,6 +439,14 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #pragma diag_suppress 167
 #endif /* __INTELISENSE__ */
 
+#if defined(__GNUC__) && (__GNUC__ >= 3)
+#define likely(_x) __builtin_expect(!!(_x), 1)
+#define unlikely(_x) __builtin_expect(!!(_x), 0)
+#else
+#define likely(_x) !!(_x)
+#define unlikely(_x) !!(_x)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

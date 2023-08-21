@@ -34,7 +34,7 @@
 #include "sockunion.h"
 #include "sockunion.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "zclient.h"
 #include "lib_errors.h"
@@ -52,7 +52,7 @@
 
 int irdp_sock = -1;
 
-extern struct thread *t_irdp_raw;
+extern struct event *t_irdp_raw;
 
 static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 {
@@ -209,7 +209,7 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 	return ret;
 }
 
-void irdp_read_raw(struct thread *r)
+void irdp_read_raw(struct event *r)
 {
 	struct interface *ifp;
 	struct zebra_if *zi;
@@ -217,9 +217,9 @@ void irdp_read_raw(struct thread *r)
 	char buf[IRDP_RX_BUF];
 	int ret, ifindex = 0;
 
-	int irdp_sock = THREAD_FD(r);
-	thread_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
-			&t_irdp_raw);
+	int irdp_sock = EVENT_FD(r);
+	event_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
+		       &t_irdp_raw);
 
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 

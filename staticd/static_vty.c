@@ -13,6 +13,7 @@
 #include "nexthop.h"
 #include "table.h"
 #include "srcdest_table.h"
+#include "mgmt_be_client.h"
 #include "mpls.h"
 #include "northbound.h"
 #include "libfrr.h"
@@ -1373,6 +1374,7 @@ int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
 {
 	enum static_nh_type nh_type1, nh_type2;
 	struct prefix prefix1, prefix2;
+	const char *vrf1, *vrf2;
 	int ret = 0;
 
 	nh_type1 = yang_dnode_get_enum(dnode1, "./nh-type");
@@ -1412,8 +1414,14 @@ int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
 	if (ret)
 		return ret;
 
-	return if_cmp_name_func(yang_dnode_get_string(dnode1, "./vrf"),
-				yang_dnode_get_string(dnode2, "./vrf"));
+	vrf1 = yang_dnode_get_string(dnode1, "./vrf");
+	if (strmatch(vrf1, "default"))
+		vrf1 = "";
+	vrf2 = yang_dnode_get_string(dnode2, "./vrf");
+	if (strmatch(vrf2, "default"))
+		vrf2 = "";
+
+	return if_cmp_name_func(vrf1, vrf2);
 }
 
 int static_route_list_cli_cmp(const struct lyd_node *dnode1,
@@ -1553,4 +1561,6 @@ void static_vty_init(void)
 
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+
+	mgmt_be_client_lib_vty_init();
 }

@@ -8,7 +8,7 @@
 #include "log.h"
 #include "memory.h"
 #include "linklist.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "if.h"
@@ -421,8 +421,8 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	ospf6_spf_table_finish(oa->spf_table);
 	ospf6_route_remove_all(oa->route_table);
 
-	THREAD_OFF(oa->thread_router_lsa);
-	THREAD_OFF(oa->thread_intra_prefix_lsa);
+	EVENT_OFF(oa->thread_router_lsa);
+	EVENT_OFF(oa->thread_intra_prefix_lsa);
 }
 
 

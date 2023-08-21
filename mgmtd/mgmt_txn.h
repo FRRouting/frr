@@ -65,7 +65,7 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 }
 
 /* Initialise transaction module. */
-extern int mgmt_txn_init(struct mgmt_master *cm, struct thread_master *tm);
+extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 
 /* Destroy the transaction module. */
 extern void mgmt_txn_destroy(void);
@@ -99,16 +99,6 @@ extern uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type);
  *     Unique transaction identifier.
  */
 extern void mgmt_destroy_txn(uint64_t *txn_id);
-
-/*
- * Check if transaction is valid given an ID.
- */
-extern bool mgmt_txn_id_is_valid(uint64_t txn_id);
-
-/*
- * Returns the type of transaction given an ID.
- */
-extern enum mgmt_txn_type mgmt_get_txn_type(uint64_t txn_id);
 
 /*
  * Send set-config request to be processed later in transaction.
@@ -179,38 +169,24 @@ extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
  *    0 on success, -1 on failures.
  */
 extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
-					    Mgmtd__DatastoreId src_ds_id,
-					    struct mgmt_ds_ctx *dst_ds_ctx,
-					    Mgmtd__DatastoreId dst_ds_id,
-					    struct mgmt_ds_ctx *src_ds_ctx,
-					    bool validate_only, bool abort,
-					    bool implicit);
-
-extern int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
-					      enum mgmt_result result,
-					      const char *error_if_any);
+					   Mgmtd__DatastoreId src_ds_id,
+					   struct mgmt_ds_ctx *dst_ds_ctx,
+					   Mgmtd__DatastoreId dst_ds_id,
+					   struct mgmt_ds_ctx *src_ds_ctx,
+					   bool validate_only, bool abort,
+					   bool implicit);
 
 /*
- * Send get-config request to be processed later in transaction.
+ * Send get-{cfg,data} request to be processed later in transaction.
  *
- * Similar to set-config request.
+ * Is get-config if cfg_root is provided and the config is gathered locally,
+ * otherwise it's get-data and data is fetched from backedn clients.
  */
-extern int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
-					 Mgmtd__DatastoreId ds_id,
-					 struct mgmt_ds_ctx *ds_ctx,
-					 Mgmtd__YangGetDataReq **data_req,
-					 size_t num_reqs);
-
-/*
- * Send get-data request to be processed later in transaction.
- *
- * Similar to get-config request, but here data is fetched from backedn client.
- */
-extern int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
-				       Mgmtd__DatastoreId ds_id,
-				       struct mgmt_ds_ctx *ds_ctx,
-				       Mgmtd__YangGetDataReq **data_req,
-				       size_t num_reqs);
+extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
+				 Mgmtd__DatastoreId ds_id,
+				 struct nb_config *cfg_root,
+				 Mgmtd__YangGetDataReq **data_req,
+				 size_t num_reqs);
 
 /*
  * Notifiy backend adapter on connection.

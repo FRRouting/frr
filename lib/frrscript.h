@@ -198,7 +198,6 @@ struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
 struct in6_addr * : lua_pushin6addr,                            \
 union sockunion * : lua_pushsockunion,                          \
-time_t * : lua_pushtimet,                                       \
 char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
 struct peer * : lua_pushpeer,                                   \
@@ -219,7 +218,6 @@ struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \
 struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
-time_t * : lua_decode_timet,                                    \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
 struct peer * : lua_decode_noop,                                \

@@ -35,18 +35,18 @@ struct frr_signal_t sigs[] = {{
 				      .handler = &sigusr2,
 			      }};
 
-struct thread_master *master;
-struct thread t;
+struct event_loop *master;
+struct event t;
 
 int main(void)
 {
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	signal_init(master, array_size(sigs), sigs);
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
-	while (thread_fetch(master, &t))
-		thread_call(&t);
+	while (event_fetch(master, &t))
+		event_call(&t);
 
 	exit(0);
 }

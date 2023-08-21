@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Policy Based Routing (PBR) main handling.
  * Copyright (C) 2018  Cumulus Networks, Inc.
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -165,6 +168,9 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 			   rule->rule.filter.ip_proto, key);
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
+
+	key = jhash_3words(rule->rule.filter.pcp, rule->rule.filter.vlan_id,
+			   rule->rule.filter.vlan_flags, key);
 
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
@@ -501,6 +507,7 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 {
 	struct pbr_rule *prule = &rule->rule;
 	struct zebra_pbr_action *zaction = &rule->action;
+	struct pbr_action *pa = &prule->action;
 
 	vty_out(vty, "Rules if %s\n", rule->ifname);
 	vty_out(vty, "  Seq %u pri %u\n", prule->seq, prule->priority);
@@ -516,15 +523,55 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 	if (prule->filter.filter_bm & PBR_FILTER_DST_PORT)
 		vty_out(vty, "  DST Port Match: %u\n", prule->filter.dst_port);
 
-	if (prule->filter.filter_bm & PBR_FILTER_DSFIELD) {
+	if (prule->filter.filter_bm & PBR_FILTER_DSCP)
 		vty_out(vty, "  DSCP Match: %u\n",
 			(prule->filter.dsfield & PBR_DSFIELD_DSCP) >> 2);
+	if (prule->filter.filter_bm & PBR_FILTER_ECN)
 		vty_out(vty, "  ECN Match: %u\n",
 			prule->filter.dsfield & PBR_DSFIELD_ECN);
-	}
 
 	if (prule->filter.filter_bm & PBR_FILTER_FWMARK)
 		vty_out(vty, "  MARK Match: %u\n", prule->filter.fwmark);
+	if (prule->filter.filter_bm & PBR_FILTER_PCP)
+		vty_out(vty, "  PCP Match: %u\n", prule->filter.pcp);
+	if (prule->filter.filter_bm & PBR_FILTER_VLAN_ID)
+		vty_out(vty, "  VLAN ID Match: %u\n", prule->filter.vlan_id);
+	if (prule->filter.filter_bm & PBR_FILTER_VLAN_FLAGS) {
+		vty_out(vty, "  VLAN Flags Match:");
+		if (CHECK_FLAG(prule->filter.vlan_flags, PBR_VLAN_FLAGS_TAGGED))
+			vty_out(vty, " tagged");
+		if (CHECK_FLAG(prule->filter.vlan_flags,
+			       PBR_VLAN_FLAGS_UNTAGGED))
+			vty_out(vty, " untagged");
+		if (CHECK_FLAG(prule->filter.vlan_flags,
+			       PBR_VLAN_FLAGS_UNTAGGED_0))
+			vty_out(vty, " untagged-or-zero");
+		vty_out(vty, "\n");
+	}
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_ECN))
+		vty_out(vty, "  Action: Set ECN: %u\n", pa->ecn);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_DSCP))
+		vty_out(vty, "  Action: Set DSCP: %u\n", pa->dscp >> 2);
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_SRC_IP))
+		vty_out(vty, "  Action: Set SRC IP: %pSU\n", &pa->src_ip);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_DST_IP))
+		vty_out(vty, "  Action: Set DST IP: %pSU\n", &pa->dst_ip);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_SRC_PORT))
+		vty_out(vty, "  Action: Set SRC PORT: %u\n", pa->src_port);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_DST_PORT))
+		vty_out(vty, "  Action: Set DST PORT: %u\n", pa->dst_port);
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_QUEUE_ID))
+		vty_out(vty, "  Action: Set Queue ID: %u\n", pa->queue_id);
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_PCP))
+		vty_out(vty, "  Action: Set PCP: %u\n", pa->pcp);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_VLAN_ID))
+		vty_out(vty, "  Action: Set VLAN ID: %u\n", pa->vlan_id);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_VLAN_STRIP_INNER_ANY))
+		vty_out(vty, "  Action: Strip VLAN ID\n");
 
 	vty_out(vty, "  Tableid: %u\n", prule->action.table);
 	if (zaction->afi == AFI_IP)
@@ -1118,7 +1165,7 @@ static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 			    uint16_t port_min, uint16_t port_max,
 			    uint8_t proto)
 {
-	if (!(filter_bm & PBR_FILTER_PROTO)) {
+	if (!(filter_bm & PBR_FILTER_IP_PROTOCOL)) {
 		if (port_max)
 			vty_out(vty, ":udp/tcp:%d-%d",
 				port_min, port_max);

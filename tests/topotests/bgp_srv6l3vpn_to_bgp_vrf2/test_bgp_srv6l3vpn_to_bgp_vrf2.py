@@ -24,6 +24,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -96,21 +97,6 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def check_ping(name, dest_addr, expect_connected):
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        assert match in output, "ping fail"
-
-    match = ", {} packet loss".format("0%" if expect_connected else "100%")
-    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-    assert result is None, "Failed"
-
-
 def check_rib(name, cmd, expected_file):
     def _check(name, dest_addr, match):
         logger.info("polling")
@@ -143,16 +129,16 @@ def test_rib():
 
 
 def test_ping():
-    check_ping("ce1", "192.168.2.2", True)
-    check_ping("ce1", "192.168.3.2", True)
-    check_ping("ce1", "192.168.4.2", False)
-    check_ping("ce1", "192.168.5.2", False)
-    check_ping("ce1", "192.168.6.2", False)
-    check_ping("ce4", "192.168.1.2", False)
-    check_ping("ce4", "192.168.2.2", False)
-    check_ping("ce4", "192.168.3.2", False)
-    check_ping("ce4", "192.168.5.2", True)
-    check_ping("ce4", "192.168.6.2", True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "192.168.3.2", True, 10, 0.5)
+    check_ping("ce1", "192.168.4.2", False, 10, 0.5)
+    check_ping("ce1", "192.168.5.2", False, 10, 0.5)
+    check_ping("ce1", "192.168.6.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.1.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.3.2", False, 10, 0.5)
+    check_ping("ce4", "192.168.5.2", True, 10, 0.5)
+    check_ping("ce4", "192.168.6.2", True, 10, 0.5)
 
 
 if __name__ == "__main__":

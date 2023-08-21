@@ -28,11 +28,6 @@ int sysid2buff(uint8_t *, const char *);
 /*
  * Printing functions
  */
-const char *isonet_print(const uint8_t *, int len);
-const char *sysid_print(const uint8_t *);
-const char *snpa_print(const uint8_t *);
-const char *rawlspid_print(const uint8_t *);
-const char *isis_format_id(const uint8_t *id, size_t len);
 const char *time2string(uint32_t);
 const char *nlpid2str(uint8_t nlpid);
 /* typedef struct nlpids nlpids; */

@@ -1148,13 +1148,18 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    "wrongInterface",
 						    c_oil->cc.wrong_if);
 			}
-		}
+		} else
 #if PIM_IPV == 4
-		else
 			vty_out(vty, "%-6d %-15pPAs  %-15pPAs  %-3s  %-16s  ",
 				c_oil->installed, oil_origin(c_oil),
 				oil_mcastgrp(c_oil), isRpt ? "y" : "n",
 				in_ifname);
+#else
+			/* Add a new row for c_oil with no OIF */
+			ttable_add_row(tt, "%d|%pPAs|%pPAs|%s|%s|%c",
+				       c_oil->installed, oil_origin(c_oil),
+				       oil_mcastgrp(c_oil), isRpt ? "y" : "n",
+				       in_ifname, ' ');
 #endif
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
@@ -1225,6 +1230,13 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #if PIM_IPV == 4
 					vty_out(vty, "%s%s", out_ifname, flag);
 #else
+					/* OIF found.
+					 * Delete the existing row for c_oil,
+					 * with no OIF.
+					 * Add a new row for c_oil with OIF and
+					 * flag.
+					 */
+					ttable_del_row(tt, tt->nrows - 1);
 					ttable_add_row(
 						tt, "%d|%pPAs|%pPAs|%s|%s|%s%s",
 						c_oil->installed,
@@ -2747,7 +2759,7 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 		}
 	}
 
-	if (!found_ifname)
+	if (!found_ifname && !json)
 		vty_out(vty, "%% No such interface\n");
 }
 
@@ -2832,6 +2844,8 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 	json_object *json_row = NULL;
 	json_object *json_ifp = NULL;
 	json_object *json_arr = NULL;
+	struct pim_interface *pim_ifp = NULL;
+	bool pim_enable = false;
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
@@ -2851,6 +2865,14 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 		json_ifp = json_object_new_object();
 		json_object_string_add(json_ifp, "interface",
 				       ifp ? ifp->name : "NULL");
+
+		if (ifp)
+			pim_ifp = ifp->info;
+
+		if (pim_ifp && pim_ifp->pim_enable)
+			pim_enable = true;
+
+		json_object_boolean_add(json_ifp, "pimEnabled", pim_enable);
 #if PIM_IPV == 4
 		json_object_string_addf(json_ifp, "nexthop", "%pI4",
 					&nh_node->gate.ipv4);
@@ -2871,7 +2893,6 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	struct prefix grp;
 	struct pim_nexthop nexthop;
 	struct vrf *v;
-	char grp_str[PREFIX_STRLEN];
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 
@@ -2907,9 +2928,7 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 		return CMD_SUCCESS;
 	}
 
-	pim_addr_dump("<grp?>", &grp, grp_str, sizeof(grp_str));
-
-	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s\n", grp_str,
+	vty_out(vty, "Group %pFXh --- Nexthop %pPAs Interface %s\n", &grp,
 		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
 
 	return CMD_SUCCESS;
@@ -3200,7 +3219,7 @@ void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 		}
 	}
 
-	if (!found_neighbor)
+	if (!found_neighbor && !json)
 		vty_out(vty, "%% No such interface or neighbor\n");
 }
 

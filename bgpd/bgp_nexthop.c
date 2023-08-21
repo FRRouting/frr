@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "lib/json.h"
 #include "zclient.h"
@@ -31,6 +31,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -42,9 +43,9 @@ int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 	if (a->srte_color > b->srte_color)
 		return 1;
 
-	if (a->ifindex < b->ifindex)
+	if (a->ifindex_ipv6_ll < b->ifindex_ipv6_ll)
 		return -1;
-	if (a->ifindex > b->ifindex)
+	if (a->ifindex_ipv6_ll > b->ifindex_ipv6_ll)
 		return 1;
 
 	return prefix_cmp(&a->prefix, &b->prefix);
@@ -64,7 +65,7 @@ struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
 	bnc->prefix = *prefix;
-	bnc->ifindex = ifindex;
+	bnc->ifindex_ipv6_ll = ifindex;
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
@@ -104,7 +105,7 @@ struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 
 	bnc.prefix = *prefix;
 	bnc.srte_color = srte_color;
-	bnc.ifindex = ifindex;
+	bnc.ifindex_ipv6_ll = ifindex;
 	return bgp_nexthop_cache_find(tree, &bnc);
 }
 
@@ -118,6 +119,9 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 
 		while (!LIST_EMPTY(&(bnc->paths))) {
 			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
+
+			bgp_mplsvpn_path_nh_label_unlink(path);
+			bgp_mplsvpn_path_nh_label_bind_unlink(path);
 
 			path_nh_map(path, bnc, false);
 		}
@@ -166,11 +170,7 @@ void bgp_tip_hash_init(struct bgp *bgp)
 
 void bgp_tip_hash_destroy(struct bgp *bgp)
 {
-	if (bgp->tip_hash == NULL)
-		return;
-	hash_clean(bgp->tip_hash, bgp_tip_hash_free);
-	hash_free(bgp->tip_hash);
-	bgp->tip_hash = NULL;
+	hash_clean_and_free(&bgp->tip_hash, bgp_tip_hash_free);
 }
 
 /* Add/Update Tunnel-IP entry of bgp martian next-hop table.
@@ -305,11 +305,7 @@ void bgp_address_init(struct bgp *bgp)
 
 void bgp_address_destroy(struct bgp *bgp)
 {
-	if (bgp->address_hash == NULL)
-		return;
-	hash_clean(bgp->address_hash, bgp_address_hash_free);
-	hash_free(bgp->address_hash);
-	bgp->address_hash = NULL;
+	hash_clean_and_free(&bgp->address_hash, bgp_address_hash_free);
 }
 
 static void bgp_address_add(struct bgp *bgp, struct connected *ifc,
@@ -862,8 +858,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
-						bnc->ifindex ? bnc->ifindex
-							     : nexthop->ifindex,
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV4:
@@ -874,8 +871,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
-						bnc->ifindex ? bnc->ifindex
-							     : nexthop->ifindex,
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -884,8 +882,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
-						bnc->ifindex ? bnc->ifindex
-							     : nexthop->ifindex,
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -916,29 +915,40 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 		}
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV6:
-			vty_out(vty, "  gate %pI6\n", &nexthop->gate.ipv6);
-			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			vty_out(vty, "  gate %pI6, if %s\n",
-				&nexthop->gate.ipv6,
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
-					       bgp->vrf_id));
+			vty_out(vty, "  gate %pI6", &nexthop->gate.ipv6);
+			if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+			    bnc->ifindex_ipv6_ll)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll,
+						       bgp->vrf_id));
+			else if (nexthop->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(nexthop->ifindex,
+						       bgp->vrf_id));
+			else
+				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IPV4:
-			vty_out(vty, "  gate %pI4\n", &nexthop->gate.ipv4);
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			vty_out(vty, "  gate %pI4", &nexthop->gate.ipv4);
+			if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
+			    bnc->ifindex_ipv6_ll)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll,
+						       bgp->vrf_id));
+			else if (nexthop->ifindex)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(nexthop->ifindex,
+						       bgp->vrf_id));
+			else
+				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, "  if %s\n",
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
-					       bgp->vrf_id));
-			break;
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			vty_out(vty, "  gate %pI4, if %s\n",
-				&nexthop->gate.ipv4,
-				ifindex2ifname(bnc->ifindex ? bnc->ifindex
-							    : nexthop->ifindex,
+				ifindex2ifname(bnc->ifindex_ipv6_ll
+						       ? bnc->ifindex_ipv6_ll
+						       : nexthop->ifindex,
 					       bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:

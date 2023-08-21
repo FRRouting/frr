@@ -54,9 +54,9 @@ PKT_PROCESS_TRACEPOINT_INSTANCE(refresh_process)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	packet_read,
-	TP_ARGS(struct peer *, peer, struct stream *, pkt),
+	TP_ARGS(struct peer_connection *, connection, struct stream *, pkt),
 	TP_FIELDS(
-		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_string(peer, PEER_HOSTNAME(connection->peer))
 		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
 				 STREAM_READABLE(pkt))
 	)

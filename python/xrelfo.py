@@ -40,7 +40,7 @@ tool available) could not be found.  It should be included with the sources.
 
 # constants, need to be kept in sync manually...
 
-XREFT_THREADSCHED = 0x100
+XREFT_EVENTSCHED = 0x100
 XREFT_LOGMSG = 0x200
 XREFT_DEFUN = 0x300
 XREFT_INSTALL_ELEMENT = 0x301
@@ -110,7 +110,7 @@ class XrefThreadSched(ELFDissectStruct, XrelfoJson):
     struct = "xref_threadsched"
 
 
-Xref.containers[XREFT_THREADSCHED] = XrefThreadSched
+Xref.containers[XREFT_EVENTSCHED] = XrefThreadSched
 
 
 class XrefLogmsg(ELFDissectStruct, XrelfoJson):

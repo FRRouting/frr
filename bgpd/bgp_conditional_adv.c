@@ -150,7 +150,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 /* Handler of conditional advertisement timer event.
  * Each route in the condition-map is evaluated.
  */
-static void bgp_conditional_adv_timer(struct thread *t)
+static void bgp_conditional_adv_timer(struct event *t)
 {
 	afi_t afi;
 	safi_t safi;
@@ -165,11 +165,11 @@ static void bgp_conditional_adv_timer(struct thread *t)
 	route_map_result_t ret;
 	bool advmap_table_changed = false;
 
-	bgp = THREAD_ARG(t);
+	bgp = EVENT_ARG(t);
 	assert(bgp);
 
-	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
-			 bgp->condition_check_period, &bgp->t_condition_check);
+	event_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
+			bgp->condition_check_period, &bgp->t_condition_check);
 
 	/* loop through each peer and check if we have peers with
 	 * advmap_table_change attribute set, to make sure we send
@@ -328,9 +328,9 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Register for conditional routes polling timer */
-	if (!thread_is_scheduled(bgp->t_condition_check))
-		thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp, 0,
-				 &bgp->t_condition_check);
+	if (!event_is_scheduled(bgp->t_condition_check))
+		event_add_timer(bm->master, bgp_conditional_adv_timer, bgp, 0,
+				&bgp->t_condition_check);
 }
 
 void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
@@ -351,7 +351,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Last filter removed. So cancel conditional routes polling thread. */
-	THREAD_OFF(bgp->t_condition_check);
+	EVENT_OFF(bgp->t_condition_check);
 }
 
 static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,

@@ -103,6 +103,20 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/admin-group-send-zero",
+			.cbs = {
+				.cli_show = cli_show_isis_admin_group_send_zero,
+				.modify = isis_instance_admin_group_send_zero_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/asla-legacy-flag",
+			.cbs = {
+				.cli_show = cli_show_isis_asla_legacy_flag,
+				.modify = isis_instance_asla_legacy_flag_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/lsp/mtu",
 			.cbs = {
 				.cli_show = cli_show_isis_lsp_mtu,
@@ -368,6 +382,29 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/metric",
 			.cbs = {
+				.destroy = isis_instance_redistribute_ipv4_metric_destroy,
+				.modify = isis_instance_redistribute_ipv4_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/table",
+			.cbs = {
+				.cli_show = cli_show_isis_redistribute_ipv4_table,
+                                .cli_cmp = cli_cmp_isis_redistribute_table,
+				.create = isis_instance_redistribute_ipv4_table_create,
+				.destroy = isis_instance_redistribute_ipv4_table_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/table/route-map",
+			.cbs = {
+				.destroy = isis_instance_redistribute_ipv4_route_map_destroy,
+				.modify = isis_instance_redistribute_ipv4_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/table/metric",
+			.cbs = {
 				.modify = isis_instance_redistribute_ipv4_metric_modify,
 			},
 		},
@@ -389,6 +426,29 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/metric",
+			.cbs = {
+				.destroy = isis_instance_redistribute_ipv6_metric_destroy,
+				.modify = isis_instance_redistribute_ipv6_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/table",
+			.cbs = {
+				.cli_show = cli_show_isis_redistribute_ipv6_table,
+				.cli_cmp = cli_cmp_isis_redistribute_table,
+				.create = isis_instance_redistribute_ipv6_table_create,
+				.destroy = isis_instance_redistribute_ipv6_table_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/table/route-map",
+			.cbs = {
+				.destroy = isis_instance_redistribute_ipv6_route_map_destroy,
+				.modify = isis_instance_redistribute_ipv6_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/table/metric",
 			.cbs = {
 				.modify = isis_instance_redistribute_ipv6_metric_modify,
 			},
@@ -559,6 +619,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/log-pdu-drops",
+			.cbs = {
+				.cli_show = cli_show_isis_log_pdu_drops,
+				.modify = isis_instance_log_pdu_drops_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/mpls-te",
 			.cbs = {
 				.cli_show = cli_show_isis_mpls_te,
@@ -680,6 +747,118 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify,
 			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid",
+			.cbs = {
+				.create = isis_instance_segment_routing_algorithm_prefix_sid_create,
+				.destroy = isis_instance_segment_routing_algorithm_prefix_sid_destroy,
+				.pre_validate = isis_instance_segment_routing_algorithm_prefix_sid_pre_validate,
+				.apply_finish = isis_instance_segment_routing_algorithm_prefix_sid_apply_finish,
+				.cli_show = cli_show_isis_prefix_sid_algorithm,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value-type",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/last-hop-behavior",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/n-flag-clear",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo",
+			.cbs = {
+				.cli_show = cli_show_isis_flex_algo,
+				.cli_show_end = cli_show_isis_flex_algo_end,
+				.create = isis_instance_flex_algo_create,
+				.destroy = isis_instance_flex_algo_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/advertise-definition",
+			.cbs = {
+				.modify = isis_instance_flex_algo_advertise_definition_modify,
+				.destroy = isis_instance_flex_algo_advertise_definition_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-alls/affinity-include-all",
+			.cbs = {
+				.create = isis_instance_flex_algo_affinity_include_all_create,
+				.destroy = isis_instance_flex_algo_affinity_include_all_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-anies/affinity-include-any",
+			.cbs = {
+				.create = isis_instance_flex_algo_affinity_include_any_create,
+				.destroy = isis_instance_flex_algo_affinity_include_any_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/affinity-exclude-anies/affinity-exclude-any",
+			.cbs = {
+				.create = isis_instance_flex_algo_affinity_exclude_any_create,
+				.destroy = isis_instance_flex_algo_affinity_exclude_any_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric",
+			.cbs = {
+				.create = isis_instance_flex_algo_prefix_metric_create,
+				.destroy = isis_instance_flex_algo_prefix_metric_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/metric-type",
+			.cbs = {
+				.modify = isis_instance_flex_algo_metric_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/dplane-sr-mpls",
+			.cbs = {
+				.create = isis_instance_flex_algo_dplane_sr_mpls_create,
+				.destroy = isis_instance_flex_algo_dplane_sr_mpls_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/dplane-srv6",
+			.cbs = {
+				.create = isis_instance_flex_algo_dplane_srv6_create,
+				.destroy = isis_instance_flex_algo_dplane_srv6_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/dplane-ip",
+			.cbs = {
+				.create = isis_instance_flex_algo_dplane_ip_create,
+				.destroy = isis_instance_flex_algo_dplane_ip_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/flex-algos/flex-algo/priority",
+			.cbs = {
+				.modify = isis_instance_flex_algo_priority_modify,
+				.destroy = isis_instance_flex_algo_priority_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync",

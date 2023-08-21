@@ -31,13 +31,14 @@ used together with `remove-private-AS`.
 import os
 import sys
 import json
-import time
 import pytest
+import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 pytestmark = [pytest.mark.bgpd]
@@ -84,29 +85,43 @@ def test_bgp_remove_private_as():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def _bgp_converge(router):
-        while True:
-            output = json.loads(
-                tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json")
-            )
-            if output["192.168.255.1"]["bgpState"] == "Established":
-                time.sleep(1)
-                return True
+    r2 = tgen.gears["r2"]
+    r4 = tgen.gears["r4"]
 
-    def _bgp_as_path(router):
-        output = json.loads(
-            tgen.gears[router].vtysh_cmd("show ip bgp 172.16.255.254/32 json")
-        )
-        if output["prefix"] == "172.16.255.254/32":
-            return output["paths"][0]["aspath"]["segments"][0]["list"]
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
+        expected = {
+            "192.168.255.1": {
+                "bgpState": "Established",
+            }
+        }
+        return topotest.json_cmp(output, expected)
 
-    if _bgp_converge("r2"):
-        assert len(_bgp_as_path("r2")) == 1
-        assert '0.65000' not in _bgp_as_path("r2")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge initially"
 
-    if _bgp_converge("r4"):
-        assert len(_bgp_as_path("r4")) == 2
-        assert '0.3000' in _bgp_as_path("r4")
+    def _bgp_as_path(router, asn_path, asn_length):
+        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.254/32 json"))
+        expected = {
+            "paths": [
+                {
+                    "aspath": {
+                        "string": asn_path,
+                        "length": asn_length,
+                    }
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_as_path, r2, "0.500", 1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Private ASNs not stripped"
+
+    test_func = functools.partial(_bgp_as_path, r4, "0.500 0.3000", 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Private ASNs not stripped"
 
 
 if __name__ == "__main__":

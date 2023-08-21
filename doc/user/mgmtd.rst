@@ -70,14 +70,6 @@ Frontend Interface and MGMTd:
     database.
   - Data can be retrieved anytime using GET_CONFIG/GET_DATA API.
 
- - Startup Database:
-
-  - Consists of configuration data items only.
-  - This is a copy of Running database that is stored in persistent
-    storage and is used to load configurations on Running database during
-    MGMT daemon startup.
-  - Data cannot be edited/retrieved directly via Frontend interface.
-
  - Operational Database:
 
   - Consists of non-configurational data items.
@@ -313,8 +305,7 @@ MGMT Configuration commands
 .. clicmd:: mgmt commit apply
 
     This command commits any uncommited changes in the Candidate DB to the
-    Running DB. It also dumps a copy of the tree in JSON format into
-    frr_startup.json.
+    Running DB.
 
 .. clicmd:: mgmt commit check
 
@@ -373,3 +364,46 @@ MGMT Show commands
 .. clicmd:: show mgmt commit-history
 
     This command dumps details of upto last 10 commits handled by MGMTd.
+
+
+MGMT Daemon debug commands
+==========================
+
+The following debug commands enable debugging within the management daemon:
+
+.. clicmd:: [no] debug mgmt backend
+
+   Enable[/Disable] debugging messages related to backend operations within the
+   management daemon.
+
+.. clicmd:: [no] debug mgmt datastore
+
+   Enable[/Disable] debugging messages related to YANG datastore operations
+   within the management daemon.
+
+.. clicmd:: [no] debug mgmt frontend
+
+   Enable[/Disable] debugging messages related to frontend operations within the
+   management daemon.
+
+.. clicmd:: [no] debug mgmt transaction
+
+   Enable[/Disable] debugging messages related to transactions within the
+   management daemon.
+
+
+MGMT Client debug commands
+==========================
+
+The following debug commands enable debugging within the management front and
+backend clients:
+
+.. clicmd:: [no] debug mgmt client backend
+
+   Enable[/Disable] debugging messages related to backend operations inside the
+   backend mgmtd clients.
+
+.. clicmd:: [no] debug mgmt client frontend
+
+   Enable[/Disable] debugging messages related to frontend operations inside the
+   frontend mgmtd clients.

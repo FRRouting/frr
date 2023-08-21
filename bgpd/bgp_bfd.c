@@ -11,7 +11,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "vrf.h"
@@ -55,8 +55,8 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 		}
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 
-		/* draft-ietf-idr-bfd-subcode */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		/* rfc9384 */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_BFD_DOWN);
 
@@ -609,7 +609,7 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 }
 #endif /* HAVE_BFDD */
 
-void bgp_bfd_init(struct thread_master *tm)
+void bgp_bfd_init(struct event_loop *tm)
 {
 	/* Initialize BFD client functions */
 	bfd_protocol_integration_init(zclient, tm);

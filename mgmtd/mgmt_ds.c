@@ -15,24 +15,16 @@
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
 
-#ifdef REDIRECT_DEBUG_TO_STDERR
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define MGMTD_DS_ERR(fmt, ...)                                                 \
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define MGMTD_DS_DBG(fmt, ...)                                                 \
-	do {                                                                   \
-		if (mgmt_debug_ds)                                             \
-			zlog_err("%s: " fmt, __func__, ##__VA_ARGS__);         \
-	} while (0)
+	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_DS_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
 
 struct mgmt_ds_ctx {
 	Mgmtd__DatastoreId ds_id;
-	int lock; /* 0 unlocked, >0 read locked < write locked */
+
+	bool locked;
+	uint64_t vty_session_id; /* Owner of the lock or 0 */
 
 	bool config_ds;
 
@@ -86,28 +78,20 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 					   struct mgmt_ds_ctx *dst)
 {
-	struct lyd_node *dst_dnode, *src_dnode;
-	struct ly_out *out;
-
 	if (!src || !dst)
 		return -1;
-	MGMTD_DS_DBG("Replacing %d with %d", dst->ds_id, src->ds_id);
 
-	src_dnode = src->config_ds ? src->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-	dst_dnode = dst->config_ds ? dst->root.cfg_root->dnode
-				   : dst->root.dnode_root;
+	MGMTD_DS_DBG("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
+		     mgmt_ds_id2name(src->ds_id));
 
-	if (dst_dnode)
-		yang_dnode_free(dst_dnode);
-
-	/* Not using nb_config_replace as the oper ds does not contain nb_config
-	 */
-	dst_dnode = yang_dnode_dup(src_dnode);
-	if (dst->config_ds)
-		dst->root.cfg_root->dnode = dst_dnode;
-	else
-		dst->root.dnode_root = dst_dnode;
+	if (src->config_ds && dst->config_ds)
+		nb_config_replace(dst->root.cfg_root, src->root.cfg_root, true);
+	else {
+		assert(!src->config_ds && !dst->config_ds);
+		if (dst->root.dnode_root)
+			yang_dnode_free(dst->root.dnode_root);
+		dst->root.dnode_root = yang_dnode_dup(src->root.dnode_root);
+	}
 
 	if (src->ds_id == MGMTD_DS_CANDIDATE) {
 		/*
@@ -117,15 +101,6 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
-	if (dst->ds_id == MGMTD_DS_RUNNING) {
-		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out)
-		    == LY_SUCCESS)
-			mgmt_ds_dump_in_memory(dst, "", LYD_JSON, out);
-		ly_out_free(out, NULL, 0);
-	}
-
-	/* TODO: Update the versions if nb_config present */
-
 	return 0;
 }
 
@@ -133,21 +108,21 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 					 struct mgmt_ds_ctx *dst)
 {
 	int ret;
-	struct lyd_node **dst_dnode, *src_dnode;
-	struct ly_out *out;
 
 	if (!src || !dst)
 		return -1;
 
 	MGMTD_DS_DBG("Merging DS %d with %d", dst->ds_id, src->ds_id);
-
-	src_dnode = src->config_ds ? src->root.cfg_root->dnode
-				   : dst->root.dnode_root;
-	dst_dnode = dst->config_ds ? &dst->root.cfg_root->dnode
-				   : &dst->root.dnode_root;
-	ret = lyd_merge_siblings(dst_dnode, src_dnode, 0);
+	if (src->config_ds && dst->config_ds)
+		ret = nb_config_merge(dst->root.cfg_root, src->root.cfg_root,
+				      true);
+	else {
+		assert(!src->config_ds && !dst->config_ds);
+		ret = lyd_merge_siblings(&dst->root.dnode_root,
+					 src->root.dnode_root, 0);
+	}
 	if (ret != 0) {
-		MGMTD_DS_ERR("lyd_merge() failed with err %d", ret);
+		MGMTD_DS_ERR("merge failed with err: %d", ret);
 		return ret;
 	}
 
@@ -157,13 +132,6 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 		 */
 		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
-	}
-
-	if (dst->ds_id == MGMTD_DS_RUNNING) {
-		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out)
-		    == LY_SUCCESS)
-			mgmt_ds_dump_in_memory(dst, "", LYD_JSON, out);
-		ly_out_free(out, NULL, 0);
 	}
 
 	return 0;
@@ -190,6 +158,7 @@ static int mgmt_ds_load_cfg_from_file(const char *filepath,
 void mgmt_ds_reset_candidate(void)
 {
 	struct lyd_node *dnode = mm->candidate_ds->root.cfg_root->dnode;
+
 	if (dnode)
 		yang_dnode_free(dnode);
 
@@ -200,20 +169,12 @@ void mgmt_ds_reset_candidate(void)
 
 int mgmt_ds_init(struct mgmt_master *mm)
 {
-	struct lyd_node *root;
-
 	if (mgmt_ds_mm || mm->running_ds || mm->candidate_ds || mm->oper_ds)
 		assert(!"MGMTD: Call ds_init only once!");
 
 	/* Use Running DS from NB module??? */
 	if (!running_config)
 		assert(!"MGMTD: Call ds_init after frr_init only!");
-
-	if (mgmt_ds_load_cfg_from_file(MGMTD_STARTUP_DS_FILE_PATH, &root)
-	    == 0) {
-		nb_config_free(running_config);
-		running_config = nb_config_new(root);
-	}
 
 	running.root.cfg_root = running_config;
 	running.config_ds = true;
@@ -243,9 +204,11 @@ int mgmt_ds_init(struct mgmt_master *mm)
 
 void mgmt_ds_destroy(void)
 {
-	/*
-	 * TODO: Free the datastores.
-	 */
+	nb_config_free(candidate.root.cfg_root);
+	candidate.root.cfg_root = NULL;
+
+	yang_dnode_free(oper.root.dnode_root);
+	oper.root.dnode_root = NULL;
 }
 
 struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
@@ -275,40 +238,33 @@ bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx)
 	return ds_ctx->config_ds;
 }
 
-int mgmt_ds_read_lock(struct mgmt_ds_ctx *ds_ctx)
+bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
-	if (!ds_ctx)
-		return EINVAL;
-	if (ds_ctx->lock < 0)
+	assert(ds_ctx);
+	return (ds_ctx->locked && ds_ctx->vty_session_id == session_id);
+}
+
+int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
+{
+	assert(ds_ctx);
+
+	if (ds_ctx->locked)
 		return EBUSY;
-	++ds_ctx->lock;
+
+	ds_ctx->locked = true;
+	ds_ctx->vty_session_id = session_id;
 	return 0;
 }
 
-int mgmt_ds_write_lock(struct mgmt_ds_ctx *ds_ctx)
+void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
 {
-	if (!ds_ctx)
-		return EINVAL;
-	if (ds_ctx->lock != 0)
-		return EBUSY;
-	ds_ctx->lock = -1;
-	return 0;
-}
-
-int mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
-{
-	if (!ds_ctx)
-		return EINVAL;
-	if (ds_ctx->lock > 0)
-		--ds_ctx->lock;
-	else if (ds_ctx->lock < 0) {
-		assert(ds_ctx->lock == -1);
-		ds_ctx->lock = 0;
-	} else {
-		assert(ds_ctx->lock != 0);
-		return EINVAL;
-	}
-	return 0;
+	assert(ds_ctx);
+	if (!ds_ctx->locked)
+		zlog_warn(
+			"%s: WARNING: unlock on unlocked in DS:%s last session-id %" PRIu64,
+			__func__, mgmt_ds_id2name(ds_ctx->ds_id),
+			ds_ctx->vty_session_id);
+	ds_ctx->locked = 0;
 }
 
 int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
@@ -345,148 +301,67 @@ struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx)
 }
 
 static int mgmt_walk_ds_nodes(
-	struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
+	struct nb_config *root, const char *base_xpath,
 	struct lyd_node *base_dnode,
-	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx, char *xpath,
-				     struct lyd_node *node,
+	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
-	void *ctx, char *xpaths[], int *num_nodes, bool childs_as_well,
-	bool alloc_xp_copy)
+	void *ctx)
 {
-	uint32_t indx;
-	char *xpath, *xpath_buf, *iter_xp;
-	int ret, num_left = 0, num_found = 0;
+	/* this is 1k per recursion... */
+	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *dnode;
 	struct nb_node *nbnode;
-	bool alloc_xp = false;
+	int ret = 0;
 
-	if (xpaths)
-		assert(num_nodes);
+	assert(mgmt_ds_node_iter_fn);
 
-	if (num_nodes && !*num_nodes)
-		return 0;
-
-	if (num_nodes) {
-		num_left = *num_nodes;
-		MGMTD_DS_DBG(" -- START: num_left:%d", num_left);
-		*num_nodes = 0;
-	}
-
-	MGMTD_DS_DBG(" -- START: Base: %s", base_xpath);
+	MGMTD_DS_DBG(" -- START: base xpath: '%s'", base_xpath);
 
 	if (!base_dnode)
-		base_dnode = yang_dnode_get(
-			ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-					   : ds_ctx->root.dnode_root,
-			base_xpath);
+		/*
+		 * This function only returns the first node of a possible set
+		 * of matches issuing a warning if more than 1 matches
+		 */
+		base_dnode = yang_dnode_get(root->dnode, base_xpath);
 	if (!base_dnode)
 		return -1;
 
-	if (mgmt_ds_node_iter_fn) {
-		/*
-		 * In case the caller is interested in getting a copy
-		 * of the xpath for themselves (by setting
-		 * 'alloc_xp_copy' to 'true') we make a copy for the
-		 * caller and pass it. Else we pass the original xpath
-		 * buffer.
-		 *
-		 * NOTE: In such case caller will have to take care of
-		 * the copy later.
-		 */
-		iter_xp = alloc_xp_copy ? strdup(base_xpath) : base_xpath;
+	MGMTD_DS_DBG("           search base schema: '%s'",
+		     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
+			       sizeof(xpath)));
 
-		nbnode = (struct nb_node *)base_dnode->schema->priv;
-		(*mgmt_ds_node_iter_fn)(ds_ctx, iter_xp, base_dnode, nbnode,
-					ctx);
-	}
-
-	if (num_nodes) {
-		(*num_nodes)++;
-		num_left--;
-	}
+	nbnode = (struct nb_node *)base_dnode->schema->priv;
+	(*mgmt_ds_node_iter_fn)(base_xpath, base_dnode, nbnode, ctx);
 
 	/*
-	 * If the base_xpath points to a leaf node, or we don't need to
-	 * visit any children we can skip the tree walk.
+	 * If the base_xpath points to a leaf node we can skip the tree walk.
 	 */
-	if (!childs_as_well || base_dnode->schema->nodetype & LYD_NODE_TERM)
+	if (base_dnode->schema->nodetype & LYD_NODE_TERM)
 		return 0;
 
-	indx = 0;
+	/*
+	 * at this point the xpath matched this container node (or some parent
+	 * and we're wildcard descending now) so by walking it's children we
+	 * continue to change the meaning of an xpath regex to rather be a
+	 * prefix matching path
+	 */
+
 	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
 		assert(dnode->schema && dnode->schema->priv);
 
-		xpath = NULL;
-		if (xpaths) {
-			if (!xpaths[*num_nodes]) {
-				alloc_xp = true;
-				xpaths[*num_nodes] =
-					(char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			}
-			xpath = lyd_path(dnode, LYD_PATH_STD,
-					 xpaths[*num_nodes],
-					 MGMTD_MAX_XPATH_LEN);
-		} else {
-			alloc_xp = true;
-			xpath_buf = (char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			(void) lyd_path(dnode, LYD_PATH_STD, xpath_buf,
-					 MGMTD_MAX_XPATH_LEN);
-			xpath = xpath_buf;
-		}
+		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
 
-		assert(xpath);
-		MGMTD_DS_DBG(" -- XPATH: %s", xpath);
+		MGMTD_DS_DBG(" -- Child xpath: %s", xpath);
 
-		if (num_nodes)
-			num_found = num_left;
-
-		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, dnode,
-					 mgmt_ds_node_iter_fn, ctx,
-					 xpaths ? &xpaths[*num_nodes] : NULL,
-					 num_nodes ? &num_found : NULL,
-					 childs_as_well, alloc_xp_copy);
-
-		if (num_nodes) {
-			num_left -= num_found;
-			(*num_nodes) += num_found;
-		}
-
-		if (alloc_xp)
-			free(xpath);
-
+		ret = mgmt_walk_ds_nodes(root, xpath, dnode,
+					 mgmt_ds_node_iter_fn, ctx);
 		if (ret != 0)
 			break;
-
-		indx++;
 	}
 
+	MGMTD_DS_DBG(" -- END: base xpath: '%s'", base_xpath);
 
-	if (num_nodes) {
-		MGMTD_DS_DBG(" -- END: *num_nodes:%d, num_left:%d", *num_nodes,
-			     num_left);
-	}
-
-	return 0;
-}
-
-int mgmt_ds_lookup_data_nodes(struct mgmt_ds_ctx *ds_ctx, const char *xpath,
-			      char *dxpaths[], int *num_nodes,
-			      bool get_childs_as_well, bool alloc_xp_copy)
-{
-	char base_xpath[MGMTD_MAX_XPATH_LEN];
-
-	if (!ds_ctx || !num_nodes)
-		return -1;
-
-	if (xpath[0] == '.' && xpath[1] == '/')
-		xpath += 2;
-
-	strlcpy(base_xpath, xpath, sizeof(base_xpath));
-	mgmt_remove_trailing_separator(base_xpath, '/');
-
-	return (mgmt_walk_ds_nodes(ds_ctx, base_xpath, NULL, NULL, NULL,
-				   dxpaths, num_nodes, get_childs_as_well,
-				   alloc_xp_copy));
+	return ret;
 }
 
 struct lyd_node *mgmt_ds_find_data_node_by_xpath(struct mgmt_ds_ctx *ds_ctx,
@@ -523,12 +398,12 @@ int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx, const char *xpath)
 		 */
 		return NB_ERR_NOT_FOUND;
 	/* destroy dependant */
-	if (nb_node->dep_cbs.get_dependant_xpath) {
+	if (nb_node && nb_node->dep_cbs.get_dependant_xpath) {
 		nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
 
 		dep_dnode = yang_dnode_get(
 			ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-					   : ds_ctx->root.dnode_root,
+					  : ds_ctx->root.dnode_root,
 			dep_xpath);
 		if (dep_dnode)
 			lyd_free_tree(dep_dnode);
@@ -567,32 +442,36 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 	return 0;
 }
 
-int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
-		      void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx,
-						   char *xpath,
+int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
+		      const char *base_xpath,
+		      void (*mgmt_ds_node_iter_fn)(const char *xpath,
 						   struct lyd_node *node,
 						   struct nb_node *nb_node,
 						   void *ctx),
-		      void *ctx, bool alloc_xp_copy)
+		      void *ctx)
 {
-	int ret;
+	int ret = 0;
 	char xpath[MGMTD_MAX_XPATH_LEN];
 	struct lyd_node *base_dnode = NULL;
 	struct lyd_node *node;
 
-	if (!ds_ctx)
+	if (!root)
 		return -1;
 
-	mgmt_remove_trailing_separator(base_xpath, '/');
-
 	strlcpy(xpath, base_xpath, sizeof(xpath));
+	mgmt_remove_trailing_separator(xpath, '/');
 
-	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_ctx->ds_id);
+	/*
+	 * mgmt_ds_iter_data is the only user of mgmt_walk_ds_nodes other than
+	 * mgmt_walk_ds_nodes itself, so we can modify the API if we would like.
+	 * Oper-state should be kept in mind though for the prefix walk
+	 */
+
+	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_id);
 
 	/* If the base_xpath is empty then crawl the sibblings */
-	if (xpath[0] == '\0') {
-		base_dnode = ds_ctx->config_ds ? ds_ctx->root.cfg_root->dnode
-						: ds_ctx->root.dnode_root;
+	if (xpath[0] == 0) {
+		base_dnode = root->dnode;
 
 		/* get first top-level sibling */
 		while (base_dnode->parent)
@@ -602,14 +481,12 @@ int mgmt_ds_iter_data(struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
 			base_dnode = base_dnode->prev;
 
 		LY_LIST_FOR (base_dnode, node) {
-			ret = mgmt_walk_ds_nodes(
-				ds_ctx, xpath, node, mgmt_ds_node_iter_fn,
-				ctx, NULL, NULL, true, alloc_xp_copy);
+			ret = mgmt_walk_ds_nodes(root, xpath, node,
+						 mgmt_ds_node_iter_fn, ctx);
 		}
 	} else
-		ret = mgmt_walk_ds_nodes(ds_ctx, xpath, base_dnode,
-					 mgmt_ds_node_iter_fn, ctx, NULL, NULL,
-					 true, alloc_xp_copy);
+		ret = mgmt_walk_ds_nodes(root, xpath, base_dnode,
+					 mgmt_ds_node_iter_fn, ctx);
 
 	return ret;
 }

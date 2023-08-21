@@ -180,9 +180,7 @@ void log_ref_init(void)
 void log_ref_fini(void)
 {
 	frr_with_mutex (&refs_mtx) {
-		hash_clean(refs, NULL);
-		hash_free(refs);
-		refs = NULL;
+		hash_clean_and_free(&refs, NULL);
 	}
 }
 

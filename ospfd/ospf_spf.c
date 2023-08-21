@@ -6,7 +6,7 @@
 #include <zebra.h>
 
 #include "monotime.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -1842,9 +1842,9 @@ void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 }
 
 /* Worker for SPF calculation scheduler. */
-static void ospf_spf_calculate_schedule_worker(struct thread *thread)
+static void ospf_spf_calculate_schedule_worker(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
 	struct route_table *all_rtrs = NULL;
 	struct timeval start_time, spf_start_time;
@@ -2044,8 +2044,8 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 		zlog_debug("SPF: calculation timer delay = %ld msec", delay);
 
 	ospf->t_spf_calc = NULL;
-	thread_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
-			      delay, &ospf->t_spf_calc);
+	event_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
+			     delay, &ospf->t_spf_calc);
 }
 
 /* Restart OSPF SPF algorithm*/

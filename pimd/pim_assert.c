@@ -493,12 +493,12 @@ static int pim_assert_cancel(struct pim_ifchannel *ch)
 	return pim_assert_do(ch, metric);
 }
 
-static void on_assert_timer(struct thread *t)
+static void on_assert_timer(struct event *t)
 {
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
 
-	ch = THREAD_ARG(t);
+	ch = EVENT_ARG(t);
 
 	ifp = ch->interface;
 
@@ -535,7 +535,7 @@ static void assert_timer_off(struct pim_ifchannel *ch)
 				__func__, ch->sg_str, ch->interface->name);
 		}
 	}
-	THREAD_OFF(ch->t_ifassert_timer);
+	EVENT_OFF(ch->t_ifassert_timer);
 }
 
 static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)
@@ -547,8 +547,8 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)
 			   __func__, ch->sg_str, interval, ch->interface->name);
 	}
 
-	thread_add_timer(router->master, on_assert_timer, ch, interval,
-			 &ch->t_ifassert_timer);
+	event_add_timer(router->master, on_assert_timer, ch, interval,
+			&ch->t_ifassert_timer);
 }
 
 static void pim_assert_timer_reset(struct pim_ifchannel *ch)

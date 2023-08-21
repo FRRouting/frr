@@ -701,29 +701,29 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 {
 	if (sd == bvrf->bg_shop) {
-		THREAD_OFF(bvrf->bg_ev[0]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-				&bvrf->bg_ev[0]);
+		EVENT_OFF(bvrf->bg_ev[0]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+			       &bvrf->bg_ev[0]);
 	} else if (sd == bvrf->bg_mhop) {
-		THREAD_OFF(bvrf->bg_ev[1]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-				&bvrf->bg_ev[1]);
+		EVENT_OFF(bvrf->bg_ev[1]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+			       &bvrf->bg_ev[1]);
 	} else if (sd == bvrf->bg_shop6) {
-		THREAD_OFF(bvrf->bg_ev[2]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-				&bvrf->bg_ev[2]);
+		EVENT_OFF(bvrf->bg_ev[2]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+			       &bvrf->bg_ev[2]);
 	} else if (sd == bvrf->bg_mhop6) {
-		THREAD_OFF(bvrf->bg_ev[3]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-				&bvrf->bg_ev[3]);
+		EVENT_OFF(bvrf->bg_ev[3]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+			       &bvrf->bg_ev[3]);
 	} else if (sd == bvrf->bg_echo) {
-		THREAD_OFF(bvrf->bg_ev[4]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-				&bvrf->bg_ev[4]);
+		EVENT_OFF(bvrf->bg_ev[4]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+			       &bvrf->bg_ev[4]);
 	} else if (sd == bvrf->bg_echov6) {
-		THREAD_OFF(bvrf->bg_ev[5]);
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-				&bvrf->bg_ev[5]);
+		EVENT_OFF(bvrf->bg_ev[5]);
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+			       &bvrf->bg_ev[5]);
 	}
 }
 
@@ -768,9 +768,40 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
-void bfd_recv_cb(struct thread *t)
+static bool bfd_check_auth(const struct bfd_session *bfd,
+			   const struct bfd_pkt *cp)
 {
-	int sd = THREAD_FD(t);
+	if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
+		/* RFC5880 4.1: Authentication Section is present. */
+		struct bfd_auth *auth = (struct bfd_auth *)(cp + 1);
+		uint16_t pkt_auth_type = ntohs(auth->type);
+
+		if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
+			return false;
+
+		if (cp->len < BFD_PKT_LEN + auth->length)
+			return false;
+
+		switch (pkt_auth_type) {
+		case BFD_AUTH_NULL:
+			return false;
+		case BFD_AUTH_SIMPLE:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		case BFD_AUTH_CRYPTOGRAPHIC:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		default:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		}
+	}
+	return true;
+}
+
+void bfd_recv_cb(struct event *t)
+{
+	int sd = EVENT_FD(t);
 	struct bfd_session *bfd;
 	struct bfd_pkt *cp;
 	bool is_mhop;
@@ -781,7 +812,7 @@ void bfd_recv_cb(struct thread *t)
 	struct sockaddr_any local, peer;
 	uint8_t msgbuf[1516];
 	struct interface *ifp = NULL;
-	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
+	struct bfd_vrf_global *bvrf = EVENT_ARG(t);
 
 	/* Schedule next read. */
 	bfd_sd_reschedule(bvrf, sd);
@@ -878,7 +909,7 @@ void bfd_recv_cb(struct thread *t)
 	/*
 	 * We may have a situation where received packet is on wrong vrf
 	 */
-	if (bfd && bfd->vrf && bfd->vrf != bvrf->vrf) {
+	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
 		return;
@@ -931,6 +962,13 @@ void bfd_recv_cb(struct thread *t)
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
+
+	/* Check authentication. */
+	if (!bfd_check_auth(bfd, cp)) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "Authentication failed");
+		return;
+	}
 
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
@@ -1704,9 +1742,10 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 		strlcpy(arpreq_.arp_dev, ifp->name, sizeof(arpreq_.arp_dev));
 
 		if (ioctl(sd, SIOCGARP, &arpreq_) < 0) {
-			zlog_warn(
-				"BFD: getting peer's mac on %s failed error %s",
-				ifp->name, strerror(errno));
+			if (bglobal.debug_network)
+				zlog_debug(
+					"BFD: getting peer's mac on %s failed error %s",
+					ifp->name, strerror(errno));
 			UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
 			memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
 

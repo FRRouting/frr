@@ -566,7 +566,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (re->mtu)
 			vty_out(vty, ", mtu %u", re->mtu);
 		if (re->vrf_id != VRF_DEFAULT) {
-			zvrf = vrf_info_lookup(re->vrf_id);
+			zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 			vty_out(vty, ", vrf %s", zvrf_name(zvrf));
 		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
@@ -962,8 +962,12 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		}
 	}
 
+	/*
+	 * This is an extremely expensive operation at scale
+	 * and non-pretty reduces memory footprint significantly.
+	 */
 	if (use_json)
-		vty_json(vty, json);
+		vty_json_no_pretty(vty, json);
 }
 
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
@@ -1179,12 +1183,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "type",
 				       zebra_route_string(nhe->type));
 		json_object_int_add(json, "refCount", nhe->refcnt);
-		if (thread_is_scheduled(nhe->timer))
+		if (event_is_scheduled(nhe->timer))
 			json_object_string_add(
 				json, "timeToDeletion",
-				thread_timer_to_hhmmss(time_left,
-						       sizeof(time_left),
-						       nhe->timer));
+				event_timer_to_hhmmss(time_left,
+						      sizeof(time_left),
+						      nhe->timer));
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
@@ -1193,11 +1197,11 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
 			zebra_route_string(nhe->type));
 		vty_out(vty, "     RefCnt: %u", nhe->refcnt);
-		if (thread_is_scheduled(nhe->timer))
+		if (event_is_scheduled(nhe->timer))
 			vty_out(vty, " Time to Deletion: %s",
-				thread_timer_to_hhmmss(time_left,
-						       sizeof(time_left),
-						       nhe->timer));
+				event_timer_to_hhmmss(time_left,
+						      sizeof(time_left),
+						      nhe->timer));
 		vty_out(vty, "\n");
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
@@ -2703,12 +2707,7 @@ DEFUN (default_vrf_vni_mapping,
        "Prefix routes only \n")
 {
 	char xpath[XPATH_MAXLEN];
-	struct zebra_vrf *zvrf = NULL;
 	int filter = 0;
-
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
 
 	if (argc == 3)
 		filter = 1;
@@ -2745,9 +2744,7 @@ DEFUN (no_default_vrf_vni_mapping,
 	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 	struct zebra_vrf *zvrf = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (argc == 4)
 		filter = 1;
@@ -4035,6 +4032,9 @@ DEFUN (show_zebra,
 #else
 	ttable_add_row(table, "VRF|Not Available");
 #endif
+
+	ttable_add_row(table, "v6 with v4 nexthop|%s",
+		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavaliable");
 
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.asic_offloaded ? "Used" : "Unavailable");

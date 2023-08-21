@@ -19,6 +19,7 @@ import re
 import sys
 import pytest
 import json
+from functools import partial
 
 pytestmark = [pytest.mark.babeld]
 
@@ -110,6 +111,17 @@ def test_converge_protocols():
     topotest.sleep(10, "Waiting for BABEL convergence")
 
 
+def runit(router, assertmsg, cmd, expfile):
+    logger.info(expfile)
+
+    # Read expected result from file
+    expected = json.loads(open(expfile).read())
+
+    test_func = partial(topotest.router_json_cmp, router, cmd, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, assertmsg
+
+
 def test_zebra_ipv4_routingTable():
     "Test 'show ip route'"
 
@@ -121,14 +133,12 @@ def test_zebra_ipv4_routingTable():
     failures = 0
     router_list = tgen.routers().values()
     for router in router_list:
-        output = router.vtysh_cmd("show ip route json", isjson=True)
-        refTableFile = "{}/{}/show_ip_route.json_ref".format(CWD, router.name)
-        expected = json.loads(open(refTableFile).read())
-
         assertmsg = "Zebra IPv4 Routing Table verification failed for router {}".format(
             router.name
         )
-        assert topotest.json_cmp(output, expected) is None, assertmsg
+        refTableFile = "{}/{}/show_ip_route.json_ref".format(CWD, router.name)
+        runit(router, assertmsg, "show ip route json", refTableFile)
+
 
 def test_shutdown_check_stderr():
     if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:

@@ -14,7 +14,7 @@
 #include "table.h"
 #include "log.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "zclient.h"
 #include "filter.h"
 #include "sockopt.h"
@@ -25,6 +25,7 @@
 #include "zebra/connected.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_bfd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
@@ -413,7 +414,7 @@ static void rip_interface_clean(struct rip_interface *ri)
 	ri->enable_interface = 0;
 	ri->running = 0;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 }
 
 void rip_interfaces_clean(struct rip *rip)
@@ -457,6 +458,7 @@ static void rip_interface_reset(struct rip_interface *ri)
 	ri->sent_updates = 0;
 
 	ri->passive = 0;
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
 
 	rip_interface_clean(ri);
 }
@@ -472,7 +474,7 @@ int rip_if_down(struct interface *ifp)
 
 	ri = ifp->info;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 
 	rip = ri->rip;
 	if (rip) {
@@ -774,13 +776,13 @@ int rip_enable_if_delete(struct rip *rip, const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-static void rip_interface_wakeup(struct thread *t)
+static void rip_interface_wakeup(struct event *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
 
 	/* Get interface. */
-	ifp = THREAD_ARG(t);
+	ifp = EVENT_ARG(t);
 
 	ri = ifp->info;
 
@@ -885,8 +887,8 @@ void rip_enable_apply(struct interface *ifp)
 			zlog_debug("turn on %s", ifp->name);
 
 		/* Add interface wake up thread. */
-		thread_add_timer(master, rip_interface_wakeup, ifp, 1,
-				 &ri->t_wakeup);
+		event_add_timer(master, rip_interface_wakeup, ifp, 1,
+				&ri->t_wakeup);
 		rip_connect_set(ifp, 1);
 	} else if (ri->running) {
 		/* Might as well clean up the route table as well
@@ -1109,8 +1111,10 @@ void rip_interface_sync(struct interface *ifp)
 	struct rip_interface *ri;
 
 	ri = ifp->info;
-	if (ri)
+	if (ri) {
 		ri->rip = ifp->vrf->info;
+		ri->ifp = ifp;
+	}
 }
 
 /* Called when interface structure allocated. */

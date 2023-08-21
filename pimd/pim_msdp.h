@@ -74,7 +74,7 @@ struct pim_msdp_sa {
 /* rfc-3618 is missing default value for SA-hold-down-Period. pulled
  * this number from industry-standards */
 #define PIM_MSDP_SA_HOLD_TIME ((3*60)+30)
-	struct thread *sa_state_timer; // 5.6
+	struct event *sa_state_timer; // 5.6
 	int64_t uptime;
 
 	struct pim_upstream *up;
@@ -109,18 +109,18 @@ struct pim_msdp_peer {
 
 /* protocol timers */
 #define PIM_MSDP_PEER_HOLD_TIME 75
-	struct thread *hold_timer; // 5.4
+	struct event *hold_timer; // 5.4
 #define PIM_MSDP_PEER_KA_TIME 60
-	struct thread *ka_timer; // 5.5
+	struct event *ka_timer; // 5.5
 #define PIM_MSDP_PEER_CONNECT_RETRY_TIME 30
-	struct thread *cr_timer; // 5.6
+	struct event *cr_timer; // 5.6
 
 	/* packet thread and buffers */
 	uint32_t packet_size;
 	struct stream *ibuf;
 	struct stream_fifo *obuf;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* stats */
 	uint32_t conn_attempts;
@@ -167,12 +167,12 @@ enum pim_msdp_flags {
 struct pim_msdp_listener {
 	int fd;
 	union sockunion su;
-	struct thread *thread;
+	struct event *thread;
 };
 
 struct pim_msdp {
 	enum pim_msdp_flags flags;
-	struct thread_master *master;
+	struct event_loop *master;
 	struct pim_msdp_listener listener;
 	uint32_t rejected_accepts;
 
@@ -182,7 +182,7 @@ struct pim_msdp {
 
 /* MSDP active-source info */
 #define PIM_MSDP_SA_ADVERTISMENT_TIME 60
-	struct thread *sa_adv_timer; // 5.6
+	struct event *sa_adv_timer; // 5.6
 	struct hash *sa_hash;
 	struct list *sa_list;
 	uint32_t local_cnt;
@@ -204,20 +204,20 @@ struct pim_msdp {
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
-	thread_add_read(mp->pim->msdp.master, pim_msdp_read, mp, mp->fd,       \
-			&mp->t_read)
+	event_add_read(mp->pim->msdp.master, pim_msdp_read, mp, mp->fd,        \
+		       &mp->t_read)
 
 #define PIM_MSDP_PEER_WRITE_ON(mp)                                             \
-	thread_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,     \
-			 &mp->t_write)
+	event_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,      \
+			&mp->t_write)
 
-#define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
-#define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)
+#define PIM_MSDP_PEER_READ_OFF(mp) event_cancel(&mp->t_read)
+#define PIM_MSDP_PEER_WRITE_OFF(mp) event_cancel(&mp->t_write)
 
 #if PIM_IPV != 6
 // struct pim_msdp *msdp;
 struct pim_instance;
-void pim_msdp_init(struct pim_instance *pim, struct thread_master *master);
+void pim_msdp_init(struct pim_instance *pim, struct event_loop *master);
 void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
@@ -227,7 +227,7 @@ void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
-void pim_msdp_write(struct thread *thread);
+void pim_msdp_write(struct event *thread);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
@@ -308,7 +308,7 @@ void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
-				 struct thread_master *master)
+				 struct event_loop *master)
 {
 }
 

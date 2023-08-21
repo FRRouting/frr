@@ -37,6 +37,8 @@ daemon_flags = {
     "lib/filter_cli.c": "VTYSH_ACL",
     "lib/if.c": "VTYSH_INTERFACE",
     "lib/keychain.c": "VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_OSPF6D",
+    "lib/mgmt_be_client.c": "VTYSH_STATICD",
+    "lib/mgmt_fe_client.c": "VTYSH_MGMTD",
     "lib/lib_vty.c": "VTYSH_ALL",
     "lib/log_vty.c": "VTYSH_ALL",
     "lib/nexthop_group.c": "VTYSH_NH_GROUP",
@@ -44,7 +46,7 @@ daemon_flags = {
     "lib/routemap.c": "VTYSH_RMAP",
     "lib/routemap_cli.c": "VTYSH_RMAP",
     "lib/spf_backoff.c": "VTYSH_ISISD",
-    "lib/thread.c": "VTYSH_ALL",
+    "lib/event.c": "VTYSH_ALL",
     "lib/vrf.c": "VTYSH_VRF",
     "lib/vty.c": "VTYSH_ALL",
 }

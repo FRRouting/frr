@@ -53,6 +53,7 @@ int comment_link;
 char string_end;
 
 char *value;
+static const char *yyfilename;
 
 static void extendbuf(char **what, const char *arg)
 {
@@ -119,8 +120,17 @@ SPECIAL		[(),]
 					}
 				}
 <rstring>\\\n			/* ignore */
+<rstring>\n			{
+					fprintf(stderr,
+						"%s:%d: string continues past the end of the line\n",
+						yyfilename, yylineno);
+					free(value);
+					value = NULL;
+					BEGIN(INITIAL);
+					return STRING;
+				}
 <rstring>\\.			extend(yytext);
-<rstring>[^\\\"\']+		extend(yytext);
+<rstring>[^\\\"\'\n]+		extend(yytext);
 
 "DEFUN"				value = strdup(yytext); return DEFUNNY;
 "DEFUN_NOSH"			value = strdup(yytext); return DEFUNNY;
@@ -207,6 +217,10 @@ static PyObject *get_args(const char *filename, int lineno)
 			if (tval[0] == ')')
 				depth--;
 		}
+		if (!tval)
+			return PyErr_Format(PyExc_ValueError,
+					"%s:%d: invalid token in DEFPY parameters",
+					filename, lineno);
 		if (!pyArg)
 			pyArg = PyList_New(0);
 		PyList_Append(pyArg, PyUnicode_FromString(tval));
@@ -231,6 +245,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	int token;
 	yyin = fd;
 	value = NULL;
+	yyfilename = filename;
 
 	PyObject *pyCont = PyDict_New();
 	PyObject *pyObj = PyList_New(0);
@@ -248,6 +263,7 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 			if (!pyArgs) {
 				free(tval);
 				Py_DECREF(pyCont);
+				yyfilename = NULL;
 				return NULL;
 			}
 			pyItem = PyDict_New();
@@ -276,5 +292,6 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 	}
 	def_yylex_destroy();
 	fclose(fd);
+	yyfilename = NULL;
 	return pyCont;
 }

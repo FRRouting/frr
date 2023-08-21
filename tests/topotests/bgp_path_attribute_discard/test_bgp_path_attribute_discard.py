@@ -83,7 +83,7 @@ def test_bgp_path_attribute_discard():
                     "paths": [
                         {
                             "valid": True,
-                            "originatorId": "10.0.0.2",
+                            "originatorId": None,
                             "community": {
                                 "string": "65001:102",
                             },
@@ -98,12 +98,12 @@ def test_bgp_path_attribute_discard():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed bgp convergence"
 
-    step("Discard atomic-aggregate, community, and originator-id attributes from peer1")
+    step("Discard atomic-aggregate, and community attributes from peer1")
     r1.vtysh_cmd(
         """
     configure terminal
         router bgp
-            neighbor 10.0.0.2 path-attribute discard 6 8 9
+            neighbor 10.0.0.2 path-attribute discard 6 8
     """
     )
 
@@ -137,7 +137,7 @@ def test_bgp_path_attribute_discard():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert (
         result is None
-    ), "Failed to discard path attributes (atomic-aggregate, community, and originator-id)"
+    ), "Failed to discard path attributes (atomic-aggregate, community)"
 
 
 def test_memory_leak():

@@ -12,7 +12,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
@@ -310,7 +310,7 @@ DEFUN (no_ip_ospf_bfd,
 	return CMD_SUCCESS;
 }
 
-void ospf_bfd_init(struct thread_master *tm)
+void ospf_bfd_init(struct event_loop *tm)
 {
 	bfd_protocol_integration_init(zclient, tm);
 

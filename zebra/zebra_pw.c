@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "command.h"
 #include "vrf.h"
 #include "lib/json.h"
@@ -33,7 +33,7 @@ DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 static int zebra_pw_enabled(struct zebra_pw *);
 static void zebra_pw_install(struct zebra_pw *);
 static void zebra_pw_uninstall(struct zebra_pw *);
-static void zebra_pw_install_retry(struct thread *thread);
+static void zebra_pw_install_retry(struct event *thread);
 static int zebra_pw_check_reachability(const struct zebra_pw *);
 static void zebra_pw_update_status(struct zebra_pw *, int);
 
@@ -89,7 +89,7 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 		dplane_pw_uninstall(pw);
 	}
 
-	THREAD_OFF(pw->install_retry_timer);
+	EVENT_OFF(pw->install_retry_timer);
 
 	/* unlink and release memory */
 	RB_REMOVE(zebra_pw_head, &zvrf->pseudowires, pw);
@@ -207,16 +207,16 @@ void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
-	THREAD_OFF(pw->install_retry_timer);
-	thread_add_timer(zrouter.master, zebra_pw_install_retry, pw,
-			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
+	EVENT_OFF(pw->install_retry_timer);
+	event_add_timer(zrouter.master, zebra_pw_install_retry, pw,
+			PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 
 	zebra_pw_update_status(pw, pwstatus);
 }
 
-static void zebra_pw_install_retry(struct thread *thread)
+static void zebra_pw_install_retry(struct event *thread)
 {
-	struct zebra_pw *pw = THREAD_ARG(thread);
+	struct zebra_pw *pw = EVENT_ARG(thread);
 
 	zebra_pw_install(pw);
 }
@@ -407,9 +407,7 @@ DEFUN_NOSH (pseudowire_if,
 	const char *ifname;
 	int idx = 0;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
@@ -439,9 +437,7 @@ DEFUN (no_pseudowire_if,
 	const char *ifname;
 	int idx = 0;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return CMD_WARNING;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
@@ -563,9 +559,7 @@ DEFUN (show_pseudowires,
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", "Interface", "Neighbor",
 		"Labels", "Protocol", "Status");
@@ -602,9 +596,7 @@ static void vty_show_mpls_pseudowire_detail(struct vty *vty)
 	struct nexthop *nexthop;
 	struct nexthop_group *nhg;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
 		char buf_nbr[INET6_ADDRSTRLEN];
@@ -758,9 +750,7 @@ static void vty_show_mpls_pseudowire_detail_json(struct vty *vty)
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	json = json_object_new_object();
 	json_pws = json_object_new_array();
@@ -794,9 +784,7 @@ static int zebra_pw_config(struct vty *vty)
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	RB_FOREACH (pw, zebra_static_pw_head, &zvrf->static_pseudowires) {
 		vty_out(vty, "pseudowire %s\n", pw->ifname);

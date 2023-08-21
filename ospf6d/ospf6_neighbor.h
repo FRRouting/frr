@@ -36,7 +36,7 @@ struct ospf6_helper_info {
 	 * helper until this timer until
 	 * this timer expires.
 	 */
-	struct thread *t_grace_timer;
+	struct event *t_grace_timer;
 
 	/* Helper status */
 	uint32_t gr_helper_status;
@@ -111,18 +111,19 @@ struct ospf6_neighbor {
 	struct ospf6_lsa *last_ls_req;
 
 	/* Inactivity timer */
-	struct thread *inactivity_timer;
+	struct event *inactivity_timer;
 
 	/* Timer to release the last dbdesc packet */
-	struct thread *last_dbdesc_release_timer;
+	struct event *last_dbdesc_release_timer;
 
 	/* Thread for sending message */
-	struct thread *thread_send_dbdesc;
-	struct thread *thread_send_lsreq;
-	struct thread *thread_send_lsupdate;
-	struct thread *thread_send_lsack;
-	struct thread *thread_exchange_done;
-	struct thread *thread_adj_ok;
+	struct event *thread_send_dbdesc;
+	struct event *thread_send_lsreq;
+	struct event *thread_send_lsupdate;
+	struct event *thread_send_lsack;
+	struct event *thread_exchange_done;
+	struct event *thread_adj_ok;
+	struct event *event_loading_done;
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
@@ -190,16 +191,16 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
 /* Neighbor event */
-extern void hello_received(struct thread *thread);
-extern void twoway_received(struct thread *thread);
-extern void negotiation_done(struct thread *thread);
-extern void exchange_done(struct thread *thread);
-extern void loading_done(struct thread *thread);
-extern void adj_ok(struct thread *thread);
-extern void seqnumber_mismatch(struct thread *thread);
-extern void bad_lsreq(struct thread *thread);
-extern void oneway_received(struct thread *thread);
-extern void inactivity_timer(struct thread *thread);
+extern void hello_received(struct event *thread);
+extern void twoway_received(struct event *thread);
+extern void negotiation_done(struct event *thread);
+extern void exchange_done(struct event *thread);
+extern void loading_done(struct event *thread);
+extern void adj_ok(struct event *thread);
+extern void seqnumber_mismatch(struct event *thread);
+extern void bad_lsreq(struct event *thread);
+extern void oneway_received(struct event *thread);
+extern void inactivity_timer(struct event *thread);
 extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
 
 extern void ospf6_neighbor_init(void);

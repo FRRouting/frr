@@ -129,6 +129,7 @@ enum node_type {
 	LDP_L2VPN_NODE,		 /* LDP L2VPN node */
 	LDP_PSEUDOWIRE_NODE,     /* LDP Pseudowire node */
 	ISIS_NODE,		 /* ISIS protocol mode */
+	ISIS_FLEX_ALGO_NODE,    /* ISIS Flex Algo mode */
 	ACCESS_NODE,		 /* Access list node. */
 	PREFIX_NODE,		 /* Prefix list node. */
 	ACCESS_IPV6_NODE,	/* Access list node. */
@@ -415,6 +416,10 @@ struct cmd_node {
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
 #define COMMUNITY_VAL_STR                                                      \
 	"Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet|graceful-shutdown|accept-own-nexthop|accept-own|route-filter-translated-v4|route-filter-v4|route-filter-translated-v6|route-filter-v6|llgr-stale|no-llgr|blackhole|no-peer or additive\n"
+#define EXTCOMM_LIST_CMD_STR "<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>"
+#define EXTCOMM_STD_LIST_NUM_STR "Extended community-list number (standard)\n"
+#define EXTCOMM_EXP_LIST_NUM_STR "Extended community-list number (expanded)\n"
+#define EXTCOMM_LIST_NAME_STR "Extended community-list name\n"
 #define MPLS_TE_STR "MPLS-TE specific commands\n"
 #define LINK_PARAMS_STR "Configure interface link parameters\n"
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"

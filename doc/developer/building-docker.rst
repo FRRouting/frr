@@ -16,8 +16,8 @@ The following platform images are used to support Travis CI and can also
 be used to reproduce topotest failures when the docker host is Ubuntu
 (tested on 18.04 and 20.04):
 
-* Ubuntu 18.04
 * Ubuntu 20.04
+* Ubuntu 22.04
 
 The following platform images may also be built, but these simply install a
 binary package from an existing repository and do not perform source builds:
@@ -130,48 +130,29 @@ No script, multi-arch (ex. amd64, arm64)::
 
 
 
-Building Ubuntu 18.04 Image
----------------------------
-
-Build image (from project root directory)::
-
-   docker build -t frr-ubuntu18:latest  -f docker/ubuntu18-ci/Dockerfile .
-
-Start the container::
-
-   docker run -d --privileged --name frr-ubuntu18 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu18:latest
-
-Running a topotest (when the docker host is Ubuntu)::
-
-   docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
-
-Starting an interactive bash session::
-
-   docker exec -it frr-ubuntu18 bash
-
-Stopping an removing a container::
-
-   docker stop frr-ubuntu18 ; docker rm frr-ubuntu18
-
-Removing the built image::
-
-   docker rmi frr-ubuntu18:latest
-
-
 Building Ubuntu 20.04 Image
 ---------------------------
 
 Build image (from project root directory)::
 
-   docker build -t frr-ubuntu20:latest  -f docker/ubuntu20-ci/Dockerfile .
+   docker build -t frr-ubuntu20:latest --build-arg=UBUNTU_VERSION=20.04 -f docker/ubuntu-ci/Dockerfile .
+
+Running Full Topotest::
+
+   docker run --init -it --privileged --name frr -v /lib/modules:/lib/modules \
+       frr-ubuntu20:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
+
+Extract results from the above run into `run-results` dir and analyze::
+
+   tests/topotest/analyze.py -C frr -Ar run-results
 
 Start the container::
 
-   docker run -d --privileged --name frr-ubuntu20 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu20:latest
+   docker run -d --init --privileged --name frr-ubuntu20 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu20:latest
 
 Running a topotest (when the docker host is Ubuntu)::
 
-   docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+   docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
 
 Starting an interactive bash session::
 
@@ -184,3 +165,40 @@ Stopping an removing a container::
 Removing the built image::
 
    docker rmi frr-ubuntu20:latest
+
+
+Building Ubuntu 22.04 Image
+---------------------------
+
+Build image (from project root directory)::
+
+   docker build -t frr-ubuntu22:latest -f docker/ubuntu-ci/Dockerfile .
+
+Running Full Topotest::
+
+   docker run --init -it --privileged --name frr -v /lib/modules:/lib/modules \
+       frr-ubuntu22:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
+
+Extract results from the above run into `run-results` dir and analyze::
+
+   tests/topotest/analyze.py -C frr -Ar run-results
+
+Start the container::
+
+   docker run -d --init --privileged --name frr-ubuntu22 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu22:latest
+
+Running a topotest (when the docker host is Ubuntu)::
+
+   docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
+
+Starting an interactive bash session::
+
+   docker exec -it frr-ubuntu22 bash
+
+Stopping an removing a container::
+
+   docker stop frr-ubuntu22 ; docker rm frr-ubuntu22
+
+Removing the built image::
+
+   docker rmi frr-ubuntu22:latest

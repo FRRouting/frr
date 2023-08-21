@@ -38,8 +38,8 @@ extern void ospf6_zebra_route_update_remove(struct ospf6_route *request,
 extern void ospf6_zebra_redistribute(int, vrf_id_t vrf_id);
 extern void ospf6_zebra_no_redistribute(int, vrf_id_t vrf_id);
 #define ospf6_zebra_is_redistribute(type, vrf_id)                              \
-	vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id)
-extern void ospf6_zebra_init(struct thread_master *tm);
+	vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id)
+extern void ospf6_zebra_init(struct event_loop *tm);
 extern void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg);
 extern void ospf6_zebra_add_discard(struct ospf6_route *request,
 				    struct ospf6 *ospf6);

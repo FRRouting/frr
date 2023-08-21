@@ -14,6 +14,6 @@ Routing Protocol is "rip"
     193.1.2.0/24
   Routing Information Sources:
     Gateway          BadPackets BadRoutes  Distance Last Update
-    193.1.1.1                0         0       120   XX:XX:XX
-    193.1.2.2                0         0       120   XX:XX:XX
+    193.1.1.1                 0         0       120    XX:XX:XX
+    193.1.2.2                 0         0       120    XX:XX:XX
   Distance: (default is 120)

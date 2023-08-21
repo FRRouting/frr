@@ -25,7 +25,7 @@ struct rfapi_monitor_vpn {
 #define RFAPI_MON_FLAG_NEEDCALLBACK	0x00000001      /* deferred callback */
 
 	// int				dcount;	/* debugging counter */
-	struct thread *timer;
+	struct event *timer;
 };
 
 struct rfapi_monitor_encap {
@@ -41,7 +41,7 @@ struct rfapi_monitor_eth {
 	struct rfapi_descriptor *rfd;   /* which NVE requested the route */
 	struct ethaddr macaddr;
 	uint32_t logical_net_id;
-	struct thread *timer;
+	struct event *timer;
 };
 
 /*

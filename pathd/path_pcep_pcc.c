@@ -190,17 +190,17 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 	}
 
 	if (pcc_state->t_reconnect != NULL) {
-		thread_cancel(&pcc_state->t_reconnect);
+		event_cancel(&pcc_state->t_reconnect);
 		pcc_state->t_reconnect = NULL;
 	}
 
 	if (pcc_state->t_update_best != NULL) {
-		thread_cancel(&pcc_state->t_update_best);
+		event_cancel(&pcc_state->t_update_best);
 		pcc_state->t_update_best = NULL;
 	}
 
 	if (pcc_state->t_session_timeout != NULL) {
-		thread_cancel(&pcc_state->t_session_timeout);
+		event_cancel(&pcc_state->t_session_timeout);
 		pcc_state->t_session_timeout = NULL;
 	}
 
@@ -340,7 +340,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	assert(pcc_state->sess == NULL);
 
 	if (pcc_state->t_reconnect != NULL) {
-		thread_cancel(&pcc_state->t_reconnect);
+		event_cancel(&pcc_state->t_reconnect);
 		pcc_state->t_reconnect = NULL;
 	}
 
@@ -408,7 +408,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	// In case some best pce alternative were waiting to activate
 	if (pcc_state->t_update_best != NULL) {
-		thread_cancel(&pcc_state->t_update_best);
+		event_cancel(&pcc_state->t_update_best);
 		pcc_state->t_update_best = NULL;
 	}
 

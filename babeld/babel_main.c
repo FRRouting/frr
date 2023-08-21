@@ -8,7 +8,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "getopt.h"
 #include "if.h"
 #include "log.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "sigevent.h"
 #include "lib/version.h"
@@ -37,7 +37,7 @@ static void babel_exit_properly(void);
 static void babel_save_state_file(void);
 
 
-struct thread_master *master;     /* quagga's threads handler */
+struct event_loop *master;	  /* quagga's threads handler */
 struct timeval babel_now;         /* current time             */
 
 unsigned char myid[8];            /* unique id (mac address of an interface) */

@@ -29,7 +29,7 @@ struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
-static struct thread_master *master;
+static struct event_loop *master;
 
 static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
@@ -195,11 +195,14 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		va_end(ap);
 	}
 
-	if (vty_mgmt_fe_enabled()) {
+	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
 
+		if (vty->type == VTY_FILE)
+			return CMD_SUCCESS;
+
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty);
+		ret = vty_mgmt_send_config_data(vty, implicit_commit);
 		if (ret >= 0 && !implicit_commit)
 			vty->mgmt_num_pending_setcfg++;
 		return ret;
@@ -224,11 +227,18 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		va_end(ap);
 	}
 
-	if (vty_mgmt_fe_enabled()) {
+	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
-
+		/*
+		 * The legacy user wanted to clear pending (i.e., perform a
+		 * commit immediately) due to some non-yang compatible
+		 * functionality. This new mgmtd code however, continues to send
+		 * changes putting off the commit until XFRR_end is received
+		 * (i.e., end-of-config-file). This should be fine b/c all
+		 * conversions to mgmtd require full proper implementations.
+		 */
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty);
+		ret = vty_mgmt_send_config_data(vty, implicit_commit);
 		if (ret >= 0 && !implicit_commit)
 			vty->mgmt_num_pending_setcfg++;
 		return ret;
@@ -265,7 +275,7 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
 
 void nb_cli_confirmed_commit_clean(struct vty *vty)
 {
-	thread_cancel(&vty->t_confirmed_commit_timeout);
+	event_cancel(&vty->t_confirmed_commit_timeout);
 	nb_config_free(vty->confirmed_commit_rollback);
 	vty->confirmed_commit_rollback = NULL;
 }
@@ -300,9 +310,9 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static void nb_cli_confirmed_commit_timeout(struct thread *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *thread)
 {
-	struct vty *vty = THREAD_ARG(thread);
+	struct vty *vty = EVENT_ARG(thread);
 
 	/* XXX: broadcast this message to all logged-in users? */
 	vty_out(vty,
@@ -328,11 +338,10 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
 				confirmed_timeout);
 
-			thread_cancel(&vty->t_confirmed_commit_timeout);
-			thread_add_timer(master,
-					 nb_cli_confirmed_commit_timeout, vty,
-					 confirmed_timeout * 60,
-					 &vty->t_confirmed_commit_timeout);
+			event_cancel(&vty->t_confirmed_commit_timeout);
+			event_add_timer(master, nb_cli_confirmed_commit_timeout,
+					vty, confirmed_timeout * 60,
+					&vty->t_confirmed_commit_timeout);
 		} else {
 			/* Accept commit confirmation. */
 			vty_out(vty, "%% Commit complete.\n\n");
@@ -355,9 +364,9 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
 		vty->t_confirmed_commit_timeout = NULL;
-		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
-				 confirmed_timeout * 60,
-				 &vty->t_confirmed_commit_timeout);
+		event_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
+				confirmed_timeout * 60,
+				&vty->t_confirmed_commit_timeout);
 	}
 
 	context.client = NB_CLIENT_CLI;
@@ -754,7 +763,7 @@ DEFUN (config_exclusive,
        "Configuration from vty interface\n"
        "Configure exclusively from this terminal\n")
 {
-	return vty_config_enter(vty, true, true);
+	return vty_config_enter(vty, true, true, false);
 }
 
 /* Configure using a private candidate configuration. */
@@ -764,7 +773,7 @@ DEFUN (config_private,
        "Configuration from vty interface\n"
        "Configure using a private candidate configuration\n")
 {
-	return vty_config_enter(vty, true, false);
+	return vty_config_enter(vty, true, false, false);
 }
 
 DEFPY (config_commit,
@@ -1435,6 +1444,7 @@ DEFPY (show_yang_operational_data,
 	struct lyd_node *dnode;
 	char *strp;
 	uint32_t print_options = LYD_PRINT_WITHSIBLINGS;
+	int ret;
 
 	if (xml)
 		format = LYD_XML;
@@ -1455,10 +1465,15 @@ DEFPY (show_yang_operational_data,
 
 	/* Obtain data. */
 	dnode = yang_dnode_new(ly_ctx, false);
-	if (nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				 dnode)
-	    != NB_OK) {
-		vty_out(vty, "%% Failed to fetch operational data.\n");
+	ret = nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
+				   dnode);
+	if (ret != NB_OK) {
+		if (format == LYD_JSON)
+			vty_out(vty, "{}\n");
+		else {
+			/* embed ly_last_errmsg() when we get newer libyang */
+			vty_out(vty, "<!-- Not found -->\n");
+		}
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
@@ -1877,7 +1892,7 @@ static const struct cmd_variable_handler yang_var_handlers[] = {
 	 .completions = yang_translator_autocomplete},
 	{.completions = NULL}};
 
-void nb_cli_init(struct thread_master *tm)
+void nb_cli_init(struct event_loop *tm)
 {
 	master = tm;
 

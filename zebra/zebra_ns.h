@@ -46,7 +46,7 @@ struct zebra_ns {
 	 */
 	struct nlsock netlink_dplane_out;
 	struct nlsock netlink_dplane_in;
-	struct thread *t_netlink;
+	struct event *t_netlink;
 #endif
 
 	struct route_table *if_table;
@@ -67,6 +67,8 @@ int zebra_ns_final_shutdown(struct ns *ns,
 			    void *param_in __attribute__((unused)),
 			    void **param_out __attribute__((unused)));
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
+
+void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

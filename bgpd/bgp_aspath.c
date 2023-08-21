@@ -21,6 +21,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_filter.h"
 
 /* Attr. Flags and Attr. Type Code. */
 #define AS_HEADER_SIZE 2
@@ -1230,6 +1231,46 @@ bool aspath_private_as_check(struct aspath *aspath)
 	return true;
 }
 
+/* Replace all ASN instances of the regex rule with our own ASN  */
+struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
+					struct as_list *acl_list, as_t our_asn)
+{
+	struct aspath *new;
+	struct assegment *cur_seg;
+	struct as_list *cur_as_list;
+	struct as_filter *cur_as_filter;
+	char str_buf[ASPATH_STR_DEFAULT_LEN];
+	uint32_t i;
+
+	new = aspath_dup(aspath);
+	cur_seg = new->segments;
+
+	while (cur_seg) {
+		cur_as_list = acl_list;
+		while (cur_as_list) {
+			cur_as_filter = cur_as_list->head;
+			while (cur_as_filter) {
+				for (i = 0; i < cur_seg->length; i++) {
+					snprintfrr(str_buf,
+						   ASPATH_STR_DEFAULT_LEN,
+						   ASN_FORMAT(new->asnotation),
+						   &cur_seg->as[i]);
+					if (!regexec(cur_as_filter->reg,
+						     str_buf, 0, NULL, 0))
+						cur_seg->as[i] = our_asn;
+				}
+				cur_as_filter = cur_as_filter->next;
+			}
+			cur_as_list = cur_as_list->next;
+		}
+		cur_seg = cur_seg->next;
+	}
+
+	aspath_str_update(new, false);
+	return new;
+}
+
+
 /* Replace all instances of the target ASN with our own ASN */
 struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 					   as_t target_asn, as_t our_asn)
@@ -1597,6 +1638,110 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 	aspath_free(source);
 	return newpath;
 }
+
+struct aspath *aspath_filter_exclude_all(struct aspath *source)
+{
+	struct aspath *newpath;
+
+	newpath = aspath_new(source->asnotation);
+
+	aspath_str_update(newpath, false);
+	/* We are happy returning even an empty AS_PATH, because the
+	 * administrator
+	 * might expect this very behaviour. There's a mean to avoid this, if
+	 * necessary,
+	 * by having a match rule against certain AS_PATH regexps in the
+	 * route-map index.
+	 */
+	aspath_free(source);
+	return newpath;
+}
+
+struct aspath *aspath_filter_exclude_acl(struct aspath *source,
+					 struct as_list *acl_list)
+{
+	struct assegment *cur_seg, *new_seg, *prev_seg, *next_seg;
+	struct as_list *cur_as_list;
+	struct as_filter *cur_as_filter;
+	char str_buf[ASPATH_STR_DEFAULT_LEN];
+	uint32_t nb_as_del;
+	uint32_t i, j;
+
+	cur_seg = source->segments;
+	prev_seg = NULL;
+	/* segments from source aspath */
+	while (cur_seg) {
+		next_seg = cur_seg->next;
+		cur_as_list = acl_list;
+		nb_as_del = 0;
+		/* aspath filter list from acl_list */
+		while (cur_as_list) {
+			cur_as_filter = cur_as_list->head;
+			while (cur_as_filter) {
+				for (i = 0; i < cur_seg->length; i++) {
+					if (cur_seg->as[i] == 0)
+						continue;
+
+					snprintfrr(str_buf,
+						   ASPATH_STR_DEFAULT_LEN,
+						   ASN_FORMAT(source->asnotation),
+						   &cur_seg->as[i]);
+					if (!regexec(cur_as_filter->reg,
+						     str_buf, 0, NULL, 0)) {
+						cur_seg->as[i] = 0;
+						nb_as_del++;
+					}
+				}
+
+				cur_as_filter = cur_as_filter->next;
+			}
+
+			cur_as_list = cur_as_list->next;
+		}
+		/* full segment is excluded remove it */
+		if (nb_as_del == cur_seg->length) {
+			if (cur_seg == source->segments)
+				/* first segment */
+				source->segments = cur_seg->next;
+			else
+				prev_seg->next = cur_seg->next;
+			assegment_free(cur_seg);
+		}
+		/* change in segment size -> new allocation and replace segment*/
+		else if (nb_as_del) {
+			new_seg = assegment_new(cur_seg->type,
+						cur_seg->length - nb_as_del);
+			j = 0;
+			for (i = 0; i < cur_seg->length; i++) {
+				if (cur_seg->as[i] == 0)
+					continue;
+				new_seg->as[j] = cur_seg->as[i];
+				j++;
+			}
+			new_seg->next = next_seg;
+			if (cur_seg == source->segments)
+				/* first segment */
+				source->segments = new_seg;
+			else if (prev_seg)
+				prev_seg->next = new_seg;
+			assegment_free(cur_seg);
+		}
+		prev_seg = cur_seg;
+		cur_seg = next_seg;
+	}
+
+
+	aspath_str_update(source, false);
+	/* We are happy returning even an empty AS_PATH, because the
+	 * administrator
+	 * might expect this very behaviour. There's a mean to avoid this, if
+	 * necessary,
+	 * by having a match rule against certain AS_PATH regexps in the
+	 * route-map index.
+	 */
+	return source;
+}
+
 
 /* Add specified AS to the leftmost of aspath. */
 static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
@@ -2095,9 +2240,7 @@ void aspath_init(void)
 
 void aspath_finish(void)
 {
-	hash_clean(ashash, (void (*)(void *))aspath_free);
-	hash_free(ashash);
-	ashash = NULL;
+	hash_clean_and_free(&ashash, (void (*)(void *))aspath_free);
 
 	if (snmp_stream)
 		stream_free(snmp_stream);

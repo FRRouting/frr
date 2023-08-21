@@ -35,8 +35,6 @@
 
 #define pim_inet4_dump prefix_mcast_inet4_dump
 
-void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
-		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
 		    int buf_size);
 

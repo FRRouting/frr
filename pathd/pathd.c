@@ -45,9 +45,9 @@ struct debug path_policy_debug;
 
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
-static void trigger_pathd_candidate_created_timer(struct thread *thread);
+static void trigger_pathd_candidate_created_timer(struct event *thread);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
-static void trigger_pathd_candidate_updated_timer(struct thread *thread);
+static void trigger_pathd_candidate_updated_timer(struct event *thread);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
@@ -1293,13 +1293,13 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 	from changing the candidate by hand with the console */
 	if (candidate->hook_timer != NULL)
 		return;
-	thread_add_timer(master, trigger_pathd_candidate_created_timer,
-			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
+	event_add_timer(master, trigger_pathd_candidate_created_timer,
+			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-void trigger_pathd_candidate_created_timer(struct thread *thread)
+void trigger_pathd_candidate_created_timer(struct event *thread)
 {
-	struct srte_candidate *candidate = THREAD_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(thread);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_created, candidate);
 }
@@ -1313,13 +1313,13 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 	from changing the candidate by hand with the console */
 	if (candidate->hook_timer != NULL)
 		return;
-	thread_add_timer(master, trigger_pathd_candidate_updated_timer,
-			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
+	event_add_timer(master, trigger_pathd_candidate_updated_timer,
+			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-void trigger_pathd_candidate_updated_timer(struct thread *thread)
+void trigger_pathd_candidate_updated_timer(struct event *thread)
 {
-	struct srte_candidate *candidate = THREAD_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(thread);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_updated, candidate);
 }
@@ -1329,7 +1329,7 @@ void trigger_pathd_candidate_removed(struct srte_candidate *candidate)
 	/* The hook needs to be call synchronously, otherwise the candidate
 	path will be already deleted when the handler is called */
 	if (candidate->hook_timer != NULL) {
-		thread_cancel(&candidate->hook_timer);
+		event_cancel(&candidate->hook_timer);
 		candidate->hook_timer = NULL;
 	}
 	hook_call(pathd_candidate_removed, candidate);

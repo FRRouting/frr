@@ -86,6 +86,15 @@ be specified (:ref:`common-invocation-options`).
    be done to see if this is helping or not at the scale you are running
    at.
 
+.. option:: --v6-with-v4-nexthops
+
+   Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
+   This allows bgp to install the v6 routes with a v6 nexthop that has the
+   v4 address encoded in the nexthop.  Zebra's equivalent option currently
+   overrides the bgp setting.  This setting is only really usable when
+   the operator has turned off communication to zebra and is running bgpd
+   as a complete standalone process.
+
 LABEL MANAGER
 -------------
 
@@ -455,7 +464,7 @@ Administrative Distance Metrics
 .. _bgp-requires-policy:
 
 Require policy on EBGP
--------------------------------
+----------------------
 
 .. clicmd:: bgp ebgp-requires-policy
 
@@ -1669,6 +1678,10 @@ Configuring Peers
    Configure BGP to send best known paths to neighbor in order to preserve multi
    path capabilities inside a network.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-best-selected (1-6)
+
+   Configure BGP to calculate and send N best known paths to the neighbor.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx
 
    Do not accept additional paths from this neighbor.
@@ -1728,6 +1741,12 @@ Configuring Peers
    when a link flaps.  `bgp fast-external-failover` is the default
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
+
+.. clicmd:: bgp default-originate timer (0-3600)
+
+   Set the period to rerun the default-originate route-map scanner process. The
+   default is 5 seconds. With a full routing table, it might be useful to increase
+   this setting to avoid scanning the whole BGP table aggressively.
 
 .. clicmd:: bgp default ipv4-unicast
 
@@ -1802,6 +1821,28 @@ Configuring Peers
    This command shows the hostname of the next-hop in certain BGP commands
    outputs. It's easier to troubleshoot if you have a number of BGP peers
    and a number of routes to check.
+
+.. clicmd:: bgp default software-version-capability
+
+   This command enables software version capability advertisement by default
+   for all the neighbors.
+
+   For ``datacenter`` profile, this is enabled by default.
+
+   .. code-block:: frr
+
+      IPv4 Unicast Summary (VRF default):
+      BGP router identifier 10.0.0.6, local AS number 65001 vrf-id 0
+      BGP table version 12
+      RIB entries 23, using 4600 bytes of memory
+      Peers 3, using 2174 KiB of memory
+
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+      10.0.0.4        4      65001        20        22       12    0    0 00:00:11            5       12 FRRouting/8.5.1
+      10.0.0.5        4      65001        21        22       12    0    0 00:00:11            5       12 FRRouting/9.0
+      192.168.67.7    4      65001        27        31       12    0    0 00:00:23            2       10 FRRouting/9.1-dev-MyOwnFRRVersion-g3c8c08dcd9
+
+      Total number of neighbors 3
 
 .. clicmd:: neighbor PEER advertisement-interval (0-600)
 
@@ -2032,6 +2073,13 @@ Capability Negotiation
 
    Disabled by default.
 
+.. clicmd:: neighbor PEER aigp
+
+   Send and receive AIGP attribute for this neighbor. This is valid only for
+   eBGP neighbors.
+
+   Disabled by default. iBGP neighbors have this option enabled implicitly.
+
 .. _bgp-as-path-access-lists:
 
 AS Path Access Lists
@@ -2088,11 +2136,32 @@ Using AS Path in Route Map
    Prepend the existing last AS number (the leftmost ASN) to the AS_PATH.
    The no form of this command removes this set operation from the route-map.
 
-.. clicmd:: set as-path replace <any|ASN>
+.. clicmd:: set as-path replace <any|ASN> [<ASN>]
 
-   Replace a specific AS number to local AS number. ``any`` replaces each
-   AS number in the AS-PATH with the local AS number.
+   Replace a specific AS number to local AS number or a configured AS number.
+   ``any`` replaces each AS number in the AS-PATH with either the local AS
+   number or the configured AS number.
 
+.. clicmd:: set as-path replace as-path-access-list WORD [<ASN>]
+
+   Replace some AS numbers from the AS_PATH of the BGP path's NLRI. Substituted
+   AS numbers are conformant with the regex defined in as-path access-list
+   WORD. Changed AS numbers are replaced either by the local AS number or the
+   configured AS number.
+   The no form of this command removes this set operation from the route-map.
+
+.. clicmd:: set as-path exclude all
+
+   Remove all AS numbers from the AS_PATH of the BGP path's NLRI. The no form of
+   this command removes this set operation from the route-map.
+
+.. clicmd:: set as-path exclude as-path-access-list WORD
+
+   Remove some AS numbers from the AS_PATH of the BGP path's NLRI. Removed AS
+   numbers are conformant with the regex defined in as-path access-list  WORD.
+   The no form of this command removes this set operation from the route-map.
+   
+   
 .. _bgp-communities-attribute:
 
 Communities Attribute
@@ -2584,11 +2653,23 @@ BGP Extended Communities in Route Map
 
 .. clicmd:: set extcommunity rt EXTCOMMUNITY
 
-   This command set Route Target value.
+   This command sets Route Target value.
+
+.. clicmd:: set extcommunity nt EXTCOMMUNITY
+
+   This command sets Node Target value.
+
+   If the receiving BGP router supports Node Target Extended Communities,
+   it will install the route with the community that contains it's own
+   local BGP Identifier. Otherwise, it's not installed.
 
 .. clicmd:: set extcommunity soo EXTCOMMUNITY
 
-   This command set Site of Origin value.
+   This command sets Site of Origin value.
+
+.. clicmd:: set extcomumnity color EXTCOMMUNITY
+
+   This command sets colors values.
 
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
@@ -2767,6 +2848,17 @@ happened automatically if local-role is set.
    value of his role (by setting local-role on his side). Otherwise, a Role
    Mismatch Notification will be sent.
 
+Labeled unicast
+---------------
+
+*bgpd* supports labeled information, as per :rfc:`3107`.
+
+.. clicmd:: bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>
+
+By default, locally advertised prefixes use the `implicit-null` label to
+encode in the outgoing NLRI. The following command uses the `explicit-null`
+label value for all the BGP instances.
+
 .. _bgp-l3vpn-vrfs:
 
 L3VPN VRFs
@@ -2871,6 +2963,13 @@ address-family:
    extended community values as described in
    :ref:`bgp-extended-communities-attribute`.
 
+.. clicmd:: label vpn export allocation-mode per-vrf|per-nexthop
+
+   Select how labels are allocated in the given VRF. By default, the `per-vrf`
+   mode is selected, and one label is used for all prefixes from the VRF. The
+   `per-nexthop` will use a unique label for all prefixes that are reachable
+   via the same nexthop.
+
 .. clicmd:: label vpn export (0..1048575)|auto
 
    Enables an MPLS label to be attached to a route exported from the current
@@ -2933,6 +3032,14 @@ It is possible to permit BGP install VPN prefixes without transport labels,
 by issuing the following command under the interface configuration context.
 This configuration will install VPN prefixes originated from an e-bgp session,
 and with the next-hop directly connected.
+
+.. clicmd:: mpls bgp l3vpn-multi-domain-switching
+
+Redistribute labeled L3VPN routes from AS to neighboring AS (RFC-4364 option
+B, or within the same AS when the iBGP peer uses ``next-hop-self`` to rewrite
+the next-hop attribute). The labeled L3VPN routes received on this interface are
+re-advertised with local labels and an MPLS table swap entry is set to bind
+the local label to the received label.
 
 .. _bgp-l3vpn-srv6:
 
@@ -3189,6 +3296,77 @@ Example configuration:
      enable-resolve-overlay-index
     exit-address-family
    !
+
+.. _bgp-evpn-mac-vrf-site-of-origin:
+
+EVPN MAC-VRF Site-of-Origin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In some EVPN deployments it is useful to associate a logical VTEP's Layer 2
+domain (MAC-VRF) with a Site-of-Origin "site" identifier. This provides a
+BGP topology-independent means of marking and import-filtering EVPN routes
+originated from a particular L2 domain. One situation where this is valuable
+is when deploying EVPN using anycast VTEPs, i.e. Active/Active MLAG, as it
+can be used to avoid ownership conflicts between the two control planes
+(EVPN vs MLAG).
+
+Example Use Case (MLAG Anycast VTEPs):
+
+During normal operation, an MLAG VTEP will advertise EVPN routes for attached
+hosts using a shared anycast IP as the BGP next-hop. It is expected for its
+MLAG peer to drop routes originated by the MLAG Peer since they have a Martian
+(self) next-hop. However, prior to the anycast IP being assigned to the local
+system, the anycast BGP next-hop will not be considered a Martian (self) IP.
+This results in a timing window where hosts that are locally attached to the
+MLAG pair's L2 domain can be learned both as "local" (via MLAG) or "remote"
+(via an EVPN route with a non-local next-hop). This can trigger erroneous MAC
+Mobility events, as the host "moves" between one MLAG Peer's Unique VTEP-IP
+and the shared anycast VTEP-IP, which causes unnecessary control plane and
+data plane events to propagate throughout the EVPN domain.
+By associating the MAC-VRF of both MLAG VTEPs with the same site identifier,
+EVPN routes originated by one MLAG VTEP will ignored by its MLAG peer, ensuring
+that only the MLAG control plane attempts to take ownership of local hosts.
+
+The EVPN MAC-VRF Site-of-Origin feature works by influencing two behaviors:
+
+1. All EVPN routes originating from the local MAC-VRF will have a
+   Site-of-Origin extended community added to the route, matching the
+   configured value.
+2. EVPN routes will be subjected to a "self SoO" check during MAC-VRF
+   or IP-VRF import processing. If the EVPN route is found to carry a
+   Site-of-Origin extended community whose value matches the locally
+   configured MAC-VRF Site-of-Origin, the route will be maintained in
+   the global EVPN RIB ("show bgp l2vpn evpn route") but will not be
+   imported into the corresponding MAC-VRF ("show bgp vni") or IP-VRF
+   ("show bgp [vrf <vrfname>] [ipv4 | ipv6 [unicast]]").
+
+The import filtering described in item (2) is constrained just to Type-2
+(MAC-IP) and Type-3 (IMET) EVPN routes.
+
+The EVPN MAC-VRF Site-of-Origin can be configured using a single CLI command
+under ``address-family l2vpn evpn`` of the EVPN underlay BGP instance.
+
+.. clicmd:: [no] mac-vrf soo <site-of-origin-string>
+
+Example configuration:
+
+.. code-block:: frr
+
+   router bgp 100
+    neighbor 192.168.0.1 remote-as 101
+    !
+    address-family ipv4 l2vpn evpn
+     neighbor 192.168.0.1 activate
+     advertise-all-vni
+     mac-vrf soo 100.64.0.0:777
+    exit-address-family
+
+This configuration ensures:
+
+1. EVPN routes originated from a local L2VNI will have a Site-of-Origin
+   extended community with the value ``100.64.0.0:777``
+2. Received EVPN routes carrying a Site-of-Origin extended community with the
+   value ``100.64.0.0:777`` will not be imported into a local MAC-VRF (L2VNI)
+   or IP-VRF (L3VNI).
 
 .. _bgp-evpn-mh:
 
@@ -3849,6 +4027,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
       Total number of neighbors 1
       exit1#
 
+If PfxRcd and/or PfxSnt is shown as ``(Policy)``, that means that the EBGP
+default policy is turned on, but you don't have any filters applied for
+incoming/outgoing directions.
+
+.. seealso:: :ref:`bgp-requires-policy`
+
 .. clicmd:: show bgp [afi] [safi] [all] [wide|json]
 
 .. clicmd:: show bgp vrfs [<VRFNAME$vrf_name>] [json]
@@ -4089,6 +4273,122 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    If ``afi`` is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selected AFI.
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] detail [json]
+
+   Display the detailed version of all routes from the specified bgp vrf table
+   for a given afi + safi.
+
+   If no vrf is specified, then it is assumed as a default vrf and routes
+   are displayed from default vrf table.
+
+   If ``all`` option is specified as vrf name, then all bgp vrf tables routes
+   from a given afi+safi are displayed in the detailed output of routes.
+
+   If ``json`` option is specified, detailed output is displayed in JSON format.
+
+   Following are sample output for few examples of how to use this command.
+
+.. code-block:: frr
+
+   torm-23# sh bgp ipv4 unicast detail (OR) sh bgp vrf default ipv4 unicast detail
+
+   !--- Output suppressed.
+
+   BGP routing table entry for 172.16.16.1/32
+   Paths: (1 available, best #1, table default)
+     Not advertised to any peer
+     Local, (Received from a RR-client)
+       172.16.16.1 (metric 20) from torm-22(172.16.16.1) (192.168.0.10)
+         Origin IGP, metric 0, localpref 100, valid, internal
+         Last update: Fri May  8 12:54:05 2023
+   BGP routing table entry for 172.16.16.2/32
+   Paths: (1 available, best #1, table default)
+     Not advertised to any peer
+     Local
+       0.0.0.0 from 0.0.0.0 (172.16.16.2)
+         Origin incomplete, metric 0, weight 32768, valid, sourced, bestpath-from-AS Local, best (First path received)
+         Last update: Wed May  8 12:54:41 2023
+
+   Displayed  2 routes and 2 total paths
+
+.. code-block:: frr
+
+   torm-23# sh bgp vrf all detail
+
+   Instance default:
+
+   !--- Output suppressed.
+
+   BGP routing table entry for 172.16.16.1/32
+   Paths: (1 available, best #1, table default)
+     Not advertised to any peer
+     Local, (Received from a RR-client)
+       172.16.16.1 (metric 20) from torm-22(172.16.16.1) (192.168.0.10)
+         Origin IGP, metric 0, localpref 100, valid, internal
+         Last update: Fri May  8 12:44:05 2023
+   BGP routing table entry for 172.16.16.2/32
+   Paths: (1 available, best #1, table default)
+     Not advertised to any peer
+     Local
+       0.0.0.0 from 0.0.0.0 (172.16.16.2)
+         Origin incomplete, metric 0, weight 32768, valid, sourced, bestpath-from-AS Local, best (First path received)
+         Last update: Wed May  8 12:45:01 2023
+
+   Displayed  2 routes and 2 total paths
+
+   Instance vrf3:
+
+   !--- Output suppressed.
+
+   BGP routing table entry for 192.168.0.2/32
+   Paths: (1 available, best #1, vrf vrf3)
+     Not advertised to any peer
+     Imported from 172.16.16.1:12:[2]:[0]:[48]:[00:02:00:00:00:58]:[32]:[192.168.0.2], VNI 1008/4003
+     Local
+       172.16.16.1 from torm-22(172.16.16.1) (172.16.16.1) announce-nh-self
+         Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best (First path received)
+         Extended Community: RT:65000:1008 ET:8 Rmac:00:02:00:00:00:58
+         Last update: Fri May  8 02:41:55 2023
+   BGP routing table entry for 192.168.1.2/32
+   Paths: (1 available, best #1, vrf vrf3)
+     Not advertised to any peer
+     Imported from 172.16.16.1:13:[2]:[0]:[48]:[00:02:00:00:00:58]:[32]:[192.168.1.2], VNI 1009/4003
+     Local
+       172.16.16.1 from torm-22(172.16.16.1) (172.16.16.1) announce-nh-self
+         Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best (First path received)
+         Extended Community: RT:65000:1009 ET:8 Rmac:00:02:00:00:00:58
+         Last update: Fri May  8 02:41:55 2023
+
+   Displayed  2 routes and 2 total paths
+
+
+.. code-block:: frr
+
+   torm-23# sh bgp vrf vrf3 ipv4 unicast detail
+
+   !--- Output suppressed.
+
+   BGP routing table entry for 192.168.0.2/32
+   Paths: (1 available, best #1, vrf vrf3)
+     Not advertised to any peer
+     Imported from 172.16.16.1:12:[2]:[0]:[48]:[00:02:00:00:00:58]:[32]:[192.168.0.2], VNI 1008/4003
+     Local
+       172.16.16.1 from torm-22(172.16.16.1) (172.16.16.1) announce-nh-self
+         Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best (First path received)
+         Extended Community: RT:65000:1008 ET:8 Rmac:00:02:00:00:00:58
+         Last update: Fri May  8 02:23:35 2023
+   BGP routing table entry for 192.168.1.2/32
+   Paths: (1 available, best #1, vrf vrf3)
+     Not advertised to any peer
+     Imported from 172.16.16.1:13:[2]:[0]:[48]:[00:02:00:00:00:58]:[32]:[192.168.1.2], VNI 1009/4003
+     Local
+       172.16.16.1 from torm-22(172.16.16.1) (172.16.16.1) announce-nh-self
+         Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best (First path received)
+         Extended Community: RT:65000:1009 ET:8 Rmac:00:02:00:00:00:58
+         Last update: Fri May  8 02:23:55 2023
+
+   Displayed  2 routes and 2 total paths
 
 .. _bgp-display-routes-by-community:
 

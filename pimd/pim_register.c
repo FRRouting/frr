@@ -9,7 +9,7 @@
 
 #include "log.h"
 #include "if.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
@@ -32,7 +32,7 @@
 #include "pim_vxlan.h"
 #include "pim_addr.h"
 
-struct thread *send_test_packet_timer = NULL;
+struct event *send_test_packet_timer = NULL;
 
 void pim_register_join(struct pim_upstream *up)
 {
@@ -85,7 +85,7 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 			zlog_debug("%s: No pinfo!", __func__);
 		return;
 	}
-	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,
+	if (pim_msg_send(pinfo->pim->reg_sock, src, originator, buffer,
 			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
@@ -743,8 +743,9 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 		    && (up->reg_state != PIM_REG_NOINFO)) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
-			THREAD_OFF(up->t_rs_timer);
+			EVENT_OFF(up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 		}
 	}
 }

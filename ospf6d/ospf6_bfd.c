@@ -11,7 +11,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
@@ -105,8 +105,8 @@ static void ospf6_bfd_callback(struct bfd_session_params *bsp,
 
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
-		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		EVENT_OFF(on->inactivity_timer);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 }
 

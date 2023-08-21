@@ -38,7 +38,7 @@
 #include "table.h"
 #include "memory.h"
 #include "rib.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
@@ -378,33 +378,6 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 		break;
 	}
 	return proto;
-}
-
-/*
-Pending: create an efficient table_id (in a tree/hash) based lookup)
- */
-vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		zvrf = vrf->info;
-		if (zvrf == NULL)
-			continue;
-		/* case vrf with netns : match the netnsid */
-		if (vrf_is_backend_netns()) {
-			if (ns_id == zvrf_id(zvrf))
-				return zvrf_id(zvrf);
-		} else {
-			/* VRF is VRF_BACKEND_VRF_LITE */
-			if (zvrf->table_id != table_id)
-				continue;
-			return zvrf_id(zvrf);
-		}
-	}
-
-	return VRF_DEFAULT;
 }
 
 /**
@@ -790,7 +763,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		table = rtm->rtm_table;
 
 	/* Map to VRF */
-	vrf_id = vrf_lookup_by_table(table, ns_id);
+	vrf_id = zebra_vrf_lookup_by_table(table, ns_id);
 	if (vrf_id == VRF_DEFAULT) {
 		if (!is_zebra_valid_kernel_table(table)
 		    && !is_zebra_main_routing_table(table))
@@ -1079,7 +1052,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	else
 		table = rtm->rtm_table;
 
-	vrf = vrf_lookup_by_table(table, ns_id);
+	vrf = zebra_vrf_lookup_by_table(table, ns_id);
 
 	if (tb[RTA_IIF])
 		iif = *(int *)RTA_DATA(tb[RTA_IIF]);
@@ -4699,6 +4672,7 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
 	case DPLANE_OP_NONE:
+	case DPLANE_OP_STARTUP_STAGE:
 		ret = -1;
 	}
 

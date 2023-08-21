@@ -466,6 +466,8 @@ extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 						      struct attr *attr);
 
+extern uint32_t bgp_attr_get_color(struct attr *attr);
+
 static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 					 uint32_t in_rmap_flags)
 {
@@ -592,7 +594,7 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	attr->aigp_metric = aigp;
 
 	if (aigp)
-		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AIGP);
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
@@ -604,6 +606,11 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 					struct cluster_list *cl)
 {
 	attr->cluster1 = cl;
+
+	if (cl)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 }
 
 static inline const struct bgp_route_evpn *
@@ -636,5 +643,7 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 	attr->vnc_subtlvs = vnc_subtlvs;
 #endif
 }
+
+extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
 
 #endif /* _QUAGGA_BGP_ATTR_H */

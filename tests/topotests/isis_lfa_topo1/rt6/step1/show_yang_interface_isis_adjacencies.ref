@@ -11,7 +11,7 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0001",
-                  "hold-timer": 9,
+                  "hold-timer": 10,
                   "neighbor-priority": 0,
                   "state": "up"
                 }
@@ -30,7 +30,7 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0007",
-                  "hold-timer": 9,
+                  "hold-timer": 10,
                   "neighbor-priority": 0,
                   "state": "up"
                 }

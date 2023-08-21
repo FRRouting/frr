@@ -84,6 +84,8 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
  * state.
  */
 extern void interface_list(struct zebra_ns *zns);
+extern void interface_list_tunneldump(struct zebra_ns *zns);
+extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);

@@ -11,7 +11,7 @@
 
 #include "zebra.h"
 #include "memory.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "hash.h"
 #include "network.h"
 
@@ -43,17 +43,17 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU",
 	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
 
-	THREAD_OFF(p->t_fallback);
-	THREAD_OFF(p->t_timer);
+	EVENT_OFF(p->t_fallback);
+	EVENT_OFF(p->t_timer);
 	hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
 	XFREE(MTYPE_NHRP_PEER, p);
 }
 
-static void nhrp_peer_notify_up(struct thread *t)
+static void nhrp_peer_notify_up(struct event *t)
 {
-	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_peer *p = EVENT_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
@@ -76,14 +76,14 @@ static void __nhrp_peer_check(struct nhrp_peer *p)
 
 	online = nifp->enabled && (!nifp->ipsec_profile || vc->ipsec);
 	if (p->online != online) {
-		THREAD_OFF(p->t_fallback);
+		EVENT_OFF(p->t_fallback);
 		if (online && notifier_active(&p->notifier_list)) {
 			/* If we requested the IPsec connection, delay
 			 * the up notification a bit to allow things
 			 * settle down. This allows IKE to install
 			 * SPDs and SAs. */
-			thread_add_timer_msec(master, nhrp_peer_notify_up, p,
-					      50, &p->t_fallback);
+			event_add_timer_msec(master, nhrp_peer_notify_up, p, 50,
+					     &p->t_fallback);
 		} else {
 			nhrp_peer_ref(p);
 			p->online = online;
@@ -201,12 +201,7 @@ void nhrp_peer_interface_del(struct interface *ifp)
 	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted peer entries (%lu)",
 	       nifp->peer_hash ? nifp->peer_hash->count : 0);
 
-	if (nifp->peer_hash) {
-		hash_clean(nifp->peer_hash, do_peer_hash_free);
-		assert(nifp->peer_hash->count == 0);
-		hash_free(nifp->peer_hash);
-		nifp->peer_hash = NULL;
-	}
+	hash_clean_and_free(&nifp->peer_hash, do_peer_hash_free);
 }
 
 struct nhrp_peer *nhrp_peer_get(struct interface *ifp,
@@ -253,9 +248,9 @@ void nhrp_peer_unref(struct nhrp_peer *p)
 	}
 }
 
-static void nhrp_peer_request_timeout(struct thread *t)
+static void nhrp_peer_request_timeout(struct event *t)
 {
-	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_peer *p = EVENT_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
@@ -269,21 +264,21 @@ static void nhrp_peer_request_timeout(struct thread *t)
 		p->fallback_requested = 1;
 		vici_request_vc(nifp->ipsec_fallback_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
-		thread_add_timer(master, nhrp_peer_request_timeout, p, 30,
-				 &p->t_fallback);
+		event_add_timer(master, nhrp_peer_request_timeout, p, 30,
+				&p->t_fallback);
 	} else {
 		p->requested = p->fallback_requested = 0;
 	}
 }
 
-static void nhrp_peer_defer_vici_request(struct thread *t)
+static void nhrp_peer_defer_vici_request(struct event *t)
 {
-	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_peer *p = EVENT_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 
-	THREAD_OFF(p->t_timer);
+	EVENT_OFF(p->t_timer);
 
 	if (p->online) {
 		debugf(NHRP_DEBUG_COMMON,
@@ -292,10 +287,10 @@ static void nhrp_peer_defer_vici_request(struct thread *t)
 	} else {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
-		thread_add_timer(
-			master, nhrp_peer_request_timeout, p,
-			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
-			&p->t_fallback);
+		event_add_timer(master, nhrp_peer_request_timeout, p,
+				(nifp->ipsec_fallback_profile && !p->prio) ? 15
+									   : 30,
+				&p->t_fallback);
 	}
 }
 
@@ -325,10 +320,10 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	if (p->prio) {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
-		thread_add_timer(
-			master, nhrp_peer_request_timeout, p,
-			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
-			&p->t_fallback);
+		event_add_timer(master, nhrp_peer_request_timeout, p,
+				(nifp->ipsec_fallback_profile && !p->prio) ? 15
+									   : 30,
+				&p->t_fallback);
 	} else {
 		/* Maximum timeout is 1 second */
 		int r_time_ms = frr_weak_random() % 1000;
@@ -336,8 +331,8 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 		debugf(NHRP_DEBUG_COMMON,
 		       "Initiating IPsec connection request to %pSU after %d ms:",
 		       &vc->remote.nbma, r_time_ms);
-		thread_add_timer_msec(master, nhrp_peer_defer_vici_request,
-				      p, r_time_ms, &p->t_timer);
+		event_add_timer_msec(master, nhrp_peer_defer_vici_request, p,
+				     r_time_ms, &p->t_timer);
 	}
 
 	return 0;

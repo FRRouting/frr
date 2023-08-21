@@ -5,7 +5,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "if.h"
@@ -318,7 +318,7 @@ static zclient_handler *const path_handlers[] = {
  *
  * @param master The master thread
  */
-void path_zebra_init(struct thread_master *master)
+void path_zebra_init(struct event_loop *master)
 {
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
@@ -344,4 +344,6 @@ void path_zebra_stop(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
 }

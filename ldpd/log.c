@@ -35,13 +35,11 @@ vlog(int pri, const char *fmt, va_list ap)
 	switch (ldpd_process) {
 	case PROC_LDE_ENGINE:
 		vsnprintfrr(buf, sizeof(buf), fmt, ap);
-		lde_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
-		    strlen(buf) + 1);
+		lde_imsg_compose_parent_sync(IMSG_LOG, pri, buf, strlen(buf) + 1);
 		break;
 	case PROC_LDP_ENGINE:
 		vsnprintfrr(buf, sizeof(buf), fmt, ap);
-		ldpe_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
-		    strlen(buf) + 1);
+		ldpe_imsg_compose_parent_sync(IMSG_LOG, pri, buf, strlen(buf) + 1);
 		break;
 	case PROC_MAIN:
 		vzlog(pri, fmt, ap);
@@ -121,15 +119,13 @@ void
 fatal(const char *emsg)
 {
 	if (emsg == NULL)
-		logit(LOG_CRIT, "fatal in %s: %s", log_procname,
-		    strerror(errno));
+		logit(LOG_CRIT, "fatal in %s: %s", log_procname, strerror(errno));
 	else
 		if (errno)
 			logit(LOG_CRIT, "fatal in %s: %s: %s",
 			    log_procname, emsg, strerror(errno));
 		else
-			logit(LOG_CRIT, "fatal in %s: %s",
-			    log_procname, emsg);
+			logit(LOG_CRIT, "fatal in %s: %s", log_procname, emsg);
 
 	exit(1);
 }

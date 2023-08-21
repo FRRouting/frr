@@ -8,7 +8,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "frrevent.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
@@ -17,7 +17,7 @@
 
 #include "common_cli.h"
 
-struct thread_master *master;
+struct event_loop *master;
 
 int dump_args(struct vty *vty, const char *descr, int argc,
 	      struct cmd_token *argv[])
@@ -39,7 +39,7 @@ static void vty_do_exit(int isexit)
 	vty_terminate();
 	nb_terminate();
 	yang_terminate();
-	thread_master_free(master);
+	event_master_free(master);
 
 	log_memstats(stderr, "testcli");
 	if (!isexit)
@@ -52,14 +52,14 @@ int test_log_prio = ZLOG_DISABLED;
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
 	size_t yangcount;
 
 	/* Set umask before anything for security */
 	umask(0027);
 
 	/* master init. */
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 
 	zlog_aux_init("NONE: ", test_log_prio);
 
@@ -81,8 +81,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* Not reached. */
 	exit(0);

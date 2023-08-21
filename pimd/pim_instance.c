@@ -45,11 +45,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_bsm_proc_free(pim);
 
 	/* Traverse and cleanup rpf_hash */
-	if (pim->rpf_hash) {
-		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
-		hash_free(pim->rpf_hash);
-		pim->rpf_hash = NULL;
-	}
+	hash_clean_and_free(&pim->rpf_hash, (void *)pim_rp_list_hash_clean);
 
 	pim_if_terminate(pim);
 
@@ -182,6 +178,8 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	pim_mroute_socket_enable(pim);
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
 			continue;
@@ -189,8 +187,6 @@ static int pim_vrf_enable(struct vrf *vrf)
 		pim_if_create_pimreg(pim);
 		break;
 	}
-
-	pim_mroute_socket_enable(pim);
 
 	return 0;
 }

@@ -12,7 +12,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "smux.h"
 #include "filter.h"
 #include "hook.h"
@@ -251,7 +251,7 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	case BGPPEERIDENTIFIER:
 		return SNMP_IPADDRESS(peer->remote_id);
 	case BGPPEERSTATE:
-		return SNMP_INTEGER(peer->status);
+		return SNMP_INTEGER(peer->connection->status);
 	case BGPPEERADMINSTATUS:
 		*write_method = write_bgpPeerTable;
 #define BGP_PeerAdmin_stop 1
@@ -756,7 +756,8 @@ int bgpTrapEstablished(struct peer *peer)
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 
 	/* Check if this peer just went to Established */
-	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
+	if ((peer->connection->ostatus != OpenConfirm) ||
+	    !(peer_established(peer)))
 		return 0;
 
 	ret = inet_aton(peer->host, &addr);
@@ -791,7 +792,7 @@ int bgpTrapBackwardTransition(struct peer *peer)
 	return 0;
 }
 
-int bgp_snmp_bgp4_init(struct thread_master *tm)
+int bgp_snmp_bgp4_init(struct event_loop *tm)
 {
 	REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
 	return 0;

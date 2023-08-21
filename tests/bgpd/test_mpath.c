@@ -61,7 +61,7 @@ struct testcase_t__ {
 };
 
 /* need these to link in libbgp */
-struct thread_master *master = NULL;
+struct event_loop *master = NULL;
 extern struct zclient *zclient;
 struct zebra_privs_t bgpd_privs = {
 	.user = NULL,
@@ -378,7 +378,7 @@ int all_tests_count = array_size(all_tests);
 static int global_test_init(void)
 {
 	qobj_init();
-	master = thread_master_create(NULL);
+	master = event_master_create(NULL);
 	zclient = zclient_new(master, &zclient_options_default, NULL, 0);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	vrf_init(NULL, NULL, NULL, NULL);
@@ -393,7 +393,7 @@ static int global_test_cleanup(void)
 {
 	if (zclient != NULL)
 		zclient_free(zclient);
-	thread_master_free(master);
+	event_master_free(master);
 	return 0;
 }
 

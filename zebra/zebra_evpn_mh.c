@@ -535,17 +535,24 @@ static bool zebra_evpn_acc_vl_cmp(const void *p1, const void *p2)
 }
 
 /* Lookup VLAN based broadcast domain */
-struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid,
-						    struct interface *br_if)
+struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find_index(vlanid_t vid, ifindex_t bridge_ifindex)
 {
 	struct zebra_evpn_access_bd *acc_bd;
 	struct zebra_evpn_access_bd tmp;
 
 	tmp.vid = vid;
-	tmp.bridge_ifindex = br_if->ifindex;
+	tmp.bridge_ifindex = bridge_ifindex;
 	acc_bd = hash_lookup(zmh_info->evpn_vlan_table, &tmp);
 
 	return acc_bd;
+}
+
+/* Lookup VLAN based broadcast domain */
+struct zebra_evpn_access_bd *zebra_evpn_acc_vl_find(vlanid_t vid,
+						    struct interface *br_if)
+{
+	return zebra_evpn_acc_vl_find_index(vid, br_if->ifindex);
 }
 
 /* A new broadcast domain can be created when a VLAN member or VLAN<=>VxLAN_IF
@@ -842,9 +849,9 @@ void zebra_evpn_access_bd_bridge_cleanup(vlanid_t vid, struct interface *br_if,
 void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 			     bool set)
 {
-	struct interface *br_if;
 	struct zebra_vxlan_vni *vni;
 	struct zebra_evpn_access_bd *acc_bd;
+	ifindex_t br_ifindex;
 
 	if (!zif)
 		return;
@@ -854,11 +861,12 @@ void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 	if (!vni)
 		return;
 
-	br_if = zif->brslave_info.br_if;
-	if (!br_if)
+	/* Use the index as the pointer can be stale (deleted) */
+	br_ifindex = zif->brslave_info.bridge_ifindex;
+	if (!zif->brslave_info.br_if || br_ifindex == IFINDEX_INTERNAL)
 		return;
 
-	acc_bd = zebra_evpn_acc_vl_find(vni->access_vlan, br_if);
+	acc_bd = zebra_evpn_acc_vl_find_index(vni->access_vlan, br_ifindex);
 	if (!acc_bd)
 		return;
 
@@ -2201,11 +2209,11 @@ static void zebra_evpn_mh_advertise_svi_mac(void)
 	zebra_evpn_acc_vl_adv_svi_mac_all();
 }
 
-static void zebra_evpn_es_df_delay_exp_cb(struct thread *t)
+static void zebra_evpn_es_df_delay_exp_cb(struct event *t)
 {
 	struct zebra_evpn_es *es;
 
-	es = THREAD_ARG(t);
+	es = EVENT_ARG(t);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s df-delay expired", es->esi_str);
@@ -2269,9 +2277,9 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 
 	/* Start the DF delay timer on the local ES */
 	if (!es->df_delay_timer)
-		thread_add_timer(zrouter.master, zebra_evpn_es_df_delay_exp_cb,
-				 es, ZEBRA_EVPN_MH_DF_DELAY_TIME,
-				 &es->df_delay_timer);
+		event_add_timer(zrouter.master, zebra_evpn_es_df_delay_exp_cb,
+				es, ZEBRA_EVPN_MH_DF_DELAY_TIME,
+				&es->df_delay_timer);
 
 	/* See if the local VTEP can function as DF on the ES */
 	if (!zebra_evpn_es_run_df_election(es, __func__)) {
@@ -2314,7 +2322,7 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
 
-	THREAD_OFF(es->df_delay_timer);
+	EVENT_OFF(es->df_delay_timer);
 
 	/* clear EVPN protodown flags on the access port */
 	zebra_evpn_mh_clear_protodown_es(es);
@@ -3139,7 +3147,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 	char alg_buf[EVPN_DF_ALG_STR_LEN];
 	struct zebra_evpn_es_vtep *es_vtep;
 	struct listnode	*node;
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 
 	if (json) {
 		json_object *json_vteps;
@@ -3157,6 +3165,9 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 				json_array_string_add(json_flags, "local");
 			if (es->flags & ZEBRA_EVPNES_REMOTE)
 				json_array_string_add(json_flags, "remote");
+			if (es->flags & ZEBRA_EVPNES_LOCAL &&
+			    !(es->flags & ZEBRA_EVPNES_NON_DF))
+				json_array_string_add(json_flags, "df");
 			if (es->flags & ZEBRA_EVPNES_NON_DF)
 				json_array_string_add(json_flags, "nonDF");
 			if (es->flags & ZEBRA_EVPNES_BYPASS)
@@ -3181,9 +3192,9 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 		if (es->df_delay_timer)
 			json_object_string_add(
 				json, "dfDelayTimer",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       es->df_delay_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      es->df_delay_timer));
 		json_object_int_add(json, "nexthopGroup", es->nhg_id);
 		if (listcount(es->es_vtep_list)) {
 			json_vteps = json_object_new_array();
@@ -3226,9 +3237,9 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 								  : "df");
 		if (es->df_delay_timer)
 			vty_out(vty, " DF delay: %s\n",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       es->df_delay_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      es->df_delay_timer));
 		vty_out(vty, " DF preference: %u\n", es->df_pref);
 		vty_out(vty, " Nexthop group: %u\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
@@ -3522,15 +3533,15 @@ DEFPY(zebra_evpn_mh_uplink, zebra_evpn_mh_uplink_cmd, "[no] evpn mh uplink",
 void zebra_evpn_mh_json(json_object *json)
 {
 	json_object *json_array;
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 
 	json_object_int_add(json, "macHoldtime", zmh_info->mac_hold_time);
 	json_object_int_add(json, "neighHoldtime", zmh_info->neigh_hold_time);
 	json_object_int_add(json, "startupDelay", zmh_info->startup_delay_time);
 	json_object_string_add(
 		json, "startupDelayTimer",
-		thread_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
-				       zmh_info->startup_delay_timer));
+		event_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
+				      zmh_info->startup_delay_timer));
 	json_object_int_add(json, "uplinkConfigCount",
 			    zmh_info->uplink_cfg_cnt);
 	json_object_int_add(json, "uplinkActiveCount",
@@ -3555,15 +3566,15 @@ void zebra_evpn_mh_json(json_object *json)
 void zebra_evpn_mh_print(struct vty *vty)
 {
 	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 
 	vty_out(vty, "EVPN MH:\n");
 	vty_out(vty, "  mac-holdtime: %ds, neigh-holdtime: %ds\n",
 		zmh_info->mac_hold_time, zmh_info->neigh_hold_time);
 	vty_out(vty, "  startup-delay: %ds, start-delay-timer: %s\n",
 		zmh_info->startup_delay_time,
-		thread_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
-				       zmh_info->startup_delay_timer));
+		event_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
+				      zmh_info->startup_delay_timer));
 	vty_out(vty, "  uplink-cfg-cnt: %u, uplink-active-cnt: %u\n",
 		zmh_info->uplink_cfg_cnt, zmh_info->uplink_oper_up_cnt);
 	if (zmh_info->protodown_rc)
@@ -3917,7 +3928,7 @@ void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif)
 				       new_protodown);
 }
 
-static void zebra_evpn_mh_startup_delay_exp_cb(struct thread *t)
+static void zebra_evpn_mh_startup_delay_exp_cb(struct event *t)
 {
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("startup-delay expired");
@@ -3931,7 +3942,7 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 	if (zmh_info->startup_delay_timer) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("startup-delay timer cancelled");
-		THREAD_OFF(zmh_info->startup_delay_timer);
+		EVENT_OFF(zmh_info->startup_delay_timer);
 	}
 
 	if (zmh_info->startup_delay_time) {
@@ -3939,10 +3950,10 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 			zlog_debug(
 				"startup-delay timer started for %d sec on %s",
 				zmh_info->startup_delay_time, rc);
-		thread_add_timer(zrouter.master,
-				 zebra_evpn_mh_startup_delay_exp_cb, NULL,
-				 zmh_info->startup_delay_time,
-				 &zmh_info->startup_delay_timer);
+		event_add_timer(zrouter.master,
+				zebra_evpn_mh_startup_delay_exp_cb, NULL,
+				zmh_info->startup_delay_time,
+				&zmh_info->startup_delay_timer);
 		zebra_evpn_mh_update_protodown(
 			ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY, true /* set */);
 	} else {

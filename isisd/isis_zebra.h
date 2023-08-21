@@ -20,7 +20,7 @@ struct label_chunk {
 };
 #define CHUNK_SIZE 64
 
-void isis_zebra_init(struct thread_master *master, int instance);
+void isis_zebra_init(struct event_loop *master, int instance);
 void isis_zebra_stop(void);
 
 struct isis_route_info;
@@ -36,7 +36,6 @@ void isis_zebra_route_del_route(struct isis *isis,
 				struct isis_route_info *route_info);
 void isis_zebra_prefix_sid_install(struct isis_area *area,
 				   struct prefix *prefix,
-				   struct isis_route_info *rinfo,
 				   struct isis_sr_psid_info *psid);
 void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 				     struct prefix *prefix,
@@ -44,8 +43,10 @@ void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 				     struct isis_sr_psid_info *psid);
 void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra);
 int isis_distribute_list_update(int routetype);
-void isis_zebra_redistribute_set(afi_t afi, int type, vrf_id_t vrf_id);
-void isis_zebra_redistribute_unset(afi_t afi, int type, vrf_id_t vrf_id);
+void isis_zebra_redistribute_set(afi_t afi, int type, vrf_id_t vrf_id,
+				 uint16_t tableid);
+void isis_zebra_redistribute_unset(afi_t afi, int type, vrf_id_t vrf_id,
+				   uint16_t tableid);
 int isis_zebra_rlfa_register(struct isis_spftree *spftree, struct rlfa *rlfa);
 void isis_zebra_rlfa_unregister_all(struct isis_spftree *spftree);
 bool isis_zebra_label_manager_ready(void);

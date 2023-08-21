@@ -11,7 +11,7 @@
 #include "frratomic.h"
 #include "memory.h"
 #include "frrcu.h"
-#include "thread.h"
+#include "frrevent.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +41,7 @@ struct frr_pthread {
 	struct rcu_thread *rcu_thread;
 
 	/* thread master for this pthread's thread.c event loop */
-	struct thread_master *master;
+	struct event_loop *master;
 
 	/* caller-specified data; start & stop funcs, name, id */
 	struct frr_pthread_attr attr;

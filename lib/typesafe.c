@@ -85,6 +85,15 @@ void typesafe_hash_grow(struct thash_head *head)
 	uint32_t newsize = head->count, i, j;
 	uint8_t newshift, delta;
 
+	/* note hash_grow is called after head->count++, so newsize is
+	 * guaranteed to be >= 1.  So the minimum argument to builtin_ctz
+	 * below is 2, which returns 1, and that makes newshift >= 2.
+	 *
+	 * Calling hash_grow with a zero head->count would result in a
+	 * malformed hash table that has tabshift == 1.
+	 */
+	assert(head->count > 0);
+
 	hash_consistency_check(head);
 
 	newsize |= newsize >> 1;

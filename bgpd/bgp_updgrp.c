@@ -12,7 +12,7 @@
 #include <zebra.h>
 
 #include "prefix.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "buffer.h"
 #include "stream.h"
 #include "command.h"
@@ -74,7 +74,7 @@ static void sync_init(struct update_subgroup *subgrp,
 		XCALLOC(MTYPE_BGP_SYNCHRONISE, sizeof(struct bgp_synchronize));
 	bgp_adv_fifo_init(&subgrp->sync->update);
 	bgp_adv_fifo_init(&subgrp->sync->withdraw);
-	bgp_adv_fifo_init(&subgrp->sync->withdraw_low);
+
 	subgrp->hash =
 		hash_create(bgp_advertise_attr_hash_key,
 			    bgp_advertise_attr_hash_cmp, "BGP SubGroup Hash");
@@ -101,12 +101,9 @@ static void sync_init(struct update_subgroup *subgrp,
 static void sync_delete(struct update_subgroup *subgrp)
 {
 	XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
-	if (subgrp->hash) {
-		hash_clean(subgrp->hash,
-			   (void (*)(void *))bgp_advertise_attr_free);
-		hash_free(subgrp->hash);
-	}
-	subgrp->hash = NULL;
+	hash_clean_and_free(&subgrp->hash,
+			    (void (*)(void *))bgp_advertise_attr_free);
+
 	if (subgrp->work)
 		stream_free(subgrp->work);
 	subgrp->work = NULL;
@@ -145,6 +142,8 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
 	dst->orf_plist[afi][safi] = src->orf_plist[afi][safi];
 	dst->addpath_type[afi][safi] = src->addpath_type[afi][safi];
+	dst->addpath_best_selected[afi][safi] =
+		src->addpath_best_selected[afi][safi];
 	dst->local_as = src->local_as;
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
@@ -310,6 +309,7 @@ static void *updgrp_hash_alloc(void *p)
  *       16. Local-as should match, if configured.
  *       17. maximum-prefix-out
  *       18. Local-role should also match, if configured.
+ *       19. Add-Path best selected paths count should match as well
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -343,6 +343,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
 	key = jhash_1word((uint32_t)peer->addpath_type[afi][safi], key);
+	key = jhash_1word(peer->addpath_best_selected[afi][safi], key);
 	key = jhash_1word((peer->cap & PEER_UPDGRP_CAP_FLAGS), key);
 	key = jhash_1word((peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS),
 			  key);
@@ -419,8 +420,6 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)
 	    || CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-	    || CHECK_FLAG(peer->af_cap[afi][safi],
-			  PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
@@ -491,15 +490,12 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				: "(NONE)",
 			peer->shared_network &&
 				peer_afi_active_nego(peer, AFI_IP6));
-		zlog_debug(
-			"%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u ORF old: %u max prefix out: %ju",
-			peer, !!CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
-			CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_CAP_ORF_PREFIX_SM_RCV),
-			CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_CAP_ORF_PREFIX_SM_OLD_RCV),
-			(intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
-					     PEER_FLAG_MAX_PREFIX_OUT));
+		zlog_debug("%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u max prefix out: %ju",
+			   peer, !!CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
+			   CHECK_FLAG(peer->af_cap[afi][safi],
+				      PEER_CAP_ORF_PREFIX_SM_RCV),
+			   (intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
+						PEER_FLAG_MAX_PREFIX_OUT));
 		zlog_debug(
 			"%pBP Update Group Hash: local role: %u AIGP: %d SOO: %s",
 			peer, peer->local_role,
@@ -636,11 +632,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	if ((afi == AFI_IP6) && (pe1->shared_network != pe2->shared_network))
 		return false;
 
-	if ((CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL)
-	     || CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-	     || CHECK_FLAG(pe1->af_cap[afi][safi],
-			   PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
-	    && !sockunion_same(&pe1->su, &pe2->su))
+	if ((CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL) ||
+	     CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)) &&
+	    !sockunion_same(&pe1->su, &pe2->su))
 		return false;
 
 	return true;
@@ -1102,8 +1096,8 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 	if (subgrp->update_group)
 		UPDGRP_INCR_STAT(subgrp->update_group, subgrps_deleted);
 
-	THREAD_OFF(subgrp->t_merge_check);
-	THREAD_OFF(subgrp->t_coalesce);
+	EVENT_OFF(subgrp->t_merge_check);
+	EVENT_OFF(subgrp->t_coalesce);
 
 	bpacket_queue_cleanup(SUBGRP_PKTQ(subgrp));
 	subgroup_clear_table(subgrp);
@@ -1421,11 +1415,11 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static void update_subgroup_merge_check_thread_cb(struct thread *thread)
+static void update_subgroup_merge_check_thread_cb(struct event *thread)
 {
 	struct update_subgroup *subgrp;
 
-	subgrp = THREAD_ARG(thread);
+	subgrp = EVENT_ARG(thread);
 
 	subgrp->t_merge_check = NULL;
 
@@ -1452,8 +1446,8 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 		return false;
 
 	subgrp->t_merge_check = NULL;
-	thread_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
-			      subgrp, 0, &subgrp->t_merge_check);
+	event_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
+			     subgrp, 0, &subgrp->t_merge_check);
 
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
@@ -1964,15 +1958,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 	}
 
 	updgrp = update_group_find(paf);
-	if (!updgrp) {
+	if (!updgrp)
 		updgrp = update_group_create(paf);
-		if (!updgrp) {
-			flog_err(EC_BGP_UPDGRP_CREATE,
-				 "couldn't create update group for peer %s",
-				 paf->peer->host);
-			return;
-		}
-	}
 
 	old_subgrp = paf->subgroup;
 
@@ -1995,11 +1982,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 	}
 
 	subgrp = update_subgroup_find(updgrp, paf);
-	if (!subgrp) {
+	if (!subgrp)
 		subgrp = update_subgroup_create(updgrp);
-		if (!subgrp)
-			return;
-	}
 
 	update_subgroup_add_peer(subgrp, paf, 1);
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
@@ -2110,16 +2094,15 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-void update_group_refresh_default_originate_route_map(struct thread *thread)
+void update_group_refresh_default_originate_route_map(struct event *thread)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
 
-	bgp = THREAD_ARG(thread);
+	bgp = EVENT_ARG(thread);
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
-	THREAD_OFF(bgp->t_rmap_def_originate_eval);
-	bgp_unlock(bgp);
+	EVENT_OFF(bgp->t_rmap_def_originate_eval);
 }
 
 /*
@@ -2218,7 +2201,7 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 */
 	SUBGRP_FOREACH_PEER (subgrp, paf)
 		if (peer_established(paf->peer))
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				bm->master, bgp_generate_updgrp_packets,
 				paf->peer, 0,
 				&paf->peer->t_generate_updgrp_packets);

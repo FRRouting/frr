@@ -41,11 +41,7 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf) {
-		vty_out(vty, "%% Default VRF does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!inlabel_str) {
 		vty_out(vty, "%% No Label Information\n");
@@ -185,11 +181,7 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 	uint32_t label;
 	int ret;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf) {
-		vty_out(vty, "%% Default VRF does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	memset(&p, 0, sizeof(p));
 	ret = str2prefix(prefix, &p);
@@ -273,9 +265,7 @@ static int zebra_mpls_config(struct vty *vty)
 	int write = 0;
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	write += zebra_mpls_write_lsp_config(vty, zvrf);
 	write += zebra_mpls_write_fec_config(vty, zvrf);
@@ -296,9 +286,7 @@ DEFUN (show_mpls_fec,
 	struct prefix p;
 	int ret;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return 0;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (argc == 3)
 		zebra_mpls_print_fec_table(vty, zvrf);
@@ -326,7 +314,7 @@ DEFUN (show_mpls_table,
 	struct zebra_vrf *zvrf;
 	bool uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	zebra_mpls_print_lsp_table(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
@@ -344,7 +332,7 @@ DEFUN (show_mpls_table_lsp,
 	struct zebra_vrf *zvrf;
 	bool uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	label = atoi(argv[3]->arg);
 	zebra_mpls_print_lsp(vty, zvrf, label, uj);
 	return CMD_SUCCESS;
@@ -373,10 +361,6 @@ static int zebra_mpls_global_block(struct vty *vty, int add_cmd,
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf) {
-		vty_out(vty, "%% Default VRF does not exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (add_cmd) {
 		if (!start_label_str || !end_label_str) {

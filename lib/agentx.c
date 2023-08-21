@@ -27,13 +27,13 @@ DEFINE_HOOK(agentx_enabled, (), ());
 
 static bool agentx_enabled = false;
 
-static struct thread_master *agentx_tm;
-static struct thread *timeout_thr = NULL;
+static struct event_loop *agentx_tm;
+static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
 
 static void agentx_events_update(void);
 
-static void agentx_timeout(struct thread *t)
+static void agentx_timeout(struct event *t)
 {
 	snmp_timeout();
 	run_alarms();
@@ -41,18 +41,18 @@ static void agentx_timeout(struct thread *t)
 	agentx_events_update();
 }
 
-static void agentx_read(struct thread *t)
+static void agentx_read(struct event *t)
 {
 	fd_set fds;
 	int flags, new_flags = 0;
 	int nonblock = false;
-	struct listnode *ln = THREAD_ARG(t);
-	struct thread **thr = listgetdata(ln);
+	struct listnode *ln = EVENT_ARG(t);
+	struct event **thr = listgetdata(ln);
 	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
 	/* fix for non blocking socket */
-	flags = fcntl(THREAD_FD(t), F_GETFL, 0);
+	flags = fcntl(EVENT_FD(t), F_GETFL, 0);
 	if (-1 == flags) {
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 			 strerror(errno), errno);
@@ -62,19 +62,19 @@ static void agentx_read(struct thread *t)
 	if (flags & O_NONBLOCK)
 		nonblock = true;
 	else
-		new_flags = fcntl(THREAD_FD(t), F_SETFL, flags | O_NONBLOCK);
+		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags | O_NONBLOCK);
 
 	if (new_flags == -1)
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
 			 strerror(errno), errno);
 
 	FD_ZERO(&fds);
-	FD_SET(THREAD_FD(t), &fds);
+	FD_SET(EVENT_FD(t), &fds);
 	snmp_read(&fds);
 
 	/* Reset the flag */
 	if (!nonblock) {
-		new_flags = fcntl(THREAD_FD(t), F_SETFL, flags);
+		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags);
 
 		if (new_flags == -1)
 			flog_err(
@@ -94,22 +94,22 @@ static void agentx_events_update(void)
 	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
 	fd_set fds;
 	struct listnode *ln;
-	struct thread **thr;
+	struct event **thr;
 	int fd, thr_fd;
 
-	thread_cancel(&timeout_thr);
+	event_cancel(&timeout_thr);
 
 	FD_ZERO(&fds);
 	snmp_select_info(&maxfd, &fds, &timeout, &block);
 
 	if (!block) {
-		thread_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
-				    &timeout_thr);
+		event_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
+				   &timeout_thr);
 	}
 
 	ln = listhead(events);
 	thr = ln ? listgetdata(ln) : NULL;
-	thr_fd = thr ? THREAD_FD(*thr) : -1;
+	thr_fd = thr ? EVENT_FD(*thr) : -1;
 
 	/* "two-pointer" / two-list simultaneous iteration
 	 * ln/thr/thr_fd point to the next existing event listener to hit while
@@ -119,21 +119,21 @@ static void agentx_events_update(void)
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
 			if (!FD_ISSET(fd, &fds)) {
-				thread_cancel(thr);
+				event_cancel(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
 			ln = nextln;
 			thr = ln ? listgetdata(ln) : NULL;
-			thr_fd = thr ? THREAD_FD(*thr) : -1;
+			thr_fd = thr ? EVENT_FD(*thr) : -1;
 		}
 		/* need listener, but haven't hit one where it would be */
 		else if (FD_ISSET(fd, &fds)) {
 			struct listnode *newln;
-			thr = XCALLOC(MTYPE_TMP, sizeof(struct thread *));
 
+			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, thr);
-			thread_add_read(agentx_tm, agentx_read, newln, fd, thr);
+			event_add_read(agentx_tm, agentx_read, newln, fd, thr);
 		}
 	}
 
@@ -142,7 +142,7 @@ static void agentx_events_update(void)
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
 		thr = listgetdata(ln);
-		thread_cancel(thr);
+		event_cancel(thr);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;
@@ -244,7 +244,7 @@ bool smux_enabled(void)
 	return agentx_enabled;
 }
 
-void smux_init(struct thread_master *tm)
+void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 

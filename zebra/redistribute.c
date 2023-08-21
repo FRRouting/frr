@@ -60,7 +60,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 
-		if (!vrf_bitmap_check(client->redist_default[afi], vrf_id))
+		if (!vrf_bitmap_check(&client->redist_default[afi], vrf_id))
 			continue;
 
 		/* Lookup table.  */
@@ -145,17 +145,17 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 		return false;
 
 	afi = family2afi(rn->p.family);
-	zvrf = vrf_info_lookup(re->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	if (re->vrf_id == VRF_DEFAULT && zvrf->table_id != re->table)
 		return false;
 
 	/* If default route and redistributed */
 	if (is_default_prefix(&rn->p) &&
-	    vrf_bitmap_check(client->redist_default[afi], re->vrf_id))
+	    vrf_bitmap_check(&client->redist_default[afi], re->vrf_id))
 		return true;
 
 	/* If redistribute in enabled for zebra route all */
-	if (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id))
+	if (vrf_bitmap_check(&client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id))
 		return true;
 
 	/*
@@ -171,7 +171,7 @@ static bool zebra_redistribute_check(const struct route_node *rn,
 	}
 
 	/* If redistribution is enabled for give route type. */
-	if (vrf_bitmap_check(client->redist[afi][re->type], re->vrf_id))
+	if (vrf_bitmap_check(&client->redist[afi][re->type], re->vrf_id))
 		return true;
 
 	return false;
@@ -256,12 +256,11 @@ void redistribute_delete(const struct route_node *rn,
 			table = new_re->table;
 		}
 
-		zlog_debug(
-			"%u:%u%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
-			vrfid, table, rn, old_re, old_inst,
-			old_re ? zebra_route_string(old_re->type) : "None",
-			new_re, new_inst,
-			new_re ? zebra_route_string(new_re->type) : "None");
+		zlog_debug("(%u:%u):%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
+			   vrfid, table, rn, old_re, old_inst,
+			   old_re ? zebra_route_string(old_re->type) : "None",
+			   new_re, new_inst,
+			   new_re ? zebra_route_string(new_re->type) : "None");
 	}
 
 	/* Skip invalid (e.g. linklocal) prefix */
@@ -331,14 +330,14 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 					   zvrf_id(zvrf), afi);
 		}
 	} else {
-		if (!vrf_bitmap_check(client->redist[afi][type],
+		if (!vrf_bitmap_check(&client->redist[afi][type],
 				      zvrf_id(zvrf))) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
 					"%s: setting vrf %s(%u) redist bitmap",
 					__func__, VRF_LOGNAME(zvrf->vrf),
 					zvrf_id(zvrf));
-			vrf_bitmap_set(client->redist[afi][type],
+			vrf_bitmap_set(&client->redist[afi][type],
 				       zvrf_id(zvrf));
 			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
 		}
@@ -387,7 +386,7 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	if (instance)
 		redist_del_instance(&client->mi_redist[afi][type], instance);
 	else
-		vrf_bitmap_unset(client->redist[afi][type], zvrf_id(zvrf));
+		vrf_bitmap_unset(&client->redist[afi][type], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -405,7 +404,7 @@ void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	vrf_bitmap_set(client->redist_default[afi], zvrf_id(zvrf));
+	vrf_bitmap_set(&client->redist_default[afi], zvrf_id(zvrf));
 	zebra_redistribute_default(client, zvrf_id(zvrf));
 
 stream_failure:
@@ -424,7 +423,7 @@ void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
+	vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
 
 stream_failure:
 	return;
@@ -548,6 +547,10 @@ void zebra_interface_address_add_update(struct interface *ifp,
 						client, ifp, ifc);
 		}
 	}
+	/* interface associated NHGs may have been deleted,
+	 * re-sync zebra -> dplane NHGs
+	 */
+	zebra_interface_nhg_reinstall(ifp);
 }
 
 /* Interface address deletion. */
@@ -644,10 +647,9 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	afi = family2afi(rn->p.family);
 	if (rmap_name)
-		ret = zebra_import_table_route_map_check(
-			afi, re->type, re->instance, &rn->p,
-			re->nhe->nhg.nexthop,
-			zvrf->vrf->vrf_id, re->tag, rmap_name);
+		ret = zebra_import_table_route_map_check(afi, re, &rn->p,
+							 re->nhe->nhg.nexthop,
+							 rmap_name);
 
 	if (ret != RMAP_PERMITMATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
@@ -671,6 +673,8 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 		UNSET_FLAG(same->flags, ZEBRA_FLAG_SELECTED);
 		zebra_del_import_table_entry(zvrf, rn, same);
 	}
+
+	UNSET_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 
 	newre = zebra_rib_route_entry_new(
 		0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
