@@ -21,6 +21,7 @@
 #include "queue.h"
 #include "routemap.h"
 #include "filter.h"
+#include "malloc.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -36,6 +37,11 @@
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_addpath.h"
 
+
+static uint32_t nb_adj_out_free;
+static uint32_t total_nb_freed_adj_out;
+static uint32_t nb_malloc_trim;
+static uint32_t threshold_freed_adjout_gc = 100000;
 
 /********************
  * PRIVATE FUNCTIONS
@@ -87,6 +93,30 @@ static void adj_free(struct bgp_adj_out *adj)
 	bgp_dest_unlock_node(adj->dest);
 
 	XFREE(MTYPE_BGP_ADJ_OUT, adj);
+
+	if (nb_adj_out_free >= threshold_freed_adjout_gc) {
+		malloc_trim(0);
+		nb_adj_out_free = 0;
+		nb_malloc_trim++;
+	} else {
+		nb_adj_out_free++;
+	}
+	total_nb_freed_adj_out++;
+}
+
+
+void debug_set_adj_out_mem_level(uint32_t thre)
+{
+	threshold_freed_adjout_gc = thre;
+}
+
+void debug_show_adj_out_mem_status(struct vty *vty)
+{
+
+	vty_out(vty, "Number of freed adj_out: %iu\n", total_nb_freed_adj_out);
+	vty_out(vty, "threshold for garbage collector: %iu\n",
+		threshold_freed_adjout_gc);
+	vty_out(vty, "number of gc occurence: %iu\n", nb_malloc_trim);
 }
 
 static void

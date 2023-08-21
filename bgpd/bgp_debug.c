@@ -713,6 +713,18 @@ int debug(unsigned int option)
 	return bgp_debug_option & option;
 }
 
+DEFUN(debug_bgp_memory_dump_adj_rib_out,
+      debug_bgp_memory_dump_adj_rib_out_cmd,
+      "debug bgp memory dump-adj-rib-out ",
+      DEBUG_STR
+      BGP_STR
+      "BGP Memory Management\n"
+      "BGP Dump Adj Rib Out Memory Management\n")
+{
+	debug_show_adj_out_mem_status(vty);
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_bgp_as4,
        debug_bgp_as4_cmd,
        "debug bgp as4",
@@ -1444,6 +1456,20 @@ DEFUN (no_debug_bgp_update_direct_peer,
 			"BGP updates debugging (outbound) was not enabled for %s\n",
 			host);
 
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_bgp_memory_set_adj_rib_out,
+      debug_bgp_memory_set_adj_rib_out_cmd,
+      "debug bgp set memory set-adj-rib_out (1000-4294967295)$thre",
+      DEBUG_STR
+      BGP_STR
+      SET_STR
+      "BGP Memory Management\n"
+      "Define number of free before gc activation\n"
+      "The threshold\n")
+{
+	debug_set_adj_out_mem_level(thre);
 	return CMD_SUCCESS;
 }
 
@@ -2439,6 +2465,8 @@ void bgp_debug_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_bgp_cmd);
 
+	install_element(CONFIG_NODE, &debug_bgp_memory_set_adj_rib_out_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_memory_dump_adj_rib_out_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_as4_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_as4_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_as4_segment_cmd);
