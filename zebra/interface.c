@@ -1195,6 +1195,12 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 
 	zif = ifp->info;
 
+	/*
+	 * FRR does not have enough data to make this request
+	 */
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return true;
+
 	/* Current state as we know it */
 	old_down = !!(ZEBRA_IF_IS_PROTODOWN(zif));
 	old_set_down = !!CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
