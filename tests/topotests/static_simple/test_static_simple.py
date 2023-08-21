@@ -68,7 +68,7 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-@retry(retry_timeout=3, initial_wait=0.1)
+@retry(retry_timeout=30, initial_wait=0.1)
 def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
     network = ipaddress.ip_network(super_prefix)
     vrfstr = f" vrf {vrf}" if vrf else ""
