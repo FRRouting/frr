@@ -1120,6 +1120,36 @@ struct llgr_info {
 	uint8_t flags;
 };
 
+struct peer_connection {
+	struct peer *peer;
+
+	/* Status of the peer connection. */
+	enum bgp_fsm_status status;
+	enum bgp_fsm_status ostatus;
+
+	int fd;
+
+	/* Packet receive and send buffer. */
+	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
+	struct stream_fifo *ibuf; // packets waiting to be processed
+	struct stream_fifo *obuf; // packets waiting to be written
+
+	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
+
+	struct event *t_read;
+	struct event *t_write;
+
+	struct event *t_process_packet;
+	struct event *t_process_packet_error;
+
+	/* Thread flags */
+	_Atomic uint32_t thread_flags;
+#define PEER_THREAD_WRITES_ON (1U << 0)
+#define PEER_THREAD_READS_ON (1U << 1)
+};
+extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
+extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
+
 /* BGP neighbor structure. */
 struct peer {
 	/* BGP structure.  */
@@ -1160,21 +1190,10 @@ struct peer {
 	/* Local router ID. */
 	struct in_addr local_id;
 
-	/* Packet receive and send buffer. */
-	pthread_mutex_t io_mtx;   // guards ibuf, obuf
-	struct stream_fifo *ibuf; // packets waiting to be processed
-	struct stream_fifo *obuf; // packets waiting to be written
-
-	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
-
 	struct stream *curr; // the current packet being parsed
 
 	/* the doppelganger peer structure, due to dual TCP conn setup */
 	struct peer *doppelganger;
-
-	/* Status of the peer. */
-	enum bgp_fsm_status status;
-	enum bgp_fsm_status ostatus;
 
 	/* FSM events, stored for debug purposes.
 	 * Note: uchar used for reduced memory usage.
@@ -1187,7 +1206,16 @@ struct peer {
 	uint16_t table_dump_index;
 
 	/* Peer information */
-	int fd;		     /* File descriptor */
+
+	/*
+	 * We will have 2 `struct peer_connection` data structures
+	 * connection is our attempt to talk to our peer.  incoming
+	 * is the peer attempting to talk to us.  When it is
+	 * time to consolidate between the two, we'll solidify
+	 * into the connection variable being used.
+	 */
+	struct peer_connection *connection;
+
 	int ttl;	     /* TTL of TCP connection to the peer. */
 	int rtt;	     /* Estimated round-trip-time from TCP_INFO */
 	int rtt_expected; /* Expected round-trip-time for a peer */
@@ -1520,8 +1548,6 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_read;
-	struct event *t_write;
 	struct event *t_start;
 	struct event *t_connect_check_r;
 	struct event *t_connect_check_w;
@@ -1535,16 +1561,12 @@ struct peer {
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct event *t_generate_updgrp_packets;
-	struct event *t_process_packet;
-	struct event *t_process_packet_error;
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
-#define PEER_THREAD_WRITES_ON         (1U << 0)
-#define PEER_THREAD_READS_ON          (1U << 1)
-#define PEER_THREAD_KEEPALIVES_ON     (1U << 2)
-#define PEER_THREAD_SUBGRP_ADV_DELAY  (1U << 3)
+#define PEER_THREAD_KEEPALIVES_ON (1U << 0)
+#define PEER_THREAD_SUBGRP_ADV_DELAY (1U << 1)
 
 	/* workqueues */
 	struct work_queue *clear_node_queue;
@@ -2574,7 +2596,7 @@ static inline char *timestamp_string(time_t ts)
 
 static inline bool peer_established(struct peer *peer)
 {
-	return peer->status == Established;
+	return peer->connection->status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)

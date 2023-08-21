@@ -1085,7 +1085,8 @@ int main(void)
 
 	peer = peer_create_accept(bgp);
 	peer->host = (char *)"foo";
-	peer->status = Established;
+	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection->status = Established;
 	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	ifp.ifindex = 0;

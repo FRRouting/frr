@@ -64,11 +64,12 @@ int main(int argc, char *argv[])
 		}
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->status = Established;
+	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection->status = Established;
 
-        peer->fd = open(argv[1], O_RDONLY|O_NONBLOCK);
+	peer->connection->fd = open(argv[1], O_RDONLY | O_NONBLOCK);
 	t.arg = peer;
-	peer->t_read = &t;
+	peer->connection->t_read = &t;
 
 	// printf("bgp_read_packet returns: %d\n", bgp_read(&t));
 }

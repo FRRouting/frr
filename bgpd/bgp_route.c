@@ -2754,13 +2754,11 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 						continue;
 					if (BGP_PATH_HOLDDOWN(pi2))
 						continue;
-					if (pi2->peer != bgp->peer_self
-					    && !CHECK_FLAG(
-						    pi2->peer->sflags,
-						    PEER_STATUS_NSF_WAIT))
-						if (pi2->peer->status
-						    != Established)
-							continue;
+					if (pi2->peer != bgp->peer_self &&
+					    !CHECK_FLAG(pi2->peer->sflags,
+							PEER_STATUS_NSF_WAIT) &&
+					    !peer_established(pi2->peer))
+						continue;
 
 					if (!aspath_cmp_left(pi1->attr->aspath,
 							     pi2->attr->aspath)

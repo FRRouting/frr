@@ -26,7 +26,8 @@ void lua_pushpeer(lua_State *L, const struct peer *peer)
 	lua_setfield(L, -2, "remote_id");
 	lua_pushinaddr(L, &peer->local_id);
 	lua_setfield(L, -2, "local_id");
-	lua_pushstring(L, lookup_msg(bgp_status_msg, peer->status, NULL));
+	lua_pushstring(L, lookup_msg(bgp_status_msg, peer->connection->status,
+				     NULL));
 	lua_setfield(L, -2, "state");
 	lua_pushstring(L, peer->desc ? peer->desc : "");
 	lua_setfield(L, -2, "description");
