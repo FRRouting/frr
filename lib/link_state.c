@@ -523,7 +523,9 @@ struct ls_vertex *ls_vertex_update(struct ls_ted *ted, struct ls_node *node)
 		if (!ls_node_same(old->node, node)) {
 			ls_node_del(old->node);
 			old->node = node;
-		}
+		} else
+			ls_node_del(node);
+
 		old->status = UPDATE;
 		return old;
 	}
@@ -805,7 +807,9 @@ struct ls_edge *ls_edge_update(struct ls_ted *ted,
 		if (!ls_attributes_same(old->attributes, attributes)) {
 			ls_attributes_del(old->attributes);
 			old->attributes = attributes;
-		}
+		} else
+			ls_attributes_del(attributes);
+
 		old->status = UPDATE;
 		return old;
 	}
@@ -902,7 +906,9 @@ struct ls_subnet *ls_subnet_update(struct ls_ted *ted, struct ls_prefix *pref)
 		if (!ls_prefix_same(old->ls_pref, pref)) {
 			ls_prefix_del(old->ls_pref);
 			old->ls_pref = pref;
-		}
+		} else
+			ls_prefix_del(pref);
+
 		old->status = UPDATE;
 		return old;
 	}
