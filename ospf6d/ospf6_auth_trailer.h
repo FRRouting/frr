@@ -15,6 +15,8 @@
 #define OSPF6_AUTHENTICATION_NULL 0
 #define OSPF6_AUTHENTICATION_CRYPTOGRAPHIC 1
 
+#define OSPFV3_CRYPTO_PROTO_ID 1
+
 /* Auth debug options */
 extern unsigned char conf_debug_ospf6_auth[2];
 
