@@ -3461,8 +3461,24 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 
 	/* Get attributes to the end of attribute length. */
 	while (BGP_INPUT_PNT(peer) < endp) {
+		startp = BGP_INPUT_PNT(peer);
+
+		/* Fewer than three octets remain (or fewer than four
+		 * octets, if the Attribute Flags field has the Extended
+		 * Length bit set) when beginning to parse the attribute.
+		 * That is, this case exists if there remains unconsumed
+		 * data in the path attributes but yet insufficient data
+		 * to encode a single minimum-sized path attribute.
+		 *
+		 * An error condition exists and the "treat-as-withdraw"
+		 * approach MUST be used (unless some other, more severe
+		 * error is encountered dictating a stronger approach),
+		 * and the Total Attribute Length MUST be relied upon to
+		 * enable the beginning of the NLRI field to be located.
+		 */
+
 		/* Check remaining length check.*/
-		if (endp - BGP_INPUT_PNT(peer) < BGP_ATTR_MIN_LEN) {
+		if ((endp - startp) < BGP_ATTR_MIN_LEN) {
 			/* XXX warning: long int format, int arg (arg 5) */
 			flog_warn(
 				EC_BGP_ATTRIBUTE_TOO_SMALL,
@@ -3471,17 +3487,22 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				(unsigned long)(endp
 						- stream_pnt(BGP_INPUT(peer))));
 
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-			ret = BGP_ATTR_PARSE_ERROR;
+			if (peer->sort != BGP_PEER_EBGP) {
+				bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+				ret = BGP_ATTR_PARSE_ERROR;
+			} else {
+				ret = BGP_ATTR_PARSE_WITHDRAW;
+			}
+
 			goto done;
 		}
 
-		/* Fetch attribute flag and type. */
-		startp = BGP_INPUT_PNT(peer);
-		/* "The lower-order four bits of the Attribute Flags octet are
-		   unused.  They MUST be zero when sent and MUST be ignored when
-		   received." */
+		/* Fetch attribute flag and type.
+		 * The lower-order four bits of the Attribute Flags octet are
+		 * unused. They MUST be zero when sent and MUST be ignored when
+		 * received.
+		 */
 		flag = 0xF0 & stream_getc(BGP_INPUT(peer));
 		type = stream_getc(BGP_INPUT(peer));
 
@@ -3495,9 +3516,14 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				(unsigned long)(endp
 						- stream_pnt(BGP_INPUT(peer))));
 
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-			ret = BGP_ATTR_PARSE_ERROR;
+			if (peer->sort != BGP_PEER_EBGP) {
+				bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+				ret = BGP_ATTR_PARSE_ERROR;
+			} else {
+				ret = BGP_ATTR_PARSE_WITHDRAW;
+			}
+
 			goto done;
 		}
 
