@@ -935,6 +935,15 @@ static void ospf_finish_final(struct ospf *ospf)
 	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
+static void ospf_range_table_node_destroy(route_table_delegate_t *delegate,
+			struct route_table *table, struct route_node *node)
+{
+	XFREE(MTYPE_OSPF_AREA_RANGE, node->info);
+	XFREE(MTYPE_ROUTE_NODE, node);
+}
+
+route_table_delegate_t ospf_range_table_delegate = {.create_node = route_node_create,
+						 .destroy_node = ospf_range_table_node_destroy};
 
 /* allocate new OSPF Area object */
 struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
@@ -971,8 +980,8 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 	ospf_opaque_type10_lsa_init(new);
 
 	new->oiflist = list_new();
-	new->ranges = route_table_init();
-	new->nssa_ranges = route_table_init();
+	new->ranges = route_table_init_with_delegate(&ospf_range_table_delegate);
+	new->nssa_ranges = route_table_init_with_delegate(&ospf_range_table_delegate);
 
 	if (area_id.s_addr == OSPF_AREA_BACKBONE)
 		ospf->backbone = new;
