@@ -716,7 +716,7 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
 	if (!is_zebra_valid_kernel_table(table_id)
-	    || (table_id == RT_TABLE_MAIN))
+	    || (table_id == rt_table_main_id))
 		return -1;
 
 	if (afi >= AFI_MAX)

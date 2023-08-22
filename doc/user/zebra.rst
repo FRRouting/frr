@@ -68,6 +68,12 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    option and we will use Route Replace Semantics instead of delete
    than add.
 
+.. option:: --routing-table <tableno>
+
+   Specify which kernel routing table *Zebra* should communicate with.
+   If this option is not specified the default table (RT_TABLE_MAIN) is
+   used.
+
 .. option:: --asic-offload=[notify_on_offload|notify_on_ack]
 
    The linux kernel has the ability to use asic-offload ( see switchdev

@@ -1100,11 +1100,11 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
-			&p, NULL, &nh, 0, RT_TABLE_MAIN, 0, 0, distance, 0,
+			&p, NULL, &nh, 0, rt_table_main_id, 0, 0, distance, 0,
 			false);
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0,
-			   zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
+			   zebra_flags, &p, NULL, &nh, 0, rt_table_main_id, 0,
 			   distance, true);
 }
 
