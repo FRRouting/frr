@@ -1951,7 +1951,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	/* Network Layer Reachability Information. */
 	update_len = end - stream_pnt(s);
 
-	if (update_len) {
+	if (update_len && attribute_len) {
 		/* Set NLRI portion to structure. */
 		nlris[NLRI_UPDATE].afi = AFI_IP;
 		nlris[NLRI_UPDATE].safi = SAFI_UNICAST;
