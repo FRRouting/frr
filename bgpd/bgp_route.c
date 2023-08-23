@@ -9672,9 +9672,8 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 		}
 	}
 
-	label = decode_label(&path->extra->label[0]);
-
-	if (bgp_is_valid_label(&label)) {
+	if (bgp_is_valid_label(&path->extra->label[0])) {
+		label = decode_label(&path->extra->label[0]);
 		if (json) {
 			json_object_int_add(json_out, "notag", label);
 			json_object_array_add(json, json_out);
