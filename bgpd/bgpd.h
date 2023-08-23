@@ -3179,10 +3179,11 @@ static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
 static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 {
 	/*
-	 * GR restarter behavior is supported only for IPv4-unicast
-	 * and IPv6-unicast.
+	 * GR restarter behavior is supported only for IPv4-unicast,
+	 * IPv6-unicast and L2vpn EVPN
 	 */
-	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST))
+	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST) ||
+	    (afi == AFI_L2VPN && safi == SAFI_EVPN))
 		return true;
 	return false;
 }
