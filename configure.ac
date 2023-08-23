@@ -1385,7 +1385,9 @@ if test "$enable_protobuf3" = "yes"; then
                   [PROTO3=false && AC_MSG_FAILURE([protobuf3 requested but protobuf-c.h not found.  Install protobuf-c.])])
 fi
 
-AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+if test "$enable_protobuf" != "no"; then
+  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+fi
 #
 # End of logic for protobuf support.
 #
