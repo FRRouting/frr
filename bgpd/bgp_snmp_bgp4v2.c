@@ -32,6 +32,7 @@
 SNMP_LOCAL_VARIABLES
 
 static oid bgpv2_oid[] = {BGP4V2MIB};
+static oid bgpv2_trap_oid[] = { BGP4V2MIB, 0 };
 static struct in_addr bgp_empty_addr = {};
 
 static struct peer *peer_lookup_all_vrf(struct ipaddr *addr)
@@ -793,6 +794,38 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 	return NULL;
 }
 
+/* BGP V2 Traps. */
+static struct trap_object bgpv2TrapEstListv4[] = {
+	{ 6, { 1, 2, 1, BGP4V2_PEER_STATE, 1, 1 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_LOCAL_PORT, 1, 1 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_REMOTE_PORT, 1, 1 } }
+};
+
+static struct trap_object bgpv2TrapEstListv6[] = {
+	{ 6, { 1, 2, 1, BGP4V2_PEER_STATE, 1, 2 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_LOCAL_PORT, 1, 2 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_REMOTE_PORT, 1, 2 } }
+};
+
+static struct trap_object bgpv2TrapBackListv4[] = {
+	{ 6, { 1, 2, 1, BGP4V2_PEER_STATE, 1, 1 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_LOCAL_PORT, 1, 1 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_REMOTE_PORT, 1, 1 } },
+	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED, 1, 1 } },
+	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED, 1, 1 } },
+	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT, 1, 1 } }
+};
+
+static struct trap_object bgpv2TrapBackListv6[] = {
+	{ 6, { 1, 2, 1, BGP4V2_PEER_STATE, 1, 2 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_LOCAL_PORT, 1, 2 } },
+	{ 6, { 1, 2, 1, BGP4V2_PEER_REMOTE_PORT, 1, 2 } },
+	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED, 1, 2 } },
+	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED, 1, 2 } },
+	{ 6, { 1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT, 1, 2 } }
+};
+
+
 static struct variable bgpv2_variables[] = {
 	/* bgp4V2PeerEntry */
 	{BGP4V2_PEER_INSTANCE,
@@ -1411,6 +1444,76 @@ static struct variable bgpv2_variables[] = {
 	 6,
 	 {1, 9, 1, BGP4V2_NLRI_PATH_ATTR_UNKNOWN, 1, 2}},
 };
+
+int bgpv2TrapEstablished(struct peer *peer)
+{
+	oid index[sizeof(oid) * IN6_ADDR_SIZE];
+	size_t length;
+
+	/* Check if this peer just went to Established */
+	if ((peer->connection->ostatus != OpenConfirm) ||
+	    !(peer_established(peer->connection)))
+		return 0;
+
+	switch (sockunion_family(&peer->connection->su)) {
+	case AF_INET:
+		oid_copy_in_addr(index, &peer->connection->su.sin.sin_addr);
+		length = IN_ADDR_SIZE;
+		smux_trap(bgpv2_variables, array_size(bgpv2_variables),
+			  bgpv2_trap_oid, array_size(bgpv2_trap_oid), bgpv2_oid,
+			  sizeof(bgpv2_oid) / sizeof(oid), index, length,
+			  bgpv2TrapEstListv4, array_size(bgpv2TrapEstListv4),
+			  BGP4V2ESTABLISHED);
+		break;
+	case AF_INET6:
+		oid_copy_in6_addr(index, &peer->connection->su.sin6.sin6_addr);
+		length = IN6_ADDR_SIZE;
+		smux_trap(bgpv2_variables, array_size(bgpv2_variables),
+			  bgpv2_trap_oid, array_size(bgpv2_trap_oid), bgpv2_oid,
+			  sizeof(bgpv2_oid) / sizeof(oid), index, length,
+			  bgpv2TrapEstListv6, array_size(bgpv2TrapEstListv6),
+			  BGP4V2ESTABLISHED);
+		break;
+	default:
+		return 0;
+		;
+	}
+
+	return 0;
+}
+
+int bgpv2TrapBackwardTransition(struct peer *peer)
+{
+	oid index[sizeof(oid) * IN6_ADDR_SIZE];
+	size_t length;
+
+	switch (sockunion_family(&peer->connection->su)) {
+	case AF_INET:
+		oid_copy_in_addr(index, &peer->connection->su.sin.sin_addr);
+		length = IN_ADDR_SIZE;
+		smux_trap(bgpv2_variables, array_size(bgpv2_variables),
+			  bgpv2_trap_oid, array_size(bgpv2_trap_oid), bgpv2_oid,
+			  sizeof(bgpv2_oid) / sizeof(oid), index, length,
+			  bgpv2TrapBackListv4, array_size(bgpv2TrapBackListv4),
+			  BGP4V2BACKWARDTRANSITION);
+		break;
+	case AF_INET6:
+		oid_copy_in6_addr(index, &peer->connection->su.sin6.sin6_addr);
+		length = IN6_ADDR_SIZE;
+		smux_trap(bgpv2_variables, array_size(bgpv2_variables),
+			  bgpv2_trap_oid, array_size(bgpv2_trap_oid), bgpv2_oid,
+			  sizeof(bgpv2_oid) / sizeof(oid), index, length,
+			  bgpv2TrapBackListv6, array_size(bgpv2TrapBackListv6),
+			  BGP4V2BACKWARDTRANSITION);
+		break;
+	default:
+		return 0;
+		;
+	}
+
+	return 0;
+}
+
 
 int bgp_snmp_bgp4v2_init(struct event_loop *tm)
 {

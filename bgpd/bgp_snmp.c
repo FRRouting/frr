@@ -59,9 +59,31 @@ static void bgp_snmp_traps_init(void)
 
 int bgp_cli_snmp_traps_config_write(struct vty *vty)
 {
-	if (CHECK_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED))
-		return 0;
-	vty_out(vty, "traps rfc4273 disable\n");
+	int write = 0;
+
+	if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273)) {
+		vty_out(vty, "no bgp snmp traps rfc4273\n");
+		write++;
+	}
+	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_BGP4MIBV2)) {
+		vty_out(vty, "bgp snmp traps bgp4-mibv2\n");
+		write++;
+	}
+
+	return write;
+}
+
+int bgpTrapEstablished(struct peer *peer)
+{
+	bgp4TrapEstablished(peer);
+	bgpv2TrapEstablished(peer);
+	return 0;
+}
+
+int bgpTrapBackwardTransition(struct peer *peer)
+{
+	bgp4TrapBackwardTransition(peer);
+	bgpv2TrapBackwardTransition(peer);
 	return 0;
 }
 
