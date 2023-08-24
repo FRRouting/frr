@@ -741,7 +741,7 @@ static int path_pcep_cli_show_srte_pcep_pce(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-static int path_pcep_cli_peer_sr_draft07(struct vty *vty)
+static int path_pcep_cli_peer_sr_draft07(struct vty *vty, bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
 
@@ -756,12 +756,12 @@ static int path_pcep_cli_peer_sr_draft07(struct vty *vty)
 		return CMD_ERR_NO_MATCH;
 	}
 
-	pce_config->draft07 = true;
+	pce_config->draft07 = reset ? DEFAULT_SR_DRAFT07 : true;
 
 	return CMD_SUCCESS;
 }
 
-static int path_pcep_cli_peer_pce_initiated(struct vty *vty)
+static int path_pcep_cli_peer_pce_initiated(struct vty *vty, bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
 
@@ -776,13 +776,14 @@ static int path_pcep_cli_peer_pce_initiated(struct vty *vty)
 		return CMD_ERR_NO_MATCH;
 	}
 
-	pce_config->pce_initiated = true;
+	pce_config->pce_initiated = reset ? DEFAULT_PCE_INITIATED : true;
 
 	return CMD_SUCCESS;
 }
 
 static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
-					   const char *tcp_md5_auth)
+					   const char *tcp_md5_auth,
+					   bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
 
@@ -797,8 +798,11 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 		return CMD_ERR_NO_MATCH;
 	}
 
-	strlcpy(pce_config->tcp_md5_auth, tcp_md5_auth,
-		sizeof(pce_config->tcp_md5_auth));
+	if (reset)
+		pce_config->tcp_md5_auth[0] = '\0';
+	else
+		strlcpy(pce_config->tcp_md5_auth, tcp_md5_auth,
+			sizeof(pce_config->tcp_md5_auth));
 
 	return CMD_SUCCESS;
 }
@@ -841,7 +845,8 @@ static int path_pcep_cli_peer_source_address(struct vty *vty,
 					     struct in_addr *ip,
 					     const char *ipv6_str,
 					     struct in6_addr *ipv6,
-					     const char *port_str, long port)
+					     const char *port_str, long port,
+					     bool reset)
 {
 	struct pcep_config_group_opts *pce_config = NULL;
 	if (vty->node == PCEP_PCE_NODE) {
@@ -853,6 +858,12 @@ static int path_pcep_cli_peer_source_address(struct vty *vty,
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
 		return CMD_ERR_NO_MATCH;
+	}
+
+	if (reset) {
+		pce_config->source_ip.ipa_type = IPADDR_NONE;
+		pce_config->source_port = 0;
+		return CMD_SUCCESS;
 	}
 
 	/* Handle the optional source IP */
@@ -1810,27 +1821,30 @@ DEFPY(pcep_cli_show_srte_pcep_pce,
 
 DEFPY(pcep_cli_peer_sr_draft07,
       pcep_cli_peer_sr_draft07_cmd,
-      "sr-draft07",
+      "[no] sr-draft07",
+      NO_STR
       "Configure PCC to send PCEP Open with SR draft07\n")
 {
-	return path_pcep_cli_peer_sr_draft07(vty);
+	return path_pcep_cli_peer_sr_draft07(vty, no);
 }
 
 DEFPY(pcep_cli_peer_pce_initiated,
       pcep_cli_peer_pce_initiated_cmd,
-      "pce-initiated",
+      "[no] pce-initiated",
+      NO_STR
       "Configure PCC to accept PCE initiated LSPs\n")
 {
-	return path_pcep_cli_peer_pce_initiated(vty);
+	return path_pcep_cli_peer_pce_initiated(vty, no);
 }
 
 DEFPY(pcep_cli_peer_tcp_md5_auth,
       pcep_cli_peer_tcp_md5_auth_cmd,
-      "tcp-md5-auth WORD",
+      "[no] tcp-md5-auth WORD",
+      NO_STR
       "Configure PCC TCP-MD5 RFC2385 Authentication\n"
       "TCP-MD5 Authentication string\n")
 {
-	return path_pcep_cli_peer_tcp_md5_auth(vty, tcp_md5_auth);
+	return path_pcep_cli_peer_tcp_md5_auth(vty, tcp_md5_auth, no);
 }
 
 DEFPY(pcep_cli_peer_address,
@@ -1850,7 +1864,8 @@ DEFPY(pcep_cli_peer_address,
 
 DEFPY(pcep_cli_peer_source_address,
       pcep_cli_peer_source_address_cmd,
-      "source-address [ip A.B.C.D | ipv6 X:X::X:X] [port (1024-65535)]",
+      "[no] source-address [ip A.B.C.D | ipv6 X:X::X:X] [port (1024-65535)]",
+      NO_STR
       "PCE source IP Address configuration\n"
       "PCE source IPv4 address\n"
       "PCE source IPv4 address value\n"
@@ -1860,7 +1875,7 @@ DEFPY(pcep_cli_peer_source_address,
       "Source PCE server port value\n")
 {
 	return path_pcep_cli_peer_source_address(vty, ip_str, &ip, ipv6_str,
-						 &ipv6, port_str, port);
+						 &ipv6, port_str, port, no);
 }
 
 DEFPY(pcep_cli_peer_pcep_pce_config_ref,
