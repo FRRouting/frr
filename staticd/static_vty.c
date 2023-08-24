@@ -58,6 +58,8 @@ struct static_route_args {
 	bool bfd_multi_hop;
 	const char *bfd_source;
 	const char *bfd_profile;
+
+	const char *input;
 };
 
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
@@ -252,6 +254,11 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 
 			/* Route flags */
 			if (args->flag) {
+				if (!strmatch(args->input, args->flag)) {
+					vty_out(vty,
+						"%% Nexthop interface name must be (Null0, reject, blackhole)\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
 				switch (args->flag[0]) {
 				case 'r':
 					bh_type = "reject";
@@ -499,6 +506,8 @@ DEFPY_YANG(ip_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -512,6 +521,9 @@ DEFPY_YANG(ip_route_blackhole,
 		.table = table_str,
 		.vrf = vrf,
 	};
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
