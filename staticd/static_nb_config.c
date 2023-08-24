@@ -135,7 +135,8 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
-		if (ifname != NULL) {
+		nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
+		if (ifname != NULL && nh_type != STATIC_BLACKHOLE) {
 			if (strcasecmp(ifname, "Null0") == 0
 			    || strcasecmp(ifname, "reject") == 0
 			    || strcasecmp(ifname, "blackhole") == 0) {
@@ -371,10 +372,26 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
 	enum static_nh_type nh_type;
+	const char *nh_ifname;
+	const char *nh_vrf;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		nh_type = yang_dnode_get_enum(args->dnode, "../nh-type");
+		nh_ifname = yang_dnode_get_string(args->dnode, "../interface");
+		nh_vrf = yang_dnode_get_string(args->dnode, "../vrf");
+		if (nh_ifname && nh_vrf) {
+			struct vrf *vrf = vrf_lookup_by_name(nh_vrf);
+			struct interface *ifp = if_lookup_by_name(nh_ifname,
+								  vrf->vrf_id);
+
+			if (ifp && (!strmatch(nh_ifname, "blackhole") ||
+				    !strmatch(nh_ifname, "reject"))) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "nexthop interface name must be (reject, blackhole)");
+				return NB_ERR_VALIDATION;
+			}
+		}
 		if (nh_type != STATIC_BLACKHOLE) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "nexthop type is not the blackhole type");
