@@ -2614,12 +2614,10 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 {
 	enum bgp_fsm_status next;
 	enum bgp_fsm_state_progress ret = 0;
+	int fsm_result = FSM_PEER_NOOP;
 	struct peer *other;
 	int passive_conn = 0;
 	int dyn_nbr;
-
-	/* default return code */
-	ret = FSM_PEER_NOOP;
 
 	other = peer->doppelganger;
 	passive_conn =
@@ -2651,7 +2649,7 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			/* The case when doppelganger swap accurred in
 			   bgp_establish.
 			   Update the peer pointer accordingly */
-			ret = FSM_PEER_TRANSFERRED;
+			fsm_result = FSM_PEER_TRANSFERRED;
 			peer = other;
 		}
 
@@ -2666,8 +2664,8 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			 * Opting for TRANSFERRED since transfer implies
 			 * session establishment.
 			 */
-			if (ret != FSM_PEER_TRANSFERRED)
-				ret = FSM_PEER_TRANSITIONED;
+			if (fsm_result != FSM_PEER_TRANSFERRED)
+				fsm_result = FSM_PEER_TRANSITIONED;
 		}
 
 		/* Make sure timer is set. */
@@ -2698,10 +2696,10 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			bgp_fsm_change_status(peer, Idle);
 			bgp_timer_set(peer);
 		}
-		ret = FSM_PEER_STOPPED;
+		fsm_result = FSM_PEER_STOPPED;
 	}
 
-	return ret;
+	return fsm_result;
 }
 /* BGP GR Code */
 
