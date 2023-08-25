@@ -37,6 +37,7 @@ advantages over Netlink:
 
    * ``fpm``
    * ``dplane_fpm_nl``
+   * ``dplane_fpm_pb``
 
 fpm
 ^^^
@@ -53,6 +54,23 @@ The newer FPM implementation that was built using ``zebra``'s data plane
 framework as a plugin. It only supports netlink and it shares ``zebra``'s
 netlink functions to translate route event snapshots into formatted binary
 data.
+
+
+dplane_fpm_pb
+^^^^^^^^^^^^^
+
+It has the same implementation as ``dplane_fpm_nl``, using ``zebra``'s data
+plane framework as a plugin. It supports transmitting data in protobuf format.
+
+To add a new data type:
+
+- Add a new data structure to :file:`fpm/fpm.proto`.
+
+.. c:function:: Fpm__Message *create_fpm_message(qpb_allocator_t *allocator,struct zebra_dplane_ctx *ctx);
+
+- This function in :file:`zebra/dplane_fpm_pb.c` will create encoded fpm message.
+  Assign values to data based on opcode.
+- Use the same proto file to decode on the server side.
 
 
 Protocol Specification

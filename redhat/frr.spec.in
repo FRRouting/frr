@@ -676,6 +676,7 @@ fi
 %if %{with_mgmtd_test_be_client}
     %{_sbindir}/mgmtd_testc
 %endif
+%{_sbindir}/dplaneserver
 %exclude %{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
@@ -723,6 +724,8 @@ fi
 %endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
+%{_libdir}/frr/modules/dplane_fpm_pb.so
+%{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
 %{_libdir}/libfrr_pb.so*
 %{_libdir}/libfrrfpm_pb.so*

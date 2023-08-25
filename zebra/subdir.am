@@ -124,6 +124,7 @@ clippy_scan += \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
+	zebra/dplane_fpm_pb.c \
 	zebra/label_manager.c \
 	zebra/zebra_cli.c \
 	# end
@@ -243,6 +244,29 @@ module_LTLIBRARIES += zebra/dplane_fpm_nl.la
 zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
 zebra_dplane_fpm_nl_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_dplane_fpm_nl_la_LIBADD  =
+endif
+
+if DPLANE_PB
+# Dataplane using protobuf plugin
+module_LTLIBRARIES += zebra/dplane_fpm_pb.la
+zebra_dplane_fpm_pb_la_SOURCES = \
+	zebra/dplane_fpm_pb.c \
+	qpb/qpb.c \
+	qpb/qpb_allocator.c \
+	fpm/fpm.h \
+	fpm/fpm_pb.h \
+	fpm/fpm_pb.c \
+	qpb/linear_allocator.h \
+	qpb/qpb.h \
+	qpb/qpb_allocator.h \
+	# end
+zebra_dplane_fpm_pb_la_LDFLAGS = $(MODULE_LDFLAGS)
+zebra_dplane_fpm_pb_la_LIBADD  = $(PROTOBUF_C_LIBS)
+zebra_dplane_fpm_pb_la_CFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
+nodist_zebra_dplane_fpm_pb_la_SOURCES = \
+	fpm/fpm.pb-c.c \
+	qpb/qpb.pb-c.c \
+	# end
 endif
 
 if NETLINK_DEBUG

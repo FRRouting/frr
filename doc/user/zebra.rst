@@ -1224,13 +1224,15 @@ as well. We refer to the component that programs the forwarding plane
 
 The relevant zebra code kicks in when zebra is configured with the
 :option:`--enable-fpm` flag and started with the module (``-M fpm``
-or ``-M dplane_fpm_nl``).
+or ``-M dplane_fpm_nl`` or ``-M dplane_fpm_pb``).
 
 .. note::
 
    The ``fpm`` implementation attempts to connect to ``127.0.0.1`` port ``2620``
-   by default without configurations. The ``dplane_fpm_nl`` only attempts to
-   connect to a server if configured.
+   by default without configurations. The ``dplane_fpm_nl`` only attempts
+   to connect to a server if configured. The ``dplane_fpm_pb`` attempts to
+   connect to ``127.0.0.1`` port ``2620`` by default. It can be changed or
+   canceled by configuring.
 
 Zebra periodically attempts to connect to the well-known FPM port (``2620``).
 Once the connection is up, zebra starts sending messages containing routes
@@ -1244,6 +1246,7 @@ with the module load-time option. The modules accept the following options:
 
 - ``fpm``: ``netlink`` and ``protobuf``.
 - ``dplane_fpm_nl``: none, it only implements netlink.
+- ``dplane_fpm_pb``: none, it only implements protobuf.
 
 The zebra FPM interface uses replace semantics. That is, if a 'route
 add' message for a prefix is followed by another 'route add' message,
@@ -1308,7 +1311,7 @@ FPM Commands
    optional Forwarding Plane Manager (FPM) component.
 
 
-``dplane_fpm_nl`` implementation
+``dplane_fpm_nl`` or ``dplane_fpm_pb`` implementation
 --------------------------------
 
 .. clicmd:: fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]
