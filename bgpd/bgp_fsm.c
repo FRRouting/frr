@@ -2618,6 +2618,7 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 	struct peer *other;
 	int passive_conn = 0;
 	int dyn_nbr;
+	struct peer_connection *connection = peer->connection;
 
 	other = peer->doppelganger;
 	passive_conn =
@@ -2643,7 +2644,9 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		ret = (*(FSM[peer->connection->status - 1][event - 1].func))(
 			peer->connection);
 
-	if (ret >= BGP_FSM_SUCCESS) {
+	switch (ret) {
+	case BGP_FSM_SUCCESS:
+	case BGP_FSM_SUCCESS_STATE_TRANSFER:
 		if (ret == BGP_FSM_SUCCESS_STATE_TRANSFER &&
 		    next == Established) {
 			/* The case when doppelganger swap accurred in
@@ -2670,10 +2673,9 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 
 		/* Make sure timer is set. */
 		bgp_timer_set(peer);
-
-	} else {
-		struct peer_connection *connection = peer->connection;
-
+		break;
+	case BGP_FSM_FAILURE:
+	case BGP_FSM_FAILURE_AND_DELETE:
 		/*
 		 * If we got a return value of -1, that means there was an
 		 * error, restart the FSM. Since bgp_stop() was called on the
@@ -2697,6 +2699,8 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			bgp_timer_set(peer);
 		}
 		fsm_result = FSM_PEER_STOPPED;
+
+		break;
 	}
 
 	return fsm_result;
