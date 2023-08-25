@@ -22,6 +22,9 @@
 #include "routemap.h"
 #include "routing_nb.h"
 
+#include "fuzz.h"
+#include "frr_pthread.h"
+
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/rib.h"
@@ -45,6 +48,11 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
+#include "zebra/zapi_msg.h"
+
+#ifdef FUZZING
+#include "zebra/kernel_netlink.h"
+#endif /* FUZZING */
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -279,6 +287,101 @@ FRR_DAEMON_INFO(
 	.n_yang_modules = array_size(zebra_yang_modules),
 );
 
+#ifdef FUZZING
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
+static bool FuzzingInit(void)
+{
+	graceful_restart = 0;
+	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
+
+	const char *name[] = { "zebra" };
+
+	frr_preinit(&zebra_di, 1, (char **) name);
+
+	/* Zebra related initialize. */
+	zrouter.master = frr_init_fast();
+
+	zebra_router_init(false, true);
+	zserv_init();
+	rib_init();
+	zebra_if_init();
+	zebra_debug_init();
+	router_id_cmd_init();
+	zebra_ns_init();
+	zebra_vty_init();
+	access_list_init();
+	prefix_list_init();
+	zebra_mpls_init();
+	zebra_mpls_vty_init();
+	zebra_pw_vty_init();
+	zebra_pbr_init();
+	zrouter.startup_time = monotime(NULL);
+	label_manager_init();
+	zebra_rnh_init();
+	zebra_evpn_init();
+	zebra_error_init();
+	frr_pthread_init();
+
+	return true;
+}
+
+#ifndef FUZZING_LIBFUZZER
+static struct zserv *FuzzingZc;
+#endif /* FUZZING_LIBFUZZER */
+
+static struct stream_fifo *fifo;
+
+static bool FuzzingInitialized;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+	if (!FuzzingInitialized) {
+		FuzzingInit();
+		FuzzingInitialized = true;
+		fifo = stream_fifo_new();
+	}
+
+	/*
+	 * In the AFL standalone case, the client will already be created for
+	 * us before __AFL_INIT() is called to speed things up. We can't pass
+	 * it as an argument because the function signature must match
+	 * libFuzzer's expectations.
+	 *
+	 * In the libFuzzer case, we need to create it each time.
+	 *
+	 * In both cases the client must be destroyed before we return..
+	 */
+	struct zserv *zc;
+#ifdef FUZZING_LIBFUZZER
+	zc = zserv_client_create(69);
+#else
+	zc = FuzzingZc;
+#endif /* FUZZING_LIBFUZZER */
+
+
+#if (FUZZING_MODE == ZAPI_FUZZING)
+	struct stream *s = stream_new(size + 1);
+	stream_put(s, data, size);
+	stream_fifo_push(fifo, s);
+
+	zserv_handle_commands(zc, fifo);
+#elif (FUZZING_MODE == NETLINK_FUZZING)
+	netlink_fuzz(data, size);
+#endif
+
+done:
+	zserv_close_client(zc);
+
+	return 0;
+}
+#endif /* FUZZING */
+
+#ifndef FUZZING_LIBFUZZER
+
+CPP_NOTICE("Not using LibFuzzer, compiling in main symbol!")
+
 /* Main startup routine. */
 int main(int argc, char **argv)
 {
@@ -288,6 +391,26 @@ int main(int argc, char **argv)
 	socklen_t dummylen;
 	bool asic_offload = false;
 	bool notify_on_ack = true;
+
+#ifdef FUZZING
+	FuzzingInit();
+	FuzzingZc = zserv_client_create(69);
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif /* __AFL_HAVE_MANUAL_CONTROL */
+
+	uint8_t *input = NULL;
+	int r = frrfuzz_read_input(&input);
+
+	int ret = LLVMFuzzerTestOneInput(input, r);
+
+	if (r > 0 && input) {
+		free(input);
+	}
+
+	return ret;
+#endif /* FUZZING */
 
 	graceful_restart = 0;
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
@@ -474,3 +597,4 @@ int main(int argc, char **argv)
 	/* Not reached... */
 	return 0;
 }
+#endif /* FUZZING_LIBFUZZER */

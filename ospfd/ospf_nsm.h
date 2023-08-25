@@ -47,6 +47,11 @@
 #define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
 	event_add_event(master, ospf_nsm_event, (N), (E), NULL)
 
+#ifdef FUZZING
+#undef OSPF_NSM_EVENT_SCHEDULE
+#define OSPF_NSM_EVENT_SCHEDULE(N, E)
+#endif
+
 /* Macro for OSPF NSM execute event. */
 #define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \
 	event_execute(master, ospf_nsm_event, (N), (E))

@@ -100,6 +100,8 @@ typedef struct sioc_sg_req pim_sioc_sg_req;
 #define MRT6MSG_WRMIFWHOLE 4 /* For PIM processing */
 #endif
 
+#include "lib/if.h"
+
 #ifndef GMMSG_NOCACHE
 #define GMMSG_NOCACHE MRT6MSG_NOCACHE       /* For PIM processing */
 #define GMMSG_WHOLEPKT MRT6MSG_WHOLEPKT     /* For PIM processing */
@@ -134,7 +136,6 @@ typedef struct sioc_sg_req6 pim_sioc_sg_req;
 /*
   Above: from <linux/mroute.h>
 */
-
 struct channel_oil;
 struct pim_instance;
 

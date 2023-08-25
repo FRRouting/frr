@@ -8,6 +8,7 @@
  * Copyright (C) 2013 by Open Source Routing.
  * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
  */
+#define FUZZING 1
 
 #include <zebra.h>
 #include <lib/version.h>
@@ -284,6 +285,9 @@ void cmd_defer_tree(bool val)
 /* Install a command into a node. */
 void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
+#ifdef FUZZING
+	return;
+#endif
 	struct cmd_node *cnode;
 
 	/* cmd_init hasn't been called */

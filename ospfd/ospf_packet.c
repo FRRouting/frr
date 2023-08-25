@@ -1644,6 +1644,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		/* Search proper LSA in LSDB. */
 		find = ospf_lsa_lookup(oi->ospf, oi->area, ls_type, ls_id,
 				       adv_router);
+#ifndef FUZZING
 		if (find == NULL) {
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
 			list_delete(&ls_upd);
@@ -1668,9 +1669,13 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		/* Append LSA to update list. */
 		listnode_add(ls_upd, find);
 		length += ntohs(find->data->length);
-
+#endif
 		size -= OSPF_LSA_KEY_SIZE;
 	}
+#ifdef FUZZING
+	list_delete(&ls_upd);
+	return;
+#endif
 
 	/* Send rest of Link State Update. */
 	if (listcount(ls_upd) > 0) {
@@ -2316,8 +2321,11 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	msgh.msg_control = (caddr_t)buff;
 	msgh.msg_controllen = sizeof(buff);
 
+#ifndef FUZZING
 	ret = stream_recvmsg(ibuf, fd, &msgh, MSG_DONTWAIT,
 			     OSPF_MAX_PACKET_SIZE + 1);
+#endif
+
 	if (ret < 0) {
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_warn(EC_OSPF_PACKET, "stream_recvmsg failed: %s",
@@ -2493,7 +2501,9 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 					lookup_msg(ospf_auth_type_str,
 						   iface_auth_type, NULL),
 					&ospfh->router_id);
+#ifndef FUZZING
 			return 0;
+#endif
 		}
 		if (!ospf_check_sum(ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
@@ -2502,7 +2512,9 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 					"interface %s: Null auth OK, but checksum error, Router-ID %pI4",
 					IF_NAME(oi),
 					&ospfh->router_id);
+#ifndef FUZZING
 			return 0;
+#endif
 		}
 		return 1;
 	case OSPF_AUTH_SIMPLE: /* RFC2328 D.5.2 */
@@ -2956,12 +2968,7 @@ static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 	return 0;
 }
 
-enum ospf_read_return_enum {
-	OSPF_READ_ERROR,
-	OSPF_READ_CONTINUE,
-};
-
-static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
+enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 {
 	int ret;
 	struct stream *ibuf;
@@ -2972,8 +2979,13 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	struct connected *c;
 	struct interface *ifp = NULL;
 
+#ifndef FUZZING
 	stream_reset(ospf->ibuf);
 	ibuf = ospf_recv_packet(ospf, ospf->fd, &ifp, ospf->ibuf);
+#else
+	ibuf = ospf->ibuf;
+	ifp = ospf->fuzzing_packet_ifp;
+#endif
 	if (ibuf == NULL)
 		return OSPF_READ_ERROR;
 
@@ -3181,6 +3193,20 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 
 	/* Adjust size to message length. */
 	length = ntohs(ospfh->length) - OSPF_HEADER_SIZE;
+
+#ifdef FUZZING
+	/*
+	 * Everything except hellos returns early with no neighbor found, so we
+	 * need to make a neighbor
+	 */
+	struct prefix p;
+	p.family = AF_INET;
+	p.prefixlen = 24;
+	p.u.prefix4 = iph->ip_src;
+
+	struct ospf_neighbor *n = ospf_nbr_get(oi, ospfh, iph, &p);
+	n->state = NSM_Exchange;
+#endif
 
 	/* Read rest of the packet and call each sort of packet routine.
 	 */

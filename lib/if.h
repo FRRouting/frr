@@ -619,6 +619,10 @@ extern void if_destroy_via_zapi(struct interface *ifp);
 
 extern const struct frr_yang_module_info frr_interface_info;
 
+#ifdef FUZZING
+struct interface *if_create_name(const char *name, struct vrf *vrf);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

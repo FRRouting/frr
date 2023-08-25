@@ -146,8 +146,8 @@ __wcsconv(wchar_t *wcsarg, int prec)
 /*
  * Non-MT-safe version
  */
-ssize_t
-vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
+ssize_t vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	const char *fmt;	/* format string */
 	int ch;			/* character from fmt */
@@ -453,7 +453,7 @@ reswitch:	switch (ch) {
 			if (flags & INTMAX_SIZE)
 				ujval = SJARG();
 			else
-				ulval = SARG();
+				ulval = (u_long)SARG();
 
 			if (printfrr_ext_char(fmt[0])) {
 				struct printfrr_eargs ea = {
@@ -483,7 +483,7 @@ reswitch:	switch (ch) {
 				}
 			} else {
 				if ((long)ulval < 0) {
-					ulval = -ulval;
+					ulval = (~ulval) + 1;
 					sign = '-';
 				}
 			}

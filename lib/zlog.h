@@ -109,6 +109,8 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 		zlog_ref(&_xref, (msg), ##__VA_ARGS__);                        \
 	} while (0)
 
+#ifndef FUZZING
+
 #define zlog_err(...)    _zlog_ecref(0, LOG_ERR, __VA_ARGS__)
 #define zlog_warn(...)   _zlog_ecref(0, LOG_WARNING, __VA_ARGS__)
 #define zlog_info(...)   _zlog_ecref(0, LOG_INFO, __VA_ARGS__)
@@ -122,6 +124,20 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 #define flog_err_sys(ferr_id, format, ...)                                     \
 	_zlog_ecref(ferr_id, LOG_ERR, format, ## __VA_ARGS__)
+
+#else
+
+#define zlog_err(...) 0
+#define zlog_warn(...) 0
+#define zlog_info(...) 0
+#define zlog_notice(...) 0
+#define zlog_debug(...) 0
+
+#define flog_err(ferr_id, format, ...) 0
+#define flog_warn(ferr_id, format, ...) 0
+#define flog_err_sys(ferr_id, format, ...) 0
+
+#endif
 
 extern void zlog_sigsafe(const char *text, size_t len);
 

@@ -6,6 +6,13 @@
 #ifndef _ZEBRA_H
 #define _ZEBRA_H
 
+#define FUZZING 1
+
+#define ZAPI_FUZZING 1
+#define NETLINK_FUZZING 2
+
+#define FUZZING_MODE ZAPI_FUZZING
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
@@ -58,6 +65,10 @@
 #endif
 #ifdef HAVE_ENDIAN_H
 #include <endian.h>
+#endif
+
+#ifdef FUZZING
+#include "fuzz.h"
 #endif
 
 /* misc include group */

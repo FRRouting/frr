@@ -2806,7 +2806,9 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	STREAM_GETL(s, size);
 	STREAM_GETL(s, base);
 
+#ifndef FUZZING
 	assert(proto == client->proto && instance == client->instance);
+#endif
 
 	/* call hook to get a chunk using wrapper */
 	lm_get_chunk_call(&lmc, client, keep, size, base, vrf_id);
@@ -2831,8 +2833,9 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
 
+#ifndef FUZZING
 	assert(proto == client->proto && instance == client->instance);
-
+#endif
 	/* call hook to release a chunk using wrapper */
 	lm_release_chunk_call(client, start, end);
 
@@ -3961,8 +3964,33 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 					ZEBRA_MAX_PACKET_SIZ);
 			goto continue_loop;
 		}
-
+#ifdef FUZZING
+		/*
+		 * The stream read over in zserv_read
+		 * already guarantees this conditional
+		 * when we read actual packets from clients
+		 * but since we are cheating there is no
+		 * point in allowing a crash in the fuzzing
+		 * here.  So let's prevent it.
+		 */
+		if (STREAM_READABLE(msg) < ZEBRA_HEADER_SIZE)
+			goto continue_loop;
+#endif
 		zapi_parse_header(msg, &hdr);
+#ifdef FUZZING
+		/*
+		 * The stream read over in zserv_read
+		 * already guarantees the sizing of the packet
+		 * before it can even be enqueued but FUZZING
+		 * is cheating and calling this function directly
+		 * Let's cut to the chase and prevent a crash
+		 * because we have a funny header size -vs-
+		 * what we can read.
+		 */
+		if (STREAM_SIZE(msg) != hdr.length)
+			goto continue_loop;
+#endif
+
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV
 		    && IS_ZEBRA_DEBUG_DETAIL)

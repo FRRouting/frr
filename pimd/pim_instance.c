@@ -116,9 +116,11 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->last_route_change_time = -1;
 
+#ifndef FUZZING
 	pim->reg_sock = pim_reg_sock();
 	if (pim->reg_sock < 0)
 		assert(0);
+#endif
 
 	/* MSDP global timer defaults. */
 	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
@@ -197,7 +199,7 @@ static int pim_vrf_disable(struct vrf *vrf)
 	return 0;
 }
 
-static int pim_vrf_config_write(struct vty *vty)
+static int  __attribute__((unused)) pim_vrf_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
@@ -223,8 +225,9 @@ static int pim_vrf_config_write(struct vty *vty)
 void pim_vrf_init(void)
 {
 	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable, pim_vrf_delete);
-
+#ifndef FUZZING
 	vrf_cmd_init(pim_vrf_config_write);
+#endif
 }
 
 void pim_vrf_terminate(void)

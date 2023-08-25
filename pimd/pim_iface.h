@@ -244,4 +244,11 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 
 void pim_iface_init(void);
 
+#ifdef FUZZING
+int pim_ifp_create(struct interface *ifp);
+int pim_ifp_up(struct interface *ifp);
+int pim_ifp_down(struct interface *ifp);
+int pim_ifp_destroy(struct interface *ifp);
+#endif
+
 #endif /* PIM_IFACE_H */

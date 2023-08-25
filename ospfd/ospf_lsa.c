@@ -3003,7 +3003,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	    can be originated. "
 	 */
 
-	if (ntohl(lsa->data->ls_seqnum) - 1 == OSPF_MAX_SEQUENCE_NUMBER) {
+	if (ntohl(lsa->data->ls_seqnum) != 0
+	    && ntohl(lsa->data->ls_seqnum) - 1 == OSPF_MAX_SEQUENCE_NUMBER) {
 		if (ospf_lsa_is_self_originated(ospf, lsa)) {
 			lsa->data->ls_seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER);
 
@@ -3969,6 +3970,9 @@ void ospf_schedule_lsa_flood_area(struct ospf_area *area, struct ospf_lsa *lsa)
 	data->lsa = ospf_lsa_lock(lsa); /* Message / Flood area */
 
 	event_add_event(master, ospf_lsa_action, data, 0, NULL);
+#ifdef FUZZING
+	XFREE(MTYPE_OSPF_MESSAGE, data);
+#endif
 }
 
 void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa)
@@ -3981,6 +3985,9 @@ void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa)
 	data->lsa = ospf_lsa_lock(lsa); /* Message / Flush area */
 
 	event_add_event(master, ospf_lsa_action, data, 0, NULL);
+#ifdef FUZZING
+	XFREE(MTYPE_OSPF_MESSAGE, data);
+#endif
 }
 
 

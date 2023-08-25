@@ -164,6 +164,19 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	}
 
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
+#ifdef FUZZING
+	/*
+	 * Ensure that the header length is 20 or 24 bytes as is appropriate
+	 * The kernel typically ensures that the passed up ip header meets
+	 * standards, and would actually drop the packet if it didn't meet
+	 * them.  So since we are fuzzing and faking the header bits/bobs
+	 * then let's ensure that we don't get into a weird situation
+	 * where a bad ip_hlen here causes pim_msg_len to wrap around into
+	 * the high billions and then we have an issue later
+	 */
+	if (ip_hlen != 20 && ip_hlen != 24)
+		return -1;
+#endif
 	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
 	pim_msg = buf + ip_hlen;
@@ -241,8 +254,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 						"Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
 						ifp->name, pim_checksum,
 						checksum);
-
+#ifndef FUZZING
 				return -1;
+#endif
 			}
 		}
 	} else {
@@ -252,8 +266,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 				zlog_debug(
 					"Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
 					ifp->name, pim_checksum, checksum);
-
+#ifndef FUZZING
 			return -1;
+#endif
 		}
 	}
 

@@ -185,6 +185,8 @@ struct cpu_event_history {
 		_event_add_##addfn(&_xref, m, f, a, v, t);                     \
 	}) /* end */
 
+#ifndef FUZZING
+
 #define event_add_read(m, f, a, v, t) _xref_t_a(read_write, READ, m, f, a, v, t)
 #define event_add_write(m, f, a, v, t)                                         \
 	_xref_t_a(read_write, WRITE, m, f, a, v, t)
@@ -207,6 +209,18 @@ struct cpu_event_history {
 		XREF_LINK(_xref.xref);                                         \
 		_event_execute(&_xref, m, f, a, v);                            \
 	}) /* end */
+#else
+
+#define event_add_read(m, f, a, v, t) 0
+#define event_add_write(m, f, a, v, t) 0
+#define event_add_timer(m, f, a, v, t) 0
+#define event_add_timer_msec(m, f, a, v, t) 0
+#define event_add_timer_tv(m, f, a, v, t) 0
+#define event_add_event(m, f, a, v, t) 0
+#define event_execute(m, f, a, v) 0
+#define event_execute_name(m, f, a, v, n) 0
+
+#endif
 
 /* Prototypes. */
 extern struct event_loop *event_master_create(const char *name);

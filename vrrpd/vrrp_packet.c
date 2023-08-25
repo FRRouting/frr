@@ -281,10 +281,11 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, bool ipv4_ph,
 	/* Checksum check */
 	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src, ipv4_ph);
 
+#ifndef FUZZING
 	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
 			"Bad VRRP checksum %hx; should be %hx",
 			(*pkt)->hdr.chksum, chksum);
-
+#endif
 	/* Type check */
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %u",
 			(*pkt)->hdr.vertype & 0x0f);

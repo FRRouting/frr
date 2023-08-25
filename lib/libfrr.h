@@ -138,6 +138,9 @@ extern int frr_getopt(int argc, char *const argv[], int *longindex);
 
 extern __attribute__((__noreturn__)) void frr_help_exit(int status);
 
+/* FOR FUZZING */
+extern struct event_loop *frr_init_fast(void);
+
 extern struct event_loop *frr_init(void);
 extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);

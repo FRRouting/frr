@@ -824,6 +824,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 
 	frr_with_privs(&pimd_privs) {
 
+#ifndef FUZZING
 #if PIM_IPV == 4
 		fd = socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
 #else
@@ -835,7 +836,11 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				  safe_strerror(errno));
 			return -2;
 		}
+#else
+		fd = 69;
+#endif
 
+#ifndef FUZZING
 #if PIM_IPV == 6
 		struct icmp6_filter filter[1];
 		int ret;
@@ -856,6 +861,9 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				"(VRF %s) failed to set mroute control filter: %m",
 				pim->vrf->name);
 #endif
+#else
+		fd = 69;
+#endif
 
 #ifdef SO_BINDTODEVICE
 		if (pim->vrf->vrf_id != VRF_DEFAULT
@@ -871,6 +879,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	}
 
 	pim->mroute_socket = fd;
+#ifndef FUZZING
 	if (pim_mroute_set(pim, 1)) {
 		zlog_warn(
 			"Could not enable mroute on socket fd=%d: errno=%d: %s",
@@ -883,6 +892,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	pim->mroute_socket_creation = pim_time_monotonic_sec();
 
 	mroute_read_on(pim);
+#endif
 
 	return 0;
 }
@@ -955,8 +965,13 @@ int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 #endif
 #endif
 
+#ifndef FUZZING
 	err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_ADD_VIF,
 			 (void *)&vc, sizeof(vc));
+#else
+	err = 0;
+#endif
+
 	if (err) {
 		zlog_warn(
 			"%s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_ADD_VIF,vif_index=%d,ifaddr=%pPAs,flag=%d): errno=%d: %s",

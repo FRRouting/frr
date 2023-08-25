@@ -162,11 +162,13 @@ clippy_scan += \
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pimd_LDFLAGS = $(AM_LDFLAGS) $(PIMD_SAN_FLAGS)
 
 if PIM6D
 sbin_PROGRAMS += pimd/pim6d
 pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
 pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pimd6d_LDFLAGS = $(AM_LDFLAGS) $(PIMD_SAN_FLAGS)
 endif
 
 pimd_test_igmpv3_join_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4

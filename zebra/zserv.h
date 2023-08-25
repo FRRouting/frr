@@ -386,6 +386,12 @@ extern void zread_client_capabilities(struct zserv *client, struct zmsghdr *hdr,
 				      struct stream *msg,
 				      struct zebra_vrf *zvrf);
 
+#ifdef FUZZING
+struct zserv *zserv_client_create(int sock);
+#endif
+
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -16,6 +16,12 @@
 extern "C" {
 #endif
 
+#define FUZZING 1
+#ifdef FUZZING
+#undef HAVE_MALLOC_USABLE_SIZE
+#undef HAVE_MALLOC_SIZE
+#endif
+
 #if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
 #define malloc_usable_size(x) malloc_size(x)
 #define HAVE_MALLOC_USABLE_SIZE

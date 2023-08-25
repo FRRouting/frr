@@ -14,6 +14,8 @@
 #include "bgpd/bgpd.h"
 #include "frr_pthread.h"
 
+bool validate_header(struct peer *p);
+
 /**
  * Start function for write thread.
  *

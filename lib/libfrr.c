@@ -33,6 +33,14 @@
 #include "frrscript.h"
 #include "systemd.h"
 
+#if defined(FUZZING) && defined(FUZZING_LIBFUZZER) && !defined(FUZZING_OVERRIDE_LLVMFuzzerTestOneInput)
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+	return 0;
+}
+#endif /* lol */
+
 DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
@@ -812,6 +820,131 @@ struct event_loop *frr_init(void)
 
 	return master;
 }
+
+#ifdef FUZZING
+static struct event_loop *master;
+struct event_loop *frr_init_fast(void)
+{
+	struct log_arg *log_arg;
+#if 0
+	struct option_chain *oc;
+	struct frrmod_runtime *module;
+	char moderr[256];
+	const char *dir;
+	dir = di->module_path ? di->module_path : frr_moduledir;
+#endif
+#if 0
+#ifdef HAVE_SQLITE3
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
+		 frr_dbdir, p_pathspace, di->name, p_instance);
+#endif
+#endif
+	struct zprivs_ids_t ids;
+
+	zprivs_preinit(di->privs);
+	zprivs_get_ids(&ids);
+
+	zlog_init(di->progname, di->logname, di->instance,
+		  ids.uid_normal, ids.gid_normal);
+	zlog_tls_buffer_init();
+
+	while ((log_arg = log_args_pop(di->early_logging))) {
+		command_setup_early_logging(log_arg->target,
+					    di->early_loglevel);
+		/* this is a bit of a hack,
+		   but need to notice when
+		   the target is stdout */
+		if (strcmp(log_arg->target, "stdout") == 0)
+			logging_to_stdout = true;
+		XFREE(MTYPE_TMP, log_arg);
+	}
+
+#if 0
+	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
+			      frr_zclientpath)) {
+		fprintf(stderr, "Invalid zserv socket path: %s\n",
+			frr_zclientpath);
+		exit(1);
+	}
+
+	/* don't mkdir these as root... */
+	if (!(di->flags & FRR_NO_PRIVSEP)) {
+		if (!di->pid_file || !di->vty_path)
+			frr_mkdir(frr_vtydir, false);
+		if (di->pid_file)
+			frr_mkdir(di->pid_file, true);
+		if (di->vty_path)
+			frr_mkdir(di->vty_path, true);
+	}
+#endif
+
+#if 0
+	frrmod_init(di->module);
+	while (modules) {
+		modules = (oc = modules)->next;
+		module = frrmod_load(oc->arg, dir, moderr, sizeof(moderr));
+		if (!module) {
+			fprintf(stderr, "%s\n", moderr);
+			exit(1);
+		}
+		XFREE(MTYPE_TMP, oc);
+	}
+
+#endif
+
+	zprivs_init(di->privs);
+	master = event_master_create(NULL);
+
+/* We don't want signal handlers for fuzzing, libFuzzer uses signals for
+ * process control */
+#if 0
+	signal_init(master, di->n_signals, di->signals);
+#endif
+
+#if 0
+#ifdef HAVE_SQLITE3
+	if (!di->db_file)
+		di->db_file = dbfile_default;
+	db_init(di->db_file);
+#endif
+
+#endif
+	if (di->flags & FRR_LIMITED_CLI)
+		cmd_init(-1);
+	else
+		cmd_init(1);
+
+	vty_init(master, di->log_always);
+
+#if 0
+	log_filter_cmd_init();
+#endif
+
+#if 0
+	frr_pthread_init();
+#endif
+
+	log_ref_init();
+#if 0
+	log_ref_vty_init();
+#endif
+	lib_error_init();
+
+#if 0
+	yang_init();
+
+	debug_init_cli();
+
+	nb_init(master, di->yang_modules, di->n_yang_modules);
+	if (nb_db_init() != NB_OK)
+		flog_warn(EC_LIB_NB_DATABASE,
+			  "%s: failed to initialize northbound database",
+			  __func__);
+#endif
+
+	return master;
+}
+#endif
 
 const char *frr_get_progname(void)
 {

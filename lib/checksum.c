@@ -21,6 +21,7 @@ uint16_t in_cksumv(const struct iovec *iov, size_t iov_len)
 {
 	const struct iovec *iov_end;
 	uint32_t sum = 0;
+	register unsigned short answer; /* assumes unsigned short == 16 bits */
 
 	union {
 		uint8_t bytes[2];
@@ -78,7 +79,9 @@ uint16_t in_cksumv(const struct iovec *iov, size_t iov_len)
 
 	sum = (sum >> 16) + (sum & 0xffff); /* add high-16 to low-16 */
 	sum += (sum >> 16);		    /* add carry */
-	return ~sum;
+	/* ones-complement, then truncate to 16 bits */
+	answer = (unsigned short)~sum;
+	return (answer);
 }
 
 /* Fletcher Checksum -- Refer to RFC1008. */
@@ -90,6 +93,7 @@ uint16_t in_cksumv(const struct iovec *iov, size_t iov_len)
    without modifying the buffer; a valid checksum returns 0 */
 uint16_t fletcher_checksum(uint8_t *buffer, const size_t len,
 			   const uint16_t offset)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	uint8_t *p;
 	int x, y, c0, c1;

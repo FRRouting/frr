@@ -3,6 +3,7 @@
  * From RFC1771 [A Border Gateway Protocol 4 (BGP-4)]
  * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
  */
+#define FUZZING 1
 
 #include <zebra.h>
 
@@ -354,6 +355,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
    structure. */
 void bgp_timer_set(struct peer *peer)
 {
+#ifdef FUZZING
+	return;
+#endif
 	afi_t afi;
 	safi_t safi;
 

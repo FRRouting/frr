@@ -208,7 +208,10 @@ void if_down_via_zapi(struct interface *ifp)
 		(*ifp_master.down_hook)(ifp);
 }
 
-static struct interface *if_create_name(const char *name, struct vrf *vrf)
+#ifndef FUZZING
+static
+#endif
+struct interface *if_create_name(const char *name, struct vrf *vrf)
 {
 	struct interface *ifp;
 

@@ -1255,12 +1255,16 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	struct sockaddr_in sin;
 	int fd;
 
+#ifndef FUZZING
 	fd = igmp_sock_open(ifaddr, ifp);
 	if (fd < 0) {
 		zlog_warn("Could not open IGMP socket for %pI4 on %s",
 			  &ifaddr, ifp->name);
 		return NULL;
 	}
+#else
+	fd = 69;
+#endif
 
 	sin.sin_family = AF_INET;
 	sin.sin_addr = ifaddr;

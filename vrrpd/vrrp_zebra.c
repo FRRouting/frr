@@ -19,7 +19,11 @@
 
 #define VRRP_LOGPFX "[ZEBRA] "
 
+#ifndef FUZZING
 static struct zclient *zclient;
+#else
+struct zclient *zclient;
+#endif
 
 static void vrrp_zebra_debug_if_state(struct interface *ifp, const char *func)
 {
@@ -157,6 +161,10 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 
 void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 {
+#ifdef FUZZING
+	if (!r)
+		return;
+#endif
 	DEBUGD(&vrrp_dbg_zebra,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID
 	       "Requesting Zebra to turn router advertisements %s for %s",

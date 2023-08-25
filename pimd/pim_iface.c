@@ -1549,8 +1549,10 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 
 	return count;
 }
-
-static int pim_ifp_create(struct interface *ifp)
+#ifndef FUZZING
+static
+#endif
+int pim_ifp_create(struct interface *ifp)
 {
 	struct pim_instance *pim;
 
@@ -1620,7 +1622,10 @@ static int pim_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static int pim_ifp_up(struct interface *ifp)
+#ifndef FUZZING
+static
+#endif
+int pim_ifp_up(struct interface *ifp)
 {
 	uint32_t table_id;
 	struct pim_interface *pim_ifp;
@@ -1676,7 +1681,10 @@ static int pim_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-static int pim_ifp_down(struct interface *ifp)
+#ifndef FUZZING
+static
+#endif
+int pim_ifp_down(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
@@ -1711,8 +1719,10 @@ static int pim_ifp_down(struct interface *ifp)
 
 	return 0;
 }
-
-static int pim_ifp_destroy(struct interface *ifp)
+#ifndef FUZZING
+static
+#endif
+int pim_ifp_destroy(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(

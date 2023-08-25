@@ -505,6 +505,11 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	}
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
+
+	if (tlv_buf_size
+	    < (int)(PIM_MSG_REGISTER_BIT_RESERVED_LEN + sizeof(struct ip))) {
+		return 0;
+	}
 	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
 	if (!if_address_is_local(&dest_addr, PIM_AF, pim->vrf->vrf_id)) {

@@ -4030,6 +4030,73 @@ static zclient_handler *const lib_handlers[] = {
 	[ZEBRA_INTERFACE_BFD_DEST_UPDATE] = zclient_bfd_session_update,
 };
 
+#ifdef FUZZING
+int zclient_read_fuzz(struct zclient *zclient, const uint8_t *data, size_t len)
+{
+	uint16_t length, command;
+	uint8_t marker, version;
+	vrf_id_t vrf_id;
+
+	/* Length check. */
+	if (len > STREAM_SIZE(zclient->ibuf)) {
+		struct stream *ns;
+		flog_err(
+			EC_LIB_ZAPI_ENCODE,
+			"%s: message size %zu exceeds buffer size %lu, expanding...",
+			__func__, len,
+			(unsigned long)STREAM_SIZE(zclient->ibuf));
+		ns = stream_new(len);
+		stream_free(zclient->ibuf);
+		zclient->ibuf = ns;
+	}
+
+	if (len < ZEBRA_HEADER_SIZE) {
+		flog_err(EC_LIB_ZAPI_MISSMATCH,
+			 "%s: socket %d message length %zu is less than %d ",
+			 __func__, zclient->sock, len, ZEBRA_HEADER_SIZE);
+		return -1;
+	}
+
+	stream_reset(zclient->ibuf);
+	stream_put(zclient->ibuf, data, len);
+
+	length = stream_getw(zclient->ibuf);
+	marker = stream_getc(zclient->ibuf);
+	version = stream_getc(zclient->ibuf);
+	vrf_id = stream_getl(zclient->ibuf);
+	command = stream_getw(zclient->ibuf);
+
+	if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
+		flog_err(
+			EC_LIB_ZAPI_MISSMATCH,
+			"%s: socket %d version mismatch, marker %d, version %d",
+			__func__, zclient->sock, marker, version);
+		return -1;
+	}
+
+	length -= ZEBRA_HEADER_SIZE;
+
+	if (zclient_debug)
+		zlog_debug("zclient %p command %s VRF %u", zclient,
+			   zserv_command_string(command), vrf_id);
+
+	if (command < array_size(lib_handlers) && lib_handlers[command])
+		lib_handlers[command](command, zclient, length, vrf_id);
+	if (command < zclient->n_handlers && zclient->handlers[command])
+		zclient->handlers[command](command, zclient, length, vrf_id);
+
+	if (zclient->sock < 0)
+		/* Connection was closed during packet processing. */
+		return -1;
+
+	/* Register read thread. */
+	stream_reset(zclient->ibuf);
+	zclient_event(ZCLIENT_READ, zclient);
+
+	return 0;
+}
+#endif
+
 /* Zebra client message read function. */
 static void zclient_read(struct event *thread)
 {

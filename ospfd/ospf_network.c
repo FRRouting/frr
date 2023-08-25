@@ -238,6 +238,9 @@ void ospf_sock_bufsize_update(const struct ospf *ospf, int sock,
 
 int ospf_sock_init(struct ospf *ospf)
 {
+#ifdef FUZZING
+	return 0;
+#endif
 	int ret;
 
 	/* silently ignore. already done */

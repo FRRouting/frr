@@ -171,6 +171,12 @@ extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
 extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
+
+#ifdef FUZZING
+void netlink_fuzz(const uint8_t *data, size_t size);
+#endif
+
+
 #endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus

@@ -4,6 +4,7 @@
  * Copyright (C) 2017 Cumulus Networks
  * Copyright (C) 1999 Kunihiro Ishiguro
  */
+#define FUZZING 1
 
 #include <zebra.h>
 #include <sys/time.h>
@@ -721,6 +722,7 @@ void bgp_open_send(struct peer *peer)
  * @param peer
  * @return 0
  */
+#ifndef FUZZING
 static void bgp_write_notify(struct peer *peer)
 {
 	int ret, val;
@@ -780,6 +782,7 @@ static void bgp_write_notify(struct peer *peer)
 
 	stream_free(s);
 }
+#endif
 
 /*
  * Encapsulate an original BGP CEASE Notification into Hard Reset
@@ -1034,7 +1037,9 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
 							  peer->bgp->peer);
 
+#ifndef FUZZING
 	bgp_write_notify(peer);
+#endif
 }
 
 /*
@@ -1608,12 +1613,14 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 
 	/* Get sockname. */
+#ifndef FUZZING
 	if (bgp_getsockname(peer) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname() failed for peer: %s",
 			     __func__, peer->host);
 		return BGP_Stop;
 	}
+#endif
 
 	/* Set remote router-id */
 	peer->remote_id = remote_id;
@@ -1741,7 +1748,9 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 #endif
 		}
 	}
+#ifndef FUZZING
 	peer->rtt = sockopt_tcp_rtt(peer->fd);
+#endif
 
 	return Receive_OPEN_message;
 }
@@ -2893,10 +2902,11 @@ void bgp_process_packet(struct event *thread)
 		bgp_size_t size;
 		char notify_data_length[2];
 
+#ifndef FUZZING
 		frr_with_mutex (&peer->io_mtx) {
 			peer->curr = stream_fifo_pop(peer->ibuf);
 		}
-
+#endif
 		if (peer->curr == NULL) // no packets to process, hmm...
 			return;
 
@@ -3001,6 +3011,9 @@ void bgp_process_packet(struct event *thread)
 		/* delete processed packet */
 		stream_free(peer->curr);
 		peer->curr = NULL;
+#ifdef FUZZING
+		return;
+#endif
 		processed++;
 
 		/* Update FSM */

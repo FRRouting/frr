@@ -804,6 +804,9 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			pim_addr_to_prefix(&grp, up->sg.grp);
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
+			if (!trp_info)
+				continue;
+
 			/* RP not found for the group grp */
 			if (pim_rpf_addr_is_inaddr_any(&trp_info->rp)) {
 				pim_upstream_rpf_clear(pim, up);

@@ -5,6 +5,12 @@
 
 #include <zebra.h>
 
+#if defined(HANDLE_NETLINK_FUZZING)
+#include <stdio.h>
+#include <string.h>
+#include "libfrr.h"
+#endif /* HANDLE_NETLINK_FUZZING */
+
 #ifdef HAVE_NETLINK
 
 #include "linklist.h"
@@ -481,6 +487,36 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 
 	return 0;
 }
+
+#if defined(HANDLE_NETLINK_FUZZING)
+/* Using globals here to avoid adding function parameters */
+
+/* Keep distinct filenames for netlink fuzzy collection */
+static unsigned int netlink_file_counter = 1;
+
+/**
+ * netlink_write_incoming() - Writes all data received from netlink to a file
+ * @buf:        Data from netlink.
+ * @size:       Size of data.
+ * @counter:    Counter for keeping filenames distinct.
+ */
+static void netlink_write_incoming(const char *buf, const unsigned int size,
+				   unsigned int counter)
+{
+	char fname[MAXPATHLEN];
+	FILE *f;
+
+	snprintf(fname, MAXPATHLEN, "%s/%s_%u", frr_vtydir, "netlink", counter);
+	frr_with_privs(&zserv_privs) {
+		f = fopen(fname, "w");
+	}
+	if (f) {
+		fwrite(buf, 1, size, f);
+		fclose(f);
+	}
+}
+
+#endif /* HANDLE_NETLINK_FUZZING */
 
 static void kernel_read(struct event *thread)
 {
@@ -998,6 +1034,11 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 #endif /* NETLINK_DEBUG */
 	}
 
+#if defined(HANDLE_NETLINK_FUZZING)
+	zlog_debug("Writing incoming netlink message");
+	netlink_write_incoming(buf, status, netlink_file_counter++);
+#endif /* HANDLE_NETLINK_FUZZING */
+
 	return status;
 }
 
@@ -1304,33 +1345,14 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
 
-	/*
-	 * The responses are not batched, so we need to read and process one
-	 * message at a time.
-	 */
-	while (true) {
-		status = netlink_recv_msg(nl, &msg);
-		/*
-		 * status == -1 is a full on failure somewhere
-		 * since we don't know where the problem happened
-		 * we must mark all as failed
-		 *
-		 * Else we mark everything as worked
-		 *
-		 */
-		if (status == -1 || status == 0) {
-			while ((ctx = dplane_ctx_dequeue(&(bth->ctx_list))) !=
-			       NULL) {
-				if (status == -1)
-					dplane_ctx_set_status(
-						ctx,
-						ZEBRA_DPLANE_REQUEST_FAILURE);
-				dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
-			}
-			return status;
-		}
+	status = netlink_recv_msg(nl, &msg);
+	if (status == -1 || status == 0)
+		return status;
 
-		h = (struct nlmsghdr *)nl->buf;
+	for (h = (struct nlmsghdr *)nl->buf;
+	     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
+	     h = NLMSG_NEXT(h, status)) {
+
 		ignore_msg = false;
 		seq = h->nlmsg_seq;
 		/*
@@ -1802,6 +1824,7 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
+#ifndef FUZZING
 	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id) <
 	    0) {
 		zlog_err("Failure to create %s socket",
@@ -1810,10 +1833,11 @@ void kernel_init(struct zebra_ns *zns)
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink);
-
+#endif
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
+#ifndef FUZZING
 	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
@@ -1821,12 +1845,13 @@ void kernel_init(struct zebra_ns *zns)
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink_cmd);
-
+#endif
 	/* Outbound socket for dplane programming of the host OS. */
 	snprintf(zns->netlink_dplane_out.name,
 		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_out.sock = -1;
+#ifndef FUZZING
 	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
@@ -1848,7 +1873,8 @@ void kernel_init(struct zebra_ns *zns)
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
-
+#endif
+#ifndef FUZZING
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
@@ -1922,9 +1948,11 @@ void kernel_init(struct zebra_ns *zns)
 	/* Set receive buffer size if it's set from command line */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, rcvbufsize);
+#ifndef FUZZING
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
+#endif
 	}
 
 	/* Set filter for inbound sockets, to exclude events we've generated
@@ -1937,6 +1965,7 @@ void kernel_init(struct zebra_ns *zns)
 			       zns->netlink_cmd.snl.nl_pid,
 			       zns->netlink_dplane_out.snl.nl_pid);
 
+#endif /* FUZZING */
 	zns->t_netlink = NULL;
 
 	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
@@ -1996,5 +2025,19 @@ void kernel_router_terminate(void)
 	hash_free(nlsock_hash);
 	nlsock_hash = NULL;
 }
+
+#ifdef FUZZING
+void netlink_fuzz(const uint8_t *data, size_t size)
+{
+	struct nlmsghdr *h = (struct nlmsghdr *)data;
+
+	if (!NLMSG_OK(h, size))
+		return;
+
+	netlink_information_fetch(h, NS_DEFAULT, 0);
+}
+#endif /* FUZZING */
+
+
 
 #endif /* HAVE_NETLINK */

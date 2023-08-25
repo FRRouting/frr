@@ -27,6 +27,10 @@ DEFINE_MGROUP(LIB, "libfrr");
 DEFINE_MTYPE(LIB, TMP, "Temporary memory");
 DEFINE_MTYPE(LIB, BITFIELD, "Bitfield memory");
 
+#ifdef FUZZING
+#undef HAVE_MALLOC_USABLE_SIZE
+#endif
+
 static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 {
 	size_t current;
