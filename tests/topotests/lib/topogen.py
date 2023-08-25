@@ -1102,6 +1102,26 @@ class TopoRouter(TopoGear):
     def has_mpls(self):
         return self.net.hasmpls
 
+    def start_dplane_server(self):
+        "Starts FRR FPM Simulator for this router."
+        dir_path = f"{self.logdir}/{self.name}"
+        log_path = f"{dir_path}/dplaneserver.log"
+        json_path = f"{dir_path}/output.json"
+        self.cmd(f"mkdir -p {dir_path}")
+        run_cmd = f"/usr/lib/frr/dplaneserver -f {json_path} -d > {log_path}  2>&1 &"
+        file_cmd = f"touch {json_path}"
+        self.cmd_raises(file_cmd, warn=False)
+        try:
+            self.cmd_raises(run_cmd, warn=False)
+        except subprocess.CalledProcessError as error:
+            self.logger.error(
+                '%s: Failed to launch "%s" daemon (%d) using: %s:',
+                self,
+                "FPM ProtoBuf Server",
+                error.returncode,
+                error.cmd,
+            )
+
 
 class TopoSwitch(TopoGear):
     """

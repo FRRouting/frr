@@ -725,7 +725,6 @@ fi
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
 %{_libdir}/frr/modules/dplane_fpm_pb.so
-%{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
 %{_libdir}/libfrr_pb.so*
 %{_libdir}/libfrrfpm_pb.so*

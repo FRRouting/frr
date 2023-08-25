@@ -379,7 +379,8 @@ static void fpm_process_event(struct event *t)
 
 	switch (event) {
 	case FPE_DISABLE:
-		zlog_info("%s: manual FPM disable event", __func__);
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: manual FPM disable event", __func__);
 		fpc->disabled = true;
 		atomic_fetch_add_explicit(&fpc->counters.user_disables, 1,
 					  memory_order_relaxed);
@@ -389,7 +390,8 @@ static void fpm_process_event(struct event *t)
 		break;
 
 	case FPE_RECONNECT:
-		zlog_info("%s: manual FPM reconnect event", __func__);
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: manual FPM reconnect event", __func__);
 		fpc->disabled = false;
 		atomic_fetch_add_explicit(&fpc->counters.user_configures, 1,
 					  memory_order_relaxed);
@@ -399,7 +401,8 @@ static void fpm_process_event(struct event *t)
 		fpm_reconnect(fpc);
 		break;
 	case FPE_RESET_COUNTERS:
-		zlog_info("%s: manual FPM counters reset event", __func__);
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: manual FPM counters reset event", __func__);
 		memset(&fpc->counters, 0, sizeof(fpc->counters));
 		break;
 	}
@@ -618,85 +621,23 @@ static Fpm__Message *create_fpm_message(qpb_allocator_t *allocator,
 		return NULL;
 
 	fpm__message__init(msg);
-	switch (op) {
-	case DPLANE_OP_ROUTE_INSTALL:
+	if (op == DPLANE_OP_ROUTE_INSTALL) {
 		/*create add route message*/
 		msg->has_type = 1;
 		msg->type = FPM__MESSAGE__TYPE__ADD_ROUTE;
-		if (IS_ZEBRA_DEBUG_FPM) {
-			zlog_debug("fpm_pb message:");
-			zlog_debug("==========");
-			zlog_debug("has_type: %d", msg->has_type);
-			zlog_debug("type: %d", msg->type);
-		}
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: Creating FPM message: has_type %d type %d",
+				   __func__, msg->has_type, msg->type);
 		msg->add_route = create_route_install_message(allocator, ctx);
 		if (!msg->add_route)
 			return NULL;
-		break;
-
-	/* Un-handled by FPM at this time. */
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_STARTUP_STAGE:
-		break;
 	}
 
 	return msg;
 }
 
 static Fpm__AddRoute *create_route_install_message(qpb_allocator_t *allocator,
-					       struct zebra_dplane_ctx *ctx)
+						   struct zebra_dplane_ctx *ctx)
 {
 	Fpm__AddRoute *msg;
 	const struct prefix *p;
@@ -720,16 +661,12 @@ static Fpm__AddRoute *create_route_install_message(qpb_allocator_t *allocator,
 	msg->has_route_type = 1;
 	msg->route_type = FPM__ROUTE_TYPE__NORMAL;
 
-	if (IS_ZEBRA_DEBUG_FPM) {
-		zlog_debug("add route message:");
-		zlog_debug("==========");
-		zlog_debug("vrf_id: %d", msg->vrf_id);
-		zlog_debug("address_family: %d", msg->address_family);
-		zlog_debug("metric:%d", msg->metric);
-		zlog_debug("sub_address_family: %d", msg->sub_address_family);
-		zlog_debug("has_router_type: %d", msg->has_route_type);
-		zlog_debug("route_type:%d", msg->route_type);
-	}
+	if (IS_ZEBRA_DEBUG_FPM)
+		zlog_debug("%s: ADD_ROUTE message: vrf_id %d address_family %d metric %d sub_address_family %d has_route_type %d route_type %d",
+			   __func__, msg->vrf_id, msg->address_family,
+			   msg->metric, msg->sub_address_family,
+			   msg->has_route_type, msg->route_type);
+
 	return msg;
 }
 
@@ -861,6 +798,7 @@ static int fpm_pb_enqueue(struct fpm_pb_ctx *fpc, struct zebra_dplane_ctx *ctx)
 static int fpm_pb_start(struct zebra_dplane_provider *prov)
 {
 	struct fpm_pb_ctx *fpc;
+	struct sockaddr_in *sin;
 
 	fpc = dplane_provider_get_data(prov);
 	fpc->fthread = frr_pthread_new(NULL, prov_name, prov_name);
@@ -874,19 +812,11 @@ static int fpm_pb_start(struct zebra_dplane_provider *prov)
 	dplane_ctx_q_init(&fpc->ctxqueue);
 	pthread_mutex_init(&fpc->ctxqueue_mutex, NULL);
 
-	struct sockaddr_in *sin;
-	uint8_t naddr[INET6_BUFSIZ];
-
-	if (inet_pton(AF_INET, "127.0.0.1", naddr) != 1) {
-		zlog_warn("Invalid address: %s", "127.0.0.1");
-		return -1;
-	}
-
 	sin = (struct sockaddr_in *)&gfpc->addr;
 	memset(sin, 0, sizeof(*sin));
 	sin->sin_family = AF_INET;
 	sin->sin_port = htons(SOUTHBOUND_DEFAULT_PORT);
-	memcpy(&sin->sin_addr, naddr, sizeof(sin->sin_addr));
+	sin->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
 	event_add_timer(fpc->fthread->master, fpm_connect, fpc, 0,
 			&fpc->t_connect);

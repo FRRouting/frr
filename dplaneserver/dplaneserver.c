@@ -6,6 +6,7 @@
  */
 #include "dplaneserver.h"
 #include "fpm/fpm.pb-c.h"
+#include "qpb/qpb.h"
 
 #define FPM_HEADER_SIZE 4
 DEFINE_MGROUP(DPLANESERVER, "dplaneserver");
@@ -19,7 +20,7 @@ struct Dplaneserver_data dplaneserver_data = { .bufSize = 2048,
 					     .server_up = false };
 enum fpm_msg_op fm_op;
 
-void process_fpm_msg(struct fpm_msg_hdr_t *fpm_hdr)
+void process_fpm_msg(fpm_msg_hdr_t *fpm_hdr)
 {
 	size_t msg_len = fpm_msg_len(fpm_hdr);
 	Fpm__Message *msg;
@@ -104,7 +105,7 @@ void dplaneserver_exit(void)
 
 int dplaneserver_read_data(void)
 {
-	struct fpm_msg_hdr_t *fpm_hdr;
+	fpm_msg_hdr_t *fpm_hdr;
 	size_t msg_len;
 	size_t start = 0, left;
 	ssize_t read_len;
@@ -124,7 +125,7 @@ int dplaneserver_read_data(void)
 	}
 	dplaneserver_data.pos += (uint32_t)read_len;
 	while (true) {
-		fpm_hdr = (struct fpm_msg_hdr_t *)(dplaneserver_data.messageBuffer +
+		fpm_hdr = (fpm_msg_hdr_t *)(dplaneserver_data.messageBuffer +
 					    start);
 		left = dplaneserver_data.pos - start;
 		if (left < FPM_MSG_HDR_LEN)
@@ -134,7 +135,7 @@ int dplaneserver_read_data(void)
 		if (left < msg_len)
 			break;
 		if (!fpm_msg_ok(fpm_hdr, left)) {
-			zlog_err("%s: fpm message header check failed");
+			zlog_err("%s: fpm message header check failed", __func__);
 			return -1;
 		}
 		process_fpm_msg(fpm_hdr);
@@ -219,7 +220,7 @@ int dplaneserver_poll(void)
 
 void process_route_install_msg(Fpm__AddRoute *msg)
 {
-	char buf[4096] = { 0 };
+	struct prefix prefix;
 
 	if (!msg->key) {
 		zlog_err("%s: ROUTE_INSTALL route key doesn't exist", __func__);
@@ -229,25 +230,21 @@ void process_route_install_msg(Fpm__AddRoute *msg)
 		zlog_err("%s: ROUTE_INSTALL prefix doesn't exist", __func__);
 		return;
 	}
-	if (IS_DPLANE_SERVER_DEBUG)
-		zlog_debug("%s: msg address family:%d",
-			  __func__, msg->address_family);
-	if (msg->address_family == AF_INET) {
-		inet_ntop(AF_INET, msg->key->prefix->bytes.data, buf,
-			  sizeof(buf));
-		if (IS_DPLANE_SERVER_DEBUG)
-			zlog_debug("%s: key ipv4 prefix:%pI4", __func__, buf);
-	} else if (msg->address_family == AF_INET6) {
-		inet_ntop(AF_INET6, msg->key->prefix->bytes.data, buf,
-			  sizeof(buf));
-		if (IS_DPLANE_SERVER_DEBUG)
-			zlog_debug("%s: key ipv6 prefix:%pI6", __func__, buf);
-	} else {
+
+	if (msg->address_family != AF_INET && msg->address_family != AF_INET6) {
 		zlog_err("%s: not ipv4 or ipv6 address family", __func__);
 		return;
 	}
+	if (!qpb__l3_prefix__get(msg->key->prefix, msg->address_family,
+				 &prefix)) {
+		zlog_err("%s: failed to parse route prefix", __func__);
+		return;
+	}
 	if (IS_DPLANE_SERVER_DEBUG)
-		zlog_debug("%s: key length:%d", __func__, msg->key->prefix->length);
+		zlog_debug("%s: msg address family: %d, key %s prefix: %pFX length: %d",
+			   __func__, msg->address_family,
+			   (msg->address_family == AF_INET) ? "ipv4" : "ipv6",
+			   &prefix, msg->key->prefix->length);
 
 	json_object *json = json_object_new_object();
 
@@ -261,7 +258,7 @@ void process_route_install_msg(Fpm__AddRoute *msg)
 			    (int64_t)(msg->has_route_type));
 	json_object_int_add(json, "routeType", (int64_t)(msg->route_type));
 	if (msg->key) {
-		json_object_string_add(json, "prefix", buf);
+		json_object_string_addf(json, "prefix", "%pFXh", &prefix);
 		json_object_int_add(json, "prefixLength",
 				    (int64_t)(msg->key->prefix->length));
 	}

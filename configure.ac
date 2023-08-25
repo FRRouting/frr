@@ -802,6 +802,8 @@ AC_ARG_ENABLE([pcre2posix],
   AS_HELP_STRING([--enable-pcre2posix], [enable using PCRE2 Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
+AC_ARG_ENABLE([enable_dplane_pb],
+  AS_HELP_STRING([--enable-dplane-pb], [enable Forwarding Plane Manager (FPM) protobuf support]))
 AC_ARG_ENABLE([werror],
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE([cumulus],
