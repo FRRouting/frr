@@ -244,7 +244,7 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 }
 
 /* VTY standard output function. */
-int vty_out(struct vty *vty, const char *format, ...)
+int vty_out_old_pager(struct vty *vty, const char *format, ...)
 {
 	va_list args;
 	ssize_t len;
@@ -353,6 +353,149 @@ done:
 		XFREE(MTYPE_VTY_OUT_BUF, p);
 
 	return len;
+}
+
+/* Everything in VTY_SHELL should be aware of pagering. */
+int vty_out(struct vty *vty, const char *format, ...)
+{
+	va_list args;
+	ssize_t len;
+	char buf[1024];
+	char *p = NULL;
+	char *filtered;
+	/* format string may contain %m, keep errno intact for printfrr */
+	int saved_errno = errno;
+	vector lines = NULL;
+	char *firstline, *bstr;
+	int nlines;
+
+	if (vty->frame_pos) {
+		vty->frame_pos = 0;
+		vty_out(vty, "%s", vty->frame);
+	}
+
+	va_start(args, format);
+	errno = saved_errno;
+	p = vasnprintfrr(MTYPE_VTY_OUT_BUF, buf, sizeof(buf), format, args);
+	va_end(args);
+
+	len = strlen(p);
+
+	/* filter buffer */
+	if (vty->filter) {
+		lines = frrstr_split_vec(p, "\n");
+
+		/* Place first value in the cache */
+		firstline = vector_slot(lines, 0);
+		buffer_put(vty->lbuf, (uint8_t *)firstline, strlen(firstline));
+
+		/* If our split returned more than one entry, time to filter */
+		if (vector_active(lines) > 1) {
+			/*
+			 * returned string is MTYPE_TMP so it matches the MTYPE
+			 * of everything else in the vector
+			 */
+			bstr = buffer_getstr(vty->lbuf);
+			buffer_reset(vty->lbuf);
+			XFREE(MTYPE_TMP, lines->index[0]);
+			vector_set_index(lines, 0, bstr);
+			frrstr_filter_vec(lines, &vty->include);
+			vector_compact(lines);
+			/*
+			 * Consider the string "foo\n". If the regex is an empty string
+			 * and the line ended with a newline, then the vector will look
+			 * like:
+			 *
+			 * [0]: 'foo'
+			 * [1]: ''
+			 *
+			 * If the regex isn't empty, the vector will look like:
+			 *
+			 * [0]: 'foo'
+			 *
+			 * In this case we'd like to preserve the newline, so we add
+			 * the empty string [1] as in the first example.
+			 */
+			if (p[strlen(p) - 1] == '\n' &&
+			    vector_active(lines) > 0 &&
+			    strlen(vector_slot(lines, vector_active(lines) - 1)))
+				vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
+
+			filtered = frrstr_join_vec(lines, "\n");
+		} else {
+			filtered = NULL;
+		}
+
+	} else {
+		lines = frrstr_split_vec(p, "\n");
+		filtered = p;
+	}
+
+	if (!filtered)
+		goto done;
+
+	switch (vty->type) {
+	case VTY_TERM:
+		/* print with crlf replacement */
+		buffer_put_crlf(vty->obuf, (uint8_t *)filtered,
+				strlen(filtered));
+		break;
+	case VTY_SHELL:
+		/* accumulate the number of lines, and
+		 * just save the output messages in the obuf, for now.
+		 * They will be flushed in vty_out_flush_vtysh_pager().
+		 */
+		if (lines) {
+			nlines = vector_active(lines);
+			if (nlines > 0 &&
+			    !strlen(vector_slot(lines, nlines - 1)))
+				nlines--;
+			vty->vtysh_lines += nlines;
+		}
+		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		break;
+	case VTY_SHELL_SERV:
+	case VTY_FILE:
+	default:
+		/* print without crlf replacement */
+		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		break;
+	}
+
+done:
+	if (lines)
+		frrstr_strvec_free(lines);
+
+	if (vty->filter && filtered)
+		XFREE(MTYPE_TMP, filtered);
+
+	/* If p is not different with buf, it is allocated buffer.  */
+	if (p != buf)
+		XFREE(MTYPE_VTY_OUT_BUF, p);
+
+	return len;
+}
+
+int vty_out_flush_vtysh_pager(struct vty *vty)
+{
+	buffer_putc(vty->obuf, '\0');
+
+	switch (vty->type) {
+	case VTY_TERM:
+		break;
+	case VTY_SHELL:
+		if (vty->of)
+			buffer_fprintf_all(vty->of, vty->obuf);
+		else if (vty->of_saved)
+			buffer_fprintf_all(vty->of_saved, vty->obuf);
+		vty->vtysh_lines = 0;
+		break;
+	case VTY_SHELL_SERV:
+	case VTY_FILE:
+	default:
+		break;
+	}
+  return 0;
 }
 
 static int vty_json_helper(struct vty *vty, struct json_object *json,

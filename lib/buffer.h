@@ -88,6 +88,8 @@ extern buffer_status_t buffer_flush_all(struct buffer *, int fd);
 extern buffer_status_t buffer_flush_window(struct buffer *, int fd, int width,
 					   int height, int erase, int no_more);
 
+extern buffer_status_t buffer_fprintf_all(FILE *fp, struct buffer *b);
+
 #ifdef __cplusplus
 }
 #endif

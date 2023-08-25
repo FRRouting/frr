@@ -481,3 +481,16 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 	}
 	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
 }
+
+buffer_status_t buffer_fprintf_all(FILE *fp, struct buffer *b)
+{
+	struct buffer_data *data, *next;
+
+	for (data = b->head; data; data = next) {
+		next = data->next;
+		fprintf(fp, "%s", data->data);
+	}
+	buffer_reset(b);
+	fflush(fp);
+	return BUFFER_EMPTY;
+}
