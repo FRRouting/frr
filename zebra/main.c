@@ -69,6 +69,8 @@ uint32_t rcvbufsize = RCVBUFSIZE_MIN;
 uint32_t rcvbufsize = 128 * 1024;
 #endif
 
+uint32_t rt_table_main_id = RT_TABLE_MAIN;
+
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
 #define OPTION_V6_WITH_V4_NEXTHOP 2002
@@ -88,6 +90,7 @@ const struct option longopts[] = {
 	{ "nl-bufsize", required_argument, NULL, 's' },
 	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
+	{"routing-table", optional_argument, NULL, 'R'},
 	{ 0 }
 };
 
@@ -298,7 +301,7 @@ int main(int argc, char **argv)
 
 	frr_preinit(&zebra_di, argc, argv);
 
-	frr_opt_add("baz:e:rK:s:"
+	frr_opt_add("baz:e:rK:s:R:"
 #ifdef HAVE_NETLINK
 		    "n"
 #endif
@@ -319,6 +322,7 @@ int main(int argc, char **argv)
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
+		    "  -R, --routing-table       Set kernel routing table\n"
 	);
 
 	while (1) {
@@ -372,6 +376,9 @@ int main(int argc, char **argv)
 				fprintf(stderr,
 					"Rcvbufsize is smaller than recommended value: %d\n",
 					RCVBUFSIZE_MIN);
+			break;
+		case 'R':
+			rt_table_main_id = atoi(optarg);
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
