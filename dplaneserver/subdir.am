@@ -1,0 +1,21 @@
+sbin_PROGRAMS += dplaneserver/dplaneserver
+
+dplaneserver_dplaneserver_CFLAGS = -g $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS) -std=gnu11
+dplaneserver_dplaneserver_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS) $(PROTOBUF_C_LIBS)
+
+if HAVE_PROTOBUF
+dplaneserver_dplaneserver_LDADD += fpm/libfrrfpm_pb.la qpb/libfrr_pb.la
+endif
+dplaneserver_dplaneserver_SOURCES = \
+	dplaneserver/main.c \
+	dplaneserver/dplaneserver.h \
+	dplaneserver/dplaneserver.c \
+	fpm/fpm.h \
+	# end
+
+if HAVE_PROTOBUF
+nodist_dplaneserver_dplaneserver_SOURCES = \
+	fpm/fpm.pb-c.c \
+	qpb/qpb.pb-c.c \
+	# end
+endif
