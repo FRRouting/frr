@@ -928,7 +928,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			 union sockunion *mask, union sockunion *gate,
 			 char *ifname, short *ifnlen)
 {
-	caddr_t pnt, end;
+	caddr_t pnt, end, opnt;
 	int maskbit;
 
 	/* Pnt points out socket data start point. */
@@ -957,7 +957,12 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			pnt += rta_get(pnt, dest, sizeof(*dest));
 			break;
 		case RTA_GATEWAY:
+			opnt = pnt;
 			pnt += rta_get(pnt, gate, sizeof(*gate));
+			if (!gate->sa.sa_len) {
+				pnt = opnt;
+				pnt += rta_getsdlname(pnt, ifname, ifnlen);
+			}
 			break;
 		case RTA_NETMASK:
 			pnt += rta_getattr(pnt, mask, sizeof(*mask));
@@ -1031,8 +1036,11 @@ void rtm_read(struct rt_msghdr *rtm)
 	    && !(flags & RTF_UP))
 		return;
 
+	if (*ifname)
+		ifindex = ifname2ifindex(ifname, VRF_DEFAULT);
+
 	/* This is connected route. */
-	if (!(flags & RTF_GATEWAY))
+	if (!(flags & RTF_GATEWAY) && !ifindex)
 		return;
 
 	if (flags & RTF_PROTO1) {
@@ -1069,8 +1077,18 @@ void rtm_read(struct rt_msghdr *rtm)
 			p.prefixlen = ip_masklen(mask.sin.sin_addr);
 
 		if (!nh.type) {
-			nh.type = NEXTHOP_TYPE_IPV4;
-			nh.gate.ipv4 = gate.sin.sin_addr;
+			if (gate.sa.sa_len) {
+				nh.gate.ipv4 = gate.sin.sin_addr;
+				if (ifindex) {
+					nh.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+					nh.ifindex = ifindex;
+				} else {
+					nh.type = NEXTHOP_TYPE_IPV4;
+				}
+			} else {
+				nh.type = NEXTHOP_TYPE_IFINDEX;
+				nh.ifindex = ifindex;
+			}
 		}
 	} else if (dest.sa.sa_family == AF_INET6) {
 		afi = AFI_IP6;
@@ -1099,9 +1117,7 @@ void rtm_read(struct rt_msghdr *rtm)
 
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
-		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
-			&p, NULL, &nh, 0, RT_TABLE_MAIN, 0, 0, distance, 0,
-			false);
+		rib_add_kernel_route(afi, zebra_flags, &p, &nh, distance);
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0,
 			   zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
