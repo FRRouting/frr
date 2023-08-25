@@ -2015,6 +2015,30 @@ DEFPY (no_bgp_send_extra_data,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_nhg, bgp_nhg_cmd, "[no$no] bgp nexthop-group",
+      NO_STR BGP_STR "Enable nexthop-group support in BGP\n")
+{
+	if (no && !bgp_option_check(BGP_OPT_NHG)) {
+		vty_out(vty,
+			"%% nexthop-group option is already unset, nothing to do here.\n");
+		return CMD_SUCCESS;
+	}
+	if (!no && bgp_option_check(BGP_OPT_NHG)) {
+		vty_out(vty,
+			"%% nexthop-group option is already set, nothing to do here.\n");
+		return CMD_SUCCESS;
+	}
+
+	if (no)
+		bgp_option_unset(BGP_OPT_NHG);
+	else
+		bgp_option_set(BGP_OPT_NHG);
+
+	bgp_option_nhg_update();
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
        "bgp confederation identifier ASNUM",
@@ -18950,6 +18974,9 @@ int bgp_config_write(struct vty *vty)
 	if (bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
 
+	if (bgp_option_check(BGP_OPT_NHG))
+		vty_out(vty, "bgp nexthop-group\n");
+
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
@@ -19933,6 +19960,9 @@ void bgp_vty_init(void)
 	/* "bgp no-rib" commands. */
 	install_element(CONFIG_NODE, &bgp_norib_cmd);
 	install_element(CONFIG_NODE, &no_bgp_norib_cmd);
+
+	/* "bgp nexthop-group" command. */
+	install_element(CONFIG_NODE, &bgp_nhg_cmd);
 
 	install_element(CONFIG_NODE, &no_bgp_send_extra_data_cmd);
 
