@@ -1,0 +1,244 @@
+{
+  "1.1.1.1\/32": [
+    {
+      "prefix": "1.1.1.1\/32",
+      "protocol": "connected",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "interfaceIndex": 1,
+          "interfaceName": "lo"
+        }
+      ]
+    }
+  ],
+  "20.10.0.1\/32": [
+    {
+      "prefix": "20.10.0.1\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.2\/32": [
+    {
+      "prefix": "20.10.0.2\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.3\/32": [
+    {
+      "prefix": "20.10.0.3\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.4\/32": [
+    {
+      "prefix": "20.10.0.4\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.5\/32": [
+    {
+      "prefix": "20.10.0.5\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.6\/32": [
+    {
+      "prefix": "20.10.0.6\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.7\/32": [
+    {
+      "prefix": "20.10.0.7\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.8\/32": [
+    {
+      "prefix": "20.10.0.8\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.9\/32": [
+    {
+      "prefix": "20.10.0.9\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "20.10.0.10\/32": [
+    {
+      "prefix": "20.10.0.10\/32",
+      "protocol": "bgp",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        },
+        {
+          "ip": "192.168.1.2",
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ],
+  "192.168.0.0\/24": [
+    {
+      "prefix": "192.168.0.0\/24",
+      "protocol": "connected",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        }
+      ]
+    }
+  ],
+  "192.168.1.0\/24": [
+    {
+      "prefix": "192.168.1.0\/24",
+      "protocol": "connected",
+      "vrfId": 0,
+      "vrfName": "default",
+      "nexthops": [
+        {
+          "interfaceIndex": 3,
+          "interfaceName": "r1-eth1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "routes": [
+    {
+      "fib": 3,
+      "rib": 3,
+      "fibOffLoaded": 0,
+      "fibTrapped": 0,
+      "type": "connected"
+    },
+    {
+      "fib": 10,
+      "rib": 10,
+      "fibOffLoaded": 0,
+      "fibTrapped": 0,
+      "type": "ebgp"
+    },
+    {
+      "fib": 0,
+      "rib": 0,
+      "fibOffLoaded": 0,
+      "fibTrapped": 0,
+      "type": "ibgp"
+    }
+  ],
+  "routesTotal": 13,
+  "routesTotalFib": 13
+}
