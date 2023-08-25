@@ -7,7 +7,6 @@
       "vrfName": "default",
       "nexthops": [
         {
-          "interfaceIndex": 1,
           "interfaceName": "lo"
         }
       ]
@@ -22,12 +21,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -42,12 +39,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -62,12 +57,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -82,12 +75,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -102,12 +93,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -122,12 +111,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -142,12 +129,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -162,12 +147,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -182,12 +165,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -202,12 +183,10 @@
       "nexthops": [
         {
           "ip": "192.168.0.2",
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         },
         {
           "ip": "192.168.1.2",
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
@@ -221,7 +200,6 @@
       "vrfName": "default",
       "nexthops": [
         {
-          "interfaceIndex": 2,
           "interfaceName": "r1-eth0"
         }
       ]
@@ -235,7 +213,6 @@
       "vrfName": "default",
       "nexthops": [
         {
-          "interfaceIndex": 3,
           "interfaceName": "r1-eth1"
         }
       ]
