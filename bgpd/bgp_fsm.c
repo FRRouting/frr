@@ -2675,7 +2675,6 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		bgp_timer_set(peer);
 		break;
 	case BGP_FSM_FAILURE:
-	case BGP_FSM_FAILURE_AND_DELETE:
 		/*
 		 * If we got a return value of -1, that means there was an
 		 * error, restart the FSM. Since bgp_stop() was called on the
@@ -2699,7 +2698,9 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			bgp_timer_set(peer);
 		}
 		fsm_result = FSM_PEER_STOPPED;
-
+		break;
+	case BGP_FSM_FAILURE_AND_DELETE:
+		fsm_result = FSM_PEER_STOPPED;
 		break;
 	}
 
