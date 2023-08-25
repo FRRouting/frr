@@ -176,6 +176,7 @@ int bgp_option_set(int flag)
 	case BGP_OPT_NO_FIB:
 	case BGP_OPT_NO_LISTEN:
 	case BGP_OPT_NO_ZEBRA:
+	case BGP_OPT_NHG:
 		SET_FLAG(bm->options, flag);
 		break;
 	default:
@@ -189,6 +190,7 @@ int bgp_option_unset(int flag)
 	switch (flag) {
 	case BGP_OPT_NO_ZEBRA:
 	case BGP_OPT_NO_FIB:
+	case BGP_OPT_NHG:
 		UNSET_FLAG(bm->options, flag);
 		break;
 	default:
@@ -200,6 +202,29 @@ int bgp_option_unset(int flag)
 int bgp_option_check(int flag)
 {
 	return CHECK_FLAG(bm->options, flag);
+}
+
+void bgp_option_nhg_update(void)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	afi_t afi;
+	safi_t safi;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		FOREACH_AFI_SAFI (afi, safi) {
+			/*
+			 * Stop a crash, more work is needed
+			 * here to properly add/remove these types of
+			 * routes from zebra.
+			 */
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
+			bgp_zebra_withdraw_table_all_subtypes(bgp, afi, safi);
+			bgp_zebra_announce_table_all_subtypes(bgp, afi, safi);
+		}
+	}
 }
 
 /* set the bgp no-rib option during runtime and remove installed routes */
