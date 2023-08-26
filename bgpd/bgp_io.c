@@ -45,7 +45,6 @@ static bool validate_header(struct peer_connection *connection);
 void bgp_writes_on(struct peer_connection *connection)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
-	struct peer *peer = connection->peer;
 
 	assert(fpt->running);
 
@@ -53,8 +52,8 @@ void bgp_writes_on(struct peer_connection *connection)
 	assert(connection->obuf);
 	assert(connection->ibuf);
 	assert(connection->ibuf_work);
-	assert(!peer->t_connect_check_r);
-	assert(!peer->t_connect_check_w);
+	assert(!connection->t_connect_check_r);
+	assert(!connection->t_connect_check_w);
 	assert(connection->fd);
 
 	event_add_write(fpt->master, bgp_process_writes, connection,
@@ -76,7 +75,6 @@ void bgp_writes_off(struct peer_connection *connection)
 
 void bgp_reads_on(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
@@ -85,8 +83,8 @@ void bgp_reads_on(struct peer_connection *connection)
 	assert(connection->fd);
 	assert(connection->ibuf_work);
 	assert(connection->obuf);
-	assert(!peer->t_connect_check_r);
-	assert(!peer->t_connect_check_w);
+	assert(!connection->t_connect_check_r);
+	assert(!connection->t_connect_check_w);
 	assert(connection->fd);
 
 	event_add_read(fpt->master, bgp_process_reads, connection,

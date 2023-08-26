@@ -162,13 +162,13 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	EVENT_OFF(peer->t_routeadv);
 	EVENT_OFF(peer->connection->t_connect);
 	EVENT_OFF(peer->connection->t_delayopen);
-	EVENT_OFF(peer->t_connect_check_r);
-	EVENT_OFF(peer->t_connect_check_w);
+	EVENT_OFF(peer->connection->t_connect_check_r);
+	EVENT_OFF(peer->connection->t_connect_check_w);
 	EVENT_OFF(from_peer->t_routeadv);
 	EVENT_OFF(from_peer->connection->t_connect);
 	EVENT_OFF(from_peer->connection->t_delayopen);
-	EVENT_OFF(from_peer->t_connect_check_r);
-	EVENT_OFF(from_peer->t_connect_check_w);
+	EVENT_OFF(from_peer->connection->t_connect_check_r);
+	EVENT_OFF(from_peer->connection->t_connect_check_w);
 	EVENT_OFF(from_peer->connection->t_process_packet);
 
 	/*
@@ -1509,8 +1509,8 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	bgp_writes_off(connection);
 	bgp_reads_off(connection);
 
-	EVENT_OFF(peer->t_connect_check_r);
-	EVENT_OFF(peer->t_connect_check_w);
+	EVENT_OFF(connection->t_connect_check_r);
+	EVENT_OFF(connection->t_connect_check_w);
 
 	/* Stop all timers. */
 	EVENT_OFF(connection->t_start);
@@ -1674,8 +1674,8 @@ static void bgp_connect_check(struct event *thread)
 	assert(!peer->connection->t_read);
 	assert(!peer->connection->t_write);
 
-	EVENT_OFF(peer->t_connect_check_r);
-	EVENT_OFF(peer->t_connect_check_w);
+	EVENT_OFF(peer->connection->t_connect_check_r);
+	EVENT_OFF(peer->connection->t_connect_check_w);
 
 	/* Check file descriptor. */
 	slen = sizeof(status);
@@ -1955,9 +1955,11 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 		 * unused event in that function.
 		 */
 		event_add_read(bm->master, bgp_connect_check, peer,
-			       peer->connection->fd, &peer->t_connect_check_r);
+			       peer->connection->fd,
+			       &peer->connection->t_connect_check_r);
 		event_add_write(bm->master, bgp_connect_check, peer,
-				peer->connection->fd, &peer->t_connect_check_w);
+				peer->connection->fd,
+				&peer->connection->t_connect_check_w);
 		break;
 	}
 	return BGP_FSM_SUCCESS;
