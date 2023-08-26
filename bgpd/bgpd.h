@@ -1139,6 +1139,7 @@ struct peer_connection {
 	struct event *t_read;
 	struct event *t_write;
 	struct event *t_connect;
+	struct event *t_delayopen;
 
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
@@ -1554,7 +1555,6 @@ struct peer {
 	struct event *t_connect_check_w;
 	struct event *t_holdtime;
 	struct event *t_routeadv;
-	struct event *t_delayopen;
 	struct event *t_pmax_restart;
 	struct event *t_gr_restart;
 	struct event *t_gr_stale;

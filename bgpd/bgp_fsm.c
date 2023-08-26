@@ -161,12 +161,12 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	EVENT_OFF(peer->t_routeadv);
 	EVENT_OFF(peer->connection->t_connect);
-	EVENT_OFF(peer->t_delayopen);
+	EVENT_OFF(peer->connection->t_delayopen);
 	EVENT_OFF(peer->t_connect_check_r);
 	EVENT_OFF(peer->t_connect_check_w);
 	EVENT_OFF(from_peer->t_routeadv);
 	EVENT_OFF(from_peer->connection->t_connect);
-	EVENT_OFF(from_peer->t_delayopen);
+	EVENT_OFF(from_peer->connection->t_delayopen);
 	EVENT_OFF(from_peer->t_connect_check_r);
 	EVENT_OFF(from_peer->t_connect_check_w);
 	EVENT_OFF(from_peer->connection->t_process_packet);
@@ -367,7 +367,7 @@ void bgp_timer_set(struct peer *peer)
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
-		EVENT_OFF(peer->t_delayopen);
+		EVENT_OFF(peer->connection->t_delayopen);
 		break;
 
 	case Connect:
@@ -423,7 +423,7 @@ void bgp_timer_set(struct peer *peer)
 		}
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
-		EVENT_OFF(peer->t_delayopen);
+		EVENT_OFF(peer->connection->t_delayopen);
 		break;
 
 	case OpenConfirm:
@@ -446,7 +446,7 @@ void bgp_timer_set(struct peer *peer)
 			bgp_keepalives_on(peer);
 		}
 		EVENT_OFF(peer->t_routeadv);
-		EVENT_OFF(peer->t_delayopen);
+		EVENT_OFF(peer->connection->t_delayopen);
 		break;
 
 	case Established:
@@ -454,7 +454,7 @@ void bgp_timer_set(struct peer *peer)
 		   off. */
 		EVENT_OFF(peer->t_start);
 		EVENT_OFF(peer->connection->t_connect);
-		EVENT_OFF(peer->t_delayopen);
+		EVENT_OFF(peer->connection->t_delayopen);
 
 		/*
 		 * Same as OpenConfirm, if holdtime is zero then both holdtime
@@ -487,7 +487,7 @@ void bgp_timer_set(struct peer *peer)
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
-		EVENT_OFF(peer->t_delayopen);
+		EVENT_OFF(peer->connection->t_delayopen);
 		break;
 	case BGP_STATUS_MAX:
 		flog_err(EC_LIB_DEVELOPMENT,
@@ -519,7 +519,7 @@ static void bgp_connect_timer(struct event *thread)
 	peer = EVENT_ARG(thread);
 
 	/* stop the DelayOpenTimer if it is running */
-	EVENT_OFF(peer->t_delayopen);
+	EVENT_OFF(peer->connection->t_delayopen);
 
 	assert(!peer->connection->t_write);
 	assert(!peer->connection->t_read);
@@ -1517,7 +1517,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	EVENT_OFF(connection->t_connect);
 	EVENT_OFF(peer->t_holdtime);
 	EVENT_OFF(peer->t_routeadv);
-	EVENT_OFF(peer->t_delayopen);
+	EVENT_OFF(peer->connection->t_delayopen);
 
 	/* Clear input and output buffer.  */
 	frr_with_mutex (&connection->io_mtx) {
@@ -1795,8 +1795,8 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	peer->v_delayopen = peer->delayopen;
 
 	/* Start the DelayOpenTimer if it is not already running */
-	if (!peer->t_delayopen)
-		BGP_TIMER_ON(peer->t_delayopen, bgp_delayopen_timer,
+	if (!peer->connection->t_delayopen)
+		BGP_TIMER_ON(peer->connection->t_delayopen, bgp_delayopen_timer,
 			     peer->v_delayopen);
 
 	if (bgp_debug_neighbor_events(peer))
@@ -2040,7 +2040,7 @@ bgp_fsm_delayopen_timer_expire(struct peer_connection *connection)
 	struct peer *peer = connection->peer;
 
 	/* Stop the DelayOpenTimer */
-	EVENT_OFF(peer->t_delayopen);
+	EVENT_OFF(peer->connection->t_delayopen);
 
 	/* Send open message to peer */
 	bgp_open_send(peer);
