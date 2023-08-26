@@ -160,12 +160,12 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	bgp_keepalives_off(from_peer);
 
 	EVENT_OFF(peer->t_routeadv);
-	EVENT_OFF(peer->t_connect);
+	EVENT_OFF(peer->connection->t_connect);
 	EVENT_OFF(peer->t_delayopen);
 	EVENT_OFF(peer->t_connect_check_r);
 	EVENT_OFF(peer->t_connect_check_w);
 	EVENT_OFF(from_peer->t_routeadv);
-	EVENT_OFF(from_peer->t_connect);
+	EVENT_OFF(from_peer->connection->t_connect);
 	EVENT_OFF(from_peer->t_delayopen);
 	EVENT_OFF(from_peer->t_connect_check_r);
 	EVENT_OFF(from_peer->t_connect_check_w);
@@ -363,7 +363,7 @@ void bgp_timer_set(struct peer *peer)
 			BGP_TIMER_ON(peer->t_start, bgp_start_timer,
 				     peer->v_start);
 		}
-		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->connection->t_connect);
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
@@ -376,11 +376,12 @@ void bgp_timer_set(struct peer *peer)
 		   on. */
 		EVENT_OFF(peer->t_start);
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
-			BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
+			BGP_TIMER_ON(peer->connection->t_connect,
+				     bgp_connect_timer,
 				     (peer->v_delayopen + peer->v_connect));
 		else
-			BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
-				     peer->v_connect);
+			BGP_TIMER_ON(peer->connection->t_connect,
+				     bgp_connect_timer, peer->v_connect);
 
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
@@ -394,15 +395,16 @@ void bgp_timer_set(struct peer *peer)
 		/* If peer is passive mode, do not set connect timer. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)
 		    || CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
-			EVENT_OFF(peer->t_connect);
+			EVENT_OFF(peer->connection->t_connect);
 		} else {
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
-				BGP_TIMER_ON(
-					peer->t_connect, bgp_connect_timer,
-					(peer->v_delayopen + peer->v_connect));
+				BGP_TIMER_ON(peer->connection->t_connect,
+					     bgp_connect_timer,
+					     (peer->v_delayopen +
+					      peer->v_connect));
 			else
-				BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
-					     peer->v_connect);
+				BGP_TIMER_ON(peer->connection->t_connect,
+					     bgp_connect_timer, peer->v_connect);
 		}
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
@@ -412,7 +414,7 @@ void bgp_timer_set(struct peer *peer)
 	case OpenSent:
 		/* OpenSent status. */
 		EVENT_OFF(peer->t_start);
-		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->connection->t_connect);
 		if (peer->v_holdtime != 0) {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
@@ -427,7 +429,7 @@ void bgp_timer_set(struct peer *peer)
 	case OpenConfirm:
 		/* OpenConfirm status. */
 		EVENT_OFF(peer->t_start);
-		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->connection->t_connect);
 
 		/*
 		 * If the negotiated Hold Time value is zero, then the Hold Time
@@ -451,7 +453,7 @@ void bgp_timer_set(struct peer *peer)
 		/* In Established status start and connect timer is turned
 		   off. */
 		EVENT_OFF(peer->t_start);
-		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->connection->t_connect);
 		EVENT_OFF(peer->t_delayopen);
 
 		/*
@@ -481,7 +483,7 @@ void bgp_timer_set(struct peer *peer)
 	/* fallthru */
 	case Clearing:
 		EVENT_OFF(peer->t_start);
-		EVENT_OFF(peer->t_connect);
+		EVENT_OFF(peer->connection->t_connect);
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
@@ -1512,7 +1514,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 	/* Stop all timers. */
 	EVENT_OFF(peer->t_start);
-	EVENT_OFF(peer->t_connect);
+	EVENT_OFF(connection->t_connect);
 	EVENT_OFF(peer->t_holdtime);
 	EVENT_OFF(peer->t_routeadv);
 	EVENT_OFF(peer->t_delayopen);
@@ -2417,13 +2419,13 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 		break;
 	case Connect:
 		if (!has_valid_nexthops) {
-			EVENT_OFF(peer->t_connect);
+			EVENT_OFF(peer->connection->t_connect);
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 		}
 		break;
 	case Active:
 		if (has_valid_nexthops) {
-			EVENT_OFF(peer->t_connect);
+			EVENT_OFF(peer->connection->t_connect);
 			BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
 		}
 		break;
