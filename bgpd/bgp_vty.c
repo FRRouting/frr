@@ -15128,10 +15128,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						    p->rtt_keepalive_rcv);
 			}
 		}
-		if (p->t_start)
-			json_object_int_add(
-				json_neigh, "nextStartTimerDueInMsecs",
-				event_timer_remain_second(p->t_start) * 1000);
+		if (p->connection->t_start)
+			json_object_int_add(json_neigh,
+					    "nextStartTimerDueInMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_start) *
+						    1000);
 		if (p->connection->t_connect)
 			json_object_int_add(json_neigh,
 					    "nextConnectTimerDueInMsecs",
@@ -15172,9 +15174,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					"Shutdown when RTT > %dms, count > %u\n",
 					p->rtt_expected, p->rtt_keepalive_rcv);
 		}
-		if (p->t_start)
+		if (p->connection->t_start)
 			vty_out(vty, "Next start timer due in %ld seconds\n",
-				event_timer_remain_second(p->t_start));
+				event_timer_remain_second(
+					p->connection->t_start));
 		if (p->connection->t_connect)
 			vty_out(vty, "Next connect timer due in %ld seconds\n",
 				event_timer_remain_second(

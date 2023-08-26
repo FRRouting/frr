@@ -1140,6 +1140,7 @@ struct peer_connection {
 	struct event *t_write;
 	struct event *t_connect;
 	struct event *t_delayopen;
+	struct event *t_start;
 
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
@@ -1550,7 +1551,6 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_start;
 	struct event *t_connect_check_r;
 	struct event *t_connect_check_w;
 	struct event *t_holdtime;
