@@ -364,7 +364,7 @@ void bgp_timer_set(struct peer *peer)
 				     peer->v_start);
 		}
 		EVENT_OFF(peer->connection->t_connect);
-		EVENT_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->connection->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		EVENT_OFF(peer->connection->t_delayopen);
@@ -383,7 +383,7 @@ void bgp_timer_set(struct peer *peer)
 			BGP_TIMER_ON(peer->connection->t_connect,
 				     bgp_connect_timer, peer->v_connect);
 
-		EVENT_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->connection->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		break;
@@ -406,7 +406,7 @@ void bgp_timer_set(struct peer *peer)
 				BGP_TIMER_ON(peer->connection->t_connect,
 					     bgp_connect_timer, peer->v_connect);
 		}
-		EVENT_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->connection->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		break;
@@ -416,10 +416,10 @@ void bgp_timer_set(struct peer *peer)
 		EVENT_OFF(peer->connection->t_start);
 		EVENT_OFF(peer->connection->t_connect);
 		if (peer->v_holdtime != 0) {
-			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
-				     peer->v_holdtime);
+			BGP_TIMER_ON(peer->connection->t_holdtime,
+				     bgp_holdtime_timer, peer->v_holdtime);
 		} else {
-			EVENT_OFF(peer->t_holdtime);
+			EVENT_OFF(peer->connection->t_holdtime);
 		}
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
@@ -437,12 +437,12 @@ void bgp_timer_set(struct peer *peer)
 		 * Additionally if a different hold timer has been negotiated
 		 * than we must stop then start the timer again
 		 */
-		EVENT_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->connection->t_holdtime);
 		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
 		else {
-			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
-				     peer->v_holdtime);
+			BGP_TIMER_ON(peer->connection->t_holdtime,
+				     bgp_holdtime_timer, peer->v_holdtime);
 			bgp_keepalives_on(peer);
 		}
 		EVENT_OFF(peer->t_routeadv);
@@ -462,12 +462,12 @@ void bgp_timer_set(struct peer *peer)
 		 * Additionally if a different hold timer has been negotiated
 		 * then we must stop then start the timer again
 		 */
-		EVENT_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->connection->t_holdtime);
 		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
 		else {
-			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
-				     peer->v_holdtime);
+			BGP_TIMER_ON(peer->connection->t_holdtime,
+				     bgp_holdtime_timer, peer->v_holdtime);
 			bgp_keepalives_on(peer);
 		}
 		break;
@@ -484,7 +484,7 @@ void bgp_timer_set(struct peer *peer)
 	case Clearing:
 		EVENT_OFF(peer->connection->t_start);
 		EVENT_OFF(peer->connection->t_connect);
-		EVENT_OFF(peer->t_holdtime);
+		EVENT_OFF(peer->connection->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		EVENT_OFF(peer->connection->t_delayopen);
@@ -560,7 +560,7 @@ static void bgp_holdtime_timer(struct event *thread)
 	inq_count = atomic_load_explicit(&peer->connection->ibuf->count,
 					 memory_order_relaxed);
 	if (inq_count)
-		BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
+		BGP_TIMER_ON(peer->connection->t_holdtime, bgp_holdtime_timer,
 			     peer->v_holdtime);
 
 	EVENT_VAL(thread) = Hold_Timer_expired;
@@ -1515,7 +1515,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Stop all timers. */
 	EVENT_OFF(connection->t_start);
 	EVENT_OFF(connection->t_connect);
-	EVENT_OFF(peer->t_holdtime);
+	EVENT_OFF(connection->t_holdtime);
 	EVENT_OFF(peer->t_routeadv);
 	EVENT_OFF(peer->connection->t_delayopen);
 
@@ -2366,7 +2366,7 @@ bgp_establish(struct peer_connection *connection)
 static enum bgp_fsm_state_progress
 bgp_fsm_keepalive(struct peer_connection *connection)
 {
-	EVENT_OFF(connection->peer->t_holdtime);
+	EVENT_OFF(connection->t_holdtime);
 	return BGP_FSM_SUCCESS;
 }
 
@@ -2374,7 +2374,7 @@ bgp_fsm_keepalive(struct peer_connection *connection)
 static enum bgp_fsm_state_progress
 bgp_fsm_update(struct peer_connection *connection)
 {
-	EVENT_OFF(connection->peer->t_holdtime);
+	EVENT_OFF(connection->t_holdtime);
 	return BGP_FSM_SUCCESS;
 }
 
