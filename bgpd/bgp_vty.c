@@ -15140,13 +15140,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    event_timer_remain_second(
 						    p->connection->t_connect) *
 						    1000);
-		if (p->t_routeadv) {
+		if (p->connection->t_routeadv) {
 			json_object_int_add(json_neigh, "mraiInterval",
 					    p->v_routeadv);
-			json_object_int_add(
-				json_neigh, "mraiTimerExpireInMsecs",
-				event_timer_remain_second(p->t_routeadv) *
-					1000);
+			json_object_int_add(json_neigh, "mraiTimerExpireInMsecs",
+					    event_timer_remain_second(
+						    p->connection->t_routeadv) *
+						    1000);
 		}
 		if (p->password)
 			json_object_int_add(json_neigh, "authenticationEnabled",
@@ -15182,11 +15182,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty, "Next connect timer due in %ld seconds\n",
 				event_timer_remain_second(
 					p->connection->t_connect));
-		if (p->t_routeadv)
+		if (p->connection->t_routeadv)
 			vty_out(vty,
 				"MRAI (interval %u) timer expires in %ld seconds\n",
 				p->v_routeadv,
-				event_timer_remain_second(p->t_routeadv));
+				event_timer_remain_second(
+					p->connection->t_routeadv));
 		if (p->password)
 			vty_out(vty, "Peer Authentication Enabled\n");
 
