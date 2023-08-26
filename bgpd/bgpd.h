@@ -1162,6 +1162,7 @@ struct peer_connection {
 #define PEER_THREAD_READS_ON (1U << 1)
 };
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
+extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 
 /* BGP neighbor structure. */

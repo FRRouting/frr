@@ -1149,13 +1149,15 @@ void bgp_peer_connection_buffers_free(struct peer_connection *connection)
 	}
 }
 
-static void bgp_peer_connection_free(struct peer_connection *connection)
+void bgp_peer_connection_free(struct peer_connection **connection)
 {
-	bgp_peer_connection_buffers_free(connection);
-	pthread_mutex_destroy(&connection->io_mtx);
+	bgp_peer_connection_buffers_free(*connection);
+	pthread_mutex_destroy(&(*connection)->io_mtx);
 
-	memset(connection, 0, sizeof(struct peer_connection));
-	XFREE(MTYPE_BGP_PEER_CONNECTION, connection);
+	memset(*connection, 0, sizeof(struct peer_connection));
+	XFREE(MTYPE_BGP_PEER_CONNECTION, *connection);
+
+	connection = NULL;
 }
 
 struct peer_connection *bgp_peer_connection_new(struct peer *peer)
@@ -1268,7 +1270,7 @@ static void peer_free(struct peer *peer)
 	if (peer->as_pretty)
 		XFREE(MTYPE_BGP, peer->as_pretty);
 
-	bgp_peer_connection_free(peer->connection);
+	bgp_peer_connection_free(&peer->connection);
 
 	bgp_unlock(peer->bgp);
 
