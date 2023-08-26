@@ -173,6 +173,7 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 {
 	struct in_addr addr;
 	struct peer *peer;
+	struct peer_connection *connection;
 	long intval;
 
 	if (var_val_type != ASN_INTEGER) {
@@ -190,6 +191,8 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 	if (!peer)
 		return SNMP_ERR_NOSUCHNAME;
 
+	connection = peer->connection;
+
 	if (action != SNMP_MSG_INTERNAL_SET_COMMIT)
 		return SNMP_ERR_NOERROR;
 
@@ -202,7 +205,7 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 #define BGP_PeerAdmin_start 2
 		/* When the peer is established,   */
 		if (intval == BGP_PeerAdmin_stop)
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Stop);
 		else if (intval == BGP_PeerAdmin_start)
 			; /* Do nothing. */
 		else

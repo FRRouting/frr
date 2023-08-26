@@ -414,8 +414,9 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			    !peer_established(peer->connection) &&
 			    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
 				if (peer_active(peer))
-					BGP_EVENT_ADD(peer, BGP_Stop);
-				BGP_EVENT_ADD(peer, BGP_Start);
+					BGP_EVENT_ADD(peer->connection,
+						      BGP_Stop);
+				BGP_EVENT_ADD(peer->connection, BGP_Start);
 			}
 		}
 	} else if (addr->family == AF_INET6) {

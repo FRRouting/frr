@@ -3724,9 +3724,8 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 
 static void bgp_maximum_prefix_restart_timer(struct event *thread)
 {
-	struct peer *peer;
-
-	peer = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -3784,6 +3783,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				  ? bgp_filtered_routes_count(peer, afi, safi)
 					    + peer->pcount[afi][safi]
 				  : peer->pcount[afi][safi];
+	struct peer_connection *connection = peer->connection;
 
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
 		return false;
@@ -3819,8 +3819,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			ndata[6] = (peer->pmax[afi][safi]);
 
 			SET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			bgp_notify_send_with_data(peer->connection,
-						  BGP_NOTIFY_CEASE,
+			bgp_notify_send_with_data(connection, BGP_NOTIFY_CEASE,
 						  BGP_NOTIFY_CEASE_MAX_PREFIX,
 						  ndata, 7);
 		}
@@ -3839,7 +3838,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 					"%pBP Maximum-prefix restart timer started for %d secs",
 					peer, peer->v_pmax_restart);
 
-			BGP_TIMER_ON(peer->connection->t_pmax_restart,
+			BGP_TIMER_ON(connection->t_pmax_restart,
 				     bgp_maximum_prefix_restart_timer,
 				     peer->v_pmax_restart);
 		}
@@ -5589,7 +5588,7 @@ static void bgp_clear_node_complete(struct work_queue *wq)
 	struct peer *peer = wq->spec.data;
 
 	/* Tickle FSM to start moving again */
-	BGP_EVENT_ADD(peer, Clearing_Completed);
+	BGP_EVENT_ADD(peer->connection, Clearing_Completed);
 
 	peer_unlock(peer); /* bgp_clear_route */
 }

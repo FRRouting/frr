@@ -143,8 +143,8 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
 		    !peer_established(peer->connection)) {
 			if (peer_active(peer))
-				BGP_EVENT_ADD(peer, BGP_Stop);
-			BGP_EVENT_ADD(peer, BGP_Start);
+				BGP_EVENT_ADD(peer->connection, BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
 	}
 }
@@ -183,7 +183,7 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 		if (peer->conf_if
 		    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)) {
 			peer->last_reset = PEER_DOWN_NBR_ADDR_DEL;
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}
 	}
 	/* Free neighbor also, if we're asked to. */
@@ -279,7 +279,7 @@ static int bgp_ifp_down(struct interface *ifp)
 				continue;
 
 			if (ifp == peer->nexthop.ifp) {
-				BGP_EVENT_ADD(peer, BGP_Stop);
+				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 				peer->last_reset = PEER_DOWN_IF_DOWN;
 			}
 		}
@@ -515,7 +515,8 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 					continue;
 
 				if (ifp == peer->nexthop.ifp)
-					BGP_EVENT_ADD(peer, BGP_Stop);
+					BGP_EVENT_ADD(peer->connection,
+						      BGP_Stop);
 			}
 		}
 	}

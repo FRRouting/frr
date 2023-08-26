@@ -360,7 +360,7 @@ static uint16_t bgp_write(struct peer_connection *connection)
 
 		if (num < 0) {
 			if (!ERRNO_IO_RETRY(errno)) {
-				BGP_EVENT_ADD(peer, TCP_fatal_error);
+				BGP_EVENT_ADD(connection, TCP_fatal_error);
 				SET_FLAG(status, BGP_IO_FATAL_ERR);
 			} else {
 				SET_FLAG(status, BGP_IO_TRANS_ERR);
@@ -437,7 +437,7 @@ static uint16_t bgp_write(struct peer_connection *connection)
 			 * Handle Graceful Restart case where the state changes
 			 * to Connect instead of Idle.
 			 */
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Stop);
 			goto done;
 
 		case BGP_MSG_KEEPALIVE:

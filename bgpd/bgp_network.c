@@ -435,18 +435,17 @@ static void bgp_accept(struct event *thread)
 			if (CHECK_FLAG(peer1->flags, PEER_FLAG_TCP_MSS))
 				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
 
-			bgp_fsm_change_status(peer1, Active);
+			bgp_fsm_change_status(peer1->connection, Active);
 			EVENT_OFF(peer1->connection
 					  ->t_start); /* created in peer_create() */
 
 			if (peer_active(peer1)) {
 				if (CHECK_FLAG(peer1->flags,
 					       PEER_FLAG_TIMER_DELAYOPEN))
-					BGP_EVENT_ADD(
-						peer1,
-						TCP_connection_open_w_delay);
+					BGP_EVENT_ADD(peer1->connection,
+						      TCP_connection_open_w_delay);
 				else
-					BGP_EVENT_ADD(peer1,
+					BGP_EVENT_ADD(peer1->connection,
 						      TCP_connection_open);
 			}
 
@@ -568,7 +567,7 @@ static void bgp_accept(struct event *thread)
 		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
 	}
 	bgp_peer_reg_with_nht(peer);
-	bgp_fsm_change_status(peer, Active);
+	bgp_fsm_change_status(peer->connection, Active);
 	EVENT_OFF(peer->connection->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
@@ -588,14 +587,15 @@ static void bgp_accept(struct event *thread)
 				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
 
-		bgp_event_update(peer1, TCP_connection_closed);
+		bgp_event_update(peer1->connection, TCP_connection_closed);
 	}
 
 	if (peer_active(peer)) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
-			BGP_EVENT_ADD(peer, TCP_connection_open_w_delay);
+			BGP_EVENT_ADD(peer->connection,
+				      TCP_connection_open_w_delay);
 		else
-			BGP_EVENT_ADD(peer, TCP_connection_open);
+			BGP_EVENT_ADD(peer->connection, TCP_connection_open);
 	}
 
 	/*
