@@ -3819,7 +3819,8 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			ndata[6] = (peer->pmax[afi][safi]);
 
 			SET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			bgp_notify_send_with_data(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send_with_data(peer->connection,
+						  BGP_NOTIFY_CEASE,
 						  BGP_NOTIFY_CEASE_MAX_PREFIX,
 						  ndata, 7);
 		}

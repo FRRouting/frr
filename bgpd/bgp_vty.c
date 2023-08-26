@@ -2890,7 +2890,7 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
@@ -2916,7 +2916,7 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
@@ -4876,7 +4876,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		/* v6only flag changed. Reset bgp seesion */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(peer);

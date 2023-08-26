@@ -1368,7 +1368,8 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 
 	/* Only relax error handling for eBGP peers */
 	if (peer->sort != BGP_PEER_EBGP) {
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR, subcode,
+		bgp_notify_send_with_data(peer->connection,
+					  BGP_NOTIFY_UPDATE_ERR, subcode,
 					  notify_datap, length);
 		return BGP_ATTR_PARSE_ERROR;
 	}
@@ -1412,7 +1413,8 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		return BGP_ATTR_PARSE_WITHDRAW;
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR, subcode,
+		bgp_notify_send_with_data(peer->connection,
+					  BGP_NOTIFY_UPDATE_ERR, subcode,
 					  notify_datap, length);
 		return BGP_ATTR_PARSE_ERROR;
 	}
@@ -1768,7 +1770,8 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 		data[1] = BGP_ATTR_NEXT_HOP;
 		data[2] = BGP_ATTR_NHLEN_IPV4;
 		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR,
+		bgp_notify_send_with_data(peer->connection,
+					  BGP_NOTIFY_UPDATE_ERR,
 					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
 					  data, 7);
 		return BGP_ATTR_PARSE_ERROR;
@@ -3487,7 +3490,8 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 						- stream_pnt(BGP_INPUT(peer))));
 
 			if (peer->sort != BGP_PEER_EBGP) {
-				bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_UPDATE_ERR,
 						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
 				ret = BGP_ATTR_PARSE_ERROR;
 			} else {
@@ -3516,7 +3520,8 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 						- stream_pnt(BGP_INPUT(peer))));
 
 			if (peer->sort != BGP_PEER_EBGP) {
-				bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_UPDATE_ERR,
 						BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
 				ret = BGP_ATTR_PARSE_ERROR;
 			} else {
@@ -3581,10 +3586,10 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 
 				stream_get(&ndata[lfl + 1], BGP_INPUT(peer), ndl);
 
-				bgp_notify_send_with_data(
-					peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, ndata,
-					ndl + lfl + 1);
+				bgp_notify_send_with_data(peer->connection,
+							  BGP_NOTIFY_UPDATE_ERR,
+							  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+							  ndata, ndl + lfl + 1);
 
 				ret = BGP_ATTR_PARSE_ERROR;
 				goto done;
@@ -3619,7 +3624,8 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 					"%s: error BGP attribute type %d appears twice in a message",
 					peer->host, type);
 
-				bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_UPDATE_ERR,
 						BGP_NOTIFY_UPDATE_MAL_ATTR);
 				ret = BGP_ATTR_PARSE_ERROR;
 				goto done;
@@ -3747,7 +3753,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		}
 
 		if (ret == BGP_ATTR_PARSE_ERROR_NOTIFYPLS) {
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_ATTR);
 			ret = BGP_ATTR_PARSE_ERROR;
 			goto done;
@@ -3777,7 +3783,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 			flog_warn(EC_BGP_ATTRIBUTE_FETCH_ERROR,
 				  "%s: BGP attribute %s, fetch error",
 				  peer->host, lookup_msg(attr_str, type, NULL));
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+			bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
 			ret = BGP_ATTR_PARSE_ERROR;
 			goto done;
@@ -3800,7 +3806,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		flog_warn(EC_BGP_ATTRIBUTES_MISMATCH,
 			  "%s: BGP attribute %s, length mismatch", peer->host,
 			  lookup_msg(attr_str, type, NULL));
-		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+		bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
 
 		ret = BGP_ATTR_PARSE_ERROR;
@@ -3852,7 +3858,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH))
 	    && bgp_attr_munge_as4_attrs(peer, attr, as4_path, as4_aggregator,
 					&as4_aggregator_addr)) {
-		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+		bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
 		ret = BGP_ATTR_PARSE_ERROR;
 		goto done;
