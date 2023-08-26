@@ -754,10 +754,11 @@ int bgpTrapEstablished(struct peer *peer)
 	int ret;
 	struct in_addr addr;
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
+	struct peer_connection *connection = peer->connection;
 
 	/* Check if this peer just went to Established */
-	if ((peer->connection->ostatus != OpenConfirm) ||
-	    !(peer_established(peer)))
+	if ((connection->ostatus != OpenConfirm) ||
+	    !(peer_established(connection)))
 		return 0;
 
 	ret = inet_aton(peer->host, &addr);

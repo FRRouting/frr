@@ -409,11 +409,10 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->conf_if
-			    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)
-			    && !peer_established(peer)
-			    && !CHECK_FLAG(peer->flags,
-					   PEER_FLAG_IFPEER_V6ONLY)) {
+			if (peer->conf_if &&
+			    (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
+			    !peer_established(peer->connection) &&
+			    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
 				if (peer_active(peer))
 					BGP_EVENT_ADD(peer, BGP_Stop);
 				BGP_EVENT_ADD(peer, BGP_Start);

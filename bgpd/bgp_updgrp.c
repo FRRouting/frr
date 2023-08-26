@@ -988,7 +988,7 @@ static struct update_group *update_group_find(struct peer_af *paf)
 	struct update_group tmp;
 	struct peer tmp_conf;
 
-	if (!peer_established(PAF_PEER(paf)))
+	if (!peer_established((PAF_PEER(paf))->connection))
 		return NULL;
 
 	memset(&tmp, 0, sizeof(tmp));
@@ -1251,7 +1251,7 @@ static struct update_subgroup *update_subgroup_find(struct update_group *updgrp,
 	} else
 		version = 0;
 
-	if (!peer_established(PAF_PEER(paf)))
+	if (!peer_established(PAF_PEER(paf)->connection))
 		return NULL;
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
@@ -1945,7 +1945,7 @@ void update_group_adjust_peer(struct peer_af *paf)
 		return;
 
 	peer = PAF_PEER(paf);
-	if (!peer_established(peer)) {
+	if (!peer_established(peer->connection)) {
 		return;
 	}
 
@@ -2000,13 +2000,13 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
-		if (peer_established(peer))
+		if (peer_established(peer->connection))
 			bgp_announce_route_all(peer);
 	} else {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer_lonesoul_or_not(peer, set);
-			if (peer_established(peer))
+			if (peer_established(peer->connection))
 				bgp_announce_route_all(peer);
 		}
 	}
@@ -2199,13 +2199,16 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 * the subgroup output queue into their own output queue. This action
 	 * will trigger a write job on the I/O thread.
 	 */
-	SUBGRP_FOREACH_PEER (subgrp, paf)
-		if (peer_established(paf->peer))
+	SUBGRP_FOREACH_PEER (subgrp, paf) {
+		struct peer_connection *connection = paf->peer->connection;
+
+		if (peer_established(connection))
 			event_add_timer_msec(bm->master,
 					     bgp_generate_updgrp_packets,
 					     paf->peer, 0,
 					     &paf->peer->connection
 						      ->t_generate_updgrp_packets);
+	}
 }
 
 int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)

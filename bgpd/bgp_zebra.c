@@ -140,8 +140,8 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 	struct peer *peer;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0)
-		    && !peer_established(peer)) {
+		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
+		    !peer_established(peer->connection)) {
 			if (peer_active(peer))
 				BGP_EVENT_ADD(peer, BGP_Stop);
 			BGP_EVENT_ADD(peer, BGP_Start);

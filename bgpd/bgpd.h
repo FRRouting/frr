@@ -2598,9 +2598,9 @@ static inline char *timestamp_string(time_t ts)
 	return ctime(&tbuf);
 }
 
-static inline bool peer_established(struct peer *peer)
+static inline bool peer_established(struct peer_connection *connection)
 {
-	return peer->connection->status == Established;
+	return connection->status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)

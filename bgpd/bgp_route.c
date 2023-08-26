@@ -2742,7 +2742,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (pi1->peer != bgp->peer_self &&
 			    !CHECK_FLAG(pi1->peer->sflags,
 					PEER_STATUS_NSF_WAIT)) {
-				if (!peer_established(pi1->peer))
+				if (!peer_established(pi1->peer->connection))
 					continue;
 			}
 
@@ -2757,7 +2757,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 					if (pi2->peer != bgp->peer_self &&
 					    !CHECK_FLAG(pi2->peer->sflags,
 							PEER_STATUS_NSF_WAIT) &&
-					    !peer_established(pi2->peer))
+					    !peer_established(
+						    pi2->peer->connection))
 						continue;
 
 					if (!aspath_cmp_left(pi1->attr->aspath,
@@ -2828,8 +2829,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 		if (pi->peer && pi->peer != bgp->peer_self
 		    && !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT))
-			if (!peer_established(pi->peer)) {
-
+			if (!peer_established(pi->peer->connection)) {
 				if (debug)
 					zlog_debug(
 						"%s: %pBD(%s) non self peer %s not estab state",
@@ -2903,7 +2903,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (pi->peer && pi->peer != bgp->peer_self
 			    && !CHECK_FLAG(pi->peer->sflags,
 					   PEER_STATUS_NSF_WAIT))
-				if (!peer_established(pi->peer))
+				if (!peer_established(pi->peer->connection))
 					continue;
 
 			if (!bgp_path_info_nexthop_cmp(pi, new_select)) {
@@ -5173,7 +5173,7 @@ static void bgp_announce_route_timer_expired(struct event *t)
 	paf = EVENT_ARG(t);
 	peer = paf->peer;
 
-	if (!peer_established(peer))
+	if (!peer_established(peer->connection))
 		return;
 
 	if (!peer->afc_nego[paf->afi][paf->safi])

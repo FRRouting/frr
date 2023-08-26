@@ -4340,7 +4340,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	    && (strcmp(rmap_name, filter->map[RMAP_IN].name) == 0)) {
 		filter->map[RMAP_IN].map = map;
 
-		if (route_update && peer_established(peer)) {
+		if (route_update && peer_established(peer->connection)) {
 			if (CHECK_FLAG(peer->af_flags[afi][safi],
 				       PEER_FLAG_SOFT_RECONFIG)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
