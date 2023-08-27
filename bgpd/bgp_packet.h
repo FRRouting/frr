@@ -43,7 +43,7 @@ DECLARE_HOOK(bgp_packet_send,
 
 /* Packet send and receive function prototypes. */
 extern void bgp_keepalive_send(struct peer *peer);
-extern void bgp_open_send(struct peer *peer);
+extern void bgp_open_send(struct peer_connection *connection);
 extern void bgp_notify_send(struct peer_connection *connection, uint8_t code,
 			    uint8_t sub_code);
 extern void bgp_notify_send_with_data(struct peer_connection *connection,
