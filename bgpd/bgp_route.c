@@ -10982,10 +10982,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				str, label2vni(&attr->label));
 	}
 
-	if (path->peer->t_gr_restart &&
+	if (path->peer->connection->t_gr_restart &&
 	    CHECK_FLAG(path->flags, BGP_PATH_STALE)) {
-		unsigned long gr_remaining =
-			event_timer_remain_second(path->peer->t_gr_restart);
+		unsigned long gr_remaining = event_timer_remain_second(
+			path->peer->connection->t_gr_restart);
 
 		if (json_paths) {
 			json_object_int_add(json_path,

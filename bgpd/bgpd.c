@@ -2542,13 +2542,13 @@ void peer_nsf_stop(struct peer *peer)
 		EVENT_OFF(peer->t_llgr_stale[afi][safi]);
 	}
 
-	if (peer->t_gr_restart) {
-		EVENT_OFF(peer->t_gr_restart);
+	if (peer->connection->t_gr_restart) {
+		EVENT_OFF(peer->connection->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
-	if (peer->t_gr_stale) {
-		EVENT_OFF(peer->t_gr_stale);
+	if (peer->connection->t_gr_stale) {
+		EVENT_OFF(peer->connection->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP graceful restart stalepath timer stopped",
