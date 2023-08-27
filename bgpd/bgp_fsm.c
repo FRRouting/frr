@@ -580,7 +580,7 @@ void bgp_routeadv_timer(struct event *thread)
 	peer->synctime = monotime(NULL);
 
 	event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
-			     &peer->t_generate_updgrp_packets);
+			     &peer->connection->t_generate_updgrp_packets);
 
 	/* MRAI timer will be started again when FIFO is built, no need to
 	 * do it here.
@@ -997,7 +997,8 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 * is added to update group packet generate which will allow
 		 * more routes to be sent in the update message
 		 */
-		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+		BGP_UPDATE_GROUP_TIMER_ON(&peer->connection
+						   ->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
 		return;
 	}
