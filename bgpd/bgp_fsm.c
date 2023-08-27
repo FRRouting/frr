@@ -1625,45 +1625,43 @@ static void bgp_connect_check(struct event *thread)
 	int status;
 	socklen_t slen;
 	int ret;
-	struct peer *peer;
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
 
-	peer = EVENT_ARG(thread);
-	assert(!CHECK_FLAG(peer->connection->thread_flags,
-			   PEER_THREAD_READS_ON));
-	assert(!CHECK_FLAG(peer->connection->thread_flags,
-			   PEER_THREAD_WRITES_ON));
-	assert(!peer->connection->t_read);
-	assert(!peer->connection->t_write);
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!connection->t_read);
+	assert(!connection->t_write);
 
-	EVENT_OFF(peer->connection->t_connect_check_r);
-	EVENT_OFF(peer->connection->t_connect_check_w);
+	EVENT_OFF(connection->t_connect_check_r);
+	EVENT_OFF(connection->t_connect_check_w);
 
 	/* Check file descriptor. */
 	slen = sizeof(status);
-	ret = getsockopt(peer->connection->fd, SOL_SOCKET, SO_ERROR,
-			 (void *)&status, &slen);
+	ret = getsockopt(connection->fd, SOL_SOCKET, SO_ERROR, (void *)&status,
+			 &slen);
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
 		zlog_err("can't get sockopt for nonblocking connect: %d(%s)",
 			  errno, safe_strerror(errno));
-		BGP_EVENT_ADD(peer->connection, TCP_fatal_error);
+		BGP_EVENT_ADD(connection, TCP_fatal_error);
 		return;
 	}
 
 	/* When status is 0 then TCP connection is established. */
 	if (status == 0) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
-			BGP_EVENT_ADD(peer->connection,
+			BGP_EVENT_ADD(connection,
 				      TCP_connection_open_w_delay);
 		else
-			BGP_EVENT_ADD(peer->connection, TCP_connection_open);
+			BGP_EVENT_ADD(connection, TCP_connection_open);
 		return;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] Connect failed %d(%s)",
 				   peer->host, status, safe_strerror(status));
-		BGP_EVENT_ADD(peer->connection, TCP_connection_open_failed);
+		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
 		return;
 	}
 }
@@ -1916,12 +1914,10 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 		 * bgp_connect_check() as the handler for each and cancel the
 		 * unused event in that function.
 		 */
-		event_add_read(bm->master, bgp_connect_check, peer,
-			       peer->connection->fd,
-			       &peer->connection->t_connect_check_r);
-		event_add_write(bm->master, bgp_connect_check, peer,
-				peer->connection->fd,
-				&peer->connection->t_connect_check_w);
+		event_add_read(bm->master, bgp_connect_check, connection,
+			       connection->fd, &connection->t_connect_check_r);
+		event_add_write(bm->master, bgp_connect_check, connection,
+				connection->fd, &connection->t_connect_check_w);
 		break;
 	}
 	return BGP_FSM_SUCCESS;
