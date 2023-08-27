@@ -14972,21 +14972,22 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty,
 				"  Peer had exceeded the max. no. of prefixes configured.\n");
 
-		if (p->t_pmax_restart) {
+		if (p->connection->t_pmax_restart) {
 			if (use_json) {
 				json_object_boolean_true_add(
 					json_neigh, "reducePrefixNumFrom");
 				json_object_int_add(json_neigh,
 						    "restartInTimerMsec",
 						    event_timer_remain_second(
-							    p->t_pmax_restart) *
+							    p->connection
+								    ->t_pmax_restart) *
 							    1000);
 			} else
 				vty_out(vty,
 					"  Reduce the no. of prefix from %s, will restart in %ld seconds\n",
 					p->host,
 					event_timer_remain_second(
-						p->t_pmax_restart));
+						p->connection->t_pmax_restart));
 		} else {
 			if (use_json)
 				json_object_boolean_true_add(

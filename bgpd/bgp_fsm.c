@@ -478,7 +478,7 @@ void bgp_timer_set(struct peer *peer)
 		FOREACH_AFI_SAFI (afi, safi)
 			EVENT_OFF(peer->t_llgr_stale[afi][safi]);
 
-		EVENT_OFF(peer->t_pmax_restart);
+		EVENT_OFF(peer->connection->t_pmax_restart);
 		EVENT_OFF(peer->t_refresh_stalepath);
 	/* fallthru */
 	case Clearing:

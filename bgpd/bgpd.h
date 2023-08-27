@@ -1150,6 +1150,7 @@ struct peer_connection {
 	struct event *t_gr_stale;
 
 	struct event *t_generate_updgrp_packets;
+	struct event *t_pmax_restart;
 
 	struct event *t_routeadv;
 	struct event *t_process_packet;
@@ -1561,7 +1562,6 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_pmax_restart;
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
