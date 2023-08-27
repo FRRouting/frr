@@ -1205,7 +1205,7 @@ static void peer_free(struct peer *peer)
 	/* this /ought/ to have been done already through bgp_stop earlier,
 	 * but just to be sure..
 	 */
-	bgp_timer_set(peer);
+	bgp_timer_set(peer->connection);
 	bgp_reads_off(peer->connection);
 	bgp_writes_off(peer->connection);
 	event_cancel_event_ready(bm->master, peer);
@@ -1920,7 +1920,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
 	else if (!active && peer_active(peer))
-		bgp_timer_set(peer);
+		bgp_timer_set(peer->connection);
 
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
@@ -2322,7 +2322,7 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 		peer_group2peer_config_copy_af(peer->group, peer, afi, safi);
 
 	if (!active && peer_active(peer)) {
-		bgp_timer_set(peer);
+		bgp_timer_set(peer->connection);
 	} else {
 		if (peer_established(peer)) {
 			if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
@@ -2652,7 +2652,7 @@ int peer_delete(struct peer *peer)
 			bgp_md5_unset(peer);
 	}
 
-	bgp_timer_set(peer); /* stops all timers for Deleted */
+	bgp_timer_set(peer->connection); /* stops all timers for Deleted */
 
 	/* Delete from all peer list. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
@@ -3242,7 +3242,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 
 		/* Set up peer's events and timers. */
 		if (peer_active(peer))
-			bgp_timer_set(peer);
+			bgp_timer_set(peer->connection);
 	}
 
 	return 0;
@@ -4731,7 +4731,7 @@ void bgp_shutdown_disable(struct bgp *bgp)
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
-		bgp_timer_set(peer);
+		bgp_timer_set(peer->connection);
 }
 
 /* Change specified peer flag. */

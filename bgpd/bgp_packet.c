@@ -1952,7 +1952,7 @@ static void bgp_refresh_stalepath_timer_expire(struct event *thread)
 			"%pBP route-refresh (BoRR) timer expired for afi/safi: %d/%d",
 			peer, afi, safi);
 
-	bgp_timer_set(peer);
+	bgp_timer_set(peer->connection);
 }
 
 /**
