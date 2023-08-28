@@ -64,8 +64,8 @@ extern bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 				      struct route_map *route_map);
 extern bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 					afi_t afi, int type, uint32_t metric);
-extern int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
-				  unsigned short instance);
+extern void bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
+				   unsigned short instance);
 extern int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 				  unsigned short instance);
 

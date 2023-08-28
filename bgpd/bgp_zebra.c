@@ -2078,8 +2078,8 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Unset redistribution.  */
-int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
-			   unsigned short instance)
+static void _bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
+				    unsigned short instance)
 {
 	struct bgp_redist *red;
 
@@ -2096,7 +2096,7 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 
 	red = bgp_redist_lookup(bgp, afi, type, instance);
 	if (!red)
-		return CMD_SUCCESS;
+		return;
 
 	bgp_redistribute_unreg(bgp, afi, type, instance);
 
@@ -2110,8 +2110,23 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 	red->redist_metric = 0;
 
 	bgp_redist_del(bgp, afi, type, instance);
+}
 
-	return CMD_SUCCESS;
+void bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
+			    unsigned short instance)
+{
+	struct listnode *node, *nnode;
+	struct bgp_redist *red;
+
+	if (type != ZEBRA_ROUTE_TABLE || instance != 0)
+		return _bgp_redistribute_unset(bgp, afi, type, instance);
+
+	/* walk over instance */
+	if (!bgp->redist[afi][type])
+		return;
+
+	for (ALL_LIST_ELEMENTS(bgp->redist[afi][type], node, nnode, red))
+		_bgp_redistribute_unset(bgp, afi, type, red->instance);
 }
 
 void bgp_redistribute_redo(struct bgp *bgp)
