@@ -1407,7 +1407,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					__func__, peer->host,
 					peer->bgp->name_pretty,
 					!!valid_nexthops);
-			bgp_fsm_nht_update(peer, !!valid_nexthops);
+			bgp_fsm_nht_update(peer->connection, peer,
+					   !!valid_nexthops);
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 		}
 	}

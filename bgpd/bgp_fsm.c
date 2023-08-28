@@ -2372,27 +2372,27 @@ bgp_fsm_exception(struct peer_connection *connection)
 	return bgp_stop(connection);
 }
 
-void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
+void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
+			bool has_valid_nexthops)
 {
 	if (!peer)
 		return;
 
-	switch (peer->connection->status) {
+	switch (connection->status) {
 	case Idle:
 		if (has_valid_nexthops)
-			BGP_EVENT_ADD(peer->connection, BGP_Start);
+			BGP_EVENT_ADD(connection, BGP_Start);
 		break;
 	case Connect:
 		if (!has_valid_nexthops) {
-			EVENT_OFF(peer->connection->t_connect);
-			BGP_EVENT_ADD(peer->connection, TCP_fatal_error);
+			EVENT_OFF(connection->t_connect);
+			BGP_EVENT_ADD(connection, TCP_fatal_error);
 		}
 		break;
 	case Active:
 		if (has_valid_nexthops) {
-			EVENT_OFF(peer->connection->t_connect);
-			BGP_EVENT_ADD(peer->connection,
-				      ConnectRetry_timer_expired);
+			EVENT_OFF(connection->t_connect);
+			BGP_EVENT_ADD(connection, ConnectRetry_timer_expired);
 		}
 		break;
 	case OpenSent:
@@ -2401,7 +2401,7 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 		if (!has_valid_nexthops
 		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED
 			|| peer->bgp->fast_convergence))
-			BGP_EVENT_ADD(peer->connection, TCP_fatal_error);
+			BGP_EVENT_ADD(connection, TCP_fatal_error);
 	case Clearing:
 	case Deleted:
 	case BGP_STATUS_MAX:
