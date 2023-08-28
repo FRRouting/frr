@@ -2051,7 +2051,8 @@ void bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 	struct listnode *node, *nnode;
 	struct bgp_redist *red;
 
-	if (type != ZEBRA_ROUTE_TABLE || instance != 0)
+	if ((type != ZEBRA_ROUTE_TABLE && type != ZEBRA_ROUTE_TABLE_DIRECT) ||
+	    instance != 0)
 		return _bgp_redistribute_unset(bgp, afi, type, instance);
 
 	/* walk over instance */
