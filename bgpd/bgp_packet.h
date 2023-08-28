@@ -37,7 +37,7 @@ DECLARE_HOOK(bgp_packet_send,
 	do {                                                                   \
 		_s = bgp_update_packet_eor(_peer, _afi, _safi);                \
 		if (_s) {                                                      \
-			bgp_packet_add(_peer, _s);                             \
+			bgp_packet_add(_peer->connection, _peer, _s);          \
 		}                                                              \
 	} while (0)
 
