@@ -2254,8 +2254,9 @@ extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as,
 					const char *as_str);
 extern void bgp_confederation_peers_remove(struct bgp *bgp, as_t as);
 
-extern void bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
-			   uint32_t connect_retry, uint32_t delayopen);
+extern void bgp_timers_set(struct vty *vty, struct bgp *, uint32_t keepalive,
+			   uint32_t holdtime, uint32_t connect_retry,
+			   uint32_t delayopen);
 extern void bgp_timers_unset(struct bgp *);
 
 extern void bgp_default_local_preference_set(struct bgp *bgp,
