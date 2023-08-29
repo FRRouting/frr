@@ -2899,7 +2899,6 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_EXT_MESSAGE:
 			break;
 		case CAPABILITY_CODE_ROLE:
-			SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 				flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 					  "Role: Received invalid length %d",
@@ -2908,11 +2907,17 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 				return BGP_Stop;
 			}
+
 			uint8_t role;
 
-			memcpy(&role, pnt + 3, sizeof(role));
+			if (action == CAPABILITY_ACTION_SET) {
+				SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+				memcpy(&role, pnt + 3, sizeof(role));
 
-			peer->remote_role = role;
+				peer->remote_role = role;
+			} else {
+				UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+			}
 			break;
 		default:
 			flog_warn(
