@@ -2772,6 +2772,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 	iana_safi_t pkt_safi;
 	safi_t safi;
 	char soft_version[BGP_MAX_SOFT_VERSION + 1] = {};
+	const char *capability;
 
 	end = pnt + length;
 
@@ -2779,7 +2780,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		/* We need at least action, capability code and capability
 		 * length. */
 		if (pnt + 3 > end) {
-			zlog_info("%s Capability length error", peer->host);
+			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
@@ -2790,21 +2791,20 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		/* Action value check.  */
 		if (action != CAPABILITY_ACTION_SET
 		    && action != CAPABILITY_ACTION_UNSET) {
-			zlog_info("%s Capability Action Value error %d",
-				  peer->host, action);
+			zlog_err("%pBP: Capability Action Value error %d", peer,
+				 action);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
 		}
 
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug(
-				"%s CAPABILITY has action: %d, code: %u, length %u",
-				peer->host, action, hdr->code, hdr->length);
+			zlog_debug("%pBP: CAPABILITY has action: %d, code: %u, length %u",
+				   peer, action, hdr->code, hdr->length);
 
 		/* Capability length check. */
 		if ((pnt + hdr->length + 3) > end) {
-			zlog_info("%s Capability length error", peer->host);
+			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
@@ -2813,6 +2813,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		/* Ignore capability when override-capability is set. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY))
 			continue;
+
+		capability = lookup_msg(capcode_str, hdr->code, "Unknown");
 
 		switch (hdr->code) {
 		case CAPABILITY_CODE_SOFT_VERSION:
@@ -2835,10 +2837,10 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			break;
 		case CAPABILITY_CODE_MP:
 			if (hdr->length < sizeof(struct capability_mp_data)) {
-				zlog_info("%pBP Capability structure is not properly filled out, expected at least %zu bytes but header length specified is %d",
-					  peer,
-					  sizeof(struct capability_mp_data),
-					  hdr->length);
+				zlog_err("%pBP: Capability (%s) structure is not properly filled out, expected at least %zu bytes but header length specified is %d",
+					 peer, capability,
+					 sizeof(struct capability_mp_data),
+					 hdr->length);
 				return BGP_Stop;
 			}
 
@@ -2850,24 +2852,22 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {
 				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%s Dynamic Capability MP_EXT afi/safi invalid (%s/%s)",
-						peer->host,
-						iana_afi2str(pkt_afi),
-						iana_safi2str(pkt_safi));
+					zlog_debug("%pBP: Dynamic Capability %s afi/safi invalid (%s/%s)",
+						   peer, capability,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
 				continue;
 			}
 
 			/* Address family check.  */
 			if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"%s CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
-					peer->host,
-					action == CAPABILITY_ACTION_SET
-						? "Advertising"
-						: "Removing",
-					iana_afi2str(pkt_afi),
-					iana_safi2str(pkt_safi));
+				zlog_debug("%pBP: CAPABILITY has %s %s CAP for afi/safi: %s/%s",
+					   peer,
+					   action == CAPABILITY_ACTION_SET
+						   ? "Advertising"
+						   : "Removing",
+					   capability, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
 
 			if (action == CAPABILITY_ACTION_SET) {
 				peer->afc_recv[afi][safi] = 1;
@@ -2900,9 +2900,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			break;
 		case CAPABILITY_CODE_ROLE:
 			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
-				flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
-					  "Role: Received invalid length %d",
-					  hdr->length);
+				zlog_err("%pBP: Capability (%s) length error",
+					 peer, capability);
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 				return BGP_Stop;
@@ -2920,10 +2919,9 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			}
 			break;
 		default:
-			flog_warn(
-				EC_BGP_UNRECOGNIZED_CAPABILITY,
-				"%s unrecognized capability code: %d - ignored",
-				peer->host, hdr->code);
+			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,
+				  "%pBP: unrecognized capability code: %d - ignored",
+				  peer, hdr->code);
 			break;
 		}
 
