@@ -494,6 +494,7 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
 	pim_addr rp_addr;
+	struct pim_rpf *rpg;
 
 	if (pim_ifp->pim_passive_enable) {
 		if (PIM_DEBUG_PIM_PACKETS)
@@ -602,7 +603,14 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		}
 	}
 
-	rp_addr = (RP(pim, sg.grp))->rpf_addr;
+	rpg = RP(pim, sg.grp);
+	if (!rpg) {
+		zlog_warn("%s: Received Register Message %pSG from %pPA on %s where the RP could not be looked up",
+			  __func__, &sg, &src_addr, ifp->name);
+		return 0;
+	}
+
+	rp_addr = rpg->rpf_addr;
 	if (i_am_rp && (!pim_addr_cmp(dest_addr, rp_addr))) {
 		sentRegisterStop = 0;
 
