@@ -128,6 +128,7 @@ DEFINE_HOOK(bgp_inst_config_write,
 		(bgp, vty));
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty * vty), (vty));
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -18476,6 +18477,8 @@ int bgp_config_write(struct vty *vty)
 	afi_t afi;
 	safi_t safi;
 	uint32_t tovpn_sid_index = 0;
+
+	hook_call(bgp_snmp_traps_config_write, vty);
 
 	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "bgp route-map delay-timer %u\n",

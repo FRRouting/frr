@@ -15,4 +15,8 @@
 #define IPADDRESS ASN_IPADDRESS
 #define GAUGE32 ASN_UNSIGNED
 
+extern uint32_t bgp_snmp_traps_flags;
+
+#define BGP_SNMP_TRAPS_RFC4273_ENABLED (1 << 0)
+
 #endif /* _FRR_BGP_SNMP_H_ */

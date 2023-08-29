@@ -29,10 +29,46 @@
 #include "bgpd/bgp_snmp_bgp4.h"
 #include "bgpd/bgp_snmp_bgp4v2.h"
 #include "bgpd/bgp_mplsvpn_snmp.h"
+#include "bgpd/bgp_snmp_clippy.c"
+
+uint32_t bgp_snmp_traps_flags;
+
+static int bgp_cli_snmp_traps_config_write(struct vty *vty);
+
+DEFPY(bgp_snmp_traps_rfc4273, bgp_snmp_traps_rfc4273_cmd,
+      "bgp snmp traps rfc4273 <enable$on|disable$off>",
+      BGP_STR "Configure BGP SNMP\n"
+	      "Configure SNMP traps for BGP \n"
+	      "Configure use of rfc4273 SNMP traps for BGP \n"
+	      "Enable rfc4273 traps\n"
+	      "Disable rfc4273 traps\n")
+{
+	if (on) {
+		SET_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED);
+		return CMD_SUCCESS;
+	}
+	UNSET_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED);
+	return CMD_SUCCESS;
+}
+
+static void bgp_snmp_traps_init(void)
+{
+	install_element(CONFIG_NODE, &bgp_snmp_traps_rfc4273_cmd);
+	SET_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED);
+}
+
+int bgp_cli_snmp_traps_config_write(struct vty *vty)
+{
+	if (CHECK_FLAG(bgp_snmp_traps_flags, BGP_SNMP_TRAPS_RFC4273_ENABLED))
+		return 0;
+	vty_out(vty, "traps rfc4273 disable\n");
+	return 0;
+}
 
 static int bgp_snmp_init(struct event_loop *tm)
 {
 	smux_init(tm);
+	bgp_snmp_traps_init();
 	bgp_snmp_bgp4_init(tm);
 	bgp_snmp_bgp4v2_init(tm);
 	bgp_mpls_l3vpn_module_init();
@@ -44,6 +80,8 @@ static int bgp_snmp_module_init(void)
 	hook_register(peer_status_changed, bgpTrapEstablished);
 	hook_register(peer_backward_transition, bgpTrapBackwardTransition);
 	hook_register(frr_late_init, bgp_snmp_init);
+	hook_register(bgp_snmp_traps_config_write,
+		      bgp_cli_snmp_traps_config_write);
 	return 0;
 }
 
