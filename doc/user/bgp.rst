@@ -840,7 +840,10 @@ The following functionality is provided by graceful restart:
 1. The feature allows the restarting router to indicate to the helping peer the
    routes it can preserve in its forwarding plane during control plane restart
    by sending graceful restart capability in the OPEN message sent during
-   session establishment.
+   session establishment. Graceful restart notification flag and/or restart
+   time can also be changed during the dynamic BGP capabilities. If using
+   dynamic capabilities, no session reset is required, thus it's very useful
+   to increase restart time before doing a software upgrade or so.
 2. The feature allows helping router to advertise to all other peers the routes
    received from the restarting router which are preserved in the forwarding
    plane of the restarting router during control plane restart.
@@ -2160,8 +2163,8 @@ Using AS Path in Route Map
    Remove some AS numbers from the AS_PATH of the BGP path's NLRI. Removed AS
    numbers are conformant with the regex defined in as-path access-list  WORD.
    The no form of this command removes this set operation from the route-map.
-   
-   
+
+
 .. _bgp-communities-attribute:
 
 Communities Attribute
