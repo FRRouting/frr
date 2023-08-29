@@ -1201,6 +1201,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	unsigned long cap_len;
 	uint16_t len;
+	uint32_t gr_restart_time;
 
 	if (!peer_established(peer))
 		return;
@@ -1268,9 +1269,64 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 								: "Removing",
 				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
 		break;
+	case CAPABILITY_CODE_RESTART:
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			return;
+
+		SET_FLAG(peer->cap, PEER_CAP_RESTART_ADV);
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_RESTART);
+		cap_len = stream_get_endp(s);
+		stream_putc(s, 0);
+		gr_restart_time = peer->bgp->restart_time;
+
+		if (peer->bgp->t_startup) {
+			SET_FLAG(gr_restart_time, GRACEFUL_RESTART_R_BIT);
+			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
+		}
+
+		if (CHECK_FLAG(peer->bgp->flags,
+			       BGP_FLAG_GRACEFUL_NOTIFICATION)) {
+			SET_FLAG(gr_restart_time, GRACEFUL_RESTART_N_BIT);
+			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+		}
+
+		stream_putw(s, gr_restart_time);
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (!peer->afc[afi][safi])
+					continue;
+
+				bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
+							  &pkt_safi);
+				stream_putw(s, pkt_afi);
+				stream_putc(s, pkt_safi);
+				if (CHECK_FLAG(peer->bgp->flags,
+					       BGP_FLAG_GR_PRESERVE_FWD))
+					stream_putc(s, GRACEFUL_RESTART_F_BIT);
+				else
+					stream_putc(s, 0);
+			}
+		}
+
+		/* Software Version capability Len. */
+		len = stream_get_endp(s) - cap_len - 1;
+		stream_putc_at(s, cap_len, len);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP sending CAPABILITY has %s Graceful-Restart CAP for afi/safi: %s/%s",
+				   peer,
+				   action == CAPABILITY_ACTION_SET
+					   ? "Advertising"
+					   : "Removing",
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi));
+
+		break;
 	case CAPABILITY_CODE_REFRESH:
 	case CAPABILITY_CODE_ORF:
-	case CAPABILITY_CODE_RESTART:
 	case CAPABILITY_CODE_AS4:
 	case CAPABILITY_CODE_DYNAMIC:
 	case CAPABILITY_CODE_ADDPATH:
@@ -2753,6 +2809,88 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	return BGP_PACKET_NOOP;
 }
 
+static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
+						    struct capability_header *hdr,
+						    struct peer *peer)
+{
+#define GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE 4
+	uint16_t gr_restart_flag_time;
+	uint8_t *data = pnt + 3;
+	uint8_t *end = pnt + hdr->length;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		SET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
+		ptr_get_be16(data, &gr_restart_flag_time);
+		data += sizeof(gr_restart_flag_time);
+
+		if (CHECK_FLAG(gr_restart_flag_time, GRACEFUL_RESTART_R_BIT))
+			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
+		else
+			UNSET_FLAG(peer->cap,
+				   PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
+
+		if (CHECK_FLAG(gr_restart_flag_time, GRACEFUL_RESTART_N_BIT))
+			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
+		else
+			UNSET_FLAG(peer->cap,
+				   PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
+
+		UNSET_FLAG(gr_restart_flag_time, 0xF000);
+		peer->v_gr_restart = gr_restart_flag_time;
+
+		while (data + GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE <=
+		       end) {
+			afi_t afi;
+			safi_t safi;
+			iana_afi_t pkt_afi;
+			iana_safi_t pkt_safi;
+			struct graceful_restart_af graf;
+
+			memcpy(&graf, data, sizeof(graf));
+			pkt_afi = ntohs(graf.afi);
+			pkt_safi = safi_int2iana(graf.safi);
+
+			/* Convert AFI, SAFI to internal values, check. */
+			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
+						      &safi)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Graceful Restart capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+			} else if (!peer->afc[afi][safi]) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Graceful Restart capability",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+			} else {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Address family %s is%spreserved",
+						   peer->host,
+						   get_afi_safi_str(afi, safi,
+								    false),
+						   CHECK_FLAG(peer->af_cap[afi]
+									  [safi],
+							      PEER_CAP_RESTART_AF_PRESERVE_RCV)
+							   ? " "
+							   : " not ");
+
+				SET_FLAG(peer->af_cap[afi][safi],
+					 PEER_CAP_RESTART_AF_RCV);
+				if (CHECK_FLAG(graf.flag,
+					       GRACEFUL_RESTART_F_BIT))
+					SET_FLAG(peer->af_cap[afi][safi],
+						 PEER_CAP_RESTART_AF_PRESERVE_RCV);
+			}
+
+			data += GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE;
+		}
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
+	}
+}
+
 /**
  * Parse BGP CAPABILITY message for peer.
  *
@@ -2886,9 +3024,20 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 					return BGP_Stop;
 			}
 			break;
+		case CAPABILITY_CODE_RESTART:
+			if ((hdr->length - 2) % 4) {
+				zlog_err("%pBP: Received invalid Graceful-Restart capability length %d",
+					 peer, hdr->length);
+				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				return BGP_Stop;
+			}
+
+			bgp_dynamic_capability_graceful_restart(pnt, action,
+								hdr, peer);
+			break;
 		case CAPABILITY_CODE_REFRESH:
 		case CAPABILITY_CODE_ORF:
-		case CAPABILITY_CODE_RESTART:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_DYNAMIC:
 		case CAPABILITY_CODE_ADDPATH:
