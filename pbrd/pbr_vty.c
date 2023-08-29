@@ -443,27 +443,28 @@ DEFPY  (pbr_map_match_dscp,
 
 	unsigned long ul_dscp;
 	char *pend = NULL;
-	uint8_t raw_dscp;
+	uint8_t shifted_dscp;
 
 	assert(dscp);
 	ul_dscp = strtoul(dscp, &pend, 0);
 	if (pend && *pend)
-		raw_dscp = pbr_map_decode_dscp_enum(dscp);
-	else
-		raw_dscp = ul_dscp << 2;
-	if (raw_dscp > PBR_DSFIELD_DSCP) {
+		ul_dscp = pbr_map_decode_dscp_enum(dscp);
+
+	if (ul_dscp > (PBR_DSFIELD_DSCP >> 2)) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
 			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	shifted_dscp = (ul_dscp << 2) & PBR_DSFIELD_DSCP;
+
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP) &&
-	    (((pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2) == raw_dscp)) {
+	    ((pbrms->dsfield & PBR_DSFIELD_DSCP) == shifted_dscp)) {
 		return CMD_SUCCESS;
 	}
 
 	/* Set the DSCP bits of the DSField */
-	pbrms->dsfield = (pbrms->dsfield & ~PBR_DSFIELD_DSCP) | (raw_dscp << 2);
+	pbrms->dsfield = (pbrms->dsfield & ~PBR_DSFIELD_DSCP) | shifted_dscp;
 	SET_FLAG(pbrms->filter_bm, PBR_FILTER_DSCP);
 
 check:
@@ -870,26 +871,27 @@ DEFPY  (pbr_map_action_dscp,
 
 	unsigned long ul_dscp;
 	char *pend = NULL;
-	uint8_t raw_dscp;
+	uint8_t shifted_dscp;
 
 	assert(dscp);
 	ul_dscp = strtoul(dscp, &pend, 0);
 	if (pend && *pend)
-		raw_dscp = pbr_map_decode_dscp_enum(dscp);
-	else
-		raw_dscp = ul_dscp << 2;
+		ul_dscp = pbr_map_decode_dscp_enum(dscp);
 
-	if (raw_dscp > PBR_DSFIELD_DSCP) {
+	if (ul_dscp > (PBR_DSFIELD_DSCP >> 2)) {
 		vty_out(vty, "Invalid dscp value: %s%s\n", dscp,
 			((pend && *pend) ? "" : " (numeric value must be in range 0-63)"));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	shifted_dscp = (ul_dscp << 2) & PBR_DSFIELD_DSCP;
+
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_DSCP) &&
-	    (pbrms->action_dscp == raw_dscp)) {
+	    (pbrms->action_dscp == shifted_dscp)) {
 		return CMD_SUCCESS;
 	}
 	SET_FLAG(pbrms->action_bm, PBR_ACTION_DSCP);
-	pbrms->action_dscp = raw_dscp;
+	pbrms->action_dscp = shifted_dscp;
 
 check:
 	pbr_map_check(pbrms, true);
