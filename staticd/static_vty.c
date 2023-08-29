@@ -58,6 +58,8 @@ struct static_route_args {
 	bool bfd_multi_hop;
 	const char *bfd_source;
 	const char *bfd_profile;
+
+	const char *input;
 };
 
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
@@ -145,9 +147,20 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	else
 		buf_gate_str = "";
 
-	if (args->gateway == NULL && args->interface_name == NULL)
+	if (args->gateway == NULL && args->interface_name == NULL) {
 		type = STATIC_BLACKHOLE;
-	else if (args->gateway && args->interface_name) {
+		/* If this is blackhole/reject flagged route, then
+		 * specify interface_name with the value of what was really
+		 * entered.
+		 * interface_name will be validated later in NB functions
+		 * to check if we don't create blackhole/reject routes that
+		 * match the real interface names.
+		 * E.g.: `ip route 10.0.0.1/32 bla` will create a blackhole
+		 * route despite the real interface named `bla` exists.
+		 */
+		if (args->input)
+			args->interface_name = args->input;
+	} else if (args->gateway && args->interface_name) {
 		if (args->afi == AFI_IP)
 			type = STATIC_IPV4_GATEWAY_IFNAME;
 		else
@@ -499,6 +512,8 @@ DEFPY_YANG(ip_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -512,6 +527,9 @@ DEFPY_YANG(ip_route_blackhole,
 		.table = table_str,
 		.vrf = vrf,
 	};
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
@@ -541,6 +559,8 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -561,6 +581,9 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	 * valid.  Add an assert to make it happy
 	 */
 	assert(args.prefix);
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
@@ -852,6 +875,8 @@ DEFPY_YANG(ipv6_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -865,6 +890,9 @@ DEFPY_YANG(ipv6_route_blackhole,
 		.table = table_str,
 		.vrf = vrf,
 	};
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
@@ -894,6 +922,8 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
       "Table to configure\n"
       "The table number to configure\n")
 {
+	int idx_flag = 0;
+
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -914,6 +944,9 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	 * valid.  Add an assert to make it happy
 	 */
 	assert(args.prefix);
+
+	if (flag && argv_find(argv, argc, flag, &idx_flag))
+		args.input = argv[idx_flag]->arg;
 
 	return static_route_nb_run(vty, &args);
 }
