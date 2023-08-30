@@ -49,3 +49,11 @@ listing of ECMP nexthops used to forward packets.
    Allow a Nexthop Group to be completely controlled at the protocol level, by preventing
    ZEBRA from creating a dependent NHG at ZEBRA Level. This option is useful when
    protocol considers Nexthop Groups with multiple paths.
+
+.. clicmd:: group NAME
+
+   Append a Nexthop Group group dependency in the current nexthop group. When used with
+   the `protocol-controlled` option, the protocol daemon using it will ensure that the
+   dependent group is configured at the protocol level, and installed at ZEBRA level,
+   before installing the parent Nexthop Group. This option is very useful to consider
+   nexthop groups having multiple paths.

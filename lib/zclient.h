@@ -483,6 +483,13 @@ struct zapi_nhg_nexthop {
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
 
+struct zapi_nhg_grp {
+	uint16_t nh_grp_count;
+	uint32_t id_grp[MULTIPATH_NUM];
+
+	uint16_t backup_nh_grp_count;
+	uint32_t backup_id_grp[MULTIPATH_NUM];
+};
 
 struct zapi_nhg {
 	uint16_t proto;
@@ -490,9 +497,13 @@ struct zapi_nhg {
 
 	struct nhg_resilience resilience;
 
-	struct zapi_nhg_nexthop nhg_nexthop;
+	union {
+		struct zapi_nhg_nexthop nhg_nexthop;
+		struct zapi_nhg_grp nhg_grp;
+	};
 
-	/* nexthop group flags */
+	/* nexthop group flags : definition from nexthop_group.h */
+#define ZAPI_NEXTHOP_GROUP_TYPE_GROUP NEXTHOP_GROUP_TYPE_GROUP
 	uint8_t flags;
 	/* nexthop group message : definition from nexthop_group.h */
 #define ZAPI_NEXTHOP_MESSAGE_SRTE NEXTHOP_GROUP_MESSAGE_SRTE

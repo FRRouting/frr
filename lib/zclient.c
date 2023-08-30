@@ -1157,8 +1157,15 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		return -1;
 	}
 
-	if (api_nhg->nhg_nexthop.nexthop_num >= MULTIPATH_NUM ||
-	    api_nhg->nhg_nexthop.backup_nexthop_num >= MULTIPATH_NUM) {
+	if (!CHECK_FLAG(api_nhg->flags, ZAPI_NEXTHOP_GROUP_TYPE_GROUP) &&
+	    (api_nhg->nhg_nexthop.nexthop_num >= MULTIPATH_NUM ||
+	     api_nhg->nhg_nexthop.backup_nexthop_num >= MULTIPATH_NUM)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: zapi NHG encode with invalid input", __func__);
+		return -1;
+	} else if (CHECK_FLAG(api_nhg->flags, ZAPI_NEXTHOP_GROUP_TYPE_GROUP) &&
+		   (api_nhg->nhg_grp.nh_grp_count >= MULTIPATH_NUM ||
+		    api_nhg->nhg_grp.backup_nh_grp_count >= MULTIPATH_NUM)) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: zapi NHG encode with invalid input", __func__);
 		return -1;
@@ -1179,7 +1186,8 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	if (CHECK_FLAG(api_nhg->message, ZAPI_NEXTHOP_MESSAGE_SRTE))
 		SET_FLAG(api_message, ZAPI_MESSAGE_SRTE);
 
-	if (cmd == ZEBRA_NHG_ADD) {
+	if (cmd == ZEBRA_NHG_ADD &&
+	    !CHECK_FLAG(api_nhg->flags, ZAPI_NEXTHOP_GROUP_TYPE_GROUP)) {
 		/* Nexthops */
 		zapi_nexthop_group_sort(api_nhg->nhg_nexthop.nexthops,
 					api_nhg->nhg_nexthop.nexthop_num);
@@ -1196,6 +1204,15 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		for (i = 0; i < api_nhg->nhg_nexthop.backup_nexthop_num; i++)
 			zapi_nexthop_encode(s, &api_nhg->nhg_nexthop.backup_nexthops[i], 0,
 					    api_message);
+	} else if (cmd == ZEBRA_NHG_ADD &&
+		   CHECK_FLAG(api_nhg->flags, ZAPI_NEXTHOP_GROUP_TYPE_GROUP)) {
+		stream_putw(s, api_nhg->nhg_grp.nh_grp_count);
+		for (i = 0; i < api_nhg->nhg_grp.nh_grp_count; i++)
+			stream_putl(s, api_nhg->nhg_grp.id_grp[i]);
+
+		stream_putw(s, api_nhg->nhg_grp.backup_nh_grp_count);
+		for (i = 0; i < api_nhg->nhg_grp.backup_nh_grp_count; i++)
+			stream_putl(s, api_nhg->nhg_grp.backup_id_grp[i]);
 	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));

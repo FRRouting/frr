@@ -3384,6 +3384,12 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 	session = nhe->zapi_session;
 	instance = nhe->zapi_instance;
 
+	if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_TYPE_GROUP)) {
+		if (IS_ZEBRA_DEBUG_NHG)
+			zlog_debug("%s: id %u, nexthop group ids not supported",
+				   __func__, id);
+		return NULL;
+	}
 	if (!nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
 			zlog_debug("%s: id %u, no nexthops passed to add",

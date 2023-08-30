@@ -245,6 +245,8 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 		/* No nhgc but range not exhausted? Then alloc it */
 		pnhgc = hash_get(pbr_nhg_hash, &pnhgc_find, pbr_nhgc_alloc);
 	}
+	if (!nhop)
+		return;
 
 	/* create & insert new pnhc into pnhgc->nhh */
 	pnhc_find.nexthop = *nhop;
@@ -281,7 +283,7 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_cache pnhc_find = {};
 	struct pbr_nexthop_cache *pnhc;
-	enum nexthop_types_t nh_type = nhop->type;
+	enum nexthop_types_t nh_type;
 
 	/* find pnhgc by name */
 	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
@@ -292,6 +294,9 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	 * Occurs when PBR table range is full but new nhg keep coming in
 	 */
 	if (!pnhgc)
+		return;
+
+	if (!nhop)
 		return;
 
 	/* delete pnhc from pnhgc->nhh */
@@ -306,6 +311,8 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 		DEBUGD(&pbr_dbg_nht, "%s: Removed %s from nexthop-group %s",
 		       __func__, debugstr, nhgc->name);
 	}
+
+	nh_type = nhop->type;
 
 	if (pnhgc->nhh->count)
 		pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);

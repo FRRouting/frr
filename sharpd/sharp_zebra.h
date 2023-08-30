@@ -15,7 +15,7 @@ int sharp_zclient_create(uint32_t session_id);
 int sharp_zclient_delete(uint32_t session_id);
 
 extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
-extern void nhg_add(uint32_t id, const struct nexthop_group *nhg,
+extern void nhg_add(uint32_t id, const struct nexthop_group_cmd *nhgc,
 		    const struct nexthop_group *backup_nhg,
 		    bool force_nhg_config);
 extern void nhg_del(uint32_t id);

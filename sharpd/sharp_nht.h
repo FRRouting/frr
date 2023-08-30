@@ -30,6 +30,8 @@ extern bool sharp_nhgroup_id_is_installed(uint32_t id);
 extern bool sharp_nhgroup_id_is_forced(uint32_t id);
 extern void sharp_nhgroup_force_nhg_config(struct nexthop_group_cmd *nhgc,
 					   bool force);
+extern bool sharp_nhgroup_id_is_being_removed(uint32_t id);
+extern void sharp_nhgroup_dependent_trigger_add_nexthop(uint32_t id);
 
 extern void sharp_nhgroup_init(void);
 #endif

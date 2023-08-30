@@ -276,7 +276,11 @@ DEFPY (install_routes,
 
 		nhgid = sharp_nhgroup_get_id(nexthop_group);
 		sg.r.nhgid = nhgid;
-		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
+		if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_TYPE_GROUP))
+			SET_FLAG(sg.r.nhop_group.flags,
+				 NEXTHOP_GROUP_TYPE_GROUP);
+		else
+			sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
 
 		/* Use group's backup nexthop info if present */
 		if (nhgc->backup_list_name[0]) {
