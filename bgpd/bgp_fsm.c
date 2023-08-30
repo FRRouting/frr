@@ -2117,6 +2117,17 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 	peer = peer_xfer_conn(peer);
 	if (!peer) {
 		flog_err(EC_BGP_CONNECT, "%%Neighbor failed in xfer_conn");
+
+		/*
+		 * A failure of peer_xfer_conn but not putting the peers
+		 * back in the hash ends up with a situation where incoming
+		 * connections are rejected, as that the peer is not found
+		 * when a lookup is done
+		 */
+		(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+		if (other)
+			(void)hash_get(other->bgp->peerhash, other,
+				       hash_alloc_intern);
 		return BGP_FSM_FAILURE;
 	}
 
