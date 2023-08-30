@@ -2861,20 +2861,18 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {
 				if (bgp_debug_neighbor_events(peer))
-					zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Graceful Restart capability for this AFI/SAFI",
-						   peer->host,
-						   iana_afi2str(pkt_afi),
+					zlog_debug("%pBP: Addr-family %s/%s(afi/safi) not supported. Ignore the Graceful Restart capability for this AFI/SAFI",
+						   peer, iana_afi2str(pkt_afi),
 						   iana_safi2str(pkt_safi));
 			} else if (!peer->afc[afi][safi]) {
 				if (bgp_debug_neighbor_events(peer))
-					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Graceful Restart capability",
-						   peer->host,
-						   iana_afi2str(pkt_afi),
+					zlog_debug("%pBP: Addr-family %s/%s(afi/safi) not enabled. Ignore the Graceful Restart capability",
+						   peer, iana_afi2str(pkt_afi),
 						   iana_safi2str(pkt_safi));
 			} else {
 				if (bgp_debug_neighbor_events(peer))
-					zlog_debug("%s Address family %s is%spreserved",
-						   peer->host,
+					zlog_debug("%pBP: Address family %s is%spreserved",
+						   peer,
 						   get_afi_safi_str(afi, safi,
 								    false),
 						   CHECK_FLAG(peer->af_cap[afi]
